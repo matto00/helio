@@ -1,14 +1,12 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
-
 import type { FormEvent, RefObject } from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import "./PanelDetailModal.css";
 import "./PanelDetailModal.binding.css";
 import "./PanelDetailModal.sections.css";
 import "./PanelDetailModal.appearance.css";
 import "./PanelDetailModal.mobile.css";
+import { Modal } from "../../../shared/ui/Modal";
 import { accumulatePanelUpdate } from "../state/panelsSlice";
 import {
   isChartPanel,
@@ -23,7 +21,6 @@ import {
 } from "../state/panelNarrowing";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { usePanelData } from "../hooks/usePanelData";
-import { usePanelDetailModalLifecycle } from "../hooks/usePanelDetailModalLifecycle";
 import { useTheme } from "../../../theme/ThemeProvider";
 import {
   clampTransparency,
@@ -132,7 +129,6 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
   }, []);
 
   const [showDiscardWarning, setShowDiscardWarning] = useState(false);
-  const [discardClosesModal, setDiscardClosesModal] = useState(false);
 
   const appearanceDirty =
     title !== initialTitle ||
@@ -154,45 +150,42 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel]);
 
-  const { dialogRef } = usePanelDetailModalLifecycle({
-    modalMode,
-    isAnyDirty,
-    setShowDiscardWarning,
-    setModalMode,
-    onClose,
-    resetFormToPanel,
-  });
+  // F-303/HEL-716 — the E-key edit-mode shortcut is unrelated to close
+  // semantics, so it's a plain document-scoped listener gated on the
+  // component's mounted lifetime (equivalent to the old dialog-scoped
+  // listener, since focus is always trapped inside the open dialog).
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (modalMode !== "view") return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      if (e.key === "e" || e.key === "E") {
+        setModalMode("edit");
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [modalMode]);
 
   function handleDiscard() {
     resetFormToPanel();
     setShowDiscardWarning(false);
-    if (discardClosesModal) {
-      setDiscardClosesModal(false);
-      dialogRef.current?.close();
-      onClose();
-    } else {
-      setModalMode("view");
-    }
+    setModalMode("view");
   }
 
-  function handleCloseButton() {
+  // HEL-716 — the single "close requested" handler for every dismiss vector
+  // Modal funnels through onClose (header close button, backdrop click,
+  // Escape) as well as the footer's own Cancel button: view mode closes the
+  // modal; edit mode with unsaved changes shows the discard-confirm banner
+  // (confirming it always returns to view mode — see openspec design.md
+  // Decision 5); edit mode with no changes reverts to view directly.
+  function attemptClose() {
     if (modalMode === "view") {
-      dialogRef.current?.close();
-      onClose();
-      return;
-    }
-    if (isAnyDirty) {
-      setDiscardClosesModal(true);
-      setShowDiscardWarning(true);
-    } else {
-      dialogRef.current?.close();
-      onClose();
-    }
-  }
-
-  function handleCancel() {
-    if (modalMode === "view") {
-      dialogRef.current?.close();
       onClose();
       return;
     }
@@ -308,40 +301,55 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
   }
 
   return (
-    <dialog
-      ref={dialogRef}
+    <Modal
+      open
+      size={modalMode === "view" ? "full" : "md"}
+      title={panel.title}
+      ariaLabel={`${panel.title} settings`}
       className={`panel-detail-modal${modalMode === "view" ? " panel-detail-modal--view" : ""}`}
-      aria-label={`${panel.title} settings`}
-    >
-      <div className="panel-detail-modal__inner">
-        <header className="panel-detail-modal__header">
-          <span className="panel-detail-modal__title">{panel.title}</span>
+      onClose={attemptClose}
+      headerActions={
+        <>
           {modalMode === "edit" && isAnyDirty && (
             <span className="panel-detail-modal__unsaved-badge">Unsaved changes</span>
           )}
-          <div className="panel-detail-modal__header-actions">
-            {modalMode === "view" && (
-              <button
-                type="button"
-                className="panel-detail-modal__edit-btn"
-                aria-label="Edit panel"
-                title="Edit (E)"
-                onClick={() => setModalMode("edit")}
-              >
-                Edit
-              </button>
-            )}
+          {modalMode === "view" && (
             <button
               type="button"
-              className="panel-detail-modal__close"
-              aria-label="Close panel settings"
-              onClick={handleCloseButton}
+              className="panel-detail-modal__edit-btn"
+              aria-label="Edit panel"
+              title="Edit (E)"
+              onClick={() => setModalMode("edit")}
             >
-              <FontAwesomeIcon icon={faXmark} />
+              Edit
             </button>
-          </div>
-        </header>
-
+          )}
+        </>
+      }
+      footer={
+        modalMode === "edit" ? (
+          <>
+            <button
+              type="button"
+              className="panel-detail-modal__btn panel-detail-modal__btn--cancel"
+              onClick={attemptClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="panel-detail-edit-form"
+              className="panel-detail-modal__btn panel-detail-modal__btn--save"
+              aria-label="Save panel settings"
+              disabled={isSaving}
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </button>
+          </>
+        ) : undefined
+      }
+    >
+      <div className="panel-detail-modal__inner">
         {modalMode === "view" ? (
           <div className="panel-detail-modal__view-body">
             <PanelContent
@@ -401,28 +409,9 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
                 </div>
               </div>
             ) : null}
-
-            <footer className="panel-detail-modal__footer">
-              <button
-                type="button"
-                className="panel-detail-modal__btn panel-detail-modal__btn--cancel"
-                onClick={handleCancel}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                form="panel-detail-edit-form"
-                className="panel-detail-modal__btn panel-detail-modal__btn--save"
-                aria-label="Save panel settings"
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving..." : "Save"}
-              </button>
-            </footer>
           </>
         )}
       </div>
-    </dialog>
+    </Modal>
   );
 }

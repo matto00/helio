@@ -45,17 +45,38 @@
   width: min(720px, calc(100vw - 32px));
 }
 
+.ui-modal--xl {
+  width: min(960px, calc(100vw - 32px));
+}
+
+.ui-modal--full {
+  width: min(1200px, calc(100vw - 32px));
+}
+
 /* Backdrop */
 .ui-modal::backdrop {
   background: var(--app-overlay);
   backdrop-filter: blur(2px);
 }
 
-/* Inner flex container */
+/* Inner flex container. HEL-716 (skeptic-final-3.md): this must fill
+   whatever height the actual <dialog> box ends up with — `height: 100%`,
+   not an independently-capped `max-height: 90vh`. The outer `.ui-modal`
+   class already caps the dialog itself at `max-height: 90vh`, so a plain
+   consumer (content-driven height) is unaffected either way. But a
+   consumer with a narrower fixed-height override (e.g.
+   `PanelDetailModal.css`'s `height: min(680px, 90vh)`, applied via
+   Modal's `className` prop) previously left `.ui-modal__inner` sizing
+   itself up to its own independent 90vh regardless of that narrower
+   box — at any viewport taller than ~756px, this grew the inner flex
+   column past the dialog's real (680px) height, and since the dialog has
+   `overflow: hidden`, everything past that cut line (the footer, and the
+   discard-warning banner once shown) was clipped from both painting and
+   hit-testing. `height: 100%` always matches the parent's real box. */
 .ui-modal__inner {
   display: flex;
   flex-direction: column;
-  max-height: 90vh;
+  height: 100%;
 }
 
 /* ── Header ───────────────────────────────────────────────────────────────── */
@@ -84,6 +105,11 @@
   color: var(--app-text);
   line-height: 1.3;
   letter-spacing: -0.01em;
+  /* HEL-716 — a consumer may opt into programmatic focus via `titleKey`
+     (e.g. a per-step wizard title); this keeps the global focus ring's
+     corners clean when that happens. No-op for every other (never-focused)
+     consumer's title. */
+  border-radius: var(--app-radius-sm);
 }
 
 .ui-modal__description {

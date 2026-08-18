@@ -75,10 +75,15 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-245)", () => 
   });
 });
 
-// HEL-303: the modal's own header Edit/Close controls and the footer Save/Cancel
+// HEL-303: the modal's own header Edit control and the footer Save/Cancel
 // actions are the entry and exit points of the edit flow reachable by tapping a
 // stack panel on phone, so they must also carry the mobile-scoped ≥44px override
 // (they sit at --control-sm/--control-md by default, both under 44px).
+//
+// HEL-716: the header close button is no longer PanelDetailModal's own markup
+// — it's Modal's generic `.ui-modal__close`, so its mobile 44x44 tap-target
+// lock now lives in `shared/ui/Modal.css` and is guarded by
+// `shared/ui/Modal.css.test.ts` instead of here.
 describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-303 header/footer)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 
@@ -87,12 +92,6 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-303 header/fo
     [".panel-detail-modal__btn", "min-height"],
   ])("%s gets min-height: 44px at the mobile-shell breakpoint", (selector) => {
     const body = findRuleBody(mobileBlock, selector);
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
-  });
-
-  it("the close button gets a 44x44 minimum tap target", () => {
-    const body = findRuleBody(mobileBlock, ".panel-detail-modal__close");
-    expect(body).toMatch(/min-width:\s*44px\s*;/);
     expect(body).toMatch(/min-height:\s*44px\s*;/);
   });
 });

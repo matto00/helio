@@ -1,19 +1,18 @@
 // PanelCreationModal — shell for the multi-step panel creation flow.
 //
-// Owns the modal lifecycle (showModal, close, dirty guard, focus trap),
-// the step machine (type-select → template-select → optional
-// datatype-select → name-entry), and the create-panel dispatch. The four
-// per-step UIs live in `./creationSteps/` and the three per-subtype
+// Renders on the shared `Modal` primitive (HEL-716) — Modal owns the dialog
+// lifecycle (showModal/close, backdrop click, Escape, focus trap); this file
+// owns the dirty guard, the step machine (type-select → template-select →
+// optional datatype-select → name-entry), and the create-panel dispatch. The
+// four per-step UIs live in `./creationSteps/` and the three per-subtype
 // creator fields live in `./creators/`; this file composes them and
 // threads the shell-owned state through.
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
-
-import type { FormEvent, MouseEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
 
 import "./PanelCreationModal.css";
+import { Modal } from "../../../shared/ui/Modal";
 import { createPanel, updatePanelBinding } from "../state/panelsSlice";
 import {
   fetchDataTypes,
@@ -42,10 +41,6 @@ import { NameEntryStep } from "./creationSteps/NameEntryStep";
 import { ShapeInstantiateStep } from "./creationSteps/ShapeInstantiateStep";
 import { TemplateSelectStep } from "./creationSteps/TemplateSelectStep";
 import { TypeSelectStep } from "./creationSteps/TypeSelectStep";
-
-// Selector for all keyboard-focusable elements inside the modal.
-const FOCUSABLE_SELECTORS =
-  'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 type Step =
   | "type-select"
@@ -146,11 +141,6 @@ interface PanelCreationModalProps {
 
 export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const dispatch = useAppDispatch();
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  // F-110 — step heading focus target: refocused on every step change (and
-  // on initial open, since the effect below also fires on mount) and after
-  // dismissing the discard-confirm banner, so focus never drops to <body>.
-  const titleRef = useRef<HTMLHeadingElement>(null);
   const { selectedDashboardId } = useAppSelector((state) => state.dashboards);
   // 3.6 — Slice for DataType picker.
   const dataTypes = useAppSelector((state) => state.dataTypes);
@@ -177,6 +167,12 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const [createError, setCreateError] = useState<string | null>(null);
   // Inline discard confirmation banner (replaces window.confirm for dirty dismiss).
   const [isShowingDiscardConfirm, setIsShowingDiscardConfirm] = useState(false);
+  // F-110/HEL-716 — bumped whenever focus needs to return to the step title
+  // without `step` itself changing (dismissing the discard-confirm banner).
+  // Combined with `step` into Modal's `titleKey`, forcing its title `<h2>`
+  // to remount (and, via `autoFocus`, refocus) on demand — see Modal.tsx's
+  // `titleKey` doc comment for why this replaces a direct ref into Modal.
+  const [titleFocusNonce, setTitleFocusNonce] = useState(0);
 
   // F-114 — dirty only on genuine user-entered content: a title that no
   // longer matches the template default (covers both free typing and
@@ -187,18 +183,6 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     title !== (selectedTemplate?.defaults.title ?? "") ||
     hasNonEmptyTypeConfig(typeConfig) ||
     shapeFlowEngaged;
-
-  useEffect(() => {
-    dialogRef.current?.showModal();
-  }, []);
-
-  // F-110 — focus the step heading on every step change, including the
-  // initial mount (this effect always runs after first render too), so
-  // focus never lands on <body> or defaults to the first focusable control
-  // (the close button) with no context of what changed.
-  useEffect(() => {
-    titleRef.current?.focus();
-  }, [step]);
 
   // 3.6 — Fetch data types on mount if not yet loaded.
   useEffect(() => {
@@ -225,43 +209,16 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
     selectedType,
   );
 
-  // 1.6 / 1.7 — Focus trap: Tab/Shift+Tab cycle only through modal-internal focusable elements.
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    function handleFocusTrapKeyDown(e: KeyboardEvent) {
-      if (e.key !== "Tab") return;
-
-      const focusable = Array.from(dialog!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS));
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey) {
-        // Shift+Tab from first → wrap to last
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        // Tab from last → wrap to first
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    }
-
-    dialog.addEventListener("keydown", handleFocusTrapKeyDown);
-    return () => {
-      dialog.removeEventListener("keydown", handleFocusTrapKeyDown);
-    };
-  }, []);
+  // HEL-716 — the manual Tab/Shift+Tab focus-trap effect (F-110/1.6/1.7) is
+  // retired from this file, but NOT because native <dialog> + showModal()
+  // focus containment is sufficient on its own — it isn't (probe-confirmed
+  // false on two Chromium versions: native containment prevents Tab from
+  // escaping the dialog, but does not wrap focus back to the first/last
+  // element; see tasks.md 1.6). The trap logic was relocated and
+  // generalized into the shared `Modal.tsx` itself, so every `Modal`
+  // consumer (not just this one) gets correct Tab/Shift+Tab wrap-around.
 
   function handleClose() {
-    dialogRef.current?.close();
     onClose();
     // 1.4 / 3.10 — typeConfig and selectedDataTypeId reset automatically when the component unmounts on close.
   }
@@ -290,15 +247,9 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   function cancelDiscard() {
     setIsShowingDiscardConfirm(false);
     // F-110 — the focused "Keep editing" button unmounts with the banner;
-    // without an explicit refocus, focus drops to <body>.
-    titleRef.current?.focus();
-  }
-
-  // 1.4 — Backdrop click: close when the click target is the <dialog> itself (not inner content).
-  function handleBackdropClick(e: MouseEvent<HTMLDialogElement>) {
-    if (e.target === dialogRef.current) {
-      handleDismiss();
-    }
+    // without an explicit refocus, focus drops to <body>. `step` hasn't
+    // changed, so bump the nonce to force Modal's titleKey-driven remount.
+    setTitleFocusNonce((n) => n + 1);
   }
 
   function handleTypeSelect(type: PanelType) {
@@ -476,49 +427,26 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const stepProgressIndex = stepProgress.indexOf(step);
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="panel-creation-modal"
-      aria-label="Create panel"
-      onClose={onClose}
-      // 1.3 — Intercept native Escape (cancel event) and route through handleDismiss.
-      onCancel={(e) => {
-        e.preventDefault();
-        handleDismiss();
-      }}
-      // 1.4 — Backdrop click handler.
-      onClick={handleBackdropClick}
+    // HEL-716 (evaluator CR1): the per-step title is now Modal's own
+    // dynamic `title`, mirroring AddSourceModal's pattern — Modal's header
+    // is no longer a generic "Create panel" duplicated by the wizard's own
+    // heading. `titleKey` restores the F-110 focus-on-step-change /
+    // focus-after-dismissing-the-discard-banner behavior (see the doc
+    // comment on Modal's `titleKey` prop) without a ref into Modal.
+    <Modal
+      open
+      size="lg"
+      title={getStepTitle()}
+      titleKey={`${step}-${titleFocusNonce}`}
+      ariaLabel="Create panel"
+      onClose={handleDismiss}
     >
       <div className="panel-creation-modal__inner">
-        <header className="panel-creation-modal__header">
-          <div className="panel-creation-modal__header-text">
-            {stepProgressIndex !== -1 && (
-              <p className="panel-creation-modal__step-progress eyebrow">
-                Step {stepProgressIndex + 1} of {stepProgress.length}
-              </p>
-            )}
-            {/* F-110 — focusable step heading (see the `[step]`-keyed focus
-                effect above) with `aria-live` so AT announces the step
-                change even without a focus move. */}
-            <h2
-              ref={titleRef}
-              tabIndex={-1}
-              aria-live="polite"
-              className="panel-creation-modal__title"
-            >
-              {getStepTitle()}
-            </h2>
-          </div>
-          {/* 1.5 — Close button now routes through handleDismiss for dirty-state guard. */}
-          <button
-            type="button"
-            className="panel-creation-modal__close"
-            aria-label="Close modal"
-            onClick={handleDismiss}
-          >
-            <FontAwesomeIcon icon={faXmark} />
-          </button>
-        </header>
+        {stepProgressIndex !== -1 && (
+          <p className="panel-creation-modal__step-progress eyebrow">
+            Step {stepProgressIndex + 1} of {stepProgress.length}
+          </p>
+        )}
 
         {isShowingDiscardConfirm && (
           <div
@@ -622,6 +550,6 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
           />
         )}
       </div>
-    </dialog>
+    </Modal>
   );
 }

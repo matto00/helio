@@ -1,103 +1,30 @@
-/* F-113 — one width for every step (was 600px, jumping to 840px only on
-   name-entry via the now-removed `--wide` modifier) so the frame doesn't
-   visibly resize/re-center as the wizard advances. 720px mirrors Modal's
-   `lg` size token. */
-.panel-creation-modal {
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-lg);
-  background: var(--app-surface-strong);
-  box-shadow: var(--app-shadow-soft);
-  padding: 0;
-  max-width: 720px;
-  width: 100%;
-  color: var(--app-text);
-}
+/* HEL-716 — border/background/shadow/padding/width/backdrop/[open] animation
+   are now owned by Modal.css's base `.ui-modal` + `.ui-modal--lg` classes
+   (PanelCreationModal always renders `size="lg"`, matching this modal's
+   previous fixed 720px width exactly — see openspec design.md Decision 1). */
 
-.panel-creation-modal[open] {
-  /* `backwards` (not `both`): the entrance animates `transform`, and a lingering
-     forwards fill would keep the dialog as a transform containing block — which
-     re-anchors `position: fixed` popovers portalled into it (Select) to the
-     dialog instead of the viewport, mispositioning them. The `to` state equals
-     the modal's resting style, so dropping the forwards fill is visually
-     identical at rest. (Mirrors the Modal.css fix, commit d7fb3816.) */
-  animation: panel-creation-modal-in var(--transition-slow) backwards;
-}
-
-@keyframes panel-creation-modal-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.panel-creation-modal::backdrop {
-  background: var(--app-overlay);
-  backdrop-filter: blur(2px);
-}
-
+/* HEL-716 — cancels Modal's `.ui-modal__body` padding so this modal's step
+   content bleeds edge-to-edge exactly as it did before the migration; each
+   section below (step-heading block, discard-confirm banner, step content)
+   owns its own padding, unchanged. */
 .panel-creation-modal__inner {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: 0;
+  margin: calc(-1 * var(--space-5));
 }
 
-.panel-creation-modal__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--app-border-subtle);
-}
-
-.panel-creation-modal__header-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-/* F-214 — "Step N of M" wizard-progress indicator. */
+/* F-214 — "Step N of M" wizard-progress indicator. HEL-716 (evaluator
+   CR1): the per-step heading moved onto Modal's own dynamic `title`
+   (mirroring `AddSourceModal`'s pattern), so this eyebrow is the only
+   body-owned piece of the old bespoke header left — it's wizard-step-
+   specific chrome Modal's generic header has no slot for. Keeps the old
+   header's top/side padding, now on the eyebrow itself since it's the
+   block's sole remaining element. */
 .panel-creation-modal__step-progress {
   margin: 0;
+  padding: var(--space-4) var(--space-5) 0;
   color: var(--app-text-muted);
-}
-
-.panel-creation-modal__title {
-  margin: 0;
-  font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
-  letter-spacing: -0.01em;
-  color: var(--app-text);
-  border-radius: var(--app-radius-sm);
-}
-
-.panel-creation-modal__close {
-  flex-shrink: 0;
-  width: var(--control-sm);
-  height: var(--control-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition:
-    background-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.panel-creation-modal__close:hover {
-  background: var(--app-surface-raised);
-  color: var(--app-text);
 }
 
 .panel-creation-modal__discard-confirm {
