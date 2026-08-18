@@ -5,6 +5,7 @@ import {
   faArrowRotateLeft,
   faArrowRotateRight,
   faComments,
+  faPlus,
   faWandMagicSparkles,
   faSun,
   faMoon,
@@ -12,6 +13,7 @@ import {
 
 import { UserMenu } from "../features/auth/ui/UserMenu";
 import { logout } from "../features/auth/state/authSlice";
+import { startNewConversation } from "../features/assistant/state/assistantConversationsSlice";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import { setDashboardLayoutLocally } from "../features/dashboards/state/dashboardsSlice";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
@@ -168,6 +170,26 @@ export function CommandBar({
             </span>
             <ChevronDown size={16} aria-hidden="true" />
           </button>
+        )}
+        {/* HEL-746 — phone-only "New chat" affordance: the desktop trigger
+            (`SidebarBody.tsx`'s `SidebarItemList` `onAdd`) lives inside
+            `.app-sidebar`, which is `display: none` below 768px, leaving no
+            phone-reachable way to start a fresh conversation. Mirrors that
+            trigger's action (`startNewConversation()`) and `aria-label`
+            exactly; gated on `pickerId === "chat"` (not just phone width)
+            since the control only makes sense on `/chat*`. Hidden by
+            default, shown only under App.css's existing
+            `@media (max-width: 768px)` block, next to the mobile title
+            switcher it's a sibling of. */}
+        {pickerId === "chat" && (
+          <IconButton
+            icon={<FontAwesomeIcon icon={faPlus} />}
+            variant="secondary"
+            size="xs"
+            className="app-command-bar__mobile-new-chat"
+            onClick={() => dispatch(startNewConversation())}
+            aria-label="New chat"
+          />
         )}
         {onDashboardView && selectedDashboard !== null && <SaveStateIndicator onSaveNow={flush} />}
       </div>
