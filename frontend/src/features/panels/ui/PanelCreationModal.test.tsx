@@ -258,7 +258,7 @@ describe("PanelCreationModal", () => {
     const onClose = jest.fn();
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
 
-    fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     expect(onClose).toHaveBeenCalled();
   });
@@ -317,7 +317,7 @@ describe("PanelCreationModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     expect(screen.getByRole("group", { name: "Panel template" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     unmount();
 
     renderWithStore(<PanelCreationModal onClose={onClose} />, baseStore);
@@ -534,7 +534,7 @@ describe("PanelCreationModal — type-specific config fields", () => {
       target: { value: "https://example.com/image.jpg" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     // Banner appears; "Keep editing" leaves the modal open.
     expect(screen.getByRole("alertdialog", { name: "Discard changes" })).toBeInTheDocument();
@@ -555,7 +555,7 @@ describe("PanelCreationModal — type-specific config fields", () => {
     expect(imageInput.value).toBe("https://example.com/image.jpg");
 
     // Close the modal (confirm the discard via inline banner)
-    fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     unmount();
 
@@ -1021,9 +1021,6 @@ describe("PanelCreationModal — shape flow", () => {
 });
 
 describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
-  const FOCUSABLE =
-    'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
   beforeEach(() => {
     HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
       this.setAttribute("open", "");
@@ -1159,48 +1156,24 @@ describe("PanelCreationModal — accessibility (dismiss + focus trap)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Draft" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     expect(screen.getByRole("alertdialog", { name: "Discard changes" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // 2.7 — Tab from last focusable element wraps to first
-  it("2.7 Tab from last focusable element wraps focus to first", () => {
-    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, baseStore);
-
-    const dialog = document.querySelector("dialog")!;
-    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
-    expect(focusable.length).toBeGreaterThan(1);
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    last.focus();
-    expect(document.activeElement).toBe(last);
-
-    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: false });
-
-    expect(document.activeElement).toBe(first);
-  });
-
-  // 2.8 — Shift+Tab from first focusable element wraps to last
-  it("2.8 Shift+Tab from first focusable element wraps focus to last", () => {
-    renderWithStore(<PanelCreationModal onClose={jest.fn()} />, baseStore);
-
-    const dialog = document.querySelector("dialog")!;
-    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
-    expect(focusable.length).toBeGreaterThan(1);
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    first.focus();
-    expect(document.activeElement).toBe(first);
-
-    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
-
-    expect(document.activeElement).toBe(last);
-  });
+  // 2.7/2.8 — Tab/Shift+Tab wrap-around were previously covered here against
+  // this modal's own manual focus-trap `useEffect` (HEL-716 deleted it — see
+  // tasks.md 2.2). That trap was relocated and generalized into the shared
+  // `Modal.tsx` (tasks.md 1.6) rather than dropped — native `<dialog>` +
+  // `showModal()` focus containment alone does NOT wrap focus back to the
+  // first/last element (probe-confirmed false; it only prevents Tab from
+  // escaping the dialog). jsdom coverage for that shared mechanism now lives
+  // in `Modal.test.tsx`'s `"Tab/Shift+Tab focus trap"` describe block (added
+  // for cycle-2 change request 3 — jsdom stubs `showModal` as a no-op but
+  // the trap itself is plain JS `keydown` handling, fully testable there).
+  // This modal's own real-browser Playwright coverage
+  // (`e2e/hel716-panel-creation-focus-trap.spec.ts`) remains as the
+  // real-`<dialog>` end-to-end check.
 });

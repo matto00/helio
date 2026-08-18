@@ -55,6 +55,54 @@ function findRuleBody(block: string, selectorSubstring: string): string {
   return block.slice(openBrace + 1, closeBrace);
 }
 
+/** Body of the first rule in `source` whose selector contains
+ *  `selectorSubstring`, brace-matching so nested rule blocks (e.g. a
+ *  `@keyframes` block's `from`/`to` steps) are included. */
+function findRuleBodyInSource(source: string, selectorSubstring: string): string {
+  const selectorIndex = source.indexOf(selectorSubstring);
+  if (selectorIndex === -1) {
+    throw new Error(`Selector containing "${selectorSubstring}" not found in ${CSS_PATH}`);
+  }
+  const openBrace = source.indexOf("{", selectorIndex);
+  let depth = 0;
+  for (let i = openBrace; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") {
+      depth--;
+      if (depth === 0) return source.slice(openBrace + 1, i);
+    }
+  }
+  throw new Error(`Unbalanced braces for selector "${selectorSubstring}" in ${CSS_PATH}`);
+}
+
+// Regression guard for HEL-313: a popover (Select) portalled into an open
+// dialog was mispositioned when the dialog's `[open]` entrance animation ran
+// with `animation-fill-mode: both`/`forwards` — a lingering fill keeps the
+// dialog as a `transform` containing block, re-anchoring any
+// `position: fixed` popover to the dialog's box instead of the viewport.
+// jsdom implements no real CSS animation evaluation, so this is a static
+// source assertion (see the shipped fix, commit d7fb3816). HEL-716: this
+// guard previously lived in `PanelCreationModal.css.test.ts` for that
+// modal's own now-deleted `[open]` animation; `PanelCreationModal` (and
+// `PanelDetailModal`) now both animate in via this shared `.ui-modal[open]`
+// rule, so the regression coverage moved here with them.
+describe("Modal.css — [open] entrance animation leaves no containing-block transform (HEL-313)", () => {
+  it("the [open] entrance animation uses a `backwards` fill mode, not `both`/`forwards`", () => {
+    const body = findRuleBodyInSource(css, ".ui-modal[open]");
+    const animationDeclaration = body.match(/animation:[^;]+;/)?.[0];
+    expect(animationDeclaration).toBeDefined();
+    expect(animationDeclaration).toMatch(/\bbackwards\b/);
+    expect(animationDeclaration).not.toMatch(/\bboth\b/);
+    expect(animationDeclaration).not.toMatch(/\bforwards\b/);
+  });
+
+  it("the animation's `to` keyframe resolves to `transform: none` (resting state is unchanged)", () => {
+    const keyframesBody = findRuleBodyInSource(css, "@keyframes ui-modal-in");
+    const toBody = findRuleBodyInSource(keyframesBody, "to {");
+    expect(toBody).toMatch(/transform:\s*none\s*;/);
+  });
+});
+
 describe("Modal.css — mobile ≥44px tap targets (HEL-319)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 

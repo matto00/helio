@@ -226,8 +226,7 @@ describe("PanelDetailModal", () => {
   it("close from view mode is immediate — no discard warning shown", () => {
     const onClose = jest.fn();
     renderModal(onClose);
-    fireEvent.click(screen.getByRole("button", { name: "Close panel settings" }));
-    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
     expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
   });
@@ -238,7 +237,7 @@ describe("PanelDetailModal", () => {
     fireEvent.change(screen.getByLabelText("Revenue transparency"), {
       target: { value: "50" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Close panel settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
   });
 
@@ -268,32 +267,40 @@ describe("PanelDetailModal", () => {
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
 
-  // ✕ button — close behavior from edit mode
-  it("✕ button in edit mode with no changes closes the modal immediately", () => {
+  // ✕ button — close behavior from edit mode. HEL-716: the ✕ button now
+  // routes through the same unified `onClose` as backdrop-click/Escape/the
+  // footer Cancel button (see openspec design.md Decision 5) — leaving edit
+  // mode via any of those vectors always reverts to view mode rather than
+  // closing the whole modal (only a dismiss from view mode actually closes).
+  it("✕ button in edit mode with no changes returns to view mode (does not close)", () => {
     const onClose = jest.fn();
     renderModal(onClose);
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     // No changes made — click ✕ directly
-    fireEvent.click(screen.getByRole("button", { name: "Close panel settings" }));
-    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
     expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
   });
 
-  it("✕ button in edit mode with unsaved changes shows discard warning; confirming closes the modal", () => {
+  // HEL-716: the ✕ button now routes through the same unified `onClose` as
+  // backdrop-click/Escape (see openspec design.md Decision 5) — confirming
+  // discard from any of those vectors returns to view mode rather than
+  // closing the whole modal (that distinct "close on confirm" behavior was
+  // only reachable via this specific button pre-migration).
+  it("✕ button in edit mode with unsaved changes shows discard warning; confirming returns to view mode", () => {
     const onClose = jest.fn();
     renderModal(onClose);
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.change(screen.getByLabelText("Revenue transparency"), {
       target: { value: "50" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Close panel settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
-    // Confirm discard — modal must close, not return to view mode
+    // Confirm discard — returns to view mode, does not close the modal.
     fireEvent.click(screen.getByRole("button", { name: /Discard/i }));
-    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Edit panel" })).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
   });
 
   it("data section shows the type search input for data-capable panels in edit mode", () => {
@@ -409,7 +416,6 @@ describe("PanelDetailModal", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
-    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -460,7 +466,6 @@ describe("PanelDetailModal", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
-    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
     expect(store.getState().panels.pendingPanelUpdates["p1"].title).toBe("New Title");
@@ -482,7 +487,6 @@ describe("PanelDetailModal", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
-    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
 
     // The appearance change should be in pendingPanelUpdates, not sent to the server
@@ -552,7 +556,6 @@ describe("PanelDetailModal", () => {
       expect(screen.getByText("Failed to save data binding.")).toBeInTheDocument();
     });
     // Modal must remain open
-    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
   });
 
   // Task 2.3 — Cancel with no changes transitions to view mode (not close)
@@ -563,7 +566,6 @@ describe("PanelDetailModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
 
     expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
-    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(updateAppearanceMock).not.toHaveBeenCalled();
   });
@@ -595,7 +597,6 @@ describe("PanelDetailModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /Discard/i }));
 
     expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
-    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -624,7 +625,6 @@ describe("PanelDetailModal", () => {
     fireEvent(dialog, new Event("cancel", { cancelable: true }));
 
     expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
-    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
   });
 
   // Task 2.6 — Escape key in edit mode with unsaved changes shows discard warning; confirming returns to view mode
@@ -643,7 +643,6 @@ describe("PanelDetailModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /Discard/i }));
 
     expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
-    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
   });
 
   // Task 2.7 — "Unsaved changes" indicator appears in header after modifying a field
