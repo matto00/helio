@@ -8,6 +8,7 @@ export { ToastViewport } from "./Toast";
 export { DataGrid, type ColumnDef } from "./DataGrid";
 export { FormField } from "./FormField";
 export { StatusChip } from "./StatusChip";
+export { IconButton } from "./IconButton";
 export { Spinner } from "./Spinner";
 export { ConfirmInline } from "./ConfirmInline";
 export { useScrollEdges } from "./useScrollEdges";

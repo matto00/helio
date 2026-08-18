@@ -1,0 +1,106 @@
+/* Shared icon-only button primitive (HEL-718). Consolidates the three
+   independently-converged recipes it replaces:
+   - `.cmd-btn.cmd-btn--icon` (app/App.css)       -> variant="secondary"
+   - `.ui-modal__close` (shared/ui/Modal.css)     -> variant="ghost" (default)
+   - `.preferences-editor__icon-btn` (features/settings/ui/PreferencesEditor.css) -> variant="danger"
+   Base rule carries the shared layout (all three were display:inline-flex +
+   justify-content:center squares); size modifiers set dimensions; variant
+   modifiers set background/border/color per DESIGN.md §5's Ghost/Secondary/
+   Danger recipes. */
+
+.ui-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.ui-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ui-icon-btn__icon {
+  display: inline-flex;
+}
+
+/* ── Sizes ─────────────────────────────────────────────────────────────── */
+
+/* Dense-row exception (DESIGN.md §3) -- no control-height token at this size. */
+.ui-icon-btn--xs {
+  width: 24px;
+  height: 24px;
+  font-size: var(--text-sm);
+}
+
+.ui-icon-btn--sm {
+  width: var(--control-sm);
+  height: var(--control-sm);
+  font-size: var(--text-base);
+}
+
+.ui-icon-btn--md {
+  width: var(--control-md);
+  height: var(--control-md);
+  font-size: var(--text-lg);
+}
+
+/* ── Variants ──────────────────────────────────────────────────────────── */
+
+/* Ghost -- borderless, matches .ui-modal__close. */
+.ui-icon-btn--ghost {
+  border: none;
+  color: var(--app-text-muted);
+}
+
+.ui-icon-btn--ghost:hover:not(:disabled) {
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+/* Secondary -- hairline border, matches .cmd-btn--icon. */
+.ui-icon-btn--secondary {
+  border: 1px solid var(--app-border-subtle);
+  color: var(--app-text-muted);
+}
+
+.ui-icon-btn--secondary:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+/* Danger -- error-tinted hover, matches .preferences-editor__icon-btn. */
+.ui-icon-btn--danger {
+  border: 1px solid var(--app-border-subtle);
+  color: var(--app-text-muted);
+}
+
+.ui-icon-btn--danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+  background: var(--app-error-surface);
+  color: var(--app-error);
+}
+
+/* ── Mobile tap-target floor (HEL-308/314/319 convention, matching
+   .ui-modal__close's precedent) ── */
+
+@media (max-width: 768px) {
+  /* Square icon button — both axes must clear the 44px floor. `min-*` leaves
+     desktop's fixed size intact while the mobile floor wins; the glyph is
+     already flex-centered so it stays centered as the box grows. */
+  .ui-icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

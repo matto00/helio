@@ -72,6 +72,14 @@ describe("Modal", () => {
     expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
   });
 
+  // HEL-718: the close button migrated onto the shared IconButton primitive
+  // — verifies it still carries both the accessible name and its visible
+  // tooltip (title defaults to aria-label).
+  it("the close button has a visible title tooltip matching its aria-label", () => {
+    renderModal();
+    expect(screen.getByRole("button", { name: "Close" })).toHaveAttribute("title", "Close");
+  });
+
   it("calls onClose exactly once when Escape (the native cancel event) is pressed, without pre-closing the dialog", () => {
     const { onClose } = renderModal();
     const dialog = document.querySelector("dialog")!;

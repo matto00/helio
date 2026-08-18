@@ -119,29 +119,9 @@
   line-height: 1.5;
 }
 
-/* Close button */
-.ui-modal__close {
-  flex-shrink: 0;
-  width: var(--control-sm);
-  height: var(--control-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition:
-    background-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.ui-modal__close:hover {
-  background: var(--app-surface-raised);
-  color: var(--app-text);
-}
+/* Close button: HEL-718 -- migrated onto the shared IconButton primitive
+   (`shared/ui/IconButton.css`, `variant="ghost"`); its recipe lived here as
+   `.ui-modal__close` prior to this change. */
 
 /* ── Body ─────────────────────────────────────────────────────────────────── */
 
@@ -208,17 +188,12 @@
   background: var(--app-accent-strong);
 }
 
-/* ── Mobile tap-target floor (HEL-319, following the HEL-308/314 convention) ── */
+/* ── Mobile tap-target floor (HEL-319, following the HEL-308/314 convention) ──
+   HEL-718: the close button's own 44px floor now lives in
+   `shared/ui/IconButton.css` (`.ui-icon-btn`'s mobile block), guarded by
+   `IconButton.css.test.ts`. */
 
 @media (max-width: 768px) {
-  /* Square icon button — both axes must clear the 44px floor. `min-*` leaves
-     desktop's fixed --control-sm intact while the mobile floor wins; the
-     glyph is already flex-centered so it stays centered as the box grows. */
-  .ui-modal__close {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
   /* Footer button — already flex-centered, so only the height floor is
      needed. Desktop keeps its fixed --control-md height. */
   .ui-modal-btn {

@@ -815,6 +815,29 @@ describe("StepCard disable/enable + duplicate (HEL-412)", () => {
     expect(onDuplicate).toHaveBeenCalledWith("step-1");
   });
 
+  // HEL-718: these icon-only buttons already had aria-label; this locks in
+  // the added visible title tooltip pairing it.
+  it("the move/toggle/duplicate icon-only buttons have a title matching their aria-label", () => {
+    render(<StepCard {...baseProps()} />);
+
+    expect(screen.getByRole("button", { name: "Move step up" })).toHaveAttribute(
+      "title",
+      "Move step up",
+    );
+    expect(screen.getByRole("button", { name: "Move step down" })).toHaveAttribute(
+      "title",
+      "Move step down",
+    );
+    expect(screen.getByRole("button", { name: "Disable step" })).toHaveAttribute(
+      "title",
+      "Disable step",
+    );
+    expect(screen.getByRole("button", { name: "Duplicate step" })).toHaveAttribute(
+      "title",
+      "Duplicate step",
+    );
+  });
+
   it("a disabled step renders the --disabled card modifier and hides the preview control", async () => {
     const { container } = render(
       <StepCard {...baseProps({ step: makeStep({ enabled: false }) })} />,

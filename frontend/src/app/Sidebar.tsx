@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 
 import { SidebarBody } from "../shared/chrome/SidebarBody";
 import { navDestinations } from "../shared/chrome/navDestinations";
+import { IconButton } from "../shared/ui/IconButton";
 
 interface SidebarProps {
   isDashboardListCollapsed: boolean;
@@ -42,15 +43,17 @@ export function Sidebar({ isDashboardListCollapsed, onToggleCollapse }: SidebarP
             );
           })}
         </nav>
-        <button
-          type="button"
+        <IconButton
+          icon={
+            isDashboardListCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />
+          }
+          variant="secondary"
+          size="sm"
           className="app-sidebar-toggle"
           aria-label={isDashboardListCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-expanded={!isDashboardListCollapsed}
           onClick={onToggleCollapse}
-        >
-          {isDashboardListCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-        </button>
+        />
       </div>
       {!isDashboardListCollapsed && <SidebarBody />}
     </aside>

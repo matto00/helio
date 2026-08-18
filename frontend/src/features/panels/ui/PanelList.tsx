@@ -170,6 +170,7 @@ export function PanelList() {
             type="button"
             className="panel-list__zoom-button"
             aria-label="Zoom out"
+            title="Zoom out"
             onClick={() => handleZoomChange(-0.1)}
             disabled={zoomLevel <= 0.5}
           >
@@ -180,6 +181,7 @@ export function PanelList() {
             type="button"
             className="panel-list__zoom-button"
             aria-label="Zoom in"
+            title="Zoom in"
             onClick={() => handleZoomChange(0.1)}
             disabled={zoomLevel >= 2.0}
           >
@@ -189,6 +191,7 @@ export function PanelList() {
             type="button"
             className="panel-list__zoom-reset"
             aria-label="Reset zoom"
+            title="Reset zoom"
             onClick={handleZoomReset}
             disabled={zoomLevel === 1.0}
           >

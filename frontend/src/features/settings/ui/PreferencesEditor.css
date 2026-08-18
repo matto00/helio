@@ -131,29 +131,10 @@
 }
 
 /* ── Shared row-action buttons ── */
-
-.preferences-editor__icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-md);
-  height: var(--control-md);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  cursor: pointer;
-  transition:
-    background-color var(--app-transition),
-    border-color var(--app-transition),
-    color var(--app-transition);
-}
-
-.preferences-editor__icon-btn:hover {
-  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
-  background: var(--app-error-surface);
-  color: var(--app-error);
-}
+/* Remove-row buttons: HEL-718 -- migrated onto the shared IconButton
+   primitive (`shared/ui/IconButton.css`, `variant="danger"` `size="md"`);
+   their recipe lived here as `.preferences-editor__icon-btn` prior to this
+   change. */
 
 .preferences-editor__add-btn {
   align-self: flex-start;

@@ -587,6 +587,15 @@ describe("PanelList", () => {
     expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reset zoom" })).toBeInTheDocument();
     expect(screen.getByText("100%")).toBeInTheDocument();
+
+    // HEL-718: these icon-only zoom controls already had aria-label; this
+    // locks in the added visible title tooltip pairing it.
+    expect(screen.getByRole("button", { name: "Zoom in" })).toHaveAttribute("title", "Zoom in");
+    expect(screen.getByRole("button", { name: "Zoom out" })).toHaveAttribute("title", "Zoom out");
+    expect(screen.getByRole("button", { name: "Reset zoom" })).toHaveAttribute(
+      "title",
+      "Reset zoom",
+    );
   });
 
   it("clicking zoom in increases the zoom level", () => {

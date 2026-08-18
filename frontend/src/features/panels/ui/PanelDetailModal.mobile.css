@@ -34,9 +34,10 @@
      header Edit control and the footer Save/Cancel actions — the entry and
      exit points of the reachable edit flow — must also meet the 44px tap
      minimum. They sit at `--control-sm` (28px) / `--control-md` (32px) by
-     default, both under 44px. HEL-716: the header close button is now
-     Modal's own `.ui-modal__close`, whose mobile 44px override lives (and is
-     locked by Modal.css.test.ts) in `shared/ui/Modal.css`. */
+     default, both under 44px. HEL-716: the header close button is Modal's
+     own close control; HEL-718: that control now uses the shared
+     `IconButton` primitive, whose mobile 44px override lives (and is locked
+     by IconButton.css.test.ts) in `shared/ui/IconButton.css`. */
   .panel-detail-modal__edit-btn {
     min-height: 44px;
   }

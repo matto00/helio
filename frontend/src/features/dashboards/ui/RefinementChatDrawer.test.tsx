@@ -288,4 +288,21 @@ describe("RefinementChatDrawer", () => {
 
     expect(onClose).toHaveBeenCalled();
   });
+
+  // HEL-718: the header close button migrated from a hand-rolled
+  // `.refinement-drawer__close` button onto the shared IconButton primitive
+  // — verifies the accessible name/tooltip pairing and click behavior
+  // survived the migration.
+  it("the header close button has a visible title tooltip and calls onClose when clicked", () => {
+    const onClose = jest.fn();
+    renderDrawer(onClose, "dash-1");
+
+    const closeButtons = screen.getAllByRole("button", { name: "Close" });
+    const headerCloseButton = closeButtons[closeButtons.length - 1];
+    expect(headerCloseButton).toHaveAttribute("title", "Close");
+
+    fireEvent.click(headerCloseButton);
+
+    expect(onClose).toHaveBeenCalled();
+  });
 });

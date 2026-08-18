@@ -29,6 +29,7 @@ import { OrbitMark } from "../shared/chrome/OrbitMark";
 import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
 import { pickerIdForPathname } from "../shared/chrome/sections";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
+import { IconButton } from "../shared/ui/IconButton";
 import { useSaveState } from "../context/SaveStateContext";
 import { useTheme } from "../theme/ThemeProvider";
 
@@ -206,40 +207,38 @@ export function CommandBar({
           />
         )}
         {onDashboardView && selectedDashboard !== null && (
-          <button
-            type="button"
-            className="cmd-btn cmd-btn--icon"
+          <IconButton
+            icon={<FontAwesomeIcon icon={faWandMagicSparkles} />}
+            variant="secondary"
+            size="sm"
             onClick={onOpenRefinement}
             aria-label="Refine this dashboard with AI"
             title="Refine with AI"
-          >
-            <FontAwesomeIcon icon={faWandMagicSparkles} />
-          </button>
+          />
         )}
         {/* Quick-launcher trigger (design.md D7) -- mirrors the theme-toggle button's exact
-            recipe below (same .cmd-btn.cmd-btn--icon classes), genuinely unconditional (unlike
-            "Refine with AI" above, which is gated to the dashboard view). F-082: suppressed on
-            /chat itself -- that route already IS the assistant surface this button opens. */}
+            recipe below (same IconButton variant="secondary" size="sm" props), genuinely
+            unconditional (unlike "Refine with AI" above, which is gated to the dashboard view).
+            F-082: suppressed on /chat itself -- that route already IS the assistant surface this
+            button opens. */}
         {!location.pathname.startsWith("/chat") && (
-          <button
-            type="button"
-            className="cmd-btn cmd-btn--icon"
+          <IconButton
+            icon={<FontAwesomeIcon icon={faComments} />}
+            variant="secondary"
+            size="sm"
             onClick={onOpenQuickLauncher}
             aria-label="Open assistant"
             title="Assistant (Ctrl/Cmd+K)"
-          >
-            <FontAwesomeIcon icon={faComments} />
-          </button>
+          />
         )}
-        <button
-          type="button"
-          className="cmd-btn cmd-btn--icon"
+        <IconButton
+          icon={<FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />}
+          variant="secondary"
+          size="sm"
           onClick={toggleTheme}
           aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
           title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-        >
-          <FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />
-        </button>
+        />
         {authStatus === "authenticated" && currentUser !== null && (
           <UserMenu
             currentUser={currentUser}

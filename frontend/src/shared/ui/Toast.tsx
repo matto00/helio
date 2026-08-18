@@ -76,6 +76,7 @@ function ToastItem({ toast }: ToastItemProps) {
         type="button"
         className="toast__close"
         aria-label="Dismiss notification"
+        title="Dismiss notification"
         onClick={dismiss}
       >
         <FontAwesomeIcon icon={faXmark} aria-hidden="true" />

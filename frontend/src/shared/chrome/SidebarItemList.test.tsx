@@ -25,6 +25,85 @@ function openDeleteConfirm(itemName: string) {
   fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
 }
 
+// HEL-718 evaluation-1.md Change Request 1: the header "+" add button
+// reused DashboardList.css's `.dashboard-list__add` class (imported at the
+// top of this file) and was left unstyled when that recipe was deleted in
+// favor of the shared IconButton primitive -- this locks in that the button
+// is now a real IconButton instance (not just carrying an aria-label) so a
+// future CSS-consolidation pass can't silently regress it the same way.
+describe("SidebarItemList header add button (HEL-718)", () => {
+  it("renders the add button as an IconButton with a matching title tooltip", () => {
+    render(
+      <SidebarItemList
+        heading="Data Pipelines"
+        items={items}
+        status="succeeded"
+        onSelect={jest.fn()}
+        onAdd={jest.fn()}
+        addLabel="New pipeline"
+      />,
+    );
+
+    const addButton = screen.getByRole("button", { name: "New pipeline" });
+    expect(addButton).toHaveClass("ui-icon-btn", "ui-icon-btn--secondary", "ui-icon-btn--xs");
+    expect(addButton).toHaveAttribute("title", "New pipeline");
+  });
+
+  it("calls onAdd when clicked", () => {
+    const onAdd = jest.fn();
+    render(
+      <SidebarItemList
+        heading="Data Pipelines"
+        items={items}
+        status="succeeded"
+        onSelect={jest.fn()}
+        onAdd={onAdd}
+        addLabel="New pipeline"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it("defaults the aria-label from heading when addLabel is omitted", () => {
+    render(
+      <SidebarItemList
+        heading="Data Sources"
+        items={items}
+        status="succeeded"
+        onSelect={jest.fn()}
+        onAdd={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Add data source" })).toBeInTheDocument();
+  });
+});
+
+describe("SidebarItemList filter-clear button (HEL-718)", () => {
+  it("has a visible title tooltip matching its aria-label once a filter query is entered", () => {
+    render(
+      <SidebarItemList
+        heading="Data Sources"
+        items={items}
+        status="succeeded"
+        onSelect={jest.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Filter data sources by name"), {
+      target: { value: "prof" },
+    });
+
+    expect(screen.getByRole("button", { name: "Clear filter" })).toHaveAttribute(
+      "title",
+      "Clear filter",
+    );
+  });
+});
+
 describe("SidebarItemList delete-confirm warning", () => {
   it("shows the dependency warning while confirming when deleteWarning returns text", () => {
     renderList((item) =>

@@ -10,6 +10,7 @@ import { fetchAssertionStatus, selectAssertionInvalid } from "../../dataTypes/st
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
+import { IconButton } from "../../../shared/ui/IconButton";
 import { PanelContent } from "./PanelContent";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
@@ -267,13 +268,13 @@ export const PanelCard = React.memo(function PanelCard({
               >
                 Confirm
               </button>
-              <button
-                type="button"
-                className="panel-grid-card__delete-cancel-btn"
+              <IconButton
+                icon="×"
+                variant="secondary"
+                size="xs"
+                aria-label={`Cancel delete ${panel.title}`}
                 onClick={onCancelDelete}
-              >
-                ×
-              </button>
+              />
             </>
           ) : (
             // F-128: the drag handle is only meaningful once the header
