@@ -4,7 +4,7 @@
 Consolidates session/identity controls (display name, Settings navigation, sign-out) into a single avatar-triggered popover in the app header. The theme toggle (a standalone command-bar icon) and the accent color picker (on the Settings page) are intentionally rendered outside this popover — they are quick-access and persisted-preference controls respectively, not session/identity controls, and each has its own single documented home elsewhere. See `frontend-theme-system` and `workspace-accent-color`.
 ## Requirements
 ### Requirement: Single trigger button opens user menu popover
-The app header top-right SHALL render a single trigger button (avatar image or initials fallback) that opens a popover menu when clicked. The popover consolidates session/identity controls (display name, Settings navigation, sign-out). No session/identity control SHALL appear outside this trigger. The theme toggle (command bar) and accent color picker (Settings page) are intentionally rendered outside this popover — see `frontend-theme-system` and `workspace-accent-color`.
+The app header top-right SHALL render a single trigger button (avatar image or initials fallback) that opens a popover menu when clicked. The popover consolidates session/identity controls (display name, Settings navigation, sign-out). No session/identity control SHALL appear outside this trigger. The theme toggle (Settings page's Appearance section) and accent color picker (Settings page) are intentionally rendered outside this popover — see `frontend-theme-system` and `workspace-accent-color`.
 
 #### Scenario: Trigger opens popover on click
 - **WHEN** the user clicks the avatar/initials trigger button in the top-right
@@ -15,8 +15,8 @@ The app header top-right SHALL render a single trigger button (avatar image or i
 - **THEN** display name and sign-out are only accessible inside the popover, not rendered as standalone elements in the command bar
 
 #### Scenario: Theme and accent are documented exceptions, not loose controls
-- **WHEN** the user views the app header and the Settings page
-- **THEN** the theme toggle is visible as a standalone command-bar icon and the accent color picker is visible in Settings, and neither is duplicated inside the UserMenu popover
+- **WHEN** the user views the Settings page
+- **THEN** the theme toggle and the accent color picker are both visible in the Settings page's Appearance section, and neither is duplicated inside the UserMenu popover
 
 ### Requirement: Popover dismisses on Escape key
 The popover SHALL close when the user presses the Escape key while the popover is open.

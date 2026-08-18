@@ -57,11 +57,13 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Move focus into the menu when it opens. F-082 removed the dropdown's own
-  // theme-toggle row (the top-bar icon is the single canonical theme
-  // control now — see App.tsx) and HEL-728 removed its accent-color section
-  // (accent now lives on the Settings page), so the first real menuitem
-  // varies with nothing hardcoded here; grab whichever button renders first
-  // instead of pointing a ref at a specific item.
+  // theme-toggle row and HEL-728 removed its accent-color section; HEL-745
+  // then also removed the standalone top-bar theme-toggle icon that F-082
+  // had left as the single canonical control. The theme toggle and accent
+  // picker both now live on the Settings page's Appearance section (see
+  // SettingsPage.tsx), so the first real menuitem varies with nothing
+  // hardcoded here; grab whichever button renders first instead of pointing
+  // a ref at a specific item.
   useEffect(() => {
     if (isOpen) {
       panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
@@ -149,14 +151,15 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
               </div>
               {/* F-082: the dropdown used to carry its own "Light mode" /
                   "Dark mode" row, wired to the exact same `toggleTheme` as
-                  the always-visible top-bar icon — a duplicate control one
-                  click away from a control already one click away. The
-                  top-bar icon (App.tsx) is now the single canonical theme
-                  toggle; this popover no longer renders one. HEL-728: the
-                  same reasoning applies to the "Accent color" section that
-                  used to render here — accent is a persisted, infrequently-
-                  changed preference, not a quick top-bar affordance, so it
-                  now lives on the Settings page (SettingsPage.tsx) instead. */}
+                  the then-always-visible top-bar icon — a duplicate control
+                  one click away from a control already one click away. This
+                  popover has rendered no theme-toggle control since F-082.
+                  HEL-728: the same reasoning applied to the "Accent color"
+                  section that used to render here. HEL-745: the top-bar icon
+                  itself (CommandBar.tsx) is now also gone — both the theme
+                  toggle and the accent picker live exclusively on the
+                  Settings page (SettingsPage.tsx) now, not in the command
+                  bar and not in this popover. */}
               <button
                 type="button"
                 role="menuitem"

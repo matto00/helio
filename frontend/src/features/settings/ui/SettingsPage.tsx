@@ -8,6 +8,8 @@
 // page, including sections with no dependency on it at all.
 
 import { useEffect } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
 
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AccentPicker } from "../../../shared/chrome/AccentPicker";
@@ -23,7 +25,7 @@ export function SettingsPage() {
   const dispatch = useAppDispatch();
   const preferences = useAppSelector((state) => state.settings.preferences);
   const agentMemory = useAppSelector((state) => state.settings.agentMemory);
-  const { accentColor, setAccentColor } = useTheme();
+  const { accentColor, setAccentColor, theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     void dispatch(fetchPreferences());
@@ -42,10 +44,24 @@ export function SettingsPage() {
             infrequently-changed preference belongs alongside Preferences, not
             behind a quick top-bar affordance. Immediate-apply (no Save button)
             is preserved unchanged via the same useTheme() setAccentColor the
-            command bar already uses. */}
+            command bar already uses. HEL-745: the light/dark theme toggle
+            moves here too, from a standalone CommandBar icon button -- same
+            immediate-apply, no-Save-button semantics via the same useTheme()
+            call, just relocated. Label/aria-label/title copy matches the
+            pre-F-082 UserMenu dropdown row this replaces. */}
         <section className="settings-page__section">
           <h2 className="settings-page__section-heading">Appearance</h2>
           <AccentPicker accentColor={accentColor} setAccentColor={setAccentColor} />
+          <button
+            type="button"
+            className="settings-page__theme-toggle"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            <FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />
+            {theme === "dark" ? "Light mode" : "Dark mode"}
+          </button>
         </section>
 
         <section className="settings-page__section">
