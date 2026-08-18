@@ -1,10 +1,14 @@
 # settings-preferences-ui Specification
 
 ## Purpose
-The preferences view/edit surface on the `/settings` page (reached from the account menu): default
-series colors, default panel style, and naming conventions, with an explicit-save, read-modify-write
-editing model that preserves `extras` and any editor-unexposed or non-string values it doesn't
-have a control for, rather than silently dropping or coercing them on save.
+The `/settings` page (reached from the account menu) hosts two sibling sections with distinct save
+models. The "Preferences" section is the view/edit surface for default series colors, default panel
+style, and naming conventions, with an explicit-save, read-modify-write editing model that preserves
+`extras` and any editor-unexposed or non-string values it doesn't have a control for, rather than
+silently dropping or coercing them on save. The "Appearance" section hosts the accent color picker,
+which applies immediately on selection with no explicit Save step — a separate, persisted preference
+with its own save model, kept out of the "Preferences" form's explicit-Save flow. See
+`workspace-accent-color`.
 ## Requirements
 ### Requirement: Settings page is reachable from the account menu
 The application SHALL expose a `/settings` route, reachable via a new "Settings" item in the

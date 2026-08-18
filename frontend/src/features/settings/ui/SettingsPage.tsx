@@ -10,6 +10,8 @@
 import { useEffect } from "react";
 
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { AccentPicker } from "../../../shared/chrome/AccentPicker";
+import { useTheme } from "../../../theme/ThemeProvider";
 import { fetchAgentMemory, fetchPreferences } from "../state/settingsSlice";
 import { AgentMemoryList } from "./AgentMemoryList";
 import { BetaAccessSection } from "./BetaAccessSection";
@@ -21,6 +23,7 @@ export function SettingsPage() {
   const dispatch = useAppDispatch();
   const preferences = useAppSelector((state) => state.settings.preferences);
   const agentMemory = useAppSelector((state) => state.settings.agentMemory);
+  const { accentColor, setAccentColor } = useTheme();
 
   useEffect(() => {
     void dispatch(fetchPreferences());
@@ -35,6 +38,16 @@ export function SettingsPage() {
       <h1 className="settings-page__title">Settings</h1>
 
       <div className="settings-page__sections">
+        {/* HEL-728: accent moves here from the UserMenu popover -- a persisted,
+            infrequently-changed preference belongs alongside Preferences, not
+            behind a quick top-bar affordance. Immediate-apply (no Save button)
+            is preserved unchanged via the same useTheme() setAccentColor the
+            command bar already uses. */}
+        <section className="settings-page__section">
+          <h2 className="settings-page__section-heading">Appearance</h2>
+          <AccentPicker accentColor={accentColor} setAccentColor={setAccentColor} />
+        </section>
+
         <section className="settings-page__section">
           <h2 className="settings-page__section-heading">Preferences</h2>
           {preferencesLoading && (

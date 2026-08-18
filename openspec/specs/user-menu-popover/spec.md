@@ -1,7 +1,7 @@
 # user-menu-popover Specification
 
 ## Purpose
-Consolidates all per-user controls (theme, display name, sign-out, accent color) into a single avatar-triggered popover in the app header, removing loose controls from the command bar.
+Consolidates session/identity controls (display name, Settings navigation, sign-out) into a single avatar-triggered popover in the app header. The theme toggle (a standalone command-bar icon) and the accent color picker (on the Settings page) are intentionally rendered outside this popover — they are quick-access and persisted-preference controls respectively, not session/identity controls, and each has its own single documented home elsewhere. See `frontend-theme-system` and `workspace-accent-color`.
 ## Requirements
 ### Requirement: Single trigger button opens user menu popover
 The app header top-right SHALL render a single trigger button (avatar image or initials fallback) that opens a popover menu when clicked. No per-user controls SHALL appear outside this trigger.

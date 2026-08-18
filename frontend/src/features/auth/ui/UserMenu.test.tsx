@@ -14,18 +14,11 @@ const baseUser: User = {
 function renderMenu(overrides: Partial<User> = {}) {
   const user: User = { ...baseUser, ...overrides };
   const onLogout = jest.fn();
-  const setAccentColor = jest.fn();
   const onNavigateToSettings = jest.fn();
   const utils = render(
-    <UserMenu
-      currentUser={user}
-      accentColor="#f97316"
-      setAccentColor={setAccentColor}
-      onNavigateToSettings={onNavigateToSettings}
-      onLogout={onLogout}
-    />,
+    <UserMenu currentUser={user} onNavigateToSettings={onNavigateToSettings} onLogout={onLogout} />,
   );
-  return { ...utils, onLogout, setAccentColor, onNavigateToSettings };
+  return { ...utils, onLogout, onNavigateToSettings };
 }
 
 describe("UserMenu", () => {
@@ -95,8 +88,6 @@ describe("UserMenu", () => {
     render(
       <UserMenu
         currentUser={userWithoutAvatarUrl as User}
-        accentColor="#f97316"
-        setAccentColor={jest.fn()}
         onNavigateToSettings={jest.fn()}
         onLogout={jest.fn()}
       />,
@@ -150,13 +141,6 @@ describe("UserMenu", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("renders accent color picker inside popover", () => {
-    renderMenu();
-    fireEvent.click(screen.getByRole("button", { name: "User menu" }));
-    expect(screen.getByText("Accent color")).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Accent color presets" })).toBeInTheDocument();
-  });
-
   // F-189
   it("scrim is hidden from the accessibility tree and out of the tab order", () => {
     renderMenu();
@@ -166,21 +150,21 @@ describe("UserMenu", () => {
     expect(scrim).toHaveAttribute("tabIndex", "-1");
   });
 
-  it("opens with focus on the first item (the first accent swatch) and ArrowDown moves to the next", () => {
+  it("opens with focus on the first item (Settings) and ArrowDown moves to the next", () => {
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
-    const firstSwatch = screen.getByRole("button", { name: "Orange" });
-    expect(firstSwatch).toHaveFocus();
+    const firstItem = screen.getByRole("menuitem", { name: "Settings" });
+    expect(firstItem).toHaveFocus();
 
     fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
-    const secondSwatch = screen.getByRole("button", { name: "Red" });
-    expect(secondSwatch).toHaveFocus();
+    const secondItem = screen.getByRole("menuitem", { name: "Sign out" });
+    expect(secondItem).toHaveFocus();
   });
 
   it("ArrowUp from the first item wraps focus to the last item in the menu", () => {
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
-    expect(screen.getByRole("button", { name: "Orange" })).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "Settings" })).toHaveFocus();
 
     fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowUp" });
     expect(screen.getByRole("menuitem", { name: "Sign out" })).toHaveFocus();
