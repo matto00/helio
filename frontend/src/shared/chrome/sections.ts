@@ -126,6 +126,22 @@ export const sections: SectionEntry[] = [
     label: "Review Changes",
     showInNav: false,
   },
+  // HEL-739: same "other"-picker, non-nav review-route treatment as the two
+  // entries above — without these, both routes silently fell through to the
+  // "Dashboards" default (the identical HEL-724 bug class, re-caught by the
+  // final-gate skeptic).
+  {
+    path: "/pipeline-proposals/review",
+    pickerId: "other",
+    label: "Review Pipeline Proposal",
+    showInNav: false,
+  },
+  {
+    path: "/combined-proposals/review",
+    pickerId: "other",
+    label: "Review Combined Proposal",
+    showInNav: false,
+  },
 ];
 
 /** Type guard narrowing `SectionEntry` to its nav-visible variant (icon

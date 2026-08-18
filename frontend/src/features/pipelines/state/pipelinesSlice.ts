@@ -16,6 +16,7 @@ import {
   putPipelineSchedule,
   deletePipelineSchedule as deletePipelineScheduleRequest,
 } from "../services/pipelineService";
+import { applyPipelineProposal as applyPipelineProposalRequest } from "../services/pipelineProposalService";
 import type {
   PipelineAnalyzeResponse,
   PipelineRunRecord,
@@ -24,6 +25,7 @@ import type {
   RunStatus,
 } from "../types/pipelineStep";
 import type { PipelineSchedule, PutPipelineScheduleRequest } from "../types/pipelineSchedule";
+import type { PipelineProposal, PipelineProposalApplyResponse } from "../types/pipelineProposal";
 
 /** Matches `dashboardsSlice.ts` / `sourcesSlice.ts`'s existing error-extraction
  *  pattern (design D4): the backend's `ErrorResponse(message)` always uses the
@@ -271,6 +273,29 @@ export const analyzePipeline = createAsyncThunk<
     return { pipelineId, result };
   } catch {
     return rejectWithValue("Failed to analyze pipeline.");
+  }
+});
+
+/** Apply an accepted pipeline proposal (HEL-383's existing endpoint — HEL-739
+ *  design.md D7). Mirrors `dashboardsSlice.applyProposal`'s exact
+ *  `createAsyncThunk`/`rejectWithValue`/Axios-error-unwrap shape. Unlike
+ *  `applyProposal`, no new state/reducer case is added here: the created
+ *  pipeline is not cached client-side today (`PipelinesPage`/
+ *  `PipelineDetailPage` both refetch on mount), so there's nothing for a
+ *  reducer to update. */
+export const applyPipelineProposal = createAsyncThunk<
+  PipelineProposalApplyResponse,
+  PipelineProposal,
+  { rejectValue: string }
+>("pipelines/applyPipelineProposal", async (proposal, { rejectWithValue }) => {
+  try {
+    return await applyPipelineProposalRequest(proposal);
+  } catch (err) {
+    const serverMessage =
+      isAxiosError(err) && typeof err.response?.data?.message === "string"
+        ? err.response.data.message
+        : null;
+    return rejectWithValue(serverMessage ?? "Failed to apply the pipeline proposal.");
   }
 });
 
