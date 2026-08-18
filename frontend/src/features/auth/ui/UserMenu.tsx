@@ -4,7 +4,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faGear, faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
 
 import { usePortalPopover } from "../../../hooks/usePortalPopover";
-import { AccentPicker } from "../../../shared/chrome/AccentPicker";
 import type { User } from "../types/user";
 import "../../../shared/chrome/Popover.css";
 import "./UserMenu.css";
@@ -49,27 +48,20 @@ function AvatarOrFallback({ avatarUrl, initial }: { avatarUrl: string | null; in
 
 interface UserMenuProps {
   currentUser: User;
-  accentColor: string;
-  setAccentColor: (hex: string) => void;
   onNavigateToSettings: () => void;
   onLogout: () => void;
 }
 
-export function UserMenu({
-  currentUser,
-  accentColor,
-  setAccentColor,
-  onNavigateToSettings,
-  onLogout,
-}: UserMenuProps) {
+export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMenuProps) {
   const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Move focus into the menu when it opens. F-082 removed the dropdown's own
   // theme-toggle row (the top-bar icon is the single canonical theme
-  // control now — see App.tsx), so the first real menuitem varies with
-  // nothing hardcoded here; grab whichever button renders first instead of
-  // pointing a ref at a specific item.
+  // control now — see App.tsx) and HEL-728 removed its accent-color section
+  // (accent now lives on the Settings page), so the first real menuitem
+  // varies with nothing hardcoded here; grab whichever button renders first
+  // instead of pointing a ref at a specific item.
   useEffect(() => {
     if (isOpen) {
       panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
@@ -95,10 +87,9 @@ export function UserMenu({
   // F-189: role="menu" had no arrow-key navigation — Up/Down did nothing,
   // leaving keyboard users to Tab through every item one at a time. This
   // moves real focus among every focusable button currently rendered in the
-  // popover (the 8 accent swatches, Settings, Sign out), wrapping at both
-  // ends. Tab order is left untouched (nothing gets
-  // `tabIndex={-1}`) so existing keyboard/screen-reader flows keep working
-  // exactly as before; this only adds a faster path.
+  // popover (Settings, Sign out), wrapping at both ends. Tab order is left
+  // untouched (nothing gets `tabIndex={-1}`) so existing keyboard/screen-reader
+  // flows keep working exactly as before; this only adds a faster path.
   function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
     const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
@@ -161,13 +152,11 @@ export function UserMenu({
                   the always-visible top-bar icon — a duplicate control one
                   click away from a control already one click away. The
                   top-bar icon (App.tsx) is now the single canonical theme
-                  toggle; this popover no longer renders one. */}
-              <div className="user-menu__divider" />
-              <div className="user-menu__section">
-                <span className="user-menu__section-label">Accent color</span>
-                <AccentPicker accentColor={accentColor} setAccentColor={setAccentColor} />
-              </div>
-              <div className="user-menu__divider" />
+                  toggle; this popover no longer renders one. HEL-728: the
+                  same reasoning applies to the "Accent color" section that
+                  used to render here — accent is a persisted, infrequently-
+                  changed preference, not a quick top-bar affordance, so it
+                  now lives on the Settings page (SettingsPage.tsx) instead. */}
               <button
                 type="button"
                 role="menuitem"

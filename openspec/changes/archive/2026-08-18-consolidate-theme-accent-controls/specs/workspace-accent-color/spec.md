@@ -1,8 +1,5 @@
-# workspace-accent-color Specification
+## MODIFIED Requirements
 
-## Purpose
-User-selectable accent color from a curated preset palette that updates all accent CSS tokens immediately and persists to the backend (with localStorage as a fast-restore fallback).
-## Requirements
 ### Requirement: Workspace accent color selection
 The system SHALL allow users to select an accent color from a curated set of preset swatches that
 immediately updates all accent surfaces across the application.
@@ -40,20 +37,3 @@ immediately updates all accent surfaces across the application.
 - **WHEN** the user opens the `/settings` page
 - **THEN** an "Appearance" section SHALL be visible containing the accent color picker
 - **THEN** swatches SHALL be keyboard-navigable and have accessible labels
-
-### Requirement: Derived accent token computation
-The system SHALL compute and apply all derived accent CSS variables when a color is selected, so no
-accent surface requires per-component logic.
-
-#### Scenario: All derived tokens are updated on selection
-- **WHEN** the user selects an accent color
-- **THEN** the following CSS custom properties SHALL be set on `:root`:
-  `--app-accent`, `--app-accent-strong`, `--app-accent-surface`, `--app-accent-dim`,
-  `--app-accent-mid`, `--app-bg-accent`
-- **THEN** each derived token SHALL use the appropriate opacity matching the static theme.css values
-
-#### Scenario: Reverting to default removes overrides
-- **WHEN** the user selects the default orange preset
-- **THEN** the runtime CSS variable overrides SHALL be removed or set to their default values
-- **THEN** the result SHALL be visually identical to a fresh load with no stored preference
-

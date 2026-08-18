@@ -59,7 +59,7 @@ export function CommandBar({
   const navigate = useNavigate();
   const location = useLocation();
   const { flush } = useSaveState();
-  const { theme, toggleTheme, accentColor, setAccentColor } = useTheme();
+  const { theme, toggleTheme } = useTheme();
 
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const authStatus = useAppSelector((state) => state.auth.status);
@@ -243,8 +243,6 @@ export function CommandBar({
         {authStatus === "authenticated" && currentUser !== null && (
           <UserMenu
             currentUser={currentUser}
-            accentColor={accentColor}
-            setAccentColor={setAccentColor}
             onNavigateToSettings={() => navigate("/settings")}
             onLogout={() => void handleLogout()}
           />

@@ -128,22 +128,6 @@
   color: var(--app-error);
 }
 
-.user-menu__section {
-  padding: var(--space-2) var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.user-menu__section-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-medium);
-  color: var(--app-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--eyebrow-tracking);
-}
-
 /* F-189: at phone/tablet widths the popover is reachable via touch, so its
    items must meet the 44px a11y tap minimum (DESIGN.md "Control metrics") —
    `.user-menu__item`'s padding-driven rendered height (~28px) falls well

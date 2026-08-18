@@ -6,7 +6,7 @@
 // gate on their own status independently -- one section's failure/loading
 // must never blank a sibling section that has already succeeded.
 
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import * as settingsService from "../services/settingsService";
 // HEL-702: `MfaSecuritySection` (mounted unconditionally by `SettingsPage`
@@ -115,5 +115,38 @@ describe("SettingsPage", () => {
     expect(screen.queryByLabelText("Loading preferences")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Loading agent memory")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  // HEL-728: accent moved here from the UserMenu popover -- verify the
+  // Appearance section renders independently of the Preferences/Agent-memory
+  // fetches (it reads accent from useTheme(), not from either fetch) and
+  // that selecting a swatch applies immediately, the same behavior
+  // AccentPicker.test.tsx already covers for the picker in isolation.
+  it("renders an Appearance section with the accent picker, current color selected", () => {
+    getPreferencesMock.mockReturnValueOnce(new Promise(() => {}));
+    listAgentMemoryMock.mockReturnValueOnce(new Promise(() => {}));
+    renderWithStore(<SettingsPage />);
+
+    expect(screen.getByText("Appearance")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Accent color presets" })).toBeInTheDocument();
+    // ThemeProvider's default (dark theme, no stored preference) is Orange.
+    expect(screen.getByRole("button", { name: "Orange" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("clicking an accent swatch in Appearance applies immediately, without a Save preferences click", () => {
+    getPreferencesMock.mockReturnValueOnce(new Promise(() => {}));
+    listAgentMemoryMock.mockReturnValueOnce(new Promise(() => {}));
+    renderWithStore(<SettingsPage />);
+
+    const blueSwatch = screen.getByRole("button", { name: "Blue" });
+    expect(blueSwatch).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(blueSwatch);
+
+    // Immediate-apply: the swatch reflects the new selection and the CSS
+    // token is written to :root right away -- no "Save preferences" button
+    // exists for this section, and none is clicked here.
+    expect(blueSwatch).toHaveAttribute("aria-pressed", "true");
+    expect(document.documentElement.style.getPropertyValue("--app-accent")).toBe("#3b82f6");
   });
 });
