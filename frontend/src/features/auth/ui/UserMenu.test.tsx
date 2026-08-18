@@ -112,9 +112,10 @@ describe("UserMenu", () => {
   });
 
   // F-082: the dropdown used to carry its own "Light mode"/"Dark mode" row
-  // wired to the same toggleTheme as the always-visible top-bar icon. The
-  // top-bar icon (App.tsx, not this component) is the single canonical
-  // theme control now, so the popover renders no theme item at all.
+  // wired to the same toggleTheme as the then-always-visible top-bar icon.
+  // HEL-745 removed that top-bar icon too -- the theme toggle now lives
+  // exclusively on the Settings page's Appearance section (SettingsPage.tsx,
+  // not this component), so the popover renders no theme item at all.
   it("does not render a theme-toggle control inside the popover", () => {
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));

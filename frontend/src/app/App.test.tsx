@@ -353,10 +353,12 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Move CPU Usage panel" })).toBeInTheDocument();
   });
 
-  // F-082: the theme toggle used to be duplicated (a dropdown row inside the user menu AND the
-  // standalone top-bar icon button) — the dropdown row is gone now, so this exercises the one
-  // remaining toggle.
-  it("toggles theme from the top-bar toggle button", async () => {
+  // HEL-745: F-082 had left the top-bar icon as the single canonical theme
+  // toggle; this ticket removed it too — the toggle now lives exclusively in
+  // Settings' Appearance section (see SettingsPage.test.tsx for its coverage,
+  // moved from the "toggles theme from the top-bar toggle button" test that
+  // used to live here). This test guards the command bar staying empty of it.
+  it("renders no theme-toggle button in the command bar", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
 
@@ -364,17 +366,8 @@ describe("App", () => {
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
 
-    // HEL-718: the toggle migrated onto the shared IconButton primitive —
-    // verifies its visible tooltip survived alongside the accessible name.
-    expect(screen.getByRole("button", { name: "Switch to light theme" })).toHaveAttribute(
-      "title",
-      "Switch to light theme",
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
-
-    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
-    expect(window.localStorage.getItem("helio-theme")).toBe("light");
+    expect(screen.queryByRole("button", { name: "Switch to light theme" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Switch to dark theme" })).not.toBeInTheDocument();
   });
 
   it("collapses and expands the dashboard list", async () => {
