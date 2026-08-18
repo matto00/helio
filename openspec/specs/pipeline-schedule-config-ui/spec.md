@@ -6,23 +6,26 @@ that let a user set, edit, enable/disable, and clear a pipeline's cron/interval 
 by the HEL-414 schedule CRUD routes.
 ## Requirements
 ### Requirement: Schedule bar shows current schedule state
-The pipeline detail page SHALL render a schedule bar between the bound-type bar and the river
-view, showing: "No schedule set" with a "Set schedule" button when the pipeline has no schedule,
-or the schedule's kind/expression, enabled state, and next-run time (formatted as a local
-date/time) with an "Edit schedule" button when one exists.
+The pipeline detail page's single header region SHALL show the schedule summary, compactly, on
+one line, alongside the bound-source and bound-type information: "No schedule set" when the
+pipeline has no schedule, or the schedule's kind/expression, enabled state, and next-run time
+(formatted as a local date/time) when one exists. The corresponding action — "Set schedule" when
+no schedule exists, "Edit schedule" when one does — SHALL be available as an item in the header's
+single actions menu (see `pipeline-editor-page`'s "Header actions consolidate into one menu"
+requirement), not as its own always-visible button.
 
 #### Scenario: No schedule set
 - **WHEN** `GET /api/pipelines/:id/schedule` resolves to no schedule (404)
-- **THEN** the schedule bar shows "No schedule set" and a "Set schedule" button, and no next-run
-  time is displayed
+- **THEN** the page header shows "No schedule set", the header's actions menu offers "Set
+  schedule", and no next-run time is displayed
 
 #### Scenario: Schedule exists and is enabled
 - **WHEN** the pipeline has a schedule with `enabled: true` and a non-null `nextRunAt`
-- **THEN** the schedule bar shows the schedule's expression and the next-run time
+- **THEN** the page header shows the schedule's expression and the next-run time
 
 #### Scenario: Schedule exists but has no computed next run yet
 - **WHEN** the pipeline has a schedule with `enabled: true` and `nextRunAt: null`
-- **THEN** the schedule bar shows the schedule's expression without a next-run time, and does not
+- **THEN** the page header shows the schedule's expression without a next-run time, and does not
   render an error
 
 ### Requirement: User can set a new schedule
@@ -33,13 +36,13 @@ timezone, and saving. On save, the frontend SHALL call `PUT /api/pipelines/:id/s
 #### Scenario: Interval schedule created via friendly picker
 - **WHEN** the user selects kind "interval", enters a number and unit (e.g. 15 / minutes), and
   saves
-- **THEN** `PUT /api/pipelines/:id/schedule` is called with `expression: "15m"` and the schedule
-  bar reflects the new schedule after the call resolves
+- **THEN** `PUT /api/pipelines/:id/schedule` is called with `expression: "15m"` and the header's
+  schedule section reflects the new schedule after the call resolves
 
 #### Scenario: Cron schedule created
 - **WHEN** the user selects kind "cron", enters a 5-field cron expression, and saves
-- **THEN** `PUT /api/pipelines/:id/schedule` is called with that expression and the schedule bar
-  reflects the new schedule after the call resolves
+- **THEN** `PUT /api/pipelines/:id/schedule` is called with that expression and the header's
+  schedule section reflects the new schedule after the call resolves
 
 ### Requirement: User can edit an existing schedule
 The user SHALL be able to open the schedule dialog for an existing schedule pre-filled with its
@@ -53,26 +56,27 @@ current kind, expression, enabled state, and timezone, change any field, and sav
 
 #### Scenario: Saving an edit persists the change
 - **WHEN** the user changes the expression and saves
-- **THEN** `PUT /api/pipelines/:id/schedule` is called with the updated fields and the schedule
-  bar reflects the new expression after the call resolves
+- **THEN** `PUT /api/pipelines/:id/schedule` is called with the updated fields and the header's
+  schedule section reflects the new expression after the call resolves
 
 ### Requirement: User can enable or disable a schedule
-The schedule bar and dialog SHALL each provide a way to toggle `enabled` without altering the
-`kind`/`expression`/`timezone` fields, persisted via `PUT /api/pipelines/:id/schedule`.
+The page header and the schedule dialog SHALL each provide a way to toggle `enabled` without
+altering the `kind`/`expression`/`timezone` fields, persisted via
+`PUT /api/pipelines/:id/schedule`.
 
-#### Scenario: Disabling from the bar
-- **WHEN** the user toggles the enabled control on the schedule bar
+#### Scenario: Disabling from the header
+- **WHEN** the user toggles the enabled control in the page header's schedule section
 - **THEN** `PUT /api/pipelines/:id/schedule` is called with `enabled: false` and the same
   `kind`/`expression`/`timezone` as before
 
 ### Requirement: User can clear a schedule
 The schedule dialog SHALL provide a "Clear schedule" action that calls
-`DELETE /api/pipelines/:id/schedule`. After a successful delete, the schedule bar SHALL return to
-the "No schedule set" state.
+`DELETE /api/pipelines/:id/schedule`. After a successful delete, the page header's schedule
+section SHALL return to the "No schedule set" state.
 
 #### Scenario: Clearing an existing schedule
 - **WHEN** the user clicks "Clear schedule" in the dialog for a pipeline with an existing schedule
-- **THEN** `DELETE /api/pipelines/:id/schedule` is called and, after it resolves, the schedule bar
+- **THEN** `DELETE /api/pipelines/:id/schedule` is called and, after it resolves, the page header
   shows "No schedule set"
 
 ### Requirement: Invalid expressions and timezones are surfaced inline
@@ -92,11 +96,13 @@ close the dialog or clear the user's entered values.
 - **THEN** the backend's error message is displayed inline in the dialog
 
 ### Requirement: Backward compatible — no schedule renders as today
-Pipelines without a schedule SHALL render the pipeline editor exactly as before this change,
-aside from the added schedule bar's "No schedule set" state.
+Pipelines without a schedule SHALL render the pipeline editor's header and footer regions exactly
+as they render for a pipeline with a schedule, aside from the schedule section itself showing
+"No schedule set" instead of an expression/next-run summary.
 
 #### Scenario: Existing editor layout unaffected
 - **WHEN** a pipeline with no schedule is opened in the editor
-- **THEN** the bound-source bar, bound-type bar, river view, and footer render unchanged, and the
-  schedule bar shows only "No schedule set" with a "Set schedule" button
+- **THEN** the single header region, river view, and single footer region render exactly as they
+  would for a pipeline with a schedule, and the header's schedule section shows only
+  "No schedule set", with "Set schedule" available as an item in the header's actions menu
 

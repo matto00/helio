@@ -1,3 +1,8 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: Edit Type button is ownership-gated`
+- TO: `### Requirement: Edit Type action is ownership-gated`
+
 ## MODIFIED Requirements
 
 ### Requirement: Pipeline detail page renders at /pipelines/:id
@@ -86,6 +91,35 @@ SHALL NOT appear in the menu.
 - **WHEN** the user opens the header's actions menu and activates "Edit type"
 - **THEN** `dataTypes.selectedTypeId` is set to the output DataType's id and the app navigates to `/registry`
 
+### Requirement: PipelineDetailPage shows persistent last-run metadata bar
+The page footer SHALL display the persisted last-run information from `currentPipeline`:
+relative timestamp, row count (locale-formatted), and status badge. This information SHALL
+appear only when `currentPipeline.lastRunAt` is non-null, as part of the single footer region
+(not a separate bar). When `lastRunAt` is null, no last-run information is shown in the footer
+and no "Never run" placeholder is shown (the never-run state is communicated in the list view).
+
+#### Scenario: Last-run metadata is visible when pipeline has run
+- **WHEN** `currentPipeline.lastRunAt` is a non-null ISO-8601 string
+- **THEN** the footer shows the relative timestamp, row count, and status, accessible via a "Last run metadata" label
+
+#### Scenario: Last-run metadata is absent when pipeline has never run
+- **WHEN** `currentPipeline.lastRunAt` is null
+- **THEN** no last-run metadata element is rendered in the footer
+
+#### Scenario: Last-run metadata shows relative timestamp
+- **WHEN** the footer's last-run metadata is rendered
+- **THEN** the last-run time is displayed in relative format (e.g. "2 hours ago")
+
+#### Scenario: Last-run metadata shows row count
+- **WHEN** `currentPipeline.lastRunRowCount` is non-null
+- **THEN** the count is shown with locale formatting (e.g. "4,200 rows")
+
+#### Scenario: Last-run metadata shows status badge
+- **WHEN** `currentPipeline.lastRunStatus` is "succeeded" or "failed"
+- **THEN** the appropriate status badge is rendered in the footer's last-run metadata
+
+## ADDED Requirements
+
 ### Requirement: Header actions consolidate into one menu
 The page header SHALL expose exactly one action-menu trigger button (not one button per action)
 for its per-field edit actions. The menu SHALL be built from the existing `ActionsMenu` shared
@@ -118,30 +152,3 @@ as their own always-visible buttons.
 #### Scenario: Run history, Preview, and Share collapse into the overflow menu
 - **WHEN** the current user owns the pipeline (Share available) and opens the footer's "More actions" menu
 - **THEN** "Run history", "Preview", and "Share" are listed as menu items, and none of the three renders as its own always-visible button
-
-### Requirement: PipelineDetailPage shows persistent last-run metadata bar
-The page footer SHALL display the persisted last-run information from `currentPipeline`:
-relative timestamp, row count (locale-formatted), and status badge. This information SHALL
-appear only when `currentPipeline.lastRunAt` is non-null, as part of the single footer region
-(not a separate bar). When `lastRunAt` is null, no last-run information is shown in the footer
-and no "Never run" placeholder is shown (the never-run state is communicated in the list view).
-
-#### Scenario: Last-run metadata is visible when pipeline has run
-- **WHEN** `currentPipeline.lastRunAt` is a non-null ISO-8601 string
-- **THEN** the footer shows the relative timestamp, row count, and status, accessible via a "Last run metadata" label
-
-#### Scenario: Last-run metadata is absent when pipeline has never run
-- **WHEN** `currentPipeline.lastRunAt` is null
-- **THEN** no last-run metadata element is rendered in the footer
-
-#### Scenario: Last-run metadata shows relative timestamp
-- **WHEN** the footer's last-run metadata is rendered
-- **THEN** the last-run time is displayed in relative format (e.g. "2 hours ago")
-
-#### Scenario: Last-run metadata shows row count
-- **WHEN** `currentPipeline.lastRunRowCount` is non-null
-- **THEN** the count is shown with locale formatting (e.g. "4,200 rows")
-
-#### Scenario: Last-run metadata shows status badge
-- **WHEN** `currentPipeline.lastRunStatus` is "succeeded" or "failed"
-- **THEN** the appropriate status badge is rendered in the footer's last-run metadata
