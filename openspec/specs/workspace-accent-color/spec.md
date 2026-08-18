@@ -37,8 +37,8 @@ immediately updates all accent surfaces across the application.
 - **THEN** the accent color is updated to the backend value regardless of what is in localStorage
 
 #### Scenario: Accent color picker entry point is accessible
-- **WHEN** the user opens the UserMenu popover
-- **THEN** an accent color picker section SHALL be visible within the popover
+- **WHEN** the user opens the `/settings` page
+- **THEN** an "Appearance" section SHALL be visible containing the accent color picker
 - **THEN** swatches SHALL be keyboard-navigable and have accessible labels
 
 ### Requirement: Derived accent token computation
