@@ -33,6 +33,19 @@ const ProposalReviewPage = lazy(() =>
   })),
 );
 
+// HEL-739 — same rationale as `ProposalReviewPage` above: reached only from `ProposalHandoff`'s
+// "Review proposal" hand-off, not on any other route's critical path.
+const PipelineProposalReviewPage = lazy(() =>
+  import("../features/pipelines/ui/PipelineProposalReviewPage").then((m) => ({
+    default: m.PipelineProposalReviewPage,
+  })),
+);
+const CombinedProposalReviewPage = lazy(() =>
+  import("../features/proposals/ui/CombinedProposalReviewPage").then((m) => ({
+    default: m.CombinedProposalReviewPage,
+  })),
+);
+
 /** Rendered for any route that doesn't match a real page — including while
  * unauthenticated, so it never depends on `AppShell`/auth context (design.md
  * D-shell). Replaces the previous silent `<Navigate to="/" />` redirect
@@ -91,6 +104,22 @@ export function AppRoutes() {
             }
           />
           <Route path="/patch-sets/review" element={<PatchSetReviewPage />} />
+          <Route
+            path="/pipeline-proposals/review"
+            element={
+              <Suspense fallback={<PageSuspenseFallback />}>
+                <PipelineProposalReviewPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/combined-proposals/review"
+            element={
+              <Suspense fallback={<PageSuspenseFallback />}>
+                <CombinedProposalReviewPage />
+              </Suspense>
+            }
+          />
         </Route>
       </Route>
 

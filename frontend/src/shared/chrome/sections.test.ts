@@ -22,9 +22,21 @@ describe("sections registry", () => {
     { path: "/settings", label: "Settings", pickerId: "other", showInNav: false },
     { path: "/proposals/review", label: "Review Proposal", pickerId: "other", showInNav: false },
     { path: "/patch-sets/review", label: "Review Changes", pickerId: "other", showInNav: false },
+    {
+      path: "/pipeline-proposals/review",
+      label: "Review Pipeline Proposal",
+      pickerId: "other",
+      showInNav: false,
+    },
+    {
+      path: "/combined-proposals/review",
+      label: "Review Combined Proposal",
+      pickerId: "other",
+      showInNav: false,
+    },
   ];
 
-  it("lists all 9 routes with their expected {label, pickerId, showInNav}", () => {
+  it("lists all 11 routes with their expected {label, pickerId, showInNav}", () => {
     expect(
       sections.map((section) => ({
         path: section.path,
@@ -58,15 +70,28 @@ describe("sections registry", () => {
     expect(navVisible).toHaveLength(6);
   });
 
-  // The direct fix for the "review routes had no section" bug (PR #382) —
-  // these three used to all silently fall through `breadcrumbLabel`'s
-  // default case to "Dashboards".
-  it("gives /settings, /proposals/review, and /patch-sets/review each a distinct, non-'Dashboards' label", () => {
-    const otherLabels = ["/settings", "/proposals/review", "/patch-sets/review"].map((path) =>
-      sectionLabel(path),
-    );
-    expect(otherLabels).toEqual(["Settings", "Review Proposal", "Review Changes"]);
-    expect(new Set(otherLabels).size).toBe(3);
+  // The direct fix for the "review routes had no section" bug (PR #382) — these three used to all
+  // silently fall through `breadcrumbLabel`'s default case to "Dashboards". HEL-739 reintroduced
+  // the identical bug for its two new review routes (final-gate skeptic REFUTE, round 1); extended
+  // here to guard all five "other"-picker routes, not just the original three.
+  const OTHER_PICKER_PATHS = [
+    "/settings",
+    "/proposals/review",
+    "/patch-sets/review",
+    "/pipeline-proposals/review",
+    "/combined-proposals/review",
+  ];
+
+  it("gives each 'other'-picker route a distinct, non-'Dashboards' label", () => {
+    const otherLabels = OTHER_PICKER_PATHS.map((path) => sectionLabel(path));
+    expect(otherLabels).toEqual([
+      "Settings",
+      "Review Proposal",
+      "Review Changes",
+      "Review Pipeline Proposal",
+      "Review Combined Proposal",
+    ]);
+    expect(new Set(otherLabels).size).toBe(OTHER_PICKER_PATHS.length);
     for (const label of otherLabels) {
       expect(label).not.toBe("Dashboards");
     }

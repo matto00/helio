@@ -1,5 +1,6 @@
 import {
   analyzePipeline,
+  applyPipelineProposal,
   createPipeline,
   deletePipelineSchedule,
   fetchPipelineById,
@@ -14,8 +15,10 @@ import {
   updatePipeline,
 } from "./pipelinesSlice";
 import * as pipelineService from "../services/pipelineService";
+import * as pipelineProposalService from "../services/pipelineProposalService";
 import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../types/pipelineStep";
 import type { PipelineSchedule } from "../types/pipelineSchedule";
+import type { PipelineProposal, PipelineProposalApplyResponse } from "../types/pipelineProposal";
 import type { RootState } from "../../../store/store";
 
 jest.mock("../services/pipelineService", () => ({
@@ -31,6 +34,9 @@ jest.mock("../services/pipelineService", () => ({
   putPipelineSchedule: jest.fn(),
   deletePipelineSchedule: jest.fn(),
 }));
+jest.mock("../services/pipelineProposalService", () => ({
+  applyPipelineProposal: jest.fn(),
+}));
 
 const getPipelinesMock = jest.mocked(pipelineService.getPipelines);
 const createPipelineMock = jest.mocked(pipelineService.createPipeline);
@@ -43,6 +49,7 @@ const analyzePipelineMock = jest.mocked(pipelineService.analyzePipeline);
 const getPipelineScheduleMock = jest.mocked(pipelineService.getPipelineSchedule);
 const putPipelineScheduleMock = jest.mocked(pipelineService.putPipelineSchedule);
 const deletePipelineScheduleMock = jest.mocked(pipelineService.deletePipelineSchedule);
+const applyPipelineProposalMock = jest.mocked(pipelineProposalService.applyPipelineProposal);
 
 const testPipeline = {
   id: "p-1",
@@ -1146,5 +1153,61 @@ describe("selectPipelineNameByOutputTypeId", () => {
 
   it("returns an empty map when there are no pipelines", () => {
     expect(selectPipelineNameByOutputTypeId(stateWith([])).size).toBe(0);
+  });
+});
+
+// ── HEL-739 tasks.md 6.6 — applyPipelineProposal thunk ───────────────────────
+
+const sampleProposal: PipelineProposal = {
+  pipelineName: "Demo pipeline",
+  source: { type: "static", name: "Demo source", config: {} },
+  outputDataTypeName: "Demo output",
+  steps: [],
+};
+
+const sampleApplyResponse: PipelineProposalApplyResponse = {
+  pipeline: newPipeline,
+  outputDataTypeId: "dt-raw",
+  run: { rows: [], rowCount: 0 },
+};
+
+describe("applyPipelineProposal thunk", () => {
+  beforeEach(() => {
+    applyPipelineProposalMock.mockReset();
+  });
+
+  it("dispatches fulfilled with the apply response on success", async () => {
+    applyPipelineProposalMock.mockResolvedValueOnce(sampleApplyResponse);
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = applyPipelineProposal(sampleProposal);
+
+    await thunk(dispatch, getState, undefined);
+
+    expect(applyPipelineProposalMock).toHaveBeenCalledWith(sampleProposal);
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "pipelines/applyPipelineProposal/fulfilled",
+    );
+    expect(fulfilledCall).toBeDefined();
+    expect(fulfilledCall?.[0].payload).toEqual(sampleApplyResponse);
+  });
+
+  it("dispatches rejected on service error", async () => {
+    applyPipelineProposalMock.mockRejectedValueOnce(new Error("server error"));
+
+    const dispatch = jest.fn();
+    const getState = jest.fn();
+    const thunk = applyPipelineProposal(sampleProposal);
+
+    await thunk(dispatch, getState, undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const rejectedCall = calls.find(
+      ([action]) => action.type === "pipelines/applyPipelineProposal/rejected",
+    );
+    expect(rejectedCall).toBeDefined();
+    expect(rejectedCall?.[0].payload).toBe("Failed to apply the pipeline proposal.");
   });
 });

@@ -54,13 +54,3 @@
 .proposal-handoff__action:hover {
   background: var(--app-accent-strong);
 }
-
-/* pipeline | combined — no accent, purely informational (accent stays scarce/solid per DESIGN.md §0). */
-.proposal-handoff--info {
-  background: var(--app-surface-soft);
-  border-color: var(--app-border-subtle);
-}
-
-.proposal-handoff--info .proposal-handoff__icon {
-  color: var(--app-text-muted);
-}

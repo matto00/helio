@@ -5,6 +5,8 @@ import { ProposalHandoff } from "./ProposalHandoff";
 import type { AssistantProposalExtraction } from "../proposalExtraction";
 import type { DashboardProposal } from "../../dashboards/types/proposal";
 import type { PatchSet } from "../../patchSets/types/patchSet";
+import type { PipelineProposal } from "../../pipelines/types/pipelineProposal";
+import type { CombinedProposal } from "../../proposals/types/combinedProposal";
 
 /** Renders the exact router state a navigation carried, mirroring
  * `AuthoringChatDrawer.test.tsx`'s `ReviewRouteProbe` pattern -- asserts the byte-identical shape
@@ -21,6 +23,8 @@ function renderAt(extraction: AssistantProposalExtraction) {
         <Route path="/" element={<ProposalHandoff extraction={extraction} />} />
         <Route path="/proposals/review" element={<RouteProbe />} />
         <Route path="/patch-sets/review" element={<RouteProbe />} />
+        <Route path="/pipeline-proposals/review" element={<RouteProbe />} />
+        <Route path="/combined-proposals/review" element={<RouteProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -71,17 +75,56 @@ describe("ProposalHandoff", () => {
     expect(state.patchSet).toEqual(patchSet);
   });
 
-  // tasks.md 5.8 — a successful propose_pipeline/propose_combined result renders the
-  // informational notice with no navigation action.
-  it.each(["pipeline", "combined"] as const)(
-    "renders an informational notice with no navigation action for kind=%s",
-    (kind) => {
-      renderAt({ kind, input: {} });
+  // HEL-739 tasks.md 5.1/6.5 — a successful propose_pipeline result now renders a working
+  // "Review proposal" action navigating to /pipeline-proposals/review with the parsed
+  // PipelineProposal in router state, replacing the former informational-only fallback card.
+  it("navigates to /pipeline-proposals/review with the parsed PipelineProposal on Review proposal", () => {
+    const proposal: PipelineProposal = {
+      pipelineName: "Sales pipeline",
+      source: { sourceId: "src-1" },
+      outputDataTypeName: "SalesMetrics",
+      steps: [{ type: "rename", config: {} }],
+    };
 
-      expect(
-        screen.getByText("This proposal type doesn't have a review page yet."),
-      ).toBeInTheDocument();
-      expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    },
-  );
+    renderAt({ kind: "pipeline", input: proposal });
+
+    expect(screen.getByText("Proposal ready")).toBeInTheDocument();
+    expect(screen.getByText("Sales pipeline · 1 step")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Review proposal" }));
+
+    const state = JSON.parse(screen.getByTestId("route-probe").textContent ?? "null") as {
+      proposal: PipelineProposal;
+    };
+    expect(state.proposal).toEqual(proposal);
+  });
+
+  // HEL-739 tasks.md 5.1/6.5 — same coverage for a successful propose_combined result, navigating
+  // to /combined-proposals/review with the parsed CombinedProposal in router state.
+  it("navigates to /combined-proposals/review with the parsed CombinedProposal on Review proposal", () => {
+    const proposal: CombinedProposal = {
+      pipeline: {
+        pipelineName: "Sales pipeline",
+        source: { type: "static", name: "Demo source", config: {} },
+        outputDataTypeName: "SalesMetrics",
+        steps: [],
+      },
+      dashboard: {
+        dashboardName: "Sales overview",
+        panels: [{ title: "Total", type: "metric", dataTypeId: "$pipelineOutput" }],
+      },
+    };
+
+    renderAt({ kind: "combined", input: proposal });
+
+    expect(screen.getByText("Proposal ready")).toBeInTheDocument();
+    expect(screen.getByText("Sales pipeline → Sales overview")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Review proposal" }));
+
+    const state = JSON.parse(screen.getByTestId("route-probe").textContent ?? "null") as {
+      proposal: CombinedProposal;
+    };
+    expect(state.proposal).toEqual(proposal);
+  });
 });
