@@ -5,7 +5,7 @@ import {
   faArrowRotateLeft,
   faArrowRotateRight,
   faComments,
-  faCommentDots,
+  faWandMagicSparkles,
   faSun,
   faMoon,
 } from "@fortawesome/free-solid-svg-icons";
@@ -213,7 +213,7 @@ export function CommandBar({
             aria-label="Refine this dashboard with AI"
             title="Refine with AI"
           >
-            <FontAwesomeIcon icon={faCommentDots} />
+            <FontAwesomeIcon icon={faWandMagicSparkles} />
           </button>
         )}
         {/* Quick-launcher trigger (design.md D7) -- mirrors the theme-toggle button's exact

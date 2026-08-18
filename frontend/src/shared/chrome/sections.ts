@@ -1,5 +1,12 @@
 import type { LucideIcon } from "lucide-react";
-import { BookOpen, Database, Gauge, LayoutDashboard, MessageSquare, Workflow } from "lucide-react";
+import {
+  BookOpen,
+  ChartNoAxesColumn,
+  Database,
+  LayoutDashboard,
+  MessageCircle,
+  Workflow,
+} from "lucide-react";
 
 /** Which picker/list a route belongs to — the same narrow union
  * `SidebarBody`'s old `sectionFromPathname` returned. Says *which* section's
@@ -89,7 +96,7 @@ export const sections: SectionEntry[] = [
     path: "/metrics",
     pickerId: "metrics",
     label: "Metrics",
-    icon: Gauge,
+    icon: ChartNoAxesColumn,
     showInNav: true,
   },
   {
@@ -100,7 +107,7 @@ export const sections: SectionEntry[] = [
     // route path (/chat) is unchanged.
     pickerId: "chat",
     label: "Assistant",
-    icon: MessageSquare,
+    icon: MessageCircle,
     showInNav: true,
   },
   // HEL-724: these three routes are real, distinct chrome destinations, not
