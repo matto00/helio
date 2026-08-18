@@ -1,5 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSliders } from "@fortawesome/free-solid-svg-icons";
 
 import { updateDashboardAppearance } from "../state/dashboardsSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -271,12 +273,13 @@ export function DashboardAppearanceEditor({
       <button
         ref={triggerRef}
         type="button"
-        className="popover__trigger dashboard-appearance-editor__trigger"
+        className="cmd-btn cmd-btn--icon"
         onClick={handleToggle}
         aria-expanded={isOpen}
         aria-label="Customize dashboard appearance"
+        title="Customize dashboard appearance"
       >
-        <span className="dashboard-appearance-editor__trigger-copy">Customize dashboard</span>
+        <FontAwesomeIcon icon={faSliders} />
       </button>
       {panel}
     </div>

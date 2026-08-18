@@ -2,23 +2,6 @@
   z-index: 4;
 }
 
-/* F-199: overrides `.popover__trigger`'s default pill radius so this button
-   matches the command bar's square (--app-radius-sm) corner language instead
-   of sitting as a pill between the Undo/Redo button group — same compound-
-   selector override pattern as `.panel-grid-card__actions .actions-menu__trigger`
-   in PanelGrid.css. */
-.dashboard-appearance-editor__trigger {
-  padding: 4px 10px;
-  border-radius: var(--app-radius-sm);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--app-text-muted);
-}
-
-.dashboard-appearance-editor__trigger-copy {
-  font-weight: var(--weight-semibold);
-}
-
 .dashboard-appearance-editor__header {
   display: flex;
   align-items: center;
