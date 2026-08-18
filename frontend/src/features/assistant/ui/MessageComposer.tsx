@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import "./MessageComposer.css";
 import { Textarea } from "../../../shared/ui/Textarea";
@@ -65,13 +65,49 @@ interface MessageComposerProps {
  *  retries. On submit: reuse `pendingSend.key` iff the preserved text still matches the trimmed
  *  input exactly (a same-text retry after a failure); otherwise mint a fresh `crypto.randomUUID()`
  *  (a previous send succeeded -- `pendingSend` was cleared -- or the text was edited). Cleared only
- *  on success, so a failed send's key survives into its retry. */
+ *  on success, so a failed send's key survives into its retry.
+ *
+ *  Reset-on-switch (HEL-711 design.md D1/D2): the component is never remounted across an ordinary
+ *  conversation switch (HEL-695's F-021 fix keeps it the stable last child of
+ *  `ActiveConversationPanel`'s content tree), so without an explicit reset a draft typed in
+ *  conversation A would still be sitting in the composer after switching to B. A
+ *  `useEffect([conversationId])` clears `message`/`error`/`pendingSend` whenever `conversationId`
+ *  changes to a value the component did not itself just create -- EXCEPT for the one self-created
+ *  transition: when the null-conversation send path above creates a conversation and dispatches
+ *  `setSelectedConversationId(targetId)` mid-`handleSubmit`, `conversationId` flips from `null` to
+ *  `targetId` as a side effect of the in-flight send, not a user-initiated switch, and resetting on
+ *  that transition would wipe the send's own `pendingSend`/`message` state out from under it
+ *  (regressing HEL-695's continuous-sending-indication fix). `selfCreatedIdRef` marks that one-shot
+ *  exception; `prevConversationIdRef` lets the effect distinguish a genuine id change from a
+ *  same-id re-render. */
 export function MessageComposer({ conversationId }: MessageComposerProps) {
   const dispatch = useAppDispatch();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingSend, setPendingSend] = useState<{ key: string; text: string } | null>(null);
+  // HEL-711 design.md D2 -- the last `conversationId` seen, so the reset effect below can tell a
+  // genuine change from a same-id re-render.
+  const prevConversationIdRef = useRef(conversationId);
+  // HEL-711 design.md D2 -- one-shot marker for the self-created-conversation transition (set just
+  // before `setSelectedConversationId` is dispatched in the null-conversation branch below); the
+  // reset effect consumes (nulls out) it instead of clearing state when `conversationId` matches.
+  const selfCreatedIdRef = useRef<string | null>(null);
+
+  // HEL-711 -- clears the draft/error/pending-send state on an ordinary conversation switch, but
+  // skips the reset for the one transition the composer caused itself (see doc comment above).
+  useEffect(() => {
+    if (conversationId !== prevConversationIdRef.current) {
+      if (conversationId !== null && conversationId === selfCreatedIdRef.current) {
+        selfCreatedIdRef.current = null;
+      } else {
+        setMessage("");
+        setError(null);
+        setPendingSend(null);
+      }
+      prevConversationIdRef.current = conversationId;
+    }
+  }, [conversationId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,6 +129,10 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
         // without this, a conversation started from the empty-state/new-chat composer never shows
         // up in the sidebar until the next full page load.
         dispatch(conversationCreated(created));
+        // HEL-711 design.md D2 -- set immediately before the dispatch below flips `conversationId`
+        // from `null` to `targetId`, so the reset effect recognizes this as the composer's own
+        // self-created transition and skips clearing this in-flight send's state.
+        selfCreatedIdRef.current = targetId;
         dispatch(setSelectedConversationId(targetId));
       }
       await dispatch(converse({ id: targetId, message: trimmed, idempotencyKey })).unwrap();
