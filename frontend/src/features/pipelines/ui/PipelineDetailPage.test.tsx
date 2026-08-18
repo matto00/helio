@@ -33,6 +33,7 @@ import {
   reorderPipelineSteps,
   updatePipelineStepEnabled,
   duplicatePipelineStep,
+  listPipelinePermissions,
 } from "../services/pipelineService";
 import type {
   PipelineAnalyzeResponse,
@@ -63,6 +64,11 @@ jest.mock("../services/pipelineService", () => ({
   reorderPipelineSteps: jest.fn(),
   updatePipelineStepEnabled: jest.fn(),
   duplicatePipelineStep: jest.fn(),
+  // HEL-719: needed once the relocated Share button is actually opened —
+  // PipelineShareDialog fetches grants when `open` flips true.
+  listPipelinePermissions: jest.fn(),
+  grantPipelinePermission: jest.fn(),
+  revokePipelinePermission: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
@@ -83,6 +89,7 @@ const expandPipelineShapeMock = jest.mocked(expandPipelineShape);
 const reorderPipelineStepsMock = jest.mocked(reorderPipelineSteps);
 const updatePipelineStepEnabledMock = jest.mocked(updatePipelineStepEnabled);
 const duplicatePipelineStepMock = jest.mocked(duplicatePipelineStep);
+const listPipelinePermissionsMock = jest.mocked(listPipelinePermissions);
 
 /** Minimal AxiosError-shaped rejection, matching `pipelinesSlice.ts`'s
  *  `isAxiosError` guard (design D4/D5). */
@@ -142,6 +149,11 @@ function makeStore(
   sourcesItems: SourceItem[] = [],
   pipelinesState: PipelinesPreloadedState = {},
   dataTypesItems: DataType[] = [],
+  // HEL-719: the relocated (owner-only) Share button needs a signed-in
+  // `auth.currentUser` whose id matches `currentPipeline.ownerId` — every
+  // other test in this file leaves this unset (isOwner stays false, matching
+  // `authSlice`'s `currentUser: null` initial state) and is unaffected.
+  authCurrentUserId?: string,
 ) {
   return configureStore({
     reducer: {
@@ -155,6 +167,23 @@ function makeStore(
       toasts: toastsReducer,
     } as never,
     preloadedState: {
+      ...(authCurrentUserId !== undefined
+        ? {
+            auth: {
+              currentUser: {
+                id: authCurrentUserId,
+                email: "owner@test.com",
+                displayName: null,
+                avatarUrl: null,
+                createdAt: "",
+                tier: "free" as const,
+              },
+              status: "authenticated" as const,
+              submitStatus: "idle" as const,
+              mfaChallenge: null,
+            },
+          }
+        : {}),
       sources: {
         items: sourcesItems,
         status: "succeeded" as const,
@@ -217,6 +246,27 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
       </ThemeProvider>
     </MemoryRouter>,
   );
+}
+
+/** design.md D7 (scope amendment): "Run history"/"Preview"/"Share" moved
+ *  behind the footer's "More actions" `ActionsMenu` — open it before
+ *  querying for one of their `menuitem`s. */
+function openMoreActionsMenu() {
+  fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+}
+
+/** Opens the footer's overflow menu and activates "Run history" — the direct
+ *  replacement for the pre-amendment `getByRole("button", { name: /Open run
+ *  history/i })` click used throughout this file's run-history scenarios. */
+function openRunHistory() {
+  openMoreActionsMenu();
+  fireEvent.click(screen.getByRole("menuitem", { name: "Run history" }));
+}
+
+/** design.md D5 (scope amendment): "Edit source"/"Edit type"/"Edit schedule"/
+ *  "Set schedule" moved behind the header's "Pipeline actions" `ActionsMenu`. */
+function openPipelineActionsMenu() {
+  fireEvent.click(screen.getByRole("button", { name: "Pipeline actions" }));
 }
 
 describe("PipelineDetailPage", () => {
@@ -1025,11 +1075,15 @@ describe("PipelineDetailPage", () => {
     expect(screen.queryByLabelText(/Run status/)).not.toBeInTheDocument();
   });
 
-  it("run history button shows empty count when no runs", () => {
+  it("run history menu item is reachable when there are no runs yet", () => {
+    // design.md D7 (scope amendment): the overflow menu's "Run history" item
+    // no longer carries a run-count suffix (ActionsMenuItem has no separate
+    // aria-label field, so its label is both the visible text and the
+    // accessible name) — this now just confirms the item still renders (not
+    // conditionally hidden) when the pipeline has zero runs.
     renderDetailPage();
-    expect(screen.getByRole("button", { name: /Open run history/i })).toHaveTextContent(
-      /Run history\s*\(0\)/i,
-    );
+    openMoreActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
   });
 
   it("run history modal shows runs from store after opening", () => {
@@ -1046,7 +1100,7 @@ describe("PipelineDetailPage", () => {
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    openRunHistory();
     expect(screen.getByText("42 rows")).toBeInTheDocument();
   });
 
@@ -1064,7 +1118,7 @@ describe("PipelineDetailPage", () => {
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    openRunHistory();
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });
 
@@ -1082,7 +1136,7 @@ describe("PipelineDetailPage", () => {
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    openRunHistory();
     expect(screen.getByText("Scheduled")).toBeInTheDocument();
   });
 
@@ -1100,7 +1154,7 @@ describe("PipelineDetailPage", () => {
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    openRunHistory();
     fireEvent.click(screen.getByRole("button", { name: "Show log" }));
     expect(screen.getByText("out of memory error")).toBeInTheDocument();
   });
@@ -1175,6 +1229,72 @@ describe("PipelineDetailPage", () => {
     // Meta bar is present (lastRunAt is non-null) but row-count item is absent
     expect(screen.getByLabelText("Last run metadata")).toBeInTheDocument();
     expect(screen.queryByText("Rows written:")).not.toBeInTheDocument();
+  });
+});
+
+// ── HEL-719 — Share moved into the footer's "More actions" overflow menu ───
+
+describe("PipelineDetailPage footer — Share menu item (HEL-719, design.md D7)", () => {
+  const ownedPipeline: PipelineSummary = { ...defaultPipeline, ownerId: "user-1" };
+
+  beforeEach(() => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    getPipelineByIdMock.mockResolvedValue(ownedPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+    listPipelinePermissionsMock.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("is present in the overflow menu when the current user owns the pipeline", () => {
+    const store = makeStore([], { currentPipeline: ownedPipeline }, [], "user-1");
+    renderDetailPage("pipe-1", store);
+    openMoreActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Share" })).toBeInTheDocument();
+  });
+
+  it("is absent from the overflow menu when the current user does not own the pipeline", () => {
+    const store = makeStore([], { currentPipeline: ownedPipeline }, [], "someone-else");
+    renderDetailPage("pipe-1", store);
+    openMoreActionsMenu();
+    expect(screen.queryByRole("menuitem", { name: "Share" })).not.toBeInTheDocument();
+  });
+
+  it("opens the share dialog when activated", () => {
+    const store = makeStore([], { currentPipeline: ownedPipeline }, [], "user-1");
+    renderDetailPage("pipe-1", store);
+    openMoreActionsMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Share" }));
+    expect(screen.getByRole("dialog", { name: /share/i })).toBeInTheDocument();
+  });
+});
+
+// ── Task 8.2/8.3 — footer's pinned vs. overflow action split (design.md D7) ─
+
+describe("PipelineDetailPage footer — pinned actions + overflow menu (design.md D7)", () => {
+  it("Dry run and Run pipeline are plain, always-visible buttons — not inside any menu", () => {
+    renderDetailPage();
+    expect(screen.getByRole("button", { name: "Dry run" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
+  });
+
+  it("Run history and Preview are not always-visible buttons — reachable only via the overflow menu", () => {
+    renderDetailPage();
+    expect(screen.queryByRole("button", { name: "Run history" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+    openMoreActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
+  });
+
+  it("activating 'Preview' from the overflow menu opens the pipeline preview modal", () => {
+    renderDetailPage();
+    openMoreActionsMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Preview" }));
+    expect(screen.getByRole("dialog", { name: /preview/i })).toBeInTheDocument();
   });
 });
 
@@ -2016,7 +2136,7 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
     };
     const store = makeStore([], { runHistory: { "pipe-1": [dryRun] } });
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    openRunHistory();
     // HEL sweep F-137: the run-history status badge is now the shared
     // `StatusChip` primitive (`.ui-status-chip--neutral.ui-status-chip--
     // dashed`), not the bespoke `.run-history-modal__status--dry_run` class.
@@ -2155,7 +2275,7 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    openRunHistory();
     // HEL sweep F-137: shared `StatusChip` primitive, accent intent.
     const badge = screen.getByText("Running…");
     expect(badge).toHaveClass("ui-status-chip", "ui-status-chip--accent");
@@ -2176,7 +2296,7 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
     };
     const store = makeStore([], { runHistory: { "pipe-1": [run] } });
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: /Open run history/i }));
+    openRunHistory();
     // HEL sweep F-137: shared `StatusChip` primitive, accent intent.
     const badge = screen.getByText("Queued…");
     expect(badge).toHaveClass("ui-status-chip", "ui-status-chip--accent");
@@ -2237,59 +2357,66 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     jest.clearAllMocks();
   });
 
-  it("Edit Source button is visible when the bound source is in sources.items", () => {
+  it("Edit source menu item is present when the bound source is in sources.items", () => {
     const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
-    expect(screen.getByRole("button", { name: "Edit source" })).toBeInTheDocument();
+    openPipelineActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Edit source" })).toBeInTheDocument();
   });
 
-  it("Edit Source button is absent when the bound source is not in sources.items", () => {
+  it("Edit source menu item is absent when the bound source is not in sources.items", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
-    expect(screen.queryByRole("button", { name: "Edit source" })).not.toBeInTheDocument();
+    openPipelineActionsMenu();
+    expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
   });
 
-  it("clicking Edit Source sets sources.selectedSourceId and navigates to /sources", () => {
+  it("activating Edit source sets sources.selectedSourceId and navigates to /sources", () => {
     const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: "Edit source" }));
+    openPipelineActionsMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit source" }));
     expect(store.getState().sources.selectedSourceId).toBe("src-1");
     expect(screen.getByText("Sources Page")).toBeInTheDocument();
   });
 
-  it("Edit Type button is visible when the output type is in dataTypes.items", () => {
+  it("Edit type menu item is present when the output type is in dataTypes.items", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
     renderDetailPage("pipe-1", store);
-    expect(screen.getByRole("button", { name: "Edit type" })).toBeInTheDocument();
+    openPipelineActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Edit type" })).toBeInTheDocument();
   });
 
-  it("Edit Type button is absent when the output type is not in dataTypes.items", () => {
+  it("Edit type menu item is absent when the output type is not in dataTypes.items", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
-    expect(screen.queryByRole("button", { name: "Edit type" })).not.toBeInTheDocument();
+    openPipelineActionsMenu();
+    expect(screen.queryByRole("menuitem", { name: "Edit type" })).not.toBeInTheDocument();
   });
 
-  it("clicking Edit Type sets dataTypes.selectedTypeId and navigates to /registry", () => {
+  it("activating Edit type sets dataTypes.selectedTypeId and navigates to /registry", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
     renderDetailPage("pipe-1", store);
-    fireEvent.click(screen.getByRole("button", { name: "Edit type" }));
+    openPipelineActionsMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit type" }));
     expect(store.getState().dataTypes.selectedTypeId).toBe("dt-1");
     expect(screen.getByText("Type Registry Page")).toBeInTheDocument();
   });
 
   // Shared-pipeline scenario: the current user has a pipeline-sharing grant
   // (or otherwise reaches a pipeline they don't own) but does not own the
-  // bound source/type — both Edit buttons must be absent, since pipeline
+  // bound source/type — both Edit menu items must be absent, since pipeline
   // access confers no standing over the underlying DataSource/DataType.
-  it("shared pipeline without source/type ownership shows neither Edit button", () => {
+  it("shared pipeline without source/type ownership shows neither Edit menu item", () => {
     const sharedPipeline: PipelineSummary = {
       ...pipelineWithOutputType,
       ownerId: "someone-else",
     };
     const store = makeStore([], { currentPipeline: sharedPipeline }, []);
     renderDetailPage("pipe-1", store);
-    expect(screen.queryByRole("button", { name: "Edit source" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit type" })).not.toBeInTheDocument();
+    openPipelineActionsMenu();
+    expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Edit type" })).not.toBeInTheDocument();
   });
 });
 
@@ -2340,7 +2467,8 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
     await waitFor(() => {
       expect(screen.getByText("Every 15m")).toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Edit schedule" })).toBeInTheDocument();
+    openPipelineActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Edit schedule" })).toBeInTheDocument();
   });
 
   it("dispatches fetchPipelineSchedule on mount", async () => {
@@ -2370,11 +2498,12 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
     });
   });
 
-  it("clicking 'Set schedule' opens the schedule dialog", async () => {
+  it("activating 'Set schedule' opens the schedule dialog", async () => {
     renderDetailPage("pipe-1");
 
-    const setScheduleBtn = await screen.findByRole("button", { name: "Set schedule" });
-    fireEvent.click(setScheduleBtn);
+    openPipelineActionsMenu();
+    const setScheduleItem = await screen.findByRole("menuitem", { name: "Set schedule" });
+    fireEvent.click(setScheduleItem);
 
     expect(screen.getByRole("dialog", { name: "Pipeline schedule" })).toBeInTheDocument();
   });

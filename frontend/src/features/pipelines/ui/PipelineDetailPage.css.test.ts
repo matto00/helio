@@ -81,14 +81,20 @@ describe("PipelineDetailPage.css — phone footer wrap + reachability (F-006)", 
     expect(tabletBody).toMatch(/min-height:\s*44px\s*;/);
   });
 
-  it.each([
-    ".pipeline-detail-page__history-btn",
-    ".pipeline-detail-page__preview-btn",
-    ".pipeline-detail-page__dry-run-btn",
-  ])("%s meets the 44px tap minimum at both the 768px and 430px breakpoints", (selector) => {
-    const body = findRuleBody(tabletBlock, selector);
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
-  });
+  // design.md D8 (scope amendment): `__history-btn`/`__preview-btn` dropped
+  // from this list — D7 replaced those buttons with `ActionsMenu` menuitems,
+  // which no longer carry these class names at all (removed from
+  // PipelineDetailPage.css entirely). `ActionsMenu.css.test.ts` already
+  // covers the 44px floor for `.actions-menu__trigger`/`.actions-menu__item`
+  // independently. `__dry-run-btn` remains a real, always-visible button
+  // under D7 and must keep passing this exact assertion unchanged.
+  it.each([".pipeline-detail-page__dry-run-btn"])(
+    "%s meets the 44px tap minimum at both the 768px and 430px breakpoints",
+    (selector) => {
+      const body = findRuleBody(tabletBlock, selector);
+      expect(body).toMatch(/min-height:\s*44px\s*;/);
+    },
+  );
 
   it.each([
     ".pipeline-detail-page__step-card-drag-handle",

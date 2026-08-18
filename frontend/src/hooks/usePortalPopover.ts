@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export type PortalPopoverPos = {
-  top: number;
+  /** Distance from the viewport top. Mutually exclusive with `bottom` in
+   *  practice (a consumer's `computePos` sets one or the other depending on
+   *  which side of the trigger it opens toward) — both optional so a
+   *  `bottom`-anchored ("opens upward") panel can omit `top` entirely rather
+   *  than pass a value that would be ignored. See `ActionsMenu`'s `align`
+   *  prop for the consumer-facing choice (HEL-719 scope amendment). */
+  top?: number;
+  /** Distance from the viewport bottom — for a panel anchored above its
+   *  trigger instead of below it. */
+  bottom?: number;
   right?: number;
   left?: number;
   width?: number;

@@ -1,0 +1,239 @@
+/* ── Pipeline detail header ──
+ * One bordered/backed container for the page's source/type/schedule field
+ * groups (HEL-719). MUST stay its own file — never merged into
+ * PipelineDetailPage.css — because PipelineDetailPage.css.test.ts's
+ * findMediaBlock helper is a first-match (not merge-all) lookup keyed to that
+ * file; a second same-prelude @media block there would make it silently grab
+ * the wrong block and break the HEL-687 mobile-floor regression guard. See
+ * design.md Risks. */
+.pipeline-detail-header {
+  display: flex;
+  align-items: stretch;
+  background: var(--app-surface-soft);
+  border-bottom: 1px solid var(--app-border-subtle);
+  flex-shrink: 0;
+}
+
+/* design.md D6 (scope amendment): tighter gap/padding than the original
+ * consolidation (was `gap: 12px; padding: 10px 20px;`) — the direct lever for
+ * the amendment's density goal, and it also frees horizontal budget for the
+ * schedule group's text (skeptic-final-2.md CR1). */
+.pipeline-detail-header__group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pipeline-detail-header__group + .pipeline-detail-header__group {
+  border-left: 1px solid var(--app-border-subtle);
+}
+
+/* design.md D6: replaces the original consolidation's mono/uppercase/
+ * letter-spaced "eyebrow" treatment (DATA SOURCE / OUTPUT TYPE / SCHEDULE)
+ * with a short, single-line inline label (Source / Type / Schedule) — both
+ * the shorter text and the plainer, smaller styling are real horizontal
+ * savings, not just a visual restyle. `flex-shrink: 0`: at 3-6 characters
+ * this label is never the element that should give up width under pressure —
+ * the value beside it (source/type name, schedule expression) is the
+ * information the label exists to introduce. */
+.pipeline-detail-header__group-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* evaluation-1.md change request 1 root cause: this row's `flex-shrink: 0`
+ * children (the kind/disabled badges, the Toggle) have no `overflow: hidden`
+ * of their own, so their automatic flex min-size is their full content width
+ * — a hard floor that never yields. Without a floor of its own,
+ * `__source-name`/`__type-name`/`__schedule-expression` (the one truncatable
+ * child, whose `overflow: hidden` gives it an automatic min-size of 0) then
+ * absorbs the *entire* shrink deficit before those rigid siblings give up a
+ * single pixel, collapsing to literally 0px well before the header's own
+ * 1100px stacking breakpoint. `overflow: hidden` here additionally clips any
+ * residual excess (e.g. a still-oversized badge) inside this row's own box
+ * instead of letting it visually spill into the adjacent Edit-button sibling
+ * (the reported badge/button overlap at 1100px). */
+.pipeline-detail-header__group-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── Bound source / bound type values ──
+ * `min-width` is a guaranteed-legible floor for the one child in this row
+ * that's allowed to shrink at all (see `__group-value` comment above) — sized
+ * for a handful of characters plus ellipsis, well below typical source/type
+ * names so it only engages under real space pressure. */
+.pipeline-detail-header__source-name,
+.pipeline-detail-header__type-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--app-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 40px;
+}
+
+/* Was `flex-shrink: 0` — a rigid floor that, combined with the `Toggle`'s own
+ * rigid floor in the schedule group, could still force `__source-name` back
+ * toward its minimum even after this row got `overflow: hidden`. This badge
+ * is supplementary (the name it sits beside is the primary information), so
+ * it now yields before the name does. */
+.pipeline-detail-header__source-kind {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  padding: 2px 6px;
+  border-radius: var(--app-radius-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 20px;
+}
+
+/* ── Schedule value ── */
+.pipeline-detail-header__schedule-empty {
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+/* F-139: swapped the bare 14px checkbox for the shared Toggle primitive
+ * (shared/ui/Toggle.css owns the track/thumb styling); this rule now only
+ * trims Toggle's default min-height so it doesn't force the group taller
+ * than its other inline elements. */
+.pipeline-detail-header__schedule-toggle {
+  min-height: 0;
+  flex-shrink: 0;
+}
+
+/* Same guaranteed-floor treatment as `__source-name`/`__type-name` above,
+ * sized to cover a typical interval expression ("Every 15m") at its natural
+ * width — evaluation-1.md change request 2 measured "Every 1m" needing 67px
+ * and getting only 46-56px even at the 1440px breakpoint, where the
+ * schedule group's own lower-priority siblings (`__schedule-next-run` /
+ * `__schedule-disabled-badge`, both floored much lower just below) were
+ * still claiming an even split of the shrink budget instead of yielding
+ * first. 70px keeps this the tallest floor in the row so it's the last of
+ * the group's shrinkable children to give up any width. */
+.pipeline-detail-header__schedule-expression {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 70px;
+}
+
+/* Was `white-space: nowrap` with no `overflow: hidden` — no automatic
+ * min-size, so it never yielded a pixel to its higher-priority sibling
+ * `__schedule-expression` (evaluation-1.md change request 2's 1440px
+ * truncation: this element's un-shrinkable width was consuming the group's
+ * available space before the expression got any). Now a legitimate, lower-
+ * priority shrink target: still gets a small floor so it never disappears
+ * outright, but ellipsis-truncates before `__schedule-expression` does. */
+.pipeline-detail-header__schedule-next-run {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 24px;
+}
+
+/* skeptic-final-1.md: giving this badge a legibility floor the way
+ * `__schedule-expression` got one (min-width: 70px) doesn't work — the
+ * schedule group's row-layout content (Toggle 34px + 2×8px gap + expression
+ * 70px + this badge's ~63px natural width = 183px) exceeds its available box
+ * at *every* row-layout width up to and including 1440px (161px there, a
+ * confirmed ~22px real deficit — not a bug where slack exists but isn't
+ * used), so flooring both to their full content just moves the same
+ * ellipsis-truncation defect from one element to the other. This badge is
+ * genuinely redundant, though (the Toggle already conveys enabled/disabled
+ * state unambiguously) — the skeptic's own preferred fix: hide the *text*
+ * badge for the entire row-layout width range (`display: none` here,
+ * restored inside the existing `@media (max-width: 1100px)` block below,
+ * where each field group gets a full stacked row with ample space — verified
+ * via screenshot in Cycle 2 that it renders fully legible there) rather than
+ * showing a truncated fragment at any row-layout width. `title="Disabled"`
+ * on the element itself (PipelineDetailHeader.tsx) is a hover/keyboard
+ * fallback for the rare case a future change re-introduces truncation. */
+.pipeline-detail-header__schedule-disabled-badge {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  padding: 2px 6px;
+  border-radius: var(--app-radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 20px;
+}
+
+/* design.md D5 (scope amendment): the single actions-menu trigger that
+ * replaces the three per-field "Edit …" buttons. Fixed-size (not `flex: 1`
+ * like the field groups) — its content never needs to shrink/truncate, and
+ * `align-items: center` overrides the header's own `align-items: stretch` so
+ * `ActionsMenu`'s `--control-sm` (28px) trigger doesn't stretch to the
+ * header's full height. */
+.pipeline-detail-header__actions {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  flex-shrink: 0;
+}
+
+/* ── Tablet and below — stack the three field groups instead of crowding
+ * them into one row (design.md Risks: "combining three field groups into one
+ * header risks visual crowding at 1100/768px"; evaluation-1.md change
+ * request 1: the original `max-width: 768px` rule covered only half of that
+ * self-identified range, leaving 769–1100px broken — widened to 1100px, a
+ * DESIGN.md §4 canonical breakpoint, to close the gap). Mirrors the footer's
+ * own stacking idiom (PipelineDetailPage.css's `@media (max-width: 430px)`
+ * `.pipeline-detail-page__footer` rule) without touching that file. ── */
+@media (max-width: 1100px) {
+  .pipeline-detail-header {
+    flex-direction: column;
+  }
+
+  .pipeline-detail-header__group + .pipeline-detail-header__group {
+    border-left: none;
+    border-top: 1px solid var(--app-border-subtle);
+  }
+
+  /* The actions row (now stacked below the three field groups) gets the same
+   * top-border treatment as the field-group dividers above, and right-aligns
+   * its single trigger rather than sitting flush left under the stack. */
+  .pipeline-detail-header__actions {
+    border-top: 1px solid var(--app-border-subtle);
+    justify-content: flex-end;
+    padding: 8px 14px;
+  }
+
+  /* Restore the "Disabled" text badge (hidden by default above, for the
+   * row layout) now that its field group has a full stacked row's worth of
+   * width to itself — skeptic-final-1.md. */
+  .pipeline-detail-header__schedule-disabled-badge {
+    display: inline;
+  }
+}

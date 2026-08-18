@@ -7,7 +7,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { Modal } from "../../../shared/ui/Modal";
 import { Select } from "../../../shared/ui/Select";
 import { TextField } from "../../../shared/ui/TextField";
-import { labelForKind } from "./BoundSourceBar";
+import { labelForKind } from "../../sources/utils/labelForKind";
 import "./CreatePipelineModal.css";
 
 interface CreatePipelineModalProps {
