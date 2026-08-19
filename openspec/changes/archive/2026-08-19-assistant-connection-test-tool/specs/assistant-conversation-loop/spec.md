@@ -1,3 +1,10 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: A bounded 6-tool conversational loop answers a goal`
+- TO: `### Requirement: A bounded 7-tool conversational loop answers a goal`
+- FROM: `### Requirement: The hop cap is 3, supplied by the caller`
+- TO: `### Requirement: The hop cap is 4, supplied by the caller`
+
 ## MODIFIED Requirements
 
 ### Requirement: A bounded 7-tool conversational loop answers a goal
