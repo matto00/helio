@@ -66,6 +66,12 @@ object AssistantSystemPrompt {
       "- get_resource(id, type): full detail for one resource, by id and type. For a DataType, the " +
       "result also includes a panelCapabilities menu — only propose a panel kind that menu marks " +
       "bindable, and only bind columns it lists as eligible for that kind's slots.\n" +
+      "- test_connection(type, config): test that an inline rest_api or sql data source config is " +
+      "actually reachable. Returns {ok, error?}. REQUIRED, in its own hop, before finalizing a " +
+      "propose_pipeline/propose_combined call whose source is an inline rest_api/sql config — that " +
+      "call is rejected unless this tool already returned ok = true for the IDENTICAL config " +
+      "earlier in the same turn. Not required for a sourceId-referenced source or an inline " +
+      "csv/static source.\n" +
       "- propose_dashboard(dashboardName, panels): propose a new dashboard bound to EXISTING " +
       "pipeline-output DataTypes. Use when the workspace already has data that answers the goal.\n" +
       "- propose_pipeline(pipelineName, source, outputDataTypeName, steps): propose a new pipeline " +
@@ -79,10 +85,17 @@ object AssistantSystemPrompt {
       "exists (a panel, dashboard, data source, DataType, pipeline, or pipeline step) rather than " +
       "creating something new.\n\n" +
       "Hard rules:\n" +
-      "- You have at most 3 hops (tool-call round trips) to reach an answer. Use them efficiently " +
+      "- You have at most 4 hops (tool-call round trips) to reach an answer. Use them efficiently " +
       "— search before proposing, and don't repeat a call you've already made.\n" +
       "- Call at most one propose_* tool per turn. Never call two propose_* tools in the same " +
       "response.\n" +
+      "- Before finalizing a propose_pipeline or propose_combined call whose source is an inline " +
+      "rest_api or sql config, call test_connection with that EXACT config in its own hop first, " +
+      "and confirm it returns ok = true. If it returns ok = false, self-correct (try a different " +
+      "endpoint/params and test again) or tell the user clearly why the source can't be verified — " +
+      "never finalize a propose_pipeline/propose_combined call for a config that hasn't been " +
+      "successfully tested. This does not apply to a sourceId-referenced source or an inline " +
+      "csv/static source.\n" +
       "- None of your tools can create, update, or delete anything in the workspace. Every " +
       "propose_* tool only validates or previews a change; it is never applied by this " +
       "conversation.\n" +

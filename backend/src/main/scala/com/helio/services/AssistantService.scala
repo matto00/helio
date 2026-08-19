@@ -10,9 +10,10 @@ import scala.util.{Success, Try}
 
 /** HEL-662 — the top-level assistant's (HEL-659) one entry point, superseding
  *  `DashboardAuthoringService` for the in-app assistant while reusing its validation/proposal
- *  collaborators rather than discarding them. Builds the static system prompt + the bounded 6-tool
- *  set, runs `ClaudeClient.sendWithTools` with `maxHops = 3` (design.md D2 — HEL-660's
- *  `ClaudeToolRequest.maxHops` finally gets its concrete, caller-supplied value here), and folds the
+ *  collaborators rather than discarding them. Builds the static system prompt + the bounded 7-tool
+ *  set (HEL-756 adds `test_connection`), runs `ClaudeClient.sendWithTools` with `maxHops = 4`
+ *  (design.md D2 — HEL-660's `ClaudeToolRequest.maxHops` finally gets its concrete, caller-supplied
+ *  value here; HEL-756 design.md D3 raises it from 3 to 4), and folds the
  *  outcome into a structured [[AssistantTurnResult]] carrying the actual `DashboardProposal`/
  *  `PipelineProposal`/`CombinedProposal`/`PatchSet` a successful `propose_*` call produced — never
  *  prose re-derived from Claude's final text (design.md D6).
@@ -37,12 +38,16 @@ final class AssistantService(
     dashboardProposalService: DashboardProposalService,
     pipelineProposalService: PipelineProposalService,
     combinedProposalService: CombinedProposalService,
-    patchSetPreviewService: PatchSetPreviewService
+    patchSetPreviewService: PatchSetPreviewService,
+    sourceService: SourceService
 )(implicit ec: ExecutionContext) {
 
   /** The bounded tool-use loop's hard hop cap (design.md D2) — HEL-660's own doc comment says this
-   *  ticket's caller would supply `3`; never hardcoded inside `ClaudeClient` itself. */
-  private val MaxHops: Int = 3
+   *  ticket's caller would supply `3`; never hardcoded inside `ClaudeClient` itself. Raised to `4`
+   *  by HEL-756 design.md D3: the dominant new flow (`find` -> `test_connection` -> `propose_*`)
+   *  already fills the old 3-hop budget with zero room for a `get_resource` call or a retry after a
+   *  failed test. */
+  private val MaxHops: Int = 4
 
   /** The configured Claude model id (HEL-667 design.md D6 telemetry) — thin passthrough so
    *  `AssistantConversationRoutes.converseFlow` can thread it into `AssistantTelemetry` without
@@ -62,6 +67,7 @@ final class AssistantService(
       pipelineProposalService,
       combinedProposalService,
       patchSetPreviewService,
+      sourceService,
       user
     )
     val request = ClaudeToolRequest(

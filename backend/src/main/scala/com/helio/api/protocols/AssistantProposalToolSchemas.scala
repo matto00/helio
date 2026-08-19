@@ -3,12 +3,13 @@ package com.helio.api.protocols
 import com.helio.ai.ClaudeTool
 import spray.json._
 
-/** JSON-Schema `inputSchema`s for the 4 `propose_*` `ClaudeTool`s (HEL-662 tasks.md 2.4) — each
- *  mirrors the matching JSON Schema file under `schemas/` closely enough for Claude's
- *  function-calling contract (property names/types/enums), reusing the SAME hand-rolled-`JsObject`
- *  style `WorkspaceAssistantTools` already established for `find`/`get_resource`. Not a byte-for-byte
- *  copy of the JSON Schema files: `$defs`/`$ref`/`additionalProperties: false` are 2020-12 machinery
- *  a tool-call `input_schema` doesn't need — nested fragments are inlined directly instead.
+/** JSON-Schema `inputSchema`s for the 4 `propose_*` `ClaudeTool`s (HEL-662 tasks.md 2.4), plus
+ *  `test_connection` (HEL-756 tasks.md 1.1) — each mirrors the matching JSON Schema file under
+ *  `schemas/` closely enough for Claude's function-calling contract (property names/types/enums),
+ *  reusing the SAME hand-rolled-`JsObject` style `WorkspaceAssistantTools` already established for
+ *  `find`/`get_resource`. Not a byte-for-byte copy of the JSON Schema files: `$defs`/`$ref`/
+ *  `additionalProperties: false` are 2020-12 machinery a tool-call `input_schema` doesn't need —
+ *  nested fragments are inlined directly instead.
  *
  *  HEL-700 design.md D2: each schema below also carries a top-level `"examples"` array — one
  *  fully-formed input, authored as a compact parsed-string-literal (`"""...""".parseJson`), never a
@@ -254,6 +255,74 @@ private[protocols] trait AssistantProposalToolSchemas {
     ),
     "required" -> JsArray(Vector(JsString("edits"))),
     "examples" -> JsArray(Vector(PatchSetExample))
+  )
+
+  // ── test_connection (HEL-756 tasks.md 1.1, design.md D5) ────────────────────────────────────
+  //
+  // Reuses the same discriminated `type`/`config` shape `PipelineProposalSourceSchema` documents for
+  // its inline branch, and the SAME dispatch convention `SourcePreviewRoutes`'s `POST /sources/test`
+  // already uses (`type` selects `RestApiConfigPayload` vs. `SqlSourceConfigPayload`) — no new wire
+  // shape invented (design.md D5). `config` is nested under a single `"config"` key (unlike
+  // `SourcePreviewRoutes`'s flat request body) so Claude passes the EXACT SAME `config` object it
+  // will later place at `propose_pipeline`/`propose_combined`'s `source.config` — the value
+  // `AssistantToolExecutor.requireVerifiedInlineSource` (design.md D1) compares by equality.
+
+  // HEL-756 tasks.md 2.1 — one rest_api and one sql example, each decode-pinned by
+  // AssistantProposalToolSchemasSpec through the SAME `config` → RestApiConfigPayload/
+  // SqlSourceConfigPayload conversion path `AssistantToolExecutor.executeTestConnection` applies to
+  // a real `tool_use.input`.
+  private val TestConnectionRestExample: JsValue =
+    """{
+      "type": "rest_api",
+      "config": { "url": "https://api.example.com/signups", "method": "GET" }
+    }""".parseJson
+
+  private val TestConnectionSqlExample: JsValue =
+    """{
+      "type": "sql",
+      "config": {
+        "dialect": "postgresql",
+        "host": "db.example.com",
+        "port": 5432,
+        "database": "app",
+        "user": "readonly",
+        "password": "",
+        "query": "SELECT 1"
+      }
+    }""".parseJson
+
+  private val TestConnectionSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "type" -> JsObject(
+        "type" -> JsString("string"),
+        "enum" -> JsArray(Vector("rest_api", "sql").map(JsString(_))),
+        "description" -> JsString("The kind of connector config to test.")
+      ),
+      "config" -> JsObject(
+        "type" -> JsString("object"),
+        "description" -> JsString(
+          "The per-kind config payload selected by type: rest_api {url, method?, auth?, headers?}; " +
+            "sql {dialect, host, port, database, user, password, query}. Must be the EXACT config " +
+            "you intend to pass to propose_pipeline/propose_combined's inline source — verification " +
+            "is by exact equality."
+        )
+      )
+    ),
+    "required" -> JsArray(Vector(JsString("type"), JsString("config"))),
+    "examples" -> JsArray(Vector(TestConnectionRestExample, TestConnectionSqlExample))
+  )
+
+  val testConnectionTool: ClaudeTool = ClaudeTool(
+    name = "test_connection",
+    description =
+      "Test that an inline rest_api or sql data source config is actually reachable (DNS " +
+        "resolves, connection succeeds). Returns {ok, error?}. REQUIRED, in its own hop, before " +
+        "finalizing a propose_pipeline/propose_combined call whose source is an inline rest_api/sql " +
+        "config — that call is rejected unless this tool already returned ok = true for the " +
+        "IDENTICAL config earlier in the same turn. Not required for a sourceId-referenced source " +
+        "or an inline csv/static source.",
+    inputSchema = TestConnectionSchema
   )
 
   // ── Tools ────────────────────────────────────────────────────────────────────────────────────

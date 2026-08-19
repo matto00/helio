@@ -86,15 +86,19 @@ object AssistantStreamEvent {
 
 /** The bounded tool set `AssistantService.converse` hands to `ClaudeClient.sendWithTools` (HEL-662
  *  tasks.md 2.5, design.md D2) — `find`/`get_resource` reused VERBATIM from HEL-661's
- *  `WorkspaceAssistantTools`, plus the 4 `propose_*` schemas from `AssistantProposalToolSchemas`.
- *  This is the Hard Boundary's enforcement point: no apply-shaped tool is ever a member of this
- *  list (task 6.8 asserts exactly that), so Claude structurally cannot request a mutation — there is
- *  no tool schema through which one could even be requested. */
+ *  `WorkspaceAssistantTools`, plus `test_connection` (HEL-756) and the 4 `propose_*` schemas from
+ *  `AssistantProposalToolSchemas`. This is the Hard Boundary's enforcement point: no apply-shaped
+ *  tool is ever a member of this list (task 6.8 asserts exactly that), so Claude structurally
+ *  cannot request a mutation — there is no tool schema through which one could even be requested.
+ *
+ *  `test_connection` sits between `get_resource` and the `propose_*` tools (HEL-756 tasks.md 1.1,
+ *  design.md D5) — matches the order `AssistantSystemPrompt.text`'s tool list documents them in. */
 object AssistantProtocol extends AssistantProposalToolSchemas {
 
   val assistantTools: Vector[ClaudeTool] = Vector(
     WorkspaceAssistantTools.findTool,
     WorkspaceAssistantTools.getResourceTool,
+    testConnectionTool,
     proposeDashboardTool,
     proposePipelineTool,
     proposeCombinedTool,

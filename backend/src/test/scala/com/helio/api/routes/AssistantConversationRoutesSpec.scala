@@ -199,12 +199,12 @@ class AssistantConversationRoutesSpec
     }
   }
 
-  // No propose_*/find/get_resource tool_use is ever scripted in this file's fake responses, so
-  // AssistantToolExecutor's other 5 collaborators are never touched -- null is safe here, mirroring
-  // AssistantServiceSpec's own established "null-unused" pattern for collaborators no scripted
-  // sequence reaches.
+  // No propose_*/find/get_resource/test_connection tool_use is ever scripted in this file's fake
+  // responses, so AssistantToolExecutor's other 6 collaborators are never touched -- null is safe
+  // here, mirroring AssistantServiceSpec's own established "null-unused" pattern for collaborators
+  // no scripted sequence reaches.
   private def assistantServiceWith(transport: ClaudeTransport): AssistantService =
-    new AssistantService(new ClaudeClient(claudeConfig(), transport)(routeEc), null, null, null, null, null, null)(routeEc)
+    new AssistantService(new ClaudeClient(claudeConfig(), transport)(routeEc), null, null, null, null, null, null, null)(routeEc)
 
   // HEL-667 tasks.md 7.3 — a real (Mockito-backed) `WorkspaceSearchService` so a scripted `find`
   // tool_use actually executes end-to-end, needed for the searchedWithNoResults scenario. Mirrors
@@ -217,7 +217,7 @@ class AssistantConversationRoutesSpec
     val dataTypeService         = new DataTypeService(dtRepo, rowRepo, mock(classOf[DataSourceRepository]))(routeEc)
     val workspaceContextService = new WorkspaceContextService(null, null, dataTypeService, null)(routeEc)
     val workspaceSearchService  = new WorkspaceSearchService(null, null, dataTypeService, null, null, workspaceContextService)(routeEc)
-    new AssistantService(new ClaudeClient(claudeConfig(), transport)(routeEc), workspaceSearchService, null, null, null, null, null)(routeEc)
+    new AssistantService(new ClaudeClient(claudeConfig(), transport)(routeEc), workspaceSearchService, null, null, null, null, null, null)(routeEc)
   }
 
   private def routesFor(user: AuthenticatedUser, assistantOpt: Option[AssistantService]): Route =
@@ -431,7 +431,7 @@ class AssistantConversationRoutesSpec
   // turn-outcome signals surface on a converse response and stay absent on GET.
   "POST /assistant-conversations/:id/converse turn-outcome signals" should {
 
-    "surfaces hopBudgetExhausted = true when the turn hits the 3-hop cap" in {
+    "surfaces hopBudgetExhausted = true when the turn hits the hop cap" in {
       cleanDb()
       val detail = await(conversationService.create(userA, None, title = None))
       // "unknown_tool" is never a member of AssistantProtocol.assistantTools -- AssistantToolExecutor
@@ -494,8 +494,8 @@ class AssistantConversationRoutesSpec
       cleanDb()
       val detail = await(conversationService.create(userA, None, title = None))
 
-      // First call: every hop returns the SAME unresolved tool_use, driving the loop to the 3-hop
-      // cap ("unknown_tool" is never in AssistantProtocol.assistantTools -- AssistantToolExecutor's
+      // First call: every hop returns the SAME unresolved tool_use, driving the loop to the hop cap
+      // ("unknown_tool" is never in AssistantProtocol.assistantTools -- AssistantToolExecutor's
       // fallback never touches a real collaborator, mirroring this file's own established fixture).
       val firstAssistant = assistantServiceWith(new FakeTransport(toolUseResponse("dangling-1", "unknown_tool", JsObject.empty)))
 

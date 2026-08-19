@@ -1,8 +1,23 @@
 package com.helio.services
 
-import com.helio.api.protocols.{AssistantProposal, DashboardProposal, DashboardProposalProtocol, ProposalPanel}
+import com.helio.api.protocols.{
+  AssistantProposal,
+  CombinedProposal,
+  CombinedProposalProtocol,
+  CsvSourceConfigPayload,
+  DashboardProposal,
+  PipelineProposal,
+  PipelineProposalSource,
+  ProposalPanel,
+  RestApiConfigPayload,
+  SqlInferRequest,
+  SqlSourceConfigPayload,
+  StaticColumnPayload,
+  StaticDataPayload,
+  TestConnectionResponse
+}
 import com.helio.domain._
-import com.helio.infrastructure.{DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository}
 import org.mockito.ArgumentMatchers.{any, eq => meq}
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.matchers.should.Matchers
@@ -37,19 +52,31 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
 
   /** Builds a real `AssistantToolExecutor` over mocked `dtRepo`/`rowRepo`. `combinedProposalService`/
    *  `patchSetPreviewService` default to `null` — only the decode-before-dispatch tests below (which
-   *  never reach either) rely on that; a test that DOES exercise one passes a real instance. */
+   *  never reach either) rely on that; a test that DOES exercise one passes a real instance.
+   *  `sourceService` defaults to a Mockito mock (HEL-756) — every `execute("test_connection", ...)`
+   *  test below stubs its `testRest`/`testSql` directly; the mock default only needs to exist for
+   *  every OTHER test's constructor call, never invoked by them. */
   private def newExecutor(
       dtRepo: DataTypeRepository,
       rowRepo: DataTypeRowRepository = mock(classOf[DataTypeRowRepository]),
       combinedProposalService: CombinedProposalService = null,
-      patchSetPreviewService: PatchSetPreviewService = null
+      patchSetPreviewService: PatchSetPreviewService = null,
+      sourceService: SourceService = mock(classOf[SourceService]),
+      pipelineProposalServiceOverride: PipelineProposalService = null
   ): AssistantToolExecutor = {
     val dataTypeService          = new DataTypeService(dtRepo, rowRepo, null)
     val workspaceContextService  = new WorkspaceContextService(null, null, dataTypeService, null)
     val workspaceSearchService   = new WorkspaceSearchService(null, null, dataTypeService, null, null, workspaceContextService)
     val panelCapabilityService   = new PanelCapabilityService(dtRepo, rowRepo)
     val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null)
-    val pipelineProposalService  = new PipelineProposalService(null, null, null, null, null, null, null)
+    // HEL-756 tasks.md 2.4/2.5/2.7 — the default is a REAL instance whose own collaborators are all
+    // null, safe because `PipelineProposalService.validate`'s `validateSourceReference` never
+    // touches `dataSourceRepo` for an inline (sourceId = None) source. A test that needs `validate`
+    // to fully succeed for a `sourceId` source (which DOES touch `dataSourceRepo`) passes its own
+    // working instance via `pipelineProposalServiceOverride`.
+    val pipelineProposalService =
+      if (pipelineProposalServiceOverride != null) pipelineProposalServiceOverride
+      else new PipelineProposalService(null, null, null, null, null, null, null)
     new AssistantToolExecutor(
       workspaceSearchService,
       panelCapabilityService,
@@ -57,9 +84,36 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       pipelineProposalService,
       combinedProposalService,
       patchSetPreviewService,
+      sourceService,
       user
     )
   }
+
+  // ── HEL-756 fixtures ─────────────────────────────────────────────────────────────────────────
+
+  private def restConfig(url: String = "https://api.example.com/data"): RestApiConfigPayload =
+    RestApiConfigPayload(url = url, method = Some("GET"), auth = None, headers = None)
+
+  private def sqlConfig(database: String = "app"): SqlSourceConfigPayload =
+    SqlSourceConfigPayload(dialect = "postgresql", host = "db.example.com", port = 5432, database = database, user = "readonly", password = "", query = "SELECT 1")
+
+  private def inlineRestSource(config: RestApiConfigPayload): PipelineProposalSource =
+    PipelineProposalSource(sourceId = None, `type` = Some("rest_api"), name = Some("Inline REST"), csvConfig = None, restConfig = Some(config), sqlConfig = None, staticConfig = None)
+
+  private def inlineSqlSource(config: SqlSourceConfigPayload): PipelineProposalSource =
+    PipelineProposalSource(sourceId = None, `type` = Some("sql"), name = Some("Inline SQL"), csvConfig = None, restConfig = None, sqlConfig = Some(config), staticConfig = None)
+
+  private def sourceIdSource(id: String = "src_existing"): PipelineProposalSource =
+    PipelineProposalSource(sourceId = Some(id), `type` = None, name = None, csvConfig = None, restConfig = None, sqlConfig = None, staticConfig = None)
+
+  private def inlineStaticSource(): PipelineProposalSource =
+    PipelineProposalSource(
+      sourceId = None, `type` = Some(DataSourceKind.Static), name = Some("Inline Static"), csvConfig = None, restConfig = None, sqlConfig = None,
+      staticConfig = Some(StaticDataPayload(Vector(StaticColumnPayload("value", "string")), Vector(Vector(JsString("x")))))
+    )
+
+  private def pipelineProposalWith(source: PipelineProposalSource, pipelineName: String = "New Pipeline"): PipelineProposal =
+    PipelineProposal(pipelineName, source, "New Output", Vector.empty)
 
   "execute" should {
 
@@ -224,6 +278,227 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  // HEL-756 tasks.md 2.3 — dispatches to sourceService.testRest/testSql and echoes back the
+  // TestConnectionResponse JSON either way (ok = true or ok = false is a normal Right, never a
+  // Left — mirrors ConnectionTest.run's own "domain outcome, not HTTP error" framing).
+  "execute(\"test_connection\", ...)" should {
+
+    "dispatch a rest_api call to sourceService.testRest and return ok = true on success" in {
+      val config         = restConfig()
+      val sourceService = mock(classOf[SourceService])
+      when(sourceService.testRest(config)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceService)
+
+      val input  = JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))
+      val result = await(executor.execute("test_connection", input))
+
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.parseJson.asJsObject.fields("ok") shouldBe JsBoolean(true)
+    }
+
+    "dispatch a rest_api call to sourceService.testRest and return ok = false (e.g. DNS failure) as a normal Right" in {
+      val config         = restConfig("https://lm-api-reads.espn.com/does-not-resolve")
+      val sourceService = mock(classOf[SourceService])
+      when(sourceService.testRest(config)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = false, error = Some("DNS resolution failed")))))
+      val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceService)
+
+      val input  = JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))
+      val result = await(executor.execute("test_connection", input))
+
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.parseJson.asJsObject.fields("ok") shouldBe JsBoolean(false)
+    }
+
+    "dispatch a sql call to sourceService.testSql and return the TestConnectionResponse JSON on success" in {
+      val config         = sqlConfig()
+      val sourceService = mock(classOf[SourceService])
+      when(sourceService.testSql(SqlInferRequest("sql", config))).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceService)
+
+      val input  = JsObject("type" -> JsString("sql"), "config" -> executorJson.sqlSourceConfigPayloadFormat.write(config))
+      val result = await(executor.execute("test_connection", input))
+
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.parseJson.asJsObject.fields("ok") shouldBe JsBoolean(true)
+    }
+
+    "dispatch a sql call to sourceService.testSql and return ok = false as a normal Right" in {
+      val config         = sqlConfig()
+      val sourceService = mock(classOf[SourceService])
+      when(sourceService.testSql(SqlInferRequest("sql", config))).thenReturn(Future.successful(Right(TestConnectionResponse(ok = false, error = Some("connection refused")))))
+      val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceService)
+
+      val input  = JsObject("type" -> JsString("sql"), "config" -> executorJson.sqlSourceConfigPayloadFormat.write(config))
+      val result = await(executor.execute("test_connection", input))
+
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.parseJson.asJsObject.fields("ok") shouldBe JsBoolean(false)
+    }
+
+    "return Left for an unrecognized type without touching sourceService" in {
+      val sourceService = mock(classOf[SourceService])
+      val executor       = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceService)
+
+      val input  = JsObject("type" -> JsString("csv"), "config" -> JsObject.empty)
+      val result = await(executor.execute("test_connection", input))
+
+      result shouldBe a[Left[_, _]]
+    }
+  }
+
+  // HEL-756 tasks.md 2.4-2.7 (design.md D1/D4, spec's "must be connection-tested before its
+  // proposal finalizes" requirement) — the structural gate `requireVerifiedInlineSource` applies
+  // ahead of `propose_pipeline`/`propose_combined`'s underlying `validate` call.
+  "the test_connection gate on propose_pipeline/propose_combined" should {
+
+    // Task 2.4 — an untested inline rest_api source is rejected as an isError-bound Left asking for
+    // test_connection. If the gate had NOT intercepted, PipelineProposalService.validate would have
+    // returned Right (the fixture is otherwise structurally well-formed and touches no null
+    // collaborator for an inline source) — a Left here can ONLY be this gate's rejection.
+    "reject propose_pipeline for an untested inline rest_api source, never reaching validate's success path" in {
+      val executor = newExecutor(mock(classOf[DataTypeRepository]))
+      val proposal  = pipelineProposalWith(inlineRestSource(restConfig()))
+
+      val result = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+
+      result shouldBe a[Left[_, _]]
+      result.left.toOption.get should include("test_connection")
+      executor.proposeValidationFailures shouldBe 1
+    }
+
+    "reject propose_pipeline for an untested inline sql source the same way" in {
+      val executor = newExecutor(mock(classOf[DataTypeRepository]))
+      val proposal  = pipelineProposalWith(inlineSqlSource(sqlConfig()))
+
+      val result = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+
+      result shouldBe a[Left[_, _]]
+      result.left.toOption.get should include("test_connection")
+    }
+
+    // propose_combined: combinedProposalService is null by default here — a call that actually
+    // reached combinedProposalService.validate would NPE; a clean Left proves the gate intercepted
+    // (`proposal.pipeline.source`) before that call ever happened.
+    "reject propose_combined for an untested inline rest_api pipeline.source, never reaching combinedProposalService" in {
+      val executor = newExecutor(mock(classOf[DataTypeRepository]))
+      val pipeline  = pipelineProposalWith(inlineRestSource(restConfig()))
+      val dashboard = DashboardProposal("Overview", Vector.empty)
+      val combined  = CombinedProposal(pipeline, dashboard)
+
+      val result = await(executor.execute("propose_combined", executorJson.combinedProposalFormat.write(combined)))
+
+      result shouldBe a[Left[_, _]]
+      result.left.toOption.get should include("test_connection")
+    }
+
+    // Task 2.5 — a test_connection success followed by propose_pipeline with the IDENTICAL config
+    // proceeds to validate normally (Right), unaffected by the new gate.
+    "let propose_pipeline proceed to validate after a prior test_connection success for the identical rest_api config" in {
+      val config          = restConfig()
+      val sourceServiceM  = mock(classOf[SourceService])
+      when(sourceServiceM.testRest(config)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceServiceM)
+
+      await(executor.execute("test_connection", JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))))
+
+      val proposal = pipelineProposalWith(inlineRestSource(config))
+      val result    = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+
+      result shouldBe a[Right[_, _]]
+      executor.proposeValidationFailures shouldBe 0
+    }
+
+    "let propose_combined proceed to validate after a prior test_connection success for the identical sql config" in {
+      val config         = sqlConfig()
+      val sourceServiceM = mock(classOf[SourceService])
+      when(sourceServiceM.testSql(SqlInferRequest("sql", config))).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      val realCombined = new CombinedProposalService(
+        new PipelineProposalService(null, null, null, null, null, null, null),
+        new DashboardProposalService(null, null, mock(classOf[DataTypeRepository]), null)
+      )
+      val executor = newExecutor(mock(classOf[DataTypeRepository]), combinedProposalService = realCombined, sourceService = sourceServiceM)
+
+      await(executor.execute("test_connection", JsObject("type" -> JsString("sql"), "config" -> executorJson.sqlSourceConfigPayloadFormat.write(config))))
+
+      val pipeline  = pipelineProposalWith(inlineSqlSource(config))
+      val dashboard = DashboardProposal("Overview", Vector.empty)
+      val combined  = CombinedProposal(pipeline, dashboard)
+      val result     = await(executor.execute("propose_combined", executorJson.combinedProposalFormat.write(combined)))
+
+      result shouldBe a[Right[_, _]]
+    }
+
+    // Task 2.6 — a failed test_connection never verifies the config; a config edited after a
+    // successful test is also still rejected (verification is exact-equality, never fuzzy).
+    "still reject propose_pipeline after a test_connection call that returned ok = false" in {
+      val config         = restConfig()
+      val sourceServiceM = mock(classOf[SourceService])
+      when(sourceServiceM.testRest(config)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = false, error = Some("connection refused")))))
+      val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceServiceM)
+
+      await(executor.execute("test_connection", JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))))
+
+      val proposal = pipelineProposalWith(inlineRestSource(config))
+      val result    = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+
+      result shouldBe a[Left[_, _]]
+      result.left.toOption.get should include("test_connection")
+    }
+
+    "still reject propose_pipeline when the config was edited after a successful test_connection call" in {
+      val testedConfig = restConfig("https://api.example.com/v1")
+      val editedConfig = restConfig("https://api.example.com/v2")
+      val sourceServiceM = mock(classOf[SourceService])
+      when(sourceServiceM.testRest(testedConfig)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceServiceM)
+
+      await(executor.execute("test_connection", JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(testedConfig))))
+
+      val proposal = pipelineProposalWith(inlineRestSource(editedConfig))
+      val result    = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+
+      result shouldBe a[Left[_, _]]
+      result.left.toOption.get should include("test_connection")
+    }
+
+    // Task 2.7 — sourceId and inline csv/static sources bypass the gate entirely; no test_connection
+    // call is required for any of them.
+    "let propose_pipeline proceed to validate for a sourceId-referenced source with no test_connection call" in {
+      val dataSourceRepo = mock(classOf[DataSourceRepository])
+      val existing         = RestSource(DataSourceId("src_existing"), "Existing REST", ownerId, now, now, RestApiConfig(url = "https://api.example.com", method = "GET", auth = RestApiAuth.NoAuth, headers = Map.empty))
+      when(dataSourceRepo.findByIdOwned(DataSourceId("src_existing"), user)).thenReturn(Future.successful(Some(existing)))
+      val realPipelineService = new PipelineProposalService(null, null, null, null, null, dataSourceRepo, null)
+      val executor              = newExecutor(mock(classOf[DataTypeRepository]), pipelineProposalServiceOverride = realPipelineService)
+
+      val proposal = pipelineProposalWith(sourceIdSource("src_existing"))
+      val result    = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+
+      result shouldBe a[Right[_, _]]
+    }
+
+    "let propose_pipeline proceed to validate for an inline static source with no test_connection call" in {
+      val executor = newExecutor(mock(classOf[DataTypeRepository]))
+      val proposal  = pipelineProposalWith(inlineStaticSource())
+
+      val result = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+
+      result shouldBe a[Right[_, _]]
+    }
+
+    "let propose_pipeline proceed to validate for an inline csv source with no test_connection call" in {
+      val csvSource = PipelineProposalSource(
+        sourceId = None, `type` = Some(DataSourceKind.Csv), name = Some("Inline CSV"),
+        csvConfig = Some(CsvSourceConfigPayload("uploads/example.csv")), restConfig = None, sqlConfig = None, staticConfig = None
+      )
+      val executor = newExecutor(mock(classOf[DataTypeRepository]))
+      val proposal  = pipelineProposalWith(csvSource)
+
+      val result = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+
+      result shouldBe a[Right[_, _]]
+    }
+  }
+
   // HEL-700 tasks.md 3.3 (design.md D4) — find/get_resource dispatch paths never touch the
   // propose-call counters, even across multiple calls.
   "propose-call counters" should {
@@ -253,5 +528,9 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     case other              => fail(s"expected a JSON array, got $other")
   }
 
-  private object executorJson extends DashboardProposalProtocol
+  // HEL-756: `CombinedProposalProtocol` already extends `PipelineProposalProtocol` (transitively
+  // `DataSourceProtocol`) `with DashboardProposalProtocol` — one mixin now covers every wire format
+  // the tests below need: `restApiConfigPayloadFormat`/`sqlSourceConfigPayloadFormat`/
+  // `pipelineProposalFormat`/`combinedProposalFormat`/`dashboardProposalFormat`.
+  private object executorJson extends CombinedProposalProtocol
 }
