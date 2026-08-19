@@ -7,8 +7,6 @@ import {
   faComments,
   faPlus,
   faWandMagicSparkles,
-  faSun,
-  faMoon,
 } from "@fortawesome/free-solid-svg-icons";
 
 import { UserMenu } from "../features/auth/ui/UserMenu";
@@ -33,7 +31,6 @@ import { pickerIdForPathname } from "../shared/chrome/sections";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
 import { IconButton } from "../shared/ui/IconButton";
 import { useSaveState } from "../context/SaveStateContext";
-import { useTheme } from "../theme/ThemeProvider";
 
 interface CommandBarProps {
   isMobileNavSheetOpen: boolean;
@@ -46,10 +43,11 @@ interface CommandBarProps {
 
 /** The command bar: logo, breadcrumb, phone title/switcher trigger,
  * save-state indicator, undo/redo, appearance editor, refine-with-AI, the
- * quick-launcher trigger, theme toggle, and the user menu. Owns undo/redo
- * entirely (design.md "App.tsx split boundary") since it's unconditionally
- * mounted for exactly `AppShell`'s lifetime. Reads `usePickerSelection`
- * directly rather than receiving a hand-drilled prop bag. */
+ * quick-launcher trigger, and the user menu. Owns undo/redo entirely
+ * (design.md "App.tsx split boundary") since it's unconditionally mounted
+ * for exactly `AppShell`'s lifetime. Reads `usePickerSelection` directly
+ * rather than receiving a hand-drilled prop bag. HEL-745: the theme toggle
+ * lives in Settings' Appearance section now, not here. */
 export function CommandBar({
   isMobileNavSheetOpen,
   onOpenMobileNavSheet,
@@ -62,7 +60,6 @@ export function CommandBar({
   const navigate = useNavigate();
   const location = useLocation();
   const { flush } = useSaveState();
-  const { theme, toggleTheme } = useTheme();
 
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const authStatus = useAppSelector((state) => state.auth.status);
@@ -238,11 +235,11 @@ export function CommandBar({
             title="Refine with AI"
           />
         )}
-        {/* Quick-launcher trigger (design.md D7) -- mirrors the theme-toggle button's exact
-            recipe below (same IconButton variant="secondary" size="sm" props), genuinely
-            unconditional (unlike "Refine with AI" above, which is gated to the dashboard view).
-            F-082: suppressed on /chat itself -- that route already IS the assistant surface this
-            button opens. */}
+        {/* Quick-launcher trigger (design.md D7) -- same IconButton variant="secondary" size="sm"
+            recipe as "Refine with AI" above, genuinely unconditional (unlike "Refine with AI",
+            which is gated to the dashboard view). F-082: suppressed on /chat itself -- that route
+            already IS the assistant surface this button opens. HEL-745: the theme toggle that used
+            to render alongside this button now lives in Settings' Appearance section. */}
         {!location.pathname.startsWith("/chat") && (
           <IconButton
             icon={<FontAwesomeIcon icon={faComments} />}
@@ -253,14 +250,6 @@ export function CommandBar({
             title="Assistant (Ctrl/Cmd+K)"
           />
         )}
-        <IconButton
-          icon={<FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />}
-          variant="secondary"
-          size="sm"
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-          title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-        />
         {authStatus === "authenticated" && currentUser !== null && (
           <UserMenu
             currentUser={currentUser}

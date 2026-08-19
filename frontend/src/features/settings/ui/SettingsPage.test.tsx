@@ -149,4 +149,29 @@ describe("SettingsPage", () => {
     expect(blueSwatch).toHaveAttribute("aria-pressed", "true");
     expect(document.documentElement.style.getPropertyValue("--app-accent")).toBe("#3b82f6");
   });
+
+  // HEL-745: moved from App.test.tsx's "toggles theme from the top-bar toggle
+  // button" -- the theme toggle relocated from a standalone CommandBar icon
+  // button to here, next to the accent picker, with the same immediate-apply
+  // (no Save button) semantics the accent-swatch test above already covers.
+  it("toggles theme from the Appearance section's theme button", async () => {
+    getPreferencesMock.mockReturnValueOnce(new Promise(() => {}));
+    listAgentMemoryMock.mockReturnValueOnce(new Promise(() => {}));
+    renderWithStore(<SettingsPage />);
+
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
+
+    // HEL-718: the removed CommandBar toggle carried a visible tooltip
+    // alongside its accessible name; the relocated Settings button preserves
+    // both.
+    expect(screen.getByRole("button", { name: "Switch to light theme" })).toHaveAttribute(
+      "title",
+      "Switch to light theme",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
+
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
+    expect(window.localStorage.getItem("helio-theme")).toBe("light");
+  });
 });

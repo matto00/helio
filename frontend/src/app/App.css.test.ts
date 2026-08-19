@@ -1,15 +1,6 @@
 import fs from "fs";
 import path from "path";
 
-// Regression guard for the HEL-746 phone-only "New chat" affordance. jsdom
-// implements no real layout or media-query evaluation, so no DOM-rendering
-// Jest test can observe the rendered visibility of
-// `.app-command-bar__mobile-new-chat` at a phone viewport — `CommandBar.
-// test.tsx` covers the React-conditional half (`pickerId === "chat"`
-// gating + the dispatch); this covers the CSS half, mirroring the read-file
-// + findMediaBlock/findRuleBody(InSource) scan used by
-// `Modal.css.test.ts`/`MobileNavSheet.css.test.ts`.
-
 const CSS_PATH = path.join(__dirname, "App.css");
 const css = fs.readFileSync(CSS_PATH, "utf-8");
 
@@ -65,6 +56,14 @@ function findRuleBodyInSource(source: string, selectorSubstring: string): string
   return source.slice(openBrace + 1, closeBrace);
 }
 
+// Regression guard for the HEL-746 phone-only "New chat" affordance. jsdom
+// implements no real layout or media-query evaluation, so no DOM-rendering
+// Jest test can observe the rendered visibility of
+// `.app-command-bar__mobile-new-chat` at a phone viewport — `CommandBar.
+// test.tsx` covers the React-conditional half (`pickerId === "chat"`
+// gating + the dispatch); this covers the CSS half, mirroring the read-file
+// + findMediaBlock/findRuleBody(InSource) scan used by
+// `Modal.css.test.ts`/`MobileNavSheet.css.test.ts`.
 describe("App.css — phone-only 'New chat' affordance visibility (HEL-746)", () => {
   it("is hidden by default (desktop)", () => {
     const body = findRuleBodyInSource(css, ".app-command-bar__mobile-new-chat");
@@ -75,5 +74,23 @@ describe("App.css — phone-only 'New chat' affordance visibility (HEL-746)", ()
     const mobileBlock = findMediaBlock(css, "max-width: 768px");
     const body = findRuleBody(mobileBlock, ".app-command-bar__mobile-new-chat");
     expect(body).toMatch(/display:\s*inline-flex\s*;/);
+  });
+});
+
+// Regression guard for the HEL-745 mobile command-bar-height fix. jsdom
+// implements no real layout or media-query evaluation, so no DOM-rendering
+// Jest test can observe the rendered command-bar height at a phone viewport.
+// This test statically asserts the CSS source keeps the mobile-scoped
+// `height: var(--space-10)` rule for `.app-command-bar` -- without it, the
+// bar's 44px IconButton mobile tap-target floor (IconButton.css.test.ts)
+// would go back to nearly filling the bar edge to edge, unnoticed until the
+// next live-viewport testing pass (the exact failure mode that produced this
+// hotfix). Follows IconButton.css.test.ts's exact pattern.
+describe("App.css — mobile command-bar height frames 44px tap targets (HEL-745)", () => {
+  const mobileBlock = findMediaBlock(css, "max-width: 768px");
+
+  it("the command bar gets height: var(--space-10) at the mobile-shell breakpoint", () => {
+    const body = findRuleBody(mobileBlock, ".app-command-bar");
+    expect(body).toMatch(/height:\s*var\(--space-10\)\s*;/);
   });
 });
