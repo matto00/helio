@@ -62,8 +62,31 @@ HELIO_BETA_DAILY_MESSAGE_LIMIT="${HELIO_BETA_DAILY_MESSAGE_LIMIT:-50}"
 # "$@" (HEL-749 design.md Decision 4c): forwards any extra flags to `gcloud run deploy`,
 # e.g. `./infra/deploy-backend.sh --no-traffic` for a zero-traffic cutover deploy. Empty
 # by default, so ordinary invocations behave exactly as before.
+#
+# HEL-753: this script no longer hardcodes an --image= tag (the old hardcoded ":v3" tag
+# went stale and, if ever deployed as-is, would silently downgrade production to a
+# materially older build — see HEL-749's cutover, which had to override it explicitly).
+# The caller MUST now pass --image=<full-image-path:tag> via "$@" (design.md Decision D1);
+# this guard fails fast, before invoking gcloud, if that flag is missing.
+if ! grep -q -- '--image=' <<<"$*"; then
+  echo "ERROR: deploy-backend.sh requires an explicit --image=<full-image-path:tag> flag." >&2
+  echo "This script no longer defaults to any image tag (HEL-753) — deploying without one" >&2
+  echo "would previously have silently redeployed a stale, hardcoded build." >&2
+  echo "" >&2
+  echo "To find the currently-live tag:" >&2
+  echo "  gcloud run services describe helio-backend --region=us-west1 --project=helio-493120 \\" >&2
+  echo "    --format='value(spec.template.spec.containers[0].image)'" >&2
+  echo "" >&2
+  echo "To find a CI-built tag for a specific commit, see the matching run of" >&2
+  echo ".github/workflows/cd-backend.yml (triggered on push to release/**) — its" >&2
+  echo "\"Build and push image\" step logs the pushed tag (convention: <branch>-<8-char-sha>)." >&2
+  echo "" >&2
+  echo "Then re-run with the tag you found:" >&2
+  echo "  bash infra/deploy-backend.sh --image=<full-image-path-from-above>" >&2
+  exit 1
+fi
+
 gcloud run deploy helio-backend \
-  --image=us-west1-docker.pkg.dev/helio-493120/helio-backend/helio-backend:v3 \
   --region=us-west1 \
   --platform=managed \
   --vpc-connector=helio-vpc-connector \

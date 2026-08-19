@@ -108,15 +108,41 @@ Then edit `infra/.env.deploy`:
 
 ### Run the deploy
 
+`deploy-backend.sh` is a **manual/bootstrap deploy path** — it is not the
+routine way production gets deployed. The automated deploy pipeline is
+`.github/workflows/cd-backend.yml`, which builds and pushes a fresh
+git-sha-tagged image (`<branch>-<8-char-sha>`, e.g.
+`release-v1.6-4b1d794f`) and deploys it on every push to `release/**`. Use
+`deploy-backend.sh` for one-off/manual deploys (e.g. redeploying an existing
+image, a cutover deploy with extra flags) — not as a substitute for the CD
+pipeline.
+
+The script requires an explicit `--image=<full-image-path:tag>` flag; it
+hardcodes no default image tag and will refuse to run without one:
+
 ```bash
-bash infra/deploy-backend.sh
+bash infra/deploy-backend.sh --image=<full-image-path:tag>
 ```
+
+To determine the correct tag to pass, use one of:
+
+- **The currently-live tag** — query the running Cloud Run revision:
+
+  ```bash
+  gcloud run services describe helio-backend --region=us-west1 --project=helio-493120 \
+    --format='value(spec.template.spec.containers[0].image)'
+  ```
+
+- **A CI-built tag for a specific commit** — find the matching run of
+  `.github/workflows/cd-backend.yml` for that commit/branch; its "Build and
+  push image" step logs the pushed tag (`<branch>-<8-char-sha>`).
 
 The script:
 
 1. Sources `infra/.env.deploy` to inject `GOOGLE_CLIENT_ID`, `GOOGLE_REDIRECT_URI`, and `CORS_ALLOWED_ORIGINS`.
 2. Passes `DB_PASSWORD` and `GOOGLE_CLIENT_SECRET` to Cloud Run via `--set-secrets` (Secret Manager references — no plaintext on the command line). `GOOGLE_CLIENT_ID` is passed as a plain `--set-env-vars` value instead — Google OAuth client IDs are public identifiers, not secrets.
-3. Runs `gcloud run deploy` targeting the `helio-493120` GCP project in `us-west1`.
+3. Guards against a missing `--image=` flag, exiting non-zero with guidance (both lookups above) before invoking `gcloud` if none is present.
+4. Runs `gcloud run deploy` targeting the `helio-493120` GCP project in `us-west1`, forwarding any extra CLI arguments (including the required `--image=` flag) verbatim.
 
 ## Logs
 
