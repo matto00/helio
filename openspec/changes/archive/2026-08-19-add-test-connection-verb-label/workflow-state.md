@@ -4,15 +4,15 @@ TICKET_ID: HEL-759
 CHANGE_NAME: add-test-connection-verb-label
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/task/add-test-connection-verb-label/HEL-759
 BRANCH: task/add-test-connection-verb-label/HEL-759
-PHASE: Execution
+PHASE: Delivery
 CYCLE: 1
 DEV_PORT: 6191
 BACKEND_PORT: 9098
-EXECUTOR_AGENT_ID: —
-EVALUATOR_AGENT_ID: —
-LAST_EVAL_VERDICT: —
-LAST_EVAL_REPORT: —
-SKEPTIC_CYCLE: 0
+EXECUTOR_AGENT_ID: ae224e0bacab56b23
+EVALUATOR_AGENT_ID: a4e735a668b0040db
+LAST_EVAL_VERDICT: PASS
+LAST_EVAL_REPORT: /home/matt/Development/helio/.claude/worktrees/task/add-test-connection-verb-label/HEL-759/openspec/changes/add-test-connection-verb-label/evaluation-1.md
+SKEPTIC_CYCLE: 1
 LAST_SKEPTIC_VERDICT: CONFIRM (design gate, round 1)
 AGENT_MERGE: false
 TICKET_TYPE: feature
