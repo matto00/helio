@@ -80,5 +80,5 @@
 
 ## 8. Follow-up
 
-- [ ] 8.1 File a standalone follow-up ticket: disable Cloud SQL public IP, once the private-IP
+- [x] 8.1 Filed HEL-754: disable Cloud SQL public IP, once the private-IP
       path has run clean for a validation window (design.md Decision 3)
