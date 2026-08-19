@@ -566,4 +566,34 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       summary.failures shouldBe empty
     }
   }
+
+  // ── HEL-755 design.md D3: recordUnrunnable persistence ────────────────────
+
+  "PipelineRunService.recordUnrunnable (HEL-755 design.md D3)" should {
+
+    "persists a failed pipeline_runs row and updates the pipeline's lastRunStatus to failed" in {
+      val dsId   = seedDsWithData()
+      val pid    = seedPipeline(dsId)
+      val reason = "rest_api sources aren't executed automatically yet — this pipeline was created without a run."
+
+      val response = await(service.recordUnrunnable(pid, reason, dummyUser))
+      response.blocked shouldBe true
+      response.blockedReason shouldBe Some(reason)
+      response.rowCount shouldBe 0
+      response.rows shouldBe empty
+      response.runId shouldBe defined
+
+      // The field PipelineListTable.tsx's StatusBadge and PipelineDetailFooter.tsx
+      // already render — proving "visibly needs-attention" without any frontend change.
+      val pipeline = await(pipelineRepo.findByIdInternal(pid)).get
+      pipeline.lastRunStatus shouldBe Some("failed")
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs should have size 1
+      runs.head.status   shouldBe "failed"
+      runs.head.errorLog shouldBe Some(reason)
+      runs.head.rowCount shouldBe None
+      runs.head.id       shouldBe response.runId.get
+    }
+  }
 }
