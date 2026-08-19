@@ -68,6 +68,24 @@ describe("ToolCallIndicator", () => {
     expect(screen.getByText(/cut short/i)).toBeInTheDocument();
   });
 
+  // HEL-759 — test_connection (added HEL-756) has a dedicated verb, not the generic "Calling"
+  // fallback.
+  it("shows the 'Verifying connection' verb for a test_connection tool_use", () => {
+    const testConnectionToolUse: ClaudeToolUseBlockDto = {
+      blockType: "tool_use",
+      id: "tu-2",
+      name: "test_connection",
+      input: { dataSourceId: "ds-1" },
+    };
+
+    render(<ToolCallIndicator toolUse={testConnectionToolUse} result={null} />);
+
+    expect(
+      screen.getByText('Verifying connection: test_connection(dataSourceId: "ds-1")'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Calling:/)).not.toBeInTheDocument();
+  });
+
   it("does NOT render the cut-short treatment for a normally-resolved tool_use", () => {
     const resolvedResult: ClaudeToolResultBlockDto = {
       blockType: "tool_result",

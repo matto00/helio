@@ -19,7 +19,9 @@ token set, rather than one undifferentiated card style.
 A `tool_use` content block in the transcript SHALL render as its own distinct progress-indicator
 row (naming the tool and a compact view of its input), and its paired `tool_result` SHALL render as
 a collapsed, human-readable summary — never raw JSON dumped inline, and never a single global
-indicator standing in for multiple distinct tool calls.
+indicator standing in for multiple distinct tool calls. Every tool the assistant can call SHALL
+have a tool-specific verb in `ToolCallIndicator`'s verb map, rather than falling back to the
+generic "Calling" label.
 
 #### Scenario: Multiple tool calls in one turn each render distinctly
 - **WHEN** a transcript turn contains two `tool_use` blocks (e.g. one `find` and one `get_resource`)
@@ -34,6 +36,11 @@ indicator standing in for multiple distinct tool calls.
 - **WHEN** a `tool_result` block has `isError: true`
 - **THEN** its rendering uses DESIGN.md's error-intent tokens, visually distinct from a successful
   result
+
+#### Scenario: A test_connection call renders with a tool-specific verb
+- **WHEN** a transcript turn contains a `tool_use` block whose `name` is `test_connection`
+- **THEN** the progress-indicator row shows a tool-specific verb (e.g. "Verifying connection"),
+  not the generic "Calling" fallback
 
 ### Requirement: A streaming-text component exists, tested against mock incremental data
 The frontend SHALL provide a `StreamingText` component capable of revealing text incrementally with
