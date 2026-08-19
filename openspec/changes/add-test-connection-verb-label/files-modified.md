@@ -1,0 +1,2 @@
+- `frontend/src/features/assistant/ui/ToolCallIndicator.tsx` — added `test_connection: "Verifying connection"` to `VERB_BY_TOOL_NAME` so `test_connection` tool calls get a tool-specific verb instead of falling back to the generic "Calling" label.
+- `frontend/src/features/assistant/ui/ToolCallIndicator.test.tsx` — added a test asserting a `test_connection` tool_use renders "Verifying connection: test_connection(...)" and not the generic "Calling:" fallback.

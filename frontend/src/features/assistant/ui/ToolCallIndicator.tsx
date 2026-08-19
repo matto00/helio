@@ -28,6 +28,7 @@ const VERB_BY_TOOL_NAME: Record<string, string> = {
   propose_pipeline: "Proposing",
   propose_combined: "Proposing",
   propose_patch_set: "Proposing",
+  test_connection: "Verifying connection",
 };
 
 function verbFor(toolName: string): string {
