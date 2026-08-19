@@ -361,6 +361,17 @@
   border-radius: var(--app-radius-sm);
 }
 
+/* HEL-746 — phone-only "New chat" affordance, sibling of the mobile-title
+ * switcher above. Hidden by default; shown only <=768px below. Compound
+ * selector (not just `.app-command-bar__mobile-new-chat` alone) to out-
+ * specificity `IconButton.css`'s own base `.ui-icon-btn` rule (which also
+ * declares `display`) on the same element — two same-specificity class
+ * selectors would otherwise resolve by stylesheet load order, which isn't
+ * guaranteed here. */
+.app-command-bar .app-command-bar__mobile-new-chat {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .app-command-bar {
     /* HEL-745: the unconditional 48px height above nearly filled edge-to-edge
@@ -378,6 +389,10 @@
   }
 
   .app-command-bar__mobile-title {
+    display: inline-flex;
+  }
+
+  .app-command-bar .app-command-bar__mobile-new-chat {
     display: inline-flex;
   }
 

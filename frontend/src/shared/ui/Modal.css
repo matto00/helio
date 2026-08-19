@@ -19,6 +19,11 @@
      the modal's resting style, so dropping the forwards fill is visually
      identical at rest. */
   animation: ui-modal-in var(--transition-slow) backwards;
+  /* HEL-746 — the dialog is the flex container for `.ui-modal__inner` (see
+     that rule's comment for why this replaces a `height: 100%` child, which
+     was broken for every consumer except `PanelDetailModal`). */
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes ui-modal-in {
@@ -59,24 +64,46 @@
   backdrop-filter: blur(2px);
 }
 
-/* Inner flex container. HEL-716 (skeptic-final-3.md): this must fill
-   whatever height the actual <dialog> box ends up with — `height: 100%`,
-   not an independently-capped `max-height: 90vh`. The outer `.ui-modal`
-   class already caps the dialog itself at `max-height: 90vh`, so a plain
-   consumer (content-driven height) is unaffected either way. But a
-   consumer with a narrower fixed-height override (e.g.
-   `PanelDetailModal.css`'s `height: min(680px, 90vh)`, applied via
-   Modal's `className` prop) previously left `.ui-modal__inner` sizing
-   itself up to its own independent 90vh regardless of that narrower
-   box — at any viewport taller than ~756px, this grew the inner flex
-   column past the dialog's real (680px) height, and since the dialog has
-   `overflow: hidden`, everything past that cut line (the footer, and the
-   discard-warning banner once shown) was clipped from both painting and
-   hit-testing. `height: 100%` always matches the parent's real box. */
+/* Inner flex container. HEL-746 (live-verified at 390×844, both the
+   quick-launcher and the pipeline/dashboard/patch-set "Review proposal"
+   Modals): this must be a flex item of the now-flex `.ui-modal[open]`
+   (above), not a `height: 100%` block child.
+
+   HEL-716 (skeptic-final-3.md) set `height: 100%` here to fill "whatever
+   height the actual <dialog> box ends up with" — but `.ui-modal` itself
+   never declares an explicit `height`, only `max-height: 90vh`. Per the
+   CSS percentage-height-resolution rule, a percentage height on a child
+   only resolves against an ancestor with a *definite* height; `max-height`
+   alone does not establish one for a `display: block` ancestor. So
+   `height: 100%` silently fell back to `auto` (content-driven) for every
+   consumer whose `.ui-modal` has no *explicit* `height` override — i.e.
+   every consumer except `PanelDetailModal` (`height: min(680px, 90vh)` in
+   `PanelDetailModal.css`, which happens to be a real, definite height and
+   so was never exposed to this). Once a consumer's content grew taller
+   than 90vh, `.ui-modal__inner` (and its `.ui-modal__body` child) grew
+   past the dialog's real cap; the header/footer lost their fixed pinning
+   and the *dialog itself* (native `overflow: auto`) became the scroll
+   container for the whole header+body+footer column instead of just the
+   body. A consumer with its own auto-scroll-to-latest behavior (the
+   assistant conversation panel's `scrollIntoView({block: "end"})`) then
+   scrolled that oversized column to an arbitrary position, landing on a
+   mostly-blank slice — the reported "blank area with a horizontal line".
+
+   Flex layout sidesteps the percentage-resolution rule entirely: a flex
+   item's *resolved* (post-layout) size is treated as definite for its own
+   children regardless of whether the flex container's own height was
+   itself `auto`/`max-height`-derived. `min-height: 0` overrides the flex
+   item default (`min-height: auto`), which would otherwise refuse to
+   shrink below content size and reintroduce the same overflow. Verified
+   live: this bounds `.ui-modal__inner` to the dialog's real box in every
+   spot-checked consumer, `PanelDetailModal` included (its own explicit
+   `height` override is unaffected — flex resolves to the same box either
+   way, so its prior fix stays intact). */
 .ui-modal__inner {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* ── Header ───────────────────────────────────────────────────────────────── */

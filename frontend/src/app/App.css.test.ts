@@ -1,16 +1,6 @@
 import fs from "fs";
 import path from "path";
 
-// Regression guard for the HEL-745 mobile command-bar-height fix. jsdom
-// implements no real layout or media-query evaluation, so no DOM-rendering
-// Jest test can observe the rendered command-bar height at a phone viewport.
-// This test statically asserts the CSS source keeps the mobile-scoped
-// `height: var(--space-10)` rule for `.app-command-bar` -- without it, the
-// bar's 44px IconButton mobile tap-target floor (IconButton.css.test.ts)
-// would go back to nearly filling the bar edge to edge, unnoticed until the
-// next live-viewport testing pass (the exact failure mode that produced this
-// hotfix). Follows IconButton.css.test.ts's exact pattern.
-
 const CSS_PATH = path.join(__dirname, "App.css");
 const css = fs.readFileSync(CSS_PATH, "utf-8");
 
@@ -52,6 +42,50 @@ function findRuleBody(block: string, selectorSubstring: string): string {
   return block.slice(openBrace + 1, closeBrace);
 }
 
+/** Body of the first rule in `source` (outside any @media block scan) whose
+ *  selector contains `selectorSubstring`. Stops at the first top-level match,
+ *  which is the default (non-media) rule since it's declared before the
+ *  media-scoped override in App.css. */
+function findRuleBodyInSource(source: string, selectorSubstring: string): string {
+  const selectorIndex = source.indexOf(selectorSubstring);
+  if (selectorIndex === -1) {
+    throw new Error(`Selector containing "${selectorSubstring}" not found in ${CSS_PATH}`);
+  }
+  const openBrace = source.indexOf("{", selectorIndex);
+  const closeBrace = source.indexOf("}", openBrace);
+  return source.slice(openBrace + 1, closeBrace);
+}
+
+// Regression guard for the HEL-746 phone-only "New chat" affordance. jsdom
+// implements no real layout or media-query evaluation, so no DOM-rendering
+// Jest test can observe the rendered visibility of
+// `.app-command-bar__mobile-new-chat` at a phone viewport — `CommandBar.
+// test.tsx` covers the React-conditional half (`pickerId === "chat"`
+// gating + the dispatch); this covers the CSS half, mirroring the read-file
+// + findMediaBlock/findRuleBody(InSource) scan used by
+// `Modal.css.test.ts`/`MobileNavSheet.css.test.ts`.
+describe("App.css — phone-only 'New chat' affordance visibility (HEL-746)", () => {
+  it("is hidden by default (desktop)", () => {
+    const body = findRuleBodyInSource(css, ".app-command-bar__mobile-new-chat");
+    expect(body).toMatch(/display:\s*none\s*;/);
+  });
+
+  it("is shown at the mobile-shell breakpoint, mirroring .app-command-bar__mobile-title", () => {
+    const mobileBlock = findMediaBlock(css, "max-width: 768px");
+    const body = findRuleBody(mobileBlock, ".app-command-bar__mobile-new-chat");
+    expect(body).toMatch(/display:\s*inline-flex\s*;/);
+  });
+});
+
+// Regression guard for the HEL-745 mobile command-bar-height fix. jsdom
+// implements no real layout or media-query evaluation, so no DOM-rendering
+// Jest test can observe the rendered command-bar height at a phone viewport.
+// This test statically asserts the CSS source keeps the mobile-scoped
+// `height: var(--space-10)` rule for `.app-command-bar` -- without it, the
+// bar's 44px IconButton mobile tap-target floor (IconButton.css.test.ts)
+// would go back to nearly filling the bar edge to edge, unnoticed until the
+// next live-viewport testing pass (the exact failure mode that produced this
+// hotfix). Follows IconButton.css.test.ts's exact pattern.
 describe("App.css — mobile command-bar height frames 44px tap targets (HEL-745)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 
