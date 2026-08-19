@@ -4,7 +4,7 @@ TICKET_ID: HEL-755
 CHANGE_NAME: proposal-apply-fail-safely
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/bug/proposal-apply-fail-safely/hel-755
 BRANCH: bug/proposal-apply-fail-safely/hel-755
-PHASE: Execution
+PHASE: Evaluation
 CYCLE: 1
 DEV_PORT: 6187
 BACKEND_PORT: 9094

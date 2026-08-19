@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Source-fetch failure creates a needs-attention pipeline, not a rollback
+### Requirement: Source-fetch failure is a structured, rolled-back error
 The service SHALL NOT delete the just-created source when the proposal's source is inline `rest_api` or
 `sql` and the connector cannot fetch/infer a schema. Apply SHALL proceed to create the pipeline against
 that source, and the response's `run` SHALL be a `blocked` `RunResultResponse` whose `blockedReason`
