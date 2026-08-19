@@ -11,7 +11,7 @@ BACKEND_PORT: 9095
 EXECUTOR_AGENT_ID: a26208db46836f559
 EVALUATOR_AGENT_ID: a1e58a4d0dcc67731
 LAST_EVAL_VERDICT: PASS
-LAST_EVAL_REPORT: /home/matt/Development/helio/.claude/worktrees/feature/assistant-connection-test-tool/HEL-756/openspec/changes/assistant-connection-test-tool/evaluation-1.md
+LAST_EVAL_REPORT: /home/matt/Development/helio/.claude/worktrees/feature/assistant-connection-test-tool/HEL-756/openspec/changes/archive/2026-08-19-assistant-connection-test-tool/evaluation-1.md
 SKEPTIC_CYCLE: 1
 LAST_SKEPTIC_VERDICT: CONFIRM (final gate)
 AGENT_MERGE: false
