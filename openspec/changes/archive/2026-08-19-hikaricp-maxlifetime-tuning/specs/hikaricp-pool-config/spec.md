@@ -1,8 +1,5 @@
-# hikaricp-pool-config Specification
+## MODIFIED Requirements
 
-## Purpose
-Tunes the HikariCP connection pool for serverless deployment: max 5 connections, minimum idle of 2 warm connections, a short idle timeout to trim excess connections, and a 30-minute max lifetime that avoids connection exhaustion on Cloud Run without forcing unnecessary Cloud SQL TLS handshakes on idle, unused connections.
-## Requirements
 ### Requirement: HikariCP pool is sized for serverless deployment
 The backend SHALL configure HikariCP with a maximum pool size of 5, minimum idle of 2, idle timeout of 30 000 ms, and max lifetime of 1 800 000 ms to prevent connection exhaustion when many Cloud Run instances connect to Cloud SQL simultaneously, while avoiding unnecessary proactive connection recycling on idle, unused connections.
 
@@ -31,4 +28,3 @@ the total maximum connection count to 10 per instance.
 #### Scenario: Privileged pool releases idle connections above the minimum promptly
 - **WHEN** a privileged-pool connection above `minimumIdle` has been idle for 30 seconds
 - **THEN** HikariCP closes and removes the connection from the pool
-
