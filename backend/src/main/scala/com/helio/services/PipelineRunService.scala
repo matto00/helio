@@ -16,6 +16,7 @@ import com.helio.domain.{
   DataField,
   DataSource,
   DataSourceId,
+  DataSourceKind,
   DataTypeId,
   InProcessPipelineEngine,
   Pipeline,
@@ -114,6 +115,38 @@ final class PipelineRunService(
         // Owner path — always permitted.
         runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId)
     }
+
+  /** Persist a "never attempted" run for a pipeline whose resolved source
+   *  kind the execution engine can't run at all (`rest_api`/`sql` —
+   *  [[PipelineRunService.SparkUnsupportedKinds]], design.md D2/D3 of
+   *  HEL-755). Reached from `PipelineProposalService.createPipeline` when it
+   *  skips [[submit]] entirely rather than reaching [[runPipeline]]'s
+   *  Spark-submission rejection. Mirrors `onBlockedRun`'s persistence
+   *  pattern below — best-effort `insertRun`, then `updateRunTerminal`/
+   *  `pipelineRepo.updateLastRun`, both terminal status `"failed"` — so the
+   *  reason is durable: it survives a page reload via the pipeline's
+   *  `lastRunStatus` badge and its run history, not just the transient apply
+   *  response. */
+  def recordUnrunnable(pipelineId: PipelineId, reason: String, user: AuthenticatedUser): Future[RunResultResponse] = {
+    val runId = PipelineRunId(UUID.randomUUID().toString)
+    val now   = Instant.now()
+    val insertWork: Future[Unit] =
+      if (pipelineRunRepo != null)
+        pipelineRunRepo.insertRun(runId, pipelineId, now, user).recoverWith { case _ => Future.successful(()) }
+      else Future.successful(())
+    insertWork
+      .flatMap { _ =>
+        if (pipelineRunRepo != null)
+          pipelineRunRepo.updateRunTerminal(runId, "failed", now, rowCount = None, errorLog = Some(reason), user)
+        else Future.successful(())
+      }
+      .flatMap { _ => pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user) }
+      .map { _ =>
+        RunResultResponse(
+          rows = Vector.empty, rowCount = 0, runId = Some(runId.value), blocked = true, blockedReason = Some(reason)
+        )
+      }
+  }
 
   private def runPipeline(
       pipeline: Pipeline,
@@ -665,6 +698,16 @@ final class PipelineRunService(
     }
   }
 
+}
+
+/** HEL-755 design.md D2: single source of truth for the source kinds the
+ *  execution engine categorically can't run — `runPipeline`/`previewStep`
+ *  above already hardcode this exact set as `RestSource`/`SqlSource` pattern
+ *  matches (left unchanged, to minimize diff/risk); this constant exists so
+ *  `PipelineProposalService` doesn't duplicate the kind list as a third
+ *  copy. */
+object PipelineRunService {
+  val SparkUnsupportedKinds: Set[String] = Set(DataSourceKind.RestApi, DataSourceKind.Sql)
 }
 
 /** Service-side projection of a cached run's status. Translated by routes

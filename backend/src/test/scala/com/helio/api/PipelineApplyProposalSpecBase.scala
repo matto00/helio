@@ -194,4 +194,17 @@ abstract class PipelineApplyProposalSpecBase
     case "pipeline_steps" => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM pipeline_steps".as[Int].head))
     case "data_types"     => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM data_types".as[Int].head))
   }
+
+  /** HEL-755 design.md D3: reads the most recent `pipeline_runs` row for
+   *  `pipelineId` (status + errorLog), via the privileged pool, mirroring
+   *  `countRows`'s existing use of `ctx.withSystemContext` for assertion-only
+   *  DB reads. Used to prove a `blocked`/`recordUnrunnable` run was actually
+   *  persisted, not only returned transiently in the apply response. */
+  protected def latestPipelineRun(pipelineId: String): Option[(String, Option[String])] =
+    await(ctx.withSystemContext(
+      // pipeline_runs.pipeline_id is TEXT (V24), not UUID — no ::uuid cast.
+      sql"""SELECT status, error_log FROM pipeline_runs
+            WHERE pipeline_id = $pipelineId
+            ORDER BY started_at DESC LIMIT 1""".as[(String, Option[String])].headOption
+    ))
 }
