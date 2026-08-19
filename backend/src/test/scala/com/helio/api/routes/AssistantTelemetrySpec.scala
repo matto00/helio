@@ -141,11 +141,11 @@ class AssistantTelemetrySpec
     override def sendTool(request: ClaudeApiToolRequest): Future[ClaudeApiResponse]    = response
   }
 
-  // No propose_*/find/get_resource tool_use is ever scripted below, so AssistantToolExecutor's other
-  // 5 collaborators are never touched -- null is safe (mirrors AssistantConversationRoutesSpec's own
-  // established "null-unused" pattern).
+  // No propose_*/find/get_resource/test_connection tool_use is ever scripted below, so
+  // AssistantToolExecutor's other 6 collaborators are never touched -- null is safe (mirrors
+  // AssistantConversationRoutesSpec's own established "null-unused" pattern).
   private def assistantServiceWith(transport: ClaudeTransport, modelId: String): AssistantService =
-    new AssistantService(new ClaudeClient(claudeConfig(modelId), transport)(routeEc), null, null, null, null, null, null)(routeEc)
+    new AssistantService(new ClaudeClient(claudeConfig(modelId), transport)(routeEc), null, null, null, null, null, null, null)(routeEc)
 
   private val traceDirective = new TraceContextDirective(projectId = None)
   private val TraceValue     = "assistant-trace-abc123"
@@ -211,7 +211,7 @@ class AssistantTelemetrySpec
       val modelId = s"model-${UUID.randomUUID()}"
       // "unknown_tool" is never in AssistantProtocol.assistantTools -- AssistantToolExecutor's
       // fallback (`Left(s"Unknown tool: $other")`) never touches a real collaborator, so the fixed,
-      // repeated tool_use response can safely drive all the way to the 3-hop cap.
+      // repeated tool_use response can safely drive all the way to the 4-hop cap (HEL-756).
       val service = assistantServiceWith(new FakeTransport(toolUseResponse("t", "unknown_tool")), modelId)
 
       JsonLogCapture.withCapture("com.helio.services.AssistantTelemetry") { read =>
@@ -225,16 +225,17 @@ class AssistantTelemetrySpec
           lines should have size 1
           lines.head.fields("hopBudgetExhausted") shouldBe JsString("true")
           lines.head.fields("searchedWithNoResults") shouldBe JsString("false")
-          // 4 tool_use blocks are requested across the loop's 4 transport round trips (the 4th one
-          // is never executed by AssistantToolExecutor, but it IS present in fullHistory -- see
-          // AssistantConversationRoutes.countToolUses's own doc comment).
-          lines.head.fields("toolCallCount") shouldBe JsString("4")
+          // HEL-756: 5 tool_use blocks are requested across the loop's 5 transport round trips (the
+          // 5th one is never executed by AssistantToolExecutor, but it IS present in fullHistory --
+          // see AssistantConversationRoutes.countToolUses's own doc comment).
+          lines.head.fields("toolCallCount") shouldBe JsString("5")
         }
       }
     }
 
     // assistant-tool-loop-telemetry spec delta scenario "A multi-hop turn's record shows nonzero
-    // cache reads" (assistant-prompt-caching tasks.md 4.4/design.md D5) -- 4 hops, each reporting
+    // cache reads" (assistant-prompt-caching tasks.md 4.4/design.md D5) -- 5 hops (HEL-756: maxHops
+    // raised to 4, so a hop-cap-exhausted turn now spans 5 round trips), each reporting
     // cache_read_input_tokens=50, aggregate to a nonzero cacheReadInputTokens on the emitted record.
     "a multi-hop turn's telemetry line shows a nonzero, correctly-aggregated cacheReadInputTokens" in {
       val user    = newUser()
@@ -251,19 +252,20 @@ class AssistantTelemetrySpec
         eventually {
           val lines = linesFor(read, modelId)
           lines should have size 1
-          // Same 4-round-trip hop-cap-exhausted shape as the sibling test above -- 4 hops x 50.
-          lines.head.fields("cacheReadInputTokens") shouldBe JsString("200")
+          // Same 5-round-trip hop-cap-exhausted shape as the sibling test above -- 5 hops x 50.
+          lines.head.fields("cacheReadInputTokens") shouldBe JsString("250")
           lines.head.fields("cacheCreationInputTokens") shouldBe JsString("0")
         }
       }
     }
 
     // HEL-700 tasks.md 3.5 (design.md D4/D7, assistant-tool-loop-telemetry spec's "A malformed
-    // propose call is counted as a decode failure" scenario) — every one of the 4 SCRIPTED
+    // propose call is counted as a decode failure" scenario) — every one of the 5 SCRIPTED
     // transport responses is an unparseable propose_dashboard call (empty input — 'dashboardName'
     // is required); mirrors this file's own hop-cap-exhausted fixture. Per
-    // ClaudeClient.sendWithTools's "thisHop > maxHops" guard, only the first 3 (maxHops) are ever
-    // actually dispatched to AssistantToolExecutor — the 4th tool_use arrives but is never executed.
+    // ClaudeClient.sendWithTools's "thisHop > maxHops" guard, only the first 4 (maxHops, HEL-756)
+    // are ever actually dispatched to AssistantToolExecutor — the 5th tool_use arrives but is never
+    // executed.
     "a malformed propose_dashboard call is counted as a decode failure, and neither its input payload nor its error text ever reach the log line" in {
       val user    = newUser()
       val detail  = await(conversationService.create(user, None, title = None))
@@ -280,8 +282,8 @@ class AssistantTelemetrySpec
           val lines = linesFor(read, modelId)
           lines should have size 1
           lines.head.fields("hopBudgetExhausted") shouldBe JsString("true")
-          lines.head.fields("proposeAttempts") shouldBe JsString("3")
-          lines.head.fields("proposeDecodeFailures") shouldBe JsString("3")
+          lines.head.fields("proposeAttempts") shouldBe JsString("4")
+          lines.head.fields("proposeDecodeFailures") shouldBe JsString("4")
           lines.head.fields("proposeValidationFailures") shouldBe JsString("0")
         }
 

@@ -11,6 +11,10 @@ import com.helio.api.protocols.{
   PatchSetPreviewProtocol,
   PatchSetProtocol,
   PipelineProposal,
+  PipelineProposalSource,
+  RestApiConfigPayload,
+  SqlInferRequest,
+  SqlSourceConfigPayload,
   WorkspaceResourceDetail,
   WorkspaceResourceSearchProtocol
 }
@@ -21,14 +25,26 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
+/** HEL-756 design.md D1 — closed ADT over the two typed inline-source config payloads a
+ *  `test_connection` call can verify, keyed by REUSING their existing `equals` (never a JSON-string
+ *  fingerprint, which would need its own canonicalization). File-private: `verifiedConfigs` below
+ *  never escapes `AssistantToolExecutor`. */
+private[services] sealed trait VerifiedConfig
+private[services] object VerifiedConfig {
+  final case class Rest(config: RestApiConfigPayload) extends VerifiedConfig
+  final case class Sql(config: SqlSourceConfigPayload) extends VerifiedConfig
+}
+
 /** `ClaudeToolExecutor` for HEL-659's top-level assistant (HEL-662 tasks.md section 4) — dispatches
- *  each of the 6 tools in `AssistantProtocol.assistantTools` to the collaborator that already
+ *  each of the 7 tools in `AssistantProtocol.assistantTools` to the collaborator that already
  *  implements it. Constructed FRESH per `AssistantService.converse` call (design.md D6) — never
- *  shared/reused across turns, so `capturedProposal` below carries no cross-request state leakage.
+ *  shared/reused across turns, so `capturedProposal`/`verifiedConfigs` below carry no cross-request
+ *  state leakage.
  *
  *  Hard Boundary (non-negotiable): every `propose_*` case below calls a NON-MUTATING `validate`/
  *  `preview` method — never `apply`. There is no code path in this class that can reach a mutating
- *  service method. */
+ *  service method. `test_connection` (HEL-756) is ALSO non-mutating — `SourceService.testRest`/
+ *  `testSql` never persist anything, they only probe reachability. */
 final class AssistantToolExecutor(
     workspaceSearchService: WorkspaceSearchService,
     panelCapabilityService: PanelCapabilityService,
@@ -36,6 +52,7 @@ final class AssistantToolExecutor(
     pipelineProposalService: PipelineProposalService,
     combinedProposalService: CombinedProposalService,
     patchSetPreviewService: PatchSetPreviewService,
+    sourceService: SourceService,
     user: AuthenticatedUser
 ) extends ClaudeToolExecutor
     with WorkspaceResourceSearchProtocol
@@ -56,6 +73,16 @@ final class AssistantToolExecutor(
   private val capturedProposal: AtomicReference[Option[AssistantProposal]] = new AtomicReference(None)
 
   def proposal: Option[AssistantProposal] = capturedProposal.get()
+
+  /** HEL-756 design.md D1 — every inline `rest_api`/`sql` config a `test_connection` call has
+   *  verified `ok = true` for, so far this turn. `AtomicReference[Set[_]]` for the SAME concurrency
+   *  reason `capturedProposal` above is an `AtomicReference` (same-hop `tool_use` blocks execute
+   *  concurrently via `Future.traverse`); `updateAndGet` gives lock-free, retry-on-conflict set
+   *  union, so a `test_connection` and a `propose_pipeline` racing in the same hop can never lose a
+   *  concurrent write to each other. Populated ONLY on `executeTestConnection`'s `ok = true` (mirrors
+   *  `capturedProposal`'s "only set on success" rule) — a failed test never verifies a config, and a
+   *  config Claude edits after a successful test simply isn't a member of this set (design.md D1). */
+  private val verifiedConfigs: AtomicReference[Set[VerifiedConfig]] = new AtomicReference(Set.empty)
 
   /** HEL-700 design.md D4/D7 — per-turn propose-call quality counters, `AtomicInteger` for the SAME
    *  concurrency reason `capturedProposal` above is an `AtomicReference`: `ClaudeClient.sendWithTools`
@@ -79,6 +106,7 @@ final class AssistantToolExecutor(
     name match {
       case "find"              => executeFind(input)
       case "get_resource"      => executeGetResource(input)
+      case "test_connection"   => executeTestConnection(input)
       case "propose_dashboard" => executeProposeDashboard(input)
       case "propose_pipeline"  => executeProposePipeline(input)
       case "propose_combined"  => executeProposeCombined(input)
@@ -149,7 +177,77 @@ final class AssistantToolExecutor(
     }
   }
 
+  // ── test_connection (HEL-756 tasks.md 1.3) ──────────────────────────────────────────────────
+
+  /** Decodes `{type, config}` by `type` (mirrors `SourcePreviewRoutes`'s `POST /sources/test`
+   *  dispatch), calls `sourceService.testRest`/`testSql`, and — on a `Right(TestConnectionResponse)`
+   *  with `ok = true` — records the exact config into `verifiedConfigs` (design.md D1). Always
+   *  returns the `TestConnectionResponse` JSON as the tool_result on a `Right`, `ok = true` or
+   *  `false` alike: an unreachable endpoint is a normal, non-error DOMAIN outcome (mirrors
+   *  `ConnectionTest.run`'s own "domain outcome, not HTTP error" framing), not a tool-execution
+   *  failure — only an undecodable `type`/`config` or a service-level `ServiceError` becomes a
+   *  `Left`. */
+  private def executeTestConnection(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] = {
+    val obj    = input.asJsObject
+    val config = obj.fields.getOrElse("config", JsObject.empty)
+    obj.fields.get("type").collect { case JsString(s) => s } match {
+      case Some("rest_api") =>
+        Try(config.convertTo[RestApiConfigPayload]) match {
+          case Failure(e) =>
+            Future.successful(Left(s"test_connection: invalid config — ${Option(e.getMessage).getOrElse(e.getClass.getName)}"))
+          case Success(restConfig) =>
+            sourceService.testRest(restConfig).map {
+              case Left(err) => Left(err.message)
+              case Right(response) =>
+                if (response.ok) verifiedConfigs.updateAndGet(_ + VerifiedConfig.Rest(restConfig))
+                Right(response.toJson.compactPrint)
+            }
+        }
+      case Some("sql") =>
+        Try(config.convertTo[SqlSourceConfigPayload]) match {
+          case Failure(e) =>
+            Future.successful(Left(s"test_connection: invalid config — ${Option(e.getMessage).getOrElse(e.getClass.getName)}"))
+          case Success(sqlConfig) =>
+            sourceService.testSql(SqlInferRequest("sql", sqlConfig)).map {
+              case Left(err) => Left(err.message)
+              case Right(response) =>
+                if (response.ok) verifiedConfigs.updateAndGet(_ + VerifiedConfig.Sql(sqlConfig))
+                Right(response.toJson.compactPrint)
+            }
+        }
+      case other =>
+        Future.successful(Left(s"test_connection: unrecognized or missing 'type': ${other.getOrElse("<absent>")}"))
+    }
+  }
+
   // ── propose_* (design.md D5/D6, Hard Boundary) ──────────────────────────────────────────────
+
+  /** HEL-756 tasks.md 1.4/1.5 (design.md D1/D4) — `Right(())` for a `sourceId` source (existing,
+   *  already-tested) or an inline `csv`/`static` source (no live endpoint to reach); for inline
+   *  `rest_api`/`sql`, `Right(())` iff that exact config is a member of `verifiedConfigs`, else a
+   *  `Left` tool-error naming the calling tool. Shared by `executeProposePipeline` (on
+   *  `proposal.source`) and `executeProposeCombined` (on `proposal.pipeline.source`) — never
+   *  duplicated (design.md D4). */
+  private def requireVerifiedInlineSource(toolName: String, source: PipelineProposalSource): Either[String, Unit] = {
+    def unverified: Left[String, Unit] =
+      Left(s"$toolName: call test_connection with this exact config before finalizing this proposal")
+
+    if (source.sourceId.isDefined) Right(())
+    else
+      source.`type` match {
+        case Some("rest_api") =>
+          source.restConfig match {
+            case Some(config) if verifiedConfigs.get().contains(VerifiedConfig.Rest(config)) => Right(())
+            case _                                                                             => unverified
+          }
+        case Some("sql") =>
+          source.sqlConfig match {
+            case Some(config) if verifiedConfigs.get().contains(VerifiedConfig.Sql(config)) => Right(())
+            case _                                                                            => unverified
+          }
+        case _ => Right(())
+      }
+  }
 
   private def executeProposeDashboard(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] = {
     proposeAttemptsCounter.incrementAndGet()
@@ -176,13 +274,19 @@ final class AssistantToolExecutor(
         proposeDecodeFailuresCounter.incrementAndGet()
         Future.successful(Left(err))
       case Right(proposal) =>
-        pipelineProposalService.validate(proposal, user).map {
+        requireVerifiedInlineSource("propose_pipeline", proposal.source) match {
           case Left(err) =>
             proposeValidationFailuresCounter.incrementAndGet()
-            Left(err.message)
+            Future.successful(Left(err))
           case Right(_) =>
-            capturedProposal.set(Some(AssistantProposal.Pipeline(proposal)))
-            Right(proposal.toJson.compactPrint)
+            pipelineProposalService.validate(proposal, user).map {
+              case Left(err) =>
+                proposeValidationFailuresCounter.incrementAndGet()
+                Left(err.message)
+              case Right(_) =>
+                capturedProposal.set(Some(AssistantProposal.Pipeline(proposal)))
+                Right(proposal.toJson.compactPrint)
+            }
         }
     }
   }
@@ -194,13 +298,19 @@ final class AssistantToolExecutor(
         proposeDecodeFailuresCounter.incrementAndGet()
         Future.successful(Left(err))
       case Right(proposal) =>
-        combinedProposalService.validate(proposal, user).map {
+        requireVerifiedInlineSource("propose_combined", proposal.pipeline.source) match {
           case Left(err) =>
             proposeValidationFailuresCounter.incrementAndGet()
-            Left(err.message)
+            Future.successful(Left(err))
           case Right(_) =>
-            capturedProposal.set(Some(AssistantProposal.Combined(proposal)))
-            Right(proposal.toJson.compactPrint)
+            combinedProposalService.validate(proposal, user).map {
+              case Left(err) =>
+                proposeValidationFailuresCounter.incrementAndGet()
+                Left(err.message)
+              case Right(_) =>
+                capturedProposal.set(Some(AssistantProposal.Combined(proposal)))
+                Right(proposal.toJson.compactPrint)
+            }
         }
     }
   }

@@ -434,7 +434,7 @@ final class ApiRoutes(
       case (Right(claudeConfig), Some(metricService)) =>
         val claudeClient           = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
         val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, dataTypeService, pipelineService, metricService, workspaceContextService)
-        Some(new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, proposalService, pipelineProposalService, combinedProposalService, patchSetPreviewService))
+        Some(new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, proposalService, pipelineProposalService, combinedProposalService, patchSetPreviewService, sourceService))
     }
 
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)

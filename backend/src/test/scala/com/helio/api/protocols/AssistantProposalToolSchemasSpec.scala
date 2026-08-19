@@ -27,6 +27,28 @@ class AssistantProposalToolSchemasSpec
       .asInstanceOf[JsArray]
       .elements
 
+  // HEL-756 tasks.md 2.1 — decode-pins test_connection's two examples through the SAME `config` ->
+  // RestApiConfigPayload/SqlSourceConfigPayload conversion path AssistantToolExecutor.
+  // executeTestConnection applies to a real `tool_use.input`.
+  "test_connection's schema examples" should {
+    "decode a rest_api example's config to RestApiConfigPayload with no DeserializationException" in {
+      val examples = examplesOf("test_connection")
+      examples should have size 2
+
+      val restExample = examples.find(_.asJsObject.fields.get("type").contains(JsString("rest_api")))
+        .getOrElse(fail("no rest_api example in test_connection's schema"))
+      restExample.asJsObject.fields("config").convertTo[RestApiConfigPayload]
+    }
+
+    "decode a sql example's config to SqlSourceConfigPayload with no DeserializationException" in {
+      val examples = examplesOf("test_connection")
+
+      val sqlExample = examples.find(_.asJsObject.fields.get("type").contains(JsString("sql")))
+        .getOrElse(fail("no sql example in test_connection's schema"))
+      sqlExample.asJsObject.fields("config").convertTo[SqlSourceConfigPayload]
+    }
+  }
+
   "propose_dashboard's schema examples" should {
     "each decode to a DashboardProposal with no DeserializationException" in {
       val examples = examplesOf("propose_dashboard")

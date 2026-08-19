@@ -129,10 +129,11 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null)
     val pipelineProposalService  = new PipelineProposalService(null, null, null, null, null, dsRepo, null)
     val claudeClient             = new ClaudeClient(config(), transport)
-    // combinedProposalService/patchSetPreviewService: null — no scripted sequence below invokes
-    // propose_combined/propose_patch_set (mirrors AssistantToolExecutorSpec's own null-unused
-    // pattern; a reached call would NPE and fail the test loudly).
-    new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, dashboardProposalService, pipelineProposalService, null, null)
+    // combinedProposalService/patchSetPreviewService/sourceService: null — no scripted sequence
+    // below invokes propose_combined/propose_patch_set/test_connection (mirrors
+    // AssistantToolExecutorSpec's own null-unused pattern; a reached call would NPE and fail the
+    // test loudly).
+    new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, dashboardProposalService, pipelineProposalService, null, null, null)
   }
 
   private def stubEmptyFind(dtRepo: DataTypeRepository): Unit =
@@ -239,42 +240,43 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       result.proposal shouldBe Some(AssistantProposal.Pipeline(accepted))
     }
 
-    // Task 6.7 — hard cap: mirrors ClaudeClientSpec's own hard-cap fixture style. maxHops = 3 is
-    // fixed inside AssistantService (never test-configurable) — a 4th tool_use attempt terminates
-    // gracefully via HopBudgetExhausted, not a 5th transport call.
-    "resolve a hop-budget-exhausted result for a 4-tool_use-attempt sequence" in {
+    // Task 6.7 (HEL-756 tasks.md 2.8 — maxHops raised 3 -> 4): hard cap mirrors ClaudeClientSpec's
+    // own hard-cap fixture style. maxHops = 4 is fixed inside AssistantService (never
+    // test-configurable) — a 5th tool_use attempt terminates gracefully via HopBudgetExhausted, not
+    // a 6th transport call.
+    "resolve a hop-budget-exhausted result for a 5-tool_use-attempt sequence" in {
       val dtRepo = mock(classOf[DataTypeRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
       stubEmptyFind(dtRepo)
 
       val findAttempt = Future.successful(toolUseResponse("t", "find", findInput))
-      val transport   = new FakeToolTransport(Vector.fill(4)(findAttempt))
+      val transport   = new FakeToolTransport(Vector.fill(5)(findAttempt))
 
       val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.hopBudgetExhausted shouldBe true
       result.proposal shouldBe None
-      transport.toolInvocations shouldBe 4
+      transport.toolInvocations shouldBe 5
     }
 
     // HEL-700 tasks.md 3.4 (design.md D5) — a HopBudgetExhausted outcome ALSO carries the
-    // executor's propose-call counters, not just FinalResponse. Every one of the 4 SCRIPTED
+    // executor's propose-call counters, not just FinalResponse. Every one of the 5 SCRIPTED
     // transport responses is an unparseable propose_dashboard call, but (mirrors task 6.7's own
-    // "4th tool_use attempt terminates gracefully... not a 5th transport call" doc comment, and
-    // ClaudeClient.sendWithTools's own "thisHop > maxHops" guard) only the first 3 (maxHops) are
-    // ever actually dispatched to the executor — the 4th arrives but is never executed.
+    // "5th tool_use attempt terminates gracefully... not a 6th transport call" doc comment, and
+    // ClaudeClient.sendWithTools's own "thisHop > maxHops" guard) only the first 4 (maxHops,
+    // HEL-756) are ever actually dispatched to the executor — the 5th arrives but is never executed.
     "carry the executor's propose-call counters on a hop-budget-exhausted outcome" in {
       val dtRepo = mock(classOf[DataTypeRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
 
       val badProposeAttempt = Future.successful(toolUseResponse("t", "propose_dashboard", JsObject("dashboardName" -> JsNumber(1))))
-      val transport          = new FakeToolTransport(Vector.fill(4)(badProposeAttempt))
+      val transport          = new FakeToolTransport(Vector.fill(5)(badProposeAttempt))
 
       val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.hopBudgetExhausted shouldBe true
-      result.proposeAttempts shouldBe 3
-      result.proposeDecodeFailures shouldBe 3
+      result.proposeAttempts shouldBe 4
+      result.proposeDecodeFailures shouldBe 4
       result.proposeValidationFailures shouldBe 0
     }
 
@@ -332,14 +334,15 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     }
 
     // HEL-667 design.md D2 — a hop-budget-exhausted outcome never sets searchedWithNoResults, even
-    // when the last (never-executed) tool_use requested was find.
+    // when the last (never-executed) tool_use requested was find. HEL-756: 5 scripted attempts
+    // (maxHops raised to 4).
     "not set searchedWithNoResults for a hop-budget-exhausted outcome" in {
       val dtRepo = mock(classOf[DataTypeRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
       stubEmptyFind(dtRepo)
 
       val findAttempt = Future.successful(toolUseResponse("t", "find", findInput))
-      val transport   = new FakeToolTransport(Vector.fill(4)(findAttempt))
+      val transport   = new FakeToolTransport(Vector.fill(5)(findAttempt))
 
       val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
@@ -495,14 +498,15 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     }
 
     // Task 6.2 (HEL-665 design.md D1) — fullHistory is populated (not empty/partial) even when the
-    // hop budget is exhausted, mirroring task 6.7's own 4-tool_use-attempt scripted sequence.
+    // hop budget is exhausted, mirroring task 6.7's own 5-tool_use-attempt scripted sequence
+    // (HEL-756: maxHops raised to 4).
     "populate fullHistory even when the hop budget is exhausted" in {
       val dtRepo = mock(classOf[DataTypeRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
       stubEmptyFind(dtRepo)
 
       val findAttempt = Future.successful(toolUseResponse("t", "find", findInput))
-      val transport   = new FakeToolTransport(Vector.fill(4)(findAttempt))
+      val transport   = new FakeToolTransport(Vector.fill(5)(findAttempt))
 
       val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
@@ -552,14 +556,15 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
 
   // Task 6.8 — AC3's tool-list assertion: no apply-shaped tool is ever a member of the bounded
   // set handed to Claude, enforced by the schema itself (there is no tool through which an apply
-  // could even be requested).
+  // could even be requested). HEL-756 tasks.md 2.2 extends this (rather than duplicating it) to
+  // also assert the new 7th tool, test_connection, is present.
   "AssistantProtocol.assistantTools" should {
 
-    "contain exactly the 6 expected tools, none apply-shaped" in {
+    "contain exactly the 7 expected tools, including test_connection, none apply-shaped" in {
       val names = AssistantProtocol.assistantTools.map(_.name)
 
       names should contain theSameElementsAs Vector(
-        "find", "get_resource", "propose_dashboard", "propose_pipeline", "propose_combined", "propose_patch_set"
+        "find", "get_resource", "test_connection", "propose_dashboard", "propose_pipeline", "propose_combined", "propose_patch_set"
       )
       AssistantProtocol.assistantTools.foreach { tool =>
         tool.name.toLowerCase should not include "apply"
