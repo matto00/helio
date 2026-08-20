@@ -25,6 +25,14 @@ undetectable-in-advance restore failure.
   by the caller
 - **THEN** the call is rejected (not found) and no resource is modified
 
+#### Scenario: Restoring a pipeline step preserves its captured enabled/disabled state
+- **WHEN** `POST /api/patch-sets/:id/undo` restores a `pipelineStep` edit — whether by recreating a
+  deleted step or by fully reverting an updated one — and the captured pre-apply state had that step
+  `enabled: false`
+- **THEN** the restored step is `enabled: false`, never silently reset to `enabled: true`
+- **AND** a captured pre-apply state with no `enabled` field recorded (a legacy record predating the
+  field's introduction) restores as `enabled: true`
+
 ### Requirement: A resource changed since the original apply SHALL refuse the whole undo
 Before restoring anything, undo SHALL compare each `update`/`create` edit's target's current live
 state — restricted to the fields that edit's own restore would touch, never dynamic or

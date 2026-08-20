@@ -160,8 +160,14 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       case Left(e)  => fail(s"seedPipeline failed: $e")
     }
 
-  private def seedPipelineStep(pipelineId: PipelineId, owner: AuthenticatedUser, kind: String, config: JsObject): PipelineStepResponse =
-    await(pipelineService.addStep(pipelineId, CreatePipelineStepRequest(kind, config), owner)) match {
+  private def seedPipelineStep(
+      pipelineId: PipelineId,
+      owner: AuthenticatedUser,
+      kind: String,
+      config: JsObject,
+      enabled: Option[Boolean] = None
+  ): PipelineStepResponse =
+    await(pipelineService.addStep(pipelineId, CreatePipelineStepRequest(kind, config, enabled = enabled), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"seedPipelineStep failed: $e")
     }
@@ -204,7 +210,11 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       val standaloneType      = seedPipelineOutputType(userA, "Type v1")
       val (pipelineSrcId, _)  = seedStaticSource(userA, "Pipeline source v1")
       val pipeline             = seedPipeline(userA, pipelineSrcId, "Pipeline v1")
-      val step                  = seedPipelineStep(PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("a" -> JsString("b"))))
+      // HEL-705 (2.6): seeded DISABLED so the full-revert undo path is asserted to preserve the
+      // captured `enabled` state, mirroring 5.3c's delete-and-recreate coverage below.
+      val step                  = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("a" -> JsString("b"))), enabled = Some(false)
+      )
 
       val edits = Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "update",
@@ -234,6 +244,8 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       await(pipelineRepo.findByIdInternal(PipelineId(pipeline.id))).map(_.name) shouldBe Some("Pipeline v1")
       val restoredStep = await(pipelineStepRepo.findByIdInternal(PipelineStepId(step.id))).getOrElse(fail("step missing"))
       restoredStep.asInstanceOf[RenameStep].config.renames shouldBe Map("a" -> "b")
+      // HEL-705 (2.6): the full-revert undo must NOT silently come back enabled.
+      restoredStep.enabled shouldBe false
     }
 
     // ── 5.3b: create/delete undo ────────────────────────────────────────────
@@ -307,7 +319,11 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     "restore a pipelineStep delete edit by recreating it with its content restored (5.3c)" in {
       val (sourceId, _) = seedStaticSource(userA, "Step-delete pipeline source")
       val pipeline        = seedPipeline(userA, sourceId, "Step-delete pipeline")
-      val step              = seedPipelineStep(PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("old" -> JsString("new"))))
+      // HEL-705: seeded DISABLED so the delete-and-recreate undo path is asserted to preserve
+      // (not silently drop) the captured `enabled` state.
+      val step              = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("old" -> JsString("new"))), enabled = Some(false)
+      )
 
       val edit = Edit(EditTarget("pipelineStep", Some(step.id)), "delete", None, None, None, None, None, None, None)
       val applicationId = applySuccessfully(Vector(edit))
@@ -322,6 +338,8 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       await(pipelineStepRepo.findByIdInternal(PipelineStepId(step.id))) shouldBe None
       val recreated = await(pipelineStepRepo.findByIdInternal(PipelineStepId(recreatedId))).getOrElse(fail("recreated step missing"))
       recreated.asInstanceOf[RenameStep].config.renames shouldBe Map("old" -> "new")
+      // HEL-705: the recreated step must NOT silently come back enabled.
+      recreated.enabled shouldBe false
     }
 
     // ── 5.3d: structurally-unrecoverable delete-kind blocks the WHOLE undo ──
