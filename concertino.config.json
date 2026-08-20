@@ -115,7 +115,7 @@
   },
   "budgets": {
     "executionCycles": 3,
-    "skepticDesignRounds": 3,
+    "skepticDesignRounds": 5,
     "skepticFinalRounds": 2,
     "debugAttempts": 2
   },
