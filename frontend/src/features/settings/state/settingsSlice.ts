@@ -10,6 +10,16 @@ import {
   redeemInviteCode as redeemInviteCodeRequest,
   requestBetaAccess as requestBetaAccessRequest,
 } from "../services/settingsService";
+// HEL-727: the `/api/tokens` HTTP wrappers live in their own
+// `apiTokenService.ts` (design.md decision — same reasoning that already put
+// the MFA HTTP calls in `authService.ts` rather than here), but the
+// "Personal access tokens" section's own loading/error state follows this
+// feature's own settingsSlice layout, same as every other sibling sub-tree.
+import {
+  createApiToken as createApiTokenRequest,
+  listApiTokens,
+  revokeApiToken as revokeApiTokenRequest,
+} from "../services/apiTokenService";
 // HEL-702: the MFA HTTP wrappers live in `authService.ts` (task 3.2 — they
 // hang off `/api/auth/mfa/*`), but the Settings "Security" section's own
 // loading/error state follows this feature's own settingsSlice layout
@@ -24,6 +34,7 @@ import {
 } from "../../auth/services/authService";
 import { setAuth } from "../../auth/state/authSlice";
 import type { AgentMemoryEntry } from "../types/agentMemory";
+import type { ApiTokenResponse, CreateApiTokenResponse } from "../types/apiToken";
 import type { AgentPreferences, PutAgentPreferencesRequest } from "../types/preferences";
 import type {
   MfaBackupCodesResponse,
@@ -106,14 +117,33 @@ interface BetaAccessState {
   redeemError: string | null;
 }
 
+/** HEL-727: the Settings "Personal access tokens" section's state, following
+ *  this slice's existing per-sub-tree async-status shape. `createdToken` is
+ *  transient shown-once UI state (the raw token value) -- never persisted,
+ *  cleared by `dismissCreatedApiToken` (mirrors `mfa.backupCodes`). `revokeStatus`/
+ *  `revokeError` are keyed by token id (mirrors `agentMemory.deleteStatus`/
+ *  `deleteError`'s per-id shape) so one row's failed revoke never clobbers
+ *  another's in-flight state. */
+interface ApiTokensState {
+  items: ApiTokenResponse[];
+  status: AsyncStatus;
+  error: string | null;
+  createStatus: AsyncStatus;
+  createError: string | null;
+  createdToken: CreateApiTokenResponse | null;
+  revokeStatus: Record<string, AsyncStatus>;
+  revokeError: Record<string, string | null>;
+}
+
 /** design.md Decision 1: one `settingsSlice` holding preferences and agent
- *  memory as two sibling sub-trees, not two separate slices. HEL-702 adds `mfa` and HEL-704 adds
- *  `betaAccess` as two more siblings, same convention. */
+ *  memory as two sibling sub-trees, not two separate slices. HEL-702 adds `mfa`, HEL-704 adds
+ *  `betaAccess`, and HEL-727 adds `apiTokens` as further siblings, same convention. */
 interface SettingsState {
   preferences: PreferencesState;
   agentMemory: AgentMemoryState;
   mfa: MfaState;
   betaAccess: BetaAccessState;
+  apiTokens: ApiTokensState;
 }
 
 const initialState: SettingsState = {
@@ -155,6 +185,16 @@ const initialState: SettingsState = {
     requestError: null,
     redeemStatus: "idle",
     redeemError: null,
+  },
+  apiTokens: {
+    items: [],
+    status: "idle",
+    error: null,
+    createStatus: "idle",
+    createError: null,
+    createdToken: null,
+    revokeStatus: {},
+    revokeError: {},
   },
 };
 
@@ -310,6 +350,45 @@ export const redeemInviteCodeThunk = createAsyncThunk<User, string, { rejectValu
   },
 );
 
+// ── Personal access tokens (HEL-727) ────────────────────────────────────────
+
+export const fetchApiTokens = createAsyncThunk<ApiTokenResponse[], void, { rejectValue: string }>(
+  "settings/fetchApiTokens",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await listApiTokens();
+    } catch (err: unknown) {
+      return rejectWithValue(extractErrorMessage(err, "Failed to load personal access tokens."));
+    }
+  },
+);
+
+/** Takes the token's name and creates it (design.md non-goals: no expiration/
+ *  scoping UI, so this thunk never sends `expiresInDays`/`scopedPipelineIds`). */
+export const createApiTokenThunk = createAsyncThunk<
+  CreateApiTokenResponse,
+  string,
+  { rejectValue: string }
+>("settings/createApiToken", async (name, { rejectWithValue }) => {
+  try {
+    return await createApiTokenRequest({ name });
+  } catch (err: unknown) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to create token."));
+  }
+});
+
+export const revokeApiTokenThunk = createAsyncThunk<string, string, { rejectValue: string }>(
+  "settings/revokeApiToken",
+  async (id, { rejectWithValue }) => {
+    try {
+      await revokeApiTokenRequest(id);
+      return id;
+    } catch (err: unknown) {
+      return rejectWithValue(extractErrorMessage(err, "Failed to revoke token."));
+    }
+  },
+);
+
 const settingsSlice = createSlice({
   name: "settings",
   initialState,
@@ -327,6 +406,13 @@ const settingsSlice = createSlice({
      *  the user has acknowledged/copied them. */
     dismissMfaBackupCodes(state) {
       state.mfa.backupCodes = null;
+    },
+    /** Closes the shown-once token reveal panel once the user has
+     *  acknowledged/copied it. Deliberately does NOT touch `apiTokens.items`
+     *  — that update already happened, atomically, in
+     *  `createApiTokenThunk.fulfilled` (design.md "Shown-once reveal"). */
+    dismissCreatedApiToken(state) {
+      state.apiTokens.createdToken = null;
     },
   },
   extraReducers: (builder) => {
@@ -509,10 +595,69 @@ const settingsSlice = createSlice({
       .addCase(redeemInviteCodeThunk.rejected, (state, action) => {
         state.betaAccess.redeemStatus = "failed";
         state.betaAccess.redeemError = action.payload ?? "Invalid or already-used invite code";
+      })
+      // fetchApiTokens
+      .addCase(fetchApiTokens.pending, (state) => {
+        state.apiTokens.status = "loading";
+        state.apiTokens.error = null;
+      })
+      .addCase(fetchApiTokens.fulfilled, (state, action) => {
+        state.apiTokens.items = action.payload;
+        state.apiTokens.status = "succeeded";
+        state.apiTokens.error = null;
+      })
+      .addCase(fetchApiTokens.rejected, (state, action) => {
+        state.apiTokens.status = "failed";
+        state.apiTokens.error = action.payload ?? "Failed to load personal access tokens.";
+      })
+      // createApiTokenThunk
+      .addCase(createApiTokenThunk.pending, (state) => {
+        state.apiTokens.createStatus = "loading";
+        state.apiTokens.createError = null;
+      })
+      .addCase(createApiTokenThunk.fulfilled, (state, action) => {
+        state.apiTokens.createStatus = "succeeded";
+        state.apiTokens.createError = null;
+        // design.md "Shown-once reveal": both effects happen in this SAME
+        // reducer, atomically -- (1) set `createdToken` (drives the reveal
+        // panel) and (2) append the response's metadata (everything but the
+        // raw `token`) to `items`, client-side, no extra GET, so the new
+        // token is already present in the list underneath the reveal panel
+        // as an outcome of creation itself, not gated behind "Done".
+        state.apiTokens.createdToken = action.payload;
+        state.apiTokens.items.push({
+          id: action.payload.id,
+          name: action.payload.name,
+          createdAt: action.payload.createdAt,
+          lastUsedAt: null,
+          expiresAt: action.payload.expiresAt,
+        });
+      })
+      .addCase(createApiTokenThunk.rejected, (state, action) => {
+        state.apiTokens.createStatus = "failed";
+        state.apiTokens.createError = action.payload ?? "Failed to create token.";
+      })
+      // revokeApiTokenThunk
+      .addCase(revokeApiTokenThunk.pending, (state, action) => {
+        const id = action.meta.arg;
+        state.apiTokens.revokeStatus[id] = "loading";
+        state.apiTokens.revokeError[id] = null;
+      })
+      .addCase(revokeApiTokenThunk.fulfilled, (state, action) => {
+        const id = action.payload;
+        state.apiTokens.items = state.apiTokens.items.filter((token) => token.id !== id);
+        state.apiTokens.revokeStatus[id] = "succeeded";
+        state.apiTokens.revokeError[id] = null;
+      })
+      .addCase(revokeApiTokenThunk.rejected, (state, action) => {
+        const id = action.meta.arg;
+        state.apiTokens.revokeStatus[id] = "failed";
+        state.apiTokens.revokeError[id] = action.payload ?? "Failed to revoke token.";
       });
   },
 });
 
 export type { SettingsState };
-export const { dismissMfaEnrollment, dismissMfaBackupCodes } = settingsSlice.actions;
+export const { dismissMfaEnrollment, dismissMfaBackupCodes, dismissCreatedApiToken } =
+  settingsSlice.actions;
 export const settingsReducer = settingsSlice.reducer;
