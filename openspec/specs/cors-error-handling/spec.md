@@ -13,6 +13,13 @@ An unhandled-exception response SHALL NOT include raw exception text, stack trac
 driver/internal detail in its body (per `error-response-safety`); the full exception SHALL be
 logged server-side.
 
+The backend SHALL additionally register a `RejectionHandler` outside the `cors()` directive that
+handles `CorsRejection` specifically, so that a request with a disallowed `Origin` header also
+receives a clean, curated response — without CORS headers, since the origin is not allowed —
+instead of Pekko's default unhandled-rejection response. This rejection SHALL be logged at a
+level below `ERROR` and without a full stack trace, since a disallowed-origin request is expected
+traffic (bot/scanner/misconfigured client), not an application fault.
+
 #### Scenario: Unhandled exception response still carries CORS headers
 - **WHEN** a request from an allowed CORS origin causes an unhandled exception during route
   evaluation (e.g. a downstream connection-acquisition failure)
@@ -32,4 +39,13 @@ logged server-side.
   curated error responses (e.g. `StatusCodes.NotFound` with a specific message)
 - **THEN** that response is returned unchanged, with CORS headers attached exactly as before this
   change
+
+#### Scenario: Disallowed-origin request receives a clean, curated response
+
+- **WHEN** a request carries an `Origin` header that does not match the configured allowlist
+- **THEN** the response is a curated, typed error body (no raw exception/stack detail) with a
+  `403 Forbidden` status
+- **AND** the response does NOT include an `Access-Control-Allow-Origin` header, since the origin
+  is not allowed
+- **AND** the rejection is logged server-side at a level below `ERROR`, with no stack trace
 
