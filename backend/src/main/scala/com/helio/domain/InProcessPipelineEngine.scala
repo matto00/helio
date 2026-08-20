@@ -13,9 +13,28 @@ import scala.util.{Failure, Success}
  *  Cycle 3 reduces this to a thin orchestration shell — `applyStep` becomes
  *  `step.evaluate(rows, ctx)` and per-kind logic lives in
  *  [[com.helio.domain.steps]] modules. The engine's remaining responsibility
- *  is row-source loading (static / csv) and assembling the
- *  [[PipelineExecutionContext]] every step receives. */
-class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionContext) {
+ *  is row-source loading (static / csv / rest_api / sql / text / pdf / image)
+ *  and assembling the [[PipelineExecutionContext]] every step receives.
+ *
+ *  `connector` (design.md D3, HEL-758) is a nullable-default `RestApiConnector`
+ *  — mirrors this file's own `binaryRefRepo`/`alertEvaluationService`
+ *  `= null` convention elsewhere in the codebase. `RestApiConnector` requires
+ *  an implicit `ActorSystem` to construct, so it's threaded in rather than
+ *  constructed here; `SqlConnector` is a stateless `object` and needs no DI.
+ *  A `null` connector attempting a `RestSource` load fails fast with a clear
+ *  `IllegalArgumentException` rather than a confusing `NullPointerException`. */
+class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnector = null)(implicit ec: ExecutionContext) {
+
+  /** Row bound for a real `rest_api`/`sql` run (design.md D2) — distinct from
+   *  `previewStep`'s pre-existing 10-row preview cap (unchanged; preview
+   *  truncates via `.take(10)` after `loadRows`/`executeWithStepCounts`, so
+   *  this doesn't need a smaller preview-specific bound). Neither connector's
+   *  `fetch` streams, so this bounds how much a single run materializes in
+   *  memory — larger than `DataSourceService.staticMaxRows` (500) /
+   *  `SqlConnector.inferSchema`'s 100-row sample because a real run is the
+   *  one place a REST/SQL pipeline actually produces its panel-bindable
+   *  data. */
+  private val maxRunRows: Int = 1000
 
   def execute(
       rows: Seq[Row],
@@ -102,11 +121,29 @@ class InProcessPipelineEngine(fileSystem: FileSystem)(implicit ec: ExecutionCont
             case Left(msg)  => Future.failed(new IllegalArgumentException(msg))
           }
         }
+    case r: RestSource =>
+      if (connector == null)
+        Future.failed(
+          new IllegalArgumentException(
+            "REST data source '" + r.name + "' (id=" + r.id.value +
+              ") cannot be executed: no RestApiConnector was configured for this pipeline engine"
+          )
+        )
+      else
+        connector.fetch(r.config, maxRunRows).flatMap {
+          case Left(err)    => Future.failed(new IllegalArgumentException(err))
+          case Right(jsRows) => Future.successful(jsRows.map(PipelineRowJson.jsRowToRow))
+        }
+    case s: SqlSource =>
+      SqlConnector.fetch(s.config, maxRunRows).flatMap {
+        case Left(err)    => Future.failed(new IllegalArgumentException(err))
+        case Right(jsRows) => Future.successful(jsRows.map(PipelineRowJson.jsRowToRow))
+      }
     case other =>
       Future.failed(
         new IllegalArgumentException(
           "Unsupported source type for in-process pipeline engine: " +
-            other.kind + ". Only static, csv, text, pdf, and image are supported."
+            other.kind + ". Only static, csv, text, pdf, image, rest_api, and sql are supported."
         )
       )
   }

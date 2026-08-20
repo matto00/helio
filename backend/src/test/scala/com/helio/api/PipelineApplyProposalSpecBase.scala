@@ -20,6 +20,7 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -63,9 +64,26 @@ abstract class PipelineApplyProposalSpecBase
   protected val RestSuccessUrl = "https://rest.test/ok"
   protected val RestFailureUrl = "https://rest.test/fail"
 
+  // HEL-758 task 4.4: a source whose FIRST fetch (schema inference, at inline
+  // source creation) succeeds, and every SUBSEQUENT fetch (the pipeline's
+  // actual run, reached moments later in the same apply-proposal call) fails
+  // — simulates "the endpoint becomes unreachable between schema inference
+  // and the run" (spec.md's "run-time fetch failure" scenario, distinct from
+  // RestFailureUrl's fails-at-schema-inference-time scenario). Call-counted
+  // rather than a second static URL because both call sites share the exact
+  // same connector.fetch/inferSchema code path — there is no other way to
+  // make schema inference and the run diverge deterministically.
+  protected val RestRunFailUrl = "https://rest.test/run-fail"
+  private val restRunFailCallCount = new AtomicInteger(0)
+
   private val stubConnector = new RestApiConnector(Some { config =>
     if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
-    else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
+    else if (config.url == RestRunFailUrl) {
+      if (restRunFailCallCount.getAndIncrement() == 0)
+        Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
+      else
+        Future.successful(Left("connector: endpoint unreachable"))
+    } else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
   })
 
   private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
@@ -173,6 +191,12 @@ abstract class PipelineApplyProposalSpecBase
   override def afterAll(): Unit = {
     appDb.close(); privilegedDb.close(); embeddedPostgres.close(); super.afterAll()
   }
+
+  // HEL-758 task 4.4: exposes the embedded Postgres port (embeddedPostgres
+  // itself stays private, set up in beforeAll) so a subclass can seed an
+  // inline sql source config that's actually reachable, mirroring
+  // SqlConnectorSpec's own `liveConfig` pattern.
+  protected def sqlPort: Int = embeddedPostgres.getPort
 
   protected def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
   // HEL-287: session auth via a `helio_session` cookie; mutating requests also need the CSRF header.

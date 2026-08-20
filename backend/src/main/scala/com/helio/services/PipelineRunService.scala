@@ -16,7 +16,6 @@ import com.helio.domain.{
   DataField,
   DataSource,
   DataSourceId,
-  DataSourceKind,
   DataTypeId,
   InProcessPipelineEngine,
   Pipeline,
@@ -25,9 +24,8 @@ import com.helio.domain.{
   PipelineRowJson,
   PipelineRunId,
   PipelineStep,
-  RestSource,
-  SchemaField,
-  SqlSource
+  RestApiConnector,
+  SchemaField
 }
 import com.helio.domain.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.{
@@ -68,12 +66,18 @@ final class PipelineRunService(
     // HEL-466: nullable default mirrors binaryRefRepo above — fixtures/
     // callers that don't pass an AlertEvaluationService simply skip the
     // post-run evaluation hook in onRunSuccess.
-    alertEvaluationService: AlertEvaluationService = null
+    alertEvaluationService: AlertEvaluationService = null,
+    // HEL-758 (design.md D3): nullable default mirrors binaryRefRepo/
+    // alertEvaluationService above — threaded through to InProcessPipelineEngine
+    // so it can execute a RestSource. A null connector fails fast inside the
+    // engine's RestSource loadRows case rather than here; SqlSource needs no
+    // such threading (SqlConnector is a stateless object).
+    connector: RestApiConnector = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  private val engine = new InProcessPipelineEngine(fileSystem)
+  private val engine = new InProcessPipelineEngine(fileSystem, connector)
 
   /** Submit a run (or dry-run) and return its result. Owns pre-execution
    *  (insert run record + prune old runs), source-type dispatch, SSE event
@@ -164,22 +168,17 @@ final class PipelineRunService(
           "DataSource not found: " + pipeline.sourceDataSourceId.value
         )))
       case Some(dataSource) =>
-        dataSource match {
-          case _: RestSource | _: SqlSource =>
-            Future.successful(Left(ServiceError.UnprocessableEntity(
-              "Unsupported source type for Spark job submission: " +
-                dataSource.kind + ". Only static and csv are currently supported."
-            )))
-          case _ =>
-            // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list
-            // so editor grantees (not pipeline owners) are not blocked by V35 RLS.
-            // HEL-412 (design.md Decision 3, boundaries i/ii): both full runs and
-            // dry runs execute the enabled-only step list — a disabled step is
-            // dropped as if it were absent.
-            pipelineStepRepo
-              .listByPipelineInternal(pipelineId)
-              .flatMap(allSteps => executeRun(pipeline, dataSource, allSteps.filter(_.enabled), isDry, user, triggerSource, triggeredByTokenId))
-        }
+        // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list
+        // so editor grantees (not pipeline owners) are not blocked by V35 RLS.
+        // HEL-412 (design.md Decision 3, boundaries i/ii): both full runs and
+        // dry runs execute the enabled-only step list — a disabled step is
+        // dropped as if it were absent. HEL-758: every source kind (including
+        // rest_api/sql) now reaches executeRun uniformly — the engine's own
+        // loadRows dispatches per-kind, with a null-connector guard for
+        // RestSource (design.md D3).
+        pipelineStepRepo
+          .listByPipelineInternal(pipelineId)
+          .flatMap(allSteps => executeRun(pipeline, dataSource, allSteps.filter(_.enabled), isDry, user, triggerSource, triggeredByTokenId))
     }
 
   /** Run only the prefix of `steps` ending at `stepId`, returning at most 10
@@ -197,48 +196,42 @@ final class PipelineRunService(
               "DataSource not found: " + pipeline.sourceDataSourceId.value
             )))
           case Some(dataSource) =>
-            dataSource match {
-              case _: RestSource | _: SqlSource =>
-                Future.successful(Left(ServiceError.UnprocessableEntity(
-                  "Unsupported source type for preview: " +
-                    dataSource.kind + ". Only static and csv are currently supported."
-                )))
-              case _ =>
-                // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list.
-                pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
-                  val sortedSteps = allSteps.sortBy(_.position)
-                  sortedSteps.indexWhere(_.id.value == stepId) match {
-                    case -1 =>
-                      Future.successful(Left(ServiceError.NotFound("Step not found: " + stepId)))
-                    // HEL-412 (design.md Decision 3, boundary "previewStep"): previewing
-                    // a disabled step itself is rejected — the UI never offers this
-                    // (disabled cards hide their preview control), so this is a
-                    // defensive backstop.
-                    case k if !sortedSteps(k).enabled =>
-                      Future.successful(Left(ServiceError.UnprocessableEntity("step is disabled")))
-                    case k =>
-                      // Disabled steps are excluded from the executed prefix — the
-                      // preview reflects the pipeline as it would actually run.
-                      val slicedSteps = sortedSteps.take(k + 1).filter(_.enabled)
-                      engine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
-                        engine
-                          .executeWithStepCounts(sourceRows, slicedSteps, dataSourceRepo)
-                          .map { case (out, counts) =>
-                            val allJsRows = out.map { rowMap =>
-                              JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
-                            }.toVector
-                            val totalCount = allJsRows.size
-                            val previewRows = allJsRows.take(10)
-                            Right(RunResultResponse(previewRows, totalCount, counts, sourceRows.size.toLong))
-                          }
-                      }.recover { case ex =>
-                        // HEL-311: keep the "Pipeline execution failed" prefix, drop
-                        // the raw exception tail; log the detail server-side.
-                        log.error(s"previewStep failed for pipeline ${pipelineId.value}, step $stepId", ex)
-                        Left(ServiceError.UnprocessableEntity("Pipeline execution failed"))
+            // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list.
+            // HEL-758: every source kind (including rest_api/sql) now reaches
+            // this preview path uniformly (design.md D3).
+            pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
+              val sortedSteps = allSteps.sortBy(_.position)
+              sortedSteps.indexWhere(_.id.value == stepId) match {
+                case -1 =>
+                  Future.successful(Left(ServiceError.NotFound("Step not found: " + stepId)))
+                // HEL-412 (design.md Decision 3, boundary "previewStep"): previewing
+                // a disabled step itself is rejected — the UI never offers this
+                // (disabled cards hide their preview control), so this is a
+                // defensive backstop.
+                case k if !sortedSteps(k).enabled =>
+                  Future.successful(Left(ServiceError.UnprocessableEntity("step is disabled")))
+                case k =>
+                  // Disabled steps are excluded from the executed prefix — the
+                  // preview reflects the pipeline as it would actually run.
+                  val slicedSteps = sortedSteps.take(k + 1).filter(_.enabled)
+                  engine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
+                    engine
+                      .executeWithStepCounts(sourceRows, slicedSteps, dataSourceRepo)
+                      .map { case (out, counts) =>
+                        val allJsRows = out.map { rowMap =>
+                          JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
+                        }.toVector
+                        val totalCount = allJsRows.size
+                        val previewRows = allJsRows.take(10)
+                        Right(RunResultResponse(previewRows, totalCount, counts, sourceRows.size.toLong))
                       }
+                  }.recover { case ex =>
+                    // HEL-311: keep the "Pipeline execution failed" prefix, drop
+                    // the raw exception tail; log the detail server-side.
+                    log.error(s"previewStep failed for pipeline ${pipelineId.value}, step $stepId", ex)
+                    Left(ServiceError.UnprocessableEntity("Pipeline execution failed"))
                   }
-                }
+              }
             }
         }
     }
@@ -701,13 +694,20 @@ final class PipelineRunService(
 }
 
 /** HEL-755 design.md D2: single source of truth for the source kinds the
- *  execution engine categorically can't run — `runPipeline`/`previewStep`
- *  above already hardcode this exact set as `RestSource`/`SqlSource` pattern
- *  matches (left unchanged, to minimize diff/risk); this constant exists so
- *  `PipelineProposalService` doesn't duplicate the kind list as a third
- *  copy. */
+ *  execution engine categorically can't run at all — `PipelineProposalService.
+ *  createPipeline` consults this set to route to `recordUnrunnable` (a
+ *  durable "blocked" run) instead of `submit`, without duplicating a kind
+ *  list as a third copy.
+ *
+ *  HEL-758 (design.md D4): empty now that `rest_api`/`sql` both execute via
+ *  `InProcessPipelineEngine.loadRows` (`runPipeline`/`previewStep` no longer
+ *  hardcode a rejection for either kind). Left in place, not deleted, as a
+ *  forward-looking extension point for a future source kind the engine
+ *  categorically can't run (e.g. a streaming source) — `recordUnrunnable` and
+ *  `PipelineProposalService`'s guard branch stay wired to this set so a new
+ *  unrunnable kind needs only a one-line addition here, no new plumbing. */
 object PipelineRunService {
-  val SparkUnsupportedKinds: Set[String] = Set(DataSourceKind.RestApi, DataSourceKind.Sql)
+  val SparkUnsupportedKinds: Set[String] = Set.empty[String]
 }
 
 /** Service-side projection of a cached run's status. Translated by routes
