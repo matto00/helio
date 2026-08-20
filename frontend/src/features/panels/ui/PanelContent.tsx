@@ -1,5 +1,7 @@
 import "./PanelContent.css";
 import { Spinner } from "../../../shared/ui/Spinner";
+import { InlineError } from "../../../shared/chrome/InlineError";
+import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import {
@@ -30,6 +32,16 @@ export interface PanelContentProps {
   headers?: string[] | null;
   isLoading?: boolean;
   error?: string | null;
+  /** Classification of `error` — drives `InlineError`'s icon/Retry-eligibility. */
+  errorKind?: RequestErrorKind | null;
+  /** Re-dispatches the failed fetch. Only offered a Retry action when
+   *  `errorKind === "error"` (or unset, defaulting to "error"). */
+  onRetry?: () => void;
+  /** True while a retry triggered by `onRetry` is in flight. */
+  retrying?: boolean;
+  /** "button" (default) for surfaces with room for a labeled control (the
+   *  panel detail modal); "icon-only" for compact surfaces (a grid card). */
+  retryVariant?: "button" | "icon-only";
   noData?: boolean;
   /** Optional appearance override (defaults to `panel.appearance`). */
   appearance?: PanelAppearance;
@@ -52,6 +64,10 @@ export function PanelContent({
   headers,
   isLoading,
   error,
+  errorKind,
+  onRetry,
+  retrying,
+  retryVariant,
   noData,
   appearance,
   paginationRows,
@@ -73,7 +89,17 @@ export function PanelContent({
   if (error) {
     return (
       <div className="panel-content panel-content--state panel-content--error" role="alert">
-        <span className="panel-content__state-label">{error}</span>
+        {/* announced={false} — this wrapper already carries role="alert";
+         *  InlineError's own role would double-announce it. */}
+        <InlineError
+          error={error}
+          variant="banner"
+          kind={errorKind ?? "error"}
+          onRetry={onRetry}
+          retrying={retrying}
+          retryVariant={retryVariant}
+          announced={false}
+        />
       </div>
     );
   }

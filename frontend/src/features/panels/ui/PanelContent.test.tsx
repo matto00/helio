@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
 import { PanelContent } from "./PanelContent";
@@ -104,6 +104,52 @@ describe("PanelContent — error state", () => {
   it("does not render metric content when there is an error", () => {
     render(<PanelContent panel={makeMetricPanel()} error="Failed to load data." />);
     expect(screen.queryByText("--")).not.toBeInTheDocument();
+  });
+});
+
+// HEL-539 — the error state now renders InlineError variant="banner", with
+// its own role="alert" (announced=false), Retry action, and kind-based icon.
+describe("PanelContent — error state retry wiring (HEL-539)", () => {
+  it("carries a single role=alert (announced=false, not doubled by the wrapper's own role)", () => {
+    render(<PanelContent panel={makeMetricPanel()} error="Failed to load data." />);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+  });
+
+  it("renders a Retry action invoking onRetry when errorKind is error (or unset)", () => {
+    const onRetry = jest.fn();
+    render(
+      <PanelContent panel={makeMetricPanel()} error="Failed to load data." onRetry={onRetry} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders no Retry action for a forbidden/not-found errorKind, even with onRetry passed", () => {
+    const onRetry = jest.fn();
+    render(
+      <PanelContent
+        panel={makeMetricPanel()}
+        error="You don't have access to this panel's data."
+        errorKind="forbidden"
+        onRetry={onRetry}
+      />,
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it('retryVariant="icon-only" renders the compact icon-only Retry control', () => {
+    const onRetry = jest.fn();
+    render(
+      <PanelContent
+        panel={makeMetricPanel()}
+        error="Failed to load data."
+        onRetry={onRetry}
+        retryVariant="icon-only"
+      />,
+    );
+    const retryBtn = screen.getByRole("button", { name: "Retry" });
+    fireEvent.click(retryBtn);
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });
 

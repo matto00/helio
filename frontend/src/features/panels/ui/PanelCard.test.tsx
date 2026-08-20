@@ -3,20 +3,27 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeMetricPanel } from "../../../test/panelFixtures";
 import { fetchAssertionStatus as fetchAssertionStatusRequest } from "../../dataTypes/services/dataTypeService";
+import { usePanelData } from "../hooks/usePanelData";
 import { PanelCard } from "./PanelCard";
 
+// jest.fn() (not a plain factory function), matching MobilePanelStack.test.tsx's
+// convention — HEL-539's retry test below overrides the return value to
+// simulate a failed fetch.
 jest.mock("../hooks/usePanelData", () => ({
-  usePanelData: () => ({
+  usePanelData: jest.fn(() => ({
     data: null,
     rawRows: null,
     headers: null,
     isLoading: false,
     error: null,
+    errorKind: null,
     noData: true,
     chartAggregate: null,
     refresh: jest.fn(),
-  }),
+  })),
 }));
+
+const mockUsePanelData = jest.mocked(usePanelData);
 
 jest.mock("../hooks/usePanelPolling", () => ({
   usePanelPolling: jest.fn(),
@@ -222,5 +229,64 @@ describe("PanelCard — F-099 drag handle visual distinction", () => {
     const handle = screen.getByRole("button", { name: "Move Revenue panel" });
     expect(handle.querySelector("svg")).toBeInTheDocument();
     expect(handle.querySelectorAll("span")).toHaveLength(0);
+  });
+});
+
+// HEL-539 — PanelContent's error state, wired through PanelCard with an
+// icon-only Retry (small grid cells) that calls usePanelData().refresh.
+describe("PanelCard — error state retry (HEL-539)", () => {
+  beforeEach(() => {
+    fetchAssertionStatusMock.mockReset();
+    fetchAssertionStatusMock.mockResolvedValue({
+      dataTypeId: "dt-1",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+  });
+
+  afterEach(() => {
+    mockUsePanelData.mockClear();
+  });
+
+  it("renders an icon-only Retry action that calls refresh() when the fetch has failed", () => {
+    const refresh = jest.fn();
+    mockUsePanelData.mockReturnValueOnce({
+      data: null,
+      rawRows: null,
+      headers: null,
+      isLoading: false,
+      error: "Failed to load panel data.",
+      errorKind: "error",
+      noData: false,
+      chartAggregate: null,
+      refresh,
+    });
+
+    const panel = makeMetricPanel({ title: "Revenue", config: { dataTypeId: "dt-1" } });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    expect(screen.getByText("Failed to load panel data.")).toBeInTheDocument();
+    const retryBtn = screen.getByRole("button", { name: "Retry" });
+    fireEvent.click(retryBtn);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders no Retry action for a forbidden/not-found errorKind", () => {
+    mockUsePanelData.mockReturnValueOnce({
+      data: null,
+      rawRows: null,
+      headers: null,
+      isLoading: false,
+      error: "You don't have access to this panel's data.",
+      errorKind: "forbidden",
+      noData: false,
+      chartAggregate: null,
+      refresh: jest.fn(),
+    });
+
+    const panel = makeMetricPanel({ title: "Revenue", config: { dataTypeId: "dt-1" } });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
   });
 });

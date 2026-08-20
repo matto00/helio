@@ -15,6 +15,7 @@ import {
   type GroupedAggregate,
 } from "../../../utils/aggregate";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import type { RequestErrorKind } from "../../../services/classifyRequestError";
 
 export interface PanelDataResult {
   data: MappedPanelData | null;
@@ -22,6 +23,8 @@ export interface PanelDataResult {
   headers: string[] | null;
   isLoading: boolean;
   error: string | null;
+  /** Classification of `error` — `null` when there is no error. */
+  errorKind: RequestErrorKind | null;
   noData: boolean;
   /** HEL-292: precomputed groupBy aggregate for a chart panel with an
    *  `aggregation` spec — `null` when the panel has none. Computed over the
@@ -65,14 +68,22 @@ export function usePanelData(panel: Panel): PanelDataResult {
 
   const prevFetchKey = useRef<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
-  const [errorForKey, setErrorForKey] = useState<{ key: string; message: string } | null>(null);
+  const [errorForKey, setErrorForKey] = useState<{
+    key: string;
+    message: string;
+    kind: RequestErrorKind;
+  } | null>(null);
 
   /**
    * Reset the fetch-deduplication key and trigger a re-render so the data
-   * useEffect bypasses its guard and re-fetches on the next tick.
+   * useEffect bypasses its guard and re-fetches on the next tick. Also
+   * eagerly clears any stored error for this panel so a Retry action never
+   * continues to render the prior failure while the new fetch is in flight
+   * (D6).
    */
   const refresh = useCallback(() => {
     prevFetchKey.current = null;
+    setErrorForKey(null);
     setRefreshToken((t) => t + 1);
   }, []);
 
@@ -112,8 +123,19 @@ export function usePanelData(panel: Panel): PanelDataResult {
 
     void dispatch(fetchPanelPage({ panelId: panel.id, page: 0, pageSize }))
       .unwrap()
-      .catch(() => {
-        setErrorForKey({ key: keyAtDispatch, message: "Failed to load data." });
+      .then(() => {
+        // D6 — a fetch can fulfill via a background refetch (e.g.
+        // `markDataTypeRowsStale` after a pipeline run completes) that never
+        // goes through `refresh()`'s eager clear above, so the success path
+        // itself must also clear a prior stored error for this key.
+        setErrorForKey((prev) => (prev?.key === keyAtDispatch ? null : prev));
+      })
+      .catch((err: { message?: string; kind?: RequestErrorKind } | undefined) => {
+        setErrorForKey({
+          key: keyAtDispatch,
+          message: err?.message ?? "Failed to load data.",
+          kind: err?.kind ?? "error",
+        });
       });
   }, [
     currentFetchKey,
@@ -206,6 +228,7 @@ export function usePanelData(panel: Panel): PanelDataResult {
       headers: null,
       isLoading: false,
       error: null,
+      errorKind: null,
       noData: false,
       chartAggregate: null,
       refresh,
@@ -213,9 +236,10 @@ export function usePanelData(panel: Panel): PanelDataResult {
   }
 
   const error = errorForKey?.key === currentFetchKey ? errorForKey.message : null;
+  const errorKind = errorForKey?.key === currentFetchKey ? errorForKey.kind : null;
   const isLoading = paginationEntry?.isLoadingMore === true && rows.length === 0;
   const noData =
     paginationEntry != null && !paginationEntry.isLoadingMore && rows.length === 0 && !error;
 
-  return { data, rawRows, headers, isLoading, error, noData, chartAggregate, refresh };
+  return { data, rawRows, headers, isLoading, error, errorKind, noData, chartAggregate, refresh };
 }

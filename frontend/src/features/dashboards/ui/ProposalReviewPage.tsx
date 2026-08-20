@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 import { IS_DEV } from "../../../config/env";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDataTypes } from "../../dataTypes/services/dataTypeService";
@@ -10,6 +11,10 @@ import type { DataType } from "../../dataTypes/types/dataType";
 import { postAuthoringOutcome } from "../services/authoringService";
 import { applyProposal } from "../state/dashboardsSlice";
 import { EMPTY_WORKSPACE_COPY } from "../utils/emptyWorkspaceCopy";
+import {
+  classifyRequestError,
+  type RequestErrorKind,
+} from "../../../services/classifyRequestError";
 import { ProposalReview, type ReviewDataType } from "./ProposalReview";
 import type { DashboardProposal } from "../types/proposal";
 
@@ -43,6 +48,11 @@ export function ProposalReviewPage() {
 
   const [dataTypes, setDataTypes] = useState<DataType[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadErrorKind, setLoadErrorKind] = useState<RequestErrorKind | null>(null);
+  // HEL-539: bumped by the Retry action to re-trigger the load effect below;
+  // `retrying` drives the button's disabled/"Retrying…" state.
+  const [retryToken, setRetryToken] = useState(0);
+  const [retrying, setRetrying] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
 
@@ -59,15 +69,41 @@ export function ProposalReviewPage() {
     let active = true;
     fetchDataTypes()
       .then((types) => {
-        if (active) setDataTypes(types);
+        if (active) {
+          setDataTypes(types);
+          setRetrying(false);
+        }
       })
-      .catch(() => {
-        if (active) setLoadError("Could not load DataTypes for this workspace.");
+      .catch((err: unknown) => {
+        if (active) {
+          const classified = classifyRequestError(
+            err,
+            "Could not load DataTypes for this workspace.",
+          );
+          setLoadError(classified.message);
+          setLoadErrorKind(classified.kind);
+          setRetrying(false);
+        }
       });
     return () => {
       active = false;
     };
-  }, [useDemoFixture]);
+    // retryToken deliberately re-triggers this effect on Retry — see
+    // handleRetryLoad below.
+  }, [useDemoFixture, retryToken]);
+
+  // HEL-539 (design.md D5/task 2.8) — today's single `.catch`-only setter
+  // above never resets `loadError`/`loadErrorKind`, so a successful retry
+  // would otherwise still render the stale error forever. Clearing them here
+  // (in addition to bumping retryToken) guarantees the EmptyState error
+  // branch below stops rendering the instant a retry starts, not only once
+  // it resolves.
+  function handleRetryLoad() {
+    setLoadError(null);
+    setLoadErrorKind(null);
+    setRetrying(true);
+    setRetryToken((t) => t + 1);
+  }
 
   const dataTypesById = useMemo<Record<string, ReviewDataType>>(() => {
     const map: Record<string, ReviewDataType> = {};
@@ -131,12 +167,34 @@ export function ProposalReviewPage() {
   }
 
   if (loadError) {
+    const kind = loadErrorKind ?? "error";
+    const Icon = ERROR_KIND_ICON[kind];
+    const description =
+      kind === "not-found"
+        ? "We couldn't find this workspace. It may have been deleted, or you may not have access to it."
+        : kind === "forbidden"
+          ? "You don't have access to this workspace."
+          : loadError;
     return (
       <EmptyState
-        icon={faTableColumns}
+        intent="error"
+        icon={<Icon />}
         title="Couldn't load the workspace"
-        description={loadError}
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        description={description}
+        // D5/D7 — this fetch is DEV-only demo-fixture data; Retry only for
+        // a generic "error" kind, and "Back to dashboards" stays available
+        // in every case (kept as secondaryCta so it renders alongside Retry
+        // rather than replacing it).
+        cta={
+          kind === "error"
+            ? {
+                label: retrying ? "Retrying…" : "Retry",
+                onClick: handleRetryLoad,
+                disabled: retrying,
+              }
+            : undefined
+        }
+        secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
       />
     );
   }

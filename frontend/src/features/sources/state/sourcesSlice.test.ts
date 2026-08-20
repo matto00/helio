@@ -43,10 +43,14 @@ describe("sourcesSlice", () => {
   it("sets error when fetchSources rejects", () => {
     const nextState = sourcesReducer(
       undefined,
-      fetchSources.rejected(null, "req-1", undefined, "Failed to load sources."),
+      fetchSources.rejected(null, "req-1", undefined, {
+        message: "Failed to load sources.",
+        kind: "error",
+      }),
     );
     expect(nextState.status).toBe("failed");
     expect(nextState.error).toBe("Failed to load sources.");
+    expect(nextState.errorKind).toBe("error");
   });
 
   it("removes item when deleteSource fulfills", () => {
@@ -54,6 +58,7 @@ describe("sourcesSlice", () => {
       items: [testSource],
       status: "succeeded" as const,
       error: null,
+      errorKind: null,
       selectedSourceId: null,
       addModalOpen: false,
     };
@@ -142,6 +147,7 @@ describe("updateSource", () => {
       items: [testSource],
       status: "succeeded" as const,
       error: null,
+      errorKind: null,
       selectedSourceId: null,
       addModalOpen: false,
     };
@@ -159,6 +165,7 @@ describe("updateSource", () => {
       items: [testSource, otherSource],
       status: "succeeded" as const,
       error: null,
+      errorKind: null,
       selectedSourceId: null,
       addModalOpen: false,
     };

@@ -41,6 +41,26 @@ const csvSource: DataSource = {
   config: { path: "csv/src-1.csv" },
 };
 
+// HEL-539 (D5a) — `sql` is one of the 4 DataSourceKind values whose preview
+// is not implemented; selecting it hits the deterministic
+// previewUnsupported branch, never the real fetch/catch branch.
+const sqlSource: DataSource = {
+  id: "src-2",
+  name: "Warehouse DB",
+  type: "sql",
+  createdAt: "2026-05-01T00:00:00Z",
+  updatedAt: "2026-05-01T00:00:00Z",
+  config: {
+    dialect: "postgresql",
+    host: "localhost",
+    port: 5432,
+    database: "warehouse",
+    user: "reader",
+    password: "secret",
+    query: "select 1",
+  },
+};
+
 const linkedType: DataType = {
   id: "dt-1",
   sourceId: "src-1",
@@ -203,6 +223,48 @@ describe("SourceDetailPanel", () => {
 
       expect(updateSourceMock).not.toHaveBeenCalled();
       expect(screen.getByText("Sales CSV")).toBeInTheDocument();
+    });
+  });
+
+  // HEL-539 (D5a/task 2.7/4.3) — the prod-reachable retry-spam defect: a
+  // deterministic capability limitation must never carry a Retry action,
+  // while a real fetch failure on a preview-capable kind still does.
+  describe("preview error/unsupported split (D5a)", () => {
+    it("selecting an unsupported-preview source (sql) and clicking Preview renders the capability message with no Retry action", async () => {
+      fetchCsvPreviewMock.mockClear();
+      renderWithStore(<SourceDetailPanel source={sqlSource} />, {
+        dataTypes: { items: [] },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Preview is not supported for SQL sources.");
+      expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
+      // The fetch-based mocks were never invoked — this is a deterministic
+      // branch, not a caught error.
+      expect(fetchCsvPreviewMock).not.toHaveBeenCalled();
+    });
+
+    it("a real fetch failure on a preview-capable source (csv) renders previewError with a working Retry", async () => {
+      fetchCsvPreviewMock.mockReset();
+      fetchCsvPreviewMock.mockRejectedValueOnce(new Error("network down"));
+      renderWithStore(<SourceDetailPanel source={csvSource} />, {
+        dataTypes: { items: [linkedType] },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(/failed to fetch preview/i);
+      const retryBtn = screen.getByRole("button", { name: "Retry" });
+
+      fetchCsvPreviewMock.mockResolvedValueOnce({ headers: ["id"], rows: [["1"]] });
+      fireEvent.click(retryBtn);
+
+      await waitFor(() => expect(screen.getByText("1")).toBeInTheDocument());
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(fetchCsvPreviewMock).toHaveBeenCalledTimes(2);
     });
   });
 });

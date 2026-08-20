@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
 import { fetchSources as fetchSourcesRequest } from "../services/dataSourceService";
@@ -76,5 +76,26 @@ describe("SourcesPage", () => {
     });
     expect(fetchSourcesMock).not.toHaveBeenCalled();
     expect(fetchDataTypesMock).not.toHaveBeenCalled();
+  });
+
+  // HEL-539 — error state + retry recovery
+  it("renders a visible error state with Retry on fetch failure, and Retry recovers on success", async () => {
+    fetchSourcesMock.mockRejectedValueOnce(new Error("network error"));
+    renderWithStore(<SourcesPage />, {
+      sources: { items: [], status: "idle" },
+      dataTypes: { items: [], status: "succeeded" },
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Couldn't load sources");
+    expect(alert).toHaveTextContent("Failed to load sources.");
+    const retryBtn = screen.getByRole("button", { name: "Retry" });
+
+    fetchSourcesMock.mockResolvedValueOnce([]);
+    fireEvent.click(retryBtn);
+
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(await screen.findByText(/Connect a data source/i)).toBeInTheDocument();
+    expect(fetchSourcesMock).toHaveBeenCalledTimes(2);
   });
 });

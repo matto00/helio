@@ -96,10 +96,14 @@ describe("pipelinesSlice", () => {
   it("sets error status when fetchPipelines rejects", () => {
     const nextState = pipelinesReducer(
       undefined,
-      fetchPipelines.rejected(null, "req-1", undefined, "Failed to load pipelines."),
+      fetchPipelines.rejected(null, "req-1", undefined, {
+        message: "Failed to load pipelines.",
+        kind: "error",
+      }),
     );
     expect(nextState.status).toBe("failed");
     expect(nextState.error).toBe("Failed to load pipelines.");
+    expect(nextState.errorKind).toBe("error");
   });
 
   it("clears previous error on pending", () => {
@@ -107,6 +111,7 @@ describe("pipelinesSlice", () => {
       items: [],
       status: "failed" as const,
       error: "Previous error",
+      errorKind: "error" as const,
       createStatus: "idle" as const,
       createError: null,
       runId: null,
@@ -117,6 +122,7 @@ describe("pipelinesSlice", () => {
       currentPipeline: null,
       currentPipelineStatus: "idle" as const,
       currentPipelineError: null,
+      currentPipelineErrorKind: null,
       steps: {},
       stepsStatus: {},
       stepsError: {},
@@ -137,6 +143,7 @@ describe("pipelinesSlice", () => {
     };
     const nextState = pipelinesReducer(stateWithError, fetchPipelines.pending("req-2"));
     expect(nextState.error).toBeNull();
+    expect(nextState.errorKind).toBeNull();
     expect(nextState.status).toBe("loading");
   });
 
@@ -593,10 +600,14 @@ describe("fetchPipelineById reducer", () => {
   it("sets currentPipelineStatus to failed on rejected", () => {
     const nextState = pipelinesReducer(
       undefined,
-      fetchPipelineById.rejected(null, "req-1", "p-1", "Failed to load pipeline."),
+      fetchPipelineById.rejected(null, "req-1", "p-1", {
+        message: "Failed to load pipeline.",
+        kind: "error",
+      }),
     );
     expect(nextState.currentPipelineStatus).toBe("failed");
     expect(nextState.currentPipelineError).toBe("Failed to load pipeline.");
+    expect(nextState.currentPipelineErrorKind).toBe("error");
   });
 });
 

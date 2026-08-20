@@ -27,6 +27,10 @@ import {
   type TableDisplayPatch,
 } from "../services/panelService";
 import { fetchDataTypeRows } from "../../dataTypes/services/dataTypeService";
+import {
+  classifyRequestError,
+  type RequestErrorKind,
+} from "../../../services/classifyRequestError";
 import type { RootState } from "../../../store/store";
 import type {
   ChartAggregation,
@@ -419,12 +423,12 @@ export const updatePanelsBatch = createAsyncThunk<
 export const fetchPanelPage = createAsyncThunk<
   { panelId: string; page: number; rows: Record<string, unknown>[]; hasMore: boolean },
   { panelId: string; page: number; pageSize: number },
-  { state: RootState; rejectValue: string }
+  { state: RootState; rejectValue: { message: string; kind: RequestErrorKind } }
 >("panels/fetchPanelPage", async ({ panelId, page, pageSize }, { getState, rejectWithValue }) => {
   const panel = getState().panels.items.find((p) => p.id === panelId);
   const dataTypeId = panel ? getDataTypeId(panel) : null;
   if (!dataTypeId) {
-    return rejectWithValue("Panel is not bound to a data type.");
+    return rejectWithValue(classifyRequestError(undefined, "Panel is not bound to a data type."));
   }
   try {
     const { rows } = await fetchDataTypeRows(dataTypeId);
@@ -432,7 +436,7 @@ export const fetchPanelPage = createAsyncThunk<
     const slice = rows.slice(start, start + pageSize);
     const hasMore = start + pageSize < rows.length;
     return { panelId, page, rows: slice, hasMore };
-  } catch {
-    return rejectWithValue("Failed to load panel data.");
+  } catch (err: unknown) {
+    return rejectWithValue(classifyRequestError(err, "Failed to load panel data."));
   }
 });

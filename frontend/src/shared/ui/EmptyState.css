@@ -89,7 +89,15 @@
   line-height: 1.55;
 }
 
-/* ── CTA button — shared across variants ── */
+/* ── CTA actions row — shared across variants ── */
+
+.ui-empty-state__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
 
 .ui-empty-state__cta {
   display: inline-flex;
@@ -108,12 +116,52 @@
   transition: background-color var(--app-transition);
 }
 
-.ui-empty-state__cta:hover {
+.ui-empty-state__cta:hover:not(:disabled) {
   background: var(--app-accent-strong);
 }
 
-/* Sidebar CTA is slightly smaller */
-.ui-empty-state--sidebar .ui-empty-state__cta {
+.ui-empty-state__cta:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Secondary recipe (DESIGN.md §5) — same `--control-md` metrics as `.cta`,
+ * rendered alongside it (HEL-539, e.g. ProposalReviewPage's "Back to
+ * dashboards"). */
+.ui-empty-state__secondary-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-md);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.ui-empty-state__secondary-cta:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.ui-empty-state__secondary-cta:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Sidebar CTAs are slightly smaller */
+.ui-empty-state--sidebar .ui-empty-state__cta,
+.ui-empty-state--sidebar .ui-empty-state__secondary-cta {
   height: var(--control-sm);
   font-size: var(--text-xs);
   padding: 0 var(--space-3);
@@ -123,6 +171,49 @@
   font-size: 0.8em;
 }
 
+/* ReactNode (lucide) cta icons, sized via CSS rather than a literal `size`
+ * prop (HEL-539). `display: block` drops the <svg> out of inline
+ * formatting (skeptic-final-1.md CR1) — an inline replaced element reserves
+ * descender space in its line box, which optically pushed the glyph ~3px
+ * above the wrapping span's true center. Scoped to the ReactNode path only
+ * (a descendant selector, not `.ui-empty-state__cta-icon` itself) — the
+ * FontAwesome path has no nested <svg> under this class and is untouched. */
+.ui-empty-state__cta-icon svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+}
+
+/* ── Error intent (HEL-539) — full-surface failed-fetch treatment ──
+ * Placed after the variant blocks above so it wins the tie on equal
+ * selector specificity. */
+
+.ui-empty-state--error .ui-empty-state__icon-wrap {
+  background: color-mix(in srgb, var(--app-error) 16%, var(--app-surface));
+  border-color: color-mix(in srgb, var(--app-error) 30%, transparent);
+}
+
+.ui-empty-state--error .ui-empty-state__icon {
+  color: var(--app-error);
+}
+
+/* ReactNode (lucide) hero icons, sized via CSS rather than a literal `size`
+ * prop (HEL-539) — the FontAwesome path is unaffected (already font-size
+ * driven). `display: block` (skeptic-final-1.md CR1) fixes a ~3px optical
+ * vertical offset: the wrapping `<span class="ui-empty-state__icon">` is a
+ * block flex item (child of `.ui-empty-state__icon-wrap`'s centered flex
+ * row) whose own inline formatting context reserved descender space below
+ * the inline `<svg>`, pushing it above true center relative to the
+ * FontAwesome path (which renders the icon directly, with no such wrapper).
+ * A descendant selector, not `.ui-empty-state__icon` itself, so the
+ * FontAwesome case — where this class is applied directly to its own
+ * `<svg>`, with no nested one — is untouched. */
+.ui-empty-state__icon svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+}
+
 /* ── Mobile tap-target floor (HEL-319, following the HEL-308/314 convention) ── */
 
 @media (max-width: 768px) {
@@ -130,7 +221,8 @@
      (--control-sm, 28px) defensively — the sidebar column is not mounted at
      this breakpoint. Already flex-centered, so only the height floor is
      needed. */
-  .ui-empty-state__cta {
+  .ui-empty-state__cta,
+  .ui-empty-state__secondary-cta {
     min-height: 44px;
   }
 }

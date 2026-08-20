@@ -9,6 +9,7 @@ import { updateUserPreferences } from "../../auth/state/authSlice";
 import { createDashboard } from "../../dashboards/state/dashboardsSlice";
 import { PanelGrid } from "./PanelGrid";
 import { PanelCreationModal } from "./PanelCreationModal";
+import { fetchPanels } from "../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
 import { EmptyState } from "../../../shared/ui/EmptyState";
@@ -30,6 +31,11 @@ export function PanelList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreatingDashboard, setIsCreatingDashboard] = useState(false);
   const [createDashboardError, setCreateDashboardError] = useState<string | null>(null);
+  // HEL-539 — local in-flight flag for the panels-list Retry action (status
+  // itself flips straight to "loading" on retry, which swaps StatusMessage
+  // out of its "failed" branch entirely; this only matters for the brief
+  // window before that re-render commits).
+  const [isRetryingPanels, setIsRetryingPanels] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedDashboard =
     dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
@@ -203,6 +209,17 @@ export function PanelList() {
       <StatusMessage
         status={status}
         message={status === "loading" ? "Loading panels..." : (error ?? undefined)}
+        onRetry={
+          selectedDashboardId !== null
+            ? () => {
+                setIsRetryingPanels(true);
+                void dispatch(fetchPanels(selectedDashboardId)).finally(() =>
+                  setIsRetryingPanels(false),
+                );
+              }
+            : undefined
+        }
+        retrying={isRetryingPanels}
       />
       {status !== "loading" && status !== "failed" && selectedDashboardId === null ? (
         dashboards.length === 0 ? (

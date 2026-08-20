@@ -1367,6 +1367,38 @@ describe("PipelineDetailPage error state", () => {
     renderDetailPage("pipe-1", store);
     expect(screen.queryByText("Run pipeline")).not.toBeInTheDocument();
   });
+
+  // HEL-539 (task 5.6) — a 404 (RLS-denied or genuinely missing pipeline)
+  // renders a distinct not-found state: no Retry action, and copy that
+  // doesn't assert the pipeline was deleted (true under both causes).
+  it("a 404 fetch failure renders no Retry action and does not assert deletion", async () => {
+    getPipelineByIdMock.mockReset();
+    getPipelineByIdMock.mockRejectedValueOnce(axiosError(404));
+    const store = makeStore();
+
+    renderDetailPage("pipe-1", store);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Couldn't load this pipeline");
+    expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
+    // D7 — true under both causes (deleted OR no access), never an
+    // unconditional "this pipeline was deleted" assertion.
+    expect(alert).toHaveTextContent(/it may have been deleted, or you may not have access to it/i);
+  });
+
+  // HEL-539 — a 403 renders the distinct forbidden copy, also with no Retry.
+  it("a 403 fetch failure renders no Retry action and distinct forbidden copy", async () => {
+    getPipelineByIdMock.mockReset();
+    getPipelineByIdMock.mockRejectedValueOnce(axiosError(403));
+    const store = makeStore();
+
+    renderDetailPage("pipe-1", store);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Couldn't load this pipeline");
+    expect(alert).toHaveTextContent("You don't have access to this pipeline.");
+    expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
+  });
 });
 
 // ── Task 4.6 — dirty-state detection ─────────────────────────────────────────

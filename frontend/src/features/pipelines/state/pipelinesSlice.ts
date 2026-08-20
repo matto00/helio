@@ -17,6 +17,10 @@ import {
   deletePipelineSchedule as deletePipelineScheduleRequest,
 } from "../services/pipelineService";
 import { applyPipelineProposal as applyPipelineProposalRequest } from "../services/pipelineProposalService";
+import {
+  classifyRequestError,
+  type RequestErrorKind,
+} from "../../../services/classifyRequestError";
 import type {
   PipelineAnalyzeResponse,
   PipelineRunRecord,
@@ -69,6 +73,7 @@ interface PipelinesState {
   items: PipelineSummary[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
+  errorKind: RequestErrorKind | null;
   createStatus: "idle" | "loading" | "succeeded" | "failed";
   createError: string | null;
   runId: string | null;
@@ -80,6 +85,7 @@ interface PipelinesState {
   currentPipeline: PipelineSummary | null;
   currentPipelineStatus: "idle" | "loading" | "succeeded" | "failed";
   currentPipelineError: string | null;
+  currentPipelineErrorKind: RequestErrorKind | null;
   // Steps per pipeline
   steps: Record<string, PipelineStep[]>;
   stepsStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
@@ -116,6 +122,7 @@ const initialState: PipelinesState = {
   items: [],
   status: "idle",
   error: null,
+  errorKind: null,
   createStatus: "idle",
   createError: null,
   runId: null,
@@ -126,6 +133,7 @@ const initialState: PipelinesState = {
   currentPipeline: null,
   currentPipelineStatus: "idle",
   currentPipelineError: null,
+  currentPipelineErrorKind: null,
   steps: {},
   stepsStatus: {},
   stepsError: {},
@@ -148,15 +156,15 @@ const initialState: PipelinesState = {
 export const fetchPipelines = createAsyncThunk<
   PipelineSummary[],
   void,
-  { state: RootState; rejectValue: string }
+  { state: RootState; rejectValue: { message: string; kind: RequestErrorKind } }
 >(
   "pipelines/fetchPipelines",
   async (_, { rejectWithValue }) => {
     try {
       const summaries = await getPipelines();
       return summaries.map(normalizePipelineSummary);
-    } catch {
-      return rejectWithValue("Failed to load pipelines.");
+    } catch (err: unknown) {
+      return rejectWithValue(classifyRequestError(err, "Failed to load pipelines."));
     }
   },
   {
@@ -173,16 +181,17 @@ export const fetchPipelines = createAsyncThunk<
   },
 );
 
-export const fetchPipelineById = createAsyncThunk<PipelineSummary, string, { rejectValue: string }>(
-  "pipelines/fetchPipelineById",
-  async (pipelineId, { rejectWithValue }) => {
-    try {
-      return normalizePipelineSummary(await getPipelineById(pipelineId));
-    } catch {
-      return rejectWithValue("Failed to load pipeline.");
-    }
-  },
-);
+export const fetchPipelineById = createAsyncThunk<
+  PipelineSummary,
+  string,
+  { rejectValue: { message: string; kind: RequestErrorKind } }
+>("pipelines/fetchPipelineById", async (pipelineId, { rejectWithValue }) => {
+  try {
+    return normalizePipelineSummary(await getPipelineById(pipelineId));
+  } catch (err: unknown) {
+    return rejectWithValue(classifyRequestError(err, "Failed to load pipeline."));
+  }
+});
 
 export const fetchPipelineSteps = createAsyncThunk<
   { pipelineId: string; steps: PipelineStep[] },
@@ -382,31 +391,37 @@ const pipelinesSlice = createSlice({
       .addCase(fetchPipelines.pending, (state) => {
         state.status = "loading";
         state.error = null;
+        state.errorKind = null;
       })
       .addCase(fetchPipelines.fulfilled, (state, action) => {
         state.items = action.payload;
         state.status = "succeeded";
         state.error = null;
+        state.errorKind = null;
       })
       .addCase(fetchPipelines.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload ?? "Failed to load pipelines.";
+        state.error = action.payload?.message ?? "Failed to load pipelines.";
+        state.errorKind = action.payload?.kind ?? "error";
       })
       // fetchPipelineById
       .addCase(fetchPipelineById.pending, (state) => {
         state.currentPipelineStatus = "loading";
-        // Preserve currentPipelineError so the UI can keep showing it during a re-fetch
-        // It is cleared on success or by a new error.
+        // Preserve currentPipelineError/currentPipelineErrorKind so the UI can
+        // keep showing it during a re-fetch (D1a) — cleared on success or
+        // replaced by a new error.
       })
       .addCase(fetchPipelineById.fulfilled, (state, action) => {
         state.currentPipeline = action.payload;
         state.currentPipelineStatus = "succeeded";
         state.currentPipelineError = null;
+        state.currentPipelineErrorKind = null;
       })
       .addCase(fetchPipelineById.rejected, (state, action) => {
         state.currentPipeline = null;
         state.currentPipelineStatus = "failed";
-        state.currentPipelineError = action.payload ?? "Failed to load pipeline.";
+        state.currentPipelineError = action.payload?.message ?? "Failed to load pipeline.";
+        state.currentPipelineErrorKind = action.payload?.kind ?? "error";
       })
       // fetchPipelineSteps
       .addCase(fetchPipelineSteps.pending, (state, action) => {

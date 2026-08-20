@@ -66,4 +66,22 @@ describe("TypeRegistryPage", () => {
     await waitFor(() => expect(screen.getByText("No types defined")).toBeInTheDocument());
     expect(screen.queryByRole("textbox", { name: "Data type name" })).not.toBeInTheDocument();
   });
+
+  // HEL-539 — error state + retry recovery
+  it("renders a visible error state with Retry on fetch failure, and Retry recovers on success", async () => {
+    fetchDataTypesMock.mockReset();
+    fetchDataTypesMock.mockRejectedValueOnce(new Error("network error"));
+    renderWithStore(<TypeRegistryPage />);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Couldn't load types");
+    const retryBtn = screen.getByRole("button", { name: "Retry" });
+
+    fetchDataTypesMock.mockResolvedValueOnce([]);
+    fireEvent.click(retryBtn);
+
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(await screen.findByText("No types defined")).toBeInTheDocument();
+    expect(fetchDataTypesMock).toHaveBeenCalledTimes(2);
+  });
 });

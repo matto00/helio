@@ -9,6 +9,8 @@ import { PipelineDetailHeader } from "./PipelineDetailHeader";
 import { PipelineScheduleDialog } from "./PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
 import { Spinner } from "../../../shared/ui/Spinner";
+import { EmptyState } from "../../../shared/ui/EmptyState";
+import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 
@@ -71,6 +73,7 @@ export function PipelineDetailPage() {
     currentPipeline,
     currentPipelineStatus,
     currentPipelineError,
+    currentPipelineErrorKind,
     updateStatus,
     updateError,
     steps: reduxSteps,
@@ -591,11 +594,31 @@ export function PipelineDetailPage() {
   // Show error if we have a known error and no pipeline data yet.
   // This takes priority over loading so a re-fetch does not hide the error.
   if (currentPipeline === null && currentPipelineError !== null) {
+    const kind = currentPipelineErrorKind ?? "error";
+    const Icon = ERROR_KIND_ICON[kind];
+    const description =
+      kind === "not-found"
+        ? "We couldn't find this pipeline. It may have been deleted, or you may not have access to it."
+        : kind === "forbidden"
+          ? "You don't have access to this pipeline."
+          : currentPipelineError;
     return (
       <div className="pipeline-detail-page">
-        <div className="pipeline-detail-page__error" role="alert">
-          {currentPipelineError}
-        </div>
+        <EmptyState
+          intent="error"
+          icon={<Icon />}
+          title="Couldn't load this pipeline"
+          description={description}
+          cta={
+            kind === "error" && id !== undefined
+              ? {
+                  label: currentPipelineStatus === "loading" ? "Retrying…" : "Retry",
+                  onClick: () => dispatch(fetchPipelineById(id)),
+                  disabled: currentPipelineStatus === "loading",
+                }
+              : undefined
+          }
+        />
       </div>
     );
   }

@@ -9,6 +9,10 @@ import {
   createSqlSource as createSqlSourceRequest,
   updateSource as updateSourceRequest,
 } from "../services/dataSourceService";
+import {
+  classifyRequestError,
+  type RequestErrorKind,
+} from "../../../services/classifyRequestError";
 import type { DataSource, InferredField, SqlSourceConfig, StaticColumn } from "../types/dataSource";
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -25,6 +29,7 @@ interface SourcesState {
   items: DataSource[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
+  errorKind: RequestErrorKind | null;
   /** Explicit user selection in the sidebar. Null means "fall back to first
    * item" — the page derives the effective selection so it's never blank. */
   selectedSourceId: string | null;
@@ -37,20 +42,22 @@ const initialState: SourcesState = {
   items: [],
   status: "idle",
   error: null,
+  errorKind: null,
   selectedSourceId: null,
   addModalOpen: false,
 };
 
-export const fetchSources = createAsyncThunk<DataSource[], void, { rejectValue: string }>(
-  "sources/fetchSources",
-  async (_, { rejectWithValue }) => {
-    try {
-      return await fetchSourcesRequest();
-    } catch {
-      return rejectWithValue("Failed to load sources.");
-    }
-  },
-);
+export const fetchSources = createAsyncThunk<
+  DataSource[],
+  void,
+  { rejectValue: { message: string; kind: RequestErrorKind } }
+>("sources/fetchSources", async (_, { rejectWithValue }) => {
+  try {
+    return await fetchSourcesRequest();
+  } catch (err: unknown) {
+    return rejectWithValue(classifyRequestError(err, "Failed to load sources."));
+  }
+});
 
 export const inferSqlSource = createAsyncThunk<
   InferredField[],
@@ -135,15 +142,18 @@ const sourcesSlice = createSlice({
       .addCase(fetchSources.pending, (state) => {
         state.status = "loading";
         state.error = null;
+        state.errorKind = null;
       })
       .addCase(fetchSources.fulfilled, (state, action) => {
         state.items = action.payload;
         state.status = "succeeded";
         state.error = null;
+        state.errorKind = null;
       })
       .addCase(fetchSources.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload ?? "Failed to load sources.";
+        state.error = action.payload?.message ?? "Failed to load sources.";
+        state.errorKind = action.payload?.kind ?? "error";
       })
       .addCase(deleteSource.fulfilled, (state, action) => {
         state.items = state.items.filter((s) => s.id !== action.payload);
