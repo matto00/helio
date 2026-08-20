@@ -552,6 +552,76 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       result.proposal shouldBe defined
       transport.toolInvocations shouldBe 2
     }
+
+    // HEL-757 design.md D1/tasks.md 5.5 -- every converse call offers web_search unconditionally,
+    // never gated on message content/intent -- even for a goal with nothing to do with an external
+    // API (find/get_resource only, no propose_* call).
+    "set webSearch = true on every outbound request, regardless of message content" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+      stubEmptyFind(dtRepo)
+
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(toolUseResponse("t1", "find", findInput)),
+        Future.successful(finalTextResponse("Here's what I found."))
+      ))
+
+      awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "What data do we have?", user))
+
+      val outboundTools = transport.firstReceivedRequest.tools
+      outboundTools.collect { case ws: ClaudeApiToolSpec.WebSearch => ws } should have size 1
+    }
+
+    // HEL-757 tasks.md 5.6, assistant-web-research spec.md's "still enforces the existing
+    // test_connection requirement unchanged" -- a preceding web_search call earlier in the SAME hop
+    // does not bypass HEL-756's structural test_connection gate: propose_pipeline for an untested
+    // inline REST source is still rejected identically, exactly as it would be with no preceding
+    // search at all (AssistantToolExecutorSpec's own "reject propose_pipeline for an untested
+    // inline rest_api source" coverage, replayed here with a web_search call ahead of it in history).
+    "still enforce the existing test_connection requirement for a REST-source proposal after a preceding web_search call" in {
+      val dtRepo = mock(classOf[DataTypeRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+
+      val restSource = PipelineProposalSource(
+        sourceId = None,
+        `type` = Some("rest_api"),
+        name = Some("Inline REST"),
+        csvConfig = None,
+        restConfig = Some(RestApiConfigPayload(url = "https://api.example.com/data", method = Some("GET"), auth = None, headers = None)),
+        sqlConfig = None,
+        staticConfig = None
+      )
+      val restProposal = PipelineProposal("REST Pipeline", restSource, "New Output", Vector.empty)
+
+      val searchThenProposeHop = ClaudeApiResponse(
+        id = "msg_search_then_propose",
+        content = Seq(
+          ClaudeApiContentBlock(
+            blockType = "server_tool_use",
+            text = None,
+            id = Some("s1"),
+            name = Some("web_search"),
+            input = Some(JsObject("query" -> JsString("example API docs")))
+          ),
+          ClaudeApiContentBlock(blockType = "web_search_tool_result", text = None, toolUseId = Some("s1"), serverToolResult = Some(JsArray.empty)),
+          ClaudeApiContentBlock(blockType = "tool_use", text = None, id = Some("t1"), name = Some("propose_pipeline"), input = Some(restProposal.toJson))
+        ),
+        stopReason = Some("tool_use"),
+        usage = ClaudeApiUsage(10, 5)
+      )
+
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(searchThenProposeHop),
+        Future.successful(finalTextResponse("Please verify this source with test_connection first."))
+      ))
+
+      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build a pipeline from this REST API", user))
+
+      result.proposal shouldBe None
+      result.proposeAttempts shouldBe 1
+      result.proposeValidationFailures shouldBe 1
+      transport.toolInvocations shouldBe 2
+    }
   }
 
   // Task 6.8 — AC3's tool-list assertion: no apply-shaped tool is ever a member of the bounded

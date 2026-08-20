@@ -32,7 +32,10 @@ class HttpClaudeTransportSpec extends AnyWordSpec with Matchers with ScalatestRo
       case other                      => fail(s"expected a strict JSON entity, got $other")
     }
 
-  private def toolRequest(messages: Seq[ClaudeApiToolMessage], tools: Seq[ClaudeApiTool] = Seq.empty): ClaudeApiToolRequest =
+  // Seq[ClaudeApiToolSpec] (HEL-757 design.md D2) -- widened from Seq[ClaudeApiTool] so a caller can
+  // also pass a ClaudeApiToolSpec.WebSearch entry; every existing Seq[ClaudeApiTool]-typed call site
+  // above keeps compiling unchanged (Seq is covariant).
+  private def toolRequest(messages: Seq[ClaudeApiToolMessage], tools: Seq[ClaudeApiToolSpec] = Seq.empty): ClaudeApiToolRequest =
     ClaudeApiToolRequest(model = "claude-opus-4-8", maxTokens = 512, messages = messages, temperature = 1.0, tools = tools)
 
   "HttpClaudeTransport.buildHttpRequest(ClaudeApiToolRequest)" should {
@@ -55,6 +58,82 @@ class HttpClaudeTransportSpec extends AnyWordSpec with Matchers with ScalatestRo
           "name"         -> JsString("find"),
           "description"  -> JsString("Find a resource"),
           "input_schema" -> JsObject("type" -> JsString("object"))
+        )
+      )
+    }
+
+    // HEL-757 design.md D2/tasks.md 1.2 -- Anthropic's server-side web_search tool wire shape,
+    // verified against Anthropic's official Python SDK (PyPI package `anthropic`, v0.86.0;
+    // github.com/anthropics/anthropic-sdk-python) type definitions: WebSearchTool20250305Param
+    // during Execution: {"type": "web_search_20250305", "name": "web_search", "max_uses": N},
+    // alongside (not replacing) any ordinary custom tools already in the request.
+    "serialize a WebSearch entry alongside a custom tool with type/name/max_uses" in {
+      val customTool = ClaudeApiTool(name = "find", description = "Find a resource", inputSchema = JsObject("type" -> JsString("object")))
+      val json        = bodyJson(toolRequest(Seq.empty, tools = Seq(customTool, ClaudeApiToolSpec.WebSearch(3))))
+
+      json.fields("tools") shouldBe JsArray(
+        JsObject(
+          "name"         -> JsString("find"),
+          "description"  -> JsString("Find a resource"),
+          "input_schema" -> JsObject("type" -> JsString("object"))
+        ),
+        JsObject(
+          "type"     -> JsString("web_search_20250305"),
+          "name"     -> JsString("web_search"),
+          "max_uses" -> JsNumber(3)
+        )
+      )
+    }
+
+    // HEL-757 design.md D2 -- server_tool_use/web_search_tool_result blocks round-trip through the
+    // same message-content-array shape tool_use/tool_result already do.
+    "serialize a server_tool_use block with id/name/input" in {
+      val block = ClaudeApiContentBlock(
+        blockType = "server_tool_use",
+        text = None,
+        id = Some("srvtoolu_1"),
+        name = Some("web_search"),
+        input = Some(JsObject("query" -> JsString("ESPN API docs")))
+      )
+      val message = ClaudeApiToolMessage("assistant", Seq(block))
+      val json     = bodyJson(toolRequest(Seq(message)))
+
+      json.fields("messages") shouldBe JsArray(
+        JsObject(
+          "role" -> JsString("assistant"),
+          "content" -> JsArray(
+            JsObject(
+              "type"  -> JsString("server_tool_use"),
+              "id"    -> JsString("srvtoolu_1"),
+              "name"  -> JsString("web_search"),
+              "input" -> JsObject("query" -> JsString("ESPN API docs"))
+            )
+          )
+        )
+      )
+    }
+
+    "serialize a web_search_tool_result block with tool_use_id/content, never lossily stringified" in {
+      val resultContent = JsArray(JsObject("url" -> JsString("https://example.com"), "title" -> JsString("Docs")))
+      val block = ClaudeApiContentBlock(
+        blockType = "web_search_tool_result",
+        text = None,
+        toolUseId = Some("srvtoolu_1"),
+        serverToolResult = Some(resultContent)
+      )
+      val message = ClaudeApiToolMessage("user", Seq(block))
+      val json     = bodyJson(toolRequest(Seq(message)))
+
+      json.fields("messages") shouldBe JsArray(
+        JsObject(
+          "role" -> JsString("user"),
+          "content" -> JsArray(
+            JsObject(
+              "type"        -> JsString("web_search_tool_result"),
+              "tool_use_id" -> JsString("srvtoolu_1"),
+              "content"     -> resultContent
+            )
+          )
         )
       )
     }

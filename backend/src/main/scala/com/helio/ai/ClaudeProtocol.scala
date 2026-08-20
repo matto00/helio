@@ -79,18 +79,22 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
     }
   }
 
-  /** Handles all three block shapes the Anthropic Messages API uses (design.md D2): plain `text`
-   *  (unchanged from before this ticket), `tool_use` (Claude requesting a tool call: `id`/`name`/
-   *  `input`), and `tool_result` (a caller feeding a result back: `tool_use_id`/`content`/
-   *  `is_error`) — the wire key for the block's textual payload is `text` for a `text` block but
-   *  `content` for a `tool_result` block, so the mapping switches on `blockType` rather than using
-   *  one fixed key for every shape. */
+  /** Handles all five block shapes the Anthropic Messages API uses (design.md D2): plain `text`
+   *  (unchanged from before this ticket), `tool_use` (Claude requesting a CLIENT tool call: `id`/
+   *  `name`/`input`), `tool_result` (a caller feeding a client tool's result back: `tool_use_id`/
+   *  `content`/`is_error`), and — HEL-757 design.md D2 — `server_tool_use` (Anthropic invoking one
+   *  of its OWN tools, e.g. `web_search`: identical `id`/`name`/`input` shape to `tool_use`, just a
+   *  different `type` discriminator) and `web_search_tool_result` (`tool_use_id` + an opaque
+   *  `content` payload, carried via `serverToolResult` rather than the string-only `text` field so
+   *  the result's real JSON array/object shape round-trips losslessly). The wire key for the
+   *  block's textual payload varies by shape, so the mapping switches on `blockType` rather than
+   *  using one fixed key for every shape. */
   implicit val claudeApiContentBlockFormat: RootJsonFormat[ClaudeApiContentBlock] =
     new RootJsonFormat[ClaudeApiContentBlock] {
       def write(b: ClaudeApiContentBlock): JsValue = {
         val typeField: Map[String, JsValue] = Map("type" -> JsString(b.blockType))
         val shapeFields: Map[String, JsValue] = b.blockType match {
-          case "tool_use" =>
+          case "tool_use" | "server_tool_use" =>
             b.id.map(v => "id" -> JsString(v)).toMap ++
               b.name.map(v => "name" -> JsString(v)).toMap ++
               b.input.map(v => "input" -> v).toMap
@@ -98,6 +102,9 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
             b.toolUseId.map(v => "tool_use_id" -> JsString(v)).toMap ++
               b.text.map(v => "content" -> JsString(v)).toMap ++
               b.isError.map(v => "is_error" -> JsBoolean(v)).toMap
+          case "web_search_tool_result" =>
+            b.toolUseId.map(v => "tool_use_id" -> JsString(v)).toMap ++
+              b.serverToolResult.map(v => "content" -> v).toMap
           case _ =>
             b.text.map(v => "text" -> JsString(v)).toMap
         }
@@ -112,7 +119,7 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
         val obj       = json.asJsObject
         val blockType = obj.fields.get("type").map(_.convertTo[String]).getOrElse("")
         blockType match {
-          case "tool_use" =>
+          case "tool_use" | "server_tool_use" =>
             ClaudeApiContentBlock(
               blockType = blockType,
               text = None,
@@ -126,6 +133,13 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
               text = obj.fields.get("content").map(_.convertTo[String]),
               toolUseId = obj.fields.get("tool_use_id").map(_.convertTo[String]),
               isError = obj.fields.get("is_error").map(_.convertTo[Boolean])
+            )
+          case "web_search_tool_result" =>
+            ClaudeApiContentBlock(
+              blockType = blockType,
+              text = None,
+              toolUseId = obj.fields.get("tool_use_id").map(_.convertTo[String]),
+              serverToolResult = obj.fields.get("content")
             )
           case _ =>
             ClaudeApiContentBlock(
@@ -152,6 +166,29 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
     // Outbound-only — mirrors claudeApiRequestFormat.read (design.md D4's "outbound-only" pattern).
     def read(json: JsValue): ClaudeApiTool =
       throw new UnsupportedOperationException("ClaudeApiTool is an outbound-only wire type")
+  }
+
+  /** Writes each [[ClaudeApiToolSpec]] case's own wire shape (HEL-757 design.md D2): a `Custom`
+   *  (i.e. [[ClaudeApiTool]]) entry delegates to [[claudeApiToolFormat]] above, byte-identical to
+   *  before this ticket; a `WebSearch(maxUses)` entry writes Anthropic's documented server-tool
+   *  shape (`type`/`name`/`max_uses`, no `cache_control` — design.md D2a). Needed as its own
+   *  implicit because `ClaudeApiToolRequest.tools: Seq[ClaudeApiToolSpec]` requires a
+   *  `JsonWriter[ClaudeApiToolSpec]` to serialize, which `claudeApiToolFormat`
+   *  (`RootJsonFormat[ClaudeApiTool]`) alone cannot supply for a `WebSearch` element. */
+  implicit val claudeApiToolSpecFormat: RootJsonFormat[ClaudeApiToolSpec] = new RootJsonFormat[ClaudeApiToolSpec] {
+    def write(t: ClaudeApiToolSpec): JsValue = t match {
+      case tool: ClaudeApiTool => tool.toJson
+      case ClaudeApiToolSpec.WebSearch(maxUses) =>
+        JsObject(
+          "type"     -> JsString("web_search_20250305"),
+          "name"     -> JsString("web_search"),
+          "max_uses" -> JsNumber(maxUses)
+        )
+    }
+
+    // Outbound-only — mirrors claudeApiToolFormat.read (design.md D4's "outbound-only" pattern).
+    def read(json: JsValue): ClaudeApiToolSpec =
+      throw new UnsupportedOperationException("ClaudeApiToolSpec is an outbound-only wire type")
   }
 
   implicit val claudeApiToolMessageFormat: RootJsonFormat[ClaudeApiToolMessage] =

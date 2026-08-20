@@ -67,17 +67,25 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
    *  is the max transport calls that may execute a tool; a response requesting tools on what would
    *  be a `maxHops + 1`th round trip is detected — and the loop stops, with no execution and no
    *  further transport call — after that round trip's own response already arrived (design.md D5).
-   *  Never blocks the calling thread: every branch returns/completes a `Future`. */
+   *  Never blocks the calling thread: every branch returns/completes a `Future`.
+   *
+   *  `webSearchUsed` (HEL-757 design.md D3) tallies `ServerToolUse(name = "web_search")` blocks
+   *  seen across every hop of THIS call only — `toApiToolRequest` uses it to shrink (and eventually
+   *  omit) the `web_search` tool entry hop-to-hop, enforcing `config.webSearchMaxUses` as a genuine
+   *  cross-hop budget rather than a per-request one. Server-tool blocks are folded into
+   *  `assistantTurn`/history exactly like every other block (`blocks` already carries them,
+   *  `toContentBlock` decodes them) but are excluded from `toolUses` — so they are NEVER passed to
+   *  `executor.execute` (design.md D2's "AssistantToolExecutor must never see one"). */
   def sendWithTools(request: ClaudeToolRequest, executor: ClaudeToolExecutor): Future[ClaudeToolOutcome] = {
 
-    def loop(history: Seq[ClaudeToolMessage], hopsUsed: Int, usage: TokenUsage): Future[ClaudeToolOutcome] =
+    def loop(history: Seq[ClaudeToolMessage], hopsUsed: Int, usage: TokenUsage, webSearchUsed: Int): Future[ClaudeToolOutcome] =
       guardrailRejectTool(history) match {
         case Some(reason) =>
           Future.successful(ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(reason)))
         case None =>
           val thisHop = hopsUsed + 1
           transport
-            .sendTool(toApiToolRequest(request, history))
+            .sendTool(toApiToolRequest(request, history, webSearchUsed))
             .transform {
               case Success(apiResponse) =>
                 Success(Right(apiResponse))
@@ -92,10 +100,12 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
               case Left(err) =>
                 Future.successful(ClaudeToolOutcome.Failed(err))
               case Right(apiResponse) =>
-                val totalUsage    = addUsage(usage, apiResponse.usage)
-                val blocks        = apiResponse.content.map(toContentBlock)
-                val toolUses      = blocks.collect { case tu: ClaudeContentBlock.ToolUse => tu }
-                val assistantTurn = ClaudeToolMessage(ClaudeRole.Assistant, blocks)
+                val totalUsage      = addUsage(usage, apiResponse.usage)
+                val blocks          = apiResponse.content.map(toContentBlock)
+                val toolUses        = blocks.collect { case tu: ClaudeContentBlock.ToolUse => tu }
+                val webSearchCalls  = blocks.collect { case s: ClaudeContentBlock.ServerToolUse if s.name == "web_search" => s }
+                val newWebSearchUsed = webSearchUsed + webSearchCalls.size
+                val assistantTurn   = ClaudeToolMessage(ClaudeRole.Assistant, blocks)
 
                 if (toolUses.isEmpty) {
                   Future.successful(
@@ -108,13 +118,13 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
                     .traverse(toolUses)(executeTool(executor, _))
                     .flatMap { toolResults =>
                       val userTurn = ClaudeToolMessage(ClaudeRole.User, toolResults)
-                      loop(history :+ assistantTurn :+ userTurn, thisHop, totalUsage)
+                      loop(history :+ assistantTurn :+ userTurn, thisHop, totalUsage, newWebSearchUsed)
                     }
                 }
             }
       }
 
-    loop(request.history, hopsUsed = 0, usage = TokenUsage(0, 0))
+    loop(request.history, hopsUsed = 0, usage = TokenUsage(0, 0), webSearchUsed = 0)
   }
 
   /** Invokes the caller-supplied executor for a single `tool_use` block; an explicit `Left` becomes
@@ -150,6 +160,14 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       ClaudeContentBlock.ToolUse(b.id.getOrElse(""), b.name.getOrElse(""), b.input.getOrElse(JsObject.empty))
     case "tool_result" =>
       ClaudeContentBlock.ToolResult(b.toolUseId.getOrElse(""), b.text.getOrElse(""), b.isError.getOrElse(false))
+    // HEL-757 design.md D2 — Anthropic's own server-executed tools (currently only web_search in
+    // scope for this ticket); ServerToolUse.name drives sendWithTools's cross-hop budget tally.
+    case "server_tool_use" =>
+      ClaudeContentBlock.ServerToolUse(b.id.getOrElse(""), b.name.getOrElse(""), b.input.getOrElse(JsObject.empty))
+    case "web_search_tool_result" =>
+      // The wire block carries no `name` field (see ServerToolResult's own doc comment) — "web_search"
+      // is the only server-tool result shape this ticket wires, so it's the constant supplied here.
+      ClaudeContentBlock.ServerToolResult(b.toolUseId.getOrElse(""), name = "web_search", result = b.serverToolResult.getOrElse(JsObject.empty))
     case _ =>
       ClaudeContentBlock.Text(b.text.getOrElse(""))
   }
@@ -161,19 +179,38 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       ClaudeApiContentBlock(blockType = "tool_use", text = None, id = Some(id), name = Some(name), input = Some(input))
     case ClaudeContentBlock.ToolResult(toolUseId, content, isError) =>
       ClaudeApiContentBlock(blockType = "tool_result", text = Some(content), toolUseId = Some(toolUseId), isError = Some(isError))
+    case ClaudeContentBlock.ServerToolUse(id, name, input) =>
+      ClaudeApiContentBlock(blockType = "server_tool_use", text = None, id = Some(id), name = Some(name), input = Some(input))
+    case ClaudeContentBlock.ServerToolResult(toolUseId, _, result) =>
+      ClaudeApiContentBlock(blockType = "web_search_tool_result", text = None, toolUseId = Some(toolUseId), serverToolResult = Some(result))
   }
 
-  /** Marks the stable prefix's two cache breakpoints (design.md D3): the last `tools` element (end
-   *  of the byte-identical-across-hops tools array) and the last content block of the first message
-   *  (the end of `AssistantService.seedHistory`'s system-prompt-carrying turn). Both markers are
-   *  guarded on non-empty — an empty `tools`/`messages` list is left untouched. */
-  private def toApiToolRequest(request: ClaudeToolRequest, history: Seq[ClaudeToolMessage]): ClaudeApiToolRequest = {
+  /** Marks the stable prefix's two cache breakpoints (design.md D3): the last CUSTOM `tools`
+   *  element (end of the byte-identical-across-hops tools array) and the last content block of the
+   *  first message (the end of `AssistantService.seedHistory`'s system-prompt-carrying turn). Both
+   *  markers are guarded on non-empty — an empty `tools`/`messages` list is left untouched.
+   *
+   *  HEL-757 design.md D2a — `markedTools` below is built EXACTLY as before this ticket, typed
+   *  `Seq[ClaudeApiTool]` and never touching the sealed `ClaudeApiToolSpec`: the `web_search` entry
+   *  (when `request.webSearch`) is appended AFTER this already-marked sequence, always carrying no
+   *  `cacheControl` of its own, and is never itself a candidate for the "mark the last element"
+   *  breakpoint. `webSearchUsed` (the cumulative count from every prior hop of THIS call) sizes
+   *  that hop's `max_uses` down from `config.webSearchMaxUses`; once the remaining budget hits `0`
+   *  the tool is dropped from the outbound list entirely (design.md D3) rather than sent with
+   *  `max_uses = 0`. */
+  private def toApiToolRequest(request: ClaudeToolRequest, history: Seq[ClaudeToolMessage], webSearchUsed: Int): ClaudeApiToolRequest = {
     val clampedMaxTokens = math.min(request.maxTokens.getOrElse(config.maxOutputTokens), config.maxOutputTokens)
     val apiTools         = request.tools.map(t => ClaudeApiTool(t.name, t.description, t.inputSchema))
     val markedTools = apiTools match {
       case Seq() => apiTools
       case _     => apiTools.init :+ apiTools.last.copy(cacheControl = Some(ClaudeApiCacheControl.Ephemeral))
     }
+    val remainingWebSearchBudget = math.max(0, config.webSearchMaxUses - webSearchUsed)
+    val finalTools: Seq[ClaudeApiToolSpec] =
+      if (request.webSearch && remainingWebSearchBudget > 0)
+        markedTools :+ ClaudeApiToolSpec.WebSearch(remainingWebSearchBudget)
+      else
+        markedTools
     val apiMessages = history.map(m => ClaudeApiToolMessage(m.role, m.content.map(toApiContentBlock)))
     val markedMessages = apiMessages match {
       case Seq() => apiMessages
@@ -190,7 +227,7 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       maxTokens = clampedMaxTokens,
       messages = markedMessages,
       temperature = request.temperature.getOrElse(config.temperature),
-      tools = markedTools
+      tools = finalTools
     )
   }
 
@@ -202,9 +239,11 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
     history.map { m =>
       val flattened = m.content
         .map {
-          case ClaudeContentBlock.Text(text)               => text
-          case ClaudeContentBlock.ToolUse(_, _, input)      => input.compactPrint
-          case ClaudeContentBlock.ToolResult(_, content, _) => content
+          case ClaudeContentBlock.Text(text)                     => text
+          case ClaudeContentBlock.ToolUse(_, _, input)           => input.compactPrint
+          case ClaudeContentBlock.ToolResult(_, content, _)      => content
+          case ClaudeContentBlock.ServerToolUse(_, _, input)     => input.compactPrint
+          case ClaudeContentBlock.ServerToolResult(_, _, result) => result.compactPrint
         }
         .mkString
       ClaudeMessage(m.role, flattened)

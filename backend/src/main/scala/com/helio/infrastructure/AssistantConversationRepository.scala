@@ -174,6 +174,24 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
             "content"   -> JsString(content),
             "isError"   -> JsBoolean(isError)
           )
+        // HEL-757 design.md D2 -- a persisted turn can now carry server-tool blocks (e.g. a
+        // web_search call from ANY converse turn, since webSearch = true unconditionally): these
+        // must round-trip through the SAME transcript blob `ClaudeToolMessage` history does, or a
+        // GET/POST replay of a conversation containing one would throw a MatchError.
+        case ClaudeContentBlock.ServerToolUse(id, name, input) =>
+          JsObject(
+            "blockType" -> JsString("server_tool_use"),
+            "id"        -> JsString(id),
+            "name"      -> JsString(name),
+            "input"     -> input
+          )
+        case ClaudeContentBlock.ServerToolResult(toolUseId, name, result) =>
+          JsObject(
+            "blockType" -> JsString("web_search_tool_result"),
+            "toolUseId" -> JsString(toolUseId),
+            "name"      -> JsString(name),
+            "result"    -> result
+          )
       }
 
       def read(json: JsValue): ClaudeContentBlock = {
@@ -192,6 +210,18 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
               toolUseId = obj.fields("toolUseId").convertTo[String],
               content   = obj.fields("content").convertTo[String],
               isError   = obj.fields.get("isError").map(_.convertTo[Boolean]).getOrElse(false)
+            )
+          case Some("server_tool_use") =>
+            ClaudeContentBlock.ServerToolUse(
+              id    = obj.fields("id").convertTo[String],
+              name  = obj.fields("name").convertTo[String],
+              input = obj.fields("input")
+            )
+          case Some("web_search_tool_result") =>
+            ClaudeContentBlock.ServerToolResult(
+              toolUseId = obj.fields("toolUseId").convertTo[String],
+              name      = obj.fields("name").convertTo[String],
+              result    = obj.fields("result")
             )
           case other =>
             deserializationError(s"Unknown ClaudeContentBlock blockType: $other")

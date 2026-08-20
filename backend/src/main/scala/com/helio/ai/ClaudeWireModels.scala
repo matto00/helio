@@ -43,7 +43,13 @@ final case class ClaudeApiUsage(
  *  describe a `tool_result` block a caller sends back. All default `None` so every existing
  *  `ClaudeApiContentBlock(blockType = ..., text = ...)` construction site (`send`/`stream`'s own
  *  plain-text blocks) keeps compiling and behaving unchanged. `cacheControl` (design.md D1) is the
- *  same "default-`None`, existing sites unaffected" precedent applied to prompt-cache breakpoints. */
+ *  same "default-`None`, existing sites unaffected" precedent applied to prompt-cache breakpoints.
+ *
+ *  `serverToolResult` (HEL-757 design.md D2) carries a `web_search_tool_result` block's `content`
+ *  as raw, opaque `JsValue` — a SEPARATE field from `text: Option[String]`, not a reuse of it,
+ *  because Anthropic's result content is a JSON array/object (not a string); reusing `text` would
+ *  force a lossy `.toString`/stringify round trip. `id`/`name`/`input` (already above) are reused
+ *  as-is for `server_tool_use` — identical shape to `tool_use`, just a different `blockType`. */
 final case class ClaudeApiContentBlock(
     blockType: String,
     text: Option[String],
@@ -52,7 +58,8 @@ final case class ClaudeApiContentBlock(
     input: Option[JsValue] = None,
     toolUseId: Option[String] = None,
     isError: Option[Boolean] = None,
-    cacheControl: Option[ClaudeApiCacheControl] = None
+    cacheControl: Option[ClaudeApiCacheControl] = None,
+    serverToolResult: Option[JsValue] = None
 )
 
 final case class ClaudeApiResponse(
@@ -62,15 +69,41 @@ final case class ClaudeApiResponse(
     usage: ClaudeApiUsage
 )
 
+/** Closed set of tool-entry shapes `sendWithTools` may offer Claude in one request's `tools` array
+ *  (HEL-757 design.md D2): a custom function-tool ([[ClaudeApiTool]] itself — the "Custom" case)
+ *  or Anthropic's server-executed [[ClaudeApiToolSpec.WebSearch]]. `ClaudeClient.toApiToolRequest`
+ *  builds `Seq[ClaudeApiTool]` (custom tools) exactly as it did before this ticket — including its
+ *  cache-marking logic (design.md D2a), completely untouched and still typed against
+ *  `Seq[ClaudeApiTool]` only — then appends at most one `WebSearch` entry after that sequence,
+ *  which Scala widens to `Seq[ClaudeApiToolSpec]` automatically (`ClaudeApiTool <: ClaudeApiToolSpec`). */
+sealed trait ClaudeApiToolSpec
+
 /** A tool `sendWithTools` offers to the Anthropic API, wire-shaped: `inputSchema` writes out as
  *  `input_schema` (design.md D3). `cacheControl` (design.md D1) defaults `None`, same precedent as
- *  `ClaudeApiContentBlock`/`ClaudeApiMessage`. */
+ *  `ClaudeApiContentBlock`/`ClaudeApiMessage`. Also the `Custom` case of [[ClaudeApiToolSpec]]
+ *  (HEL-757 design.md D2) — this type itself is unchanged; it merely gains the sealed-trait parent
+ *  so it can share a `tools` array slot with [[ClaudeApiToolSpec.WebSearch]]. */
 final case class ClaudeApiTool(
     name: String,
     description: String,
     inputSchema: JsValue,
     cacheControl: Option[ClaudeApiCacheControl] = None
-)
+) extends ClaudeApiToolSpec
+
+object ClaudeApiToolSpec {
+
+  /** Anthropic's server-side `web_search` tool (HEL-757 design.md D2/D3), wire type
+   *  `web_search_20250305` — verified against Anthropic's official Python SDK (PyPI package
+   *  `anthropic`, v0.86.0; github.com/anthropics/anthropic-sdk-python) type definitions:
+   *  `WebSearchTool20250305Param` during Execution (systematic-debugging Iron Law: probe-confirmed,
+   *  not recalled from design.md alone). `maxUses` is the REMAINING cross-hop budget for the hop
+   *  this entry is attached to (`ClaudeClient.toApiToolRequest`), not a static config value — it
+   *  shrinks hop-to-hop as `sendWithTools`'s loop tallies `ServerToolUse(name = "web_search")`
+   *  blocks already seen this turn. Carries no `cacheControl` of its own (design.md D2a) — it is
+   *  always appended AFTER the already-marked custom-tool sequence, never included in that
+   *  byte-identical-prefix invariant. */
+  final case class WebSearch(maxUses: Int) extends ClaudeApiToolSpec
+}
 
 /** A tool-use-loop wire message: `content` is a block array (`tool_use`/`tool_result`/`text`
  *  blocks), never a plain string — the reason this is a parallel type to `ClaudeApiMessage`
@@ -78,13 +111,16 @@ final case class ClaudeApiTool(
 final case class ClaudeApiToolMessage(role: String, content: Seq[ClaudeApiContentBlock])
 
 /** Wire request for `ClaudeTransport.sendTool` (design.md D3/D4). No `stream` field: `sendWithTools`
- *  is non-streaming per hop, mirroring `send` not `stream`. */
+ *  is non-streaming per hop, mirroring `send` not `stream`. `tools` widened from `Seq[ClaudeApiTool]`
+ *  to `Seq[ClaudeApiToolSpec]` (HEL-757 design.md D2) to admit an optional trailing `WebSearch`
+ *  entry alongside the custom tools — every existing caller building this with `Seq[ClaudeApiTool]`
+ *  keeps compiling unchanged (`Seq` is covariant). */
 final case class ClaudeApiToolRequest(
     model: String,
     maxTokens: Int,
     messages: Seq[ClaudeApiToolMessage],
     temperature: Double,
-    tools: Seq[ClaudeApiTool]
+    tools: Seq[ClaudeApiToolSpec]
 )
 
 /** Thrown by `HttpClaudeTransport.send`'s returned `Future` on a non-2xx Anthropic response
