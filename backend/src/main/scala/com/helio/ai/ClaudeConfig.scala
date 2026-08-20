@@ -18,11 +18,17 @@ final case class ClaudeConfig(
     model: String,
     temperature: Double,
     maxOutputTokens: Int,
-    maxInputTokens: Int
+    maxInputTokens: Int,
+    // HEL-757 design.md D2/D3 — the per-turn Anthropic server-side web_search call budget,
+    // enforced cross-hop by ClaudeClient.sendWithTools (never per-request). Defaults so every
+    // pre-existing 5-arg construction site across the backend (and its tests) keeps compiling —
+    // same "new field, default value, existing sites unaffected" precedent as TokenUsage's own
+    // cacheCreationInputTokens/cacheReadInputTokens fields.
+    webSearchMaxUses: Int = ClaudeConfig.DefaultWebSearchMaxUses
 ) {
   override def toString: String =
     s"ClaudeConfig(model=$model, temperature=$temperature, maxOutputTokens=$maxOutputTokens, " +
-      s"maxInputTokens=$maxInputTokens, apiKey=<redacted>)"
+      s"maxInputTokens=$maxInputTokens, webSearchMaxUses=$webSearchMaxUses, apiKey=<redacted>)"
 }
 
 object ClaudeConfig {
@@ -30,13 +36,15 @@ object ClaudeConfig {
   val DefaultTemperature: Double     = 1.0
   val DefaultMaxOutputTokens: Int    = 4096
   val DefaultMaxInputTokens: Int     = 100000
+  val DefaultWebSearchMaxUses: Int   = 3
 
   private val ApiKeyEnvVar: String = "ANTHROPIC_API_KEY"
 
   /** Reads `ANTHROPIC_API_KEY` (required, non-blank), `CLAUDE_MODEL` (default
    *  [[DefaultModel]]), `CLAUDE_TEMPERATURE` (default [[DefaultTemperature]]),
-   *  `CLAUDE_MAX_TOKENS` (default [[DefaultMaxOutputTokens]]), and
-   *  `CLAUDE_MAX_INPUT_TOKENS` (default [[DefaultMaxInputTokens]]) from the process
+   *  `CLAUDE_MAX_TOKENS` (default [[DefaultMaxOutputTokens]]),
+   *  `CLAUDE_MAX_INPUT_TOKENS` (default [[DefaultMaxInputTokens]]), and
+   *  `CLAUDE_WEB_SEARCH_MAX_USES` (default [[DefaultWebSearchMaxUses]]) from the process
    *  environment. A missing/blank API key returns `Left` naming the variable; a
    *  non-numeric override for any of the numeric variables falls back to that
    *  variable's default rather than failing construction (tolerant-decode, matching
@@ -52,7 +60,8 @@ object ClaudeConfig {
             model = sys.env.getOrElse("CLAUDE_MODEL", DefaultModel),
             temperature = doubleEnv("CLAUDE_TEMPERATURE", DefaultTemperature),
             maxOutputTokens = intEnv("CLAUDE_MAX_TOKENS", DefaultMaxOutputTokens),
-            maxInputTokens = intEnv("CLAUDE_MAX_INPUT_TOKENS", DefaultMaxInputTokens)
+            maxInputTokens = intEnv("CLAUDE_MAX_INPUT_TOKENS", DefaultMaxInputTokens),
+            webSearchMaxUses = intEnv("CLAUDE_WEB_SEARCH_MAX_USES", DefaultWebSearchMaxUses)
           )
         )
     }

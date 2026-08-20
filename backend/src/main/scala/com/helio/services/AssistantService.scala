@@ -73,7 +73,11 @@ final class AssistantService(
     val request = ClaudeToolRequest(
       history = seedHistory(history, message),
       tools = AssistantProtocol.assistantTools,
-      maxHops = MaxHops
+      maxHops = MaxHops,
+      // HEL-757 design.md D1 — every converse call offers Claude's server-side web_search tool,
+      // unconditionally: never gated on message content/intent (the sole caller of sendWithTools
+      // is this one call site, so "every assistant turn" resolves cleanly to "always true" here).
+      webSearch = true
     )
     // `history` (the CALLER-supplied prefix, before `seedHistory` folds AssistantSystemPrompt.text
     // into it) is threaded through to `toTurnResult` for two purposes: desanitizing the RETURNED

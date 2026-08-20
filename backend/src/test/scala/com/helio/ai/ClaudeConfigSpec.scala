@@ -86,6 +86,21 @@ class ClaudeConfigSpec extends AnyWordSpec with Matchers {
         result.map(_.maxInputTokens) shouldBe Right(50000)
       }
     }
+
+    // HEL-757 design.md D3/tasks.md 5.1 — webSearchMaxUses default and env override.
+    "default webSearchMaxUses to 3 when CLAUDE_WEB_SEARCH_MAX_USES is unset" in {
+      withEnv("ANTHROPIC_API_KEY" -> "key") {
+        withoutEnv("CLAUDE_WEB_SEARCH_MAX_USES") {
+          ClaudeConfig.fromEnv().map(_.webSearchMaxUses) shouldBe Right(3)
+        }
+      }
+    }
+
+    "override webSearchMaxUses when CLAUDE_WEB_SEARCH_MAX_USES is set" in {
+      withEnv("ANTHROPIC_API_KEY" -> "key", "CLAUDE_WEB_SEARCH_MAX_USES" -> "2") {
+        ClaudeConfig.fromEnv().map(_.webSearchMaxUses) shouldBe Right(2)
+      }
+    }
   }
 
   "ClaudeConfig.toString" should {

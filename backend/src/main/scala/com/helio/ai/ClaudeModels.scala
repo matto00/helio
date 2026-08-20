@@ -101,6 +101,23 @@ object ClaudeContentBlock {
    *  HEL-667 design.md D3) — Claude sees a failed tool call, the overall `Future` never fails for
    *  it. */
   final case class ToolResult(toolUseId: String, content: String, isError: Boolean = false) extends ClaudeContentBlock
+
+  /** Anthropic executing one of its OWN server-side tools inline during generation (HEL-757
+   *  design.md D2) — e.g. `name = "web_search"`. Distinct from [[ToolUse]] (a CLIENT tool Claude
+   *  wants the caller's [[ClaudeToolExecutor]] to run): a `ServerToolUse` requires no client-side
+   *  execution and is never dispatched to `executor.execute` — `ClaudeClient.sendWithTools` only
+   *  ever collects it into history untouched. `input` mirrors `ToolUse.input`'s "raw JSON,
+   *  uninterpreted by ClaudeClient" contract. */
+  final case class ServerToolUse(id: String, name: String, input: JsValue) extends ClaudeContentBlock
+
+  /** The result Anthropic's own server-side execution produced for a prior [[ServerToolUse]],
+   *  keyed by `toolUseId` (HEL-757 design.md D2/D4) — e.g. a `web_search_tool_result` block.
+   *  `result` is kept OPAQUE/pass-through `JsValue`, never modeled field-by-field: this ticket's
+   *  explicit Non-Goal is no result-content filtering, so there is nothing `ClaudeClient` needs to
+   *  extract from it. `name` mirrors the originating [[ServerToolUse]]'s tool name — the wire
+   *  `web_search_tool_result` block itself carries no `name` field, so callers constructing this
+   *  from the wire shape supply the one constant name this ticket wires ("web_search"). */
+  final case class ServerToolResult(toolUseId: String, name: String, result: JsValue) extends ClaudeContentBlock
 }
 
 /** A single tool-use-loop conversation turn — the `ClaudeToolRequest`/`ClaudeToolOutcome` analog of
@@ -124,13 +141,19 @@ final case class ClaudeTool(name: String, description: String, inputSchema: JsVa
 /** Caller-facing request for [[ClaudeClient.sendWithTools]]. `maxHops` is a REQUIRED, caller-supplied
  *  parameter — never a `ClaudeClient`-internal constant (ticket scope boundary; HEL-662's
  *  `AssistantService` is the caller that will pass `3`). `maxTokens`/`temperature` mirror
- *  [[ClaudeRequest]]'s identical optional per-call overrides. */
+ *  [[ClaudeRequest]]'s identical optional per-call overrides.
+ *
+ *  `webSearch` (HEL-757 design.md D2) opts this call into Anthropic's server-side `web_search`
+ *  tool, alongside `tools`' ordinary custom function-tools. Defaults `false` so every existing
+ *  caller/construction site is completely unaffected — `AssistantService.converse` is the only
+ *  caller that sets it `true` today. */
 final case class ClaudeToolRequest(
     history: Seq[ClaudeToolMessage],
     tools: Seq[ClaudeTool],
     maxHops: Int,
     maxTokens: Option[Int] = None,
-    temperature: Option[Double] = None
+    temperature: Option[Double] = None,
+    webSearch: Boolean = false
 )
 
 /** Caller-supplied tool execution callback (design.md D7, widened HEL-667 design.md D3). A `Left`
