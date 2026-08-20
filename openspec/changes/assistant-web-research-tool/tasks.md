@@ -62,3 +62,8 @@
       hop 1 of a turn, but — per design.md D2a's accepted trade-off — a hop where the cumulative
       web_search budget changed produces a *different* tools-array byte sequence than the prior hop
       (confirming the documented cache-miss trade-off is real, not silently absent).
+
+## 6. Tests (fold-in, Delivery-phase triage)
+
+- [x] 6.1 Tighten `ClaudeClientSpec.scala`'s cross-hop-budget-exhaustion test to also assert hop 1
+      (not just hop 0 and hop 2) omits `WebSearch` once the cumulative budget is already exhausted.

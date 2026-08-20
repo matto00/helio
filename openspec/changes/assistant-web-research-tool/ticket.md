@@ -19,6 +19,17 @@ Complements the sibling ticket HEL-756 (already shipped, merged) — that ticket
 - Freshness/safety filtering of fetched content before it's trusted as grounding.
 - Mechanism choice: Anthropic's server-side `web_search` tool (`ClaudeClient.scala` currently only ever constructs custom function-tools, never attaches an Anthropic server-side tool) vs. some other mechanism (e.g. a custom function-tool backed by a search API).
 
+## Additional scope (fold-in, Delivery-phase triage)
+
+`ClaudeClientSpec.scala`'s cross-hop web_search-budget-exhaustion test SHALL also assert that hop 1
+(not just hop 0 and hop 2) omits the `WebSearch` tool once the cumulative budget is already
+exhausted, tightening the existing test's precision. Triaged `fold-in` during Delivery (high file
+overlap — this ticket already heavily modified this exact file) after evaluator/skeptic review;
+human-approved. (Two sibling suggestions — a repository round-trip test, and a structural split of
+this same spec file — were triaged `standalone` instead and filed as HEL-761/HEL-762.)
+
 ## Related
 
 - Sibling ticket: HEL-756 (shipped) — connection-test verification wired into `propose_pipeline`/`propose_combined`.
+- Follow-ups filed during Delivery: HEL-761 (repository round-trip test coverage), HEL-762
+  (`ClaudeClientSpec.scala` structural split).

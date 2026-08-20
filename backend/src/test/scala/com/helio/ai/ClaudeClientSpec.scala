@@ -538,6 +538,9 @@ class ClaudeClientSpec extends AnyWordSpec with Matchers with ScalatestRouteTest
       outcome shouldBe a[ClaudeToolOutcome.FinalResponse]
       // Hop 1's request is built with zero searches used so far -- web_search still offered.
       transport.toolRequests(0).tools.collect { case ws: ClaudeApiToolSpec.WebSearch => ws } should have size 1
+      // By hop 2, hop 1's response already fired 2 searches -- the cumulative count already reached
+      // webSearchMaxUses, so the tool is omitted from hop 2's request too (not just hop 3's).
+      transport.toolRequests(1).tools.collect { case ws: ClaudeApiToolSpec.WebSearch => ws } shouldBe empty
       // By hop 3, the cumulative count (>= 2) already reached webSearchMaxUses -- tool omitted entirely.
       transport.toolRequests(2).tools.collect { case ws: ClaudeApiToolSpec.WebSearch => ws } shouldBe empty
     }
