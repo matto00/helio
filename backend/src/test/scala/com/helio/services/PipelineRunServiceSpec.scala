@@ -1,5 +1,7 @@
 package com.helio.services
 
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.domain._
 import com.helio.domain.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.{
@@ -36,6 +38,23 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
+  // HEL-758: a minimal, real typed ActorSystem — RestApiConnector needs one to
+  // construct (`implicit system: ActorSystem[_]`) but doesn't need pekko-http's
+  // ScalatestRouteTest testkit (which would ambiguous-implicit-collide with the
+  // `ec` above); this file's `stubConnector` below never issues a real HTTP
+  // request (fetchOverride short-circuits it), so an idle guardian is enough.
+  private implicit val typedSystem: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "pipeline-run-service-spec")
+
+  // HEL-758 (design.md D7 pattern, copied from PipelineApplyProposalSpecBase):
+  // a stub RestApiConnector keyed on `config.url` so the same connector
+  // instance exercises both a successful and a failing REST fetch.
+  private val RestSuccessUrl = "https://pipeline-run-service.test/ok"
+  private val RestFailureUrl = "https://pipeline-run-service.test/fail"
+  private val stubConnector = new RestApiConnector(Some { config =>
+    if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
+    else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
+  })
+
   private var embeddedPostgres: EmbeddedPostgres     = _
   private var db: JdbcBackend.Database               = _
   private var ctx: DbContext                         = _
@@ -63,14 +82,17 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     dataTypeRowRepo = new DataTypeRowRepository(ctx)
     val cache       = new PipelineRunCache()
     val fileSystem  = new LocalFileSystem(Paths.get("/"))
+    // HEL-758: threads stubConnector so rest_api base-source tests below can
+    // exercise a real (stubbed) fetch — no existing test above depends on the
+    // connector being null (none of them seed a rest_api source).
     service = new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo,
-      cache, registry = null, fileSystem
+      cache, registry = null, fileSystem, connector = stubConnector
     )
   }
 
   override def afterAll(): Unit = {
-    db.close(); embeddedPostgres.close()
+    db.close(); embeddedPostgres.close(); typedSystem.terminate()
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
@@ -86,6 +108,36 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     await(db.run(sqlu"""INSERT INTO data_sources
       (id, name, source_type, config, owner_id, created_at, updated_at)
       VALUES ($dsId, 'ds-with-data', 'static', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
+  }
+
+  /** HEL-758: seeds a `rest_api` DataSource whose config's `url` is one of
+   *  `stubConnector`'s two keyed outcomes (`RestSuccessUrl`/`RestFailureUrl`). */
+  private def seedRestDs(url: String): String = {
+    import PostgresProfile.api._
+    val dsId     = UUID.randomUUID().toString
+    val dsConfig = s"""{"url":"$url"}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-rest', 'rest_api', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
+  }
+
+  /** HEL-758: seeds a `sql` DataSource targeting the file's own embedded
+   *  Postgres — `port = embeddedPostgres.getPort` is reachable, `port = 1`
+   *  (mirrors `PipelineApplyProposalRollbackSpec`'s existing pattern) fails
+   *  fast and deterministically. */
+  private def seedSqlDs(port: Int): String = {
+    import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
+    val dsConfig =
+      s"""{"dialect":"postgresql","host":"localhost","port":$port,"database":"postgres",
+         |"user":"postgres","password":"postgres","query":"SELECT 1 AS one"}""".stripMargin
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-sql', 'sql', $dsConfig,
         '00000000-0000-0000-0000-000000000001', now(), now())"""))
     dsId
   }
@@ -594,6 +646,102 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       runs.head.errorLog shouldBe Some(reason)
       runs.head.rowCount shouldBe None
       runs.head.id       shouldBe response.runId.get
+    }
+  }
+
+  // ── HEL-758: rest_api/sql base-source execution ────────────────────────────
+
+  "PipelineRunService.submit (HEL-758 rest_api/sql base-source execution)" should {
+
+    "completes a real run for a healthy rest_api base source, populating the output DataType" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+      response.blocked shouldBe false
+      response.rowCount should be > 0
+
+      await(dataTypeRowRepo.listRows(outputDataTypeId.value)) should not be empty
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs.head.status shouldBe "succeeded"
+    }
+
+    "completes a real run for a healthy sql base source, populating the output DataType" in {
+      val dsId = seedSqlDs(embeddedPostgres.getPort)
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+      response.blocked shouldBe false
+      response.rowCount should be > 0
+
+      await(dataTypeRowRepo.listRows(outputDataTypeId.value)) should not be empty
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs.head.status shouldBe "succeeded"
+    }
+
+    "fails an ordinary run for an unreachable rest_api source (422, last_run_status failed), not the old categorical-rejection message" in {
+      val dsId = seedRestDs(RestFailureUrl)
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs should have size 1
+      runs.head.status shouldBe "failed"
+      runs.head.errorLog.get should not include "Unsupported source type"
+
+      val pipeline = await(pipelineRepo.findByIdInternal(pid)).get
+      pipeline.lastRunStatus shouldBe Some("failed")
+    }
+
+    "fails an ordinary run for an unreachable sql source (422, last_run_status failed), not the old categorical-rejection message" in {
+      val dsId = seedSqlDs(port = 1)
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs should have size 1
+      runs.head.status shouldBe "failed"
+      runs.head.errorLog.get should not include "Unsupported source type"
+
+      val pipeline = await(pipelineRepo.findByIdInternal(pid)).get
+      pipeline.lastRunStatus shouldBe Some("failed")
+    }
+  }
+
+  "PipelineRunService.previewStep (HEL-758 rest_api/sql base-source execution)" should {
+
+    "previews a step for a healthy rest_api base source instead of rejecting the source type" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val step = await(stepRepo.insert(pid, "limit", LimitConfig(10), dummyUser))
+
+      val result = await(service.previewStep(pid, step.id.value, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.rows should not be empty
+    }
+
+    "previews a step for a healthy sql base source instead of rejecting the source type" in {
+      val dsId = seedSqlDs(embeddedPostgres.getPort)
+      val pid  = seedPipeline(dsId)
+      val step = await(stepRepo.insert(pid, "limit", LimitConfig(10), dummyUser))
+
+      val result = await(service.previewStep(pid, step.id.value, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.rows should not be empty
     }
   }
 }

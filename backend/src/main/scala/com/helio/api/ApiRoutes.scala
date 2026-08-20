@@ -200,10 +200,13 @@ final class ApiRoutes(
   // HEL-415: exposed (not private) so Main.scala can hand the same instance
   // to PipelineSchedulerService — scheduled runs reuse the manual-run path's
   // PipelineRunCache/PipelineRunRegistry instead of duplicating wiring.
+  // HEL-758: threads the same RestApiConnector instance sourceService/
+  // pipelineService already receive — runPipeline/previewStep now execute
+  // rest_api sources in-process via InProcessPipelineEngine (design.md D3).
   val pipelineRunService = new PipelineRunService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
     dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
-    alertEvaluationServiceOpt.orNull
+    alertEvaluationServiceOpt.orNull, connector
   )
   // HEL-383: atomic pipeline-proposal apply — composes sourceService/
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,

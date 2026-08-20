@@ -1,8 +1,13 @@
 package com.helio.domain
 
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.protocols.PipelineStepConfigCodec
 import com.helio.infrastructure.{DataSourceRepository, LocalFileSystem}
 import com.helio.testutil.PdfFixtures
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -13,13 +18,60 @@ import java.time.Instant
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
+class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
 
-  private implicit val ec: ExecutionContext = ExecutionContext.global
+  // Not `implicit` (HEL-758): ScalatestRouteTest's own `RouteTest.executor`
+  // implicit would otherwise collide with this one, ambiguous-implicit at
+  // every call site relying on implicit resolution. Every existing call site
+  // in this file already passes `ec` explicitly (e.g. `new
+  // DataSourceRepository(null)(ec)`); the engine construction below now
+  // relies on RouteTest's own implicit executor instead.
+  private val ec: ExecutionContext = ExecutionContext.global
+  // ScalatestRouteTest provides the classic `system`; RestApiConnector needs
+  // a typed ActorSystem[_] (HEL-758) to construct, mirroring
+  // PipelineApplyProposalSpecBase's own `system.toTyped` pattern.
+  private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   // LocalFileSystem with absolute baseDir; LocalFileSystem.resolve passes absolute
   // paths through unchanged, so tests can write CSVs to tmp and reference by absolute path.
   private val fileSystem = new LocalFileSystem(Paths.get("/"))
+  // No connector — used by every existing loadRows case (static/csv/text/pdf/
+  // image) plus HEL-758's own "no connector configured" RestSource guard test.
   private val engine = new InProcessPipelineEngine(fileSystem)
+
+  // HEL-758 (design.md D7 pattern, copied from PipelineApplyProposalSpecBase):
+  // a stub RestApiConnector keyed on `config.url` so the same connector
+  // instance exercises both a successful and a failing REST fetch.
+  private val RestSuccessUrl = "https://rest-engine.test/ok"
+  private val RestFailureUrl = "https://rest-engine.test/fail"
+  private val stubConnector = new RestApiConnector(Some { config =>
+    if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
+    else
+      Future.successful(Right(JsArray(
+        JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)),
+        JsObject("name" -> JsString("bob"),   "score" -> JsNumber(2))
+      )))
+  })
+  private val restEngine = new InProcessPipelineEngine(fileSystem, stubConnector)
+
+  // HEL-758: real embedded Postgres for SqlSource loadRows coverage — mirrors
+  // SqlConnectorSpec's own `liveConfig` pattern.
+  private var embeddedPostgres: EmbeddedPostgres = _
+  override def beforeAll(): Unit =
+    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+  override def afterAll(): Unit = {
+    embeddedPostgres.close()
+    super.afterAll()
+  }
+  private def liveSqlConfig(query: String = "SELECT 1 AS one"): SqlSourceConfig =
+    SqlSourceConfig(
+      dialect  = "postgresql",
+      host     = "localhost",
+      port     = embeddedPostgres.getPort,
+      database = "postgres",
+      user     = "postgres",
+      password = "postgres",
+      query    = query
+    )
 
   /** Build a typed PipelineStep from (op, configJson) by round-tripping
    *  through the codec — fixtures stay stringly-typed but the engine
@@ -2090,6 +2142,89 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers {
         Await.result(engine.loadRows(ds, null), 5.seconds)
       )
       ex.getMessage should include ("Unable to read image dimensions")
+    }
+
+    // HEL-758: rest_api/sql loadRows — the engine now dispatches both kinds
+    // through their existing connector's fetch(config, maxRows) SPI method
+    // (design.md D1), converting each connector-fetched JsValue row into an
+    // engine Row via PipelineRowJson.jsRowToRow.
+
+    "loadRows: RestSource fetches via the connector and converts rows with jsRowToRow" in {
+      val ds = RestSource(
+        id        = DataSourceId("ds-rest-1"),
+        name      = "rest-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = RestApiConfig(url = RestSuccessUrl)
+      )
+      val rows = Await.result(restEngine.loadRows(ds, null), 5.seconds)
+      rows should have size 2
+      rows.head("name")  shouldBe "alice"
+      rows.head("score") shouldBe 1.0
+      rows(1)("name")    shouldBe "bob"
+    }
+
+    "loadRows: RestSource with a connector fetch failure fails with the connector's own message" in {
+      val ds = RestSource(
+        id        = DataSourceId("ds-rest-fail"),
+        name      = "rest-src-fail",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = RestApiConfig(url = RestFailureUrl)
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(restEngine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include ("connector: endpoint unreachable")
+    }
+
+    "loadRows: RestSource with no connector configured (null) fails fast with a diagnostic error, not an NPE" in {
+      val ds = RestSource(
+        id        = DataSourceId("ds-rest-noconn"),
+        name      = "rest-src-noconn",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = RestApiConfig(url = RestSuccessUrl)
+      )
+      // `engine` (module-level val, above) was constructed with no connector
+      // (defaults to null) — this must NOT throw a raw NullPointerException.
+      val ex = intercept[IllegalArgumentException](
+        Await.result(engine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include ("rest-src-noconn")
+      ex.getMessage should include ("no RestApiConnector")
+    }
+
+    "loadRows: SqlSource fetches via SqlConnector and converts rows with jsRowToRow" in {
+      val ds = SqlSource(
+        id        = DataSourceId("ds-sql-1"),
+        name      = "sql-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = liveSqlConfig(query = "SELECT 1 AS one")
+      )
+      val rows = Await.result(engine.loadRows(ds, null), 5.seconds)
+      rows should have size 1
+      rows.head("one") shouldBe 1.0
+    }
+
+    "loadRows: SqlSource with an unreachable database fails with the connector's own message" in {
+      val ds = SqlSource(
+        id        = DataSourceId("ds-sql-fail"),
+        name      = "sql-src-fail",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = liveSqlConfig().copy(port = 1)
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(engine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include ("SQL execution failed")
     }
 
     // ── HEL-509 (419-B): executeWithStepCounts' assertionSink threading ───────

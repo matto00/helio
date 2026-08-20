@@ -38,12 +38,15 @@ import scala.util.{Failure, Success}
  *  rolled back before the error is returned — see design.md D5 (of HEL-383)
  *  for why the deletion order (pipeline → output DataType → source →
  *  companion DataType) is the only order that's actually safe given the
- *  FK-cascade asymmetries documented there. HEL-755 exception: neither an
- *  inline `rest_api`/`sql` schema-fetch failure nor the resolved source's
- *  kind being one the execution engine can't run at all
- *  (`PipelineRunService.SparkUnsupportedKinds`) triggers rollback — both are
- *  reported as a durably-persisted `blocked` run on a retained pipeline/
- *  source instead (see `createPipeline`, `handleInlineCreated`). */
+ *  FK-cascade asymmetries documented there. HEL-755 exception: an inline
+ *  `rest_api`/`sql` schema-fetch failure (at source-creation time) does not
+ *  trigger rollback — the source is kept and it's reported as a durably-
+ *  persisted `blocked` run instead (see `createPipeline`, `handleInlineCreated`).
+ *  Separately, a resolved source whose kind the execution engine can't run at
+ *  all (`PipelineRunService.SparkUnsupportedKinds` — currently empty, since
+ *  HEL-758 made `rest_api`/`sql` both execution-supported) gets the same
+ *  blocked-run-without-rollback treatment; that guard stays wired as a
+ *  forward-looking extension point for a future genuinely-unrunnable kind. */
 final class PipelineProposalService(
     sourceService: SourceService,
     dataSourceService: DataSourceService,
@@ -326,19 +329,36 @@ final class PipelineProposalService(
           addSteps(pipelineId, proposal.steps, user).flatMap {
             case Left(err) =>
               rollbackAll(pipelineId, summary.outputDataTypeId, resolved, user).map(_ => Left(err))
-            // design.md D2: the run engine can't execute this source kind AT
-            // ALL, regardless of connectivity — skip `submit` entirely
-            // (rather than let it reach the identical, DNS-independent
-            // Spark-submission rejection D6 below still handles for other
-            // causes) and never roll back. The pipeline and source are kept;
-            // the response reports a durably-persisted (design.md D3)
-            // blocked run instead. Must be checked BEFORE the unguarded
-            // `Right(_)` case below.
-            case Right(_) if PipelineRunService.SparkUnsupportedKinds.contains(resolved.kind) =>
+            // design.md D2 (of HEL-755) + HEL-758 fix: TWO independent reasons
+            // never reach `submit` — (a) the run engine can't execute this
+            // source kind AT ALL regardless of connectivity
+            // (`SparkUnsupportedKinds`, currently empty), or (b) THIS
+            // PARTICULAR inline source's schema-fetch already failed at
+            // creation time (`resolved.fetchError.isDefined`). (b) is
+            // unconditional on kind and is NOT superseded by HEL-758 — the
+            // base `pipeline-proposal-apply` spec's "Source-fetch failure is a
+            // structured, rolled-back error" requirement is untouched by this
+            // change (not in its MODIFIED Requirements) and the ticket's own
+            // acceptance criteria are explicit that this fail-safe path must
+            // stay intact for a genuinely unreachable/misconfigured source.
+            // Emptying `SparkUnsupportedKinds` alone would have silently
+            // dropped (b) for rest_api/sql, since both were previously gated
+            // by the SAME single condition — caught by PipelineApplyProposal-
+            // RollbackSpec's schema-fetch-failure tests actually failing
+            // (422/rollback instead of 201/blocked) once (a) alone was used.
+            // Skip `submit` entirely and never roll back; the pipeline and
+            // source are kept, and the response reports a durably-persisted
+            // (design.md D3 of HEL-755) blocked run instead. Must be checked
+            // BEFORE the unguarded `Right(_)` case below.
+            case Right(_) if PipelineRunService.SparkUnsupportedKinds.contains(resolved.kind) || resolved.fetchError.isDefined =>
               val reason = resolved.fetchError match {
+                // HEL-758: dropped the old "...once ${resolved.kind} execution
+                // is supported" tail — rest_api/sql execution IS supported now
+                // (SparkUnsupportedKinds is empty); this specific source
+                // instance is what's unreachable, not the kind.
                 case Some(err) =>
                   s"Could not fetch from the source: $err. Fix the source configuration, then trigger a run " +
-                    s"from the pipeline once ${resolved.kind} execution is supported."
+                    "from the pipeline."
                 case None =>
                   s"${resolved.kind} sources aren't executed automatically yet — this pipeline was created without a run."
               }
@@ -351,11 +371,13 @@ final class PipelineProposalService(
                 ))
               }
             case Right(_) =>
-              // This case only ever reaches `submit` for a kind the engine CAN
-              // execute (`static`/`csv`) — the guarded case above already
-              // intercepted every `rest_api`/`sql` source before this point
-              // (design.md D2, HEL-755), so the Spark-submission rejection
-              // `runPipeline` hardcodes for those two kinds is unreachable here.
+              // This case now reaches `submit` for every source kind the
+              // engine can execute — `static`/`csv`/`text`/`pdf`/`image`, and
+              // (HEL-758) a HEALTHY `rest_api`/`sql` source (fetchError =
+              // None), since `runPipeline` no longer hardcodes a rejection
+              // for the latter two. The guarded case above intercepts either
+              // a kind listed in the (currently empty) `SparkUnsupportedKinds`
+              // set, or any inline source whose schema-fetch already failed.
               pipelineRunService.submit(pipelineId, isDry = false, user).flatMap {
                 case Left(err) =>
                   // D6: run failure is "a failure at any step" — full

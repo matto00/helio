@@ -19,7 +19,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
-import spray.json.{JsNumber, JsObject, JsString}
+import spray.json.{JsArray, JsNumber, JsObject, JsString}
 
 import java.nio.file.Paths
 import java.time.Instant
@@ -92,14 +92,23 @@ class PipelineRunRoutesSpec
   }
 
   private def seedDs(sourceType: String): String = {
-    import PostgresProfile.api._
-    val dsId = UUID.randomUUID().toString
     val dsConfig = if (sourceType == "static") """{"columns":[],"rows":[]}"""
                    else if (sourceType == "csv") """{"filePath":"/tmp/test.csv"}"""
                    else "{}"
+    seedDsWithConfig(sourceType, dsConfig)
+  }
+
+  /** HEL-758 (design.md D7): `seedDs`'s body, parameterized on `config`
+   *  instead of hardcoding it — lets a test seed a `rest_api` source with
+   *  `{"url": "$RestSuccessUrl"}`/`{"url": "$RestFailureUrl"}`, or a `sql`
+   *  source targeting either this file's own `embeddedPostgres` (reachable)
+   *  or an unreachable `host=localhost, port=1`. */
+  private def seedDsWithConfig(sourceType: String, config: String): String = {
+    import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
     await(db.run(sqlu"""INSERT INTO data_sources
       (id, name, source_type, config, owner_id, created_at, updated_at)
-      VALUES ($dsId, 'ds', $sourceType, $dsConfig,
+      VALUES ($dsId, 'ds', $sourceType, $config,
         '00000000-0000-0000-0000-000000000001', now(), now())"""))
     dsId
   }
@@ -176,6 +185,17 @@ class PipelineRunRoutesSpec
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
+  // HEL-758 (design.md D7, copied verbatim from
+  // PipelineApplyProposalSpecBase.scala:63-69): a stub RestApiConnector keyed
+  // on `config.url` so the same connector instance exercises both a
+  // successful and a failing REST fetch.
+  private val RestSuccessUrl = "https://pipeline-run-routes.test/ok"
+  private val RestFailureUrl = "https://pipeline-run-routes.test/fail"
+  private val stubConnector = new RestApiConnector(Some { config =>
+    if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
+    else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
+  })
+
   /** Compose the 4 CS2c-3a run route files into a single route for testing. */
   private def makeRoutes(
       cache: PipelineRunCache,
@@ -185,11 +205,12 @@ class PipelineRunRoutesSpec
       registry: PipelineRunRegistry = null,
       user: AuthenticatedUser = dummyUser,
       binRefRepo: BinaryRefRepository = null,
-      alertEvalSvc: AlertEvaluationService = null
+      alertEvalSvc: AlertEvaluationService = null,
+      connector: RestApiConnector = stubConnector
   ): Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new PipelineRunService(
-      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem, binRefRepo, alertEvalSvc
+      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem, binRefRepo, alertEvalSvc, connector
     )
     concat(
       new PipelineRunSubmitRoutes(service, user).routes,
@@ -219,19 +240,54 @@ class PipelineRunRoutesSpec
       }
     }
 
-    "POST /pipelines/:id/run returns 422 for rest_api source type" in {
+    // HEL-758: split from "POST /pipelines/:id/run returns 422 for rest_api
+    // source type" — rest_api now executes for real (design.md D1/D3).
+    "POST /pipelines/:id/run returns 200 with populated rows for a healthy rest_api source" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDs("rest_api")
+      val dsId  = seedDsWithConfig("rest_api", s"""{"url":"$RestSuccessUrl"}""")
+      val pid   = seedPipeline(dsId)
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 1
+        resp.rows.head.fields("name") shouldBe JsString("alice")
+      }
+    }
+
+    "POST /pipelines/:id/run returns 422 when the rest_api source is unreachable" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithConfig("rest_api", s"""{"url":"$RestFailureUrl"}""")
       val pid   = seedPipeline(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
     }
 
-    "POST /pipelines/:id/run returns 422 for sql source type" in {
+    // HEL-758: split from "POST /pipelines/:id/run returns 422 for sql
+    // source type" — sql now executes for real (design.md D1/D3).
+    "POST /pipelines/:id/run returns 200 with populated rows for a healthy sql source" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDs("sql")
-      val pid   = seedPipeline(dsId)
+      val liveConfig =
+        s"""{"dialect":"postgresql","host":"localhost","port":${embeddedPostgres.getPort},
+           |"database":"postgres","user":"postgres","password":"postgres","query":"SELECT 1 AS one"}""".stripMargin
+      val dsId = seedDsWithConfig("sql", liveConfig)
+      val pid  = seedPipeline(dsId)
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 1
+      }
+    }
+
+    "POST /pipelines/:id/run returns 422 when the sql connection fails" in {
+      val cache = new PipelineRunCache()
+      // localhost:1 fails fast and deterministically — mirrors
+      // PipelineApplyProposalRollbackSpec's existing "fails fast" pattern.
+      val unreachableConfig =
+        """{"dialect":"postgresql","host":"localhost","port":1,"database":"d","user":"u",
+          |"password":"p","query":"SELECT 1"}""".stripMargin
+      val dsId = seedDsWithConfig("sql", unreachableConfig)
+      val pid  = seedPipeline(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
@@ -374,15 +430,18 @@ class PipelineRunRoutesSpec
       }
     }
 
-    "GET /pipelines/:id/steps/:stepId/preview returns 422 for rest_api source type" in {
+    // HEL-758: reseeded from a 422-rejection test to a success test —
+    // rest_api now supports preview, not just full runs (design.md D1/D3).
+    "GET /pipelines/:id/steps/:stepId/preview returns 200 with preview rows for a healthy rest_api source" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDs("rest_api")
+      val dsId  = seedDsWithConfig("rest_api", s"""{"url":"$RestSuccessUrl"}""")
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector.empty), dummyUser))
+      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name")), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
-        status shouldBe StatusCodes.UnprocessableEntity
-        val resp = responseAs[ErrorResponse]
-        resp.message should include("Unsupported source type")
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rows should not be empty
+        resp.rows.head.fields.keySet shouldBe Set("name")
       }
     }
 
