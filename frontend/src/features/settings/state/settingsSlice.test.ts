@@ -3,16 +3,22 @@
 
 import {
   clearAgentMemoryThunk,
+  createApiTokenThunk,
   deleteAgentMemoryEntryThunk,
+  dismissCreatedApiToken,
   fetchAgentMemory,
+  fetchApiTokens,
   fetchPreferences,
   redeemInviteCodeThunk,
   requestBetaAccessThunk,
+  revokeApiTokenThunk,
   savePreferences,
   settingsReducer,
 } from "./settingsSlice";
 import * as settingsService from "../services/settingsService";
+import * as apiTokenService from "../services/apiTokenService";
 import type { AgentMemoryEntry } from "../types/agentMemory";
+import type { ApiTokenResponse, CreateApiTokenResponse } from "../types/apiToken";
 import type { AgentPreferences } from "../types/preferences";
 import type { User } from "../../auth/types/user";
 
@@ -26,6 +32,12 @@ jest.mock("../services/settingsService", () => ({
   redeemInviteCode: jest.fn(),
 }));
 
+jest.mock("../services/apiTokenService", () => ({
+  listApiTokens: jest.fn(),
+  createApiToken: jest.fn(),
+  revokeApiToken: jest.fn(),
+}));
+
 const getPreferencesMock = jest.mocked(settingsService.getPreferences);
 const putPreferencesMock = jest.mocked(settingsService.putPreferences);
 const listAgentMemoryMock = jest.mocked(settingsService.listAgentMemory);
@@ -33,6 +45,9 @@ const deleteAgentMemoryEntryMock = jest.mocked(settingsService.deleteAgentMemory
 const clearAgentMemoryMock = jest.mocked(settingsService.clearAgentMemory);
 const requestBetaAccessMock = jest.mocked(settingsService.requestBetaAccess);
 const redeemInviteCodeMock = jest.mocked(settingsService.redeemInviteCode);
+const listApiTokensMock = jest.mocked(apiTokenService.listApiTokens);
+const createApiTokenMock = jest.mocked(apiTokenService.createApiToken);
+const revokeApiTokenMock = jest.mocked(apiTokenService.revokeApiToken);
 
 const testPreferences: AgentPreferences = {
   defaultSeriesColors: ["#ff0000"],
@@ -56,6 +71,22 @@ const testBetaUser: User = {
   avatarUrl: null,
   createdAt: "2026-08-01T00:00:00Z",
   tier: "beta",
+};
+
+const testApiToken: ApiTokenResponse = {
+  id: "tok-1",
+  name: "helio-mcp",
+  createdAt: "2026-08-01T00:00:00Z",
+  lastUsedAt: null,
+  expiresAt: null,
+};
+
+const testCreatedApiToken: CreateApiTokenResponse = {
+  id: "tok-2",
+  name: "ci-runner",
+  token: "helio_pat_abc123",
+  createdAt: "2026-08-02T00:00:00Z",
+  expiresAt: null,
 };
 
 beforeEach(() => {
@@ -466,5 +497,189 @@ describe("clearAgentMemoryThunk", () => {
     expect(calls.some(([action]) => action.type === "settings/clearAgentMemory/rejected")).toBe(
       true,
     );
+  });
+});
+
+describe("settingsSlice apiTokens reducers", () => {
+  it("sets loading status when fetchApiTokens is pending", () => {
+    const nextState = settingsReducer(undefined, fetchApiTokens.pending("req-1"));
+    expect(nextState.apiTokens.status).toBe("loading");
+    expect(nextState.apiTokens.error).toBeNull();
+  });
+
+  it("populates items when fetchApiTokens fulfills", () => {
+    const nextState = settingsReducer(undefined, fetchApiTokens.fulfilled([testApiToken], "req-1"));
+    expect(nextState.apiTokens.status).toBe("succeeded");
+    expect(nextState.apiTokens.items).toEqual([testApiToken]);
+  });
+
+  it("sets error status when fetchApiTokens rejects", () => {
+    const nextState = settingsReducer(
+      undefined,
+      fetchApiTokens.rejected(null, "req-1", undefined, "Failed to load personal access tokens."),
+    );
+    expect(nextState.apiTokens.status).toBe("failed");
+    expect(nextState.apiTokens.error).toBe("Failed to load personal access tokens.");
+  });
+
+  it("sets createStatus loading when createApiTokenThunk is pending", () => {
+    const nextState = settingsReducer(undefined, createApiTokenThunk.pending("req-1", "ci-runner"));
+    expect(nextState.apiTokens.createStatus).toBe("loading");
+    expect(nextState.apiTokens.createError).toBeNull();
+  });
+
+  // design.md "Shown-once reveal": createApiTokenThunk.fulfilled sets
+  // `createdToken` AND appends the new token's metadata to `items` in the
+  // SAME reducer, atomically -- not gated behind a later dismiss action.
+  it("sets createdToken and appends the new token's metadata to items when createApiTokenThunk fulfills, in the same reducer", () => {
+    const preloaded = settingsReducer(undefined, fetchApiTokens.fulfilled([testApiToken], "req-0"));
+    const nextState = settingsReducer(
+      preloaded,
+      createApiTokenThunk.fulfilled(testCreatedApiToken, "req-1", "ci-runner"),
+    );
+    expect(nextState.apiTokens.createStatus).toBe("succeeded");
+    expect(nextState.apiTokens.createdToken).toEqual(testCreatedApiToken);
+    expect(nextState.apiTokens.items).toEqual([
+      testApiToken,
+      {
+        id: testCreatedApiToken.id,
+        name: testCreatedApiToken.name,
+        createdAt: testCreatedApiToken.createdAt,
+        lastUsedAt: null,
+        expiresAt: testCreatedApiToken.expiresAt,
+      },
+    ]);
+    // The raw token value is never stored in `items` — only in the
+    // transient, shown-once `createdToken` field.
+    expect(nextState.apiTokens.items.some((t) => "token" in t)).toBe(false);
+  });
+
+  it("sets createError when createApiTokenThunk rejects", () => {
+    const nextState = settingsReducer(
+      undefined,
+      createApiTokenThunk.rejected(null, "req-1", "ci-runner", "Failed to create token."),
+    );
+    expect(nextState.apiTokens.createStatus).toBe("failed");
+    expect(nextState.apiTokens.createError).toBe("Failed to create token.");
+  });
+
+  it("clears createdToken (but not items) when dismissCreatedApiToken is dispatched", () => {
+    const preloaded = settingsReducer(
+      undefined,
+      createApiTokenThunk.fulfilled(testCreatedApiToken, "req-1", "ci-runner"),
+    );
+    expect(preloaded.apiTokens.createdToken).not.toBeNull();
+    const nextState = settingsReducer(preloaded, dismissCreatedApiToken());
+    expect(nextState.apiTokens.createdToken).toBeNull();
+    expect(nextState.apiTokens.items).toHaveLength(1);
+  });
+
+  it("keys revokeStatus/revokeError by token id when revokeApiTokenThunk is pending", () => {
+    const preloaded = settingsReducer(undefined, fetchApiTokens.fulfilled([testApiToken], "req-0"));
+    const nextState = settingsReducer(preloaded, revokeApiTokenThunk.pending("req-1", "tok-1"));
+    expect(nextState.apiTokens.revokeStatus["tok-1"]).toBe("loading");
+    expect(nextState.apiTokens.revokeError["tok-1"]).toBeNull();
+  });
+
+  it("removes the revoked token and sets revokeStatus succeeded when revokeApiTokenThunk fulfills", () => {
+    const preloaded = settingsReducer(undefined, fetchApiTokens.fulfilled([testApiToken], "req-0"));
+    const nextState = settingsReducer(
+      preloaded,
+      revokeApiTokenThunk.fulfilled("tok-1", "req-1", "tok-1"),
+    );
+    expect(nextState.apiTokens.items).toEqual([]);
+    expect(nextState.apiTokens.revokeStatus["tok-1"]).toBe("succeeded");
+  });
+
+  it("sets revokeError keyed by id when revokeApiTokenThunk rejects", () => {
+    const nextState = settingsReducer(
+      undefined,
+      revokeApiTokenThunk.rejected(null, "req-1", "tok-1", "Failed to revoke token."),
+    );
+    expect(nextState.apiTokens.revokeStatus["tok-1"]).toBe("failed");
+    expect(nextState.apiTokens.revokeError["tok-1"]).toBe("Failed to revoke token.");
+  });
+});
+
+describe("fetchApiTokens thunk", () => {
+  it("dispatches fulfilled with the token list on success", async () => {
+    listApiTokensMock.mockResolvedValueOnce([testApiToken]);
+
+    const dispatch = jest.fn();
+    const thunk = fetchApiTokens();
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "settings/fetchApiTokens/fulfilled",
+    );
+    expect(fulfilledCall?.[0].payload).toEqual([testApiToken]);
+  });
+
+  it("dispatches rejected on service error", async () => {
+    listApiTokensMock.mockRejectedValueOnce(new Error("network error"));
+
+    const dispatch = jest.fn();
+    const thunk = fetchApiTokens();
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    expect(calls.some(([action]) => action.type === "settings/fetchApiTokens/rejected")).toBe(true);
+  });
+});
+
+describe("createApiTokenThunk", () => {
+  it("calls apiTokenService.createApiToken with the given name", async () => {
+    createApiTokenMock.mockResolvedValueOnce(testCreatedApiToken);
+
+    const dispatch = jest.fn();
+    const thunk = createApiTokenThunk("ci-runner");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    expect(createApiTokenMock).toHaveBeenCalledWith({ name: "ci-runner" });
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "settings/createApiToken/fulfilled",
+    );
+    expect(fulfilledCall?.[0].payload).toEqual(testCreatedApiToken);
+  });
+
+  it("dispatches rejected on service error", async () => {
+    createApiTokenMock.mockRejectedValueOnce(new Error("network error"));
+
+    const dispatch = jest.fn();
+    const thunk = createApiTokenThunk("ci-runner");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    expect(calls.some(([action]) => action.type === "settings/createApiToken/rejected")).toBe(true);
+  });
+});
+
+describe("revokeApiTokenThunk", () => {
+  it("calls apiTokenService.revokeApiToken and resolves with the revoked id", async () => {
+    revokeApiTokenMock.mockResolvedValueOnce(undefined);
+
+    const dispatch = jest.fn();
+    const thunk = revokeApiTokenThunk("tok-1");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    expect(revokeApiTokenMock).toHaveBeenCalledWith("tok-1");
+    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
+    const fulfilledCall = calls.find(
+      ([action]) => action.type === "settings/revokeApiToken/fulfilled",
+    );
+    expect(fulfilledCall?.[0].payload).toBe("tok-1");
+  });
+
+  it("dispatches rejected on service error", async () => {
+    revokeApiTokenMock.mockRejectedValueOnce(new Error("network error"));
+
+    const dispatch = jest.fn();
+    const thunk = revokeApiTokenThunk("tok-1");
+    await thunk(dispatch, jest.fn(), undefined);
+
+    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
+    expect(calls.some(([action]) => action.type === "settings/revokeApiToken/rejected")).toBe(true);
   });
 });

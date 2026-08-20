@@ -67,6 +67,18 @@ function buildStore(items: AgentMemoryEntry[]) {
           redeemStatus: "idle" as const,
           redeemError: null,
         },
+        // HEL-727: apiTokens is likewise a sibling sub-tree this component never reads/dispatches
+        // into — still required by SettingsState's shape.
+        apiTokens: {
+          items: [],
+          status: "idle" as const,
+          error: null,
+          createStatus: "idle" as const,
+          createError: null,
+          createdToken: null,
+          revokeStatus: {},
+          revokeError: {},
+        },
       },
     },
   });

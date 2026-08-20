@@ -15,6 +15,10 @@ import * as settingsService from "../services/settingsService";
 // matching this file's existing house pattern of mocking every service call
 // a mounted page/section makes, so no test attempts a real network request.
 import * as authService from "../../auth/services/authService";
+// HEL-727: `apiTokenService.listApiTokens` is called by the page's own
+// `fetchApiTokens` on mount (F-047 own-fetch pattern, same as
+// preferences/agent memory) -- mocked here for the same reason.
+import * as apiTokenService from "../services/apiTokenService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import type { AgentPreferences } from "../types/preferences";
 import { SettingsPage } from "./SettingsPage";
@@ -31,9 +35,16 @@ jest.mock("../../auth/services/authService", () => ({
   mfaStatusRequest: jest.fn(),
 }));
 
+jest.mock("../services/apiTokenService", () => ({
+  listApiTokens: jest.fn(),
+  createApiToken: jest.fn(),
+  revokeApiToken: jest.fn(),
+}));
+
 const getPreferencesMock = jest.mocked(settingsService.getPreferences);
 const listAgentMemoryMock = jest.mocked(settingsService.listAgentMemory);
 const mfaStatusRequestMock = jest.mocked(authService.mfaStatusRequest);
+const listApiTokensMock = jest.mocked(apiTokenService.listApiTokens);
 
 const testPreferences: AgentPreferences = {
   defaultSeriesColors: ["#ff0000"],
@@ -51,6 +62,8 @@ beforeEach(() => {
     verifiedAt: null,
     backupCodesRemaining: 0,
   });
+  listApiTokensMock.mockReset();
+  listApiTokensMock.mockResolvedValue([]);
 });
 
 describe("SettingsPage", () => {
@@ -173,5 +186,42 @@ describe("SettingsPage", () => {
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
     expect(window.localStorage.getItem("helio-theme")).toBe("light");
+  });
+
+  // HEL-727: `apiTokens` follows the F-047 own-fetch-on-mount pattern
+  // (Preferences/Agent memory above), dispatched from the page's own
+  // useEffect -- verify it actually fires and the section renders once it
+  // resolves.
+  it("renders a Personal access tokens section and fetches tokens on mount", async () => {
+    getPreferencesMock.mockReturnValueOnce(new Promise(() => {}));
+    listAgentMemoryMock.mockReturnValueOnce(new Promise(() => {}));
+    listApiTokensMock.mockResolvedValueOnce([
+      {
+        id: "tok-1",
+        name: "helio-mcp",
+        createdAt: "2026-08-01T00:00:00Z",
+        lastUsedAt: null,
+        expiresAt: null,
+      },
+    ]);
+    renderWithStore(<SettingsPage />);
+
+    expect(screen.getByText("Personal access tokens")).toBeInTheDocument();
+    await waitFor(() => expect(listApiTokensMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText("helio-mcp")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Loading personal access tokens")).not.toBeInTheDocument();
+  });
+
+  it("shows an error for Personal access tokens without blanking the other sections", async () => {
+    getPreferencesMock.mockResolvedValueOnce(testPreferences);
+    listAgentMemoryMock.mockResolvedValueOnce([]);
+    listApiTokensMock.mockRejectedValueOnce(new Error("network error"));
+    renderWithStore(<SettingsPage />);
+
+    await waitFor(() =>
+      expect(screen.getByText("Failed to load personal access tokens.")).toBeInTheDocument(),
+    );
+    // Preferences' own fetch succeeded -- it must still render.
+    expect(screen.getByRole("button", { name: "Save preferences" })).toBeInTheDocument();
   });
 });

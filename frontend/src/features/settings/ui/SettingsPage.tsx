@@ -14,8 +14,9 @@ import { faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AccentPicker } from "../../../shared/chrome/AccentPicker";
 import { useTheme } from "../../../theme/ThemeProvider";
-import { fetchAgentMemory, fetchPreferences } from "../state/settingsSlice";
+import { fetchAgentMemory, fetchApiTokens, fetchPreferences } from "../state/settingsSlice";
 import { AgentMemoryList } from "./AgentMemoryList";
+import { ApiTokensSection } from "./ApiTokensSection";
 import { BetaAccessSection } from "./BetaAccessSection";
 import { MfaSecuritySection } from "./MfaSecuritySection";
 import { PreferencesEditor } from "./PreferencesEditor";
@@ -25,15 +26,18 @@ export function SettingsPage() {
   const dispatch = useAppDispatch();
   const preferences = useAppSelector((state) => state.settings.preferences);
   const agentMemory = useAppSelector((state) => state.settings.agentMemory);
+  const apiTokens = useAppSelector((state) => state.settings.apiTokens);
   const { accentColor, setAccentColor, theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     void dispatch(fetchPreferences());
     void dispatch(fetchAgentMemory());
+    void dispatch(fetchApiTokens());
   }, [dispatch]);
 
   const preferencesLoading = preferences.status === "idle" || preferences.status === "loading";
   const agentMemoryLoading = agentMemory.status === "idle" || agentMemory.status === "loading";
+  const apiTokensLoading = apiTokens.status === "idle" || apiTokens.status === "loading";
 
   return (
     <div className="settings-page">
@@ -105,6 +109,25 @@ export function SettingsPage() {
         <section className="settings-page__section">
           <h2 className="settings-page__section-heading">Security</h2>
           <MfaSecuritySection />
+        </section>
+
+        {/* HEL-727: `apiTokens` follows the F-047 own-loading/error-gate
+            pattern (Preferences/Agent memory above), fetched from this
+            page's own useEffect -- unlike `MfaSecuritySection`, which owns
+            its fetch internally. */}
+        <section className="settings-page__section">
+          <h2 className="settings-page__section-heading">Personal access tokens</h2>
+          {apiTokensLoading && (
+            <p className="settings-page__loading" aria-label="Loading personal access tokens">
+              Loading personal access tokens…
+            </p>
+          )}
+          {!apiTokensLoading && apiTokens.error && (
+            <p className="settings-page__error" role="alert">
+              {apiTokens.error}
+            </p>
+          )}
+          {!apiTokensLoading && !apiTokens.error && <ApiTokensSection tokens={apiTokens.items} />}
         </section>
 
         <section className="settings-page__section">
