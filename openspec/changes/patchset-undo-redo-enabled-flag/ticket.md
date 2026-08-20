@@ -14,7 +14,20 @@ HEL-412 (PR matto00/helio#371) added `pipeline_steps.enabled` and threads it thr
 - [ ] Undo/redo round-trips `enabled` for delete-and-recreate and full-revert paths.
 - [ ] Absent `enabled` in legacy persisted JSON defaults to true (no behavior change for old records).
 - [ ] Backend tests cover the disabled-step round-trip; `sbt test` clean.
+- [ ] A DB-backed round-trip test (`PatchSetUndoServiceSpec.scala`) also covers the full-revert path
+      (`fullPipelineStepInverse`, exercised via `restorePipelineStepUpdate`), symmetric with the
+      existing DB-backed delete-and-recreate coverage — folded in post-review per delivery-time
+      follow-up triage (final-gate skeptic non-blocking note, user decision 2026-08-19).
 
 ## Origin
 
 Standalone follow-up triaged out of HEL-412 (coordinator decision: real latent correctness hole, genuinely outside that change's touched files).
+
+## Post-review fold-in (2026-08-19)
+
+The final-gate skeptic noted AC1's full-revert path had direct unit coverage
+(`PatchSetUndoInverseSpec.scala`) but no DB-backed (5.3a-equivalent) coverage, unlike the
+delete-and-recreate path's 5.3c case. Triaged (`ac_relevant=no, effort=small, overlap=high` →
+`fold-in`) and approved by the user: add the DB-backed full-revert assertion before merging. Two
+other non-blocking suggestions from the same review round were triaged `standalone` instead (filed as
+HEL-765 and HEL-766) to keep this ticket's own scope closed.

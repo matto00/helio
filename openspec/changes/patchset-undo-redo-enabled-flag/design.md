@@ -78,6 +78,19 @@ None — pure code fix, no data migration, no wire/schema change, no deploy-orde
 
 None.
 
+## Post-review fold-in (2026-08-19)
+
+Task 2.6 adds DB-backed `enabled` coverage for the full-revert path (`fullPipelineStepInverse`, via
+`restorePipelineStepUpdate`), symmetric with 2.4's delete-and-recreate coverage. No new design
+decision — same pattern as the actual 2.4/5.3c edit (a minimal, in-place extension of a pre-existing
+case, not a new test block): the existing 5.3a case in `PatchSetUndoServiceSpec.scala` already
+exercises this exact path, so 2.6 extends it in place (seed the step disabled + one restored-value
+assertion) rather than adding a new, duplicative test — `PatchSetUndoServiceSpec.scala` is already
+past CONTRIBUTING.md's ~400-line "propose a split rather than adding to it" threshold (504 lines), so
+a minimal in-place edit is the only sound choice here, not just a style preference
+(skeptic-design-2.md CR1). Triaged `fold-in` (small effort, high file overlap) from a final-gate
+skeptic non-blocking note; user-approved before merge.
+
 ## Planner Notes
 
 Self-approved: no new external dependency, no architectural change, no breaking API change. A small

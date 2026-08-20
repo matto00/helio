@@ -4,8 +4,8 @@ TICKET_ID: HEL-705
 CHANGE_NAME: patchset-undo-redo-enabled-flag
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/bug/patchset-undo-enabled-flag/HEL-705
 BRANCH: bug/patchset-undo-enabled-flag/HEL-705
-PHASE: Delivery
-CYCLE: 1
+PHASE: Execution
+CYCLE: 2
 DEV_PORT: 6137
 BACKEND_PORT: 9044
 EXECUTOR_AGENT_ID: —

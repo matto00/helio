@@ -20,6 +20,8 @@ touched resource to its exact pre-apply state; no new behavior is being introduc
 - Backend test coverage: a PatchSet undo that recreates (delete-undo) or fully reverts (update-undo) a
   previously-disabled step restores `enabled: false`; an absent `enabled` key on legacy JSON restores
   `enabled: true`.
+- (Fold-in, post-review) DB-backed coverage for the full-revert path specifically, symmetric with the
+  delete-and-recreate path's DB-backed coverage — triaged from a final-gate skeptic non-blocking note.
 
 ## Capabilities
 

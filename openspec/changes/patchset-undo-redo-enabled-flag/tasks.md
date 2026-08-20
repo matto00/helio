@@ -26,3 +26,12 @@
       restored step's `enabled` field — otherwise this task is a no-op (unit coverage in 2.1-2.3 is
       sufficient; do not add a new DB-backed test class solely for this).
 - [x] 2.5 `sbt test` clean (full backend suite, not just the touched spec files).
+- [x] 2.6 (Fold-in, post-review; skeptic-design-2.md CR1) Extend the EXISTING "restore
+      panel/dashboard/dataSource/dataType/pipeline/pipelineStep update edits to their pre-apply state
+      (5.3a)" case in `PatchSetUndoServiceSpec.scala` (line ~206) — do NOT add a new test block. This
+      case already exercises the full-revert path (`fullPipelineStepInverse`, via
+      `restorePipelineStepUpdate`) for the `pipelineStep` `update` edit; it just doesn't yet assert
+      `enabled`. Two-line, same-shape edit as 2.4's 5.3c extension: (a) on line 213's
+      `seedPipelineStep(...)` call, pass `enabled = Some(false)`; (b) immediately after line 242's
+      existing `restoredStep` assertion, add `restoredStep.enabled shouldBe false`. `sbt test` clean
+      afterward.
