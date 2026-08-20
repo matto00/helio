@@ -24,12 +24,6 @@
   color: var(--app-text-muted);
 }
 
-.pipelines-page__error {
-  font-size: var(--text-xs);
-  color: var(--app-error);
-  margin: 0;
-}
-
 /* ── List table ── */
 
 .pipeline-list-table {

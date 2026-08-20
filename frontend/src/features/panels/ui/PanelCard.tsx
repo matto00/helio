@@ -66,7 +66,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
 }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
-  const { data, rawRows, headers, isLoading, error, noData, chartAggregate, refresh } =
+  const { data, rawRows, headers, isLoading, error, errorKind, noData, chartAggregate, refresh } =
     usePanelData(panel);
   usePanelPolling(refresh, panel.refreshInterval ?? null, getDataTypeId(panel));
 
@@ -102,6 +102,9 @@ export const PanelCardBody = React.memo(function PanelCardBody({
       headers={headers}
       isLoading={panel.type === "table" ? tableIsLoading : isLoading}
       error={error}
+      errorKind={errorKind}
+      onRetry={refresh}
+      retryVariant="icon-only"
       noData={noData}
       paginationRows={paginationEntry?.rows ?? null}
       paginationHasMore={paginationEntry?.hasMore ?? false}

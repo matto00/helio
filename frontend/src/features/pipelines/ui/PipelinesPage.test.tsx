@@ -160,6 +160,23 @@ describe("PipelinesPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Failed to load pipelines.");
   });
 
+  // HEL-539 — Retry re-dispatches fetchPipelines and recovers on success
+  it("Retry re-dispatches fetchPipelines and clears the error on success", async () => {
+    getPipelinesMock.mockRejectedValueOnce(new Error("network error"));
+    renderWithStore(<PipelinesPage />);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Couldn't load pipelines");
+    const retryBtn = screen.getByRole("button", { name: "Retry" });
+
+    getPipelinesMock.mockResolvedValueOnce(testPipelines);
+    fireEvent.click(retryBtn);
+
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(await screen.findByText("Sales Pipeline")).toBeInTheDocument();
+    expect(getPipelinesMock).toHaveBeenCalledTimes(2);
+  });
+
   it("shows 'never run' badge for pipelines with null lastRunStatus", async () => {
     const neverRunPipeline = {
       id: "p-3",

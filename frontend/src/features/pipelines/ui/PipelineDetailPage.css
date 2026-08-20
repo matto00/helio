@@ -801,15 +801,6 @@
   color: var(--app-text-muted);
 }
 
-.pipeline-detail-page__error {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  color: var(--app-error);
-  font-size: var(--text-sm);
-}
-
 /* ── Save / Cancel actions ──────────────────────────────────────────────────── */
 
 .pipeline-detail-page__save-btn,

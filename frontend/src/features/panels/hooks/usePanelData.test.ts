@@ -123,8 +123,72 @@ describe("usePanelData", () => {
 
     const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
 
-    await waitFor(() => expect(result.current.error).toBe("Failed to load data."));
+    // HEL-539 — the message now flows from fetchPanelPage's own
+    // classifyRequestError fallback ("Failed to load panel data."), not a
+    // hardcoded string local to this hook.
+    await waitFor(() => expect(result.current.error).toBe("Failed to load panel data."));
+    expect(result.current.errorKind).toBe("error");
     expect(result.current.data).toBeNull();
+  });
+
+  // HEL-539 (D6/task 2.5) — errorForKey must clear via BOTH paths: an
+  // explicit refresh() call (a), and a background refetch that never goes
+  // through refresh() at all, e.g. markDataTypeRowsStale (b).
+  describe("clearing a stored error on success (D6)", () => {
+    it("(a) a successful refresh() clears the prior error", async () => {
+      mockFetchDataTypeRows.mockRejectedValueOnce(new Error("Network error"));
+
+      const panel = makeMetricPanel({
+        config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue" } },
+      });
+      const store = makeStore(panel);
+
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+
+      mockFetchDataTypeRows.mockResolvedValueOnce({
+        rows: [{ revenue: "1000" }],
+        rowCount: 1,
+      });
+
+      act(() => {
+        result.current.refresh();
+      });
+
+      // Cleared eagerly by refresh() itself, before the new fetch even
+      // resolves — not only once it does.
+      expect(result.current.error).toBeNull();
+      await waitFor(() => expect(result.current.data).toEqual({ value: "1000" }));
+      expect(result.current.error).toBeNull();
+    });
+
+    it("(b) a successful background refetch (markDataTypeRowsStale) clears the prior error without calling refresh()", async () => {
+      mockFetchDataTypeRows.mockRejectedValueOnce(new Error("Network error"));
+
+      const panel = makeMetricPanel({
+        config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue" } },
+      });
+      const store = makeStore(panel);
+
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+
+      mockFetchDataTypeRows.mockResolvedValueOnce({
+        rows: [{ revenue: "2000" }],
+        rowCount: 1,
+      });
+
+      // Mirrors PipelineDetailPage's SSE-driven dispatch on pipeline-run
+      // success — the panel never calls refresh() itself here.
+      act(() => {
+        store.dispatch(markDataTypeRowsStale("dt-1"));
+      });
+
+      await waitFor(() => expect(result.current.data).toEqual({ value: "2000" }));
+      expect(result.current.error).toBeNull();
+    });
   });
 
   it("exposes a refresh callback that is a function", () => {

@@ -237,3 +237,38 @@ describe("SidebarItemList renderRowAction", () => {
     expect(document.querySelector(".dashboard-list__row-action")).not.toBeInTheDocument();
   });
 });
+
+// HEL-539 (skeptic-final-1.md CR2) — a fetch failure must read as an error
+// (icon + role="alert" + intent-error tint) here too, matching
+// DashboardList.tsx's sibling Dashboards section — not the old bare muted
+// `<p role="alert">` that carried no visual error signal at all.
+describe("SidebarItemList — error state (HEL-539)", () => {
+  it("renders a visible, icon-paired error via StatusMessage on fetch failure", () => {
+    render(
+      <SidebarItemList
+        heading="Data Sources"
+        items={[]}
+        status="failed"
+        error="Failed to load sources."
+        onSelect={jest.fn()}
+      />,
+    );
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Failed to load sources.");
+    expect(alert).toHaveClass("status-message--error");
+    expect(alert.querySelector("svg")).toBeInTheDocument();
+    // Deliberately no Retry — this component has no re-dispatchable fetch
+    // wired through it.
+    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+  });
+
+  it("renders the loading message via StatusMessage, with no alert role", () => {
+    render(
+      <SidebarItemList heading="Data Sources" items={[]} status="loading" onSelect={jest.fn()} />,
+    );
+
+    expect(screen.getByText("Loading data sources…")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});

@@ -6,6 +6,10 @@ import {
   deleteDataType as deleteDataTypeRequest,
   fetchAssertionStatus as fetchAssertionStatusRequest,
 } from "../services/dataTypeService";
+import {
+  classifyRequestError,
+  type RequestErrorKind,
+} from "../../../services/classifyRequestError";
 import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
 import type { RootState } from "../../../store/store";
 
@@ -13,6 +17,7 @@ interface DataTypesState {
   items: DataType[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
+  errorKind: RequestErrorKind | null;
   /** Explicit user selection in the sidebar. Null means "fall back to first
    * item" — the page derives the effective selection so it's never blank. */
   selectedTypeId: string | null;
@@ -30,6 +35,7 @@ const initialState: DataTypesState = {
   items: [],
   status: "idle",
   error: null,
+  errorKind: null,
   selectedTypeId: null,
   assertionStatusByDataTypeId: {},
   assertionStatusPendingIds: {},
@@ -68,16 +74,17 @@ export const deleteDataType = createAsyncThunk<string, string, { rejectValue: st
   },
 );
 
-export const fetchDataTypes = createAsyncThunk<DataType[], void, { rejectValue: string }>(
-  "dataTypes/fetchDataTypes",
-  async (_, { rejectWithValue }) => {
-    try {
-      return await fetchDataTypesRequest();
-    } catch {
-      return rejectWithValue("Failed to load data types.");
-    }
-  },
-);
+export const fetchDataTypes = createAsyncThunk<
+  DataType[],
+  void,
+  { rejectValue: { message: string; kind: RequestErrorKind } }
+>("dataTypes/fetchDataTypes", async (_, { rejectWithValue }) => {
+  try {
+    return await fetchDataTypesRequest();
+  } catch (err: unknown) {
+    return rejectWithValue(classifyRequestError(err, "Failed to load data types."));
+  }
+});
 
 /** HEL-576 (design.md Decision 8): fetches once per distinct `dataTypeId` —
  * a no-op via `condition` when the status is already cached or a fetch is
@@ -119,15 +126,18 @@ const dataTypesSlice = createSlice({
       .addCase(fetchDataTypes.pending, (state) => {
         state.status = "loading";
         state.error = null;
+        state.errorKind = null;
       })
       .addCase(fetchDataTypes.fulfilled, (state, action) => {
         state.items = action.payload;
         state.status = "succeeded";
         state.error = null;
+        state.errorKind = null;
       })
       .addCase(fetchDataTypes.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload ?? "Failed to load data types.";
+        state.error = action.payload?.message ?? "Failed to load data types.";
+        state.errorKind = action.payload?.kind ?? "error";
       })
       .addCase(updateDataType.fulfilled, (state, action) => {
         const idx = state.items.findIndex((dt) => dt.id === action.payload.id);

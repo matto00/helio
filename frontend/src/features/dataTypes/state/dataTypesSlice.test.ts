@@ -43,10 +43,14 @@ describe("dataTypesSlice", () => {
   it("sets error when fetchDataTypes rejects", () => {
     const nextState = dataTypesReducer(
       undefined,
-      fetchDataTypes.rejected(null, "req-1", undefined, "Failed to load data types."),
+      fetchDataTypes.rejected(null, "req-1", undefined, {
+        message: "Failed to load data types.",
+        kind: "error",
+      }),
     );
     expect(nextState.status).toBe("failed");
     expect(nextState.error).toBe("Failed to load data types.");
+    expect(nextState.errorKind).toBe("error");
   });
 });
 
@@ -55,6 +59,7 @@ describe("deleteDataType", () => {
     items: [testDataType],
     status: "succeeded" as const,
     error: null,
+    errorKind: null,
     selectedTypeId: null,
     assertionStatusByDataTypeId: {},
     assertionStatusPendingIds: {},
@@ -97,6 +102,7 @@ describe("updateDataType", () => {
       items: [testDataType],
       status: "succeeded" as const,
       error: null,
+      errorKind: null,
       selectedTypeId: null,
       assertionStatusByDataTypeId: {},
       assertionStatusPendingIds: {},

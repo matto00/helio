@@ -74,7 +74,8 @@ interface PanelDetailModalProps {
 export function PanelDetailModal({ panel, onClose, initialMode = "view" }: PanelDetailModalProps) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
-  const { data, rawRows, headers, isLoading, error, noData, chartAggregate } = usePanelData(panel);
+  const { data, rawRows, headers, isLoading, error, errorKind, noData, chartAggregate, refresh } =
+    usePanelData(panel);
 
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
   const [modalMode, setModalMode] = useState<"view" | "edit">(initialMode);
@@ -359,6 +360,9 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
               headers={headers}
               isLoading={isLoading}
               error={error}
+              errorKind={errorKind}
+              onRetry={refresh}
+              retryVariant="button"
               noData={noData}
               chartAggregate={chartAggregate}
             />

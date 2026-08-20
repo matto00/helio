@@ -8,9 +8,14 @@ import {
 } from "../state/dataTypesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { fetchDataTypeRows } from "../services/dataTypeService";
+import {
+  classifyRequestError,
+  type RequestErrorKind,
+} from "../../../services/classifyRequestError";
 import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
 import { ComputedFieldsEditor } from "../../pipelines/ui/ComputedFieldsEditor";
 import { DataGrid, Select, TextField } from "../../../shared/ui/index";
+import { InlineError } from "../../../shared/chrome/InlineError";
 
 interface TypeDetailPanelProps {
   dataType: DataType;
@@ -34,6 +39,7 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewErrorKind, setPreviewErrorKind] = useState<RequestErrorKind | null>(null);
 
   // HEL-576/F-182: per-type assertion/rule-validity status, same cache PanelCard
   // already reads via `selectAssertionInvalid` — dispatching here (deduped by
@@ -55,13 +61,16 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
     const requestId = ++previewRequestIdRef.current;
     setPreviewLoading(true);
     setPreviewError(null);
+    setPreviewErrorKind(null);
     try {
       const result = await fetchDataTypeRows(dataType.id);
       if (previewRequestIdRef.current !== requestId) return;
       setPreviewRows(result.rows);
     } catch (err) {
       if (previewRequestIdRef.current !== requestId) return;
-      setPreviewError(err instanceof Error ? err.message : "Failed to fetch preview.");
+      const classified = classifyRequestError(err, "Failed to fetch preview.");
+      setPreviewError(classified.message);
+      setPreviewErrorKind(classified.kind);
       setPreviewRows(null);
     } finally {
       if (previewRequestIdRef.current === requestId) setPreviewLoading(false);
@@ -219,11 +228,13 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
             {previewLoading ? "Loading…" : previewRows !== null ? "Reload" : "Preview"}
           </button>
         </div>
-        {previewError && (
-          <p className="type-detail-panel__error" role="alert">
-            {previewError}
-          </p>
-        )}
+        <InlineError
+          error={previewError}
+          variant="banner"
+          kind={previewErrorKind ?? "error"}
+          onRetry={() => void handlePreview()}
+          retrying={previewLoading}
+        />
         {previewRows !== null ? (
           <DataGrid
             variant="preview"

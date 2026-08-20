@@ -8,6 +8,7 @@ import { NavLink } from "react-router-dom";
 
 import "../../features/dashboards/ui/DashboardList.css";
 import { ActionsMenu } from "./ActionsMenu";
+import { StatusMessage } from "./StatusMessage";
 import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
 import { TextField } from "../ui/TextField";
@@ -277,11 +278,15 @@ export function SidebarItemList({
         </div>
       </div>
       {status === "loading" ? (
-        <p className="dashboard-list__status">Loading {heading.toLowerCase()}…</p>
+        // HEL-539 (skeptic-final-1.md CR2) — matches DashboardList.tsx's
+        // sibling Dashboards section exactly, so a fetch failure reads as an
+        // error (icon + role="alert" + intent-error tint) in every sidebar
+        // section, not just this one. No Retry here — deliberately not
+        // added speculatively; this list has no re-dispatchable fetch wired
+        // through this component.
+        <StatusMessage status={status} message={`Loading ${heading.toLowerCase()}…`} />
       ) : error ? (
-        <p className="dashboard-list__status" role="alert">
-          {error}
-        </p>
+        <StatusMessage status="failed" message={error} />
       ) : filtered.length === 0 ? (
         renderEmpty()
       ) : (

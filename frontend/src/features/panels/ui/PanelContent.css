@@ -183,8 +183,13 @@
   gap: var(--space-2);
 }
 
-.panel-content--error {
-  color: var(--app-error);
+/* HEL-539 — the error state now renders `InlineError variant="banner"`
+ * (its own icon/text/Retry-button treatment) instead of a bare
+ * `.panel-content__state-label` span; `margin-top` is reset since this
+ * container already centers its single child, unlike the stacked-below-
+ * other-content contexts `InlineError`'s default margin was written for. */
+.panel-content--error .inline-error--banner {
+  margin-top: 0;
 }
 
 /* `.panel-content__spinner` is now the shared `Spinner` primitive (size `xl`, its exact 24px/3px
@@ -194,10 +199,6 @@
   font-size: var(--text-xs);
   color: var(--app-text-muted);
   text-align: center;
-}
-
-.panel-content--error .panel-content__state-label {
-  color: inherit;
 }
 
 /* Live text */

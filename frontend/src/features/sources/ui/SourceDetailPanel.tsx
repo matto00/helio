@@ -7,6 +7,10 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { updateSource } from "../state/sourcesSlice";
 import type { DataSource, DataSourceKind } from "../types/dataSource";
 import { InlineError } from "../../../shared/chrome/InlineError";
+import {
+  classifyRequestError,
+  type RequestErrorKind,
+} from "../../../services/classifyRequestError";
 import { DataGrid, TextField } from "../../../shared/ui/index";
 import { EmptySchemaAffordance } from "./EmptySchemaAffordance";
 
@@ -38,7 +42,15 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[] | null>(null);
   const [previewHeaders, setPreviewHeaders] = useState<string[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // D5a — split from a single `error` state: `previewError` is a real,
+  // retryable fetch failure (the `catch` below); `previewUnsupported` is the
+  // deterministic "Preview is not supported for <kind> sources" capability
+  // message, which is not a failure at all and must never carry Retry (a
+  // Retry button that can never succeed is exactly the retry-spam the
+  // ticket's AC forbids).
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewErrorKind, setPreviewErrorKind] = useState<RequestErrorKind | null>(null);
+  const [previewUnsupported, setPreviewUnsupported] = useState<string | null>(null);
 
   // F-070: rename exists end-to-end in state/API (`updateSource`) but had no
   // UI trigger anywhere in this feature. Wired here rather than on the
@@ -123,7 +135,9 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
 
   async function handlePreview() {
     setIsLoading(true);
-    setError(null);
+    setPreviewError(null);
+    setPreviewErrorKind(null);
+    setPreviewUnsupported(null);
     try {
       if (source.type === "csv" || source.type === "static") {
         const result = await fetchCsvPreview(source.id, 25);
@@ -138,11 +152,15 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
         setPreviewHeaders(undefined);
         setPreviewRows(result.rows);
       } else {
-        setError(`Preview is not supported for ${labelForKind(source.type)} sources.`);
+        // Deterministic capability limitation, not a caught error — never
+        // run through classifyRequestError, never Retry-eligible.
+        setPreviewUnsupported(`Preview is not supported for ${labelForKind(source.type)} sources.`);
         setPreviewRows(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch preview.");
+      const classified = classifyRequestError(err, "Failed to fetch preview.");
+      setPreviewError(classified.message);
+      setPreviewErrorKind(classified.kind);
       setPreviewRows(null);
     } finally {
       setIsLoading(false);
@@ -237,7 +255,17 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
 
       <section className="source-detail-panel__preview" aria-label="Preview">
         <h4 className="source-detail-panel__section-title">Preview</h4>
-        <InlineError error={error} variant="banner" />
+        {/* D5a — mutually exclusive (both clear together in handlePreview):
+            previewUnsupported is a deterministic capability limitation and
+            never gets a Retry action; previewError is a real, retryable
+            fetch failure. */}
+        <InlineError error={previewUnsupported} variant="banner" kind="error" />
+        <InlineError
+          error={previewError}
+          variant="banner"
+          kind={previewErrorKind ?? "error"}
+          onRetry={() => void handlePreview()}
+        />
         {previewRows !== null ? (
           <DataGrid
             variant="preview"
@@ -245,11 +273,15 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
             columns={previewHeaders?.map((h) => ({ key: h }))}
             emptyText="Source returned no rows."
           />
-        ) : (
+        ) : previewUnsupported === null ? (
+          // Suppressed when previewUnsupported is set (skeptic-final-1.md
+          // non-blocking note) — "Click Preview to load a sample" reads as
+          // contradictory advice directly beneath a message that already
+          // says preview isn't available for this source kind at all.
           <p className="source-detail-panel__preview-empty">
             Click <strong>Preview</strong> to load a sample of this source.
           </p>
-        )}
+        ) : null}
       </section>
     </div>
   );

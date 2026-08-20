@@ -6,10 +6,67 @@
 
 /* Boxed, higher-emphasis treatment for a standalone error surface (HEL
    UI-sweep F-051) — e.g. a failed preview fetch, as opposed to a bare
-   validation message inside a form. */
+   validation message inside a form. HEL-539: gained an icon + optional
+   Retry action, so the box is now a flex row rather than a bare <p>. */
 .inline-error--banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin-top: var(--space-2);
   padding: var(--space-2);
   border-radius: var(--app-radius-sm);
   background: var(--app-danger-surface);
+}
+
+.inline-error__icon {
+  flex: none;
+  width: 1em;
+  height: 1em;
+}
+
+.inline-error__message {
+  flex: 1 1 auto;
+}
+
+/* Secondary --control-sm recipe (DESIGN.md §5), matching
+   MfaEnrollModal.css's `.mfa-enroll-modal__retry-btn`. */
+.inline-error__retry {
+  flex: none;
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.inline-error__retry:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.inline-error__retry:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.inline-error__retry-icon {
+  width: 1em;
+  height: 1em;
+}
+
+/* Mobile tap-target floor (HEL-308/314/319 convention) — the labeled Retry
+   button only; the icon-only variant already gets it from IconButton.css. */
+@media (max-width: 768px) {
+  .inline-error__retry {
+    min-height: 44px;
+  }
 }
