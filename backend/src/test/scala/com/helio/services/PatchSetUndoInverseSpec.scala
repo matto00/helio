@@ -95,4 +95,43 @@ class PatchSetUndoInverseSpec extends AnyWordSpec with Matchers with JsonProtoco
       restored.config.aggregation shouldBe None
     }
   }
+
+  /** Regression coverage for HEL-705: a persisted pipeline-step JSON captured in the apply
+   *  journal carries `enabled` (HEL-412) alongside `type`/`config`/`position` -- these two
+   *  helpers previously dropped it entirely, silently reviving a disabled step as enabled on
+   *  undo/redo. */
+  private def pipelineStepJson(enabledField: Option[Boolean]): JsValue = {
+    val base = Map[String, JsValue](
+      "type"     -> JsString("filter"),
+      "config"   -> JsObject("field" -> JsString("status"), "op" -> JsString("eq"), "value" -> JsString("active")),
+      "position" -> JsNumber(2)
+    )
+    JsObject(base ++ enabledField.map(v => "enabled" -> JsBoolean(v)).toMap)
+  }
+
+  "PatchSetUndoInverse.fullPipelineStepInverse" should {
+
+    "restore a captured disabled step's enabled=false rather than defaulting it to enabled (HEL-705)" in {
+      val inverse = PatchSetUndoInverse.fullPipelineStepInverse(pipelineStepJson(Some(false)))
+      inverse.enabled shouldBe Some(false)
+    }
+
+    "default enabled=true when the captured JSON has no enabled key at all (legacy, pre-HEL-412)" in {
+      val inverse = PatchSetUndoInverse.fullPipelineStepInverse(pipelineStepJson(None))
+      inverse.enabled shouldBe Some(true)
+    }
+  }
+
+  "PatchSetUndoInverse.pipelineStepCreateRequestFromResponse" should {
+
+    "pass through a captured disabled step's enabled=false rather than defaulting it to enabled (HEL-705)" in {
+      val create = PatchSetUndoInverse.pipelineStepCreateRequestFromResponse(pipelineStepJson(Some(false)))
+      create.enabled shouldBe Some(false)
+    }
+
+    "leave enabled=None when the captured JSON has no enabled key at all -- matching the create endpoint's own absent-means-enabled contract" in {
+      val create = PatchSetUndoInverse.pipelineStepCreateRequestFromResponse(pipelineStepJson(None))
+      create.enabled shouldBe None
+    }
+  }
 }

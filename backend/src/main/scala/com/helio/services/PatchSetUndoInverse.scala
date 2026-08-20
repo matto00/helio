@@ -152,7 +152,12 @@ private[services] object PatchSetUndoInverse {
     UpdatePipelineStepRequest(
       `type`   = fields.get("type").map(_.convertTo[String]),
       config   = fields.get("config").map(_.asJsObject),
-      position = fields.get("position").map(_.convertTo[Int])
+      position = fields.get("position").map(_.convertTo[Int]),
+      // Full-overwrite inverse (design.md D6) -- always `Some(...)`, never left `None` ("no
+      // change") like the ordinary PATCH contract, else a since-toggled LIVE step would survive
+      // the revert with its own current `enabled` value. Absent key (legacy JSON predating
+      // HEL-412) defaults to `true`, matching the create request's own absent-means-true contract.
+      enabled = Some(fields.get("enabled").map(_.convertTo[Boolean]).getOrElse(true))
     )
   }
 
@@ -160,7 +165,10 @@ private[services] object PatchSetUndoInverse {
     val fields = json.asJsObject.fields
     CreatePipelineStepRequest(
       `type` = fields("type").convertTo[String],
-      config = fields("config").asJsObject
+      config = fields("config").asJsObject,
+      // `None` already means "created enabled" (design.md D7) -- matches the create endpoint's
+      // own absent-means-true default, so no explicit default is restated here.
+      enabled = fields.get("enabled").map(_.convertTo[Boolean])
     )
   }
 }
