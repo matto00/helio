@@ -3,8 +3,7 @@ package com.helio.api
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.{HttpMethods, StatusCodes}
 import org.apache.pekko.http.scaladsl.model.headers.HttpOrigin
-import org.apache.pekko.http.scaladsl.server.Directives
-import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.http.cors.scaladsl.CorsDirectives._
 import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
@@ -452,8 +451,26 @@ final class ApiRoutes(
     .withAllowedOrigins(HttpOriginMatcher(corsAllowedOrigins.map(HttpOrigin(_)): _*))
     .withAllowedMethods(Seq(HttpMethods.GET, HttpMethods.POST, HttpMethods.PUT, HttpMethods.PATCH, HttpMethods.DELETE, HttpMethods.HEAD, HttpMethods.OPTIONS))
 
+  // HEL-750: no ExceptionHandler/RejectionHandler was registered anywhere in the
+  // backend before this. Pekko's default handling for an unhandled exception or
+  // rejection runs OUTSIDE the `cors(corsSettings) { ... }` scope below (it's applied
+  // by the server binding, wrapping the route this class exposes), so the resulting
+  // failure response reached the client with no CORS headers at all -- surfacing to a
+  // browser as a confusing "CORS Missing Allow Origin" error instead of a clean 5xx.
+  // Registering `TopLevelErrorHandlers.topLevelExceptionHandler`/`topLevelRejectionHandler`
+  // immediately inside `cors(corsSettings)` guarantees `cors()` always sees the final
+  // response and attaches headers to it, regardless of how the request fails.
+  // `TopLevelErrorHandlers.corsRejectionHandler` wraps `cors(corsSettings)` from the
+  // OUTSIDE (fold-in, design.md D6) -- the only placement that can catch the
+  // `CorsRejection` `cors()` itself raises for a disallowed `Origin`, since that
+  // rejection is minted before control ever reaches the pair registered inside it.
+  // See `TopLevelErrorHandlers.scala` for the handlers themselves (extracted, design.md D5).
+
   val routes: Route =
+    handleRejections(TopLevelErrorHandlers.corsRejectionHandler) {
     cors(corsSettings) {
+      handleExceptions(TopLevelErrorHandlers.topLevelExceptionHandler) {
+      handleRejections(TopLevelErrorHandlers.topLevelRejectionHandler) {
       traceContext.withTraceContext {
       health.routes ~
         pathPrefix("api") {
@@ -667,5 +684,8 @@ final class ApiRoutes(
           }
         }
       }
+      }
+      }
+    }
     }
 }
