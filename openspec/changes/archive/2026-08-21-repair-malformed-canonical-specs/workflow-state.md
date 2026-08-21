@@ -3,7 +3,7 @@
 TICKET_ID: HEL-775
 CHANGE_NAME: repair-malformed-canonical-specs
 TICKET_TYPE: feature
-PHASE: Execution
+PHASE: Evaluation
 CYCLE: 1
 SKEPTIC_DESIGN_ROUND: 3 of 5 = CONFIRM (rounds 1-2 REFUTE). Design gate CLEARED.
 SKEPTIC_CYCLE: 1
@@ -35,7 +35,9 @@ MODELS: {"orchestrator":"opus","executor":"sonnet","evaluator":"opus","skeptic":
 # thing keeping evaluator/skeptic on opus. Every Agent call MUST pass it explicitly,
 # including re-spawns. A dropped override downgrades a gate silently, with no error.
 
-AGENT_IDS: {}
+AGENT_IDS: {"executor":"warm (cycle 1)","evaluator":"warm (cycle 1)"}
+EXEC_COMMIT: a8234482
+EVAL_CYCLE_1: PASS (evaluation-1.md)
 
 ## Notes
 - Merged origin/main (785e0af9, incl. HEL-773) at TOP of Planning, before reading any spec for

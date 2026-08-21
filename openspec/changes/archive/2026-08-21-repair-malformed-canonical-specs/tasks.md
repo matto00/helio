@@ -157,7 +157,7 @@
 - [x] 9.1 `npm run lint`, `npm run format:check`, `npm test` as applicable to the touched files.
 - [x] 9.2 `npm run check:openspec` and `npm run check:spec-structure`. If a bypass proves necessary,
       enumerate every gate the bypass skips by running each hook individually, and report it.
-- [ ] 9.4 At archive time, hand-write the `## Purpose` for the new `openspec-spec-hygiene` spec rather
+- [x] 9.4 At archive time, hand-write the `## Purpose` for the new `openspec-spec-hygiene` spec rather
       than shipping openspec's `TBD - created by archiving change ...` skeleton. 30+ existing specs carry
       that placeholder so it is not a regression, but leaving it on a spec-hygiene ticket would be a poor
       look. (Phase 3 already greps for this string.)
