@@ -2,15 +2,19 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { setSelectedConversationId } from "../../features/assistant/state/assistantConversationsSlice";
+import type { CreateActionResult } from "../../features/dashboards/hooks/useCreateDashboardAction";
+import { useCreateDashboardAction } from "../../features/dashboards/hooks/useCreateDashboardAction";
 import { setSelectedDashboardId } from "../../features/dashboards/state/dashboardsSlice";
 import {
   selectPipelineOutputDataTypes,
   setSelectedTypeId,
 } from "../../features/dataTypes/state/dataTypesSlice";
+import { useCreatePipelineAction } from "../../features/pipelines/hooks/useCreatePipelineAction";
 import {
   fetchPipelines,
   selectPipelineNameByOutputTypeId,
 } from "../../features/pipelines/state/pipelinesSlice";
+import { useAddSourceAction } from "../../features/sources/hooks/useAddSourceAction";
 import { setSelectedSourceId } from "../../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { pickerIdForPathname, sectionLabel } from "./sections";
@@ -33,12 +37,26 @@ export interface PickerSelection {
    * pre-existing asymmetry this hook preserves) and for any section with no
    * resolvable current item. */
   activeItemName: string | null;
-  emptyMessage: string;
   /** The section's display label — identical to `sectionLabel(pathname)`,
    * included here so callers driving the phone title/sheet don't need a
    * second import. */
   heading: string;
   onSelect: (item: PickerSelectionItem) => void;
+  /** HEL-773 design.md D6/D7/D8 — the sheet's HEADER create action (rendered
+   * above the list, suppressed whenever the empty branch renders instead).
+   * `null` for sections with no create action of their own (metrics, chat,
+   * registry — registry's create path is empty-branch-only, see
+   * `emptyCreateAction`). Backed by the three HEL-548 create-action hooks,
+   * called unconditionally here (Rules of Hooks) regardless of `pickerId`. */
+  createAction: CreateActionResult | null;
+  /** The empty branch's own CTA slot — mirrors `SidebarItemList`'s shipped
+   * `onAdd` vs `emptyCta` split. Sources/pipelines/dashboards set this to
+   * the SAME hook result as `createAction` (one visible affordance either
+   * way, per D6); registry sets ONLY this slot (D7 — types are produced by
+   * pipelines, so "create a pipeline" is registry's only create path, with
+   * no persistent header icon under a "Data Types" heading); metrics/chat
+   * have neither. */
+  emptyCreateAction: CreateActionResult | null;
 }
 
 /**
@@ -79,6 +97,16 @@ export function usePickerSelection(pathname: string): PickerSelection {
   const pipelineRouteId = pathname.startsWith("/pipelines/") ? pathname.split("/")[2] : null;
   const metricRouteId = pathname.startsWith("/metrics/") ? pathname.split("/")[2] : null;
 
+  // HEL-773 design.md D8 — all three HEL-548 create-action hooks are called
+  // unconditionally (Rules of Hooks), at every render, regardless of
+  // `pickerId`; the switch below just selects which (if any) result each
+  // section exposes. Verified inert for the sections that don't use them: no
+  // `useEffect` in any of the three (`useCreateDashboardAction`,
+  // `useAddSourceAction`, `useCreatePipelineAction`).
+  const createDashboardAction = useCreateDashboardAction();
+  const addSourceAction = useAddSourceAction();
+  const createPipelineAction = useCreatePipelineAction();
+
   // The phone registry sheet resolves each DataType's producing pipeline for its
   // provenance subtitle (HEL-270). Fetch pipelines when the registry section is
   // active and not yet loaded — status-gated so a sidebar-driven fetch and this
@@ -102,9 +130,10 @@ export function usePickerSelection(pathname: string): PickerSelection {
         // Asymmetry preserved: desktop breadcrumb/phone title use
         // `selectedDashboardName` directly for this route, not this field.
         activeItemName: null,
-        emptyMessage: "No dashboards yet.",
         heading,
         onSelect: (item) => dispatch(setSelectedDashboardId(item.id)),
+        createAction: createDashboardAction,
+        emptyCreateAction: createDashboardAction,
       };
     }
     case "sources": {
@@ -118,9 +147,10 @@ export function usePickerSelection(pathname: string): PickerSelection {
         items,
         activeItemId: effectiveId,
         activeItemName: items.find((item) => item.id === effectiveId)?.name ?? null,
-        emptyMessage: "No data sources yet.",
         heading,
         onSelect: (item) => dispatch(setSelectedSourceId(item.id)),
+        createAction: addSourceAction,
+        emptyCreateAction: addSourceAction,
       };
     }
     case "pipelines": {
@@ -133,9 +163,10 @@ export function usePickerSelection(pathname: string): PickerSelection {
         items,
         activeItemId: pipelineRouteId,
         activeItemName: items.find((item) => item.id === pipelineRouteId)?.name ?? null,
-        emptyMessage: "No pipelines yet.",
         heading,
         onSelect: (item) => navigate(`/pipelines/${item.id}`),
+        createAction: createPipelineAction,
+        emptyCreateAction: createPipelineAction,
       };
     }
     case "registry": {
@@ -155,9 +186,15 @@ export function usePickerSelection(pathname: string): PickerSelection {
         items,
         activeItemId: effectiveId,
         activeItemName: items.find((item) => item.id === effectiveId)?.name ?? null,
-        emptyMessage: "No types yet.",
         heading,
         onSelect: (item) => dispatch(setSelectedTypeId(item.id)),
+        // D7 — the registry section has no create action of its own (a type
+        // exists only as a pipeline's output); the empty-branch CTA is its
+        // only create path, matching `SidebarBody`'s `emptyCta` (NOT
+        // `onAdd`) treatment of this same section. No persistent header "+"
+        // under a "Data Types" heading.
+        createAction: null,
+        emptyCreateAction: createPipelineAction,
       };
     }
     case "metrics": {
@@ -170,9 +207,12 @@ export function usePickerSelection(pathname: string): PickerSelection {
         items,
         activeItemId: metricRouteId,
         activeItemName: items.find((item) => item.id === metricRouteId)?.name ?? null,
-        emptyMessage: "No metrics yet.",
         heading,
         onSelect: (item) => navigate(`/metrics/${item.id}`),
+        // Metrics has no shared create-action hook (its sidebar CTA
+        // dispatches inline) — out of scope, see ticket "Out of scope".
+        createAction: null,
+        emptyCreateAction: null,
       };
     }
     case "chat": {
@@ -187,9 +227,14 @@ export function usePickerSelection(pathname: string): PickerSelection {
         items,
         activeItemId: effectiveId,
         activeItemName: items.find((item) => item.id === effectiveId)?.name ?? null,
-        emptyMessage: "No conversations yet.",
         heading,
         onSelect: (item) => dispatch(setSelectedConversationId(item.id)),
+        // Assistant has no shared create-action hook (its sidebar "New
+        // chat" dispatches inline; the phone command bar has its own
+        // separate HEL-746 trigger) — out of scope, see ticket "Out of
+        // scope".
+        createAction: null,
+        emptyCreateAction: null,
       };
     }
     case "other":
@@ -201,9 +246,10 @@ export function usePickerSelection(pathname: string): PickerSelection {
         items: [],
         activeItemId: null,
         activeItemName: null,
-        emptyMessage: "",
         heading,
         onSelect: () => undefined,
+        createAction: null,
+        emptyCreateAction: null,
       };
   }
 }

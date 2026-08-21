@@ -32,3 +32,46 @@ if (typeof HTMLElement !== "undefined") {
     value: 1280,
   });
 }
+
+// jsdom (this project's jest-environment-jsdom version) implements no
+// `PointerEvent` constructor at all — `@testing-library/dom`'s
+// `fireEvent.pointer*` helpers look up `window.PointerEvent` by name to
+// build the event (see `event-map.js`), so without this, `clientY` and
+// friends are silently dropped and every `onPointerDown/Move/Up` handler
+// under test reads `undefined` (HEL-773's drag-to-dismiss coverage —
+// `MobileNavSheet.test.tsx` — was the first test in this repo to exercise
+// pointer-drag gestures and hit this gap). Minimal polyfill: `MouseEvent`
+// already supports `clientX`/`clientY` via its init dict natively, so this
+// only needs to add the Pointer Events-specific fields real browsers carry.
+// `Element.prototype.setPointerCapture`/`releasePointerCapture` (called by
+// drag handlers) are ALSO unimplemented in this jsdom — stub them too.
+interface PointerEventPolyfillInit {
+  bubbles?: boolean;
+  cancelable?: boolean;
+  clientX?: number;
+  clientY?: number;
+  pointerId?: number;
+  pointerType?: string;
+  isPrimary?: boolean;
+}
+
+if (typeof globalThis.PointerEvent === "undefined") {
+  class PointerEventPolyfill extends MouseEvent {
+    public pointerId: number;
+    public pointerType: string;
+    public isPrimary: boolean;
+
+    constructor(type: string, params: PointerEventPolyfillInit = {}) {
+      super(type, params);
+      this.pointerId = params.pointerId ?? 1;
+      this.pointerType = params.pointerType ?? "mouse";
+      this.isPrimary = params.isPrimary ?? true;
+    }
+  }
+  globalThis.PointerEvent = PointerEventPolyfill as unknown as typeof PointerEvent;
+}
+
+if (typeof Element !== "undefined" && typeof Element.prototype.setPointerCapture !== "function") {
+  Element.prototype.setPointerCapture = function setPointerCapture() {};
+  Element.prototype.releasePointerCapture = function releasePointerCapture() {};
+}

@@ -116,43 +116,55 @@ export function CommandBar({
   return (
     <header className="app-command-bar">
       <div className="app-command-bar__left">
-        {/* F-185: the wordmark is a real link home, not inert chrome. */}
-        <Link to="/" className="app-command-bar__logo" aria-label="Helio home">
-          <OrbitMark />
-          <span className="app-command-bar__wordmark">Helio</span>
-        </Link>
-        <span className="app-command-bar__sep" aria-hidden="true" />
-        <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
-          <span>{pickerSelection.heading}</span>
-          {onDashboardView && selectedDashboard !== null && (
-            <>
-              <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
-                /
-              </span>
-              <span className="app-command-bar__breadcrumb-current" title={selectedDashboardName}>
-                {selectedDashboardName}
-              </span>
-            </>
-          )}
-          {!onDashboardView && pickerSelection.activeItemName !== null && (
-            <>
-              <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
-                /
-              </span>
-              <span
-                className="app-command-bar__breadcrumb-current"
-                title={pickerSelection.activeItemName}
-              >
-                {pickerSelection.activeItemName}
-              </span>
-            </>
-          )}
-        </nav>
+        {/* HEL-773 design.md D2 — everything left of the mobile-title
+            trigger goes `inert` while the sheet is open (the trigger itself
+            stays interactive — a documented, narrow deviation — see D2). A
+            `display: contents` wrapper (App.css) so `inert`, which requires
+            a real DOM node to attach to, doesn't disturb `.app-command-bar
+            __left`'s flex/gap layout: the wordmark link and desktop
+            breadcrumb aren't adjacent to the trigger in the flex row. */}
+        <div className="app-command-bar__inert-group" inert={isMobileNavSheetOpen}>
+          {/* F-185: the wordmark is a real link home, not inert chrome. */}
+          <Link to="/" className="app-command-bar__logo" aria-label="Helio home">
+            <OrbitMark />
+            <span className="app-command-bar__wordmark">Helio</span>
+          </Link>
+          <span className="app-command-bar__sep" aria-hidden="true" />
+          <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
+            <span>{pickerSelection.heading}</span>
+            {onDashboardView && selectedDashboard !== null && (
+              <>
+                <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
+                  /
+                </span>
+                <span className="app-command-bar__breadcrumb-current" title={selectedDashboardName}>
+                  {selectedDashboardName}
+                </span>
+              </>
+            )}
+            {!onDashboardView && pickerSelection.activeItemName !== null && (
+              <>
+                <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
+                  /
+                </span>
+                <span
+                  className="app-command-bar__breadcrumb-current"
+                  title={pickerSelection.activeItemName}
+                >
+                  {pickerSelection.activeItemName}
+                </span>
+              </>
+            )}
+          </nav>
+        </div>
         {/* Phone-only: the breadcrumb above is display:none <768px (App.css),
             so this is the section-item switcher entry point there —
             dashboards, sources, pipelines, and registry all share the one
             control + MobileNavSheet per notes/mobile-pwa-handoff.md
-            §W3.2/§W3.3. Desktop breadcrumb markup above is untouched. */}
+            §W3.2/§W3.3. Desktop breadcrumb markup above is untouched.
+            HEL-773 design.md D2/D9b — the trigger stays interactive (it
+            toggles the sheet closed) while everything else in the bar goes
+            inert; its chevron flips to encode the open state too. */}
         {mobileTitleVisible && (
           <button
             type="button"
@@ -165,32 +177,44 @@ export function CommandBar({
             <span className="app-command-bar__mobile-title-name" aria-hidden="true">
               {mobileTitleDisplayName}
             </span>
-            <ChevronDown size={16} aria-hidden="true" />
+            <ChevronDown
+              size={16}
+              aria-hidden="true"
+              className={
+                isMobileNavSheetOpen
+                  ? "app-command-bar__mobile-title-chevron app-command-bar__mobile-title-chevron--open"
+                  : "app-command-bar__mobile-title-chevron"
+              }
+            />
           </button>
         )}
-        {/* HEL-746 — phone-only "New chat" affordance: the desktop trigger
-            (`SidebarBody.tsx`'s `SidebarItemList` `onAdd`) lives inside
-            `.app-sidebar`, which is `display: none` below 768px, leaving no
-            phone-reachable way to start a fresh conversation. Mirrors that
-            trigger's action (`startNewConversation()`) and `aria-label`
-            exactly; gated on `pickerId === "chat"` (not just phone width)
-            since the control only makes sense on `/chat*`. Hidden by
-            default, shown only under App.css's existing
-            `@media (max-width: 768px)` block, next to the mobile title
-            switcher it's a sibling of. */}
-        {pickerId === "chat" && (
-          <IconButton
-            icon={<FontAwesomeIcon icon={faPlus} />}
-            variant="secondary"
-            size="xs"
-            className="app-command-bar__mobile-new-chat"
-            onClick={() => dispatch(startNewConversation())}
-            aria-label="New chat"
-          />
-        )}
-        {onDashboardView && selectedDashboard !== null && <SaveStateIndicator onSaveNow={flush} />}
+        <div className="app-command-bar__inert-group" inert={isMobileNavSheetOpen}>
+          {/* HEL-746 — phone-only "New chat" affordance: the desktop trigger
+              (`SidebarBody.tsx`'s `SidebarItemList` `onAdd`) lives inside
+              `.app-sidebar`, which is `display: none` below 768px, leaving no
+              phone-reachable way to start a fresh conversation. Mirrors that
+              trigger's action (`startNewConversation()`) and `aria-label`
+              exactly; gated on `pickerId === "chat"` (not just phone width)
+              since the control only makes sense on `/chat*`. Hidden by
+              default, shown only under App.css's existing
+              `@media (max-width: 768px)` block, next to the mobile title
+              switcher it's a sibling of. */}
+          {pickerId === "chat" && (
+            <IconButton
+              icon={<FontAwesomeIcon icon={faPlus} />}
+              variant="secondary"
+              size="xs"
+              className="app-command-bar__mobile-new-chat"
+              onClick={() => dispatch(startNewConversation())}
+              aria-label="New chat"
+            />
+          )}
+          {onDashboardView && selectedDashboard !== null && (
+            <SaveStateIndicator onSaveNow={flush} />
+          )}
+        </div>
       </div>
-      <div className="app-command-bar__right">
+      <div className="app-command-bar__right" inert={isMobileNavSheetOpen}>
         {onDashboardView && (
           <>
             {/* F-186: `undo-redo-btn` used to be its own full button recipe,

@@ -218,9 +218,11 @@
 
 @media (max-width: 768px) {
   /* Base selector, so it also floors the more-specific sidebar variant
-     (--control-sm, 28px) defensively — the sidebar column is not mounted at
-     this breakpoint. Already flex-centered, so only the height floor is
-     needed. */
+     (--control-sm, 28px). HEL-773: this is no longer defensive-only — since
+     that change, `MobileNavSheet`'s empty branch renders `variant="sidebar"`
+     at phone width for the first time (previously the sidebar column really
+     was unmounted below 768px, the reason this comment used to give).
+     Already flex-centered, so only the height floor is needed. */
   .ui-empty-state__cta,
   .ui-empty-state__secondary-cta {
     min-height: 44px;

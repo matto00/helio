@@ -154,7 +154,10 @@ export function AppShell() {
       <div className="app-shell" style={shellStyle}>
         <CommandBar
           isMobileNavSheetOpen={isMobileNavSheetOpen}
-          onOpenMobileNavSheet={() => setIsMobileNavSheetOpen(true)}
+          // HEL-773 design.md D2 — the trigger now toggles: tapping it again
+          // while the sheet is open closes it, preserving the behavior
+          // today's full-viewport backdrop already provided.
+          onOpenMobileNavSheet={() => setIsMobileNavSheetOpen((wasOpen) => !wasOpen)}
           onOpenRefinement={() => setIsRefinementOpen(true)}
           onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
           draftAppearance={draftAppearance}
