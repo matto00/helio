@@ -1,10 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  BookOpen,
   ChartNoAxesColumn,
   Database,
   LayoutDashboard,
   MessageCircle,
+  Shapes,
   Workflow,
 } from "lucide-react";
 
@@ -34,9 +34,6 @@ interface SectionEntryBase {
   end?: boolean;
   pickerId: PickerId;
   label: string;
-  /** Shorter label for width-constrained contexts (F-080: `BottomNav`'s
-   * six 72px phone tabs). Falls back to `label` when unset. */
-  shortLabel?: string;
 }
 
 /** `icon` is required whenever `showInNav` is `true` (a nav-visible entry
@@ -49,10 +46,10 @@ export type SectionEntry =
   | (SectionEntryBase & { showInNav: false; icon?: never });
 
 /** The single source of truth for every route the authenticated shell
- * renders: `{path, label, shortLabel?, icon?, showInNav, pickerId}`. The
- * desktop breadcrumb, `document.title`, the phone title/sheet, the sidebar
- * nav rail, and `BottomNav` all derive their route→label/icon mapping from
- * this array — no component hardcodes an independent one.
+ * renders: `{path, label, icon?, showInNav, pickerId}`. The desktop
+ * breadcrumb, `document.title`, the phone title/sheet, the sidebar nav rail,
+ * and `BottomNav` all derive their route→label/icon mapping from this array
+ * — no component hardcodes an independent one.
  *
  * Order is most-specific-first (kept from the old `sectionFromPathname`):
  * `/` is the only exact-match (`end: true`) entry, since every path starts
@@ -64,7 +61,6 @@ export const sections: SectionEntry[] = [
     end: true,
     pickerId: "dashboards",
     label: "Dashboards",
-    shortLabel: "Home",
     icon: LayoutDashboard,
     showInNav: true,
   },
@@ -72,7 +68,6 @@ export const sections: SectionEntry[] = [
     path: "/sources",
     pickerId: "sources",
     label: "Data Sources",
-    shortLabel: "Sources",
     icon: Database,
     showInNav: true,
   },
@@ -80,7 +75,6 @@ export const sections: SectionEntry[] = [
     path: "/pipelines",
     pickerId: "pipelines",
     label: "Data Pipelines",
-    shortLabel: "Pipelines",
     icon: Workflow,
     showInNav: true,
   },
@@ -88,8 +82,15 @@ export const sections: SectionEntry[] = [
     path: "/registry",
     pickerId: "registry",
     label: "Data Types",
-    shortLabel: "Types",
-    icon: BookOpen,
+    // HEL-774: BookOpen -> Shapes. Dropping BottomNav's visible labels makes
+    // the glyph the sole carrier of meaning, and an open book reads as
+    // documentation/a library, not a registry of row shapes — Shapes reads
+    // as "kinds of things", which is what a type registry is (D11). Also
+    // reaches the desktop sidebar, which keeps its label, so the change is
+    // cosmetic there and corrective here; leaving the two surfaces on
+    // different icons would break this registry's single-source-of-truth
+    // guarantee.
+    icon: Shapes,
     showInNav: true,
   },
   {

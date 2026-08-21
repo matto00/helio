@@ -34,7 +34,14 @@ deliberate voice of color, serif brand moments, mono annotations.
 2. **Surfaces are opaque.** Cards, popovers, modals, and menus never let the
    page bleed through. Translucency exists only where the user explicitly opts
    in (the panel transparency slider). This is the invariant that keeps custom
-   dashboard backgrounds from tinting the whole UI.
+   dashboard backgrounds from tinting the whole UI. **Carve-out (HEL-774):**
+   the phone bottom tab bar (`BottomNav`) alone is exempt — it renders as a
+   translucent "liquid glass" floating capsule. Because dashboard backgrounds
+   are exactly the arbitrary content this bar floats over, the opacity
+   invariant is replaced for this one element by a stated, measured contrast
+   floor rather than relaxed without a constraint; see "Surfaces & the
+   opacity invariant" below for the floor's value and scope. No other
+   surface is exempt.
 3. **The accent is scarce and solid.** The user-selected accent appears as:
    solid primary buttons (with `--app-accent-ink` text), the active nav
    indicator, selection/checked states (`--app-accent-dim` washes), focus
@@ -99,7 +106,9 @@ hardcode a value a token exists for.** **[mechanical]**
 - `--app-surface*` are **opaque**. `buildPanelSurface()` returns alpha 1.0 at
   `transparency: 0`; the dashboard grid override resolves opaque.
   **[mechanical]** Do not add translucent surfaces or `backdrop-filter`
-  glass effects to structural chrome. **Carve-out:** the page-behind-overlay
+  glass effects to structural chrome, **except** the phone bottom tab bar
+  (`BottomNav`, see the carve-out below) and the page-behind-overlay scrim
+  carve-out immediately following. **Carve-out:** the page-behind-overlay
   scrim (`--app-overlay`, whether painted via a native `<dialog>`'s
   `::backdrop` or a portalled backdrop element) may use `backdrop-filter:
 blur(1–2px)` to separate the modal from the page behind it — this blurs
@@ -110,6 +119,67 @@ blur(1–2px)` to separate the modal from the page behind it — this blurs
   overlays (drawer/sheet, not a native dialog), and matching them is not
   required for consistency. Surface backgrounds (modal/popover/menu bodies)
   remain fully prohibited from translucency.
+
+- **Carve-out (HEL-774): the phone bottom tab bar.** `BottomNav` is a
+  floating, translucent "liquid glass" capsule (Apple/Instagram tab-bar
+  language) — the one exception to "surfaces are opaque" in the whole app.
+  Every other surface — top bar, sidebar, popovers, modals, menus — stays
+  fully opaque; this carve-out does not widen. What replaces the invariant
+  for this element is a **measured contrast floor**, not an eyeballed
+  judgment call:
+  - **Material.** A small-radius `backdrop-filter: blur(10–16px)` (with the
+    `-webkit-` prefix) over a distinct tint layer of `--app-surface` at
+    alpha 0.55, composited between the blur and the glyphs — never a
+    translucent `background` on the bar itself. The bar carries no visible
+    text (icon-only, D4 of the HEL-774 design), which is what permits a 3:1
+    rather than a 4.5:1 floor below.
+  - **Glyph floor: >=3:1** (WCAG 1.4.11, non-text contrast) for every icon
+    rendered against the translucent material, measured from rendered
+    pixels — not computed from source — against a photo backdrop, pure
+    white, pure black, and the accent colour, in both themes. This is why
+    inactive tabs use full-strength `--app-text` rather than
+    `--app-text-muted`: measured worst case, the muted token cannot clear
+    even 3:1 over this material at any usable alpha.
+  - **Active-lozenge floor: >=3:1.** The active tab is a bordered material
+    lozenge nested inside the capsule, not an accent block or an underline.
+    Its boundary must reach >=3:1 against the adjacent capsule material,
+    measured the same way. The lozenge's hairline uses full-strength
+    `var(--app-text)` as its border colour — outside this document's usual
+    two-token border vocabulary (`--app-border-subtle`/`-strong`) — because
+    it is the only thing that actually carries the lozenge's visibility: a
+    `color-mix`-weakened border falls below the floor, and any fill drawn
+    from the neutral surface ramp converges to near-invisible against the
+    capsule once composited. `--app-accent` still marks the active icon, but
+    it is never the sole indicator — the lozenge boundary is.
+  - **Accent-on-surface, stated honestly.** Because the lozenge's fill reuses
+    `--app-surface`, the active icon's own accent-on-surface contrast moves
+    only slightly from today's opaque bar: dark theme drops by at most 0.49
+    across the eight shipped presets, with no preset falling below 4.24:1;
+    light theme moves by at most 0.18 and remains within a pre-existing
+    1.78–3.71:1 shortfall for several presets that this change neither
+    introduces nor materially worsens (a separate, pre-existing app-wide
+    accent-on-surface gap, tracked as a spinoff). The lozenge boundary, not
+    the accent icon, is what this carve-out's contrast guarantee rests on.
+
+  - **Focus-ring exception: `outline-offset: -3px`.** §8's default focus rule
+    is `[mechanical]` and sanctions exactly `2px`, or `-2px` "only where the
+    ring would clip (flush list items)". The bottom nav's pill-shaped tabs are
+    a documented exception to that rule, measured as two distinct effects:
+    applying §8's recipe **literally** (`-2px` with no `border-radius` on the
+    tab) leaks 455/433 accent pixels outside the capsule at the first/last
+    tabs, up to ~5.02px of overhang — the genuine "hard rectangle" case. Once
+    the tab itself carries `border-radius: var(--app-radius-pill)`, that
+    overhang is gone at `-2px`; the remaining reason for `-3px` is hairline
+    clearance, not overhang — at `-2px` the nearest ring pixel sits 1.50px
+    inside the capsule boundary, colliding visually with the capsule's own
+    `--app-border-strong` hairline, while `-3px` sits 2.50px inside and clears
+    it. Verified from rendered pixels: 0 ring pixels fall outside the
+    capsule's rounded shape at the first and last tabs, in both themes.
+
+  Verification for all of the above is by rendered/sampled pixels, never by
+  reading CSS source — `backdrop-filter` is a compositing operation whose
+  result cannot be read off a stylesheet.
+
 - The dot-grid texture is painted only on canvas areas (`.app-content`,
   auth pages) via `--canvas-dot`, derived from the text color — never the
   accent, never as an overlay above interactive chrome.

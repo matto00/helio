@@ -501,10 +501,13 @@
     display: none;
   }
 
-  /* Reserve space for the fixed BottomNav (control-lg + space-4) plus the
-     safe-area inset so page content is never occluded behind it. */
+  /* Reserve space for the floating BottomNav capsule so page content can
+     always scroll fully clear of it. `--bottom-nav-height` (HEL-774) is the
+     single shared definition of that clearance — consumed here, by the bar
+     itself, and by toast.css's viewport offset, so the three cannot drift
+     apart. */
   .app-content {
-    padding-bottom: calc(var(--control-lg) + var(--space-4) + env(safe-area-inset-bottom));
+    padding-bottom: var(--bottom-nav-height);
   }
 }
 

@@ -1,3 +1,5 @@
+import { Shapes } from "lucide-react";
+
 import { navDestinations } from "./navDestinations";
 
 // Locks the shared source of truth both the desktop sidebar (`App.tsx`) and
@@ -39,5 +41,10 @@ describe("navDestinations", () => {
   it("gives every destination a distinct Lucide icon component", () => {
     const icons = new Set(navDestinations.map((d) => d.icon));
     expect(icons.size).toBe(navDestinations.length);
+  });
+
+  it("uses Shapes (not BookOpen) for Data Types (HEL-774 D11)", () => {
+    const dataTypes = navDestinations.find((d) => d.to === "/registry");
+    expect(dataTypes?.icon).toBe(Shapes);
   });
 });
