@@ -257,6 +257,16 @@ describe("usePanelData", () => {
       store.dispatch(markDataTypeRowsStale("dt-1"));
     });
 
+    // HEL-528 design.md D8 — the deliberate exception to D4: a pipeline-run
+    // invalidation genuinely re-enters the initial-load state (the cached
+    // rows are gone), so the panel renders its full skeleton takeover again,
+    // not a "refresh over existing content" treatment. Asserted here
+    // (6.5b) because none of the list-surface refetch tests reach this path
+    // — it's a `panelsSlice` invalidation of a single panel's cache entry,
+    // not a Redux `status` transition on a list.
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.data).toBeNull();
+
     await waitFor(() => expect(mockFetchDataTypeRows).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current.data).toEqual({ value: "2500", label: "North" }));
   });
@@ -661,6 +671,61 @@ describe("usePanelData", () => {
 
       expect(result.current.noData).toBe(true);
       expect(result.current.data).toBeNull();
+    });
+  });
+
+  // ── HEL-528 design.md D13 — the pre-dispatch frame ──────────────────────────
+  // `paginationEntry` is `undefined` until the mount effect's dispatch resolves
+  // into the store, which (via `fetchPanelPage.pending`) happens synchronously
+  // within that effect — a normal `renderHook`/`render` call flushes render +
+  // effects atomically inside one `act()`, so the entry is already populated
+  // by the time any assertion can run against a REAL reducer, racing straight
+  // past the exact frame this decision closes. A reducer that ignores every
+  // action holds `paginationState` at its seeded (empty) value regardless of
+  // whether a fetch was dispatched, faithfully modeling the hook's own
+  // decision boundary (`paginationEntry == null`) without depending on that
+  // unobservable timing.
+  describe("pre-dispatch frame (D13)", () => {
+    // `fetchPanelPage`'s payload creator reads `getState().panels.items` to
+    // resolve the panel's bound DataType id, so the frozen state must still
+    // carry `items` — only `paginationState` needs to stay frozen empty.
+    function makeNonUpdatingStore(panel: Panel) {
+      const frozenState = { items: [panel], paginationState: {} };
+      return configureStore({
+        reducer: {
+          panels: (state = frozenState) => state,
+        } as never,
+      });
+    }
+
+    it("reports isLoading (not noData, not populated data) when a fetch target exists but no cache entry does yet", () => {
+      mockFetchDataTypeRows.mockResolvedValue({
+        rows: [{ revenue: "1000" }],
+        rowCount: 1,
+      });
+      const panel = makeMetricPanel({
+        config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue" } },
+      });
+      const store = makeNonUpdatingStore(panel);
+
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+      expect(result.current.isLoading).toBe(true);
+      expect(result.current.noData).toBe(false);
+      expect(result.current.data).toBeNull();
+      // Still dispatches — this state is always followed by a fetch, unlike
+      // `PanelList`'s re-entrant `idle` (D11).
+      expect(mockFetchDataTypeRows).toHaveBeenCalledWith("dt-1");
+    });
+
+    it("does not report isLoading for an unbound panel even with no cache entry (no fetch target at all)", () => {
+      const panel = makeMetricPanel();
+      const store = makeNonUpdatingStore(panel);
+
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+
+      expect(result.current.isLoading).toBe(false);
+      expect(mockFetchDataTypeRows).not.toHaveBeenCalled();
     });
   });
 });

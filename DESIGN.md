@@ -158,9 +158,15 @@ by a control token. **[mechanical]** No other control heights.
 - Shadow: `--app-shadow-card` (resting cards), `--app-shadow-soft`
   (overlays/hover-lift). Borders do the separating; shadows stay soft.
 - Motion: `--app-transition` (0.16s, hover/color), `--transition-slow`
-  (0.28s, entrances). Modals/popovers/auth card animate in once (fade +
-  4–10px rise). `prefers-reduced-motion` is respected globally.
-  **[judgment]** No scattered micro-animations; one entrance per surface.
+  (0.28s, entrances), `--app-skeleton-shimmer` (1.6s, the `Skeleton`
+  primitive's shimmer loop). The first two are transition _shorthands_ tuned
+  for a single hover or one-shot entrance; a continuous loop needs its own
+  duration token rather than reusing either (0.28s repeated indefinitely
+  strobes). Modals/popovers/auth card animate in once (fade + 4–10px rise).
+  `prefers-reduced-motion` is respected globally — but see `Skeleton`'s own
+  explicit override below; the global rule alone does not fully disable a
+  looping animation. **[judgment]** No scattered micro-animations; one
+  entrance per surface.
 
 ## 4. Breakpoints
 
@@ -237,6 +243,9 @@ density `condensed`/`normal`/`spacious` — see below), **FormField** (label +
 control + help/error layout — the one form-row recipe; new forms use it instead
 of re-deriving `.xxx__field`), **StatusChip** (intent-colored status pill —
 the one pill recipe), **Spinner** (the border-spinner loading indicator),
+**Skeleton** (`block`/`line`/`circle` shimmer placeholder — initial
+structural loads with a predictable resolved size; `Spinner` remains for
+short in-place work over already-rendered structure — see §7),
 **ConfirmInline** (inline confirm/cancel for destructive row actions — Helio
 never uses `window.confirm`), **useScrollEdges** (scroll-shadow edge state
 for overflowing lists/grids).

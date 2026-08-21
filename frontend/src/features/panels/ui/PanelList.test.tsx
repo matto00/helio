@@ -149,11 +149,16 @@ describe("PanelList", () => {
     createDashboardMock.mockReset();
   });
 
-  it("renders a 'no dashboards yet' empty state when the user has zero dashboards (F-201)", () => {
+  it("renders a 'no dashboards yet' empty state once the dashboards fetch resolves to zero (F-201)", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
         items: [],
         selectedDashboardId: null,
+        // HEL-528 evaluation-1.md CR3 — the empty-state CTA is only trustworthy
+        // once the dashboards fetch has actually resolved; see the
+        // "does not render the CTA while the dashboards fetch is in flight"
+        // test below for the other half of this behavior.
+        status: "succeeded",
       },
       panels: {
         items: [],
@@ -165,6 +170,47 @@ describe("PanelList", () => {
     expect(
       screen.getByText("Create your first dashboard to start adding panels."),
     ).toBeInTheDocument();
+  });
+
+  it("does not render the 'No dashboards yet' CTA while the dashboards fetch is in flight (idle), and shows a skeleton instead (HEL-528 evaluation-1.md CR3)", () => {
+    const { container } = renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [],
+        selectedDashboardId: null,
+        status: "idle",
+      },
+      panels: {
+        items: [],
+        status: "idle",
+      },
+    });
+
+    // No false "you have zero dashboards" claim while the dashboards fetch
+    // has not yet resolved — and never a bare blank frame either (ticket
+    // rule 6: "never render nothing during load"). `[aria-label="Loading
+    // panels"]` (not `.panel-grid-shell`, evaluation-2.md non-blocking #5 —
+    // that class is shared with the resolved `PanelGrid`, so it can't
+    // distinguish "skeleton showing" from "resolved grid showing" in general,
+    // even though it happens to be unambiguous in this specific state).
+    expect(screen.queryByText("No dashboards yet")).not.toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Loading panels"]')).toBeInTheDocument();
+  });
+
+  it("does not render the 'No dashboards yet' CTA while the dashboards fetch is in flight (loading), and shows a skeleton instead (HEL-528 evaluation-1.md CR3)", () => {
+    const { container } = renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [],
+        selectedDashboardId: null,
+        status: "loading",
+      },
+      panels: {
+        items: [],
+        status: "idle",
+      },
+    });
+
+    expect(screen.queryByText("No dashboards yet")).not.toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Loading panels"]')).toBeInTheDocument();
   });
 
   it("the 'no dashboards yet' empty state's CTA creates a dashboard (F-003)", async () => {
@@ -180,6 +226,7 @@ describe("PanelList", () => {
       dashboards: {
         items: [],
         selectedDashboardId: null,
+        status: "succeeded",
       },
       panels: {
         items: [],
@@ -476,6 +523,125 @@ describe("PanelList", () => {
     expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Move Revenue Pulse panel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Revenue Pulse panel actions" })).toBeInTheDocument();
+  });
+
+  // ── HEL-528 — grid skeleton (design.md D10/D11/D12) ────────────────────────
+  describe("grid skeleton (HEL-528)", () => {
+    it("renders skeleton placeholders inside the zoom container while the selected dashboard's panels are loading", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        panels: { items: [], loadedDashboardId: null, status: "loading" },
+      });
+
+      expect(container.querySelector('[aria-label="Loading panels"]')).toBeInTheDocument();
+      expect(
+        container.querySelector(".panel-list__zoom-container .ui-skeleton"),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("No panels yet")).not.toBeInTheDocument();
+    });
+
+    // 6.8a / skeptic-final-1.md CR2 — the "N panels" pill must not read a
+    // literal count while the count itself is not yet trustworthy data.
+    it("6.8a — the panel-count pill shows a skeleton, not a literal '0 panels', while the selected dashboard's panels are loading", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        panels: { items: [], loadedDashboardId: null, status: "loading" },
+      });
+
+      expect(container.querySelector(".panel-list__count .ui-skeleton")).toBeInTheDocument();
+      expect(screen.queryByText("0 panels")).not.toBeInTheDocument();
+    });
+
+    // skeptic-final-1.md CR2 — the SAME defect reopened on the CR3 bootstrap
+    // path: `showBootstrapSkeleton` (no dashboard selected yet, dashboards
+    // fetch in flight) put the grid skeleton up a second way without the
+    // pill's gate covering it, so a cold boot showed a literal "0 panels"
+    // above the three-card bootstrap skeleton on every load.
+    it("CR3 bootstrap window — the panel-count pill shows a skeleton, not a literal '0 panels', while the dashboards fetch is in flight and none is selected yet", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: { items: [], selectedDashboardId: null, status: "loading" },
+        panels: { items: [], status: "idle" },
+      });
+
+      expect(container.querySelector(".panel-list__count .ui-skeleton")).toBeInTheDocument();
+      expect(screen.queryByText("0 panels")).not.toBeInTheDocument();
+    });
+
+    it("D11 mirror-image — status idle with a dashboard selected and no items (post-delete) renders no skeleton and no empty state", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        // markDashboardPanelsStale's terminal state: status back to "idle",
+        // loadedDashboardId cleared, items emptied, nothing scheduled to
+        // refetch (panelsSlice.ts:85-89).
+        panels: { items: [], loadedDashboardId: null, status: "idle" },
+      });
+
+      expect(container.querySelector(".ui-skeleton")).not.toBeInTheDocument();
+      // The pre-existing §7 gap (PanelList.tsx:246 gates the empty state on
+      // status === "succeeded") is deliberately NOT closed here — see D11.
+      expect(screen.queryByText("No panels yet")).not.toBeInTheDocument();
+    });
+
+    it("D12 — selecting a different dashboard renders the skeleton instead of the previous dashboard's panels", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: {
+          items: [
+            ...baseDashboardsState.items,
+            {
+              id: "dashboard-2",
+              name: "Executive",
+              meta: defaultMeta,
+              appearance: defaultDashboardAppearance,
+              layout: defaultDashboardLayout,
+            },
+          ],
+          // The newly-selected dashboard...
+          selectedDashboardId: "dashboard-2",
+        },
+        panels: {
+          // ...but `items` still holds the PREVIOUS dashboard's panels —
+          // `fetchPanels.pending` does not clear them.
+          items: [
+            {
+              id: "panel-1",
+              dashboardId: "dashboard-1",
+              title: "Revenue Pulse",
+              type: "metric" as const,
+              meta: defaultMeta,
+              appearance: defaultPanelAppearance,
+            },
+          ],
+          loadedDashboardId: "dashboard-1",
+          status: "loading",
+        },
+      });
+
+      expect(container.querySelector(".ui-skeleton")).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Revenue Pulse" })).not.toBeInTheDocument();
+    });
+
+    it("a refetch of the SAME dashboard keeps rendering its panels instead of the skeleton", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        panels: {
+          items: [
+            {
+              id: "panel-1",
+              dashboardId: "dashboard-1",
+              title: "Revenue Pulse",
+              type: "metric" as const,
+              meta: defaultMeta,
+              appearance: defaultPanelAppearance,
+            },
+          ],
+          loadedDashboardId: "dashboard-1",
+          status: "loading",
+        },
+      });
+
+      expect(container.querySelector(".ui-skeleton")).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
+    });
   });
 
   it("creates a panel via modal and refreshes selected dashboard panels", async () => {

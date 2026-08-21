@@ -1,5 +1,5 @@
 import "./PanelContent.css";
-import { Spinner } from "../../../shared/ui/Spinner";
+import { PanelBodySkeleton } from "./PanelBodySkeleton";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
@@ -78,10 +78,12 @@ export function PanelContent({
   compact,
 }: PanelContentProps) {
   if (isLoading) {
+    // HEL-528 design.md D6/D7 — a shape-matched skeleton, not the accent
+    // spinner: this is the panel's INITIAL structural load (see
+    // `Skeleton.tsx`'s division comment), not a short in-place refresh.
     return (
       <div className="panel-content panel-content--state" aria-label="Loading data">
-        <Spinner size="xl" />
-        <span className="panel-content__state-label">Loading...</span>
+        <PanelBodySkeleton />
       </div>
     );
   }

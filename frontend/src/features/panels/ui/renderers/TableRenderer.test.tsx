@@ -185,6 +185,42 @@ describe("TableRenderer — resize syncs widths into the stored panel (HEL-255 C
   });
 });
 
+// HEL-528 design.md D7/6.7 — "load more" is short in-place work over
+// already-rendered rows, not an initial structural load, so it keeps the
+// accent border-spinner (unchanged by this ticket's skeleton sweep).
+describe("TableRenderer — load-more keeps the accent spinner, not a skeleton (HEL-528 6.7)", () => {
+  it("shows the shared Spinner while loading the next page, with the existing rows still rendered", () => {
+    const { container } = renderWithStore(
+      <TableRenderer
+        panelId="panel-1"
+        paginationRows={[{ a: "1", b: "2" }]}
+        paginationHasMore
+        paginationIsLoadingMore
+        onLoadMore={jest.fn()}
+      />,
+    );
+
+    expect(container.querySelector(".ui-spinner--sm")).toBeInTheDocument();
+    expect(container.querySelector(".ui-skeleton")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").length).toBeGreaterThan(0);
+  });
+
+  it("shows a plain 'Load more' button (no spinner) when not currently loading the next page", () => {
+    const { container } = renderWithStore(
+      <TableRenderer
+        panelId="panel-1"
+        paginationRows={[{ a: "1", b: "2" }]}
+        paginationHasMore
+        paginationIsLoadingMore={false}
+        onLoadMore={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Load more" })).toBeInTheDocument();
+    expect(container.querySelector(".ui-spinner")).not.toBeInTheDocument();
+  });
+});
+
 describe("TableRenderer — density (HEL-255)", () => {
   afterEach(() => jest.restoreAllMocks());
 

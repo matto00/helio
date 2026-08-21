@@ -13,11 +13,14 @@ describe("StatusMessage", () => {
     expect(succeededContainer).toBeEmptyDOMElement();
   });
 
-  it("renders the default loading message with no role", () => {
+  // HEL-528 design.md D5 — "loading" is no longer in the `status` prop's
+  // type at all: a call site that still passes it fails to COMPILE, not
+  // just render nothing. `@ts-expect-error` locks that at the type level —
+  // if this ever stops erroring (the type quietly widened back), the build
+  // fails here instead of silently reopening the dead-code risk D5 closes.
+  it("a loading status is not assignable (compile-time check)", () => {
+    // @ts-expect-error — "loading" removed from StatusMessageProps["status"] (D5)
     render(<StatusMessage status="loading" />);
-    const el = screen.getByText("Loading...");
-    expect(el).toHaveClass("status-message");
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("failed state carries role=alert and pairs an icon with the message text", () => {
@@ -28,14 +31,10 @@ describe("StatusMessage", () => {
     expect(alert).toHaveClass("status-message", "status-message--error");
   });
 
-  it("both loading and failed share the base status-message class carrying box metrics", () => {
-    const { container: loadingContainer } = render(
-      <StatusMessage status="loading" message="Loading panels..." />,
-    );
+  it("the failed state carries the base status-message class (box metrics)", () => {
     const { container: failedContainer } = render(
       <StatusMessage status="failed" message="Failed." />,
     );
-    expect(loadingContainer.firstChild).toHaveClass("status-message");
     expect(failedContainer.firstChild).toHaveClass("status-message");
   });
 
@@ -61,9 +60,6 @@ describe("StatusMessage", () => {
 
   it("non-failed states never render a retry action, even if onRetry/retrying are passed", () => {
     const onRetry = jest.fn();
-    render(<StatusMessage status="loading" onRetry={onRetry} retrying />);
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-
     const { container } = render(<StatusMessage status="idle" onRetry={onRetry} />);
     expect(container).toBeEmptyDOMElement();
 
@@ -79,9 +75,9 @@ describe("StatusMessage", () => {
 // doesn't apply external stylesheets, so this asserts directly against the
 // CSS source (mirrors EmptyState.css.test.ts's precedent) that
 // `.status-message--error` never redeclares those properties — they stay
-// solely owned by the shared `.status-message` base rule both `loading` and
-// `failed` render through.
-describe("StatusMessage.css — failed box metrics stay paired with loading (D4)", () => {
+// solely owned by the shared `.status-message` base rule (HEL-528: now the
+// only status this component renders any content for).
+describe("StatusMessage.css — failed box metrics stay on the shared base rule (D4)", () => {
   const CSS_PATH = path.join(__dirname, "StatusMessage.css");
   const css = fs.readFileSync(CSS_PATH, "utf-8");
 

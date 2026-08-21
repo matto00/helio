@@ -45,6 +45,35 @@ describe("SourcesPage", () => {
     expect(await screen.findByText(/Connect a data source/i)).toBeInTheDocument();
   });
 
+  it("HEL-528: renders a skeleton, not the empty state, while sources are loading", () => {
+    fetchSourcesMock.mockReturnValueOnce(new Promise(() => {})); // never resolves
+    const { container } = renderWithStore(<SourcesPage />);
+
+    expect(container.querySelector(".ui-empty-state--main .ui-skeleton")).toBeInTheDocument();
+    expect(screen.queryByText(/Connect a data source/i)).not.toBeInTheDocument();
+  });
+
+  it("HEL-528: keeps rendering the selected source's detail panel during a refetch instead of the skeleton", async () => {
+    renderWithStore(<SourcesPage />, {
+      sources: {
+        items: [
+          {
+            id: "src-1",
+            name: "Sales CSV",
+            type: "csv" as const,
+            createdAt: "2026-05-01T00:00:00Z",
+            updatedAt: "2026-05-01T00:00:00Z",
+            config: { path: "csv/src-1.csv" },
+          },
+        ],
+        status: "loading",
+      },
+    });
+
+    expect(document.querySelector(".ui-skeleton")).not.toBeInTheDocument();
+    expect(screen.getByText("Sales CSV")).toBeInTheDocument();
+  });
+
   it("dispatches fetchDataTypes on mount to populate the source schema preview", async () => {
     renderWithStore(<SourcesPage />);
     await screen.findByText(/Connect a data source/i);

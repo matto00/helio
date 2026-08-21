@@ -7,8 +7,8 @@ import { CreatePipelineModal } from "./CreatePipelineModal";
 import { PipelineEmptyState } from "./PipelineEmptyState";
 import { PipelineListTable } from "./PipelineListTable";
 import { PipelineShareDialog } from "./PipelineShareDialog";
-import { Spinner } from "../../../shared/ui/Spinner";
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { PageContentSkeleton } from "../../../shared/ui/PageContentSkeleton";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 import type { PipelineSummary } from "../types/pipelineStep";
 
@@ -29,15 +29,15 @@ export function PipelinesPage() {
     void dispatch(fetchPipelines());
   }, [dispatch]);
 
+  // HEL-528 design.md D3/D11 — widened to `idle` too: the mount effect above
+  // dispatches after paint, so a loading-only gate would paint the empty
+  // state first for one frame.
+  const showPipelinesSkeleton = (status === "idle" || status === "loading") && items.length === 0;
+
   return (
     <div className="pipelines-page">
       <div className="pipelines-page__section">
-        {status === "loading" && (
-          <div className="pipelines-page__loading" aria-label="Loading pipelines">
-            <Spinner size="lg" />
-            Loading pipelines…
-          </div>
-        )}
+        {showPipelinesSkeleton && <PageContentSkeleton />}
 
         {status === "failed" && error && (
           <EmptyState
@@ -63,31 +63,41 @@ export function PipelinesPage() {
           />
         )}
 
-        {(status === "succeeded" || status === "idle") && items.length === 0 && (
-          <PipelineEmptyState onCreateClick={() => dispatch(setCreatePipelineModalOpen(true))} />
-        )}
+        {!showPipelinesSkeleton &&
+          (status === "succeeded" || status === "idle") &&
+          items.length === 0 && (
+            <PipelineEmptyState onCreateClick={() => dispatch(setCreatePipelineModalOpen(true))} />
+          )}
 
-        {status === "succeeded" && items.length > 0 && (
-          <>
-            {/* HEL sweep F-133: mirrors MetricsPage.tsx's toolbar — the
-             *  sidebar "+" was the only way to create a pipeline once the
-             *  list was non-empty. */}
-            <div className="pipelines-page__toolbar">
-              <button
-                type="button"
-                className="pipelines-page__create-btn"
-                onClick={() => dispatch(setCreatePipelineModalOpen(true))}
-              >
-                New pipeline
-              </button>
-            </div>
-            <PipelineListTable
-              pipelines={items}
-              currentUserId={currentUser?.id}
-              onShare={(p) => setSharingPipeline(p)}
-            />
-          </>
-        )}
+        {
+          // HEL-528 design.md D4 — was `status === "succeeded"`, which never
+          // matched a "loading" refetch and so rendered NOTHING once items
+          // already existed (the same "content vanishes mid-refetch" class
+          // of bug this ticket exists to close, currently unreachable via any
+          // real user action since nothing re-dispatches `fetchPipelines()`
+          // once loaded, but not a state worth being wrong in either).
+          status !== "failed" && items.length > 0 && (
+            <>
+              {/* HEL sweep F-133: mirrors MetricsPage.tsx's toolbar — the
+               *  sidebar "+" was the only way to create a pipeline once the
+               *  list was non-empty. */}
+              <div className="pipelines-page__toolbar">
+                <button
+                  type="button"
+                  className="pipelines-page__create-btn"
+                  onClick={() => dispatch(setCreatePipelineModalOpen(true))}
+                >
+                  New pipeline
+                </button>
+              </div>
+              <PipelineListTable
+                pipelines={items}
+                currentUserId={currentUser?.id}
+                onShare={(p) => setSharingPipeline(p)}
+              />
+            </>
+          )
+        }
       </div>
 
       {createModalOpen && (

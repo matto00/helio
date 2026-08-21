@@ -107,6 +107,39 @@ describe("SourceDetailPanel", () => {
     expect(container.querySelector(".ui-data-grid")).toHaveClass("ui-data-grid--condensed");
   });
 
+  // HEL-528 design.md D3/D7
+  describe("preview skeleton (HEL-528)", () => {
+    it("shows a shape-matched preview skeleton on the initial load, not the 'Click Preview' hint", () => {
+      fetchCsvPreviewMock.mockReturnValue(new Promise(() => {})); // never resolves
+      const { container } = renderWithStore(<SourceDetailPanel source={csvSource} />, {
+        dataTypes: { items: [linkedType] },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+
+      expect(container.querySelector(".ui-data-grid--preview")).toBeInTheDocument();
+      expect(container.querySelector(".ui-skeleton")).toBeInTheDocument();
+      expect(screen.queryByText(/click preview to load a sample/i)).not.toBeInTheDocument();
+    });
+
+    it("keeps the resolved DataGrid rendered during a Reload — does not replace it with the skeleton", async () => {
+      fetchCsvPreviewMock.mockResolvedValueOnce({ headers: ["id"], rows: [["1"]] });
+      const { container } = renderWithStore(<SourceDetailPanel source={csvSource} />, {
+        dataTypes: { items: [linkedType] },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+      await waitFor(() => expect(screen.getByText("1")).toBeInTheDocument());
+
+      // Reload — never resolves, so isLoading stays true with rows already populated.
+      fetchCsvPreviewMock.mockReturnValueOnce(new Promise(() => {}));
+      fireEvent.click(screen.getByRole("button", { name: /reload/i }));
+
+      expect(screen.getByText("1")).toBeInTheDocument();
+      expect(container.querySelectorAll(".ui-skeleton").length).toBe(0);
+    });
+  });
+
   it("renders the empty-schema affordance when no linked DataType exists", () => {
     renderWithStore(<SourceDetailPanel source={csvSource} />, {
       dataTypes: { items: [] },

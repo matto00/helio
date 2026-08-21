@@ -8,6 +8,7 @@ import { NavLink } from "react-router-dom";
 
 import "../../features/dashboards/ui/DashboardList.css";
 import { ActionsMenu } from "./ActionsMenu";
+import { SidebarRowsSkeleton } from "./SidebarRowsSkeleton";
 import { StatusMessage } from "./StatusMessage";
 import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
@@ -26,7 +27,6 @@ export interface SidebarItem {
 interface SidebarItemListProps {
   heading: string;
   items: SidebarItem[];
-  status: "idle" | "loading" | "succeeded" | "failed";
   error?: string | null;
   /** Build the route to navigate to for a given item. Provide this OR `onSelect`,
    * not both — `onSelect` takes precedence when both are set. */
@@ -84,6 +84,20 @@ interface SidebarItemListProps {
    * (e.g. `dispatch(thunk(...)).unwrap()`, which rejects with the thunk's
    * `rejectValue`). */
   onRename?: (item: SidebarItem, name: string) => Promise<void>;
+  /** True while this section's own initial fetch has not yet resolved with any
+   *  items. Computed by the call site (design.md D11) rather than inferred
+   *  from `status === "idle"` inside this shared component: a mount effect
+   *  runs after paint, so an in-flight-only gate would paint the empty
+   *  state one frame before the skeleton, but this component is reused
+   *  across sections whose `idle` isn't always followed by a dispatch (e.g.
+   *  the assistant section's fetch is skipped outright on the free tier) —
+   *  only the call site that owns the dispatch decision knows which is
+   *  which. Drives the `SidebarRowsSkeleton` branch in place of
+   *  `status === "loading"` alone. */
+  initialLoad: boolean;
+  /** Row shape for the initial-load skeleton — `stacked` for sections whose
+   *  resolved rows carry a subtitle (design.md D9). Defaults to `flat`. */
+  rowShape?: "flat" | "stacked";
 }
 
 // F-187: `heading` is a display string ("Data Types", "Data Pipelines") and can contain spaces —
@@ -95,7 +109,6 @@ function slugifyHeading(heading: string): string {
 export function SidebarItemList({
   heading,
   items,
-  status,
   error,
   toHref,
   onSelect,
@@ -110,6 +123,8 @@ export function SidebarItemList({
   renderBadge,
   renderRowAction,
   onRename,
+  initialLoad,
+  rowShape = "flat",
 }: SidebarItemListProps) {
   const [filterQuery, setFilterQuery] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -277,14 +292,13 @@ export function SidebarItemList({
           ) : null}
         </div>
       </div>
-      {status === "loading" ? (
-        // HEL-539 (skeptic-final-1.md CR2) — matches DashboardList.tsx's
-        // sibling Dashboards section exactly, so a fetch failure reads as an
-        // error (icon + role="alert" + intent-error tint) in every sidebar
-        // section, not just this one. No Retry here — deliberately not
-        // added speculatively; this list has no re-dispatchable fetch wired
-        // through this component.
-        <StatusMessage status={status} message={`Loading ${heading.toLowerCase()}…`} />
+      {initialLoad ? (
+        // HEL-528 design.md D3/D4/D9/D11 — shape-matched skeleton rows in place
+        // of a bare loading text line; gated on the call site's own initial-load
+        // determination (not inferred from `status` here), so a refetch with
+        // items already present keeps rendering them instead of flashing back
+        // to placeholders.
+        <SidebarRowsSkeleton rowShape={rowShape} ariaLabel={`Loading ${heading.toLowerCase()}…`} />
       ) : error ? (
         <StatusMessage status="failed" message={error} />
       ) : filtered.length === 0 ? (

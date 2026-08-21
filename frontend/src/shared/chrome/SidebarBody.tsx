@@ -119,7 +119,9 @@ export function SidebarBody() {
       <SidebarItemList
         heading="Data Sources"
         items={sources.items}
-        status={sources.status}
+        initialLoad={
+          (sources.status === "idle" || sources.status === "loading") && sources.items.length === 0
+        }
         error={sources.error}
         onSelect={(item) => dispatch(setSelectedSourceId(item.id))}
         activeId={effectiveSourceId}
@@ -148,7 +150,10 @@ export function SidebarBody() {
       <SidebarItemList
         heading="Data Pipelines"
         items={pipelines.items}
-        status={pipelines.status}
+        initialLoad={
+          (pipelines.status === "idle" || pipelines.status === "loading") &&
+          pipelines.items.length === 0
+        }
         error={pipelines.error}
         toHref={(item) => `/pipelines/${item.id}`}
         activeId={routeId ?? null}
@@ -183,7 +188,9 @@ export function SidebarBody() {
       <SidebarItemList
         heading="Metrics"
         items={metrics.items}
-        status={metrics.status}
+        initialLoad={
+          (metrics.status === "idle" || metrics.status === "loading") && metrics.items.length === 0
+        }
         error={metrics.error}
         toHref={(item) => `/metrics/${item.id}`}
         activeId={routeId ?? null}
@@ -221,7 +228,11 @@ export function SidebarBody() {
       <SidebarItemList
         heading="Data Types"
         items={registryItems}
-        status={dataTypes.status}
+        initialLoad={
+          (dataTypes.status === "idle" || dataTypes.status === "loading") &&
+          registryItems.length === 0
+        }
+        rowShape="stacked"
         error={dataTypes.error}
         onSelect={(item) => dispatch(setSelectedTypeId(item.id))}
         activeId={effectiveTypeId}
@@ -304,7 +315,10 @@ export function SidebarBody() {
         // match. The route path (/chat) is unaffected.
         heading="Assistant"
         items={conversationItems}
-        status={conversations.status}
+        initialLoad={
+          (conversations.status === "idle" || conversations.status === "loading") &&
+          conversationItems.length === 0
+        }
         error={conversations.error}
         onSelect={(item) => dispatch(setSelectedConversationId(item.id))}
         activeId={effectiveConversationId}

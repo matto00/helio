@@ -58,8 +58,8 @@ describe("DashboardList", () => {
     expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
   });
 
-  it("renders a loading fallback while dashboards are loading", () => {
-    renderWithStore(<DashboardList />, {
+  it("renders shape-matched skeleton rows while dashboards are loading (HEL-528)", () => {
+    const { container } = renderWithStore(<DashboardList />, {
       dashboards: {
         items: [],
         status: "loading",
@@ -69,7 +69,42 @@ describe("DashboardList", () => {
       },
     });
 
-    expect(screen.getByText("Loading dashboards...")).toBeInTheDocument();
+    expect(screen.queryByText(/loading dashboards/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".ui-skeleton").length).toBeGreaterThan(0);
+    expect(
+      container.querySelector('.dashboard-list__items[aria-label="Loading dashboards…"]'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No dashboards yet")).not.toBeInTheDocument();
+  });
+
+  it("renders the skeleton on the pre-dispatch idle frame too, not the empty state (D11)", () => {
+    const { container } = renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [],
+        status: "idle",
+      },
+      panels: {
+        items: [],
+      },
+    });
+
+    expect(container.querySelectorAll(".ui-skeleton").length).toBeGreaterThan(0);
+    expect(screen.queryByText("No dashboards yet")).not.toBeInTheDocument();
+  });
+
+  it("keeps rendering existing dashboards during a refetch instead of flashing a skeleton (D4)", () => {
+    const { container } = renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [{ id: "dashboard-1", name: "Operations", meta: defaultMeta }],
+        status: "loading",
+      },
+      panels: {
+        items: [],
+      },
+    });
+
+    expect(container.querySelectorAll(".ui-skeleton").length).toBe(0);
+    expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
   });
 
   it("updates the selected dashboard when a dashboard is clicked", () => {

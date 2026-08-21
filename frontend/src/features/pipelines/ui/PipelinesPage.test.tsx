@@ -71,6 +71,26 @@ describe("PipelinesPage", () => {
     expect(screen.getByRole("button", { name: "New pipeline" })).toBeInTheDocument();
   });
 
+  it("HEL-528: renders a skeleton, not the empty state, while pipelines are loading", () => {
+    getPipelinesMock.mockReturnValueOnce(new Promise(() => {})); // never resolves
+    const { container } = renderWithStore(<PipelinesPage />);
+
+    expect(container.querySelector(".ui-empty-state--main .ui-skeleton")).toBeInTheDocument();
+    expect(screen.queryByText("Build your first pipeline")).not.toBeInTheDocument();
+  });
+
+  it("HEL-528: keeps rendering an already-loaded pipeline list instead of the skeleton if `status` re-enters loading", () => {
+    // `fetchPipelines`'s own `condition` guard (F-104) skips a re-dispatch
+    // while `status === "loading"`, so this state is reached without the
+    // mock ever needing to resolve.
+    const { container } = renderWithStore(<PipelinesPage />, {
+      pipelines: { items: testPipelines, status: "loading" },
+    });
+
+    expect(screen.getByText("Sales Pipeline")).toBeInTheDocument();
+    expect(container.querySelector(".ui-skeleton")).not.toBeInTheDocument();
+  });
+
   it("opens the modal when the empty state New pipeline button is clicked", async () => {
     getPipelinesMock.mockResolvedValueOnce([]);
     renderWithStore(<PipelinesPage />);
