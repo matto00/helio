@@ -65,4 +65,4 @@
 
 ### Delivery
 
-- [ ] 7.1 At archive, correct the capability's stale "bottom-sheet picker" Purpose wording (design D13).
+- [x] 7.1 At archive, correct the capability's stale "bottom-sheet picker" Purpose wording (design D13).
