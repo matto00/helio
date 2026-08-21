@@ -119,6 +119,7 @@ Run the required project gates for impacted areas.
 #### Frontend changes
 
 - `npm run lint`
+- `npm run typecheck`
 - `npm run format:check`
 - `npm test`
 - `npm run build` in `frontend/`

@@ -113,6 +113,7 @@ Husky runs the following automatically on every commit — fix failures before p
 
 ```bash
 npm run lint               # ESLint (zero-warnings)
+npm run typecheck          # tsc --noEmit against frontend/tsconfig.json
 npm run format:check       # Prettier
 npm run check:schemas      # JSON Schema ↔ Scala protocol parity
 npm run check:openspec     # OpenSpec hygiene
