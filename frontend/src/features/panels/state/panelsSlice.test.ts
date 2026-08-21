@@ -6,6 +6,7 @@ import {
   createPanel,
   fetchPanelPage,
   fetchPanels,
+  markDashboardPanelsStale,
   markDataTypeRowsStale,
   panelsReducer,
   resetPanelPagination,
@@ -471,6 +472,10 @@ describe("panelsSlice", () => {
             pendingPanelUpdates: {},
             lastSavedAt: null,
             paginationState: {},
+            // HEL-548 D1/D5a — PanelsState grew these two fields; this
+            // literal is checked against the real (uncast) reducer type.
+            staleDashboardId: null,
+            panelCreationModalOpen: false,
           },
         },
       });
@@ -552,5 +557,77 @@ describe("panelsSlice", () => {
     expect(nextState.lastSavedAt).not.toBeNull();
     expect(nextState.lastSavedAt).toBeGreaterThanOrEqual(before);
     expect(nextState.lastSavedAt).toBeLessThanOrEqual(after);
+  });
+
+  // Task 1.5 — HEL-548 D1's staleDashboardId discriminator.
+  describe("staleDashboardId (HEL-548 D1)", () => {
+    function loadedState() {
+      const pending = panelsReducer(undefined, fetchPanels.pending("req-1", "dashboard-1"));
+      return panelsReducer(pending, fetchPanels.fulfilled([basePanel], "req-1", "dashboard-1"));
+    }
+
+    it("markDashboardPanelsStale for the loaded dashboard records it, returns to idle, and clears loadedDashboardId", () => {
+      const stale = panelsReducer(loadedState(), markDashboardPanelsStale("dashboard-1"));
+      expect(stale.staleDashboardId).toBe("dashboard-1");
+      expect(stale.status).toBe("idle");
+      expect(stale.loadedDashboardId).toBeNull();
+    });
+
+    it("a subsequent fetchPanels.pending clears staleDashboardId", () => {
+      const stale = panelsReducer(loadedState(), markDashboardPanelsStale("dashboard-1"));
+      const refetching = panelsReducer(stale, fetchPanels.pending("req-2", "dashboard-1"));
+      expect(refetching.staleDashboardId).toBeNull();
+    });
+
+    it("markDashboardPanelsStale for a DIFFERENT dashboard id leaves staleDashboardId/status/loadedDashboardId untouched", () => {
+      const loaded = loadedState();
+      const untouched = panelsReducer(loaded, markDashboardPanelsStale("dashboard-2"));
+      expect(untouched.staleDashboardId).toBeNull();
+      expect(untouched.status).toBe("succeeded");
+      expect(untouched.loadedDashboardId).toBe("dashboard-1");
+    });
+  });
+
+  // Task 1.6 — locks design.md D2's unstated premise: closing the panel
+  // area's pre-dispatch frame (D2) depends on `fetchPanels`'s `condition`
+  // (panelThunks.ts) never skipping a dispatch from the invalidated state
+  // (status: "idle", loadedDashboardId: null). If a future edit to
+  // `condition` silently starts skipping that dispatch, this test fails
+  // loudly instead of quietly parking a permanent skeleton — the exact
+  // failure HEL-528 wrote D11 to prevent.
+  describe("fetchPanels condition (HEL-548 D2's unstated premise, locked)", () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it("a fetchPanels dispatch from the invalidated state (idle, loadedDashboardId null) is not skipped", async () => {
+      jest.spyOn(panelService, "fetchPanels").mockResolvedValue([]);
+      const store = configureStore({
+        reducer: { panels: panelsReducer },
+        preloadedState: {
+          panels: {
+            items: [],
+            loadedDashboardId: null,
+            status: "idle" as const,
+            error: null,
+            pendingPanelUpdates: {},
+            lastSavedAt: null,
+            paginationState: {},
+            staleDashboardId: "dashboard-1",
+            panelCreationModalOpen: false,
+          },
+        },
+      });
+
+      // @ts-expect-error — test store has fewer slices than the full RootState
+      const dispatched = store.dispatch(fetchPanels("dashboard-1"));
+      // RTK's `condition` check (and the resulting `pending` dispatch, when
+      // not skipped) runs synchronously before the payload creator's first
+      // `await` — so if the dispatch were skipped, status would still read
+      // "idle" here. Reading it BEFORE awaiting the thunk is what makes this
+      // probe actually distinguish "skipped" from "dispatched".
+      expect(store.getState().panels.status).toBe("loading");
+      await dispatched;
+    });
   });
 });

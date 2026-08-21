@@ -122,6 +122,10 @@ function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
         items: pipelineItems,
         status: pipelineStatus,
         error: null,
+        // HEL-548 D4/5.3 — useCreatePipelineAction()'s dispatch target;
+        // SidebarBody itself never reads this field, but a test asserting
+        // the CTA's effect needs a real starting value, not `undefined`.
+        createModalOpen: false,
       },
       metrics: {
         items: [],
@@ -188,6 +192,26 @@ describe("SidebarBody registry section — unstructured-type badge", () => {
 
     const row = screen.getByText("Sales").closest("li");
     expect(row?.querySelector(".dashboard-list__badge")).not.toBeInTheDocument();
+  });
+});
+
+// HEL-548 D4/D4a/task 5.3/5.4 — the registry sidebar's empty state gets a
+// pipeline-create CTA (emptyCta), NOT onAdd — onAdd would ALSO render a
+// persistent "+" in the Data Types header that creates a pipeline, an
+// affordance whose label and result disagree.
+describe("SidebarBody registry section — empty state CTA (HEL-548 D4a)", () => {
+  it("renders no '+' header button for Data Types (emptyCta, not onAdd)", () => {
+    renderAt("/registry", []);
+    expect(
+      screen.queryByRole("button", { name: /add data type|new data type/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("the empty state's CTA opens the pipeline create flow", () => {
+    const { store } = renderAt("/registry", []);
+    expect(store.getState().pipelines.createModalOpen).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
+    expect(store.getState().pipelines.createModalOpen).toBe(true);
   });
 });
 

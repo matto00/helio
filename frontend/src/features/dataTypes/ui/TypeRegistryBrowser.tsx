@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Layers } from "lucide-react";
 
 import "./TypeRegistryBrowser.css";
-import { faLayerGroup } from "@fortawesome/free-solid-svg-icons";
+import { useCreatePipelineAction } from "../../pipelines/hooks/useCreatePipelineAction";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { selectPipelineOutputDataTypes, setSelectedTypeId } from "../state/dataTypesSlice";
 import type { DataType } from "../types/dataType";
@@ -15,6 +16,10 @@ export function TypeRegistryBrowser() {
   const navigate = useNavigate();
   const { selectedTypeId } = useAppSelector((state) => state.dataTypes);
   const items = useAppSelector(selectPipelineOutputDataTypes);
+  // HEL-548 D4/D4a/5.1 — types exist only as pipeline output, so this
+  // section's only create path is "New pipeline", never a (nonexistent)
+  // "add type" action.
+  const createPipelineAction = useCreatePipelineAction();
 
   // F-075: hydrate the Redux selection from the URL on a deep-link/reload —
   // e.g. a shared /registry/:id link, or a browser refresh that would
@@ -45,9 +50,10 @@ export function TypeRegistryBrowser() {
     return (
       <EmptyState
         variant="main"
-        icon={faLayerGroup}
+        icon={<Layers />}
         title="No types defined"
         description="Types are created by pipelines. Create or run a pipeline to generate a type you can bind to panels."
+        cta={createPipelineAction.cta}
       />
     );
   }

@@ -240,6 +240,57 @@ describe("PanelList", () => {
     });
   });
 
+  // HEL-548/HEL-770 D6/task 3.3/3.5 — a failed create renders the SAME
+  // surface's error-intent treatment, carrying the thunk's own (D6) specific
+  // message — not a hardcoded generic string. Driven through the rewired
+  // CTA (useCreateDashboardAction's cta.onClick, task 3.2/4.3), not a
+  // leftover local handler, so a hook that silently swallowed the rejection
+  // would fail this test.
+  it("a failed dashboard create from the empty state renders an announced, error-intent empty state carrying the specific rejection message (HEL-770)", async () => {
+    createDashboardMock.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { data: { error: "Workspace dashboard limit reached." } },
+    });
+
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+      panels: {
+        items: [],
+        status: "idle",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "New dashboard" }));
+    await waitFor(() => expect(createDashboardMock).toHaveBeenCalled());
+
+    const errorState = await screen.findByRole("alert");
+    expect(within(errorState).getByText("Couldn't create dashboard")).toBeInTheDocument();
+    expect(within(errorState).getByText("Workspace dashboard limit reached.")).toBeInTheDocument();
+    // The ordinary neutral copy/title must NOT still be present alongside it.
+    expect(screen.queryByText("No dashboards yet")).not.toBeInTheDocument();
+  });
+
+  it("the ordinary 'No dashboards yet' empty state stays neutral, with no alert role, when no create has failed", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: {
+        items: [],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+      panels: {
+        items: [],
+        status: "idle",
+      },
+    });
+
+    expect(screen.getByText("No dashboards yet")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("renders a 'select a dashboard' empty state when dashboards exist but none is selected (F-201)", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
@@ -490,6 +541,39 @@ describe("PanelList", () => {
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
   });
 
+  // HEL-548 D5a/task 4.2a/4.2b — a slice flag outlives the component that set
+  // it, unlike the `useState` this replaced. Reachable defect: open the
+  // modal → Cmd/Ctrl+K → navigate away → PanelList unmounts with the flag
+  // still `true` → returning to `/` reopens the modal unbidden (browser Back
+  // hits the same path). Locked by remounting PanelList against the SAME
+  // store (via `rerender`, which reuses `renderWithStore`'s one Provider/
+  // store instance) with the flag preset `true`.
+  describe("panel-creation modal flag reset on unmount (HEL-548 D5a)", () => {
+    it("does not reopen the modal on a fresh mount after a prior instance unmounted with the flag left true", () => {
+      const { rerender } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        panels: {
+          items: [],
+          loadedDashboardId: "dashboard-1",
+          status: "succeeded",
+          panelCreationModalOpen: true,
+        },
+      });
+
+      // Sanity: the preset flag really does open the modal on first mount —
+      // proves the probe can detect "modal open" at all before trusting a
+      // later "not open" reading.
+      expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
+
+      // Unmount PanelList (fires its cleanup effect) — the store persists
+      // (same Provider instance) — then mount a FRESH PanelList instance.
+      rerender(<></>);
+      rerender(<PanelList />);
+
+      expect(screen.queryByRole("button", { name: "Metric" })).not.toBeInTheDocument();
+    });
+  });
+
   it("renders panel content inside the dashboard grid foundation", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
@@ -567,18 +651,51 @@ describe("PanelList", () => {
       expect(screen.queryByText("0 panels")).not.toBeInTheDocument();
     });
 
-    it("D11 mirror-image — status idle with a dashboard selected and no items (post-delete) renders no skeleton and no empty state", () => {
+    // HEL-548 D2a — HEL-528 task 6.5c-ii assigned closing this gap to
+    // HEL-548 by name. INVERTED, not deleted: the sibling "no skeleton"
+    // assertion is kept unchanged (D2 must not regress it) — only the
+    // "No panels yet" assertion flips, from "must not render" to "must
+    // render", because this ticket's own headline criterion ("no section
+    // renders blank") requires the terminal post-delete state to show the
+    // empty state instead of nothing at all.
+    it("D11 mirror-image, INVERTED (HEL-548 D2a) — status idle with a dashboard selected, staleDashboardId matching it (post-delete terminal state) renders the empty state, still no skeleton", () => {
       const { container } = renderWithStore(<PanelList />, {
         dashboards: baseDashboardsState,
         // markDashboardPanelsStale's terminal state: status back to "idle",
-        // loadedDashboardId cleared, items emptied, nothing scheduled to
-        // refetch (panelsSlice.ts:85-89).
-        panels: { items: [], loadedDashboardId: null, status: "idle" },
+        // loadedDashboardId cleared, items emptied, staleDashboardId recorded
+        // as the invalidated dashboard, nothing scheduled to refetch
+        // (panelsSlice.ts's markDashboardPanelsStale reducer).
+        panels: {
+          items: [],
+          loadedDashboardId: null,
+          status: "idle",
+          staleDashboardId: "dashboard-1",
+        },
       });
 
       expect(container.querySelector(".ui-skeleton")).not.toBeInTheDocument();
-      // The pre-existing §7 gap (PanelList.tsx:246 gates the empty state on
-      // status === "succeeded") is deliberately NOT closed here — see D11.
+      // HEL-528 design.md D11 traced this §7 gap and named HEL-548 as its
+      // owner; HEL-548 D1/D2 closes it via the staleDashboardId
+      // discriminator.
+      const emptyState = screen.getByLabelText("No panels yet");
+      expect(emptyState).toBeInTheDocument();
+      expect(within(emptyState).getByRole("button", { name: "Add panel" })).toBeInTheDocument();
+    });
+
+    // HEL-548 task 2.5 — the OTHER half of the same `idle` state: no
+    // staleDashboardId recorded for this dashboard, so a fetch is provably
+    // about to be dispatched (App.tsx's mount/selection effect) — the
+    // skeleton must render, not the empty state, or a page load would flash
+    // "No panels yet" for one frame before the real panels arrive.
+    it("pre-dispatch idle frame (HEL-548 D2) — status idle, staleDashboardId NOT matching the selected dashboard, renders the skeleton, not the empty state", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        panels: { items: [], loadedDashboardId: null, status: "idle", staleDashboardId: null },
+      });
+
+      expect(
+        container.querySelector(".panel-list__zoom-container .ui-skeleton"),
+      ).toBeInTheDocument();
       expect(screen.queryByText("No panels yet")).not.toBeInTheDocument();
     });
 

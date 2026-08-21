@@ -59,6 +59,22 @@ describe("TypeRegistryPage", () => {
     await waitFor(() => expect(screen.getByText("No types defined")).toBeInTheDocument());
   });
 
+  // HEL-548 D4/5.1/5.4 — the registry's empty state gains a real CTA that
+  // opens the pipeline-create flow (types exist only as pipeline output),
+  // never a "create type" path that doesn't exist.
+  it("HEL-548: the main-content empty state offers a working 'New pipeline' CTA and no create-type path", async () => {
+    const { store } = renderWithStore(<TypeRegistryPage />);
+    await waitFor(() => expect(screen.getByText("No types defined")).toBeInTheDocument());
+
+    expect(
+      screen.queryByRole("button", { name: /add type|new type|create type/i }),
+    ).not.toBeInTheDocument();
+
+    expect(store.getState().pipelines.createModalOpen).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
+    expect(store.getState().pipelines.createModalOpen).toBe(true);
+  });
+
   it("auto-selects the first type and renders the detail panel when types load", async () => {
     // Selection is now driven by the sidebar (Redux state); the page derives
     // the effective type as "explicit selection OR first item" so the detail

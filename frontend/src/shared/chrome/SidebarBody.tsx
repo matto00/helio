@@ -1,16 +1,9 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Pencil, Pin, PinOff } from "lucide-react";
+import { Database, GitBranch, Layers, Pencil, Pin, PinOff } from "lucide-react";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faDatabase,
-  faComments,
-  faLayerGroup,
-  faCodeBranch,
-  faGaugeHigh,
-  faLock,
-} from "@fortawesome/free-solid-svg-icons";
+import { faComments, faGaugeHigh, faLock } from "@fortawesome/free-solid-svg-icons";
 
 import {
   fetchConversations,
@@ -32,6 +25,7 @@ import {
   fetchMetrics,
   setCreateMetricModalOpen,
 } from "../../features/metrics/state/metricsSlice";
+import { useCreatePipelineAction } from "../../features/pipelines/hooks/useCreatePipelineAction";
 import {
   deletePipeline,
   fetchPipelines,
@@ -68,6 +62,12 @@ export function SidebarBody() {
   const currentUser = useAppSelector((state) => state.auth.currentUser);
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
   const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
+  // HEL-548 D4/D4a — the registry's only create path: a type exists solely as
+  // a pipeline's output, so its sidebar empty state's action opens the
+  // pipeline-create flow, not a (nonexistent) "add type" one. Called
+  // unconditionally (Rules of Hooks) even though only the "registry" branch
+  // below consumes it.
+  const createPipelineAction = useCreatePipelineAction();
 
   const section = pickerIdForPathname(pathname);
   // HEL-703 design.md D9 (cycle-2 evaluator CR1) — mirrors `ChatPage.tsx`/`QuickLauncherOverlay.tsx`'s
@@ -126,7 +126,7 @@ export function SidebarBody() {
         onSelect={(item) => dispatch(setSelectedSourceId(item.id))}
         activeId={effectiveSourceId}
         emptyText="Connect a data source"
-        emptyIcon={faDatabase}
+        emptyIcon={<Database />}
         emptyDescription="Pull in data from PostgreSQL, MySQL, CSV, or static input."
         onAdd={() => dispatch(setAddSourceModalOpen(true))}
         addLabel="Add source"
@@ -158,7 +158,7 @@ export function SidebarBody() {
         toHref={(item) => `/pipelines/${item.id}`}
         activeId={routeId ?? null}
         emptyText="Build your first pipeline"
-        emptyIcon={faCodeBranch}
+        emptyIcon={<GitBranch />}
         emptyDescription="Pipelines transform raw source data into typed rows you can chart."
         onAdd={() => dispatch(setCreatePipelineModalOpen(true))}
         addLabel="New pipeline"
@@ -237,8 +237,16 @@ export function SidebarBody() {
         onSelect={(item) => dispatch(setSelectedTypeId(item.id))}
         activeId={effectiveTypeId}
         emptyText="No types defined"
-        emptyIcon={faLayerGroup}
+        emptyIcon={<Layers />}
         emptyDescription="Types are created by pipelines."
+        // HEL-548 D4/D4a — emptyCta, NOT onAdd: onAdd would ALSO render a
+        // persistent "+" in this section's header, an affordance that would
+        // create a pipeline under a "Data Types" heading. This section has no
+        // create action of its own, so it gets the CTA without the header
+        // icon. Label stays "New pipeline" (D4) — it names the thing the
+        // action actually creates, read together with the description above
+        // ("Types are created by pipelines.").
+        emptyCta={createPipelineAction.cta}
         onDelete={async (item) => {
           await dispatch(deleteDataType(item.id));
           if (dataTypes.selectedTypeId === item.id) {

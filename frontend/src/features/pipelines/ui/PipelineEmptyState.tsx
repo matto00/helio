@@ -1,4 +1,4 @@
-import { faCodeBranch, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { GitBranch, Plus } from "lucide-react";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
 
@@ -14,12 +14,12 @@ export function PipelineEmptyState({ onCreateClick }: PipelineEmptyStateProps) {
   return (
     <EmptyState
       variant="main"
-      icon={faCodeBranch}
+      icon={<GitBranch />}
       title="Build your first pipeline"
       description="Pipelines transform raw source data into typed rows you can chart. Chain filter, select, compute, and aggregate steps to shape your data."
       cta={{
         label: "New pipeline",
-        icon: faPlus,
+        icon: <Plus />,
         onClick: onCreateClick,
       }}
     />

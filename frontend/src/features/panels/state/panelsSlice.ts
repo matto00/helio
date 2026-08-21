@@ -37,6 +37,24 @@ interface PanelsState {
   lastSavedAt: number | null;
   /** Pagination state for table panels, keyed by panelId */
   paginationState: Record<string, PanelPaginationState>;
+  /** HEL-548 D1 — the dashboard id `markDashboardPanelsStale` most recently
+   *  invalidated, or `null` once a `fetchPanels` for it has been dispatched.
+   *  Purely additive: it does NOT widen the `status` union (D1 rejects that
+   *  explicitly). Its only job is telling apart panel-list `PanelList`'s two
+   *  `idle` states that otherwise look identical (`loadedDashboardId: null`,
+   *  `items: []`, `status: "idle"`) — the pre-dispatch frame (fetch coming,
+   *  render the skeleton) from the post-delete terminal state (no fetch
+   *  coming, render the empty state) — see D2. */
+  staleDashboardId: string | null;
+  /** HEL-548 D5a — `PanelCreationModal`'s open flag, lifted out of
+   *  `PanelList`'s local `useState` into Redux (mirroring
+   *  `setAddSourceModalOpen`/`setCreatePipelineModalOpen`/
+   *  `setCreateMetricModalOpen`) so `useCreatePanelAction()` can be a hook.
+   *  Reset on `PanelList` unmount (see `PanelList.tsx`'s cleanup effect) —
+   *  unlike its three siblings, a slice flag outlives the component that set
+   *  it, so leaving this unreset would let a `Cmd/Ctrl+K` navigate-away
+   *  re-open the modal unbidden on the next visit to `/`. */
+  panelCreationModalOpen: boolean;
 }
 
 const initialState: PanelsState = {
@@ -47,6 +65,8 @@ const initialState: PanelsState = {
   pendingPanelUpdates: {},
   lastSavedAt: null,
   paginationState: {},
+  staleDashboardId: null,
+  panelCreationModalOpen: false,
 };
 
 const panelsSlice = createSlice({
@@ -79,6 +99,13 @@ const panelsSlice = createSlice({
     resetPanelPagination(state, action: PayloadAction<string>) {
       delete state.paginationState[action.payload];
     },
+    // HEL-548 D5a — mirrors setAddSourceModalOpen/setCreatePipelineModalOpen/
+    // setCreateMetricModalOpen. Set from PanelList's two triggers (header
+    // "Add panel" and the "No panels yet" empty-state CTA, via
+    // useCreatePanelAction) and reset from PanelList's unmount cleanup.
+    setPanelCreationModalOpen(state, action: PayloadAction<boolean>) {
+      state.panelCreationModalOpen = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -86,6 +113,11 @@ const panelsSlice = createSlice({
         if (state.loadedDashboardId !== action.payload) return;
         state.loadedDashboardId = null;
         state.status = "idle";
+        // HEL-548 D1 — record which dashboard this invalidation left
+        // "idle", so PanelList can tell this terminal state apart from the
+        // pre-dispatch frame (both share loadedDashboardId: null / items: []
+        // / status: "idle" otherwise). Cleared by fetchPanels.pending below.
+        state.staleDashboardId = action.payload;
       })
       // HEL-242 — pipeline-run completion dispatches this with the run's
       // outputDataTypeId so panels bound to that DataType refetch rows on the
@@ -103,6 +135,11 @@ const panelsSlice = createSlice({
         state.status = "loading";
         state.error = null;
         state.loadedDashboardId = action.meta.arg;
+        // HEL-548 D1 — a fetch has now been dispatched, so the invalidation
+        // record (if any) is stale itself; clearing it here is what lets D2's
+        // pre-dispatch-frame condition distinguish "not dispatched yet" from
+        // "dispatched, in flight".
+        state.staleDashboardId = null;
       })
       .addCase(fetchPanels.fulfilled, (state, action) => {
         state.items = action.payload;
@@ -233,6 +270,7 @@ export const {
   clearPendingPanelUpdates,
   resetPanelSaveState,
   resetPanelPagination,
+  setPanelCreationModalOpen,
 } = panelsSlice.actions;
 export const panelsReducer = panelsSlice.reducer;
 
