@@ -4,7 +4,7 @@ TICKET_ID: HEL-774
 CHANGE_NAME: liquid-glass-bottom-nav
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/feature/liquid-glass-bottom-nav/hel-774
 BRANCH: feature/liquid-glass-bottom-nav/hel-774  # merged origin/main@09a7a65c; merge-base == main tip
-PHASE: Evaluation
+PHASE: Cleanup
 CYCLE: 2
 DEV_PORT: 6206
 BACKEND_PORT: 9113
@@ -13,7 +13,7 @@ EVALUATOR_AGENT_ID: —
 LAST_EVAL_VERDICT: PASS (cycle 2)
 LAST_EVAL_REPORT: openspec/changes/liquid-glass-bottom-nav/evaluation-2.md
 SKEPTIC_CYCLE: 1  # final gate round 1 of 2
-LAST_SKEPTIC_VERDICT: CONFIRM (design gate cleared at round 5 of 5)
+LAST_SKEPTIC_VERDICT: CONFIRM (final gate round 1 of 2)
 AGENT_MERGE: true
 TICKET_TYPE: feature
 DESIGN_QUESTIONS: null
