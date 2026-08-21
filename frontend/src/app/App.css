@@ -2,7 +2,14 @@
 .app-shell {
   display: flex;
   flex-direction: column;
+  /* HEL-772: on iOS, 100vh is the LARGEST viewport, so the shell used to
+     exceed the visible area and the document scrolled as a whole, dragging
+     the (position: relative) command bar under the status bar with it.
+     100dvh (second declaration wins where supported, dropped where not --
+     no @supports needed) bounds the shell to what's actually visible, so
+     scrolling stays confined to .app-content below and the bar never moves. */
   height: 100vh;
+  height: 100dvh;
   width: 100%;
   position: relative;
   z-index: 1;
@@ -30,19 +37,36 @@
 }
 
 .app-skip-link:focus-visible {
-  top: var(--space-3);
+  /* HEL-772: this is a `position: fixed`, viewport-top-anchored surface, so
+     black-translucent puts it under the status-bar glyphs same as the
+     command bar -- clear the claimed inset before the fixed space-3 offset. */
+  top: calc(var(--app-safe-top) + var(--space-3));
   outline: 2px solid var(--app-text);
   outline-offset: 2px;
 }
 
 /* --- COMMAND BAR --- */
+/* HEL-772: non-scrolling is structural, not `position: sticky` -- once
+   .app-shell is bounded by the dynamic viewport and .app-content owns
+   overflow-y: auto, this flex-shrink: 0 child of the column-flex shell
+   cannot move, because nothing around it scrolls. Height comes from the
+   single --app-top-chrome-height seam (theme.css) so its border-box equals
+   --app-command-bar-height plus the claimed top safe-area inset;
+   padding-top claims that same inset so the bar's own surface reaches the
+   physical top of the screen without eating into the content box. Every
+   padding side is a longhand -- a `padding:` shorthand anywhere here would
+   silently reset padding-top to 0 and re-open the status-bar overprint
+   black-translucent makes load-bearing. */
 .app-command-bar {
-  height: 48px;
+  height: var(--app-top-chrome-height);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-5);
+  padding-top: var(--app-safe-top);
+  padding-right: var(--space-5);
+  padding-bottom: 0;
+  padding-left: var(--space-5);
   background: var(--app-surface);
   border-bottom: 1px solid var(--app-border-subtle);
   gap: var(--space-4);
@@ -373,27 +397,86 @@
 }
 
 @media (max-width: 768px) {
+  /* HEL-772: the unconditional 48px height (base rule above) used to nearly
+     fill edge-to-edge with IconButton's 44px mobile tap-target floor
+     (HEL-308/314/319) once HEL-718 migrated the bar's icon buttons onto that
+     shared primitive. HEL-745's fix (height: var(--space-10), 64px) is
+     superseded here: the height now comes ONLY from the --app-top-chrome-
+     -height seam (theme.css), whose mobile --app-command-bar-height override
+     is 56px -- computed locally as calc(var(--control-lg) + var(--space-4)),
+     deliberately NOT via any BottomNav token. No `height` declaration
+     remains here at all. Painted controls (IconButton, the user-menu
+     trigger) stay at their 28px --control-sm box and reach the 44px floor
+     through a sized ::after hit expander instead of growing the box --
+     product decision, not a style preference (design.md Decision 8/8a): it
+     keeps "the icons are larger than necessary" fixed without inflating the
+     avatar. Padding is longhand-only, same reason as the base rule above. */
   .app-command-bar {
-    /* HEL-745: the unconditional 48px height above nearly filled edge-to-edge
-       with IconButton's 44px mobile tap-target floor (HEL-308/314/319) once
-       HEL-718 migrated the bar's icon buttons onto that shared primitive.
-       --space-10 (64px) reuses BottomNav.css's chrome-bar-framing precedent
-       and gives 10px clearance per side instead of 2px. Desktop's
-       unconditional height: 48px above is untouched. */
-    height: var(--space-10);
-    padding: 0 var(--space-3);
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+    padding-bottom: 0;
   }
 
   .app-command-bar__breadcrumb {
     display: none;
   }
 
+  /* Neither control paints a background or border, so growing their box to
+     44px via min-height is invisible -- it never moves the wordmark or the
+     separator, and the bar itself stays framed by --app-top-chrome-height
+     alone (design.md Decision 8). */
+  .app-command-bar__logo {
+    min-height: 44px;
+  }
+
   .app-command-bar__mobile-title {
     display: inline-flex;
+    min-height: 44px;
   }
 
   .app-command-bar .app-command-bar__mobile-new-chat {
     display: inline-flex;
+  }
+
+  /* Painted controls (border + background): the box stays --control-sm
+     (28px, the product owner's explicit "keep it at that" call) and only the
+     hit region grows, via a sized ::after rather than `min-width/min-height`
+     (which IS the mechanism this scoped override deliberately turns back
+     off -- IconButton.css's own mobile floor would otherwise inflate every
+     icon button in this bar to a visible 44px square). Never edit
+     IconButton.css itself: that's a global primitive shared by every other
+     mobile surface (HEL-308/314/319), and a global change here would undo
+     all three. An explicit 44px (not `inset: -8px`) is required -- `inset`
+     on an absolutely-positioned pseudo resolves against the PADDING box, and
+     these controls carry a 1px border, so `inset: -8px` measures 42x42px,
+     not 44x44px. */
+  .app-command-bar .ui-icon-btn {
+    position: relative;
+    min-width: var(--control-sm);
+    min-height: var(--control-sm);
+  }
+
+  .app-command-bar .ui-icon-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* The 44px hit regions above extend 8px past each 28px painted box on
+     every side. At the default --space-2 (8px) gap, adjacent regions
+     OVERLAP each other by 8px -- not a neighbour's painted box, which they
+     never reach -- and the later sibling wins the hit test in that
+     overlapping band, truncating the earlier control's real tap extent to
+     ~35.75px even though getComputedStyle still reports 44px for its own
+     ::after. --space-4 (16px) is the exact gap at which the regions abut
+     with zero overlap (design.md Decision 8b) -- do not widen this further,
+     it would break that exact tiling. */
+  .app-command-bar__right {
+    gap: var(--space-4);
   }
 
   /* Desktop layout-editing affordances (undo/redo, dashboard appearance,

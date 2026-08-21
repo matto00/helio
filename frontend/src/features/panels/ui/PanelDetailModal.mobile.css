@@ -17,6 +17,25 @@
     border: none;
     border-radius: 0;
   }
+
+  /* HEL-772: this modal is the one full-viewport surface (besides the app
+     shell) that reaches the physical top of the screen at this breakpoint,
+     so black-translucent puts its own header under the status-bar glyphs
+     unless it claims the same inset. Compound selector (matching the block
+     above) rather than a bare `.ui-modal__header` -- that would pad EVERY
+     modal's header at this width, not just this full-screen one; it also
+     out-specificities Modal.css:111's base `.ui-modal__header` rule so this
+     doesn't depend on stylesheet order. Additive, not a bare substitution:
+     Modal.css:116's `padding: var(--space-4) var(--space-5)` already gives
+     this header 16px of top padding, and `--app-safe-top` falls back to 0px
+     wherever the browser reports no inset (every Android device, every
+     desktop-width browser, an iPhone with no top inset) -- a bare
+     `padding-top: var(--app-safe-top)` would silently zero that 16px out in
+     exactly those cases instead of adding the inset on top of it. */
+  .ui-modal.panel-detail-modal .ui-modal__header,
+  .ui-modal.panel-detail-modal--view .ui-modal__header {
+    padding-top: calc(var(--app-safe-top) + var(--space-4));
+  }
 }
 
 /* Mobile tap targets (HEL-245). Below the mobile-shell breakpoint the panel

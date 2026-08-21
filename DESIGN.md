@@ -131,7 +131,13 @@ triggers/options, CTAs) get a literal `44px` min-height/min-width tap-target
 floor (HEL-308/314/319) — this is intentional, not drift; it does not apply
 at desktop widths. Native `input[type="color"]` swatches (accent/appearance
 pickers) are also exempt, sized for visual color-swatch clarity rather than
-by a control token. **[mechanical]** No other control heights.
+by a control token. For a painted chrome control that must not visually grow
+(border/background present, product decision against inflating it — e.g. the
+mobile command bar's icon buttons and avatar trigger, HEL-772), the sanctioned
+alternative is a sized `::after` hit expander (`width: 44px; height: 44px;
+top/left: 50%; transform: translate(-50%, -50%)` on a `position: relative`
+control) rather than `min-width`/`min-height`, which would grow the box.
+**[mechanical]** No other control heights.
 
 ### Typography
 

@@ -2,6 +2,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   width: var(--control-sm);
   height: var(--control-sm);
   padding: 0;
@@ -137,5 +138,24 @@
 @media (max-width: 768px) {
   .user-menu__item {
     min-height: 44px;
+  }
+
+  /* HEL-772: the trigger is a painted control (border + circular
+     background), so it keeps its --control-sm (28px) box -- product-owner
+     decision, "whatever the avatar is set to is the right size" -- and
+     reaches the 44px command-bar tap floor through a sized ::after hit
+     expander instead of growing the box. Explicit 44px, not `inset: -8px`:
+     `inset` on an absolutely-positioned pseudo resolves against the PADDING
+     box, and this control has a 1px border, so `inset: -8px` would measure
+     42x42px. Only relevant in `.app-command-bar`; the trigger has no other
+     mobile-reachable placement today. */
+  .user-menu__trigger::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 }
