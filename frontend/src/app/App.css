@@ -82,6 +82,17 @@
   flex: 1;
 }
 
+/* HEL-773 design.md D2 — `inert` needs a real DOM node to attach to, but
+ * these two groups sit on either side of the mobile-title trigger (which
+ * must stay interactive, unwrapped) within `.app-command-bar__left`'s flex
+ * row. `display: contents` drops the wrapper's own box entirely so its
+ * children remain direct flex items (gap unaffected); `inert`'s effect
+ * still applies to the whole subtree regardless (an HTML-tree concept, not
+ * a paint one). */
+.app-command-bar__inert-group {
+  display: contents;
+}
+
 .app-command-bar__logo {
   display: flex;
   align-items: center;
@@ -383,6 +394,19 @@
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
   border-radius: var(--app-radius-sm);
+}
+
+/* HEL-773 design.md D9b — the chevron now doubles as a state affordance: it
+ * pointed away from the (bottom) sheet's motion before this change, and
+ * points at the (top) sheet's motion now that the trigger is also a
+ * toggle. Flipping it while open keeps that reading intact rather than
+ * looking like "more to pull" once the sheet is already showing. */
+.app-command-bar__mobile-title-chevron {
+  transition: transform var(--app-transition);
+}
+
+.app-command-bar__mobile-title-chevron--open {
+  transform: rotate(180deg);
 }
 
 /* HEL-746 — phone-only "New chat" affordance, sibling of the mobile-title

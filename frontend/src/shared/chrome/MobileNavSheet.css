@@ -1,10 +1,18 @@
-/* Bottom sheet picker — dashboard switcher and (later) section-item nav on
+/* Top-anchored sheet picker — dashboard switcher and section-item nav on
  * phone. Portalled to document.body; shares the popover z-index layer with
- * ActionsMenu/Select so stacking is consistent with the rest of the app. */
+ * ActionsMenu/Select so stacking is consistent with the rest of the app.
+ *
+ * HEL-773: descends from the top-chrome seam (theme.css's
+ * `--app-top-chrome-height`) instead of rising from the bottom, so it reads
+ * as anchored to the command-bar control that opens it (design.md D1/D2/D3).
+ * The backdrop stops at that same seam, leaving the command bar undimmed. */
 
 .mobile-nav-sheet__backdrop {
   position: fixed;
-  inset: 0;
+  top: var(--app-top-chrome-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: var(--z-popover-scrim);
   background: var(--app-overlay);
   border: none;
@@ -22,29 +30,62 @@
   }
 }
 
-.mobile-nav-sheet__panel {
+/* design.md D1/D3 — the clip wrapper OWNS the top anchor: it is the only
+ * element in this file that declares `top`. A naive `translateY` entrance on
+ * a plain `position: fixed` panel would sweep straight through the command
+ * bar (portal at --z-popover 100 vs the bar's local z-index: 2), so the
+ * panel is wrapped here and clipped at its top edge only
+ * (`clip-path: inset(0 -100vmax -100vmax -100vmax)` — 0 at the top, pushed
+ * far out on the other three sides so nothing else is clipped). `left`/
+ * `right` are required: a `position: fixed` element with only `top` set is
+ * shrink-to-fit, not full-width. */
+.mobile-nav-sheet__clip {
   position: fixed;
+  top: var(--app-top-chrome-height);
   left: 0;
   right: 0;
-  bottom: 0;
   z-index: var(--z-popover);
-  max-height: 70dvh;
+  clip-path: inset(0 -100vmax -100vmax -100vmax);
+  pointer-events: none;
+}
+
+/* design.md D1/D3 — the panel carries NO `top` of its own: it is
+ * `position: relative` inside the clip wrapper above, so its top edge comes
+ * entirely from the wrapper's anchor. Repeating `top: var(--app-top-chrome-
+ * -height)` here would be a RELATIVE offset from an already-correct in-flow
+ * position, pushing the sheet a second seam-height down and detaching it
+ * from the bar — the exact regression this file's CSS lock test guards
+ * against. `z-index: 1` is a "non-competing" LOCAL value (relative to the
+ * wrapper's own stacking context, which its `clip-path` establishes) —
+ * matching `.app-shell`/`.app-command-bar`'s own small local z-index
+ * convention in `App.css`, not the shared `--z-*` token scale. Without it,
+ * the wrapper's stacking context could otherwise let the scrim paint over
+ * the panel. */
+.mobile-nav-sheet__panel {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  max-height: calc(
+    100dvh - var(--app-top-chrome-height) - var(--bottom-nav-height) - var(--space-3)
+  );
   display: flex;
   flex-direction: column;
   /* Opaque per DESIGN.md — sheets never let the page (or a custom dashboard
      background) bleed through. */
   background: var(--app-surface-strong);
   border: 1px solid var(--app-border-subtle);
-  border-bottom: none;
-  border-radius: var(--app-radius-lg) var(--app-radius-lg) 0 0;
+  border-top: none;
+  border-radius: 0 0 var(--app-radius-lg) var(--app-radius-lg);
   box-shadow: var(--app-shadow-soft);
-  padding-bottom: env(safe-area-inset-bottom);
   animation: mobile-nav-sheet-in var(--transition-slow) both;
 }
 
+/* design.md D1 — inverted: the sheet now originates at the top edge
+ * (translateY(-100%), clipped out of view by the wrapper above) and
+ * descends to its resting position, rather than rising from the bottom. */
 @keyframes mobile-nav-sheet-in {
   from {
-    transform: translateY(100%);
+    transform: translateY(-100%);
   }
   to {
     transform: translateY(0);
@@ -53,26 +94,15 @@
 
 @media (prefers-reduced-motion: reduce) {
   .mobile-nav-sheet__panel,
-  .mobile-nav-sheet__backdrop {
+  .mobile-nav-sheet__backdrop,
+  .mobile-nav-sheet__clip {
     animation: none;
   }
 }
 
-.mobile-nav-sheet__drag-handle {
+.mobile-nav-sheet__header {
   flex-shrink: 0;
-  padding: var(--space-2) var(--space-4) var(--space-2);
-  /* Grabber + title live in one pointer-tracked region so a downward drag
-     from either dismisses the sheet. */
-  touch-action: none;
-}
-
-.mobile-nav-sheet__grabber {
-  display: block;
-  width: 36px;
-  height: 4px;
-  margin: 0 auto var(--space-3);
-  border-radius: var(--app-radius-pill);
-  background: var(--app-border-strong);
+  padding: var(--space-3) var(--space-4) var(--space-2);
 }
 
 .mobile-nav-sheet__title {
@@ -82,6 +112,70 @@
   font-weight: var(--weight-semibold);
   color: var(--app-text);
   text-align: center;
+}
+
+/* HEL-773 design.md D6/task 3.4 — the header create action, hairline-
+ * separated below the title, using DESIGN.md §5's Secondary button recipe
+ * (transparent bg, --app-border-subtle hairline, muted text; hover:
+ * --app-border-strong + --app-surface-raised + full text) rather than the
+ * accent-filled `EmptyState` CTA recipe — this is a list-branch action, not
+ * a hero. Rendered as its own row, never an `li` of the item list. */
+.mobile-nav-sheet__header-action-row {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--app-border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mobile-nav-sheet__create-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-sm);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.mobile-nav-sheet__create-action:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.mobile-nav-sheet__create-action-icon {
+  font-size: 0.8em;
+}
+
+/* skeptic-final-1.md CR1 — mirrors `EmptyState.css`'s identical
+ * `.ui-empty-state__cta-icon svg` rule verbatim. The three HEL-548 hooks
+ * pass a lucide `ReactNode` (`<Plus />`) carrying literal `width="24"
+ * height="24"` attributes; without this, the SVG keeps that intrinsic
+ * 24px regardless of the wrapper's `font-size` above, which can only ever
+ * affect the FontAwesome branch — a path no hook actually exercises, so it
+ * silently computed to nothing for every real consumer. `display: block`
+ * also drops the <svg> out of inline formatting (the same descender-space
+ * centering fix `EmptyState.css` already documents). Scoped to the
+ * ReactNode path only, not the wrapper class itself, so the FontAwesome
+ * branch (no nested <svg>) is untouched. */
+.mobile-nav-sheet__create-action-icon svg {
+  display: block;
+  width: 1em;
+  height: 1em;
 }
 
 .mobile-nav-sheet__list {
@@ -155,12 +249,31 @@
   background: var(--app-accent);
 }
 
-.mobile-nav-sheet__empty {
-  margin: 0;
-  padding: var(--space-6) var(--space-4);
-  text-align: center;
-  color: var(--app-text-muted);
-  font-size: var(--text-sm);
+.mobile-nav-sheet__empty-wrap {
+  overflow-y: auto;
+}
+
+/* design.md D4 — the drag strip lives at the sheet's BOTTOM free edge (a top
+ * grabber would advertise dragging the pinned edge on a top-anchored sheet).
+ * Its own pointer-tracked `touch-action: none` region, separate from the
+ * header, so the create action's tap is never swallowed by the drag
+ * handler. Literal `44px` min-height (design.md D4/task 2.3), matching the
+ * established mobile tap-target convention. */
+.mobile-nav-sheet__drag-strip {
+  flex-shrink: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.mobile-nav-sheet__grabber {
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-border-strong);
 }
 
 /* HEL-303: sheet rows are the primary tap target on phone (dashboard switcher
@@ -169,9 +282,15 @@
    a `--control` token, matching the established tap-target convention in
    `BottomNav.css` and `PanelDetailModal.css`'s mobile block. The sheet only
    renders at phone width, so the media gate is belt-and-suspenders for
-   consistency with that pattern and reads as touch-target intent. */
+   consistency with that pattern and reads as touch-target intent.
+   HEL-773: the header create action gets the same literal floor
+   (design.md task 3.6). */
 @media (max-width: 768px) {
   .mobile-nav-sheet__item {
+    min-height: 44px;
+  }
+
+  .mobile-nav-sheet__create-action {
     min-height: 44px;
   }
 }

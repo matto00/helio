@@ -2,6 +2,8 @@ import { useLocation } from "react-router-dom";
 
 import { BottomNav } from "../shared/chrome/BottomNav";
 import { MobileNavSheet } from "../shared/chrome/MobileNavSheet";
+import { PICKER_EMPTY_STATE } from "../shared/chrome/pickerEmptyState";
+import { pickerIdForPathname } from "../shared/chrome/sections";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
 
 interface MobileShellProps {
@@ -16,6 +18,10 @@ interface MobileShellProps {
 export function MobileShell({ isMobileNavSheetOpen, onClose }: MobileShellProps) {
   const location = useLocation();
   const pickerSelection = usePickerSelection(location.pathname);
+  // Mirrors `CommandBar.tsx`'s existing sibling call to the same resolver
+  // (design.md D8 — three call sites, all inert) — used only to key into the
+  // shared empty-state copy table (HEL-773 design.md D11).
+  const pickerId = pickerIdForPathname(location.pathname);
 
   return (
     <>
@@ -29,7 +35,9 @@ export function MobileShell({ isMobileNavSheetOpen, onClose }: MobileShellProps)
         title={pickerSelection.heading}
         items={pickerSelection.items}
         onSelect={pickerSelection.onSelect}
-        emptyMessage={pickerSelection.emptyMessage}
+        emptyState={PICKER_EMPTY_STATE[pickerId]}
+        createAction={pickerSelection.createAction}
+        emptyCreateAction={pickerSelection.emptyCreateAction}
       />
     </>
   );

@@ -738,7 +738,11 @@ describe("App", () => {
     );
   });
 
-  it("phone section sheet on /pipelines shows the empty-state message when there are no pipelines", async () => {
+  // HEL-773 task 5.7 — the bare-`<p>` `emptyMessage` string this test used to
+  // assert on is retired; pipelines is a section WITH a create action, so
+  // its empty branch now renders the shared `EmptyState` primitive carrying
+  // that action's CTA (AC8/AC9), not message-only.
+  it("phone section sheet on /pipelines shows the shared EmptyState with its create-pipeline CTA when there are no pipelines", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
     getPipelinesMock.mockResolvedValue([]);
@@ -748,7 +752,9 @@ describe("App", () => {
     const titleButton = await screen.findByRole("button", { name: /Switch data pipelines/i });
     fireEvent.click(titleButton);
 
-    expect(await screen.findByText("No pipelines yet.")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Build your first pipeline")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "New pipeline" })).toBeInTheDocument();
   });
 
   // HEL-724 — sources is a Redux-selection section (like registry/chat), not
@@ -964,7 +970,13 @@ describe("App", () => {
     );
   });
 
-  it("phone section sheet on /chat shows a section-specific empty message when there are no conversations", async () => {
+  // HEL-773 task 5.7 — the bare-`<p>` this test used to assert on is
+  // retired; assistant has no shared create-action hook (out of scope), so
+  // its empty branch renders the shared `EmptyState` message-only, with no
+  // CTA — distinct from the pipelines case above. Scoped to the dialog: the
+  // command bar's separate HEL-746 "New chat" trigger is unrelated to this
+  // empty branch and stays rendered regardless.
+  it("phone section sheet on /chat shows the shared EmptyState message-only (no CTA) when there are no conversations", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
     listConversationsMock.mockResolvedValue([]);
@@ -974,7 +986,9 @@ describe("App", () => {
     const titleButton = await screen.findByRole("button", { name: /Switch assistant/i });
     fireEvent.click(titleButton);
 
-    expect(await screen.findByText("No conversations yet.")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("No conversations yet")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("redirects unauthenticated user from /pipelines to /login", async () => {
