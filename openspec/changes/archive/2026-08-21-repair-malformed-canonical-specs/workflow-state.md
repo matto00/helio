@@ -3,7 +3,7 @@
 TICKET_ID: HEL-775
 CHANGE_NAME: repair-malformed-canonical-specs
 TICKET_TYPE: feature
-PHASE: Evaluation
+PHASE: Cleanup  # awaiting human 'merged' confirmation; agent-merge blocked on permissions
 CYCLE: 1
 SKEPTIC_DESIGN_ROUND: 3 of 5 = CONFIRM (rounds 1-2 REFUTE). Design gate CLEARED.
 SKEPTIC_CYCLE: 1
@@ -38,6 +38,12 @@ MODELS: {"orchestrator":"opus","executor":"sonnet","evaluator":"opus","skeptic":
 AGENT_IDS: {"executor":"warm (cycle 1)","evaluator":"warm (cycle 1)"}
 EXEC_COMMIT: a8234482
 EVAL_CYCLE_1: PASS (evaluation-1.md)
+FINAL_GATE: CONFIRM (skeptic-final-1.md), round 1 of 2
+PR_URL: https://github.com/matto00/helio/pull/415
+COMMITS: a8234482 (repair+guard), 7bd51084 (archive+purpose)
+AGENT_MERGE_RESULT: BLOCKED - check-agent-merge-permission.sh FAIL on
+  Bash(gh pr merge:*) and Task(concertino-auditor). Per operator instruction, no escalation cycle
+  spent; PR presented for manual merge. DO NOT run cleanup.sh until human confirms 'merged'.
 
 ## Notes
 - Merged origin/main (785e0af9, incl. HEL-773) at TOP of Planning, before reading any spec for
