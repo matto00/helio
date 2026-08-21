@@ -12,10 +12,6 @@ export interface NavDestination {
    * stay "active" for every nested route. */
   end?: boolean;
   label: string;
-  /** Shorter label for width-constrained contexts (F-080: `BottomNav`'s
-   * six 72px phone tabs — "Data Pipelines"/"Type Registry" overflowed their
-   * slots at the full label). Falls back to `label` when unset. */
-  shortLabel?: string;
   icon: LucideIcon;
 }
 
@@ -23,6 +19,5 @@ export const navDestinations: NavDestination[] = sections.filter(isNavSection).m
   to: section.path,
   end: section.end,
   label: section.label,
-  shortLabel: section.shortLabel,
   icon: section.icon,
 }));

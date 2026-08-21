@@ -12,20 +12,51 @@
     align-items: stretch;
     justify-content: space-around;
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    /* Inset floating capsule (HEL-774) — clear of all three edges, never a
+       flush full-width strip. */
+    left: var(--bottom-nav-inset);
+    right: var(--bottom-nav-inset);
+    /* The safe-area inset lives here, not as a `padding-bottom` on the
+       capsule: this offset already carries the home-indicator clearance, so
+       stacking a second copy on the (fixed, box-sizing: border-box) content
+       box would crush it. See the removed `padding-bottom` this replaces. */
+    bottom: calc(var(--bottom-nav-inset) + env(safe-area-inset-bottom));
     /* Below portalled overlays (--z-popover-scrim/--z-popover) and the native
        <dialog> top layer, above ordinary content. */
     z-index: 5;
-    /* Opaque per DESIGN.md §0.2 — dashboards carry user-set backgrounds and
-       must never tint through app chrome. No blur/translucent material. */
-    background: var(--app-surface);
-    border-top: 1px solid var(--app-border-subtle);
-    /* Visible bar height is control-lg + space-4 (56px, well over the 44px
-       HIG minimum); env() adds the home-indicator inset on top of that. */
-    height: calc(var(--control-lg) + var(--space-4) + env(safe-area-inset-bottom));
-    padding-bottom: env(safe-area-inset-bottom);
+    height: var(--bottom-nav-capsule-height);
+    padding: 0 var(--space-2);
+    border-radius: var(--app-radius-pill);
+    border: 1px solid var(--app-border-strong);
+    /* NOT --app-border-subtle: over a theme-matched page that hairline
+       measures ~1.16:1, very nearly invisible, and this edge is the only
+       thing separating the capsule from the page in that case. */
+    box-shadow: var(--app-shadow-soft);
+    /* HEL-774: mobile-bottom-nav carve-out (DESIGN.md §0.2) — translucent
+       material, permitted here alone. Blur small enough to stay
+       transmissive; the tint below is what actually carries icon legibility. */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Tint layer, painted between the blur and the glyphs — a dedicated
+     element rather than a translucent `background` on `.bottom-nav` itself,
+     so the "tint above blur" ordering is explicit. `z-index: -1` paints it
+     behind the tabs (this element's normal-flow children) while staying
+     inside `.bottom-nav`'s own stacking context, which `backdrop-filter`
+     already creates — no `position: relative` needed on the tabs. */
+  .bottom-nav::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    /* --app-surface at alpha 0.55 (D3) — NOT --app-surface-strong, which
+       silently invalidates the inactive-ink contrast math this alpha was
+       chosen against. 0.55 is the shipping value measurement settled on;
+       0.51 models as passing but renders as failing once antialiasing and
+       measured drift are accounted for. */
+    background: color-mix(in srgb, var(--app-surface) 55%, transparent);
   }
 }
 
@@ -35,40 +66,108 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
   /* F-187: literal, not a `--control-*` token, on purpose — this is the HIG
      44px minimum tap-target width, not a control height. Matches the same
      documented literal in `MobileNavSheet.css`'s `.mobile-nav-sheet__item`. */
   min-width: 44px;
   min-height: 44px;
   padding: 0 2px;
-  color: var(--app-text-muted);
+  color: var(--app-text);
+  /* Full-strength ink, not --app-text-muted (HEL-774): measured worst case
+     over the translucent tint, --app-text-muted cannot clear even 3:1 at any
+     usable alpha (1.31:1 dark / 1.68:1 light at the shipping alpha) — the
+     carve-out's contrast floor forces full-contrast ink. */
   text-decoration: none;
   transition: color var(--app-transition);
+  /* Pill radius so :focus-visible's outline (below) can follow the same
+     curve instead of overhanging it as a rectangle — see that rule's own
+     comment for the full rationale and the DESIGN.md carve-out it points at. */
+  border-radius: var(--app-radius-pill);
 }
 
 .bottom-nav__icon {
   flex-shrink: 0;
 }
 
-.bottom-nav__label {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-sans);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.01em;
+/* The active item's material lozenge (HEL-774) — nested inside the capsule,
+ * behind the icon only, not the whole tab. This carrier element is REQUIRED:
+ * Lucide's <svg> emits width="22"/height="22" as presentation attributes,
+ * and theme.css's global `* { box-sizing: border-box }` then resolves
+ * padding+border inward from that 22px — styling the <svg> directly would
+ * clamp its content box to 0px and render an empty ring with no glyph.
+ * Present on every tab, always with a transparent border, so the icon's box
+ * never shifts when the active tab changes; only `background`/`border-color`
+ * change on the active tab. */
+.bottom-nav__lozenge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--app-radius-pill);
+  border: 1px solid transparent;
+  /* The lozenge never travels between tabs (it's per-tab, not a shared
+     indicator) — at most it fades in on activation. Gated below under
+     `prefers-reduced-motion: reduce` (D8). */
+  transition:
+    background var(--app-transition),
+    border-color var(--app-transition);
 }
 
 /* Accent is sanctioned here as the active-tab indicator (DESIGN.md §0.3) —
- * nowhere else in the bar. */
+ * nowhere else in the bar. The lozenge's fill/border carry the material
+ * affordance; the accent icon colour is a secondary cue, never the sole one. */
 .bottom-nav__tab--active {
   color: var(--app-accent);
 }
 
+.bottom-nav__tab--active .bottom-nav__lozenge {
+  /* --app-surface at alpha 0.95 (D6) — reuses the capsule's own token so the
+     active icon's backdrop reads as today's opaque bar. This fill supplies
+     depth only; it is NOT what makes the lozenge visible (it measures
+     ~1.01-1.15:1 against the capsule over theme-matched backdrops — the
+     border below does that work). NOT --app-surface-strong: an absolute fill
+     token from the adjacent rung of the neutral ramp converges to invisible
+     against the capsule composite at every alpha. */
+  background: color-mix(in srgb, var(--app-surface) 95%, transparent);
+  /* Full-strength var(--app-text), not a color-mix: a 70% mix measures only
+     2.50:1 at the shipping tint alpha, below the 3:1 floor this change writes
+     into DESIGN.md. At full strength the border's separation from the
+     capsule is arithmetically identical to the inactive icon's (both are
+     --app-text over the same composite) — 3.44:1 dark / 4.89:1 light,
+     clearing the floor. This is the whole active-tab affordance; do not
+     weaken it back to a color-mix. No `background-clip` is declared: with
+     this opaque border the fill underneath is fully covered, so `padding-box`
+     and the default paint model are pixel-identical — declaring it would be
+     dead CSS pinning a premise that no longer holds (D6). */
+  border-color: var(--app-text);
+}
+
 .bottom-nav__tab:focus-visible {
   outline: 2px solid var(--app-accent);
-  outline-offset: -2px;
+  /* -3px, not the app-wide flush-list-item -2px (DESIGN.md §8): documented
+     exception in DESIGN.md's HEL-774 carve-out ("Surfaces & the opacity
+     invariant" § "Focus-ring exception"). Two distinct measured effects,
+     not one: §8's -2px applied literally (no border-radius on the tab)
+     genuinely overhangs the capsule as a hard rectangle, but this tab
+     already carries border-radius: var(--app-radius-pill) above, which
+     removes that overhang at -2px. The reason -3px still applies here is
+     hairline clearance: at -2px the ring's nearest pixel sits only 1.50px
+     inside the capsule boundary, colliding visually with the capsule's own
+     --app-border-strong hairline; -3px sits 2.50px inside and clears it.
+     Verified from rendered pixels: 0 ring pixels fall outside the capsule
+     at the first and last tabs, both themes. */
+  outline-offset: -3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* `transition: none` (not `-duration`), placed AFTER the rule it overrides
+     so it wins at equal specificity — theme.css's global reduced-motion rule
+     already forces `transition-duration: 0.01ms !important`, which a
+     longhand duration override here would be silently overridden by. Only
+     the shorthand (via `transition-property: none`, which the global rule
+     does not touch) actually removes the transition rather than merely
+     shortening it. Same mechanism `Skeleton.css` uses for its shimmer. */
+  .bottom-nav__lozenge {
+    transition: none;
+  }
 }

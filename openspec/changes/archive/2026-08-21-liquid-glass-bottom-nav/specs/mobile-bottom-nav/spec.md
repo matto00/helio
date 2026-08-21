@@ -1,10 +1,5 @@
-# mobile-bottom-nav Specification
+## MODIFIED Requirements
 
-## Purpose
-Provides a breakpoint-gated, promotable bottom tab bar for section navigation on phone-width
-viewports (<768px), replacing the broken collapsed-sidebar stub and keeping phone and desktop
-navigation from drifting via a single shared destination list.
-## Requirements
 ### Requirement: Bottom tab bar provides section navigation on phone
 The frontend SHALL render a bottom tab bar (`shared/chrome/BottomNav`) below the 768px breakpoint
 with exactly the six section destinations of the desktop sidebar (`/`, `/sources`, `/pipelines`,
@@ -144,50 +139,7 @@ chrome that would otherwise rest on the bar SHALL clear it from the same token.
   tab bar render
 - **THEN** the zoom widget rests clear of the capsule rather than on top of it
 
-### Requirement: BottomNav is promotable to desktop without a rewrite
-`BottomNav` SHALL be a self-contained shared component whose phone-only visibility is enforced by
-a breakpoint rule in its own stylesheet, such that showing it at desktop widths is a
-media-query/flag change with no component rewrite.
-
-#### Scenario: Breakpoint-only gating
-- **WHEN** the breakpoint rule in `BottomNav.css` is relaxed
-- **THEN** the component renders and functions at desktop widths without code changes
-
-### Requirement: MobileNavSheet's section-picker stays in parity with the desktop sidebar for chat
-The phone item-picker (`MobileNavSheet`, driven by `App.tsx`'s per-section switch statements) SHALL
-have a `"chat"` arm covering conversation listing/selection, so a phone user's item-picker and a
-desktop user's sidebar list always reflect the same conversations and the same selection action —
-matching every other existing section's parity (sources/pipelines/registry/metrics).
-
-#### Scenario: Selecting a conversation via MobileNavSheet matches desktop sidebar selection
-- **WHEN** a phone-width user selects a conversation via `MobileNavSheet`
-- **THEN** the same `selectedConversationId` Redux action fires as the desktop sidebar's
-  `onSelect` would dispatch for the identical conversation
-
-#### Scenario: The chat section's empty-picker message is present
-- **WHEN** `MobileNavSheet` opens for the chat section with no conversations
-- **THEN** a section-specific empty message is shown, not a blank sheet
-
-### Requirement: Command bar exposes a reachable "New chat" control on phone
-Below the 768px breakpoint, on `/chat*` routes, the command bar SHALL render a "New chat" control
-(an icon button labeled/accessible as "New chat", mirroring the desktop sidebar's "+" trigger)
-that dispatches the same `startNewConversation()` action the desktop trigger dispatches, without
-requiring the user to open `MobileNavSheet` first. At 768px and wider this control SHALL NOT
-render (the desktop sidebar's own "+" trigger remains the only "New chat" entry point there).
-
-#### Scenario: New chat control visible and functional on phone
-- **WHEN** the viewport is narrower than 768px and the user is on a `/chat*` route
-- **THEN** a "New chat" control is visible in the command bar, and activating it dispatches
-  `startNewConversation()`, landing the user on the empty "new conversation" composer state
-
-#### Scenario: Hidden at desktop widths
-- **WHEN** the viewport is 768px or wider
-- **THEN** the command bar's "New chat" control is not rendered (the desktop sidebar's own "+"
-  trigger is the sole entry point)
-
-#### Scenario: Hidden off the chat section
-- **WHEN** the viewport is narrower than 768px and the user is on any route other than `/chat*`
-- **THEN** the command bar's "New chat" control is not rendered
+## ADDED Requirements
 
 ### Requirement: Added bottom-nav motion respects reduced-motion preference
 Any motion introduced by the floating tab bar SHALL be disabled outright when the user prefers
@@ -200,4 +152,3 @@ satisfied vacuously. The active tab SHALL still be correctly indicated either wa
 - **WHEN** `prefers-reduced-motion: reduce` is set and the user switches tabs
 - **THEN** no added transition runs on the active tab's lozenge — either because none was declared,
   or because the declared one is removed rather than shortened — and the correct tab is indicated
-

@@ -83,11 +83,26 @@
   --z-toast: 1000;
 
   /* --- Mobile chrome --- */
-  /* BottomNav's fixed bar height (control-lg + space-4) plus the home-
-     indicator safe-area inset — the value BottomNav.css:27 and App.css:424
-     each compute inline. Named here (HEL-535) so a third consumer
-     (toast.css's mobile offset) doesn't add yet another copy of the calc(). */
-  --bottom-nav-height: calc(var(--control-lg) + var(--space-4) + env(safe-area-inset-bottom));
+  /* HEL-774: BottomNav is now an inset floating capsule, not a full-width
+     ledge, so these three primitives replace the single flat-height value
+     HEL-535 introduced (redefined in place — never duplicated, so nothing
+     can silently fall out of sync with the token family below). */
+  /* The capsule's own height: control-lg + space-4 (56px). */
+  --bottom-nav-capsule-height: calc(var(--control-lg) + var(--space-4));
+  /* Edge margin between the capsule and the viewport's left/right/bottom
+     edges. BottomNav.css positions the capsule itself directly off these two
+     primitives (`height`/`bottom`), not off the aggregate below. */
+  --bottom-nav-inset: var(--space-3);
+  /* Total clearance from the viewport's bottom edge to the TOP of the
+     capsule (capsule height + edge inset + home-indicator safe area) — the
+     single source of truth for every OTHER consumer that just needs to clear
+     the bar: App.css:424's `.app-content` padding-bottom, PanelList.css's
+     zoom-widget clearance, and toast.css's viewport offset. Consolidated
+     from three inlined copies of the old flat-height expression
+     (BottomNav.css:27, App.css:424, and this token) onto one definition. */
+  --bottom-nav-height: calc(
+    var(--bottom-nav-capsule-height) + var(--bottom-nav-inset) + env(safe-area-inset-bottom)
+  );
 
   /* --- Theme-invariant swatch ring (F-233) --- */
   /* `--app-border-subtle`/`-strong` are both theme-derived hairlines at low

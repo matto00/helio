@@ -1,3 +1,5 @@
+import { Shapes } from "lucide-react";
+
 import { navDestinations } from "./navDestinations";
 import { pickerIdForPathname, sectionForPathname, sectionLabel, sections } from "./sections";
 
@@ -68,6 +70,16 @@ describe("sections registry", () => {
     expect(navVisible.map((section) => section.path)).toEqual(navDestinations.map((d) => d.to));
     expect(navVisible.map((section) => section.label)).toEqual(navDestinations.map((d) => d.label));
     expect(navVisible).toHaveLength(6);
+  });
+
+  // HEL-774 D11: dropping BottomNav's visible labels makes the glyph the
+  // sole carrier of meaning for the phone tab bar; BookOpen (documentation/
+  // library) reads as a dead end for a type registry without a label beside
+  // it, so Data Types moved to Shapes. Locked at the registry level since
+  // both the desktop sidebar and BottomNav derive from this one entry.
+  it("uses Shapes (not BookOpen) for the Data Types entry", () => {
+    const dataTypes = sections.find((section) => section.path === "/registry");
+    expect(dataTypes?.icon).toBe(Shapes);
   });
 
   // The direct fix for the "review routes had no section" bug (PR #382) — these three used to all

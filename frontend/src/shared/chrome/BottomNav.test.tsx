@@ -13,20 +13,20 @@ function renderAt(pathname: string) {
 }
 
 describe("BottomNav", () => {
-  it("renders exactly the navDestinations as tabs, in order, using each destination's short label (F-080)", () => {
+  it("renders exactly the navDestinations as icon-only tabs, in order, each exposing its full label as its accessible name (HEL-774)", () => {
     renderAt("/");
 
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
-    // Visible text is the short label where set (falls back to the full
-    // label) — the full label is still the link's accessible name (its own
-    // `aria-label`, asserted below), not its visible text.
-    expect(links.map((link) => link.textContent)).toEqual(
-      navDestinations.map((d) => d.shortLabel ?? d.label),
-    );
+    // No visible label (HEL-774 dropped it) — the accessible name IS the
+    // entire identifying information a screen-reader user gets, so it must
+    // equal the full destination label, not a shortened form.
     expect(links.map((link) => link.getAttribute("aria-label"))).toEqual(
       navDestinations.map((d) => d.label),
     );
+    for (const destination of navDestinations) {
+      expect(within(nav).getByRole("link", { name: destination.label })).toBeInTheDocument();
+    }
   });
 
   it("marks the Dashboards tab active on the root route and no other tab active", () => {

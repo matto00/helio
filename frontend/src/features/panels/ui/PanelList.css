@@ -177,3 +177,17 @@
     display: none;
   }
 }
+
+/* HEL-774 (D10): BottomNav now floats as a capsule rather than sitting on a
+ * reserved ledge, and it renders up to 768px while the zoom widget only
+ * hides below 430px — so between 431px and 768px it would otherwise sit
+ * directly on top of the capsule, over the Assistant tab. Retargeted onto
+ * the shared clearance token (rather than a second literal) so it can never
+ * drift from the capsule's own geometry; desktop (>768px) is untouched. Must
+ * come after the base `.panel-list__zoom-widget` rule above to win at equal
+ * specificity. */
+@media (max-width: 768px) {
+  .panel-list__zoom-widget {
+    bottom: calc(var(--bottom-nav-height) + var(--space-3));
+  }
+}
