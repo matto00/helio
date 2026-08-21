@@ -11,6 +11,7 @@ import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { metricsReducer } from "../features/metrics/state/metricsSlice";
+import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { settingsReducer } from "../features/settings/state/settingsSlice";
@@ -87,6 +88,11 @@ interface TestState {
     items?: DataSource[];
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
+    /** HEL-554: preloads `AddSourceModal`'s open flag — needed to prove the
+     *  unmount-cleanup guard (`SourcesPage.tsx`) red against the
+     *  pre-cleanup build: a freshly-mounted `SourcesPage` with this `true`
+     *  must NOT show the modal once the cleanup exists. */
+    addModalOpen?: boolean;
   };
   pipelines?: {
     items?: PipelineSummary[];
@@ -101,6 +107,15 @@ interface TestState {
     currentMetric?: Metric | null;
     currentMetricStatus?: "idle" | "loading" | "succeeded" | "failed";
     currentMetricError?: string | null;
+  };
+  /** HEL-554: onboarding checklist state consumed by `useOnboardingHost`/
+   * `OnboardingChecklist`. `dismissed` defaults to `null` (not yet
+   * hydrated) — a test that needs `autoActivate` to evaluate must opt in
+   * with `dismissed: false` explicitly (mirrors the real pre-hydration
+   * guard, design.md D2/D7). */
+  onboarding?: {
+    active?: boolean;
+    dismissed?: boolean | null;
   };
   /** HEL-664: conversation list + selection state consumed by `ChatPage.tsx`/
    * `ActiveConversationPanel.tsx`. */
@@ -161,6 +176,7 @@ export function renderWithStore(
     auth: authReducer,
     dashboards: dashboardsReducer,
     layoutHistory: layoutHistoryReducer,
+    onboarding: onboardingReducer,
     panels: panelsReducer,
     dataTypes: dataTypesReducer,
     metrics: metricsReducer,
@@ -226,6 +242,7 @@ export function renderWithStore(
           items: preloadedState.sources?.items ?? [],
           status: preloadedState.sources?.status ?? "idle",
           error: preloadedState.sources?.error ?? null,
+          addModalOpen: preloadedState.sources?.addModalOpen ?? false,
         },
         pipelines: {
           items: preloadedState.pipelines?.items ?? [],
@@ -246,6 +263,10 @@ export function renderWithStore(
           currentMetricStatus: preloadedState.metrics?.currentMetricStatus ?? "idle",
           currentMetricError: preloadedState.metrics?.currentMetricError ?? null,
           createModalOpen: false,
+        },
+        onboarding: {
+          active: preloadedState.onboarding?.active ?? false,
+          dismissed: preloadedState.onboarding?.dismissed ?? null,
         },
         assistantConversations: {
           items: preloadedState.assistantConversations?.items ?? [],

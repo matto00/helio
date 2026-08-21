@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser, faGear, faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
+import {
+  faUser,
+  faGear,
+  faArrowRightFromBracket,
+  faCircleQuestion,
+} from "@fortawesome/free-solid-svg-icons";
 
 import { usePortalPopover } from "../../../hooks/usePortalPopover";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { reopenOnboarding } from "../../onboarding/state/onboardingSlice";
 import type { User } from "../types/user";
 import "../../../shared/chrome/Popover.css";
 import "./UserMenu.css";
@@ -55,6 +63,14 @@ interface UserMenuProps {
 export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMenuProps) {
   const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
   const panelRef = useRef<HTMLDivElement>(null);
+  // HEL-554 D9 — `UserMenu` is prop-driven and rendered only at
+  // `CommandBar.tsx:254`; that file's line 160 is HEL-773's fenced
+  // sheet-opening control, so a callback prop here would mean editing it.
+  // Calling `useAppDispatch`/`useNavigate` directly instead is the ordinary
+  // pattern this component already avoids only because it happened to need
+  // no store/router access until now.
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
 
   // Move focus into the menu when it opens. F-082 removed the dropdown's own
   // theme-toggle row and HEL-728 removed its accent-color section; HEL-745
@@ -101,6 +117,18 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
     const delta = event.key === "ArrowDown" ? 1 : -1;
     const nextIndex = (currentIndex + delta + focusable.length) % focusable.length;
     focusable[nextIndex]?.focus();
+  }
+
+  // HEL-554 D2/D7/D9 — DISPATCHES rather than writing `localStorage` itself
+  // (the persisted dismissal has exactly one owner: `useOnboardingHost`'s
+  // effect). `reopenOnboarding` clears the stored dismissal and sets the
+  // sticky `active` flag; navigating to `/` afterward is what actually
+  // presents the checklist, since `PanelList` is the only surface that
+  // renders it.
+  function handleGettingStarted() {
+    close();
+    dispatch(reopenOnboarding());
+    navigate("/");
   }
 
   function handleToggle() {
@@ -172,6 +200,23 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
               >
                 <FontAwesomeIcon icon={faGear} />
                 Settings
+              </button>
+              {/* HEL-554 D9 — the re-open affordance every onboarding scenario
+                  needs: reachable regardless of whether the account currently
+                  has content (`workspace-create-actions`' own requirement —
+                  "an affordance that mutates stored state but presents
+                  nothing... SHALL NOT be shipped"). Reuses `.user-menu__item`,
+                  which already carries the 44px floor at <=768px
+                  (`UserMenu.css:138-140`). */}
+              <button
+                type="button"
+                role="menuitem"
+                className="user-menu__item user-menu__item--getting-started"
+                onClick={handleGettingStarted}
+                aria-label="Getting started"
+              >
+                <FontAwesomeIcon icon={faCircleQuestion} />
+                Getting started
               </button>
               <div className="user-menu__divider" />
               <button
