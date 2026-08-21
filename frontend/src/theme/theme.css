@@ -99,6 +99,33 @@
      is currently showing. Not redeclared in the `[data-theme]` blocks below;
      that's intentional, the whole point is that it never changes. */
   --app-swatch-ring: #8a8a8a;
+
+  /* --- Top-chrome seam (HEL-772) ---
+     Single source of truth for the app's claimed top safe-area inset and the
+     command bar's effective on-screen height. `--app-top-chrome-height` is
+     the ONE thing HEL-773's nav sheet (and any future top-anchored surface)
+     should consume — it must not re-derive `env(safe-area-inset-top)` on its
+     own. Any viewport-conditional override of `--app-command-bar-height`
+     MUST also target `:root` (see the `max-width: 768px` block below):
+     `--app-top-chrome-height` is substituted at computed-value time on the
+     element that declares it, so overriding the input further down the
+     cascade would not recompute it. Deliberately NOT derived from
+     `--bottom-nav-height` or any other BottomNav token/rule — HEL-774 is
+     concurrently reshaping the bottom nav into a floating capsule, which
+     changes that geometry's meaning; the top/bottom symmetry here is
+     intentional-at-this-moment, not a maintained invariant. */
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-command-bar-height: var(--space-9); /* 48px desktop */
+  --app-top-chrome-height: calc(var(--app-command-bar-height) + var(--app-safe-top));
+}
+
+@media (max-width: 768px) {
+  :root {
+    /* 56px — computed locally from control/spacing tokens, not from
+       BottomNav. Overriding on `:root` (not `.app-command-bar`) is what lets
+       `--app-top-chrome-height` above recompute at this breakpoint. */
+    --app-command-bar-height: calc(var(--control-lg) + var(--space-4));
+  }
 }
 
 /* ─── Dark: warm near-black "stone" ramp ─────────────────────────────────── */
@@ -200,15 +227,23 @@
   box-sizing: border-box;
 }
 
+/* HEL-772: bounded by the dynamic viewport, not a percentage of the initial
+   containing block — under a retracting mobile browser toolbar that
+   percentage's resolution is UA-dependent (Helio ships to Android Chrome as
+   well as iOS Safari). `100vh` stays as the first declaration so browsers
+   without `dvh` support still get a value; `100dvh` wins wherever it's
+   supported. Migrating this whole chain (not just `.app-shell`) is required
+   -- leaving it at `min-height: 100%` keeps the document taller than the
+   visible viewport even once the shell itself is fixed. */
 html,
 body,
 #root {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 body {
   margin: 0;
-  min-height: 100vh;
   background-color: var(--app-bg);
   color: var(--app-text);
   font-size: var(--text-sm);

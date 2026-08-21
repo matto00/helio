@@ -77,20 +77,82 @@ describe("App.css — phone-only 'New chat' affordance visibility (HEL-746)", ()
   });
 });
 
-// Regression guard for the HEL-745 mobile command-bar-height fix. jsdom
-// implements no real layout or media-query evaluation, so no DOM-rendering
-// Jest test can observe the rendered command-bar height at a phone viewport.
-// This test statically asserts the CSS source keeps the mobile-scoped
-// `height: var(--space-10)` rule for `.app-command-bar` -- without it, the
-// bar's 44px IconButton mobile tap-target floor (IconButton.css.test.ts)
-// would go back to nearly filling the bar edge to edge, unnoticed until the
-// next live-viewport testing pass (the exact failure mode that produced this
-// hotfix). Follows IconButton.css.test.ts's exact pattern.
-describe("App.css — mobile command-bar height frames 44px tap targets (HEL-745)", () => {
+// Regression guard for the HEL-772 top-chrome seam / anchored command bar.
+// jsdom implements no real layout or media-query evaluation, so no
+// DOM-rendering Jest test can observe the rendered command-bar geometry at a
+// phone viewport. HEL-745's `height: var(--space-10)` mobile override is
+// superseded by the seam (theme.css.test.ts locks the token side); these
+// tests lock the App.css side -- the seam and its derivation, longhand-only
+// padding, and the inert-cascade ordering guard (HEL-535 cycle-1: a mobile
+// `@media` block placed ABOVE the base rule made an equal-specificity floor
+// silently inert).
+describe("App.css — command bar takes its height/inset from the top-chrome seam (HEL-772)", () => {
+  const baseBody = findRuleBodyInSource(css, ".app-command-bar {");
+
+  it("the base rule derives height from --app-top-chrome-height", () => {
+    expect(baseBody).toMatch(/height:\s*var\(--app-top-chrome-height\)\s*;/);
+  });
+
+  it("the base rule claims the top safe-area inset as padding-top", () => {
+    expect(baseBody).toMatch(/padding-top:\s*var\(--app-safe-top\)\s*;/);
+  });
+
+  it("neither the base nor the mobile .app-command-bar rule declares a padding shorthand", () => {
+    const mobileBlock = findMediaBlock(css, "max-width: 768px");
+    const mobileBody = findRuleBody(mobileBlock, ".app-command-bar");
+    // A shorthand `padding:` declaration -- longhands (`padding-top:`,
+    // `padding-right:`, etc.) must not trip this.
+    expect(baseBody).not.toMatch(/padding:\s*[^-]/);
+    expect(mobileBody).not.toMatch(/padding:\s*[^-]/);
+  });
+
+  it("the mobile block declares NO height for .app-command-bar (derives from the token alone)", () => {
+    const mobileBlock = findMediaBlock(css, "max-width: 768px");
+    const mobileBody = findRuleBody(mobileBlock, ".app-command-bar");
+    // Declaration-aware: must not false-negative on `min-height:` (a real,
+    // intentional declaration elsewhere in this same media block) and must
+    // only inspect the isolated rule body, not prose in a preceding comment.
+    expect(mobileBody).not.toMatch(/(?<!min-)height\s*:/);
+  });
+
+  it("the mobile @media block appears after the base .app-command-bar rule (inert-cascade guard)", () => {
+    const baseIndex = css.indexOf(".app-command-bar {");
+    const mediaIndex = css.indexOf("@media (max-width: 768px)");
+    expect(baseIndex).toBeGreaterThanOrEqual(0);
+    expect(mediaIndex).toBeGreaterThan(baseIndex);
+  });
+
+  it(".app-shell resolves to a dvh height (falls back from 100vh)", () => {
+    const shellBody = findRuleBodyInSource(css, ".app-shell {");
+    expect(shellBody).toMatch(/height:\s*100vh\s*;/);
+    expect(shellBody).toMatch(/height:\s*100dvh\s*;/);
+  });
+});
+
+describe("App.css — mobile tap targets: 28px painted box, 44px hit area (HEL-772)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 
-  it("the command bar gets height: var(--space-10) at the mobile-shell breakpoint", () => {
-    const body = findRuleBody(mobileBlock, ".app-command-bar");
-    expect(body).toMatch(/height:\s*var\(--space-10\)\s*;/);
+  it("unpainted controls (.app-command-bar__mobile-title, .app-command-bar__logo) get min-height: 44px", () => {
+    const titleBody = findRuleBody(mobileBlock, ".app-command-bar__mobile-title");
+    expect(titleBody).toMatch(/min-height:\s*44px\s*;/);
+    const logoBody = findRuleBody(mobileBlock, ".app-command-bar__logo");
+    expect(logoBody).toMatch(/min-height:\s*44px\s*;/);
+  });
+
+  it("scopes .ui-icon-btn back to var(--control-sm) inside .app-command-bar, not IconButton.css's 44px floor", () => {
+    const body = findRuleBody(mobileBlock, ".app-command-bar .ui-icon-btn");
+    expect(body).toMatch(/min-width:\s*var\(--control-sm\)\s*;/);
+    expect(body).toMatch(/min-height:\s*var\(--control-sm\)\s*;/);
+  });
+
+  it("declares a sized 44x44px ::after hit expander for .app-command-bar .ui-icon-btn", () => {
+    const body = findRuleBody(mobileBlock, ".app-command-bar .ui-icon-btn::after");
+    expect(body).toMatch(/width:\s*44px\s*;/);
+    expect(body).toMatch(/height:\s*44px\s*;/);
+  });
+
+  it("widens .app-command-bar__right's gap to var(--space-4) so hit regions abut instead of overlapping", () => {
+    const body = findRuleBody(mobileBlock, ".app-command-bar__right");
+    expect(body).toMatch(/gap:\s*var\(--space-4\)\s*;/);
   });
 });

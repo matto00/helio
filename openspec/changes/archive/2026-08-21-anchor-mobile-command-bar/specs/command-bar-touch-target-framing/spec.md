@@ -1,8 +1,5 @@
-# command-bar-touch-target-framing Specification
+## MODIFIED Requirements
 
-## Purpose
-Ensures the app command bar's own mobile height frames its 44px icon tap-targets with real clearance, instead of relying on the icon buttons' own tap-target floor alone.
-## Requirements
 ### Requirement: Mobile command bar frames its own tap targets
 On mobile viewports (`<=768px`), the app command bar (`.app-command-bar`) SHALL be tall enough to give its 44px mobile
 tap-target-floor icon buttons (`IconButton.css`'s `HEL-308/314/319` floor) visible clearance above and below, rather than
@@ -56,4 +53,3 @@ would silently render the mobile height inert.
 #### Scenario: Mobile media block moved above the base rule
 - **WHEN** the `max-width: 768px` media block is moved above the base `.app-command-bar` rule
 - **THEN** the corresponding CSS-lock test fails
-
