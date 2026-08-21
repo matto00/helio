@@ -14,6 +14,7 @@ import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { metricsReducer } from "../features/metrics/state/metricsSlice";
+import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { getPipelines as getPipelinesRequest } from "../features/pipelines/services/pipelineService";
@@ -128,6 +129,7 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
       auth: authReducer,
       dashboards: dashboardsReducer,
       layoutHistory: layoutHistoryReducer,
+      onboarding: onboardingReducer,
       panels: panelsReducer,
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
@@ -482,8 +484,16 @@ describe("App", () => {
 
     fireEvent.click(pipelinesLink);
 
+    // HEL-554: with zero dashboards, the onboarding checklist's own
+    // fetch-trigger effect (visible on "/") already warms the pipelines
+    // fetch before this click, so by the time `/pipelines` mounts, both the
+    // sidebar's own empty-state "+"/CTA AND the main page's empty-state CTA
+    // can legitimately coexist — scope to the main content landmark (the
+    // same disambiguation this test already applies to the sidebar nav
+    // link above) so the query isn't ambiguous across all three.
+    const main = screen.getByRole("main");
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "New pipeline" })).toBeInTheDocument(),
+      expect(within(main).getByRole("button", { name: "New pipeline" })).toBeInTheDocument(),
     );
   });
 

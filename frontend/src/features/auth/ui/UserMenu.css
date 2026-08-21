@@ -120,6 +120,14 @@
   color: var(--app-text);
 }
 
+.user-menu__item--getting-started {
+  color: var(--app-text-muted);
+}
+
+.user-menu__item--getting-started:hover {
+  color: var(--app-text);
+}
+
 .user-menu__item--signout {
   color: var(--app-error);
 }

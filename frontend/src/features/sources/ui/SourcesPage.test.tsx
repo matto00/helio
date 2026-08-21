@@ -25,6 +25,17 @@ jest.mock("../../dataTypes/services/dataTypeService", () => ({
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 const fetchSourcesMock = jest.mocked(fetchSourcesRequest);
 
+// AddSourceModal uses <dialog> showModal/close, which jsdom doesn't
+// implement — mirrors PanelList.test.tsx's identical stub.
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  });
+  HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+  });
+});
+
 describe("SourcesPage", () => {
   beforeEach(() => {
     fetchDataTypesMock.mockResolvedValue([]);
@@ -126,5 +137,45 @@ describe("SourcesPage", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(await screen.findByText(/Connect a data source/i)).toBeInTheDocument();
     expect(fetchSourcesMock).toHaveBeenCalledTimes(2);
+  });
+
+  // HEL-554 D4/task 3.4/3.6 — the missing unmount cleanup for
+  // `addSourceModalOpen`, mirroring `PanelList.test.tsx`'s identical
+  // "panel-creation modal flag reset on unmount" suite.
+  describe("add-source modal flag reset on unmount (HEL-554 D4)", () => {
+    it("does not reopen the modal on a fresh mount after a prior instance unmounted with the flag left true", async () => {
+      const { rerender } = renderWithStore(<SourcesPage />, {
+        sources: { items: [], status: "succeeded", addModalOpen: true },
+      });
+
+      // Sanity: the preset flag really does open the modal on first mount —
+      // proves the probe can detect "modal open" at all before trusting a
+      // later "not open" reading.
+      expect(await screen.findByRole("dialog", { name: "Add data source" })).toBeInTheDocument();
+
+      // Unmount SourcesPage (fires its cleanup effect) — the store persists
+      // (same Provider instance) — then mount a FRESH SourcesPage instance.
+      rerender(<></>);
+      rerender(<SourcesPage />);
+
+      expect(screen.queryByRole("dialog", { name: "Add data source" })).not.toBeInTheDocument();
+    });
+
+    it("verifies the unmount path directly: opening the modal, navigating away, and returning does not re-open it", async () => {
+      const { rerender } = renderWithStore(<SourcesPage />, {
+        sources: { items: [], status: "succeeded" },
+      });
+      expect(screen.queryByRole("dialog", { name: "Add data source" })).not.toBeInTheDocument();
+
+      fireEvent.click(await screen.findByRole("button", { name: "Add source" }));
+      expect(await screen.findByRole("dialog", { name: "Add data source" })).toBeInTheDocument();
+
+      // "Navigate away with it open" — unmount while the flag is still true.
+      rerender(<></>);
+      // "Return" — a fresh mount.
+      rerender(<SourcesPage />);
+
+      expect(screen.queryByRole("dialog", { name: "Add data source" })).not.toBeInTheDocument();
+    });
   });
 });

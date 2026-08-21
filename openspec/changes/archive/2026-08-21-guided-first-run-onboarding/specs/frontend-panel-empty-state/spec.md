@@ -1,10 +1,5 @@
-# frontend-panel-empty-state Specification
+## MODIFIED Requirements
 
-## Purpose
-Empty-state coverage for the dashboard panel area: what the panel area renders when the active
-dashboard has no panels, in every reachable no-data state, and the call to action that lets the
-user add one.
-## Requirements
 ### Requirement: Empty state shown when a dashboard has no panels
 The system SHALL display a meaningful empty state in the panel area whenever the active dashboard has no
 panels and no fetch is pending, and SHALL NOT leave the panel area blank in any such state.
@@ -58,14 +53,6 @@ as it does today.
 - **THEN** that surface renders in the panel area, the "No panels yet" empty state does not also render,
   and the panel create action is still reachable from the region
 
-### Requirement: Empty state CTA opens the panel create form
-The system SHALL provide an "Add panel" button in the empty state that opens the same inline panel create form as the header `+` button.
-
-#### Scenario: Clicking "Add panel" in empty state opens the create form
-- **WHEN** the empty state is visible
-- **AND** the user clicks the "Add panel" button
-- **THEN** the inline panel create form becomes visible (identical to clicking the header `+` button)
-
 ### Requirement: A failed dashboard create is reported on the panel area's own empty surface
 When creating a dashboard from the panel area's empty state fails, that surface SHALL report the failure
 with the same treatment as every other full-surface failure: an error intent, an error title, an error
@@ -92,4 +79,3 @@ same treatment, so superseding the empty state never silently drops the failure 
 - **WHEN** a guided first-run surface occupies the region and a dashboard create invoked from it fails
 - **THEN** that surface reports the failure with an error intent, an announced role, and the rejection's
   own message
-

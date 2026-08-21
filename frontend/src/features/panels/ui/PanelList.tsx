@@ -7,6 +7,8 @@ import "./PanelList.css";
 import { defaultDashboardLayout } from "../../dashboards/state/dashboardLayout";
 import { updateUserPreferences } from "../../auth/state/authSlice";
 import { useCreateDashboardAction } from "../../dashboards/hooks/useCreateDashboardAction";
+import { useOnboardingHost } from "../../onboarding/hooks/useOnboardingHost";
+import { OnboardingChecklist } from "../../onboarding/ui/OnboardingChecklist";
 import { PanelGrid } from "./PanelGrid";
 import { PanelGridSkeleton } from "./PanelGridSkeleton";
 import { panelGridConfig } from "./panelGridConfig";
@@ -44,6 +46,11 @@ export function PanelList() {
   // over the D5a-lifted `panelCreationModalOpen` Redux field.
   const createDashboardAction = useCreateDashboardAction();
   const createPanelAction = useCreatePanelAction();
+  // HEL-554 D3 — called UNCONDITIONALLY, mirroring the two hooks above: owns
+  // every onboarding side effect (hydration/persistence, sticky activation,
+  // the sources/pipelines fetch trigger) and reports whether the checklist
+  // should be visible on this render.
+  const { visible: onboardingVisible } = useOnboardingHost();
   // HEL-539 — local in-flight flag for the panels-list Retry action (status
   // itself flips straight to "loading" on retry, which swaps StatusMessage
   // out of its "failed" branch entirely; this only matters for the brief
@@ -123,6 +130,30 @@ export function PanelList() {
     selectedDashboardId === null &&
     dashboards.length === 0 &&
     (dashboardsStatus === "idle" || dashboardsStatus === "loading");
+
+  // HEL-554 D5/D6, tasks 4.2/2.13 — mirrors the two conditions below that
+  // decide whether the zero-dashboard / zero-panel `EmptyState` would render
+  // at all, absent the checklist. Reused twice: to suppress those two
+  // `EmptyState`s while the checklist visibly occupies their region (D5 —
+  // "keyed off the SAME visible value the surface renders on"), and to pick
+  // the checklist's own Primary-vs-Secondary emphasis (D6) — Primary only in
+  // the placement where no EmptyState (and so no other Primary) already
+  // occupies this region; Secondary once the checklist sits above a
+  // skeleton or a real, populated grid instead.
+  const contentGateOpen = !(showPanelGridSkeleton || showBootstrapSkeleton);
+  const wouldShowZeroDashboardEmptyState =
+    contentGateOpen &&
+    status !== "loading" &&
+    status !== "failed" &&
+    selectedDashboardId === null &&
+    dashboards.length === 0;
+  const wouldShowZeroPanelEmptyState =
+    contentGateOpen &&
+    selectedDashboardId !== null &&
+    items.length === 0 &&
+    (status === "succeeded" || staleDashboardId === selectedDashboardId);
+  const onboardingSupersedesEmptyState =
+    onboardingVisible && (wouldShowZeroDashboardEmptyState || wouldShowZeroPanelEmptyState);
 
   const savedZoomLevel =
     selectedDashboardId && currentUser?.preferences?.zoomLevels
@@ -351,6 +382,20 @@ export function PanelList() {
         }
         retrying={isRetryingPanels}
       />
+      {/* HEL-554 D1/D4.1 — mounted OUTSIDE line ~413's skeleton gate below (and
+          outside the zero-content gate further down), so it does not blink
+          out during the `fetchPanels` round trip after step 3 auto-selects a
+          newly-created dashboard. Renders BEFORE the zoom-container so it
+          sits visually above the grid once the region stops being empty
+          (D6's "above the grid" placement, e.g. the all-four-complete state,
+          where real panels render beneath the still-visible completed
+          chain). */}
+      {onboardingVisible ? (
+        <OnboardingChecklist
+          createDashboardAction={createDashboardAction}
+          emphasisVariant={onboardingSupersedesEmptyState ? "primary" : "secondary"}
+        />
+      ) : null}
       {/* HEL-528 design.md D10/D11/D12 — the same `.panel-list__zoom-container`
           wrapper the resolved grid renders into, so a saved zoom level other
           than 1 does not displace the swap when real panels arrive.
@@ -397,11 +442,10 @@ export function PanelList() {
           />
         ) : null}
       </div>
-      {!(showPanelGridSkeleton || showBootstrapSkeleton) ? (
+      {contentGateOpen ? (
         <>
-          {status !== "loading" && status !== "failed" && selectedDashboardId === null ? (
-            dashboards.length === 0 ? (
-              // HEL-548 D6/D6a/task 3.3 (HEL-770 absorbed) — conditional
+          {wouldShowZeroDashboardEmptyState && !onboardingVisible
+            ? // HEL-548 D6/D6a/task 3.3 (HEL-770 absorbed) — conditional
               // error intent, applied within this ONE branch: a failed
               // create renders the error-title/-icon/role="alert" treatment
               // (parity with HEL-539's five `intent="error"` siblings),
@@ -411,6 +455,11 @@ export function PanelList() {
               // no role="alert". The CTA is the same `New dashboard` /
               // `Creating…` action either way, so a failed attempt can be
               // retried from the same surface.
+              //
+              // HEL-554 D5 — suppressed (the `!onboardingVisible` guard above)
+              // whenever the checklist supersedes this region; the checklist
+              // carries the same "never blank"/CTA/announced-error guarantees
+              // itself (`frontend-panel-empty-state`'s modified requirement).
               (() => {
                 const createDashboardError = createDashboardAction.error;
                 return createDashboardError !== null ? (
@@ -430,13 +479,19 @@ export function PanelList() {
                   />
                 );
               })()
-            ) : (
-              <EmptyState
-                icon={<LayoutDashboard />}
-                title="Select a dashboard"
-                description="Choose a dashboard from the sidebar to view its panels."
-              />
-            )
+            : null}
+          {/* D5 — NOT suppressed by `onboardingVisible`: dashboards exist
+              once this branch can render, so it is never a first-run state
+              and has no CTA of its own to double up with the checklist. */}
+          {status !== "loading" &&
+          status !== "failed" &&
+          selectedDashboardId === null &&
+          dashboards.length > 0 ? (
+            <EmptyState
+              icon={<LayoutDashboard />}
+              title="Select a dashboard"
+              description="Choose a dashboard from the sidebar to view its panels."
+            />
           ) : null}
           {/* HEL-548 D1/D2/task 2.3 — admits the terminal (post-delete)
               state alongside the resolved-succeeded one:
@@ -448,10 +503,12 @@ export function PanelList() {
               all, permanently. `selectedDashboardId !== null` is hoisted
               into the gate itself (previously only guarded the cta) so a
               CTA-less hero can never render in a state this branch already
-              excludes. */}
-          {selectedDashboardId !== null &&
-          items.length === 0 &&
-          (status === "succeeded" || staleDashboardId === selectedDashboardId) ? (
+              excludes.
+
+              HEL-554 D5 — suppressed while the checklist supersedes this
+              region too (including this exact post-delete state — the
+              modified `frontend-panel-empty-state` spec's own scenario). */}
+          {wouldShowZeroPanelEmptyState && !onboardingVisible ? (
             <EmptyState
               icon={<LayoutGrid />}
               title="No panels yet"

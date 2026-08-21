@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import type { User } from "../types/user";
 import { UserMenu } from "./UserMenu";
+import { dismissOnboarding } from "../../onboarding/state/onboardingSlice";
+import { renderWithStore } from "../../../test/renderWithStore";
 
 const baseUser: User = {
   id: "user-1",
@@ -11,11 +13,15 @@ const baseUser: User = {
   tier: "free",
 };
 
+// HEL-554 D9 — moved from a bare `render` to `renderWithStore` (task 4.6):
+// `UserMenu` now calls `useAppDispatch`/`useNavigate` itself for the
+// "Getting started" item, so every test needs a real store + router in
+// context, not just the two callback props.
 function renderMenu(overrides: Partial<User> = {}) {
   const user: User = { ...baseUser, ...overrides };
   const onLogout = jest.fn();
   const onNavigateToSettings = jest.fn();
-  const utils = render(
+  const utils = renderWithStore(
     <UserMenu currentUser={user} onNavigateToSettings={onNavigateToSettings} onLogout={onLogout} />,
   );
   return { ...utils, onLogout, onNavigateToSettings };
@@ -85,7 +91,7 @@ describe("UserMenu", () => {
     // A strict `avatarUrl !== null` check let `undefined` through and
     // rendered a permanently broken `<img src={undefined}>`.
     const { avatarUrl: _omitted, ...userWithoutAvatarUrl } = baseUser;
-    render(
+    renderWithStore(
       <UserMenu
         currentUser={userWithoutAvatarUrl as User}
         onNavigateToSettings={jest.fn()}
@@ -142,6 +148,43 @@ describe("UserMenu", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  // HEL-554 D9/task 4.4/4.5 — the re-open affordance. Dispatches rather than
+  // writing storage itself (D7's single-owner requirement) and navigates to
+  // "/", the only surface that renders the checklist.
+  describe("Getting started (HEL-554)", () => {
+    it("renders a 'Getting started' item in the popover", () => {
+      renderMenu();
+      fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+      expect(screen.getByRole("menuitem", { name: "Getting started" })).toBeInTheDocument();
+    });
+
+    it("clicking it clears the stored dismissal, sets onboarding active, navigates to '/', and closes the popover", () => {
+      const { store } = renderMenu();
+      store.dispatch(dismissOnboarding());
+      expect(store.getState().onboarding).toEqual({ active: false, dismissed: true });
+
+      fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Getting started" }));
+
+      expect(store.getState().onboarding).toEqual({ active: true, dismissed: false });
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
+
+    it("does NOT write to localStorage directly — dismissal persistence stays owned by useOnboardingHost (D7)", () => {
+      const setItemSpy = jest.spyOn(Storage.prototype, "setItem");
+      const { store } = renderMenu();
+      fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Getting started" }));
+
+      expect(store.getState().onboarding.active).toBe(true);
+      expect(setItemSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("helio-onboarding-dismissed-"),
+        expect.anything(),
+      );
+      setItemSpy.mockRestore();
+    });
+  });
+
   // F-189
   it("scrim is hidden from the accessibility tree and out of the tab order", () => {
     renderMenu();
@@ -151,18 +194,20 @@ describe("UserMenu", () => {
     expect(scrim).toHaveAttribute("tabIndex", "-1");
   });
 
-  it("opens with focus on the first item (Settings) and ArrowDown moves to the next", () => {
+  it("opens with focus on the first item (Settings) and ArrowDown moves through Getting started to Sign out", () => {
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
     const firstItem = screen.getByRole("menuitem", { name: "Settings" });
     expect(firstItem).toHaveFocus();
 
     fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
-    const secondItem = screen.getByRole("menuitem", { name: "Sign out" });
-    expect(secondItem).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "Getting started" })).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+    expect(screen.getByRole("menuitem", { name: "Sign out" })).toHaveFocus();
   });
 
-  it("ArrowUp from the first item wraps focus to the last item in the menu", () => {
+  it("ArrowUp from the first item wraps focus to the last item (Sign out) in the menu", () => {
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));
     expect(screen.getByRole("menuitem", { name: "Settings" })).toHaveFocus();

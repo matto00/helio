@@ -41,6 +41,23 @@ export function SourcesPage() {
     }
   }, [dispatch, sourcesStatus, dataTypesStatus]);
 
+  // HEL-554 D4/task 3.4 — mirrors `PanelList.tsx:193-197`'s identical
+  // cleanup for `panelCreationModalOpen`. `addModalOpen` is a Redux flag, so
+  // (unlike `useState`) it outlives this component: open the modal -> Ctrl/
+  // Cmd+K -> navigate away -> `SourcesPage` unmounts with the flag still
+  // `true` -> returning to `/sources` (including via HEL-554's onboarding
+  // checklist, which navigates here rather than setting this flag itself —
+  // D4) would open the modal unbidden. Safe under StrictMode's dev-only
+  // double-invoke because `addModalOpen` starts `false` at every mount now
+  // that nothing sets it before this page itself does (the `workspace-
+  // create-actions` spec's own requirement — this page previously had no
+  // cleanup at all).
+  useEffect(() => {
+    return () => {
+      dispatch(setAddSourceModalOpen(false));
+    };
+  }, [dispatch]);
+
   // Derive the effective selection so the panel is never blank: explicit user
   // choice from the sidebar wins; otherwise fall back to the first item.
   const selected = sources.find((s) => s.id === selectedSourceId) ?? sources[0] ?? null;
