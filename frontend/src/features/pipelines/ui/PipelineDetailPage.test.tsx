@@ -523,6 +523,94 @@ describe("PipelineDetailPage", () => {
     await waitFor(() => expect(deletePipelineStepMock).toHaveBeenCalledWith("abc-123-def"));
   });
 
+  // HEL-535 D5/5.12 — `handleRemoveStep` used to swallow a rejected DELETE
+  // with `.catch(() => {})`: no toast, and (unlike its reorder/enable/
+  // duplicate siblings) it never restored the optimistically-removed step,
+  // so the view said the step was gone while it still existed server-side.
+  it("a failed step delete restores the step to the view and emits exactly one error toast", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "abc-123-def",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "rename",
+        config: { renames: {} },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    // A plain (non-axios) Error — `extractErrorMessage` can pull no
+    // server-supplied reason out of this, so it takes the FALLBACK branch.
+    // This is deliberate: skeptic-final-1.md CR2 found that this exact path
+    // used to render "Failed to delete step: Failed to delete step." (the
+    // fallback restated the prefix). The `toBe` below (not `toMatch`) pins
+    // the full string, so a regression to the doubled sentence fails this
+    // test — `toMatch(/failed to delete step/i)` alone would NOT have
+    // caught it, since that pattern matches the doubled string too.
+    deletePipelineStepMock.mockRejectedValueOnce(new Error("Conflict"));
+
+    const store = makeStore();
+    renderDetailPage("pipe-1", store);
+
+    const card = await screen.findByRole("button", {
+      name: /Rename column/i,
+      expanded: false,
+    });
+    fireEvent.click(card);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
+    });
+
+    // Restored — the failure and the visible state agree.
+    expect(screen.getByText("Rename column")).toBeInTheDocument();
+    const toasts = store.getState().toasts.items;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0].variant).toBe("error");
+    expect(toasts[0].message).toBe("Failed to delete step: the request could not be completed.");
+    expect(toasts[0].message).not.toMatch(/failed to delete step: failed to delete step\.$/i);
+  });
+
+  // skeptic-final-1.md CR2 — companion to the fallback-path test above: with
+  // a server-supplied reason, the message reads correctly either way, so
+  // this pins that arm doesn't regress alongside the fallback-copy fix.
+  it("a failed step delete with a server-supplied reason names it, undoubled", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "abc-123-def",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "rename",
+        config: { renames: {} },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    deletePipelineStepMock.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { data: { message: "Step is referenced by a downstream binding." } },
+    });
+
+    const store = makeStore();
+    renderDetailPage("pipe-1", store);
+
+    const card = await screen.findByRole("button", {
+      name: /Rename column/i,
+      expanded: false,
+    });
+    fireEvent.click(card);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
+    });
+
+    const toasts = store.getState().toasts.items;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0].message).toBe(
+      "Failed to delete step: Step is referenced by a downstream binding.",
+    );
+  });
+
   // HEL-407 (design.md Decision 7) — page-local `handleReorderSteps`: snapshot
   // → optimistic reorder → persisted-ids-only PUT → reconcile by id on
   // success → revert + toast on failure. Task 3.1.

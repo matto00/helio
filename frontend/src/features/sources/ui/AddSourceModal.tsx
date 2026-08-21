@@ -78,11 +78,21 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
   // F-008: every create handler ends the same way once the source exists —
   // refetch the list, select the new source so it's not silently buried, and
   // toast. Centralized here so none of the 7 call sites can drift again.
-  function finishCreate(created: { id: string }) {
+  //
+  // HEL-535 D6 — the two thunk-dispatched paths (createStaticSource,
+  // createSqlSource) already get a success toast from toastListeners.ts's
+  // `.fulfilled` entry; without `{ toast: false }` those two would toast
+  // twice per create (this function's own push, plus the listener's) while
+  // the other five (direct service calls, no thunk, no listener) would only
+  // ever get this one. Wording matches the listener's exactly ('created.'),
+  // so the five direct-service paths and the two thunk paths read identically.
+  function finishCreate(created: { id: string }, options: { toast?: boolean } = {}) {
     void dispatch(fetchSources());
     void dispatch(fetchDataTypes());
     dispatch(setSelectedSourceId(created.id));
-    pushToast({ variant: "success", message: "Source added." });
+    if (options.toast !== false) {
+      pushToast({ variant: "success", message: `Data source "${name.trim()}" created.` });
+    }
     onClose();
   }
 
@@ -164,7 +174,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
       const created = await dispatch(
         createStaticSource({ name: name.trim(), columns, rows }),
       ).unwrap();
-      finishCreate(created);
+      finishCreate(created, { toast: false });
     } catch {
       setError("Failed to create static source.");
     } finally {
@@ -181,7 +191,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     setError(null);
     try {
       const created = await dispatch(createSqlSource({ name: sourceName, config })).unwrap();
-      finishCreate(created);
+      finishCreate(created, { toast: false });
     } catch (err: unknown) {
       const msg =
         typeof err === "string" && err

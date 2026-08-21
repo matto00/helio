@@ -16,6 +16,16 @@
   pointer-events: none;
 }
 
+/* HEL-535 D4 — clear BottomNav (and its safe-area inset) at phone widths so
+   the toast stack never sits over the nav bar. `.toast__close`'s own mobile
+   floor is declared in a SEPARATE block below, after its base rule — see the
+   comment there (evaluation-1.md CR1). */
+@media (max-width: 768px) {
+  .toast-viewport {
+    bottom: calc(var(--bottom-nav-height) + var(--space-4));
+  }
+}
+
 /* Individual toast card */
 .toast {
   display: flex;
@@ -32,12 +42,32 @@
   line-height: 1.4;
   pointer-events: auto;
 
-  /* Slide-in from the right */
-  animation: toast-slide-in var(--app-transition) both;
+  /* HEL-535 D4 — the exit animation's duration as a token (mirrors
+     `--toast-intent-color` above: scoped to `.toast`, which `.toast--exiting`
+     always co-occurs with on the same element), so `Toast.tsx`'s
+     `TOAST_EXIT_MS` (the JS-side delay before removing a dismissed toast
+     from store) documents itself as this value's counterpart rather than a
+     second, silently-drifting literal. */
+  --toast-exit-duration: 200ms;
+
+  /* Slide-in from the right — DESIGN.md §3's entrance token, not the hover
+     token (--app-transition). */
+  animation: toast-slide-in var(--transition-slow) both;
 }
 
 .toast--exiting {
-  animation: toast-fade-out 0.2s ease forwards;
+  animation: toast-fade-out var(--toast-exit-duration) ease forwards;
+}
+
+/* HEL-535 D4 — reduced motion disables the entrance/exit outright rather
+   than merely shortening it; `Toast.tsx`'s own `matchMedia` check zeroes the
+   exit delay under the same query so a dismissed toast doesn't sit in
+   layout, invisible, for `--toast-exit-duration` while unpainted. */
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast--exiting {
+    animation: none;
+  }
 }
 
 /* Variant intent colors */
@@ -123,6 +153,30 @@
 .toast__close:hover {
   color: var(--app-text);
   background: color-mix(in srgb, var(--app-text) 10%, transparent);
+}
+
+/* HEL-535 D4/evaluation-1.md CR1 — the 44px mobile tap-target floor MUST be
+   declared in its own `@media` block placed AFTER the base `.toast__close`
+   rule above. `.toast__close` here and the base rule above it both have
+   selector specificity (0,1,0); with equal specificity the cascade resolves
+   by source order, so a media block placed BEFORE the base rule loses to it
+   regardless of whether the query matches — that was CR1's bug (the floor
+   was declared but never took effect). `.toast-viewport`'s own mobile
+   override doesn't have this problem because ITS base rule sits above ITS
+   media block, so it's the exception, not the model, to copy. DESIGN.md §5
+   blesses `.toast__close`'s 20px desktop size, so it stays 20px above 768px
+   — this block only adds the 44px floor. */
+@media (max-width: 768px) {
+  .toast__close {
+    /* skeptic-final-1.md CR3 — 44px is DESIGN.md:130's blessed mobile
+       tap-target literal; the margin isn't covered by that carve-out (the
+       base rule's -2px/-4px are within §3's <=4px optical-tweak allowance,
+       these are 3x that), so it's expressed as -1 * --space-3 (12px) rather
+       than a bare -12px literal. */
+    width: 44px;
+    height: 44px;
+    margin: calc(var(--space-3) * -1) calc(var(--space-3) * -1) 0 0;
+  }
 }
 
 /* Animations */

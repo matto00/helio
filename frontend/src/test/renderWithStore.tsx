@@ -15,7 +15,9 @@ import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { settingsReducer } from "../features/settings/state/settingsSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
+import { addToastListeners } from "../features/toasts/state/toastListeners";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
+import { listenerMiddleware, startAppListening } from "../store/listenerMiddleware";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
@@ -117,6 +119,29 @@ interface TestState {
   };
 }
 
+export interface RenderWithStoreOptions {
+  /** HEL-535 — off by default (unchanged behaviour for every existing
+   *  caller). When true, wires `listenerMiddleware` in and registers
+   *  `toastListeners.ts`'s tables, mirroring the real app store (`store.ts`)
+   *  — needed only by tests that must observe a thunk-fulfilled/-rejected
+   *  listener's own toast (e.g. `AddSourceModal`'s D6 one-toast-per-create
+   *  guarantee, where the toast comes from the listener, not the component).
+   *  Registered once per call — see the guard below. */
+  withToastListeners?: boolean;
+}
+
+// HEL-535 — registers `toastListeners.ts` on the module-level
+// `listenerMiddleware` singleton at most once per test FILE (Jest gives each
+// test file its own fresh module registry, so this resets across files).
+// Without this guard, a test file with multiple `withToastListeners: true`
+// calls would re-register every entry each time, firing each effect N times.
+let toastListenersRegistered = false;
+function ensureToastListenersRegistered() {
+  if (toastListenersRegistered) return;
+  addToastListeners(startAppListening);
+  toastListenersRegistered = true;
+}
+
 export function renderWithStore(
   ui: ReactElement,
   preloadedState?: TestState,
@@ -125,6 +150,7 @@ export function renderWithStore(
    *  read a route param via `useParams` (e.g. `MetricDetailPage`'s `:id`),
    *  which require a matched `<Route>` to resolve. */
   initialPath: string = "/",
+  options?: RenderWithStoreOptions,
 ) {
   const reducer = {
     assistantConversations: assistantConversationsReducer,
@@ -233,9 +259,17 @@ export function renderWithStore(
       }
     : undefined;
 
+  if (options?.withToastListeners) {
+    ensureToastListenersRegistered();
+  }
+
   const store = configureStore({
     reducer: reducer as never,
     preloadedState: normalizedState as never,
+    middleware: (getDefaultMiddleware) =>
+      options?.withToastListeners
+        ? getDefaultMiddleware().prepend(listenerMiddleware.middleware)
+        : getDefaultMiddleware(),
   });
 
   function Wrapper({ children }: PropsWithChildren) {

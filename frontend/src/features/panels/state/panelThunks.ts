@@ -305,7 +305,13 @@ export const updatePanelColumnWidths = createAsyncThunk<
   try {
     return await updatePanelColumnWidthsRequest(panelId, columnWidths);
   } catch {
-    return rejectWithValue("Failed to persist column widths.");
+    // HEL-535 evaluation-1.md CR3 — phrased as what the user did (a column
+    // resize), not the wire call (`updatePanelColumnWidths`/"persist column
+    // widths."); this string IS the toast the user sees — `payload ?? "..."`
+    // in toastListeners.ts's ERROR_TOASTS table can never reach its own
+    // fallback, because this catch always supplies a defined payload. Keep
+    // the two in sync if either changes.
+    return rejectWithValue("Failed to resize columns.");
   }
 });
 
@@ -414,7 +420,11 @@ export const updatePanelsBatch = createAsyncThunk<
   try {
     return await updatePanelsBatchRequest(request);
   } catch {
-    return rejectWithValue("Failed to update panels.");
+    // HEL-535 evaluation-1.md CR3 — this string IS the toast the user sees;
+    // `payload ?? "..."` in toastListeners.ts's ERROR_TOASTS table can never
+    // reach its own fallback, because this catch always supplies a defined
+    // payload. Keep the two in sync if either changes.
+    return rejectWithValue("Failed to save panel changes.");
   }
 });
 

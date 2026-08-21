@@ -82,6 +82,13 @@
   --z-popover: 100;
   --z-toast: 1000;
 
+  /* --- Mobile chrome --- */
+  /* BottomNav's fixed bar height (control-lg + space-4) plus the home-
+     indicator safe-area inset — the value BottomNav.css:27 and App.css:424
+     each compute inline. Named here (HEL-535) so a third consumer
+     (toast.css's mobile offset) doesn't add yet another copy of the calc(). */
+  --bottom-nav-height: calc(var(--control-lg) + var(--space-4) + env(safe-area-inset-bottom));
+
   /* --- Theme-invariant swatch ring (F-233) --- */
   /* `--app-border-subtle`/`-strong` are both theme-derived hairlines at low
      alpha (0.09-0.2), so a color-swatch input whose OWN fill happens to be
