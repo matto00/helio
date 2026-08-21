@@ -83,10 +83,12 @@ describe("PanelContent — placeholder (unbound)", () => {
 });
 
 describe("PanelContent — loading state", () => {
-  it("shows a spinner and loading label", () => {
-    render(<PanelContent panel={makeMetricPanel()} isLoading={true} />);
+  it("shows a kind-agnostic body skeleton (HEL-528 design.md D6), not a spinner", () => {
+    const { container } = render(<PanelContent panel={makeMetricPanel()} isLoading={true} />);
     expect(screen.getByLabelText("Loading data")).toBeInTheDocument();
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(container.querySelector(".panel-body-skeleton")).toBeInTheDocument();
+    expect(container.querySelector(".ui-skeleton")).toBeInTheDocument();
+    expect(container.querySelector(".ui-spinner")).not.toBeInTheDocument();
   });
 
   it("does not render metric content while loading", () => {

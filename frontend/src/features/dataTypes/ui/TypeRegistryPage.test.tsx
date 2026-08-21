@@ -36,6 +36,24 @@ describe("TypeRegistryPage", () => {
     expect(document.querySelector(".type-registry-page")).toBeInTheDocument();
   });
 
+  it("HEL-528: renders a skeleton, not an empty browser, while types are loading", () => {
+    fetchDataTypesMock.mockReturnValueOnce(new Promise(() => {})); // never resolves
+    const { container } = renderWithStore(<TypeRegistryPage />);
+
+    expect(container.querySelector(".ui-empty-state--main .ui-skeleton")).toBeInTheDocument();
+    expect(screen.queryByText("No types defined")).not.toBeInTheDocument();
+  });
+
+  it("HEL-528: keeps rendering already-loaded types instead of the skeleton if status re-enters loading", async () => {
+    fetchDataTypesMock.mockResolvedValueOnce([testDataType]);
+    const { container } = renderWithStore(<TypeRegistryPage />);
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Data type name" })).toHaveValue("Metrics"),
+    );
+
+    expect(container.querySelector(".ui-skeleton")).not.toBeInTheDocument();
+  });
+
   it("shows empty state for types when there are none", async () => {
     renderWithStore(<TypeRegistryPage />);
     await waitFor(() => expect(screen.getByText("No types defined")).toBeInTheDocument());

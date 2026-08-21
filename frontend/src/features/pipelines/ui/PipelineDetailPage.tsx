@@ -8,7 +8,7 @@ import { PipelineRiverView } from "./PipelineRiverView";
 import { PipelineDetailHeader } from "./PipelineDetailHeader";
 import { PipelineScheduleDialog } from "./PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
-import { Spinner } from "../../../shared/ui/Spinner";
+import { PipelineDetailSkeleton } from "./PipelineDetailSkeleton";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 
@@ -626,11 +626,8 @@ export function PipelineDetailPage() {
   // Show loading when we have no pipeline data yet
   if (currentPipeline === null) {
     return (
-      <div className="pipeline-detail-page">
-        <div className="pipeline-detail-page__loading" aria-label="Loading pipeline">
-          <Spinner size="xl" />
-          Loading…
-        </div>
+      <div className="pipeline-detail-page" aria-label="Loading pipeline">
+        <PipelineDetailSkeleton />
       </div>
     );
   }

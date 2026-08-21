@@ -237,7 +237,17 @@ export function usePanelData(panel: Panel): PanelDataResult {
 
   const error = errorForKey?.key === currentFetchKey ? errorForKey.message : null;
   const errorKind = errorForKey?.key === currentFetchKey ? errorForKey.kind : null;
-  const isLoading = paginationEntry?.isLoadingMore === true && rows.length === 0;
+  // HEL-528 design.md D13 — `paginationEntry` is `undefined` on first mount,
+  // before the fetch effect above has dispatched: without the `== null` half
+  // this was `false` for that whole frame, so a metric panel fell through to
+  // its renderer with null data ("--"/"No data") before any request existed.
+  // Safe to treat as loading because it is always followed by a dispatch —
+  // the effect above returns early only when `!currentFetchKey` (handled by
+  // the early return above this point), and its dedupe guard is deliberately
+  // bypassed when `paginationEntry == null` (HEL-242). Once the entry
+  // exists, this is character-for-character the original expression.
+  const isLoading =
+    paginationEntry == null || (paginationEntry.isLoadingMore === true && rows.length === 0);
   const noData =
     paginationEntry != null && !paginationEntry.isLoadingMore && rows.length === 0 && !error;
 

@@ -13,6 +13,7 @@ import {
 } from "../../../services/classifyRequestError";
 import { DataGrid, TextField } from "../../../shared/ui/index";
 import { EmptySchemaAffordance } from "./EmptySchemaAffordance";
+import { SourcePreviewSkeleton } from "./SourcePreviewSkeleton";
 
 interface SourceDetailPanelProps {
   source: DataSource;
@@ -266,7 +267,13 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
           kind={previewErrorKind ?? "error"}
           onRetry={() => void handlePreview()}
         />
-        {previewRows !== null ? (
+        {isLoading && previewRows === null && previewUnsupported === null ? (
+          // HEL-528 design.md D3/D7 — ONLY the true initial load: `isLoading`
+          // is also true on a Reload with rows already populated, and this
+          // must not replace an already-resolved `DataGrid` (that's D7's
+          // button-label spinner's job, left untouched below).
+          <SourcePreviewSkeleton />
+        ) : previewRows !== null ? (
           <DataGrid
             variant="preview"
             rows={previewRows}

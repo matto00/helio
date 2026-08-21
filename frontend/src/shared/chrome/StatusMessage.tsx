@@ -3,7 +3,13 @@ import { TriangleAlert } from "lucide-react";
 import "./StatusMessage.css";
 
 interface StatusMessageProps {
-  status: "idle" | "loading" | "succeeded" | "failed";
+  // HEL-528 design.md D5 — "loading" removed: every consumer now renders a
+  // shape-matched skeleton for its initial-load state instead (DESIGN.md §7
+  // — a bare one-line text block is no longer an acceptable loading
+  // treatment for a data-backed list). A call site that still passes
+  // `status="loading"` now fails to compile rather than silently rendering
+  // nothing (this component returns `null` for any status but `"failed"`).
+  status: "idle" | "succeeded" | "failed";
   message?: string;
   /** Invoked by the Retry action, rendered only when `status === "failed"`
    *  (HEL-539 design.md D2/D4). */
@@ -15,9 +21,6 @@ interface StatusMessageProps {
 }
 
 export function StatusMessage({ status, message, onRetry, retrying = false }: StatusMessageProps) {
-  if (status === "loading") {
-    return <p className="status-message">{message ?? "Loading..."}</p>;
-  }
   if (status === "failed") {
     return (
       <div className="status-message status-message--error" role="alert">

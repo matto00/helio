@@ -12,18 +12,6 @@
   gap: 12px;
 }
 
-/* F-132: loading was bare text with no visual weight; now pairs the shared
- * `<Spinner>` primitive with the label (matches ActiveConversationPanel's
- * `__state-row` loading recipe). */
-.pipelines-page__loading {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-5) 0;
-  font-size: var(--text-xs);
-  color: var(--app-text-muted);
-}
-
 /* ── List table ── */
 
 .pipeline-list-table {

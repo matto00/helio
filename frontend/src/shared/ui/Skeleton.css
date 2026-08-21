@@ -1,0 +1,62 @@
+/* ── Skeleton primitive (HEL-528) ────────────────────────────────────────────
+ * One canonical shimmer-placeholder recipe. No component outside this file may
+ * define its own shimmer keyframes or shimmer background (DESIGN.md §7). */
+
+.ui-skeleton {
+  display: block;
+  flex-shrink: 0;
+  border-radius: var(--app-radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--app-surface-soft) 0%,
+    var(--app-surface-raised) 50%,
+    var(--app-surface-soft) 100%
+  );
+  background-size: 200% 100%;
+  animation: ui-skeleton-shimmer var(--app-skeleton-shimmer) linear infinite;
+}
+
+@keyframes ui-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.ui-skeleton--line {
+  width: 100%;
+  height: var(--text-sm);
+  border-radius: var(--app-radius-sm);
+}
+
+.ui-skeleton--block {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--app-radius-md);
+}
+
+.ui-skeleton--circle {
+  width: var(--control-md);
+  height: var(--control-md);
+  border-radius: var(--app-radius-pill);
+}
+
+/* Genuine reduced-motion opt-out (DESIGN.md §3/§8). The global rule in
+ * theme.css only collapses `animation-duration` (to 0.01ms, `!important`) and
+ * `animation-iteration-count` (to 1) — the shimmer would still run once and,
+ * with the default `animation-fill-mode: none`, revert to its base computed
+ * style: the gradient's start position, left as a static, lopsided highlight
+ * rather than a neutral fill. `animation-duration`/`-iteration-count` are the
+ * exact longhands the global rule sets with `!important`, so a mitigation
+ * expressed through either would silently do nothing here; `animation-name`
+ * is the one longhand it does not touch, so this block disables the
+ * animation outright via the shorthand and replaces the gradient with a flat
+ * fill. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-skeleton {
+    animation: none;
+    background: var(--app-surface-soft);
+  }
+}

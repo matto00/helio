@@ -12,7 +12,7 @@ function renderList(deleteWarning?: (item: { id: string; name: string }) => stri
     <SidebarItemList
       heading="Data Sources"
       items={items}
-      status="succeeded"
+      initialLoad={false}
       onSelect={jest.fn()}
       onDelete={jest.fn()}
       deleteWarning={deleteWarning}
@@ -37,7 +37,7 @@ describe("SidebarItemList header add button (HEL-718)", () => {
       <SidebarItemList
         heading="Data Pipelines"
         items={items}
-        status="succeeded"
+        initialLoad={false}
         onSelect={jest.fn()}
         onAdd={jest.fn()}
         addLabel="New pipeline"
@@ -55,7 +55,7 @@ describe("SidebarItemList header add button (HEL-718)", () => {
       <SidebarItemList
         heading="Data Pipelines"
         items={items}
-        status="succeeded"
+        initialLoad={false}
         onSelect={jest.fn()}
         onAdd={onAdd}
         addLabel="New pipeline"
@@ -72,7 +72,7 @@ describe("SidebarItemList header add button (HEL-718)", () => {
       <SidebarItemList
         heading="Data Sources"
         items={items}
-        status="succeeded"
+        initialLoad={false}
         onSelect={jest.fn()}
         onAdd={jest.fn()}
       />,
@@ -88,7 +88,7 @@ describe("SidebarItemList filter-clear button (HEL-718)", () => {
       <SidebarItemList
         heading="Data Sources"
         items={items}
-        status="succeeded"
+        initialLoad={false}
         onSelect={jest.fn()}
       />,
     );
@@ -142,7 +142,7 @@ describe("SidebarItemList subtitle (provenance)", () => {
       <SidebarItemList
         heading="Type Registry"
         items={[{ id: "t-1", name: "RevenueRow", subtitle: "Pipeline: Revenue ETL" }]}
-        status="succeeded"
+        initialLoad={false}
         onSelect={jest.fn()}
       />,
     );
@@ -158,7 +158,7 @@ describe("SidebarItemList subtitle (provenance)", () => {
       <SidebarItemList
         heading="Type Registry"
         items={[{ id: "t-1", name: "RevenueRow" }]}
-        status="succeeded"
+        initialLoad={false}
         onSelect={jest.fn()}
       />,
     );
@@ -172,7 +172,7 @@ describe("SidebarItemList subtitle (provenance)", () => {
       <SidebarItemList
         heading="Type Registry"
         items={[{ id: "t-1", name: "RevenueRow", subtitle: "Pipeline: Revenue ETL" }]}
-        status="succeeded"
+        initialLoad={false}
         onSelect={jest.fn()}
       />,
     );
@@ -196,7 +196,7 @@ describe("SidebarItemList renderRowAction", () => {
       <SidebarItemList
         heading="Chat"
         items={items}
-        status="succeeded"
+        initialLoad={false}
         onSelect={jest.fn()}
         renderRowAction={(item) => <button type="button">{`Pin ${item.name}`}</button>}
       />,
@@ -213,7 +213,7 @@ describe("SidebarItemList renderRowAction", () => {
       <SidebarItemList
         heading="Chat"
         items={items}
-        status="succeeded"
+        initialLoad={false}
         onSelect={onSelect}
         renderRowAction={(item) => <button type="button">{`Pin ${item.name}`}</button>}
       />,
@@ -229,7 +229,7 @@ describe("SidebarItemList renderRowAction", () => {
       <SidebarItemList
         heading="Data Sources"
         items={items}
-        status="succeeded"
+        initialLoad={false}
         onSelect={jest.fn()}
       />,
     );
@@ -248,7 +248,7 @@ describe("SidebarItemList — error state (HEL-539)", () => {
       <SidebarItemList
         heading="Data Sources"
         items={[]}
-        status="failed"
+        initialLoad={false}
         error="Failed to load sources."
         onSelect={jest.fn()}
       />,
@@ -262,13 +262,62 @@ describe("SidebarItemList — error state (HEL-539)", () => {
     // wired through it.
     expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
   });
+});
 
-  it("renders the loading message via StatusMessage, with no alert role", () => {
-    render(
-      <SidebarItemList heading="Data Sources" items={[]} status="loading" onSelect={jest.fn()} />,
+// HEL-528 — initial-load skeleton, gated on the call site's own `initialLoad`
+// flag rather than an internal `status === "loading"` check (design.md D11).
+describe("SidebarItemList — loading state (HEL-528)", () => {
+  it("renders shape-matched skeleton rows instead of a bare loading text line", () => {
+    const { container } = render(
+      <SidebarItemList heading="Data Sources" items={[]} initialLoad onSelect={jest.fn()} />,
     );
 
-    expect(screen.getByText("Loading data sources…")).toBeInTheDocument();
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".ui-skeleton").length).toBeGreaterThan(0);
+    expect(
+      container.querySelector('.dashboard-list__items[aria-label="Loading data sources…"]'),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps rendering existing items during a refetch instead of flashing a skeleton (D4)", () => {
+    const { container } = render(
+      <SidebarItemList
+        heading="Data Sources"
+        items={items}
+        initialLoad={false}
+        onSelect={jest.fn()}
+      />,
+    );
+
+    expect(container.querySelectorAll(".ui-skeleton").length).toBe(0);
+    expect(screen.getByText("Profit")).toBeInTheDocument();
+  });
+
+  it("renders taller stacked-shape skeleton rows when rowShape is stacked (D9)", () => {
+    const { container } = render(
+      <SidebarItemList
+        heading="Type Registry"
+        items={[]}
+        initialLoad
+        rowShape="stacked"
+        onSelect={jest.fn()}
+      />,
+    );
+
+    const row = container.querySelector(".dashboard-list__button--stacked");
+    expect(row).toBeInTheDocument();
+    // Two skeleton lines (name + subtitle) inside the stacked row.
+    expect(row?.querySelectorAll(".ui-skeleton").length).toBe(2);
+  });
+
+  it("renders single-line flat-shape skeleton rows by default", () => {
+    const { container } = render(
+      <SidebarItemList heading="Data Sources" items={[]} initialLoad onSelect={jest.fn()} />,
+    );
+
+    expect(container.querySelector(".dashboard-list__button--stacked")).not.toBeInTheDocument();
+    const row = container.querySelector(".dashboard-list__button");
+    expect(row?.querySelectorAll(".ui-skeleton").length).toBe(1);
   });
 });

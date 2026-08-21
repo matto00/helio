@@ -87,6 +87,17 @@
   color: inherit;
 }
 
+/* HEL-528 — the card-skeleton's body placeholder (`PanelCardSkeleton`).
+ * `.panel-grid-card` centers its flex children by default (matching the real
+ * card's `.panel-content` body); `flex: 1` + `align-self: stretch` makes this
+ * one placeholder fill the remaining card height instead of just being
+ * centered at its own intrinsic size. */
+.panel-grid-card__body-skeleton {
+  flex: 1;
+  align-self: stretch;
+  min-height: 0;
+}
+
 .panel-grid-card__handle {
   width: 24px;
   height: 24px;

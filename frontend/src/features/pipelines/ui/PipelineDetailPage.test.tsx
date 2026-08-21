@@ -1330,6 +1330,18 @@ describe("PipelineDetailPage loading state", () => {
     renderDetailPage("pipe-1", store);
     expect(screen.queryByText("Run pipeline")).not.toBeInTheDocument();
   });
+
+  it("renders header/river/footer band skeletons instead of a bare spinner (HEL-528)", () => {
+    const store = makeStore([], {
+      currentPipelineStatus: "idle",
+      currentPipeline: null,
+    });
+    const { container } = renderDetailPage("pipe-1", store);
+    expect(container.querySelectorAll(".ui-skeleton").length).toBeGreaterThan(0);
+    expect(container.querySelector(".pipeline-detail-header")).toBeInTheDocument();
+    expect(container.querySelector(".pipeline-detail-page__river")).toBeInTheDocument();
+    expect(container.querySelector(".pipeline-detail-page__footer-region")).toBeInTheDocument();
+  });
 });
 
 // ── Task 4.5 — error state ───────────────────────────────────────────────────

@@ -530,6 +530,81 @@
   min-width: 0;
 }
 
+/* HEL-528 — `SidebarRowsSkeleton`'s text-column wrapper. Explicit
+   `flex: 1; min-width: 0` (unlike `.dashboard-list__text`, which the real
+   row leaves at the flex default and relies on its TEXT content's intrinsic
+   width to fill available space — a purely decorative Skeleton bar has none,
+   so that chain collapses to 0 width without this). */
+.dashboard-list__skeleton-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+}
+
+/* HEL-528 — `SidebarRowsSkeleton`'s per-line wrappers. `.dashboard-list__name`/
+   `.dashboard-list__subtitle` are real TEXT, so their box height comes for
+   free from their rendered line box. `display: flex` establishes no line box
+   at all (that's an inline-formatting-context concept), so a flex
+   container's own auto-height comes purely from its children's box
+   heights — a bare `line-height` declaration on one is inert, and even a
+   `font-size x line-height` calc() UNDER-measured the real row live (the
+   rendered line box for this font is shorter than a naive 1.5x multiple).
+   The decorative `.ui-skeleton` child inside is shorter than a real line by
+   design, so each wrapper's `height` uses the CSS `1lh` unit — the line
+   height of ITS OWN `font-size`/`font-family` — which resolves to the exact
+   rendered line-box height for real text at that size, tracking whichever
+   font is ACTUALLY applied rather than freezing one machine's pixel
+   snapshot. Independently re-measured three times (executor, then two
+   reviewers, canvas-advance-width A/B on the Google Fonts `<link>` — the
+   webfont/fallback split is real, not a stale/loaded-font measurement
+   artifact): with "Schibsted Grotesk" loaded, `.dashboard-list__name` is
+   **18px** and `.dashboard-list__subtitle` is **15px** (stacked row 43px);
+   with the webfont request blocked and the fallback stack engaged, they are
+   **19px** / **17px** (stacked row 46px). `1lh` computes to 18px/15px in the
+   first case and 19px/17px in the second — i.e. it tracks whichever
+   condition is actually live, so the skeleton and the resolved row are
+   pixel-identical in BOTH, not just the common one. A prior literal
+   `18px`/`15px` pair here was correct only in the webfont condition and
+   would have shifted for any user whose font request is slow, blocked, or
+   fails, or during the swap window before the webfont finishes loading —
+   the actual reason `1lh` is the right mechanism, not merely "the previous
+   number was wrong." The shorter bar is centered inside via flex. */
+.dashboard-list__skeleton-line {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.dashboard-list__skeleton-line--name {
+  font-size: var(--text-sm);
+  /* `1lh` resolves to the rendered line box for THIS rule's own font-size,
+     tracking whichever font is actually applied — 18px with "Schibsted
+     Grotesk" loaded, 19px on the system fallback — instead of a literal
+     that is only right in one of those two conditions. See the block
+     comment above `.dashboard-list__skeleton-line` for the full measurement
+     (independently confirmed three times; webfont 18/15/43, fallback
+     19/17/46, `1lh` matches both). */
+  height: 1lh;
+  /* Caps the bar's visual length (not this wrapper's own height, set above).
+     A `width` on the Skeleton CHILD itself resolved to 0px live: a purely
+     decorative bar contributes no intrinsic size, so an ancestor chain that
+     (like `.dashboard-list__text` in the real row) relies on content's
+     intrinsic width to establish its own size collapses to 0 with nothing
+     to measure. `max-width` here, with the Skeleton itself filling 100%,
+     has no such dependency — the containing chain is explicitly sized via
+     `flex: 1` instead (see `.dashboard-list__skeleton-text` above). */
+  max-width: 70%;
+}
+
+.dashboard-list__skeleton-line--subtitle {
+  font-size: var(--text-xs);
+  height: 1lh; /* see --name above: tracks the real line box in both the webfont (15px) and fallback (17px) conditions */
+  max-width: 45%;
+}
+
 /* ── Registry unstructured-type badge (matches .pipeline-status pill recipe) ── */
 
 .dashboard-list__badge {

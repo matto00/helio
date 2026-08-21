@@ -10,6 +10,7 @@ export { FormField } from "./FormField";
 export { StatusChip } from "./StatusChip";
 export { IconButton } from "./IconButton";
 export { Spinner } from "./Spinner";
+export { Skeleton } from "./Skeleton";
 export { ConfirmInline } from "./ConfirmInline";
 export { useScrollEdges } from "./useScrollEdges";
 export { PanelSuspenseFallback, PageSuspenseFallback } from "./SuspenseFallback";

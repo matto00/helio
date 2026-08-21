@@ -69,6 +69,10 @@
   /* --- Motion --- */
   --app-transition: 0.16s ease;
   --transition-slow: 0.28s cubic-bezier(0.3, 0.9, 0.4, 1);
+  /* Dedicated shimmer-loop duration (HEL-528). `--app-transition`/`--transition-slow` are
+     transition SHORTHANDS tuned for hover and one-shot entrances; a 0.28s infinite sweep
+     strobes, so a continuous loop gets its own token rather than reusing either. */
+  --app-skeleton-shimmer: 1.6s;
 
   /* --- Layering (z-index scale) --- */
   /* All portalled popovers/menus/select dropdowns share one layer so they

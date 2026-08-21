@@ -86,13 +86,6 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   // Body is hidden only during active drag — title and handle remain visible.
   if (frozen) return null;
 
-  // For table panels, determine loading from pagination state (initial load)
-  const tableIsLoading =
-    panel.type === "table" &&
-    paginationEntry != null &&
-    paginationEntry.isLoadingMore &&
-    paginationEntry.rows.length === 0;
-
   return (
     <PanelContent
       panel={panel}
@@ -100,7 +93,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
       data={data}
       rawRows={rawRows}
       headers={headers}
-      isLoading={panel.type === "table" ? tableIsLoading : isLoading}
+      isLoading={isLoading}
       error={error}
       errorKind={errorKind}
       onRetry={refresh}

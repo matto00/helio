@@ -1,7 +1,7 @@
 import { act, fireEvent, screen } from "@testing-library/react";
 import { createRef } from "react";
 
-import { Responsive, useContainerWidth } from "react-grid-layout";
+import { Responsive } from "react-grid-layout";
 import { createScaledStrategy } from "react-grid-layout/core";
 import { updatePanelTitle as updatePanelTitleRequest } from "../services/panelService";
 import { updatePanelsBatch as updatePanelsBatchRequest } from "../services/panelService";
@@ -14,18 +14,19 @@ import { renderWithStore } from "../../../test/renderWithStore";
 import { makeMetricPanel } from "../../../test/panelFixtures";
 import { PanelGrid, type PanelGridHandle } from "./PanelGrid";
 
+// HEL-528 skeptic-final-1.md CR1 — `width` is now a prop `PanelList` measures
+// once (via `useContainerWidth`) and passes to `PanelGrid`, rather than a
+// `useContainerWidth()` call local to this component (two independent
+// measurements were the CR1 root cause: a fresh mount re-entered the 1280px
+// initial width against a real ~1152px container). These tests therefore
+// drive width directly through the `width` prop instead of mocking
+// `react-grid-layout`'s `useContainerWidth`.
 jest.mock("react-grid-layout", () => {
   const React = require("react");
   return {
     Responsive: jest.fn(({ children }: { children?: import("react").ReactNode }) =>
       React.createElement("div", { "data-testid": "mock-responsive" }, children),
     ),
-    useContainerWidth: jest.fn().mockReturnValue({
-      containerRef: { current: null },
-      width: 1280,
-      mounted: true,
-      measureWidth: jest.fn(),
-    }),
   };
 });
 
@@ -35,7 +36,6 @@ jest.mock("react-grid-layout/core", () => ({
 }));
 
 const MockResponsive = jest.mocked(Responsive);
-const mockUseContainerWidth = jest.mocked(useContainerWidth);
 const mockCreateScaledStrategy = jest.mocked(createScaledStrategy);
 
 jest.mock("../hooks/usePanelData", () => ({
@@ -93,6 +93,9 @@ const testPanel = makeMetricPanel({
 
 const emptyLayout = { lg: [], md: [], sm: [], xs: [] };
 
+const DESKTOP_WIDTH = 1280;
+const PHONE_WIDTH = 375;
+
 // ─── Mocking rationale ───────────────────────────────────────────────────────
 // react-grid-layout relies on DOM measurement APIs (ResizeObserver,
 // HTMLElement.getBoundingClientRect, pointer event coordinates within real
@@ -121,12 +124,6 @@ describe("PanelGrid", () => {
     jest.useFakeTimers();
     MockResponsive.mockClear();
     mockCreateScaledStrategy.mockClear();
-    mockUseContainerWidth.mockReturnValue({
-      containerRef: { current: null },
-      width: 1280,
-      mounted: true,
-      measureWidth: jest.fn(),
-    });
     updatePanelTitleMock.mockReset();
     updatePanelsBatchMock.mockReset();
     updatePanelsBatchMock.mockResolvedValue({ panels: [] });
@@ -140,7 +137,13 @@ describe("PanelGrid", () => {
 
   it("passes zoomLevel to createScaledStrategy and forwards positionStrategy to Responsive", () => {
     renderWithStore(
-      <PanelGrid dashboardId="d1" layout={defaultDashboardLayout} panels={[]} zoomLevel={0.75} />,
+      <PanelGrid
+        dashboardId="d1"
+        layout={defaultDashboardLayout}
+        panels={[]}
+        zoomLevel={0.75}
+        width={DESKTOP_WIDTH}
+      />,
       { panels: { items: [] } },
     );
 
@@ -154,9 +157,15 @@ describe("PanelGrid", () => {
     // it returns a viewport-absolute baseline that RGL's pointer handler treats
     // as parent-relative, causing a constant jump on drag start. When there is
     // no real scale to correct for, fall through to the default strategy.
-    renderWithStore(<PanelGrid dashboardId="d1" layout={defaultDashboardLayout} panels={[]} />, {
-      panels: { items: [] },
-    });
+    renderWithStore(
+      <PanelGrid
+        dashboardId="d1"
+        layout={defaultDashboardLayout}
+        panels={[]}
+        width={DESKTOP_WIDTH}
+      />,
+      { panels: { items: [] } },
+    );
 
     expect(mockCreateScaledStrategy).not.toHaveBeenCalled();
     const lastCall = MockResponsive.mock.calls[MockResponsive.mock.calls.length - 1];
@@ -176,7 +185,13 @@ describe("PanelGrid", () => {
   it("rename interaction works correctly at non-100% zoom (zoomLevel 0.5)", () => {
     const { store } = renderWithStore(
       // zoomLevel={0.5} simulates 50% zoom — the lowest supported value
-      <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} zoomLevel={0.5} />,
+      <PanelGrid
+        dashboardId="d1"
+        layout={emptyLayout}
+        panels={[testPanel]}
+        zoomLevel={0.5}
+        width={DESKTOP_WIDTH}
+      />,
       {
         panels: { items: [testPanel] },
       },
@@ -204,7 +219,12 @@ describe("PanelGrid", () => {
   // Task 5.4 — committing a title edit dispatches accumulatePanelUpdate instead of updatePanelTitle
   it("committing a title edit populates pendingPanelUpdates and does not call the updatePanelTitle service", () => {
     const { store } = renderWithStore(
-      <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+      <PanelGrid
+        dashboardId="d1"
+        layout={emptyLayout}
+        panels={[testPanel]}
+        width={DESKTOP_WIDTH}
+      />,
       {
         panels: { items: [testPanel] },
       },
@@ -259,9 +279,17 @@ describe("PanelGrid", () => {
 
     // 2.1 — clicking the panel body (no significant displacement) opens the modal
     it("clicking the panel body opens the detail modal", () => {
-      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
-        panels: { items: [testPanel] },
-      });
+      renderWithStore(
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
+        {
+          panels: { items: [testPanel] },
+        },
+      );
 
       const article = screen.getByRole("article");
       fireEvent.mouseDown(article, { clientX: 10, clientY: 10 });
@@ -272,9 +300,17 @@ describe("PanelGrid", () => {
 
     // 2.2 — simulated drag: mousedown then click with large displacement suppresses modal
     it("simulated drag (large pointer displacement) does NOT open the modal", () => {
-      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
-        panels: { items: [testPanel] },
-      });
+      renderWithStore(
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
+        {
+          panels: { items: [testPanel] },
+        },
+      );
 
       const article = screen.getByRole("article");
       fireEvent.mouseDown(article, { clientX: 0, clientY: 0 });
@@ -285,9 +321,17 @@ describe("PanelGrid", () => {
 
     // 2.3 — clicking the drag handle button does not open modal (button exclusion)
     it("clicking the drag handle button does NOT open the modal", () => {
-      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
-        panels: { items: [testPanel] },
-      });
+      renderWithStore(
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
+        {
+          panels: { items: [testPanel] },
+        },
+      );
 
       const dragHandle = screen.getByRole("button", { name: "Move Revenue panel" });
       fireEvent.mouseDown(dragHandle, { clientX: 0, clientY: 0 });
@@ -298,9 +342,17 @@ describe("PanelGrid", () => {
 
     // 2.4 — clicking the actions menu trigger does not open modal (button exclusion)
     it("clicking the actions menu trigger does NOT open the modal", () => {
-      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
-        panels: { items: [testPanel] },
-      });
+      renderWithStore(
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
+        {
+          panels: { items: [testPanel] },
+        },
+      );
 
       const menuTrigger = screen.getByRole("button", { name: "Revenue panel actions" });
       fireEvent.mouseDown(menuTrigger, { clientX: 0, clientY: 0 });
@@ -322,9 +374,17 @@ describe("PanelGrid", () => {
   // simulate with real coordinates).
   describe("drag freeze — panel body hidden during drag", () => {
     it("hides panel body when drag starts and restores it on drag stop", () => {
-      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
-        panels: { items: [testPanel] },
-      });
+      renderWithStore(
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
+        {
+          panels: { items: [testPanel] },
+        },
+      );
 
       // Before drag: PanelCardBody renders; the noData mock surfaces "No data available"
       expect(screen.getByText("No data available")).toBeInTheDocument();
@@ -358,7 +418,12 @@ describe("PanelGrid", () => {
       });
 
       renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[panelWithFreshness]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[panelWithFreshness]}
+          width={DESKTOP_WIDTH}
+        />,
         { panels: { items: [panelWithFreshness] } },
       );
 
@@ -374,7 +439,12 @@ describe("PanelGrid", () => {
       });
 
       renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[panelNoFreshness]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[panelNoFreshness]}
+          width={DESKTOP_WIDTH}
+        />,
         { panels: { items: [panelNoFreshness] } },
       );
 
@@ -383,9 +453,17 @@ describe("PanelGrid", () => {
 
     it("does not render the freshness indicator when dataAsOf is absent (default null)", () => {
       // testPanel uses makeMetricPanel with no dataAsOf — defaults to null
-      renderWithStore(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />, {
-        panels: { items: [testPanel] },
-      });
+      renderWithStore(
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
+        {
+          panels: { items: [testPanel] },
+        },
+      );
 
       expect(screen.queryByText(/Data as of/i)).not.toBeInTheDocument();
     });
@@ -395,7 +473,12 @@ describe("PanelGrid", () => {
   // Task 5.2 — desktop/tablet width (>=768) renders the RGL grid, unchanged.
   it("renders the RGL <Responsive> grid, not the mobile stack, at a >=768px container width", () => {
     const { container } = renderWithStore(
-      <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+      <PanelGrid
+        dashboardId="d1"
+        layout={emptyLayout}
+        panels={[testPanel]}
+        width={DESKTOP_WIDTH}
+      />,
       { panels: { items: [testPanel] } },
     );
 
@@ -411,18 +494,14 @@ describe("PanelGrid", () => {
   // (hasPendingLayout) transition, on mount, on a width change that stays below
   // the boundary, or across the 30s auto-save tick.
   describe("phone width — mobile stack (hazard §4.1)", () => {
-    beforeEach(() => {
-      mockUseContainerWidth.mockReturnValue({
-        containerRef: { current: null },
-        width: 375,
-        mounted: true,
-        measureWidth: jest.fn(),
-      });
-    });
-
     it("renders the read-only stack, not the RGL <Responsive> grid", () => {
       const { container } = renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={PHONE_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
@@ -432,7 +511,12 @@ describe("PanelGrid", () => {
 
     it("dispatches no layout PATCH on mount, on a width change, or across the auto-save tick", () => {
       const { store, rerender } = renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={PHONE_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
@@ -441,13 +525,9 @@ describe("PanelGrid", () => {
       expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
 
       // Width change while still below the sm boundary (375 -> 400).
-      mockUseContainerWidth.mockReturnValue({
-        containerRef: { current: null },
-        width: 400,
-        mounted: true,
-        measureWidth: jest.fn(),
-      });
-      rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      rerender(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} width={400} />,
+      );
       expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
       expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
 
@@ -468,7 +548,13 @@ describe("PanelGrid", () => {
     it("exposes a live flush handle at phone width that flushes the panel batch but never PATCHes layout", async () => {
       const ref = createRef<PanelGridHandle>();
       const { store } = renderWithStore(
-        <PanelGrid ref={ref} dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          ref={ref}
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={PHONE_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
@@ -497,20 +583,21 @@ describe("PanelGrid", () => {
     // whichever branch first mounted.
     it("swaps to the RGL <Responsive> grid when the width crosses back above 768px", () => {
       const { container, rerender } = renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={PHONE_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
       expect(MockResponsive).not.toHaveBeenCalled();
       expect(container.querySelector(".mobile-panel-stack")).toBeInTheDocument();
 
-      mockUseContainerWidth.mockReturnValue({
-        containerRef: { current: null },
-        width: 900,
-        mounted: true,
-        measureWidth: jest.fn(),
-      });
-      rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      rerender(
+        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} width={900} />,
+      );
 
       expect(MockResponsive).toHaveBeenCalled();
       expect(container.querySelector(".mobile-panel-stack")).not.toBeInTheDocument();
@@ -522,24 +609,24 @@ describe("PanelGrid", () => {
     // Layout persistence stays structurally desktop-only; the shell swap alone
     // never writes layout (the sacred HEL-301 xs byte-identity guarantee).
     it("issues zero layout PATCH on a pure resize across the 768px boundary (no drag)", async () => {
-      mockUseContainerWidth.mockReturnValue({
-        containerRef: { current: null },
-        width: 1280,
-        mounted: true,
-        measureWidth: jest.fn(),
-      });
       const { rerender } = renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
-      mockUseContainerWidth.mockReturnValue({
-        containerRef: { current: null },
-        width: 375,
-        mounted: true,
-        measureWidth: jest.fn(),
-      });
-      rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      rerender(
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={PHONE_WIDTH}
+        />,
+      );
 
       await act(async () => {
         jest.advanceTimersByTime(AUTO_SAVE_INTERVAL_MS + 1_000);
@@ -560,20 +647,15 @@ describe("PanelGrid", () => {
   describe("HEL-304 — width-independent panel-update flush", () => {
     const stagedAppearance = { background: "#123456", color: "inherit", transparency: 0 } as const;
 
-    function setWidth(width: number) {
-      mockUseContainerWidth.mockReturnValue({
-        containerRef: { current: null },
-        width,
-        mounted: true,
-        measureWidth: jest.fn(),
-      });
-    }
-
     // 3.1 — appearance edit staged at phone width flushes on the auto-save tick.
     it("flushes an appearance edit staged at phone width on the auto-save tick", async () => {
-      setWidth(375);
       const { store } = renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={PHONE_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
@@ -595,14 +677,18 @@ describe("PanelGrid", () => {
 
     // 3.2 — "Save now" at phone width dispatches the batch; no-op when clean.
     it("wires a functional Save-now at phone width and no-ops when clean", async () => {
-      setWidth(375);
       const holder: { fn: (() => void) | null } = { fn: null };
       const registerFlush = (fn: (() => void) | null) => {
         holder.fn = fn;
       };
       const { store } = renderWithStore(
         <SaveStateContext.Provider value={{ registerFlush, flush: () => holder.fn?.() }}>
-          <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />
+          <PanelGrid
+            dashboardId="d1"
+            layout={emptyLayout}
+            panels={[testPanel]}
+            width={PHONE_WIDTH}
+          />
         </SaveStateContext.Provider>,
         { panels: { items: [testPanel] } },
       );
@@ -633,9 +719,13 @@ describe("PanelGrid", () => {
     // 3.3 — updates staged at desktop survive a width drop below 768px (the
     // resize-mid-edit strand) and flush on the next tick.
     it("does not strand updates staged at desktop when the width drops below 768px", async () => {
-      setWidth(1280);
       const { store, rerender } = renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
@@ -646,8 +736,14 @@ describe("PanelGrid", () => {
       });
 
       // Window resized below the boundary before the next flush.
-      setWidth(375);
-      rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+      rerender(
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={PHONE_WIDTH}
+        />,
+      );
 
       await act(async () => {
         jest.advanceTimersByTime(AUTO_SAVE_INTERVAL_MS + 1_000);
@@ -669,15 +765,6 @@ describe("PanelGrid", () => {
   // the desktop hook's teardown on desktop-staged data only, so a browse-only
   // crossing (no staged change) still dispatches nothing.
   describe("HEL-306 — flush staged layout on desktop grid unmount", () => {
-    function setWidth(width: number) {
-      mockUseContainerWidth.mockReturnValue({
-        containerRef: { current: null },
-        width,
-        mounted: true,
-        measureWidth: jest.fn(),
-      });
-    }
-
     // Reads the latest <Responsive> props captured by the mock spy so a test can
     // drive onLayoutChange (simulating a drag/resize tick) directly.
     function latestResponsiveProps() {
@@ -702,9 +789,13 @@ describe("PanelGrid", () => {
     // 3.1 — shrink-mid-edit: a staged layout change flushes exactly one PATCH
     // carrying the staged layout when the width drops below 768px.
     it("flushes the staged layout exactly once when the width drops below 768px mid-edit", async () => {
-      setWidth(1280);
       const { rerender } = renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
@@ -722,9 +813,15 @@ describe("PanelGrid", () => {
       expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
 
       // Window shrinks below the boundary → DesktopPanelGrid unmounts.
-      setWidth(375);
       await act(async () => {
-        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+        rerender(
+          <PanelGrid
+            dashboardId="d1"
+            layout={emptyLayout}
+            panels={[testPanel]}
+            width={PHONE_WIDTH}
+          />,
+        );
       });
 
       expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
@@ -734,16 +831,26 @@ describe("PanelGrid", () => {
     // 3.2 — browse-only crossing: no staged change → the unmount path dispatches
     // zero layout PATCHes (re-runs the HEL-301 guarantee through the new path).
     it("dispatches no layout PATCH on a browse-only crossing below 768px", async () => {
-      setWidth(1280);
       const { rerender } = renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
       // No drag — just resize below the boundary. DesktopPanelGrid unmounts.
-      setWidth(375);
       await act(async () => {
-        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+        rerender(
+          <PanelGrid
+            dashboardId="d1"
+            layout={emptyLayout}
+            panels={[testPanel]}
+            width={PHONE_WIDTH}
+          />,
+        );
       });
 
       expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
@@ -753,9 +860,13 @@ describe("PanelGrid", () => {
     // The staged layout persists exactly once (equality + in-flight guards) and
     // no PATCH originates while the mobile stack is mounted.
     it("persists the staged layout exactly once across rapid repeated boundary crossings", async () => {
-      setWidth(1280);
       const { rerender } = renderWithStore(
-        <PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />,
+        <PanelGrid
+          dashboardId="d1"
+          layout={emptyLayout}
+          panels={[testPanel]}
+          width={DESKTOP_WIDTH}
+        />,
         { panels: { items: [testPanel] } },
       );
 
@@ -771,22 +882,40 @@ describe("PanelGrid", () => {
 
       // Down (unmount → flush), up (remount, re-seeds from resolvedLayout), down
       // again (unmount → equality/in-flight guard suppresses a duplicate).
-      setWidth(375);
       await act(async () => {
-        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+        rerender(
+          <PanelGrid
+            dashboardId="d1"
+            layout={emptyLayout}
+            panels={[testPanel]}
+            width={PHONE_WIDTH}
+          />,
+        );
       });
       // While the mobile stack is mounted, no PATCH can originate from it.
       expect(MockResponsive).not.toHaveBeenCalledTimes(0); // grid mounted at least once
       const patchesAfterFirstDown = updateDashboardLayoutMock.mock.calls.length;
 
-      setWidth(1280);
       await act(async () => {
-        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+        rerender(
+          <PanelGrid
+            dashboardId="d1"
+            layout={emptyLayout}
+            panels={[testPanel]}
+            width={DESKTOP_WIDTH}
+          />,
+        );
       });
 
-      setWidth(375);
       await act(async () => {
-        rerender(<PanelGrid dashboardId="d1" layout={emptyLayout} panels={[testPanel]} />);
+        rerender(
+          <PanelGrid
+            dashboardId="d1"
+            layout={emptyLayout}
+            panels={[testPanel]}
+            width={PHONE_WIDTH}
+          />,
+        );
       });
 
       expect(patchesAfterFirstDown).toBe(1);
