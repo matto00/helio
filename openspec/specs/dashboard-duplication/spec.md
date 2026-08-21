@@ -1,3 +1,8 @@
+## Purpose
+Defines dashboard duplication: the backend duplicate endpoint that copies appearance, layout, and panels with remapped IDs, and the frontend duplicate action that navigates to the newly created copy.
+
+## Requirements
+
 ### Requirement: Duplicate dashboard endpoint
 The system SHALL expose `POST /api/dashboards/:id/duplicate` that creates a new dashboard copying the source dashboard's `appearance` and `layout`, names the copy `"{original name} (copy)"`, and duplicates all panels belonging to the source dashboard with new UUIDs and `dashboardId` set to the new dashboard. All panel ID references in the copied layout SHALL be remapped to the new panel IDs. The endpoint SHALL return `201 Created` with a body containing both the new dashboard and its panels.
 

@@ -1,3 +1,6 @@
+## Purpose
+Defines the PATCH /api/users/me/update endpoint for persisting per-user preferences (zoom level, accent color) scoped to the session-authenticated user, updating only the fields listed in the request.
+
 ## Requirements
 
 ### Requirement: PATCH /api/users/me/update endpoint persists preferences and returns 200

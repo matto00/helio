@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines panel data polling: automatic re-fetching at a configured interval, cleanup on unmount and on binding removal, and pausing/resuming polling based on browser tab visibility.
+
+## Requirements
 
 ### Requirement: Panel data is re-fetched on the configured refresh interval
 When a panel has a numeric `refreshInterval` and a bound `typeId`, the frontend SHALL automatically re-fetch the panel's source data at that interval (in seconds) after the initial data load completes.

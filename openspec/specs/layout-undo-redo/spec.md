@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the frontend's per-dashboard layout undo/redo system: the bounded in-memory history stack, keyboard shortcuts, toolbar controls, and the exclusion of appearance edits from layout history.
+
+## Requirements
 
 ### Requirement: The frontend maintains a per-dashboard layout history stack
 The frontend MUST maintain a bounded, in-memory layout history stack per dashboard for the duration of the session.

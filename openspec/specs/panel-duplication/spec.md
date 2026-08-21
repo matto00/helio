@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines panel duplication: the backend duplicate endpoint, the frontend duplicate action on panel cards, and placement of the duplicated panel using the default layout resolution logic.
+
+## Requirements
 
 ### Requirement: Duplicate panel endpoint
 The system SHALL expose `POST /api/panels/:id/duplicate` that creates a new panel copying the source panel's `dashboardId`, `title`, and `appearance`. The new panel SHALL receive a new UUID and a fresh `createdAt`/`lastUpdated` timestamp. The endpoint SHALL return `201 Created` with the new panel body.

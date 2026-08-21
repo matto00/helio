@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the sort order for the per-dashboard panel list endpoint, ensuring panels are returned most-recently-updated first via a database-level ORDER BY clause.
+
+## Requirements
 
 ### Requirement: Panel list is sorted by lastUpdated descending
 The `GET /api/dashboards/:id/panels` endpoint SHALL return panels sorted by `meta.lastUpdated` in descending order (most recently updated first). Sort is enforced by a SQL `ORDER BY last_updated DESC` clause in `PanelRepository`, replacing the previous actor-level sort.

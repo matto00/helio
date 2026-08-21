@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the REST/HTTP data-source connector: creating, refreshing, and previewing a source, injecting configured authentication into outgoing requests, and redacting credentials from API responses.
+
+## Requirements
 
 ### Requirement: Create a REST/HTTP data source
 The backend SHALL expose `POST /api/sources` accepting a JSON body with `name`, discriminator `type: "rest_api"`, and a `config` object containing `url`, optional `method` (default `GET`), optional `auth`, and optional `headers`. On success it SHALL insert the DataSource, attempt an initial fetch+inference, and if inference succeeds, insert a DataType linked to the source. The response SHALL include `fetchError` if the initial fetch failed.

@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the frontend dashboard selection flow: default selection of the most recently updated dashboard, preserving an existing valid selection, and driving lazy per-dashboard panel loading from a clickable dashboard list.
+
+## Requirements
 
 ### Requirement: Most-recent dashboard default selection
 The system SHALL auto-select the first dashboard in the response (which the backend guarantees is the most recently updated) when dashboard data loads and no prior selection exists.

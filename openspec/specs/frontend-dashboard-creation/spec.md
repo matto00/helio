@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the frontend dashboard creation flow: creating dashboards through the backend API, selecting the newly created dashboard, and surfacing inline loading and failure feedback.
+
+## Requirements
 
 ### Requirement: Frontend dashboard creation is backend-backed
 The frontend MUST create dashboards through the backend API rather than local-only state scaffolding.

@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the CSV upload data-source connector: multipart file upload, schema inference, source refresh, row preview, and file-lifecycle cleanup on delete, all enforced with size and encoding limits.
+
+## Requirements
 
 ### Requirement: POST /api/data-sources accepts a CSV file upload
 The endpoint SHALL accept `multipart/form-data` with a `file` part (the CSV) and a `name` part (the source name). It SHALL parse the file, infer a schema, store the file via the `FileSystem` abstraction, create a `DataSource` record with `discriminator `type = "csv"`` and `config = {"path": "<relative-path>"}`, register a linked `DataType`, and return 201 with the created `DataSource`.

@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines panel title editing: the backend PATCH endpoint that persists a new title, and the frontend inline title-editing control with keyboard and blur confirmation.
+
+## Requirements
 
 ### Requirement: Panel title can be updated via PATCH endpoint
 The backend SHALL accept an optional `title` field on `PATCH /api/panels/:id` and persist the new title.
