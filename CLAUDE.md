@@ -14,6 +14,7 @@ npm run build        # Production build
 npm test             # Run Jest tests
 npm run lint         # ESLint (zero-warnings policy)
 npm run lint:fix     # Auto-fix lint issues
+npm run typecheck    # tsc --noEmit against frontend/tsconfig.json
 npm run format       # Format with Prettier
 npm run format:check # Check formatting without modifying
 ```
@@ -62,7 +63,7 @@ For local development, `DATABASE_URL` can embed credentials and `DB_USER` / `DB_
 
 ### Pre-commit hooks
 
-Husky runs ESLint, Prettier, and Jest automatically on commit. Fix all issues before committing.
+Husky runs ESLint, `tsc --noEmit` (frontend type-check), Prettier, schema-drift check, OpenSpec hygiene check, Scala code-quality check, and Jest automatically on commit. Fix all issues before committing.
 
 ## Architecture
 
