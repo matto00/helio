@@ -7,6 +7,7 @@
     "prepare": "husky",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
+    "typecheck": "npm --prefix frontend run typecheck",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "check:schemas": "node scripts/check-schema-drift.mjs",
