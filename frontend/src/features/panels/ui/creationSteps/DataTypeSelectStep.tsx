@@ -17,14 +17,13 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Layers, SearchX, X } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRotateRight,
   faBolt,
   faCheck,
   faChevronRight,
-  faLayerGroup,
-  faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
 import { InlineError } from "../../../../shared/chrome/InlineError";
@@ -176,7 +175,7 @@ export function DataTypeSelectStep({
         // 3.6 — Empty state: no registry DataTypes available.
         <div data-testid="datatype-empty-state">
           <EmptyState
-            icon={faLayerGroup}
+            icon={<Layers />}
             title="No data types are registered yet."
             description="Data types come from pipelines — build one to bind this panel to real data."
             variant="sidebar"
@@ -213,14 +212,28 @@ export function DataTypeSelectStep({
                 aria-label="Clear filter"
                 onClick={() => setFilterQuery("")}
               >
-                <FontAwesomeIcon icon={faXmark} />
+                <X
+                  aria-hidden="true"
+                  className="panel-creation-modal__datatype-filter-clear-icon"
+                />
               </button>
             )}
           </div>
           {filteredDataTypes.length === 0 ? (
-            <p className="panel-creation-modal__datatype-no-match">
-              No data types match &ldquo;{filterQuery}&rdquo;.
-            </p>
+            // HEL-548 D3/6.3 — filter-to-zero is its own state: distinct
+            // title/icon from the no-data-types-exist branch above, keeps
+            // this step's pre-existing query-quoting copy, and gains a
+            // "Clear filter" way out instead of a dead-end paragraph.
+            <EmptyState
+              variant="sidebar"
+              icon={<SearchX />}
+              title="No matches"
+              description={`No data types match "${filterQuery}".`}
+              cta={{
+                label: "Clear filter",
+                onClick: () => setFilterQuery(""),
+              }}
+            />
           ) : (
             // 3.7 — DataType list as clickable cards.
             <div

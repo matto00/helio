@@ -1,5 +1,4 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark, faTableColumns, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { LayoutDashboard, Plus, SearchX, X } from "lucide-react";
 
 import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 
@@ -58,8 +57,11 @@ export function DashboardList() {
       await dispatch(createDashboard({ name: normalizedName })).unwrap();
       setName("");
       setIsCreateMode(false);
-    } catch {
-      setCreateError("Failed to create dashboard.");
+    } catch (err) {
+      // HEL-548 D6a — bind the thunk's own (now-specific, D6) rejection
+      // message instead of a hardcoded generic string, matching every other
+      // `.unwrap()` catch in this file.
+      setCreateError(typeof err === "string" ? err : "Failed to create dashboard.");
     } finally {
       setIsSaving(false);
     }
@@ -221,7 +223,7 @@ export function DashboardList() {
               title="Clear filter"
               onClick={() => setFilterQuery("")}
             >
-              <FontAwesomeIcon icon={faXmark} />
+              <X aria-hidden="true" />
             </button>
           ) : null}
         </div>
@@ -260,7 +262,11 @@ export function DashboardList() {
           <label className="dashboard-list__import-label" htmlFor="dashboard-import-file">
             {isSaving ? "Importing..." : "Import from file"}
           </label>
-          <InlineError error={createError} />
+          {/* HEL-548 D6a — "banner" (role="alert" + lucide error icon,
+              InlineError.tsx:67-73) instead of the bare-text default, so this
+              surface meets the bar `toast-emission-integrity` requires before
+              the createDashboard.rejected toast can be removed (task 3.6). */}
+          <InlineError error={createError} variant="banner" />
         </form>
       ) : null}
       {
@@ -277,16 +283,29 @@ export function DashboardList() {
           <StatusMessage status="failed" message={error ?? undefined} />
         ) : visibleItems.length === 0 && !isCreateMode ? (
           normalizedQuery.length > 0 ? (
-            <p className="dashboard-list__status">No matches</p>
+            // HEL-548 D3/6.1 — filter-to-zero is its own state: distinct
+            // title/icon from "No dashboards yet" below, names the query,
+            // offers only a way to clear it (never the create action, which
+            // does not resolve a query that matched nothing).
+            <EmptyState
+              variant="sidebar"
+              icon={<SearchX />}
+              title="No matches"
+              description={`No dashboards match "${filterQuery.trim()}".`}
+              cta={{
+                label: "Clear filter",
+                onClick: () => setFilterQuery(""),
+              }}
+            />
           ) : (
             <EmptyState
               variant="sidebar"
-              icon={faTableColumns}
+              icon={<LayoutDashboard />}
               title="No dashboards yet"
               description="Create your first dashboard to start visualizing data."
               cta={{
                 label: "New dashboard",
-                icon: faPlus,
+                icon: <Plus />,
                 onClick: () => {
                   setIsCreateMode(true);
                   setCreateError(null);

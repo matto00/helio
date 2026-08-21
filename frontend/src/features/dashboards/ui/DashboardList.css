@@ -111,6 +111,16 @@
   color: var(--app-text);
 }
 
+/* HEL-548 D8/7.1 — this button's icon moved from FontAwesome (which
+ * self-sizes to 1em via its auto-injected base stylesheet) to lucide's `X`
+ * (a bare <svg>, no such stylesheet) — shared by both call sites that reuse
+ * this class: DashboardList.tsx's own filter-clear AND SidebarItemList.tsx's
+ * (which imports this file), matching InlineError.css's identical pattern. */
+.dashboard-list__filter-clear svg {
+  width: 1em;
+  height: 1em;
+}
+
 .dashboard-list__create {
   margin: 0 0 var(--space-4);
   display: grid;

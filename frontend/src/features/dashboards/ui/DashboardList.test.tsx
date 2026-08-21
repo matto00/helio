@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { waitFor } from "@testing-library/react";
 
 import {
@@ -175,6 +175,111 @@ describe("DashboardList", () => {
       expect(store.getState().dashboards.selectedDashboardId).toBe("dashboard-2"),
     );
     expect(screen.getByRole("button", { name: "Executive" })).toBeInTheDocument();
+  });
+
+  // HEL-548/HEL-770 D6/D6a/task 3.4/3.5 — raised to InlineError's "banner"
+  // variant (role="alert" + lucide error icon) and now binds the thunk's
+  // own (D6) specific rejection message instead of a hardcoded string —
+  // the bar `toast-emission-integrity` requires before the
+  // createDashboard.rejected toast could be removed (task 3.6).
+  it("a failed inline create renders an announced (role=alert), error-intent banner carrying the specific rejection message", async () => {
+    createDashboardMock.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { data: { error: "Workspace dashboard limit reached." } },
+    });
+
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [{ id: "dashboard-1", name: "Operations", meta: defaultMeta }],
+        selectedDashboardId: "dashboard-1",
+        status: "succeeded",
+      },
+      panels: { items: [] },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add dashboard" }));
+    fireEvent.change(screen.getByLabelText("Dashboard name"), {
+      target: { value: "Executive" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create dashboard" }));
+
+    const errorBanner = await screen.findByRole("alert");
+    expect(within(errorBanner).getByText("Workspace dashboard limit reached.")).toBeInTheDocument();
+  });
+
+  // HEL-548 D3/task 6.1/6.4/6.5 — DashboardList's filter branch had NO test
+  // at all before this change (design.md's own note). Per task 6.5, the
+  // active dashboard is pinned outside the filter (see
+  // "active dashboard remains visible" above), so reaching a true zero-row
+  // filtered state requires no dashboard selected.
+  it("a filter matching no dashboards renders the filtered empty state, not the bare 'No matches' paragraph", () => {
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [
+          { id: "dashboard-1", name: "Operations", meta: defaultMeta },
+          { id: "dashboard-2", name: "Executive", meta: defaultMeta },
+        ],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+      panels: { items: [] },
+    });
+
+    fireEvent.change(screen.getByLabelText("Filter dashboards by name"), {
+      target: { value: "zzz-no-match" },
+    });
+
+    // aria-label={title} on the neutral EmptyState root — scopes past the
+    // filter input's OWN "Clear filter" icon button, which shares the exact
+    // same accessible name as the EmptyState's CTA (same action, same name).
+    const filteredState = screen.getByLabelText("No matches");
+    expect(
+      within(filteredState).getByText('No dashboards match "zzz-no-match".'),
+    ).toBeInTheDocument();
+    // No create-dashboard CTA on the filtered branch — it doesn't resolve a
+    // query that matched nothing (D3).
+    expect(
+      within(filteredState).queryByRole("button", { name: "New dashboard" }),
+    ).not.toBeInTheDocument();
+    expect(within(filteredState).getByRole("button", { name: "Clear filter" })).toBeInTheDocument();
+  });
+
+  it("clearing the query from the filtered empty state's own CTA restores the list", () => {
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [
+          { id: "dashboard-1", name: "Operations", meta: defaultMeta },
+          { id: "dashboard-2", name: "Executive", meta: defaultMeta },
+        ],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+      panels: { items: [] },
+    });
+
+    fireEvent.change(screen.getByLabelText("Filter dashboards by name"), {
+      target: { value: "zzz-no-match" },
+    });
+    const filteredState = screen.getByLabelText("No matches");
+
+    fireEvent.click(within(filteredState).getByRole("button", { name: "Clear filter" }));
+
+    expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Executive" })).toBeInTheDocument();
+  });
+
+  it("zero dashboards with no filter query keeps the first-run empty state, not the filtered wording", () => {
+    renderWithStore(<DashboardList />, {
+      dashboards: {
+        items: [],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+      panels: { items: [] },
+    });
+
+    expect(screen.getByText("No dashboards yet")).toBeInTheDocument();
+    expect(screen.queryByText("No matches")).not.toBeInTheDocument();
   });
 
   it("typing in filter input narrows the dashboard list", () => {

@@ -68,6 +68,10 @@ interface TestState {
     loadedDashboardId?: string | null;
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
+    /** HEL-548 D1 — see `panelsSlice.ts`'s `PanelsState.staleDashboardId`. */
+    staleDashboardId?: string | null;
+    /** HEL-548 D5a — see `panelsSlice.ts`'s `PanelsState.panelCreationModalOpen`. */
+    panelCreationModalOpen?: boolean;
   };
   dataTypes?: {
     items?: DataType[];
@@ -203,6 +207,8 @@ export function renderWithStore(
           pendingPanelUpdates: {},
           paginationState: {},
           lastSavedAt: null,
+          staleDashboardId: preloadedState.panels?.staleDashboardId ?? null,
+          panelCreationModalOpen: preloadedState.panels?.panelCreationModalOpen ?? false,
         },
         dataTypes: {
           items: preloadedState.dataTypes?.items ?? [],

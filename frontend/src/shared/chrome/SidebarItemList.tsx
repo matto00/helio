@@ -1,5 +1,4 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { Plus, SearchX, X } from "lucide-react";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 import type { KeyboardEvent, ReactNode } from "react";
@@ -10,7 +9,7 @@ import "../../features/dashboards/ui/DashboardList.css";
 import { ActionsMenu } from "./ActionsMenu";
 import { SidebarRowsSkeleton } from "./SidebarRowsSkeleton";
 import { StatusMessage } from "./StatusMessage";
-import { EmptyState } from "../ui/EmptyState";
+import { EmptyState, type EmptyStateCta } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
 import { TextField } from "../ui/TextField";
 
@@ -38,12 +37,24 @@ interface SidebarItemListProps {
   activeId?: string | null;
   /** Optional placeholder when the list is empty and not loading. */
   emptyText?: string;
-  /** FontAwesome icon to show in the sidebar empty-state hero. */
-  emptyIcon?: IconDefinition;
+  /** Icon to show in the sidebar empty-state hero — a FontAwesome
+   *  `IconDefinition` or a `ReactNode` (e.g. a `lucide-react` icon),
+   *  selected by `EmptyState.renderIcon`'s `isValidElement` dispatch
+   *  (HEL-548 task 7.2 — widened from `IconDefinition`-only so the four
+   *  in-scope sections' lucide icons type-check here too). */
+  emptyIcon?: IconDefinition | ReactNode;
   /** Secondary description shown below the title in the sidebar empty-state. */
   emptyDescription?: string;
   /** If provided, renders a "+" button in the header that triggers onAdd. */
   onAdd?: () => void;
+  /** HEL-548 D4a — an empty-state CTA consumed ONLY by `renderEmpty()`'s
+   *  no-data branch (never its filtered branch, which always offers "Clear
+   *  filter"). Distinct from `onAdd`: `onAdd` ALSO renders a persistent "+"
+   *  in the section header, which is wrong for a section with no create
+   *  action of its own (e.g. Data Types — types exist only via pipelines).
+   *  Falls back to `onAdd` when unset, so the four existing call sites are
+   *  unaffected. */
+  emptyCta?: EmptyStateCta;
   /** Accessible label for the "+" button (defaults to "Add <heading>"). */
   addLabel?: string;
   /** If provided, an ellipsis menu is rendered per row with a Delete action.
@@ -117,6 +128,7 @@ export function SidebarItemList({
   emptyIcon,
   emptyDescription,
   onAdd,
+  emptyCta,
   addLabel,
   onDelete,
   deleteWarning,
@@ -227,23 +239,54 @@ export function SidebarItemList({
 
   function renderEmpty() {
     if (normalizedQuery.length > 0) {
-      return <p className="dashboard-list__status">No matches</p>;
+      // HEL-548 D3/6.2 — filter-to-zero is its own state, shared by all five
+      // sections that reuse this component: distinct icon/title from the
+      // no-data branch below, names the query, offers only "Clear filter"
+      // (never the section's create action, which does not resolve a query
+      // that matched nothing).
+      return (
+        <EmptyState
+          variant="sidebar"
+          icon={<SearchX />}
+          title="No matches"
+          description={`No ${heading.toLowerCase()} match "${filterQuery.trim()}".`}
+          cta={{
+            label: "Clear filter",
+            onClick: () => setFilterQuery(""),
+          }}
+        />
+      );
     }
     if (emptyIcon !== undefined) {
+      // HEL-548 D4a — emptyCta (no persistent header "+") wins when set;
+      // falls back to onAdd (the pre-existing four call sites' shape) when
+      // unset, so this branch is unchanged for all of them.
+      const cta =
+        emptyCta ??
+        (onAdd !== undefined
+          ? {
+              label: addLabel ?? `Add ${heading.toLowerCase().replace(/s$/, "")}`,
+              // Skeptic final-gate round 1 CR1 — without this, the fallback CTA
+              // rendered bare while the explicit `emptyCta` path (Data Types) and
+              // `DashboardList`'s own `EmptyState` both carry a leading `Plus`,
+              // so the same action (e.g. "New pipeline") showed a glyph on the
+              // main-surface CTA but not the sidebar one, simultaneously on one
+              // screen — exactly the "same action, two glyphs" defect class D8
+              // exists to remove. Lands on all five sidebar sections that reuse
+              // this fallback (Metrics/Assistant included, a uniformity gain);
+              // touches no `emptyIcon`, so D8's Metrics/Assistant hero exclusion
+              // is unaffected.
+              icon: <Plus />,
+              onClick: onAdd,
+            }
+          : undefined);
       return (
         <EmptyState
           variant="sidebar"
           icon={emptyIcon}
           title={emptyText ?? `No ${heading.toLowerCase()} yet`}
           description={emptyDescription ?? ""}
-          cta={
-            onAdd !== undefined
-              ? {
-                  label: addLabel ?? `Add ${heading.toLowerCase().replace(/s$/, "")}`,
-                  onClick: onAdd,
-                }
-              : undefined
-          }
+          cta={cta}
         />
       );
     }
@@ -287,7 +330,7 @@ export function SidebarItemList({
               title="Clear filter"
               onClick={() => setFilterQuery("")}
             >
-              <FontAwesomeIcon icon={faXmark} />
+              <X aria-hidden="true" />
             </button>
           ) : null}
         </div>

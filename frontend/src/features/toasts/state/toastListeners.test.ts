@@ -89,11 +89,13 @@ describe("toastListeners — regression guard (every pre-existing entry still fi
       "success",
       'Dashboard "Q3 Sales" created.',
     );
-    expectToast(
-      { type: createDashboard.rejected.type, payload: undefined },
-      "error",
-      "Failed to create dashboard.",
-    );
+    // HEL-548/HEL-770 D6a/task 3.6a — deliberately REMOVED the
+    // `createDashboard.rejected` entry this guard used to assert here.
+    // Task 3.6 removes that ERROR_TOASTS row now that BOTH surfaces that
+    // dispatch this thunk report the rejection inline (PanelList's
+    // error-intent empty state, DashboardList's InlineError banner) — see
+    // the dedicated "no longer toasts" test below, which proves the
+    // negative rather than just deleting silent coverage.
     expectToast(
       { type: deleteDashboard.fulfilled.type, payload: "d1" },
       "success",
@@ -274,6 +276,23 @@ describe("toastListeners — regression guard (every pre-existing entry still fi
       "error",
       "Someone else already deleted this dashboard.",
     );
+  });
+});
+
+// HEL-548/HEL-770 D6a/task 3.6/3.7 — reproduce-then-fix: before this change
+// (see toastListeners.ts's git history / the removed ERROR_TOASTS row above),
+// `createDashboard.rejected` DID fire a toast here — that assertion lived in
+// the regression-guard block above and passed. Task 3.6 removed the table
+// row; this test proves the removal took, rather than just deleting silent
+// coverage.
+describe("toastListeners — HEL-548/HEL-770: createDashboard.rejected no longer toasts (D6a/task 3.6)", () => {
+  it("createDashboard.rejected emits no toast — both PanelList and DashboardList now report it inline instead", () => {
+    const before = store.getState().toasts.items.length;
+    store.dispatch({
+      type: createDashboard.rejected.type,
+      payload: "Couldn't reach the server.",
+    });
+    expect(store.getState().toasts.items).toHaveLength(before);
   });
 });
 

@@ -148,7 +148,14 @@ const SUCCESS_TOASTS: SuccessToastEntry[] = [
 
 // ── Errors (meaningful failures) ────────────────────────────────────────────
 const ERROR_TOASTS: ErrorToastEntry[] = [
-  error(createDashboard.rejected, "Failed to create dashboard."),
+  // HEL-548/HEL-770 D6a/task 3.6 — REMOVED `error(createDashboard.rejected,
+  // "Failed to create dashboard.")`. Both surfaces that dispatch this thunk
+  // now report the rejection inline, persistently, announced (role="alert"),
+  // carrying the rejection's own message: `PanelList`'s error-intent empty
+  // state (task 3.3) and `DashboardList`'s `InlineError variant="banner"`
+  // (task 3.4). Per `toast-emission-integrity`, a toast may only be removed
+  // once EVERY dispatching surface conforms — both do, as of this change —
+  // so keeping it would be a redundant third report of the same failure.
   error(deleteDashboard.rejected, "Failed to delete dashboard."),
   error(duplicateDashboard.rejected, "Failed to duplicate dashboard."),
   error(importDashboard.rejected, "Failed to import dashboard."),

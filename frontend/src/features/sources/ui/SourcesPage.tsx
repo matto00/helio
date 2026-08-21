@@ -1,8 +1,9 @@
 import { useEffect } from "react";
+import { Database } from "lucide-react";
 
 import "./SourcesPage.css";
-import { faDatabase, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
+import { useAddSourceAction } from "../hooks/useAddSourceAction";
 import { fetchSources, setAddSourceModalOpen } from "../state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
@@ -22,6 +23,7 @@ export function SourcesPage() {
     addModalOpen,
   } = useAppSelector((state) => state.sources);
   const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
+  const addSourceAction = useAddSourceAction();
 
   useEffect(() => {
     // F-072: guard both dispatches on `idle` (mirroring SidebarBody's fetch
@@ -102,14 +104,10 @@ export function SourcesPage() {
               // CTA in this app.
               <EmptyState
                 variant="main"
-                icon={faDatabase}
+                icon={<Database />}
                 title="Connect a data source"
                 description="Pull in data from PostgreSQL, MySQL, CSV, or static input. Helio infers a schema you can then shape into a bindable type with a pipeline."
-                cta={{
-                  label: "Add source",
-                  icon: faPlus,
-                  onClick: () => dispatch(setAddSourceModalOpen(true)),
-                }}
+                cta={addSourceAction.cta}
               />
             ))
         }

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 
 import { SidebarItemList } from "./SidebarItemList";
 
@@ -183,6 +183,129 @@ describe("SidebarItemList subtitle (provenance)", () => {
 
     expect(screen.getByText("No matches")).toBeInTheDocument();
     expect(screen.queryByText("RevenueRow")).not.toBeInTheDocument();
+  });
+});
+
+// HEL-548 D3/task 6.2/6.4 — filter-to-zero is its own EmptyState (SearchX
+// icon, "No matches" title, query-quoting description, "Clear filter" CTA),
+// distinct from the no-data-yet state and shared by every section that
+// reuses this component.
+describe("SidebarItemList filtered empty state (HEL-548 D3)", () => {
+  it("names the query and offers a Clear filter action, distinct from the no-data empty state", () => {
+    render(
+      <SidebarItemList
+        heading="Data Sources"
+        items={items}
+        initialLoad={false}
+        onSelect={jest.fn()}
+        emptyIcon={<span data-testid="stub-icon" />}
+        emptyText="Connect a data source"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Filter data sources by name"), {
+      target: { value: "zzz-nope" },
+    });
+
+    const filteredState = screen.getByLabelText("No matches");
+    expect(
+      within(filteredState).getByText('No data sources match "zzz-nope".'),
+    ).toBeInTheDocument();
+    // Distinct from the no-data title — never rendered here.
+    expect(screen.queryByText("Connect a data source")).not.toBeInTheDocument();
+    expect(within(filteredState).getByRole("button", { name: "Clear filter" })).toBeInTheDocument();
+  });
+
+  it("clearing the filtered empty state's CTA restores the list", () => {
+    render(
+      <SidebarItemList
+        heading="Data Sources"
+        items={items}
+        initialLoad={false}
+        onSelect={jest.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Filter data sources by name"), {
+      target: { value: "zzz-nope" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("No matches")).getByRole("button", { name: "Clear filter" }),
+    );
+
+    expect(screen.getByText("Profit")).toBeInTheDocument();
+    expect(screen.getByText("Netflix")).toBeInTheDocument();
+  });
+});
+
+// HEL-548 D4a/task 5.2 — `emptyCta` is consumed ONLY by the no-data branch;
+// falls back to `onAdd` when unset (the four pre-existing call sites'
+// shape, unaffected).
+describe("SidebarItemList emptyCta (HEL-548 D4a)", () => {
+  it("renders emptyCta (not onAdd) on the no-data empty state when both are technically available", () => {
+    const onAdd = jest.fn();
+    const emptyCtaClick = jest.fn();
+    render(
+      <SidebarItemList
+        heading="Data Types"
+        items={[]}
+        initialLoad={false}
+        onSelect={jest.fn()}
+        emptyIcon={<span data-testid="stub-icon" />}
+        emptyText="No types defined"
+        onAdd={onAdd}
+        emptyCta={{ label: "New pipeline", onClick: emptyCtaClick }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
+    expect(emptyCtaClick).toHaveBeenCalledTimes(1);
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it("falls back to onAdd's derived label when emptyCta is not provided (pre-existing four call sites, unaffected)", () => {
+    const onAdd = jest.fn();
+    render(
+      <SidebarItemList
+        heading="Data Sources"
+        items={[]}
+        initialLoad={false}
+        onSelect={jest.fn()}
+        emptyIcon={<span data-testid="stub-icon" />}
+        onAdd={onAdd}
+        addLabel="Add source"
+      />,
+    );
+
+    const emptyState = screen.getByLabelText("No data sources yet");
+    fireEvent.click(within(emptyState).getByRole("button", { name: "Add source" }));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  // Skeptic final-gate round 1 CR1 — the fallback CTA rendered without a
+  // leading glyph while the explicit `emptyCta` path (Data Types) and
+  // `DashboardList`'s own `EmptyState` both carry `icon: <Plus />`, so
+  // `/pipelines` and `/sources` showed the same-labelled action glyphed on
+  // the main surface and bare on the sidebar, simultaneously on one screen.
+  // Locks in that the fallback descriptor now carries an icon too, so the
+  // uniformity can't silently regress back to a bare button.
+  it("renders a leading icon on the fallback CTA (onAdd path), matching the explicit emptyCta path", () => {
+    const onAdd = jest.fn();
+    render(
+      <SidebarItemList
+        heading="Data Sources"
+        items={[]}
+        initialLoad={false}
+        onSelect={jest.fn()}
+        emptyIcon={<span data-testid="stub-icon" />}
+        onAdd={onAdd}
+        addLabel="Add source"
+      />,
+    );
+
+    const emptyState = screen.getByLabelText("No data sources yet");
+    const button = within(emptyState).getByRole("button", { name: "Add source" });
+    expect(button.querySelector("svg")).toBeInTheDocument();
   });
 });
 

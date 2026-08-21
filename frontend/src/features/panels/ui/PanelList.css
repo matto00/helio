@@ -70,6 +70,14 @@
   cursor: not-allowed;
 }
 
+/* HEL-548 D8/7.1 — this button's icon moved from FontAwesome (self-sizes to
+ * 1em via its auto-injected base stylesheet) to lucide's `Plus` (a bare
+ * <svg>, no such stylesheet), matching InlineError.css's identical pattern. */
+.panel-list__add svg {
+  width: 1em;
+  height: 1em;
+}
+
 .panel-list__panel-actions {
   display: inline-flex;
   align-items: center;

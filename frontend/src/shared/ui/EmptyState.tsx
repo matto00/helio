@@ -4,7 +4,11 @@ import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 import "./EmptyState.css";
 
-interface EmptyStateCta {
+// HEL-548 D5 — exported so feature hooks (useCreateDashboardAction et al.,
+// the workspace-create-actions seam) can annotate their return shape against
+// it directly. Purely additive: the primitive's own rendering/props are
+// otherwise untouched.
+export interface EmptyStateCta {
   label: string;
   onClick: () => void;
   /** FontAwesome icon (existing behavior) or a `ReactNode` (e.g. a

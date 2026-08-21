@@ -2,7 +2,7 @@
 // when `offeredShapes` is non-empty, and selecting one diverges entirely
 // from the existing-DataType path (`onSelectShape`, not `onSelect`).
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import { DataTypeSelectStep } from "./DataTypeSelectStep";
@@ -173,6 +173,48 @@ describe("DataTypeSelectStep — list header, filter, and metadata", () => {
 
     expect(screen.queryByRole("button", { name: "Revenue" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Signups" })).toBeInTheDocument();
+  });
+
+  // HEL-548 D3/task 6.3/6.4 — filter-to-zero is its own EmptyState (distinct
+  // from the no-types-exist state), names the query, and offers a way out.
+  it("HEL-548: a query matching no data types renders the filtered empty state naming the query", () => {
+    renderStep({
+      registryDataTypes: [dataType, { ...dataType, id: "dt-2", name: "Signups" }],
+    });
+
+    fireEvent.change(screen.getByLabelText("Filter data types by name"), {
+      target: { value: "zzz-nope" },
+    });
+
+    const filteredState = screen.getByLabelText("No matches");
+    expect(filteredState).toBeInTheDocument();
+    expect(within(filteredState).getByText('No data types match "zzz-nope".')).toBeInTheDocument();
+    // Not the no-types-exist copy — the registry genuinely has types, this
+    // query just didn't match any of them.
+    expect(screen.queryByTestId("datatype-empty-state")).not.toBeInTheDocument();
+    expect(within(filteredState).getByRole("button", { name: "Clear filter" })).toBeInTheDocument();
+  });
+
+  it("HEL-548: activating the filtered empty state's clear action restores the data-type list", () => {
+    renderStep({
+      registryDataTypes: [dataType, { ...dataType, id: "dt-2", name: "Signups" }],
+    });
+
+    fireEvent.change(screen.getByLabelText("Filter data types by name"), {
+      target: { value: "zzz-nope" },
+    });
+    const filteredState = screen.getByLabelText("No matches");
+    fireEvent.click(within(filteredState).getByRole("button", { name: "Clear filter" }));
+
+    expect(screen.getByRole("button", { name: "Revenue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Signups" })).toBeInTheDocument();
+  });
+
+  it("HEL-548: an empty registry still renders the pipeline guidance, not the filtered wording", () => {
+    renderStep({ registryDataTypes: [] });
+
+    expect(screen.getByTestId("datatype-empty-state")).toBeInTheDocument();
+    expect(screen.queryByText("No matches")).not.toBeInTheDocument();
   });
 
   it("shows a muted field-count line, including the producing pipeline when known", () => {

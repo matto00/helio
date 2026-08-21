@@ -13,6 +13,7 @@ import {
   updateDashboardLayout as updateDashboardLayoutRequest,
 } from "../services/dashboardService";
 import { applyDashboardProposal as applyDashboardProposalRequest } from "../services/proposalService";
+import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import type { RootState } from "../../../store/store";
 import type {
   Dashboard,
@@ -70,8 +71,15 @@ export const createDashboard = createAsyncThunk<
 >("dashboards/createDashboard", async ({ name }, { rejectWithValue }) => {
   try {
     return await createDashboardRequest(name);
-  } catch {
-    return rejectWithValue("Failed to create dashboard.");
+  } catch (err) {
+    // HEL-548 D6 — was a fixed `catch { ... }` string, so every downstream
+    // "specific message" claim (PanelList's error empty state, DashboardList's
+    // banner) was a no-op: `unwrap()` throws this payload as a plain string,
+    // and `extractErrorMessage` only reads an `AxiosError`, so extracting at
+    // the component always fell back to the same generic sentence. Fixing it
+    // at the source — where `err` genuinely IS the Axios error — means both
+    // consumers now render what the server actually said.
+    return rejectWithValue(extractErrorMessage(err, "Failed to create dashboard."));
   }
 });
 

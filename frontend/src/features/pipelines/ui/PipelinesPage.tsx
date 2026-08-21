@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import "./PipelinesPage.css";
+import { useCreatePipelineAction } from "../hooks/useCreatePipelineAction";
 import { fetchPipelines, setCreatePipelineModalOpen } from "../state/pipelinesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { CreatePipelineModal } from "./CreatePipelineModal";
@@ -18,6 +19,7 @@ export function PipelinesPage() {
     (state) => state.pipelines,
   );
   const currentUser = useAppSelector((state) => state.auth.currentUser);
+  const createPipelineAction = useCreatePipelineAction();
 
   // Computed outside the `status === "failed"`-narrowed JSX branch below.
   const isRetryingPipelines = status === "loading";
@@ -66,7 +68,7 @@ export function PipelinesPage() {
         {!showPipelinesSkeleton &&
           (status === "succeeded" || status === "idle") &&
           items.length === 0 && (
-            <PipelineEmptyState onCreateClick={() => dispatch(setCreatePipelineModalOpen(true))} />
+            <PipelineEmptyState onCreateClick={createPipelineAction.cta.onClick} />
           )}
 
         {

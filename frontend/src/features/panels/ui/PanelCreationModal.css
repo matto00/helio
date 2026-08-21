@@ -429,12 +429,12 @@
   background: var(--app-surface-raised);
 }
 
-.panel-creation-modal__datatype-no-match {
-  margin: 0;
-  padding: var(--space-4);
-  text-align: center;
-  color: var(--app-text-muted);
-  font-size: var(--text-sm);
+/* HEL-548 D8/7.1 — this button's icon moved from FontAwesome (self-sizes to
+ * 1em via its auto-injected base stylesheet) to lucide's `X` (a bare <svg>,
+ * no such stylesheet), matching InlineError.css's identical pattern. */
+.panel-creation-modal__datatype-filter-clear-icon {
+  width: 1em;
+  height: 1em;
 }
 
 .panel-creation-modal__datatype-list {
