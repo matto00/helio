@@ -12,7 +12,6 @@ import {
   testConnection as testConnectionRequest,
 } from "../services/dataSourceService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
-import type { Toast } from "../../toasts/state/toastsSlice";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { AddSourceModal } from "./AddSourceModal";
 
@@ -162,13 +161,15 @@ describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
     await waitFor(() => expect(createTextSourceUploadMock).toHaveBeenCalledWith("Notes", file));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     // F-008: the new source is selected (not silently buried at the bottom
-    // of the list) and a confirmation toast is pushed.
+    // of the list) and exactly one confirmation toast is pushed.
     expect(store.getState().sources.selectedSourceId).toBe("ds-1");
-    expect(
-      store
-        .getState()
-        .toasts.items.some((t: Toast) => t.variant === "success" && /added/i.test(t.message)),
-    ).toBe(true);
+    // HEL-535 5.11 — a direct-service create path (no thunk, no listener):
+    // this toast can only come from finishCreate itself.
+    expect(store.getState().toasts.items).toHaveLength(1);
+    expect(store.getState().toasts.items[0]).toMatchObject({
+      variant: "success",
+      message: 'Data source "Notes" created.',
+    });
   });
 
   it("creates a text source via URL ingestion", async () => {
@@ -512,7 +513,15 @@ describe("AddSourceModal — static source (thunk-dispatched create path, F-008)
     });
   });
 
-  it("selects the newly created source (not silently buried) and toasts", async () => {
+  // HEL-535 D6/5.11 — `renderWithStore`'s plain store (used everywhere else
+  // in this file) doesn't wire `listenerMiddleware`, so it can't observe the
+  // toastListeners.ts `.fulfilled` entry this thunk path relies on for its
+  // ONE toast (finishCreate passes `{ toast: false }` here — see
+  // AddSourceModal.tsx). `withToastListeners: true` wires it in, mirroring
+  // the real app store, so this test can assert exactly one toast — proving
+  // the create path doesn't double-toast (finishCreate's own push plus the
+  // listener's) the way it used to.
+  it("selects the newly created source (not silently buried) and toasts exactly once, matching the direct-service path's wording", async () => {
     createStaticSourceMock.mockResolvedValue({
       id: "ds-static-1",
       name: "Ref table",
@@ -521,7 +530,9 @@ describe("AddSourceModal — static source (thunk-dispatched create path, F-008)
       updatedAt: "2026-01-01T00:00:00Z",
     });
     const onClose = jest.fn();
-    const { store } = renderWithStore(<AddSourceModal onClose={onClose} />);
+    const { store } = renderWithStore(<AddSourceModal onClose={onClose} />, undefined, "/", {
+      withToastListeners: true,
+    });
     fireEvent.click(screen.getByRole("button", { name: /manual/i }));
 
     fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Ref table" } });
@@ -538,10 +549,13 @@ describe("AddSourceModal — static source (thunk-dispatched create path, F-008)
     );
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(store.getState().sources.selectedSourceId).toBe("ds-static-1");
-    expect(
-      store
-        .getState()
-        .toasts.items.some((t: Toast) => t.variant === "success" && /added/i.test(t.message)),
-    ).toBe(true);
+    await waitFor(() => expect(store.getState().toasts.items).toHaveLength(1));
+    // Same wording template as the direct-service path's toast above
+    // (`Data source "<name>" created.`) — one action, one wording,
+    // regardless of which of the modal's seven internal paths ran it.
+    expect(store.getState().toasts.items[0]).toMatchObject({
+      variant: "success",
+      message: 'Data source "Ref table" created.',
+    });
   });
 });

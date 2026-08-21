@@ -439,18 +439,38 @@ export function PipelineDetailPage() {
     setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, config } : s)));
   }, []);
 
-  const handleRemoveStep = useCallback((stepId: string) => {
-    setSteps((prev) => prev.filter((s) => s.id !== stepId));
-    // Persist the deletion for steps that exist server-side. Temp steps created
-    // by `makeStep` carry a local `step-N` id and have no backend row yet, so a
-    // DELETE would 404. Fire-and-forget mirrors the config-PATCH path in
-    // useStepCardState: local state already reflects user intent.
-    if (!stepId.startsWith("step-")) {
-      void deletePipelineStep(stepId).catch(() => {
-        // No-op: the step is already gone from the local view.
-      });
-    }
-  }, []);
+  // HEL-535 D5 — this used to swallow a rejected DELETE with a bare no-op
+  // comment: the step vanished from the view (optimistic removal below) with
+  // no toast, no inline error, no console signal, and — unlike every sibling
+  // step mutation in this file (reorder/enable/duplicate, all above) — it
+  // never restored local state on failure, so the app disagreed with the
+  // server about whether the step still existed. Now mirrors those siblings:
+  // snapshot before the optimistic change, restore + toast on rejection.
+  const handleRemoveStep = useCallback(
+    (stepId: string) => {
+      const previousSteps = stepsRef.current;
+      setSteps((prev) => prev.filter((s) => s.id !== stepId));
+      // Persist the deletion for steps that exist server-side. Temp steps created
+      // by `makeStep` carry a local `step-N` id and have no backend row yet, so a
+      // DELETE would 404. Fire-and-forget mirrors the config-PATCH path in
+      // useStepCardState: local state already reflects user intent.
+      if (!stepId.startsWith("step-")) {
+        void deletePipelineStep(stepId).catch((err: unknown) => {
+          setSteps(previousSteps);
+          // skeptic-final-1.md CR2 — the fallback must read as a REASON, not
+          // a restatement of the "Failed to delete step:" prefix below,
+          // or a bodyless failure (network error, offline, aborted request,
+          // non-JSON 5xx — anything extractErrorMessage can't pull a
+          // server-supplied reason out of) renders "Failed to delete step:
+          // Failed to delete step." — the doubled-sentence "Error" failure
+          // mode the ticket's own copy AC forbids.
+          const message = extractErrorMessage(err, "the request could not be completed.");
+          pushToast({ variant: "error", message: `Failed to delete step: ${message}` });
+        });
+      }
+    },
+    [pushToast],
+  );
 
   // HEL-407 — drag/keyboard reorder handler (design.md Decision 7). `newOrder`
   // is the full reordered `Step[]` computed by `PipelineRiverView` (drop or
