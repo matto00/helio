@@ -1,16 +1,11 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.pipelines.PipelineShapeRoutes
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{
-  ErrorResponse,
-  ExpandPipelineShapeRequest,
-  JsonProtocols,
-  PipelineShapeCatalogEntryResponse,
-  ShapeStepExpansionResponse
-}
-import com.helio.domain.{AuthenticatedUser, UserId}
-import com.helio.services.PipelineShapeService
+import com.helio.api.{ErrorResponse, ExpandPipelineShapeRequest, JsonProtocols, PipelineShapeCatalogEntryResponse, ShapeStepExpansionResponse}
+import com.helio.domain.model.{AuthenticatedUser, UserId}
+import com.helio.services.pipelines.PipelineShapeService
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json.{JsArray, JsObject, JsString}

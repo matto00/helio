@@ -1,5 +1,6 @@
 package com.helio.domain
 
+import com.helio.domain.model._
 import spray.json._
 
 /** Shared helpers for the per-file `Panel` ADT. Defined once in this package

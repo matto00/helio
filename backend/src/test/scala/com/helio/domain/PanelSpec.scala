@@ -1,5 +1,7 @@
 package com.helio.domain
 
+import com.helio.domain.model.{ChartAppearance, MetricId}
+import com.helio.domain.model.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelId, PanelKind, ResourceMeta, UserId}
 import com.helio.domain.panels._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

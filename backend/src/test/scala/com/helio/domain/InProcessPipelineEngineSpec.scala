@@ -1,10 +1,16 @@
 package com.helio.domain
 
+import com.helio.domain.model.{AssertionSink, CsvSourceConfig, ImageSourceConfig, PdfSourceConfig, RestApiConfig, TextSourceConfig}
+import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, SqlSource, TextSource, UserId}
+import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.engine.InProcessPipelineEngine
+import com.helio.domain.model.{DataSource, DataSourceId, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.protocols.PipelineStepConfigCodec
-import com.helio.infrastructure.{DataSourceRepository, LocalFileSystem}
+import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.testutil.PdfFixtures
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll

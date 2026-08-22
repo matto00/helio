@@ -1,6 +1,6 @@
 package com.helio.domain.panels
 
-import com.helio.domain.Panel
+import com.helio.domain.model.Panel
 import org.slf4j.LoggerFactory
 import spray.json._
 import spray.json.DefaultJsonProtocol._

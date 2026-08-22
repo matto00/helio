@@ -1,6 +1,6 @@
 package com.helio.domain.panels
 
-import com.helio.domain.{DataFieldType, PanelType}
+import com.helio.domain.model.{DataFieldType, PanelType}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

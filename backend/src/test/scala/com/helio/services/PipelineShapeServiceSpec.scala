@@ -1,5 +1,6 @@
 package com.helio.services
 
+import com.helio.services.pipelines.PipelineShapeService
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

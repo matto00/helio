@@ -1,7 +1,8 @@
 package com.helio.services
 
-import com.helio.domain._
-import com.helio.infrastructure.PanelRepository
+import com.helio.services.workspace.WorkspaceContextService
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.panels.PanelRepository
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

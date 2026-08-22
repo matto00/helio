@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.Http
@@ -8,11 +9,16 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
-import com.helio.domain.{AuthenticatedUser, PagedResult, RestApiConnector, UserId}
+import com.helio.domain.model.{AuthenticatedUser, PagedResult, UserId}
+import com.helio.domain.connectors.RestApiConnector
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
-import com.helio.infrastructure.{Database, DataSourceRepository, DataTypeRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
-import com.helio.services.ContentSourceSupport
+import com.helio.infrastructure.persistence.{Database, DbContext}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.services.sources.ContentSourceSupport
 import com.helio.testutil.PdfFixtures
 import scala.concurrent.Future
 import spray.json._
@@ -169,7 +175,8 @@ class DataSourceRoutesSpec
   private def routes(): Route = routesWith(stubConnector)
 
   private def routesWith(c: RestApiConnector): Route = {
-    import com.helio.infrastructure.{DashboardRepository, PanelRepository}
+    import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+    import com.helio.infrastructure.persistence.panels.PanelRepository
     val ec             = typedSystem.executionContext
     val ctx            = new DbContext(db, db)(ec)
     val dashboardRepo      = new DashboardRepository(ctx)(ec)

@@ -1,26 +1,21 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.pipelines.PipelineRoutes
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols}
-import com.helio.api.protocols.{
-  CreatePipelineStepRequest,
-  CsvSourceConfigPayload,
-  PipelineAnalyzeProposalResponse,
-  PipelineProposal,
-  PipelineProposalSource,
-  SchemaFieldResponse,
-  SelectAnalyzeStepResponse,
-  SqlSourceConfigPayload,
-  StaticColumnPayload,
-  StaticDataPayload
-}
-import com.helio.domain.{AuthenticatedUser, RestApiConnector, SelectConfig, UserId}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, PipelineRepository, PipelineStepRepository}
-import com.helio.services.PipelineService
+import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineAnalyzeProposalResponse, PipelineProposal, PipelineProposalSource, SchemaFieldResponse, SelectAnalyzeStepResponse}
+import com.helio.api.protocols.sources.{CsvSourceConfigPayload, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload}
+import com.helio.domain.model.{AuthenticatedUser, UserId}
+import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.SelectConfig
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.services.pipelines.PipelineService
 import com.helio.testsupport.JsonSchemaValidation
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

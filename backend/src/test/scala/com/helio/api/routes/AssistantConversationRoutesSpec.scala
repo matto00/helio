@@ -1,12 +1,21 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.assistant.AssistantConversationRoutes
 import com.helio.ai._
 import com.helio.api.JsonProtocols
-import com.helio.api.protocols.TierErrorResponse
-import com.helio.domain._
-import com.helio.infrastructure.AssistantConversationRepository._
-import com.helio.infrastructure.{AssistantConversationRepository, AssistantDailyUsageRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem, UserRepository}
-import com.helio.services.{AssistantConversationService, AssistantService, ChatAccessService, DataTypeService, UserTierConfig, WorkspaceContextService, WorkspaceSearchService}
+import com.helio.api.protocols.assistant.TierErrorResponse
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository._
+import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.infrastructure.persistence.auth.UserRepository
+import com.helio.services.assistant.{AssistantConversationService, AssistantService}
+import com.helio.services.auth.{ChatAccessService, UserTierConfig}
+import com.helio.services.pipelines.DataTypeService
+import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.typed.ActorSystem

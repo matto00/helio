@@ -1,10 +1,11 @@
 package com.helio.api
 
+import com.helio.api.http.{AclDirective, ResourceType, ResourceTypeRegistry}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.{AuthenticatedUser, ResourcePermission, Role, UserId}
-import com.helio.infrastructure.ResourcePermissionRepository
+import com.helio.domain.model.{AuthenticatedUser, ResourcePermission, Role, UserId}
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

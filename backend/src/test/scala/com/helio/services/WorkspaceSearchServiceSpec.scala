@@ -1,9 +1,21 @@
 package com.helio.services
 
-import com.helio.api.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
-import com.helio.api.protocols.{StaticColumnPayload, StaticDataSourceRequest, WorkspaceResourceDetail}
-import com.helio.domain._
-import com.helio.infrastructure._
+import com.helio.services.dashboards.DashboardService
+import com.helio.services.metrics.MetricService
+import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.sources.DataSourceService
+import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
+import com.helio.api.protocols.workspace.WorkspaceResourceDetail
+import com.helio.domain.model._
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest

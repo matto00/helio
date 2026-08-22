@@ -2,7 +2,7 @@ package com.helio.api.protocols
 
 import org.apache.pekko.http.scaladsl.server.PathMatcher1
 import org.apache.pekko.http.scaladsl.server.PathMatchers.Segment
-import com.helio.domain._
+import com.helio.domain.model._
 
 /** Path matchers that produce value-class IDs at the route boundary.
  *

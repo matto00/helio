@@ -1,9 +1,12 @@
 package com.helio.infrastructure
 
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.ai.{ClaudeMessage, ClaudeRole}
-import com.helio.api.protocols.{AuthoringDisplayTurn, DashboardProposal, PatchSet}
-import com.helio.domain._
-import com.helio.infrastructure.AuthoringConversationRepository.AuthoringConversationRecord
+import com.helio.api.protocols.proposals.{AuthoringDisplayTurn, DashboardProposal}
+import com.helio.api.protocols.patchsets.PatchSet
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository.AuthoringConversationRecord
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

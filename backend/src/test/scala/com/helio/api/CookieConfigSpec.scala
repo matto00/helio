@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.api.http.{CookieConfig, SessionCookies}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{HttpCookie, SameSite, `Set-Cookie`}
 import org.apache.pekko.http.scaladsl.server.Directives._

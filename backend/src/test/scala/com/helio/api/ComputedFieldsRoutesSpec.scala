@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -7,24 +8,16 @@ import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes._
-import com.helio.domain.{AuthenticatedUser, DataField, DataType, RestApiConfig, RestApiConnector, UserId}
+import com.helio.domain.model.{AuthenticatedUser, DataField, DataType, RestApiConfig, UserId}
+import com.helio.domain.connectors.RestApiConnector
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{
-  DashboardRepository,
-  DataSourceRepository,
-  DataTypeRepository,
-  DbContext,
-  FileSystem,
-  ListPage,
-  PanelRepository,
-  PipelineRepository,
-  PipelineStepRepository,
-  ResourcePermissionRepository,
-  SlickUserSessionRepository,
-  UserPreferenceRepository,
-  UserRepository,
-  UserSessionRepository
-}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.{FileSystem, ListPage}
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -142,7 +135,7 @@ class ComputedFieldsRoutesSpec
 
   /** Insert a DataType directly via the repository and return it. */
   private def insertType(fields: DataField*): DataType = {
-    import com.helio.domain._
+    import com.helio.domain.model._
     val now = Instant.now()
     val dt = DataType(
       id        = DataTypeId(UUID.randomUUID().toString),
@@ -163,7 +156,7 @@ class ComputedFieldsRoutesSpec
 
     "persist computed fields and return them in the response" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(
         DataField("price", "Price", "float", nullable = false),
         DataField("quantity", "Quantity", "integer", nullable = false)
@@ -189,7 +182,7 @@ class ComputedFieldsRoutesSpec
 
     "increment version when only computedFields change" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(DataField("x", "X", "float", nullable = false))
 
       Patch(
@@ -210,7 +203,7 @@ class ComputedFieldsRoutesSpec
 
     "return 400 when the expression references an unknown field" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(DataField("revenue", "Revenue", "float", nullable = false))
 
       Patch(
@@ -228,7 +221,7 @@ class ComputedFieldsRoutesSpec
 
     "return 400 for a syntax error in the expression" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(DataField("a", "A", "float", nullable = false))
 
       Patch(
@@ -245,7 +238,7 @@ class ComputedFieldsRoutesSpec
 
     "return 400 when the expression exceeds the maximum length" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(DataField("x", "X", "float", nullable = false))
       val longExpr = "x + " * 200  // well over 500 chars
 
@@ -266,7 +259,7 @@ class ComputedFieldsRoutesSpec
 
     "include computedFields in the response (empty by default)" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(DataField("col1", "Column 1", "string", nullable = false))
 
       Get(s"/api/types/${dt.id.value}") ~> routes() ~> check {
@@ -278,7 +271,7 @@ class ComputedFieldsRoutesSpec
 
     "return saved computedFields after a PATCH" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(DataField("price", "Price", "float", nullable = false))
 
       Patch(
@@ -305,7 +298,7 @@ class ComputedFieldsRoutesSpec
 
     "return valid=true for a syntactically correct expression with known fields" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(DataField("price", "Price", "float", nullable = false))
 
       Get(s"/api/types/${dt.id.value}/validate-expression?expr=price+*+2") ~> routes() ~> check {
@@ -318,7 +311,7 @@ class ComputedFieldsRoutesSpec
 
     "return 200 with valid=false for an expression with a syntax error" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(DataField("x", "X", "float", nullable = false))
 
       Get(s"/api/types/${dt.id.value}/validate-expression?expr=x+%2B%2B+1") ~> routes() ~> check {
@@ -331,7 +324,7 @@ class ComputedFieldsRoutesSpec
 
     "return 200 with valid=false for an expression referencing an unknown field" in {
       cleanDb()
-      import com.helio.domain.DataField
+      import com.helio.domain.model.DataField
       val dt = insertType(DataField("known", "Known", "float", nullable = false))
 
       Get(s"/api/types/${dt.id.value}/validate-expression?expr=unknown_field") ~> routes() ~> check {

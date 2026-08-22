@@ -1,5 +1,7 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.pipelines.RunStatusEvent
+import com.helio.api.routes.pipelines.PipelineRunRegistry
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest

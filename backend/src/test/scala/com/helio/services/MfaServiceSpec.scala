@@ -1,8 +1,10 @@
 package com.helio.services
 
-import com.helio.api.protocols.{MfaConfirmRequest, MfaReauthRequest, MfaVerifyRequest}
-import com.helio.domain.{AuthenticatedUser, User, UserId}
-import com.helio.infrastructure.{MfaRepository, TokenHashing, UserRepository}
+import com.helio.services.auth.MfaService
+import com.helio.api.protocols.auth.{MfaConfirmRequest, MfaReauthRequest, MfaVerifyRequest}
+import com.helio.domain.model.{AuthenticatedUser, User, UserId}
+import com.helio.infrastructure.persistence.auth.{MfaRepository, UserRepository}
+import com.helio.infrastructure.crypto.TokenHashing
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

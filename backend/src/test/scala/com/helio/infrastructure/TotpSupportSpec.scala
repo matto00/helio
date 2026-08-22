@@ -1,5 +1,6 @@
 package com.helio.infrastructure
 
+import com.helio.infrastructure.persistence.auth.TotpSupport
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

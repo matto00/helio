@@ -1,8 +1,10 @@
 package com.helio.services
 
-import com.helio.api.protocols.{DashboardProposal, ProposalPanel}
-import com.helio.domain._
-import com.helio.infrastructure.{DataTypeRepository, MetricRepository}
+import com.helio.services.proposals.DashboardProposalService
+import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.metrics.MetricRepository
 import org.mockito.Mockito.{mock, verifyNoInteractions, when}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

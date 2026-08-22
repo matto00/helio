@@ -1,8 +1,13 @@
 package com.helio.services
 
-import com.helio.api.protocols.CreatePanelRequest
-import com.helio.domain._
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, MetricRepository, PanelRepository}
+import com.helio.services.auth.AccessChecker
+import com.helio.services.panels.PanelService
+import com.helio.api.protocols.panels.CreatePanelRequest
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
 import org.mockito.Mockito.mock
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

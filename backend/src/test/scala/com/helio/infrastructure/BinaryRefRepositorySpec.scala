@@ -1,6 +1,8 @@
 package com.helio.infrastructure
 
-import com.helio.domain.BinaryRef
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.pipelines.BinaryRefRepository
+import com.helio.domain.model.BinaryRef
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

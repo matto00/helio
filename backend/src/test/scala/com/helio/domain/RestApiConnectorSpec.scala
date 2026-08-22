@@ -1,5 +1,11 @@
 package com.helio.domain
 
+import com.helio.domain.connectors.ConnectorFieldDescriptor
+import com.helio.domain.connectors.ConnectorMetadata
+import com.helio.domain.model.RestApiAuth
+import com.helio.domain.connectors.{Connector, RestApiConnector}
+import com.helio.domain.engine.SchemaInferenceEngine
+import com.helio.domain.model.RestApiConfig
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.Http

@@ -1,7 +1,8 @@
 package com.helio.services.layout
 
-import com.helio.domain.{DashboardLayoutItem, PanelId, PanelKind}
-import com.helio.services.layout.PanelPacker.PackInput
+import com.helio.domain.model.{DashboardLayoutItem, PanelId, PanelKind}
+import com.helio.services.panels.PanelPacker
+import com.helio.services.panels.PanelPacker.PackInput
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

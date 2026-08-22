@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.api.http.{AuthDirectives, RequestValidation, SessionCookies}
 import ch.qos.logback.classic.{Logger => LogbackLogger}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -9,26 +10,19 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpReque
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader, `Set-Cookie`}
-import com.helio.domain.{
-  AuthenticatedUser,
-  ChartAppearance,
-  ChartAxisLabel,
-  ChartAxisLabels,
-  ChartLegend,
-  ChartTooltip,
-  DashboardId,
-  Page,
-  PagedResult,
-  PanelId,
-  RestApiConfig,
-  RestApiConnector,
-  User,
-  UserId,
-  UserSession
-}
+import com.helio.domain.model.{AuthenticatedUser, ChartAppearance, ChartAxisLabel, ChartAxisLabels, ChartLegend, ChartTooltip, DashboardId, Page, PagedResult, PanelId, User, UserId, UserSession}
+import com.helio.domain.connectors.RestApiConnector
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.api.protocols.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, PutMemoryEnabledRequest, RedeemInviteCodeRequest}
-import com.helio.infrastructure.{Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, TokenHashing, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.api.protocols.agents.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, PutMemoryEnabledRequest}
+import com.helio.api.protocols.auth.RedeemInviteCodeRequest
+import com.helio.infrastructure.persistence.{Database, DbContext}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.storage.{FileSystem, ListPage}
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.crypto.TokenHashing
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -891,7 +885,7 @@ class ApiRoutesSpec
 
     "update a data type name and fields and increment version" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -934,7 +928,7 @@ class ApiRoutesSpec
 
     "delete a data type and return 204" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -968,7 +962,7 @@ class ApiRoutesSpec
 
     "return 409 when deleting a data type bound to a panel" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1011,7 +1005,7 @@ class ApiRoutesSpec
 
     "PATCH /api/types/:id includes computedFields and returns updated DataType" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1051,7 +1045,7 @@ class ApiRoutesSpec
 
     "GET /api/types/:id includes computedFields array" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1078,7 +1072,7 @@ class ApiRoutesSpec
 
     "PATCH /api/types/:id with invalid computed field expression returns 400" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1110,7 +1104,7 @@ class ApiRoutesSpec
 
     "PATCH /api/types/:id with expression exceeding 500 chars returns 400" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1144,7 +1138,7 @@ class ApiRoutesSpec
 
     "GET /api/types/:id/validate-expression returns valid=true for a valid expression" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1173,7 +1167,7 @@ class ApiRoutesSpec
 
     "GET /api/types/:id/validate-expression returns valid=false for syntax error" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1199,7 +1193,7 @@ class ApiRoutesSpec
 
     "GET /api/types/:id/validate-expression returns valid=false for unknown field" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1243,7 +1237,7 @@ class ApiRoutesSpec
 
     "bind a data type to a panel and return it in the response" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
       import spray.json._
@@ -1285,7 +1279,7 @@ class ApiRoutesSpec
 
     "unbind a data type from a panel by setting typeId to null" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1524,7 +1518,7 @@ class ApiRoutesSpec
 
     "leave a table panel's dataTypeId/fieldMapping untouched on a display-only PATCH (HEL-255)" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -1867,7 +1861,7 @@ class ApiRoutesSpec
 
     "POST /api/sources/:id/refresh updates DataType and increments version" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
       import spray.json._
@@ -1913,7 +1907,7 @@ class ApiRoutesSpec
 
     "GET /api/sources/:id/preview returns up to 10 rows" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
       import spray.json._
@@ -2515,7 +2509,7 @@ class ApiRoutesSpec
 
     "create a chart panel with an appearance and persist chart.chartType (HEL-305)" in {
       cleanDb()
-      import com.helio.domain.ChartAppearance
+      import com.helio.domain.model.ChartAppearance
 
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Create Appearance Test"))) ~> routes() ~> check {
@@ -2569,7 +2563,7 @@ class ApiRoutesSpec
 
     "reject a create request with an invalid chartType with 400 (HEL-305)" in {
       cleanDb()
-      import com.helio.domain.ChartAppearance
+      import com.helio.domain.model.ChartAppearance
 
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Invalid Create ChartType Test"))) ~> routes() ~> check {
@@ -2593,7 +2587,7 @@ class ApiRoutesSpec
 
     "reject a PATCH with an invalid chartType with 400 (HEL-305 D5)" in {
       cleanDb()
-      import com.helio.domain.ChartAppearance
+      import com.helio.domain.model.ChartAppearance
 
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Invalid Patch ChartType Test"))) ~> routes() ~> check {
@@ -2613,7 +2607,7 @@ class ApiRoutesSpec
 
     "persist a valid chartType via PATCH (HEL-305 D5)" in {
       cleanDb()
-      import com.helio.domain.ChartAppearance
+      import com.helio.domain.model.ChartAppearance
 
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Valid Patch ChartType Test"))) ~> routes() ~> check {
@@ -2633,7 +2627,7 @@ class ApiRoutesSpec
 
     "reject an updateBatch with an invalid chartType with 400 and no partial write (HEL-305 D5)" in {
       cleanDb()
-      import com.helio.domain.ChartAppearance
+      import com.helio.domain.model.ChartAppearance
 
       var dashboardId = ""
       var panelId1    = ""
@@ -2676,7 +2670,7 @@ class ApiRoutesSpec
 
     "persist a valid chartType via updateBatch (HEL-305 D5)" in {
       cleanDb()
-      import com.helio.domain.ChartAppearance
+      import com.helio.domain.model.ChartAppearance
 
       var dashboardId = ""
       var panelId     = ""
@@ -3673,7 +3667,7 @@ class ApiRoutesSpec
 
     "GET /api/data-sources returns only sources owned by the authenticated user" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -3746,7 +3740,7 @@ class ApiRoutesSpec
 
     "GET /api/types returns only types owned by the authenticated user" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -3780,7 +3774,7 @@ class ApiRoutesSpec
 
     "PATCH /api/types/:id returns 404 when caller does not own the type (HEL-265 CS3)" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -3805,7 +3799,7 @@ class ApiRoutesSpec
 
     "DELETE /api/types/:id returns 404 when caller does not own the type (HEL-265 CS3)" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 
@@ -3833,7 +3827,7 @@ class ApiRoutesSpec
 
     "panel with typeId owned by a different user reads as typeId=null" in {
       cleanDb()
-      import com.helio.domain._
+      import com.helio.domain.model._
       import java.time.Instant
       import java.util.UUID
 

@@ -1,7 +1,9 @@
 package com.helio.infrastructure
 
-import com.helio.domain._
-import com.helio.infrastructure.AssistantConversationRepository.AssistantConversationRecord
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository.AssistantConversationRecord
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

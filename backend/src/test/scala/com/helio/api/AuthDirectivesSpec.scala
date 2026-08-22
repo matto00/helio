@@ -1,12 +1,13 @@
 package com.helio.api
 
+import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.{ApiTokenId, AuthenticatedUser, UserId}
-import com.helio.infrastructure.{ApiTokenRepository, UserSessionRepository}
-import com.helio.services.ApiTokenService
+import com.helio.domain.model.{ApiTokenId, AuthenticatedUser, UserId}
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, UserSessionRepository}
+import com.helio.services.auth.ApiTokenService
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

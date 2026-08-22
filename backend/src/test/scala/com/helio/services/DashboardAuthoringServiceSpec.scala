@@ -1,10 +1,23 @@
 package com.helio.services
 
+import com.helio.services.dashboards.DashboardService
+import com.helio.services.panels.PanelCapabilityService
+import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.proposals.{AuthoringHistoryBudget, DashboardAuthoringService, DashboardProposalService}
+import com.helio.services.sources.DataSourceService
+import com.helio.services.workspace.WorkspaceContextService
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeMessage, ClaudeRole, ClaudeStreamEvent, ClaudeTransport}
-import com.helio.api.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
-import com.helio.api.protocols.{AuthoringDisplayTurn, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardProposal, PatchSet}
-import com.helio.domain._
-import com.helio.infrastructure._
+import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
+import com.helio.api.protocols.proposals.{AuthoringDisplayTurn, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardProposal}
+import com.helio.api.protocols.patchsets.PatchSet
+import com.helio.domain.model._
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._

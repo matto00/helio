@@ -1,14 +1,17 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.pipelines.PipelineScheduleRoutes
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{JsonProtocols, PipelineScheduleResponse}
-import com.helio.domain.{AuthenticatedUser, UserId}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, PipelineRepository, PipelineScheduleRepository}
-import com.helio.services.PipelineScheduleService
+import com.helio.domain.model.{AuthenticatedUser, UserId}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineScheduleRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.services.pipelines.PipelineScheduleService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

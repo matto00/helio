@@ -1,5 +1,6 @@
 package com.helio.domain
 
+import com.helio.domain.model.{DataFieldType, FieldTypeCategory}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

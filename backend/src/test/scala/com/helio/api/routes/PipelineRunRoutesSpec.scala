@@ -1,5 +1,7 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.pipelines.{PipelineRunHistoryRoutes, PipelineRunRegistry, PipelineRunStatusRoutes, PipelineRunStreamRoutes, PipelineRunSubmitRoutes}
+import com.helio.domain.connectors.RestApiConnector
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.stream.Materializer
@@ -10,8 +12,14 @@ import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse}
 import com.helio.domain._
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, BinaryRefRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, LocalFileSystem, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
-import com.helio.services.{AlertEvaluationService, PipelineRunService}
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.services.alerts.AlertEvaluationService
+import com.helio.services.pipelines.PipelineRunService
 import com.helio.spark.{PipelineRunCache, RunStatus}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

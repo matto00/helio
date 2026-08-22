@@ -1,16 +1,28 @@
 package com.helio.api.routes
 
+import com.helio.api.http.{AccessCheckerImpl, AclDirective, ResourceTypeRegistry}
+import com.helio.api.routes.dashboards.PublicDashboardRoutes
+import com.helio.api.routes.metrics.MetricRoutes
+import com.helio.api.routes.panels.PanelRoutes
+import com.helio.services.metrics.MetricService
+import com.helio.services.panels.PanelService
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{ResourceType => AclResourceType, _}
-import com.helio.domain._
+import com.helio.api.http.{ResourceType => AclResourceType}
+import com.helio.api._
+import com.helio.domain.model._
 import com.helio.domain.panels.{MetricPanel, MetricPanelConfig}
-import com.helio.infrastructure._
-import com.helio.services._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

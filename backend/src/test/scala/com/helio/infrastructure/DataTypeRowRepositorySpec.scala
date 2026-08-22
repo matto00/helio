@@ -1,5 +1,7 @@
 package com.helio.infrastructure
 
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.pipelines.DataTypeRowRepository
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

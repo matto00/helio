@@ -1,14 +1,28 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.pipelines.{DataTypeRoutes, PipelineRoutes}
+import com.helio.api.routes.sources.DataSourceRoutes
+import com.helio.api.routes.workspace.WorkspaceRoutes
+import com.helio.services.dashboards.DashboardService
+import com.helio.services.panels.PanelCapabilityService
+import com.helio.services.pipelines.{DataTypeService, PipelineRunService, PipelineService}
+import com.helio.services.sources.DataSourceService
+import com.helio.services.workspace.{WorkspaceContextService, WorkspaceTeardownService}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
+import com.helio.infrastructure.storage.LocalFileSystem
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{AccessCheckerImpl, DataSourceResponse, JsonProtocols, PipelineSummaryResponse, ResourceTypeRegistry, TeardownResponse}
-import com.helio.domain._
-import com.helio.infrastructure._
-import com.helio.services._
+import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry}
+import com.helio.api.{DataSourceResponse, JsonProtocols, PipelineSummaryResponse, TeardownResponse}
+import com.helio.domain.model._
 import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

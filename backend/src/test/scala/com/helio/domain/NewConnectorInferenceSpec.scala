@@ -1,5 +1,9 @@
 package com.helio.domain
 
+import com.helio.domain.model.DataFieldType
+import com.helio.domain.connectors.{Connector, ConnectorMetadata}
+import com.helio.domain.engine.SchemaInferenceEngine
+import com.helio.domain.model.InferredSchema
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

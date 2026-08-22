@@ -1,5 +1,6 @@
 package com.helio.infrastructure
 
+import com.helio.infrastructure.storage.GcsFileSystem
 import com.google.api.gax.paging.Page
 import com.google.cloud.storage.{Blob, BlobId, BlobInfo, Storage}
 import org.mockito.ArgumentCaptor

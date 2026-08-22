@@ -1,7 +1,7 @@
 package com.helio.api.protocols
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import com.helio.domain._
+import com.helio.domain.model._
 import spray.json._
 
 // ── Shared resource / error / health response types ──────────────────────────

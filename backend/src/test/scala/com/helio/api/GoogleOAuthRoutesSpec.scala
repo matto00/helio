@@ -9,10 +9,10 @@ import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.model.headers.`Set-Cookie`
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.routes.OAuthRoutes
-import com.helio.domain.{UserId, UserMfa}
-import com.helio.infrastructure.{MfaRepository, UserRepository}
-import com.helio.services.{AuthService, MfaService, UserTierConfig}
+import com.helio.api.routes.auth.OAuthRoutes
+import com.helio.domain.model.{UserId, UserMfa}
+import com.helio.infrastructure.persistence.auth.{MfaRepository, UserRepository}
+import com.helio.services.auth.{AuthService, MfaService, UserTierConfig}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

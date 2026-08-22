@@ -1,7 +1,9 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.sources.{CsvSourceConfigPayload, RestApiConfigPayload, SqlSourceConfigPayload, TextSourceConfigPayload}
+import com.helio.api.protocols.sources.{CsvSourceResponse, DataSourceConfigCodec, DataSourceResponse, RestSourceResponse, SqlSourceResponse, StaticSourceResponse, TextSourceResponse}
 import com.helio.api.JsonProtocols
-import com.helio.domain.{CsvSourceConfig, RestApiConfig, SqlSourceConfig, TextSourceConfig}
+import com.helio.domain.model.{CsvSourceConfig, RestApiConfig, SqlSourceConfig, TextSourceConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -133,7 +135,7 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
   }
 
   "DataSourceResponse.fromDomain credential redaction" should {
-    import com.helio.domain.{ApiKeyPlacement, DataSourceId, RestApiAuth, RestSource, SqlSource, UserId}
+    import com.helio.domain.model.{ApiKeyPlacement, DataSourceId, RestApiAuth, RestSource, SqlSource, UserId}
     import java.time.Instant
 
     val now   = Instant.parse("2026-05-14T00:00:00Z")
@@ -181,7 +183,7 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
   // at the response boundary (e.g. a future `fromDomain` case that forgets to call
   // `SecretRedaction.redact`).
   "DataSourceResponse.fromDomain serialized JSON never leaks raw secrets" should {
-    import com.helio.domain.{ApiKeyPlacement, DataSourceId, RestApiAuth, RestSource, SqlSource, UserId}
+    import com.helio.domain.model.{ApiKeyPlacement, DataSourceId, RestApiAuth, RestSource, SqlSource, UserId}
     import java.time.Instant
 
     val now   = Instant.parse("2026-05-14T00:00:00Z")

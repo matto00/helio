@@ -1,6 +1,7 @@
 package com.helio.services
 
-import com.helio.api.protocols.{WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextDataType}
+import com.helio.services.workspace.WorkspaceContextService
+import com.helio.api.protocols.workspace.{WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextDataType}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

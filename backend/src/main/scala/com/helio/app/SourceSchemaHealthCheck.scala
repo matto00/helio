@@ -1,6 +1,6 @@
 package com.helio.app
 
-import com.helio.infrastructure.DbContext
+import com.helio.infrastructure.persistence.DbContext
 import org.slf4j.Logger
 import slick.jdbc.PostgresProfile.api._
 

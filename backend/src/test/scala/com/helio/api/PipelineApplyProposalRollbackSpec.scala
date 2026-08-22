@@ -1,7 +1,7 @@
 package com.helio.api
 
 import org.apache.pekko.http.scaladsl.model.StatusCodes
-import com.helio.api.protocols.PipelineProposalApplyResponse
+import com.helio.api.protocols.pipelines.PipelineProposalApplyResponse
 import spray.json._
 
 /** Mid-apply failure rollback + RLS coverage for `POST

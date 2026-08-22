@@ -1,7 +1,8 @@
 package com.helio.services
 
-import com.helio.api.protocols.WorkspaceContextColumnStats
-import com.helio.domain.DataField
+import com.helio.services.workspace.WorkspaceContextService
+import com.helio.api.protocols.workspace.WorkspaceContextColumnStats
+import com.helio.domain.model.DataField
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

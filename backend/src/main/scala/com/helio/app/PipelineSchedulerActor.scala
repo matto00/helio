@@ -2,7 +2,7 @@ package com.helio.app
 
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.{Behaviors, TimerScheduler}
-import com.helio.services.PipelineSchedulerService
+import com.helio.services.pipelines.PipelineSchedulerService
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration

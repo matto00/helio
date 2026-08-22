@@ -1,5 +1,6 @@
 package com.helio.infrastructure
 
+import com.helio.infrastructure.storage.LocalFileSystem
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
 

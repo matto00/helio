@@ -1,10 +1,23 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.proposals.DashboardAuthoringRoutes
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeStreamEvent, ClaudeTransport}
-import com.helio.api.{AccessCheckerImpl, JsonProtocols, ResourceTypeRegistry, TraceContextDirective, ResourceType => AclResourceType}
-import com.helio.domain._
-import com.helio.infrastructure._
-import com.helio.services.{DashboardAuthoringService, DashboardProposalService, DataSourceService, DataTypeService, DashboardService, PanelCapabilityService, PipelineService, WorkspaceContextService}
+import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, TraceContextDirective, ResourceType => AclResourceType}
+import com.helio.api.JsonProtocols
+import com.helio.domain.model._
+import com.helio.services.proposals.{DashboardAuthoringService, DashboardProposalService}
+import com.helio.services.sources.DataSourceService
+import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.dashboards.DashboardService
+import com.helio.services.panels.PanelCapabilityService
+import com.helio.services.workspace.WorkspaceContextService
 import com.helio.testutil.JsonLogCapture
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.typed.ActorSystem

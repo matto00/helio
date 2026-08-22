@@ -1,17 +1,7 @@
 package com.helio.domain.shapes
 
-import com.helio.api.protocols.{CreatePipelineStepRequest, PipelineStepConfigCodec}
-import com.helio.domain.steps.{
-  AggregateConfig,
-  AggregateField,
-  AggregateStep,
-  Aggregation,
-  DateBucketConfig,
-  DateBucketStep,
-  SortConfig,
-  SortKey,
-  SortStep
-}
+import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec}
+import com.helio.domain.steps.{AggregateConfig, AggregateField, AggregateStep, Aggregation, DateBucketConfig, DateBucketStep, SortConfig, SortKey, SortStep}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

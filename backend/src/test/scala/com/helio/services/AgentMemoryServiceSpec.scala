@@ -1,8 +1,10 @@
 package com.helio.services
 
-import com.helio.api.protocols.CreateAgentMemoryRequest
-import com.helio.domain.{AgentMemoryId, AgentMemoryKind, AuthenticatedUser, UserId}
-import com.helio.infrastructure.{AgentMemoryRepository, AgentPreferencesRepository, DbContext}
+import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
+import com.helio.api.protocols.agents.CreateAgentMemoryRequest
+import com.helio.domain.model.{AgentMemoryId, AgentMemoryKind, AuthenticatedUser, UserId}
+import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
+import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

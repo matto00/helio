@@ -1,15 +1,31 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.patchsets.PatchSetRoutes
+import com.helio.api.protocols.dashboards.UpdateDashboardRequest
+import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
+import com.helio.services.auth.AccessChecker
+import com.helio.services.dashboards.DashboardService
+import com.helio.services.panels.PanelService
+import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService}
+import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.sources.DataSourceService
+import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{AccessCheckerImpl, JsonProtocols, ResourceType => AclResourceType, ResourceTypeRegistry}
-import com.helio.api.protocols._
-import com.helio.domain._
-import com.helio.infrastructure._
-import com.helio.services._
+import com.helio.api.http.{AccessCheckerImpl, ResourceType => AclResourceType, ResourceTypeRegistry}
+import com.helio.api.JsonProtocols
+import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

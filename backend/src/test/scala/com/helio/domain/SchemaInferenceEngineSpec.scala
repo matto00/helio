@@ -1,5 +1,7 @@
 package com.helio.domain
 
+import com.helio.domain.engine.SchemaInferenceEngine
+import com.helio.domain.model.DataFieldType
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

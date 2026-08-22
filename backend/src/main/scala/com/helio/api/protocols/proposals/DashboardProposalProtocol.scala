@@ -1,0 +1,120 @@
+package com.helio.api.protocols.proposals
+
+import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import spray.json._
+
+// ── Dashboard proposal types (HEL-223/225 apply-proposal contract) ───────────
+//
+// A proposal carries NO ids: applying it (POST /api/dashboards/apply-proposal)
+// mints the dashboard + panels via the existing services. Data panels reference
+// an existing pipeline-output DataType by id. The wire shape matches
+// schemas/dashboard-proposal.schema.json.
+
+final case class ProposalPanelLayout(x: Int, y: Int, w: Int, h: Int)
+
+final case class ProposalPanel(
+    title: String,
+    `type`: String,
+    dataTypeId: Option[String],
+    // HEL-549: additive to dataTypeId — binds the panel to a defined metric
+    // (`metric`/`chart`/`table` panels only) via the existing HEL-500
+    // MetricPanelConfig/ChartPanelConfig/TablePanelConfig `metricId` slot.
+    // dataTypeId stays required for these panel kinds exactly as before.
+    metricId: Option[String],
+    fieldMapping: Option[JsObject],
+    aggregation: Option[JsObject],
+    content: Option[String],
+    url: Option[String],
+    orientation: Option[String],
+    chartType: Option[String],
+    xAxisLabel: Option[String],
+    yAxisLabel: Option[String],
+    seriesColors: Option[Vector[String]],
+    label: Option[String],
+    unit: Option[String],
+    // HEL-321: flat timeline `sort` (`asc`/`desc`) derived into the created
+    // panel's `config.timelineOptions.sort` by `DashboardProposalService`, at
+    // flat-binding parity with metric's `label`/`unit`.
+    sort: Option[String],
+    layout: Option[ProposalPanelLayout],
+    // HEL-316: generic passthrough merged (over the flat-field-derived config)
+    // by `DashboardProposalService.buildCreateRequest`, mirroring the MCP
+    // `create_panel` `config` passthrough. Makes every v1.5 panel-config
+    // surface (collection baseType/layout, chart chartOptions, table
+    // density/columnOrder) expressible via a proposal without a new flat
+    // field per surface. See openspec/changes/mcp-proposal-panel-parity.
+    config: Option[JsObject]
+)
+
+final case class DashboardProposal(dashboardName: String, panels: Vector[ProposalPanel])
+
+// HEL-363: body of `PUT /api/dashboards/:id/contents`. Reuses `ProposalPanel`
+// verbatim (design.md D2) — the target dashboard's id comes from the URL
+// path, not the body, so there is no `dashboardName` field here.
+final case class ReplaceDashboardContentsRequest(panels: Vector[ProposalPanel])
+
+trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtocol {
+  implicit val proposalPanelLayoutFormat: RootJsonFormat[ProposalPanelLayout] = jsonFormat4(
+    ProposalPanelLayout.apply
+  )
+
+  // Custom reader tolerates absent optional fields (spray-json omits `None` on
+  // the wire, and a proposal from an agent frequently omits dataTypeId /
+  // fieldMapping / layout for non-data panels).
+  implicit val proposalPanelFormat: RootJsonFormat[ProposalPanel] = new RootJsonFormat[ProposalPanel] {
+    def write(p: ProposalPanel): JsValue = {
+      val fields = scala.collection.mutable.Map[String, JsValue](
+        "title" -> JsString(p.title),
+        "type"  -> JsString(p.`type`)
+      )
+      p.dataTypeId.foreach(v => fields("dataTypeId") = JsString(v))
+      p.metricId.foreach(v => fields("metricId") = JsString(v))
+      p.fieldMapping.foreach(v => fields("fieldMapping") = v)
+      p.aggregation.foreach(v => fields("aggregation") = v)
+      p.content.foreach(v => fields("content") = JsString(v))
+      p.url.foreach(v => fields("url") = JsString(v))
+      p.orientation.foreach(v => fields("orientation") = JsString(v))
+      p.chartType.foreach(v => fields("chartType") = JsString(v))
+      p.xAxisLabel.foreach(v => fields("xAxisLabel") = JsString(v))
+      p.yAxisLabel.foreach(v => fields("yAxisLabel") = JsString(v))
+      p.seriesColors.foreach(v => fields("seriesColors") = JsArray(v.map(JsString(_))))
+      p.label.foreach(v => fields("label") = JsString(v))
+      p.unit.foreach(v => fields("unit") = JsString(v))
+      p.sort.foreach(v => fields("sort") = JsString(v))
+      p.layout.foreach(v => fields("layout") = v.toJson)
+      p.config.foreach(v => fields("config") = v)
+      JsObject(fields.toMap)
+    }
+
+    def read(json: JsValue): ProposalPanel = {
+      val obj = json.asJsObject
+      ProposalPanel(
+        title        = obj.fields.get("title").map(_.convertTo[String]).getOrElse(deserializationError("proposal panel 'title' is required")),
+        `type`       = obj.fields.get("type").map(_.convertTo[String]).getOrElse(deserializationError("proposal panel 'type' is required")),
+        dataTypeId   = obj.fields.get("dataTypeId").map(_.convertTo[String]),
+        metricId     = obj.fields.get("metricId").map(_.convertTo[String]),
+        fieldMapping = obj.fields.get("fieldMapping").map(_.asJsObject),
+        aggregation  = obj.fields.get("aggregation").map(_.asJsObject),
+        content      = obj.fields.get("content").map(_.convertTo[String]),
+        url          = obj.fields.get("url").map(_.convertTo[String]),
+        orientation  = obj.fields.get("orientation").map(_.convertTo[String]),
+        chartType    = obj.fields.get("chartType").map(_.convertTo[String]),
+        xAxisLabel   = obj.fields.get("xAxisLabel").map(_.convertTo[String]),
+        yAxisLabel   = obj.fields.get("yAxisLabel").map(_.convertTo[String]),
+        seriesColors = obj.fields.get("seriesColors").map(_.convertTo[Vector[String]]),
+        label        = obj.fields.get("label").map(_.convertTo[String]),
+        unit         = obj.fields.get("unit").map(_.convertTo[String]),
+        sort         = obj.fields.get("sort").map(_.convertTo[String]),
+        layout       = obj.fields.get("layout").map(_.convertTo[ProposalPanelLayout]),
+        config       = obj.fields.get("config").map(_.asJsObject)
+      )
+    }
+  }
+
+  implicit val dashboardProposalFormat: RootJsonFormat[DashboardProposal] = jsonFormat2(
+    DashboardProposal.apply
+  )
+
+  implicit val replaceDashboardContentsRequestFormat: RootJsonFormat[ReplaceDashboardContentsRequest] =
+    jsonFormat1(ReplaceDashboardContentsRequest.apply)
+}

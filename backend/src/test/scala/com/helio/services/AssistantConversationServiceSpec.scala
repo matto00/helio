@@ -1,9 +1,12 @@
 package com.helio.services
 
+import com.helio.services.assistant.AssistantConversationService
 import com.helio.ai.{ClaudeContentBlock, ClaudeRole, ClaudeToolMessage}
-import com.helio.domain._
-import com.helio.infrastructure.AssistantConversationRepository._
-import com.helio.infrastructure.{AssistantConversationRepository, DbContext, LocalFileSystem}
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository._
+import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.LocalFileSystem
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

@@ -1,5 +1,6 @@
 package com.helio.services
 
+import com.helio.services.workspace.WorkspaceAssistantTools
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json.{JsArray, JsObject, JsString}

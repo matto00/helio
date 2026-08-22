@@ -1,6 +1,7 @@
 package com.helio.infrastructure
 
-import com.helio.domain._
+import com.helio.infrastructure.persistence.panels.PanelRowMapper
+import com.helio.domain.model._
 import com.helio.domain.panels._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

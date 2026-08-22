@@ -1,6 +1,8 @@
 package com.helio.infrastructure
 
-import com.helio.domain.{AgentMemoryEntry, AgentMemoryId, AgentMemoryKind, AuthenticatedUser, UserId}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.agents.AgentMemoryRepository
+import com.helio.domain.model.{AgentMemoryEntry, AgentMemoryId, AgentMemoryKind, AuthenticatedUser, UserId}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

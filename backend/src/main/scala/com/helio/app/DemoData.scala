@@ -1,8 +1,9 @@
 package com.helio.app
 
-import com.helio.domain._
+import com.helio.domain.model._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DashboardRepository, PanelRepository}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
 import spray.json.JsObject
 
 import java.time.Instant

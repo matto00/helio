@@ -1,25 +1,35 @@
 package com.helio.services
 
+import com.helio.services.auth.AccessChecker
+import com.helio.services.panels.PanelCapabilityService
+import com.helio.services.patchsets.{PatchSetPreviewService, RefinementGrounding, RefinementService}
+import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.workspace.WorkspaceContextService
+import com.helio.services.dashboards.DashboardService
+import com.helio.services.panels.PanelService
+import com.helio.services.sources.DataSourceService
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeStreamEvent, ClaudeTransport}
-import com.helio.api.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
-import com.helio.api.protocols.{
-  AuthoringDisplayTurn,
-  CreatePanelRequest,
-  CreatePipelineRequest,
-  CreatePipelineStepRequest,
-  DashboardProposal,
-  RefinementRequest,
-  RefinementTarget,
-  StaticColumnPayload,
-  StaticDataSourceRequest
-}
-import com.helio.domain._
+import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
+import com.helio.api.protocols.proposals.{AuthoringDisplayTurn, DashboardProposal}
+import com.helio.api.protocols.panels.CreatePanelRequest
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest}
+import com.helio.api.protocols.patchsets.{RefinementRequest, RefinementTarget}
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
+import com.helio.domain.model._
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.scaladsl.Source
-import com.helio.infrastructure._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
