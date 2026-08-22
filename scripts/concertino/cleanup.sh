@@ -246,7 +246,28 @@ other_runs_live() {
 # as a real file only exists in this repo's own self-hosting case, never
 # assumed elsewhere.
 if [ "$FF_STATUS" = "updated" ]; then
-  if other_runs_live; then
+  # LOCAL OVERRIDE (CON-128) — the automatic re-render is disabled in this
+  # checkout until the stale-binary bug is fixed.
+  #
+  # `npx concertino` here resolves to a stale GLOBAL /usr/bin/concertino, not
+  # the local ~/Development/concertino source. On 2026-08-20 that binary
+  # silently rewrote this repo's agent definitions -- deleting 2165 lines and
+  # adding 111, stripping the escalation topology, every per-spawn model
+  # override, and the MODELS field -- while printing success. Both report
+  # v0.1.5, so the version is no signal.
+  #
+  # This block is the one place `sync` runs WITHOUT a human asking for it, and
+  # it runs with stdout and stderr sent to /dev/null, so a repeat would be
+  # silent twice over. Until CON-128 is resolved, `concertino sync` is run
+  # deliberately by a human or not at all.
+  #
+  # Nothing downstream depends on this: the re-render is best-effort, the
+  # rendered artifacts are already committed and correct, and the skip path
+  # below is the script's own documented behaviour when another run is live.
+  # Remove this guard (and this comment) once the binary resolution is fixed.
+  if true; then
+    echo "note: main fast-forwarded — \`concertino sync\` re-render is DISABLED in this checkout (CON-128: stale global binary silently clobbers rendered artifacts). Run it deliberately once that is fixed." >&2
+  elif other_runs_live; then
     echo "note: main fast-forwarded — skipping \`concertino sync\`: run ${LIVE_RUN_TICKET} is still live and the re-render would rewrite shared root artifacts under it; run \`concertino sync\` manually once it finishes" >&2
   else
     RENDER_OK=1
