@@ -40,8 +40,19 @@ const REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
 }).trim();
 process.chdir(REPO_ROOT);
 
-const CHANGE_DIR_PREFIX = "openspec/changes/segment-frontend-ui-directories/";
-const CHECKER_PATH = "openspec/changes/segment-frontend-ui-directories/check-move-integrity.mjs";
+// The change directory legitimately lives at either path depending on whether the
+// change has been archived yet; this checker runs on both sides of `openspec archive`,
+// so both are accepted. Without the archived prefix, archiving relocates the very
+// artifacts this allow-list pins and the status assertion reports 16 spurious `A`s
+// while every substantive check still passes.
+// The one canonical spec `openspec archive` syncs for this change. Named explicitly
+// rather than allowing an `openspec/specs/` prefix, which would wave through any
+// unrelated spec addition.
+const SYNCED_SPEC_PATH = "openspec/specs/frontend-ui-directory-structure/spec.md";
+const CHANGE_DIR_PREFIXES = [
+  "openspec/changes/segment-frontend-ui-directories/",
+  "openspec/changes/archive/2026-08-22-segment-frontend-ui-directories/",
+];
 const NON_FRONTEND_M_ALLOWED = new Set(["docs/compute-expression-grammar.md"]);
 const MIN_RENAMES = 116;
 
@@ -109,7 +120,8 @@ for (const o of others) {
   if (o.status === "D" || o.status.startsWith("T")) {
     fail(`Whole-repo status: unexpected ${o.status} at ${o.path} (no D/T is permitted anywhere).`);
   } else if (o.status === "A") {
-    const okA = o.path.startsWith(CHANGE_DIR_PREFIX) || o.path === CHECKER_PATH;
+    const okA =
+      CHANGE_DIR_PREFIXES.some((prefix) => o.path.startsWith(prefix)) || o.path === SYNCED_SPEC_PATH;
     if (!okA) fail(`Whole-repo status: unexpected A at ${o.path}.`);
   } else if (o.status.startsWith("M")) {
     if (!o.path.startsWith("frontend/") && !NON_FRONTEND_M_ALLOWED.has(o.path)) {
