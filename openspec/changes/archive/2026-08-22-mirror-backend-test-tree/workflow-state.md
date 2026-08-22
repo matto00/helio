@@ -1,0 +1,21 @@
+PHASE: Execution
+TICKET_ID: HEL-634
+CHANGE_NAME: mirror-backend-test-tree
+WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/task/mirror-backend-test-tree/HEL-634
+BRANCH: task/mirror-backend-test-tree/HEL-634
+DEV_PORT: 6066
+BACKEND_PORT: 8973
+AGENT_MERGE: true
+TICKET_TYPE: feature
+DESIGN_QUESTIONS: null
+SPEED: default
+EXECUTION_CYCLES: 3
+SKEPTIC_DESIGN_ROUNDS: 5
+SKEPTIC_FINAL_ROUNDS: 2
+DEBUG_ATTEMPTS: 2
+MODELS: {"orchestrator":"sonnet","executor":"sonnet","evaluator":"sonnet","skeptic":"opus","auditor":"sonnet"}
+SECOND_FINAL_GATE_SKEPTIC: false
+EVALUATOR_CLEAN_WORKTREE: false
+CYCLE: 1
+SKEPTIC_CYCLE: 1
+DESIGN_GATE: CONFIRM (round 2/5)
