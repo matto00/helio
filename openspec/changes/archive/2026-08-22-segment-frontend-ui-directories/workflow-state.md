@@ -68,3 +68,18 @@ BASE_SHA: 649f149035c89ba0b40541cfa9165540f826412c  # EXPECTED value only — re
 #   Test baseline: 254 suites / 2751 tests, identical before and after the move. origin/main had
 #   not advanced past BASE (649f1490) as of this run, so 7.6's merge step was a no-op this cycle —
 #   re-run if origin/main has since moved.
+# DELIVERY: PR #417, squash-merged to main as 06cdc1b8. AGENT_MERGE resolved true, but
+#   check-agent-merge-permission.sh FAILed on BOTH `Bash(gh pr merge:*)` and
+#   `Task(concertino-auditor)` — per standing user instruction, NOT retried and NO escalation
+#   cycle spent; the auditor was never spawned and a human merged instead.
+# PHASE 4: cleanup.sh removed the worktree and freed ports 6067/8974, then printed a git fatal
+#   and skipped local-branch deletion (CON-131: it has failed 8/8 this session, once exiting 0
+#   after doing nothing). Postconditions were therefore verified BY RESULT, not exit code:
+#   worktree dir gone, worktree registration clean (no strays, nothing to prune), local branch
+#   deleted manually, remote branch gone (GitHub auto-deleted on squash), main == origin/main
+#   == 06cdc1b8, ports free. The local branch needed `-D`: after a squash merge its commits are
+#   not ancestors of main, so `-d` refuses; content-equality (`git diff origin/main <branch>`
+#   empty, 0 bytes) was proven first and is the check that actually matters.
+# RETROSPECTIVE: see retrospective.md in this directory — the gate's dominant failure mode was
+#   rejecting CORRECT work (8 instances) rather than accepting broken work (5), and 3 fixes each
+#   introduced the next round's blocker.
