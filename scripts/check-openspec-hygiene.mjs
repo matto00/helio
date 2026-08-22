@@ -42,32 +42,16 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gitChildEnv, nonGitChildEnv } from "./lib/git-child-env.mjs";
 
 const DEFAULT_STALE_DAYS = 14;
 const OPENSPEC_ENV = { OPENSPEC_TELEMETRY: "0", DO_NOT_TRACK: "1" };
 
-// Repo-locating env vars git sets ABSOLUTE for hook subprocesses running
-// during a commit made from a `git worktree` checkout -- GIT_DIR wins over
-// `cwd`-based repository discovery unconditionally. Left inherited, every
-// `git` call below would silently operate against the repo git resolved
-// them for (the checkout the commit is running in), not `targetRoot`
-// (measured: a real pre-commit-hook run against a fixture repo elsewhere
-// under targetRoot redirected onto the actual worktree's refs). Stripped
-// from every child `git` invocation so `cwd: targetRoot` is authoritative.
-const GIT_REPO_LOCATING_ENV_VARS = [
-  "GIT_DIR",
-  "GIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_COMMON_DIR",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-];
-
-function gitChildEnv() {
-  const env = { ...process.env };
-  for (const key of GIT_REPO_LOCATING_ENV_VARS) delete env[key];
-  return env;
-}
+// Child `git` gets an explicit minimal environment (allowlist, not denylist)
+// so nothing from the caller -- least of all git's own hook exports -- can
+// redirect it away from `cwd: targetRoot`. The mechanism, the incident it
+// caused, and why a denylist was the wrong shape are documented in
+// scripts/lib/git-child-env.mjs. See HEL-805.
 
 const scriptRepoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const targetRoot = process.argv[2] ? join(process.argv[2]) : scriptRepoRoot;
@@ -221,7 +205,7 @@ function main() {
     const out = execFileSync("openspec", ["list", "--json"], {
       cwd: targetRoot,
       encoding: "utf8",
-      env: { ...process.env, ...OPENSPEC_ENV },
+      env: nonGitChildEnv(OPENSPEC_ENV),
     });
     listJson = JSON.parse(out);
   } catch (e) {

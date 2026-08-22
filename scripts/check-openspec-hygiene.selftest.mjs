@@ -27,6 +27,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gitChildEnv, nonGitChildEnv } from "./lib/git-child-env.mjs";
 
 const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "check-openspec-hygiene.mjs");
 const OPENSPEC_ENV = { OPENSPEC_TELEMETRY: "0", DO_NOT_TRACK: "1" };
@@ -47,52 +48,16 @@ const DAY = 24 * 60 * 60;
 // Repo-locating env vars git sets ABSOLUTE for hook subprocesses running
 // during a commit made from a `git worktree` checkout -- GIT_DIR wins over
 // `cwd`-based repository discovery unconditionally, regardless of `cwd`.
-// Measured: running this self-test through a real pre-commit hook (this
-// repo IS a worktree) silently redirected every fixture `git` call onto the
-// real worktree's own refs (a `checkout -b feature` collided with an
-// unrelated real branch name) -- these vars must be stripped from every
-// child `git` invocation so `cwd: repoDir` is authoritative. This is the
-// same fix applied in check-openspec-hygiene.mjs's own `runGit`.
-const GIT_REPO_LOCATING_ENV_VARS = [
-  "GIT_DIR",
-  "GIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_COMMON_DIR",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-];
-
-// Same leak family, one layer over: git ALSO sets GIT_AUTHOR_DATE /
-// GIT_COMMITTER_DATE (and the identity siblings) for hook subprocesses
-// during `rebase` / `commit --amend` -- exactly the operations this
-// self-test simulates for cases 2.7-2.9. Left inherited, a contributor who
-// happens to have any of these exported gets fixture commits silently
-// backdated/re-authored, producing an unexplained red pre-commit for
-// reasons unrelated to their change (measured: exporting GIT_AUTHOR_DATE /
-// GIT_COMMITTER_DATE to a bogus value turns 2.10 and 2.13 red). Stripped
-// by default; cases that deliberately backdate a COMMIT (2.7, 2.9) still
-// pass their own explicit date via `extra`, applied AFTER stripping below,
-// so they are unaffected. (2.8 backdates filesystem mtimes via
-// backdateRecursive instead of a commit and never passes `extra` at all.)
-const GIT_IDENTITY_DATE_ENV_VARS = [
-  "GIT_AUTHOR_DATE",
-  "GIT_COMMITTER_DATE",
-  "GIT_AUTHOR_NAME",
-  "GIT_AUTHOR_EMAIL",
-  "GIT_COMMITTER_NAME",
-  "GIT_COMMITTER_EMAIL",
-];
-
-const GIT_LEAK_PRONE_ENV_VARS = [...GIT_REPO_LOCATING_ENV_VARS, ...GIT_IDENTITY_DATE_ENV_VARS];
-
-function gitChildEnv(extra = {}) {
-  const env = { ...process.env };
-  for (const key of GIT_LEAK_PRONE_ENV_VARS) delete env[key];
-  // `extra` (a case's own explicit backdate, e.g. GIT_AUTHOR_DATE) is
-  // applied AFTER stripping, so an explicit per-call value always wins over
-  // both the ambient environment and this hermetic default.
-  return { ...env, ...extra };
-}
+// Child `git` gets an explicit minimal environment (allowlist, not denylist)
+// so `cwd: repoDir` is authoritative and no ambient variable can redirect a
+// fixture command onto the real repository. The mechanism, the incident it
+// caused, and why the original denylist was the wrong shape are documented in
+// scripts/lib/git-child-env.mjs. See HEL-805.
+//
+// Cases that deliberately backdate a COMMIT (2.7, 2.9) pass their own
+// GIT_AUTHOR_DATE/GIT_COMMITTER_DATE via `extra`, which is applied AFTER the
+// allowlist, so an intentional value still wins. (2.8 backdates filesystem
+// mtimes via backdateRecursive instead of a commit and never passes `extra`.)
 
 let passed = 0;
 let failed = 0;
@@ -178,7 +143,11 @@ function runScript(targetDir, env = {}) {
   // (exempt) path. spawnSync always returns both regardless of exit code.
   const res = spawnSync("node", [scriptPath, targetDir], {
     encoding: "utf8",
-    env: { ...process.env, ...OPENSPEC_ENV, ...env },
+    // The script under test is our own node script, not `git` -- it needs the
+    // ambient node/npm environment, so a strict allowlist would be wrong here.
+    // Strip the GIT_* namespace by prefix instead, so it cannot inherit a
+    // GIT_DIR that would point it at the real repo rather than `targetDir`.
+    env: nonGitChildEnv({ ...OPENSPEC_ENV, ...env }),
     stdio: ["ignore", "pipe", "pipe"],
   });
   return { status: res.status, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };

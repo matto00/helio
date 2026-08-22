@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 set -e
 
+npm run check:repo-integrity
 npm run lint
 npm run typecheck
 npm run format:check
