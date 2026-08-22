@@ -1,5 +1,7 @@
 package com.helio.domain
 
+import com.helio.domain.model.{DataSourceKind, ImageSource, ImageSourceConfig, PdfSource, PdfSourceConfig, SqlSourceConfig, StaticSource, TextSource, TextSourceConfig}
+import com.helio.domain.model.{CsvSource, CsvSourceConfig, DataSource, DataSourceId, RestApiConfig, RestSource, SqlSource, UserId}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

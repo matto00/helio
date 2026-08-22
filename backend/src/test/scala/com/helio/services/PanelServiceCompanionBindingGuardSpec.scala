@@ -1,9 +1,14 @@
 package com.helio.services
 
-import com.helio.api.protocols.{CreatePanelRequest, UpdatePanelRequest}
-import com.helio.domain._
+import com.helio.services.auth.AccessChecker
+import com.helio.services.panels.PanelService
+import com.helio.api.protocols.panels.{CreatePanelRequest, UpdatePanelRequest}
+import com.helio.domain.model._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, MetricRepository, PanelRepository}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{mock, never, times, verify, verifyNoInteractions, when}
 import org.scalatest.matchers.should.Matchers

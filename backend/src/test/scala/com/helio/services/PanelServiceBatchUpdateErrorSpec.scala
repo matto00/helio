@@ -1,12 +1,17 @@
 package com.helio.services
 
+import com.helio.services.auth.AccessChecker
+import com.helio.services.panels.PanelService
 import ch.qos.logback.classic.{Logger => LogbackLogger}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
-import com.helio.api.protocols.PanelBatchItem
-import com.helio.domain._
+import com.helio.api.protocols.panels.PanelBatchItem
+import com.helio.domain.model._
 import com.helio.domain.panels._
-import com.helio.infrastructure.{DashboardRepository, DataTypeRepository, MetricRepository, PanelRepository}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.matchers.should.Matchers

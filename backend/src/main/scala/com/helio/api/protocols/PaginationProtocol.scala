@@ -1,7 +1,12 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.dashboards.{DashboardProtocol, DashboardResponse}
+import com.helio.api.protocols.metrics.{MetricProtocol, MetricResponse}
+import com.helio.api.protocols.panels.{PanelProtocol, PanelResponse}
+import com.helio.api.protocols.pipelines.{DataTypeProtocol, DataTypeResponse}
+import com.helio.api.protocols.sources.{DataSourceProtocol, DataSourceResponse}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import com.helio.domain._
+import com.helio.domain.model._
 import spray.json._
 
 /** JSON formats for [[PagedResult]] for each list-endpoint response type.

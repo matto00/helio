@@ -1,13 +1,18 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.assistant.AssistantConversationRoutes
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
+import com.helio.infrastructure.persistence.auth.UserRepository
+import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.ai._
-import com.helio.api.{JsonProtocols, TraceContextDirective}
-import com.helio.domain._
-import com.helio.infrastructure._
-import com.helio.services.AssistantConversationService
-import com.helio.services.AssistantService
-import com.helio.services.ChatAccessService
-import com.helio.services.UserTierConfig
+import com.helio.api.http.TraceContextDirective
+import com.helio.api.JsonProtocols
+import com.helio.domain.model._
+import com.helio.services.assistant.AssistantConversationService
+import com.helio.services.assistant.AssistantService
+import com.helio.services.auth.ChatAccessService
+import com.helio.services.auth.UserTierConfig
 import com.helio.testutil.JsonLogCapture
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.typed.ActorSystem

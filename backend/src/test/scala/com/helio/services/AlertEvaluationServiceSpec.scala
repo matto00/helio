@@ -1,7 +1,10 @@
 package com.helio.services
 
-import com.helio.domain._
-import com.helio.infrastructure.{AlertEventRepository, AlertRuleRepository, DataTypeRepository, DbContext}
+import com.helio.services.alerts.AlertEvaluationService
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
+import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

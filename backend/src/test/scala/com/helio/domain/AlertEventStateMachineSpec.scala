@@ -1,5 +1,8 @@
 package com.helio.domain
 
+import com.helio.domain.model.{AlertEventId, AlertRuleId, DataTypeId, UserId}
+import com.helio.domain.engine.AlertEventStateMachine
+import com.helio.domain.model.{AlertEvent, AlertEventAction, AlertEventState, Severity}
 import com.helio.services.ServiceError
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

@@ -1,16 +1,36 @@
 package com.helio.services
 
+import com.helio.api.protocols.pipelines.{UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.dashboards.UpdateDashboardRequest
+import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
+import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, DataTypeResponse, PipelineStepResponse, PipelineSummaryResponse}
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
+import com.helio.services.auth.AccessChecker
+import com.helio.services.dashboards.DashboardService
+import com.helio.services.panels.PanelService
+import com.helio.services.patchsets.PatchSetApplyService
+import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.sources.DataSourceService
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.JsonProtocols
-import com.helio.api.{ResourceType => AclResourceType}
-import com.helio.api.{AccessCheckerImpl, ResourceTypeRegistry}
-import com.helio.api.protocols._
-import com.helio.domain._
+import com.helio.api.http.{ResourceType => AclResourceType}
+import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry}
+import com.helio.domain.model._
 import com.helio.domain.panels._
-import com.helio.infrastructure._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

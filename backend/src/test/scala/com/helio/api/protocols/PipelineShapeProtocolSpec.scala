@@ -1,5 +1,6 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.pipelines.PipelineShapeProtocol
 import com.helio.domain.shapes.RowCountContract
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

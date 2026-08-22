@@ -14,10 +14,14 @@ const protocolsAggregator = join(
   "backend/src/main/scala/com/helio/api/JsonProtocols.scala",
 );
 const protocolsDir = join(repoRoot, "backend/src/main/scala/com/helio/api/protocols");
-const modelScala = join(repoRoot, "backend/src/main/scala/com/helio/domain/model.scala");
+// HEL-633: domain/model.scala moved to domain/model/model.scala (structural split of the
+// domain/ root into model/connectors/engine/util).
+const modelScala = join(repoRoot, "backend/src/main/scala/com/helio/domain/model/model.scala");
+// HEL-633: services/DashboardProposalService.scala moved to services/proposals/
+// (domain-named subpackage split of services/) — design.md D3.
 const proposalServiceScala = join(
   repoRoot,
-  "backend/src/main/scala/com/helio/services/DashboardProposalService.scala",
+  "backend/src/main/scala/com/helio/services/proposals/DashboardProposalService.scala",
 );
 const helioMcpProposalTs = join(repoRoot, "helio-mcp/src/tools/proposal.ts");
 // HEL-549: DATA_PANEL_TYPES moved out of proposal.ts into its own module so a
@@ -53,9 +57,13 @@ function parseCaseClasses(src) {
 // Aggregate case classes across the aggregator and every per-domain trait.
 // Guard against duplicates — if the same case class appears in two files,
 // the split has been violated.
+// HEL-633: protocolsDir's contents are now split into per-domain subdirectories
+// (api/protocols/<domain>/), so this must recurse — a flat readdirSync only
+// sees the 3 files that stayed at the root (IdParsing/PaginationProtocol/
+// ResourceProtocol).
 const sources = [
   protocolsAggregator,
-  ...readdirSync(protocolsDir)
+  ...readdirSync(protocolsDir, { recursive: true })
     .filter((f) => f.endsWith(".scala"))
     .map((f) => join(protocolsDir, f)),
 ];

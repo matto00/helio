@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.{PipelineExecutionContext, PipelineId, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStepId}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

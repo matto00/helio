@@ -9,12 +9,51 @@ import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
-import com.helio.api.routes._
-import com.helio.domain.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, RestApiConnector}
+import com.helio.api.http._
+import com.helio.api.routes.agents._
+import com.helio.api.routes.alerts._
+import com.helio.api.routes.assistant._
+import com.helio.api.routes.auth._
+import com.helio.api.routes.dashboards._
+import com.helio.api.routes.hooks._
+import com.helio.api.routes.metrics._
+import com.helio.api.routes.panels._
+import com.helio.api.routes.patchsets._
+import com.helio.api.routes.pipelines._
+import com.helio.api.routes.proposals._
+import com.helio.api.routes.sources._
+import com.helio.api.routes.workspace._
+import com.helio.domain.model.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId}
+import com.helio.domain.connectors.RestApiConnector
 import com.helio.email.{EmailConfig, EmailSender, HttpResendEmailSender}
-import com.helio.services.{AgentMemoryService, AgentPreferencesService, AlertEvaluationService, AlertEventService, AlertRuleService, ApiTokenService, AssistantConversationService, AssistantService, AuthService, AutoLayoutService, BetaAccessService, BoundPanelService, ChatAccessService, CombinedProposalService, ContentSourceSupport, DashboardAuthoringService, DashboardContentsService, DashboardProposalService, DashboardService, DataSourceService, DataTypeService, HookTriggerService, ImageUploadService, MetricService, MfaService, PanelCapabilityService, PanelService, PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, PermissionService, PipelinePermissionService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, RefinementGrounding, RefinementService, SourceService, UserTierConfig, WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
+import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
+import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
+import com.helio.services.auth.{ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserTierConfig}
+import com.helio.services.assistant.{AssistantConversationService, AssistantService}
+import com.helio.services.panels.{AutoLayoutService, BoundPanelService, PanelCapabilityService, PanelService}
+import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
+import com.helio.services.sources.{ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
+import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
+import com.helio.services.pipelines.{DataTypeService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
+import com.helio.services.hooks.HookTriggerService
+import com.helio.services.metrics.MetricService
+import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
+import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.infrastructure.{AgentMemoryRepository, AgentPreferencesRepository, AlertEventRepository, AlertRuleRepository, ApiTokenRepository, AssistantConversationRepository, AssistantDailyUsageRepository, AuthoringConversationRepository, BinaryRefRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, FileSystem, ImageUploadRepository, InviteCodeRepository, MetricRepository, MfaRepository, PanelRepository, PatchSetApplicationRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository, WorkspaceTeardownRepository}
+import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
+import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, InviteCodeRepository, MfaRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
+import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.FileSystem
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
+import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import org.slf4j.LoggerFactory
 
 import java.net.InetAddress

@@ -1,7 +1,9 @@
 package com.helio.services
 
-import com.helio.api.protocols._
-import com.helio.domain.PagedResult
+import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextPipelineStep}
+import com.helio.api.protocols.workspace.{WorkspaceContextDashboard, WorkspaceContextDataType, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextProtocol, WorkspaceContextResponse}
+import com.helio.services.workspace.WorkspaceContextBudget
+import com.helio.domain.model.PagedResult
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

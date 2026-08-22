@@ -1,19 +1,17 @@
 package com.helio.services
 
+import com.helio.services.pipelines.PipelineRunService
+import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.engine.SchemaField
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.domain._
-import com.helio.domain.PipelineAnalyzeService.schemaFieldJsonFormat
-import com.helio.infrastructure.{
-  DataSourceRepository,
-  DataTypeRepository,
-  DataTypeRowRepository,
-  DbContext,
-  LocalFileSystem,
-  PipelineRepository,
-  PipelineRunRepository,
-  PipelineStepRepository
-}
+import com.helio.domain.model._
+import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

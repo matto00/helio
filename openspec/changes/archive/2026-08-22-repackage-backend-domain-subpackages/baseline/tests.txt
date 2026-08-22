@@ -1,0 +1,13 @@
+Baseline sbt test run, 2026-08-21 19:16:52
+[info] Total number of tests run: 3346
+[info] Suites: completed 212, aborted 0
+[info] Tests: succeeded 3346, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] Total time: 187 s (0:03:07.0)
+
+Final full sbt test run (all 7 layers applied):
+[info] Total number of tests run: 3346
+[info] Suites: completed 212, aborted 0
+[info] Tests: succeeded 3346, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+Identical to baseline (3346 tests / 212 suites). Confirms zero behaviour change.

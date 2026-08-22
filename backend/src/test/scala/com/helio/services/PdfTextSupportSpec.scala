@@ -1,5 +1,6 @@
 package com.helio.services
 
+import com.helio.services.sources.PdfTextSupport
 import com.helio.testutil.PdfFixtures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

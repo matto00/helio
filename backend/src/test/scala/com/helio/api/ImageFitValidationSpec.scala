@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.api.http.RequestValidation
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

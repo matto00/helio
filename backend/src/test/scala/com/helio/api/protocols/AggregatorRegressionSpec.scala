@@ -1,5 +1,18 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.auth.UserPreferences
+import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutPayload}
+import com.helio.api.protocols.panels.PanelAppearancePayload
+import com.helio.api.protocols.auth.UserResponse
+import com.helio.api.protocols.dashboards.{DashboardAppearanceResponse, DashboardLayoutResponse, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry}
+import com.helio.api.protocols.panels.PanelAppearanceResponse
+import com.helio.api.protocols.pipelines.{ComputedFieldResponse, DataFieldResponse}
+import com.helio.api.protocols.sources.RestApiConfigPayload
+import com.helio.api.protocols.auth.{AuthResponse, PermissionResponse}
+import com.helio.api.protocols.dashboards.{DashboardResponse, DashboardSnapshotPayload}
+import com.helio.api.protocols.panels.PanelResponse
+import com.helio.api.protocols.pipelines.{DataTypeResponse, PipelineSummaryResponse, RunResultResponse, RunStatusResponse}
+import com.helio.api.protocols.sources.{DataSourceResponse, RestSourceResponse}
 import com.helio.api.JsonProtocols
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

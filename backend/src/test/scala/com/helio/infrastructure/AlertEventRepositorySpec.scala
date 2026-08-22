@@ -1,6 +1,9 @@
 package com.helio.infrastructure
 
-import com.helio.domain._
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
+import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.domain.model._
 import com.helio.services.ServiceError
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

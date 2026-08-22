@@ -1,0 +1,330 @@
+package com.helio.infrastructure.persistence.pipelines
+
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
+import com.helio.domain._
+import com.helio.domain.model._
+import slick.jdbc.PostgresProfile.api._
+import PipelineRepository.instantColumnType
+
+import java.time.Instant
+import java.util.UUID
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
+
+/** Persistence layer for `pipeline_steps`.
+ *
+ *  The on-disk shape (`id, pipeline_id, position, op, config, enabled,
+ *  created_at, updated_at` — config stored as JSON text) is unchanged except
+ *  for `enabled` (HEL-412, V86, `NOT NULL DEFAULT true`). CS2c-3a moves the
+ *  typed-ADT dispatch into `rowToDomain` / `domainToRow`: the repo speaks
+ *  [[PipelineStep]] sealed-trait values across its public API, and reads /
+ *  writes the typed `*Config` via [[PipelineStepConfigCodec]].
+ *
+ *  HEL-265 CS2: every public method takes the caller identity and JOINs to
+ *  `pipelines.owner_id` so the parent pipeline's ACL gates access. Steps
+ *  inherit ACL from their parent pipeline; there is no separate `owner_id`
+ *  column on `pipeline_steps`. */
+class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+
+  import PipelineStepRepository._
+
+  private val stepsTable     = TableQuery[PipelineStepTable]
+  private val pipelinesTable = TableQuery[PipelineRepository.PipelineTable]
+
+  /** Owner-scoped list. Returns empty vector when the parent pipeline does not
+    * exist or is owned by someone else. */
+  def listByPipeline(pipelineId: PipelineId, user: AuthenticatedUser): Future[Vector[PipelineStep]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val query = for {
+      step     <- stepsTable if step.pipelineId === pipelineId.value
+      pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
+    } yield step
+    ctx.withUserContext(user.id.value)(query.sortBy(_.position).result).map(_.toVector.map(rowToDomain))
+  }
+
+  /** Owner-scoped findById via the parent-pipeline JOIN. */
+  def findById(id: PipelineStepId, user: AuthenticatedUser): Future[Option[PipelineStep]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val query = for {
+      step     <- stepsTable if step.id === id.value
+      pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
+    } yield step
+    ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map(rowToDomain))
+  }
+
+  /** Insert a new step into the pipeline in user context.
+    *
+    * Gated by the caller having proven pipeline ownership at the service layer;
+    * the repo itself only writes — the parent pipeline FK guards against the
+    * pipeline disappearing mid-call.
+    *
+    * The V35 RLS policy on `pipeline_steps` uses an EXISTS subquery to
+    * `pipelines.owner_id`. Running inside `withUserContext` means the policy
+    * evaluates correctly: the new step is only insertable if the parent pipeline
+    * is owned by the caller. */
+  def insert(pipelineId: PipelineId, kind: String, config: Any, user: AuthenticatedUser, enabled: Boolean = true): Future[PipelineStep] = {
+    val now = Instant.now()
+    val configJson = encodeConfig(kind, config)
+    val action = for {
+      maxPos   <- stepsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
+      position  = maxPos.map(_ + 1).getOrElse(0)
+      id        = UUID.randomUUID().toString
+      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now)
+      _        <- stepsTable += row
+    } yield rowToDomain(row)
+    ctx.withUserContext(user.id.value)(action.transactionally)
+  }
+
+  /** Owner-scoped partial update. Returns `None` if the step does not exist or
+    * the caller does not own the parent pipeline. Cross-type PATCH is rejected
+    * at the service boundary; here `kind` stays whatever the persisted row
+    * carries. */
+  def update(
+      id: PipelineStepId,
+      config: Option[Any],
+      position: Option[Int],
+      user: AuthenticatedUser,
+      enabled: Option[Boolean] = None
+  ): Future[Option[PipelineStep]] = {
+    val now       = Instant.now()
+    val ownerUuid = UUID.fromString(user.id.value)
+    val ownedQuery = for {
+      step     <- stepsTable if step.id === id.value
+      pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
+    } yield step
+    val action = for {
+      existing <- ownedQuery.result.headOption
+      updated  <- existing match {
+        case None      => DBIO.successful(None)
+        case Some(row) =>
+          val newConfig = config match {
+            case Some(cfg) => encodeConfig(row.op, cfg)
+            case None      => row.config
+          }
+          val newRow = row.copy(
+            config    = newConfig,
+            position  = position.getOrElse(row.position),
+            enabled   = enabled.getOrElse(row.enabled),
+            updatedAt = now
+          )
+          stepsTable.filter(_.id === id.value).update(newRow).map(_ => Some(rowToDomain(newRow)))
+      }
+    } yield updated
+    ctx.withUserContext(user.id.value)(action.transactionally)
+  }
+
+  /** Owner-scoped delete via the parent-pipeline JOIN. Returns `true` only if
+    * a step the caller owned was removed.
+    *
+    * Both the ownership check and the DELETE run inside a single
+    * `withUserContext` transaction so the V35 RLS policy on `pipeline_steps`
+    * (EXISTS subquery to `pipelines.owner_id`) is active throughout. */
+  def delete(id: PipelineStepId, user: AuthenticatedUser): Future[Boolean] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val ownedQuery = for {
+      step     <- stepsTable if step.id === id.value
+      pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
+    } yield step.id
+    val action = ownedQuery.result.headOption.flatMap {
+      case None      => DBIO.successful(false)
+      case Some(sid) => stepsTable.filter(_.id === sid).delete.map(_ > 0)
+    }
+    ctx.withUserContext(user.id.value)(action.transactionally)
+  }
+
+  // ── Internal (ACL-bypassing) variants for post-access-check callers ───────
+  //
+  // These methods drop the owner-JOIN predicate and run under withSystemContext
+  // (helio_privileged BYPASSRLS). They are called ONLY after PipelineService has
+  // confirmed that the caller holds a sharing grant via findByIdShared. An editor
+  // grantee is not the pipeline owner, so the owner-JOIN in the non-internal
+  // variants would silently return no rows.
+  //
+  // Every callsite MUST have a comment explaining why ACL bypass is safe.
+
+  /** ACL-bypassing list. Safe to call only after the caller's pipeline access
+    * has been confirmed by PipelineService via findByIdShared. */
+  def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[PipelineStep]] =
+    ctx.withSystemContext(
+      stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
+    ).map(_.toVector.map(rowToDomain))
+
+  /** ACL-bypassing step lookup. Safe to call only after pipeline access
+    * has been confirmed by PipelineService via findByIdShared. */
+  def findByIdInternal(id: PipelineStepId): Future[Option[PipelineStep]] =
+    ctx.withSystemContext(
+      stepsTable.filter(_.id === id.value).result.headOption
+    ).map(_.map(rowToDomain))
+
+  /** ACL-bypassing insert. Safe to call only after the caller's editor or
+    * owner access has been confirmed by PipelineService via findByIdShared. */
+  def insertInternal(pipelineId: PipelineId, kind: String, config: Any, enabled: Boolean = true): Future[PipelineStep] = {
+    val now        = Instant.now()
+    val configJson = encodeConfig(kind, config)
+    val action = for {
+      maxPos   <- stepsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
+      position  = maxPos.map(_ + 1).getOrElse(0)
+      id        = UUID.randomUUID().toString
+      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now)
+      _        <- stepsTable += row
+    } yield rowToDomain(row)
+    ctx.withSystemContext(action.transactionally)
+  }
+
+  /** ACL-bypassing update. Safe to call only after the caller's editor or
+    * owner access has been confirmed by PipelineService via findByIdShared. */
+  def updateInternal(
+      id: PipelineStepId,
+      config: Option[Any],
+      position: Option[Int],
+      enabled: Option[Boolean] = None
+  ): Future[Option[PipelineStep]] = {
+    val now = Instant.now()
+    val action = for {
+      existing <- stepsTable.filter(_.id === id.value).result.headOption
+      updated  <- existing match {
+        case None      => DBIO.successful(None)
+        case Some(row) =>
+          val newConfig = config match {
+            case Some(cfg) => encodeConfig(row.op, cfg)
+            case None      => row.config
+          }
+          val newRow = row.copy(
+            config    = newConfig,
+            position  = position.getOrElse(row.position),
+            enabled   = enabled.getOrElse(row.enabled),
+            updatedAt = now
+          )
+          stepsTable.filter(_.id === id.value).update(newRow).map(_ => Some(rowToDomain(newRow)))
+      }
+    } yield updated
+    ctx.withSystemContext(action.transactionally)
+  }
+
+  /** ACL-bypassing insert-at-index (HEL-410). Safe to call only after the
+    * caller's editor or owner access has been confirmed by PipelineService via
+    * findByIdShared, and after the service has validated `0 <= index <= count`
+    * against a freshly-read step count. Builds the full target order — the
+    * pipeline's existing steps sorted by position, with the new row spliced
+    * in at `index` — and renumbers every step's position 0..n within a single
+    * transaction (the `reorderInternal` idiom above). This also heals any
+    * pre-existing position gaps left by deleteStep (HEL-407 finding) as a
+    * side effect. Returns the created step, whose final position is `index`. */
+  def insertAtInternal(pipelineId: PipelineId, kind: String, config: Any, index: Int, enabled: Boolean = true): Future[PipelineStep] = {
+    val now        = Instant.now()
+    val configJson = encodeConfig(kind, config)
+    val newId      = UUID.randomUUID().toString
+    val newRow     = PipelineStepRow(newId, pipelineId.value, index, kind, configJson, enabled, now, now)
+    val action = for {
+      existing <- stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
+      ordered   = existing.toVector.patch(index, Vector(newRow), 0)
+      updates   = ordered.zipWithIndex.map {
+        case (row, i) if row.id == newId => stepsTable += row.copy(position = i)
+        case (row, i)                    => stepsTable.filter(_.id === row.id).map(s => (s.position, s.updatedAt)).update((i, now))
+      }
+      _        <- DBIO.sequence(updates)
+    } yield rowToDomain(newRow.copy(position = index))
+    ctx.withSystemContext(action.transactionally)
+  }
+
+  /** ACL-bypassing atomic reorder (HEL-407). Safe to call only after the
+    * caller's editor or owner access has been confirmed by PipelineService
+    * via findByIdShared, and after the service has confirmed `orderedIds` is
+    * exactly a permutation of the pipeline's current step ids. Sets
+    * `position = index` for every id in `orderedIds` within a single
+    * transaction, then re-reads the pipeline's steps in the new position
+    * order. */
+  def reorderInternal(pipelineId: PipelineId, orderedIds: Seq[PipelineStepId]): Future[Vector[PipelineStep]] = {
+    val now = Instant.now()
+    val updates = orderedIds.zipWithIndex.map { case (id, index) =>
+      stepsTable.filter(_.id === id.value).map(s => (s.position, s.updatedAt)).update((index, now))
+    }
+    val action = for {
+      _    <- DBIO.sequence(updates)
+      rows <- stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
+    } yield rows.toVector.map(rowToDomain)
+    ctx.withSystemContext(action.transactionally)
+  }
+
+  /** ACL-bypassing delete. Safe to call only after the caller's editor or
+    * owner access has been confirmed by PipelineService via findByIdShared. */
+  def deleteInternal(id: PipelineStepId): Future[Boolean] =
+    ctx.withSystemContext(
+      stepsTable.filter(_.id === id.value).delete
+    ).map(_ > 0)
+
+  // ── Row ↔ domain ──────────────────────────────────────────────────────────
+
+  private def rowToDomain(row: PipelineStepRow): PipelineStep = {
+    val stepId = PipelineStepId(row.id)
+    val pid    = PipelineId(row.pipelineId)
+    PipelineStepConfigCodec.decode(row.op, row.config) match {
+      case Success(cfg: RenameConfig)    => RenameStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: FilterConfig)    => FilterStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: JoinConfig)      => JoinStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: ComputeConfig)   => ComputeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: GroupByConfig)   => GroupByStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: CastConfig)      => CastStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: SelectConfig)    => SelectStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: LimitConfig)     => LimitStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: SortConfig)      => SortStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: AggregateConfig) => AggregateStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: SplitTextConfig) => SplitTextStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: ExtractHeadingsConfig) => ExtractHeadingsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: ChunkByTokenCountConfig) => ChunkByTokenCountStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: DateBucketConfig) => DateBucketStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: PivotConfig) => PivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: WindowConfig) => WindowStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: UnpivotConfig) => UnpivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: DedupeConfig) => DedupeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: FillNullConfig) => FillNullStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: StringOpsConfig) => StringOpsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: UnionConfig) => UnionStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: LookupConfig) => LookupStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(cfg: AssertConfig) => AssertStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, row.enabled)
+      case Success(other) =>
+        throw new IllegalStateException(
+          s"PipelineStepRepository: codec returned unexpected config type ${other.getClass.getName} for op '${row.op}'"
+        )
+      case Failure(ex) =>
+        throw new IllegalStateException(
+          s"PipelineStepRepository: failed to decode config for step ${row.id} (op='${row.op}'): ${ex.getMessage}",
+          ex
+        )
+    }
+  }
+
+  /** Encode a typed config (handed in from the service layer) to JSON text. */
+  private def encodeConfig(kind: String, config: Any): String =
+    PipelineStepConfigCodec.encodeConfig(config)
+}
+
+object PipelineStepRepository {
+
+  /** Internal row representation — never crosses the public boundary. Use
+   *  [[PipelineStep]] outside the repository. */
+  case class PipelineStepRow(
+      id: String,
+      pipelineId: String,
+      position: Int,
+      op: String,
+      config: String,
+      enabled: Boolean,
+      createdAt: Instant,
+      updatedAt: Instant
+  )
+
+  class PipelineStepTable(tag: Tag) extends Table[PipelineStepRow](tag, "pipeline_steps") {
+    def id         = column[String]("id", O.PrimaryKey)
+    def pipelineId = column[String]("pipeline_id")
+    def position   = column[Int]("position")
+    def op         = column[String]("op")
+    def config     = column[String]("config")
+    def enabled    = column[Boolean]("enabled")
+    def createdAt  = column[Instant]("created_at")
+    def updatedAt  = column[Instant]("updated_at")
+
+    def * = (id, pipelineId, position, op, config, enabled, createdAt, updatedAt).mapTo[PipelineStepRow]
+  }
+}

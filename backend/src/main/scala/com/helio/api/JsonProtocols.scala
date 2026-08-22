@@ -1,6 +1,19 @@
 package com.helio.api
 
 import com.helio.api.protocols._
+import com.helio.api.protocols.agents._
+import com.helio.api.protocols.alerts._
+import com.helio.api.protocols.assistant._
+import com.helio.api.protocols.auth._
+import com.helio.api.protocols.dashboards._
+import com.helio.api.protocols.hooks._
+import com.helio.api.protocols.metrics._
+import com.helio.api.protocols.panels._
+import com.helio.api.protocols.patchsets._
+import com.helio.api.protocols.pipelines._
+import com.helio.api.protocols.proposals._
+import com.helio.api.protocols.sources._
+import com.helio.api.protocols.workspace._
 
 /** Aggregator trait that composes every per-domain protocol trait.
  *

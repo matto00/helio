@@ -1,5 +1,6 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.proposals.{DashboardProposalProtocol, ProposalPanel}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

@@ -1,8 +1,11 @@
 package com.helio.services
 
-import com.helio.api.protocols.{CombinedProposal, DashboardProposal, PipelineProposal, PipelineProposalSource, ProposalPanel}
-import com.helio.domain._
-import com.helio.infrastructure.DataSourceRepository
+import com.helio.services.pipelines.PipelineProposalService
+import com.helio.services.proposals.CombinedProposalService
+import com.helio.api.protocols.proposals.{CombinedProposal, DashboardProposal, ProposalPanel}
+import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource}
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

@@ -1,5 +1,10 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.dashboards.DashboardLayoutItemPayload
+import com.helio.api.protocols.dashboards.{DashboardLayoutPayload, UpdateDashboardRequest}
+import com.helio.api.protocols.patchsets.{EditTarget, PatchSet}
+import com.helio.api.protocols.panels.UpdatePanelRequest
+import com.helio.api.protocols.patchsets.{Edit, PatchSetProtocol}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

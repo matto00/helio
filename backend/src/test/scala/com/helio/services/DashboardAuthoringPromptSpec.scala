@@ -1,6 +1,8 @@
 package com.helio.services
 
-import com.helio.api.protocols.{AgentMemoryEntryResponse, AgentPreferencesResponse, WorkspaceContextAgentSection}
+import com.helio.services.proposals.DashboardAuthoringPrompt
+import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentPreferencesResponse}
+import com.helio.api.protocols.workspace.WorkspaceContextAgentSection
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json.{JsObject, JsString}

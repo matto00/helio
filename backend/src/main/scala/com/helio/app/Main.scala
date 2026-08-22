@@ -3,11 +3,22 @@ package com.helio.app
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import com.helio.api.{ApiRoutes, CookieConfig}
+import com.helio.api.http.CookieConfig
+import com.helio.api.ApiRoutes
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.domain.{RestApiConnector, SystemClock}
-import com.helio.infrastructure.{AgentMemoryRepository, AgentPreferencesRepository, AlertEventRepository, AlertRuleRepository, ApiTokenRepository, BinaryRefRepository, Database, DashboardRepository, DataSourceRepository, DataTypeRepository, DataTypeRowRepository, DbContext, GcsFileSystem, ImageUploadRepository, LocalFileSystem, MetricRepository, MfaRepository, PanelRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
-import com.helio.services.PipelineSchedulerService
+import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.util.SystemClock
+import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
+import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.{Database, DbContext}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
+import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
+import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.services.pipelines.PipelineSchedulerService
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{Await, Future}

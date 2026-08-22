@@ -1,5 +1,8 @@
 package com.helio.domain
 
+import com.helio.domain.model.TypeChangedColumn
+import com.helio.domain.engine.SchemaField
+import com.helio.domain.model.PipelineSchemaDrift
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

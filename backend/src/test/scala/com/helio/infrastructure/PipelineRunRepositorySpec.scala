@@ -1,6 +1,8 @@
 package com.helio.infrastructure
 
-import com.helio.domain.{AssertionResult, AuthenticatedUser, DataTypeId, PipelineId, PipelineRunId, UserId}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository
+import com.helio.domain.model.{AssertionResult, AuthenticatedUser, DataTypeId, PipelineId, PipelineRunId, UserId}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

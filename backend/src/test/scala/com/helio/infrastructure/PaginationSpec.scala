@@ -1,6 +1,11 @@
 package com.helio.infrastructure
 
-import com.helio.domain._
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

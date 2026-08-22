@@ -1,0 +1,261 @@
+package com.helio.infrastructure.persistence.panels
+
+import com.helio.api.protocols.panels.PanelProtocol
+import com.helio.domain.model._
+import com.helio.domain.panels._
+import spray.json._
+
+import java.util.UUID
+
+/** Row↔domain dispatch for the `panels` table. Lives outside [[PanelRepository]]
+ *  so [[DashboardRepository]]'s snapshot / duplicate paths (which also touch
+ *  `panels` rows) consume the same typed dispatch instead of duplicating it.
+ *
+ *  Cycle 1 read-path tolerance (CS2c-3a cycle-2 lesson): rows persisted with
+ *  missing/null subtype columns (e.g. a `type='metric'` row with
+ *  `type_id IS NULL`) decode to the subtype's `Empty` config rather than
+ *  throwing — `listByDashboard` returns 200, and the UI surfaces a "no data
+ *  type bound" empty state. */
+object PanelRowMapper extends PanelProtocol {
+
+  def rowToDomain(row: PanelRepository.PanelRow): Panel = {
+    val id          = PanelId(row.id)
+    val dashboardId = DashboardId(row.dashboardId)
+    val meta        = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated)
+    val appearance  = row.appearance
+    val ownerId     = UserId(row.ownerId.toString)
+
+    row.panelType match {
+      case MetricPanel.Kind =>
+        MetricPanel(id, dashboardId, row.title, meta, appearance, ownerId, metricConfig(row))
+      case ChartPanel.Kind =>
+        ChartPanel(id, dashboardId, row.title, meta, appearance, ownerId, chartConfig(row))
+      case TablePanel.Kind =>
+        TablePanel(id, dashboardId, row.title, meta, appearance, ownerId, tableConfig(row))
+      case TextPanel.Kind =>
+        TextPanel(id, dashboardId, row.title, meta, appearance, ownerId, textConfig(row))
+      case MarkdownPanel.Kind =>
+        MarkdownPanel(id, dashboardId, row.title, meta, appearance, ownerId, markdownConfig(row))
+      case ImagePanel.Kind =>
+        ImagePanel(id, dashboardId, row.title, meta, appearance, ownerId, imageConfig(row))
+      case DividerPanel.Kind =>
+        DividerPanel(id, dashboardId, row.title, meta, appearance, ownerId, dividerConfig(row))
+      case CollectionPanel.Kind =>
+        CollectionPanel(id, dashboardId, row.title, meta, appearance, ownerId, collectionConfig(row))
+      case TimelinePanel.Kind =>
+        TimelinePanel(id, dashboardId, row.title, meta, appearance, ownerId, timelineConfig(row))
+      case _ =>
+        // Unknown kind on disk — fall back to PanelType.Default (Metric) per the
+        // pre-CS2c-3b behaviour. The wide-flat case class did this via
+        // `PanelType.fromString(...).getOrElse(PanelType.Default)`.
+        MetricPanel(id, dashboardId, row.title, meta, appearance, ownerId, metricConfig(row))
+    }
+  }
+
+  def domainToRow(p: Panel): PanelRepository.PanelRow = {
+    val base = PanelRepository.PanelRow(
+      id           = p.id.value,
+      dashboardId  = p.dashboardId.value,
+      title        = p.title,
+      createdBy    = p.meta.createdBy,
+      createdAt    = p.meta.createdAt,
+      lastUpdated  = p.meta.lastUpdated,
+      appearance   = p.appearance,
+      panelType    = p.kind,
+      typeId       = None,
+      fieldMapping = None,
+      ownerId      = UUID.fromString(p.ownerId.value),
+      content      = None,
+      imageUrl     = None,
+      imageFit     = None,
+      dividerOrientation = None,
+      dividerWeight      = None,
+      dividerColor       = None,
+      aggregation        = None,
+      metricLabel        = None,
+      metricUnit         = None,
+      columnWidths       = None,
+      tableDensity       = None,
+      columnOrder        = None,
+      chartOptions       = None,
+      collectionOptions  = None,
+      timelineOptions    = None,
+      imageCaption       = None,
+      chartAnnotation    = None,
+      metricId           = None
+    )
+
+    p match {
+      case mp: MetricPanel    => base.copy(typeId = optString(mp.config.dataTypeId.value), fieldMapping = jsObjectColumn(mp.config.fieldMapping), aggregation = mp.config.aggregation.map(_.compactPrint), metricLabel = mp.config.label, metricUnit = mp.config.unit, metricId = mp.config.metricId.map(_.value))
+      case cp: ChartPanel     => base.copy(typeId = optString(cp.config.dataTypeId.value), fieldMapping = jsObjectColumn(cp.config.fieldMapping), aggregation = cp.config.aggregation.map(_.compactPrint), chartOptions = chartOptionsColumn(cp.config.chartOptions), chartAnnotation = cp.config.annotation, metricId = cp.config.metricId.map(_.value))
+      case tp: TablePanel     => base.copy(typeId = optString(tp.config.dataTypeId.value), fieldMapping = jsObjectColumn(tp.config.fieldMapping), columnWidths = columnWidthsColumn(tp.config.columnWidths), tableDensity = tp.config.density, columnOrder = columnOrderColumn(tp.config.columnOrder), metricId = tp.config.metricId.map(_.value))
+      case t: TextPanel       => base.copy(content = optString(t.config.content), typeId = optString(t.config.dataTypeId.value), fieldMapping = jsObjectColumn(t.config.fieldMapping))
+      case m: MarkdownPanel   => base.copy(content = optString(m.config.content), typeId = optString(m.config.dataTypeId.value), fieldMapping = jsObjectColumn(m.config.fieldMapping))
+      case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit), imageCaption = i.config.caption)
+      case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
+      case c: CollectionPanel => base.copy(typeId = optString(c.config.dataTypeId.value), fieldMapping = jsObjectColumn(c.config.fieldMapping), collectionOptions = collectionOptionsColumn(c.config))
+      case tl: TimelinePanel  => base.copy(typeId = optString(tl.config.dataTypeId.value), fieldMapping = jsObjectColumn(tl.config.fieldMapping), timelineOptions = timelineOptionsColumn(tl.config))
+      case _                  => base
+    }
+  }
+
+  // ── Per-subtype config builders from row columns ───────────────────────────
+
+  private def metricConfig(row: PanelRepository.PanelRow): MetricPanelConfig =
+    MetricPanelConfig(
+      dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
+      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
+      aggregation  = row.aggregation.flatMap(parseJsObject),
+      label        = row.metricLabel,
+      unit         = row.metricUnit,
+      metricId     = row.metricId.map(MetricId(_))
+    )
+
+  private def chartConfig(row: PanelRepository.PanelRow): ChartPanelConfig =
+    ChartPanelConfig(
+      dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
+      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
+      aggregation  = row.aggregation.flatMap(parseJsObject),
+      chartOptions = row.chartOptions.flatMap(parseChartOptions),
+      annotation   = row.chartAnnotation.flatMap(normalizeText),
+      metricId     = row.metricId.map(MetricId(_))
+    )
+
+  private def tableConfig(row: PanelRepository.PanelRow): TablePanelConfig =
+    TablePanelConfig(
+      dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
+      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty),
+      columnWidths = row.columnWidths.flatMap(parseColumnWidths).getOrElse(Map.empty),
+      density      = row.tableDensity,
+      columnOrder  = row.columnOrder.flatMap(parseColumnOrder),
+      metricId     = row.metricId.map(MetricId(_))
+    )
+
+  private def textConfig(row: PanelRepository.PanelRow): TextPanelConfig =
+    TextPanelConfig(
+      content      = row.content.getOrElse(""),
+      dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
+      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+    )
+
+  private def markdownConfig(row: PanelRepository.PanelRow): MarkdownPanelConfig =
+    MarkdownPanelConfig(
+      content      = row.content.getOrElse(""),
+      dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
+      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+    )
+
+  private def imageConfig(row: PanelRepository.PanelRow): ImagePanelConfig =
+    ImagePanelConfig(
+      imageUrl = row.imageUrl.getOrElse(""),
+      imageFit = row.imageFit.getOrElse(ImagePanelConfig.DefaultFit),
+      caption  = row.imageCaption.flatMap(normalizeText)
+    )
+
+  private def dividerConfig(row: PanelRepository.PanelRow): DividerPanelConfig =
+    DividerPanelConfig(
+      orientation = row.dividerOrientation.getOrElse(DividerPanelConfig.DefaultOrientation),
+      weight      = row.dividerWeight,
+      color       = row.dividerColor
+    )
+
+  /** Rebuild a collection config from the binding columns (`type_id` /
+   *  `field_mapping`) plus the `collection_options` JSONB blob. Tolerant:
+   *  a malformed/legacy blob decodes to defaults via `CollectionPanelConfig.
+   *  decode` (baseType=metric, layout=grid, no itemOptions) rather than throwing. */
+  private def collectionConfig(row: PanelRepository.PanelRow): CollectionPanelConfig = {
+    val optionFields = row.collectionOptions.flatMap(parseJsObject).map(_.fields).getOrElse(Map.empty[String, JsValue])
+    val merged = JsObject(
+      optionFields ++ Map[String, JsValue](
+        "dataTypeId"   -> JsString(row.typeId.getOrElse("")),
+        "fieldMapping" -> row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+      )
+    )
+    CollectionPanelConfig.decode(merged)
+  }
+
+  /** Rebuild a timeline config from the binding columns (`type_id` /
+   *  `field_mapping`) plus the `timeline_options` JSONB blob (which holds
+   *  exactly the `{ sort }` object — the same shape as the config's
+   *  `timelineOptions` field). Tolerant: a malformed/legacy blob decodes to
+   *  defaults via `TimelinePanelConfig.decode` (sort=asc) rather than
+   *  throwing. */
+  private def timelineConfig(row: PanelRepository.PanelRow): TimelinePanelConfig = {
+    val optionsField: Map[String, JsValue] =
+      row.timelineOptions.flatMap(parseJsObject) match {
+        case Some(o) => Map("timelineOptions" -> o)
+        case None    => Map.empty
+      }
+    val merged = JsObject(
+      optionsField ++ Map[String, JsValue](
+        "dataTypeId"   -> JsString(row.typeId.getOrElse("")),
+        "fieldMapping" -> row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
+      )
+    )
+    TimelinePanelConfig.decode(merged)
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  private def optString(s: String): Option[String] =
+    if (s.isEmpty) None else Some(s)
+
+  /** Read-path tolerance for the caption/annotation text columns: a legacy
+   *  empty/whitespace-only stored value normalizes to `None` so it is omitted
+   *  from the wire config rather than surfacing as a blank strip. */
+  private def normalizeText(s: String): Option[String] =
+    if (s.trim.isEmpty) None else Some(s)
+
+  private def jsObjectColumn(o: JsObject): Option[String] =
+    if (o.fields.isEmpty) None else Some(o.compactPrint)
+
+  private def parseJsObject(raw: String): Option[JsObject] =
+    scala.util.Try(raw.parseJson).toOption.collect { case o: JsObject => o }
+
+  private def columnWidthsColumn(widths: Map[String, Int]): Option[String] =
+    if (widths.isEmpty) None else Some(JsObject(widths.view.mapValues(JsNumber(_)).toMap).compactPrint)
+
+  private def parseColumnWidths(raw: String): Option[Map[String, Int]] =
+    scala.util.Try(raw.parseJson).toOption.collect { case o: JsObject =>
+      o.fields.collect { case (key, JsNumber(n)) => key -> n.toInt }
+    }
+
+  private def columnOrderColumn(order: Option[List[String]]): Option[String] =
+    order.map(keys => JsArray(keys.map(JsString(_)).toVector).compactPrint)
+
+  private def parseColumnOrder(raw: String): Option[List[String]] =
+    scala.util.Try(raw.parseJson).toOption.collect { case JsArray(elems) =>
+      elems.collect { case JsString(s) => s }.toList
+    }
+
+  // HEL-248 — serialize/parse the per-chart-type options JSONB column. The read
+  // path is tolerant (`strict = false`): a malformed/legacy value decodes to
+  // `None` rather than throwing, matching this mapper's read-path philosophy.
+  private def chartOptionsColumn(options: Option[ChartOptions]): Option[String] =
+    options.map(_.toJson.compactPrint)
+
+  private def parseChartOptions(raw: String): Option[ChartOptions] =
+    scala.util.Try(raw.parseJson).toOption.flatMap(ChartOptions.parse(_, strict = false))
+
+  // HEL-247 — serialize the Collection panel's `{ baseType, layout, itemOptions }`
+  // into the `collection_options` JSONB column. `baseType`/`layout` always have
+  // a value (defaults), so the object is always written for a collection panel;
+  // `itemOptions` is included only when present. The binding (`dataTypeId` /
+  // `fieldMapping`) lives in `type_id` / `field_mapping`, NOT here.
+  private def collectionOptionsColumn(config: CollectionPanelConfig): Option[String] = {
+    val base = Map[String, JsValue](
+      "baseType" -> JsString(config.baseType),
+      "layout"   -> JsString(config.layout)
+    )
+    val withItems = config.itemOptions.fold(base)(o => base + ("itemOptions" -> o))
+    Some(JsObject(withItems).compactPrint)
+  }
+
+  // HEL-317 — serialize the Timeline panel's `{ sort }` options into the
+  // `timeline_options` JSONB column — exactly the config's `timelineOptions`
+  // field value, always written (it always has a value, defaulted to "asc").
+  // The binding (`dataTypeId` / `fieldMapping`) lives in `type_id` /
+  // `field_mapping`, NOT here.
+  private def timelineOptionsColumn(config: TimelinePanelConfig): Option[String] =
+    Some(config.timelineOptions.toJson.compactPrint)
+}

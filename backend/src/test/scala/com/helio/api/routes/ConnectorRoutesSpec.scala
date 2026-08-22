@@ -1,9 +1,10 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.sources.ConnectorRoutes
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ConnectorMetadataResponse, JsonProtocols}
-import com.helio.domain.{AuthenticatedUser, UserId}
+import com.helio.domain.model.{AuthenticatedUser, UserId}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

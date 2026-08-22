@@ -1,9 +1,21 @@
 package com.helio.services
 
-import com.helio.api.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
-import com.helio.api.protocols.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, WorkspaceContextAgentSection}
-import com.helio.domain._
-import com.helio.infrastructure._
+import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
+import com.helio.services.dashboards.DashboardService
+import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.sources.DataSourceService
+import com.helio.services.workspace.WorkspaceContextService
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
+import com.helio.api.protocols.agents.{CreateAgentMemoryRequest, PutAgentPreferencesRequest}
+import com.helio.api.protocols.workspace.WorkspaceContextAgentSection
+import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._

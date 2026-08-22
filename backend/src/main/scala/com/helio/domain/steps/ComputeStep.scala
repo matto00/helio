@@ -1,13 +1,7 @@
 package com.helio.domain.steps
 
-import com.helio.domain.{
-  ExpressionEvaluator,
-  PipelineExecutionContext,
-  PipelineId,
-  PipelineRowJson,
-  PipelineStep,
-  PipelineStepId
-}
+import com.helio.domain.engine.{ExpressionEvaluator, PipelineRowJson}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 

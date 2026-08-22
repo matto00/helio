@@ -1,10 +1,13 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.auth.BetaAccessRoutes
 import com.helio.api.{JsonProtocols, UserResponse}
-import com.helio.domain.{AuthenticatedUser, UserId}
+import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.email.EmailSender
-import com.helio.infrastructure.{DbContext, InviteCodeRepository, TokenHashing, UserRepository}
-import com.helio.services.{BetaAccessService, UserTierConfig}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.{InviteCodeRepository, UserRepository}
+import com.helio.infrastructure.crypto.TokenHashing
+import com.helio.services.auth.{BetaAccessService, UserTierConfig}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem

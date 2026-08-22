@@ -1,6 +1,7 @@
 package com.helio.services
 
-import com.helio.api.protocols.SqlSourceConfigPayload
+import com.helio.services.auth.{HasSecrets, InlineSecretBackend, SecretBackend, SecretField, SecretRedaction}
+import com.helio.api.protocols.sources.SqlSourceConfigPayload
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

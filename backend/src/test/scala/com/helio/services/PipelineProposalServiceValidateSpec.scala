@@ -1,8 +1,10 @@
 package com.helio.services
 
-import com.helio.api.protocols.{PipelineProposal, PipelineProposalSource, StaticColumnPayload, StaticDataPayload}
-import com.helio.domain._
-import com.helio.infrastructure.DataSourceRepository
+import com.helio.services.pipelines.PipelineProposalService
+import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource}
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload}
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.mockito.Mockito.{mock, verifyNoInteractions, when}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

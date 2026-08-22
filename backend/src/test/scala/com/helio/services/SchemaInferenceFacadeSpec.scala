@@ -1,7 +1,8 @@
 package com.helio.services
 
-import com.helio.api.protocols.FieldOverridePayload
-import com.helio.domain.{DataFieldType, InferredField, InferredSchema}
+import com.helio.services.sources.SchemaInferenceFacade
+import com.helio.api.protocols.sources.FieldOverridePayload
+import com.helio.domain.model.{DataFieldType, InferredField, InferredSchema}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

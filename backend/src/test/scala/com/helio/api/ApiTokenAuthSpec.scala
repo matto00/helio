@@ -1,14 +1,22 @@
 package com.helio.api
 
+import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
-import com.helio.infrastructure.{ApiTokenRepository, DashboardRepository, DataSourceRepository, DataTypeRepository, DbContext, FileSystem, ListPage, PanelRepository, PipelineRepository, PipelineStepRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
-import com.helio.services.ApiTokenService
+import com.helio.domain.model.{AuthenticatedUser, UserId}
+import com.helio.domain.connectors.RestApiConnector
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.{FileSystem, ListPage}
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.services.auth.ApiTokenService
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres

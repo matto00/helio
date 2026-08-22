@@ -1,5 +1,7 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineProposal, PipelineProposalProtocol, PipelineProposalSource}
+import com.helio.api.protocols.sources.SqlSourceConfigPayload
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

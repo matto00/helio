@@ -1,13 +1,15 @@
 package com.helio.infrastructure
 
-import com.helio.domain._
+import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
-import com.helio.infrastructure.DbContext
+import com.helio.infrastructure.persistence.DbContext
 
 import java.time.Instant
 import java.util.UUID

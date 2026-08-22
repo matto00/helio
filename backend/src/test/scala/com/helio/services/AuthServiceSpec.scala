@@ -1,7 +1,8 @@
 package com.helio.services
 
-import com.helio.api.protocols.{LoginRequest, RegisterRequest}
-import com.helio.infrastructure.UserRepository
+import com.helio.services.auth.{AuthResult, AuthService, LoginOutcome, UserTierConfig}
+import com.helio.api.protocols.auth.{LoginRequest, RegisterRequest}
+import com.helio.infrastructure.persistence.auth.UserRepository
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

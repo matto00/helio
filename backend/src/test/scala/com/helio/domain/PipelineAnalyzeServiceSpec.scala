@@ -1,6 +1,7 @@
 package com.helio.domain
 
-import com.helio.domain.PipelineAnalyzeService._
+import com.helio.domain.engine.SchemaField
+import com.helio.domain.engine.PipelineAnalyzeService._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

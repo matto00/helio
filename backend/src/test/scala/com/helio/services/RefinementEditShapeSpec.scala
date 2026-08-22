@@ -1,6 +1,8 @@
 package com.helio.services
 
-import com.helio.api.protocols.{CreatePanelRequest, Edit, PatchSetProtocol}
+import com.helio.services.patchsets.RefinementEditShape
+import com.helio.api.protocols.panels.CreatePanelRequest
+import com.helio.api.protocols.patchsets.{Edit, PatchSetProtocol}
 import com.helio.domain.panels.{ChartPanelConfig, CollectionPanelConfig, MetricPanelConfig, TablePanelConfig, TimelinePanelConfig}
 import com.helio.domain.steps.{AggregateConfig, GroupByConfig}
 import org.scalatest.matchers.should.Matchers

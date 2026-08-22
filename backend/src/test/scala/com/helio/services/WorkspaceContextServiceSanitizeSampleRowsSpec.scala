@@ -1,6 +1,7 @@
 package com.helio.services
 
-import com.helio.domain.DataField
+import com.helio.services.workspace.WorkspaceContextService
+import com.helio.domain.model.DataField
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json.{JsArray, JsNumber, JsObject, JsString}

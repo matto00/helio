@@ -1,10 +1,19 @@
 package com.helio.services
 
-import com.helio.api.protocols.{StaticColumnPayload, StaticDataSourceRequest, TeardownRequest, TeardownResponse}
-import com.helio.domain._
+import com.helio.services.sources.DataSourceService
+import com.helio.services.workspace.WorkspaceTeardownService
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
+import com.helio.api.protocols.workspace.{TeardownRequest, TeardownResponse}
+import com.helio.domain.model._
 import com.helio.domain.panels.{MetricPanel, MetricPanelConfig}
-import com.helio.infrastructure.PipelineRepository.PipelineSummary
-import com.helio.infrastructure._
+import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._

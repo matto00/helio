@@ -1,6 +1,7 @@
 package com.helio.services
 
-import com.helio.domain.DataFieldType
+import com.helio.services.sources.ContentSourceSupport
+import com.helio.domain.model.DataFieldType
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.Http

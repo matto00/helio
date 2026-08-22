@@ -1,5 +1,8 @@
 package com.helio.domain
 
+import com.helio.domain.model.ChartAxisLabel
+import com.helio.domain.model.{ChartAxisLabels, ChartLegend, ChartTooltip}
+import com.helio.domain.model.{ChartAppearance, PanelAppearance}
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

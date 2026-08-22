@@ -1,27 +1,11 @@
 package com.helio.spark
 
-import com.helio.domain.{
-  AggregateStep,
-  CastStep,
-  ComputeStep,
-  CsvSource,
-  DataSource,
-  DataSourceId,
-  FilterStep,
-  GroupByStep,
-  JoinStep,
-  LimitStep,
-  Pipeline,
-  PipelineRunId,
-  PipelineStep,
-  RenameStep,
-  SelectStep,
-  SortStep,
-  StaticSource
-}
-import com.helio.infrastructure.{DataSourceRepository, PipelineRepository, PipelineRunRepository}
-import com.helio.infrastructure.DataSourceRepository.parseStaticPayload
-import com.helio.services.TriggerSource
+import com.helio.domain.{AggregateStep, CastStep, ComputeStep, FilterStep, GroupByStep, JoinStep, LimitStep, RenameStep, SelectStep, SortStep}
+import com.helio.domain.model.{CsvSource, DataSource, DataSourceId, Pipeline, PipelineRunId, PipelineStep, StaticSource}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository.parseStaticPayload
+import com.helio.services.pipelines.TriggerSource
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory

@@ -1,0 +1,93 @@
+package com.helio.services.agents
+
+import com.helio.services.ServiceError
+import com.helio.api.protocols.agents.CreateAgentMemoryRequest
+import com.helio.domain.model.{AgentMemoryEntry, AgentMemoryId, AgentMemoryKind, AuthenticatedUser}
+import com.helio.infrastructure.persistence.agents.AgentMemoryRepository
+
+import java.time.Instant
+import java.util.UUID
+import scala.concurrent.{ExecutionContext, Future}
+
+/** Business logic for `/api/agent/memory` (HEL-478 / 420-B). Validates `kind` (via
+ *  [[AgentMemoryKind.fromString]]) and rejects blank `content` before delegating to
+ *  [[AgentMemoryRepository]] -- mirrors `RequestValidation.validateCreateApiTokenRequest`'s
+ *  blank-name rejection pattern (design.md).
+ *
+ *  `MaxEntriesPerUser` is the one knob 420-E's eventual retention-policy ticket can widen without
+ *  touching `AgentMemoryRepository`'s eviction query itself (design.md Risks).
+ *
+ *  HEL-531 (420-E): takes `agentPreferencesService` (an internal composition, not an external
+ *  dependency -- design.md Decision 4) so `add` can check the caller's `memoryEnabled` opt-out
+ *  flag; `RetentionDays` (design.md Decision 6) is threaded as an explicit parameter into
+ *  `AgentMemoryRepository.list`/`add`, mirroring `MaxEntriesPerUser`/`cap`'s existing
+ *  service-layer-owns-the-constant precedent -- never hardcoded or `sys.env`-read inside the
+ *  repository itself. */
+final class AgentMemoryService(repo: AgentMemoryRepository, agentPreferencesService: AgentPreferencesService)(
+    implicit ec: ExecutionContext
+) {
+
+  private val MaxEntriesPerUser = 100
+
+  /** Age-based retention window (design.md Decision 6) -- entries older than this are excluded
+   *  from reads and pruned by `AgentMemoryRepository.list`/`add`, independent of the opt-out flag
+   *  and never extended by `touch`. `90` (days), env-var-overridable via
+   *  `AGENT_MEMORY_RETENTION_DAYS` -- a self-approved-tunable placeholder documented as
+   *  coordinated with HEL-438 (Data Retention & Privacy), which defines no concrete value of its
+   *  own yet; mirrors `WorkspaceContextBudget.DefaultBudgetBytes`'s env-var-override convention. */
+  private val RetentionDays: Int =
+    sys.env.get("AGENT_MEMORY_RETENTION_DAYS").flatMap(_.toIntOption).getOrElse(90)
+
+  /** Validates `kind` against the closed allow-list and rejects blank `content`, then checks the
+   *  caller's `memoryEnabled` opt-out flag (design.md Decision 4) before persisting under the
+   *  caller's own id/timestamps -- `id`/`ownerId`/`createdAt`/`lastUsedAt` are always set here,
+   *  never taken from the wire request. When `memoryEnabled` is `false`, the constructed entry is
+   *  returned as a normal success WITHOUT ever calling `AgentMemoryRepository.add` -- a silent,
+   *  honest no-op, never a distinguishable error (design.md Decision 5). */
+  def add(req: CreateAgentMemoryRequest, user: AuthenticatedUser): Future[Either[ServiceError, AgentMemoryEntry]] = {
+    val content = req.content.trim
+    AgentMemoryKind.fromString(req.kind) match {
+      case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+      case Right(_) if content.isEmpty =>
+        Future.successful(Left(ServiceError.BadRequest("content is required")))
+      case Right(kind) =>
+        val entry = AgentMemoryEntry(
+          id         = AgentMemoryId(UUID.randomUUID().toString),
+          ownerId    = user.id,
+          kind       = kind,
+          content    = content,
+          createdAt  = Instant.now(),
+          lastUsedAt = None
+        )
+        agentPreferencesService.get(user).flatMap { prefs =>
+          if (prefs.memoryEnabled) repo.add(entry, MaxEntriesPerUser, RetentionDays).map(Right(_))
+          else Future.successful(Right(entry))
+        }
+    }
+  }
+
+  /** The caller's stored entries, newest-first (never fails -- wrapped in `Right` purely so
+   *  route wiring can share `ServiceResponse.run`, mirroring `ApiTokenService.list`). Prunes
+   *  expired entries before selecting (design.md Decision 6) -- unaffected by `memoryEnabled`
+   *  (design.md Decision 4: the management UI stays fully functional after opt-out). */
+  def list(user: AuthenticatedUser): Future[Either[ServiceError, Seq[AgentMemoryEntry]]] =
+    repo.list(user, RetentionDays).map(entries => Right(entries))
+
+  /** Bumps `lastUsedAt` to now -- a thin delegate to `AgentMemoryRepository.touch` (HEL-521 /
+   *  420-C), called by `WorkspaceContextService.assemble` for every memory entry it surfaces in
+   *  `agentContext.memory`, so 420-B's LRU eviction order reflects real usage. A no-op (not an
+   *  error) for an unknown or cross-user id, mirroring the repository's own no-op semantics. */
+  def touch(id: AgentMemoryId, user: AuthenticatedUser): Future[Unit] =
+    repo.touch(id, user)
+
+  /** Existence-not-leaked: unknown and cross-user ids both map to 404. */
+  def delete(id: AgentMemoryId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    repo.delete(id, user).map {
+      case true  => Right(())
+      case false => Left(ServiceError.NotFound("Memory entry not found"))
+    }
+
+  /** Always succeeds -- clearing an already-empty memory is not an error (design.md Decision 5). */
+  def clear(user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    repo.clear(user).map(_ => Right(()))
+}

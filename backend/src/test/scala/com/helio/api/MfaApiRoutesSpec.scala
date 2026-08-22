@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader, `Set-Cookie`}
@@ -7,33 +8,16 @@ import org.apache.pekko.http.scaladsl.model.{HttpResponse, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.protocols.{
-  ErrorResponse,
-  MfaBackupCodesResponse,
-  MfaConfirmRequest,
-  MfaEnrollResponse,
-  MfaReauthRequest,
-  MfaRequiredResponse,
-  MfaStatusResponse,
-  MfaVerifyRequest
-}
-import com.helio.domain.RestApiConnector
-import com.helio.infrastructure.{
-  DashboardRepository,
-  DataSourceRepository,
-  DataTypeRepository,
-  DbContext,
-  FileSystem,
-  ListPage,
-  MfaRepository,
-  PanelRepository,
-  PipelineRepository,
-  PipelineStepRepository,
-  ResourcePermissionRepository,
-  SlickUserSessionRepository,
-  UserPreferenceRepository,
-  UserRepository
-}
+import com.helio.api.protocols.auth.{MfaBackupCodesResponse, MfaConfirmRequest, MfaEnrollResponse, MfaReauthRequest, MfaRequiredResponse, MfaStatusResponse, MfaVerifyRequest}
+import com.helio.api.protocols.ErrorResponse
+import com.helio.domain.connectors.RestApiConnector
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.{FileSystem, ListPage}
+import com.helio.infrastructure.persistence.auth.{MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

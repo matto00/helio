@@ -1,17 +1,11 @@
 package com.helio.services
 
+import com.helio.services.dashboards.DashboardService
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import com.helio.api.protocols.{
-  DashboardAppearancePayload,
-  DashboardLayoutItemPayload,
-  DashboardLayoutPayload,
-  DashboardSnapshotDashboardEntry,
-  DashboardSnapshotPanelEntry,
-  DashboardSnapshotPayload,
-  PanelAppearancePayload
-}
-import com.helio.domain.ChartAppearance
+import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry, DashboardSnapshotPayload}
+import com.helio.api.protocols.panels.PanelAppearancePayload
+import com.helio.domain.model.ChartAppearance
 import spray.json.{JsObject, JsString}
 
 /** Unit coverage for the four `Either`-returning helpers underpinning

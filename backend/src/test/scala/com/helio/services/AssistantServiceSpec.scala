@@ -1,9 +1,22 @@
 package com.helio.services
 
+import com.helio.api.protocols.sources.{RestApiConfigPayload, StaticColumnPayload, StaticDataPayload}
+import com.helio.api.protocols.assistant.{AssistantProposal, AssistantProtocol}
+import com.helio.api.protocols.pipelines.PipelineProposalSource
+import com.helio.api.protocols.assistant.AssistantTurnResult
+import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalProtocol}
+import com.helio.api.protocols.proposals.{DashboardProposal, DashboardProposalProtocol, ProposalPanel}
+import com.helio.services.assistant.AssistantSystemPrompt
+import com.helio.services.panels.PanelCapabilityService
+import com.helio.services.pipelines.PipelineProposalService
+import com.helio.services.proposals.DashboardProposalService
+import com.helio.services.assistant.AssistantService
+import com.helio.services.pipelines.DataTypeService
+import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import com.helio.ai._
-import com.helio.api.protocols._
-import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository}
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.ArgumentMatchers.any

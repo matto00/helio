@@ -1,6 +1,6 @@
 package com.helio.domain.shapes
 
-import com.helio.api.protocols.{CreatePipelineStepRequest, PipelineStepConfigCodec}
+import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec}
 import com.helio.domain.steps.{SelectConfig, SelectStep}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

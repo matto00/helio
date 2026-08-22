@@ -1,23 +1,19 @@
 package com.helio.services
 
-import com.helio.api.protocols.{
-  AssistantProposal,
-  CombinedProposal,
-  CombinedProposalProtocol,
-  CsvSourceConfigPayload,
-  DashboardProposal,
-  PipelineProposal,
-  PipelineProposalSource,
-  ProposalPanel,
-  RestApiConfigPayload,
-  SqlInferRequest,
-  SqlSourceConfigPayload,
-  StaticColumnPayload,
-  StaticDataPayload,
-  TestConnectionResponse
-}
-import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DataTypeRowRepository}
+import com.helio.services.assistant.AssistantToolExecutor
+import com.helio.services.panels.PanelCapabilityService
+import com.helio.services.patchsets.PatchSetPreviewService
+import com.helio.services.pipelines.{DataTypeService, PipelineProposalService}
+import com.helio.services.proposals.{CombinedProposalService, DashboardProposalService}
+import com.helio.services.sources.SourceService
+import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
+import com.helio.api.protocols.assistant.AssistantProposal
+import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal, ProposalPanel}
+import com.helio.api.protocols.sources.{CsvSourceConfigPayload, RestApiConfigPayload, SqlInferRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload, TestConnectionResponse}
+import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource}
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
 import org.mockito.ArgumentMatchers.{any, eq => meq}
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.matchers.should.Matchers

@@ -1,5 +1,7 @@
 package com.helio.domain
 
+import com.helio.domain.connectors.{ConnectorRegistry, RestApiConnector, SqlConnector}
+import com.helio.domain.model.DataSourceKind
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

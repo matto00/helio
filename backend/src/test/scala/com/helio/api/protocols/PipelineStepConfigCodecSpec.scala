@@ -1,6 +1,8 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
 import com.helio.domain._
+import com.helio.domain.model._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

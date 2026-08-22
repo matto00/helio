@@ -5,19 +5,13 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.{AuthenticatedUser, UserId}
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext, PipelineRepository, PipelineStepRepository}
-import com.helio.api.protocols.{
-  CastStepResponse,
-  FilterStepResponse,
-  LookupStepResponse,
-  PipelineStepResponse,
-  RenameStepResponse,
-  SelectStepResponse,
-  UnionStepResponse
-}
-import com.helio.api.routes.PipelineStepRoutes
-import com.helio.services.PipelineService
+import com.helio.domain.model.{AuthenticatedUser, UserId}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.api.protocols.pipelines.{CastStepResponse, LookupStepResponse, PipelineStepResponse, RenameStepResponse, SelectStepResponse, UnionStepResponse}
+import com.helio.api.routes.pipelines.PipelineStepRoutes
+import com.helio.services.pipelines.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

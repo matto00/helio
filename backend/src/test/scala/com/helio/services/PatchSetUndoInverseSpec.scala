@@ -1,5 +1,8 @@
 package com.helio.services
 
+import com.helio.api.protocols.panels.PanelAppearanceResponse
+import com.helio.api.protocols.panels.PanelResponse
+import com.helio.services.patchsets.PatchSetUndoInverse
 import com.helio.api.JsonProtocols
 import com.helio.api.protocols._
 import com.helio.domain.panels.MetricPanel
@@ -66,7 +69,7 @@ class PatchSetUndoInverseSpec extends AnyWordSpec with Matchers with JsonProtoco
 
     "clear an aggregation that a live panel currently has set, end to end through the SAME Patch.decode/applyPatch path PATCH /api/panels/:id uses (D5)" in {
       import com.helio.domain.panels.{MetricPanel, MetricPanelConfig}
-      import com.helio.domain.{DataTypeId, DashboardId, PanelAppearance, PanelId, ResourceMeta, UserId}
+      import com.helio.domain.model.{DataTypeId, DashboardId, PanelAppearance, PanelId, ResourceMeta, UserId}
       import java.time.Instant
 
       val meta = ResourceMeta("owner-1", Instant.EPOCH, Instant.EPOCH)

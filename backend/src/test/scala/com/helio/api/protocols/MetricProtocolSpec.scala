@@ -1,7 +1,8 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.metrics.MetricResponse
 import com.helio.api.JsonProtocols
-import com.helio.domain.{DataTypeId, MetricDefinition, MetricFormat, MetricId, UserId}
+import com.helio.domain.model.{DataTypeId, MetricDefinition, MetricFormat, MetricId, UserId}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

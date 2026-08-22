@@ -1,22 +1,18 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.pipelines.DataTypeRoutes
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AssertionStatusResponse, DataTypeRowsResponse, ErrorResponse, JsonProtocols}
-import com.helio.domain.{AssertionResult, AuthenticatedUser, DataField, DataType, DataTypeId, PipelineId, PipelineRunId, UserId}
-import com.helio.infrastructure.{
-  DataSourceRepository,
-  DataTypeRepository,
-  DataTypeRowRepository,
-  DbContext,
-  PipelineRepository,
-  PipelineRunRepository,
-  PipelineStepRepository
-}
-import com.helio.services.{DataTypeService, PanelCapabilityService, PipelineRunService}
+import com.helio.domain.model.{AssertionResult, AuthenticatedUser, DataField, DataType, DataTypeId, PipelineId, PipelineRunId, UserId}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.services.pipelines.{DataTypeService, PipelineRunService}
+import com.helio.services.panels.PanelCapabilityService
 import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

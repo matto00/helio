@@ -1,5 +1,8 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.pipelines.DataTypeRoutes
+import com.helio.api.routes.sources.{DataSourcePreviewRoutes, DataSourceRoutes, SourcePreviewRoutes, SourceRoutes}
+import com.helio.domain.connectors.RestApiConnector
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -7,19 +10,15 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{DataSourceResponse, JsonProtocols}
-import com.helio.domain.PagedResult
-import com.helio.domain._
-import com.helio.infrastructure.{
-  DataSourceRepository,
-  DataTypeRepository,
-  DataTypeRowRepository,
-  DbContext,
-  LocalFileSystem,
-  PipelineRepository,
-  PipelineRunRepository,
-  PipelineStepRepository
-}
-import com.helio.services.{DataSourceService, DataTypeService, PanelCapabilityService, PanelService, PipelineRunService, SourceService}
+import com.helio.domain.model.PagedResult
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.services.sources.{DataSourceService, SourceService}
+import com.helio.services.pipelines.{DataTypeService, PipelineRunService}
+import com.helio.services.panels.{PanelCapabilityService, PanelService}
 import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

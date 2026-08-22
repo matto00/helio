@@ -1,7 +1,11 @@
 package com.helio.services
 
-import com.helio.domain._
-import com.helio.infrastructure.{DataSourceRepository, DataTypeRepository, DbContext}
+import com.helio.services.sources.CreateSourceEnvelope
+import com.helio.domain.connectors.{Connector, ConnectorMetadata}
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll

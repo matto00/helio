@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.api.http.TraceContextDirective
 import ch.qos.logback.classic.{Logger => LogbackLogger, LoggerContext}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.OutputStreamAppender

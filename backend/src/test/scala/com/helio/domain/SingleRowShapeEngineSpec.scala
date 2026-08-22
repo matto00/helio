@@ -1,8 +1,10 @@
 package com.helio.domain
 
-import com.helio.api.protocols.PipelineStepConfigCodec
+import com.helio.domain.engine.InProcessPipelineEngine
+import com.helio.domain.model.{PipelineId, PipelineStep, PipelineStepId}
+import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
 import com.helio.domain.shapes.SingleRowShape
-import com.helio.infrastructure.LocalFileSystem
+import com.helio.infrastructure.storage.LocalFileSystem
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._

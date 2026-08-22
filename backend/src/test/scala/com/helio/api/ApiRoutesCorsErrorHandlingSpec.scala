@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.api.http.{AuthDirectives, SessionCookies, TopLevelErrorHandlers}
 import ch.qos.logback.classic.{Level, Logger => LogbackLogger}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -10,22 +11,15 @@ import org.apache.pekko.http.scaladsl.model.headers.{Cookie, HttpOrigin, Origin,
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.{AuthenticatedUser, RestApiConnector, UserId}
-import com.helio.infrastructure.{
-  DashboardRepository,
-  DataSourceRepository,
-  DataTypeRepository,
-  DbContext,
-  FileSystem,
-  ListPage,
-  PanelRepository,
-  PipelineRepository,
-  PipelineStepRepository,
-  ResourcePermissionRepository,
-  UserPreferenceRepository,
-  UserRepository,
-  UserSessionRepository
-}
+import com.helio.domain.model.{AuthenticatedUser, UserId}
+import com.helio.domain.connectors.RestApiConnector
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

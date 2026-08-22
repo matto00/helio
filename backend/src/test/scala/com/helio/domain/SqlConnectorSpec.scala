@@ -1,5 +1,9 @@
 package com.helio.domain
 
+import com.helio.domain.connectors.ConnectorFieldDescriptor
+import com.helio.domain.connectors.ConnectorMetadata
+import com.helio.domain.connectors.{Connector, SqlConnector}
+import com.helio.domain.model.SqlSourceConfig
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers

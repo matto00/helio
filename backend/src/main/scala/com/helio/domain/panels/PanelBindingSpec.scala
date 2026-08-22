@@ -1,6 +1,7 @@
 package com.helio.domain.panels
 
-import com.helio.domain.{DataFieldType, PanelType, SchemaField}
+import com.helio.domain.model.{DataFieldType, PanelType}
+import com.helio.domain.engine.SchemaField
 
 /** Column-type eligibility rule for one `fieldMapping` slot (design.md D2).
  *

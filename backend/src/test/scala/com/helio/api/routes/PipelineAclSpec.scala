@@ -1,5 +1,6 @@
 package com.helio.api.routes
 
+import com.helio.api.routes.pipelines.{PipelineRoutes, PipelineRunHistoryRoutes, PipelineRunStatusRoutes, PipelineRunStreamRoutes, PipelineRunSubmitRoutes, PipelineStepRoutes}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -7,19 +8,13 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{JsonProtocols, PipelineRunRecord, PipelineSummaryResponse}
-import com.helio.api.protocols.PipelineStepResponse
-import com.helio.domain._
-import com.helio.infrastructure.{
-  DataSourceRepository,
-  DataTypeRepository,
-  DataTypeRowRepository,
-  DbContext,
-  LocalFileSystem,
-  PipelineRepository,
-  PipelineRunRepository,
-  PipelineStepRepository
-}
-import com.helio.services.{PipelineRunService, PipelineService}
+import com.helio.api.protocols.pipelines.PipelineStepResponse
+import com.helio.domain.model._
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.services.pipelines.{PipelineRunService, PipelineService}
 import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

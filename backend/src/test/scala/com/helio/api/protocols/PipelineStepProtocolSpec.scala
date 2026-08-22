@@ -1,5 +1,6 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.pipelines.{AggregateStepResponse, CastStepResponse, ChunkByTokenCountStepResponse, ComputeStepResponse, CreatePipelineStepRequest, DateBucketStepResponse, DedupeStepResponse, ExtractHeadingsStepResponse, FillNullStepResponse, FilterStepResponse, GroupByStepResponse, JoinStepResponse, LimitStepResponse, PipelineStepResponse, PivotStepResponse, RenameStepResponse, SelectStepResponse, SortStepResponse, SplitTextStepResponse, StringOpsStepResponse, UnpivotStepResponse, UpdatePipelineStepRequest, WindowStepResponse}
 import com.helio.api.JsonProtocols
 import com.helio.domain._
 import org.scalatest.matchers.should.Matchers

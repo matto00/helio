@@ -1,16 +1,24 @@
-# Backend Scaffold
+# Backend
 
-Scala + Pekko backend scaffold.
+Scala + Pekko HTTP backend: layer-first, with each layer subdivided by domain
+(HEL-633). The domain names are spelled identically in every layer, so one grep
+on a domain name surfaces its whole stack. Each directory carries a `README.md`
+stating what it holds and what it does not.
 
-No service implementation is included yet.
-
-Planned structure:
+Structure:
 
 - `src/main/scala/com/helio/app` runtime bootstrap
-- `src/main/scala/com/helio/api` HTTP/API adapters
+- `src/main/scala/com/helio/api` HTTP/API adapters (`http/` cross-cutting
+  infra, `routes/<domain>/`, `protocols/<domain>/` — see each directory's
+  own README)
 - `src/main/scala/com/helio/domain` domain models and logic
-- `src/main/scala/com/helio/security` authn/authz and validation boundaries
+  (`model/`, `connectors/`, `engine/`, `util/`, plus `steps/`/`shapes/`/`panels/`
+  — see each directory's own README)
+- `src/main/scala/com/helio/services` business logic, by domain
+  (`services/<domain>/` — see each directory's own README)
 - `src/main/scala/com/helio/infrastructure` persistence/external integrations
+  (`persistence/<domain>/`, `storage/`, `crypto/`, `concurrency/` — see each
+  directory's own README)
 - `src/test/scala/com/helio` ScalaTest suites
 
 ---
