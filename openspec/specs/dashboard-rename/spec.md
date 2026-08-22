@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines dashboard renaming: the backend PATCH endpoint that persists a new name, and the frontend inline rename control with keyboard and blur confirmation.
+
+## Requirements
 
 ### Requirement: Dashboard name can be updated via PATCH endpoint
 The backend SHALL accept an optional `name` field on `PATCH /api/dashboards/:id` and persist the new name.

@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the nested `appearance` object on dashboard resources: how appearance settings are represented, persisted through updates, and validated against the dashboard schema.
+
+## Requirements
 
 ### Requirement: Dashboard resources expose nested appearance settings
 Dashboard resources MUST include a nested `appearance` object that carries dashboard-level visual customization settings.

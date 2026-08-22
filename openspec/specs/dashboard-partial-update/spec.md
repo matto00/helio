@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the PATCH /api/dashboards/:id/update partial-update endpoint, including its fields/dashboard payload envelope and the guarantee that only listed fields are modified.
+
+## Requirements
 
 ### Requirement: PATCH /api/dashboards/:id/update endpoint exists
 The backend MUST expose a `PATCH /api/dashboards/:id/update` endpoint that accepts a partial update

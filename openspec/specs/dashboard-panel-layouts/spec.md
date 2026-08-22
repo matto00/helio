@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the nested `layout` object on dashboard resources: how per-breakpoint panel placement is represented, persisted through updates, and validated against the dashboard schema.
+
+## Requirements
 
 ### Requirement: Dashboard resources expose responsive panel layout state
 Dashboard resources MUST expose a nested `layout` object that stores panel placement by responsive breakpoint.

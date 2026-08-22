@@ -1,3 +1,8 @@
+## Purpose
+Defines overlay management for popovers and dropdown menus: closing the active overlay on Escape or an outside click, and enforcing mutual exclusion so at most one overlay is open at a time.
+
+## Requirements
+
 ### Requirement: Escape key closes any open overlay
 The system SHALL close the currently open popover or dropdown menu when the user presses the Escape key, regardless of which element currently has keyboard focus.
 

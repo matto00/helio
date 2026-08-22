@@ -2,7 +2,7 @@
 Shared `InlineError` component rendering a small error message, used across forms and,
 as of HEL-539, as a compact intent-error banner with an optional retry action.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: InlineError renders an error string
 The `InlineError` component SHALL render a small error message when given a non-empty string.
@@ -36,7 +36,6 @@ The `InlineError` component SHALL render nothing when `error` is null or undefin
 #### Scenario: Save error in PanelAppearanceEditor
 - **WHEN** saving panel appearance fails
 - **THEN** `InlineError` displays the error below the save button
-## Requirements
 ### Requirement: InlineError banner variant supports a kind and retry action
 The `InlineError` component's `banner` variant SHALL accept a `kind` prop (`"error" | "forbidden" |
 "not-found"`, default `"error"`) and an optional `onRetry` callback. When rendered, the `banner` variant

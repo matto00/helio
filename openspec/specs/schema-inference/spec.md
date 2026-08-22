@@ -107,8 +107,6 @@ the `FieldTypeCategory` classifier and the content-type value-representation con
 - **WHEN** the field name is `address.city`
 - **THEN** `displayName` is `"Address City"`
 
-## ADDED Requirements
-
 ### Requirement: POST /api/sources/infer — preview REST API schema without persisting
 The API SHALL expose `POST /api/sources/infer` that accepts a `RestApiConfigPayload` JSON body, fetches the remote endpoint, infers the schema via `SchemaInferenceEngine.fromJson`, and returns an `InferredSchemaResponse` with inferred fields. No `DataSource` or `DataType` is written to the database. If the remote fetch fails, the API returns `502 Bad Gateway` with an error message.
 
@@ -137,7 +135,12 @@ The API SHALL expose `POST /api/data-sources/infer` that accepts a multipart for
 
 ### Requirement: InferredSchemaResponse wire format
 `POST /api/sources/infer` and `POST /api/data-sources/infer` SHALL both return the same response envelope: `{ "fields": [{ "name": string, "displayName": string, "dataType": string, "nullable": boolean }] }`.
-## Requirements
+
+#### Scenario: Both infer endpoints return the same envelope
+- **WHEN** `POST /api/sources/infer` and `POST /api/data-sources/infer` are each called
+- **THEN** both return the same response envelope
+  `{ "fields": [{ "name": string, "displayName": string, "dataType": string, "nullable": boolean }] }`
+
 ### Requirement: Static connector uses declared column types without inference
 For static data sources, the system SHALL construct `DataField` entries directly from the user-declared `columns` array (`{ name, type }`) rather than running `SchemaInferenceEngine`. The declared `type` value SHALL be mapped to the corresponding `DataFieldType` string. An unrecognised type string SHALL default to `"string"`.
 

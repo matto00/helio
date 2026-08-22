@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines panel deletion: the backend DELETE endpoint, the frontend delete control with inline confirmation, and the pruning of the owning dashboard's layout entries across all breakpoints.
+
+## Requirements
 
 ### Requirement: Panel can be deleted via DELETE endpoint
 The backend SHALL expose `DELETE /api/panels/:id` which removes the panel from the database.

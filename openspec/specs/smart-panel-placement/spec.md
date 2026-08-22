@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the smart panel placement algorithm: computing the first available grid slot for a new panel across responsive breakpoints without disturbing existing saved panel positions.
+
+## Requirements
 
 ### Requirement: New panels are placed in the first available horizontal slot
 The layout system MUST compute the next available grid position for a new panel by scanning existing placed items left-to-right, row-by-row, for the first slot that fits the default panel dimensions without overlapping any occupied cell.

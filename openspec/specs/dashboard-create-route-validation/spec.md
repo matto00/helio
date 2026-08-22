@@ -1,3 +1,8 @@
+## Purpose
+Defines input validation for the dashboard create route, ensuring malformed or type-invalid JSON request bodies are rejected with a 400 Bad Request response.
+
+## Requirements
+
 ### Requirement: Dashboard create route rejects malformed JSON bodies
 The dashboard create route (`POST /api/dashboards`) SHALL return `400 Bad Request` when the request body contains malformed or type-invalid JSON.
 

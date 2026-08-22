@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines how the login page surfaces an OAuth failure via the error query parameter, without requiring user interaction and without persisting after a successful login.
+
+## Requirements
 
 ### Requirement: Login page reads error query parameter
 The `LoginPage` component SHALL read the `error` query parameter from the current URL on mount. If `error=oauth_failed` is present, the component SHALL render a user-friendly error message without requiring any user interaction.

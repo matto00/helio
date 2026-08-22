@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines dashboard deletion: the backend DELETE endpoint that cascades to panels, and the frontend delete control with inline confirmation and selection cleanup.
+
+## Requirements
 
 ### Requirement: Dashboard can be deleted via DELETE endpoint
 The backend SHALL expose `DELETE /api/dashboards/:id` which removes the dashboard and all its associated panels.

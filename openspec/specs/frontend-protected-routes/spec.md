@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Defines the frontend's authenticated-route protection: the ProtectedRoute component's behavior across auth states, which application routes it wraps, and redirect behavior for already-authenticated users visiting public auth pages.
+
+## Requirements
 
 ### Requirement: ProtectedRoute guards authenticated-only pages
 The frontend SHALL provide a `ProtectedRoute` component that wraps React Router routes. It SHALL render its children (via `<Outlet />`) only when `auth.status` is `'authenticated'`. When `auth.status` is `'idle'` or `'loading'` it SHALL render a loading indicator. When `auth.status` is `'unauthenticated'` it SHALL render `<Navigate to="/login" replace />`.
