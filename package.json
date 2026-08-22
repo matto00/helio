@@ -12,6 +12,7 @@
     "format:check": "prettier . --check",
     "check:schemas": "node scripts/check-schema-drift.mjs",
     "check:openspec": "node scripts/check-openspec-hygiene.mjs",
+    "check:openspec:selftest": "node scripts/check-openspec-hygiene.selftest.mjs",
     "check:spec-structure": "node scripts/check-spec-structure.mjs",
     "check:scala-quality": "node scripts/check-scala-quality.mjs",
     "test": "jest --passWithNoTests && npm --prefix frontend test",
