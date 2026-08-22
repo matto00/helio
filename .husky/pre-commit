@@ -7,5 +7,6 @@ npm run format:check
 npm run check:schemas
 npm run check:spec-structure
 npm run check:openspec
+npm run check:openspec:selftest
 npm run check:scala-quality
 npm test
