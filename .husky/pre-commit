@@ -11,3 +11,9 @@ npm run check:openspec
 npm run check:openspec:selftest
 npm run check:scala-quality
 npm test
+
+# npm run selftest:concertino-git-env is intentionally NOT run here. It is
+# named outside the check: namespace above on purpose: that selftest builds
+# throwaway fixture git repos, and if it ran as a literal hook child it
+# would be exposed to the exact HEL-657/HEL-805 poisoned-GIT_DIR mechanism
+# it exists to guard against. Run it manually / in CI outside the hook path.
