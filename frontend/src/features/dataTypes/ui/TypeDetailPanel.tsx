@@ -13,7 +13,7 @@ import {
   type RequestErrorKind,
 } from "../../../services/classifyRequestError";
 import type { ComputedField, DataType, DataTypeField } from "../types/dataType";
-import { ComputedFieldsEditor } from "../../pipelines/ui/ComputedFieldsEditor";
+import { ComputedFieldsEditor } from "../../pipelines/ui/computedFields/ComputedFieldsEditor";
 import { DataGrid, Select, TextField } from "../../../shared/ui/index";
 import { InlineError } from "../../../shared/chrome/InlineError";
 

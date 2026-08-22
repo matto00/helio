@@ -36,7 +36,7 @@ const ProposalReviewPage = lazy(() =>
 // HEL-739 — same rationale as `ProposalReviewPage` above: reached only from `ProposalHandoff`'s
 // "Review proposal" hand-off, not on any other route's critical path.
 const PipelineProposalReviewPage = lazy(() =>
-  import("../features/pipelines/ui/PipelineProposalReviewPage").then((m) => ({
+  import("../features/pipelines/ui/proposalReview/PipelineProposalReviewPage").then((m) => ({
     default: m.PipelineProposalReviewPage,
   })),
 );

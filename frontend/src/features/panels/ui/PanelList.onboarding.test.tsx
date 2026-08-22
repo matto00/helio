@@ -4,10 +4,10 @@ import { createDashboard as createDashboardRequest } from "../../dashboards/serv
 import { fetchSources as fetchSourcesRequest } from "../../sources/services/dataSourceService";
 import { getPipelines as getPipelinesRequest } from "../../pipelines/services/pipelineService";
 import { renderWithStore } from "../../../test/renderWithStore";
-import { PanelGrid } from "./PanelGrid";
+import { PanelGrid } from "./grid/PanelGrid";
 import { PanelList } from "./PanelList";
 
-jest.mock("./PanelGrid", () => {
+jest.mock("./grid/PanelGrid", () => {
   const React = require("react") as typeof import("react");
   return {
     PanelGrid: jest.fn(({ panels }: { panels: { id: string; title: string }[] }) =>

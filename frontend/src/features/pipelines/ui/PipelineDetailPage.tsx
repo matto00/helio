@@ -6,7 +6,7 @@ import { PipelinePreviewModal } from "./PipelinePreviewModal";
 import { PipelineDetailFooter } from "./PipelineDetailFooter";
 import { PipelineRiverView } from "./PipelineRiverView";
 import { PipelineDetailHeader } from "./PipelineDetailHeader";
-import { PipelineScheduleDialog } from "./PipelineScheduleDialog";
+import { PipelineScheduleDialog } from "./schedule/PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
 import { PipelineDetailSkeleton } from "./PipelineDetailSkeleton";
 import { EmptyState } from "../../../shared/ui/EmptyState";

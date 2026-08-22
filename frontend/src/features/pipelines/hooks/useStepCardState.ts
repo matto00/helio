@@ -36,23 +36,23 @@ import {
 } from "../state/stepNarrowing";
 import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
-import type { AggregateConfigValue } from "../ui/AggregateConfig";
-import type { AssertConfigValue } from "../ui/AssertConfig";
-import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
-import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
-import type { DateBucketConfigValue } from "../ui/DateBucketConfig";
-import type { DedupeConfigValue } from "../ui/DedupeConfig";
-import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
-import type { FillNullConfigValue } from "../ui/FillNullConfig";
-import type { FilterConfigValue } from "../ui/FilterConfig";
-import type { LookupConfigValue } from "../ui/LookupConfig";
-import type { PivotConfigValue } from "../ui/PivotConfig";
-import type { SortKey } from "../ui/SortConfig";
-import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
-import type { StringOpsConfigValue } from "../ui/StringOpsConfig";
-import type { UnionConfigValue } from "../ui/UnionConfig";
-import type { UnpivotConfigValue } from "../ui/UnpivotConfig";
-import type { WindowConfigValue } from "../ui/WindowConfig";
+import type { AggregateConfigValue } from "../ui/stepConfigs/AggregateConfig";
+import type { AssertConfigValue } from "../ui/stepConfigs/AssertConfig";
+import type { ChunkByTokenCountConfigValue } from "../ui/stepConfigs/ChunkByTokenCountConfig";
+import type { ComputeConfigValue } from "../ui/stepConfigs/ComputeFieldConfig";
+import type { DateBucketConfigValue } from "../ui/stepConfigs/DateBucketConfig";
+import type { DedupeConfigValue } from "../ui/stepConfigs/DedupeConfig";
+import type { ExtractHeadingsConfigValue } from "../ui/stepConfigs/ExtractHeadingsConfig";
+import type { FillNullConfigValue } from "../ui/stepConfigs/FillNullConfig";
+import type { FilterConfigValue } from "../ui/stepConfigs/FilterConfig";
+import type { LookupConfigValue } from "../ui/stepConfigs/LookupConfig";
+import type { PivotConfigValue } from "../ui/stepConfigs/PivotConfig";
+import type { SortKey } from "../ui/stepConfigs/SortConfig";
+import type { SplitTextConfigValue } from "../ui/stepConfigs/SplitTextConfig";
+import type { StringOpsConfigValue } from "../ui/stepConfigs/StringOpsConfig";
+import type { UnionConfigValue } from "../ui/stepConfigs/UnionConfig";
+import type { UnpivotConfigValue } from "../ui/stepConfigs/UnpivotConfig";
+import type { WindowConfigValue } from "../ui/stepConfigs/WindowConfig";
 
 /** Debounce window (ms) between the last config-editor edit and the
  *  persisted PATCH — matches the hand-rolled ref+setTimeout debounce idiom

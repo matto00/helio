@@ -35,7 +35,10 @@ import {
   expandPipelineShape,
   runPipeline,
 } from "../../../pipelines/services/pipelineService";
-import { buildShapeParams, ShapeParamsFields } from "../../../pipelines/ui/ShapeParamsFields";
+import {
+  buildShapeParams,
+  ShapeParamsFields,
+} from "../../../pipelines/ui/shapes/ShapeParamsFields";
 import { labelForKind } from "../../../sources/utils/labelForKind";
 import type { PipelineShapeCatalogEntry } from "../../../pipelines/types/pipelineShape";
 

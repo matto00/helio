@@ -1,7 +1,7 @@
 # Compute step expression grammar
 
 Shared contract between the backend (`backend/src/main/scala/com/helio/domain/ExpressionEvaluator.scala`)
-and the frontend (`frontend/src/features/pipelines/ui/ComputeFieldConfig.tsx`) for the
+and the frontend (`frontend/src/features/pipelines/ui/stepConfigs/ComputeFieldConfig.tsx`) for the
 pipeline **Compute** step's `expression` field. This is the grammar `ExpressionEvaluator.validate`
 enforces (strict, `$`-required) — the same grammar the step-card UI's hints and placeholder text
 describe.

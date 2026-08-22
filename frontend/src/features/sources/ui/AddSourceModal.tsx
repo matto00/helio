@@ -24,16 +24,16 @@ import {
   inferFromJson,
   type SqlSourceConfig,
 } from "../services/dataSourceService";
-import { CsvForm } from "./CsvForm";
-import { ImageSourceForm, type ImageIngestMode } from "./ImageSourceForm";
+import { CsvForm } from "./forms/CsvForm";
+import { ImageSourceForm, type ImageIngestMode } from "./forms/ImageSourceForm";
 import { InferredFieldsTable } from "./InferredFieldsTable";
 import type { EditableField } from "./InferredFieldsTable";
-import { PdfSourceForm, type PdfIngestMode } from "./PdfSourceForm";
-import { RestApiForm } from "./RestApiForm";
+import { PdfSourceForm, type PdfIngestMode } from "./forms/PdfSourceForm";
+import { RestApiForm } from "./forms/RestApiForm";
 import { SourceTypeToggle } from "./SourceTypeToggle";
-import { StaticSourceForm } from "./StaticSourceForm";
-import { SqlTab } from "./SqlTab";
-import { TextSourceForm, type TextIngestMode } from "./TextSourceForm";
+import { StaticSourceForm } from "./forms/StaticSourceForm";
+import { SqlTab } from "./forms/SqlTab";
+import { TextSourceForm, type TextIngestMode } from "./forms/TextSourceForm";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";

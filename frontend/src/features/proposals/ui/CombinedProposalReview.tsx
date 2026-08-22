@@ -1,6 +1,6 @@
 import { Modal } from "../../../shared/ui/Modal";
 import { InlineError } from "../../../shared/chrome/InlineError";
-import { PipelineProposalSummary } from "../../pipelines/ui/PipelineProposalSummary";
+import { PipelineProposalSummary } from "../../pipelines/ui/proposalReview/PipelineProposalSummary";
 import type { ProposalPanel } from "../../dashboards/types/proposal";
 import type { CombinedProposal } from "../types/combinedProposal";
 import "./CombinedProposalReview.css";
