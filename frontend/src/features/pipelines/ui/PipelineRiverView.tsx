@@ -11,7 +11,7 @@ import { faCodeBranch, faPlus } from "@fortawesome/free-solid-svg-icons";
 
 import { OpDropdown } from "./OpDropdown";
 import { RibbonSegment } from "./RibbonSegment";
-import { ShapePickerModal } from "./ShapePickerModal";
+import { ShapePickerModal } from "./shapes/ShapePickerModal";
 import { StepCard } from "./StepCard";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import type { OpType, Step } from "../types/step";

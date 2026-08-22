@@ -1,0 +1,100 @@
+import { fireEvent, screen } from "@testing-library/react";
+
+import { renderWithStore } from "../../../../test/renderWithStore";
+import { makeMetricPanel } from "../../../../test/panelFixtures";
+import { PanelDetailModal } from "./PanelDetailModal";
+
+// This suite's tree includes a chart panel path — `ChartPanel.tsx` renders via
+// `echarts-for-react/esm/core` (F-022, tree-shaken `echarts/core`
+// registration) rather than the default `echarts-for-react` export. Mirrors
+// the mock in the co-located `ChartPanel.test.tsx`: this project's CommonJS
+// Jest transform can't handle `echarts`'s ESM-only subpath exports, so both
+// the `/core` entry and the registration module (`echartsCore.ts`, a
+// ship-time bundle-size concern only, irrelevant to anything under test
+// here) are stubbed.
+jest.mock("echarts-for-react/esm/core", () => ({
+  __esModule: true,
+  default: ({ option }: { option: unknown }) => (
+    <div data-testid="echarts" data-option={JSON.stringify(option)} />
+  ),
+}));
+jest.mock("../echartsCore", () => ({ __esModule: true, default: {} }));
+
+import type { ComputedField, DataType } from "../../../dataTypes/types/dataType";
+
+jest.mock("../../services/panelService", () => ({
+  fetchPanels: jest.fn(),
+  createPanel: jest.fn(),
+  updatePanelAppearance: jest.fn().mockResolvedValue({}),
+  updatePanelBinding: jest.fn().mockResolvedValue({}),
+}));
+
+jest.mock("../../../dataTypes/services/dataTypeService", () => ({
+  fetchDataTypes: jest.fn(),
+  validateExpression: jest.fn().mockResolvedValue({ valid: true }),
+}));
+
+const computedField: ComputedField = {
+  name: "total",
+  displayName: "Total",
+  expression: "price * quantity",
+  dataType: "float",
+};
+
+const testDataType: DataType = {
+  id: "dt-1",
+  name: "Sales",
+  sourceId: null,
+  version: 1,
+  fields: [{ name: "price", displayName: "Price", dataType: "float", nullable: false }],
+  computedFields: [computedField],
+  createdAt: "2026-03-22T00:00:00Z",
+  updatedAt: "2026-03-22T00:00:00Z",
+};
+
+const testPanel = makeMetricPanel({
+  id: "p1",
+  dashboardId: "d1",
+  title: "Revenue Panel",
+  appearance: { background: "transparent", color: "inherit", transparency: 0 },
+  meta: {
+    createdBy: "system",
+    createdAt: "2026-03-14T00:00:00Z",
+    lastUpdated: "2026-03-14T00:00:00Z",
+  },
+  config: { dataTypeId: "dt-1" },
+});
+
+function renderModal() {
+  HTMLDialogElement.prototype.showModal = jest.fn(function () {
+    this.setAttribute("open", "");
+  });
+  HTMLDialogElement.prototype.close = jest.fn(function () {
+    this.removeAttribute("open");
+  });
+
+  return renderWithStore(<PanelDetailModal panel={testPanel} onClose={jest.fn()} />, {
+    dataTypes: { items: [testDataType], status: "succeeded" },
+  });
+}
+
+describe("Field picker — computed fields", () => {
+  it("shows computed field with (computed) label in the field picker select", () => {
+    renderModal();
+
+    // Enter edit mode — Data section is immediately visible in the unified form
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    // The field mapping select for "Value" slot should include the computed field
+    const selects = screen.getAllByRole("combobox");
+    const valueSelect = selects.find((s) =>
+      s.getAttribute("aria-label")?.toLowerCase().includes("value"),
+    );
+    expect(valueSelect).toBeDefined();
+
+    // Open the custom Select to reveal options in the portal listbox
+    fireEvent.click(valueSelect!);
+    const computedOption = screen.getByRole("option", { name: /total \(computed\)/i });
+    expect(computedOption).toBeInTheDocument();
+  });
+});

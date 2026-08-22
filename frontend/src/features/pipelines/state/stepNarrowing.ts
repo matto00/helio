@@ -56,23 +56,29 @@ import type {
   WindowConfig as WindowConfigType,
 } from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
-import type { AggregateConfigValue } from "../ui/AggregateConfig";
-import type { AssertConfigValue } from "../ui/AssertConfig";
-import type { ChunkByTokenCountConfigValue } from "../ui/ChunkByTokenCountConfig";
-import type { ComputeConfigValue } from "../ui/ComputeFieldConfig";
-import { DATE_BUCKET_GRANULARITIES, type DateBucketConfigValue } from "../ui/DateBucketConfig";
-import type { DedupeConfigValue } from "../ui/DedupeConfig";
-import type { ExtractHeadingsConfigValue } from "../ui/ExtractHeadingsConfig";
-import { FILL_NULL_STRATEGIES, type FillNullConfigValue } from "../ui/FillNullConfig";
-import type { FilterConfigValue } from "../ui/FilterConfig";
-import type { LookupConfigValue } from "../ui/LookupConfig";
-import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/PivotConfig";
-import type { SortKey } from "../ui/SortConfig";
-import type { SplitTextConfigValue } from "../ui/SplitTextConfig";
-import { STRING_OPS_OPERATIONS, type StringOpsConfigValue } from "../ui/StringOpsConfig";
-import type { UnionConfigValue } from "../ui/UnionConfig";
-import type { UnpivotConfigValue } from "../ui/UnpivotConfig";
-import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/WindowConfig";
+import type { AggregateConfigValue } from "../ui/stepConfigs/AggregateConfig";
+import type { AssertConfigValue } from "../ui/stepConfigs/AssertConfig";
+import type { ChunkByTokenCountConfigValue } from "../ui/stepConfigs/ChunkByTokenCountConfig";
+import type { ComputeConfigValue } from "../ui/stepConfigs/ComputeFieldConfig";
+import {
+  DATE_BUCKET_GRANULARITIES,
+  type DateBucketConfigValue,
+} from "../ui/stepConfigs/DateBucketConfig";
+import type { DedupeConfigValue } from "../ui/stepConfigs/DedupeConfig";
+import type { ExtractHeadingsConfigValue } from "../ui/stepConfigs/ExtractHeadingsConfig";
+import { FILL_NULL_STRATEGIES, type FillNullConfigValue } from "../ui/stepConfigs/FillNullConfig";
+import type { FilterConfigValue } from "../ui/stepConfigs/FilterConfig";
+import type { LookupConfigValue } from "../ui/stepConfigs/LookupConfig";
+import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/stepConfigs/PivotConfig";
+import type { SortKey } from "../ui/stepConfigs/SortConfig";
+import type { SplitTextConfigValue } from "../ui/stepConfigs/SplitTextConfig";
+import {
+  STRING_OPS_OPERATIONS,
+  type StringOpsConfigValue,
+} from "../ui/stepConfigs/StringOpsConfig";
+import type { UnionConfigValue } from "../ui/stepConfigs/UnionConfig";
+import type { UnpivotConfigValue } from "../ui/stepConfigs/UnpivotConfig";
+import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/stepConfigs/WindowConfig";
 
 // OP_TYPES drives the picker dropdown — join is intentionally excluded: no
 // `JoinConfig.tsx` editor exists (HEL-264's original rationale — showing an

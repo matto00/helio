@@ -25,7 +25,7 @@ import { makeMetricPanel, makeTablePanel } from "../../../test/panelFixtures";
 import { ThemeProvider } from "../../../theme/ThemeProvider";
 import { panelsReducer } from "../state/panelsSlice";
 import { PanelCardBody } from "./PanelCard";
-import { PanelDetailModal } from "./PanelDetailModal";
+import { PanelDetailModal } from "./detailModal/PanelDetailModal";
 import type { Panel } from "../types/panel";
 
 jest.mock("../../dataTypes/services/dataTypeService", () => ({

@@ -28,14 +28,14 @@ import { PanelList } from "./PanelList";
 const capturedSkeletonWidths: number[] = [];
 const capturedGridWidths: number[] = [];
 
-jest.mock("./PanelGridSkeleton", () => ({
+jest.mock("./grid/PanelGridSkeleton", () => ({
   PanelGridSkeleton: ({ width }: { width: number }) => {
     capturedSkeletonWidths.push(width);
     return <div data-testid="mock-grid-skeleton" />;
   },
 }));
 
-jest.mock("./PanelGrid", () => {
+jest.mock("./grid/PanelGrid", () => {
   const React = require("react") as typeof import("react");
   return {
     PanelGrid: React.forwardRef(function MockPanelGrid(

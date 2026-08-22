@@ -6,7 +6,7 @@ import {
 } from "../services/panelService";
 import { createDashboard as createDashboardRequest } from "../../dashboards/services/dashboardService";
 import { renderWithStore } from "../../../test/renderWithStore";
-import { PanelGrid } from "./PanelGrid";
+import { PanelGrid } from "./grid/PanelGrid";
 import { PanelList } from "./PanelList";
 
 // PanelCreationModal uses <dialog> showModal/close which jsdom doesn't implement.
@@ -20,7 +20,7 @@ beforeEach(() => {
   });
 });
 
-jest.mock("./PanelGrid", () => {
+jest.mock("./grid/PanelGrid", () => {
   const React = require("react") as typeof import("react");
   return {
     PanelGrid: jest.fn(
