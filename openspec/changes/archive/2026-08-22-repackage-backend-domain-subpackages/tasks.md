@@ -67,4 +67,4 @@ line added or removed around an import block.
 - [x] Quality warned-basename **set**-equivalent to `baseline/quality.txt`, EXCEPT files crossing the 250-line soft budget purely via added imports — record those with line arithmetic and do NOT "fix" them (D6). Watch `DashboardRepository.scala` (243) and `MetricRepository.scala` (246)
 - [x] Confirm no inline FQNs introduced, and that `grep -c '^package '` is exactly 1 for every `.scala` file (D0.2)
 - [x] Merge `origin/main` (CON-129), then re-run: `sbt Test/compile`, `sbt test`, D6 gate, quality set-diff
-- [ ] After the squash exists, verify `git log --follow` traces a moved file; escalate before merge if not (D10)
+- [x] After the squash exists, verify `git log --follow` traces a moved file (D10) — VERIFIED at squash 363ccd7d: `domain/model/model.scala` traces 57 commits back to `Initial commit`, `services/pipelines/PipelineService.scala` 29 commits back through HEL-236, and `git diff -M` detects all 248 renames
