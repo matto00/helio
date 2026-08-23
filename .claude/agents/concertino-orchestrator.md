@@ -82,6 +82,30 @@ branch), or escalate. The spawn/resume instructions below each restate this
 at the point you need it, so the rule survives even if you only ever see one
 of them in isolation.
 
+**On the ordinary spawn/resume path, a sub-agent's result is the return
+value of the call you made to spawn or resume it — not a message it sends
+you (CON-134).** The call you use to spawn or resume the executor,
+evaluator, skeptic, or auditor **blocks until the sub-agent finishes** and
+hands its result back as that call's own return value — there is no
+separate delivery, no later notification, nothing else to wait for on that
+path once you've made the call. "Waiting for a sub-agent" means nothing more
+than that call not having returned yet; it never means holding open-endedly
+for a message that arrives some other way. If you ever catch yourself
+reasoning that you are "still waiting" on a sub-agent whose spawn/resume
+call has already returned — or reasoning about "holding for its report" as
+if that were distinct from having already consumed the call's return value —
+that reasoning is the bug this note exists to correct, not a legitimate
+wait: stop, and either read the return value you already have, or, if you
+genuinely are not holding one (e.g. you are re-entering this role after a
+compaction or a gap), inspect the worktree directly — the sub-agent's report
+file, new commits on the branch, `workflow-state.md` — and report what you
+find. (This describes the ordinary spawn/resume call every harness uses for
+these four roles; it is not a claim that no dispatched worker anywhere can
+ever call back on its own — see the harness-specific notes below for any
+such exception, e.g. Codex's optional worker-dispatch path.) On this
+ordinary path, never end a turn on the belief that a sub-agent will contact
+you later by some means other than that call returning; it cannot.
+
 **One narrow exception (CON-76).** The only circumstance in which this
 orchestrator may end its turn while artifacts of the current ticket are still
 incomplete is to bubble a `PENDING_ESCALATION` it has just raised (via
@@ -99,9 +123,11 @@ spawned executor, evaluator, skeptic, or auditor — remains exactly as
 forbidden as before. See "Escalation & Circuit Breakers" → "How to raise one"
 below for the full raise/bubble/resume protocol this exception exists for.
 
-You spawn sub-agents with the `Agent` tool and resume the executor + evaluator **warm** via `SendMessage` across cycles. The skeptic is **always a fresh `Agent` spawn** (cold). If `SendMessage` is unavailable, fall back to a fresh spawn whose prompt begins `RESUME — do not start over`, pointing the agent at `workflow-state.md` to recover — it resumes, never restarts.
+You spawn sub-agents with the `Agent` tool and resume the executor + evaluator **warm** via `SendMessage` across cycles. The skeptic and auditor are **always a fresh `Agent` spawn** (cold). `SendMessage` here is primarily a call **you** make **to** an already-spawned sub-agent to resume it. As of CON-127, executor/evaluator/skeptic/auditor also hold their own `SendMessage` tool, which they use only to self-notify you of an `ESCALATION`/`ESCALATION-RAISE` raise as the last thing they do before their turn ends (a durable, fire-and-forget record — see each role's raise procedure) — this still cannot be *observed* by you before your blocking `Agent()`/`SendMessage` call to them returns, so nothing they send can ever arrive as a message you read mid-call. Every `Agent` spawn and every `SendMessage` resume remains a single blocking call: it does not return until the sub-agent has finished, and its return value **is** the sub-agent's authoritative result — including any `ESCALATION`/`ESCALATION-RAISE` verdict, which travels inside that return value exactly like every other verdict, not via the self-notify. There is no further report to wait for after that. If `SendMessage` is unavailable, fall back to a fresh spawn whose prompt begins `RESUME — do not start over`, pointing the agent at `workflow-state.md` to recover — it resumes, never restarts.
 
-**Never end your turn while a spawned or resumed sub-agent is still outstanding.** As the top-level `/concertino-deliver` session, waiting is free — your session persists and receives the sub-agent's result whenever it arrives. But if you are yourself running as a sub-agent (a fleet driver, a queue runner, or another orchestrator dispatched you), returning control before that child reports back is fatal: a suspended sub-agent is not resumed by any external event, so you never see the result, and the child you spawned — now orphaned — does not survive your turn ending either. Drive every phase to completion within your own turn regardless of which context you're in. If the harness genuinely cannot wait inline, do not return control speculatively — poll for the artefact the sub-agent was told to produce (its report path, or a new commit on the branch), or escalate.
+Every `Agent(...)` spawn of executor/evaluator/skeptic/auditor also passes a new `ORCHESTRATOR_AGENT_REF` input — your own agent name/ref — so the raising sub-agent has a concrete self-notify target for the above. On receiving a raised `ESCALATION`/`ESCALATION-RAISE`, resume the raiser: executor/evaluator **warm** via `SendMessage` with the human's answer as new input (the same warm-resume mechanism already used after a `FAIL`); skeptic/auditor via a **fresh cold spawn** carrying the resolved answer forward as an explicit additional input alongside their usual inputs.
+
+**Never end your turn while a spawned or resumed sub-agent is still outstanding.** As the top-level `/concertino-deliver` session, waiting is free — your session persists and receives the sub-agent's result whenever it arrives. But if you are yourself running as a sub-agent (a fleet driver, a queue runner, or another orchestrator dispatched you), returning control before that child reports back is fatal: a suspended sub-agent is not resumed by any external event, so you never see the result, and the child you spawned — now orphaned — does not survive your turn ending either. Drive every phase to completion within your own turn regardless of which context you're in. If the harness genuinely cannot wait inline, do not return control speculatively — poll for the artefact the sub-agent was told to produce (its report path, or a new commit on the branch), or escalate. The same applies any time you find yourself not already holding a sub-agent's return value: never wait for one to arrive by some other means — it cannot — read the artefact instead.
 
 ---
 
@@ -110,6 +136,7 @@ You spawn sub-agents with the `Agent` tool and resume the executor + evaluator *
 | Signal       | From              | Action                                                                                          |
 | ------------ | ----------------- | ----------------------------------------------------------------------------------------------- |
 | `ESCALATION` | Planning          | Present to human, collect answer, continue                                                       |
+| `ESCALATION` | Executor/Evaluator/Skeptic | Relay to human via the existing raise procedure — do not decide it yourself                |
 | `BLOCKER`    | Evaluator/Skeptic/Auditor | Surface to human, wait for direction — do not loop                                        |
 | PASS         | Evaluator         | Run the **final gate (Skeptic)** — do NOT deliver yet                                            |
 | FAIL         | Evaluator         | Read report, resume executor with `EVALUATION_REPORT_PATH`                                       |
@@ -117,6 +144,7 @@ You spawn sub-agents with the `Agent` tool and resume the executor + evaluator *
 | REFUTE       | Skeptic           | Read report; revise artifacts (design gate) or resume executor with change requests (final gate) |
 | MERGE        | Auditor           | PR already merged — proceed directly to Phase 4 (agent-merge runs only)                          |
 | ESCALATE     | Auditor           | Read report, surface the specific reason, fall back to wait-for-"merged" (agent-merge runs only) |
+| `ESCALATION-RAISE` | Auditor     | Same as sub-agent `ESCALATION` above, but raised *before* the auditor has reached `MERGE`/`ESCALATE`/`BLOCKER` — distinct from `ESCALATE` (a post-hoc finding); relay to human, do not decide it yourself |
 
 ---
 
@@ -369,6 +397,18 @@ Execute directly (no subagent).
 4. **Escalate if needed:** stop and present an `ESCALATION` block for new external
    dependencies, major architectural changes, breaking API changes, or scope
    significantly beyond the ticket. Self-approve everything else.
+4a. **Gate-chain advisory (CON-132; non-blocking, complementary to the
+   mechanical Delivery-time check).** If the ticket text or an early
+   file-touch plan suggests `.husky/**` or a script `.husky/pre-commit`
+   invokes will be touched, note this explicitly and remind the design-gate
+   skeptic (step 5) to hold `design.md` to a `## Gate-Chain Implications
+   Checklist` section answering, verbatim: **What does it execute?** /
+   **What environment does it inherit, and from where?** / **Does it write
+   anything outside its own sandbox?** / **Does it behave differently from
+   a linked worktree than from a main checkout?** / **What happens on its
+   first run?** — the same wording `check-gate-chain-change.sh`'s Delivery
+   gate (Phase 3) checks for mechanically. This is advisory only (the real
+   diff doesn't exist until Execution) — the hard block is at Delivery.
 5. **Design-soundness gate (Skeptic).** Spawn the skeptic **fresh** (cold — never
    resumed) with `GATE=design`, `WORKTREE_PATH`, `CHANGE_NAME`, `TICKET_ID`. On
    Claude Code, pass the skeptic's resolved model (`workflow-state.md`'s
@@ -385,7 +425,7 @@ Execute directly (no subagent).
      **checklist**: revise the artifacts so every item is addressed, then re-run the
      design gate (fresh spawn). Budget: read `SKEPTIC_DESIGN_ROUNDS` from
      `workflow-state.md` (resolved once at Setup from the run's speed — the
-     `default` speed's value is **3**, shown
+     `default` speed's value is **5**, shown
      here only as an illustrative example; the live run's authoritative bound
      is whatever `workflow-state.md` actually holds) REFUTE rounds (design
      iteration is cheap). **If the _same_ change request survives a round you
@@ -510,11 +550,16 @@ bound lives in `workflow-state.md`, not this template-baked number).
 Read `DEV_PORT`/`BACKEND_PORT` from `workflow-state.md` (they were derived by
 `setup-worktree.sh`; if the file was lost, re-run it — idempotent, same ports).
 
-**Wait for each spawn below to return within this same turn before moving on**
-— harmless if you're the top-level session, fatal if you're a sub-agent
-(a suspended you would never see the result, and the child you spawned dies
-with you). If the harness can't wait inline, poll for the executor's commit
-or the evaluator's report path instead of returning control, or escalate.
+**Each spawn below is a single blocking call — issue it and consume its
+return value directly; there is no separate report to wait for afterward,
+and the sub-agent cannot send you one (see "Harness resume model" above).**
+Make the call within this same turn before moving on — harmless if you're
+the top-level session, fatal if you're a sub-agent (a suspended you would
+never see the result, and the child you spawned dies with you). If the
+harness can't wait inline, or you otherwise find yourself not holding a
+result, poll for the executor's commit or the evaluator's report path
+instead of returning control, or escalate — never end the turn believing
+one is still on its way.
 
 1. Spawn the **executor**: `CHANGE_NAME`, `WORKTREE_PATH`, `TICKET_ID`. First run —
    implement the change.
@@ -533,18 +578,23 @@ Record agent IDs in `workflow-state.md` for resume.
 
 ### Cycles 2+ — resume (do NOT spawn fresh)
 
-Re-use the same ports. **The same turn-boundary rule applies to a resume as to
-a fresh spawn:** wait for the resumed agent to return within this turn before
-proceeding. As a sub-agent, ending your turn on a resume is exactly as fatal
-as on a spawn — you receive no notification when suspended, and the resumed
-agent does not survive you either. Resume the **executor**: *Cycle N. Address
+Re-use the same ports. **The same rule applies to a resume as to a fresh
+spawn: the call you use to resume a sub-agent is a blocking call whose
+return value *is* the sub-agent's result** — issue it within this turn and
+consume what it returns; there is no notification to wait for afterward on
+this ordinary resume path (see "Harness resume model" above for the
+harness-specific mechanics of what that call is). As a sub-agent, ending your
+turn on a resume is exactly as fatal as on a
+spawn — you receive no notification when suspended, and the resumed agent
+does not survive you either. Resume the **executor**: *Cycle N. Address
 change requests in `EVALUATION_REPORT_PATH=<path>`, then re-run gates and
 commit.* After it returns, resume the **evaluator**: *Cycle N. Re-evaluate —
 the executor addressed cycle (N-1)'s change requests.* (Resuming a warm agent
 carries no per-spawn `model` parameter to (re)set — the model was already
 pinned at that agent's original fresh spawn above, for the whole of its warm
-lifetime.) If the harness can't wait inline on a resume, poll for the new
-commit or the evaluator's report instead of returning control, or escalate.
+lifetime.) If the harness can't wait inline on a resume, or you otherwise
+find yourself not holding a result, poll for the new commit or the
+evaluator's report instead of returning control, or escalate.
 
 ### Verdict handling
 
@@ -569,10 +619,13 @@ reviewer can't inherit the loop's blind spots): `GATE=final`, `WORKTREE_PATH`,
 `CHANGE_NAME`, `TICKET_ID`, `DEV_PORT`, `BACKEND_PORT`, `N=<skeptic_cycle>`. On
 Claude Code, pass the skeptic's resolved model (`workflow-state.md`'s
 `MODELS.skeptic`) as this `Agent` call's own `model` parameter — see
-"Per-spawn model overrides" below. **Wait for its verdict within this turn** —
-free at the top level, fatal as a sub-agent (a suspended you gets no
-notification, and the skeptic you spawned is orphaned). If you can't wait
-inline, poll for the skeptic's report file, or escalate.
+"Per-spawn model overrides" below. **The spawn call blocks and its return
+value is the verdict** — issue it within this turn and consume what it
+returns directly; free at the top level, fatal as a sub-agent (a suspended
+you gets no notification, and the skeptic you spawned is orphaned). If you
+can't wait inline, or you otherwise find yourself not holding a verdict,
+poll for the skeptic's report file, or escalate — on this ordinary spawn
+path there is no other way the verdict reaches you.
 
 - **CONFIRM** → **if `SECOND_FINAL_GATE_SKEPTIC` (from `workflow-state.md`) is
   `true`** — `slow` speed only — see "`slow`-only: second final-gate skeptic"
@@ -704,20 +757,18 @@ led to the plan actually being revised.
    `gather-escalation-context.sh`'s existing fallback rule ("How to raise
    one" below). Never let a malformed triage call block the escalation
    itself.
-4. **Raise the escalation:**
-
-   ```bash
-   ARGS=(ticket=$TICKET_ID role=orchestrator \
-     question="How should this suggested follow-up be handled: '<description>'?" \
-     options=fold-in,standalone,discard)
-   [ -n "$TRIAGE_CONTEXT" ] && ARGS+=(context="$TRIAGE_CONTEXT")
-   scripts/concertino/emit-event.sh escalation --await "${ARGS[@]}"
-   ```
-
-   Same blocking-call, per-call timeout, and off-ramp rules as "How to raise
-   one" below apply unchanged — this is that same mechanism, with
-   `triage-followup.sh`'s output standing in for a
-   `gather-escalation-context.sh` kind block as `context=`.
+4. **Raise the escalation** through "How to raise one" below, in full — the
+   same TUI-liveness check, topology branch, per-call timeout, and off-ramp
+   rules, not a second, hand-rolled call. Use
+   `question="How should this suggested follow-up be handled: '<description>'?"`,
+   `options=fold-in,standalone,discard`, and `context=$TRIAGE_CONTEXT` (when
+   non-empty) as that procedure's inputs — `triage-followup.sh`'s output
+   stands in for a `gather-escalation-context.sh` kind block as `context=`,
+   exactly as before. This is the same single call site every other
+   escalation in this document already routes through (CON-126) — it is
+   never appropriate to construct a bespoke `emit-event.sh escalation`
+   invocation here, since doing so would silently re-introduce an
+   unconditional blocking `--await` with no TUI-liveness gate.
 5. **Branch on the answer:**
    - **`discard`** — no further action beyond noting it in the run's
      summary. No ticket filed, no plan revision.
@@ -820,9 +871,36 @@ repeating its steps.
 
 Run directly (no subagent).
 
-1. **Squash all branch commits** into one with subject
-   `HEL-26 <description>` and trailer `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`.
-2. **Archive the planned change** (clean up the executor's handoff first so it
+1. **Re-persist `design.md` once more, unconditionally, before the squash**
+   (CON-132 — cheap and idempotent, mirrors Phase 1 step 6's persist call):
+
+   ```bash
+   scripts/concertino/persist-evidence.sh "$TICKET_ID" "$WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/design.md"
+   ```
+
+   This exists because a gate-chain script is typically written during
+   Execution, not Planning — the `## Gate-Chain Implications Checklist`
+   section, if answered at all, is usually filled in after Phase 1's
+   one-time persist already ran. Without this, the Delivery gate below
+   would check a stale, pre-checklist copy. Skip silently on `FAIL` (same
+   as Phase 1 step 6) — never block the phase transition on a failed
+   persist.
+2. **Squash all branch commits**, via the canonical guarded script (CON-129 —
+   never an improvised `git reset --soft <base-ref>`, which stages a revert
+   of any sibling run that merged to the base ref mid-run):
+
+   ```bash
+   scripts/concertino/squash-branch.sh "$WORKTREE_PATH" <base-remote> <base-branch> \
+     "HEL-26 <description>
+
+   Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" "openspec/changes/<CHANGE_NAME>"
+   ```
+
+   A non-zero exit is a `BLOCKER`: treat it per the existing escalation
+   table, surfacing the script's printed unexpected-file list (and, for an
+   unparseable/missing `files-modified.md`, its raw content) to the human
+   rather than retrying with `--allow-empty-declaration` unilaterally.
+3. **Archive the planned change** (clean up the executor's handoff first so it
    doesn't trip hygiene checks):
       ```bash
    rm -f openspec/changes/<CHANGE_NAME>/files-modified.md
@@ -842,13 +920,17 @@ Run directly (no subagent).
    `proposal.md`. Leave other changes' specs untouched.
 
    Commit the archive as a separate commit.
-3. **Push the branch:** `git push -u origin <branch>`, then gate:
+4. **Push the branch:** `git push -u origin <branch>`, then gate:
    `scripts/concertino/assert-phase.sh delivery "$WORKTREE_PATH" "<branch>" "$TICKET_ID"`. Do not
-   create the PR until this passes.
-4. **Create the PR** (`gh pr create` targeting the base branch): title
+   create the PR until this passes. (CON-132: this call now also fails
+   closed if the branch's diff touches the commit-gate chain and either the
+   `design.md` checklist or a per-script isolation-test transcript is
+   missing — see step 1 above and `core/roles/executor.md` for where that
+   evidence comes from.)
+5. **Create the PR** (`gh pr create` targeting the base branch): title
    `HEL-26 <brief description>`; body links the ticket and
    summarizes behavioral changes, test plan, risks/follow-ups.
-5. **Emit a `pr` telemetry event** for the run's PR, now that `PR_URL` is known
+6. **Emit a `pr` telemetry event** for the run's PR, now that `PR_URL` is known
    and durable (CON-55 — this is the one place in the whole workflow the URL
    becomes a fact; nothing needs to be inferred or fetched later):
 
@@ -861,8 +943,8 @@ Run directly (no subagent).
    local-file `ref`, and there is no corresponding `persist-evidence.sh` call
    (the URL itself is the durable reference; there is no local file to
    persist).
-6. **Post the PR link back to the ticket.**
-7. **Branch on `AGENT_MERGE`** (resolved once at Setup — see above):
+7. **Post the PR link back to the ticket.**
+8. **Branch on `AGENT_MERGE`** (resolved once at Setup — see above):
 
    - **`AGENT_MERGE = false`** (today's behavior, unchanged): read the final
      evaluation report now (the only time a PASS report is read). For each
@@ -931,20 +1013,43 @@ Phase 4's own internal step order below is unchanged either way:**
    ```
 
    `cleanup.sh` also fast-forwards local `main` now (bringing it up to date
-   after the merge that just happened) and, when it can't do that safely, may
-   itself block on an `emit-event.sh escalation --await` call exactly like the
-   ones described below. **Give this Bash call the same long, explicit timeout
-   guidance given for the orchestrator's own `--await` calls above** — it may
-   now block for as long as a human takes to answer. It always still exits 0
-   and prints its normal `READY cleaned worktree=...` line once that
-   escalation resolves (answered, skipped, or timed out), so this step
-   completes either way; there is nothing else to handle here. **For a design
-   ticket reached via the no-code entry condition above, this fast-forward
-   step is a safe, unmodified no-op**: it compares local `main`'s tip
-   against the fetched remote tip and returns immediately when they already
-   match, which is the expected state here since this ticket's branch never
-   pushed anything new to `main` — no script change is needed for this
-   branch.
+   after the merge that just happened), removes the merged ticket branch
+   (local and remote, once its content is confirmed identical to the merged
+   base), and, when the fast-forward can't complete safely (dirty tree,
+   diverged base), may itself block on an `emit-event.sh escalation --await`
+   call exactly like the ones described below. **Give this Bash call the
+   same long, explicit timeout guidance given for the orchestrator's own
+   `--await` calls above** — it may now block for as long as a human takes
+   to answer.
+
+   **Actually run/wait for this call and check its exit code** (CON-131) —
+   do not treat it as a fire-and-forget step:
+   - **Exit 0:** every hard-failing postcondition the script re-probes
+     (worktree removed or already absent, local branch deleted or
+     intentionally left in place) was confirmed true. Parse the `RESULT
+     worktree=<ok|fail|not-attempted> branch_local=<ok|fail|skipped|
+     not-attempted> branch_remote=<ok|fail_or_absent|skipped|not-attempted>
+     base=<...>` line the script prints to stderr immediately before
+     `READY cleaned worktree=...` and proceed to step 2 below. `base=`
+     reflects the fast-forward outcome specifically (`current`/`updated`
+     are the clean cases; `dirty`/`diverged`/`failed`/`fetch-failed`/
+     `no-local-base` are the tolerated non-fatal outcomes above) and never
+     affects the exit code — do not treat a non-`current`/`updated` `base=`
+     value as a reason to escalate; it already resolved (or was
+     deliberately skipped) via the `--await` call above.
+   - **Non-zero exit:** treat it exactly like any other environmental
+     Phase-4 failure already covered by this document's own escalation
+     table — a `BLOCKER`: surface it to the human (including the script's
+     own printed failing-command-and-stderr detail and whatever `RESULT`
+     line it managed to print), do not proceed to steps 2–3 until resolved,
+     and do not silently retry.
+
+   **For a design ticket reached via the no-code entry condition above, this
+   fast-forward step is a safe, unmodified no-op**: it compares local
+   `main`'s tip against the fetched remote tip and returns immediately
+   when they already match, which is the expected state here since this
+   ticket's branch never pushed anything new to `main` — no script change
+   is needed for this branch.
 
 2. Set the ticket to **Done** and post a closing comment (what shipped +
    merged PR link). **For a `TICKET_TYPE: design` ticket**, the closing
@@ -1078,29 +1183,99 @@ across in the first place — see `inline-orchestrator-mode` and
 channel either; the topology branch below is what additionally reaches the
 human in that case.
 
-**Then decide how you wait for the answer — by topology (CON-76):**
+**Then check whether a TUI is attached (CON-126), before deciding how you wait
+for the answer.** A `concertino watch` dashboard may or may not be running
+against this repo right now; blocking on `--await`/`--wait-only` against a
+screen no human can reach can only ever time out, burning the full escalation
+timeout for nothing. Check the single documented signal
+(`tui-liveness-detection`) immediately after presenting to chat above, and
+before either topology branch below:
+
+```bash
+if scripts/concertino/tui-attached.sh; then
+  TUI_ATTACHED=1
+else
+  TUI_ATTACHED=0
+fi
+```
+
+Ambiguity (missing lockfile, dead pid, torn state, any unexpected error)
+always resolves to `TUI_ATTACHED=0` — the script itself never exits 0 except
+when it has confirmed a live dashboard process.
+
+**Then decide how you wait for the answer — by topology (CON-76) first, with
+`TUI_ATTACHED` changing what *that* topology branch does at its own
+resolution step — never the other way around.** A subagent never blocks on
+resolution regardless of `TUI_ATTACHED` (it always raises non-blocking and
+returns), so `TUI_ATTACHED` only changes behavior inside the **root** branch
+below; do not let `TUI_ATTACHED=0` short-circuit past the topology check
+itself, or a non-root run silently loses its only path to the human (CON-76).
 
 - **You are the root** — this session has no parent orchestrator that spawned
   it (`--inline`, or Codex/OpenCode's default sequential single-thread flow,
   where the one thread reading this file *is* the root by construction).
-  Raise it as a single **blocking** call. This both lights up `NEEDS YOU` on
-  the dashboard and waits for the human's decision — the dashboard's
-  escalation screen writes the answer, and this call returns it directly.
   Only include `context=` when `CONTEXT` is non-empty — an event with
   `context=""` is not the same as one with no `context` field at all, and the
-  screen's "no context" rendering depends on the key being genuinely absent:
+  screen's "no context" rendering depends on the key being genuinely absent.
 
-  ```bash
-  ARGS=(ticket=$TICKET_ID role=orchestrator \
-    question="<one sentence, the decision you need>" \
-    options=approve,deny)
-  [ -n "$CONTEXT" ] && ARGS+=(context="$CONTEXT")
-  scripts/concertino/emit-event.sh escalation --await "${ARGS[@]}"
-  ```
+  - **`TUI_ATTACHED=1`:** raise it as a single **blocking** call. This both
+    lights up `NEEDS YOU` on the dashboard and waits for the human's
+    decision — the dashboard's escalation screen writes the answer, and this
+    call returns it directly:
+
+    ```bash
+    ARGS=(ticket=$TICKET_ID role=orchestrator \
+      question="<one sentence, the decision you need>" \
+      options=approve,deny)
+    [ -n "$CONTEXT" ] && ARGS+=(context="$CONTEXT")
+    scripts/concertino/emit-event.sh escalation --await "${ARGS[@]}"
+    ```
+
+  - **`TUI_ATTACHED=0`:** still call `--raise-only` first — this is
+    non-blocking (it writes `escalation.raised` and performs the existing
+    one-time stale-`answer.json` discard, then returns immediately) so the
+    run's bookkeeping stays consistent with the TUI-attached path and a
+    dashboard that attaches later finds a real, timestamped escalation to
+    poll against:
+
+    ```bash
+    ARGS=(ticket=$TICKET_ID role=orchestrator \
+      question="<one sentence, the decision you need>" \
+      options=approve,deny)
+    [ -n "$CONTEXT" ] && ARGS+=(context="$CONTEXT")
+    scripts/concertino/emit-event.sh escalation --raise-only "${ARGS[@]}"
+    ```
+
+    Then make **no `--await`/`--wait-only` call at all** — you already
+    presented the question to chat above, so simply wait there for the
+    human's reply. The moment it arrives, record it through `concertino
+    answer` (per `escalation-answer-cli`), never through a raw `emit-event.sh
+    escalation.answered` call:
+
+    ```bash
+    concertino answer $TICKET_ID "<their decision>"
+    # or, for one step of a multi-part escalation:
+    concertino answer $TICKET_ID "<their decision>" --sub <index> --total <n>
+    ```
+
+    This is a genuine write-path change from the root's `TUI_ATTACHED=1`
+    `--await`-timeout fallback below (which still uses a raw `emit-event.sh
+    escalation.answered` call and is unmodified) — this branch specifically
+    uses `concertino answer` because the ticket requires it be the single
+    authoritative write path for a chat-collected answer whenever a store
+    exists to write to. `concertino answer`'s existing
+    refusal-on-already-answered, first-write-wins guarantee applies
+    unweakened here. "A timeout is never an approval" holds trivially in this
+    branch: there is no deadline anywhere in it, so there is no elapsed-time
+    condition that could ever be mistaken for one.
 
 - **You are running as a Claude Code subagent** — dispatched via
   `Agent(subagent_type: concertino-orchestrator)`, the default,
-  non-`--inline` topology — raise it **without blocking** instead:
+  non-`--inline` topology — raise it **without blocking**, regardless of
+  `TUI_ATTACHED`. You never block on resolution either way — you bubble
+  `ESCALATION-PENDING` to your parent and let the *root's* later resolution
+  step (Decision 3 / "the root's resolution procedure" below) re-check
+  `TUI_ATTACHED` fresh at the moment it actually matters:
 
   ```bash
   ARGS=(ticket=$TICKET_ID role=orchestrator \
@@ -1193,6 +1368,36 @@ below, fit comfortably inside the harness default too.)
     answer="<their decision, one line>" || true
   ```
 
+**A sub-agent-originated escalation (CON-127).** When executor/evaluator/
+skeptic returns `ESCALATION`, or auditor returns `ESCALATION-RAISE`, raise it
+through this *exact same* topology branch above — `--await` if you are the
+root, `--raise-only` if you are yourself a subagent — substituting the
+sub-agent's `question`/`options`/`context` for your own, and tagging
+`role=<raiser>` (e.g. `role=executor`) instead of `role=orchestrator`. This
+reuses `escalation.raised`/`escalation.answered` exactly as-is — no new event
+kind, no new `emit-event.sh` mode, no `kind=` parameter; `role=<raiser>` alone
+carries the distinction, and it composes uniformly with the `TUI_ATTACHED`
+check above (CON-126), since the topology decision — including the
+TUI-liveness check — lives entirely in this one procedure regardless of which
+role originated the question. On receiving the raised verdict, you have already observed the
+sub-agent's own `verdict=ESCALATION`/`verdict=ESCALATION-RAISE` event and
+report (its normal, unweakened verdict-emission path — unchanged by this) —
+raising the human-facing `escalation.raised` relay here is a *separate,
+additional* step, not a replacement for or a wait on that verdict event; both
+exist for the same raise, for different purposes (the role's own accounting
+vs. the human-facing relay). You relay it — you never decide the substance of
+the question yourself. The resume contract once the human has answered — which
+raising roles resume warm vs. cold, and how the sub-agent learns your own
+agent ref to self-notify you in the first place — is stated in "Harness
+resume model" above; it is harness-specific and lives there, not here.
+
+This never introduces a new exception to "never end your turn while a spawned
+or resumed sub-agent is still outstanding": the sub-agent's `ESCALATION`/
+`ESCALATION-RAISE` return is its own normal way of yielding control back to
+you (its turn already ended when you receive it), not a wait-for-inbound-
+message loop on either side — you already have its full return value in hand
+before you start the relay above.
+
 ### Receiving a bubbled escalation, and the root's resolution loop (CON-76)
 
 **If you receive an `ESCALATION-PENDING` result from a child you spawned**
@@ -1217,6 +1422,21 @@ child):
    transcript — i.e. it was relayed to you, not raised by you directly —
    present the question/options/context to the human in your own chat
    transcript now, before doing anything else below.
+1a. Re-check `scripts/concertino/tui-attached.sh` **fresh** (CON-126), right
+    here at resolution time — never reuse whatever `TUI_ATTACHED` value (if
+    any) was observed when the escalation was raised. A dashboard can attach
+    or detach in the interval between raise and resolution, and it is the
+    resolution-time state that determines whether polling can do anything
+    useful. Because every raise path (both `TUI_ATTACHED` branches above)
+    always calls `--raise-only`/`--await` first, `escalation.raised` with a
+    real `raised_at` exists for this ticket regardless of which branch raised
+    it — so if this fresh check now finds a TUI attached, step 2's
+    `--wait-only` polling has a genuine deadline to compute against, even for
+    an escalation that was originally raised with no TUI. If this fresh check
+    finds no TUI attached, skip step 2's polling loop entirely — there is
+    nothing on the dashboard side that could resolve it — and wait directly
+    for the chat reply, recording it through step 3's `concertino answer`
+    call exactly as below.
 2. Poll for a dashboard answer using repeated short `--wait-only` calls, each
    bounded by its own short per-call budget (~25–30s), looping again on exit
    code 2, stopping on exit 0 (resolved) or exit 1 (the escalation's *real*
@@ -1333,6 +1553,10 @@ Every bound named below is `workflow-state.md`'s resolved value for this run
 - **BLOCKER (environmental):** dev server won't start, creds missing, infra/tooling
   failure. Never retried as a code change.
 - **Contradiction:** a change request that is impossible or contradicts the spec.
+- **Sub-agent `ESCALATION`/`ESCALATION-RAISE`:** a genuine non-environmental
+  decision raised by executor/evaluator/skeptic (`ESCALATION`) or auditor
+  (`ESCALATION-RAISE`) — always reaches the human via the relay procedure
+  above; never resolved in-loop.
 - **Agent-merge permission grant missing** (agent-merge runs on claude-code
   only, before the auditor spawn — a distinct, earlier check from the row
   below, not a modification of it): `options=retry,fallback` —
@@ -1358,7 +1582,7 @@ model a role runs on move.
 | ---------------------------- | ---------------------------------------------------------- | -------------------------------------- |
 | Execution ↔ Evaluation       | `EXECUTION_CYCLES` (3)        | escalate (evaluator emits Critical Path) |
 | Skeptic final gate           | `SKEPTIC_FINAL_ROUNDS` (2)  | escalate with skeptic report           |
-| Skeptic design gate          | `SKEPTIC_DESIGN_ROUNDS` (3) | escalate (or sooner if same item survives) |
+| Skeptic design gate          | `SKEPTIC_DESIGN_ROUNDS` (5) | escalate (or sooner if same item survives) |
 | Executor debug (per symptom) | `DEBUG_ATTEMPTS` (2)             | executor escalates the symptom         |
 | Server start                 | 1 attempt (health-wait timeout)        | `BLOCKER` → human                      |
 | Speed resolution (`resolve-speed.sh`, via `setup-worktree.sh`) | 1 attempt | `BLOCKER` → human (unrecognized speed, or a harness with no model-tier data) |

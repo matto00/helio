@@ -353,7 +353,7 @@ if [ -n "${CONCERTINO_WORKTREE_HOOKS:-}" ]; then
     # write into .git, and a hook run under an inherited poisoned GIT_DIR
     # would misdirect onto the wrong repository regardless of `cd
     # $WORKTREE_PATH`. Protects every hook this var may ever be set to, not
-    # only the currently configured one. See HEL-805.
+    # only the currently configured one. See core/scripts/lib/git-child-env.sh.
     ( cd "$WORKTREE_PATH" || exit 0; unset -v $(compgen -v GIT_ 2>/dev/null) 2>/dev/null; eval "$hook" >/dev/null 2>&1 ) || true
   done
 fi

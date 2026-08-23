@@ -5,7 +5,7 @@ set -euo pipefail
 # git-child-env.selftest.sh — regression test for scripts/concertino/lib/
 # git-child-env.sh's `git_child` GIT_*-prefix strip.
 #
-# Simulates the exact HEL-657 detonation mechanism: a "poisoned" hook
+# Simulates the exact linked-worktree-hook detonation mechanism: a "poisoned" hook
 # environment (the six repo-locating GIT_* variables pointing at an
 # unrelated repo) inherited by a script that targets a DIFFERENT directory
 # via `-C`/cwd. Asserts:
