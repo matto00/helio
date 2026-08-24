@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/metrics/create-metric-request.schema.json",
+  "title": "CreateMetricRequest",
+  "description": "POST /api/metrics body. `dataTypeId` must resolve to a caller-owned, pipeline-output DataType (its `sourceId` must be absent); `measureField` and every `allowedDimensions` entry must be field names of that DataType; `aggregation` must be one of the allow-listed values. `format`, when omitted, defaults to an all-absent MetricFormat.",
+  "type": "object",
+  "properties": {
+    "dataTypeId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "measureField": {
+      "type": "string",
+      "minLength": 1
+    },
+    "aggregation": {
+      "type": "string",
+      "enum": ["sum", "avg", "min", "max", "count", "countDistinct"]
+    },
+    "allowedDimensions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "format": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "decimals": {
+          "type": "integer"
+        },
+        "prefix": {
+          "type": "string"
+        },
+        "suffix": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["dataTypeId", "name", "measureField", "aggregation", "allowedDimensions"],
+  "additionalProperties": false
+}

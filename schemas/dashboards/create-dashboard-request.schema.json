@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/create-dashboard-request.schema.json",
+  "title": "CreateDashboardRequest",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "ifExists": {
+      "type": "string",
+      "enum": ["return"],
+      "description": "Opt-in get-or-create (HEL-363). When set to \"return\", an owner-scoped, case-insensitive/trimmed name match returns the existing dashboard (200) instead of creating a duplicate. Omitted (default): behavior is unchanged — always creates (201), even if a same-named dashboard already exists for this owner. This is an app-level check-then-insert with no backing DB uniqueness constraint (see design.md D3 in openspec/changes/atomic-dashboard-replace-upsert) — sequential repeated calls are idempotent; two truly concurrent calls that both miss an existing match can both create."
+    }
+  },
+  "additionalProperties": false
+}

@@ -127,7 +127,7 @@ follow-up edit may be required for a collected value to apply.
 ### Requirement: Create endpoint accepts an optional appearance
 
 `POST /api/panels` MUST accept an optional `appearance` field (same shape as the PATCH appearance,
-per `schemas/create-panel-request.schema.json`). When present it SHALL be validated (including
+per `schemas/panels/create-panel-request.schema.json`). When present it SHALL be validated (including
 `chartType` against the allowed set) and stored on the created panel in place of the default
 appearance; when absent, the default appearance SHALL be applied exactly as before.
 

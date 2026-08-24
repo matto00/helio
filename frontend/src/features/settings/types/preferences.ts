@@ -6,7 +6,7 @@
 // service boundary so this declared `| null` type stays accurate to what
 // callers actually receive (mirrors `pipelineService.ts`'s
 // `normalizeSchedule` precedent). `defaultPanelStyle`/`namingConventions` are
-// genuinely unconstrained JSON objects (`schemas/agent-preferences.schema.json`)
+// genuinely unconstrained JSON objects (`schemas/agent-memory/agent-preferences.schema.json`)
 // -- `Record<string, unknown>`, never `any` (design.md Decision 2).
 
 export interface AgentPreferences {

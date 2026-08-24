@@ -46,7 +46,7 @@ const layoutSchema = z.object({
 const aggFnSchema = z.enum(["count", "sum", "avg", "min", "max"]);
 
 // Viz-level aggregation spec (metric OR chart shape) — matches
-// `MetricAggregation`/`ChartAggregation` in schemas/panel.schema.json.
+// `MetricAggregation`/`ChartAggregation` in schemas/panels/panel.schema.json.
 // A single union keeps the zod schema simple; server-side validation is the
 // authority on which shape applies to which panel type.
 const aggregationSchema = z.union([

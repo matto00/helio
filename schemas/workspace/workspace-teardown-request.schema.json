@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/workspace/workspace-teardown-request.schema.json",
+  "title": "TeardownRequest",
+  "description": "Body of POST /api/workspace/teardown (HEL-366). `tag` selects the caller-owned data sources, pipelines, and DataTypes to delete — every resource whose stored `tag` exactly equals this value, and nothing else. `tag` is effectively required (an absent or empty value is rejected with 400 by the service layer) but is typed `Option[String]` on the wire like every other optional field in this codebase — spray-json omits `None` rather than emitting `null`, so an absent `tag` key and an explicit `tag: null` are indistinguishable and both rejected identically. `dryRun` (optional, default false — absent/null/false are all equivalent) runs the identical validation and plan computation without deleting anything; always call with `dryRun: true` first to preview scope before a real teardown.",
+  "type": "object",
+  "properties": {
+    "tag": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

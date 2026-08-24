@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/auth/mfa-enroll-response.schema.json",
+  "title": "MfaEnrollResponse",
+  "description": "POST /api/auth/mfa/enroll — a fresh, unconfirmed TOTP secret and its otpauth:// URI for QR rendering. Does not enable MFA.",
+  "type": "object",
+  "properties": {
+    "secret": {
+      "type": "string",
+      "description": "Base32-encoded RFC 4226 secret, also shown as the manual-entry key."
+    },
+    "otpauthUri": {
+      "type": "string",
+      "pattern": "^otpauth://totp/"
+    }
+  },
+  "required": ["secret", "otpauthUri"],
+  "additionalProperties": false
+}

@@ -78,8 +78,9 @@ directions (row→domain and domain→row).
 
 Every contract surface that enumerates panel `type` values SHALL include `collection`, matching the
 backend `PanelType` canonical set. This covers the JSON Schemas
-`create-panel-request.schema.json`, `panel.schema.json`, `update-panels-batch-request.schema.json`,
-and `dashboard-proposal.schema.json`, and the helio-mcp proposal tool's `PANEL_TYPES` enum. Every
+`panels/create-panel-request.schema.json`, `panels/panel.schema.json`,
+`panels/update-panels-batch-request.schema.json`,
+and `dashboards/dashboard-proposal.schema.json`, and the helio-mcp proposal tool's `PANEL_TYPES` enum. Every
 surface that enumerates *data-panel* kinds (kinds requiring a bound DataType) SHALL include
 `collection`, matching the backend `DataPanelKinds` set — this covers helio-mcp's `DATA_PANEL_TYPES`
 and the Proposal Review UI's `DATA_PANEL_TYPES` (`ProposalReview.tsx`), which drives the "needs bound

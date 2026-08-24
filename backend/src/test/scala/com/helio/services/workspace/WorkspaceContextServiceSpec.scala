@@ -150,11 +150,11 @@ class WorkspaceContextServiceSpec
   // further; only the response-specific `schemaValidationErrors` wrapper stays
   // local to this spec.
 
-  private val workspaceContextJsonSchema = JsonSchemaValidation.compile("workspace-context.schema.json")
+  private val workspaceContextJsonSchema = JsonSchemaValidation.compile("workspace/workspace-context.schema.json")
 
   /** Real ajv-equivalent validation (networknt/json-schema-validator, JSON
    *  Schema 2020-12) of an assembled response against
-   *  `schemas/workspace-context.schema.json` — not just a Scala-side
+   *  `schemas/workspace/workspace-context.schema.json` — not just a Scala-side
    *  round-trip deserialization, which cannot catch a schema `required` list
    *  disagreeing with spray-json's omit-`None`-fields wire behavior (the
    *  exact bug this closes; see evaluation-1.md change request 1). */
@@ -672,7 +672,7 @@ class WorkspaceContextServiceSpec
 
   "GET /workspace/context (4.6 route-level)" should {
     "return 200 with a body that is BOTH a valid WorkspaceContextResponse round-trip " +
-      "AND validates against schemas/workspace-context.schema.json" in {
+      "AND validates against schemas/workspace/workspace-context.schema.json" in {
       implicit val ec: ExecutionContext = routeEc
       createSource(userA, "route-source") // untagged — every Optional field on this
       createDashboard(userA, "route-dash") // entry is absent-from-wire, not null

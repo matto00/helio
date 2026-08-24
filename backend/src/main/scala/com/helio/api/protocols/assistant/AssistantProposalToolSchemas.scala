@@ -24,7 +24,7 @@ import spray.json._
  *  `AssistantProtocol.scala` inside CONTRIBUTING's ~250-line soft budget. */
 private[protocols] trait AssistantProposalToolSchemas {
 
-  // ── ProposalPanel / DashboardProposal (schemas/dashboard-proposal.schema.json) ─────────────────
+  // ── ProposalPanel / DashboardProposal (schemas/dashboards/dashboard-proposal.schema.json) ─────────────────
 
   private val ProposalPanelLayoutSchema: JsObject = JsObject(
     "type" -> JsString("object"),
@@ -98,7 +98,7 @@ private[protocols] trait AssistantProposalToolSchemas {
     "examples" -> JsArray(Vector(DashboardProposalExample))
   )
 
-  // ── PipelineProposal (schemas/pipeline-proposal.schema.json) ───────────────────────────────────
+  // ── PipelineProposal (schemas/pipelines/pipeline-proposal.schema.json) ───────────────────────────────────
 
   private val PipelineProposalSourceSchema: JsObject = JsObject(
     "type" -> JsString("object"),
@@ -164,7 +164,7 @@ private[protocols] trait AssistantProposalToolSchemas {
     "examples" -> JsArray(Vector(PipelineProposalExample))
   )
 
-  // ── CombinedProposal (schemas/combined-proposal.schema.json) ───────────────────────────────────
+  // ── CombinedProposal (schemas/authoring/combined-proposal.schema.json) ───────────────────────────────────
 
   // HEL-700 design.md D2/D3 — the dashboard panel binds to THIS SAME call's pipeline via the literal
   // sentinel "$pipelineOutput" in place of a real dataTypeId (the pipeline's output doesn't exist
@@ -205,7 +205,7 @@ private[protocols] trait AssistantProposalToolSchemas {
     "examples" -> JsArray(Vector(CombinedProposalExample))
   )
 
-  // ── PatchSet (schemas/patch-set.schema.json) ────────────────────────────────────────────────────
+  // ── PatchSet (schemas/patch-sets/patch-set.schema.json) ────────────────────────────────────────────────────
 
   private val EditTargetSchema: JsObject = JsObject(
     "type" -> JsString("object"),

@@ -326,7 +326,7 @@ class PipelineAnalyzeRoutesSpec
 
   "pipelineAnalyzeResponseFormat output (HEL-462 sourceSchemaDrift)" should {
 
-    "validate cleanly against schemas/pipeline-analyze-response.schema.json when sourceSchemaDrift is populated" in {
+    "validate cleanly against schemas/pipelines/pipeline-analyze-response.schema.json when sourceSchemaDrift is populated" in {
       val response = PipelineAnalyzeResponse(
         id                   = "pipeline-1",
         name                 = "Orders",
@@ -342,7 +342,7 @@ class PipelineAnalyzeRoutesSpec
         ))
       )
 
-      val schema = JsonSchemaValidation.compile("pipeline-analyze-response.schema.json")
+      val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-response.schema.json")
       val errors = JsonSchemaValidation.validationErrors(schema, response.toJson.compactPrint)
       errors shouldBe empty
     }
@@ -362,7 +362,7 @@ class PipelineAnalyzeRoutesSpec
       val json = response.toJson.compactPrint
       json should not include "sourceSchemaDrift"
 
-      val schema = JsonSchemaValidation.compile("pipeline-analyze-response.schema.json")
+      val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-response.schema.json")
       val errors = JsonSchemaValidation.validationErrors(schema, json)
       errors shouldBe empty
     }

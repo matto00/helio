@@ -7,7 +7,7 @@ import spray.json._
 // ── Workspace context assembler API types (HEL-371) ─────────────────────────
 //
 // Server-side port of `helio-mcp/src/context.ts`'s `WorkspaceContext` — see
-// `schemas/workspace-context.schema.json` for the documented structural-parity
+// `schemas/workspace/workspace-context.schema.json` for the documented structural-parity
 // delta (D4: no `pipelineShapes`) and the per-step field-set decision (this
 // type carries the FULL per-step parity set — `position`/`type`/
 // `outputColumns`/`validationError` — not just `outputColumns`, matching
@@ -65,7 +65,7 @@ final case class WorkspaceContextJoinHint(
  *  present (design.md D7); `min`/`max`/`mean` are numeric-column-only and
  *  therefore `Option` — spray-json's `jsonFormatN` OMITS a `None` field from
  *  the wire rather than emitting `null`, so these three must NOT be listed in
- *  `ColumnStats`'s `required` array in `schemas/workspace-context.schema.json`
+ *  `ColumnStats`'s `required` array in `schemas/workspace/workspace-context.schema.json`
  *  (the exact lesson HEL-371 cost a full eval cycle on). */
 final case class WorkspaceContextColumnStats(
     nullRate: Double,

@@ -15,7 +15,7 @@ import spray.json._
 // DashboardProposal/PipelineProposal, every update/delete edit references an
 // EXISTING resource id. Nothing is applied here — a future apply path
 // (HEL-406 and sibling tickets) consumes this artifact. The wire shape
-// matches schemas/patch-set.schema.json. Mirrors PipelineProposalProtocol's
+// matches schemas/patch-sets/patch-set.schema.json. Mirrors PipelineProposalProtocol's
 // hand-written, absent-optional-tolerant reader.
 
 final case class EditTarget(kind: String, id: Option[String])
@@ -56,7 +56,7 @@ trait PatchSetProtocol
   implicit val editTargetFormat: RootJsonFormat[EditTarget] = jsonFormat2(EditTarget.apply)
 
   // Recognized `target.kind`/`op` values — mirrors
-  // schemas/patch-set.schema.json's EditTarget.kind and Edit.op enums.
+  // schemas/patch-sets/patch-set.schema.json's EditTarget.kind and Edit.op enums.
   private val recognizedKinds =
     Set("panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep")
   private val recognizedOps = Set("update", "delete", "create")

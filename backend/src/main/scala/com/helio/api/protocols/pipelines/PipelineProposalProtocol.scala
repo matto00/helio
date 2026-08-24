@@ -9,7 +9,7 @@ import spray.json._
 // A proposal carries NO ids: it describes an (optionally new) data source, an
 // ordered list of transform steps, and an output DataType contract. Nothing is
 // created until a future apply path (HEL-342) consumes it. The wire shape
-// matches schemas/pipeline-proposal.schema.json. Mirrors
+// matches schemas/pipelines/pipeline-proposal.schema.json. Mirrors
 // DashboardProposalProtocol's hand-written, absent-optional-tolerant reader.
 
 /** `source` is one flat object carrying every inline-kind's config as an

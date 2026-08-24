@@ -1,6 +1,6 @@
 /** Patch-set types (HEL-403 schema/protocol foundation) + the HEL-408
  *  preview response and the HEL-406 apply response — mirrors
- *  schemas/patch-set.schema.json / patch-set-preview-response.schema.json /
+ *  schemas/patch-sets/patch-set.schema.json / patch-set-preview-response.schema.json /
  *  patch-set-apply-response.schema.json field-for-field. */
 
 /** Identifies the resource an `Edit` applies to. `id` is required for

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/workspace/workspace-teardown-response.schema.json",
+  "title": "TeardownResponse",
+  "description": "Response body of POST /api/workspace/teardown (HEL-366). Always HTTP 200, both for a clean and a blocked call — a block is an expected, informative outcome, not a client error. `committed` is true only when every resource tagged `tag` was actually deleted (a real, non-dry-run call with no conflicts); it is false for a dry run AND for a blocked call. `blocked` is true whenever `conflicts` is non-empty, in which case NOTHING was deleted (all-or-nothing) and the delete counts are all zero. The three `*Deleted` counts report what was actually deleted on a real committed call, or what WOULD be deleted on a clean dry run — never a partial figure.",
+  "type": "object",
+  "properties": {
+    "tag": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "committed": {
+      "type": "boolean"
+    },
+    "blocked": {
+      "type": "boolean"
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeardownConflict"
+      }
+    },
+    "sourcesDeleted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pipelinesDeleted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "typesDeleted": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "tag",
+    "dryRun",
+    "committed",
+    "blocked",
+    "conflicts",
+    "sourcesDeleted",
+    "pipelinesDeleted",
+    "typesDeleted"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "TeardownConflict": {
+      "type": "object",
+      "description": "One blocking conflict: a tagged resource that would be (or was, for a dry run) blocked, and why — refuse-on-out-of-batch-dependent (design.md Decision 2/6) or an existing per-DataType delete guard (panel-bound / still-linked source companion).",
+      "properties": {
+        "resourceKind": {
+          "type": "string",
+          "enum": ["data_source", "data_type"],
+          "description": "Only these two kinds carry a blocking guard — a tagged Pipeline has no analogous dependent-of-a-Pipeline guard."
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "resourceName": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": ["resourceKind", "resourceId", "resourceName", "reason"],
+      "additionalProperties": false
+    }
+  }
+}

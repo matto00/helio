@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/pipeline-proposal.schema.json",
+  "title": "PipelineProposal",
+  "description": "A proposed pipeline (source + ordered transform steps + output DataType contract) produced by an agent (or a fixture). Carries NO ids — nothing is created until the proposal is applied by a future apply path (HEL-342). This schema/protocol is the foundation only; this ticket ships no apply route.",
+  "type": "object",
+  "required": ["pipelineName", "source", "outputDataTypeName", "steps"],
+  "properties": {
+    "pipelineName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "source": {
+      "$ref": "#/$defs/PipelineProposalSource"
+    },
+    "outputDataTypeName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Name of the DataType the applied pipeline's output will be registered under. Carries no dataTypeId — the id is minted at apply time."
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PipelineProposalStep"
+      },
+      "description": "Ordered list of transform steps, applied in array order — mirrors the add_pipeline_step MCP tool's {type, config} contract and POST /api/pipelines/:id/steps."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "PipelineProposalSource": {
+      "type": "object",
+      "description": "Either a reference to an existing data source (sourceId) or an inline new-source spec (type/name/config). Both forms are representable at once — this schema does not enforce mutual exclusivity; resolving which branch wins when both are present is an apply-time (HEL-342) concern.",
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Existing-source branch — id of a caller-owned DataSource to reuse as-is."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["csv", "rest_api", "sql", "static"],
+          "description": "Inline-source branch — the new source's kind. Selects which shape `config` must conform to. A deliberate narrowing of the full connector registry (text/pdf/image excluded) per this ticket's scope."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Inline-source branch — the new source's display name."
+        },
+        "config": {
+          "type": "object",
+          "description": "Inline-source branch — the per-type config payload selected by `type`: csv -> {path}; rest_api -> {url, method?, auth?, headers?}; sql -> {dialect, host, port, database, user, password, query}; static -> {columns, rows}. A single shared property regardless of `type`, matching CreatePipelineStepRequest's config and DataSourceResponse's per-subtype config convention."
+        }
+      },
+      "additionalProperties": false
+    },
+    "PipelineProposalStep": {
+      "type": "object",
+      "description": "Same {type, config} shape POST /api/pipelines/:id/steps and add_pipeline_step already accept. `type` is intentionally left unconstrained here (not enumerated) — the backend's step-kind registry (PipelineStepKind.All) is the authoritative allow-list, checked at apply time, not by this schema. Current op set (for readability only, not exhaustive as the registry grows): rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup, assert.",
+      "required": ["type", "config"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "config": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
