@@ -1,0 +1,29 @@
+- `backend/src/main/scala/com/helio/email/README.md` — new: backend gap README
+- `backend/src/main/scala/com/helio/spark/README.md` — new: backend gap README
+- `backend/src/main/scala/com/helio/ai/README.md` — new: backend gap README
+- `backend/src/main/scala/com/helio/domain/panels/README.md` — new: backend gap README
+- `backend/src/main/scala/com/helio/domain/shapes/README.md` — new: backend gap README
+- `backend/src/main/scala/com/helio/domain/steps/README.md` — new: backend gap README
+- `frontend/src/features/assistant/README.md` — new: per-feature README
+- `frontend/src/features/auth/README.md` — new: per-feature README
+- `frontend/src/features/dashboards/README.md` — new: per-feature README
+- `frontend/src/features/dataTypes/README.md` — new: per-feature README
+- `frontend/src/features/layout/README.md` — new: per-feature README
+- `frontend/src/features/metrics/README.md` — new: per-feature README
+- `frontend/src/features/onboarding/README.md` — new: per-feature README
+- `frontend/src/features/panels/README.md` — new: per-feature README
+- `frontend/src/features/patchSets/README.md` — new: per-feature README
+- `frontend/src/features/pipelines/README.md` — new: per-feature README
+- `frontend/src/features/proposals/README.md` — new: per-feature README
+- `frontend/src/features/settings/README.md` — new: per-feature README
+- `frontend/src/features/sources/README.md` — new: per-feature README
+- `frontend/src/features/toasts/README.md` — new: per-feature README
+- `frontend/src/features/README.md` — rewritten: was stale (2/14 features, aspirational phrasing)
+- `frontend/src/hooks/README.md` — new: cross-feature-shared distinction
+- `frontend/src/utils/README.md` — new: cross-feature-shared distinction
+- `frontend/src/services/README.md` — new: cross-feature-shared distinction
+- `frontend/src/shared/README.md` — new: chrome vs ui distinction
+- `scripts/README.md` — new: top-level one-liner README
+- `e2e/README.md` — new: top-level one-liner README
+- `docs/README.md` — new: top-level one-liner README
+- `schemas/README.md` — new: single README covering purpose + 14-domain-subdir grouping
