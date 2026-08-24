@@ -255,7 +255,7 @@ dropped — the same treatment Setup's premise-validation gave the schemas/ file
   it resolves all paths via `import.meta.url`-relative joins against the repo root it's
   running inside, which is correct in either a worktree or the main checkout (a worktree
   has its own full working tree, not a symlink). Unchanged by this ticket.
-- **What happens on its first run after this change?** It must find and check all 76
+- **What happens on its first run?** It must find and check all 76
   relocated schema files (via D2's recursive `readdirSync`) — this is exactly what the
   ticket's own acceptance criteria requires being asserted (non-zero, correct count)
   rather than assumed.
