@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/authoring/dashboard-authoring-request.schema.json",
+  "title": "DashboardAuthoringRequest",
+  "description": "Body of POST /api/authoring/dashboard (HEL-392, extended by HEL-397) — a user's natural-language goal, grounded in the caller's real workspace (HEL-371 context + HEL-365 panel-capability menu) and authored by Claude (HEL-390) into a validated DashboardProposal. Never applies the proposal — applying stays the caller's explicit, separate action via POST /api/dashboards/apply-proposal.",
+  "type": "object",
+  "required": ["goal"],
+  "properties": {
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The user's natural-language description of the dashboard they want (turn 1), or this turn's follow-up instruction when conversationId is present (turn 2+)."
+    },
+    "contextOptions": {
+      "$ref": "#/$defs/AuthoringContextOptions"
+    },
+    "conversationId": {
+      "type": "string",
+      "description": "HEL-397: omit for a fresh single-shot call (behaves exactly as before this field existed). When present, continues that owner-scoped, persisted conversation — the server loads its history and the current working proposal; the client never re-sends either."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "AuthoringContextOptions": {
+      "type": "object",
+      "description": "Optional overrides for the grounding-context assembly. Omitted entirely (or any field within it omitted) falls back to WorkspaceContextService's own default.",
+      "properties": {
+        "budgetBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Overrides WorkspaceContextBudget.DefaultBudgetBytes for this call's grounding context — mirrors GET /api/workspace/context's own budgetBytes query param (HEL-377)."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

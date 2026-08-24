@@ -7,7 +7,7 @@ PATCH/create request shapes — the foundation the conversational-refinement dif
 atomic-apply, and undo work builds on.
 ## Requirements
 ### Requirement: PatchSet schema shape
-`schemas/patch-set.schema.json` SHALL define a `PatchSet` object requiring `edits` (an ordered
+`schemas/patch-sets/patch-set.schema.json` SHALL define a `PatchSet` object requiring `edits` (an ordered
 array of `Edit`) and carrying an optional `summary` string. Each `Edit` SHALL require `target`
 (an object with a required `kind`, one of `panel`/`dashboard`/`dataSource`/`dataType`/`pipeline`/
 `pipelineStep`, and an optional `id`) and `op` (one of `update`/`delete`/`create`), plus an
@@ -16,11 +16,11 @@ optional `patch` object.
 #### Scenario: A minimal valid patch set validates
 - **WHEN** a JSON document supplies `edits` as a single-element array with a `target` of
   `{kind: "panel", id: "panel-1"}` and `op: "delete"`
-- **THEN** the document validates against `schemas/patch-set.schema.json`
+- **THEN** the document validates against `schemas/patch-sets/patch-set.schema.json`
 
 #### Scenario: A patch set missing `edits` is rejected
 - **WHEN** a JSON document supplies only `summary`, omitting `edits`
-- **THEN** the document fails validation against `schemas/patch-set.schema.json`
+- **THEN** the document fails validation against `schemas/patch-sets/patch-set.schema.json`
 
 ### Requirement: target.id is required for update/delete, optional for create
 The schema SHALL require `target.id` whenever an `Edit`'s `op` is `update` or `delete`, and SHALL
@@ -29,11 +29,11 @@ mirroring the existing discriminated-shape pattern in `create-panel-request.sche
 
 #### Scenario: An update edit without target.id is rejected
 - **WHEN** an `Edit` has `op: "update"` and a `target` omitting `id`
-- **THEN** the document fails validation against `schemas/patch-set.schema.json`
+- **THEN** the document fails validation against `schemas/patch-sets/patch-set.schema.json`
 
 #### Scenario: A create edit without target.id validates
 - **WHEN** an `Edit` has `op: "create"` and a `target` omitting `id`
-- **THEN** the document validates against `schemas/patch-set.schema.json`
+- **THEN** the document validates against `schemas/patch-sets/patch-set.schema.json`
 
 ### Requirement: patch reuses existing per-resource request shapes
 An `Edit`'s `patch` field SHALL NOT introduce new per-resource shapes. Its real shape, documented

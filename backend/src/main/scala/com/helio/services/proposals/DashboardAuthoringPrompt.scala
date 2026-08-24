@@ -14,7 +14,7 @@ import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, Workspac
 object DashboardAuthoringPrompt {
 
   /** The `DashboardProposal`/`ProposalPanel` wire shape, described textually (design.md D4 —
-   *  "schema included verbatim in the prompt"). `schemas/dashboard-proposal.schema.json` itself
+   *  "schema included verbatim in the prompt"). `schemas/dashboards/dashboard-proposal.schema.json` itself
    *  isn't on the production classpath (it's read at test time only, by walking the filesystem —
    *  see `JsonSchemaValidation`), so this is a hand-maintained mirror of that schema's fields —
    *  keep the two in sync by hand if `ProposalPanel`'s fields change. */

@@ -693,7 +693,7 @@ export interface CombinedProposalApplyResponse {
 
 // ── Patch set (HEL-403/406/408, consumed here by HEL-411's refinement tools)
 // — mirrors `backend/.../api/protocols/PatchSetProtocol.scala` /
-// `schemas/patch-set.schema.json` ───────────────────────────────────────────
+// `schemas/patch-sets/patch-set.schema.json` ───────────────────────────────────────────
 
 /** Identifies the resource an `Edit` applies to. `id` is required for
  *  update/delete, absent for create (the resource does not yet exist). */

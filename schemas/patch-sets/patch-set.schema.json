@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/patch-sets/patch-set.schema.json",
+  "title": "PatchSet",
+  "description": "An ordered list of targeted edits across one or more existing resources (panel/dashboard/dataSource/dataType/pipeline/pipelineStep), produced by conversational refinement so a diff can be previewed and applied atomically. Carries NO create/apply semantics of its own — this schema/protocol is the foundation only; a future apply path (HEL-406 and siblings) consumes it. Mirrors schemas/pipelines/pipeline-proposal.schema.json's scope (schema+protocol only, no apply route in this ticket).",
+  "type": "object",
+  "required": ["edits"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "Optional human-readable description of the whole patch set (e.g. an agent's one-line summary of the refinement)."
+    },
+    "edits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Edit"
+      },
+      "description": "Ordered list of targeted edits, applied in array order by a future apply path."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Edit": {
+      "type": "object",
+      "description": "One targeted edit against a single resource. `patch`'s real shape reuses the existing per-resource PATCH/create request shapes rather than inventing new ones, documented here by name (none of the six has its own standalone schema file to $ref against): for op=update, the existing UpdatePanelRequest/UpdateDashboardRequest/UpdateDataSourceRequest/UpdateDataTypeRequest/UpdatePipelineRequest/UpdatePipelineStepRequest shape matching target.kind (the same type the matching PATCH endpoint already decodes); for op=create, the matching CreatePanelRequest/CreateDashboardRequest/CreateDataSourceRequest/CreateDataTypeRequest/CreatePipelineRequest/CreatePipelineStepRequest shape, decoded by a future apply path (HEL-406), not this contract; for op=delete, `patch` is unused.",
+      "required": ["target", "op"],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/EditTarget"
+        },
+        "op": {
+          "type": "string",
+          "enum": ["update", "delete", "create"]
+        },
+        "patch": {
+          "type": "object",
+          "description": "Partial update body, real shape selected by (target.kind, op) — see this schema's own description above. Absent for delete edits."
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "enum": ["update", "delete"]
+              }
+            },
+            "required": ["op"]
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "required": ["id"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EditTarget": {
+      "type": "object",
+      "description": "Identifies the resource an Edit applies to. `id` is required for update/delete (enforced by Edit's own if/then) and optional for create, where the resource does not yet exist.",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep"]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -12,7 +12,7 @@ Persisted per-chart-type display options (`chartOptions`, keyed line/bar/pie/sca
 - `pie`: `donutHolePct?: number` (0–90), `showPercentLabels?: boolean`
 - `scatter`: `sizeField?: string`, `colorField?: string` (data-column keys of the bound DataType)
 
-The shape MUST be declared in `schemas/panel.schema.json` under `$defs.ChartConfig` and mirrored in the
+The shape MUST be declared in `schemas/panels/panel.schema.json` under `$defs.ChartConfig` and mirrored in the
 frontend `ChartPanelConfig` type and the backend `ChartPanelConfig` domain class.
 
 #### Scenario: Config round-trips through create and GET

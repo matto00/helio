@@ -105,7 +105,12 @@ const SKIP = new Set([
 const errors = [];
 const checked = [];
 
-for (const file of readdirSync(schemasDir).sort()) {
+const allDiscoveredFiles = readdirSync(schemasDir, { recursive: true }).sort();
+console.log(
+  `check-schema-drift: raw recursive walk found ${allDiscoveredFiles.length} entries under ${schemasDir}`,
+);
+
+for (const file of allDiscoveredFiles) {
   if (!file.endsWith(".schema.json")) continue;
   const schemaPath = join(schemasDir, file);
   const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
@@ -225,39 +230,44 @@ const canonicalDataPanelKinds = extractQuoted(dataPanelKindsMatch[1]);
 
 const panelTypeSurfaces = [
   {
-    label: "schemas/create-panel-request.schema.json properties.type.enum",
+    label: "schemas/panels/create-panel-request.schema.json properties.type.enum",
     canonical: canonicalPanelTypes,
     actual: getEnumAt(
-      JSON.parse(readFileSync(join(schemasDir, "create-panel-request.schema.json"), "utf8")),
+      JSON.parse(readFileSync(join(schemasDir, "panels/create-panel-request.schema.json"), "utf8")),
       ["properties", "type", "enum"],
-      "create-panel-request.schema.json",
+      "panels/create-panel-request.schema.json",
     ),
   },
   {
-    label: "schemas/panel.schema.json properties.type.enum",
+    label: "schemas/panels/panel.schema.json properties.type.enum",
     canonical: canonicalPanelTypes,
     actual: getEnumAt(
-      JSON.parse(readFileSync(join(schemasDir, "panel.schema.json"), "utf8")),
+      JSON.parse(readFileSync(join(schemasDir, "panels/panel.schema.json"), "utf8")),
       ["properties", "type", "enum"],
-      "panel.schema.json",
+      "panels/panel.schema.json",
     ),
   },
   {
-    label: "schemas/update-panels-batch-request.schema.json panels.items.type.enum",
+    label: "schemas/panels/update-panels-batch-request.schema.json panels.items.type.enum",
     canonical: canonicalPanelTypes,
     actual: getEnumAt(
-      JSON.parse(readFileSync(join(schemasDir, "update-panels-batch-request.schema.json"), "utf8")),
+      JSON.parse(
+        readFileSync(join(schemasDir, "panels/update-panels-batch-request.schema.json"), "utf8"),
+      ),
       ["properties", "panels", "items", "properties", "type", "enum"],
-      "update-panels-batch-request.schema.json",
+      "panels/update-panels-batch-request.schema.json",
     ),
   },
   {
-    label: "schemas/dashboard-proposal.schema.json $defs.ProposalPanel.properties.type.enum",
+    label:
+      "schemas/dashboards/dashboard-proposal.schema.json $defs.ProposalPanel.properties.type.enum",
     canonical: agentFacingPanelTypes,
     actual: getEnumAt(
-      JSON.parse(readFileSync(join(schemasDir, "dashboard-proposal.schema.json"), "utf8")),
+      JSON.parse(
+        readFileSync(join(schemasDir, "dashboards/dashboard-proposal.schema.json"), "utf8"),
+      ),
       ["$defs", "ProposalPanel", "properties", "type", "enum"],
-      "dashboard-proposal.schema.json",
+      "dashboards/dashboard-proposal.schema.json",
     ),
   },
 ];

@@ -15,7 +15,7 @@ class PanelBindingSpecSpec extends AnyWordSpec with Matchers {
   // live-wired via FieldMappingSlots (BindingEditor.tsx:331). Omits
   // `annotation` on purpose — that reserved slot is merged in separately
   // outside the generic slot loop (BindingEditor.tsx:245-259,
-  // schemas/panel.schema.json:95, helio-mcp/src/tools/write.ts:439-440).
+  // schemas/panels/panel.schema.json:95, helio-mcp/src/tools/write.ts:439-440).
   private val PanelSlotsTsChartSlots: Set[String] = Set("xAxis", "yAxis", "series")
 
   // frontend/src/features/panels/state/panelSlots.ts `PANEL_SLOTS.timeline`,

@@ -217,7 +217,7 @@ final class PipelineService(
    *  harmlessly (it degrades to a per-step "Unknown op" validationError there) only to
    *  then throw inside `toAnalyzeStepResponse`'s `PipelineStepConfigCodec.decode`
    *  re-decode — an uncaught `IllegalStateException` surfacing as an unhandled `500`,
-   *  since `schemas/pipeline-proposal.schema.json` deliberately leaves step `type`
+   *  since `schemas/pipelines/pipeline-proposal.schema.json` deliberately leaves step `type`
    *  unconstrained (checked at apply time, not by this schema) and no
    *  `ExceptionHandler` is registered anywhere in the backend. */
   def analyzeProposal(proposal: PipelineProposal, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeProposalResponse]] =

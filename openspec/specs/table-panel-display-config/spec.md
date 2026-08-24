@@ -9,7 +9,7 @@ how the stored values render through `DataGrid` props on every surface including
 `TablePanelConfig` SHALL carry an optional `density` field (one of `"condensed"`, `"normal"`,
 `"spacious"`) and an optional `columnOrder` field (an ordered array of visible data-column keys)
 alongside `dataTypeId`, `fieldMapping`, and `columnWidths` — in the TypeScript type, the
-`TableConfig` definition in `schemas/panel.schema.json`, the backend `TablePanelConfig`
+`TableConfig` definition in `schemas/panels/panel.schema.json`, the backend `TablePanelConfig`
 decode/patch path, and the `panels` table (dedicated nullable columns added by a single Flyway
 migration). Existing rows SHALL require no data migration: NULL/absent values mean the defaults.
 

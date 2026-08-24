@@ -67,7 +67,7 @@ The frontend aggregation implementation SHALL match `AggregateStep`'s semantics:
 - **THEN** the aggregate result is treated as absent/no-data rather than `NaN` or a thrown error
 
 ### Requirement: Proposal and apply-proposal accept panel-level aggregation
-`propose_dashboard`/`apply_proposal` MCP tool schemas, `schemas/dashboard-proposal.schema.json`, and `schemas/panel.schema.json` SHALL accept an optional `aggregation` object on metric/chart panel specs with the shapes defined above. A proposal/panel omitting `aggregation` SHALL apply unchanged from today (backwards compatible).
+`propose_dashboard`/`apply_proposal` MCP tool schemas, `schemas/dashboards/dashboard-proposal.schema.json`, and `schemas/panels/panel.schema.json` SHALL accept an optional `aggregation` object on metric/chart panel specs with the shapes defined above. A proposal/panel omitting `aggregation` SHALL apply unchanged from today (backwards compatible).
 
 #### Scenario: propose_dashboard accepts a metric panel with an aggregation spec
 - **WHEN** `propose_dashboard` is called with a metric panel spec including

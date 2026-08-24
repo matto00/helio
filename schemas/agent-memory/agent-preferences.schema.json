@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/agent-memory/agent-preferences.schema.json",
+  "title": "AgentPreferencesResponse",
+  "description": "The caller's agent-authoring preference defaults, as returned by GET/PUT /api/preferences (HEL-472 / 420-A). An absent optional field means no default has been stored for it (GET) or clears a previously-stored value (PUT, full replace); `extras` is always present, an empty object `{}` when nothing has been stored there. `memoryEnabled` (HEL-531 / 420-E) is always present -- the agent-memory opt-out flag, defaulting to `true`; read-only via this response, written only through the dedicated `PUT /api/preferences/memory-enabled` (see put-memory-enabled-request.schema.json), never through PUT /api/preferences.",
+  "type": "object",
+  "properties": {
+    "defaultSeriesColors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "defaultPanelStyle": {
+      "type": "object"
+    },
+    "namingConventions": {
+      "type": "object"
+    },
+    "extras": {
+      "type": "object"
+    },
+    "memoryEnabled": {
+      "type": "boolean"
+    }
+  },
+  "required": ["extras", "memoryEnabled"],
+  "additionalProperties": false
+}

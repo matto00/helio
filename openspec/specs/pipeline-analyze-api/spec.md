@@ -28,7 +28,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "../../schemas/pipeline-analyze-response.schema.json"
+                $ref: "../../schemas/pipelines/pipeline-analyze-response.schema.json"
         "404":
           description: Pipeline not found
           content:
@@ -141,7 +141,7 @@ analyze time by diffing the current source schema against the pipeline's persist
 baseline. The field SHALL be absent when there is no baseline (no successful run yet) or no drift. When
 present, it SHALL contain `addedColumns` and `removedColumns` (arrays of `{name, type}`) and
 `typeChangedColumns` (array of `{name, previousType, currentType}`). The field SHALL be additive and optional
-in `schemas/pipeline-analyze-response.schema.json` (not in `required`) so existing consumers are unaffected. A
+in `schemas/pipelines/pipeline-analyze-response.schema.json` (not in `required`) so existing consumers are unaffected. A
 malformed persisted baseline SHALL be treated as no baseline (no drift reported, no error).
 
 #### Scenario: No baseline yields absent field

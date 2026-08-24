@@ -69,7 +69,7 @@ object PanelBindingSpec {
 
   // chart → {xAxis, yAxis, series?, annotation?}. `annotation` is a real
   // reserved slot merged outside panelSlots.ts's generic `PANEL_SLOTS.chart`
-  // map (BindingEditor.tsx:245-259, schemas/panel.schema.json:95,
+  // map (BindingEditor.tsx:245-259, schemas/panels/panel.schema.json:95,
   // helio-mcp/src/tools/write.ts:439-440) — included here, not omitted.
   val Chart: PanelBindingSpec = PanelBindingSpec(
     panelType         = PanelType.Chart,

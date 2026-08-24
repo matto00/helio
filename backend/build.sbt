@@ -106,7 +106,7 @@ lazy val root = (project in file("."))
       "io.zonky.test" % "embedded-postgres" % "2.0.7" % Test,
       // HEL-371 cycle-2: real JSON Schema (2020-12) validation of a live
       // GET /api/workspace/context response body against
-      // schemas/workspace-context.schema.json — Jackson is already on the
+      // schemas/workspace/workspace-context.schema.json — Jackson is already on the
       // classpath (pinned below), this adds only the schema-validation
       // engine itself.
       "com.networknt" % "json-schema-validator" % "1.0.87" % Test,

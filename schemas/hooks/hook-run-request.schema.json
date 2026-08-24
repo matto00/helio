@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/hooks/hook-run-request.schema.json",
+  "title": "HookRunRequest",
+  "description": "Request body for POST /api/hooks/run (HEL-369) -- the external-trigger entrypoint. Authenticated by session cookie or Authorization: Bearer helio_pat_... (scoped or unscoped).",
+  "type": "object",
+  "properties": {
+    "pipelineId": {
+      "type": "string"
+    }
+  },
+  "required": ["pipelineId"],
+  "additionalProperties": false
+}

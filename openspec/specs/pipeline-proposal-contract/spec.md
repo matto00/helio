@@ -7,18 +7,18 @@ counterpart to the existing `DashboardProposal` pattern, and the foundation the 
 and atomic-apply work (HEL-342) builds on.
 ## Requirements
 ### Requirement: PipelineProposal schema shape
-`schemas/pipeline-proposal.schema.json` SHALL define a `PipelineProposal` object requiring
+`schemas/pipelines/pipeline-proposal.schema.json` SHALL define a `PipelineProposal` object requiring
 `pipelineName`, `source`, `outputDataTypeName`, and `steps`, carrying no id fields for any
 resource — no `sourceId`-for-a-new-source, no `pipelineId`, no `stepId`, no output `dataTypeId`.
 
 #### Scenario: A minimal valid proposal validates
 - **WHEN** a JSON document supplies `pipelineName`, a `source` referencing an existing `sourceId`,
   `outputDataTypeName`, and an empty `steps` array
-- **THEN** the document validates against `schemas/pipeline-proposal.schema.json`
+- **THEN** the document validates against `schemas/pipelines/pipeline-proposal.schema.json`
 
 #### Scenario: A proposal missing a required top-level field is rejected
 - **WHEN** a JSON document omits `outputDataTypeName`
-- **THEN** the document fails validation against `schemas/pipeline-proposal.schema.json`
+- **THEN** the document fails validation against `schemas/pipelines/pipeline-proposal.schema.json`
 
 ### Requirement: Source is an existing reference or an inline spec
 The schema's `source` object SHALL support two forms: a reference to an existing data source via

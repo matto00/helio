@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/authoring/authoring-outcome-request.schema.json",
+  "title": "AuthoringOutcomeRequest",
+  "description": "Body of POST /api/authoring/requests/:id/outcome (HEL-401 design.md D4) — a telemetry-only correlation signal the Proposal Review UI fires from its Accept/Reject actions when the reviewed proposal carries an authoringRequestId. This endpoint never touches POST /api/dashboards/apply-proposal's own persistence path; it only emits a correlated telemetry log line.",
+  "type": "object",
+  "required": ["outcome"],
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": ["accepted", "rejected"],
+      "description": "accepted (fired after applyDashboardProposal succeeds) or rejected (fired when the reviewer declines the proposal)."
+    }
+  },
+  "additionalProperties": false
+}

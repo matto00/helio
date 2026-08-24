@@ -429,7 +429,7 @@ class PipelineAnalyzeProposalRoutesSpec
   }
 
   "pipelineAnalyzeProposalResponseFormat output" should {
-    "validate cleanly against schemas/pipeline-analyze-proposal-response.schema.json (3.11)" in {
+    "validate cleanly against schemas/pipelines/pipeline-analyze-proposal-response.schema.json (3.11)" in {
       val response = PipelineAnalyzeProposalResponse(
         sourceName         = "Orders",
         outputDataTypeName = "Orders Output",
@@ -444,7 +444,7 @@ class PipelineAnalyzeProposalRoutesSpec
         ))
       )
 
-      val schema = JsonSchemaValidation.compile("pipeline-analyze-proposal-response.schema.json")
+      val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-proposal-response.schema.json")
       val errors = JsonSchemaValidation.validationErrors(schema, response.toJson.compactPrint)
       errors shouldBe empty
     }

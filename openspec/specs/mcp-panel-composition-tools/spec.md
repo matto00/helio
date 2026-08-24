@@ -87,7 +87,7 @@ image panel's `config.imageUrl`).
 
 ### Requirement: create-panel-request schema agrees with the MCP type set
 
-The `schemas/create-panel-request.schema.json` `type` enum SHALL include `collection` with a matching
+The `schemas/panels/create-panel-request.schema.json` `type` enum SHALL include `collection` with a matching
 config branch referencing `panel.schema.json#/$defs/CollectionConfig`, so the published create-panel
 contract and the MCP tool agree on the creatable collection type (absorbing HEL-310).
 
@@ -292,7 +292,7 @@ the existing flat fields. `dataTypeId` SHALL remain required for `metric`/`chart
 exactly as today — `metricId` does not relax that requirement. When present and valid,
 `ProposalPanelSupport.buildCreateRequest`/`buildDataConfig` SHALL include `metricId` in the created
 panel's config, reusing the same `MetricPanelConfig`/`ChartPanelConfig`/`TablePanelConfig` `metricId`
-slot HEL-500 already validates and materializes at read time. `schemas/dashboard-proposal.schema.json`
+slot HEL-500 already validates and materializes at read time. `schemas/dashboards/dashboard-proposal.schema.json`
 SHALL document the field. The `propose_dashboard` tool's `description` string SHALL document `metricId`
 per-type (mirroring the existing `label`/`unit` bullet for `metric`) — the zod schema itself carries no
 per-field `.describe()`, so this is the only place a calling agent can discover the capability. A

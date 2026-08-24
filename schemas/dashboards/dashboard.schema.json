@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/dashboard.schema.json",
+  "title": "Dashboard",
+  "type": "object",
+  "required": ["id", "name", "meta", "appearance", "layout", "ownerId"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "meta": {
+      "$ref": "https://helio.local/schemas/shared/resource-meta.schema.json"
+    },
+    "appearance": {
+      "$ref": "https://helio.local/schemas/dashboards/dashboard-appearance.schema.json"
+    },
+    "layout": {
+      "$ref": "https://helio.local/schemas/dashboards/dashboard-layout.schema.json"
+    },
+    "ownerId": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

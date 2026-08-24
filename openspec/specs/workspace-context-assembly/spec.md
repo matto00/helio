@@ -11,7 +11,7 @@ The system SHALL expose `GET /api/workspace/context`, mounted under the existing
 `pathPrefix("workspace")`, returning a single JSON snapshot of the caller's data sources, DataTypes,
 pipelines (with per-step output columns), and dashboards, structurally parallel to the MCP
 `buildWorkspaceContext` `WorkspaceContext` interface (`helio-mcp/src/context.ts`), validating against
-`schemas/workspace-context.schema.json`. The route SHALL accept an optional `budgetBytes` query
+`schemas/workspace/workspace-context.schema.json`. The route SHALL accept an optional `budgetBytes` query
 parameter (a non-negative integer) bounding the response's serialized size; when omitted, a
 configured default budget applies.
 
@@ -20,7 +20,7 @@ configured default budget applies.
   calls `GET /api/workspace/context`
 - **THEN** the response is `200` with a body containing `generatedAt`, `counts`, `dataSources`,
   `dataTypes`, `pipelines`, `dashboards`, `joinHints`, and `truncation`, matching
-  `schemas/workspace-context.schema.json`
+  `schemas/workspace/workspace-context.schema.json`
 
 #### Scenario: Empty workspace returns empty collections, not an error
 - **WHEN** an authenticated user with no data sources, DataTypes, pipelines, or dashboards calls

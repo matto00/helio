@@ -1,0 +1,525 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/workspace/workspace-context.schema.json",
+  "title": "WorkspaceContextResponse",
+  "description": "Response body for GET /api/workspace/context (HEL-371) — a server-side, owner-scoped snapshot of the caller's data sources, DataTypes, pipelines, and dashboards. Structural parity with helio-mcp/src/context.ts's WorkspaceContext interface, with two documented deltas: (1) `pipelineShapes` is intentionally OMITTED — not part of this ticket's scope/acceptance criteria, and PipelineShapeService is stateless/code-level with no per-user RLS story (design.md D4); a later ticket may add it. (2) `pipelines[].steps[]` carries the FULL per-step field set the MCP interface has — `position`, `type`, `outputColumns`, `validationError` — not just `outputColumns` (design-gate note 3): all four are already produced by the existing analyze path at zero extra cost, so the schema documents full parity rather than a narrowed subset.",
+  "type": "object",
+  "required": [
+    "generatedAt",
+    "counts",
+    "dataSources",
+    "dataTypes",
+    "pipelines",
+    "dashboards",
+    "joinHints",
+    "truncation",
+    "agentContext"
+  ],
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "description": "ISO-8601 instant this snapshot was assembled."
+    },
+    "counts": {
+      "$ref": "#/$defs/Counts"
+    },
+    "dataSources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DataSourceEntry"
+      }
+    },
+    "dataTypes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DataTypeEntry"
+      }
+    },
+    "pipelines": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PipelineEntry"
+      }
+    },
+    "dashboards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DashboardEntry"
+      }
+    },
+    "joinHints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/JoinHint"
+      },
+      "description": "HEL-374: bounded, precision-favoring, INFERRED/ADVISORY cross-DataType joinability hints — pairwise comparisons of identifier-role columns across the caller's own pipeline-output DataTypes. Never authors a join step itself and never mutates any DataType's authoritative dataType. ALWAYS present (an empty array, never omitted) even when no candidate pairs exist. Bounded by construction, independent of workspace size — see JoinHint.confidence and MaxJoinHints/MaxColumnsPerNameBucket in WorkspaceContextService for the documented caps. May itself be trimmed by the budgeting pass described in truncation — see Truncation."
+    },
+    "truncation": {
+      "$ref": "#/$defs/Truncation"
+    },
+    "agentContext": {
+      "$ref": "#/$defs/AgentContext",
+      "description": "HEL-521 (420-C): the caller's agent-authoring preferences plus up to 20 of their most-recently-useful AgentMemoryEntry records, ranked by lastUsedAt descending (never-used entries last). ALWAYS present (an object, never omitted) -- an empty/all-default preferences object and an empty memory array when the caller has stored neither, or when the underlying services aren't wired server-side. Surfacing a memory entry here touches its lastUsedAt as a side effect of this same assemble call (see AgentContext.memory's description) -- never re-fetched, so this array reflects the pre-touch values."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Counts": {
+      "type": "object",
+      "required": ["dataSources", "dataTypes", "pipelines", "dashboards"],
+      "properties": {
+        "dataSources": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dataTypes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pipelines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dashboards": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "description": "Each field is the resource kind's true PagedResult.total (design.md D3), not the possibly page-truncated items.length — dataSources/dataTypes/dashboards are fetched with Page.Default (limit 200, parity with the MCP's own unparameterized fan-out), so counts can exceed the corresponding array's length for a workspace over 200 of a given kind."
+    },
+    "DataSourceEntry": {
+      "type": "object",
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "tag": {
+          "type": ["string", "null"],
+          "description": "Absent on the wire (not null) when unset — spray-json omits a None Option field entirely rather than emitting `null`; not in `required` for that reason."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Column": {
+      "type": "object",
+      "required": ["name", "dataType", "nullable", "semanticRole"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "dataType": {
+          "type": "string"
+        },
+        "nullable": {
+          "type": "boolean"
+        },
+        "semanticRole": {
+          "type": "string",
+          "enum": ["temporal", "dimension", "measure", "identifier", "boolean", "text"],
+          "description": "HEL-374: deterministic, INFERRED/ADVISORY classification derived from this column's declared dataType, a name heuristic, and (when available) its columnStats entry — see WorkspaceContextService.classifySemanticRole for the fixed, documented precedence. Never alters dataType, the authoritative declared type."
+        }
+      },
+      "additionalProperties": false
+    },
+    "ComputedColumn": {
+      "type": "object",
+      "required": ["name", "dataType", "expression"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "dataType": {
+          "type": "string"
+        },
+        "expression": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ColumnStats": {
+      "type": "object",
+      "required": ["nullRate", "distinctCount", "distinctCountCapped", "exampleValues"],
+      "properties": {
+        "nullRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction of the bounded fetch's rows whose value for this column is JSON null or the key is absent. 0 when the fetch is empty (no run snapshot yet), not NaN."
+        },
+        "distinctCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of distinct (200-char-truncated) values among the bounded fetch's rows, capped at 100 (see distinctCountCapped)."
+        },
+        "distinctCountCapped": {
+          "type": "boolean",
+          "description": "true iff the true distinct count among the bounded fetch's rows exceeds the cap (100) — distinctCount itself then equals the cap, not the true count."
+        },
+        "exampleValues": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "description": "One distinct, non-null, 200-char-truncated example value, in first-seen row order."
+          },
+          "description": "Up to 5 distinct, non-null example values, in first-seen row order (deterministic)."
+        },
+        "min": {
+          "type": ["number", "null"],
+          "description": "Numeric-column-only (integer/float declared type), present only when at least one fetched value parses as numeric. Absent on the wire (not null) for a non-numeric column or a numeric-declared column whose every value fails to parse — spray-json omits a None Option field entirely rather than emitting null; not in required for that reason."
+        },
+        "max": {
+          "type": ["number", "null"],
+          "description": "See min's description; same presence rule."
+        },
+        "mean": {
+          "type": ["number", "null"],
+          "description": "See min's description; same presence rule. Rounded to 4 decimal places."
+        }
+      },
+      "additionalProperties": false
+    },
+    "JoinHint": {
+      "type": "object",
+      "required": ["leftDataTypeId", "leftColumn", "rightDataTypeId", "rightColumn", "confidence"],
+      "properties": {
+        "leftDataTypeId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The lexicographically smaller of the pair's two DataType ids — a canonical assignment so a given unordered pair produces exactly one hint, never two."
+        },
+        "leftColumn": {
+          "type": "string"
+        },
+        "rightDataTypeId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rightColumn": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 1,
+          "description": "HEL-374: 0.5 means a name+type match with weak or no value/cardinality evidence; the score approaches 1.0 only as sampled values overlap AND both columns show enough distinct values (>= 20, MinDistinctForFullConfidence) to make coincidental overlap unlikely. This is a bounded heuristic over a small sample (<=5 example values per side), not certainty — always advisory, never a substitute for verifying the join. Rounded to 4 decimal places."
+        }
+      },
+      "additionalProperties": false,
+      "description": "HEL-374: one inferred, advisory cross-DataType joinability hint — a bounded, precision-favoring pairwise comparison of identifier-role columns across the caller's own pipeline-output DataTypes. Never authors a join step itself (that is HEL-342's concern) and never mutates any DataType's declared schema."
+    },
+    "DataTypeEntry": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "pipelineOutput",
+        "columns",
+        "computedColumns",
+        "version",
+        "sampleRows",
+        "columnStats"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "sourceId": {
+          "type": ["string", "null"],
+          "description": "Present for a source-companion DataType, ABSENT on the wire (not null) for a pipeline-output DataType — spray-json omits a None Option field entirely rather than emitting `null`; not in `required` for that reason. Use `pipelineOutput` for the classification, not the presence/absence of this field."
+        },
+        "pipelineOutput": {
+          "type": "boolean",
+          "description": "true iff sourceId is absent — a panel-bindable, pipeline-produced DataType (V41 rule)."
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Column"
+          }
+        },
+        "computedColumns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComputedColumn"
+          }
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tag": {
+          "type": ["string", "null"],
+          "description": "Absent on the wire (not null) when unset — see sourceId's description for the same spray-json omission behavior."
+        },
+        "sampleRows": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "description": "One sample row, keyed by column name. Permissive item shape — values may be any JSON type the DataType's Structured-category columns produce (string/number/boolean/null)."
+          },
+          "description": "HEL-372: up to 5 rows from this DataType's latest pipeline-run snapshot, keyed by column name. ALWAYS present (an empty array, never omitted) — a source-companion DataType (sourceId present) or a pipeline-output DataType with no run snapshot reports []. Bounded by construction: at most 5 rows (SQL-tier LIMIT), at most the first 40 of the DataType's declared Structured-category columns per row (in field/columns[] order), at most 200 characters per cell value (oversized values truncated to a string ending in the literal marker \"…[truncated]\"). Content-category columns (dataType string-body/binary-ref, HEL-217) are EXCLUDED from sampleRows entirely — their values never appear here, regardless of length — stripped at the SQL tier before the row ever reaches the app."
+        },
+        "columnStats": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ColumnStats"
+          },
+          "description": "HEL-373: per-column statistics keyed by column name, one entry per Structured-category column of this DataType (capped at the first 40 in declared order — same bound as sampleRows/columns). Computed over the SAME bounded (≤500-row) fetch sampleRows is derived from — an approximation, not the DataType's true full row count, for a DataType with more than 500 stored rows (see design.md D1). ALWAYS present (an empty object, never omitted) — a source-companion DataType reports {}; a pipeline-output DataType with no run snapshot yet still reports one entry per Structured-category column (nullRate: 0, distinctCount: 0). Content-category columns (string-body/binary-ref, HEL-217) have no entry at all — absence is the signal, mirroring sampleRows's exclusion."
+        }
+      },
+      "additionalProperties": false
+    },
+    "PipelineStep": {
+      "type": "object",
+      "required": ["position", "type", "outputColumns"],
+      "properties": {
+        "position": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string"
+        },
+        "outputColumns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validationError": {
+          "type": ["string", "null"],
+          "description": "Absent on the wire (not null) when the step is valid — spray-json omits a None Option field entirely rather than emitting `null`; not in `required` for that reason."
+        }
+      },
+      "additionalProperties": false
+    },
+    "PipelineEntry": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "sourceDataSourceId",
+        "sourceDataSourceName",
+        "outputDataTypeId",
+        "outputDataTypeName",
+        "steps"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "sourceDataSourceId": {
+          "type": "string"
+        },
+        "sourceDataSourceName": {
+          "type": "string"
+        },
+        "outputDataTypeId": {
+          "type": "string"
+        },
+        "outputDataTypeName": {
+          "type": "string"
+        },
+        "lastRunStatus": {
+          "type": ["string", "null"],
+          "description": "Absent on the wire (not null) when the pipeline has never run — spray-json omits a None Option field entirely rather than emitting `null`; not in `required` for that reason (applies to every field below with this same description)."
+        },
+        "lastRunAt": {
+          "type": ["string", "null"]
+        },
+        "lastRunRowCount": {
+          "type": ["integer", "null"]
+        },
+        "tag": {
+          "type": ["string", "null"]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PipelineStep"
+          },
+          "description": "Populated from the existing analyze path, in step order. Empty when stepsError is set (design.md D5 per-pipeline degrade)."
+        },
+        "stepsError": {
+          "type": ["string", "null"],
+          "description": "Set (non-null) when this pipeline's analyze call failed — steps is [] in that case; ABSENT on the wire (not null) when analyze succeeded (spray-json omits a None field entirely). Mirrors helio-mcp/src/context.ts's per-pipeline try/catch; a single pipeline's failure never fails the whole request."
+        }
+      },
+      "additionalProperties": false
+    },
+    "DashboardEntry": {
+      "type": "object",
+      "required": ["id", "name", "panelCount"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "panelCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of distinct panelIds referenced across all four responsive breakpoints (lg/md/sm/xs) of the dashboard's layout."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Truncation": {
+      "type": "object",
+      "required": [
+        "applied",
+        "budgetBytes",
+        "estimatedSizeBytes",
+        "sampleRowsCap",
+        "exampleValuesCap",
+        "joinHintsKept",
+        "joinHintsOmittedByBudget",
+        "structuralFloorExceedsBudget",
+        "paginationTruncatedResources"
+      ],
+      "properties": {
+        "applied": {
+          "type": "boolean",
+          "description": "true iff the deterministic budgeting pass actually shrank sampleRows, exampleValues, or joinHints below their natural size to fit budgetBytes."
+        },
+        "budgetBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The budget used for this response — the request's budgetBytes query param, or the server's configured default (WORKSPACE_CONTEXT_DEFAULT_BUDGET_BYTES, default 200000) when omitted. Measured in UTF-16 code units (String.length), NOT exact UTF-8 bytes and NOT a real LLM token count — an approximate, model-independent proxy for prompt cost (see estimatedSizeBytes)."
+        },
+        "estimatedSizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The response's measured post-trim size, in UTF-16 code units (String.length on the compact JSON serialization) of every top-level field EXCEPT this truncation object itself — excluding truncation's own bytes avoids a field describing a size that includes its own not-yet-known serialized length; truncation's bytes are a small, roughly-fixed metadata overhead added on top of the budgeted core, not counted against budgetBytes. Not an exact UTF-8 byte count and not a real LLM token count — see budgetBytes."
+        },
+        "sampleRowsCap": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The sampleRows row-count cap actually applied uniformly across every DataType (cut 1st in the shed order); equals each DataType's own natural sampleRows length when untouched (at most 5)."
+        },
+        "exampleValuesCap": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The columnStats[*].exampleValues length cap actually applied uniformly across every column of every DataType (cut 2nd, only once sampleRows is fully exhausted and the response is still over budget); equals each column's own natural exampleValues length when untouched (at most 5)."
+        },
+        "joinHintsKept": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "joinHints' length after budget trimming (cut 3rd/last, only once sampleRows and exampleValues are both fully exhausted and the response is still over budget). The already-sorted (confidence descending, id tie-break) prefix that was kept."
+        },
+        "joinHintsOmittedByBudget": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "joinHints' natural (pre-budget) length minus joinHintsKept — how many join hints the budget pass dropped from the end of the already-sorted list."
+        },
+        "structuralFloorExceedsBudget": {
+          "type": "boolean",
+          "description": "true iff even the fully-shrunk response (sampleRows=[] everywhere, exampleValues=[] everywhere, joinHints=[]) still exceeds budgetBytes — resources are never dropped to chase the budget further, so the budget becomes best-effort in this case. A consumer should treat this as a signal the requested budget could not be fully honored, not that the response is malformed."
+        },
+        "paginationTruncatedResources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["dataSources", "dataTypes", "dashboards"]
+          },
+          "description": "Which of dataSources/dataTypes/dashboards were truncated by the underlying Page.Default (200-item) fetch limit — i.e. counts.<kind> exceeds <kind>.length. Empty when none were truncated. This does not raise the 200-item fetch limit; it makes the existing truncation explicit rather than silent (a workspace with more than 200 of a given resource kind is not fully represented in the corresponding array, even though counts reports the true total)."
+        }
+      },
+      "additionalProperties": false,
+      "description": "HEL-377: the deterministic byte-budget outcome — reports whether/how sampleRows/exampleValues/joinHints were shrunk to fit budgetBytes, and whether the existing Page.Default (200-item) list fetch truncated any resource kind. ALWAYS present (an object, never omitted) — applied: false and all-natural cap values when nothing needed trimming."
+    },
+    "AgentPreferences": {
+      "type": "object",
+      "properties": {
+        "defaultSeriesColors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "defaultPanelStyle": {
+          "type": "object"
+        },
+        "namingConventions": {
+          "type": "object"
+        },
+        "extras": {
+          "type": "object"
+        },
+        "memoryEnabled": {
+          "type": "boolean"
+        }
+      },
+      "required": ["extras", "memoryEnabled"],
+      "additionalProperties": false,
+      "description": "Mirrors schemas/agent-memory/agent-preferences.schema.json's AgentPreferencesResponse shape (HEL-472 / 420-A; memoryEnabled added HEL-531 / 420-E) — duplicated here (not $ref'd cross-file) so this schema stays self-contained, matching every other $defs entry in this file. An absent optional field means no default has been stored for it; extras/memoryEnabled are always present, memoryEnabled defaulting to true."
+    },
+    "AgentMemoryEntry": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["fact", "goal", "preference-note"]
+        },
+        "content": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastUsedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "kind", "content", "createdAt"],
+      "additionalProperties": false,
+      "description": "Mirrors schemas/agent-memory/agent-memory.schema.json's AgentMemoryEntryResponse shape (HEL-478 / 420-B) — duplicated here (not $ref'd cross-file) so this schema stays self-contained. lastUsedAt is absent on the wire (not null) for a never-used entry — spray-json omits a None Option field entirely; not in required for that reason."
+    },
+    "AgentContext": {
+      "type": "object",
+      "required": ["preferences", "memory"],
+      "properties": {
+        "preferences": {
+          "$ref": "#/$defs/AgentPreferences"
+        },
+        "memory": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/AgentMemoryEntry"
+          },
+          "description": "HEL-521 (420-C): up to 20 of the caller's most-recently-useful AgentMemoryEntry records, ranked by lastUsedAt descending (an entry with no lastUsedAt ranks below every entry that has one). ALWAYS present (an empty array, never omitted) when the caller has no stored memory."
+        }
+      },
+      "additionalProperties": false,
+      "description": "HEL-521 (420-C): the caller's agent-authoring preferences + bounded memory, surfaced into the workspace-context grounding path. ALWAYS present on WorkspaceContextResponse — an empty/all-default preferences object and an empty memory array when the caller has stored neither, or when the underlying AgentPreferencesService/AgentMemoryService aren't wired server-side."
+    }
+  }
+}

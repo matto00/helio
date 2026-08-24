@@ -81,13 +81,13 @@ and domain→row).
 ### Requirement: Timeline appears in every panel-type contract surface
 
 Every contract surface that enumerates panel `type` values SHALL include `timeline`, matching the
-backend `PanelType` canonical set. This covers the JSON Schema (`schemas/panel.schema.json` panel
+backend `PanelType` canonical set. This covers the JSON Schema (`schemas/panels/panel.schema.json` panel
 `type` enum plus a `TimelineConfig` `$def`) and the helio-mcp `create_panel` / `bind_panel` tool
 type enums, so agent-driven dashboards can create and bind timeline panels.
 
 #### Scenario: JSON Schema enumerates timeline
 
-- **WHEN** `schemas/panel.schema.json` is inspected
+- **WHEN** `schemas/panels/panel.schema.json` is inspected
 - **THEN** the panel `type` enum includes `"timeline"` and a `TimelineConfig` definition describes
   its config shape
 

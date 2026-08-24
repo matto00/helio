@@ -205,7 +205,7 @@ The dashboard then renders real data in the running app — the table sorted
 Beyond direct tool composition, there is a human-in-the-loop path: an agent
 produces a structured **dashboard proposal** (no writes), a user reviews it
 in-app (accept / edit / reject), and only on acceptance is it applied. The
-proposal is one shared artifact (`schemas/dashboard-proposal.schema.json`) used
+proposal is one shared artifact (`schemas/dashboards/dashboard-proposal.schema.json`) used
 by both the MCP `propose_dashboard`/`apply_proposal` tools and the in-app
 Proposal Review UI. Apply goes through `POST /api/dashboards/apply-proposal`,
 which validates and then creates the dashboard + panels via the existing

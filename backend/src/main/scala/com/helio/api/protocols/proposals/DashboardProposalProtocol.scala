@@ -8,7 +8,7 @@ import spray.json._
 // A proposal carries NO ids: applying it (POST /api/dashboards/apply-proposal)
 // mints the dashboard + panels via the existing services. Data panels reference
 // an existing pipeline-output DataType by id. The wire shape matches
-// schemas/dashboard-proposal.schema.json.
+// schemas/dashboards/dashboard-proposal.schema.json.
 
 final case class ProposalPanelLayout(x: Int, y: Int, w: Int, h: Int)
 

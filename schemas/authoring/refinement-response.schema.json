@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/authoring/refinement-response.schema.json",
+  "title": "RefinementResponse",
+  "description": "200 response body of POST /api/refinements (HEL-411) — a PatchSet already proven valid via PatchSetPreviewService.preview (the SAME check POST /api/patch-sets/apply itself runs), grounded in the target's real current live state. The patch set is NOT applied by this call — applying stays the caller's explicit, separate action via the existing POST /api/patch-sets/apply (HEL-406).",
+  "type": "object",
+  "required": ["patchSet", "conversationId"],
+  "properties": {
+    "patchSet": {
+      "$ref": "../patch-sets/patch-set.schema.json"
+    },
+    "conversationId": {
+      "type": "string",
+      "description": "Identifies the persisted conversation this turn belongs to — pass it back as the next call's conversationId to continue refining the same target. Present on every successful response, including a fresh single-shot call (turn 1 mints a new conversation as a transparent side effect)."
+    }
+  },
+  "additionalProperties": false
+}

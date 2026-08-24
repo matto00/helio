@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/metrics/metric.schema.json",
+  "title": "MetricResponse",
+  "description": "A metric definition as returned by GET/POST/PATCH /api/metrics — a reusable measure (`aggregation` applied to `measureField`) over a caller-owned, pipeline-output DataType, with the dimensions it may be grouped by and a display format.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "ownerId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "dataTypeId": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": ["string", "null"]
+    },
+    "measureField": {
+      "type": "string"
+    },
+    "aggregation": {
+      "type": "string",
+      "enum": ["sum", "avg", "min", "max", "count", "countDistinct"]
+    },
+    "allowedDimensions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "format": {
+      "type": "object",
+      "description": "Display formatting hints — all optional, purely presentational.",
+      "properties": {
+        "unit": {
+          "type": ["string", "null"]
+        },
+        "decimals": {
+          "type": ["integer", "null"]
+        },
+        "prefix": {
+          "type": ["string", "null"]
+        },
+        "suffix": {
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["unit", "decimals", "prefix", "suffix"],
+      "additionalProperties": false
+    },
+    "deprecated": {
+      "type": "boolean"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "ownerId",
+    "dataTypeId",
+    "name",
+    "description",
+    "measureField",
+    "aggregation",
+    "allowedDimensions",
+    "format",
+    "deprecated",
+    "createdAt",
+    "updatedAt"
+  ],
+  "additionalProperties": false
+}

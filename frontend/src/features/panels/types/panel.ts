@@ -78,7 +78,7 @@ export type DividerOrientation = "horizontal" | "vertical";
 // ── Viz-level aggregation specs (HEL-292) ───────────────────────────────────
 //
 // Mirrors backend `domain/panels/{Metric,Chart}PanelConfig.aggregation` and
-// `schemas/panel.schema.json` `$defs.MetricAggregation`/`ChartAggregation`.
+// `schemas/panels/panel.schema.json` `$defs.MetricAggregation`/`ChartAggregation`.
 // Reuses the pipeline `aggregate` step's function set — see
 // `frontend/src/utils/aggregate.ts` and `AggregateStep.scala`.
 
@@ -122,7 +122,7 @@ export interface MetricPanelConfig {
 // ── Per-chart-type display options (HEL-248) ────────────────────────────────
 //
 // Mirrors backend `domain/panels/ChartPanel.scala` (`ChartOptions` + per-type
-// case classes) and `schemas/panel.schema.json` `$defs.ChartOptions`. Keyed
+// case classes) and `schemas/panels/panel.schema.json` `$defs.ChartOptions`. Keyed
 // per chart type so switching bar→pie→bar restores the original bar settings —
 // nothing is destroyed on a type change. Every option maps to a real ECharts
 // construct (see `ChartPanel.tsx`).
@@ -240,7 +240,7 @@ export interface DividerPanelConfig {
 // ── Collection panel (HEL-247) ──────────────────────────────────────────────
 //
 // Mirrors backend `domain/panels/CollectionPanel.scala` and
-// `schemas/panel.schema.json` `$defs.CollectionConfig`. A Collection renders N
+// `schemas/panels/panel.schema.json` `$defs.CollectionConfig`. A Collection renders N
 // homogeneous items of one `baseType`, bound to a multi-row DataType (one row =
 // one item), with the shared `fieldMapping` applied to every item. Binding
 // reuses `dataTypeId`/`fieldMapping` (the bound-trio shape); `baseType`,
@@ -277,7 +277,7 @@ export interface CollectionPanelConfig {
 // ── Timeline panel (HEL-317) ────────────────────────────────────────────────
 //
 // Mirrors backend `domain/panels/TimelinePanel.scala` and
-// `schemas/panel.schema.json` `$defs.TimelineConfig`. A Timeline renders the
+// `schemas/panels/panel.schema.json` `$defs.TimelineConfig`. A Timeline renders the
 // bound DataType's rows as a vertical chronological event list — one row =
 // one entry — using two field-mapping slots (`time`, `event`). Binding
 // reuses `dataTypeId`/`fieldMapping` (the bound-trio shape); `timelineOptions`

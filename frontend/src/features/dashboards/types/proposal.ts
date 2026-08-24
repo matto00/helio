@@ -11,7 +11,7 @@ export interface ProposalPanelLayout {
 
 /** One proposed panel. No ids are minted until the proposal is applied. Data
  *  panels (metric/chart/table) reference an existing pipeline-output DataType
- *  by id. Mirrors schemas/dashboard-proposal.schema.json.
+ *  by id. Mirrors schemas/dashboards/dashboard-proposal.schema.json.
  *
  *  `content`/`url`/`orientation` seed the initial config of text/markdown,
  *  image, and divider panels respectively (applied at create time).
