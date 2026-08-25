@@ -4,6 +4,7 @@ import com.helio.infrastructure.persistence.DbContext
 import slick.jdbc.PostgresProfile.api._
 import slick.jdbc.SQLActionBuilder
 import spray.json._
+import spray.json.JsonParserSettings
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -14,6 +15,20 @@ import scala.concurrent.{ExecutionContext, Future}
  * entire snapshot for a given DataType via a transactional DELETE + bulk INSERT.
  */
 class DataTypeRowRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+
+  /**
+   * HEL-630: spray-json's default `JsonParserSettings.maxNumberCharacters` is 100 (verified
+   * empirically: a 100-char numeric literal parses fine, 101 chars throws
+   * `ParsingException("Number too long")`). Postgres `jsonb` numerics are arbitrary-precision, so
+   * `overwriteRows` can durably write a value whose plain-decimal expansion (after the `::text`
+   * cast below) exceeds that cap — without this override, `listRows` would throw re-parsing rows
+   * it just successfully wrote. 400 is comfortable headroom over max-`double`'s ~309-digit plain
+   * decimal expansion while keeping the (roughly quadratic in character count) `BigDecimal`
+   * construction cost bounded; `maxDepth` is left at its default (structural validation is
+   * unaffected). Scoped to this call site only — see design.md D1.
+   */
+  private val listRowsJsonParserSettings: JsonParserSettings =
+    JsonParserSettings.default.withMaxNumberCharacters(400)
 
   /**
    * Atomically replace the snapshot for `dataTypeId` with `rows`.
@@ -77,6 +92,8 @@ class DataTypeRowRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case None    => baseQuery
     }
 
-    ctx.withSystemContext(fullQuery.as[String]).map(_.map(_.parseJson.asJsObject).toVector)
+    ctx
+      .withSystemContext(fullQuery.as[String])
+      .map(_.map(_.parseJson(listRowsJsonParserSettings).asJsObject).toVector)
   }
 }
