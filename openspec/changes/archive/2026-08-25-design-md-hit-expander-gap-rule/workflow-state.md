@@ -4,16 +4,16 @@ TICKET_ID: HEL-777
 CHANGE_NAME: design-md-hit-expander-gap-rule
 WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/task/design-md-hit-expander-gap-rule/HEL-777
 BRANCH: task/design-md-hit-expander-gap-rule/HEL-777
-PHASE: Execution
+PHASE: Delivery
 CYCLE: 1
 DEV_PORT: 6209
 BACKEND_PORT: 9116
 EXECUTOR_AGENT_ID: —
 EVALUATOR_AGENT_ID: —
-LAST_EVAL_VERDICT: —
-LAST_EVAL_REPORT: —
+LAST_EVAL_VERDICT: PASS
+LAST_EVAL_REPORT: openspec/changes/design-md-hit-expander-gap-rule/evaluation-1.md
 SKEPTIC_CYCLE: 1
-LAST_SKEPTIC_VERDICT: CONFIRM (design gate)
+LAST_SKEPTIC_VERDICT: CONFIRM (final gate)
 AGENT_MERGE: true
 TICKET_TYPE: feature
 DESIGN_QUESTIONS: null
