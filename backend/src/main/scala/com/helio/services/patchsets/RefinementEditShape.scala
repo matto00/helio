@@ -65,6 +65,80 @@ object RefinementEditShape {
       |  }
       |}""".stripMargin
 
+  // HEL-671: worked UPDATE examples for join/pivot/window/unpivot, added unconditionally (design.md
+  // tasks 3.1/3.2) to extend the aggregate/groupby worked-example guarantee above, shipped per D1/3.1's
+  // "unconditional" instruction regardless of live-trial outcome. `JoinConfig`/`PivotConfig`/
+  // `UnpivotConfig`/`WindowConfig` (`backend/.../domain/steps/*.scala`) silently DEFAULT a
+  // missing/wrong-typed top-level field to empty/`""` rather than raising (and `WindowConfig`'s
+  // `orderBy` additionally drops a shape-mismatched ITEM via the same `flatMap(...).toOption` pattern
+  // `AggregateConfig`/`GroupByConfig` use) — a plausible-looking but wrong key set here would silently
+  // degrade the step's real behavior even though `preview`/apply both return success. This tolerance
+  // is a TESTED FACT, not an inference: `RefinementEditShapeSpec`'s hand-constructed negative-control
+  // tests decode a deliberately wrong-shape config per kind and assert the decoded value IS degraded,
+  // and `PatchSetPreviewServiceSpec`'s join-specific test drives that same class of wrong-shape edit
+  // through the real `PatchSetPreviewService.preview` and asserts it's accepted despite the degraded
+  // decode (skeptic-final-1.md CR-1/CR-2). Separately, 11 live `POST /api/refinements` trials against
+  // this worktree's own backend (`live-trials.md`) did NOT reproduce the model emitting a wrong-shape
+  // edit for any of the four kinds — but per skeptic-final-1.md CR-3, that is only "these specific,
+  // non-ablated prompts didn't trigger it," not proof the prompt rule below is load-bearing (no trial
+  // ran with the rule/examples absent to distinguish the two).
+  private[services] val JoinStepExample: String =
+    """{
+      |  "target": { "kind": "pipelineStep", "id": "step_mno" },
+      |  "op": "update",
+      |  "patch": {
+      |    "config": {
+      |      "rightDataSourceId": "src_456",
+      |      "joinKey": "customerId",
+      |      "joinType": "left"
+      |    }
+      |  }
+      |}""".stripMargin
+
+  private[services] val PivotStepExample: String =
+    """{
+      |  "target": { "kind": "pipelineStep", "id": "step_pqr" },
+      |  "op": "update",
+      |  "patch": {
+      |    "config": {
+      |      "index": [ "region" ],
+      |      "column": "quarter",
+      |      "values": "revenue",
+      |      "agg": "sum"
+      |    }
+      |  }
+      |}""".stripMargin
+
+  private[services] val UnpivotStepExample: String =
+    """{
+      |  "target": { "kind": "pipelineStep", "id": "step_stu" },
+      |  "op": "update",
+      |  "patch": {
+      |    "config": {
+      |      "idVars": [ "region" ],
+      |      "valueVars": [ "q1", "q2" ],
+      |      "varName": "quarter",
+      |      "valueName": "revenue"
+      |    }
+      |  }
+      |}""".stripMargin
+
+  private[services] val WindowStepExample: String =
+    """{
+      |  "target": { "kind": "pipelineStep", "id": "step_vwx" },
+      |  "op": "update",
+      |  "patch": {
+      |    "config": {
+      |      "partitionBy": [ "region" ],
+      |      "orderBy": [ { "field": "revenue", "direction": "desc" } ],
+      |      "function": "row_number",
+      |      "field": null,
+      |      "outputColumn": "rank",
+      |      "offset": null
+      |    }
+      |  }
+      |}""".stripMargin
+
   /** One worked `Edit` per `target.kind`, `op: "update"` — the `"patch"` key's shape reuses each
    *  domain's real `Update*Request` verbatim (never a shape invented for this prompt). */
   private val UpdateExamples: String =
@@ -84,7 +158,17 @@ object RefinementEditShape {
       "\n\naggregate (groupBy is a list of {name,type} objects; aggregations is a list of\n" +
       "{alias,fn,field} objects — fn is one of sum|avg|min|max|count):\n" + AggregateStepExample +
       "\n\ngroupby (a DIFFERENT, single-aggregation shape from aggregate — groupBy is a list of PLAIN\n" +
-      "STRINGS, not objects; aggColumn/aggFunction are single top-level fields, not a list):\n" + GroupByStepExample
+      "STRINGS, not objects; aggColumn/aggFunction are single top-level fields, not a list):\n" + GroupByStepExample +
+      "\n\njoin (rightDataSourceId/joinKey/joinType are all single top-level STRING fields, never lists\n" +
+      "or objects; joinType is one of inner|left):\n" + JoinStepExample +
+      "\n\npivot (index is a list of PLAIN STRINGS, not a single string or a list of objects;\n" +
+      "column/values/agg are single top-level string fields; agg is one of sum|count|avg|min|max|first):\n" + PivotStepExample +
+      "\n\nunpivot (idVars/valueVars are BOTH lists of plain strings; varName/valueName are single\n" +
+      "top-level string fields):\n" + UnpivotStepExample +
+      "\n\nwindow (partitionBy is a list of plain strings; orderBy is a list of {field,direction} objects\n" +
+      "— SortStep's own SortKey shape, never plain strings; function is one of\n" +
+      "row_number|rank|dense_rank|running_sum|lag|lead; field/offset are optional and only required by\n" +
+      "running_sum/lag/lead):\n" + WindowStepExample
 
   // `target.kind: "panel"`, `op: "update"` — ONE worked example per `PanelBindingSpec.DataBindable`
   // kind (metric/chart/table/collection/timeline, all five — a subset would leave the model
