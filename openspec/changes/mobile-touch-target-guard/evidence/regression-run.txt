@@ -1,0 +1,13 @@
+
+Running 2 tests using 1 worker
+
+[hel813-regression][Case A][baseline PASS] {"width":44,"height":44,"visible":true}
+[hel813-regression][Case A][mutated FAIL] box={"width":20,"height":20,"visible":true} threw=true
+[hel813-regression][Case A][reverted PASS] {"width":44,"height":44,"visible":true}
+  ✓  1 e2e/hel813-mobile-touch-target-floor.regression.spec.ts:144:7 › HEL-813 demonstrated-RED regression harness › Case A — HEL-535 above-base-rule @media inert floor goes red, then clean on revert (7.5s)
+[hel813-regression][Case B][baseline PASS] {"width":103,"height":44,"visible":true}
+[hel813-regression][Case B][mutated FAIL] box={"width":26,"height":44,"visible":true} threw=true
+[hel813-regression][Case B][reverted PASS] {"width":103,"height":44,"visible":true}
+  ✓  2 e2e/hel813-mobile-touch-target-floor.regression.spec.ts:218:7 › HEL-813 demonstrated-RED regression harness › Case B — height-only floor on a fixed-width control goes red, then clean on revert (5.8s)
+
+  2 passed (13.8s)

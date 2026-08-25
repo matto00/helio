@@ -1,0 +1,19 @@
+
+Running 12 tests using 1 worker
+
+  ✓   1 e2e/hel813-mobile-touch-target-floor.spec.ts:68:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 1: mobile nav sheet / command bar (3.5s)
+[hel813] exempt: input[type="color"] — DESIGN.md-exempt color swatch
+  ✓   2 e2e/hel813-mobile-touch-target-floor.spec.ts:104:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 2 + D4 discriminator: settings preferences color swatch row (3.2s)
+  ✓   3 e2e/hel813-mobile-touch-target-floor.spec.ts:135:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 3: toast dismiss control (2.7s)
+  ✓   4 e2e/hel813-mobile-touch-target-floor.spec.ts:151:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 4: empty-state CTA (2.7s)
+  ✓   5 e2e/hel813-mobile-touch-target-floor.spec.ts:184:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 5: ui-select option list (3.2s)
+  ✓   6 e2e/hel813-mobile-touch-target-floor.spec.ts:212:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 6: panel-list zoom/add controls (3.0s)
+  ✓   7 e2e/hel813-mobile-touch-target-floor.spec.ts:68:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 1: mobile nav sheet / command bar (3.2s)
+[hel813] exempt: input[type="color"] — DESIGN.md-exempt color swatch
+  ✓   8 e2e/hel813-mobile-touch-target-floor.spec.ts:104:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 2 + D4 discriminator: settings preferences color swatch row (3.0s)
+  ✓   9 e2e/hel813-mobile-touch-target-floor.spec.ts:135:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 3: toast dismiss control (2.6s)
+  ✓  10 e2e/hel813-mobile-touch-target-floor.spec.ts:151:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 4: empty-state CTA (2.9s)
+  ✓  11 e2e/hel813-mobile-touch-target-floor.spec.ts:184:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 5: ui-select option list (3.2s)
+  ✓  12 e2e/hel813-mobile-touch-target-floor.spec.ts:212:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 6: panel-list zoom/add controls (2.9s)
+
+  12 passed (36.5s)
