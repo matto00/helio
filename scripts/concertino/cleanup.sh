@@ -342,10 +342,34 @@ attempt_fast_forward
 # does NOT raise a second escalation.
 if [ "$FF_STATUS" = "dirty" ] || [ "$FF_STATUS" = "diverged" ] || [ "$FF_STATUS" = "failed" ]; then
   REASON="${FF_REASON:-fast-forward could not complete}"
-  ANSWER="$("${SCRIPT_DIR}/emit-event.sh" escalation --await \
-    ticket="$T" \
-    question="can't fast-forward local ${BASE_BRANCH} (${REASON})" \
-    options=retry,skip || true)"
+
+  # CON-138: never block on --await when no TUI can possibly answer it.
+  # `cleanup.sh` is a synchronous script with no chat channel and no
+  # resumable agent state to fall back on — unlike orchestrator.md's
+  # no-TUI branch, there is no live caller left to hand a "resolve me
+  # later" token to by the time this runs (this is the last thing Phase 4
+  # does). $SCRIPT_DIR-relative, NOT cwd-relative (see design.md Decision
+  # 1): cleanup.sh runs against an arbitrary worktree cwd, so the
+  # cwd-relative form orchestrator.md uses would fail closed here.
+  if "${SCRIPT_DIR}/tui-attached.sh"; then
+    ANSWER="$("${SCRIPT_DIR}/emit-event.sh" escalation --await \
+      ticket="$T" \
+      question="can't fast-forward local ${BASE_BRANCH} (${REASON})" \
+      options=retry,skip || true)"
+  else
+    # No TUI attached: leave local <base> exactly as found (the existing
+    # skip/timeout outcome) and make the outcome dashboard-visible via the
+    # same gate.warning family used below, rather than a silent `|| true`.
+    # Deliberately does NOT also call `--raise-only` here — see design.md
+    # Decision 3b (an unresolved escalation left open at the very end of
+    # Phase 4 would make other_runs_live() false-positive forever, per
+    # CON-121).
+    NO_TUI_NOTE="skipped fast-forward escalation: no TUI attached (${FF_STATUS}: ${REASON})"
+    echo "note: ${NO_TUI_NOTE}" >&2
+    CONCERTINO_ROLE=script "${SCRIPT_DIR}/emit-event.sh" gate.warning \
+      ticket="$T" gate=phase:cleanup resolved=false "reason=${NO_TUI_NOTE}" || true
+    ANSWER=""
+  fi
 
   if [ "$ANSWER" = "retry" ]; then
     attempt_fast_forward
@@ -386,24 +410,67 @@ fi
 # syncing) would land under other LIVE runs at an arbitrary moment, so the
 # sync is skipped whenever any other run is live (CON-66).
 #
-# "Live" here is events.jsonl state alone: a run.start with no run.end yet,
-# excluding this run's own ticket. That can overcount — a run that crashed
-# without ever writing run.end stays "live" by this test until its run dir is
-# pruned (lib/ui/retention.js prunes exactly those, by mtime) — but the
-# failure mode of overcounting is a skipped re-render plus a note pointing at
-# `concertino sync`, which is strictly safer than rewriting shared artifacts
+# "Live" here is events.jsonl state plus a staleness bound (CON-121): a
+# run.start with no run.end yet, excluding this run's own ticket, AND whose
+# last logged event is within CONCERTINO_LIVE_RUN_STALE_HOURS (default 6,
+# falls back to 6 when unset/non-numeric — mirrors CONCERTINO_CLEANUP_SKIP_
+# SYNC's env-gate pattern above) hours of now. A run stuck on an unresolved
+# Phase-4 escalation (or any other path that ends without ever writing
+# run.end) is exactly the case `lib/ui/retention.js` will NEVER prune —
+# `retention.isEligible()` requires `hasRunEnd()`, so a run missing run.end
+# is permanently ineligible for retention regardless of age. Without this
+# staleness bound, such a run would stay "live" by this test forever; this
+# bound is what closes that window instead. When the last event's timestamp
+# can't be extracted (torn trailing line, blank line, hand-edited log), this
+# fails closed to LIVE — never treat an unparsable timestamp as "not live".
+# The failure mode of overcounting (a skipped re-render plus a note pointing
+# at `concertino sync`) is strictly safer than rewriting shared artifacts
 # under a run that really is live. Sets LIVE_RUN_TICKET to the first live
 # ticket found, for the note.
 other_runs_live() {
-  local log t
+  local log t stale_hours stale_ms last_ts now_ms age_ms line i
+  local -a lines
+
+  stale_hours="${CONCERTINO_LIVE_RUN_STALE_HOURS:-6}"
+  case "$stale_hours" in
+    ''|*[!0-9]*) stale_hours=6 ;;
+  esac
+  stale_ms=$(( stale_hours * 3600 * 1000 ))
+
   for log in "${REPO_ROOT}/.concertino/runs"/*/events.jsonl; do
     [ -f "$log" ] || continue
     t="$(basename "$(dirname "$log")")"
     [ "$t" = "$T" ] && continue
     if grep -q '"kind":"run.start"' "$log" 2>/dev/null \
        && ! grep -q '"kind":"run.end"' "$log" 2>/dev/null; then
-      LIVE_RUN_TICKET="$t"
-      return 0
+      # Scan backwards from the end of the file for the last line that
+      # parses as a JSON object with a numeric "t" field — a blind `tail -1`
+      # could land on a torn final line from a concurrent append (most
+      # likely to occur under a genuinely live run, exactly the dangerous
+      # direction to get wrong).
+      last_ts=""
+      lines=()
+      while IFS= read -r line || [ -n "$line" ]; do
+        lines+=("$line")
+      done < "$log"
+      for (( i=${#lines[@]}-1; i>=0; i-- )); do
+        if [[ "${lines[$i]}" =~ ^\{.*\"t\":([0-9]+).*\}$ ]]; then
+          last_ts="${BASH_REMATCH[1]}"
+          break
+        fi
+      done
+      if [ -z "$last_ts" ]; then
+        # Decision 5: unparsable/missing timestamp fails closed to LIVE.
+        LIVE_RUN_TICKET="$t"
+        return 0
+      fi
+      now_ms=$(( $(date +%s) * 1000 ))
+      age_ms=$(( now_ms - last_ts ))
+      if [ "$age_ms" -lt "$stale_ms" ]; then
+        LIVE_RUN_TICKET="$t"
+        return 0
+      fi
+      # Past the staleness window: not live, keep scanning other logs.
     fi
   done
   return 1
@@ -425,6 +492,12 @@ other_runs_live() {
 # to suppress the automatic sync (e.g. because its own `concertino` binary
 # resolution is misbehaving) sets this env var itself, rather than the
 # capability being baked into core/ as unconditionally disabled.
+#
+# CONCERTINO_LIVE_RUN_STALE_HOURS (CON-121): env-gated override for
+# `other_runs_live()`'s staleness bound, above. Unset/non-numeric falls back
+# to the default of 6 hours. A project that observes legitimately longer (or
+# wants a tighter) delivery durations than this repo's own history sets this
+# env var itself, same pattern as CONCERTINO_CLEANUP_SKIP_SYNC.
 CLEANUP_SKIP_SYNC="${CONCERTINO_CLEANUP_SKIP_SYNC:-}"
 case "$CLEANUP_SKIP_SYNC" in
   1|true|TRUE|True|yes|YES) CLEANUP_SKIP_SYNC=1 ;;

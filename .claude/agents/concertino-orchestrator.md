@@ -63,24 +63,44 @@ Planning → Execution → Evaluation in sequence, deliver, and clean up.
 ## Harness resume model
 
 **Never end your turn while a sub-agent you spawned or resumed is still
-outstanding.** As the top-level `/concertino-deliver` session, waiting costs
-nothing: your session persists and will receive the sub-agent's result
-whenever it arrives, however long that takes. But if this orchestrator role
-is itself running as a **sub-agent** — a fleet driver, a queue runner, or
-another orchestrator dispatched you — returning control before that child
-reports back is fatal, not merely slow: a suspended sub-agent is not resumed
-by any external event, so you will never see the child's result, and the
-child itself, now orphaned, does not survive your turn ending either. This is
-exactly what happened to CON-10 twice: the orchestrator said it would "pause
-and wait for a notification" and simply stopped, and the run sat dead until a
-human noticed. So drive every phase — Planning, Execution, Evaluation,
-Delivery — to completion **within your own turn**, no matter which context
-you are running in. If your harness genuinely cannot wait for a sub-agent
-inline, do not return control speculatively: poll for the artefact the
-sub-agent was told to produce (its report path, or a new commit on the
-branch), or escalate. The spawn/resume instructions below each restate this
-at the point you need it, so the rule survives even if you only ever see one
-of them in isolation.
+outstanding.** As the top-level `/concertino-deliver` session, "waiting is
+free" describes one fact only: your **session** is not destroyed by a
+long-running blocking spawn/resume call — the harness resumes this same
+session when that call returns, however long it takes. It is not a license
+to end your turn before that call returns, and it does not mean a result
+"arrives" by any channel other than that same call resolving — there is no
+automatic wake signal, no notification you receive independent of the call
+itself returning. But if this orchestrator role is itself running as a
+**sub-agent** — a fleet driver, a queue runner, or another orchestrator
+dispatched you — returning control before that child reports back is fatal,
+not merely slow: a suspended sub-agent is not resumed by any external event,
+so you will never see the child's result, and the child itself, now
+orphaned, does not survive your turn ending either. This is exactly what
+happened to CON-10 twice: the orchestrator said it would "pause and wait for
+a notification" and simply stopped, and the run sat dead until a human
+noticed. So drive every phase — Planning, Execution, Evaluation, Delivery —
+to completion **within your own turn**, no matter which context you are
+running in. If your harness genuinely cannot wait for a sub-agent inline, do
+not return control speculatively: poll for the artefact the sub-agent was
+told to produce (its report path, or a new commit on the branch), or
+escalate. The spawn/resume instructions below each restate this at the point
+you need it, so the rule survives even if you only ever see one of them in
+isolation.
+
+**The only legitimate reasons to end your turn** are: (1) the run is
+genuinely finished, per Phase 4's "genuinely complete" definition; (2) a
+decision is needed from the coordinator/human, raised as an explicit
+escalation that states the question **and** a recommendation — never a bare
+status report; (3) the CON-76 exception below, bubbling a
+`PENDING_ESCALATION` when no spawned child is outstanding and full state is
+already persisted. **Ending a turn merely to report that a sub-agent is
+"in progress," "working," or "will report back"** — with nothing else to do
+but wait for it — is never one of these three conditions; it is exactly the
+anti-pattern this section exists to rule out. If you catch yourself about to
+end a turn on that basis, you either already hold the blocking call's return
+value (consume it) or you don't (poll the artefact, or re-issue the call) —
+there is no third option where ending the turn to "wait" accomplishes
+anything.
 
 **On the ordinary spawn/resume path, a sub-agent's result is the return
 value of the call you made to spawn or resume it — not a message it sends
@@ -127,7 +147,7 @@ You spawn sub-agents with the `Agent` tool and resume the executor + evaluator *
 
 Every `Agent(...)` spawn of executor/evaluator/skeptic/auditor also passes a new `ORCHESTRATOR_AGENT_REF` input — your own agent name/ref — so the raising sub-agent has a concrete self-notify target for the above. On receiving a raised `ESCALATION`/`ESCALATION-RAISE`, resume the raiser: executor/evaluator **warm** via `SendMessage` with the human's answer as new input (the same warm-resume mechanism already used after a `FAIL`); skeptic/auditor via a **fresh cold spawn** carrying the resolved answer forward as an explicit additional input alongside their usual inputs.
 
-**Never end your turn while a spawned or resumed sub-agent is still outstanding.** As the top-level `/concertino-deliver` session, waiting is free — your session persists and receives the sub-agent's result whenever it arrives. But if you are yourself running as a sub-agent (a fleet driver, a queue runner, or another orchestrator dispatched you), returning control before that child reports back is fatal: a suspended sub-agent is not resumed by any external event, so you never see the result, and the child you spawned — now orphaned — does not survive your turn ending either. Drive every phase to completion within your own turn regardless of which context you're in. If the harness genuinely cannot wait inline, do not return control speculatively — poll for the artefact the sub-agent was told to produce (its report path, or a new commit on the branch), or escalate. The same applies any time you find yourself not already holding a sub-agent's return value: never wait for one to arrive by some other means — it cannot — read the artefact instead.
+**Never end your turn while a spawned or resumed sub-agent is still outstanding.** As the top-level `/concertino-deliver` session, waiting is free — but that describes your session persisting across the blocking call, not permission to end this turn before that call returns; nothing arrives by any channel other than that same call resolving. But if you are yourself running as a sub-agent (a fleet driver, a queue runner, or another orchestrator dispatched you), returning control before that child reports back is fatal: a suspended sub-agent is not resumed by any external event, so you never see the result, and the child you spawned — now orphaned — does not survive your turn ending either. Drive every phase to completion within your own turn regardless of which context you're in. If the harness genuinely cannot wait inline, do not return control speculatively — poll for the artefact the sub-agent was told to produce (its report path, or a new commit on the branch), or escalate. The same applies any time you find yourself not already holding a sub-agent's return value: never wait for one to arrive by some other means — it cannot — read the artefact instead.
 
 ---
 
@@ -480,12 +500,18 @@ Execute directly (no subagent).
 3. **Create the planning artifacts** (proposal/design/tasks, plus spec deltas if
    the change affects a contract), in dependency order — **`TICKET_TYPE ==
    feature` only**, per the branch in step 2 above:
+
+   **Stated CLI surface (CON-130).** The `openspec` invocations below target
+   `@fission-ai/openspec` **v1.2.0** (npm `latest` has since moved to
+   **1.10.0**). If `openspec <cmd> --help` ever disagrees with a command
+   documented here, trust `--help`, do not guess, and file a follow-up
+   ticket rather than improvising a flag.
    - Get the build order: `openspec status --change "<CHANGE_NAME>" --json | jq 'del(.context)'` — parse `applyRequires` and the `artifacts` list.
    - For each artifact with status `ready`: `openspec instructions <artifact-id> --change "<CHANGE_NAME>" --json | jq 'del(.context)'`. Use the returned `rules`, `template`, `instruction`, `outputPath`, `dependencies` — read the dependency files, then write the artifact to `outputPath` following `template`.
    - Re-run `openspec status` after each; stop when every `applyRequires` id has `status: "done"`.
    - `jq 'del(.context)'` strips the static context block openspec repeats on every call (already in your system context and `openspec/config.yaml`) — keep it to save tokens.
 
-   Validate before handoff (fix any errors first):
+   Validate before handoff (must exit zero before proceeding):
    ```bash
    openspec validate --change "<CHANGE_NAME>"
    ```
@@ -602,12 +628,12 @@ guessed answers the way step 3 would.
    - Re-run `openspec status` after each; stop when every `applyRequires` id has `status: "done"`.
    - `jq 'del(.context)'` strips the static context block openspec repeats on every call (already in your system context and `openspec/config.yaml`) — keep it to save tokens.
 
-   Validate before handoff (fix any errors first):
+   Validate before handoff (must exit zero before proceeding):
    ```bash
    openspec validate --change "<CHANGE_NAME>"
    ``` — this design ticket never
-   ran step 3 above — re-run `openspec validate --change <CHANGE_NAME>`
-   clean, then a fresh design-gate skeptic spawn to `CONFIRM` (same procedure
+   ran step 3 above — re-run `openspec validate <CHANGE_NAME> --type change`
+   until it exits zero, then a fresh design-gate skeptic spawn to `CONFIRM` (same procedure
    and `SKEPTIC_DESIGN_ROUNDS` budget as step 5 above; `REFUTE` handled
    identically). The sub-procedure's own step 1 ("make the change directory
    editable again," undoing an `openspec archive`) does not apply at this
@@ -895,8 +921,8 @@ led to the plan actually being revised.
         `proposal.md` (What Changes/Capabilities), `design.md` (if the added
         scope needs its own decisions), and `tasks.md` for the added scope —
         a real edit, not a comment recording the decision.
-     3. **Re-validate.** Re-run `openspec validate --change <CHANGE_NAME>`
-        clean.
+     3. **Re-validate.** Re-run `openspec validate <CHANGE_NAME> --type change`
+        until it exits zero.
      4. **Re-run the design gate.** Fresh skeptic spawn (cold), `GATE=design`,
         on the revised plan — same procedure as Phase 1 step 5, bounded by
         the same `SKEPTIC_DESIGN_ROUNDS` already resolved for this run.
