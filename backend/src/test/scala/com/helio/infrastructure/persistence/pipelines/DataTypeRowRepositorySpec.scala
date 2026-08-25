@@ -168,5 +168,77 @@ class DataTypeRowRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val result = await(repo.listRows(dtExclude, excludeKeys = Set("nonexistent-key")))
       result.head.fields.keySet shouldBe Set("name", "score")
     }
+
+    // ── HEL-630: large-numeric round-trip boundary sweep ─────────────────
+    //
+    // spray-json's default JsonParserSettings caps numeric-literal length at
+    // maxNumberCharacters = 100 (verified empirically: a 100-char digit
+    // string parses fine, a 101-char digit string throws
+    // ParsingException("Number too long")  — the ticket's own ">=100 chars"
+    // framing is an off-by-one; the true boundary is ">100 chars", i.e. 100
+    // passes and 101 fails). Postgres canonicalizes a large jsonb numeric to
+    // its full plain-decimal expansion on `::text` cast, so listRows'
+    // re-parse of that text hits this cap for any Structured numeric value
+    // whose decimal expansion exceeds 100 characters — a real, in-range
+    // jsonb value (jsonb numeric is arbitrary-precision, not bounded by
+    // double precision).
+
+    def roundTrip(dtId: String, value: BigDecimal): JsNumber = {
+      val row = JsObject("value" -> JsNumber(value))
+      await(repo.overwriteRows(dtId, Seq(row)))
+      await(repo.listRows(dtId)).head.fields("value").asInstanceOf[JsNumber]
+    }
+
+    "large-magnitude numeric value (well beyond the 100-char boundary) round-trips to the exact value written" in {
+      val dtLarge = "dt-large-numeric-" + java.util.UUID.randomUUID().toString
+      // 1 followed by 310 zeros: a 311-digit integer, well beyond the 100-char cap.
+      val value = BigDecimal("1" + ("0" * 310))
+      val result = roundTrip(dtLarge, value)
+      result.value shouldBe value
+    }
+
+    "negative large-magnitude numeric value round-trips exactly, sign preserved" in {
+      val dtNeg = "dt-large-neg-" + java.util.UUID.randomUUID().toString
+      val value = BigDecimal("-" + "9" * 200)
+      val result = roundTrip(dtNeg, value)
+      result.value shouldBe value
+      result.value should be < BigDecimal(0)
+    }
+
+    "high-precision decimal value (many significant fractional digits) round-trips with full precision" in {
+      val dtPrecise = "dt-high-precision-" + java.util.UUID.randomUUID().toString
+      val value = BigDecimal("123456789." + ("123456789" * 20)) // 180+ significant digits
+      val result = roundTrip(dtPrecise, value)
+      result.value shouldBe value
+    }
+
+    "small-magnitude value with a long fractional expansion (denormal-style) round-trips exactly" in {
+      val dtDenormal = "dt-denormal-" + java.util.UUID.randomUUID().toString
+      // near-5e-324 shape: many leading zeros after the decimal point.
+      val value = BigDecimal("0." + ("0" * 320) + "5")
+      val result = roundTrip(dtDenormal, value)
+      result.value shouldBe value
+    }
+
+    "ordinary small numeric value continues to round-trip unchanged (control case)" in {
+      val dtOrdinary = "dt-ordinary-numeric-" + java.util.UUID.randomUUID().toString
+      val value = BigDecimal("42.5")
+      val result = roundTrip(dtOrdinary, value)
+      result.value shouldBe value
+    }
+
+    "numeric value whose decimal expansion is exactly at the 100-char boundary round-trips" in {
+      val dtAtBoundary = "dt-at-boundary-" + java.util.UUID.randomUUID().toString
+      val value = BigDecimal("1" * 100)
+      val result = roundTrip(dtAtBoundary, value)
+      result.value shouldBe value
+    }
+
+    "numeric value whose decimal expansion is just over the 100-char boundary round-trips" in {
+      val dtOverBoundary = "dt-over-boundary-" + java.util.UUID.randomUUID().toString
+      val value = BigDecimal("1" * 101)
+      val result = roundTrip(dtOverBoundary, value)
+      result.value shouldBe value
+    }
   }
 }
