@@ -46,7 +46,7 @@ import { accumulatePanelUpdate } from "../../state/panelsSlice";
 import { useTheme } from "../../../../theme/ThemeProvider";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
-import { useAppDispatch } from "../../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { useLayoutSave } from "../../hooks/useLayoutSave";
 import type { LayoutFlush } from "../../hooks/usePanelUpdatesFlush";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
@@ -75,6 +75,11 @@ export function DesktopPanelGrid({
   registerLayoutFlush,
 }: DesktopPanelGridProps) {
   const dispatch = useAppDispatch();
+  // HEL-651: gate the auto-close effect below on the panels-list load state,
+  // not just `panels` itself — `fetchPanels.rejected` empties `items` on a
+  // *transient refetch failure*, indistinguishable from a real deletion by
+  // list contents alone. See design.md's Decision (design-gate round 2).
+  const panelsStatus = useAppSelector((state) => state.panels.status);
   const { theme } = useTheme();
   const [isDragging, setIsDragging] = useState(false);
   const [confirmDeletePanelId, setConfirmDeletePanelId] = useState<string | null>(null);
@@ -112,6 +117,35 @@ export function DesktopPanelGrid({
     () => (zoomLevel === 1 ? undefined : createScaledStrategy(zoomLevel)),
     [zoomLevel],
   );
+  // HEL-651: `detailPanel` is genuinely `Panel | undefined` — the render
+  // guard below (`detailPanel ?`) is what prevents ever mounting
+  // `PanelDetailModal` with an undefined panel, regardless of *why*
+  // `detailPanel` is momentarily undefined (transient loading/failed, or
+  // truly deleted). See design.md's Decision (design-gate round 2).
+  const detailPanel =
+    detailPanelId !== null ? panels.find((p) => p.id === detailPanelId) : undefined;
+
+  useEffect(() => {
+    // Only auto-close (clear detailPanelId) once the panels list is
+    // known-loaded ("succeeded") and still doesn't contain this panel; never
+    // on "loading"/"failed", so a transient refetch window doesn't
+    // permanently dismiss the modal. This does NOT preserve unsaved
+    // edit-mode state — the render guard below unmounts `PanelDetailModal`
+    // (destroying its local useState) on ANY unmount, gated or not.
+    if (detailPanelId !== null && detailPanel === undefined && panelsStatus === "succeeded") {
+      // HEL-651: this effect exists specifically to synchronize local
+      // `detailPanelId` with an external signal (the `panels` list confirming
+      // the backing panel is gone) — the exact "subscribe for updates from
+      // some external system" case the lint rule allows for, not internal
+      // derived state that should be computed during render instead. The
+      // render guard above already prevents the crash unconditionally; this
+      // setState only tidies `detailPanelId` back to a genuine "closed" state
+      // once the removal is confirmed (design.md's Decision + Alternatives).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDetailPanelId(null);
+    }
+  }, [detailPanelId, detailPanel, panelsStatus]);
+
   const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
   const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
   const preInteractionLayoutRef = useRef<DashboardLayout | null>(null);
@@ -299,14 +333,14 @@ export function DesktopPanelGrid({
           );
         })}
       </Responsive>
-      {detailPanelId !== null ? (
+      {detailPanel ? (
         <PanelDetailModal
           // HEL-307: key by panel id so a direct switch between panels remounts
           // the modal subtree, re-seeding every `useState(initial*)` form field
           // from the target panel. Without it React reuses the instance and Save
           // could write the previous panel's staged values onto this one.
           key={detailPanelId}
-          panel={panels.find((p) => p.id === detailPanelId)!}
+          panel={detailPanel}
           onClose={() => setDetailPanelId(null)}
           initialMode={detailPanelMode}
         />
