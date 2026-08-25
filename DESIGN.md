@@ -206,7 +206,21 @@ by a control token. For a painted chrome control that must not visually grow
 mobile command bar's icon buttons and avatar trigger, HEL-772), the sanctioned
 alternative is a sized `::after` hit expander (`width: 44px; height: 44px;
 top/left: 50%; transform: translate(-50%, -50%)` on a `position: relative`
-control) rather than `min-width`/`min-height`, which would grow the box.
+control) rather than `min-width`/`min-height`, which would grow the box. The
+expander extends `(44 - controlSize) / 2` per side (8px for a 28px control),
+so a cluster of expander-based controls needs a gap of at least twice that
+(16px for 28px controls), or adjacent hit regions overlap and the
+later-painted sibling steals the earlier control's taps in the overlapping
+band (HEL-772 measured a real horizontal extent of 35.75px at an 8px gap,
+against a `::after` that still computed a full 44px). Neither
+`getComputedStyle(el, "::after").width` nor sampling neighbouring painted
+boxes for overlap can detect this — the failure is region-vs-region, not
+box-vs-box — so verification must bisect each control's real hit extent with
+`elementFromPoint`. A correctly tiled, abutting hit region legitimately
+bisects to just under 44px (~43.75px at a 0.25px sampling step), so the
+assertion threshold needs an epsilon (`>= 44 - samplingStep`, never a literal
+`>= 44`); the gap must never be widened past the tiling point to force the
+number over 44 — the threshold takes the epsilon, not the gap.
 **[mechanical]** No other control heights.
 
 ### Typography
