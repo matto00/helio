@@ -153,6 +153,12 @@ Design and architecture notes for the original in-repo system live in
 ### Behavior
 
 - Ask clarifying questions before making large assumptions about architecture or requirements.
+- **Escalate deliberately.** In an interactive chat session, `AskUserQuestion` is the **default for major decisions** — a product call, a scope change, a naming choice that is expensive to reverse, or permission for something irreversible. The form forces a real answer; the same question in prose reads as commentary and gets scrolled past.
+  - Prose questions are still fine for smaller things, and still get answered as they are seen. The rule is about which mechanism is the **default** when the decision is significant — not a ban on asking anything in prose.
+  - This is about **chat sessions only**. Concertino runs escalate through their own mechanism (`emit-event.sh escalation`, gated on `tui-attached.sh`) — do not route those through `AskUserQuestion`.
+  - Never use it for things that are not questions: status, findings, or a recommendation the user has not been asked to rule on. A form for something you are about to do anyway is friction, not clarity.
+  - If a major question goes unanswered, re-ask it via `AskUserQuestion` rather than repeating it in prose. Repeating in prose is how a question gets buried twice.
+  - A question you asked a **subagent** is not a question you asked the user. Do not report a pending subagent answer as though it were awaiting the user's input — chase the subagent instead.
 - Optimize for performance by default in both frontend and backend code paths.
 - Keep code modular and reusable; prefer small composable units.
 - Keep changes focused on the requested task; avoid unrelated refactors unless requested.
