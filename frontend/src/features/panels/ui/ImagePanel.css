@@ -45,7 +45,7 @@
 
 .image-panel--empty {
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   background: color-mix(in srgb, currentColor 7%, transparent);
   border-radius: var(--app-radius-sm);
   color: color-mix(in srgb, currentColor 55%, transparent);

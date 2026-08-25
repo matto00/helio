@@ -15,14 +15,14 @@
 }
 
 /* design.md D6 (scope amendment): tighter gap/padding than the original
- * consolidation (was `gap: 12px; padding: 10px 20px;`) — the direct lever for
+ * consolidation (was `gap: var(--space-3); padding: 10px var(--space-5);`) — the direct lever for
  * the amendment's density goal, and it also frees horizontal budget for the
  * schedule group's text (skeptic-final-2.md CR1). */
 .pipeline-detail-header__group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: var(--space-2);
+  padding: var(--space-2) 14px;
   flex: 1;
   min-width: 0;
 }
@@ -62,7 +62,7 @@
 .pipeline-detail-header__group-value {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -227,7 +227,7 @@
   .pipeline-detail-header__actions {
     border-top: 1px solid var(--app-border-subtle);
     justify-content: flex-end;
-    padding: 8px 14px;
+    padding: var(--space-2) 14px;
   }
 
   /* Restore the "Disabled" text badge (hidden by default above, for the

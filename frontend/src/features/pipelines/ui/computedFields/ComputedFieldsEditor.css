@@ -1,14 +1,14 @@
 .computed-fields-editor {
-  margin-top: 1.5rem;
+  margin-top: var(--space-6);
   border-top: 1px solid var(--app-border-subtle);
-  padding-top: 1rem;
+  padding-top: var(--space-4);
 }
 
 .computed-fields-editor__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--space-3);
 }
 
 .computed-fields-editor__title {
@@ -23,7 +23,7 @@
   background: none;
   border: 1px solid currentColor;
   border-radius: 4px;
-  padding: 0.2rem 0.5rem;
+  padding: 0.2rem var(--space-2);
 }
 
 .computed-fields-editor__list {
@@ -32,13 +32,13 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .computed-fields-editor__item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   font-size: var(--text-xs);
   padding: 0.4rem 0;
   border-bottom: 1px solid var(--app-border-subtle);
