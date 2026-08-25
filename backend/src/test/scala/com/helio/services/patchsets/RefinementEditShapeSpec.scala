@@ -4,7 +4,7 @@ import com.helio.services.patchsets.RefinementEditShape
 import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.api.protocols.patchsets.{Edit, PatchSetProtocol}
 import com.helio.domain.panels.{ChartPanelConfig, CollectionPanelConfig, MetricPanelConfig, TablePanelConfig, TimelinePanelConfig}
-import com.helio.domain.steps.{AggregateConfig, GroupByConfig}
+import com.helio.domain.steps.{AggregateConfig, GroupByConfig, JoinConfig, PivotConfig, UnpivotConfig, WindowConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -174,6 +174,132 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
       decoded.groupBy should contain("region")
       decoded.aggColumn shouldBe "amount"
       decoded.aggFunction shouldBe "avg"
+    }
+
+    // HEL-671: join/pivot/window/unpivot decode-and-assert-actual-values coverage (design.md D2,
+    // tasks 3.2) — mirrors the aggregate/groupby tests above exactly: decode through the REAL config
+    // decoder and assert non-empty/matching field values, never a bare "decodes without throwing"
+    // assertion (that assertion shape would NOT catch a wrong-shape edit that silently decodes to a
+    // degraded/defaulted config).
+
+    "join: config round-trips through the REAL JoinConfig.decode with non-empty rightDataSourceId/joinKey/joinType matching the example's own values" in {
+      val edit = parseEdit(RefinementEditShape.JoinStepExample)
+      edit.op shouldBe "update"
+
+      val request = edit.pipelineStepPatch.get
+      val decoded = JoinConfig.decode(request.config.get.compactPrint)
+
+      decoded.rightDataSourceId should not be empty
+      decoded.rightDataSourceId shouldBe "src_456"
+      decoded.joinKey should not be empty
+      decoded.joinKey shouldBe "customerId"
+      decoded.joinType shouldBe "left"
+    }
+
+    "pivot: config round-trips through the REAL PivotConfig.decode with a non-empty index matching the example's own column/values/agg" in {
+      val edit = parseEdit(RefinementEditShape.PivotStepExample)
+      edit.op shouldBe "update"
+
+      val request = edit.pipelineStepPatch.get
+      val decoded = PivotConfig.decode(request.config.get.compactPrint)
+
+      decoded.index should not be empty
+      decoded.index should contain("region")
+      decoded.column shouldBe "quarter"
+      decoded.values shouldBe "revenue"
+      decoded.agg shouldBe "sum"
+    }
+
+    "unpivot: config round-trips through the REAL UnpivotConfig.decode with non-empty idVars/valueVars matching the example's own columns" in {
+      val edit = parseEdit(RefinementEditShape.UnpivotStepExample)
+      edit.op shouldBe "update"
+
+      val request = edit.pipelineStepPatch.get
+      val decoded = UnpivotConfig.decode(request.config.get.compactPrint)
+
+      decoded.idVars should not be empty
+      decoded.idVars should contain("region")
+      decoded.valueVars should not be empty
+      decoded.valueVars should contain allOf ("q1", "q2")
+      decoded.varName shouldBe "quarter"
+      decoded.valueName shouldBe "revenue"
+    }
+
+    "window: config round-trips through the REAL WindowConfig.decode with orderBy/partitionBy both reflecting every intended entry (no item silently dropped)" in {
+      val edit = parseEdit(RefinementEditShape.WindowStepExample)
+      edit.op shouldBe "update"
+
+      val request = edit.pipelineStepPatch.get
+      val decoded = WindowConfig.decode(request.config.get.compactPrint)
+
+      decoded.partitionBy should not be empty
+      decoded.partitionBy should contain("region")
+      decoded.orderBy should not be empty
+      decoded.orderBy.map(_.field) should contain("revenue")
+      decoded.orderBy.map(_.direction) should contain("desc")
+      decoded.function shouldBe "row_number"
+      decoded.outputColumn shouldBe "rank"
+    }
+  }
+
+  // HEL-671 skeptic-final-1.md CR-1: a discriminating NEGATIVE control. Every assertion above
+  // decodes a CORRECT worked example and checks it stays correct — that alone cannot distinguish
+  // "the tolerant decode-time defaulting is real" from "these examples just happen to be
+  // well-formed". Each test below hand-constructs a WRONG-SHAPE config (never one of the worked
+  // examples above), decodes it through the SAME real decoder, and asserts the decoded VALUE is
+  // silently degraded (empty vector / `""` default) — never a bare "decodes without throwing"
+  // assertion. This is what makes "the tolerance HEL-671 exists to reason about is real" a tested
+  // fact rather than a code-read/doc-comment inference.
+
+  // CHARACTERIZATION-TEST WARNING (added post skeptic-final-2.md CONFIRM): the 4 tests below
+  // deliberately assert the CURRENT silently-tolerant decoder behavior (`joinKey shouldBe ""`,
+  // `index shouldBe empty`, `orderBy shouldBe empty`, etc.) as EXPECTED for HEL-671's scope
+  // (decoder hardening is explicitly deferred — see design.md D3). HEL-814 (filed, High priority)
+  // will make these decoders RAISE on shape mismatch instead of silently defaulting. When HEL-814
+  // lands, ALL FOUR of these tests SHOULD FAIL — that failure is the correct signal the hardening
+  // fix worked, NOT a regression in HEL-814's own change. The correct response to that failure is
+  // to INVERT each assertion (e.g. assert `JoinConfig.decode(wrongShape)` raises, rather than that
+  // it returns a degraded value) — never to weaken the assertion or revert the hardening just to
+  // turn these tests green again.
+  "The real config decoders' silent-tolerance behavior on a hand-constructed WRONG-SHAPE config (negative control)" should {
+
+    "join: an edit missing joinKey silently decodes to joinKey = \"\" (no exception, no signal)" in {
+      val wrongShape = """{"rightDataSourceId": "src_456", "joinType": "inner"}"""
+      val decoded = JoinConfig.decode(wrongShape)
+
+      decoded.rightDataSourceId shouldBe "src_456"
+      decoded.joinKey shouldBe "" // silently defaulted — the real degradation this ticket is about
+      decoded.joinType shouldBe "inner"
+    }
+
+    "pivot: a non-array index silently decodes to an EMPTY index vector (no exception, no signal)" in {
+      val wrongShape = """{"index": "region", "column": "quarter", "values": "revenue", "agg": "sum"}"""
+      val decoded = PivotConfig.decode(wrongShape)
+
+      decoded.index shouldBe empty // silently defaulted from a non-JsArray "index"
+      decoded.column shouldBe "quarter"
+    }
+
+    "unpivot: a bare-string valueVars AND a missing varName both silently decode to degraded values" in {
+      val wrongShape = """{"idVars": ["region"], "valueVars": "q1", "valueName": "revenue"}"""
+      val decoded = UnpivotConfig.decode(wrongShape)
+
+      decoded.idVars should contain("region")
+      decoded.valueVars shouldBe empty // silently defaulted from a non-JsArray "valueVars"
+      decoded.varName shouldBe "variable" // StepCodecUtil.stringOr's own hardcoded default, not "" — still a
+      // SILENT substitution for a value the caller never actually provided, i.e. the same defect class
+    }
+
+    "window: plain-string orderBy entries are silently DROPPED (item-level flatMap-drop), and a non-array partitionBy silently defaults to empty" in {
+      val wrongShape =
+        """{"partitionBy": "region", "orderBy": ["revenue"], "function": "row_number", "outputColumn": "rank"}"""
+      val decoded = WindowConfig.decode(wrongShape)
+
+      decoded.partitionBy shouldBe empty // silently defaulted from a non-JsArray "partitionBy"
+      decoded.orderBy shouldBe empty // the plain-string "revenue" entry doesn't convertTo[SortKey] and is
+      // silently DROPPED by the flatMap(...).toOption pattern — the same mechanism AggregateConfig/
+      // GroupByConfig had before HEL-411's fix
+      decoded.function shouldBe "row_number"
     }
   }
 }

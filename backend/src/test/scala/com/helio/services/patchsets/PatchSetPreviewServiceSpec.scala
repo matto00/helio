@@ -566,6 +566,47 @@ class PatchSetPreviewServiceSpec
       }
     }
 
+    // HEL-671 skeptic-final-1.md CR-2: proves the ticket's CENTRAL claim as a tested fact, not a
+    // code-read inference — a wrong-shape `join` edit (missing `joinKey`, decodes silently to
+    // `joinKey = ""` per `JoinConfig.decode`/`RefinementEditShapeSpec`'s negative-control test)
+    // passes `preview` (i.e. `PatchSetApplyResolvers.validateEmbeddedStepReferences`'s
+    // `case Success(jc: JoinConfig) => ... findByIdOwned check ...`) because that check only
+    // validates `rightDataSourceId` referentially — it never inspects `joinKey`/`joinType` at all.
+    // `preview` returning `Right` here, despite the degraded decode, is exactly what makes "a
+    // wrong-shape edit passes preview and would silently corrupt the pipeline" demonstrated rather
+    // than merely plausible from reading the decoder's doc comment.
+    // CHARACTERIZATION-TEST WARNING (added post skeptic-final-2.md CONFIRM): this test
+    // deliberately asserts that preview ACCEPTS (`Right`) a wrong-shape edit today — that is
+    // HEL-671's scope (decoder hardening is explicitly deferred, see design.md D3). HEL-814
+    // (filed, High priority) will make `JoinConfig.decode` RAISE on shape mismatch instead of
+    // silently defaulting, which will make `validateEmbeddedStepReferences` return a `Left`
+    // (`BadRequest`) for this same wrong-shape config instead. When HEL-814 lands, THIS TEST
+    // SHOULD FAIL — that failure is the correct signal the hardening fix worked, NOT a
+    // regression in HEL-814's own change. The correct response is to INVERT the assertion
+    // (expect `Left`/rejection instead of `Right`), never to weaken it or revert the hardening
+    // just to turn this test green again.
+    "PASS preview for a wrong-shape join edit missing joinKey — decodes silently, and the referential check on rightDataSourceId does not catch it (skeptic-final-1.md CR-2)" in {
+      val (leftSourceId, _)  = seedStaticSource(userA, "JoinLeftSrc")
+      val (rightSourceId, _) = seedStaticSource(userA, "JoinRightSrc")
+      val pipeline = seedPipeline(userA, leftSourceId, "Join pipeline")
+      val step = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "join",
+        JsObject("rightDataSourceId" -> JsString(rightSourceId.value), "joinKey" -> JsString("id"), "joinType" -> JsString("inner"))
+      )
+
+      // Hand-constructed wrong-shape config: joinKey is OMITTED entirely (never "" explicitly) —
+      // JoinConfig.decode silently defaults it to "" rather than raising, and nothing downstream
+      // of the decode inspects joinKey's value at all.
+      val wrongShapeConfig = JsObject("rightDataSourceId" -> JsString(rightSourceId.value), "joinType" -> JsString("inner"))
+      val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
+        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(wrongShapeConfig), None)), None)
+
+      preview(Vector(updateEdit), userA) match {
+        case Right(_)   => succeed // preview accepted the degraded edit — the tolerance is real AND unguarded
+        case Left(err) => fail(s"expected preview to PASS (demonstrating the silent-tolerance gap), but it rejected the edit: $err")
+      }
+    }
+
     "hint that a dataSource delete cascades to dependent pipelines (6.5d)" in {
       val (sourceId, _) = seedStaticSource(userA, "CascadeSrc")
       val edit = Edit(EditTarget("dataSource", Some(sourceId.value)), "delete", None, None, None, None, None, None, None)
