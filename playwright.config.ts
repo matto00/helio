@@ -9,6 +9,12 @@ const DEV_PORT = process.env.DEV_PORT ?? "5173";
 
 export default defineConfig({
   testDir: "./e2e",
+  // HEL-813 design.md D1/CR3 — the demonstrated-RED regression harness
+  // mutates real component source (self-reverting) and must never run as
+  // part of a bare `npm run e2e`. This is one of two independent layers;
+  // the harness file also self-gates on `HEL813_REGRESSION` (see
+  // e2e/README.md).
+  testIgnore: ["**/*.regression.spec.ts"],
   timeout: 30_000,
   retries: 0,
   fullyParallel: false,

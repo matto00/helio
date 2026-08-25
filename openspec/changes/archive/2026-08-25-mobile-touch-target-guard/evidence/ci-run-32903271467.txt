@@ -1,0 +1,35 @@
+2026-08-25T21:54:48.0998490Z ##[group]Run npx playwright test e2e/hel813-mobile-touch-target-floor.spec.ts
+2026-08-25T21:54:48.0999551Z npx playwright test e2e/hel813-mobile-touch-target-floor.spec.ts
+2026-08-25T21:54:48.1055662Z shell: /usr/bin/bash -e {0}
+2026-08-25T21:54:48.1056153Z env:
+2026-08-25T21:54:48.1056656Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+2026-08-25T21:54:48.1057303Z   DB_USER: helio
+2026-08-25T21:54:48.1057704Z   DB_PASSWORD: helio
+2026-08-25T21:54:48.1058123Z   HELIO_UPLOADS_BACKEND: local
+2026-08-25T21:54:48.1058574Z   DEV_PORT: 5173
+2026-08-25T21:54:48.1058962Z   BACKEND_PORT: 8080
+2026-08-25T21:54:48.1059380Z   GOOGLE_CLIENT_ID: placeholder
+2026-08-25T21:54:48.1059846Z   GOOGLE_CLIENT_SECRET: placeholder
+2026-08-25T21:54:48.1060444Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+2026-08-25T21:54:48.1061248Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-8/x64
+2026-08-25T21:54:48.1062203Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-8/x64
+2026-08-25T21:54:48.1062948Z ##[endgroup]
+2026-08-25T21:54:49.7720029Z 
+2026-08-25T21:54:49.7720702Z Running 12 tests using 1 worker
+2026-08-25T21:54:49.7721146Z 
+2026-08-25T21:54:55.5371940Z   ✓   1 e2e/hel813-mobile-touch-target-floor.spec.ts:68:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 1: mobile nav sheet / command bar (5.0s)
+2026-08-25T21:54:58.7885305Z [hel813] exempt: input[type="color"] — DESIGN.md-exempt color swatch
+2026-08-25T21:54:58.9712835Z   ✓   2 e2e/hel813-mobile-touch-target-floor.spec.ts:104:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 2 + D4 discriminator: settings preferences color swatch row (3.4s)
+2026-08-25T21:55:02.4900616Z   ✓   3 e2e/hel813-mobile-touch-target-floor.spec.ts:135:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 3: toast dismiss control (3.5s)
+2026-08-25T21:55:05.5815795Z   ✓   4 e2e/hel813-mobile-touch-target-floor.spec.ts:151:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 4: empty-state CTA (3.1s)
+2026-08-25T21:55:09.1736272Z   ✓   5 e2e/hel813-mobile-touch-target-floor.spec.ts:184:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 5: ui-select option list (3.6s)
+2026-08-25T21:55:12.2130690Z   ✓   6 e2e/hel813-mobile-touch-target-floor.spec.ts:212:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 6: panel-list zoom/add controls (3.0s)
+2026-08-25T21:55:15.7137900Z   ✓   7 e2e/hel813-mobile-touch-target-floor.spec.ts:68:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 1: mobile nav sheet / command bar (3.5s)
+2026-08-25T21:55:18.6682596Z [hel813] exempt: input[type="color"] — DESIGN.md-exempt color swatch
+2026-08-25T21:55:18.8491738Z   ✓   8 e2e/hel813-mobile-touch-target-floor.spec.ts:104:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 2 + D4 discriminator: settings preferences color swatch row (3.1s)
+2026-08-25T21:55:22.1792057Z   ✓   9 e2e/hel813-mobile-touch-target-floor.spec.ts:135:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 3: toast dismiss control (3.3s)
+2026-08-25T21:55:25.2736733Z   ✓  10 e2e/hel813-mobile-touch-target-floor.spec.ts:151:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 4: empty-state CTA (3.1s)
+2026-08-25T21:55:28.7015824Z   ✓  11 e2e/hel813-mobile-touch-target-floor.spec.ts:184:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 5: ui-select option list (3.4s)
+2026-08-25T21:55:31.9299189Z   ✓  12 e2e/hel813-mobile-touch-target-floor.spec.ts:212:11 › HEL-813 mobile touch-target floor guard › at 768px › surface 6: panel-list zoom/add controls (3.2s)
+2026-08-25T21:55:32.0021065Z 
+2026-08-25T21:55:32.0026086Z   12 passed (42.7s)
