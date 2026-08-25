@@ -168,6 +168,25 @@
   .panel-list__header {
     flex-direction: column;
   }
+
+  /* HEL-781: mobile tap-target floor, following the EmptyState.css:219-228
+     convention. Placed AFTER the base `.panel-list__add` rule above so
+     source order cannot make it inert at equal specificity (HEL-535
+     lesson). */
+  .panel-list__add {
+    min-height: 44px;
+  }
+
+  /* HEL-781: same floor on both axes for the zoom-widget controls — the
+     base rule above also declares `width: 22px` on `.panel-list__zoom-button`,
+     so height alone would leave it under-width. The widget is already
+     `display: none` below 430px via its own rule, so this only applies in
+     the 431–768px band where it's actually reachable. */
+  .panel-list__zoom-button,
+  .panel-list__zoom-reset {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* W4.4: zoom is desktop chrome — iOS/Android have pinch, and the widget eats
