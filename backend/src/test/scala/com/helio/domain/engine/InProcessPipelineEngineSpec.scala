@@ -486,12 +486,17 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       result.head("name")     shouldBe "foo"
     }
 
-    "datebucket: unparseable value yields null" in {
+    // HEL-639: a single-row, all-unparseable input now trips the zero-parse-rate
+    // guard and fails execution (design.md decision 2) rather than silently
+    // succeeding with an all-null bucketing — this is the intentional guard
+    // behavior change, not a regression. See DateBucketStepSpec for the
+    // partially-parseable case, which still nulls only the unparseable row.
+    "datebucket: an all-unparseable input fails execution instead of silently yielding null" in {
       val rows = Seq(Map("ts" -> "not-a-date".asInstanceOf[Any]))
       val cfg  = """{ "field": "ts", "granularity": "day" }"""
       val step = makeStep("datebucket", cfg)
-      val result = run(rows, step)
-      result.head("ts").asInstanceOf[AnyRef] shouldBe null
+      val ex = intercept[IllegalArgumentException](run(rows, step))
+      ex.getMessage should include ("ts")
     }
 
     "datebucket: unsupported granularity fails at execute time with a descriptive error" in {
