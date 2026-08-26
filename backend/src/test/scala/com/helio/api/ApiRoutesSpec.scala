@@ -3278,6 +3278,13 @@ class ApiRoutesSpec
       }
     }
 
+    "return 401 for GET /api/audit-events without Authorization (HEL-488)" in {
+      Get("/api/audit-events") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
     // HEL-704: composed-route-tree coverage for /api/beta-access — proves the request is
     // rejected by the AuthDirectives layer itself (before ever reaching
     // betaAccessServiceOpt.fold(reject)), so this holds even though `rawRoutes()` doesn't wire a

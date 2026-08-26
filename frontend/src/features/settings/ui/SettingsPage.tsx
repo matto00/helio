@@ -14,6 +14,7 @@ import { faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AccentPicker } from "../../../shared/chrome/AccentPicker";
 import { useTheme } from "../../../theme/ThemeProvider";
+import { AuditHistorySection } from "../../audit/ui/AuditHistorySection";
 import { fetchAgentMemory, fetchApiTokens, fetchPreferences } from "../state/settingsSlice";
 import { AgentMemoryList } from "./AgentMemoryList";
 import { ApiTokensSection } from "./ApiTokensSection";
@@ -133,6 +134,13 @@ export function SettingsPage() {
         <section className="settings-page__section">
           <h2 className="settings-page__section-heading">Beta access</h2>
           <BetaAccessSection />
+        </section>
+
+        {/* HEL-488: read-only audit history -- own fetch/loading/error state,
+            same F-047 pattern as MfaSecuritySection above. */}
+        <section className="settings-page__section">
+          <h2 className="settings-page__section-heading">Audit history</h2>
+          <AuditHistorySection />
         </section>
       </div>
     </div>

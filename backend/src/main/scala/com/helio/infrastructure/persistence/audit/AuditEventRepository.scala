@@ -76,6 +76,44 @@ class AuditEventRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         .result
     ).map(_.map(rowToDomain))
 
+  /** Owner-scoped, paginated, filtered read for `GET /api/audit-events`
+   *  (HEL-488 design.md Decision 1/2). `callerUserId` is ALWAYS the
+   *  authenticated caller — never a filter value — and is both the
+   *  `withUserContext` RLS session user AND an explicit
+   *  `WHERE actor_user_id = ?` clause applied alongside it: the RLS context
+   *  is the enforcement backstop (a coding mistake that dropped the explicit
+   *  filter would still fail closed), the explicit filter is defense in
+   *  depth mirroring `findByActor`'s existing shape. `filters` compose as
+   *  AND, on top of (never instead of) that owner scope — there is no
+   *  `actorUserId` filter parameter. Sort is `created_at DESC, id DESC`: a
+   *  deterministic tiebreak so `offset`/`limit` paging never skips or
+   *  duplicates a row when multiple events share a timestamp. */
+  def findPaged(callerUserId: UserId, filters: AuditEventFilters, page: Page): Future[PagedResult[AuditEvent]] = {
+    val callerUuid = UUID.fromString(callerUserId.value)
+    val baseQuery = table
+      .filter(_.actorUserId === callerUuid)
+      .filterOpt(filters.resourceType)((t, rt) => t.resourceType === rt)
+      .filterOpt(filters.resourceId)((t, rid) => t.resourceId === rid)
+      .filterOpt(filters.action)((t, a) => t.action === a)
+      .filterOpt(filters.source)((t, s) => t.source === AuditSource.asString(s))
+      .filterOpt(filters.from)((t, f) => t.createdAt >= f)
+      .filterOpt(filters.to)((t, to) => t.createdAt <= to)
+
+    val countAction = baseQuery.length.result
+    val sliceAction = baseQuery
+      .sortBy(t => (t.createdAt.desc, t.id.desc))
+      .drop(page.offset)
+      .take(page.limit)
+      .result
+
+    ctx.withUserContext(callerUserId.value)(
+      for {
+        total <- countAction
+        rows  <- sliceAction
+      } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+    )
+  }
+
   // No update or delete operation is exposed here, deliberately — the
   // append-only guarantee holds even if one were added (the trigger would
   // reject it), but the repository surface itself should offer no such
@@ -95,6 +133,20 @@ class AuditEventRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       createdAt    = row.createdAt
     )
 }
+
+/** Optional AND-composed filters for [[AuditEventRepository.findPaged]]
+ *  (HEL-488 design.md Decision 3). All fields are `Option`; an absent field
+ *  imposes no additional restriction. There is deliberately no
+ *  `actorUserId` field — the caller's identity is never a filter, only the
+ *  RLS/`callerUserId` argument of `findPaged` itself. */
+final case class AuditEventFilters(
+    resourceType: Option[String] = None,
+    resourceId: Option[String] = None,
+    action: Option[String] = None,
+    source: Option[AuditSource] = None,
+    from: Option[Instant] = None,
+    to: Option[Instant] = None
+)
 
 object AuditEventRepository {
 

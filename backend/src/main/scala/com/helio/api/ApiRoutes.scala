@@ -13,6 +13,7 @@ import com.helio.api.http._
 import com.helio.api.routes.agents._
 import com.helio.api.routes.alerts._
 import com.helio.api.routes.assistant._
+import com.helio.api.routes.audit._
 import com.helio.api.routes.auth._
 import com.helio.api.routes.dashboards._
 import com.helio.api.routes.hooks._
@@ -179,6 +180,14 @@ final class ApiRoutes(
   // `null` when no AuditEventRepository was passed (fixtures), matching the
   // rest of this file's nullable-optional convention.
   private val auditService: AuditService = Option(auditEventRepo).map(new AuditService(_)).orNull
+
+  // HEL-488: same nullable-optional wiring pattern as auditService above —
+  // fixtures that don't pass an AuditEventRepository simply don't get the
+  // GET /api/audit-events route mounted (see the `.fold(reject)` mount site
+  // below). Unlike auditService (write path, several consuming services),
+  // this Option is consumed by exactly one route class, so it stays local
+  // rather than becoming a `...Opt` field mirrored on every service.
+  private val auditEventRepoOpt: Option[AuditEventRepository] = Option(auditEventRepo)
 
   // Privileged callsite: resolvers here resolve ownership FOR the ACL check —
   // they must use *Internal variants (no user context at registry resolution time).
@@ -744,7 +753,11 @@ final class ApiRoutes(
                   // — fixtures that don't pass a DbContext simply don't get the /api/beta-access
                   // routes mounted. A missing RESEND_API_KEY/HELIO_EMAIL_FROM degrades only the
                   // request-access endpoint internally (BetaAccessService), not this mount.
-                  betaAccessServiceOpt.fold(reject: Route)(svc => new BetaAccessRoutes(svc, authenticatedUser).routes)
+                  betaAccessServiceOpt.fold(reject: Route)(svc => new BetaAccessRoutes(svc, authenticatedUser).routes),
+                  // HEL-488: same `.fold(reject)`-gated optional-wiring pattern as the repos
+                  // above — fixtures that don't pass an AuditEventRepository simply don't get
+                  // the GET /api/audit-events route mounted.
+                  auditEventRepoOpt.fold(reject: Route)(repo => new AuditEventRoutes(repo, authenticatedUser).routes)
                 )
               }
             )

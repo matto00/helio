@@ -19,6 +19,9 @@ import * as authService from "../../auth/services/authService";
 // `fetchApiTokens` on mount (F-047 own-fetch pattern, same as
 // preferences/agent memory) -- mocked here for the same reason.
 import * as apiTokenService from "../services/apiTokenService";
+// HEL-488: `AuditHistorySection` (mounted unconditionally by `SettingsPage`)
+// dispatches `fetchAuditEvents` on mount, same reason as the mocks above.
+import * as auditEventService from "../../audit/services/auditEventService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import type { AgentPreferences } from "../types/preferences";
 import { SettingsPage } from "./SettingsPage";
@@ -41,10 +44,15 @@ jest.mock("../services/apiTokenService", () => ({
   revokeApiToken: jest.fn(),
 }));
 
+jest.mock("../../audit/services/auditEventService", () => ({
+  fetchAuditEvents: jest.fn(),
+}));
+
 const getPreferencesMock = jest.mocked(settingsService.getPreferences);
 const listAgentMemoryMock = jest.mocked(settingsService.listAgentMemory);
 const mfaStatusRequestMock = jest.mocked(authService.mfaStatusRequest);
 const listApiTokensMock = jest.mocked(apiTokenService.listApiTokens);
+const fetchAuditEventsMock = jest.mocked(auditEventService.fetchAuditEvents);
 
 const testPreferences: AgentPreferences = {
   defaultSeriesColors: ["#ff0000"],
@@ -64,6 +72,8 @@ beforeEach(() => {
   });
   listApiTokensMock.mockReset();
   listApiTokensMock.mockResolvedValue([]);
+  fetchAuditEventsMock.mockReset();
+  fetchAuditEventsMock.mockResolvedValue({ items: [], total: 0, offset: 0, limit: 200 });
 });
 
 describe("SettingsPage", () => {

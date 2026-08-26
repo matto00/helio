@@ -1,5 +1,6 @@
 package com.helio.api.protocols
 
+import com.helio.api.protocols.audit.{AuditEventProtocol, AuditEventResponse}
 import com.helio.api.protocols.dashboards.{DashboardProtocol, DashboardResponse}
 import com.helio.api.protocols.metrics.{MetricProtocol, MetricResponse}
 import com.helio.api.protocols.panels.{PanelProtocol, PanelResponse}
@@ -12,10 +13,11 @@ import spray.json._
 /** JSON formats for [[PagedResult]] for each list-endpoint response type.
  *
  *  Each format is hand-rolled because spray-json's `jsonFormat` macros cannot
- *  derive formats for generic case classes. The five concrete types are
+ *  derive formats for generic case classes. The six concrete types are
  *  `PagedResult[DashboardResponse]`, `PagedResult[DataTypeResponse]`,
- *  `PagedResult[DataSourceResponse]`, `PagedResult[PanelResponse]`, and
- *  `PagedResult[MetricResponse]` (HEL-493). */
+ *  `PagedResult[DataSourceResponse]`, `PagedResult[PanelResponse]`,
+ *  `PagedResult[MetricResponse]` (HEL-493), and `PagedResult[AuditEventResponse]`
+ *  (HEL-488). */
 trait PaginationProtocol
     extends SprayJsonSupport
     with DefaultJsonProtocol
@@ -23,7 +25,8 @@ trait PaginationProtocol
     with DataTypeProtocol
     with DataSourceProtocol
     with PanelProtocol
-    with MetricProtocol {
+    with MetricProtocol
+    with AuditEventProtocol {
 
   private def pagedResultFormat[A](implicit itemFormat: JsonFormat[A]): RootJsonFormat[PagedResult[A]] =
     new RootJsonFormat[PagedResult[A]] {
@@ -60,4 +63,7 @@ trait PaginationProtocol
 
   implicit val pagedMetricsFormat: RootJsonFormat[PagedResult[MetricResponse]] =
     pagedResultFormat[MetricResponse]
+
+  implicit val pagedAuditEventsFormat: RootJsonFormat[PagedResult[AuditEventResponse]] =
+    pagedResultFormat[AuditEventResponse]
 }
