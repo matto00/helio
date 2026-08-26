@@ -26,7 +26,7 @@ object SchemaInferenceEngine {
       InferredSchema(Seq.empty)
   }
 
-  /** Shared "rows in → InferredSchema out" facade (HEL-473): every `Connector[Config]`'s `fetch`
+  /** Shared "rows in → InferredSchema out" facade (HEL-473): every `ConnectorDriver[Config]`'s `fetch`
    *  returns `Vector[JsValue]` (one `JsObject` per row) — this wraps that row shape into the
    *  `JsArray` `fromJson` expects, so new connectors get correct inference without hand-rolling the
    *  wrap themselves. A thin delegate, not a new inference path: identical output to

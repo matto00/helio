@@ -1,7 +1,7 @@
 package com.helio.api.routes.pipelines
 
 import com.helio.api.routes.pipelines.{PipelineRunHistoryRoutes, PipelineRunRegistry, PipelineRunStatusRoutes, PipelineRunStreamRoutes, PipelineRunSubmitRoutes}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.stream.Materializer
@@ -194,12 +194,12 @@ class PipelineRunRoutesSpec
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
   // HEL-758 (design.md D7, copied verbatim from
-  // PipelineApplyProposalSpecBase.scala:63-69): a stub RestApiConnector keyed
+  // PipelineApplyProposalSpecBase.scala:63-69): a stub RestApiConnectorDriver keyed
   // on `config.url` so the same connector instance exercises both a
   // successful and a failing REST fetch.
   private val RestSuccessUrl = "https://pipeline-run-routes.test/ok"
   private val RestFailureUrl = "https://pipeline-run-routes.test/fail"
-  private val stubConnector = new RestApiConnector(Some { config =>
+  private val stubConnector = new RestApiConnectorDriver(Some { config =>
     if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
     else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
   })
@@ -214,7 +214,7 @@ class PipelineRunRoutesSpec
       user: AuthenticatedUser = dummyUser,
       binRefRepo: BinaryRefRepository = null,
       alertEvalSvc: AlertEvaluationService = null,
-      connector: RestApiConnector = stubConnector
+      connector: RestApiConnectorDriver = stubConnector
   ): Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new PipelineRunService(

@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import com.helio.api.{ApiRoutes, JsonProtocols, PipelineRunRecord}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, PipelineRunId, UserId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -105,7 +105,7 @@ class HookRoutesSpec
     routes = new ApiRoutes(
       dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
       stubFileSystem,
-      new RestApiConnector(Some(_ => Future.successful(Left("no HTTP in tests")))),
+      new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP in tests")))),
       userRepo, stubSessionRepo, userPreferenceRepo,
       pipelineRepo, pipelineStepRepo,
       new PipelineRunCache(),

@@ -1,6 +1,6 @@
 package com.helio.domain.connectors
 
-import com.helio.domain.connectors.{Connector, ConnectorMetadata}
+import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata}
 import com.helio.domain.model.{DataFieldType, InferredField, InferredSchema}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -10,13 +10,13 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
 /** Minimal config for [[FixtureConnector]] — deliberately unrelated in shape to
- *  `SqlSourceConfig`/`RestApiConfig`, to prove `Connector[Config]` doesn't require a common config
+ *  `SqlSourceConfig`/`RestApiConfig`, to prove `ConnectorDriver[Config]` doesn't require a common config
  *  supertype (design.md Decision 1). */
 final case class FixtureConfig(reachable: Boolean, rowCount: Int)
 
-/** A trivial in-memory `Connector[FixtureConfig]` implementation used only to prove the SPI
+/** A trivial in-memory `ConnectorDriver[FixtureConfig]` implementation used only to prove the SPI
  *  contract (lifecycle dispatch, metadata surface) independent of the real SQL/REST connectors. */
-object FixtureConnector extends Connector[FixtureConfig] {
+object FixtureConnector extends ConnectorDriver[FixtureConfig] {
 
   val metadata: ConnectorMetadata = ConnectorMetadata(
     kind = "fixture",
@@ -40,9 +40,9 @@ object FixtureConnector extends Connector[FixtureConfig] {
     )
 }
 
-/** Proves the `Connector[Config]` trait contract (lifecycle dispatch through the trait interface,
- *  not just the concrete object) using a fixture implementation — independent of SqlConnector/
- *  RestApiConnector, which get their own dispatch tests. */
+/** Proves the `ConnectorDriver[Config]` trait contract (lifecycle dispatch through the trait interface,
+ *  not just the concrete object) using a fixture implementation — independent of SqlConnectorDriver/
+ *  RestApiConnectorDriver, which get their own dispatch tests. */
 class ConnectorSpec extends AnyWordSpec with Matchers {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
@@ -50,10 +50,10 @@ class ConnectorSpec extends AnyWordSpec with Matchers {
   private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
   /** Reference the fixture through the trait type, not the concrete object — this is what proves
-   *  dispatch works through `Connector[Config]` rather than merely compiling as a subtype. */
-  private val asConnector: Connector[FixtureConfig] = FixtureConnector
+   *  dispatch works through `ConnectorDriver[Config]` rather than merely compiling as a subtype. */
+  private val asConnector: ConnectorDriver[FixtureConfig] = FixtureConnector
 
-  "Connector[FixtureConfig] (dispatch through the trait interface)" should {
+  "ConnectorDriver[FixtureConfig] (dispatch through the trait interface)" should {
 
     "expose metadata with the expected capability fields" in {
       asConnector.metadata shouldBe ConnectorMetadata(
@@ -83,7 +83,7 @@ class ConnectorSpec extends AnyWordSpec with Matchers {
     }
 
     "not declare a refresh method (refresh = re-fetch by default, per trait doc comment)" in {
-      // Compile-time proof, not a runtime assertion: `Connector[Config]` only
+      // Compile-time proof, not a runtime assertion: `ConnectorDriver[Config]` only
       // declares `metadata`, `testConnection`, `inferSchema`, and `fetch`.
       // If a `refresh` member existed on the trait, `asConnector.refresh` would
       // compile below — it doesn't, so this is enforced by the type checker.

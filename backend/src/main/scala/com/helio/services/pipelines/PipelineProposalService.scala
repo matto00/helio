@@ -5,7 +5,7 @@ import com.helio.services.sources.{DataSourceService, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, StaticDataSourceRequest}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, DataTypeId, PipelineId, PipelineStepKind}
-import com.helio.domain.connectors.SqlConnector
+import com.helio.domain.connectors.SqlConnectorDriver
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 
@@ -136,7 +136,7 @@ final class PipelineProposalService(
         case DataSourceKind.Sql =>
           source.sqlConfig match {
             case None      => Left(ServiceError.BadRequest("source.config is required for an inline source"))
-            case Some(cfg) => SqlConnector.checkQuery(cfg.query).left.map(ServiceError.BadRequest(_))
+            case Some(cfg) => SqlConnectorDriver.checkQuery(cfg.query).left.map(ServiceError.BadRequest(_))
           }
       }
 

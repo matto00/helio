@@ -10,7 +10,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.model.{AuthenticatedUser, UserId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
@@ -39,7 +39,7 @@ import scala.concurrent.duration.DurationInt
  *  `ApplyProposalSpecBase`'s structure exactly.
  *
  *  Holds the embedded-Postgres + Flyway migration, the real-RLS
- *  `helio_app_test`/`helio_privileged` pools, a stub `RestApiConnector`
+ *  `helio_app_test`/`helio_privileged` pools, a stub `RestApiConnectorDriver`
  *  configurable per-URL (so the same fixture exercises both a successful and
  *  a failing inline `rest_api` schema fetch), a pre-seeded static source
  *  owned by the caller (`existingSourceId`) and one owned by another user
@@ -86,7 +86,7 @@ abstract class PipelineApplyProposalSpecBase
   protected val RestRunFailUrl = "https://rest.test/run-fail"
   private val restRunFailCallCount = new AtomicInteger(0)
 
-  private val stubConnector = new RestApiConnector(Some { config =>
+  private val stubConnector = new RestApiConnectorDriver(Some { config =>
     if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
     else if (config.url == RestRunFailUrl) {
       if (restRunFailCallCount.getAndIncrement() == 0)

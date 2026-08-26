@@ -10,7 +10,7 @@ import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineAnalyzeProposalResponse, PipelineProposal, PipelineProposalSource, SchemaFieldResponse, SelectAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.SelectConfig
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
@@ -116,19 +116,19 @@ class PipelineAnalyzeProposalRoutesSpec
   // Route wiring
   // ---------------------------------------------------------------------------
 
-  /** A `RestApiConnector` that never actually reaches the network — the
+  /** A `RestApiConnectorDriver` that never actually reaches the network — the
    *  static/sql-only tests below never exercise it; the "no connector call"
    *  assertion (3.3) swaps in `countingConnector` instead. */
-  private def noNetworkConnector: RestApiConnector =
-    new RestApiConnector(Some(_ => Future.successful(Left("no HTTP in tests"))))
+  private def noNetworkConnector: RestApiConnectorDriver =
+    new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP in tests"))))
 
-  private def countingConnector(counter: AtomicInteger): RestApiConnector =
-    new RestApiConnector(Some { _ =>
+  private def countingConnector(counter: AtomicInteger): RestApiConnectorDriver =
+    new RestApiConnectorDriver(Some { _ =>
       counter.incrementAndGet()
       Future.successful(Left("should not be called"))
     })
 
-  private def routesWith(connector: RestApiConnector): Route = {
+  private def routesWith(connector: RestApiConnectorDriver): Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo, connector)
     new PipelineRoutes(service, dummyUser).routes

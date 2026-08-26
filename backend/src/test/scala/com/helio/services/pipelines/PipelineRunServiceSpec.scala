@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.PipelineRunService
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.SchemaField
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
@@ -38,7 +38,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  // HEL-758: a minimal, real typed ActorSystem — RestApiConnector needs one to
+  // HEL-758: a minimal, real typed ActorSystem — RestApiConnectorDriver needs one to
   // construct (`implicit system: ActorSystem[_]`) but doesn't need pekko-http's
   // ScalatestRouteTest testkit (which would ambiguous-implicit-collide with the
   // `ec` above); this file's `stubConnector` below never issues a real HTTP
@@ -46,11 +46,11 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private implicit val typedSystem: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "pipeline-run-service-spec")
 
   // HEL-758 (design.md D7 pattern, copied from PipelineApplyProposalSpecBase):
-  // a stub RestApiConnector keyed on `config.url` so the same connector
+  // a stub RestApiConnectorDriver keyed on `config.url` so the same connector
   // instance exercises both a successful and a failing REST fetch.
   private val RestSuccessUrl = "https://pipeline-run-service.test/ok"
   private val RestFailureUrl = "https://pipeline-run-service.test/fail"
-  private val stubConnector = new RestApiConnector(Some { config =>
+  private val stubConnector = new RestApiConnectorDriver(Some { config =>
     if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
     else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
   })

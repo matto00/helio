@@ -1,7 +1,7 @@
 # Connectors
 
-The `Connector[Config]` trait and its two implementations (`SqlConnector`,
-`RestApiConnector`), plus the static `ConnectorRegistry` that lists every
+The `ConnectorDriver[Config]` trait and its two implementations (`SqlConnectorDriver`,
+`RestApiConnectorDriver`), plus the static `ConnectorRegistry` that lists every
 supported connector kind and its field descriptors for the UI. Connectors
 fetch/infer-schema/execute against an external data source given its config
 type (defined in `domain/model/`).

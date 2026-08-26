@@ -15,7 +15,7 @@ import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/service
 import { renderWithStore } from "../../../test/renderWithStore";
 import { AddSourceModal } from "./AddSourceModal";
 
-// HEL-484: SourceTypeToggle fetches GET /api/connectors on mount. Resolve
+// HEL-484: SourceTypeToggle fetches GET /api/connector-types on mount. Resolve
 // with the same 7-kind/order/label set the pre-registry hardcoded toggle
 // rendered, so every existing assertion here (which locates buttons by their
 // pre-registry labels) keeps passing unchanged.

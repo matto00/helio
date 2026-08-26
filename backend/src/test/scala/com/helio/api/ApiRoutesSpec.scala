@@ -11,7 +11,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader, `Set-Cookie`}
 import com.helio.domain.model.{AuthenticatedUser, ChartAppearance, ChartAxisLabel, ChartAxisLabels, ChartLegend, ChartTooltip, DashboardId, Page, PagedResult, PanelId, User, UserId, UserSession}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.api.protocols.agents.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, PutMemoryEnabledRequest}
 import com.helio.api.protocols.auth.RedeemInviteCodeRequest
@@ -108,8 +108,8 @@ class ApiRoutesSpec
     def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage]  = Future.successful(ListPage(Seq.empty, None))
   }
 
-  private def stubConnector(response: Either[String, JsValue]): RestApiConnector =
-    new RestApiConnector(Some(_ => Future.successful(response)))
+  private def stubConnector(response: Either[String, JsValue]): RestApiConnectorDriver =
+    new RestApiConnectorDriver(Some(_ => Future.successful(response)))
 
   // Fixed test user injected by the stub session repository
   private val testUserId  = "00000000-0000-0000-0000-000000000099"
@@ -132,7 +132,7 @@ class ApiRoutesSpec
   }
 
   /** Builds the raw routes (no automatic auth header). */
-  private def rawRoutes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
+  private def rawRoutes(connector: RestApiConnectorDriver = stubConnector(Left("no real HTTP in tests"))): Route =
     new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
 
   /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
@@ -165,7 +165,7 @@ class ApiRoutesSpec
    *  while still allowing the auth-route tests to supply their own
    *  credentials.
    */
-  private def routes(connector: RestApiConnector = stubConnector(Left("no real HTTP in tests"))): Route =
+  private def routes(connector: RestApiConnectorDriver = stubConnector(Left("no real HTTP in tests"))): Route =
     mapRequest(withDefaultCredentials(testToken)) {
       rawRoutes(connector)
     }
@@ -3161,8 +3161,8 @@ class ApiRoutesSpec
       }
     }
 
-    "return 401 for GET /api/connectors without Authorization (HEL-484)" in {
-      Get("/api/connectors") ~> rawRoutes() ~> check {
+    "return 401 for GET /api/connector-types without Authorization (HEL-484)" in {
+      Get("/api/connector-types") ~> rawRoutes() ~> check {
         status shouldBe StatusCodes.Unauthorized
         responseAs[ErrorResponse].message shouldBe "Unauthorized"
       }

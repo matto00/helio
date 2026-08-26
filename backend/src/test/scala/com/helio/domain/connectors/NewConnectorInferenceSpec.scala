@@ -1,7 +1,7 @@
 package com.helio.domain.connectors
 
 import com.helio.domain.model.DataFieldType
-import com.helio.domain.connectors.{Connector, ConnectorMetadata}
+import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata}
 import com.helio.domain.engine.SchemaInferenceEngine
 import com.helio.domain.model.InferredSchema
 import org.scalatest.matchers.should.Matchers
@@ -13,16 +13,16 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Config for [[RowSupplyingConnector]] — a fixture distinct from `ConnectorSpec`'s
  *  `FixtureConnector`, built specifically to prove HEL-473's documented contract
- *  (`Connector.scala`'s `'''Schema inference'''` doc block, spec.md Scenario "A test connector
+ *  (`ConnectorDriver.scala`'s `'''Schema inference'''` doc block, spec.md Scenario "A test connector
  *  supplying arbitrary rows infers correctly"): a new connector only needs to supply
  *  `Vector[JsValue]` rows; correct schema inference comes for free from
  *  `SchemaInferenceEngine.inferSchemaFromRows`, with no connector-specific inference logic. */
 final case class RowSupplyingConfig(rows: Vector[JsValue])
 
-/** A `Connector[Config]` implementation whose `inferSchema` does nothing but fetch its configured
+/** A `ConnectorDriver[Config]` implementation whose `inferSchema` does nothing but fetch its configured
  *  rows and hand them to `SchemaInferenceEngine.inferSchemaFromRows` — exactly the pattern
- *  `Connector.scala`'s trait doc comment describes for any new connector. */
-object RowSupplyingConnector extends Connector[RowSupplyingConfig] {
+ *  `ConnectorDriver.scala`'s trait doc comment describes for any new connector. */
+object RowSupplyingConnector extends ConnectorDriver[RowSupplyingConfig] {
 
   val metadata: ConnectorMetadata = ConnectorMetadata(
     kind = "row-supplying-fixture",
@@ -47,7 +47,7 @@ class NewConnectorInferenceSpec extends AnyWordSpec with Matchers {
   private implicit val ec: ExecutionContext = ExecutionContext.global
   private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
-  "A new Connector[Config] implementation supplying arbitrary rows" should {
+  "A new ConnectorDriver[Config] implementation supplying arbitrary rows" should {
 
     "produce an InferredSchema with correct field names, types, and nullability via inferSchemaFromRows" in {
       val rows: Vector[JsValue] = Vector(

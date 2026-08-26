@@ -3,7 +3,7 @@ package com.helio.services.sources
 import com.helio.api.protocols.sources.{CreateSourceResponse, DataSourceResponse, FieldOverridePayload}
 import com.helio.api.protocols.pipelines.DataTypeResponse
 import com.helio.domain.model.{AuthenticatedUser, DataSource, DataType, DataTypeId}
-import com.helio.domain.connectors.Connector
+import com.helio.domain.connectors.ConnectorDriver
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 
 import java.time.Instant
@@ -12,9 +12,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Shared create-time envelope construction (HEL-468), replacing the two structurally-identical
  *  copies that used to live inline in `SourceService.createSql`/`createRest`. Generic over any
- *  `Connector[Config]` implementation (HEL-449's SPI) — a connector gets a correct, diagnosable
+ *  `ConnectorDriver[Config]` implementation (HEL-449's SPI) — a connector gets a correct, diagnosable
  *  `CreateSourceResponse` by construction, with no per-connector envelope logic needed. See
- *  `Connector.scala`'s trait doc comment ("Fetch-error envelope" block) for the contract this
+ *  `ConnectorDriver.scala`'s trait doc comment ("Fetch-error envelope" block) for the contract this
  *  implements, and `SchemaInferenceFacade` for the sibling HEL-473 precedent this follows for
  *  layering (services/, not domain/, because `CreateSourceResponse`/`AuthenticatedUser` are
  *  api-protocol/infrastructure-adjacent types domain must never depend on). */
@@ -29,7 +29,7 @@ object CreateSourceEnvelope {
    *  `DataType`'s `createdAt`/`updatedAt` share the exact same instant, matching the pre-refactor
    *  behavior exactly. */
   def build[Config](
-      connector:    Connector[Config],
+      connector:    ConnectorDriver[Config],
       config:       Config,
       source:       DataSource,
       now:          Instant,

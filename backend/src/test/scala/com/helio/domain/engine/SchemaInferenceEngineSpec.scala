@@ -114,7 +114,7 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
 
     "derive field names, types, and nullability from arbitrary supplied rows (HEL-473 task 4.4)" in {
       // Mirrors a new connector's `fetch` output funnelled straight into the facade, per
-      // Connector.scala's '''Schema inference''' doc block.
+      // ConnectorDriver.scala's '''Schema inference''' doc block.
       val rows: Vector[JsValue] = Vector(
         JsObject("sku" -> JsString("A1"), "qty" -> JsNumber(5), "note" -> JsNull),
         JsObject("sku" -> JsString("A2"), "qty" -> JsNumber(7), "note" -> JsString("low stock"))

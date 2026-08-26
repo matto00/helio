@@ -5,7 +5,7 @@
 // Extracted from AddSourceModal.tsx in CS3 cycle 2 (behavior-preserving:
 // markup and class names are unchanged from the inlined originals).
 //
-// HEL-484: driven by GET /api/connectors (via `listConnectors`) rather than a
+// HEL-484: driven by GET /api/connector-types (via `listConnectors`) rather than a
 // hardcoded button list. `FALLBACK_CONNECTORS` mirrors the pre-registry
 // hardcoded list byte-for-byte — the initial render (and the render if the
 // fetch ever fails) so the toggle never flashes empty and never regresses.

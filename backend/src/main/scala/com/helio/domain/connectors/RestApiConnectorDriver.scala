@@ -15,11 +15,11 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-/** Dependency-free companion object — see design.md Decision 1. `RestApiConnector` (the class)
+/** Dependency-free companion object — see design.md Decision 1. `RestApiConnectorDriver` (the class)
  *  requires an `ActorSystem` to construct, so its `ConnectorMetadata` value lives here instead,
  *  reachable from `ConnectorRegistry`/`DataSourceKind.All`'s static call sites without
  *  constructing an instance. */
-object RestApiConnector {
+object RestApiConnectorDriver {
   val metadata: ConnectorMetadata = ConnectorMetadata(
     kind = "rest_api",
     displayName = "REST API",
@@ -36,14 +36,14 @@ object RestApiConnector {
   )
 }
 
-class RestApiConnector(
+class RestApiConnectorDriver(
     fetchOverride: Option[RestApiConfig => Future[Either[String, JsValue]]] = None
 )(implicit system: ActorSystem[_])
-    extends Connector[RestApiConfig] {
+    extends ConnectorDriver[RestApiConfig] {
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  override val metadata: ConnectorMetadata = RestApiConnector.metadata
+  override val metadata: ConnectorMetadata = RestApiConnectorDriver.metadata
 
   private implicit val ec: ExecutionContext = system.executionContext
   private implicit val mat: Materializer    = Materializer(system)
@@ -107,7 +107,7 @@ class RestApiConnector(
       }
   }
 
-  // ── Connector[RestApiConfig] ──────────────────────────────────────────────
+  // ── ConnectorDriver[RestApiConfig] ──────────────────────────────────────────────
 
   /** Issues the same request/auth/header pipeline as `fetch`, but only inspects the response
    *  status — never calls `parseJson` on the body, so a non-JSON 200 response still succeeds. */

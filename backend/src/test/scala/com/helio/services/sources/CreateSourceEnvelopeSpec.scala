@@ -1,7 +1,7 @@
 package com.helio.services.sources
 
 import com.helio.services.sources.CreateSourceEnvelope
-import com.helio.domain.connectors.{Connector, ConnectorMetadata}
+import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
@@ -21,14 +21,14 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Config for [[EnvelopeFixtureConnector]] — a fixture distinct from `NewConnectorInferenceSpec`'s
  *  `RowSupplyingConnector` (which only ever succeeds), built specifically to prove HEL-468's
- *  documented contract (`Connector.scala`'s `'''Fetch-error envelope'''` doc block, spec.md's "A new
- *  connector gets the envelope by construction" requirement): any `Connector[Config]` implementation
+ *  documented contract (`ConnectorDriver.scala`'s `'''Fetch-error envelope'''` doc block, spec.md's "A new
+ *  connector gets the envelope by construction" requirement): any `ConnectorDriver[Config]` implementation
  *  — including one with no create-path-specific code of its own — gets a correct
  *  `CreateSourceResponse` (success and failure) for free via `CreateSourceEnvelope.build`, driven
  *  entirely off its `inferSchema` result. */
 final case class EnvelopeFixtureConfig(result: Either[String, InferredSchema])
 
-object EnvelopeFixtureConnector extends Connector[EnvelopeFixtureConfig] {
+object EnvelopeFixtureConnector extends ConnectorDriver[EnvelopeFixtureConfig] {
 
   val metadata: ConnectorMetadata = ConnectorMetadata(
     kind = "envelope-fixture",
@@ -48,8 +48,8 @@ object EnvelopeFixtureConnector extends Connector[EnvelopeFixtureConfig] {
 }
 
 /** Service-level coverage for HEL-468: `CreateSourceEnvelope.build` driven directly against a
- *  test-connector fixture, proving the envelope helper works for any `Connector[Config]`
- *  implementation — not just `SqlConnector`/`RestApiConnector` — with no per-connector envelope
+ *  test-connector fixture, proving the envelope helper works for any `ConnectorDriver[Config]`
+ *  implementation — not just `SqlConnectorDriver`/`RestApiConnectorDriver` — with no per-connector envelope
  *  code required. `SourceServiceSpec`'s `createSql`/`createRest` tests (unmodified by this ticket)
  *  are the byte-identical-output signal for the two existing call sites; this spec is the "new
  *  connector gets the envelope by construction" signal. */

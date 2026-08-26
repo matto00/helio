@@ -1,12 +1,12 @@
 package com.helio.services.sources
 
 import com.helio.api.protocols.sources.TestConnectionResponse
-import com.helio.domain.connectors.Connector
+import com.helio.domain.connectors.ConnectorDriver
 
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Shared connection-test envelope construction (HEL-480), the third sibling alongside
- *  `CreateSourceEnvelope`/`SchemaInferenceFacade` — generic over any `Connector[Config]`
+ *  `CreateSourceEnvelope`/`SchemaInferenceFacade` — generic over any `ConnectorDriver[Config]`
  *  implementation (HEL-449's SPI) so a connector gets a correct `TestConnectionResponse` by
  *  construction, with no per-connector envelope logic needed. Lives in `services/`, not `domain/`,
  *  matching its two siblings' layering rationale (depends on nothing api/infra-specific beyond the
@@ -19,7 +19,7 @@ object ConnectionTest {
    *  connector's `testConnection`) with `ok = false`. This result is always the `Right` side of the
    *  caller's `ServiceError` channel — a connector-level test failure is a domain outcome, not an
    *  HTTP error (design.md Decision 1). */
-  def run[Config](connector: Connector[Config], config: Config)(implicit ec: ExecutionContext): Future[TestConnectionResponse] =
+  def run[Config](connector: ConnectorDriver[Config], config: Config)(implicit ec: ExecutionContext): Future[TestConnectionResponse] =
     connector.testConnection(config).map {
       case Right(())  => TestConnectionResponse(ok = true, error = None)
       case Left(err)  => TestConnectionResponse(ok = false, error = Some(err))

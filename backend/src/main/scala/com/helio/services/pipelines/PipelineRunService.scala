@@ -7,7 +7,7 @@ import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatu
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep}
 import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -45,8 +45,8 @@ final class PipelineRunService(
     // alertEvaluationService above — threaded through to InProcessPipelineEngine
     // so it can execute a RestSource. A null connector fails fast inside the
     // engine's RestSource loadRows case rather than here; SqlSource needs no
-    // such threading (SqlConnector is a stateless object).
-    connector: RestApiConnector = null,
+    // such threading (SqlConnectorDriver is a stateless object).
+    connector: RestApiConnectorDriver = null,
     // HEL-477: nullable-optional wiring mirrors connector above.
     auditService: AuditService = null
 )(implicit ec: ExecutionContext) {

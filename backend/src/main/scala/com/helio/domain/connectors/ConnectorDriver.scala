@@ -17,7 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
  */
 final case class ConnectorFieldDescriptor(name: String, label: String, secret: Boolean)
 
-/** Static capability metadata for a `Connector[Config]` implementation.
+/** Static capability metadata for a `ConnectorDriver[Config]` implementation.
  *  Describes properties of the connector kind itself (not a specific config
  *  instance) — consumed by the HEL-484 connector registry for aggregation.
  *
@@ -43,8 +43,8 @@ final case class ConnectorMetadata(
 /** Shared lifecycle contract every v1.9 connector implements, generic over the connector's own
  *  config type (`Config`) rather than a common config supertype — each implementation keeps
  *  compile-time-checked access to its own config shape while still exposing a uniform method
- *  surface once callers hold a concrete `Connector[X]`. Registry aggregation (HEL-484) does NOT
- *  hold `Connector[_]` existentials — it aggregates dependency-free static `ConnectorMetadata`
+ *  surface once callers hold a concrete `ConnectorDriver[X]`. Registry aggregation (HEL-484) does NOT
+ *  hold `ConnectorDriver[_]` existentials — it aggregates dependency-free static `ConnectorMetadata`
  *  values instead (an `object`'s member, or a class's companion-object `val`), so enumerating
  *  every kind never requires constructing an instance (`ActorSystem`, credentials, or otherwise).
  *
@@ -55,7 +55,7 @@ final case class ConnectorMetadata(
  *
  *  '''ExecutionContext'''`: `testConnection`, `inferSchema`, and `fetch` each require a
  *  caller-supplied `implicit ec: ExecutionContext`. No implementation may source an
- *  `ExecutionContext` internally (e.g. `ExecutionContext.global`) — `SqlConnector`'s blocking JDBC
+ *  `ExecutionContext` internally (e.g. `ExecutionContext.global`) — `SqlConnectorDriver`'s blocking JDBC
  *  work depends on running on the caller-supplied EC to avoid starving the Pekko dispatcher (see
  *  CLAUDE.md's "Avoid blocking operations in actor execution paths" rule). Every sibling connector
  *  (424-428) and every polymorphic caller (HEL-473, HEL-480) must follow the same rule.
@@ -63,14 +63,14 @@ final case class ConnectorMetadata(
  *  '''Schema inference''' (HEL-473): any implementation's `fetch` output — `Vector[JsValue]`, one
  *  `JsObject` per row — funnels directly into `SchemaInferenceEngine.inferSchemaFromRows` to produce
  *  a correct `InferredSchema`. A connector never needs its own inference logic; it only needs to
- *  shape its native rows into that `Vector[JsValue]` (see `SqlConnector.toRows`,
- *  `RestApiConnector.toRows` for the existing examples). This is why `inferSchema`'s default
+ *  shape its native rows into that `Vector[JsValue]` (see `SqlConnectorDriver.toRows`,
+ *  `RestApiConnectorDriver.toRows` for the existing examples). This is why `inferSchema`'s default
  *  implementation pattern is "fetch, then hand the rows to `inferSchemaFromRows`" rather than a
  *  connector-specific JSON-shape-aware inference step.
  *
  *  '''Fetch-error envelope''' (HEL-468): any implementation gets a diagnosable create-time envelope
  *  for free via `CreateSourceEnvelope.build` — a connector never needs its own envelope-construction
- *  code. Given a `Connector[Config]` instance and its config, the helper calls
+ *  code. Given a `ConnectorDriver[Config]` instance and its config, the helper calls
  *  `inferSchema` and, on `Left(err)`, returns a `CreateSourceResponse` with `dataType = None` and
  *  `fetchError = Some(err)` (the caller's create request still succeeds at the HTTP level — a bad
  *  URL/credential is diagnosable and retryable rather than a hard failure); on `Right(schema)`, it
@@ -84,11 +84,11 @@ final case class ConnectorMetadata(
  *  type's own companion object — see `SqlSourceConfigPayload`/`RestApiConfigPayload` for the
  *  existing examples. `DataSourceResponse.fromDomain` calls `SecretRedaction.redact` on the payload
  *  before it is returned, which masks every declared field automatically; a connector never writes
- *  its own per-field redaction code at the response boundary. This is not a method on `Connector[Config]`
+ *  its own per-field redaction code at the response boundary. This is not a method on `ConnectorDriver[Config]`
  *  itself — `Config` here is the domain config, while the seam operates one level up, on the wire
  *  payload type that already carries the same fields.
  */
-trait Connector[Config] {
+trait ConnectorDriver[Config] {
 
   /** Static capabilities of this connector kind. */
   def metadata: ConnectorMetadata

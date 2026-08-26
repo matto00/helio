@@ -6,7 +6,9 @@ goal by searching (`find`/`get_resource`), verifying reachability of any new inl
 (`test_connection`), and proposing (`propose_dashboard`/`propose_pipeline`/`propose_combined`/
 `propose_patch_set`) — never applying, so a human always reviews before anything is mutated — the
 core entry point HEL-659's top-level workspace assistant is built around.
+
 ## Requirements
+
 ### Requirement: No apply-shaped tool is ever offered to Claude
 The tool set `AssistantService` passes to `sendWithTools` SHALL NOT include any tool whose backing
 implementation calls a mutating `apply`/create/update/delete endpoint — every `propose_*` tool SHALL
@@ -164,7 +166,7 @@ inside `ClaudeClient`.
 `rest_api` or `sql` source, unless a `test_connection` call earlier in the same turn returned
 `ok = true` for a config identical to that source's `config`. `sourceId`-referenced sources and
 inline `csv`/`static` sources are exempt. A `test_connection` call SHALL dispatch to
-`SourceService.testRest`/`testSql` (backed by `Connector.testConnection`/`ConnectionTest.run`) for
+`SourceService.testRest`/`testSql` (backed by `ConnectorDriver.testConnection`/`ConnectionTest.run`) for
 the discriminated `type`/`config` payload it is given, and only a successful (`ok = true`) result
 marks that exact config as verified for the remainder of the turn.
 
@@ -205,4 +207,3 @@ marks that exact config as verified for the remainder of the turn.
   `static` source
 - **THEN** the call proceeds to `PipelineProposalService.validate` without requiring any
   `test_connection` call
-

@@ -2,7 +2,7 @@ package com.helio.api.routes
 
 import com.helio.api.routes.pipelines.DataTypeRoutes
 import com.helio.api.routes.sources.{DataSourcePreviewRoutes, DataSourceRoutes, SourcePreviewRoutes, SourceRoutes}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -152,7 +152,7 @@ class DataTypeDataSourceAclSpec
 
   private def sourceRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val stubConnector = new RestApiConnector(Some(_ => Future.successful(Left("no real HTTP in tests"))))
+    val stubConnector = new RestApiConnectorDriver(Some(_ => Future.successful(Left("no real HTTP in tests"))))
     val svc           = new SourceService(dataSourceRepo, dataTypeRepo, stubConnector)
     concat(
       new SourceRoutes(svc, user)(typedSystem).routes,

@@ -3,7 +3,7 @@ package com.helio.domain.connectors
 import com.helio.domain.connectors.ConnectorFieldDescriptor
 import com.helio.domain.connectors.ConnectorMetadata
 import com.helio.domain.model.RestApiAuth
-import com.helio.domain.connectors.{Connector, RestApiConnector}
+import com.helio.domain.connectors.{ConnectorDriver, RestApiConnectorDriver}
 import com.helio.domain.engine.SchemaInferenceEngine
 import com.helio.domain.model.RestApiConfig
 import org.apache.pekko.actor.typed.ActorSystem
@@ -21,7 +21,7 @@ import spray.json._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
-/** `RestApiConnector`-as-`Connector[RestApiConfig]` coverage (HEL-449 tasks 4.3): `metadata`
+/** `RestApiConnectorDriver`-as-`ConnectorDriver[RestApiConfig]` coverage (HEL-449 tasks 4.3): `metadata`
  *  values, `testConnection` success on a non-JSON 200 body (proves the body is never parsed as
  *  JSON), and `fetch`/`inferSchema` parity with the existing `fetch`/`toRows` methods.
  *
@@ -75,9 +75,9 @@ class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRoute
   private def config(path: String): RestApiConfig =
     RestApiConfig(url = urlFor(path), method = "GET", auth = RestApiAuth.NoAuth, headers = Map.empty)
 
-  private val connector: Connector[RestApiConfig] = new RestApiConnector()
+  private val connector: ConnectorDriver[RestApiConfig] = new RestApiConnectorDriver()
 
-  "RestApiConnector.metadata" should {
+  "RestApiConnectorDriver.metadata" should {
     // HEL-484: requiredFields now non-empty (design.md Decision 2) — a
     // behavior-driven update, the production value genuinely changed.
     "expose kind=rest_api, displayName=REST API, supportsIncremental=false, authKind=configurable, requiredFields=[url]" in {
@@ -91,7 +91,7 @@ class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRoute
     }
   }
 
-  "RestApiConnector.testConnection" should {
+  "RestApiConnectorDriver.testConnection" should {
 
     "succeed on a non-JSON 200 response body (never parses the body as JSON)" in {
       await(connector.testConnection(config("plain-text-ok"))) shouldBe Right(())
@@ -109,10 +109,10 @@ class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRoute
     }
   }
 
-  "RestApiConnector.fetch(config, maxRows) via the Connector trait" should {
+  "RestApiConnectorDriver.fetch(config, maxRows) via the Connector trait" should {
 
-    "match RestApiConnector.toRows(RestApiConnector.fetch(config)) truncated to maxRows" in {
-      val plain = new RestApiConnector()
+    "match RestApiConnectorDriver.toRows(RestApiConnectorDriver.fetch(config)) truncated to maxRows" in {
+      val plain = new RestApiConnectorDriver()
       val expected = await(plain.fetch(config("json-array"))).map(json => plain.toRows(json).take(2))
 
       val viaTrait = await(connector.fetch(config("json-array"), maxRows = 2))
@@ -124,10 +124,10 @@ class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRoute
     }
   }
 
-  "RestApiConnector.inferSchema via the Connector trait" should {
+  "RestApiConnectorDriver.inferSchema via the Connector trait" should {
 
     "derive fields from the same JSON payload SourceService.inferRest would infer from" in {
-      val plain    = new RestApiConnector()
+      val plain    = new RestApiConnectorDriver()
       val rawJson  = await(plain.fetch(config("json-array"))).getOrElse(fail("expected Right"))
       val expected = SchemaInferenceEngine.fromJson(rawJson)
 

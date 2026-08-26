@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change pipeline-step-execution. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: POST /api/pipelines/:id/run executes steps and returns a result
 The backend SHALL expose `POST /api/pipelines/:id/run` that fetches the pipeline's steps ordered
 ascending by `position`, applies each step in sequence to an in-memory row set loaded from the
@@ -224,7 +226,7 @@ engine starts, and `succeeded` or `failed` on completion (a blocked run publishe
 The backend SHALL execute a pipeline whose resolved base `sourceDataSourceId` is a `rest_api` or
 `sql` `DataSource` using the in-process execution engine, the same way it already executes `static`/
 `csv`/`text`/`pdf`/`image` sources — fetching rows via the source kind's existing connector
-(`RestApiConnector`/`SqlConnector`) up to a bounded row count, then applying pipeline steps in
+(`RestApiConnectorDriver`/`SqlConnectorDriver`) up to a bounded row count, then applying pipeline steps in
 sequence. This SHALL NOT be rejected as an unsupported source type. A connector-level fetch failure
 (unreachable endpoint, auth failure, query error) SHALL surface as the existing generic execution
 failure (`422 Unprocessable Entity`, `last_run_status = "failed"`) — the same outcome any other
@@ -260,4 +262,3 @@ rejected as an unsupported source type.
   source
 - **THEN** the response contains up to 10 preview rows reflecting the executed step prefix, not a
   422 "unsupported source type" error
-

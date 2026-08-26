@@ -125,7 +125,7 @@ final case class ClaudeApiToolRequest(
 
 /** Thrown by `HttpClaudeTransport.send`'s returned `Future` on a non-2xx Anthropic response
  *  (design.md D3) — `ClaudeClient.send` catches this and maps it to
- *  `Left(ClaudeError.ApiError(status, body))`, mirroring `RestApiConnector`'s
+ *  `Left(ClaudeError.ApiError(status, body))`, mirroring `RestApiConnectorDriver`'s
  *  "transport throws, client catches and maps" split. */
 final case class ClaudeApiException(status: Int, body: String)
     extends RuntimeException(s"Claude API error: HTTP $status")
