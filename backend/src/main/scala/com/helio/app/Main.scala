@@ -10,6 +10,7 @@ import com.helio.domain.connectors.RestApiConnector
 import com.helio.domain.util.SystemClock
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
+import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.{Database, DbContext}
@@ -18,6 +19,7 @@ import com.helio.infrastructure.persistence.sources.{DataSourceRepository, Image
 import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.services.audit.AuditService
 import com.helio.services.pipelines.PipelineSchedulerService
 import com.typesafe.config.ConfigFactory
 
@@ -87,6 +89,11 @@ object Main {
       // HEL-702: TOTP MFA — raw Slick Database, not DbContext (no RLS; read
       // pre-identity on the login path, like userRepo/userSessionRepo above).
       val mfaRepo = new MfaRepository(db)
+      // HEL-471: audit event append-only store foundation. Constructed here
+      // but not wired into any route/directive/service yet — instrumenting
+      // a specific mutation is a later ticket (design.md Non-Goals).
+      val auditEventRepo = new AuditEventRepository(ctx)
+      val auditService    = new AuditService(auditEventRepo)
 
       val fileSystem = sys.env.get("HELIO_UPLOADS_BACKEND").map(_.toLowerCase) match {
         case None | Some("local") => LocalFileSystem.fromEnv()

@@ -4,6 +4,7 @@ import com.helio.api.protocols._
 import com.helio.api.protocols.agents._
 import com.helio.api.protocols.alerts._
 import com.helio.api.protocols.assistant._
+import com.helio.api.protocols.audit._
 import com.helio.api.protocols.auth._
 import com.helio.api.protocols.dashboards._
 import com.helio.api.protocols.hooks._
@@ -72,6 +73,7 @@ import com.helio.api.protocols.workspace._
  *  - `MfaProtocol` has no cross-domain dependency (HEL-702)
  *  - `BetaAccessProtocol` has no cross-domain dependency (redeem's response reuses
  *    `UserResponse`/`AuthProtocol` verbatim, not a nested type of its own — HEL-704)
+ *  - `AuditEventProtocol` has no cross-domain dependency (`metadata` is a raw `JsValue` — HEL-471)
  *  - `PaginationProtocol extends DashboardProtocol with DataTypeProtocol with
  *    DataSourceProtocol with PanelProtocol with MetricProtocol` (one
  *    `PagedResult[...]` format per list-endpoint response type, HEL-493 adds
@@ -125,3 +127,4 @@ trait JsonProtocols
     with AgentPreferencesProtocol
     with AgentMemoryProtocol
     with BetaAccessProtocol
+    with AuditEventProtocol
