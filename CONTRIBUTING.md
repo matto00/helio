@@ -117,6 +117,14 @@ Docs are read by operators tuning the thing they describe, so a wrong number the
 - When a value moves, update every place that asserts it in the same change — `grep` for the old value, don't assume you know where it appears
 - Prefer describing _why_ a value is what it is over restating the value. `max-instances` is capped because the privileged DB pool exhausts the instance's connection budget; that explanation stays true across a retune, the bare number does not
 
+### Dependency & CVE hygiene
+
+Dependabot cadence, the CI CVE gate (osv-scanner backend / audit-ci frontend),
+the auto-merge policy, how to add a justified suppression, the SLA for new
+alerts, and the manual triage runbook all live in
+[`docs/dependency-management.md`](docs/dependency-management.md) — see that
+doc rather than reading the workflow YAML directly.
+
 ## Pre-Commit Policy
 
 Husky runs the following automatically on every commit — fix failures before pushing:
