@@ -38,7 +38,7 @@
 }
 
 .add-source-modal__type-btn {
-  padding: 4px 12px;
+  padding: 4px var(--space-3);
   border: 1px solid var(--app-border-strong);
   border-radius: var(--app-radius-sm);
   background: transparent;
@@ -100,7 +100,7 @@
 
 .add-source-modal__fields-table th {
   text-align: left;
-  padding: 6px 8px;
+  padding: 6px var(--space-2);
   color: var(--app-text-muted);
   font-weight: var(--weight-medium);
   border-bottom: 1px solid var(--app-border-subtle);
@@ -118,7 +118,7 @@
 .add-source-modal__field-name {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  padding-left: 8px !important;
+  padding-left: var(--space-2) !important;
 }
 
 /* Inline table inputs — small compact style, not full ui-input */

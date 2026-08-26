@@ -15,8 +15,8 @@
 .pipeline-detail-page__meta-bar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 6px 20px 0;
+  gap: var(--space-4);
+  padding: 6px var(--space-5) 0;
   font-size: var(--text-xs);
   color: var(--app-text-muted);
 }
@@ -36,7 +36,7 @@
 .pipeline-detail-page__river {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px;
+  padding: var(--space-4) var(--space-5);
 }
 
 .pipeline-detail-page__river-inner {
@@ -112,8 +112,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 60px 20px;
+  gap: var(--space-3);
+  padding: 60px var(--space-5);
   text-align: center;
   position: relative;
 }
@@ -125,7 +125,7 @@
 }
 
 .pipeline-detail-page__add-step-btn {
-  padding: 8px 18px;
+  padding: var(--space-2) 18px;
   border: 1px solid var(--app-accent-mid);
   border-radius: var(--app-radius-md);
   background: var(--app-accent-surface);
@@ -144,7 +144,7 @@
  * accent "+ Add step" / "+ Add transformation step" controls in both the
  * empty-state and the add-step row. ── */
 .pipeline-detail-page__shape-picker-btn {
-  padding: 8px 18px;
+  padding: var(--space-2) 18px;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);
   background: transparent;
@@ -174,12 +174,12 @@
   justify-content: center;
   align-items: center;
   gap: var(--space-2);
-  padding: 12px 0;
+  padding: var(--space-3) 0;
   position: relative;
 }
 
 .pipeline-detail-page__add-step-dashed-btn {
-  padding: 8px 20px;
+  padding: var(--space-2) var(--space-5);
   border: 1px dashed var(--app-accent-mid);
   border-radius: var(--app-radius-md);
   background: transparent;
@@ -215,7 +215,7 @@
 .pipeline-detail-page__op-dropdown-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
   padding: 7px 10px;
   background: transparent;
@@ -391,7 +391,7 @@
 }
 
 .pipeline-detail-page__step-card-body {
-  padding: 12px 14px;
+  padding: var(--space-3) 14px;
   border-top: 1px solid var(--app-border-subtle);
   display: flex;
   flex-direction: column;
@@ -444,7 +444,7 @@
 
 .pipeline-detail-page__step-card-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .pipeline-detail-page__step-card-preview-btn {
@@ -477,7 +477,7 @@
 
 /* ── Step preview ── */
 .pipeline-detail-page__step-preview {
-  margin-top: 12px;
+  margin-top: var(--space-3);
   border-top: 1px solid var(--app-border-subtle);
   padding-top: 10px;
 }
@@ -537,8 +537,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 10px 20px;
+  gap: var(--space-4);
+  padding: 10px var(--space-5);
 }
 
 .pipeline-detail-page__footer-left {
@@ -883,7 +883,7 @@
 
 .pipeline-detail-page__cancel-confirm-btn {
   height: var(--control-md);
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: transparent;
@@ -947,7 +947,7 @@
 .pipeline-detail-page__update-error {
   font-size: var(--text-xs);
   color: var(--app-error);
-  margin-right: 8px;
+  margin-right: var(--space-2);
 }
 
 /* ---- Run status animations ---- */
@@ -974,7 +974,7 @@
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 4px 12px;
+  gap: 4px var(--space-3);
 }
 
 .pipeline-detail-page__select-fields-item {
@@ -984,7 +984,7 @@
 .pipeline-detail-page__select-fields-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 4px 6px;
   border-radius: var(--app-radius-sm);
   cursor: pointer;
@@ -1029,7 +1029,7 @@
 
 .pipeline-detail-page__filter-combinator-btn {
   height: 24px;
-  padding: 0 8px;
+  padding: 0 var(--space-2);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: transparent;
@@ -1058,7 +1058,7 @@
 .pipeline-detail-page__filter-conditions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .pipeline-detail-page__filter-condition-row {
@@ -1222,7 +1222,7 @@
 .pipeline-detail-page__aggregate-agg-rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .pipeline-detail-page__aggregate-groupby-row {
@@ -1299,7 +1299,7 @@
 
 .pipeline-detail-page__cast-th,
 .pipeline-detail-page__rename-th {
-  padding: 6px 8px;
+  padding: 6px var(--space-2);
   border-bottom: 1px solid var(--app-border-subtle);
   color: var(--app-text-muted);
   font-size: var(--text-xs);
@@ -1326,7 +1326,7 @@
 
 .pipeline-detail-page__cast-source,
 .pipeline-detail-page__rename-source {
-  padding: 6px 8px;
+  padding: 6px var(--space-2);
   color: var(--app-text);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -1334,7 +1334,7 @@
 
 .pipeline-detail-page__cast-target,
 .pipeline-detail-page__rename-target {
-  padding: 6px 8px;
+  padding: 6px var(--space-2);
 }
 
 /* ── Phone breakpoint (DESIGN.md §4, 430px) ──────────────────────────────────

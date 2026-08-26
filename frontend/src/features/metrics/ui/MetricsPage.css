@@ -9,7 +9,7 @@
 .metrics-page__section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .metrics-page__loading,
@@ -80,7 +80,7 @@
 }
 
 .metric-list-table__td {
-  padding: 8px 10px;
+  padding: var(--space-2) 10px;
   border-bottom: 1px solid var(--app-border-subtle);
   color: var(--app-text);
 }

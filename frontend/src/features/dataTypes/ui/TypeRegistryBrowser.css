@@ -1,7 +1,7 @@
 .type-registry-browser {
   display: grid;
   grid-template-columns: 280px 1fr;
-  gap: 1rem;
+  gap: var(--space-4);
   align-items: start;
 }
 
