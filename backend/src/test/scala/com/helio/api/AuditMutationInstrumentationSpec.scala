@@ -23,6 +23,7 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.{Database, DbContext}
+import com.helio.api.protocols.workspace.{TeardownRequest, TeardownResponse}
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import spray.json._
@@ -68,6 +69,12 @@ class AuditMutationInstrumentationSpec
   private var mfaRepo: MfaRepository                        = _
   private var metricRepo: MetricRepository                  = _
   private var realSessionRepo: SlickUserSessionRepository   = _
+  // HEL-838 tasks.md 2.1: simplified `DbContext(db, db)` pattern (both pools
+  // the same superuser connection) — this spec doesn't exercise RLS, only
+  // audit-row wiring, so `WorkspaceTeardownServiceSpec`'s dual-role harness
+  // is unnecessary here. Needed so `workspaceTeardownServiceOpt` is `Some`
+  // and `POST /api/workspace/teardown` is mounted (task 2.1).
+  private var dbContext: DbContext                          = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -96,6 +103,7 @@ class AuditMutationInstrumentationSpec
     mfaRepo            = new MfaRepository(db)(typedSystem.executionContext)
     metricRepo         = new MetricRepository(ctx)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
+    dbContext          = ctx
   }
 
   override def afterAll(): Unit = {
@@ -146,7 +154,8 @@ class AuditMutationInstrumentationSpec
       auditEventRepo = auditEventRepo,
       mfaRepo = mfaRepo,
       metricRepo = metricRepo,
-      apiTokenRepo = apiTokenRepo
+      apiTokenRepo = apiTokenRepo,
+      dbContext = dbContext
     ).routes
     val csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
     Directives.mapRequest { (req: HttpRequest) =>
@@ -904,6 +913,127 @@ class AuditMutationInstrumentationSpec
       rows should have size 1
       AuditSource.asString(rows.head.source) shouldBe "pat"
       rows.head.actorTokenId shouldBe defined
+    }
+  }
+
+  "WorkspaceTeardownService audit instrumentation (HEL-838)" should {
+
+    /** Creates a tagged static DataSource via the real route — the tag
+     *  scopes what `POST /api/workspace/teardown` sees as its batch. */
+    def createTaggedSource(name: String, tag: String): String = {
+      var dataSourceId = ""
+      Post(
+        "/api/data-sources",
+        StaticDataSourceRequest(name, "static", Vector(StaticColumnPayload("n", "number")), Vector(Vector(JsNumber(1))), Some(tag))
+      ) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.Created
+        dataSourceId = responseAs[DataSourceResponse].id
+      }
+      dataSourceId
+    }
+
+    "write exactly one workspace.teardown audit row on a committed teardown, with correct " +
+      "resourceId, actor id, tokenId, source and deletion-count metadata (task 2.1, AC 1/2)" in {
+      cleanDb()
+      val tag           = s"teardown-committed-${UUID.randomUUID()}"
+      val dataSourceId  = createTaggedSource("TeardownCommittedSource", tag)
+
+      Post("/api/workspace/teardown", TeardownRequest(Some(tag), Some(false))) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[TeardownResponse]
+        resp.committed shouldBe true
+        resp.blocked shouldBe false
+        resp.sourcesDeleted shouldBe 1
+        resp.typesDeleted shouldBe 1
+
+        val rows = eventuallyAuditRows(r => r.action == "workspace.teardown" && r.resourceId.contains(tag))
+        rows should have size 1
+        val row = rows.head
+        row.resourceType shouldBe "workspace"
+        row.actorUserId shouldBe Some(testUser.id)
+        row.actorTokenId shouldBe None
+        AuditSource.asString(row.source) shouldBe "ui"
+        row.metadata.asJsObject.fields("sourcesDeleted") shouldBe JsNumber(1)
+        row.metadata.asJsObject.fields("pipelinesDeleted") shouldBe JsNumber(0)
+        row.metadata.asJsObject.fields("typesDeleted") shouldBe JsNumber(1)
+      }
+      // `dataSourceId` created above is deleted by the teardown itself — no
+      // further use needed, referenced only to document the fixture's shape.
+      dataSourceId should not be empty
+    }
+
+    "write exactly one workspace.teardown audit row for a committed teardown of a tag matching " +
+      "zero resources, with all-zero deletion counts (task 2.1, spec scenario)" in {
+      cleanDb()
+      val tag = s"teardown-empty-${UUID.randomUUID()}"
+
+      Post("/api/workspace/teardown", TeardownRequest(Some(tag), Some(false))) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[TeardownResponse]
+        resp.committed shouldBe true
+        resp.sourcesDeleted shouldBe 0
+
+        val rows = eventuallyAuditRows(r => r.action == "workspace.teardown" && r.resourceId.contains(tag))
+        rows should have size 1
+        val metadata = rows.head.metadata.asJsObject.fields
+        metadata("sourcesDeleted") shouldBe JsNumber(0)
+        metadata("pipelinesDeleted") shouldBe JsNumber(0)
+        metadata("typesDeleted") shouldBe JsNumber(0)
+      }
+    }
+
+    "write no workspace.teardown audit row for a dryRun teardown (task 2.2, negative-assertion " +
+      "barrier per design.md Test plan)" in {
+      cleanDb()
+      val dryRunTag = s"teardown-dryrun-${UUID.randomUUID()}"
+      createTaggedSource("TeardownDryRunSource", dryRunTag)
+
+      Post("/api/workspace/teardown", TeardownRequest(Some(dryRunTag), Some(true))) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[TeardownResponse].committed shouldBe false
+      }
+
+      // Barrier: issue a second, real committed teardown (an empty-match
+      // tag) and wait for ITS row first — this proves the fire-and-forget
+      // audit write path has drained before asserting the dry-run tag wrote
+      // nothing (design.md "Test plan" — otherwise "no row yet" is
+      // unfalsifiable).
+      val barrierTag = s"teardown-barrier-${UUID.randomUUID()}"
+      Post("/api/workspace/teardown", TeardownRequest(Some(barrierTag), Some(false))) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[TeardownResponse].committed shouldBe true
+      }
+      eventuallyAuditRows(r => r.action == "workspace.teardown" && r.resourceId.contains(barrierTag)) should have size 1
+
+      allAuditRows().count(r => r.action == "workspace.teardown" && r.resourceId.contains(dryRunTag)) shouldBe 0
+    }
+
+    "write no workspace.teardown audit row for a blocked teardown (task 2.3, negative-assertion " +
+      "barrier per design.md Test plan)" in {
+      cleanDb()
+      val blockedTag  = s"teardown-blocked-${UUID.randomUUID()}"
+      val srcId       = createTaggedSource("TeardownBlockedSource", blockedTag)
+      // An untagged dependent pipeline over the tagged source blocks the
+      // whole call (mirrors WorkspaceTeardownServiceSpec 6.4).
+      Post("/api/pipelines", CreatePipelineRequest("TeardownBlockedPipeline", srcId, "TeardownBlockedOutput")) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+
+      Post("/api/workspace/teardown", TeardownRequest(Some(blockedTag), Some(false))) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[TeardownResponse]
+        resp.blocked shouldBe true
+        resp.committed shouldBe false
+      }
+
+      val barrierTag = s"teardown-barrier-${UUID.randomUUID()}"
+      Post("/api/workspace/teardown", TeardownRequest(Some(barrierTag), Some(false))) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[TeardownResponse].committed shouldBe true
+      }
+      eventuallyAuditRows(r => r.action == "workspace.teardown" && r.resourceId.contains(barrierTag)) should have size 1
+
+      allAuditRows().count(r => r.action == "workspace.teardown" && r.resourceId.contains(blockedTag)) shouldBe 0
     }
   }
 }

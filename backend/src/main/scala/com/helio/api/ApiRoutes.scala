@@ -420,7 +420,9 @@ final class ApiRoutes(
   // fixtures that don't pass a DbContext simply don't get the
   // /api/workspace/teardown route mounted.
   private val workspaceTeardownServiceOpt: Option[WorkspaceTeardownService] =
-    Option(dbContext).map(ctx => new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx, dataTypeRepo), fileSystem))
+    Option(dbContext).map(ctx =>
+      new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx, dataTypeRepo), fileSystem, auditService)
+    )
   // HEL-371: unconditional (not Option-guarded, unlike workspaceTeardownServiceOpt
   // above) — every dependency (dashboardService/dataSourceService/dataTypeService/
   // pipelineService) is already constructed unconditionally above, so there is
