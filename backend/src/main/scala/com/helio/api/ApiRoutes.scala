@@ -43,6 +43,8 @@ import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchSer
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
+import com.helio.infrastructure.persistence.audit.AuditEventRepository
+import com.helio.services.audit.AuditService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, InviteCodeRepository, MfaRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
@@ -158,7 +160,12 @@ final class ApiRoutes(
     // built with `mfaService = None` (its own default), and neither the
     // authenticated MFA routes nor the public verify route are mounted.
     // Appended last for the same purely-additive reason.
-    mfaRepo: MfaRepository = null
+    mfaRepo: MfaRepository = null,
+    // HEL-477: same nullable-optional wiring pattern as the repos above —
+    // fixtures that don't pass an AuditEventRepository get every mutating
+    // service constructed with `auditService = null` (each service's own
+    // `audit(...)` helper no-ops on `null` — see design.md Decision 1).
+    auditEventRepo: AuditEventRepository = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -167,6 +174,11 @@ final class ApiRoutes(
 
   private implicit val ec = system.executionContext
   private implicit val mat: Materializer = SystemMaterializer(system).materializer
+
+  // HEL-477: constructed once, shared by every mutating service below —
+  // `null` when no AuditEventRepository was passed (fixtures), matching the
+  // rest of this file's nullable-optional convention.
+  private val auditService: AuditService = Option(auditEventRepo).map(new AuditService(_)).orNull
 
   // Privileged callsite: resolvers here resolve ownership FOR the ACL check —
   // they must use *Internal variants (no user context at registry resolution time).
@@ -208,34 +220,34 @@ final class ApiRoutes(
   // below — fixtures that don't pass an MfaRepository get `mfaServiceOpt =
   // None`, which AuthService's own defaulted ctor param treats identically
   // to the feature being entirely absent (design.md D3).
-  private val mfaServiceOpt: Option[MfaService] = Option(mfaRepo).map(new MfaService(_, userRepo))
-  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt)
-  private val dashboardService  = new DashboardService(dashboardRepo, accessChecker)
+  private val mfaServiceOpt: Option[MfaService] = Option(mfaRepo).map(new MfaService(_, userRepo, auditService))
+  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService)
+  private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService)
   // HEL-500: metricRepo may be null for fixtures that don't pass one (same
   // nullable-optional wiring convention as the constructor param above) —
   // safe because PanelService only touches it when a panel actually carries
   // a `metricId`.
-  private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
+  private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo, auditService)
   // HEL-549: metricRepo threaded in the same nullable-optional way as panelService
   // above — only touched when a proposal panel actually carries a metricId.
   private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo, metricRepo)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // dataTypeRepo/accessChecker instances the other dashboard/panel services use.
-  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker, metricRepo)
+  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker, metricRepo, auditService)
   // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
-  private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker)
-  private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked)
-  private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector)
-  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
+  private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker, auditService)
+  private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService)
+  private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector, auditService)
+  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, auditService)
   // HEL-365: separate from dataTypeService (CRUD-only, design.md D6) — reads
   // the same dataTypeRepo/dataTypeRowRepo to build the panel-capabilities report.
   private val panelCapabilityService = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
   // HEL-381: threads the same RestApiConnector instance sourceService already
   // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo/
   // dataTypeRepo above cover every other analyzeProposal branch).
-  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo, connector)
+  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo, connector, auditService)
   // HEL-466: only build the evaluation engine when both privileged repos it
   // needs are present — mirrors alertRuleServiceOpt/alertEventServiceOpt's
   // nullable-optional pattern below. `.orNull` feeds PipelineRunService's
@@ -255,7 +267,7 @@ final class ApiRoutes(
   val pipelineRunService = new PipelineRunService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
     dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
-    alertEvaluationServiceOpt.orNull, connector
+    alertEvaluationServiceOpt.orNull, connector, auditService
   )
   // HEL-383: atomic pipeline-proposal apply — composes sourceService/
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,
@@ -310,7 +322,7 @@ final class ApiRoutes(
   // the panel PanelService.buildForCreate only builds — design.md D1).
   private val boundPanelService = new BoundPanelService(
     dataSourceService, pipelineService, pipelineRunService, panelService,
-    dataSourceRepo, dataTypeRepo, dataTypeRowRepo, panelRepo, accessChecker
+    dataSourceRepo, dataTypeRepo, dataTypeRowRepo, panelRepo, accessChecker, auditService
   )
   private val permissionService           = new PermissionService(permissionRepo, accessChecker)
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)
@@ -318,7 +330,7 @@ final class ApiRoutes(
   // don't pass an ApiTokenRepository get session-only auth and no /api/tokens.
   // HEL-369: ApiTokenService now also takes pipelineRepo (always constructed
   // above, never null) to validate a create request's scopedPipelineIds.
-  private val apiTokenServiceOpt          = Option(apiTokenRepo).map(new ApiTokenService(_, pipelineRepo))
+  private val apiTokenServiceOpt          = Option(apiTokenRepo).map(new ApiTokenService(_, pipelineRepo, auditService))
   // HEL-369: same nullable-optional wiring pattern as apiTokenServiceOpt
   // above — fixtures that don't pass a PipelineRunRepository simply don't
   // get the /api/hooks/run route mounted (hookTriggerServiceOpt.fold(reject)).
@@ -326,7 +338,7 @@ final class ApiRoutes(
     Option(pipelineRunRepo).map(new HookTriggerService(pipelineRunService, _, pipelineRepo))
   // HEL-246: same optional-wiring pattern — fixtures that don't pass an
   // ImageUploadRepository simply don't get the /api/uploads/image routes.
-  private val imageUploadServiceOpt       = Option(imageUploadRepo).map(new ImageUploadService(_, fileSystem))
+  private val imageUploadServiceOpt       = Option(imageUploadRepo).map(new ImageUploadService(_, fileSystem, auditService))
   // HEL-447: same optional-wiring pattern — fixtures that don't pass an
   // AlertRuleRepository simply don't get the /api/alert-rules routes.
   private val alertRuleServiceOpt         = Option(alertRuleRepo).map(new AlertRuleService(_, dataTypeRepo))
@@ -336,7 +348,7 @@ final class ApiRoutes(
   // HEL-414: same optional-wiring pattern — fixtures that don't pass a
   // PipelineScheduleRepository simply don't get the
   // /api/pipelines/:id/schedule routes.
-  private val pipelineScheduleServiceOpt  = Option(pipelineScheduleRepo).map(new PipelineScheduleService(_, pipelineRepo))
+  private val pipelineScheduleServiceOpt  = Option(pipelineScheduleRepo).map(new PipelineScheduleService(_, pipelineRepo, auditService))
   // HEL-493: same optional-wiring pattern — fixtures that don't pass a
   // MetricRepository simply don't get the /api/metrics routes.
   private val metricServiceOpt            = Option(metricRepo).map(new MetricService(_, dataTypeRepo))

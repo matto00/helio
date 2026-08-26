@@ -89,8 +89,13 @@ final class DashboardProposalService(
       case (dashboard, _) =>
         createPanels(dashboard.id, proposal.panels, user, Vector.empty).flatMap {
           case Left(err) =>
-            // Roll back: delete the partially-created dashboard (cascades panels).
-            dashboardService.delete(dashboard.id, user).map(_ => Left(err))
+            // HEL-477 design.md Decision 10: `deleteInternal`, not the public
+            // `delete` — this rollback is internal cleanup of a dashboard the
+            // same call already failed to successfully create, not an
+            // actor-initiated deletion; the public `delete` would otherwise
+            // write a false `dashboard.delete` for a dashboard that, from
+            // the caller's perspective, never existed.
+            dashboardService.deleteInternal(dashboard.id, user).map(_ => Left(err))
           case Right(panels) =>
             applyAppearance(proposal.panels, panels, user).flatMap { panelsWithAppearance =>
               applyLayout(dashboard, proposal.panels, panelsWithAppearance, user).map(Right(_))

@@ -1,6 +1,7 @@
 package com.helio.services.sources
 
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.domain.engine.SchemaInferenceEngine
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -51,10 +52,16 @@ final class DataSourceService(
     dataTypeRepo:   DataTypeRepository,
     fileSystem:     FileSystem,
     resolveHost:    String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
-    isBlocked:      (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+    isBlocked:      (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
+    // HEL-477: nullable-optional wiring mirrors this file's other DI.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext, @annotation.unused mat: Materializer, system: ActorSystem[_]) {
 
   private val staticMaxRows = 500
+
+  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, "data_source", resourceId, JsObject.empty)
 
   /** Max upload / URL-fetch size for text sources (HEL-215). Mirrors CSV's
    *  `CSV_MAX_FILE_SIZE_BYTES` env-var pattern; defaults smaller (10 MB vs
@@ -135,7 +142,7 @@ final class DataSourceService(
               ownerId   = user.id,
               tag       = tag
             )
-            dataTypeRepo.insert(dataType, user).map(_ => Right(ds))
+            dataTypeRepo.insert(dataType, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
         }
       }
     }
@@ -191,7 +198,7 @@ final class DataSourceService(
               ownerId   = user.id,
               tag       = validTag
             )
-            dataTypeRepo.insert(dt, user).map(_ => Right(ds))
+            dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
           }
         }
     }
@@ -275,7 +282,7 @@ final class DataSourceService(
                       ownerId   = user.id,
                       tag       = validTag
                     )
-                    dataTypeRepo.insert(dt, user).map(_ => Right(ds))
+                    dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
                   }
                 }
             }
@@ -373,7 +380,7 @@ final class DataSourceService(
                       ownerId   = user.id,
                       tag       = validTag
                     )
-                    dataTypeRepo.insert(dt, user).map(_ => Right(ds))
+                    dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
                   }
                 }
             }
@@ -466,7 +473,7 @@ final class DataSourceService(
                       ownerId   = user.id,
                       tag       = validTag
                     )
-                    dataTypeRepo.insert(dt, user).map(_ => Right(ds))
+                    dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
                   }
                 }
             }
@@ -497,7 +504,9 @@ final class DataSourceService(
             }
             dataSourceRepo.update(updated, user).map {
               case None     => Left(ServiceError.NotFound("Data source not found"))
-              case Some(ds) => Right(ds)
+              case Some(ds) =>
+                audit("data_source.update", Some(ds.id.value), user)
+                Right(ds)
             }
         }
     }
@@ -518,7 +527,10 @@ final class DataSourceService(
             fileSystem.delete(i.config.path).recover { case _ => () }
           case _ => Future.successful(())
         }
-        deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map(_ => Right(()))
+        deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map { _ =>
+          audit("data_source.delete", Some(source.id.value), user)
+          Right(())
+        }
     }
 
   // ── Refresh ───────────────────────────────────────────────────────────────

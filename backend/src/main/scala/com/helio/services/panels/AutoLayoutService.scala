@@ -2,12 +2,14 @@ package com.helio.services.panels
 
 import com.helio.services.auth.AccessChecker
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.api.protocols.dashboards.AutoLayoutRequest
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, PanelId, Page, ResourceAccess}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, PanelId, Page, ResourceAccess}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.services.panels.PanelPacker
 import com.helio.services.panels.PanelPacker.PackInput
+import spray.json.JsObject
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,10 +36,16 @@ import scala.concurrent.{ExecutionContext, Future}
 final class AutoLayoutService(
     dashboardRepo: DashboardRepository,
     panelRepo: PanelRepository,
-    accessChecker: AccessChecker
+    accessChecker: AccessChecker,
+    // HEL-477: nullable-optional wiring mirrors the rest of this file's DI.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
   private val DefaultCols = 12
+
+  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, "dashboard", resourceId, JsObject.empty)
 
   def autoLayout(
       dashboardId: DashboardId,
@@ -95,7 +103,11 @@ final class AutoLayoutService(
       case Left(err) => Future.successful(Left(err))
       case Right(updated) =>
         dashboardRepo.update(updated).map {
-          case Some(d) => Right(d)
+          case Some(d) =>
+            // HEL-477 design.md Decision 9: reuses dashboard.update — layout
+            // is a dashboard-owned field, not a distinct resource.
+            audit("dashboard.update", Some(dashboardId.value), user)
+            Right(d)
           case None    => Left(ServiceError.NotFound("Dashboard not found"))
         }
     }

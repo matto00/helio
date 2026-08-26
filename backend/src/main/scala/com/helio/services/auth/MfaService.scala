@@ -1,10 +1,12 @@
 package com.helio.services.auth
 
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.api.protocols.auth.{MfaBackupCodesResponse, MfaConfirmRequest, MfaEnrollResponse, MfaReauthRequest, MfaStatusResponse, MfaVerifyRequest}
-import com.helio.domain.model.{AuthenticatedUser, MfaLoginChallenge, User, UserId, UserMfa}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, MfaLoginChallenge, User, UserId, UserMfa}
 import com.helio.infrastructure.persistence.auth.{MfaRepository, TotpSupport, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing
+import spray.json.{JsObject, JsString}
 
 import java.security.SecureRandom
 import java.time.Instant
@@ -18,10 +20,16 @@ import scala.concurrent.{ExecutionContext, Future}
  *  either direction without a cycle. */
 final class MfaService(
     mfaRepo: MfaRepository,
-    userRepo: UserRepository
+    userRepo: UserRepository,
+    // HEL-477: nullable-optional wiring mirrors the rest of this ticket's DI.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
   import MfaService._
+
+  private def audit(actorUserId: Option[UserId], action: String, metadata: JsObject = JsObject.empty): Unit =
+    if (auditService != null)
+      auditService.record(actorUserId, None, AuditSource.Ui, action, "user", actorUserId.map(_.value), metadata)
 
   // ── Status ────────────────────────────────────────────────────────────────
 
@@ -76,17 +84,27 @@ final class MfaService(
     mfaRepo.findUserMfa(user.id).flatMap {
       case Some(mfa) if !mfa.enabled =>
         TotpSupport.verify(mfa.totpSecret, req.code, mfa.lastUsedStep) match {
-          case Some(step) => issueBackupCodes(user.id, confirmStep = Some(step))
+          case Some(step) =>
+            issueBackupCodes(user.id, confirmStep = Some(step)).map { result =>
+              if (result.isRight) audit(Some(user.id), "auth.mfa.enable")
+              result
+            }
           case None        => Future.successful(Left(InvalidCode))
         }
       case _ => Future.successful(Left(InvalidCode))
     }
 
   def regenerateBackupCodes(req: MfaReauthRequest, user: AuthenticatedUser): Future[Either[ServiceError, MfaBackupCodesResponse]] =
-    requireCurrentAuth(req.code, user)(issueBackupCodes(user.id, confirmStep = None))
+    requireCurrentAuth(req.code, user)(issueBackupCodes(user.id, confirmStep = None)).map { result =>
+      if (result.isRight) audit(Some(user.id), "auth.mfa.backup_codes.regenerate")
+      result
+    }
 
   def disable(req: MfaReauthRequest, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    requireCurrentAuth(req.code, user)(mfaRepo.deleteUserMfa(user.id).map(Right(_)))
+    requireCurrentAuth(req.code, user)(mfaRepo.deleteUserMfa(user.id).map(Right(_))).map { result =>
+      if (result.isRight) audit(Some(user.id), "auth.mfa.disable")
+      result
+    }
 
   // ── Login-time challenge (mfa-login-gate spec) ──────────────────────────
 
@@ -119,9 +137,9 @@ final class MfaService(
           case Some(mfa) if mfa.enabled =>
             verifyCurrentCode(mfa, req.code, challenge.userId).flatMap {
               case true  => establishSession(req.challengeToken, challenge.userId)
-              case false => recordFailedAttempt(req.challengeToken)
+              case false => recordFailedAttempt(req.challengeToken, challenge.userId)
             }
-          case _ => recordFailedAttempt(req.challengeToken)
+          case _ => recordFailedAttempt(req.challengeToken, challenge.userId)
         }
       case _ => Future.successful(Left(InvalidCode))
     }
@@ -136,13 +154,27 @@ final class MfaService(
         case Some(u) =>
           userRepo
             .createSession(AuthService.buildSession(u.id, Instant.now()))
-            .map(created => Right(AuthResult.of(created, u)))
+            .map { created =>
+              // HEL-477 design.md Decision 6: this, not AuthService.login's
+              // earlier auth.login.challenged, is the actual
+              // session-establishing event for an MFA-enrolled user.
+              audit(Some(u.id), "auth.login")
+              Right(AuthResult.of(created, u))
+            }
         case None => Future.successful(Left(InvalidCode))
       }
     } yield result
 
-  private def recordFailedAttempt(challengeToken: String): Future[Either[ServiceError, AuthResult]] =
-    mfaRepo.incrementChallengeAttempts(challengeToken).map(_ => Left(InvalidCode))
+  private def recordFailedAttempt(challengeToken: String, userId: UserId): Future[Either[ServiceError, AuthResult]] =
+    mfaRepo.incrementChallengeAttempts(challengeToken).map { _ =>
+      // HEL-477 design.md Decision 6: `MfaService.verifyLogin` failing ->
+      // auth.login.failed. `actorUserId = None` (mirrors AuthService's
+      // password-login failure convention — no session was ever
+      // established), the challenge's known userId is captured in metadata
+      // instead.
+      audit(None, "auth.login.failed", JsObject("userId" -> JsString(userId.value)))
+      Left(InvalidCode)
+    }
 
   /** Re-auth gate shared by regenerate/disable (design.md D6): the caller
    *  must currently have MFA enabled and present a valid current TOTP or

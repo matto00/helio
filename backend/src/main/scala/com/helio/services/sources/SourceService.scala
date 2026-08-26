@@ -1,6 +1,7 @@
 package com.helio.services.sources
 
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.domain.connectors.SqlConnector
 import com.helio.domain.engine.ExpressionEvaluator
 import com.helio.domain.connectors.RestApiConnector
@@ -30,8 +31,17 @@ import scala.concurrent.{ExecutionContext, Future}
 final class SourceService(
     dataSourceRepo: DataSourceRepository,
     dataTypeRepo:   DataTypeRepository,
-    connector:      RestApiConnector
+    connector:      RestApiConnector,
+    // HEL-477: nullable-optional wiring mirrors this file's other DI.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
+
+  private def audit(resourceId: Option[String], user: AuthenticatedUser): Unit =
+    if (auditService != null)
+      // HEL-477 design.md Decision 8: same data_source.create action as
+      // DataSourceService's create variants — both produce the same
+      // DataSource domain type.
+      auditService.record(Some(user.id), None, AuditSource.Ui, "data_source.create", "data_source", resourceId, JsObject.empty)
 
   // ── Create ────────────────────────────────────────────────────────────────
 
@@ -51,7 +61,10 @@ final class SourceService(
           config    = sqlConfig
         )
         dataSourceRepo.insert(source, user).flatMap { inserted =>
-          CreateSourceEnvelope.build(SqlConnector, sqlConfig, inserted, now, dataTypeRepo, user).map(Right(_))
+          CreateSourceEnvelope.build(SqlConnector, sqlConfig, inserted, now, dataTypeRepo, user).map { response =>
+            audit(Some(inserted.id.value), user)
+            Right(response)
+          }
         }
     }
   }
@@ -75,7 +88,10 @@ final class SourceService(
           )
           dataSourceRepo.insert(source, user).flatMap { inserted =>
             val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
-            CreateSourceEnvelope.build(connector, restConfig, inserted, now, dataTypeRepo, user, overridesMap).map(Right(_))
+            CreateSourceEnvelope.build(connector, restConfig, inserted, now, dataTypeRepo, user, overridesMap).map { response =>
+              audit(Some(inserted.id.value), user)
+              Right(response)
+            }
           }
         }
     }

@@ -4,11 +4,13 @@ import com.helio.services.proposals.ProposalPanelSupport
 import com.helio.services.auth.AccessChecker
 import com.helio.services.panels.PanelService
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.api.protocols.proposals.{ProposalPanel, ReplaceDashboardContentsRequest}
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, Panel, ResourceAccess}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, Panel, ResourceAccess}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.metrics.MetricRepository
+import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,8 +38,14 @@ final class DashboardContentsService(
     // HEL-549: mirrors DashboardProposalService's nullable-optional wiring
     // convention (design.md D5) — only touched when a panel actually
     // carries a metricId.
-    metricRepo: MetricRepository
+    metricRepo: MetricRepository,
+    // HEL-477: nullable-optional wiring mirrors metricRepo above.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
+
+  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, "dashboard", resourceId, metadata)
 
   def replaceContents(
       dashboardId: DashboardId,
@@ -81,7 +89,16 @@ final class DashboardContentsService(
         val layout = remapLayout(panels, built)
         dashboardRepo.replaceContents(dashboardId, built, Some(layout)).map {
           case None         => Left(ServiceError.NotFound("Dashboard not found"))
-          case Some(result) => Right(result)
+          case Some(result @ (_, newPanels)) =>
+            // HEL-477 design.md Decision 9: one dashboard.contents.replace
+            // row, no per-panel events.
+            audit(
+              "dashboard.contents.replace",
+              Some(dashboardId.value),
+              user,
+              JsObject("panelCount" -> JsNumber(newPanels.size))
+            )
+            Right(result)
         }
     }
 

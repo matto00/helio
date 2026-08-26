@@ -1,12 +1,14 @@
 package com.helio.services.auth
 
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.auth.{ApiTokenResponse, CreateApiTokenRequest, CreateApiTokenResponse}
-import com.helio.domain.model.{ApiToken, ApiTokenId, AuthenticatedUser, PipelineId}
+import com.helio.domain.model.{ApiToken, ApiTokenId, AuditSource, AuthenticatedUser, PipelineId}
 import com.helio.infrastructure.persistence.auth.ApiTokenRepository
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.crypto.TokenHashing
+import spray.json.JsObject
 
 import java.security.SecureRandom
 import java.time.Instant
@@ -32,10 +34,16 @@ import scala.concurrent.{ExecutionContext, Future}
  *  see design.md Decision 1). */
 final class ApiTokenService(
     apiTokenRepo: ApiTokenRepository,
-    pipelineRepo: PipelineRepository
+    pipelineRepo: PipelineRepository,
+    // HEL-477: nullable-optional wiring mirrors this ticket's other DI.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
   import ApiTokenService._
+
+  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, "api_token", resourceId, JsObject.empty)
 
   def create(
       rawRequest: CreateApiTokenRequest,
@@ -60,6 +68,7 @@ final class ApiTokenService(
               scopedPipelineIds = req.scopedPipelineIds.map(_.toSet)
             )
             apiTokenRepo.create(token).map { created =>
+              audit("token.create", Some(created.id.value), user)
               Right(
                 CreateApiTokenResponse(
                   id        = created.id.value,
@@ -106,7 +115,9 @@ final class ApiTokenService(
   /** Existence-not-leaked: unknown and cross-user ids both map to 404. */
   def revoke(id: ApiTokenId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     apiTokenRepo.revoke(id, user).map {
-      case true  => Right(())
+      case true  =>
+        audit("token.revoke", Some(id.value), user)
+        Right(())
       case false => Left(ServiceError.NotFound("Token not found"))
     }
 }

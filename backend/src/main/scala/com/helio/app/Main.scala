@@ -19,7 +19,6 @@ import com.helio.infrastructure.persistence.sources.{DataSourceRepository, Image
 import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.services.audit.AuditService
 import com.helio.services.pipelines.PipelineSchedulerService
 import com.typesafe.config.ConfigFactory
 
@@ -89,11 +88,9 @@ object Main {
       // HEL-702: TOTP MFA — raw Slick Database, not DbContext (no RLS; read
       // pre-identity on the login path, like userRepo/userSessionRepo above).
       val mfaRepo = new MfaRepository(db)
-      // HEL-471: audit event append-only store foundation. Constructed here
-      // but not wired into any route/directive/service yet — instrumenting
-      // a specific mutation is a later ticket (design.md Non-Goals).
+      // HEL-471/HEL-477: audit event append-only store, wired into every
+      // mutating service via ApiRoutes(auditEventRepo = ...) below.
       val auditEventRepo = new AuditEventRepository(ctx)
-      val auditService    = new AuditService(auditEventRepo)
 
       val fileSystem = sys.env.get("HELIO_UPLOADS_BACKEND").map(_.toLowerCase) match {
         case None | Some("local") => LocalFileSystem.fromEnv()
@@ -167,7 +164,8 @@ object Main {
         metricRepo = metricRepo,
         agentPreferencesRepo = agentPreferencesRepo,
         agentMemoryRepo = agentMemoryRepo,
-        mfaRepo = mfaRepo
+        mfaRepo = mfaRepo,
+        auditEventRepo = auditEventRepo
       )
 
       // HEL-415: scheduler runtime — reuses apiRoutes.pipelineRunService so

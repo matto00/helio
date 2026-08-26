@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.domain.engine.ExpressionEvaluator
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.pipelines.{ComputedFieldPayload, UpdateDataTypeRequest}
@@ -17,8 +18,14 @@ import scala.concurrent.{ExecutionContext, Future}
 final class DataTypeService(
     dataTypeRepo:    DataTypeRepository,
     dataTypeRowRepo: DataTypeRowRepository,
-    dataSourceRepo:  DataSourceRepository
+    dataSourceRepo:  DataSourceRepository,
+    // HEL-477: nullable-optional wiring mirrors this file's other DI.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
+
+  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, "data_type", resourceId, JsObject.empty)
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
@@ -120,7 +127,9 @@ final class DataTypeService(
               updatedAt      = now
             )
             dataTypeRepo.update(updated, user).map {
-              case Some(dt) => Right(dt)
+              case Some(dt) =>
+                audit("data_type.update", Some(dt.id.value), user)
+                Right(dt)
               case None     => Left(ServiceError.NotFound("DataType not found"))
             }
         }
@@ -138,7 +147,10 @@ final class DataTypeService(
               case true =>
                 Future.successful(Left(ServiceError.Conflict("Cannot delete DataType: one or more panels are bound to it")))
               case false =>
-                dataTypeRepo.delete(id, user).map(_ => Right(()))
+                dataTypeRepo.delete(id, user).map { _ =>
+                  audit("data_type.delete", Some(id.value), user)
+                  Right(())
+                }
             }
         }
     }
