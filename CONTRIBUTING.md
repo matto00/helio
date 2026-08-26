@@ -112,7 +112,8 @@ table owner silently sees all rows even on the non-privileged connection.
 Docs are read by operators tuning the thing they describe, so a wrong number there is a wrong decision later.
 
 - Ground every factual claim about deployed or runtime configuration in the file that **sets** it — `.github/workflows/cd-*.yml`, `infra/deploy-backend.sh`, `application.conf` — and name that file in the text so the next reader can re-verify it
-- **Ticket text is a request, not a source.** A value quoted in a ticket describes what someone believed when they wrote it. Check it against the repo before repeating it in a doc; if they disagree, the repo wins and the ticket is wrong
+- **Separate what a ticket _describes_ from what it _asks for_.** A ticket's requirements are authoritative — that is the whole point of a ticket, and a value it tells you to set is the work, not an error to correct. But a value it states in passing as background is only what someone believed when they wrote it, and carries no more authority than any other prose. Repeating a described value into a doc without checking it against the repo is how a wrong number gets laundered into an authoritative-looking place
+- If a described value and the repo disagree, that is a **question, not a verdict**: either the doc is stale, the repo drifted, or the ticket means to change it. Say which, and if you cannot tell, ask rather than silently picking one
 - When a value moves, update every place that asserts it in the same change — `grep` for the old value, don't assume you know where it appears
 - Prefer describing _why_ a value is what it is over restating the value. `max-instances` is capped because the privileged DB pool exhausts the instance's connection budget; that explanation stays true across a retune, the bare number does not
 
