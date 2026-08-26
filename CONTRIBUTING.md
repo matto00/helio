@@ -107,6 +107,15 @@ table owner silently sees all rows even on the non-privileged connection.
 - Keep schema changes in the same PR as the code that uses them
 - Validate all inputs at service boundaries
 
+### Documentation
+
+Docs are read by operators tuning the thing they describe, so a wrong number there is a wrong decision later.
+
+- Ground every factual claim about deployed or runtime configuration in the file that **sets** it — `.github/workflows/cd-*.yml`, `infra/deploy-backend.sh`, `application.conf` — and name that file in the text so the next reader can re-verify it
+- **Ticket text is a request, not a source.** A value quoted in a ticket describes what someone believed when they wrote it. Check it against the repo before repeating it in a doc; if they disagree, the repo wins and the ticket is wrong
+- When a value moves, update every place that asserts it in the same change — `grep` for the old value, don't assume you know where it appears
+- Prefer describing _why_ a value is what it is over restating the value. `max-instances` is capped because the privileged DB pool exhausts the instance's connection budget; that explanation stays true across a retune, the bare number does not
+
 ## Pre-Commit Policy
 
 Husky runs the following automatically on every commit — fix failures before pushing:
@@ -150,6 +159,7 @@ The same standards apply to AI agents (Claude Code, Copilot, etc.) contributing 
 - Follow the **Imports & Qualifiers** rule strictly — agents often inline fully-qualified names by reflex; don't
 - Honor the file-size soft budgets; prefer proactive decomposition over letting a file grow
 - Keep refactors **behavior-preserving**: a structural change is not the place to also fix bugs, add features, or "improve" defaults. Flag latent issues as separate spinoff tickets
+- Verify config/topology facts against the repo before writing them into a doc, even when a ticket states them plainly. A claim inherited from a ticket has not been checked by anyone — see **Documentation**
 - Never use `--no-verify` to bypass a real gate failure. The only acceptable use is an environmental hook breakage (e.g., Husky cannot resolve `.git` in a worktree), and even then the situation must be called out explicitly in the commit body
 
 ## Code of Conduct
