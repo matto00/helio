@@ -219,19 +219,30 @@
   line-height: 1.4;
 }
 
-.panel-grid-card__title-input {
+.ui-input.panel-grid-card__title-input {
+  display: inline-block;
+  min-height: auto;
+  gap: 0;
   width: 100%;
-  background: transparent;
+  padding: 2px 0;
   border: none;
   border-bottom: 1px solid var(--app-accent);
+  border-radius: 0;
+  background: transparent;
   color: inherit;
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-  padding: 2px 0;
+  line-height: inherit;
 }
 
-.panel-grid-card__title-input:focus-visible {
+.ui-input.panel-grid-card__title-input:hover:not(:disabled):not(:focus) {
+  border-color: transparent;
+  border-bottom-color: var(--app-accent);
+}
+
+.ui-input.panel-grid-card__title-input:focus-visible {
   outline: none;
+  box-shadow: none;
   border-bottom-color: var(--app-accent-strong);
 }
 

@@ -11,6 +11,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton } from "../../../shared/ui/IconButton";
+import { TextField } from "../../../shared/ui/TextField";
 import { PanelContent } from "./PanelContent";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
@@ -228,7 +229,7 @@ export const PanelCard = React.memo(function PanelCard({
         <div className="panel-grid-card__title-area">
           {isEditingTitle ? (
             <>
-              <input
+              <TextField
                 className="panel-grid-card__title-input"
                 type="text"
                 value={editingTitle}
