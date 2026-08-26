@@ -63,7 +63,7 @@ final class PipelineService(
       metadata: JsValue = JsObject.empty
   ): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), None, AuditSource.Ui, action, resourceType, resourceId, metadata)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, resourceType, resourceId, metadata)
 
   // ── Pipeline CRUD ─────────────────────────────────────────────────────────
 

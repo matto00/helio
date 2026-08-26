@@ -41,7 +41,7 @@ final class SourceService(
       // HEL-477 design.md Decision 8: same data_source.create action as
       // DataSourceService's create variants — both produce the same
       // DataSource domain type.
-      auditService.record(Some(user.id), None, AuditSource.Ui, "data_source.create", "data_source", resourceId, JsObject.empty)
+      auditService.record(Some(user.id), user.tokenId, user.source, "data_source.create", "data_source", resourceId, JsObject.empty)
 
   // ── Create ────────────────────────────────────────────────────────────────
 

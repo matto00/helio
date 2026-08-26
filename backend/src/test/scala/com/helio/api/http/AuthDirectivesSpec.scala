@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.model.{ApiTokenId, AuthenticatedUser, UserId}
+import com.helio.domain.model.{ApiTokenId, AuditSource, AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, UserSessionRepository}
 import com.helio.services.auth.ApiTokenService
 import org.scalatest.matchers.should.Matchers
@@ -27,6 +27,7 @@ class AuthDirectivesSpec extends AnyWordSpec with Matchers with ScalatestRouteTe
   private val scopedPatToken = "helio_pat_" + "b" * 64
   private val sessionUser    = AuthenticatedUser(UserId("session-user-id"))
   private val patUser        = AuthenticatedUser(UserId("pat-user-id"))
+  private val patTokenId     = ApiTokenId("pat-token-id")
   private val scopedTokenId  = ApiTokenId("scoped-token-id")
   private val allowedPipelineIds = Set("pipeline-1")
 
@@ -37,8 +38,8 @@ class AuthDirectivesSpec extends AnyWordSpec with Matchers with ScalatestRouteTe
 
   private val stubApiTokenRepo: ApiTokenRepository =
     new ApiTokenRepository(null)(ExecutionContext.global) {
-      override def findUserByTokenHash(hash: String): Future[Option[AuthenticatedUser]] =
-        Future.successful(if (hash == ApiTokenService.sha256Hex(patToken)) Some(patUser) else None)
+      override def findUserByTokenHash(hash: String): Future[Option[(AuthenticatedUser, ApiTokenId)]] =
+        Future.successful(if (hash == ApiTokenService.sha256Hex(patToken)) Some((patUser, patTokenId)) else None)
       override def touchLastUsed(hash: String): Future[Unit] = Future.successful(())
       // HEL-369: backs `confineScopedToken`'s speculative resolution. Only
       // `scopedPatToken` resolves to a *scoped* row (Some(allowedPipelineIds));
@@ -58,6 +59,11 @@ class AuthDirectivesSpec extends AnyWordSpec with Matchers with ScalatestRouteTe
 
   private val authenticateRoute =
     directives.authenticate { user => complete(StatusCodes.OK, user.id.value) }
+
+  private val provenanceRoute =
+    directives.authenticate { user =>
+      complete(StatusCodes.OK, s"${user.id.value}|${AuditSource.asString(user.source)}|${user.tokenId.map(_.value).getOrElse("none")}")
+    }
 
   private val optionalAuthenticateRoute =
     directives.optionalAuthenticate {
@@ -103,6 +109,20 @@ class AuthDirectivesSpec extends AnyWordSpec with Matchers with ScalatestRouteTe
           status shouldBe StatusCodes.OK
           responseAs[String] shouldBe sessionUser.id.value
         }
+    }
+
+    "resolve a session-cookie request with source=ui and no token id (HEL-483)" in {
+      Get("/").withHeaders(Cookie(SessionCookies.Name -> sessionToken)) ~> provenanceRoute ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] shouldBe s"${sessionUser.id.value}|ui|none"
+      }
+    }
+
+    "resolve a PAT bearer request with source=pat and the resolving token's id (HEL-483)" in {
+      Get("/").withHeaders(Authorization(OAuth2BearerToken(patToken))) ~> provenanceRoute ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] shouldBe s"${patUser.id.value}|pat|${patTokenId.value}"
+      }
     }
   }
 

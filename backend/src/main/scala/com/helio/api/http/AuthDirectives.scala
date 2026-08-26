@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2Bearer
 import org.apache.pekko.http.scaladsl.server.{Directive0, Directive1}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import com.helio.api.protocols.ResourceProtocol
-import com.helio.domain.model.{AuthenticatedUser, TokenScope}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, TokenScope}
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, UserSessionRepository}
 import com.helio.services.auth.ApiTokenService
 
@@ -29,9 +29,11 @@ class AuthDirectives(
     apiTokenRepo match {
       case Some(repo) if token.startsWith(ApiTokenService.TokenPrefix) =>
         val hash = ApiTokenService.sha256Hex(token)
-        repo.findUserByTokenHash(hash).map { userOpt =>
-          if (userOpt.isDefined) repo.touchLastUsed(hash)
-          userOpt
+        repo.findUserByTokenHash(hash).map { resolvedOpt =>
+          if (resolvedOpt.isDefined) repo.touchLastUsed(hash)
+          resolvedOpt.map { case (user, tokenId) =>
+            user.copy(source = AuditSource.Pat, tokenId = Some(tokenId))
+          }
         }
       case _ =>
         Future.successful(None)
@@ -52,7 +54,12 @@ class AuthDirectives(
       authHeader: Option[Authorization]
   ): Option[Future[Option[AuthenticatedUser]]] =
     (cookieToken, authHeader) match {
-      case (Some(token), _) => Some(userSessionRepo.findValidSession(token))
+      case (Some(token), _) =>
+        Some(
+          userSessionRepo
+            .findValidSession(token)
+            .map(_.map(_.copy(source = AuditSource.Ui, tokenId = None)))
+        )
       case (None, Some(Authorization(OAuth2BearerToken(token)))) => Some(resolveApiToken(token))
       case _ => None
     }

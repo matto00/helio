@@ -45,7 +45,7 @@ final class DashboardContentsService(
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), None, AuditSource.Ui, action, "dashboard", resourceId, metadata)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, "dashboard", resourceId, metadata)
 
   def replaceContents(
       dashboardId: DashboardId,

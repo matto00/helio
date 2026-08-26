@@ -33,7 +33,7 @@ final class ImageUploadService(
 
   private def audit(resourceId: Option[String], user: AuthenticatedUser): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), None, AuditSource.Ui, "image_upload.create", "image_upload", resourceId, JsObject.empty)
+      auditService.record(Some(user.id), user.tokenId, user.source, "image_upload.create", "image_upload", resourceId, JsObject.empty)
 
   /** Narrower than `ContentSourceSupport.ImageExtensions` (which also permits
    *  `bmp`) — see design.md Decision 4. */

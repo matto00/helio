@@ -31,7 +31,11 @@ final case class UserSession(
     expiresAt: Instant
 )
 
-final case class AuthenticatedUser(id: UserId)
+final case class AuthenticatedUser(
+    id: UserId,
+    source: AuditSource = AuditSource.Ui,
+    tokenId: Option[ApiTokenId] = None
+)
 
 final case class ApiTokenId(value: String) extends AnyVal
 

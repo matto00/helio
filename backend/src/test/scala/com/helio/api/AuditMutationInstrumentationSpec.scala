@@ -3,24 +3,24 @@ package com.helio.api
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader, `Set-Cookie`}
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader, `Set-Cookie`}
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.protocols.auth.{AuthResponse, LoginRequest, MfaConfirmRequest, MfaEnrollResponse, MfaRequiredResponse, MfaVerifyRequest, RegisterRequest}
-import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse, DashboardSnapshotPayload, DuplicateDashboardResponse}
+import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse, DashboardSnapshotPayload, DuplicateDashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelBatchItem, CreatePanelRequest, CreatePanelsBatchRequest, CreatePanelsBatchResponse, PanelBatchItem, PanelResponse, UpdatePanelsBatchRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel, ReplaceDashboardContentsRequest}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.connectors.RestApiConnector
-import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, DataField, DataType, DataTypeId, MetricDefinition, MetricFormat, MetricId, UserId}
+import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, DataField, DataType, DataTypeId, MetricDefinition, MetricFormat, MetricId, UserId, UserSession}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.auth.{MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
@@ -64,6 +64,7 @@ class AuditMutationInstrumentationSpec
   private var pipelineRepo: PipelineRepository              = _
   private var pipelineStepRepo: PipelineStepRepository      = _
   private var auditEventRepo: AuditEventRepository          = _
+  private var apiTokenRepo: ApiTokenRepository               = _
   private var mfaRepo: MfaRepository                        = _
   private var metricRepo: MetricRepository                  = _
   private var realSessionRepo: SlickUserSessionRepository   = _
@@ -91,6 +92,7 @@ class AuditMutationInstrumentationSpec
     pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
     pipelineStepRepo   = new PipelineStepRepository(ctx)(typedSystem.executionContext)
     auditEventRepo     = new AuditEventRepository(ctx)(typedSystem.executionContext)
+    apiTokenRepo       = new ApiTokenRepository(ctx)(typedSystem.executionContext)
     mfaRepo            = new MfaRepository(db)(typedSystem.executionContext)
     metricRepo         = new MetricRepository(ctx)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
@@ -111,7 +113,7 @@ class AuditMutationInstrumentationSpec
     // is also rejected by the same trigger, so each test's fixture data is
     // cleared, and audit rows are read (never wiped) per test via the
     // per-test filtering `allAuditRows()` already does on `action`.
-    await(db.run(sqlu"TRUNCATE TABLE resource_permissions, user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE api_tokens, resource_permissions, user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000099'::uuid, 'test@helio.test', now())"""))
   }
 
@@ -143,7 +145,8 @@ class AuditMutationInstrumentationSpec
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       auditEventRepo = auditEventRepo,
       mfaRepo = mfaRepo,
-      metricRepo = metricRepo
+      metricRepo = metricRepo,
+      apiTokenRepo = apiTokenRepo
     ).routes
     val csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
     Directives.mapRequest { (req: HttpRequest) =>
@@ -153,6 +156,21 @@ class AuditMutationInstrumentationSpec
       raw
     }
   }
+
+  /** Same wiring as [[routesFor]] but WITHOUT the automatic session-cookie
+   *  injection (HEL-483) — needed so a test can supply its own credential
+   *  (a PAT bearer header, specifically) without the cookie taking priority
+   *  per `AuthDirectives.resolveIdentity`'s session-over-header precedence. */
+  private def rawRoutesFor(): Route =
+    new ApiRoutes(
+      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector,
+      userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
+      new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
+      auditEventRepo = auditEventRepo,
+      mfaRepo = mfaRepo,
+      metricRepo = metricRepo,
+      apiTokenRepo = apiTokenRepo
+    ).routes
 
   /** Routes backed by the REAL, embedded-Postgres `SlickUserSessionRepository`
    *  — `routesFor()`'s `stubSessionRepo` only resolves the one fixed
@@ -168,7 +186,8 @@ class AuditMutationInstrumentationSpec
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       auditEventRepo = auditEventRepo,
       mfaRepo = mfaRepo,
-      metricRepo = metricRepo
+      metricRepo = metricRepo,
+      apiTokenRepo = apiTokenRepo
     ).routes
 
   private val csrfHeaderValue = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
@@ -763,6 +782,128 @@ class AuditMutationInstrumentationSpec
       val rolledBackDashboardId = createRows.head.resourceId.getOrElse(fail("dashboard.create row has no resourceId"))
       // ...but the rollback used deleteInternal, so no dashboard.delete row exists for it.
       allAuditRows().count(r => r.action == "dashboard.delete" && r.resourceId.contains(rolledBackDashboardId)) shouldBe 0
+    }
+  }
+
+  "PAT/session actor attribution (HEL-483)" should {
+
+    /** Mints a PAT for `testUser` through the real route, authenticated by
+     *  `testToken`'s session cookie — returns (tokenId, rawToken). */
+    def createPat(name: String): (String, String) = {
+      val csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
+      Post("/api/tokens", HttpEntity(ContentTypes.`application/json`, s"""{"name":"$name"}"""))
+        .withHeaders(Cookie(SessionCookies.Name -> testToken), csrfHeader) ~> rawRoutesFor() ~> check {
+        status shouldBe StatusCodes.Created
+        val fields = responseAs[String].parseJson.asJsObject.fields
+        (fields("id").convertTo[String], fields("token").convertTo[String])
+      }
+    }
+
+    def createDashboardViaSession(name: String): String = {
+      val csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
+      Post("/api/dashboards", CreateDashboardRequest(Some(name)))
+        .withHeaders(Cookie(SessionCookies.Name -> testToken), csrfHeader) ~> rawRoutesFor() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[DashboardResponse].id
+      }
+    }
+
+    "record a session-cookie dashboard update with source=ui and null actor_token_id" in {
+      cleanDb()
+      val dashboardId = createDashboardViaSession("SessionOwned")
+      val csrfHeader   = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
+      Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(Some("Renamed"), None, None))
+        .withHeaders(Cookie(SessionCookies.Name -> testToken), csrfHeader) ~> rawRoutesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        val rows = eventuallyAuditRows(r => r.action == "dashboard.update" && r.resourceId.contains(dashboardId))
+        rows should have size 1
+        AuditSource.asString(rows.head.source) shouldBe "ui"
+        rows.head.actorTokenId shouldBe None
+      }
+    }
+
+    "record the same dashboard update via a PAT bearer with source=pat and the resolving token's id" in {
+      cleanDb()
+      val dashboardId  = createDashboardViaSession("PatOwned")
+      val (tokenId, raw) = createPat("pat-attribution-test")
+      Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(Some("RenamedByPat"), None, None))
+        .withHeaders(Authorization(OAuth2BearerToken(raw))) ~> rawRoutesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        val rows = eventuallyAuditRows(r => r.action == "dashboard.update" && r.resourceId.contains(dashboardId))
+        rows should have size 1
+        AuditSource.asString(rows.head.source) shouldBe "pat"
+        rows.head.actorTokenId shouldBe Some(ApiTokenId(tokenId))
+      }
+    }
+
+    "leave a previously-recorded audit row's actor_token_id intact after the token is revoked" in {
+      cleanDb()
+      val dashboardId    = createDashboardViaSession("RevokeTarget")
+      val (tokenId, raw) = createPat("revoke-me")
+      Patch(s"/api/dashboards/$dashboardId", UpdateDashboardRequest(Some("RenamedBeforeRevoke"), None, None))
+        .withHeaders(Authorization(OAuth2BearerToken(raw))) ~> rawRoutesFor() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      val rowsBefore = eventuallyAuditRows(r => r.action == "dashboard.update" && r.resourceId.contains(dashboardId))
+      rowsBefore should have size 1
+      rowsBefore.head.actorTokenId shouldBe Some(ApiTokenId(tokenId))
+
+      val csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
+      Delete(s"/api/tokens/$tokenId")
+        .withHeaders(Cookie(SessionCookies.Name -> testToken), csrfHeader) ~> rawRoutesFor() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      val rowsAfter = allAuditRows().filter(r => r.action == "dashboard.update" && r.resourceId.contains(dashboardId))
+      rowsAfter should have size 1
+      rowsAfter.head.actorTokenId shouldBe Some(ApiTokenId(tokenId))
+    }
+  }
+
+  "MFA actions via PAT (HEL-483)" should {
+
+    "record MfaService.confirmEnrollment invoked by a PAT-authenticated caller with source=pat and the token's id" in {
+      import slick.jdbc.PostgresProfile.api._
+      val realUserId = UUID.randomUUID().toString
+      await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($realUserId::uuid, ${s"mfa-pat-$realUserId@helio.test"}, now())"""))
+      val session = await(userRepo.createSession(
+        UserSession(
+          token     = s"real-session-$realUserId",
+          userId    = UserId(realUserId),
+          createdAt = Instant.now(),
+          expiresAt = Instant.now().plusSeconds(3600)
+        )
+      )).token
+
+      val routes     = realSessionRoutesFor()
+      val csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
+
+      var secret = ""
+      Post("/api/auth/mfa/enroll").withHeaders(Cookie(SessionCookies.Name -> session), csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        secret = responseAs[MfaEnrollResponse].secret
+      }
+
+      // Mint a PAT for this same user (session-authenticated), then confirm
+      // enrollment authenticated by the PAT instead of the session cookie —
+      // `MfaService.confirmEnrollment` has `user: AuthenticatedUser` in
+      // scope and IS reachable by a PAT caller (design.md Decision 5).
+      var rawPat = ""
+      Post("/api/tokens", HttpEntity(ContentTypes.`application/json`, """{"name":"mfa-confirm-pat"}"""))
+        .withHeaders(Cookie(SessionCookies.Name -> session), csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        rawPat = responseAs[String].parseJson.asJsObject.fields("token").convertTo[String]
+      }
+
+      Post("/api/auth/mfa/enroll/confirm", MfaConfirmRequest(totpCodeFor(secret)))
+        .withHeaders(Authorization(OAuth2BearerToken(rawPat))) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      val rows = eventuallyAuditRows(r => r.action == "auth.mfa.enable" && r.actorUserId.contains(UserId(realUserId)))
+      rows should have size 1
+      AuditSource.asString(rows.head.source) shouldBe "pat"
+      rows.head.actorTokenId shouldBe defined
     }
   }
 }

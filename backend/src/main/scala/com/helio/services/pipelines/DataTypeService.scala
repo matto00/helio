@@ -25,7 +25,7 @@ final class DataTypeService(
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), None, AuditSource.Ui, action, "data_type", resourceId, JsObject.empty)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, "data_type", resourceId, JsObject.empty)
 
   // ── Read ──────────────────────────────────────────────────────────────────
 

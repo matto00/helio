@@ -32,22 +32,26 @@ class ApiTokenRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def create(token: ApiToken): Future[ApiToken] =
     ctx.withUserContext(token.userId.value)(tokens += toRow(token)).map(_ => token)
 
-  /** Resolve a token hash to its owner, honoring expiry.
+  /** Resolve a token hash to its owner and the resolving token's id, honoring
+   *  expiry (HEL-483: the returned id lets callers attribute
+   *  `AuthenticatedUser.tokenId` for audit purposes).
    *
    *  Privileged callsite: this IS the authentication step — it runs before an
    *  `AuthenticatedUser` exists, so no user context can be set. RLS bypass is
    *  correct here for the same reason the `user_sessions` lookup bypasses it:
    *  the row's own `user_id` is the identity being established, and the
    *  resolved user then inherits normal RLS visibility for the request. */
-  def findUserByTokenHash(hash: String): Future[Option[AuthenticatedUser]] = {
+  def findUserByTokenHash(hash: String): Future[Option[(AuthenticatedUser, ApiTokenId)]] = {
     val now = Instant.now()
     ctx.withSystemContext(
       tokens
         .filter(t => t.tokenHash === hash && (t.expiresAt.isEmpty || t.expiresAt > now))
-        .map(_.userId)
+        .map(t => (t.id, t.userId))
         .result
         .headOption
-    ).map(_.map(uid => AuthenticatedUser(UserId(uid.toString))))
+    ).map(_.map { case (id, uid) =>
+      (AuthenticatedUser(UserId(uid.toString)), ApiTokenId(id.toString))
+    })
   }
 
   /** Resolve a token hash to its owner, id, AND scope (HEL-369). Same

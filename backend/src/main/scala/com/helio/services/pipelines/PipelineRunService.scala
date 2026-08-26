@@ -60,7 +60,7 @@ final class PipelineRunService(
    *  regardless of whether the run subsequently succeeds/fails/blocks. */
   private def auditSubmit(pipelineId: PipelineId, user: AuthenticatedUser, isDry: Boolean): Unit =
     if (auditService != null && !isDry)
-      auditService.record(Some(user.id), None, AuditSource.Ui, "pipeline.run.submit", "pipeline", Some(pipelineId.value), JsObject.empty)
+      auditService.record(Some(user.id), user.tokenId, user.source, "pipeline.run.submit", "pipeline", Some(pipelineId.value), JsObject.empty)
 
   /** Submit a run (or dry-run) and return its result. Owns pre-execution
    *  (insert run record + prune old runs), source-type dispatch, SSE event

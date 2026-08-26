@@ -61,7 +61,7 @@ final class DataSourceService(
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), None, AuditSource.Ui, action, "data_source", resourceId, JsObject.empty)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, JsObject.empty)
 
   /** Max upload / URL-fetch size for text sources (HEL-215). Mirrors CSV's
    *  `CSV_MAX_FILE_SIZE_BYTES` env-var pattern; defaults smaller (10 MB vs

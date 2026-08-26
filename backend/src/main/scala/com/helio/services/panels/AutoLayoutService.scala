@@ -45,7 +45,7 @@ final class AutoLayoutService(
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), None, AuditSource.Ui, action, "dashboard", resourceId, JsObject.empty)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, "dashboard", resourceId, JsObject.empty)
 
   def autoLayout(
       dashboardId: DashboardId,
