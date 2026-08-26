@@ -566,6 +566,11 @@ final class DataSourceService(
         refreshImage(i, user)
       case Some(_) =>
         Future.successful(Left(ServiceError.BadRequest("refresh is only supported for csv, static, text, pdf, and image sources")))
+    }.map {
+      case r @ Right(ds) =>
+        audit("data_source.refresh", Some(ds.id.value), user)
+        r
+      case l => l
     }
 
   private def applyStaticRefresh(source: StaticSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {

@@ -79,7 +79,7 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
       displayName: Option[String],
       avatarUrl: Option[String],
       tierConfig: UserTierConfig
-  ): Future[User] = {
+  ): Future[(User, Boolean)] = {
     findByGoogleId(googleId).flatMap {
       case Some(existingUser) =>
         val promoted = tierConfig.isOwnerEmail(email) && existingUser.tier != UserTier.Owner
@@ -88,7 +88,7 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
           .filter(_.id === UUID.fromString(existingUser.id.value))
           .map(u => (u.avatarUrl, u.tier))
           .update((avatarUrl, UserTier.asString(newTier)))
-        db.run(updateAction).map(_ => existingUser.copy(avatarUrl = avatarUrl, tier = newTier))
+        db.run(updateAction).map(_ => (existingUser.copy(avatarUrl = avatarUrl, tier = newTier), false))
 
       case None =>
         val now  = Instant.now()
@@ -112,7 +112,7 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
           avatarUrl    = newUser.avatarUrl,
           tier         = UserTier.asString(newUser.tier)
         )
-        db.run(users += row).map(_ => newUser)
+        db.run(users += row).map(_ => (newUser, true))
     }
   }
 

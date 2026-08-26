@@ -12,9 +12,9 @@ import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResp
 import com.helio.api.protocols.panels.{CreatePanelBatchItem, CreatePanelRequest, CreatePanelsBatchRequest, CreatePanelsBatchResponse, PanelBatchItem, PanelResponse, UpdatePanelsBatchRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel, ReplaceDashboardContentsRequest}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest}
-import com.helio.api.protocols.sources.{DataSourceResponse, StaticColumnPayload, StaticDataSourceRequest}
+import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.connectors.RestApiConnector
-import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, DataField, DataType, DataTypeId, MetricDefinition, MetricFormat, MetricId, UserId, UserSession}
+import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, CsvSource, DataField, DataSource, DataSourceId, DataSourceKind, DataType, DataTypeId, MetricDefinition, MetricFormat, MetricId, UserId, UserSession}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -24,8 +24,12 @@ import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaReposit
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.api.protocols.workspace.{TeardownRequest, TeardownResponse}
-import com.helio.infrastructure.storage.{FileSystem, ListPage}
+import com.helio.infrastructure.storage.{FileSystem, ListPage, LocalFileSystem}
+import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
+import com.helio.services.sources.{DataSourceService, SourceService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
+import com.helio.testsupport.PdfFixtures
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -34,8 +38,13 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.time.Instant
 import java.util.UUID
+import javax.imageio.ImageIO
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -1034,6 +1043,245 @@ class AuditMutationInstrumentationSpec
       eventuallyAuditRows(r => r.action == "workspace.teardown" && r.resourceId.contains(barrierTag)) should have size 1
 
       allAuditRows().count(r => r.action == "workspace.teardown" && r.resourceId.contains(blockedTag)) shouldBe 0
+    }
+  }
+
+  "DataSourceService.refresh / SourceService.refresh audit instrumentation (HEL-840)" should {
+
+    // ── DataSourceService.refresh: static kind covered end-to-end via HTTP ──
+
+    "write exactly one data_source.refresh row on a successful static refresh (end-to-end via HTTP)" in {
+      cleanDb()
+      var sourceId = ""
+      Post(
+        "/api/data-sources",
+        StaticDataSourceRequest("RefreshStatic", "static", Vector(StaticColumnPayload("n", "number")), Vector(Vector(JsNumber(1))))
+      ) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      val payload = StaticDataSourceRequest("RefreshStatic", "static", Vector(StaticColumnPayload("n", "number")), Vector(Vector(JsNumber(2))))
+      Post(s"/api/data-sources/$sourceId/refresh", payload) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        val rows = eventuallyAuditRows(r => r.action == "data_source.refresh" && r.resourceId.contains(sourceId))
+        rows should have size 1
+        val row = rows.head
+        row.resourceType shouldBe "data_source"
+        row.actorUserId shouldBe Some(testUser.id)
+        AuditSource.asString(row.source) shouldBe "ui"
+      }
+    }
+
+    "write no data_source.refresh row for a failed static refresh (payload exceeds the row cap; " +
+      "negative-assertion barrier per design.md Test plan)" in {
+      cleanDb()
+      var sourceId = ""
+      Post(
+        "/api/data-sources",
+        StaticDataSourceRequest("RefreshStaticFail", "static", Vector(StaticColumnPayload("n", "number")), Vector(Vector(JsNumber(1))))
+      ) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      val tooManyRows = Vector.fill(501)(Vector[JsValue](JsNumber(1)))
+      val badPayload  = StaticDataSourceRequest("RefreshStaticFail", "static", Vector(StaticColumnPayload("n", "number")), tooManyRows)
+      Post(s"/api/data-sources/$sourceId/refresh", badPayload) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+
+      // Barrier: a real successful refresh drains the fire-and-forget audit
+      // write path before we assert the failed call above wrote nothing.
+      val barrierPayload = StaticDataSourceRequest("RefreshStaticFail", "static", Vector(StaticColumnPayload("n", "number")), Vector(Vector(JsNumber(3))))
+      Post(s"/api/data-sources/$sourceId/refresh", barrierPayload) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      eventuallyAuditRows(r => r.action == "data_source.refresh" && r.resourceId.contains(sourceId)) should have size 1
+
+      allAuditRows().count(r => r.action == "data_source.refresh" && r.resourceId.contains(sourceId)) shouldBe 1
+    }
+
+    // ── DataSourceService.refresh: csv/text/pdf/image kinds via a dedicated, real-audit-repo-backed
+    // service instance (design.md: "at least one kind covered end-to-end plus a table/loop for the
+    // rest if that keeps the spec readable" — static above is the end-to-end HTTP case). ──
+
+    def validPngBytes(): Array[Byte] = {
+      val image = new BufferedImage(4, 3, BufferedImage.TYPE_INT_RGB)
+      val out   = new ByteArrayOutputStream()
+      ImageIO.write(image, "png", out)
+      out.toByteArray
+    }
+
+    "write exactly one data_source.refresh row per successful refresh, for csv/text/pdf/image kinds" in {
+      cleanDb()
+      val tmpDir       = Files.createTempDirectory("audit-mutation-instrumentation-spec")
+      val fileSystem   = new LocalFileSystem(tmpDir)
+      val svc          = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, auditService = new AuditService(auditEventRepo))
+
+      val fixtures: Seq[(String, Future[Either[ServiceError, DataSource]])] = Seq(
+        "csv"   -> svc.createCsv("RefreshCsv", "a,b\n1,2".getBytes(StandardCharsets.UTF_8), Vector.empty, testUser),
+        "text"  -> svc.createTextUpload("RefreshText", "hello world".getBytes(StandardCharsets.UTF_8), "notes.txt", testUser),
+        "pdf"   -> svc.createPdfUpload("RefreshPdf", PdfFixtures.multiPagePdf(Seq("Hello")), "report.pdf", testUser),
+        "image" -> svc.createImageUpload("RefreshImage", validPngBytes(), "photo.png", testUser)
+      )
+
+      fixtures.foreach { case (kind, createF) =>
+        val created = await(createF) match {
+          case Right(ds) => ds
+          case Left(err) => fail(s"[$kind] create failed: $err")
+        }
+        await(svc.refresh(created.id, None, testUser)) match {
+          case Right(_) => ()
+          case Left(err) => fail(s"[$kind] refresh failed: $err")
+        }
+        val rows = eventuallyAuditRows(r => r.action == "data_source.refresh" && r.resourceId.contains(created.id.value))
+        withClue(s"[$kind] ") { rows should have size 1 }
+      }
+    }
+
+    "write no data_source.refresh row for a failed CSV refresh (source file missing on disk; " +
+      "negative-assertion barrier per design.md Test plan)" in {
+      cleanDb()
+      val tmpDir     = Files.createTempDirectory("audit-mutation-instrumentation-spec-csv-fail")
+      val fileSystem = new LocalFileSystem(tmpDir)
+      val svc        = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, auditService = new AuditService(auditEventRepo))
+
+      val created = await(svc.createCsv("RefreshCsvFail", "x\n1".getBytes(StandardCharsets.UTF_8), Vector.empty, testUser)) match {
+        case Right(ds) => ds
+        case Left(err) => fail(s"create failed: $err")
+      }
+      created match {
+        case c: CsvSource => await(fileSystem.delete(c.config.path))
+        case other                                => fail(s"expected CsvSource, got: $other")
+      }
+
+      await(svc.refresh(created.id, None, testUser)).isLeft shouldBe true
+
+      // Barrier: a real successful refresh on a second source drains the
+      // fire-and-forget audit write path first.
+      val barrier = await(svc.createCsv("RefreshCsvBarrier", "x\n1".getBytes(StandardCharsets.UTF_8), Vector.empty, testUser)) match {
+        case Right(ds) => ds
+        case Left(err) => fail(s"barrier create failed: $err")
+      }
+      await(svc.refresh(barrier.id, None, testUser)).isRight shouldBe true
+      eventuallyAuditRows(r => r.action == "data_source.refresh" && r.resourceId.contains(barrier.id.value)) should have size 1
+
+      allAuditRows().count(r => r.action == "data_source.refresh" && r.resourceId.contains(created.id.value)) shouldBe 0
+    }
+
+    // ── SourceService.refresh: sql kind covered end-to-end via HTTP (embedded Postgres) ──
+
+    def sqlConfigPayload(query: String): SqlSourceConfigPayload =
+      SqlSourceConfigPayload(
+        dialect  = "postgresql",
+        host     = "localhost",
+        port     = embeddedPostgres.getPort,
+        database = "postgres",
+        user     = "postgres",
+        password = "postgres",
+        query    = query
+      )
+
+    "write exactly one data_source.refresh row on a successful sql refresh (end-to-end via HTTP)" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/sources", SqlCreateSourceRequest("RefreshSql", DataSourceKind.Sql, sqlConfigPayload("SELECT 1 AS one"))) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[CreateSourceResponse].source.id
+      }
+
+      Post(s"/api/sources/$sourceId/refresh") ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+        val rows = eventuallyAuditRows(r => r.action == "data_source.refresh" && r.resourceId.contains(sourceId))
+        rows should have size 1
+        rows.head.resourceType shouldBe "data_source"
+        rows.head.actorUserId shouldBe Some(testUser.id)
+      }
+    }
+
+    "write no data_source.refresh row for a failed sql refresh (query fails; negative-assertion " +
+      "barrier per design.md Test plan)" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/sources", SqlCreateSourceRequest("RefreshSqlFail", DataSourceKind.Sql, sqlConfigPayload("SELECT 1 AS one"))) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[CreateSourceResponse].source.id
+      }
+
+      // Rewrite the source's query to a broken one directly in the DB so the
+      // refresh call itself fails (create validates the query up front).
+      import slick.jdbc.PostgresProfile.api._
+      val brokenConfig = sqlConfigPayload("SELECT * FROM definitely_not_a_real_table").toJson.compactPrint
+      await(db.run(sql"UPDATE data_sources SET config = $brokenConfig WHERE id = $sourceId".asUpdate))
+
+      Post(s"/api/sources/$sourceId/refresh") ~> routesFor() ~> check {
+        status shouldBe StatusCodes.BadGateway
+      }
+
+      var barrierSourceId = ""
+      Post("/api/sources", SqlCreateSourceRequest("RefreshSqlBarrier", DataSourceKind.Sql, sqlConfigPayload("SELECT 1 AS one"))) ~> routesFor() ~> check {
+        status shouldBe StatusCodes.Created
+        barrierSourceId = responseAs[CreateSourceResponse].source.id
+      }
+      Post(s"/api/sources/$barrierSourceId/refresh") ~> routesFor() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      eventuallyAuditRows(r => r.action == "data_source.refresh" && r.resourceId.contains(barrierSourceId)) should have size 1
+
+      allAuditRows().count(r => r.action == "data_source.refresh" && r.resourceId.contains(sourceId)) shouldBe 0
+    }
+
+    // ── SourceService.refresh: rest kind, via a dedicated service instance with a stubbed connector
+    // (routesFor()'s ApiRoutes-constructed SourceService always uses a rejecting stub connector). ──
+
+    "write exactly one data_source.refresh row on a successful rest refresh" in {
+      cleanDb()
+      val restConnector = new RestApiConnector(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
+      val svc            = new SourceService(dataSourceRepo, dataTypeRepo, restConnector, auditService = new AuditService(auditEventRepo))
+      val restConfigPayload = RestApiConfigPayload(url = "http://example.invalid/data", method = Some("GET"), auth = None, headers = None)
+
+      val created = await(svc.createRest(CreateSourceRequest("RefreshRest", DataSourceKind.RestApi, restConfigPayload, None), testUser)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"createRest failed: $e")
+      }
+      val sourceId = DataSourceId(created.source.id)
+
+      await(svc.refresh(sourceId, testUser)).isRight shouldBe true
+      val rows = eventuallyAuditRows(r => r.action == "data_source.refresh" && r.resourceId.contains(sourceId.value))
+      rows should have size 1
+      rows.head.resourceType shouldBe "data_source"
+    }
+
+    "write no data_source.refresh row for a failed rest refresh (fetch fails; negative-assertion " +
+      "barrier per design.md Test plan)" in {
+      cleanDb()
+      val failingConnector = new RestApiConnector(fetchOverride = Some(_ => Future.successful(Left("Request failed"))))
+      val successConnector = new RestApiConnector(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
+      val auditSvc          = new AuditService(auditEventRepo)
+      val failingSvc        = new SourceService(dataSourceRepo, dataTypeRepo, failingConnector, auditService = auditSvc)
+      val successSvc        = new SourceService(dataSourceRepo, dataTypeRepo, successConnector, auditService = auditSvc)
+      val restConfigPayload = RestApiConfigPayload(url = "http://example.invalid/data", method = Some("GET"), auth = None, headers = None)
+
+      val created = await(failingSvc.createRest(CreateSourceRequest("RefreshRestFail", DataSourceKind.RestApi, restConfigPayload, None), testUser)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"createRest failed: $e")
+      }
+      val sourceId = DataSourceId(created.source.id)
+
+      await(failingSvc.refresh(sourceId, testUser)).isLeft shouldBe true
+
+      // Barrier: a real successful refresh (different source, same audit
+      // service/repo) drains the fire-and-forget write path first.
+      val barrierCreated = await(successSvc.createRest(CreateSourceRequest("RefreshRestBarrier", DataSourceKind.RestApi, restConfigPayload, None), testUser)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"barrier createRest failed: $e")
+      }
+      val barrierSourceId = DataSourceId(barrierCreated.source.id)
+      await(successSvc.refresh(barrierSourceId, testUser)).isRight shouldBe true
+      eventuallyAuditRows(r => r.action == "data_source.refresh" && r.resourceId.contains(barrierSourceId.value)) should have size 1
+
+      allAuditRows().count(r => r.action == "data_source.refresh" && r.resourceId.contains(sourceId.value)) shouldBe 0
     }
   }
 }

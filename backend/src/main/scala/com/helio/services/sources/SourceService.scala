@@ -36,12 +36,12 @@ final class SourceService(
     auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
-  private def audit(resourceId: Option[String], user: AuthenticatedUser): Unit =
+  private def audit(resourceId: Option[String], user: AuthenticatedUser, action: String = "data_source.create"): Unit =
     if (auditService != null)
       // HEL-477 design.md Decision 8: same data_source.create action as
       // DataSourceService's create variants — both produce the same
       // DataSource domain type.
-      auditService.record(Some(user.id), user.tokenId, user.source, "data_source.create", "data_source", resourceId, JsObject.empty)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, JsObject.empty)
 
   // ── Create ────────────────────────────────────────────────────────────────
 
@@ -149,6 +149,11 @@ final class SourceService(
         refreshRest(r, user)
       case Some(_) =>
         Future.successful(Left(ServiceError.BadRequest("refresh is only supported for rest_api and sql sources via this endpoint")))
+    }.map {
+      case r @ Right(_) =>
+        audit(Some(sourceId.value), user, "data_source.refresh")
+        r
+      case l => l
     }
 
   private def refreshSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =

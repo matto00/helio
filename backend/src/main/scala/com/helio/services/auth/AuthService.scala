@@ -194,9 +194,10 @@ final class AuthService(
   def completeOAuth(profile: GoogleProfile): Future[LoginOutcome] = {
     val email = profile.email.getOrElse(s"google:${profile.sub}@helio.invalid")
     for {
-      user    <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture, tierConfig)
-      outcome <- finishLogin(user)
+      (user, wasCreated) <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture, tierConfig)
+      outcome            <- finishLogin(user)
     } yield {
+      if (wasCreated) audit(Some(user.id), "auth.register")
       auditLoginOutcome(user.id, outcome)
       outcome
     }
