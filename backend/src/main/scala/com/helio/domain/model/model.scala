@@ -948,6 +948,73 @@ object AgentPreferences {
     AgentPreferences(userId, None, None, None, JsObject.empty, memoryEnabled)
 }
 
+/** HEL-471 — security audit trail foundation (Audit Logging epic, HEL-435).
+ *  Storage/write-path only in this ticket; no route/directive is
+ *  instrumented yet and no query API/UI exists (both later tickets). */
+final case class AuditEventId(value: String) extends AnyVal
+
+/** Closed set of audit event origins. `System` covers pre-auth and
+ *  non-request producers (e.g. a future rate-limit trip event — see
+ *  design.md Decision 4) — modelled by shape only, with no reference to any
+ *  such producer's code from this change. */
+sealed trait AuditSource
+object AuditSource {
+  case object Ui     extends AuditSource
+  case object Pat    extends AuditSource
+  case object Mcp    extends AuditSource
+  case object System extends AuditSource
+
+  def fromString(s: String): Either[String, AuditSource] = s match {
+    case "ui"     => Right(Ui)
+    case "pat"    => Right(Pat)
+    case "mcp"    => Right(Mcp)
+    case "system" => Right(System)
+    case other    => Left(s"Unknown audit source: '$other'. Valid values: ui, pat, mcp, system")
+  }
+
+  def asString(s: AuditSource): String = s match {
+    case Ui     => "ui"
+    case Pat    => "pat"
+    case Mcp    => "mcp"
+    case System => "system"
+  }
+}
+
+/** A persisted, immutable audit row. `id`/`createdAt` are DB-assigned
+ *  defaults (`gen_random_uuid()` / `now()`) and are populated only on read —
+ *  callers never mint either. Writes go through [[AuditEvent.NewAuditEvent]],
+ *  an id-less pre-persist projection `AuditEventRepository.append` inserts
+ *  via Slick `returning`, so the write path never has to invent an id or a
+ *  timestamp the database already owns. Carrying `id`/`createdAt` here (not
+ *  as `Option`s) keeps read results directly usable by the later
+ *  audit-query ticket for paging and linking. */
+final case class AuditEvent(
+    id: AuditEventId,
+    actorUserId: Option[UserId],
+    actorTokenId: Option[ApiTokenId],
+    source: AuditSource,
+    action: String,
+    resourceType: String,
+    resourceId: Option[String],
+    metadata: JsValue,
+    createdAt: Instant
+)
+
+object AuditEvent {
+
+  /** The pre-persist shape `AuditEventRepository.append` accepts — no `id`,
+   *  no `createdAt`; both come from the row's DB defaults. */
+  final case class NewAuditEvent(
+      actorUserId: Option[UserId],
+      actorTokenId: Option[ApiTokenId],
+      source: AuditSource,
+      action: String,
+      resourceType: String,
+      resourceId: Option[String],
+      metadata: JsValue
+  )
+}
+
 final case class AgentMemoryId(value: String) extends AnyVal
 
 /** HEL-478 (420-B, Agent Memory & Preferences) — the free-form-memory half of the epic, sibling
