@@ -110,14 +110,36 @@ Source: `.github/workflows/ci.yml` (`security` job), `backend/osv-scanner.toml`,
 
 **Backend** — `backend/osv-scanner.toml`, `[[IgnoredVulns]]` entries. Currently
 5 entries, each carrying a `reason` string with the ticket, the technical
-justification, and a `Review by 2026-11-26` date. **The review-by date is a
-manual convention only — nothing in CI reads or enforces it.** A suppression
-does not expire on its own; someone has to notice and re-check it.
+justification, and a `Review by 2026-11-26` date, plus (as of HEL-839) an
+`ignoreUntil = 2026-11-26` field. **This expiry is CI-enforced, not prose
+only:** `osv-scanner` (v2.5.1) natively honors `ignoreUntil` — once that date
+arrives the entry stops suppressing and the advisory is reported again, which
+(given the `security` job's CVSS >= 7 gate) fails the build until a human
+acts. Verified empirically against the pinned v2.5.1 binary — see
+`openspec/changes/enforce-cve-suppression-expiry/osv-ignoreuntil-verification.md`
+for the red/green transcripts. **Boundary day, confirmed empirically (not
+assumed): the suppression stops applying ON `ignoreUntil` itself** — i.e. the
+`security` job goes red starting **2026-11-26**, not the day after.
+
+**Expiry-day runbook:** when the gate goes red on expiry, re-check upstream
+for a fix first. If one exists, take it and delete the suppression. If not,
+extend `ignoreUntil` with a fresh, dated `reason` justification — do not
+delete the entry outright when the CVE is still unfixable, and do not extend
+the date without writing a new justification, since deleting silently loses
+the historical justification trail this file exists to preserve.
+
+**Unknown/misspelled config keys:** confirmed (HEL-839) that `osv-scanner`
+v2.5.1 does **not** silently accept an unknown or misspelled key (e.g. a typo
+of `ignoreUntil` itself, such as `ignoreUntill`) — it refuses to parse the
+config at all and exits 127. CI's scan step already hard-fails on any exit
+code >= 127, so a future typo fails closed (loud CI break) rather than open
+(silent permanent suppression).
 
 **Frontend** — `.audit-ci.jsonc` / `frontend/.audit-ci.jsonc`, `allowlist`
-array. Both are currently empty. The same convention applies: any future entry
-should carry an inline comment with the ticket and a review-by date, but
-`audit-ci` does not enforce expiry either.
+array. Both are currently empty. The same manual-convention caveat still
+applies here: any future entry should carry an inline comment with the ticket
+and a review-by date, but `audit-ci` does not enforce expiry — this frontend
+gap is unchanged by HEL-839, which only addressed the backend.
 
 Never add a suppression without a real, written justification — a false-clean
 gate is worse than no gate.
