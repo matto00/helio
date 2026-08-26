@@ -1,0 +1,8 @@
+{
+  // HEL-459: fails CI on any high/critical npm advisory in the root lockfile. Accepted,
+  // un-fixable advisories go in `allowlist` below with an inline comment carrying the ticket
+  // and a review-by date — never a silent/blanket suppression. Empty today: `npm audit` is
+  // 0/0/0/0 for the root tree (confirmed live at Setup, see ticket.md Dependencies).
+  "high": true,
+  "allowlist": [],
+}
