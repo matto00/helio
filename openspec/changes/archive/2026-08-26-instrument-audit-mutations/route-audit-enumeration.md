@@ -97,23 +97,20 @@ which do change durable state. Recording them here — not fixing them in this c
 CONTRIBUTING.md's "flag rather than silently reinterpret scope" convention; each is a reasonable
 follow-up ticket, not evidence of a missed IN-scope call site:
 
-1. **`sources/DataSourcePreviewRoutes.scala` `POST /api/data-sources/:id/refresh` →
-   `DataSourceService.refresh`** — re-infers and rewrites the linked DataType's schema in place.
-   Not named in the ticket's Description (which lists dashboards/panels/pipelines/data
-   sources/data types' create/update/delete, not a source's own refresh sub-action). Arguably a
-   `data_source.refresh` or `data_type.update` event.
-2. **`sources/SourcePreviewRoutes.scala` `POST /api/sources/:id/refresh` →
-   `SourceService.refresh`** — same shape, for SQL/REST sources.
-3. **`workspace/WorkspaceRoutes.scala` `POST /api/workspace/teardown` →
-   `WorkspaceTeardownService.teardown`** — bulk-deletes every tagged dashboard/panel/data
+1. **Closed (HEL-840).** `sources/DataSourcePreviewRoutes.scala` `POST /api/data-sources/:id/refresh`
+   → `DataSourceService.refresh` — re-infers and rewrites the linked DataType's schema in place.
+   Now emits exactly one `data_source.refresh` audit event per call, on success only.
+2. **Closed (HEL-840).** `sources/SourcePreviewRoutes.scala` `POST /api/sources/:id/refresh` →
+   `SourceService.refresh` — same shape, for SQL/REST sources. Now emits exactly one
+   `data_source.refresh` audit event per call, on success only.
+3. **Closed (HEL-838).** `workspace/WorkspaceRoutes.scala` `POST /api/workspace/teardown` →
+   `WorkspaceTeardownService.teardown` — bulk-deletes every tagged dashboard/panel/data
    source/data type/pipeline in one call, via `WorkspaceTeardownRepository` directly (its own
    scaladoc: not composable through the per-resource services `deleteInternal`/`delete` route
-   through, since the whole teardown runs inside one `ctx.withUserContext` transaction). The
-   single highest-blast-radius mutation in the entire route tree currently has zero audit trail.
+   through, since the whole teardown runs inside one `ctx.withUserContext` transaction). Now
+   instrumented — see `WorkspaceTeardownService.scala`'s `audit(...)` helper.
 
-Item 3 (workspace teardown) is the most significant of these — recommended as the first follow-up
-ticket if the audit trail is meant to cover destructive bulk operations, which per the ticket's
-own framing (a security audit trail) it plausibly should.
+All three gaps tracked here are now closed as of HEL-840/HEL-838.
 
 **Resolved (skeptic-final-1 round 1):** `PipelineService.reorderSteps`/`duplicateStep` were
 originally listed here as tracked gaps; the final-gate skeptic correctly refuted that

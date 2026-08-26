@@ -11,8 +11,11 @@ import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes.auth.OAuthRoutes
 import com.helio.api._
-import com.helio.domain.model.{UserId, UserMfa}
+import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, UserId, UserMfa}
+import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.auth.{MfaRepository, UserRepository}
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.services.audit.AuditService
 import com.helio.services.auth.{AuthService, MfaService, UserTierConfig}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -21,8 +24,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend
+import spray.json._
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -47,6 +52,8 @@ class GoogleOAuthRoutesSpec
   private var db: JdbcBackend.Database           = _
   private var userRepo: UserRepository           = _
   private var mfaRepo: MfaRepository             = _
+  private var auditEventRepo: AuditEventRepository = _
+  private var auditService: AuditService           = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -65,6 +72,11 @@ class GoogleOAuthRoutesSpec
 
     userRepo = new UserRepository(db)(typedSystem.executionContext)
     mfaRepo  = new MfaRepository(db)(typedSystem.executionContext)
+    // HEL-840: real embedded-Postgres-backed audit fixtures — this spec had
+    // none before (auditService stayed null-default everywhere); needed to
+    // assert on `auth.register`/`auth.login` rows written by `completeOAuth`.
+    auditEventRepo = new AuditEventRepository(new DbContext(db, db)(typedSystem.executionContext))(typedSystem.executionContext)
+    auditService    = new AuditService(auditEventRepo)
   }
 
   override def afterAll(): Unit = {
@@ -83,13 +95,50 @@ class GoogleOAuthRoutesSpec
   // call sites below rather than positional (mechanical HEL-702/HEL-703 merge conflict resolution).
   private def makeAuthService(
       tierConfig: UserTierConfig = UserTierConfig(Set.empty, UserTierConfig.DefaultBetaDailyMessageLimit),
-      mfaService: Option[MfaService] = None
+      mfaService: Option[MfaService] = None,
+      // HEL-840: defaulted so every existing positional call site above is unaffected —
+      // `None`/`null` behaves as "audit disabled", matching every other service in this ticket.
+      withAudit: Boolean = false
   ): AuthService =
-    new AuthService(userRepo, tierConfig, mfaService)(typedSystem.executionContext)
+    new AuthService(userRepo, tierConfig, mfaService, if (withAudit) auditService else null)(typedSystem.executionContext)
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
+    // HEL-471: audit_events is append-only (BEFORE TRUNCATE/UPDATE/DELETE trigger) — it cannot be
+    // part of this TRUNCATE; per-test filtering on `allAuditRows()` reads without wiping.
     await(db.run(sqlu"TRUNCATE TABLE mfa_login_challenges, mfa_backup_codes, user_mfa, user_sessions, users RESTART IDENTITY CASCADE"))
+  }
+
+  /** Reads every persisted audit row (system context — this is a test, no caller-scoped ACL to
+   *  honor). Mirrors `AuditMutationInstrumentationSpec.allAuditRows`. */
+  private def allAuditRows(): Seq[AuditEvent] = {
+    import slick.jdbc.PostgresProfile.api._
+    val rows = await(db.run(sql"""SELECT id, actor_user_id, actor_token_id, source, action, resource_type, resource_id, metadata, created_at FROM audit_events""".as[(String, Option[String], Option[String], String, String, String, Option[String], String, java.sql.Timestamp)]))
+    rows.map { case (id, actor, token, source, action, resourceType, resourceId, metadata, createdAt) =>
+      AuditEvent(
+        id           = AuditEventId(id),
+        actorUserId  = actor.map(UserId(_)),
+        actorTokenId = token.map(ApiTokenId(_)),
+        source       = AuditSource.fromString(source).getOrElse(AuditSource.System),
+        action       = action,
+        resourceType = resourceType,
+        resourceId   = resourceId,
+        metadata     = metadata.parseJson,
+        createdAt    = createdAt.toInstant
+      )
+    }
+  }
+
+  /** `AuditService.record` is fire-and-forget — poll briefly instead of asserting immediately.
+   *  Mirrors `AuditMutationInstrumentationSpec.eventuallyAuditRows`. */
+  private def eventuallyAuditRows(predicate: AuditEvent => Boolean): Seq[AuditEvent] = {
+    val deadline = System.nanoTime() + 2.seconds.toNanos
+    var rows     = allAuditRows().filter(predicate)
+    while (rows.isEmpty && System.nanoTime() < deadline) {
+      Thread.sleep(25)
+      rows = allAuditRows().filter(predicate)
+    }
+    rows
   }
 
   // ─── Configurable stub for Google HTTP calls ──────────────────────────────
@@ -490,6 +539,85 @@ class GoogleOAuthRoutesSpec
         val body = responseAs[String]
         body should not include "\"user\""
       }
+    }
+  }
+
+  "GET /api/auth/google/callback audit instrumentation (HEL-840)" should {
+
+    "write exactly one auth.register row and exactly one auth.login row for a first-time Google signup" in {
+      cleanDb()
+
+      val profile = GoogleProfile("google-sub-audit-new", Some("audit-new@example.com"), Some("Audit New"), None)
+      val oauthRoutes = new OAuthRoutes(makeAuthService(withAudit = true), "test-client-id", "test-secret", "http://localhost/callback") {
+        override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
+          Future.successful("access-token-audit-new")
+        override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
+          Future.successful(profile)
+      }
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
+
+      var stateParam = ""
+      Get("/api/auth/google") ~> route ~> check {
+        stateParam = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      var userId = ""
+      Get(s"/api/auth/google/callback?code=audit-new-code&state=$stateParam") ~> route ~> check {
+        status shouldBe StatusCodes.OK
+        userId = responseAs[AuthResponse].user.id
+      }
+
+      val registerRows = eventuallyAuditRows(r => r.action == "auth.register" && r.actorUserId.contains(UserId(userId)))
+      registerRows should have size 1
+      eventuallyAuditRows(r => r.action == "auth.login" && r.actorUserId.contains(UserId(userId))) should have size 1
+    }
+
+    "write no auth.register row for a returning Google login (negative-assertion barrier per " +
+      "design.md Test plan)" in {
+      cleanDb()
+
+      val profile = GoogleProfile("google-sub-audit-returning", Some("audit-returning@example.com"), Some("Audit Returning"), None)
+      def makeOAuthRoutes() = new OAuthRoutes(makeAuthService(withAudit = true), "test-client-id", "test-secret", "http://localhost/callback") {
+        override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
+          Future.successful("access-token-audit-returning")
+        override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
+          Future.successful(profile)
+      }
+
+      // First login — creates the account (and its own auth.register row, asserted by the
+      // "first-time" case above; this test only cares about the SECOND call).
+      val firstRoute: Route = pathPrefix("api") { pathPrefix("auth") { makeOAuthRoutes().routes } }
+      var stateParam1 = ""
+      Get("/api/auth/google") ~> firstRoute ~> check {
+        stateParam1 = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      var userId = ""
+      Get(s"/api/auth/google/callback?code=code-first&state=$stateParam1") ~> firstRoute ~> check {
+        status shouldBe StatusCodes.OK
+        userId = responseAs[AuthResponse].user.id
+      }
+      eventuallyAuditRows(r => r.action == "auth.register" && r.actorUserId.contains(UserId(userId))) should have size 1
+
+      // Second login — returning user, no new auth.register row.
+      val secondRoute: Route = pathPrefix("api") { pathPrefix("auth") { makeOAuthRoutes().routes } }
+      var stateParam2 = ""
+      Get("/api/auth/google") ~> secondRoute ~> check {
+        stateParam2 = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      Get(s"/api/auth/google/callback?code=code-second&state=$stateParam2") ~> secondRoute ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      // Barrier: a real audited mutation (register a different, unrelated user) drains the
+      // fire-and-forget write path before we assert the second login above wrote no new row.
+      val barrierAuthService = makeAuthService(withAudit = true)
+      val barrierEmail       = s"audit-returning-barrier-${UUID.randomUUID()}@example.com"
+      await(barrierAuthService.register(RegisterRequest(barrierEmail, "barrier-password-1234", None)))
+
+      import slick.jdbc.PostgresProfile.api._
+      val barrierUserId = await(db.run(sql"SELECT id FROM users WHERE email = '#$barrierEmail'".as[String].head))
+      eventuallyAuditRows(r => r.action == "auth.register" && r.actorUserId.contains(UserId(barrierUserId))) should have size 1
+
+      allAuditRows().count(r => r.action == "auth.register" && r.actorUserId.contains(UserId(userId))) shouldBe 1
     }
   }
 }
