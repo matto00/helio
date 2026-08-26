@@ -113,7 +113,7 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
   return (
     <div className="type-detail-panel">
       <div className="type-detail-panel__header">
-        <input
+        <TextField
           type="text"
           className="type-detail-panel__name-input"
           aria-label="Data type name"

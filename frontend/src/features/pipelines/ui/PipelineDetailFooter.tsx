@@ -18,6 +18,7 @@
 import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
 import type { SchemaField } from "../types/pipelineStep";
 import { StatusChip } from "../../../shared/ui/StatusChip";
+import { TextField } from "../../../shared/ui/TextField";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 import { ActionsMenu, type ActionsMenuItem } from "../../../shared/chrome/ActionsMenu";
 
@@ -141,7 +142,7 @@ export function PipelineDetailFooter({
            *  were updated alongside this (see crossPackageRequests). */}
           <span className="pipeline-detail-page__footer-output-label">PIPELINE</span>
           {editingOutputName ? (
-            <input
+            <TextField
               className="pipeline-detail-page__footer-output-input"
               value={outputName}
               aria-label="Pipeline name"
