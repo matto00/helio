@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api._
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
@@ -81,7 +81,7 @@ class MfaApiRoutesSpec
       def exists(path: String): Future[Boolean]                                                        = Future.successful(false)
       def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage] = Future.successful(ListPage(Seq.empty, None))
     }
-    val connector = new RestApiConnector(Some(_ => Future.successful(Left("no real HTTP in tests"))))
+    val connector = new RestApiConnectorDriver(Some(_ => Future.successful(Left("no real HTTP in tests"))))
 
     apiRoutes = new ApiRoutes(
       dashboardRepo,

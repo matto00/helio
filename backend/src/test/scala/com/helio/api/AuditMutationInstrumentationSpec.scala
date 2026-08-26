@@ -13,7 +13,7 @@ import com.helio.api.protocols.panels.{CreatePanelBatchItem, CreatePanelRequest,
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel, ReplaceDashboardContentsRequest}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataSourceRequest}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, CsvSource, DataField, DataSource, DataSourceId, DataSourceKind, DataType, DataTypeId, MetricDefinition, MetricFormat, MetricId, UserId, UserSession}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
@@ -142,7 +142,7 @@ class AuditMutationInstrumentationSpec
     def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage] = Future.successful(ListPage(Seq.empty, None))
   }
 
-  private def stubConnector: RestApiConnector = new RestApiConnector(Some(_ => Future.successful(Left("no real HTTP in tests"))))
+  private def stubConnector: RestApiConnectorDriver = new RestApiConnectorDriver(Some(_ => Future.successful(Left("no real HTTP in tests"))))
 
   private val testUserId = "00000000-0000-0000-0000-000000000099"
   private val testToken  = "valid-test-token"
@@ -1237,7 +1237,7 @@ class AuditMutationInstrumentationSpec
 
     "write exactly one data_source.refresh row on a successful rest refresh" in {
       cleanDb()
-      val restConnector = new RestApiConnector(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
+      val restConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
       val svc            = new SourceService(dataSourceRepo, dataTypeRepo, restConnector, auditService = new AuditService(auditEventRepo))
       val restConfigPayload = RestApiConfigPayload(url = "http://example.invalid/data", method = Some("GET"), auth = None, headers = None)
 
@@ -1256,8 +1256,8 @@ class AuditMutationInstrumentationSpec
     "write no data_source.refresh row for a failed rest refresh (fetch fails; negative-assertion " +
       "barrier per design.md Test plan)" in {
       cleanDb()
-      val failingConnector = new RestApiConnector(fetchOverride = Some(_ => Future.successful(Left("Request failed"))))
-      val successConnector = new RestApiConnector(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
+      val failingConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Left("Request failed"))))
+      val successConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
       val auditSvc          = new AuditService(auditEventRepo)
       val failingSvc        = new SourceService(dataSourceRepo, dataTypeRepo, failingConnector, auditService = auditSvc)
       val successSvc        = new SourceService(dataSourceRepo, dataTypeRepo, successConnector, auditService = auditSvc)

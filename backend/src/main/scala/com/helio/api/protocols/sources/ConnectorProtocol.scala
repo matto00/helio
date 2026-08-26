@@ -11,7 +11,7 @@ import spray.json._
 final case class ConnectorFieldDescriptorResponse(name: String, label: String, secret: Boolean)
 
 /** Wire shape for one `ConnectorMetadata` entry, as returned by
- *  `GET /api/connectors` and the `list_connectors` MCP tool. */
+ *  `GET /api/connector-types` and the `list_connector_types` MCP tool. */
 final case class ConnectorMetadataResponse(
     kind: String,
     displayName: String,

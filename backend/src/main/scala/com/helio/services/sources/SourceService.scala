@@ -2,9 +2,9 @@ package com.helio.services.sources
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
-import com.helio.domain.connectors.SqlConnector
+import com.helio.domain.connectors.SqlConnectorDriver
 import com.helio.domain.engine.ExpressionEvaluator
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, PreviewSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlInferRequest, SqlSourceConfigPayload, TestConnectionResponse}
 import com.helio.api.protocols.pipelines.{InferredFieldResponse, InferredSchemaResponse}
 import com.helio.domain.model._
@@ -20,10 +20,10 @@ import scala.concurrent.{ExecutionContext, Future}
  *
  *  CRUD for `/api/sources` plus connector preview / infer / refresh. CSV +
  *  Static live in [[DataSourceService]] (the route surfaces are also split
- *  along that boundary). Connector primitives (`RestApiConnector.fetch`,
- *  `SqlConnector.execute`) stay in `domain/`; the service just orchestrates.
+ *  along that boundary). Connector primitives (`RestApiConnectorDriver.fetch`,
+ *  `SqlConnectorDriver.execute`) stay in `domain/`; the service just orchestrates.
  *
- *  Create/infer/refresh dispatch through each connector's `Connector[Config].inferSchema`
+ *  Create/infer/refresh dispatch through each connector's `ConnectorDriver[Config].inferSchema`
  *  SPI method (HEL-449/HEL-473) rather than hand-rolling `execute`/`fetch` + inline inference;
  *  `SchemaInferenceFacade.toDataFields` is the single `InferredField` → `DataField` projection
  *  they all share. `preview*` is the one path that still calls `execute`/`fetch` directly — it
@@ -31,7 +31,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class SourceService(
     dataSourceRepo: DataSourceRepository,
     dataTypeRepo:   DataTypeRepository,
-    connector:      RestApiConnector,
+    connector:      RestApiConnectorDriver,
     // HEL-477: nullable-optional wiring mirrors this file's other DI.
     auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
@@ -47,7 +47,7 @@ final class SourceService(
 
   def createSql(request: SqlCreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
-    SqlConnector.checkQuery(sqlConfig.query) match {
+    SqlConnectorDriver.checkQuery(sqlConfig.query) match {
       case Left(err) =>
         Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
@@ -61,7 +61,7 @@ final class SourceService(
           config    = sqlConfig
         )
         dataSourceRepo.insert(source, user).flatMap { inserted =>
-          CreateSourceEnvelope.build(SqlConnector, sqlConfig, inserted, now, dataTypeRepo, user).map { response =>
+          CreateSourceEnvelope.build(SqlConnectorDriver, sqlConfig, inserted, now, dataTypeRepo, user).map { response =>
             audit(Some(inserted.id.value), user)
             Right(response)
           }
@@ -100,10 +100,10 @@ final class SourceService(
 
   def inferSql(request: SqlInferRequest): Future[Either[ServiceError, InferredSchemaResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
-    SqlConnector.checkQuery(sqlConfig.query) match {
+    SqlConnectorDriver.checkQuery(sqlConfig.query) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
-        SqlConnector.inferSchema(sqlConfig).map {
+        SqlConnectorDriver.inferSchema(sqlConfig).map {
           case Left(err)     => Left(ServiceError.BadGateway(err))
           case Right(schema) => Right(toInferredSchema(schema))
         }
@@ -125,9 +125,9 @@ final class SourceService(
 
   def testSql(request: SqlInferRequest): Future[Either[ServiceError, TestConnectionResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
-    SqlConnector.checkQuery(sqlConfig.query) match {
+    SqlConnectorDriver.checkQuery(sqlConfig.query) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(_)  => ConnectionTest.run(SqlConnector, sqlConfig).map(Right(_))
+      case Right(_)  => ConnectionTest.run(SqlConnectorDriver, sqlConfig).map(Right(_))
     }
   }
 
@@ -157,10 +157,10 @@ final class SourceService(
     }
 
   private def refreshSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
-    SqlConnector.inferSchema(source.config).flatMap {
+    SqlConnectorDriver.inferSchema(source.config).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
-        // (SqlConnector logs the raw JDBC cause server-side) — pass through
+        // (SqlConnectorDriver logs the raw JDBC cause server-side) — pass through
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(schema) =>
@@ -176,7 +176,7 @@ final class SourceService(
     connector.inferSchema(source.config).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
-        // (RestApiConnector logs the raw cause server-side) — pass through
+        // (RestApiConnectorDriver logs the raw cause server-side) — pass through
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(schema) =>
@@ -203,16 +203,16 @@ final class SourceService(
     }
 
   private def previewSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
-    SqlConnector.execute(source.config, maxRows = 10).flatMap {
+    SqlConnectorDriver.execute(source.config, maxRows = 10).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
-        // (SqlConnector logs the raw JDBC cause server-side) — pass through
+        // (SqlConnectorDriver logs the raw JDBC cause server-side) — pass through
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(rows) =>
         dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
           val computedFields          = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
-          val rawRows                 = SqlConnector.toRows(rows)
+          val rawRows                 = SqlConnectorDriver.toRows(rows)
           val (augmented, evalErrors) = applyComputedFields(rawRows, computedFields)
           Right(PreviewSourceResponse(augmented, evalErrors))
         }
@@ -222,7 +222,7 @@ final class SourceService(
     connector.fetch(source.config).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
-        // (RestApiConnector logs the raw cause server-side) — pass through
+        // (RestApiConnectorDriver logs the raw cause server-side) — pass through
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(json) =>

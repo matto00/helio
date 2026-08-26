@@ -49,7 +49,7 @@ The backend SHALL expose `GET /api/sources/:id/preview` which fetches the config
 - **THEN** the response is 404
 
 ### Requirement: Auth injection
-The `RestApiConnector` SHALL inject authentication into outgoing requests based on the `auth` field in the config. Supported types: `none` (no auth), `bearer` (adds `Authorization: Bearer <token>` header), `api_key` (adds a custom header or query parameter by `name` and `value`, placement controlled by `in: "header"|"query"`).
+The `RestApiConnectorDriver` SHALL inject authentication into outgoing requests based on the `auth` field in the config. Supported types: `none` (no auth), `bearer` (adds `Authorization: Bearer <token>` header), `api_key` (adds a custom header or query parameter by `name` and `value`, placement controlled by `in: "header"|"query"`).
 
 #### Scenario: Bearer token injected as Authorization header
 - **WHEN** the config includes `auth: { type: "bearer", token: "abc" }`

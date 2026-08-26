@@ -304,7 +304,7 @@ export class HelioApi {
    *  can connect to and what each kind needs (`requiredFields`), before calling a `create_*`
    *  tool. No credential/secret values are ever included, only field descriptors. */
   listConnectors(): Promise<ConnectorMetadataResponse[]> {
-    return this.http.get<ConnectorMetadataResponse[]>("/api/connectors");
+    return this.http.get<ConnectorMetadataResponse[]>("/api/connector-types");
   }
 
   /** List every registered smart pipeline shape with its catalog metadata (HEL-391/402) —

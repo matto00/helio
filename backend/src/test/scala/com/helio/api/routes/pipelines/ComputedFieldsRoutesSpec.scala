@@ -10,7 +10,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes._
 import com.helio.domain.model.{AuthenticatedUser, DataField, DataType, RestApiConfig, UserId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -111,13 +111,13 @@ class ComputedFieldsRoutesSpec
     def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage]  = Future.successful(ListPage(Seq.empty, None))
   }
 
-  private def stubConnector(resp: Either[String, JsValue]): RestApiConnector =
-    new RestApiConnector(Some(_ => Future.successful(resp)))
+  private def stubConnector(resp: Either[String, JsValue]): RestApiConnectorDriver =
+    new RestApiConnectorDriver(Some(_ => Future.successful(resp)))
 
   // HEL-287: session auth moved from an `Authorization` bearer header to a
   // `helio_session` cookie; the CSRF header is required on non-GET requests
   // once that cookie is present (see AuthDirectives.requireCsrfHeader).
-  private def routes(connector: RestApiConnector = stubConnector(Left("no-http"))): Route = {
+  private def routes(connector: RestApiConnectorDriver = stubConnector(Left("no-http"))): Route = {
     import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
     mapRequest { req =>
       val withCookie =

@@ -30,7 +30,7 @@ import scala.concurrent.duration.DurationInt
  *  or placeholder fields injected.
  *
  *  One test per source kind (CSV, Static). SQL coverage lives in
- *  `SqlConnectorSpec` because `SqlConnector.inferSchema` is a pure
+ *  `SqlConnectorSpec` because `SqlConnectorDriver.inferSchema` is a pure
  *  function requiring no DB. */
 class SchemaInferenceRegressionSpec
     extends AnyWordSpec

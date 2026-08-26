@@ -2,7 +2,7 @@ package com.helio.domain.engine
 
 import com.helio.domain.model.{AssertionSink, CsvSourceConfig, ImageSourceConfig, PdfSourceConfig, RestApiConfig, TextSourceConfig}
 import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, SqlSource, TextSource, UserId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.domain.steps._
 import com.helio.domain.model.{DataSource, DataSourceId, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
@@ -34,7 +34,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
   // DataSourceRepository(null)(ec)`); the engine construction below now
   // relies on RouteTest's own implicit executor instead.
   private val ec: ExecutionContext = ExecutionContext.global
-  // ScalatestRouteTest provides the classic `system`; RestApiConnector needs
+  // ScalatestRouteTest provides the classic `system`; RestApiConnectorDriver needs
   // a typed ActorSystem[_] (HEL-758) to construct, mirroring
   // PipelineApplyProposalSpecBase's own `system.toTyped` pattern.
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
@@ -46,11 +46,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
   private val engine = new InProcessPipelineEngine(fileSystem)
 
   // HEL-758 (design.md D7 pattern, copied from PipelineApplyProposalSpecBase):
-  // a stub RestApiConnector keyed on `config.url` so the same connector
+  // a stub RestApiConnectorDriver keyed on `config.url` so the same connector
   // instance exercises both a successful and a failing REST fetch.
   private val RestSuccessUrl = "https://rest-engine.test/ok"
   private val RestFailureUrl = "https://rest-engine.test/fail"
-  private val stubConnector = new RestApiConnector(Some { config =>
+  private val stubConnector = new RestApiConnectorDriver(Some { config =>
     if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
     else
       Future.successful(Right(JsArray(
@@ -2207,10 +2207,10 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Await.result(engine.loadRows(ds, null), 5.seconds)
       )
       ex.getMessage should include ("rest-src-noconn")
-      ex.getMessage should include ("no RestApiConnector")
+      ex.getMessage should include ("no RestApiConnectorDriver")
     }
 
-    "loadRows: SqlSource fetches via SqlConnector and converts rows with jsRowToRow" in {
+    "loadRows: SqlSource fetches via SqlConnectorDriver and converts rows with jsRowToRow" in {
       val ds = SqlSource(
         id        = DataSourceId("ds-sql-1"),
         name      = "sql-src",

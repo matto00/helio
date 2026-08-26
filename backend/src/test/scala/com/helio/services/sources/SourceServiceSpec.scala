@@ -5,7 +5,7 @@ import com.helio.services.ServiceError
 import com.helio.api.protocols.sources.{CreateSourceRequest, FieldOverridePayload, RestApiConfigPayload, SqlCreateSourceRequest, SqlInferRequest}
 import com.helio.api.protocols.sources.SqlSourceConfigPayload
 import com.helio.services.sources.SourceService
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
@@ -27,7 +27,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
 /** Service-level coverage for HEL-473: `SourceService`'s create/infer/refresh paths now dispatch
- *  through `Connector[Config].inferSchema` (the SPI trait method, HEL-449) and the shared
+ *  through `ConnectorDriver[Config].inferSchema` (the SPI trait method, HEL-449) and the shared
  *  `SchemaInferenceFacade.toDataFields` projection instead of hand-rolling `execute`/`fetch` +
  *  inline inference. These tests confirm the observable output — including the `fetchError`
  *  early-return path and field-override handling — is unchanged after that routing swap
@@ -73,7 +73,7 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
   }
 
   /** A SQL config that queries the embedded Postgres instance itself — same pattern
-   *  `SqlConnectorSpec.liveConfig` uses, so `SqlConnector.execute` runs a real query. */
+   *  `SqlConnectorSpec.liveConfig` uses, so `SqlConnectorDriver.execute` runs a real query. */
   private def sqlConfig(query: String): SqlSourceConfigPayload =
     SqlSourceConfigPayload(
       dialect  = "postgresql",
@@ -85,14 +85,14 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       query    = query
     )
 
-  /** A `RestApiConnector` whose response is driven by an in-memory function rather than a real HTTP
-   *  request. `RestApiConnector.inferSchema`/the trait `fetch(config, maxRows)` both delegate to the
-   *  single-arg `fetch(config)`, which honors `fetchOverride` (see `RestApiConnector.scala`), so this
+  /** A `RestApiConnectorDriver` whose response is driven by an in-memory function rather than a real HTTP
+   *  request. `RestApiConnectorDriver.inferSchema`/the trait `fetch(config, maxRows)` both delegate to the
+   *  single-arg `fetch(config)`, which honors `fetchOverride` (see `RestApiConnectorDriver.scala`), so this
    *  is a faithful unit-level stand-in for both `SourceService`'s SPI-routed calls. */
-  private def restConnector(response: Either[String, JsValue]): RestApiConnector =
-    new RestApiConnector(fetchOverride = Some(_ => Future.successful(response)))
+  private def restConnector(response: Either[String, JsValue]): RestApiConnectorDriver =
+    new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(response)))
 
-  private def service(connector: RestApiConnector): SourceService =
+  private def service(connector: RestApiConnectorDriver): SourceService =
     new SourceService(dataSourceRepo, dataTypeRepo, connector)
 
   private val restConfigPayload =

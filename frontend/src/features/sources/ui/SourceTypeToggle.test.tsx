@@ -78,7 +78,7 @@ describe("SourceTypeToggle (HEL-484 — registry-driven)", () => {
     jest.clearAllMocks();
   });
 
-  it("renders the same 7 buttons, in the same order, with the same labels as the pre-registry toggle once GET /api/connectors resolves", async () => {
+  it("renders the same 7 buttons, in the same order, with the same labels as the pre-registry toggle once GET /api/connector-types resolves", async () => {
     listConnectorsMock.mockResolvedValue(REGISTRY_ENTRIES);
     render(<SourceTypeToggle active="rest_api" onChange={jest.fn()} />);
 

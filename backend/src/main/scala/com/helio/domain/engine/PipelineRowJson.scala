@@ -72,16 +72,16 @@ object PipelineRowJson {
     case _              => None
   }
 
-  /** Convert one connector-fetched JSON row (`RestApiConnector.fetch`/
-   *  `SqlConnector.fetch`, each `Vector[JsValue]`) into an engine [[Row]].
+  /** Convert one connector-fetched JSON row (`RestApiConnectorDriver.fetch`/
+   *  `SqlConnectorDriver.fetch`, each `Vector[JsValue]`) into an engine [[Row]].
    *  design.md D1: `jsValueToAny` is a per-scalar-field converter — it must
    *  be applied field-by-field to a `JsObject`'s fields, never to a whole row
    *  value directly (that would throw a `ClassCastException`). Mirrors
    *  `parseStaticRows`'s own per-field mapping loop below, applied to a
    *  `JsObject`'s fields instead of a static row's zipped column list. The
-   *  `other` fallback exists because `RestApiConnector.toRows` can return
+   *  `other` fallback exists because `RestApiConnectorDriver.toRows` can return
    *  non-object elements for a REST endpoint whose JSON root is a bare
-   *  scalar/array-of-scalars (`RestApiConnector.scala:60-64`); `SqlConnector.
+   *  scalar/array-of-scalars (`RestApiConnectorDriver.scala:60-64`); `SqlConnectorDriver.
    *  toRows` always produces `JsObject` rows so that branch is unreached on
    *  the SQL path. */
   def jsRowToRow(v: JsValue): Row = v match {

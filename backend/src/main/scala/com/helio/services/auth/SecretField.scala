@@ -34,7 +34,7 @@ object InlineSecretBackend extends SecretBackend {
 
 /** Applies a `HasSecrets[Config]` declaration to a config value, masking every declared field that
  *  is currently present. This is the one seam every connector's redaction path funnels through —
- *  see `Connector.scala`'s `'''Secret redaction'''` doc block. */
+ *  see `ConnectorDriver.scala`'s `'''Secret redaction'''` doc block. */
 object SecretRedaction {
 
   /** For each `SecretField` in `hs.fields`, replaces the field's value with `backend.mask(value)`

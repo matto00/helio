@@ -182,7 +182,7 @@ object ContentSourceSupport {
     }
 
   /** Raw-bytes HTTP GET for URL-based content ingestion. Mirrors
-   *  `RestApiConnector.doFetch`'s pooled-connection settings pattern, but
+   *  `RestApiConnectorDriver.doFetch`'s pooled-connection settings pattern, but
    *  returns the response body as bytes (not parsed JSON) and has no auth
    *  support — out of scope for this ticket. HEL-214/HEL-216 reuse this
    *  instead of writing their own HTTP client code for URL ingestion.

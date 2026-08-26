@@ -6,7 +6,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.http.CookieConfig
 import com.helio.api.ApiRoutes
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.util.SystemClock
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
@@ -114,7 +114,7 @@ object Main {
       // beside DataTypeService.delete guard and refresh upsert primitive.
       SourceSchemaHealthCheck.run(ctx, logger)
 
-      val connector = new RestApiConnector()
+      val connector = new RestApiConnectorDriver()
       val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
       val port      = sys.env.get("PORT")
         .orElse(sys.env.get("HELIO_HTTP_PORT"))

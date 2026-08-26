@@ -4,7 +4,9 @@
 The `SecretField`/`HasSecrets`/`SecretRedaction`/`SecretBackend` seam that lets a connector declare
 its secret config fields once, so redaction at the API response boundary is centralized and cannot be
 silently forgotten by a new connector.
+
 ## Requirements
+
 ### Requirement: Secret fields are declared once per connector wire payload
 The backend SHALL define `SecretField[Config](name: String, get: Config => Option[String], set:
 (Config, String) => Config)` and `HasSecrets[Config](fields: Set[SecretField[Config]])` in
@@ -106,8 +108,8 @@ proving the redaction seam is not bypassed between the helper and the HTTP respo
 - **THEN** the resulting JSON text does not contain the raw secret value anywhere, and contains
   `"***"` at the redacted field's position
 
-### Requirement: Connector.scala documents the redaction contract
-`Connector.scala`'s trait-level doc comment SHALL include a `'''Secret redaction'''` block, alongside
+### Requirement: ConnectorDriver.scala documents the redaction contract
+`ConnectorDriver.scala`'s trait-level doc comment SHALL include a `'''Secret redaction'''` block, alongside
 the existing four blocks (`'''Refresh semantics'''`, `'''ExecutionContext'''`, `'''Schema
 inference'''`, `'''Fetch-error envelope'''`), documenting that a connector whose wire payload carries
 secret fields declares a
@@ -115,8 +117,7 @@ secret fields declares a
 inline fully-qualified names.
 
 #### Scenario: Doc comment describes the redaction contract
-- **WHEN** a developer reads `Connector.scala`'s trait-level doc comment
+- **WHEN** a developer reads `ConnectorDriver.scala`'s trait-level doc comment
 - **THEN** it includes a `'''Secret redaction'''` block naming `HasSecrets` and
   `SecretRedaction.redact`, describing that declaring a payload's secret fields is sufficient for
   automatic redaction at the response boundary
-

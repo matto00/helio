@@ -1,13 +1,13 @@
 package com.helio.domain.connectors
 
 /** Aggregates the `ConnectorMetadata` for all seven source kinds — the read/discovery surface
- *  `GET /api/connectors` and the MCP `list_connectors` tool serve verbatim (HEL-484).
+ *  `GET /api/connector-types` and the MCP `list_connector_types` tool serve verbatim (HEL-484).
  *
  *  Every entry is a dependency-free static `ConnectorMetadata` value (design.md Decision 1):
- *  `sql`/`rest_api` are sourced from their `Connector[Config]` implementation's companion-object
- *  `metadata` `val` (never a live instance, since `RestApiConnector` requires an `ActorSystem` to
+ *  `sql`/`rest_api` are sourced from their `ConnectorDriver[Config]` implementation's companion-object
+ *  `metadata` `val` (never a live instance, since `RestApiConnectorDriver` requires an `ActorSystem` to
  *  construct); the five content/upload kinds (`csv`/`static`/`text`/`pdf`/`image`), which have no
- *  `Connector[Config]` implementation, get static `ConnectorMetadata` values registered directly
+ *  `ConnectorDriver[Config]` implementation, get static `ConnectorMetadata` values registered directly
  *  below. `DataSourceKind.All` derives its accepted-kind set from `all` (`DataSource.scala`).
  *
  *  Entry order matches `SourceTypeToggle.tsx`'s pre-registry button order (REST API, CSV, Static,
@@ -16,7 +16,7 @@ package com.helio.domain.connectors
  *
  *  '''requiredFields for the content kinds''': hand-drawn from each kind's config payload shape in
  *  `api/protocols/DataSourceProtocol.scala` — these describe the *stored* config shape (e.g. the
- *  uploads-root-relative path), not a caller-supplied create request. `GET /api/connectors` is a
+ *  uploads-root-relative path), not a caller-supplied create request. `GET /api/connector-types` is a
  *  read/discovery surface, not a create-time validator (design.md Non-Goals) — a real create call
  *  for these kinds is a file upload or URL, not a raw `path`.
  *
@@ -25,7 +25,7 @@ package com.helio.domain.connectors
  *  constants, reading `ConnectorRegistry.all` would force `DataSourceKind`'s object initializer to
  *  run before it finished computing `All` (which itself needs `ConnectorRegistry.all`) — a circular
  *  `<clinit>` that throws `NullPointerException` on whichever object initializes first. Literal
- *  strings here (matching `SqlConnector`/`RestApiConnector.metadata`'s existing `kind = "sql"` /
+ *  strings here (matching `SqlConnectorDriver`/`RestApiConnectorDriver.metadata`'s existing `kind = "sql"` /
  *  `"rest_api"` style) make the dependency strictly one-directional. */
 object ConnectorRegistry {
 
@@ -80,10 +80,10 @@ object ConnectorRegistry {
   // members top-to-bottom on first access; a forward reference here would
   // read `null` instead of the intended value).
   val all: Vector[ConnectorMetadata] = Vector(
-    RestApiConnector.metadata,
+    RestApiConnectorDriver.metadata,
     csvMetadata,
     staticMetadata,
-    SqlConnector.metadata,
+    SqlConnectorDriver.metadata,
     textMetadata,
     pdfMetadata,
     imageMetadata

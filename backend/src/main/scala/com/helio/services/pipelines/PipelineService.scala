@@ -7,7 +7,7 @@ import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeS
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, InferredSchema, PipelineId, PipelineSchemaDrift, PipelineStepId, PipelineStepKind, SchemaDrift}
 import com.helio.domain.engine.{PipelineAnalyzeService, SchemaField}
-import com.helio.domain.connectors.{RestApiConnector, SqlConnector}
+import com.helio.domain.connectors.{RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -43,12 +43,12 @@ final class PipelineService(
     dataTypeRepo:     DataTypeRepository,
     // HEL-381: nullable-optional wiring mirrors the many other optional
     // collaborators ApiRoutes.scala threads (e.g. binaryRefRepo/imageUploadRepo) —
-    // fixtures that don't pass a RestApiConnector simply can't dry-analyze an
+    // fixtures that don't pass a RestApiConnectorDriver simply can't dry-analyze an
     // analyzeProposal request whose inline source is `rest_api` (every other
     // branch — existing sourceId, inline sql, inline static — never touches
     // it). ApiRoutes itself always threads the real, non-null connector (the
     // same instance SourceService already receives).
-    connector: RestApiConnector = null,
+    connector: RestApiConnectorDriver = null,
     // HEL-477: nullable-optional wiring mirrors connector above.
     auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
@@ -325,11 +325,11 @@ final class PipelineService(
             Future.successful(Left(ServiceError.BadRequest("inline 'sql' source requires a 'config' object")))
           case Some(payload) =>
             val domainConfig = SqlSourceConfigPayload.toDomain(payload)
-            SqlConnector.checkQuery(domainConfig.query) match {
+            SqlConnectorDriver.checkQuery(domainConfig.query) match {
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(_) =>
-                SqlConnector.inferSchema(domainConfig).map {
+                SqlConnectorDriver.inferSchema(domainConfig).map {
                   case Left(err)     => Left(ServiceError.BadGateway(err))
                   case Right(schema) => Right((name, toSchemaFields(schema)))
                 }

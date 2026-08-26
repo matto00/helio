@@ -1,6 +1,6 @@
 package com.helio.api.routes.dashboards
 
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -203,7 +203,7 @@ class DashboardPanelAclSpec
     new ApiRoutes(
       dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
       stubFileSystem,
-      new RestApiConnector(Some(_ => Future.successful(Left("no HTTP in tests")))),
+      new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP in tests")))),
       userRepo, stubSessionRepo, userPrefRepo,
       mkPipelineRepo, mkPipelineStepRepo,
       new PipelineRunCache(),

@@ -194,9 +194,9 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
-    "list_connectors",
+    "list_connector_types",
     {
-      title: "List connectors",
+      title: "List connector types",
       description:
         "List every registered connector kind (csv/rest_api/sql/static/text/pdf/image) with its " +
         "capability metadata: displayName, whether it supports incremental refresh, its auth model, " +

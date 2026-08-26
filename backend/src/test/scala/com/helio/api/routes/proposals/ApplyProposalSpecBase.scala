@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.model.{AuthenticatedUser, UserId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
@@ -136,7 +136,7 @@ abstract class ApplyProposalSpecBase
 
     routes = new ApiRoutes(
       dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
-      stubFileSystem, new RestApiConnector(Some(_ => Future.successful(Left("no HTTP")))),
+      stubFileSystem, new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP")))),
       userRepo, stubSessionRepo, userPrefRepo, pipelineRepo, pipelineStepRepo,
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc),
       // HEL-549: wires a real MetricRepository so apply-proposal specs can

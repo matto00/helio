@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-/** Production [[ClaudeTransport]] (design.md D2) — mirrors `RestApiConnector`'s
+/** Production [[ClaudeTransport]] (design.md D2) — mirrors `RestApiConnectorDriver`'s
  *  `Http(system.classicSystem).singleRequest` + `ConnectionPoolSettings`-with-timeouts shape.
  *
  *  Never logs `apiKey`: it is placed only on the outbound `x-api-key` header and is never

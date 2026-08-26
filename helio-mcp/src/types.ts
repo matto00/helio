@@ -441,7 +441,7 @@ export interface CreateSourceResult {
   fetchError: string | null;
 }
 
-/** `GET /api/connectors` (HEL-484) — one required config field descriptor.
+/** `GET /api/connector-types` (HEL-484) — one required config field descriptor.
  *  Name/label/secret-flag only, never a value. Mirrors the backend's
  *  `ConnectorFieldDescriptorResponse` (`ConnectorProtocol.scala`). */
 export interface ConnectorFieldDescriptorResponse {
@@ -450,7 +450,7 @@ export interface ConnectorFieldDescriptorResponse {
   secret: boolean;
 }
 
-/** `GET /api/connectors` — one connector kind's capability metadata. Mirrors
+/** `GET /api/connector-types` — one connector kind's capability metadata. Mirrors
  *  the backend's `ConnectorMetadataResponse`. All fields are required on the
  *  wire (no `Option`), so no missing-key normalization is needed here. */
 export interface ConnectorMetadataResponse {

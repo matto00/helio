@@ -11,7 +11,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import com.helio.domain.model.{AuthenticatedUser, PagedResult, UserId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
@@ -155,14 +155,14 @@ class DataSourceRoutesSpec
     await(db.run(sqlu"TRUNCATE TABLE data_types, data_sources RESTART IDENTITY CASCADE"))
   }
 
-  private val stubConnector: RestApiConnector =
-    new RestApiConnector(Some(_ => Future.successful(Left("no real HTTP in tests"))))
+  private val stubConnector: RestApiConnectorDriver =
+    new RestApiConnectorDriver(Some(_ => Future.successful(Left("no real HTTP in tests"))))
 
-  private def successConnector(json: JsValue): RestApiConnector =
-    new RestApiConnector(Some(_ => Future.successful(Right(json))))
+  private def successConnector(json: JsValue): RestApiConnectorDriver =
+    new RestApiConnectorDriver(Some(_ => Future.successful(Right(json))))
 
-  private def errorConnector(msg: String): RestApiConnector =
-    new RestApiConnector(Some(_ => Future.successful(Left(msg))))
+  private def errorConnector(msg: String): RestApiConnectorDriver =
+    new RestApiConnectorDriver(Some(_ => Future.successful(Left(msg))))
 
   private val testToken   = "ds-spec-test-token"
   private val testUserId  = "a0000000-0000-0000-0000-000000000001"
@@ -175,7 +175,7 @@ class DataSourceRoutesSpec
 
   private def routes(): Route = routesWith(stubConnector)
 
-  private def routesWith(c: RestApiConnector): Route = {
+  private def routesWith(c: RestApiConnectorDriver): Route = {
     import com.helio.infrastructure.persistence.dashboards.DashboardRepository
     import com.helio.infrastructure.persistence.panels.PanelRepository
     val ec             = typedSystem.executionContext
@@ -862,8 +862,8 @@ class DataSourceRoutesSpec
     }
   }
 
-  // HEL-480: connection-test endpoint. `SqlConnector.testConnection`/
-  // `RestApiConnector.testConnection` are exercised for real here (not via
+  // HEL-480: connection-test endpoint. `SqlConnectorDriver.testConnection`/
+  // `RestApiConnectorDriver.testConnection` are exercised for real here (not via
   // `fetchOverride`, which only affects `fetch`/`inferSchema`) — SQL tests hit
   // the suite's own embedded Postgres instance, REST tests hit the suite's
   // local `testServerBinding` test server (test-ok / test-fail routes above).

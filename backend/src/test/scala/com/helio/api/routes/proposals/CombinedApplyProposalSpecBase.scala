@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.model.{AuthenticatedUser, UserId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
@@ -66,7 +66,7 @@ abstract class CombinedApplyProposalSpecBase
   protected var otherUserSourceId  = ""
   protected var pipelineOutputTypeId = ""
 
-  private val stubConnector = new RestApiConnector(Some(_ => Future.successful(Left("no HTTP"))))
+  private val stubConnector = new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP"))))
 
   private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
     override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =

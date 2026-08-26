@@ -61,14 +61,14 @@ async function main(): Promise<void> {
     const { resources } = await client.listResources();
     for (const r of resources) process.stdout.write(`  • ${r.uri} (${r.name})\n`);
 
-    section("list_connectors");
+    section("list_connector_types");
     const connectors = parse<
       Array<{
         kind: string;
         displayName: string;
         requiredFields: Array<{ name: string; secret: boolean }>;
       }>
-    >(await client.callTool({ name: "list_connectors", arguments: {} }));
+    >(await client.callTool({ name: "list_connector_types", arguments: {} }));
     for (const c of connectors)
       process.stdout.write(
         `  • ${c.displayName} (${c.kind}) requiredFields=${c.requiredFields.map((f) => f.name).join(",")}\n`,

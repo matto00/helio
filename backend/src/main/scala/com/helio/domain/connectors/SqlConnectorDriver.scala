@@ -9,7 +9,7 @@ import java.sql.{Connection, DriverManager, Types}
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.Try
 
-object SqlConnector extends Connector[SqlSourceConfig] {
+object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -128,7 +128,7 @@ object SqlConnector extends Connector[SqlSourceConfig] {
   def toRows(rows: Seq[Map[String, JsValue]]): Vector[JsValue] =
     rows.map(row => JsObject(row)).toVector
 
-  // ── Connector[SqlSourceConfig] ────────────────────────────────────────────
+  // ── ConnectorDriver[SqlSourceConfig] ────────────────────────────────────────────
 
   /** Opens and immediately closes a JDBC connection — no query is executed.
    *  Uses `scala.concurrent.blocking` on the caller-supplied `ec`, matching `execute`. */

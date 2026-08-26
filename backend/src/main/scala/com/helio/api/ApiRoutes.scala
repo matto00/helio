@@ -25,7 +25,7 @@ import com.helio.api.routes.proposals._
 import com.helio.api.routes.sources._
 import com.helio.api.routes.workspace._
 import com.helio.domain.model.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.email.{EmailConfig, EmailSender, HttpResendEmailSender}
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
@@ -72,7 +72,7 @@ final class ApiRoutes(
     dataTypeRepo: DataTypeRepository,
     permissionRepo: ResourcePermissionRepository,
     fileSystem: FileSystem,
-    connector: RestApiConnector,
+    connector: RestApiConnectorDriver,
     userRepo: UserRepository,
     userSessionRepo: UserSessionRepository,
     userPreferenceRepo: UserPreferenceRepository,
@@ -253,7 +253,7 @@ final class ApiRoutes(
   // HEL-365: separate from dataTypeService (CRUD-only, design.md D6) — reads
   // the same dataTypeRepo/dataTypeRowRepo to build the panel-capabilities report.
   private val panelCapabilityService = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
-  // HEL-381: threads the same RestApiConnector instance sourceService already
+  // HEL-381: threads the same RestApiConnectorDriver instance sourceService already
   // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo/
   // dataTypeRepo above cover every other analyzeProposal branch).
   private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo, connector, auditService)
@@ -270,7 +270,7 @@ final class ApiRoutes(
   // HEL-415: exposed (not private) so Main.scala can hand the same instance
   // to PipelineSchedulerService — scheduled runs reuse the manual-run path's
   // PipelineRunCache/PipelineRunRegistry instead of duplicating wiring.
-  // HEL-758: threads the same RestApiConnector instance sourceService/
+  // HEL-758: threads the same RestApiConnectorDriver instance sourceService/
   // pipelineService already receive — runPipeline/previewStep now execute
   // rest_api sources in-process via InProcessPipelineEngine (design.md D3).
   val pipelineRunService = new PipelineRunService(

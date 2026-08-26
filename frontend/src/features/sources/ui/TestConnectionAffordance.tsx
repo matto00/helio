@@ -1,6 +1,6 @@
 // Shared "Test connection" affordance (HEL-480) — a lightweight, cheap
 // pre-flight connectivity check backed by POST /api/sources/test, usable by
-// any source form with a Connector[Config]-backed connection to test (SQL,
+// any source form with a ConnectorDriver[Config]-backed connection to test (SQL,
 // REST API today). Distinct from schema inference: it never populates a
 // schema preview and never gates a downstream "Create source" action.
 

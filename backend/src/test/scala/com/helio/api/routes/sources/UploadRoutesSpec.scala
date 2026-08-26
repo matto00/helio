@@ -10,7 +10,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
-import com.helio.domain.connectors.RestApiConnector
+import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
@@ -86,8 +86,8 @@ class UploadRoutesSpec
     await(db.run(sqlu"TRUNCATE TABLE image_uploads RESTART IDENTITY CASCADE"))
   }
 
-  private val stubConnector: RestApiConnector =
-    new RestApiConnector(Some(_ => Future.successful(Left("no real HTTP in tests"))))
+  private val stubConnector: RestApiConnectorDriver =
+    new RestApiConnectorDriver(Some(_ => Future.successful(Left("no real HTTP in tests"))))
 
   private val testToken  = "upload-spec-test-token"
   private val testUserId = "b0000000-0000-0000-0000-000000000001"

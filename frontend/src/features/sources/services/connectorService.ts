@@ -1,7 +1,7 @@
 import { httpClient } from "../../../services/httpClient";
 
-// HEL-484: GET /api/connectors — the registry of connector kinds, driving
-// SourceTypeToggle and (via helio-mcp) the agent's list_connectors tool.
+// HEL-484: GET /api/connector-types — the registry of connector kinds, driving
+// SourceTypeToggle and (via helio-mcp) the agent's list_connector_types tool.
 
 export interface ConnectorFieldDescriptor {
   name: string;
@@ -18,6 +18,6 @@ export interface ConnectorMetadata {
 }
 
 export async function listConnectors(): Promise<ConnectorMetadata[]> {
-  const response = await httpClient.get<ConnectorMetadata[]>("/api/connectors");
+  const response = await httpClient.get<ConnectorMetadata[]>("/api/connector-types");
   return response.data;
 }

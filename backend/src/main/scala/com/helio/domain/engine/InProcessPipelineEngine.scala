@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.connectors.{RestApiConnector, SqlConnector}
+import com.helio.domain.connectors.{RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineStep, RestSource, SqlSource, StaticSource, TextSource}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
@@ -19,14 +19,14 @@ import scala.util.{Failure, Success}
  *  is row-source loading (static / csv / rest_api / sql / text / pdf / image)
  *  and assembling the [[PipelineExecutionContext]] every step receives.
  *
- *  `connector` (design.md D3, HEL-758) is a nullable-default `RestApiConnector`
+ *  `connector` (design.md D3, HEL-758) is a nullable-default `RestApiConnectorDriver`
  *  — mirrors this file's own `binaryRefRepo`/`alertEvaluationService`
- *  `= null` convention elsewhere in the codebase. `RestApiConnector` requires
+ *  `= null` convention elsewhere in the codebase. `RestApiConnectorDriver` requires
  *  an implicit `ActorSystem` to construct, so it's threaded in rather than
- *  constructed here; `SqlConnector` is a stateless `object` and needs no DI.
+ *  constructed here; `SqlConnectorDriver` is a stateless `object` and needs no DI.
  *  A `null` connector attempting a `RestSource` load fails fast with a clear
  *  `IllegalArgumentException` rather than a confusing `NullPointerException`. */
-class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnector = null)(implicit ec: ExecutionContext) {
+class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnectorDriver = null)(implicit ec: ExecutionContext) {
 
   /** Row bound for a real `rest_api`/`sql` run (design.md D2) — distinct from
    *  `previewStep`'s pre-existing 10-row preview cap (unchanged; preview
@@ -34,7 +34,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
    *  this doesn't need a smaller preview-specific bound). Neither connector's
    *  `fetch` streams, so this bounds how much a single run materializes in
    *  memory — larger than `DataSourceService.staticMaxRows` (500) /
-   *  `SqlConnector.inferSchema`'s 100-row sample because a real run is the
+   *  `SqlConnectorDriver.inferSchema`'s 100-row sample because a real run is the
    *  one place a REST/SQL pipeline actually produces its panel-bindable
    *  data. */
   private val maxRunRows: Int = 1000
@@ -129,7 +129,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
         Future.failed(
           new IllegalArgumentException(
             "REST data source '" + r.name + "' (id=" + r.id.value +
-              ") cannot be executed: no RestApiConnector was configured for this pipeline engine"
+              ") cannot be executed: no RestApiConnectorDriver was configured for this pipeline engine"
           )
         )
       else
@@ -138,7 +138,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
           case Right(jsRows) => Future.successful(jsRows.map(PipelineRowJson.jsRowToRow))
         }
     case s: SqlSource =>
-      SqlConnector.fetch(s.config, maxRunRows).flatMap {
+      SqlConnectorDriver.fetch(s.config, maxRunRows).flatMap {
         case Left(err)    => Future.failed(new IllegalArgumentException(err))
         case Right(jsRows) => Future.successful(jsRows.map(PipelineRowJson.jsRowToRow))
       }

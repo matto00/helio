@@ -1,6 +1,6 @@
 package com.helio.domain.connectors
 
-import com.helio.domain.connectors.{ConnectorRegistry, RestApiConnector, SqlConnector}
+import com.helio.domain.connectors.{ConnectorRegistry, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.model.DataSourceKind
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -36,12 +36,12 @@ class ConnectorRegistrySpec extends AnyWordSpec with Matchers {
       DataSourceKind.All shouldBe expectedKinds
     }
 
-    "source the sql entry from SqlConnector.metadata, dependency-free" in {
-      ConnectorRegistry.all.find(_.kind == "sql") shouldBe Some(SqlConnector.metadata)
+    "source the sql entry from SqlConnectorDriver.metadata, dependency-free" in {
+      ConnectorRegistry.all.find(_.kind == "sql") shouldBe Some(SqlConnectorDriver.metadata)
     }
 
-    "source the rest_api entry from RestApiConnector.metadata (companion object), dependency-free" in {
-      ConnectorRegistry.all.find(_.kind == "rest_api") shouldBe Some(RestApiConnector.metadata)
+    "source the rest_api entry from RestApiConnectorDriver.metadata (companion object), dependency-free" in {
+      ConnectorRegistry.all.find(_.kind == "rest_api") shouldBe Some(RestApiConnectorDriver.metadata)
     }
   }
 
