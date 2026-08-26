@@ -2,11 +2,13 @@ package com.helio.services.dashboards
 
 import com.helio.services.auth.AccessChecker
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.dashboards.{DashboardSnapshotPayload, UpdateDashboardRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.services.dashboards.DashboardServiceValidation._
+import spray.json._
 
 import java.time.Instant
 import java.util.UUID
@@ -32,10 +34,23 @@ import scala.concurrent.{ExecutionContext, Future}
  */
 final class DashboardService(
     dashboardRepo: DashboardRepository,
-    accessChecker: AccessChecker
+    accessChecker: AccessChecker,
+    // HEL-477: nullable-optional wiring mirrors the file's other collaborators
+    // (see design.md Decision 3) — `null` in a fixture that never asserts on
+    // audit rows behaves as "audit disabled", never a NullPointerException,
+    // since every call site below guards on it via `audit(...)`.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
   import DashboardService._
+
+  /** Fire-and-forget audit call — a no-op when `auditService` is `null`
+   *  (fixtures that don't pass one). HEL-477 design.md Decision 3: `source`
+   *  is always `AuditSource.Ui`, a documented known-wrong placeholder until
+   *  the attribution follow-up ticket lands. */
+  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, "dashboard", resourceId, metadata)
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
@@ -68,7 +83,7 @@ final class DashboardService(
    *  since `helio-news`'s real usage is one serial call per rebuild. */
   def create(request: CreateDashboardInput, user: AuthenticatedUser): Future[(Dashboard, Boolean)] = {
     val name = RequestValidation.normalizeDashboardName(request.name)
-    request.ifExists match {
+    val resultF: Future[(Dashboard, Boolean)] = request.ifExists match {
       case Some("return") =>
         dashboardRepo.findByNameOwned(name, user.id).flatMap {
           case Some(existing) => Future.successful((existing, false))
@@ -76,6 +91,13 @@ final class DashboardService(
         }
       case _ =>
         insertNew(name, user).map((_, true))
+    }
+    resultF.map { case (dashboard, created) =>
+      // HEL-477 design.md Decision 2: only the fresh-insert branch (`created
+      // = true`) fires the audit call — a `(existing, false)` return created
+      // nothing, so there is nothing to audit.
+      if (created) audit("dashboard.create", Some(dashboard.id.value), user)
+      (dashboard, created)
     }
   }
 
@@ -97,6 +119,24 @@ final class DashboardService(
    *  - Grantee visible but not owner → 403
    *  - Owner → 204 */
   def delete(dashboardId: DashboardId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    deleteInternal(dashboardId, user).map {
+      case r @ Right(_) =>
+        // HEL-477: DB-level cascade deletes the dashboard's panels — no
+        // separate panel.delete rows are emitted for those (design.md
+        // Decision 7); only this one dashboard.delete call is recorded.
+        audit("dashboard.delete", Some(dashboardId.value), user)
+        r
+      case l => l
+    }
+
+  /** HEL-477 design.md Decision 10 — identical logic to the public [[delete]]
+   *  above, but NEVER calls `AuditService.record`. Rollback-only: do not call
+   *  from a route. `DashboardProposalService.createAll`'s rollback branch
+   *  uses this instead of the public `delete` so a failed proposal apply
+   *  doesn't write a false `dashboard.delete` for a dashboard that, from the
+   *  caller's perspective, never came into existence (a failed mutation
+   *  never claims to have happened — Decision 2). */
+  private[services] def deleteInternal(dashboardId: DashboardId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     dashboardRepo.findById(dashboardId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
@@ -125,7 +165,17 @@ final class DashboardService(
       case Some(_) =>
         dashboardRepo.duplicate(dashboardId, user.id).map {
           case None        => Left(ServiceError.NotFound("Dashboard not found"))
-          case Some(value) => Right(value)
+          case Some(value @ (newDashboard, _)) =>
+            // HEL-477 design.md Decision 7: exactly one dashboard.duplicate
+            // row — the copied panels do NOT each additionally emit
+            // panel.create.
+            audit(
+              "dashboard.duplicate",
+              Some(newDashboard.id.value),
+              user,
+              JsObject("sourceDashboardId" -> JsString(dashboardId.value))
+            )
+            Right(value)
         }
     }
 
@@ -137,8 +187,8 @@ final class DashboardService(
       dashboardId: DashboardId,
       request: UpdateDashboardRequest,
       user: AuthenticatedUser
-  ): Future[Either[ServiceError, Dashboard]] =
-    validateDashboardUpdateRequest(request) match {
+  ): Future[Either[ServiceError, Dashboard]] = {
+    val resultF: Future[Either[ServiceError, Dashboard]] = validateDashboardUpdateRequest(request) match {
       case Left(error) =>
         Future.successful(Left(ServiceError.BadRequest(error)))
       case Right((nameOpt, appearanceOpt, layoutOpt)) =>
@@ -156,6 +206,13 @@ final class DashboardService(
             }
         }
     }
+    resultF.map {
+      case r @ Right(_) =>
+        audit("dashboard.update", Some(dashboardId.value), user)
+        r
+      case l => l
+    }
+  }
 
   private def applyUpdate(
       dashboardId: DashboardId,
@@ -236,7 +293,17 @@ final class DashboardService(
       case Left(error) =>
         Future.successful(Left(ServiceError.BadRequest(error)))
       case Right(_) =>
-        dashboardRepo.importSnapshot(payload, user.id).map(Right(_))
+        dashboardRepo.importSnapshot(payload, user.id).map { case value @ (dashboard, panels) =>
+          // HEL-477 design.md Decision 9: a distinct dashboard.import action
+          // (not dashboard.create) — one row, no per-panel events.
+          audit(
+            "dashboard.import",
+            Some(dashboard.id.value),
+            user,
+            JsObject("panelCount" -> JsNumber(panels.size))
+          )
+          Right(value)
+        }
     }
 }
 

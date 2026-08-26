@@ -1,0 +1,25 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence)
+- Read ticket.md, proposal.md, design.md, tasks.md, specs/audit-mutation-instrumentation/spec.md in the change dir.
+- `AuditService.record` signature and never-fails contract: backend/src/main/scala/com/helio/services/audit/AuditService.scala — `record(actorUserId, actorTokenId, source, action, resourceType, resourceId, metadata)`, `Future(repo.append(e)).flatten.recover { NonFatal => log }`. Design's premise here is accurate.
+- `AuditEventRepository.append` runs on the privileged pool (`ctx.withSystemContext`) — no RLS obstacle for audit writes from any service. Accurate.
+- `AuditSource` members, model.scala:960-966: `Ui`, `Pat`, `Mcp`, `System`. **There is no `Api` member and no "generic API request" member.**
+- Service layer exists and carries the actor: `DashboardService.create/update/delete(..., user: AuthenticatedUser)`; `ApiTokenService.create/revoke(..., user)`. Service-layer instrumentation (Decision 1) is feasible as designed.
+- `AuthService.login` returns `Either[ServiceError, LoginOutcome]` with `LoginOutcome.{SessionEstablished, MfaRequired}` (AuthService.scala:59-63); `completeOAuth` applies the same MFA gate; `MfaService`/`MfaRoutes` exist and are where a challenged login actually completes.
+- `AuthService.logout(token: String)` — no `AuthenticatedUser` param; actor only derivable from `userRepo.findSession(token)` (currently `case Some(_) =>`, discarded).
+- `DashboardService.duplicate` calls `dashboardRepo.duplicate(...)` directly and returns `(Dashboard, Vector[Panel])` — it does **not** go through `create`.
+- `DataSourceRoutes.scala` exposes `post`, `patch`, `delete` on data sources; `sources/` has **two** services with create paths: `DataSourceService` and `SourceService.createSql`/`createRest`.
+
+### Verdict: REFUTE
+
+### Change Requests
+1. **design.md Decision 3 is built on a non-existent enum member.** It instructs call sites to use `AuditSource.Api` "(or equivalent)". The actual enum (`domain/model/model.scala:960`) is `Ui | Pat | Mcp | System` — none of which means "unattributed API request", and picking `Ui` would write a factually wrong value for PAT/MCP callers while `System` would be wrong for user-initiated actions. Decide and state explicitly in design.md which member every call site passes for this ticket, and why it is the least-wrong placeholder given the attribution ticket follows. Do not leave this to the executor to invent.
+2. **MFA-gated login is unaddressed anywhere in design.md or tasks.md.** Under Decision 2 ("audit fires only on the `Right` branch"), `Right(LoginOutcome.MfaRequired(...))` would emit `auth.login` for a login that has *not* established a session, and the actual session-establishing MFA verify path (`MfaService`/`MfaRoutes`) would emit nothing — an audit trail that is wrong in both directions. Add an explicit decision: what action (if any) `MfaRequired` emits (e.g. `auth.login.challenged` or nothing) and instrument the MFA verify success/failure path. Add corresponding tasks under §6 and a scenario to spec.md.
+3. **Composite mutations break the "exactly one audit row" acceptance criterion, and the design does not resolve them.** (a) `DashboardService.duplicate` (DashboardService.scala:116-129) does not route through `create`, and produces a dashboard *plus* N panels — task 2.2 leaves it as "confirm", but the open question is cardinality/action naming, not routing: state whether it emits one `dashboard.create`, a `dashboard.duplicate`, and whether the copied panels each emit `panel.create`. (b) Dashboard delete cascades panels at the DB level — state whether cascaded panel deletions emit rows. Record both in design.md and reflect them in spec.md scenarios, since the AC is a per-mutation row count.
+4. **Data-source/data-type task enumeration is incomplete and names one service where two exist.** tasks.md 5.1 covers only create/delete, but `DataSourceRoutes.scala:83` exposes `PATCH` (update) — `data_source.update` is missing from the action namespace and the tasks. Additionally `SourceService.createSql`/`createRest` are separate create call sites from `DataSourceService`, and `UploadRoutes` is a further source-creating path not named anywhere. Enumerate the actual mutating methods per service in tasks.md rather than relying on the 7.5 catch-all grep to discover them.
+
+### Non-blocking notes
+- `AuthService.logout(token: String)` has no actor param; the `userRepo.findSession(token)` result is currently discarded (`case Some(_) =>`). Bind it to obtain `actorUserId` for `auth.logout` rather than writing a null-actor row — worth one sentence in tasks 6.1.
+- Decision 2's example (`.flatMap { result => auditService.record(...); Future.successful(result) }`) discards a `Future` inside a `flatMap`; harmless given the never-fails contract, but the executor should keep it a deliberate fire-and-forget with a brief comment, since a discarded-Future pattern otherwise reads as a bug to reviewers.
+- Proposal correctly declares no modified capability; `AuditService` itself is untouched. That part is sound.

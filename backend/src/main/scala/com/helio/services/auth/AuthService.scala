@@ -1,11 +1,13 @@
 package com.helio.services.auth
 
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.github.t3hnar.bcrypt._
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.auth.{AuthResponse, GoogleProfile, LoginRequest, RegisterRequest, UserResponse}
-import com.helio.domain.model.{User, UserId, UserSession, UserTier}
+import com.helio.domain.model.{AuditSource, User, UserId, UserSession, UserTier}
 import com.helio.infrastructure.persistence.auth.UserRepository
+import spray.json.{JsObject, JsString}
 
 import java.security.SecureRandom
 import java.time.Instant
@@ -70,10 +72,22 @@ final class AuthService(
     // call site (specs, ApiRoutes fixtures) compiles untouched and keeps minting
     // sessions unconditionally — `None` means "MFA feature absent", identical to
     // today's behaviour. See `finishLogin` at the bottom of this class.
-    mfaService: Option[MfaService] = None
+    mfaService: Option[MfaService] = None,
+    // HEL-477: nullable-optional wiring mirrors mfaService's Option pattern
+    // for other collaborators in this file; unlike mfaService this is a raw
+    // nullable (matching every other service in this ticket) since `null`
+    // is a "not configured" signal, not a domain-meaningful absence.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
   import AuthService._
+
+  /** HEL-477: `actorUserId = None` for a failed login (no established
+   *  identity to attribute the row to — design.md Decision 4); every other
+   *  auth event carries the acting user's id. */
+  private def audit(actorUserId: Option[UserId], action: String, metadata: JsObject = JsObject.empty): Unit =
+    if (auditService != null)
+      auditService.record(actorUserId, None, AuditSource.Ui, action, "user", actorUserId.map(_.value), metadata)
 
   // ── Register ──────────────────────────────────────────────────────────────
 
@@ -101,7 +115,10 @@ final class AuthService(
             for {
               createdUser    <- userRepo.insert(user, Some(passwordHash))
               createdSession <- userRepo.createSession(session)
-            } yield Right(authResultOf(createdSession, createdUser))
+            } yield {
+              audit(Some(createdUser.id), "auth.register")
+              Right(authResultOf(createdSession, createdUser))
+            }
         }
     }
 
@@ -115,28 +132,54 @@ final class AuthService(
           case None =>
             // Run dummy bcrypt to equalise timing — prevents user enumeration via response time.
             req.password.isBcryptedBounded(DummyHash)
+            auditFailedLogin(req.email)
             Future.successful(Left(ServiceError.Unauthorized()))
           case Some(user) =>
             userRepo.getPasswordHash(user.id).flatMap {
               case None =>
+                auditFailedLogin(req.email)
                 Future.successful(Left(ServiceError.Unauthorized()))
               case Some(hash) if req.password.isBcryptedBounded(hash) =>
                 // HEL-702/HEL-703 merge (design.md D3): tier promotion happens first
                 // (HEL-703 design.md D4), then the MFA gate decides whether a session
                 // is minted immediately or a challenge is returned instead.
-                promoteIfAllowlisted(user).flatMap(finishLogin).map(Right(_))
+                promoteIfAllowlisted(user).flatMap(finishLogin).map { outcome =>
+                  auditLoginOutcome(user.id, outcome)
+                  Right(outcome)
+                }
               case Some(_) =>
+                auditFailedLogin(req.email)
                 Future.successful(Left(ServiceError.Unauthorized()))
             }
         }
     }
+
+  /** HEL-477 design.md Decision 4: `metadata = {identifier}` only — the raw
+   *  password is never passed to `record` in the first place, not
+   *  redacted-after-the-fact. `actorUserId = None` (the identity was never
+   *  established). */
+  private def auditFailedLogin(identifier: String): Unit =
+    audit(None, "auth.login.failed", JsObject("identifier" -> JsString(identifier)))
+
+  /** HEL-477 design.md Decision 6: `SessionEstablished` -> `auth.login`;
+   *  `MfaRequired` -> `auth.login.challenged` (a session has NOT yet been
+   *  established for an MFA-enrolled user — that happens later, in
+   *  `MfaService.verifyLogin`). */
+  private def auditLoginOutcome(userId: UserId, outcome: LoginOutcome): Unit = outcome match {
+    case LoginOutcome.SessionEstablished(_) => audit(Some(userId), "auth.login")
+    case LoginOutcome.MfaRequired(_)        => audit(Some(userId), "auth.login.challenged")
+  }
 
   // ── Logout ────────────────────────────────────────────────────────────────
 
   def logout(token: String): Future[Either[ServiceError, Unit]] =
     userRepo.findSession(token).flatMap {
       case None    => Future.successful(Left(ServiceError.Unauthorized("Invalid or expired token")))
-      case Some(_) => userRepo.deleteSession(token).map(_ => Right(()))
+      case Some(session) =>
+        userRepo.deleteSession(token).map { _ =>
+          audit(Some(session.userId), "auth.logout")
+          Right(())
+        }
     }
 
   // ── OAuth completion ──────────────────────────────────────────────────────
@@ -144,13 +187,19 @@ final class AuthService(
   /** Given a Google profile fetched by the route layer, upsert the user (tier assignment/promotion
    *  happens inside `upsertGoogleUser` itself, alongside its existing avatar-refresh-on-return
    *  behavior — HEL-703 design.md D4) and apply the same MFA gate the password path uses
-   *  (`finishLogin`) — either a session is minted, or a pending challenge is returned (HEL-702). */
+   *  (`finishLogin`) — either a session is minted, or a pending challenge is returned (HEL-702).
+   *  HEL-477 design.md Decision 6: same `auth.login`/`auth.login.challenged` split as the
+   *  password path above — OAuth never fails with an `auth.login.failed`-shaped outcome (a
+   *  failed Google exchange surfaces as a route-level error before this method is ever called). */
   def completeOAuth(profile: GoogleProfile): Future[LoginOutcome] = {
     val email = profile.email.getOrElse(s"google:${profile.sub}@helio.invalid")
     for {
       user    <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture, tierConfig)
       outcome <- finishLogin(user)
-    } yield outcome
+    } yield {
+      auditLoginOutcome(user.id, outcome)
+      outcome
+    }
   }
 
   /** Persists `tier = owner` for a returning login whose email now matches the allowlist and whose

@@ -1,9 +1,11 @@
 package com.helio.services.sources
 
 import com.helio.services.ServiceError
-import com.helio.domain.model.{AuthenticatedUser, ImageUpload, ImageUploadId}
+import com.helio.services.audit.AuditService
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, ImageUpload, ImageUploadId}
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.infrastructure.persistence.sources.ImageUploadRepository
+import spray.json.JsObject
 
 import java.time.Instant
 import java.util.UUID
@@ -24,8 +26,14 @@ import scala.concurrent.{ExecutionContext, Future}
  *  panel-literal upload. */
 final class ImageUploadService(
     repo: ImageUploadRepository,
-    fileSystem: FileSystem
+    fileSystem: FileSystem,
+    // HEL-477: nullable-optional wiring mirrors this file's other DI.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
+
+  private def audit(resourceId: Option[String], user: AuthenticatedUser): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, "image_upload.create", "image_upload", resourceId, JsObject.empty)
 
   /** Narrower than `ContentSourceSupport.ImageExtensions` (which also permits
    *  `bmp`) — see design.md Decision 4. */
@@ -68,7 +76,10 @@ final class ImageUploadService(
             createdAt  = Instant.now()
           )
           fileSystem.write(storageKey, bytes).flatMap { _ =>
-            repo.insert(upload).map(Right(_))
+            repo.insert(upload).map { inserted =>
+              audit(Some(inserted.id.value), user)
+              Right(inserted)
+            }
           }
         }
     }

@@ -1,10 +1,11 @@
 package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineStepRequest, DateBucketAnalyzeStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
-import com.helio.domain.model.{AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, InferredSchema, PipelineId, PipelineSchemaDrift, PipelineStepId, PipelineStepKind, SchemaDrift}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, InferredSchema, PipelineId, PipelineSchemaDrift, PipelineStepId, PipelineStepKind, SchemaDrift}
 import com.helio.domain.engine.{PipelineAnalyzeService, SchemaField}
 import com.helio.domain.connectors.{RestApiConnector, SqlConnector}
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
@@ -47,10 +48,22 @@ final class PipelineService(
     // branch — existing sourceId, inline sql, inline static — never touches
     // it). ApiRoutes itself always threads the real, non-null connector (the
     // same instance SourceService already receives).
-    connector: RestApiConnector = null
+    connector: RestApiConnector = null,
+    // HEL-477: nullable-optional wiring mirrors connector above.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
+
+  private def audit(
+      action: String,
+      resourceType: String,
+      resourceId: Option[String],
+      user: AuthenticatedUser,
+      metadata: JsValue = JsObject.empty
+  ): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, resourceType, resourceId, metadata)
 
   // ── Pipeline CRUD ─────────────────────────────────────────────────────────
 
@@ -77,7 +90,9 @@ final class PipelineService(
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(tag) =>
         pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), req.outputDataTypeName.trim, user, tag).map {
-          case Right(summary)                       => Right(toSummaryResponse(summary))
+          case Right(summary)                       =>
+            audit("pipeline.create", "pipeline", Some(summary.id), user)
+            Right(toSummaryResponse(summary))
           case Left(msg) if msg.contains("not found") => Left(ServiceError.NotFound(msg))
           case Left(msg)                              => Left(ServiceError.BadRequest(msg))
         }
@@ -95,7 +110,9 @@ final class PipelineService(
           Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
         case Some(_) =>
           pipelineRepo.updateName(pipelineId, req.name.trim, user).map {
-            case Some(summary) => Right(toSummaryResponse(summary))
+            case Some(summary) =>
+              audit("pipeline.update", "pipeline", Some(pipelineId.value), user)
+              Right(toSummaryResponse(summary))
             case None          => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
           }
       }
@@ -108,7 +125,9 @@ final class PipelineService(
         Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
       case Some(_) =>
         pipelineRepo.delete(pipelineId, user).map {
-          case true  => Right(())
+          case true  =>
+            audit("pipeline.delete", "pipeline", Some(pipelineId.value), user)
+            Right(())
           case false => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
         }
     }
@@ -485,11 +504,11 @@ final class PipelineService(
                     case Left(err) => Future.successful(Left(err))
                     case Right(_) =>
                       // Safe: editor access confirmed. Use internal insert (no owner-JOIN).
-                      persistNewStep(pipelineId, req, typedConfig)
+                      persistNewStep(pipelineId, req, typedConfig, user)
                   }
                 case Some(_) =>
                   // Owner path — use internal insert (same as before, owner already confirmed)
-                  persistNewStep(pipelineId, req, typedConfig)
+                  persistNewStep(pipelineId, req, typedConfig, user)
               }
           }
       }
@@ -506,7 +525,8 @@ final class PipelineService(
   private def persistNewStep(
       pipelineId:  PipelineId,
       req:         CreatePipelineStepRequest,
-      typedConfig: Any
+      typedConfig: Any,
+      user:        AuthenticatedUser
   ): Future[Either[ServiceError, PipelineStepResponse]] = {
     // HEL-412: absent `enabled` creates an enabled step (the pre-existing
     // implicit behavior, made explicit).
@@ -514,7 +534,10 @@ final class PipelineService(
     req.position match {
       case None =>
         pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig, enabled)
-          .map(step => Right(PipelineStepResponse.fromDomain(step)))
+          .map { step =>
+            audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
+            Right(PipelineStepResponse.fromDomain(step))
+          }
           .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
       case Some(index) =>
         // Safe: editor/owner access confirmed by the caller. Use internal list
@@ -528,7 +551,10 @@ final class PipelineService(
             )))
           } else {
             pipelineStepRepo.insertAtInternal(pipelineId, req.`type`, typedConfig, index, enabled)
-              .map(step => Right(PipelineStepResponse.fromDomain(step)))
+              .map { step =>
+                audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
+                Right(PipelineStepResponse.fromDomain(step))
+              }
               .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
           }
         }
@@ -569,7 +595,9 @@ final class PipelineService(
                         // Safe: editor/owner access confirmed. Use internal update.
                         pipelineStepRepo.updateInternal(stepId, config = None, position = req.position, enabled = req.enabled)
                           .map {
-                            case Some(step) => Right(PipelineStepResponse.fromDomain(step))
+                            case Some(step) =>
+                              audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
+                              Right(PipelineStepResponse.fromDomain(step))
                             case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
                           }
                           .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
@@ -627,7 +655,9 @@ final class PipelineService(
                                 // Safe: editor/owner access confirmed. Use internal update.
                                 pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled)
                                   .map {
-                                    case Some(step) => Right(PipelineStepResponse.fromDomain(step))
+                                    case Some(step) =>
+                                      audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
+                                      Right(PipelineStepResponse.fromDomain(step))
                                     case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
                                   }
                                   .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
@@ -659,7 +689,9 @@ final class PipelineService(
               case Right(_)  =>
                 // Safe: editor/owner access confirmed. Use internal delete.
                 pipelineStepRepo.deleteInternal(stepId).map {
-                  case true  => Right(())
+                  case true  =>
+                    audit("pipeline.step.delete", "pipeline_step", Some(stepId.value), user)
+                    Right(())
                   case false => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
                 }
             }
@@ -696,7 +728,18 @@ final class PipelineService(
               } else {
                 // Safe: editor/owner access confirmed above. Use internal reorder.
                 pipelineStepRepo.reorderInternal(pipelineId, req.stepIds.map(PipelineStepId(_)))
-                  .map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
+                  .map { steps =>
+                    // HEL-477 skeptic-final-1 round 1 (design.md Decision 7): ONE row per call,
+                    // not one per step — metadata carries the resulting ordered step ids.
+                    audit(
+                      "pipeline.step.reorder",
+                      "pipeline",
+                      Some(pipelineId.value),
+                      user,
+                      JsObject("stepIds" -> JsArray(steps.map(s => JsString(s.id.value)).toVector))
+                    )
+                    Right(steps.map(PipelineStepResponse.fromDomain))
+                  }
                   .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
               }
             }
@@ -743,7 +786,18 @@ final class PipelineService(
                         case originalListIndex =>
                           pipelineStepRepo
                             .insertAtInternal(pipeline.id, existing.kind, typedConfig, originalListIndex + 1, existing.enabled)
-                            .map(step => Right(PipelineStepResponse.fromDomain(step)))
+                            .map { step =>
+                              // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
+                              // one-row-per-call convention; metadata carries the source stepId.
+                              audit(
+                                "pipeline.step.duplicate",
+                                "pipeline_step",
+                                Some(step.id.value),
+                                user,
+                                JsObject("sourceStepId" -> JsString(stepId.value))
+                              )
+                              Right(PipelineStepResponse.fromDomain(step))
+                            }
                             .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
                       }
                     }

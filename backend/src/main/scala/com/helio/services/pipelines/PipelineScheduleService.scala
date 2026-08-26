@@ -1,9 +1,11 @@
 package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.PutPipelineScheduleRequest
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineScheduleRepository}
+import spray.json.JsObject
 
 import java.time.{DateTimeException, Instant, ZoneId}
 import java.util.UUID
@@ -17,8 +19,16 @@ import scala.util.matching.Regex
  *  target-ownership check. */
 final class PipelineScheduleService(
     scheduleRepo: PipelineScheduleRepository,
-    pipelineRepo: PipelineRepository
+    pipelineRepo: PipelineRepository,
+    // HEL-477: nullable-optional wiring mirrors the file's other DI.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
+
+  /** HEL-477 tasks.md 4.4 — `PUT` is upsert, so both create and update use
+   *  `pipeline.schedule.upsert`; `DELETE` uses `pipeline.schedule.delete`. */
+  private def audit(action: String, pipelineId: PipelineId, user: AuthenticatedUser): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, "pipeline_schedule", Some(pipelineId.value), JsObject.empty)
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
@@ -78,7 +88,10 @@ final class PipelineScheduleService(
                 createdAt  = existingOpt.map(_.createdAt).getOrElse(now),
                 updatedAt  = now
               )
-              scheduleRepo.upsert(schedule, user).map(Right(_))
+              scheduleRepo.upsert(schedule, user).map { upserted =>
+                audit("pipeline.schedule.upsert", pipelineId, user)
+                Right(upserted)
+              }
             }
         }
     }
@@ -90,7 +103,9 @@ final class PipelineScheduleService(
       case None => Future.successful(Left(ServiceError.NotFound("Pipeline not found")))
       case Some(_) =>
         scheduleRepo.delete(pipelineId, user).map {
-          case true  => Right(())
+          case true  =>
+            audit("pipeline.schedule.delete", pipelineId, user)
+            Right(())
           case false => Left(ServiceError.NotFound("Pipeline schedule not found"))
         }
     }

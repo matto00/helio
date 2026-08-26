@@ -4,10 +4,11 @@ import com.helio.services.auth.AccessChecker
 import com.helio.services.pipelines.{PipelineRunService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.services.ServiceError
+import com.helio.services.audit.AuditService
 import com.helio.api.protocols.panels.{BoundPanelRequest, BoundPanelResponse, CreatePanelRequest, PanelResponse}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest}
 import com.helio.api.protocols.sources.StaticDataSourceRequest
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataSourceId, DataTypeId, PanelType, PipelineId, ResourceAccess}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, DashboardId, DataSourceId, DataTypeId, PanelType, PipelineId, ResourceAccess}
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.engine.PipelineAnalyzeService
 import com.helio.domain.panels.PanelBindingSpec
@@ -40,10 +41,16 @@ final class BoundPanelService(
     dataTypeRepo: DataTypeRepository,
     dataTypeRowRepo: DataTypeRowRepository,
     panelRepo: PanelRepository,
-    accessChecker: AccessChecker
+    accessChecker: AccessChecker,
+    // HEL-477: nullable-optional wiring mirrors this file's other DI.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
+
+  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, "panel", resourceId, JsObject.empty)
 
   import BoundPanelService.Gate
 
@@ -263,6 +270,10 @@ final class BoundPanelService(
           .map(_ => Left(stageError("panel", err)))
       case Right(builtPanel) =>
         panelRepo.insert(builtPanel).map { inserted =>
+          // HEL-477 design.md Decision 9: same panel.create action as
+          // PanelService.create — the wizard's data-source/pipeline creation
+          // is an implementation detail of how this one panel came to exist.
+          audit("panel.create", Some(inserted.id.value), user)
           Right(BoundPanelResponse(
             sourceId   = sourceId.value,
             pipelineId = pipelineId.value,

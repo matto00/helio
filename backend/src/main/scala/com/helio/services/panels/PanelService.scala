@@ -2,6 +2,7 @@ package com.helio.services.panels
 
 import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
+import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.panels.{CreatePanelRequest, CreatePanelsBatchRequest, PanelBatchItem, UpdatePanelRequest}
 import com.helio.domain.model._
@@ -12,7 +13,7 @@ import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.services.panels.PanelServiceHelpers._
 import org.slf4j.LoggerFactory
-import spray.json.JsValue
+import spray.json._
 
 import java.time.Instant
 import java.util.UUID
@@ -63,12 +64,21 @@ final class PanelService(
     // (unlike ApiRoutes's Option-guarded repos) — `metricRepo` is only ever
     // touched when a panel actually carries a `metricId`, so a test fixture
     // that never sets one never exercises it.
-    metricRepo: MetricRepository
+    metricRepo: MetricRepository,
+    // HEL-477: nullable-optional wiring mirrors metricRepo above — a fixture
+    // that doesn't pass one simply never audits (see `audit` below).
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
   private val patchApplier = new PanelPatchApplier(panelRepo)
+
+  /** Fire-and-forget audit call, a no-op when `auditService` is `null`.
+   *  HEL-477 design.md Decision 3: `source` is always `AuditSource.Ui`. */
+  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
+    if (auditService != null)
+      auditService.record(Some(user.id), None, AuditSource.Ui, action, "panel", resourceId, metadata)
 
   // ── Read ──────────────────────────────────────────────────────────────────
 
@@ -185,7 +195,10 @@ final class PanelService(
           case Right(_) =>
             buildForCreate(dashboardId, request, user).flatMap {
               case Left(err)    => Future.successful(Left(err))
-              case Right(panel) => panelRepo.insert(panel).map(Right(_))
+              case Right(panel) => panelRepo.insert(panel).map { inserted =>
+                audit("panel.create", Some(inserted.id.value), user)
+                Right(inserted)
+              }
             }
         }
     }
@@ -285,7 +298,9 @@ final class PanelService(
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
             panelRepo.delete(panelId).map {
-              case true  => Right(())
+              case true  =>
+                audit("panel.delete", Some(panelId.value), user)
+                Right(())
               case false => Left(ServiceError.NotFound("Panel not found"))
             }
         }
@@ -300,7 +315,10 @@ final class PanelService(
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
             panelRepo.duplicate(panelId, user.id).map {
-              case Some(p) => Right(p)
+              case Some(p) =>
+                // HEL-477 design.md Decision 7: one panel.duplicate row.
+                audit("panel.duplicate", Some(p.id.value), user, JsObject("sourcePanelId" -> JsString(panelId.value)))
+                Right(p)
               case None    => Left(ServiceError.NotFound("Panel not found"))
             }
         }
@@ -351,7 +369,17 @@ final class PanelService(
                     case Right(_) =>
                       val now = Instant.now()
                       panelRepo.batchUpdate(items, now)
-                        .map(updated => Right(updated))
+                        .map { updated =>
+                          // HEL-477 design.md Decision 9: one panel.batch_update
+                          // row per call, not one per panel.
+                          audit(
+                            "panel.batch_update",
+                            Some(dashboardId.value),
+                            user,
+                            JsObject("count" -> JsNumber(updated.size), "panelIds" -> JsArray(updated.map(p => JsString(p.id.value))))
+                          )
+                          Right(updated)
+                        }
                         .recover { case ex =>
                           // HEL-311: never echo a raw DB-failure message; log
                           // the detail server-side and return a generic body.
@@ -405,7 +433,17 @@ final class PanelService(
                 idx => Some(s"panel ${idx + 1} ('${items(idx).title.getOrElse("")}')")
               buildAllForCreate(dashboardId, createRequests, user, itemLabel).flatMap {
                 case Left(err)     => Future.successful(Left(err))
-                case Right(built)  => panelRepo.insertBatch(built).map(Right(_))
+                case Right(built)  => panelRepo.insertBatch(built).map { inserted =>
+                  // HEL-477 design.md Decision 9: one panel.batch_create row
+                  // per call, not one per panel.
+                  audit(
+                    "panel.batch_create",
+                    Some(dashboardId.value),
+                    user,
+                    JsObject("count" -> JsNumber(inserted.size), "panelIds" -> JsArray(inserted.map(p => JsString(p.id.value))))
+                  )
+                  Right(inserted)
+                }
               }
           }
       }
@@ -466,7 +504,9 @@ final class PanelService(
                           case Right(_) =>
                             patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user))
                               .map {
-                                case Some(panel) => Right(panel)
+                                case Some(panel) =>
+                                  audit("panel.update", Some(panel.id.value), user)
+                                  Right(panel)
                                 case None        => Left(ServiceError.NotFound("Panel not found"))
                               }
                               .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }

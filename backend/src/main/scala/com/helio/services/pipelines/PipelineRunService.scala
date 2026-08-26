@@ -2,9 +2,10 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEvaluationService
+import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, PipelineRunRecord, RunResultResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.model.{AssertionResult, AssertionSink, AuthenticatedUser, BinaryRef, DataField, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep}
+import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep}
 import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField}
 import com.helio.domain.connectors.RestApiConnector
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
@@ -45,12 +46,21 @@ final class PipelineRunService(
     // so it can execute a RestSource. A null connector fails fast inside the
     // engine's RestSource loadRows case rather than here; SqlSource needs no
     // such threading (SqlConnector is a stateless object).
-    connector: RestApiConnector = null
+    connector: RestApiConnector = null,
+    // HEL-477: nullable-optional wiring mirrors connector above.
+    auditService: AuditService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
   private val engine = new InProcessPipelineEngine(fileSystem, connector)
+
+  /** HEL-477 design.md Decision 5: only run *submission* is audited, not
+   *  every internal status transition — fired once, from `submit` itself,
+   *  regardless of whether the run subsequently succeeds/fails/blocks. */
+  private def auditSubmit(pipelineId: PipelineId, user: AuthenticatedUser, isDry: Boolean): Unit =
+    if (auditService != null && !isDry)
+      auditService.record(Some(user.id), None, AuditSource.Ui, "pipeline.run.submit", "pipeline", Some(pipelineId.value), JsObject.empty)
 
   /** Submit a run (or dry-run) and return its result. Owns pre-execution
    *  (insert run record + prune old runs), source-type dispatch, SSE event
@@ -85,11 +95,14 @@ final class PipelineRunService(
       case Some(pipeline) if pipeline.ownerId.value != user.id.value =>
         // Grantee — only editor grantees may trigger runs; viewers get 403.
         pipelineRepo.findGrantRole(pipelineId, user).flatMap {
-          case Some("editor") => runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId)
+          case Some("editor") =>
+            auditSubmit(pipelineId, user, isDry)
+            runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId)
           case _              => Future.successful(Left(ServiceError.Forbidden("Forbidden")))
         }
       case Some(pipeline) =>
         // Owner path — always permitted.
+        auditSubmit(pipelineId, user, isDry)
         runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId)
     }
 
