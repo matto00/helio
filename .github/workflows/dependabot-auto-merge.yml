@@ -1,0 +1,135 @@
+name: Dependabot auto-merge
+
+# Triggered by the CI workflow's completion, NOT by `gh pr merge --auto` or
+# GitHub's native PR auto-merge toggle. This repo has no branch protection /
+# required status checks configured, so both of those merge immediately on
+# request rather than waiting for CI — a real safety hazard. This workflow
+# instead reacts to the `CI` workflow_run's own conclusion, then re-verifies
+# the resolved PR's live head SHA and authenticity before merging, so the
+# gating is enforced by our own trigger condition rather than by asking
+# GitHub's merge API to wait on our behalf. See design.md Decision 1.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  # GitHub's REST docs say label creation accepts either `Issues (write)`
+  # or `Pull requests (write)`; both are granted here for safety/clarity
+  # rather than because either alone is insufficient (see design.md
+  # Decision 1a and skeptic-final-2.md CR2).
+  pull-requests: write
+  issues: write
+
+jobs:
+  auto-merge:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve PR and verify head SHA + authenticity
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER=$(gh pr list --repo "$REPO" \
+            --search "sha:${HEAD_SHA}" \
+            --state open --json number --jq '.[0].number')
+
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            echo "No open PR found for head SHA ${HEAD_SHA}; aborting."
+            exit 0
+          fi
+
+          PR_JSON=$(gh pr view "$PR_NUMBER" --repo "$REPO" \
+            --json number,headRefOid,author,baseRefName,labels)
+
+          LIVE_HEAD=$(echo "$PR_JSON" | jq -r '.headRefOid')
+          AUTHOR_LOGIN=$(echo "$PR_JSON" | jq -r '.author.login')
+          BASE_REF=$(echo "$PR_JSON" | jq -r '.baseRefName')
+          LABELS=$(echo "$PR_JSON" | jq -r '.labels[].name')
+
+          if [ "$LIVE_HEAD" != "$HEAD_SHA" ]; then
+            echo "PR #${PR_NUMBER} head SHA ${LIVE_HEAD} no longer matches CI'd SHA ${HEAD_SHA} (force-push race); aborting."
+            exit 0
+          fi
+
+          if [ "$AUTHOR_LOGIN" != "dependabot[bot]" ]; then
+            echo "PR #${PR_NUMBER} author is '${AUTHOR_LOGIN}', not dependabot[bot]; aborting."
+            exit 0
+          fi
+
+          if [ "$BASE_REF" != "main" ]; then
+            echo "PR #${PR_NUMBER} base ref is '${BASE_REF}', not main; aborting."
+            exit 0
+          fi
+
+          # `dependabot/fetch-metadata@v3` resolves the PR exclusively from
+          # `context.payload.pull_request` (verified against its compiled
+          # dist/index.js at the pinned tag) — that key does not exist on a
+          # `workflow_run` payload, so the action cannot be invoked here.
+          # `dependabot-metadata.yml` runs the action under a genuine
+          # `pull_request` event instead and leaves its result as one of the
+          # `dependabot-semver-{patch,minor,major}` labels; read that back
+          # here rather than re-deriving update-type ourselves.
+          UPDATE_TYPE=""
+          if echo "$LABELS" | grep -x "dependabot-semver-patch" > /dev/null; then
+            UPDATE_TYPE="version-update:semver-patch"
+          elif echo "$LABELS" | grep -x "dependabot-semver-minor" > /dev/null; then
+            UPDATE_TYPE="version-update:semver-minor"
+          elif echo "$LABELS" | grep -x "dependabot-semver-major" > /dev/null; then
+            UPDATE_TYPE="version-update:semver-major"
+          fi
+
+          if [ -z "$UPDATE_TYPE" ]; then
+            echo "No dependabot-semver-* label found on PR #${PR_NUMBER} yet (dependabot-metadata.yml may not have completed); aborting this run."
+            exit 0
+          fi
+
+          echo "verified=true" >> "$GITHUB_OUTPUT"
+          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "update_type=${UPDATE_TYPE}" >> "$GITHUB_OUTPUT"
+
+      - name: Merge patch/minor updates
+        if: >
+          steps.resolve.outputs.verified == 'true' &&
+          (steps.resolve.outputs.update_type == 'version-update:semver-patch' ||
+           steps.resolve.outputs.update_type == 'version-update:semver-minor')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          # `--auto` is deliberately NOT used: with no branch protection in
+          # this repo, `--auto`/native auto-merge merges immediately without
+          # waiting for CI. The `resolve` step above already confirmed this
+          # exact commit's CI run succeeded, so a direct merge is safe here.
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --delete-branch
+
+      - name: Label major updates for review
+        if: >
+          steps.resolve.outputs.verified == 'true' &&
+          steps.resolve.outputs.update_type == 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          # Major-version updates are never auto-merged, regardless of
+          # grouping: `update-type` reports a grouped PR's highest semver
+          # change, so any group containing a major bump correctly lands
+          # here instead of the merge step above.
+          if ! gh label list --repo "$REPO" --search "major-update" --json name --jq '.[].name' | grep -x "major-update" > /dev/null; then
+            gh label create "major-update" --repo "$REPO" \
+              --description "Dependabot major-version update; requires manual review" \
+              --color "B60205"
+          fi
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "major-update"

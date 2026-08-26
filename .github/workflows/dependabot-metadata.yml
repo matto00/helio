@@ -1,0 +1,76 @@
+name: Dependabot metadata
+
+# Companion to dependabot-auto-merge.yml. `dependabot/fetch-metadata@v3`
+# resolves the PR it inspects exclusively from `context.payload.pull_request`
+# (verified against the action's compiled dist/index.js at the pinned tag —
+# see design.md Decision 1a) — that key does not exist on a `workflow_run`
+# payload, so the merge workflow (which fires on `workflow_run: ["CI"]` so it
+# can gate on CI's own conclusion) cannot invoke this action directly. This
+# workflow instead runs on the `pull_request` event, where the action's
+# expected context is genuinely present, and records the result as a PR
+# label. The `workflow_run`-triggered merge workflow re-verifies PR
+# authenticity itself (see its `resolve` step) and then reads the label back
+# — it never trusts this workflow's *trigger* as an authenticity signal, only
+# the label value it leaves behind.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  # GitHub's REST docs say label creation accepts either `Issues (write)`
+  # or `Pull requests (write)`; both are granted here for safety/clarity
+  # rather than because either alone is insufficient (see design.md
+  # Decision 1a and skeptic-final-2.md CR2).
+  pull-requests: write
+  issues: write
+
+jobs:
+  label-update-type:
+    # Skip cleanly (job is reported "skipped", not "failed") for any PR not
+    # authored by Dependabot — this workflow runs on every PR opened/synced
+    # against the repo, human ones included.
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Record update-type as a PR label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+        run: |
+          set -euo pipefail
+
+          case "$UPDATE_TYPE" in
+            version-update:semver-patch) LABEL="dependabot-semver-patch" ;;
+            version-update:semver-minor) LABEL="dependabot-semver-minor" ;;
+            version-update:semver-major) LABEL="dependabot-semver-major" ;;
+            *)
+              echo "Unrecognized update-type '${UPDATE_TYPE}'; leaving PR unlabeled."
+              exit 0
+              ;;
+          esac
+
+          if ! gh label list --repo "$REPO" --search "$LABEL" --json name --jq '.[].name' | grep -x "$LABEL" > /dev/null; then
+            gh label create "$LABEL" --repo "$REPO" \
+              --description "Dependabot fetch-metadata update-type: ${UPDATE_TYPE}" \
+              --color "0E8A16"
+          fi
+
+          # A `synchronize` event (force-push, e.g. Dependabot rebasing the
+          # PR) can change the highest semver in a grouped PR between runs —
+          # drop any stale semver label from a prior run before adding the
+          # current one, so at most one is ever present.
+          for STALE in dependabot-semver-patch dependabot-semver-minor dependabot-semver-major; do
+            if [ "$STALE" != "$LABEL" ]; then
+              gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$STALE" 2>/dev/null || true
+            fi
+          done
+
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$LABEL"
