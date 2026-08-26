@@ -38,6 +38,7 @@ import com.helio.services.pipelines.{DataTypeService, PipelineProposalService, P
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.metrics.MetricService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
+import com.helio.services.ratelimit.{InMemoryRateLimiter, RateLimitConfig}
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
@@ -179,6 +180,16 @@ final class ApiRoutes(
 
   private val authDirectives = new AuthDirectives(userSessionRepo, Option(apiTokenRepo))
   private val aclDirective   = new AclDirective(permissionRepo, registry)
+  // HEL-495: same-instance-once construction as authDirectives/aclDirective above. Config is
+  // read from env once here (fromEnv-once-inject-explicitly convention, design.md D6).
+  private val rateLimitConfig    = RateLimitConfig.fromEnv()
+  private val rateLimitDirective = new RateLimitDirective(
+    new InMemoryRateLimiter(),
+    userSessionRepo,
+    Option(apiTokenRepo),
+    rateLimitConfig.requestsPerWindow,
+    rateLimitConfig.windowSeconds
+  )
   private val runRegistry    = new PipelineRunRegistry()
   private val health         = new HealthRoutes()
   // HEL-116: propagates the Cloud Run trace id (X-Cloud-Trace-Context) into the
@@ -520,6 +531,12 @@ final class ApiRoutes(
           // themselves naturally since no cookie exists yet on the request
           // that is about to mint one.
           authDirectives.requireCsrfHeader {
+            // HEL-495 design.md D4: the outermost directive inside requireCsrfHeader,
+            // wrapping confineScopedToken (and everything beneath it) in its entirety
+            // so every request under /api — regardless of which of the three
+            // downstream auth branches ultimately handles it — is counted against its
+            // rate-limit bucket before any auth-confinement or route logic runs.
+            rateLimitDirective.rateLimit() {
             // HEL-369 design.md Decision 2: the single confinement chokepoint
             // for scoped tokens, wrapping the ENTIRE three-way branch split
             // below (pathPrefix("auth") / optionalAuthenticate / authenticate).
@@ -719,6 +736,7 @@ final class ApiRoutes(
                 )
               }
             )
+            }
             }
           }
         }
