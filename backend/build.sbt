@@ -20,6 +20,54 @@ def loadDotEnv(baseDir: File): Map[String, String] = {
   }
 }
 
+// HEL-459: generates a CycloneDX 1.4 SBOM directly from the resolved compile-scope
+// classpath's attached `ModuleID`s (Coursier's own resolution result), rather than
+// text-parsing `sbt dependencyTree` output the way the archived HEL-452 `osv-scan.py`
+// evidence tool did. Reading `ModuleID` off `externalDependencyClasspath` means there is
+// no glyph-capture, eviction-row, relocated-coordinate, or version-regex defect class to
+// guard against (design.md D2) — every entry here is a coordinate Coursier actually put on
+// the classpath. `osv-scanner` (backend/osv-scanner.toml) consumes this file's output.
+val generateSbom = taskKey[File]("Generate a CycloneDX 1.4 SBOM from the resolved compile-scope classpath")
+
+generateSbom := {
+  val log = streams.value.log
+  val classpath = (Compile / externalDependencyClasspath).value
+  val modules = classpath
+    .flatMap(_.get(moduleID.key))
+    .distinct
+    .sortBy(m => (m.organization, m.name, m.revision))
+
+  def escape(s: String): String = s.replace("\\", "\\\\").replace("\"", "\\\"")
+
+  val components = modules.map { m =>
+    val purl = s"pkg:maven/${escape(m.organization)}/${escape(m.name)}@${escape(m.revision)}"
+    s"""    {
+       |      "type": "library",
+       |      "group": "${escape(m.organization)}",
+       |      "name": "${escape(m.name)}",
+       |      "version": "${escape(m.revision)}",
+       |      "purl": "$purl",
+       |      "bom-ref": "$purl"
+       |    }""".stripMargin
+  }
+
+  val json =
+    s"""{
+       |  "bomFormat": "CycloneDX",
+       |  "specVersion": "1.4",
+       |  "version": 1,
+       |  "components": [
+       |${components.mkString(",\n")}
+       |  ]
+       |}
+       |""".stripMargin
+
+  val outFile = target.value / "sbom.cdx.json"
+  IO.write(outFile, json)
+  log.info(s"HEL-459: wrote SBOM with ${modules.size} components to $outFile")
+  outFile
+}
+
 lazy val root = (project in file("."))
   .settings(
     name := "helio-backend",

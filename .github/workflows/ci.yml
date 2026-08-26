@@ -60,6 +60,131 @@ jobs:
         run: sbt compile test
         working-directory: backend
 
+  # HEL-459: fails the build on a new high/critical CVE. Backend: a small sbt task
+  # (build.sbt `generateSbom`) reads the resolved compile-scope classpath's attached
+  # ModuleIDs into a CycloneDX SBOM; osv-scanner (keyless, queries osv.dev live — no
+  # local vulnerability DB, so no extra cache beyond the existing sbt/coursier cache) scans
+  # it, with day-one-known-unfixable advisories suppressed via backend/osv-scanner.toml
+  # (see that file for individual written justifications). Frontend: audit-ci wraps
+  # `npm audit` for both the root and frontend/ lockfiles against .audit-ci.jsonc /
+  # frontend/.audit-ci.jsonc. See design.md D2/D3/D6 for the tool choices and the
+  # severity-filter rationale.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: sbt/setup-sbt@v1
+      - name: Cache sbt
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.cache/coursier
+          key: sbt-${{ hashFiles('**/build.sbt') }}
+          restore-keys: sbt-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+      - run: npm --prefix frontend ci
+
+      - name: Generate backend SBOM
+        working-directory: backend
+        run: sbt -batch generateSbom
+
+      - name: Backend SBOM positive control
+        working-directory: backend
+        run: |
+          count=$(jq '.components | length' target/sbom.cdx.json)
+          echo "SBOM component count: $count"
+          if [ -z "$count" ] || [ "$count" -eq 0 ]; then
+            echo "SBOM has zero components — refusing to trust a scan of it as clean" >&2
+            exit 1
+          fi
+
+      - name: Install osv-scanner
+        run: |
+          curl -sL -o /usr/local/bin/osv-scanner \
+            https://github.com/google/osv-scanner/releases/download/v2.5.1/osv-scanner_linux_amd64
+          chmod +x /usr/local/bin/osv-scanner
+          osv-scanner --version
+
+      - name: Scan backend SBOM (osv-scanner)
+        working-directory: backend
+        run: |
+          set +e
+          osv-scanner scan --sbom=target/sbom.cdx.json --config=osv-scanner.toml --format=json \
+            > /tmp/osv-scan.json
+          exit_code=$?
+          set -e
+          # osv-scanner exit 0/1 both mean "the scan completed" (0 findings / findings present);
+          # >=127 means the scan itself errored (network/parse failure) — hard-fail immediately
+          # without trusting the (likely empty/garbage) JSON output as a clean result.
+          if [ "$exit_code" -ge 127 ]; then
+            echo "osv-scanner errored (exit $exit_code) — scan did not complete" >&2
+            cat /tmp/osv-scan.json >&2
+            exit 1
+          fi
+          cat /tmp/osv-scan.json
+
+      - name: Enforce backend CVSS >= 7 threshold
+        working-directory: backend
+        run: |
+          # osv-scanner has no severity-threshold flag (verified against its CLI flags and
+          # docs/output.md); its own findings-present exit code would over-gate on
+          # LOW/MODERATE. `max_severity` is osv-scanner's own already CVSS-resolved score,
+          # serialized as a JSON *string* (e.g. "7.8", "9", or "" when absent) — coerce to a
+          # number before comparing; when absent, fall back to database_specific.severity
+          # (looked up per-vulnerability-id, since that field lives on `.vulnerabilities[]`,
+          # not on `.groups[]`) in {HIGH, CRITICAL}. [[IgnoredVulns]]-suppressed results are
+          # already stripped from this JSON by osv-scanner itself before this filter runs.
+          failures=$(jq '
+            [
+              .results[]? .packages[]? as $pkg |
+              ($pkg.vulnerabilities // []) as $vulns |
+              $pkg.groups[]? |
+              . as $group |
+              (
+                (($group.max_severity // "") as $ms |
+                  if $ms == "" then null else ($ms | tonumber) end
+                )
+              ) as $score |
+              (
+                if $score != null then ($score >= 7)
+                else
+                  ([$vulns[] | select(.id as $id | $group.ids | index($id) != null)
+                    | .database_specific.severity // ""]
+                    | any(. == "HIGH" or . == "CRITICAL"))
+                end
+              ) as $fails |
+              select($fails) |
+              {package: $pkg.package.name, ecosystem: $pkg.package.ecosystem,
+               ids: $group.ids, max_severity: $group.max_severity}
+            ]
+          ' /tmp/osv-scan.json)
+          echo "$failures"
+          count=$(echo "$failures" | jq 'length')
+          if [ "$count" -gt 0 ]; then
+            echo "Found $count unsuppressed backend advisory group(s) with CVSS >= 7 (or HIGH/CRITICAL severity)" >&2
+            exit 1
+          fi
+
+      - name: Frontend audit (root)
+        run: npx audit-ci --config .audit-ci.jsonc
+
+      - name: Frontend audit (frontend/)
+        working-directory: frontend
+        run: npx audit-ci --config .audit-ci.jsonc
+
   # HEL-813 design.md D5 — the ONLY spec run here is the new steady-state
   # mobile touch-target guard (e2e/hel813-mobile-touch-target-floor.spec.ts).
   # The other pre-existing e2e/ specs were never CI-gated; broadening this

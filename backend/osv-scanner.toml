@@ -1,0 +1,30 @@
+# HEL-459: osv-scanner suppression file for the backend CVE gate.
+#
+# This list was derived EMPIRICALLY by running `osv-scanner scan --sbom=backend/target/sbom.cdx.json
+# --format=json` against the current `main` tree (post HEL-452 remediation) and reading the actual JSON
+# output — not copied from HEL-452's osv-after.md without verification (design.md D5). All 5 entries below
+# were independently confirmed present in that live scan; the live scan reported nothing beyond these 5.
+#
+# Each entry must carry its own written justification with a review-by date. Do not add a suppression
+# without a real reason — a false-clean gate is worse than none (see design.md Context / ticket owner
+# rejection of an unguarded osv-scan.py reuse).
+
+[[IgnoredVulns]]
+id = "GHSA-vx9q-rhv9-3jvg"
+reason = "HEL-452: io.airlift:aircompressor 0.27 — fix is only at 2.0.3, a major version bump with an API-breaking change to the decompressor interface that Spark 3.5.x's own decompression path calls directly; not achievable without a Spark major bump, which is out of scope. Review by 2026-11-26."
+
+[[IgnoredVulns]]
+id = "GHSA-cmp6-m4wj-q63q"
+reason = "HEL-452: org.lz4:lz4-java 1.8.1 — no fixed version exists anywhere upstream (confirmed by direct OSV query, see osv-after.md). Review by 2026-11-26."
+
+[[IgnoredVulns]]
+id = "GHSA-xx22-p4ch-683r"
+reason = "HEL-452: org.lz4:lz4-java 1.8.1 — no fixed version exists anywhere upstream (confirmed by direct OSV query, see osv-after.md). Review by 2026-11-26."
+
+[[IgnoredVulns]]
+id = "GHSA-7286-pgfv-vxvh"
+reason = "HEL-452: org.apache.zookeeper:zookeeper 3.6.3 — reached only through Spark's HA/cluster-coordination path, which this deployment never exercises (Spark runs in local/driver mode on Cloud Run; no ZooKeeper ensemble is ever contacted — verified in design.md/osv-after.md). Review by 2026-11-26."
+
+[[IgnoredVulns]]
+id = "GHSA-r978-9m6m-6gm6"
+reason = "HEL-452: org.apache.zookeeper:zookeeper 3.6.3 — same unreachable-HA-path justification as GHSA-7286-pgfv-vxvh above. Review by 2026-11-26."
