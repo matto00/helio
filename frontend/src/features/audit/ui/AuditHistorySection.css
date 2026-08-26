@@ -1,0 +1,23 @@
+.audit-history-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.audit-history-section__loading {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  margin: 0;
+}
+
+.audit-history-section__error {
+  font-size: var(--text-xs);
+  color: var(--app-error);
+  margin: 0;
+}
+
+.audit-history-section__caption {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  margin: 0;
+}

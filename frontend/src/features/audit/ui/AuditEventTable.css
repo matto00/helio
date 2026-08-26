@@ -1,0 +1,43 @@
+/* Read-only audit history table — mirrors metric-list-table's token usage
+   (theme.css `--space-*`/`--text-*`/`--app-*`, DESIGN.md ss3). */
+
+.audit-event-table__scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.audit-event-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.audit-event-table__th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.audit-event-table__td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--app-border-subtle);
+  color: var(--app-text);
+}
+
+.audit-event-table__row:hover {
+  background: var(--app-surface-raised);
+}
+
+.audit-event-table__token-id {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--app-text-muted);
+  margin-top: 2px;
+}

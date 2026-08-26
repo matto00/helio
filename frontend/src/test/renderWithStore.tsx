@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import { defaultDashboardLayout } from "../features/dashboards/state/dashboardLayout";
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
+import { auditEventsReducer } from "../features/audit/state/auditEventsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
@@ -173,6 +174,7 @@ export function renderWithStore(
 ) {
   const reducer = {
     assistantConversations: assistantConversationsReducer,
+    auditEvents: auditEventsReducer,
     auth: authReducer,
     dashboards: dashboardsReducer,
     layoutHistory: layoutHistoryReducer,

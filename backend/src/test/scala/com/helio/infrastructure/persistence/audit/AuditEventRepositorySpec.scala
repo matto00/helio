@@ -215,6 +215,135 @@ class AuditEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     }
   }
 
+  // ── HEL-488 tasks.md 1.3: findPaged RLS-scoped tenant isolation ─────────
+  // Bound to the same non-BYPASSRLS helio_app_test / helio_privileged
+  // two-role harness as the RLS read-scoping tests above — this is the
+  // real, would-fail-red-if-RLS-were-bypassed assertion the skeptic (round
+  // 1) required; not just the route-level test in AuditEventRoutesSpec.
+
+  "findPaged" should {
+    "let the app pool see only the calling user's own rows, never another user's, independent of the app-level actor filter" in {
+      val callerA = freshUser()
+      val actorB  = freshUser()
+      val resourceType = s"res-${UUID.randomUUID()}"
+
+      val idA = await(repo.append(NewAuditEvent(Some(callerA), None, AuditSource.Ui, "a", resourceType, None, JsObject.empty)))
+      val idB = await(repo.append(NewAuditEvent(Some(actorB), None, AuditSource.Ui, "b", resourceType, None, JsObject.empty)))
+
+      // Ask "what did actorB do" as caller A, with no filter naming actorB at
+      // all (findPaged has no actorUserId filter param — Decision 3). This
+      // proves findPaged's real return value never contains another user's
+      // rows through its normal call path. It does NOT, by itself, prove RLS
+      // is what's doing the scoping (see the next test, which diverges RLS
+      // from the app-level filter via a raw-SQL probe) — findPaged's
+      // app-level `actorUserId === callerUuid` clause is structurally always
+      // identical to the RLS context user here, so this test alone would
+      // still pass even if RLS were silently bypassed. We assert via the
+      // privileged pool that idB genuinely exists (proving the "empty
+      // because nothing was ever written" false-positive is impossible),
+      // then assert the app-pool result never contains it.
+      val idBExistsPrivileged = await(ctx.withSystemContext(
+        sql"SELECT count(*) FROM audit_events WHERE id = ${idB.value}::uuid".as[Int]
+      )).head
+      idBExistsPrivileged shouldBe 1
+
+      val result = await(repo.findPaged(callerA, AuditEventFilters(), Page(0, 200)))
+      result.items.map(_.id) should contain(idA)
+      result.items.map(_.id) should not contain idB
+    }
+
+    "never return another user's rows via RLS alone, independent of findPaged's Scala-level filter" in {
+      // The test above cannot diverge RLS enforcement from findPaged's
+      // app-level `actorUserId === callerUuid` clause: both are always
+      // driven by the same `callerA` value, so a hypothetical
+      // `withSystemContext` swap in `findPaged` (removing RLS scoping
+      // entirely) would still pass, because the Scala-level filter alone
+      // would coincidentally produce the same result. This test bypasses
+      // `findPaged`'s Scala filter completely — it runs a raw SQL query,
+      // querying explicitly for actorB's rows while the RLS context is set
+      // to callerA — so it proves RLS itself is what scopes the result, not
+      // the app-level clause (mirrors the `findByActor` divergent-filter
+      // test above, extended to a raw-SQL probe on the app-pool connection).
+      val callerA = freshUser()
+      val actorB  = freshUser()
+      val resourceType = s"res-${UUID.randomUUID()}"
+
+      val idB = await(repo.append(NewAuditEvent(Some(actorB), None, AuditSource.Ui, "b-only", resourceType, None, JsObject.empty)))
+
+      // Confirm via the privileged (BYPASSRLS) pool that idB genuinely
+      // exists, ruling out an "empty because nothing was ever written"
+      // false positive.
+      val idBExistsPrivileged = await(ctx.withSystemContext(
+        sql"SELECT count(*) FROM audit_events WHERE id = ${idB.value}::uuid".as[Int]
+      )).head
+      idBExistsPrivileged shouldBe 1
+
+      // Raw SQL, on the app pool, with the RLS context set to callerA —
+      // explicitly querying for actorB's row by id, with no reference to
+      // findPaged or its Scala-level actorUserId filter at all. If RLS were
+      // not enforced (or `withSystemContext` were substituted for
+      // `withUserContext` in the calling code), this would return the row.
+      val rawRows = await(ctx.withUserContext(callerA.value)(
+        sql"SELECT id::text FROM audit_events WHERE id = ${idB.value}::uuid".as[String]
+      ))
+      rawRows shouldBe empty
+    }
+
+    "return empty for a caller with zero events, not another user's rows" in {
+      val caller = freshUser()
+      val other  = freshUser()
+      await(repo.append(NewAuditEvent(Some(other), None, AuditSource.Ui, "x", s"res-${UUID.randomUUID()}", None, JsObject.empty)))
+
+      val result = await(repo.findPaged(caller, AuditEventFilters(), Page(0, 200)))
+      result.items shouldBe empty
+      result.total shouldBe 0
+    }
+
+    "apply optional filters as AND, on top of the RLS/owner scope" in {
+      val caller = freshUser()
+      val resourceType = s"res-${UUID.randomUUID()}"
+      val resourceId = UUID.randomUUID().toString
+
+      val idMatch = await(repo.append(NewAuditEvent(
+        Some(caller), None, AuditSource.Pat, "dashboard.delete", resourceType, Some(resourceId), JsObject.empty
+      )))
+      await(repo.append(NewAuditEvent(
+        Some(caller), None, AuditSource.Ui, "dashboard.create", resourceType, Some(resourceId), JsObject.empty
+      )))
+      await(repo.append(NewAuditEvent(
+        Some(caller), None, AuditSource.Pat, "dashboard.delete", resourceType, Some(UUID.randomUUID().toString), JsObject.empty
+      )))
+
+      val result = await(repo.findPaged(
+        caller,
+        AuditEventFilters(
+          resourceType = Some(resourceType),
+          resourceId   = Some(resourceId),
+          action       = Some("dashboard.delete"),
+          source       = Some(AuditSource.Pat)
+        ),
+        Page(0, 200)
+      ))
+      result.items.map(_.id) shouldBe Seq(idMatch)
+    }
+
+    "sort newest-first with a deterministic id tiebreak, stable across paging" in {
+      val caller = freshUser()
+      val resourceType = s"res-${UUID.randomUUID()}"
+
+      val ids = (1 to 5).map { i =>
+        await(repo.append(NewAuditEvent(Some(caller), None, AuditSource.Ui, s"a.$i", resourceType, None, JsObject.empty)))
+      }
+
+      val page1 = await(repo.findPaged(caller, AuditEventFilters(resourceType = Some(resourceType)), Page(0, 3)))
+      val page2 = await(repo.findPaged(caller, AuditEventFilters(resourceType = Some(resourceType)), Page(3, 3)))
+
+      page1.total shouldBe 5
+      page1.items.map(_.id) ++ page2.items.map(_.id) shouldBe ids.reverse
+      (page1.items.map(_.id).toSet intersect page2.items.map(_.id).toSet) shouldBe empty
+    }
+  }
+
   // ── 6.4: model-shape check for Decision 4 ────────────────────────────────
 
   "the audit event model" should {
