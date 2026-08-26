@@ -75,10 +75,11 @@ final class PanelService(
   private val patchApplier = new PanelPatchApplier(panelRepo)
 
   /** Fire-and-forget audit call, a no-op when `auditService` is `null`.
-   *  HEL-477 design.md Decision 3: `source` is always `AuditSource.Ui`. */
+   *  HEL-483: `source`/`actor_token_id` come from the caller's resolved
+   *  credential via `AuthenticatedUser`. */
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), None, AuditSource.Ui, action, "panel", resourceId, metadata)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, "panel", resourceId, metadata)
 
   // ── Read ──────────────────────────────────────────────────────────────────
 

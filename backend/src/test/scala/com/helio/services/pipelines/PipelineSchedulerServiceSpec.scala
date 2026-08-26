@@ -6,6 +6,8 @@ import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.audit.AuditEventRepository
+import com.helio.services.audit.AuditService
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -42,6 +44,7 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
   private var pipelineRepo: PipelineRepository         = _
   private var runRepo: PipelineRunRepository           = _
   private var service: PipelineSchedulerService        = _
+  private var auditEventRepo: AuditEventRepository     = _
 
   private class FakeClock(@volatile private var instant: Instant) extends Clock {
     def set(i: Instant): Unit    = instant = i
@@ -92,6 +95,8 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
     pipelineRepo  = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
     scheduleRepo  = new PipelineScheduleRepository(ctx)
     runRepo       = new PipelineRunRepository(ctx)
+    auditEventRepo = new AuditEventRepository(ctx)
+    val auditService = new AuditService(auditEventRepo)
     val pipelineRunService = new PipelineRunService(
       pipelineRepo,
       pipelineStepRepo,
@@ -101,7 +106,8 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       dataTypeRowRepo,
       new PipelineRunCache(),
       registry = null,
-      fakeFileSystem
+      fakeFileSystem,
+      auditService = auditService
     )
     service = new PipelineSchedulerService(scheduleRepo, pipelineRepo, runRepo, pipelineRunService, fakeClock)
   }
@@ -215,6 +221,26 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       val updated = await(scheduleRepo.findByPipelineId(pid, user)).get
       updated.lastRunAt shouldBe Some(fakeClock.now())
       updated.nextRunAt shouldBe Some(fakeClock.now().plus(30, ChronoUnit.MINUTES))
+    }
+
+    // HEL-483 design.md Decision 6 / spec's "A scheduler-triggered mutation
+    // is recorded with source `system`" requirement.
+    "record the fired run's pipeline.run.submit audit event with source=system, not ui" in {
+      cleanDb(); seedUser()
+      val pid = seedStaticPipeline()
+      fakeClock.set(Instant.parse("2026-03-01T00:00:00Z"))
+      seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
+
+      await(service.tick())
+
+      import PostgresProfile.api._
+      val rows = await(db.run(
+        sql"""SELECT source, actor_token_id FROM audit_events WHERE action = 'pipeline.run.submit' AND resource_id = ${pid.value}"""
+          .as[(String, Option[String])]
+      ))
+      rows should have size 1
+      rows.head._1 shouldBe "system"
+      rows.head._2 shouldBe None
     }
 
     "fire a due cron schedule, submit a run, and advance next_run_at/last_run_at" in {

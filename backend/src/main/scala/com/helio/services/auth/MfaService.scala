@@ -3,7 +3,7 @@ package com.helio.services.auth
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.auth.{MfaBackupCodesResponse, MfaConfirmRequest, MfaEnrollResponse, MfaReauthRequest, MfaStatusResponse, MfaVerifyRequest}
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, MfaLoginChallenge, User, UserId, UserMfa}
+import com.helio.domain.model.{ApiTokenId, AuditSource, AuthenticatedUser, MfaLoginChallenge, User, UserId, UserMfa}
 import com.helio.infrastructure.persistence.auth.{MfaRepository, TotpSupport, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing
 import spray.json.{JsObject, JsString}
@@ -27,9 +27,15 @@ final class MfaService(
 
   import MfaService._
 
-  private def audit(actorUserId: Option[UserId], action: String, metadata: JsObject = JsObject.empty): Unit =
+  private def audit(
+      actorUserId: Option[UserId],
+      action: String,
+      metadata: JsObject = JsObject.empty,
+      source: AuditSource = AuditSource.Ui,
+      tokenId: Option[ApiTokenId] = None
+  ): Unit =
     if (auditService != null)
-      auditService.record(actorUserId, None, AuditSource.Ui, action, "user", actorUserId.map(_.value), metadata)
+      auditService.record(actorUserId, tokenId, source, action, "user", actorUserId.map(_.value), metadata)
 
   // ── Status ────────────────────────────────────────────────────────────────
 
@@ -86,7 +92,7 @@ final class MfaService(
         TotpSupport.verify(mfa.totpSecret, req.code, mfa.lastUsedStep) match {
           case Some(step) =>
             issueBackupCodes(user.id, confirmStep = Some(step)).map { result =>
-              if (result.isRight) audit(Some(user.id), "auth.mfa.enable")
+              if (result.isRight) audit(Some(user.id), "auth.mfa.enable", source = user.source, tokenId = user.tokenId)
               result
             }
           case None        => Future.successful(Left(InvalidCode))
@@ -96,13 +102,13 @@ final class MfaService(
 
   def regenerateBackupCodes(req: MfaReauthRequest, user: AuthenticatedUser): Future[Either[ServiceError, MfaBackupCodesResponse]] =
     requireCurrentAuth(req.code, user)(issueBackupCodes(user.id, confirmStep = None)).map { result =>
-      if (result.isRight) audit(Some(user.id), "auth.mfa.backup_codes.regenerate")
+      if (result.isRight) audit(Some(user.id), "auth.mfa.backup_codes.regenerate", source = user.source, tokenId = user.tokenId)
       result
     }
 
   def disable(req: MfaReauthRequest, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     requireCurrentAuth(req.code, user)(mfaRepo.deleteUserMfa(user.id).map(Right(_))).map { result =>
-      if (result.isRight) audit(Some(user.id), "auth.mfa.disable")
+      if (result.isRight) audit(Some(user.id), "auth.mfa.disable", source = user.source, tokenId = user.tokenId)
       result
     }
 

@@ -45,12 +45,11 @@ final class DashboardService(
   import DashboardService._
 
   /** Fire-and-forget audit call — a no-op when `auditService` is `null`
-   *  (fixtures that don't pass one). HEL-477 design.md Decision 3: `source`
-   *  is always `AuditSource.Ui`, a documented known-wrong placeholder until
-   *  the attribution follow-up ticket lands. */
+   *  (fixtures that don't pass one). HEL-483: `source`/`actor_token_id` come
+   *  from the caller's resolved credential via `AuthenticatedUser`. */
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), None, AuditSource.Ui, action, "dashboard", resourceId, metadata)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, "dashboard", resourceId, metadata)
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
 

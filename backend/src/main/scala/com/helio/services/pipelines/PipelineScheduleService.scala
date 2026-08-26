@@ -28,7 +28,7 @@ final class PipelineScheduleService(
    *  `pipeline.schedule.upsert`; `DELETE` uses `pipeline.schedule.delete`. */
   private def audit(action: String, pipelineId: PipelineId, user: AuthenticatedUser): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), None, AuditSource.Ui, action, "pipeline_schedule", Some(pipelineId.value), JsObject.empty)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, "pipeline_schedule", Some(pipelineId.value), JsObject.empty)
 
   // ── Read ──────────────────────────────────────────────────────────────────
 

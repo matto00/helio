@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
-import com.helio.domain.model.{AuthenticatedUser, PipelineSchedule}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineSchedule}
 import com.helio.domain.util.{Clock, CronSchedule}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineScheduleRepository}
 import org.slf4j.LoggerFactory
@@ -104,7 +104,10 @@ final class PipelineSchedulerService(
         log.warn("Scheduled pipeline {} not found — skipping fire and recomputing next_run_at", schedule.pipelineId.value)
         recomputeOnly(schedule, now)
       case Some(pipeline) =>
-        val owner = AuthenticatedUser(pipeline.ownerId)
+        // HEL-483 design.md Decision 6: explicit source=System (not the
+        // AuthenticatedUser default of Ui) — this is a cron-fired run, not a
+        // browser-attributed action.
+        val owner = AuthenticatedUser(pipeline.ownerId, source = AuditSource.System, tokenId = None)
         // PipelineRunService.submit's own executeRun already records a
         // pipeline-execution failure in run history (its Failure branch
         // returns a successful Future carrying Left(...)) — this `recover`

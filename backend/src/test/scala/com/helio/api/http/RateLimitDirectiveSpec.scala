@@ -47,8 +47,8 @@ class RateLimitDirectiveSpec extends AnyWordSpec with Matchers with ScalatestRou
       resolvable: Map[String, (AuthenticatedUser, ApiTokenId, Option[Set[String]])]
   ): ApiTokenRepository =
     new ApiTokenRepository(null)(ExecutionContext.global) {
-      override def findUserByTokenHash(hash: String): Future[Option[AuthenticatedUser]] =
-        Future.successful(resolvable.get(hash).map(_._1))
+      override def findUserByTokenHash(hash: String): Future[Option[(AuthenticatedUser, ApiTokenId)]] =
+        Future.successful(resolvable.get(hash).map { case (user, tokenId, _) => (user, tokenId) })
       override def touchLastUsed(hash: String): Future[Unit] = Future.successful(())
       override def findPrincipalByTokenHash(
           hash: String
