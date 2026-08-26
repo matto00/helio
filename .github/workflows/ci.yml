@@ -35,6 +35,11 @@ jobs:
       - run: npm --prefix frontend ci
       - run: npm run lint
       - run: npm run typecheck
+      # Deploy-topology facts asserted in prose vs. the config that deploys them.
+      # Note: a docs-only commit is skipped by this workflow's paths-ignore, so the
+      # pre-commit hook is the primary gate; this is defence in depth for changes
+      # to the deployers themselves. See HEL-749/HEL-495.
+      - run: npm run check:deploy-facts
       - run: npm run format:check
       - run: npm test
 
