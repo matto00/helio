@@ -147,7 +147,13 @@ final case class RestApiConfigPayload(
     queryParams: Option[Map[String, String]] = None,
     headers: Option[Map[String, String]] = None,
     body: Option[String] = None,
-    auth: Option[JsValue] = None
+    auth: Option[JsValue] = None,
+    // HEL-823: `Option[Map[String,String]] = None`, NOT a bare `Map` with a Scala default —
+    // spray-json 1.3.6 never consults case-class defaults, only `Option` tolerates a missing
+    // field (design.md Decision 2a). Every pre-existing stored config blob lacks this key.
+    // NOT secret storage — round-trips unredacted on every read (`hasSecrets` below declares no
+    // secret fields); never put a credential here, it belongs on the Connector.
+    parameters: Option[Map[String, String]] = None
 )
 
 final case class TextSourceConfigPayload(path: String, sourceUrl: Option[String])
@@ -349,7 +355,8 @@ object RestApiConfigPayload {
                 method      = p.method.getOrElse("GET"),
                 queryParams = p.queryParams.getOrElse(Map.empty),
                 headers     = p.headers.getOrElse(Map.empty),
-                body        = p.body
+                body        = p.body,
+                parameters  = p.parameters.getOrElse(Map.empty)
               )
             )
       }
@@ -363,7 +370,8 @@ object RestApiConfigPayload {
       queryParams = if (c.queryParams.isEmpty) None else Some(c.queryParams),
       headers     = if (c.headers.isEmpty) None else Some(c.headers),
       body        = c.body,
-      auth        = None
+      auth        = None,
+      parameters  = if (c.parameters.isEmpty) None else Some(c.parameters)
     )
 
   /** No secret fields remain on this payload (HEL-822 task 1.5) — auth/credential material
@@ -388,7 +396,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   implicit val csvSourceConfigPayloadFormat: RootJsonFormat[CsvSourceConfigPayload]   = jsonFormat1(CsvSourceConfigPayload.apply)
   implicit val sqlSourceConfigPayloadFormat: RootJsonFormat[SqlSourceConfigPayload]   = jsonFormat7(SqlSourceConfigPayload.apply)
   implicit val restApiAuthPayloadFormat: RootJsonFormat[RestApiAuthPayload]           = jsonFormat5(RestApiAuthPayload.apply)
-  implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload]       = jsonFormat8(RestApiConfigPayload.apply)
+  implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload]       = jsonFormat9(RestApiConfigPayload.apply)
   implicit val fieldOverridePayloadFormat: RootJsonFormat[FieldOverridePayload]       = jsonFormat3(FieldOverridePayload.apply)
   implicit val textSourceConfigPayloadFormat: RootJsonFormat[TextSourceConfigPayload]       = jsonFormat2(TextSourceConfigPayload.apply)
   implicit val textSourceUrlConfigPayloadFormat: RootJsonFormat[TextSourceUrlConfigPayload] = jsonFormat1(TextSourceUrlConfigPayload.apply)
