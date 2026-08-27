@@ -1,6 +1,7 @@
 package com.helio.api.protocols.workspace
 
 import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentMemoryProtocol, AgentPreferencesProtocol, AgentPreferencesResponse}
+import com.helio.api.protocols.sources.{ConnectorEntityProtocol, ConnectorSummary}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
@@ -199,7 +200,14 @@ final case class WorkspaceContextTruncation(
  *  `WorkspaceContextTruncation`.
  *
  *  `agentContext` (HEL-521 / 420-C): the caller's agent-authoring preferences + bounded memory —
- *  see `WorkspaceContextAgentSection`. Additive field, no signature change to `assemble` itself. */
+ *  see `WorkspaceContextAgentSection`. Additive field, no signature change to `assemble` itself.
+ *
+ *  `connectors` (HEL-828 design.md Decision 5/6): the caller's Connectors, owner-scoped, projected
+ *  through the slim, explicitly allow-listed `ConnectorSummary` shape (`id`/`name`/`kind`/`host`
+ *  only — never `config`/`defaultHeaders`/`authType`). A STRUCTURAL field for budget-trimming
+ *  purposes (design.md Decision 5/spec "Connectors are a structural field, never shrunk by budget
+ *  trimming") — never shrunk/omitted under `budgetBytes` pressure, exactly like `counts` and each
+ *  resource list's identity fields. */
 final case class WorkspaceContextResponse(
     generatedAt: String,
     counts: WorkspaceContextCounts,
@@ -209,10 +217,16 @@ final case class WorkspaceContextResponse(
     dashboards: Vector[WorkspaceContextDashboard],
     joinHints: Vector[WorkspaceContextJoinHint],
     truncation: WorkspaceContextTruncation,
-    agentContext: WorkspaceContextAgentSection
+    agentContext: WorkspaceContextAgentSection,
+    connectors: Vector[ConnectorSummary]
 )
 
-trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol with AgentPreferencesProtocol with AgentMemoryProtocol {
+trait WorkspaceContextProtocol
+    extends SprayJsonSupport
+    with DefaultJsonProtocol
+    with AgentPreferencesProtocol
+    with AgentMemoryProtocol
+    with ConnectorEntityProtocol {
   implicit val workspaceContextCountsFormat: RootJsonFormat[WorkspaceContextCounts] =
     jsonFormat4(WorkspaceContextCounts.apply)
   implicit val workspaceContextDataSourceFormat: RootJsonFormat[WorkspaceContextDataSource] =
@@ -241,5 +255,5 @@ trait WorkspaceContextProtocol extends SprayJsonSupport with DefaultJsonProtocol
   implicit val workspaceContextAgentSectionFormat: RootJsonFormat[WorkspaceContextAgentSection] =
     jsonFormat2(WorkspaceContextAgentSection.apply)
   implicit val workspaceContextResponseFormat: RootJsonFormat[WorkspaceContextResponse] =
-    jsonFormat9(WorkspaceContextResponse.apply)
+    jsonFormat10(WorkspaceContextResponse.apply)
 }

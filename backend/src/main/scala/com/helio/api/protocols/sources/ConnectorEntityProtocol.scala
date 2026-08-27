@@ -27,6 +27,31 @@ final case class ConnectorMeta(
 
 final case class ConnectorsResponse(items: Vector[ConnectorMeta])
 
+/** HEL-828 design.md Decision 6: a dedicated, explicitly allow-listed projection of a
+ *  Connector for agent-facing surfaces (list_connectors, workspace-context fan-outs) —
+ *  `id`/`name`/`kind`/`host` ONLY, built by naming exactly those four fields off the domain
+ *  `Connector`. NEVER derived from `ConnectorMeta`/`ConnectorAuthShape` by omission or
+ *  subtraction — `config`/`defaultHeaders`/`authType` are never read into this type's
+ *  construction at all, because `ConnectorAuthShape.defaultHeaders` is free-form,
+ *  user-supplied header data that can itself hold a credential-shaped value (e.g. a custom
+ *  `Authorization` header). `host` = the Connector's `baseUrl`. */
+final case class ConnectorSummary(
+    id: String,
+    name: String,
+    kind: String,
+    host: String
+)
+
+object ConnectorSummary {
+  def fromDomain(connector: Connector): ConnectorSummary =
+    ConnectorSummary(
+      id   = connector.id.value,
+      name = connector.name,
+      kind = connector.kind,
+      host = connector.baseUrl
+    )
+}
+
 /** Create request -- accepts the credential value once, at creation time only.
  *  Never echoed back on any response. */
 final case class CreateConnectorRequest(
@@ -70,6 +95,7 @@ object ConnectorMeta {
 trait ConnectorEntityProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val connectorMetaFormat: RootJsonFormat[ConnectorMeta]         = jsonFormat9(ConnectorMeta.apply)
   implicit val connectorsResponseFormat: RootJsonFormat[ConnectorsResponse] = jsonFormat1(ConnectorsResponse.apply)
+  implicit val connectorSummaryFormat: RootJsonFormat[ConnectorSummary]     = jsonFormat4(ConnectorSummary.apply)
   implicit val createConnectorRequestFormat: RootJsonFormat[CreateConnectorRequest] = jsonFormat5(CreateConnectorRequest.apply)
   implicit val updateConnectorRequestFormat: RootJsonFormat[UpdateConnectorRequest] = jsonFormat3(UpdateConnectorRequest.apply)
   implicit val rotateConnectorCredentialRequestFormat: RootJsonFormat[RotateConnectorCredentialRequest] =

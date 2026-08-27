@@ -44,6 +44,19 @@ final class SourceRoutes(
               }
             } else {
               Try(json.convertTo[CreateSourceRequest]) match {
+                case Success(request) if request.config.connectorId.isEmpty && request.config.url.isDefined =>
+                  // HEL-828 design.md Decision 1 (revised): bare-`url` create is retired at
+                  // THIS wire boundary (POST /api/sources) only — SourceService.createRest
+                  // itself is untouched and still synthesizes an implicit Connector for
+                  // internal callers (PipelineProposalService's inline-source resolution,
+                  // reachable via the MCP propose/apply-pipeline tools, which never touch this
+                  // HTTP route). A direct-to-wire bare-url request is rejected here instead.
+                  complete(
+                    StatusCodes.BadRequest,
+                    ErrorResponse(
+                      "connectorId is required — a bare url is no longer accepted on POST /api/sources. Create a Connector first (POST /api/connectors), then pass its id as connectorId."
+                    )
+                  )
                 case Success(request) =>
                   ServiceResponse.run(sourceService.createRest(request, user)) { resp =>
                     StatusCodes.Created -> resp

@@ -9,7 +9,9 @@ import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
+import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
+import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
@@ -72,6 +74,11 @@ class WorkspaceContextServiceSpec
   private var dataTypeService: DataTypeService     = _
   private var pipelineService: PipelineService     = _
   private var service: WorkspaceContextService     = _
+  private var connectorRepo: ConnectorRepository   = _
+  // HEL-828: a second service instance WITH connectorRepoOpt wired -- `service` above stays
+  // connectorRepoOpt = None (default), matching every pre-existing test's expectation of
+  // connectors = Vector.empty; this instance is used only by the new "connectors" test group.
+  private var serviceWithConnectors: WorkspaceContextService = _
 
   private val userAId = UUID.randomUUID().toString
   private val userBId = UUID.randomUUID().toString
@@ -126,6 +133,11 @@ class WorkspaceContextServiceSpec
     // (its listRows is the owner-scoping choke point sample rows use), not
     // the bare dataTypeRepo.
     service = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
+    connectorRepo = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider())))
+    serviceWithConnectors = new WorkspaceContextService(
+      dashboardService, dataSourceService, dataTypeService, pipelineService,
+      connectorRepoOpt = Some(connectorRepo)
+    )
 
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userAId::uuid, ${s"a-$userAId@test.local"}, now())""",
@@ -884,6 +896,73 @@ class WorkspaceContextServiceSpec
       // DataType) is the whole point of the assertion above; this line just
       // pins the exact shape so the test isn't vacuously true.
       respB.joinHints shouldBe empty
+    }
+  }
+
+  // ── HEL-828: Connectors surfaced in workspace context ────────────────────
+
+  "assemble (HEL-828 connectors)" should {
+
+    "degrade to an empty connectors list when connectorRepoOpt is not wired" in {
+      val resp = await(service.assemble(userEmpty))
+      resp.connectors shouldBe empty
+    }
+
+    "include exactly id/name/kind/host per Connector, dropping a credential-shaped defaultHeaders value by construction" in {
+      implicit val ec: ExecutionContext = routeEc
+      // A Connector whose config carries a custom-header auth scheme — defaultHeaders can hold
+      // an Authorization-shaped value (design.md Decision 6).
+      val configWithAuthHeader = JsObject(
+        "authType"       -> JsString("none"),
+        "defaultHeaders" -> JsObject("Authorization" -> JsString("Bearer sk-super-secret"))
+      ).compactPrint
+      val created = await(
+        connectorRepo.create(
+          ownerId             = userA.id,
+          name                = "connectors-conn",
+          kind                = "rest_api",
+          baseUrl             = "https://api.example.com",
+          config              = configWithAuthHeader,
+          credentialPlaintext = "",
+          credentialName      = "cred"
+        )
+      )
+
+      val resp = await(serviceWithConnectors.assemble(userA))
+
+      resp.connectors should have length 1
+      val entry = resp.connectors.head
+      entry.id   shouldBe created.id.value
+      entry.name shouldBe "connectors-conn"
+      entry.kind shouldBe "rest_api"
+      entry.host shouldBe "https://api.example.com"
+
+      // Exact serialized key set — not merely "no key literally named credential"
+      // (design.md Decision 6 / spec "A Connector with credential-shaped defaultHeaders is
+      // still projected safely").
+      val serialized = connectorSummaryFormat.write(entry).asJsObject
+      serialized.fields.keySet shouldBe Set("id", "name", "kind", "host")
+      serialized.compactPrint should not include "sk-super-secret"
+      serialized.compactPrint should not include "defaultHeaders"
+      serialized.compactPrint should not include "Authorization"
+    }
+
+    "omit another user's Connectors" in {
+      implicit val ec: ExecutionContext = routeEc
+      await(
+        connectorRepo.create(
+          ownerId             = userB.id,
+          name                = "b-only-conn",
+          kind                = "rest_api",
+          baseUrl             = "https://b.example.com",
+          config              = """{"authType":"none"}""",
+          credentialPlaintext = "",
+          credentialName      = "cred"
+        )
+      )
+
+      val resp = await(serviceWithConnectors.assemble(userEmpty))
+      resp.connectors shouldBe empty
     }
   }
 

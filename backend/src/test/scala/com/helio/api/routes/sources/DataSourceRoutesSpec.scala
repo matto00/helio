@@ -15,10 +15,11 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
-import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.auth.{ConnectorCredentialRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sources.ContentSourceSupport
 import com.helio.testsupport.PdfFixtures
 import scala.concurrent.Future
@@ -34,6 +35,7 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.net.InetAddress
 import java.nio.file.Files
+import java.util.UUID
 import javax.imageio.ImageIO
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
@@ -53,6 +55,7 @@ class DataSourceRoutesSpec
   private var dataTypeRepo: DataTypeRepository              = _
   private var permissionRepo: ResourcePermissionRepository  = _
   private var fileSystem: LocalFileSystem                   = _
+  private var connectorRepo: ConnectorRepository            = _
 
   // Local test server for text-source URL-ingestion route tests (HEL-215).
   private var testServerBinding: Http.ServerBinding = _
@@ -99,6 +102,7 @@ class DataSourceRoutesSpec
     dataSourceRepo  = new DataSourceRepository(ctx)(ec)
     dataTypeRepo    = new DataTypeRepository(ctx)(ec)
     permissionRepo  = new ResourcePermissionRepository(ctx)(ec)
+    connectorRepo   = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(ec))(ec)
 
     val tmpDir = Files.createTempDirectory("helio-csv-test")
     fileSystem = new LocalFileSystem(tmpDir)(ec)
@@ -1199,11 +1203,22 @@ class DataSourceRoutesSpec
 
     "apply display name overrides to the committed DataType" in {
       cleanDb()
+      val connectorId = await(
+        connectorRepo.create(
+          ownerId             = testUser.id,
+          name                = s"ds-routes-conn-${UUID.randomUUID()}",
+          kind                = "rest_api",
+          baseUrl             = "http://example.com",
+          config              = """{"authType":"none"}""",
+          credentialPlaintext = "",
+          credentialName      = "cred"
+        )
+      ).id.value
       val body =
-        """{
+        s"""{
           |  "name": "REST Overridden",
           |  "type": "rest_api",
-          |  "config": {"url": "http://example.com"},
+          |  "config": {"connectorId": "$connectorId"},
           |  "fieldOverrides": [{"name": "id", "displayName": "Identifier", "dataType": "integer"}]
           |}""".stripMargin
       Post(
@@ -1214,6 +1229,21 @@ class DataSourceRoutesSpec
         val resp    = responseAs[CreateSourceResponse]
         val idField = resp.dataType.flatMap(_.fields.find(_.name == "id"))
         idField.map(_.displayName) shouldBe Some("Identifier")
+      }
+    }
+  }
+
+  "POST /api/sources (bare-url retirement at the wire boundary, HEL-828)" should {
+
+    "reject a bare-url rest_api create with 400 naming connectorId" in {
+      cleanDb()
+      val body = """{"name": "Bare Url", "type": "rest_api", "config": {"url": "http://example.com"}}"""
+      Post(
+        "/api/sources",
+        HttpEntity(ContentTypes.`application/json`, body)
+      ) ~> routesWith(successConnector(sampleJson)) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("connectorId")
       }
     }
   }

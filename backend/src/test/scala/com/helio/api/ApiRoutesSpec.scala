@@ -17,11 +17,12 @@ import com.helio.api.protocols.agents.{CreateAgentMemoryRequest, PutAgentPrefere
 import com.helio.api.protocols.auth.RedeemInviteCodeRequest
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.auth.{ConnectorCredentialRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.infrastructure.crypto.TokenHashing
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -32,6 +33,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend
 
+import java.util.UUID
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -49,6 +51,7 @@ class ApiRoutesSpec
   private var dashboardRepo: DashboardRepository            = _
   private var panelRepo: PanelRepository                    = _
   private var dataSourceRepo: DataSourceRepository          = _
+  private var connectorRepo: ConnectorRepository            = _
   private var dataTypeRepo: DataTypeRepository              = _
   private var userRepo: UserRepository                      = _
   private var userPreferenceRepo: UserPreferenceRepository  = _
@@ -87,6 +90,7 @@ class ApiRoutesSpec
     pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
     pipelineStepRepo   = new PipelineStepRepository(ctx)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
+    connectorRepo      = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(typedSystem.executionContext))(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -1830,13 +1834,24 @@ class ApiRoutesSpec
       cleanDb()
       import spray.json._
 
+      val connectorId = await(
+        connectorRepo.create(
+          ownerId             = testUser.id,
+          name                = s"api-routes-conn-${UUID.randomUUID()}",
+          kind                = "rest_api",
+          baseUrl             = "http://example.com",
+          config              = """{"authType":"none"}""",
+          credentialPlaintext = "",
+          credentialName      = "cred"
+        )
+      ).id.value
       val responseJson = """[{"col1":"a","col2":1},{"col1":"b","col2":2}]""".parseJson
       Post(
         "/api/sources",
         CreateSourceRequest(
           name           = "My API",
           `type`         = "rest_api",
-          config         = RestApiConfigPayload(url = Some("http://example.com"), method = None, auth = None, headers = None),
+          config         = RestApiConfigPayload(connectorId = Some(connectorId), method = None),
           fieldOverrides = None
         )
       ) ~> routes(stubConnector(Right(responseJson))) ~> check {
@@ -1851,12 +1866,23 @@ class ApiRoutesSpec
 
     "POST /api/sources creates DataSource with fetchError when fetch fails" in {
       cleanDb()
+      val connectorId = await(
+        connectorRepo.create(
+          ownerId             = testUser.id,
+          name                = s"api-routes-conn-${UUID.randomUUID()}",
+          kind                = "rest_api",
+          baseUrl             = "http://example.com",
+          config              = """{"authType":"none"}""",
+          credentialPlaintext = "",
+          credentialName      = "cred"
+        )
+      ).id.value
       Post(
         "/api/sources",
         CreateSourceRequest(
           name           = "Bad API",
           `type`         = "rest_api",
-          config         = RestApiConfigPayload(url = Some("http://example.com"), method = None, auth = None, headers = None),
+          config         = RestApiConfigPayload(connectorId = Some(connectorId), method = None),
           fieldOverrides = None
         )
       ) ~> routes(stubConnector(Left("HTTP 500: Internal Server Error"))) ~> check {
@@ -1864,6 +1890,25 @@ class ApiRoutesSpec
         val response = responseAs[CreateSourceResponse]
         response.dataType shouldBe None
         response.fetchError shouldBe Some("HTTP 500: Internal Server Error")
+      }
+    }
+
+    "POST /api/sources rejects a bare-url rest_api config with 400 naming connectorId" in {
+      cleanDb()
+      import spray.json._
+
+      val responseJson = """[{"col1":"a","col2":1}]""".parseJson
+      Post(
+        "/api/sources",
+        CreateSourceRequest(
+          name           = "Bare Url API",
+          `type`         = "rest_api",
+          config         = RestApiConfigPayload(url = Some("http://example.com"), method = None, auth = None, headers = None),
+          fieldOverrides = None
+        )
+      ) ~> routes(stubConnector(Right(responseJson))) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("connectorId")
       }
     }
 

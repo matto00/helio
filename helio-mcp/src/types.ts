@@ -421,14 +421,6 @@ export interface RowsPreview {
   evaluationErrors?: string[];
 }
 
-/** REST auth input for `create_rest_data_source` — mirrors the backend's
- *  `RestApiAuthPayload` discriminated union (see `RestApiConfigPayload.toDomain`
- *  in `DataSourceProtocol.scala`). */
-export type RestAuthInput =
-  | { type: "none" }
-  | { type: "bearer"; token: string }
-  | { type: "api_key"; name: string; value: string; in: "header" | "query" };
-
 /** `POST /api/sources` response (REST/SQL create) — mirrors the backend's
  *  `CreateSourceResponse`. On the wire, `dataType`/`fetchError` are Scala
  *  `Option`s and are OMITTED entirely when `None` (spray-json drops `None`
@@ -459,6 +451,20 @@ export interface ConnectorMetadataResponse {
   supportsIncremental: boolean;
   authKind: string;
   requiredFields: ConnectorFieldDescriptorResponse[];
+}
+
+/** HEL-828 design.md Decision 6: `GET /api/connectors` (real Connector INSTANCES, distinct
+ *  from `ConnectorMetadataResponse`'s connector-KIND metadata above) — a dedicated,
+ *  explicitly allow-listed projection mirroring the backend's `ConnectorSummary`
+ *  (`ConnectorEntityProtocol.scala`). Exactly `id`/`name`/`kind`/`host` — no `config`/
+ *  `defaultHeaders`/`authType` field on this type at all, so there is nothing for a
+ *  serialization bug to leak even if the backend response shape ever changed. Never the
+ *  credential in any form. */
+export interface ConnectorSummary {
+  id: string;
+  name: string;
+  kind: string;
+  host: string;
 }
 
 // ── Pipeline shape catalog (HEL-391/402) — mirrors
