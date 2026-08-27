@@ -183,6 +183,41 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       result.fetchError shouldBe Some("Request failed")
       result.dataType shouldBe None
     }
+
+    // ── HEL-826 task 2.3: immediate 400 on a GET+body create, both dual-support branches ──
+
+    "reject a GET+body request immediately with a BadRequest via the bare-url branch, without persisting an orphaned implicit Connector" in {
+      cleanDb()
+      val svc     = service(restConnector(Right(JsArray())))
+      val payload = restConfigPayload.copy(method = Some("GET"), body = Some("""{"a":1}"""))
+      val request = CreateSourceRequest("BadBody", DataSourceKind.RestApi, payload, None)
+
+      val countBefore = await(connectorRepo.findAll(user)).size
+      val result      = await(svc.createRest(request, user))
+      result.isLeft shouldBe true
+      result.left.getOrElse(fail("expected Left")) shouldBe a[ServiceError.BadRequest]
+
+      // HEL-826 evaluation-1.md cycle-2 CR1 regression: the rejectBodyOnSafeMethod check runs
+      // BEFORE connectorRepo.create in the bare-url branch, so a rejected create must leave no
+      // implicit Connector row behind.
+      val countAfter = await(connectorRepo.findAll(user)).size
+      countAfter shouldBe countBefore
+    }
+
+    "reject a GET+body request immediately with a BadRequest via the connectorId branch" in {
+      cleanDb()
+      val connector = await(connectorRepo.create(
+        ownerId = owner, name = s"src-svc-conn-${UUID.randomUUID()}", kind = "rest_api", baseUrl = "http://example.invalid",
+        config = """{"authType":"none"}""", credentialPlaintext = "", credentialName = "cred"
+      ))
+      val svc     = service(restConnector(Right(JsArray())))
+      val payload = RestApiConfigPayload(connectorId = Some(connector.id.value), method = Some("GET"), body = Some("""{"a":1}"""))
+      val request = CreateSourceRequest("BadBody2", DataSourceKind.RestApi, payload, None)
+
+      val result = await(svc.createRest(request, user))
+      result.isLeft shouldBe true
+      result.left.getOrElse(fail("expected Left")) shouldBe a[ServiceError.BadRequest]
+    }
   }
 
   // ── inferSql / inferRest ─────────────────────────────────────────────────

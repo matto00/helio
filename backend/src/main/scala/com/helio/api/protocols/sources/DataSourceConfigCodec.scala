@@ -17,7 +17,7 @@ object DataSourceConfigCodec extends DefaultJsonProtocol {
 
   private implicit val csvCfgFmt: RootJsonFormat[CsvSourceConfigPayload] = jsonFormat1(CsvSourceConfigPayload.apply)
   private implicit val sqlCfgFmt: RootJsonFormat[SqlSourceConfigPayload] = jsonFormat7(SqlSourceConfigPayload.apply)
-  private implicit val restCfgFmt: RootJsonFormat[RestApiConfigPayload]  = jsonFormat9(RestApiConfigPayload.apply)
+  private implicit val restCfgFmt: RootJsonFormat[RestApiConfigPayload]  = jsonFormat11(RestApiConfigPayload.apply)
 
   def decodeCsv(raw: String): CsvSourceConfig = {
     val obj = JsonParser(raw) match {

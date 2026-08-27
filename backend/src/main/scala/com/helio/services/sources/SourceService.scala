@@ -87,8 +87,14 @@ final class SourceService(
           Future.successful(Left(ServiceError.BadRequest("Missing required fields: connectorId or url")))
         case (Some(_), None) =>
           RestApiConfigPayload.toDomain(request.config) match {
-            case Left(err)         => Future.successful(Left(ServiceError.BadRequest(err)))
-            case Right(restConfig) => createRestWithConfig(request, restConfig, user)
+            case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+            case Right(restConfig) =>
+              // HEL-826 design.md Decision 3 — belt-and-braces create-time UX check; the
+              // authoritative guard lives at buildResolvedRequest/buildEphemeralRequest.
+              RestApiConfig.rejectBodyOnSafeMethod(restConfig.method, restConfig.body) match {
+                case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+                case Right(())  => createRestWithConfig(request, restConfig, user)
+              }
           }
         case (None, Some(url)) =>
           // HEL-822 design.md Decision 1 (revised, round-2 CR4): a bare-`url` create
@@ -99,30 +105,41 @@ final class SourceService(
           // `AuthenticatedUser` context.
           if (connectorRepo == null)
             Future.successful(Left(ServiceError.BadRequest("REST sources require a Connector; legacy url-only create is unavailable")))
-          else {
-            val (baseUrl, endpoint, _, _) = RestSourceConnectorMigration.splitUrl(url)
-            val (name, configJson, credentialPlaintext, credentialName) =
-              ImplicitConnectorConfig.forLegacySource(s"Auto: ${request.name}", baseUrl, RestApiAuth.NoAuth)
-            connectorRepo
-              .create(
-                ownerId             = user.id,
-                name                = name,
-                kind                = DataSourceKind.RestApi,
-                baseUrl             = baseUrl,
-                config              = configJson,
-                credentialPlaintext = credentialPlaintext,
-                credentialName      = credentialName
-              )
-              .flatMap { createdConnector =>
-                val restConfig = RestApiConfig(
-                  connectorId = createdConnector.id.value,
-                  endpoint    = endpoint,
-                  method      = request.config.method.getOrElse("GET"),
-                  headers     = request.config.headers.getOrElse(Map.empty)
-                )
-                createRestWithConfig(request, restConfig, user)
-              }
-          }
+          else
+            // HEL-826 evaluation-1.md cycle-2 CR1: the belt-and-braces
+            // rejectBodyOnSafeMethod check must run BEFORE connectorRepo.create — otherwise a
+            // rejected GET+body request still persists an orphaned implicit Connector row
+            // (including an encrypted-credential write) before being rejected. Checked here,
+            // against the raw request payload, before any persistence occurs.
+            RestApiConfig.rejectBodyOnSafeMethod(request.config.method.getOrElse("GET"), request.config.body) match {
+              case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+              case Right(()) =>
+                val (baseUrl, endpoint, _, _) = RestSourceConnectorMigration.splitUrl(url)
+                val (name, configJson, credentialPlaintext, credentialName) =
+                  ImplicitConnectorConfig.forLegacySource(s"Auto: ${request.name}", baseUrl, RestApiAuth.NoAuth)
+                connectorRepo
+                  .create(
+                    ownerId             = user.id,
+                    name                = name,
+                    kind                = DataSourceKind.RestApi,
+                    baseUrl             = baseUrl,
+                    config              = configJson,
+                    credentialPlaintext = credentialPlaintext,
+                    credentialName      = credentialName
+                  )
+                  .flatMap { createdConnector =>
+                    val restConfig = RestApiConfig(
+                      connectorId     = createdConnector.id.value,
+                      endpoint        = endpoint,
+                      method          = request.config.method.getOrElse("GET"),
+                      headers         = request.config.headers.getOrElse(Map.empty),
+                      body            = request.config.body,
+                      bodyContentType = request.config.bodyContentType,
+                      rootSelector    = request.config.rootSelector
+                    )
+                    createRestWithConfig(request, restConfig, user)
+                  }
+            }
       }
 
   private def createRestWithConfig(request: CreateSourceRequest, restConfig: RestApiConfig, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] = {
@@ -179,9 +196,13 @@ final class SourceService(
             }
         }
       case (None, Some(_)) =>
-        connector.inferSchemaEphemeral(toEphemeral(payload)).map {
-          case Left(err)     => Left(ServiceError.BadGateway(err))
-          case Right(schema) => Right(toInferredSchema(schema))
+        toEphemeral(payload) match {
+          case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+          case Right(ephemeral) =>
+            connector.inferSchemaEphemeral(ephemeral).map {
+              case Left(err)     => Left(ServiceError.BadGateway(err))
+              case Right(schema) => Right(toInferredSchema(schema))
+            }
         }
     }
 
@@ -207,18 +228,32 @@ final class SourceService(
           case Right(restConfig) => ConnectionTest.run(connector, restConfig, ConnectorResolveContext.Owned(user)).map(Right(_))
         }
       case (None, Some(_)) =>
-        connector.testConnectionEphemeral(toEphemeral(payload)).map {
-          case Right(())  => Right(TestConnectionResponse(ok = true, error = None))
-          case Left(err)  => Right(TestConnectionResponse(ok = false, error = Some(err)))
+        toEphemeral(payload) match {
+          case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+          case Right(ephemeral) =>
+            connector.testConnectionEphemeral(ephemeral).map {
+              case Right(())  => Right(TestConnectionResponse(ok = true, error = None))
+              case Left(err)  => Right(TestConnectionResponse(ok = false, error = Some(err)))
+            }
         }
     }
 
-  private def toEphemeral(payload: RestApiConfigPayload): EphemeralRestConfig =
-    EphemeralRestConfig(
-      url     = payload.url.getOrElse(""),
-      method  = payload.method.getOrElse("GET"),
-      headers = payload.headers.getOrElse(Map.empty)
-    )
+  // HEL-826 task 2.3b: belt-and-braces guard mirroring the connectorId path's create-time
+  // check (2.3) — the structural guard is buildEphemeralRequest (3.3), this is additive UX.
+  private def toEphemeral(payload: RestApiConfigPayload): Either[String, EphemeralRestConfig] = {
+    val method = payload.method.getOrElse("GET")
+    val body   = payload.body
+    RestApiConfig.rejectBodyOnSafeMethod(method, body).map { _ =>
+      EphemeralRestConfig(
+        url             = payload.url.getOrElse(""),
+        method          = method,
+        headers         = payload.headers.getOrElse(Map.empty),
+        body            = body,
+        bodyContentType = payload.bodyContentType,
+        rootSelector    = payload.rootSelector
+      )
+    }
+  }
 
   // ── Refresh ───────────────────────────────────────────────────────────────
 
@@ -309,7 +344,7 @@ final class SourceService(
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(json) =>
-        val rawRows = connector.toRows(json).take(10)
+        val rawRows = connector.toRows(json, source.config.rootSelector).take(10)
         dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
           val computedFields = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
           val (rows, evalErrors) = applyComputedFields(rawRows, computedFields)

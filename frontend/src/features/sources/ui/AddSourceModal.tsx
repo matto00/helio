@@ -53,7 +53,10 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
   const [sourceType, setSourceType] = useState<SourceType>("rest_api");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [method, setMethod] = useState("GET");
   const [jsonPath, setJsonPath] = useState("");
+  const [body, setBody] = useState("");
+  const [bodyContentType, setBodyContentType] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [fields, setFields] = useState<EditableField[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -114,10 +117,15 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
           setIsLoading(false);
           return;
         }
+        const supportsBody = method === "POST" || method === "PUT" || method === "PATCH";
         const config = {
           url: url.trim(),
-          method: "GET",
-          ...(jsonPath.trim() ? { jsonPath: jsonPath.trim() } : {}),
+          method,
+          ...(jsonPath.trim() ? { rootSelector: jsonPath.trim() } : {}),
+          ...(supportsBody && body.trim() ? { body: body.trim() } : {}),
+          ...(supportsBody && body.trim() && bodyContentType.trim()
+            ? { bodyContentType: bodyContentType.trim() }
+            : {}),
         };
         inferred = await inferFromJson(config);
       } else {
@@ -145,10 +153,15 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
 
     try {
       if (sourceType === "rest_api") {
+        const supportsBody = method === "POST" || method === "PUT" || method === "PATCH";
         const config = {
           url: url.trim(),
-          method: "GET",
-          ...(jsonPath.trim() ? { jsonPath: jsonPath.trim() } : {}),
+          method,
+          ...(jsonPath.trim() ? { rootSelector: jsonPath.trim() } : {}),
+          ...(supportsBody && body.trim() ? { body: body.trim() } : {}),
+          ...(supportsBody && body.trim() && bodyContentType.trim()
+            ? { bodyContentType: bodyContentType.trim() }
+            : {}),
         };
         const { source } = await createRestSource(name.trim(), config, fields);
         finishCreate(source);
@@ -485,9 +498,15 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
           ) : sourceType === "rest_api" ? (
             <RestApiForm
               url={url}
+              method={method}
               jsonPath={jsonPath}
+              body={body}
+              bodyContentType={bodyContentType}
               onUrlChange={setUrl}
+              onMethodChange={setMethod}
               onJsonPathChange={setJsonPath}
+              onBodyChange={setBody}
+              onBodyContentTypeChange={setBodyContentType}
             />
           ) : (
             <CsvForm onFileChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />

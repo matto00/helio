@@ -15,6 +15,7 @@ import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import java.nio.charset.StandardCharsets
 import scala.util.Try
 
 /** Dependency-free companion object — see design.md Decision 1. `RestApiConnectorDriver` (the class)
@@ -123,30 +124,37 @@ class RestApiConnectorDriver(
         credentialFut.map {
           case Left(err) => Left(err)
           case Right(credentialValue) =>
-            resolveTemplatedRequestParts(config) match {
-              case Left(err) => Left(err)
-              case Right((resolvedEndpoint, resolvedQueryParams, resolvedHeaders)) =>
-                val method = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
+            // HEL-826 design.md Decision 3 — the structural safety guards, checked FIRST,
+            // before any templating/URI/entity work: a body on GET/HEAD, or an unparseable
+            // bodyContentType, short-circuits before any HttpRequest is built.
+            for {
+              _            <- RestApiConfig.rejectBodyOnSafeMethod(config.method, config.body)
+              parsedCt     <- RestApiConfig.parseBodyContentType(config.bodyContentType)
+              resolvedBits <- resolveTemplatedRequestParts(config)
+            } yield {
+              val (resolvedEndpoint, resolvedQueryParams, resolvedHeaders, resolvedBody) = resolvedBits
+              val method = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
 
-                val withQueryParams = resolvedQueryParams.foldLeft(Uri(joinUrl(connector.baseUrl, resolvedEndpoint))) {
-                  case (uri, (k, v)) => uri.withQuery(Uri.Query(uri.query().toMap + (k -> v)))
-                }
-                val uri = injectAuthQueryParam(withQueryParams, authShape, credentialValue)
+              val withQueryParams = resolvedQueryParams.foldLeft(Uri(joinUrl(connector.baseUrl, resolvedEndpoint))) {
+                case (uri, (k, v)) => uri.withQuery(Uri.Query(uri.query().toMap + (k -> v)))
+              }
+              val uri = injectAuthQueryParam(withQueryParams, authShape, credentialValue)
 
-                val mergedHeaders = authShape.defaultHeaders ++ resolvedHeaders // Decision 4: source wins
-                val authHeaders: List[HttpHeader] = buildAuthHeaders(authShape, credentialValue)
-                // Cycle-2 skeptic non-blocking note (a): a source/Connector-default header
-                // colliding with the auth header's own name (e.g. "Authorization", or the
-                // api-key header name) must not produce a request carrying both -- the auth
-                // header (built from the decrypted credential, never client-suppliable) always
-                // wins; HTTP header names are case-insensitive, so the collision check is too.
-                val authHeaderNames = authHeaders.map(_.name().toLowerCase).toSet
-                val baseHeaders: List[HttpHeader] = mergedHeaders
-                  .filterNot { case (k, _) => authHeaderNames.contains(k.toLowerCase) }
-                  .map { case (k, v) => RawHeader(k, v) }
-                  .toList
+              val mergedHeaders = authShape.defaultHeaders ++ resolvedHeaders // Decision 4: source wins
+              val authHeaders: List[HttpHeader] = buildAuthHeaders(authShape, credentialValue)
+              // Cycle-2 skeptic non-blocking note (a): a source/Connector-default header
+              // colliding with the auth header's own name (e.g. "Authorization", or the
+              // api-key header name) must not produce a request carrying both -- the auth
+              // header (built from the decrypted credential, never client-suppliable) always
+              // wins; HTTP header names are case-insensitive, so the collision check is too.
+              val authHeaderNames = authHeaders.map(_.name().toLowerCase).toSet
+              val baseHeaders: List[HttpHeader] = mergedHeaders
+                .filterNot { case (k, _) => authHeaderNames.contains(k.toLowerCase) }
+                .map { case (k, v) => RawHeader(k, v) }
+                .toList
 
-                Right(HttpRequest(method = method, uri = uri, headers = authHeaders ++ baseHeaders))
+              val baseRequest = HttpRequest(method = method, uri = uri, headers = authHeaders ++ baseHeaders)
+              resolvedBody.fold(baseRequest)(b => baseRequest.withEntity(HttpEntity(parsedCt, b.getBytes(StandardCharsets.UTF_8))))
             }
         }
     }
@@ -158,7 +166,7 @@ class RestApiConnectorDriver(
    *  request is constructed. */
   private def resolveTemplatedRequestParts(
       config: RestApiConfig
-  ): Either[String, (String, Map[String, String], Map[String, String])] =
+  ): Either[String, (String, Map[String, String], Map[String, String], Option[String])] =
     for {
       endpoint <- TemplateInterpolator
         .resolveEndpoint(config.endpoint, config.parameters)
@@ -166,7 +174,16 @@ class RestApiConnectorDriver(
         .map(name => s"Unresolved template variable: $name")
       queryParams <- resolveMapValues(config.queryParams, config.parameters)
       headers     <- resolveHeaderMapValues(config.headers, config.parameters)
-    } yield (endpoint, queryParams, headers)
+      body <- config.body match {
+        case None       => Right(None)
+        case Some(tmpl) =>
+          TemplateInterpolator
+            .resolveJsonBody(tmpl, config.parameters)
+            .left
+            .map(name => s"Unresolved template variable: $name")
+            .map(Some(_))
+      }
+    } yield (endpoint, queryParams, headers, body)
 
   /** Query param values: substituted raw (no extra encoding) — Pekko's `Uri.Query` already
    *  percent-encodes on render (design.md Decision 3). */
@@ -212,10 +229,32 @@ class RestApiConnectorDriver(
   def fetch(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, JsValue]] =
     fetchOverride.fold(doFetch(config, resolveContext))(fn => fn(config))
 
-  def toRows(json: JsValue): Vector[JsValue] = json match {
-    case JsArray(elements) => elements.toVector
-    case obj: JsObject     => Vector(obj)
-    case other             => Vector(other)
+  /** HEL-826 design.md Decision 1 — `rootSelector = None` is byte-identical to pre-change
+   *  behavior (the existing 3-way match, untouched). `Some(path)` walks `JsObject` fields
+   *  only, dot-separated, then applies the SAME 3-way match to whatever is found at the end
+   *  of the walk. A missing key or a non-object encountered mid-walk yields `Vector.empty`
+   *  (curated-empty, not a 500) plus a server-side warn log — HEL-599 owns the real
+   *  user-facing error envelope. */
+  def toRows(json: JsValue, rootSelector: Option[String] = None): Vector[JsValue] = {
+    val target = rootSelector match {
+      case None       => Some(json)
+      case Some(path) =>
+        path.split("\\.").toVector.foldLeft[Option[JsValue]](Some(json)) {
+          case (Some(obj: JsObject), segment) => obj.fields.get(segment)
+          case _                              => None
+        } match {
+          case found @ Some(_) => found
+          case None =>
+            log.warn(s"REST source rootSelector '$path' did not match the response shape; yielding zero rows")
+            None
+        }
+    }
+    target match {
+      case Some(JsArray(elements)) => elements.toVector
+      case Some(obj: JsObject)     => Vector(obj)
+      case Some(other)             => Vector(other)
+      case None                    => Vector.empty
+    }
   }
 
   private def doFetch(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, JsValue]] =
@@ -281,12 +320,12 @@ class RestApiConnectorDriver(
    *  handles (JSON array, single object, non-object scalar), so this produces byte-for-byte
    *  identical output to the pre-change `fromJson(json)` call (design.md Decision 1). */
   def inferSchema(config: RestApiConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
-    fetch(config, resolveContext).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json))))
+    fetch(config, resolveContext).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json, config.rootSelector))))
 
   /** Forwards to the existing `fetch`/`toRows` methods, truncating to `maxRows` — matching
    *  `SourceService.previewRest`'s `connector.toRows(json).take(10)` pattern. */
   def fetch(config: RestApiConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
-    fetch(config, resolveContext).map(_.map(json => toRows(json).take(maxRows)))
+    fetch(config, resolveContext).map(_.map(json => toRows(json, config.rootSelector).take(maxRows)))
 
   // ── Ephemeral (design.md Decision 1c) ──────────────────────────────────────────
   // Never resolves/persists a Connector — no auth, no normalizing join (no `baseUrl` to join
@@ -297,11 +336,20 @@ class RestApiConnectorDriver(
    *  ephemeral path has no `RestSource`/`parameters` store to resolve against. A `{{...}}`
    *  placeholder in `config.url`/`config.headers` reaching this method is left as literal
    *  text, unchanged (existing, backward-compatible behavior; task 3.2/4.9). */
-  private def buildEphemeralRequest(config: EphemeralRestConfig): HttpRequest = {
-    val method  = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
-    val headers: List[HttpHeader] = config.headers.map { case (k, v) => RawHeader(k, v) }.toList
-    HttpRequest(method = method, uri = Uri(config.url), headers = headers)
-  }
+  /** HEL-826 design.md Decision 3/4 — the identical structural safety guards as
+   *  `buildResolvedRequest` (`rejectBodyOnSafeMethod` + `parseBodyContentType`), applied
+   *  first, before any request is built. No templating call (Decision 4 — the ephemeral path
+   *  has no `parameters` store). */
+  private def buildEphemeralRequest(config: EphemeralRestConfig): Either[String, HttpRequest] =
+    for {
+      _        <- RestApiConfig.rejectBodyOnSafeMethod(config.method, config.body)
+      parsedCt <- RestApiConfig.parseBodyContentType(config.bodyContentType)
+    } yield {
+      val method  = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
+      val headers: List[HttpHeader] = config.headers.map { case (k, v) => RawHeader(k, v) }.toList
+      val baseRequest = HttpRequest(method = method, uri = Uri(config.url), headers = headers)
+      config.body.fold(baseRequest)(b => baseRequest.withEntity(HttpEntity(parsedCt, b.getBytes(StandardCharsets.UTF_8))))
+    }
 
   /** `fetchOverride` (test-only hook) is reused for the ephemeral path too — adapted through a
    *  synthetic `RestApiConfig` carrying the ephemeral request's `url`/`method`/`headers` in its
@@ -312,14 +360,33 @@ class RestApiConnectorDriver(
   def fetchEphemeral(config: EphemeralRestConfig): Future[Either[String, JsValue]] =
     fetchOverride match {
       case Some(fn) =>
-        fn(RestApiConfig(connectorId = "__ephemeral__", endpoint = config.url, method = config.method, headers = config.headers))
+        RestApiConfig.rejectBodyOnSafeMethod(config.method, config.body) match {
+          case Left(err) => Future.successful(Left(err))
+          case Right(()) =>
+            fn(
+              RestApiConfig(
+                connectorId     = "__ephemeral__",
+                endpoint        = config.url,
+                method          = config.method,
+                headers         = config.headers,
+                body            = config.body,
+                bodyContentType = config.bodyContentType
+              )
+            )
+        }
       case None =>
-        issueAndParse(buildEphemeralRequest(config))
+        buildEphemeralRequest(config) match {
+          case Left(err)      => Future.successful(Left(err))
+          case Right(request) => issueAndParse(request)
+        }
     }
 
   def testConnectionEphemeral(config: EphemeralRestConfig): Future[Either[String, Unit]] =
-    issueTest(buildEphemeralRequest(config))
+    buildEphemeralRequest(config) match {
+      case Left(err)      => Future.successful(Left(err))
+      case Right(request) => issueTest(request)
+    }
 
   def inferSchemaEphemeral(config: EphemeralRestConfig): Future[Either[String, InferredSchema]] =
-    fetchEphemeral(config).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json))))
+    fetchEphemeral(config).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json, config.rootSelector))))
 }

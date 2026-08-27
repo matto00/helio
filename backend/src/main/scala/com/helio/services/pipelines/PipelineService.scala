@@ -366,9 +366,12 @@ final class PipelineService(
                     }
                   case (None, Some(url)) =>
                     val ephemeral = EphemeralRestConfig(
-                      url     = url,
-                      method  = payload.method.getOrElse("GET"),
-                      headers = payload.headers.getOrElse(Map.empty)
+                      url             = url,
+                      method          = payload.method.getOrElse("GET"),
+                      headers         = payload.headers.getOrElse(Map.empty),
+                      body            = payload.body,
+                      bodyContentType = payload.bodyContentType,
+                      rootSelector    = payload.rootSelector
                     )
                     c.inferSchemaEphemeral(ephemeral).map {
                       case Left(err)     => Left(ServiceError.BadGateway(err))
