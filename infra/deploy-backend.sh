@@ -92,8 +92,8 @@ gcloud run deploy helio-backend \
   --vpc-connector=helio-vpc-connector \
   --vpc-egress=private-ranges-only \
   --service-account=helio-backend-sa@helio-493120.iam.gserviceaccount.com \
-  --set-env-vars="^|^DATABASE_URL=jdbc:postgresql://10.8.0.3:5432/helio?sslmode=require|DB_USER=helio|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}|CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}|COOKIE_SECURE=true|LOG_FORMAT=json|HELIO_OWNER_EMAILS=${HELIO_OWNER_EMAILS}|HELIO_BETA_DAILY_MESSAGE_LIMIT=${HELIO_BETA_DAILY_MESSAGE_LIMIT}|HELIO_UPLOADS_BACKEND=gcs|HELIO_UPLOADS_BUCKET=helio-uploads-prod|CLAUDE_MODEL=claude-haiku-4-5-20251001" \
-  --set-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest \
+  --set-env-vars="^|^DATABASE_URL=jdbc:postgresql://10.8.0.3:5432/helio?sslmode=require|DB_USER=helio|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}|CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}|COOKIE_SECURE=true|LOG_FORMAT=json|HELIO_OWNER_EMAILS=${HELIO_OWNER_EMAILS}|HELIO_BETA_DAILY_MESSAGE_LIMIT=${HELIO_BETA_DAILY_MESSAGE_LIMIT}|HELIO_UPLOADS_BACKEND=gcs|HELIO_UPLOADS_BUCKET=helio-uploads-prod|CLAUDE_MODEL=claude-haiku-4-5-20251001|CONNECTOR_MASTER_KEY_ID=env-2026-08" \
+  --set-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest \
   --memory=1Gi \
   --cpu=1 \
   --concurrency=80 \
