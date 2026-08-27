@@ -90,7 +90,7 @@ as a JSON array. No DataSource or DataType records are created or modified.
 - **WHEN** `GET /api/sources/:id/preview` is called with an unknown id
 - **THEN** the response is 404
 
-### Requirement: Auth injection resolved from the referenced Connector
+### Requirement: Auth injection
 The `RestApiConnectorDriver` SHALL inject authentication into outgoing requests based on the
 auth material stored on the source's *referenced Connector*, never on the source itself.
 Supported types (unchanged from the Connector's own stored shape): `none`, `bearer` (adds
@@ -110,20 +110,6 @@ Supported types (unchanged from the Connector's own stored shape): `none`, `bear
 - **WHEN** the source's Connector has stored credential auth `{ type: "api_key", name: "key",
   value: "secret", in: "query" }`
 - **THEN** the outgoing HTTP request URL includes `?key=secret`
-
-### Requirement: Header precedence between Connector and source
-The system SHALL merge the Connector's default headers with the source's own headers before
-issuing a request, with the **source's** value winning on a key collision.
-
-#### Scenario: Non-colliding headers are both applied
-- **WHEN** the Connector has default header `X-Env: prod` and the source has header
-  `Accept: application/json`
-- **THEN** the outgoing request includes both headers
-
-#### Scenario: Source header overrides Connector default on collision
-- **WHEN** the Connector has default header `Accept: application/xml` and the source has
-  header `Accept: application/json`
-- **THEN** the outgoing request's `Accept` header is `application/json`
 
 ### Requirement: Credentials are never returned in API responses
 The `DataSource` response object SHALL emit a redacted `config` payload: SQL passwords SHALL
@@ -160,6 +146,22 @@ display and edit sources without round-tripping the stored config.
   from the source entirely; the equivalent guarantee is now owned by
   `connectors/connector-credential-binding`
 
+## ADDED Requirements
+
+### Requirement: Header precedence between Connector and source
+The system SHALL merge the Connector's default headers with the source's own headers before
+issuing a request, with the **source's** value winning on a key collision.
+
+#### Scenario: Non-colliding headers are both applied
+- **WHEN** the Connector has default header `X-Env: prod` and the source has header
+  `Accept: application/json`
+- **THEN** the outgoing request includes both headers
+
+#### Scenario: Source header overrides Connector default on collision
+- **WHEN** the Connector has default header `Accept: application/xml` and the source has
+  header `Accept: application/json`
+- **THEN** the outgoing request's `Accept` header is `application/json`
+
 ### Requirement: Pre-existing REST sources are migrated to reference a Connector
 The system SHALL migrate every pre-existing `rest_api` data source (stored in the legacy
 inline `url`/`auth`/`headers` shape) into the Connector-referencing shape, once, such that the
@@ -184,8 +186,6 @@ produce an invalid or zero-value config for a row it cannot parse.
   legacy shape nor the new Connector-referencing shape
 - **THEN** the row is left untouched, the failure is logged with the source id, and no
   Connector or config rewrite is produced for it
-
-## ADDED Requirements
 
 ### Requirement: Infer and test-connection accept the legacy bare-url shape ephemerally
 The backend SHALL accept a bare `url` (no `connectorId`) in `POST /api/sources/infer` and
