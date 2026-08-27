@@ -9,7 +9,7 @@ own copy of a credential.
 
 ### Requirement: Connector CRUD lifecycle
 The system SHALL allow an authenticated owner to create, read, list, update (non-secret
-fields only), and delete a Connector.
+fields only), rotate the credential, and delete a Connector.
 
 #### Scenario: Create a Connector
 - **WHEN** an authenticated user submits a name, kind (`rest_api` first), base host/URL, and
@@ -19,8 +19,14 @@ fields only), and delete a Connector.
 
 #### Scenario: Read and list return metadata only
 - **WHEN** an authenticated user reads a single Connector or lists their Connectors
-- **THEN** the response includes id, name, kind, base host/URL, and timestamps, and never
-  includes the raw or ciphertext credential value
+- **THEN** the response includes id, name, kind, base host/URL, timestamps, and a dependent
+  count, and never includes the raw or ciphertext credential value
+
+#### Scenario: Dependent count reflects referencing sources
+- **WHEN** an authenticated user reads or lists a Connector that N `rest_api` data sources
+  currently reference
+- **THEN** the response's dependent count for that Connector equals N, updating as dependent
+  sources are added or removed
 
 #### Scenario: Update non-secret fields
 - **WHEN** an authenticated owner submits a name or base host/URL change
@@ -29,6 +35,18 @@ fields only), and delete a Connector.
 #### Scenario: Update rejects a credential field
 - **WHEN** an update request includes a credential/secret value
 - **THEN** the system rejects the request rather than silently accepting or ignoring it
+
+#### Scenario: Rotate a Connector's credential
+- **WHEN** an authenticated owner submits a new credential value for their Connector via the
+  dedicated rotation operation
+- **THEN** the system encrypts and persists the new value, the Connector's dependents continue
+  resolving auth via the same Connector id with the new value, and the response never echoes
+  the new or old credential value
+
+#### Scenario: Rotation fails closed when the master key is unconfigured
+- **WHEN** a rotation request is submitted while no encryption master key is configured
+- **THEN** the system rejects the request and leaves the existing credential untouched — no
+  partial or plaintext write occurs
 
 #### Scenario: Delete a Connector with no dependents
 - **WHEN** an authenticated owner deletes a Connector that no data source references
@@ -45,6 +63,11 @@ already used for `data_sources`, granting no implicit cross-user access.
 #### Scenario: A user cannot list another user's Connectors
 - **WHEN** an authenticated user lists Connectors
 - **THEN** the response contains only Connectors that user owns
+
+#### Scenario: A user cannot rotate another user's Connector credential
+- **WHEN** an authenticated user submits a rotation request for a Connector id owned by a
+  different user
+- **THEN** the system returns not-found and performs no write
 
 ### Requirement: Deleting a Connector with dependent sources is blocked
 The system SHALL refuse to delete a Connector that is still referenced by a dependent
