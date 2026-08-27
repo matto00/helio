@@ -63,7 +63,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       ownerId   = ownerId,
       createdAt = now,
       updatedAt = now,
-      config    = RestApiConfig(url = "https://example.test", method = "GET")
+      config    = RestApiConfig(connectorId = "conn-1", endpoint = "https://example.test", method = "GET")
     )
   }
 
@@ -179,7 +179,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       val csv      = CsvSource(DataSourceId(UUID.randomUUID().toString), "csv-src", owner1, now, now,
                                 CsvSourceConfig("uploads/test.csv"))
       val rest     = RestSource(DataSourceId(UUID.randomUUID().toString), "rest-src", owner1, now, now,
-                                 RestApiConfig(url = "https://api.example/test", method = "POST"))
+                                 RestApiConfig(connectorId = "conn-2", endpoint = "https://api.example/test", method = "POST"))
       val sql      = SqlSource(DataSourceId(UUID.randomUUID().toString), "sql-src", owner1, now, now,
                                 SqlSourceConfig("postgresql", "host", 5432, "db", "u", "p", "SELECT 1"))
       val static   = StaticSource(DataSourceId(UUID.randomUUID().toString), "static-src", owner1, now, now)
@@ -200,8 +200,9 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       sqlRound.config.query    shouldBe "SELECT 1"
       sqlRound.config.dialect  shouldBe "postgresql"
       val restRound = await(repo.findByIdInternal(rest.id)).get.asInstanceOf[RestSource]
-      restRound.config.url     shouldBe "https://api.example/test"
-      restRound.config.method  shouldBe "POST"
+      restRound.config.connectorId shouldBe "conn-2"
+      restRound.config.endpoint    shouldBe "https://api.example/test"
+      restRound.config.method      shouldBe "POST"
     }
   }
 }

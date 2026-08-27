@@ -2,10 +2,9 @@ package com.helio.domain.connectors
 
 import com.helio.domain.connectors.ConnectorFieldDescriptor
 import com.helio.domain.connectors.ConnectorMetadata
-import com.helio.domain.model.RestApiAuth
 import com.helio.domain.connectors.{ConnectorDriver, RestApiConnectorDriver}
 import com.helio.domain.engine.SchemaInferenceEngine
-import com.helio.domain.model.RestApiConfig
+import com.helio.domain.model.{EphemeralRestConfig, RestApiConfig}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.Http
@@ -25,10 +24,12 @@ import scala.concurrent.{Await, Future}
  *  values, `testConnection` success on a non-JSON 200 body (proves the body is never parsed as
  *  JSON), and `fetch`/`inferSchema` parity with the existing `fetch`/`toRows` methods.
  *
- *  `testConnection` always performs a real request/auth/header pipeline (it does not consult
- *  `fetchOverride` — see design.md Decision 4), so these tests bind a real local HTTP server
- *  rather than mocking `fetch`, following the pattern already used by `ContentSourceSupportSpec`
- *  and `DataSourceServiceSpec`. */
+ *  HEL-822: exercised via the `EphemeralRestConfig` path (design.md Decision 1c) — no
+ *  `ConnectorRepository` is wired in this spec (no DB fixture here), and the ephemeral path
+ *  shares the exact same HTTP-issue/response-parsing code (`issueAndParse`/`issueTest`) as the
+ *  Connector-resolving path, so this still proves the request/response pipeline end to end.
+ *  Connector-resolution + auth-header-application coverage lives in
+ *  `RestApiConnectorDriverConnectorResolutionSpec` (DB-backed). */
 class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
@@ -72,66 +73,64 @@ class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRoute
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  private def config(path: String): RestApiConfig =
-    RestApiConfig(url = urlFor(path), method = "GET", auth = RestApiAuth.NoAuth, headers = Map.empty)
+  private def config(path: String): EphemeralRestConfig =
+    EphemeralRestConfig(url = urlFor(path), method = "GET", headers = Map.empty)
 
-  private val connector: ConnectorDriver[RestApiConfig] = new RestApiConnectorDriver()
+  private val connector: RestApiConnectorDriver = new RestApiConnectorDriver()
 
   "RestApiConnectorDriver.metadata" should {
-    // HEL-484: requiredFields now non-empty (design.md Decision 2) — a
-    // behavior-driven update, the production value genuinely changed.
-    "expose kind=rest_api, displayName=REST API, supportsIncremental=false, authKind=configurable, requiredFields=[url]" in {
-      connector.metadata shouldBe ConnectorMetadata(
+    // HEL-822 design.md Decision 10: requiredFields now advertises the primary (new) required
+    // field, `connectorId` — the legacy `url` alternative is dual-supported but not also
+    // listed here.
+    "expose kind=rest_api, displayName=REST API, supportsIncremental=false, authKind=configurable, requiredFields=[connectorId]" in {
+      val asConnector: ConnectorDriver[RestApiConfig] = connector
+      asConnector.metadata shouldBe ConnectorMetadata(
         kind = "rest_api",
         displayName = "REST API",
         supportsIncremental = false,
         authKind = "configurable",
-        requiredFields = Vector(ConnectorFieldDescriptor(name = "url", label = "URL", secret = false))
+        requiredFields = Vector(ConnectorFieldDescriptor(name = "connectorId", label = "Connector", secret = false))
       )
     }
   }
 
-  "RestApiConnectorDriver.testConnection" should {
+  "RestApiConnectorDriver.testConnectionEphemeral" should {
 
     "succeed on a non-JSON 200 response body (never parses the body as JSON)" in {
-      await(connector.testConnection(config("plain-text-ok"))) shouldBe Right(())
+      await(connector.testConnectionEphemeral(config("plain-text-ok"))) shouldBe Right(())
     }
 
     "fail with an HTTP-status message on a non-2xx response" in {
-      val result = await(connector.testConnection(config("server-error")))
+      val result = await(connector.testConnectionEphemeral(config("server-error")))
       result.isLeft shouldBe true
       result.left.getOrElse("") should include("500")
     }
 
     "fail with the 'Request failed' category message when the connection cannot be made" in {
-      val unreachable = RestApiConfig(url = "http://localhost:1/unreachable", method = "GET")
-      await(connector.testConnection(unreachable)) shouldBe Left("Request failed")
+      val unreachable = EphemeralRestConfig(url = "http://localhost:1/unreachable", method = "GET")
+      await(connector.testConnectionEphemeral(unreachable)) shouldBe Left("Request failed")
     }
   }
 
-  "RestApiConnectorDriver.fetch(config, maxRows) via the Connector trait" should {
+  "RestApiConnectorDriver.fetchEphemeral" should {
 
-    "match RestApiConnectorDriver.toRows(RestApiConnectorDriver.fetch(config)) truncated to maxRows" in {
-      val plain = new RestApiConnectorDriver()
-      val expected = await(plain.fetch(config("json-array"))).map(json => plain.toRows(json).take(2))
+    "match RestApiConnectorDriver.toRows(RestApiConnectorDriver.fetchEphemeral(config)) truncated" in {
+      val expected = await(connector.fetchEphemeral(config("json-array"))).map(json => connector.toRows(json).take(2))
 
-      val viaTrait = await(connector.fetch(config("json-array"), maxRows = 2))
-      viaTrait shouldBe expected
-      viaTrait shouldBe Right(Vector(
+      expected shouldBe Right(Vector(
         JsObject("id" -> JsNumber(1), "name" -> JsString("a")),
         JsObject("id" -> JsNumber(2), "name" -> JsString("b"))
       ))
     }
   }
 
-  "RestApiConnectorDriver.inferSchema via the Connector trait" should {
+  "RestApiConnectorDriver.inferSchemaEphemeral" should {
 
     "derive fields from the same JSON payload SourceService.inferRest would infer from" in {
-      val plain    = new RestApiConnectorDriver()
-      val rawJson  = await(plain.fetch(config("json-array"))).getOrElse(fail("expected Right"))
+      val rawJson  = await(connector.fetchEphemeral(config("json-array"))).getOrElse(fail("expected Right"))
       val expected = SchemaInferenceEngine.fromJson(rawJson)
 
-      val result = await(connector.inferSchema(config("json-array")))
+      val result = await(connector.inferSchemaEphemeral(config("json-array")))
       result.map(_.fields.map(_.name)) shouldBe Right(expected.fields.map(_.name))
     }
   }

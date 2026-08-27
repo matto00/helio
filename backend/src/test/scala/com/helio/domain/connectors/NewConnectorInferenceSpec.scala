@@ -31,15 +31,15 @@ object RowSupplyingConnector extends ConnectorDriver[RowSupplyingConfig] {
     authKind = "none"
   )
 
-  def testConnection(config: RowSupplyingConfig)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+  def testConnection(config: RowSupplyingConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future.successful(Right(()))
 
-  def fetch(config: RowSupplyingConfig, maxRows: Int)(implicit ec: ExecutionContext)
+  def fetch(config: RowSupplyingConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext)
       : Future[Either[String, Vector[JsValue]]] =
     Future.successful(Right(config.rows.take(maxRows)))
 
-  def inferSchema(config: RowSupplyingConfig)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
-    fetch(config, maxRows = 100).map(_.map(SchemaInferenceEngine.inferSchemaFromRows))
+  def inferSchema(config: RowSupplyingConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+    fetch(config, maxRows = 100, ConnectorResolveContext.Internal).map(_.map(SchemaInferenceEngine.inferSchemaFromRows))
 }
 
 class NewConnectorInferenceSpec extends AnyWordSpec with Matchers {
@@ -56,7 +56,7 @@ class NewConnectorInferenceSpec extends AnyWordSpec with Matchers {
       )
       val config = RowSupplyingConfig(rows)
 
-      val schema = await(RowSupplyingConnector.inferSchema(config)).getOrElse(fail("expected Right"))
+      val schema = await(RowSupplyingConnector.inferSchema(config, ConnectorResolveContext.Internal)).getOrElse(fail("expected Right"))
       val byName = schema.fields.map(f => f.name -> f).toMap
 
       byName.keySet shouldBe Set("sku", "qty", "note")
@@ -70,7 +70,7 @@ class NewConnectorInferenceSpec extends AnyWordSpec with Matchers {
 
     "reflect exactly the fields present in the supplied rows — no fabricated extras" in {
       val rows: Vector[JsValue] = Vector(JsObject("only_field" -> JsBoolean(true)))
-      val result = await(RowSupplyingConnector.inferSchema(RowSupplyingConfig(rows)))
+      val result = await(RowSupplyingConnector.inferSchema(RowSupplyingConfig(rows), ConnectorResolveContext.Internal))
       result.map(_.fields.map(_.name)) shouldBe Right(Seq("only_field"))
     }
   }

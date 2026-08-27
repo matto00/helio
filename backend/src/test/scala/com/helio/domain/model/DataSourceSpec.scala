@@ -29,7 +29,7 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
 
     "RestSource carries kind 'rest_api'" in {
       val ds: DataSource = RestSource(id, "rest-src", owner, now, now,
-        RestApiConfig(url = "https://example.test", method = "GET"))
+        RestApiConfig(connectorId = "conn-1", endpoint = "https://example.test", method = "GET"))
       ds.kind shouldBe "rest_api"
     }
 
@@ -62,7 +62,7 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
     "exhaustive pattern matching covers all 7 subtypes" in {
       def describe(ds: DataSource): String = ds match {
         case c: CsvSource    => s"csv:${c.config.path}"
-        case r: RestSource   => s"rest:${r.config.url}"
+        case r: RestSource   => s"rest:${r.config.connectorId}"
         case s: SqlSource    => s"sql:${s.config.query}"
         case _: StaticSource => "static"
         case t: TextSource   => s"text:${t.config.path}"
@@ -70,7 +70,7 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
         case i: ImageSource  => s"image:${i.config.path}"
       }
       describe(CsvSource(id, "n", owner, now, now, CsvSourceConfig("p")))                                              shouldBe "csv:p"
-      describe(RestSource(id, "n", owner, now, now, RestApiConfig(url = "u")))                                          shouldBe "rest:u"
+      describe(RestSource(id, "n", owner, now, now, RestApiConfig(connectorId = "u")))                                          shouldBe "rest:u"
       describe(SqlSource(id, "n", owner, now, now, SqlSourceConfig("pg", "h", 1, "d", "u", "pw", "Q")))                  shouldBe "sql:Q"
       describe(StaticSource(id, "n", owner, now, now))                                                                  shouldBe "static"
       describe(TextSource(id, "n", owner, now, now, TextSourceConfig("text/p.txt", Some("https://example.com/p.txt")))) shouldBe "text:text/p.txt"

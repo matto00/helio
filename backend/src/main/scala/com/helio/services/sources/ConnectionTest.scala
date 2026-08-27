@@ -1,7 +1,7 @@
 package com.helio.services.sources
 
 import com.helio.api.protocols.sources.TestConnectionResponse
-import com.helio.domain.connectors.ConnectorDriver
+import com.helio.domain.connectors.{ConnectorDriver, ConnectorResolveContext}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -19,8 +19,8 @@ object ConnectionTest {
    *  connector's `testConnection`) with `ok = false`. This result is always the `Right` side of the
    *  caller's `ServiceError` channel — a connector-level test failure is a domain outcome, not an
    *  HTTP error (design.md Decision 1). */
-  def run[Config](connector: ConnectorDriver[Config], config: Config)(implicit ec: ExecutionContext): Future[TestConnectionResponse] =
-    connector.testConnection(config).map {
+  def run[Config](connector: ConnectorDriver[Config], config: Config, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[TestConnectionResponse] =
+    connector.testConnection(config, resolveContext).map {
       case Right(())  => TestConnectionResponse(ok = true, error = None)
       case Left(err)  => TestConnectionResponse(ok = false, error = Some(err))
     }

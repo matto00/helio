@@ -116,7 +116,7 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
       ownerId   = ownerId,
       createdAt = now,
       updatedAt = now,
-      config    = RestApiConfig(url = "https://example.test", method = "GET")
+      config    = RestApiConfig(connectorId = "conn-1", endpoint = "https://example.test", method = "GET")
     )
   }
 

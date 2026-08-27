@@ -24,7 +24,7 @@ import com.helio.api.routes.pipelines._
 import com.helio.api.routes.proposals._
 import com.helio.api.routes.sources._
 import com.helio.api.routes.workspace._
-import com.helio.domain.model.{DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId}
+import com.helio.domain.model.{ConnectorId, DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.email.{EmailConfig, EmailSender, HttpResendEmailSender}
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
@@ -250,7 +250,18 @@ final class ApiRoutes(
   // is invoked internally, no extra wiring needed here.
   private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker, auditService)
   private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService)
-  private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector, auditService)
+  // HEL-822: same nullable-optional wiring pattern as connectorEntityServiceOpt below —
+  // constructed early (before sourceService) so SourceService.createRest's legacy-url
+  // dual-support path (task 1.2a) has a repository to synthesize an implicit Connector
+  // through; reused (not re-constructed) at connectorEntityServiceOpt's site below.
+  private val connectorRepoOpt: Option[ConnectorRepository] =
+    Option(dbContext).map { ctx =>
+      val masterKeyProvider = new EnvMasterKeyProvider()
+      val secretBackend     = new EncryptedSecretBackend(masterKeyProvider)
+      val connectorCredentialRepo = new ConnectorCredentialRepository(ctx, secretBackend)
+      new ConnectorRepository(ctx, connectorCredentialRepo)
+    }
+  private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector, auditService, connectorRepoOpt.orNull)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, auditService)
   // HEL-365: separate from dataTypeService (CRUD-only, design.md D6) — reads
   // the same dataTypeRepo/dataTypeRowRepo to build the panel-capabilities report.
@@ -429,13 +440,13 @@ final class ApiRoutes(
   // fixtures that don't pass a DbContext simply don't get the /api/connectors routes
   // mounted. `EncryptedSecretBackend`/`EnvMasterKeyProvider` are consumed as-is (HEL-536) --
   // no new encryption mechanism here (design.md).
+  // HEL-822 design.md Decision 5 (revised, round-4 CR2): wires the real `dependentCount`
+  // seam here (not `Main.scala` — the original design draft's wrong file) — `dataSourceRepo`
+  // is already in scope at this construction site. Reuses `connectorRepoOpt` (constructed
+  // above, alongside `sourceService`) instead of building a second `ConnectorRepository`.
   private val connectorEntityServiceOpt: Option[ConnectorEntityService] =
-    Option(dbContext).map { ctx =>
-      val masterKeyProvider = new EnvMasterKeyProvider()
-      val secretBackend     = new EncryptedSecretBackend(masterKeyProvider)
-      val connectorCredentialRepo = new ConnectorCredentialRepository(ctx, secretBackend)
-      val connectorRepo           = new ConnectorRepository(ctx, connectorCredentialRepo)
-      new ConnectorEntityService(connectorRepo)
+    connectorRepoOpt.map { connectorRepo =>
+      new ConnectorEntityService(connectorRepo, dependentCount = (id: ConnectorId) => dataSourceRepo.countRestSourcesReferencing(id))
     }
   // HEL-371: unconditional (not Option-guarded, unlike workspaceTeardownServiceOpt
   // above) — every dependency (dashboardService/dataSourceService/dataTypeService/

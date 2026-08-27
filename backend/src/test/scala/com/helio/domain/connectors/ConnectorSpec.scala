@@ -25,15 +25,15 @@ object FixtureConnector extends ConnectorDriver[FixtureConfig] {
     authKind = "none"
   )
 
-  def testConnection(config: FixtureConfig)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+  def testConnection(config: FixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future.successful(if (config.reachable) Right(()) else Left("fixture unreachable"))
 
-  def inferSchema(config: FixtureConfig)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+  def inferSchema(config: FixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     Future.successful(
       Right(InferredSchema(Seq(InferredField("id", "Id", DataFieldType.IntegerType, nullable = false))))
     )
 
-  def fetch(config: FixtureConfig, maxRows: Int)(implicit ec: ExecutionContext)
+  def fetch(config: FixtureConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext)
       : Future[Either[String, Vector[JsValue]]] =
     Future.successful(
       Right((1 to config.rowCount).map(i => JsObject("id" -> JsNumber(i))).toVector.take(maxRows))
@@ -65,20 +65,20 @@ class ConnectorSpec extends AnyWordSpec with Matchers {
     }
 
     "return Right(()) from testConnection when the fixture reports reachable" in {
-      await(asConnector.testConnection(FixtureConfig(reachable = true, rowCount = 0))) shouldBe Right(())
+      await(asConnector.testConnection(FixtureConfig(reachable = true, rowCount = 0), ConnectorResolveContext.Internal)) shouldBe Right(())
     }
 
     "return Left with an error message from testConnection when the fixture reports unreachable" in {
-      await(asConnector.testConnection(FixtureConfig(reachable = false, rowCount = 0))) shouldBe Left("fixture unreachable")
+      await(asConnector.testConnection(FixtureConfig(reachable = false, rowCount = 0), ConnectorResolveContext.Internal)) shouldBe Left("fixture unreachable")
     }
 
     "return an InferredSchema from inferSchema" in {
-      val result = await(asConnector.inferSchema(FixtureConfig(reachable = true, rowCount = 3)))
+      val result = await(asConnector.inferSchema(FixtureConfig(reachable = true, rowCount = 3), ConnectorResolveContext.Internal))
       result.map(_.fields.map(_.name)) shouldBe Right(Seq("id"))
     }
 
     "return normalized JsObject rows from fetch, bounded by maxRows" in {
-      val result = await(asConnector.fetch(FixtureConfig(reachable = true, rowCount = 5), maxRows = 2))
+      val result = await(asConnector.fetch(FixtureConfig(reachable = true, rowCount = 5), maxRows = 2, resolveContext = ConnectorResolveContext.Internal))
       result shouldBe Right(Vector(JsObject("id" -> JsNumber(1)), JsObject("id" -> JsNumber(2))))
     }
 

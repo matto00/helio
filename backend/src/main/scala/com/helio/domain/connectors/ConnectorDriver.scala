@@ -1,9 +1,25 @@
 package com.helio.domain.connectors
 
-import com.helio.domain.model.InferredSchema
+import com.helio.domain.model.{AuthenticatedUser, InferredSchema}
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
+
+/** HEL-822: how a `ConnectorDriver[Config]` implementation that references a `Connector`
+ *  (currently only `RestApiConnectorDriver`) is allowed to resolve `connectorId`.
+ *  `Owned(user)` scopes the lookup to the caller's own Connectors (`findByIdOwned`) — used
+ *  by every request-driven path (`SourceService`, routes). `Internal` bypasses ownership
+ *  (`findByIdInternal`) — used ONLY by the pipeline-execution path
+ *  (`InProcessPipelineEngine`/`PipelineRunService`), mirroring
+ *  `DataSourceRepository.findByIdInternal`'s existing precedent: the pipeline itself is the
+ *  access boundary for a run, not per-artifact Connector ownership (design.md Decision 11).
+ *  Implementations that never reference a Connector (e.g. `SqlConnectorDriver`) ignore this
+ *  parameter entirely. */
+sealed trait ConnectorResolveContext
+object ConnectorResolveContext {
+  final case class Owned(user: AuthenticatedUser) extends ConnectorResolveContext
+  case object Internal                            extends ConnectorResolveContext
+}
 
 /** Describes a single required config field for a connector kind — name/label/secret-flag only,
  *  never a value. Consumed by the HEL-484 connector registry to tell a caller (frontend or agent)
@@ -93,12 +109,16 @@ trait ConnectorDriver[Config] {
   /** Static capabilities of this connector kind. */
   def metadata: ConnectorMetadata
 
-  /** Cheap reachability/auth check — does not perform a full data fetch. */
-  def testConnection(config: Config)(implicit ec: ExecutionContext): Future[Either[String, Unit]]
+  /** Cheap reachability/auth check — does not perform a full data fetch.
+   *  `resolveContext` (HEL-822) governs how an implementation that references a `Connector`
+   *  resolves it; implementations with no such reference ignore it. */
+  def testConnection(config: Config, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]]
 
-  /** Infers a schema from a live sample of the connector's data. */
-  def inferSchema(config: Config)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]]
+  /** Infers a schema from a live sample of the connector's data. See `testConnection` for
+   *  `resolveContext`. */
+  def inferSchema(config: Config, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]]
 
-  /** Fetches up to `maxRows` normalized rows (one `JsObject` per row). */
-  def fetch(config: Config, maxRows: Int)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]]
+  /** Fetches up to `maxRows` normalized rows (one `JsObject` per row). See `testConnection`
+   *  for `resolveContext`. */
+  def fetch(config: Config, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]]
 }

@@ -5,9 +5,9 @@ import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineStepRequest, DateBucketAnalyzeStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, InferredSchema, PipelineId, PipelineSchemaDrift, PipelineStepId, PipelineStepKind, SchemaDrift}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, PipelineId, PipelineSchemaDrift, PipelineStepId, PipelineStepKind, SchemaDrift}
 import com.helio.domain.engine.{PipelineAnalyzeService, SchemaField}
-import com.helio.domain.connectors.{RestApiConnectorDriver, SqlConnectorDriver}
+import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -303,7 +303,7 @@ final class PipelineService(
             }
         }
       case None =>
-        resolveInlineSourceSchema(proposal.source, proposal.pipelineName)
+        resolveInlineSourceSchema(proposal.source, proposal.pipelineName, user)
     }
 
   /** Inline-source branch of `resolveProposalSourceSchema` (design.md D2). Every
@@ -315,7 +315,8 @@ final class PipelineService(
    *  that would throw and surface as an unhandled 500. */
   private def resolveInlineSourceSchema(
       source:       PipelineProposalSource,
-      fallbackName: String
+      fallbackName: String,
+      user:         AuthenticatedUser
   ): Future[Either[ServiceError, (String, Vector[SchemaField])]] = {
     val name = source.name.getOrElse(fallbackName)
     source.`type` match {
@@ -329,26 +330,47 @@ final class PipelineService(
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(_) =>
-                SqlConnectorDriver.inferSchema(domainConfig).map {
+                SqlConnectorDriver.inferSchema(domainConfig, ConnectorResolveContext.Internal).map {
                   case Left(err)     => Left(ServiceError.BadGateway(err))
                   case Right(schema) => Right((name, toSchemaFields(schema)))
                 }
             }
         }
       case Some(DataSourceKind.RestApi) =>
+        // HEL-822 design.md Decision 1c revised (round-3 CR3): a bare `url` resolves
+        // ephemerally (never persists a Connector — a pipeline proposal is provisional); a
+        // `connectorId` resolves the real Connector, ownership-scoped to the acting user.
         source.restConfig match {
           case None =>
             Future.successful(Left(ServiceError.BadRequest("inline 'rest_api' source requires a 'config' object")))
+          case Some(payload) if payload.auth.isDefined =>
+            Future.successful(Left(ServiceError.BadRequest("auth is not accepted on a REST source — auth lives on the referenced Connector")))
           case Some(payload) =>
-            RestApiConfigPayload.toDomain(payload) match {
-              case Left(err) =>
-                Future.successful(Left(ServiceError.BadRequest(err)))
-              case Right(domainConfig) =>
-                Option(connector) match {
-                  case None =>
-                    Future.successful(Left(ServiceError.InternalError("REST connector not configured")))
-                  case Some(c) =>
-                    c.inferSchema(domainConfig).map {
+            Option(connector) match {
+              case None =>
+                Future.successful(Left(ServiceError.InternalError("REST connector not configured")))
+              case Some(c) =>
+                (payload.connectorId, payload.url) match {
+                  case (Some(_), Some(_)) =>
+                    Future.successful(Left(ServiceError.BadRequest("provide exactly one of connectorId or url")))
+                  case (None, None) =>
+                    Future.successful(Left(ServiceError.BadRequest("Missing required fields: connectorId or url")))
+                  case (Some(_), None) =>
+                    RestApiConfigPayload.toDomain(payload) match {
+                      case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+                      case Right(domainConfig) =>
+                        c.inferSchema(domainConfig, ConnectorResolveContext.Owned(user)).map {
+                          case Left(err)     => Left(ServiceError.BadGateway(err))
+                          case Right(schema) => Right((name, toSchemaFields(schema)))
+                        }
+                    }
+                  case (None, Some(url)) =>
+                    val ephemeral = EphemeralRestConfig(
+                      url     = url,
+                      method  = payload.method.getOrElse("GET"),
+                      headers = payload.headers.getOrElse(Map.empty)
+                    )
+                    c.inferSchemaEphemeral(ephemeral).map {
                       case Left(err)     => Left(ServiceError.BadGateway(err))
                       case Right(schema) => Right((name, toSchemaFields(schema)))
                     }

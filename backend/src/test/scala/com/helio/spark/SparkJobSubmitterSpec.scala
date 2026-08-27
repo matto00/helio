@@ -96,7 +96,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         ownerId   = UserId("user-1"),
         createdAt = Instant.now(),
         updatedAt = Instant.now(),
-        config    = RestApiConfig(url = "https://example.test", method = "GET")
+        config    = RestApiConfig(connectorId = "conn-1", endpoint = "https://example.test", method = "GET")
       )
       an[IllegalArgumentException] should be thrownBy submitter.loadDataFrame(ds)
     }

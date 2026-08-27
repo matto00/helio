@@ -1,7 +1,7 @@
 package com.helio.services.sources
 
 import com.helio.services.sources.CreateSourceEnvelope
-import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata}
+import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata, ConnectorResolveContext}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
@@ -37,13 +37,13 @@ object EnvelopeFixtureConnector extends ConnectorDriver[EnvelopeFixtureConfig] {
     authKind = "none"
   )
 
-  def testConnection(config: EnvelopeFixtureConfig)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+  def testConnection(config: EnvelopeFixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future.successful(Right(()))
 
-  def fetch(config: EnvelopeFixtureConfig, maxRows: Int)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
+  def fetch(config: EnvelopeFixtureConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
     Future.successful(Right(Vector.empty))
 
-  def inferSchema(config: EnvelopeFixtureConfig)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+  def inferSchema(config: EnvelopeFixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     Future.successful(config.result)
 }
 
@@ -99,7 +99,7 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
       ownerId   = user.id,
       createdAt = now,
       updatedAt = now,
-      config    = RestApiConfig(url = "http://example.invalid/data", method = "GET")
+      config    = RestApiConfig(connectorId = "conn-1", endpoint = "http://example.invalid/data", method = "GET")
     )
     await(dataSourceRepo.insert(source, user)).asInstanceOf[RestSource]
   }

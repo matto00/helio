@@ -11,9 +11,11 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
+import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -42,6 +44,7 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
   private var db: JdbcBackend.Database             = _
   private var dataTypeRepo: DataTypeRepository     = _
   private var dataSourceRepo: DataSourceRepository = _
+  private var connectorRepo: ConnectorRepository   = _
 
   private val owner = UserId(UUID.randomUUID().toString)
   private val user  = AuthenticatedUser(owner)
@@ -58,6 +61,12 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
     val ctx        = new DbContext(db, db)
     dataTypeRepo   = new DataTypeRepository(ctx)
     dataSourceRepo = new DataSourceRepository(ctx)
+    connectorRepo  = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider())))
+    // HEL-822: SourceService.createRest's bare-url dual-support path now writes a real
+    // `connectors`/`connector_credentials` row FK'd to `users` — seed one for `owner` (this
+    // spec never needed a real `users` row before HEL-822).
+    import slick.jdbc.PostgresProfile.api._
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES (${owner.value}::uuid, ${s"${owner.value}@sourceservicespec.test"}, now())"""))
   }
 
   override def afterAll(): Unit = {
@@ -93,10 +102,10 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
     new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(response)))
 
   private def service(connector: RestApiConnectorDriver): SourceService =
-    new SourceService(dataSourceRepo, dataTypeRepo, connector)
+    new SourceService(dataSourceRepo, dataTypeRepo, connector, connectorRepo = connectorRepo)
 
   private val restConfigPayload =
-    RestApiConfigPayload(url = "http://example.invalid/data", method = Some("GET"), auth = None, headers = None)
+    RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
 
   // ── createSql ────────────────────────────────────────────────────────────
 
@@ -204,13 +213,13 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       val json: JsValue = JsObject("id" -> JsNumber(1), "active" -> JsBoolean(true))
       val svc            = service(restConnector(Right(json)))
 
-      val schema = await(svc.inferRest(restConfigPayload)).getOrElse(fail("expected Right"))
+      val schema = await(svc.inferRest(restConfigPayload, user)).getOrElse(fail("expected Right"))
       schema.fields.map(_.name) should contain theSameElementsAs Seq("id", "active")
     }
 
     "return a BadGateway ServiceError carrying the connector's error message when the fetch fails" in {
       val svc    = service(restConnector(Left("Request failed")))
-      val result = await(svc.inferRest(restConfigPayload))
+      val result = await(svc.inferRest(restConfigPayload, user))
       result shouldBe Left(ServiceError.BadGateway("Request failed"))
     }
   }

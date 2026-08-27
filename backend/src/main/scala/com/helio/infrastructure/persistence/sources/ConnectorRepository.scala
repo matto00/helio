@@ -94,6 +94,18 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
     ).map(_.map(rowToDomain))
   }
 
+  /** HEL-822 design.md Decision 11: unscoped lookup — no ownership check, runs under the
+   *  privileged pool. Used ONLY by the pipeline-execution path
+   *  (`InProcessPipelineEngine`/`PipelineRunService`), mirroring
+   *  `DataSourceRepository.findByIdInternal`'s existing, already-reviewed precedent — the
+   *  pipeline itself is the access-control boundary for a run (`findByIdShared` already gates
+   *  who may run it), not per-artifact ownership of every Connector the run happens to touch.
+   *  Never used by `SourceService`/routes/`ConnectorEntityService`, which keep using
+   *  `findByIdOwned`. */
+  def findByIdInternal(id: ConnectorId): Future[Option[Connector]] =
+    ctx.withSystemContext(table.filter(_.id === UUID.fromString(id.value)).result.headOption)
+      .map(_.map(rowToDomain))
+
   def findAll(user: AuthenticatedUser): Future[Vector[Connector]] = {
     val ownerUuid = UUID.fromString(user.id.value)
     ctx.withUserContext(user.id.value)(

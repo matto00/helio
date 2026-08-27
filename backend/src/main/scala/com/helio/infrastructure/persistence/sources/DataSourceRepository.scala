@@ -3,18 +3,30 @@ package com.helio.infrastructure.persistence.sources
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.api.protocols.sources.DataSourceConfigCodec
 import com.helio.domain.model._
+import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
 import spray.json.{JsObject, JsString, JsonParser}
 
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.{ExecutionContext, Future}
 
 class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import DataSourceRepository._
 
+  private val log = LoggerFactory.getLogger(getClass)
+
   private val table = TableQuery[DataSourceTable]
+
+  // HEL-822 design.md Decision 6 revised (CR5): once-per-process `warn` logging for a
+  // sentinel-decoded row, keyed by source id, to avoid log-spamming every list call.
+  private val warnedRowIds = ConcurrentHashMap.newKeySet[String]()
+
+  private def warnOnce(sourceId: String, reason: String): Unit =
+    if (warnedRowIds.add(sourceId))
+      log.warn("rest_api data source {} decoded to a sentinel config ({}): row still listed, fetch will fail fast", sourceId, reason)
 
   /** Project a DB row into the typed ADT. Dispatch happens on the
    *  `source_type` column. Unknown kinds raise a loud
@@ -30,7 +42,18 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         val cfg = DataSourceConfigCodec.decodeCsv(row.config)
         CsvSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
       case DataSourceKind.RestApi =>
-        val cfg = DataSourceConfigCodec.decodeRest(row.config)
+        val cfg = DataSourceConfigCodec.decodeRest(row.config) match {
+          case Right(c) => c
+          case Left(reason) =>
+            // HEL-822 design.md Decision 6 revised (CR5): neither drop the row (it would
+            // vanish from GET /api/sources) nor throw (one bad row fails the whole list
+            // call). Sentinel `connectorId` fails fast at the Connector-resolution step on
+            // any subsequent fetch/preview/refresh attempt (task 2.3), never silently
+            // succeeding against nothing.
+            val sentinel = if (reason == "legacy-unmigrated") "__unmigrated__" else "__malformed__"
+            warnOnce(id.value, reason)
+            RestApiConfig(connectorId = sentinel)
+        }
         RestSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
       case DataSourceKind.Sql =>
         val cfg = DataSourceConfigCodec.decodeSql(row.config)
@@ -188,6 +211,42 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  before this method is invoked. */
   def delete(id: DataSourceId, user: AuthenticatedUser): Future[Boolean] =
     ctx.withUserContext(user.id.value)(table.filter(_.id === id.value).delete).map(_ > 0)
+
+  /** HEL-822 design.md Decision 5 (revised, skeptic round 4 CR2): the `dependentCount` seam's
+   *  real implementation — no `user` parameter, since by the time it runs inside
+   *  `ConnectorRepository.delete`, ownership of the Connector has already been verified
+   *  (`findByIdOwned`), and a `data_sources` row can only ever be created referencing a
+   *  `connectorId` the creating user already owns — so any row whose
+   *  `config->>'connectorId'` matches is guaranteed, by construction, to belong to the same
+   *  owner. Runs under `ctx.withSystemContext` (the privileged pool) — safe here because it
+   *  returns only a count, never row content. */
+  def countRestSourcesReferencing(connectorId: ConnectorId): Future[Int] = {
+    // JSONB-extract `config->>'connectorId'` — plain Slick (not slick-pg) has no typed JSONB
+    // operator over this String-mapped column, so this is a targeted raw-SQL query rather than
+    // a Slick query-DSL filter.
+    val action = sql"""select count(*) from data_sources
+                        where source_type = ${DataSourceKind.RestApi}
+                          and config ->> 'connectorId' = ${connectorId.value}""".as[Int].head
+    ctx.withSystemContext(action)
+  }
+
+  /** HEL-822 design.md Decision 7 (revised, round-3 CR6 — corrects the earlier design's
+   *  reference to a non-existent `updateConfig`). Used ONLY by the startup migration
+   *  (`RestSourceConnectorMigration`), never by any request-driven path — runs under
+   *  `ctx.withSystemContext` (privileged pool, no request-scoped user available), an
+   *  explicit, named RLS-context choice for a credential-bearing migration. */
+  /** HEL-822: all `rest_api` rows, regardless of owner, raw config — feeds
+   *  `RestSourceConnectorMigration`'s startup scan. Privileged (system context); the
+   *  migration itself decides per-row whether/how to touch a row (owned, ownerless,
+   *  malformed, already-migrated). */
+  def findAllRestApiRawInternal(): Future[Vector[(String, Option[UUID], String, String)]] =
+    ctx.withSystemContext(table.filter(_.sourceType === DataSourceKind.RestApi).result)
+      .map(_.map(r => (r.id, r.ownerId, r.name, r.config)).toVector)
+
+  def updateConfigInternal(id: DataSourceId, config: String): Future[Boolean] =
+    ctx.withSystemContext(
+      table.filter(_.id === id.value).map(r => (r.config, r.updatedAt)).update((config, Instant.now()))
+    ).map(_ > 0)
 }
 
 object DataSourceRepository {

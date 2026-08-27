@@ -88,7 +88,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
   // ── HEL-756 fixtures ─────────────────────────────────────────────────────────────────────────
 
   private def restConfig(url: String = "https://api.example.com/data"): RestApiConfigPayload =
-    RestApiConfigPayload(url = url, method = Some("GET"), auth = None, headers = None)
+    RestApiConfigPayload(url = Some(url), method = Some("GET"), auth = None, headers = None)
 
   private def sqlConfig(database: String = "app"): SqlSourceConfigPayload =
     SqlSourceConfigPayload(dialect = "postgresql", host = "db.example.com", port = 5432, database = database, user = "readonly", password = "", query = "SELECT 1")
@@ -282,7 +282,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     "dispatch a rest_api call to sourceService.testRest and return ok = true on success" in {
       val config         = restConfig()
       val sourceService = mock(classOf[SourceService])
-      when(sourceService.testRest(config)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      when(sourceService.testRest(config, user)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
       val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceService)
 
       val input  = JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))
@@ -295,7 +295,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     "dispatch a rest_api call to sourceService.testRest and return ok = false (e.g. DNS failure) as a normal Right" in {
       val config         = restConfig("https://lm-api-reads.espn.com/does-not-resolve")
       val sourceService = mock(classOf[SourceService])
-      when(sourceService.testRest(config)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = false, error = Some("DNS resolution failed")))))
+      when(sourceService.testRest(config, user)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = false, error = Some("DNS resolution failed")))))
       val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceService)
 
       val input  = JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))
@@ -392,7 +392,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     "let propose_pipeline proceed to validate after a prior test_connection success for the identical rest_api config" in {
       val config          = restConfig()
       val sourceServiceM  = mock(classOf[SourceService])
-      when(sourceServiceM.testRest(config)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      when(sourceServiceM.testRest(config, user)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
       val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceServiceM)
 
       await(executor.execute("test_connection", JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))))
@@ -429,7 +429,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     "still reject propose_pipeline after a test_connection call that returned ok = false" in {
       val config         = restConfig()
       val sourceServiceM = mock(classOf[SourceService])
-      when(sourceServiceM.testRest(config)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = false, error = Some("connection refused")))))
+      when(sourceServiceM.testRest(config, user)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = false, error = Some("connection refused")))))
       val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceServiceM)
 
       await(executor.execute("test_connection", JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))))
@@ -445,7 +445,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val testedConfig = restConfig("https://api.example.com/v1")
       val editedConfig = restConfig("https://api.example.com/v2")
       val sourceServiceM = mock(classOf[SourceService])
-      when(sourceServiceM.testRest(testedConfig)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      when(sourceServiceM.testRest(testedConfig, user)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
       val executor = newExecutor(mock(classOf[DataTypeRepository]), sourceService = sourceServiceM)
 
       await(executor.execute("test_connection", JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(testedConfig))))
@@ -461,7 +461,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     // call is required for any of them.
     "let propose_pipeline proceed to validate for a sourceId-referenced source with no test_connection call" in {
       val dataSourceRepo = mock(classOf[DataSourceRepository])
-      val existing         = RestSource(DataSourceId("src_existing"), "Existing REST", ownerId, now, now, RestApiConfig(url = "https://api.example.com", method = "GET", auth = RestApiAuth.NoAuth, headers = Map.empty))
+      val existing         = RestSource(DataSourceId("src_existing"), "Existing REST", ownerId, now, now, RestApiConfig(connectorId = "conn-1", endpoint = "https://api.example.com", method = "GET", headers = Map.empty))
       when(dataSourceRepo.findByIdOwned(DataSourceId("src_existing"), user)).thenReturn(Future.successful(Some(existing)))
       val realPipelineService = new PipelineProposalService(null, null, null, null, null, dataSourceRepo, null)
       val executor              = newExecutor(mock(classOf[DataTypeRepository]), pipelineProposalServiceOverride = realPipelineService)

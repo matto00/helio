@@ -130,6 +130,51 @@ class ConnectorEntityRoutesSpec
         status shouldBe StatusCodes.BadRequest
       }
     }
+
+    // HEL-822 design.md Decision 6 revised (CR6) / task 2.1b: a no-auth Connector is
+    // creatable with an explicitly-empty credential; bearer/api_key still reject one.
+    "allows an empty credential when config.authType is \"none\" (task 2.1b)" in {
+      val body = JsObject(
+        "name"       -> JsString("No-auth"),
+        "kind"       -> JsString(DataSourceKind.RestApi),
+        "baseUrl"    -> JsString("https://api.example.com"),
+        "config"     -> JsObject("authType" -> JsString("none")),
+        "credential" -> JsString("")
+      )
+      Post("/connectors", body) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+      }
+    }
+
+    "still rejects an empty credential when config.authType is \"bearer\" (task 2.1b, unchanged)" in {
+      val body = JsObject(
+        "name"       -> JsString("Bearer no cred"),
+        "kind"       -> JsString(DataSourceKind.RestApi),
+        "baseUrl"    -> JsString("https://api.example.com"),
+        "config"     -> JsObject("authType" -> JsString("bearer")),
+        "credential" -> JsString("")
+      )
+      Post("/connectors", body) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    // HEL-822 design.md Decision 1a revised (CR5) / task 1.2b: `implicit` is server-owned --
+    // a client-supplied `true` on a direct POST is silently overridden to `false`, never
+    // persisted as the client sent it.
+    "persists config.implicit = false regardless of a client-supplied true (task 1.2b)" in {
+      val body = JsObject(
+        "name"       -> JsString("Implicit spoof attempt"),
+        "kind"       -> JsString(DataSourceKind.RestApi),
+        "baseUrl"    -> JsString("https://api.example.com"),
+        "config"     -> JsObject("authType" -> JsString("none"), "implicit" -> JsBoolean(true)),
+        "credential" -> JsString("")
+      )
+      Post("/connectors", body) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[ConnectorMeta].config.asJsObject.fields("implicit") shouldBe JsBoolean(false)
+      }
+    }
   }
 
   "GET /api/connectors and GET /api/connectors/:id" should {
@@ -185,6 +230,22 @@ class ConnectorEntityRoutesSpec
       // Confirm the update was NOT applied at all (name unchanged too).
       Get(s"/connectors/${created.id}") ~> routesFor(userA) ~> check {
         responseAs[ConnectorMeta].name shouldBe "Rotate attempt"
+      }
+    }
+
+    // HEL-822 design.md Decision 1a revised (CR5) / task 1.2b: a PATCH cannot flip an
+    // existing Connector's `implicit` flag via a client-supplied `config`, in either
+    // direction -- created here as a normal (implicit: false) Connector, a PATCH trying to
+    // flip it to true is silently overridden back to false.
+    "PATCH cannot flip config.implicit via a client-supplied config (task 1.2b)" in {
+      val creds = createBody(name = "Not implicit", credential = "flip-attempt-secret")
+      val created = Post("/connectors", creds) ~> routesFor(userA) ~> check { responseAs[ConnectorMeta] }
+      created.config.asJsObject.fields("implicit") shouldBe JsBoolean(false)
+
+      val update = JsObject("config" -> JsObject("authType" -> JsString("none"), "implicit" -> JsBoolean(true)))
+      Patch(s"/connectors/${created.id}", update) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[ConnectorMeta].config.asJsObject.fields("implicit") shouldBe JsBoolean(false)
       }
     }
   }

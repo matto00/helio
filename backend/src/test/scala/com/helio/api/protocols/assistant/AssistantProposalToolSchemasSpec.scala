@@ -42,7 +42,15 @@ class AssistantProposalToolSchemasSpec
 
       val restExample = examples.find(_.asJsObject.fields.get("type").contains(JsString("rest_api")))
         .getOrElse(fail("no rest_api example in test_connection's schema"))
-      restExample.asJsObject.fields("config").convertTo[RestApiConfigPayload]
+      val payload = restExample.asJsObject.fields("config").convertTo[RestApiConfigPayload]
+
+      // HEL-822 cycle-2 CR1: the pin must exercise `toDomain` (not just spray-json decode) —
+      // that is the boundary that actually broke when `auth` was advertised on a rest_api
+      // example while `toDomain` started hard-rejecting it. A `Left` here means the schema's
+      // own worked example is unusable by the assistant.
+      RestApiConfigPayload.toDomain(payload) shouldBe a[Right[_, _]]
+      payload.auth shouldBe None
+      payload.connectorId shouldBe defined
     }
 
     "decode a sql example's config to SqlSourceConfigPayload with no DeserializationException" in {
@@ -73,6 +81,15 @@ class AssistantProposalToolSchemasSpec
       val decoded = examplesOf("propose_pipeline").head.convertTo[PipelineProposal]
       decoded.source.sourceId shouldBe None
       decoded.source.`type` shouldBe defined
+    }
+
+    // HEL-822 cycle-2 CR1: the inline rest_api example's config must itself pass
+    // RestApiConfigPayload.toDomain — PipelineService.resolveInlineSourceSchema rejects an
+    // `auth`-carrying or url+connectorId-ambiguous config before it ever reaches a connector.
+    "the inline rest_api example's config decodes through RestApiConfigPayload.toDomain" in {
+      val decoded = examplesOf("propose_pipeline").head.convertTo[PipelineProposal]
+      decoded.source.restConfig shouldBe defined
+      RestApiConfigPayload.toDomain(decoded.source.restConfig.get) shouldBe a[Right[_, _]]
     }
   }
 

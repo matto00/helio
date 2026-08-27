@@ -17,8 +17,7 @@ object DataSourceConfigCodec extends DefaultJsonProtocol {
 
   private implicit val csvCfgFmt: RootJsonFormat[CsvSourceConfigPayload] = jsonFormat1(CsvSourceConfigPayload.apply)
   private implicit val sqlCfgFmt: RootJsonFormat[SqlSourceConfigPayload] = jsonFormat7(SqlSourceConfigPayload.apply)
-  private implicit val restAuthFmt: RootJsonFormat[RestApiAuthPayload]   = jsonFormat5(RestApiAuthPayload.apply)
-  private implicit val restCfgFmt: RootJsonFormat[RestApiConfigPayload]  = jsonFormat4(RestApiConfigPayload.apply)
+  private implicit val restCfgFmt: RootJsonFormat[RestApiConfigPayload]  = jsonFormat8(RestApiConfigPayload.apply)
 
   def decodeCsv(raw: String): CsvSourceConfig = {
     val obj = JsonParser(raw) match {
@@ -35,18 +34,38 @@ object DataSourceConfigCodec extends DefaultJsonProtocol {
   def encodeCsv(cfg: CsvSourceConfig): String =
     JsObject("path" -> JsString(cfg.path)).compactPrint
 
-  /** Decode REST config. Empty / partial / malformed stored blobs (seeded
-   *  fixtures from the pre-CS2c-2 era) fall back to a minimal `RestApiConfig`
-   *  with an empty URL — the engine paths that reject REST sources at the
-   *  route layer never read the URL, so a placeholder is safe. */
-  def decodeRest(raw: String): RestApiConfig =
-    try {
-      RestApiConfigPayload.toDomain(JsonParser(raw).convertTo[RestApiConfigPayload])
-        .getOrElse(RestApiConfig(url = ""))
-    } catch {
-      case _: DeserializationException => RestApiConfig(url = "")
-      case _: NoSuchElementException   => RestApiConfig(url = "")
+  /** Decode REST config (HEL-822 design.md Decision 6 — fail-loud, no silent corruption).
+   *  Three distinct, never-conflated outcomes:
+   *  1. New shape, valid `connectorId` -> `Right(RestApiConfig(...))`.
+   *  2. Legacy shape (`url` present, no `connectorId`) -> `Left("legacy-unmigrated")` — the
+   *     *expected* transient pre-migration state, matched on explicitly by
+   *     `RestSourceConnectorMigration`, never silently coerced into the new shape with a
+   *     synthesized empty `connectorId`.
+   *  3. Genuinely malformed (neither shape parses) -> `Left("malformed: <message>")`.
+   *
+   *  Never `.getOrElse`'s a `Left` back to a zero-value config — every call site handles the
+   *  `Either` explicitly (`DataSourceRepository.rowToDomain` maps a `Left` to a sentinel
+   *  `RestApiConfig`, never drops or crashes on the row). */
+  def decodeRest(raw: String): Either[String, RestApiConfig] = {
+    val parsed = try Right(JsonParser(raw)) catch { case e: Exception => Left(e) }
+    parsed match {
+      case Left(_) => Left("malformed: invalid JSON")
+      case Right(json) =>
+        val obj = json match { case o: JsObject => o; case _ => JsObject.empty }
+        obj.fields.get("connectorId").collect { case JsString(s) if s.trim.nonEmpty => s.trim } match {
+          case Some(_) =>
+            try RestApiConfigPayload.toDomain(json.convertTo[RestApiConfigPayload].copy(url = None))
+            catch {
+              case _: DeserializationException => Left("malformed: could not decode rest_api config")
+            }
+          case None =>
+            obj.fields.get("url").collect { case JsString(u) if u.nonEmpty => u } match {
+              case Some(_) => Left("legacy-unmigrated")
+              case None    => Left("malformed: neither connectorId nor url present")
+            }
+        }
     }
+  }
 
   def encodeRest(cfg: RestApiConfig): String =
     RestApiConfigPayload.fromDomain(cfg).toJson.compactPrint

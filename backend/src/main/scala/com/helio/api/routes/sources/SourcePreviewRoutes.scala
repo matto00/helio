@@ -45,7 +45,7 @@ final class SourcePreviewRoutes(
               } else {
                 Try(json.convertTo[RestApiConfigPayload]) match {
                   case Success(payload) =>
-                    ServiceResponse.run(sourceService.inferRest(payload))(identity)
+                    ServiceResponse.run(sourceService.inferRest(payload, user))(identity)
                   case Failure(e) =>
                     complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
                 }
@@ -70,7 +70,7 @@ final class SourcePreviewRoutes(
               } else {
                 Try(json.convertTo[RestApiConfigPayload]) match {
                   case Success(payload) =>
-                    ServiceResponse.run(sourceService.testRest(payload))(identity)
+                    ServiceResponse.run(sourceService.testRest(payload, user))(identity)
                   case Failure(e) =>
                     complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
                 }

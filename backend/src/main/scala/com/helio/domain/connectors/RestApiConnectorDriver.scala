@@ -1,7 +1,9 @@
 package com.helio.domain.connectors
 
 import com.helio.domain.engine.SchemaInferenceEngine
-import com.helio.domain.model.{ApiKeyPlacement, InferredSchema, RestApiAuth, RestApiConfig}
+import com.helio.domain.model.{ApiKeyPlacement, Connector, ConnectorId, EphemeralRestConfig, InferredSchema, RestApiConfig}
+import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
+import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model._
@@ -25,19 +27,23 @@ object RestApiConnectorDriver {
     displayName = "REST API",
     supportsIncremental = false,
     authKind = "configurable",
-    // Matches RestApiConfigPayload's fields (DataSourceProtocol.scala) — only
-    // `url` is required; `method`/`auth`/`headers` are all `Option`. Auth
-    // credential fields (bearer token, api-key value) live inside the
-    // optional `auth` object, so they're not enumerated as top-level
-    // required fields here.
+    // HEL-822 design.md Decision 10: advertises the primary (new) required field.
+    // The legacy bare-`url` alternative is dual-supported (design.md Decision 1) but not
+    // also listed here — a "required fields" list describing two mutually-exclusive
+    // alternatives would mislead a client trying to satisfy it.
     requiredFields = Vector(
-      ConnectorFieldDescriptor(name = "url", label = "URL", secret = false)
+      ConnectorFieldDescriptor(name = "connectorId", label = "Connector", secret = false)
     )
   )
 }
 
 class RestApiConnectorDriver(
-    fetchOverride: Option[RestApiConfig => Future[Either[String, JsValue]]] = None
+    // Kept as the FIRST positional param (task 8.3) — matches the pre-HEL-822 single-param
+    // constructor shape so every existing `new RestApiConnectorDriver(Some(fn))`
+    // fetchOverride-based test construction keeps compiling unchanged.
+    fetchOverride: Option[RestApiConfig => Future[Either[String, JsValue]]] = None,
+    connectorRepoOpt: Option[ConnectorRepository] = None,
+    credentialRepoOpt: Option[ConnectorCredentialRepository] = None
 )(implicit system: ActorSystem[_])
     extends ConnectorDriver[RestApiConfig] {
 
@@ -56,8 +62,101 @@ class RestApiConnectorDriver(
           .withIdleTimeout(30.seconds)
       )
 
-  def fetch(config: RestApiConfig): Future[Either[String, JsValue]] =
-    fetchOverride.fold(doFetch(config))(fn => fn(config))
+  // ── Connector resolution (design.md Decision 3 / Decision 11) ──────────────────────
+
+  /** Resolves `config.connectorId` per `resolveContext` (design.md Decision 11): `Owned`
+   *  scopes to the caller (`findByIdOwned`), `Internal` bypasses ownership
+   *  (`findByIdInternal`) — used only by the pipeline-execution path. A missing
+   *  `connectorRepoOpt` (test fixtures that never wire one) or an unresolved id both
+   *  produce the same curated `Left`, never a raw exception (task 2.3). */
+  private def resolveConnector(connectorId: String, resolveContext: ConnectorResolveContext): Future[Either[String, Connector]] =
+    connectorRepoOpt match {
+      case None => Future.successful(Left("Connector not found"))
+      case Some(repo) =>
+        val found = resolveContext match {
+          case ConnectorResolveContext.Owned(user) => repo.findByIdOwned(ConnectorId(connectorId), user)
+          case ConnectorResolveContext.Internal     => repo.findByIdInternal(ConnectorId(connectorId))
+        }
+        found.map {
+          case Some(c) => Right(c)
+          // HEL-311: curated, never leaks the raw id or an internal message (task 2.3).
+          case None    => Left("Connector not found")
+        }
+    }
+
+  /** Joins `baseUrl` and `endpoint` without naive string concatenation — collapses a doubled
+   *  `/` at the seam, inserts one if neither side has it (design.md Decision 3). The
+   *  migration's own URL split (Decision 7) round-trips through this same join. */
+  def joinUrl(baseUrl: String, endpoint: String): String = {
+    if (endpoint.isEmpty) baseUrl
+    else if (baseUrl.endsWith("/") && endpoint.startsWith("/")) baseUrl + endpoint.stripPrefix("/")
+    else if (!baseUrl.endsWith("/") && !endpoint.startsWith("/")) baseUrl + "/" + endpoint
+    else baseUrl + endpoint
+  }
+
+  /** Builds the full request for a Connector-resolved `RestApiConfig`: resolves `connectorId`
+   *  → `Connector`, decrypts its credential, composes `baseUrl` + `endpoint` via `joinUrl` +
+   *  `queryParams` + merged headers (source wins on collision, Decision 4), applies auth per
+   *  the Connector's `ConnectorAuthShape`. */
+  private def buildResolvedRequest(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, HttpRequest]] =
+    resolveConnector(config.connectorId, resolveContext).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(connector) =>
+        val authShape = ConnectorAuthShape.parse(connector.config)
+        val credentialFut = credentialRepoOpt match {
+          case None => Future.successful(Right(""): Either[String, String])
+          case Some(credRepo) =>
+            credRepo.decryptForUse(connector.credentialId, connector.ownerId).map {
+              case Some(plaintext) => Right(plaintext)
+              case None            => Left("Connector credential not found")
+            }
+        }
+        credentialFut.map {
+          case Left(err) => Left(err)
+          case Right(credentialValue) =>
+            val method = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
+
+            val withQueryParams = config.queryParams.foldLeft(Uri(joinUrl(connector.baseUrl, config.endpoint))) {
+              case (uri, (k, v)) => uri.withQuery(Uri.Query(uri.query().toMap + (k -> v)))
+            }
+            val uri = injectAuthQueryParam(withQueryParams, authShape, credentialValue)
+
+            val mergedHeaders = authShape.defaultHeaders ++ config.headers // Decision 4: source wins
+            val authHeaders: List[HttpHeader] = buildAuthHeaders(authShape, credentialValue)
+            // Cycle-2 skeptic non-blocking note (a): a source/Connector-default header
+            // colliding with the auth header's own name (e.g. "Authorization", or the
+            // api-key header name) must not produce a request carrying both -- the auth
+            // header (built from the decrypted credential, never client-suppliable) always
+            // wins; HTTP header names are case-insensitive, so the collision check is too.
+            val authHeaderNames = authHeaders.map(_.name().toLowerCase).toSet
+            val baseHeaders: List[HttpHeader] = mergedHeaders
+              .filterNot { case (k, _) => authHeaderNames.contains(k.toLowerCase) }
+              .map { case (k, v) => RawHeader(k, v) }
+              .toList
+
+            Right(HttpRequest(method = method, uri = uri, headers = authHeaders ++ baseHeaders))
+        }
+    }
+
+  private def buildAuthHeaders(authShape: ConnectorAuthShape, credentialValue: String): List[HttpHeader] =
+    authShape.authType match {
+      case "bearer"  => List(Authorization(OAuth2BearerToken(credentialValue)))
+      case "api_key" if authShape.apiKeyPlacement.contains("header") =>
+        List(RawHeader(authShape.apiKeyName.getOrElse(""), credentialValue))
+      case _ => Nil
+    }
+
+  private def injectAuthQueryParam(uri: Uri, authShape: ConnectorAuthShape, credentialValue: String): Uri =
+    authShape.authType match {
+      case "api_key" if authShape.apiKeyPlacement.contains("query") =>
+        uri.withQuery(Uri.Query(uri.query().toMap + (authShape.apiKeyName.getOrElse("") -> credentialValue)))
+      case _ => uri
+    }
+
+  // ── Fetch (Connector-resolving) ─────────────────────────────────────────────
+
+  def fetch(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, JsValue]] =
+    fetchOverride.fold(doFetch(config, resolveContext))(fn => fn(config))
 
   def toRows(json: JsValue): Vector[JsValue] = json match {
     case JsArray(elements) => elements.toVector
@@ -65,23 +164,13 @@ class RestApiConnectorDriver(
     case other             => Vector(other)
   }
 
-  /** Builds the request shared by `doFetch` and `testConnection` — same URI/query-param injection,
-   *  method, and auth/header pipeline for both, so "auth is valid" means the same thing in each. */
-  private def buildRequest(config: RestApiConfig): HttpRequest = {
-    val baseUri = Uri(config.url)
-    val uri     = injectQueryParam(baseUri, config.auth)
-    val method  = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
+  private def doFetch(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, JsValue]] =
+    buildResolvedRequest(config, resolveContext).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(request) => issueAndParse(request)
+    }
 
-    val baseHeaders: List[HttpHeader] = config.headers.map { case (k, v) => RawHeader(k, v) }.toList
-    val authHeaders: List[HttpHeader] = buildAuthHeaders(config.auth)
-    val allHeaders = authHeaders ++ baseHeaders
-
-    HttpRequest(method = method, uri = uri, headers = allHeaders)
-  }
-
-  private def doFetch(config: RestApiConfig): Future[Either[String, JsValue]] = {
-    val request = buildRequest(config)
-
+  private def issueAndParse(request: HttpRequest): Future[Either[String, JsValue]] =
     Http(system.classicSystem)
       .singleRequest(request, settings = poolSettings)
       .flatMap { response =>
@@ -105,15 +194,8 @@ class RestApiConnectorDriver(
         log.error("REST source request failed", e)
         Left("Request failed")
       }
-  }
 
-  // ── ConnectorDriver[RestApiConfig] ──────────────────────────────────────────────
-
-  /** Issues the same request/auth/header pipeline as `fetch`, but only inspects the response
-   *  status — never calls `parseJson` on the body, so a non-JSON 200 response still succeeds. */
-  def testConnection(config: RestApiConfig)(implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
-    val request = buildRequest(config)
-
+  private def issueTest(request: HttpRequest): Future[Either[String, Unit]] =
     Http(system.classicSystem)
       .singleRequest(request, settings = poolSettings)
       .flatMap { response =>
@@ -125,36 +207,61 @@ class RestApiConnectorDriver(
         }
       }
       .recover { case e =>
-        // HEL-311: keep the "Request failed" category prefix, drop the raw
-        // exception tail; log the cause.
         log.error("REST source request failed", e)
         Left("Request failed")
       }
-  }
+
+  // ── ConnectorDriver[RestApiConfig] ──────────────────────────────────────────────
+
+  /** Issues the same request/auth/header pipeline as `fetch`, but only inspects the response
+   *  status — never calls `parseJson` on the body, so a non-JSON 200 response still succeeds. */
+  def testConnection(config: RestApiConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+    buildResolvedRequest(config, resolveContext).flatMap {
+      case Left(err)       => Future.successful(Left(err))
+      case Right(request)  => issueTest(request)
+    }
 
   /** Forwards to the existing `fetch`/`toRows` methods, routing through the shared
    *  `SchemaInferenceEngine.inferSchemaFromRows` facade (HEL-473) instead of calling `fromJson`
    *  directly on the raw response. `toRows` case-matches the same three response shapes `fromJson`
    *  handles (JSON array, single object, non-object scalar), so this produces byte-for-byte
    *  identical output to the pre-change `fromJson(json)` call (design.md Decision 1). */
-  def inferSchema(config: RestApiConfig)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
-    fetch(config).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json))))
+  def inferSchema(config: RestApiConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+    fetch(config, resolveContext).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json))))
 
   /** Forwards to the existing `fetch`/`toRows` methods, truncating to `maxRows` — matching
    *  `SourceService.previewRest`'s `connector.toRows(json).take(10)` pattern. */
-  def fetch(config: RestApiConfig, maxRows: Int)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
-    fetch(config).map(_.map(json => toRows(json).take(maxRows)))
+  def fetch(config: RestApiConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
+    fetch(config, resolveContext).map(_.map(json => toRows(json).take(maxRows)))
 
-  private def buildAuthHeaders(auth: RestApiAuth): List[HttpHeader] = auth match {
-    case RestApiAuth.NoAuth                          => Nil
-    case RestApiAuth.BearerAuth(token)               => List(Authorization(OAuth2BearerToken(token)))
-    case RestApiAuth.ApiKeyAuth(name, value, ApiKeyPlacement.Header) => List(RawHeader(name, value))
-    case RestApiAuth.ApiKeyAuth(_, _, ApiKeyPlacement.Query)         => Nil
+  // ── Ephemeral (design.md Decision 1c) ──────────────────────────────────────────
+  // Never resolves/persists a Connector — no auth, no normalizing join (no `baseUrl` to join
+  // against). Used only by `POST /api/sources/infer|test` and inline pipeline-proposal sources
+  // when the request carries a bare `url` instead of a `connectorId`.
+
+  private def buildEphemeralRequest(config: EphemeralRestConfig): HttpRequest = {
+    val method  = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
+    val headers: List[HttpHeader] = config.headers.map { case (k, v) => RawHeader(k, v) }.toList
+    HttpRequest(method = method, uri = Uri(config.url), headers = headers)
   }
 
-  private def injectQueryParam(uri: Uri, auth: RestApiAuth): Uri = auth match {
-    case RestApiAuth.ApiKeyAuth(name, value, ApiKeyPlacement.Query) =>
-      uri.withQuery(Uri.Query(uri.query().toMap + (name -> value)))
-    case _ => uri
-  }
+  /** `fetchOverride` (test-only hook) is reused for the ephemeral path too — adapted through a
+   *  synthetic `RestApiConfig` carrying the ephemeral request's `url`/`method`/`headers` in its
+   *  `endpoint`/`method`/`headers` fields — so a single test fixture stubs both the
+   *  Connector-resolving and ephemeral paths uniformly, rather than needing a second override
+   *  hook. Never persisted/decoded; `connectorId` here is a fixed sentinel-shaped placeholder
+   *  with no meaning beyond "this call came from the ephemeral path in a test fixture". */
+  def fetchEphemeral(config: EphemeralRestConfig): Future[Either[String, JsValue]] =
+    fetchOverride match {
+      case Some(fn) =>
+        fn(RestApiConfig(connectorId = "__ephemeral__", endpoint = config.url, method = config.method, headers = config.headers))
+      case None =>
+        issueAndParse(buildEphemeralRequest(config))
+    }
+
+  def testConnectionEphemeral(config: EphemeralRestConfig): Future[Either[String, Unit]] =
+    issueTest(buildEphemeralRequest(config))
+
+  def inferSchemaEphemeral(config: EphemeralRestConfig): Future[Either[String, InferredSchema]] =
+    fetchEphemeral(config).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json))))
 }

@@ -120,7 +120,10 @@ private[protocols] trait AssistantProposalToolSchemas {
         "type" -> JsString("object"),
         "description" -> JsString(
           "Inline-source branch — the per-kind config payload selected by type: rest_api " +
-            "{url, method?, auth?, headers?}; sql {dialect, host, port, database, user, password, query}; " +
+            "{connectorId, endpoint?, method?, queryParams?, headers?} (connectorId must reference an " +
+            "already-created Connector; auth lives on the Connector, never here — a bare 'url' legacy " +
+            "shape is dual-supported but resolved ephemerally, never persisting a Connector); " +
+            "sql {dialect, host, port, database, user, password, query}; " +
             "static {columns, rows}."
         )
       )
@@ -144,7 +147,7 @@ private[protocols] trait AssistantProposalToolSchemas {
       "source": {
         "type": "rest_api",
         "name": "Signups API",
-        "config": { "url": "https://api.example.com/signups", "method": "GET" }
+        "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
       },
       "outputDataTypeName": "Weekly Signups",
       "steps": [
@@ -176,7 +179,7 @@ private[protocols] trait AssistantProposalToolSchemas {
         "source": {
           "type": "rest_api",
           "name": "Signups API",
-          "config": { "url": "https://api.example.com/signups", "method": "GET" }
+          "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
         },
         "outputDataTypeName": "Weekly Signups",
         "steps": []
@@ -274,7 +277,7 @@ private[protocols] trait AssistantProposalToolSchemas {
   private val TestConnectionRestExample: JsValue =
     """{
       "type": "rest_api",
-      "config": { "url": "https://api.example.com/signups", "method": "GET" }
+      "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
     }""".parseJson
 
   private val TestConnectionSqlExample: JsValue =
@@ -302,7 +305,9 @@ private[protocols] trait AssistantProposalToolSchemas {
       "config" -> JsObject(
         "type" -> JsString("object"),
         "description" -> JsString(
-          "The per-kind config payload selected by type: rest_api {url, method?, auth?, headers?}; " +
+          "The per-kind config payload selected by type: rest_api {connectorId, endpoint?, method?, " +
+            "queryParams?, headers?} (connectorId must reference an already-created Connector; " +
+            "auth lives on the Connector, never here); " +
             "sql {dialect, host, port, database, user, password, query}. Must be the EXACT config " +
             "you intend to pass to propose_pipeline/propose_combined's inline source — verification " +
             "is by exact equality."

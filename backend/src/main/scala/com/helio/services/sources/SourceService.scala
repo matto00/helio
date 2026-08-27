@@ -2,13 +2,13 @@ package com.helio.services.sources
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
-import com.helio.domain.connectors.SqlConnectorDriver
+import com.helio.domain.connectors.{ConnectorResolveContext, SqlConnectorDriver}
 import com.helio.domain.engine.ExpressionEvaluator
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, PreviewSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlInferRequest, SqlSourceConfigPayload, TestConnectionResponse}
 import com.helio.api.protocols.pipelines.{InferredFieldResponse, InferredSchemaResponse}
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import spray.json._
 
@@ -33,7 +33,12 @@ final class SourceService(
     dataTypeRepo:   DataTypeRepository,
     connector:      RestApiConnectorDriver,
     // HEL-477: nullable-optional wiring mirrors this file's other DI.
-    auditService: AuditService = null
+    auditService: AuditService = null,
+    // HEL-822: nullable-optional wiring mirrors auditService above. Required only for the
+    // legacy-`url` dual-support create path (task 1.2a), which synthesizes an implicit
+    // Connector — a null connectorRepo degrades that one path to a curated 500 (task 1.2a
+    // has no repository to persist the synthesized Connector through), never a silent no-op.
+    connectorRepo: ConnectorRepository = null
 )(implicit ec: ExecutionContext) {
 
   private def audit(resourceId: Option[String], user: AuthenticatedUser, action: String = "data_source.create"): Unit =
@@ -70,31 +75,74 @@ final class SourceService(
   }
 
   def createRest(request: CreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] =
-    RestApiConfigPayload.toDomain(request.config) match {
-      case Left(err) =>
-        Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(restConfig) =>
-        if (request.`type` != DataSourceKind.RestApi)
-          Future.successful(Left(ServiceError.BadRequest(s"Expected type='${DataSourceKind.RestApi}', got '${request.`type`}'")))
-        else {
-          val now = Instant.now()
-          val source = RestSource(
-            id        = DataSourceId(UUID.randomUUID().toString),
-            name      = request.name,
-            ownerId   = user.id,
-            createdAt = now,
-            updatedAt = now,
-            config    = restConfig
-          )
-          dataSourceRepo.insert(source, user).flatMap { inserted =>
-            val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
-            CreateSourceEnvelope.build(connector, restConfig, inserted, now, dataTypeRepo, user, overridesMap).map { response =>
-              audit(Some(inserted.id.value), user)
-              Right(response)
-            }
+    if (request.`type` != DataSourceKind.RestApi)
+      Future.successful(Left(ServiceError.BadRequest(s"Expected type='${DataSourceKind.RestApi}', got '${request.`type`}'")))
+    else if (request.config.auth.isDefined)
+      Future.successful(Left(ServiceError.BadRequest("auth is not accepted on a REST source — auth lives on the referenced Connector")))
+    else
+      (request.config.connectorId, request.config.url) match {
+        case (Some(_), Some(_)) =>
+          Future.successful(Left(ServiceError.BadRequest("provide exactly one of connectorId or url")))
+        case (None, None) =>
+          Future.successful(Left(ServiceError.BadRequest("Missing required fields: connectorId or url")))
+        case (Some(_), None) =>
+          RestApiConfigPayload.toDomain(request.config) match {
+            case Left(err)         => Future.successful(Left(ServiceError.BadRequest(err)))
+            case Right(restConfig) => createRestWithConfig(request, restConfig, user)
           }
-        }
+        case (None, Some(url)) =>
+          // HEL-822 design.md Decision 1 (revised, round-2 CR4): a bare-`url` create
+          // synthesizes an implicit no-auth Connector via the shared `ImplicitConnectorConfig`
+          // helper, persisted through `ConnectorRepository.create` directly (not
+          // `ConnectorEntityService.create` — there is no incoming `ConnectorCreateRequest` to
+          // validate for a server-synthesized value), still inside the request's existing
+          // `AuthenticatedUser` context.
+          if (connectorRepo == null)
+            Future.successful(Left(ServiceError.BadRequest("REST sources require a Connector; legacy url-only create is unavailable")))
+          else {
+            val (baseUrl, endpoint, _, _) = RestSourceConnectorMigration.splitUrl(url)
+            val (name, configJson, credentialPlaintext, credentialName) =
+              ImplicitConnectorConfig.forLegacySource(s"Auto: ${request.name}", baseUrl, RestApiAuth.NoAuth)
+            connectorRepo
+              .create(
+                ownerId             = user.id,
+                name                = name,
+                kind                = DataSourceKind.RestApi,
+                baseUrl             = baseUrl,
+                config              = configJson,
+                credentialPlaintext = credentialPlaintext,
+                credentialName      = credentialName
+              )
+              .flatMap { createdConnector =>
+                val restConfig = RestApiConfig(
+                  connectorId = createdConnector.id.value,
+                  endpoint    = endpoint,
+                  method      = request.config.method.getOrElse("GET"),
+                  headers     = request.config.headers.getOrElse(Map.empty)
+                )
+                createRestWithConfig(request, restConfig, user)
+              }
+          }
+      }
+
+  private def createRestWithConfig(request: CreateSourceRequest, restConfig: RestApiConfig, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] = {
+    val now = Instant.now()
+    val source = RestSource(
+      id        = DataSourceId(UUID.randomUUID().toString),
+      name      = request.name,
+      ownerId   = user.id,
+      createdAt = now,
+      updatedAt = now,
+      config    = restConfig
+    )
+    dataSourceRepo.insert(source, user).flatMap { inserted =>
+      val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
+      CreateSourceEnvelope.build(connector, restConfig, inserted, now, dataTypeRepo, user, overridesMap).map { response =>
+        audit(Some(inserted.id.value), user)
+        Right(response)
+      }
     }
+  }
 
   // ── Infer ─────────────────────────────────────────────────────────────────
 
@@ -103,19 +151,35 @@ final class SourceService(
     SqlConnectorDriver.checkQuery(sqlConfig.query) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
-        SqlConnectorDriver.inferSchema(sqlConfig).map {
+        SqlConnectorDriver.inferSchema(sqlConfig, ConnectorResolveContext.Internal).map {
           case Left(err)     => Left(ServiceError.BadGateway(err))
           case Right(schema) => Right(toInferredSchema(schema))
         }
     }
   }
 
-  def inferRest(payload: RestApiConfigPayload): Future[Either[ServiceError, InferredSchemaResponse]] =
-    RestApiConfigPayload.toDomain(payload) match {
-      case Left(err) =>
-        Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(restConfig) =>
-        connector.inferSchema(restConfig).map {
+  /** HEL-822 design.md Decision 1c: a `connectorId`-carrying request resolves the real
+   *  Connector, ownership-scoped (`user`, task 2a.1/2a.3) — never persisting anything new. A
+   *  bare-`url` request (no `connectorId`) resolves ephemerally instead (task 2a.2) — never a
+   *  Connector round-trip, the trap round-2 CR2 flagged (a new `connectors` row on every
+   *  "Preview schema" click). */
+  def inferRest(payload: RestApiConfigPayload, user: AuthenticatedUser): Future[Either[ServiceError, InferredSchemaResponse]] =
+    if (payload.auth.isDefined)
+      Future.successful(Left(ServiceError.BadRequest("auth is not accepted on a REST source — auth lives on the referenced Connector")))
+    else (payload.connectorId, payload.url) match {
+      case (Some(_), Some(_)) => Future.successful(Left(ServiceError.BadRequest("provide exactly one of connectorId or url")))
+      case (None, None)       => Future.successful(Left(ServiceError.BadRequest("Missing required fields: connectorId or url")))
+      case (Some(_), None) =>
+        RestApiConfigPayload.toDomain(payload) match {
+          case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+          case Right(restConfig) =>
+            connector.inferSchema(restConfig, ConnectorResolveContext.Owned(user)).map {
+              case Left(err)     => Left(ServiceError.BadGateway(err))
+              case Right(schema) => Right(toInferredSchema(schema))
+            }
+        }
+      case (None, Some(_)) =>
+        connector.inferSchemaEphemeral(toEphemeral(payload)).map {
           case Left(err)     => Left(ServiceError.BadGateway(err))
           case Right(schema) => Right(toInferredSchema(schema))
         }
@@ -127,15 +191,34 @@ final class SourceService(
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
     SqlConnectorDriver.checkQuery(sqlConfig.query) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(_)  => ConnectionTest.run(SqlConnectorDriver, sqlConfig).map(Right(_))
+      case Right(_)  => ConnectionTest.run(SqlConnectorDriver, sqlConfig, ConnectorResolveContext.Internal).map(Right(_))
     }
   }
 
-  def testRest(payload: RestApiConfigPayload): Future[Either[ServiceError, TestConnectionResponse]] =
-    RestApiConfigPayload.toDomain(payload) match {
-      case Left(err)         => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(restConfig) => ConnectionTest.run(connector, restConfig).map(Right(_))
+  def testRest(payload: RestApiConfigPayload, user: AuthenticatedUser): Future[Either[ServiceError, TestConnectionResponse]] =
+    if (payload.auth.isDefined)
+      Future.successful(Left(ServiceError.BadRequest("auth is not accepted on a REST source — auth lives on the referenced Connector")))
+    else (payload.connectorId, payload.url) match {
+      case (Some(_), Some(_)) => Future.successful(Left(ServiceError.BadRequest("provide exactly one of connectorId or url")))
+      case (None, None)       => Future.successful(Left(ServiceError.BadRequest("Missing required fields: connectorId or url")))
+      case (Some(_), None) =>
+        RestApiConfigPayload.toDomain(payload) match {
+          case Left(err)         => Future.successful(Left(ServiceError.BadRequest(err)))
+          case Right(restConfig) => ConnectionTest.run(connector, restConfig, ConnectorResolveContext.Owned(user)).map(Right(_))
+        }
+      case (None, Some(_)) =>
+        connector.testConnectionEphemeral(toEphemeral(payload)).map {
+          case Right(())  => Right(TestConnectionResponse(ok = true, error = None))
+          case Left(err)  => Right(TestConnectionResponse(ok = false, error = Some(err)))
+        }
     }
+
+  private def toEphemeral(payload: RestApiConfigPayload): EphemeralRestConfig =
+    EphemeralRestConfig(
+      url     = payload.url.getOrElse(""),
+      method  = payload.method.getOrElse("GET"),
+      headers = payload.headers.getOrElse(Map.empty)
+    )
 
   // ── Refresh ───────────────────────────────────────────────────────────────
 
@@ -157,7 +240,7 @@ final class SourceService(
     }
 
   private def refreshSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
-    SqlConnectorDriver.inferSchema(source.config).flatMap {
+    SqlConnectorDriver.inferSchema(source.config, ConnectorResolveContext.Internal).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
         // (SqlConnectorDriver logs the raw JDBC cause server-side) — pass through
@@ -173,7 +256,7 @@ final class SourceService(
     }
 
   private def refreshRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
-    connector.inferSchema(source.config).flatMap {
+    connector.inferSchema(source.config, ConnectorResolveContext.Owned(user)).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
         // (RestApiConnectorDriver logs the raw cause server-side) — pass through
@@ -219,7 +302,7 @@ final class SourceService(
     }
 
   private def previewRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
-    connector.fetch(source.config).flatMap {
+    connector.fetch(source.config, ConnectorResolveContext.Owned(user)).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
         // (RestApiConnectorDriver logs the raw cause server-side) — pass through
