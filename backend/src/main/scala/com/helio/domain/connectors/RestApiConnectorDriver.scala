@@ -97,7 +97,16 @@ class RestApiConnectorDriver(
   /** Builds the full request for a Connector-resolved `RestApiConfig`: resolves `connectorId`
    *  → `Connector`, decrypts its credential, composes `baseUrl` + `endpoint` via `joinUrl` +
    *  `queryParams` + merged headers (source wins on collision, Decision 4), applies auth per
-   *  the Connector's `ConnectorAuthShape`. */
+   *  the Connector's `ConnectorAuthShape`.
+   *
+   *  HEL-823: `endpoint`/`queryParams` values/`headers` values are resolved against
+   *  `config.parameters` via `TemplateInterpolator` before being used — a `Left` (unresolved
+   *  variable or a header failing the post-substitution CRLF guard) short-circuits BEFORE any
+   *  `HttpRequest` is built, so no request is ever issued with an unresolved/hostile template.
+   *  `credentialValue` (decrypted below) is deliberately never merged into the map passed to
+   *  `TemplateInterpolator` (design.md Decision 4) — it is used only by
+   *  `buildAuthHeaders`/`injectAuthQueryParam`, so it is structurally unreachable by name from
+   *  a template, regardless of what a `parameters` key is named. */
   private def buildResolvedRequest(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, HttpRequest]] =
     resolveConnector(config.connectorId, resolveContext).flatMap {
       case Left(err) => Future.successful(Left(err))
@@ -114,28 +123,73 @@ class RestApiConnectorDriver(
         credentialFut.map {
           case Left(err) => Left(err)
           case Right(credentialValue) =>
-            val method = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
+            resolveTemplatedRequestParts(config) match {
+              case Left(err) => Left(err)
+              case Right((resolvedEndpoint, resolvedQueryParams, resolvedHeaders)) =>
+                val method = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
 
-            val withQueryParams = config.queryParams.foldLeft(Uri(joinUrl(connector.baseUrl, config.endpoint))) {
-              case (uri, (k, v)) => uri.withQuery(Uri.Query(uri.query().toMap + (k -> v)))
+                val withQueryParams = resolvedQueryParams.foldLeft(Uri(joinUrl(connector.baseUrl, resolvedEndpoint))) {
+                  case (uri, (k, v)) => uri.withQuery(Uri.Query(uri.query().toMap + (k -> v)))
+                }
+                val uri = injectAuthQueryParam(withQueryParams, authShape, credentialValue)
+
+                val mergedHeaders = authShape.defaultHeaders ++ resolvedHeaders // Decision 4: source wins
+                val authHeaders: List[HttpHeader] = buildAuthHeaders(authShape, credentialValue)
+                // Cycle-2 skeptic non-blocking note (a): a source/Connector-default header
+                // colliding with the auth header's own name (e.g. "Authorization", or the
+                // api-key header name) must not produce a request carrying both -- the auth
+                // header (built from the decrypted credential, never client-suppliable) always
+                // wins; HTTP header names are case-insensitive, so the collision check is too.
+                val authHeaderNames = authHeaders.map(_.name().toLowerCase).toSet
+                val baseHeaders: List[HttpHeader] = mergedHeaders
+                  .filterNot { case (k, _) => authHeaderNames.contains(k.toLowerCase) }
+                  .map { case (k, v) => RawHeader(k, v) }
+                  .toList
+
+                Right(HttpRequest(method = method, uri = uri, headers = authHeaders ++ baseHeaders))
             }
-            val uri = injectAuthQueryParam(withQueryParams, authShape, credentialValue)
-
-            val mergedHeaders = authShape.defaultHeaders ++ config.headers // Decision 4: source wins
-            val authHeaders: List[HttpHeader] = buildAuthHeaders(authShape, credentialValue)
-            // Cycle-2 skeptic non-blocking note (a): a source/Connector-default header
-            // colliding with the auth header's own name (e.g. "Authorization", or the
-            // api-key header name) must not produce a request carrying both -- the auth
-            // header (built from the decrypted credential, never client-suppliable) always
-            // wins; HTTP header names are case-insensitive, so the collision check is too.
-            val authHeaderNames = authHeaders.map(_.name().toLowerCase).toSet
-            val baseHeaders: List[HttpHeader] = mergedHeaders
-              .filterNot { case (k, _) => authHeaderNames.contains(k.toLowerCase) }
-              .map { case (k, v) => RawHeader(k, v) }
-              .toList
-
-            Right(HttpRequest(method = method, uri = uri, headers = authHeaders ++ baseHeaders))
         }
+    }
+
+  /** HEL-823: resolves `{{name}}` placeholders in `config.endpoint`/`config.queryParams`
+   *  values/`config.headers` values against `config.parameters`, applying per-context
+   *  escaping (design.md Decision 3). Returns `Left(curatedError)` naming the first
+   *  unresolved variable, or the first header failing the CRLF guard, before any HTTP
+   *  request is constructed. */
+  private def resolveTemplatedRequestParts(
+      config: RestApiConfig
+  ): Either[String, (String, Map[String, String], Map[String, String])] =
+    for {
+      endpoint <- TemplateInterpolator
+        .resolveEndpoint(config.endpoint, config.parameters)
+        .left
+        .map(name => s"Unresolved template variable: $name")
+      queryParams <- resolveMapValues(config.queryParams, config.parameters)
+      headers     <- resolveHeaderMapValues(config.headers, config.parameters)
+    } yield (endpoint, queryParams, headers)
+
+  /** Query param values: substituted raw (no extra encoding) — Pekko's `Uri.Query` already
+   *  percent-encodes on render (design.md Decision 3). */
+  private def resolveMapValues(map: Map[String, String], params: Map[String, String]): Either[String, Map[String, String]] =
+    map.foldLeft[Either[String, Map[String, String]]](Right(Map.empty)) {
+      case (acc, (k, v)) =>
+        for {
+          resolvedSoFar <- acc
+          resolvedValue <- TemplateInterpolator.resolve(v, params).left.map(name => s"Unresolved template variable: $name")
+        } yield resolvedSoFar + (k -> resolvedValue)
+    }
+
+  /** Header values: substituted raw, then the whole resolved value is CRLF-guarded
+   *  (design.md Decision 3) — a value containing `\r`/`\n` after substitution fails loud and
+   *  is never sent. */
+  private def resolveHeaderMapValues(map: Map[String, String], params: Map[String, String]): Either[String, Map[String, String]] =
+    map.foldLeft[Either[String, Map[String, String]]](Right(Map.empty)) {
+      case (acc, (k, v)) =>
+        for {
+          resolvedSoFar <- acc
+          resolvedValue <- TemplateInterpolator.resolve(v, params).left.map(name => s"Unresolved template variable: $name")
+          guardedValue  <- TemplateInterpolator.guardHeaderValue(resolvedValue)
+        } yield resolvedSoFar + (k -> guardedValue)
     }
 
   private def buildAuthHeaders(authShape: ConnectorAuthShape, credentialValue: String): List[HttpHeader] =
@@ -239,6 +293,10 @@ class RestApiConnectorDriver(
   // against). Used only by `POST /api/sources/infer|test` and inline pipeline-proposal sources
   // when the request carries a bare `url` instead of a `connectorId`.
 
+  /** HEL-823 design.md Non-Goals: deliberately does NOT call `TemplateInterpolator` — the
+   *  ephemeral path has no `RestSource`/`parameters` store to resolve against. A `{{...}}`
+   *  placeholder in `config.url`/`config.headers` reaching this method is left as literal
+   *  text, unchanged (existing, backward-compatible behavior; task 3.2/4.9). */
   private def buildEphemeralRequest(config: EphemeralRestConfig): HttpRequest = {
     val method  = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
     val headers: List[HttpHeader] = config.headers.map { case (k, v) => RawHeader(k, v) }.toList

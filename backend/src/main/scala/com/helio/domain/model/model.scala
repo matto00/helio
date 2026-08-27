@@ -504,14 +504,20 @@ object RestApiAuth {
  *  `headers` here are source-level and merge OVER the Connector's config-level defaults —
  *  source wins on key collision (design.md Decision 4). `body` is a structural placeholder
  *  for HEL-826 — carried through wire<->domain but not given request-body-shaping semantics
- *  by this ticket. */
+ *  by this ticket. `parameters` (HEL-823) holds source-level static template values resolved
+ *  against `{{name}}` placeholders in `endpoint`/`queryParams`/`headers`/`body` by
+ *  `TemplateInterpolator`; never merged with the Connector's decrypted credential
+ *  (design.md Decision 4). NOT secret storage — stored as plaintext in `data_sources.config`
+ *  JSONB and echoed back unredacted on read (`RestApiConfigPayload.hasSecrets` declares no
+ *  secret fields); credentials belong on the Connector, never in `parameters`. */
 final case class RestApiConfig(
     connectorId: String,
     endpoint: String = "",
     method: String = "GET",
     queryParams: Map[String, String] = Map.empty,
     headers: Map[String, String] = Map.empty,
-    body: Option[String] = None
+    body: Option[String] = None,
+    parameters: Map[String, String] = Map.empty
 )
 
 /** HEL-822 design.md Decision 1c: a distinct, never-persisted carrier for a bare-`url`
