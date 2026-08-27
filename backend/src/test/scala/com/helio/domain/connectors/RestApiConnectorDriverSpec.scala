@@ -134,4 +134,51 @@ class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRoute
       result.map(_.fields.map(_.name)) shouldBe Right(expected.fields.map(_.name))
     }
   }
+
+  // ── HEL-826 task 4.2: rootSelector dot-path (design.md Decision 1) ──────────────────
+
+  "RestApiConnectorDriver.toRows with rootSelector" should {
+    val topLevelArray = JsArray(
+      JsObject("id" -> JsNumber(1)),
+      JsObject("id" -> JsNumber(2))
+    )
+    val topLevelObject = JsObject("id" -> JsNumber(1))
+
+    "an unset selector is byte-identical to the pre-change 3-way match — top-level array" in {
+      connector.toRows(topLevelArray, None) shouldBe Vector(JsObject("id" -> JsNumber(1)), JsObject("id" -> JsNumber(2)))
+    }
+
+    "an unset selector is byte-identical to the pre-change 3-way match — top-level object" in {
+      connector.toRows(topLevelObject, None) shouldBe Vector(topLevelObject)
+    }
+
+    "an unset selector is byte-identical to the pre-change 3-way match — non-object scalar" in {
+      connector.toRows(JsNumber(42), None) shouldBe Vector(JsNumber(42))
+    }
+
+    "a nested single-level selector walks into the wrapper object" in {
+      val wrapped = JsObject("data" -> topLevelArray)
+      connector.toRows(wrapped, Some("data")) shouldBe Vector(JsObject("id" -> JsNumber(1)), JsObject("id" -> JsNumber(2)))
+    }
+
+    "a nested two-level selector walks through two wrapper objects" in {
+      val wrapped = JsObject("result" -> JsObject("items" -> topLevelArray))
+      connector.toRows(wrapped, Some("result.items")) shouldBe Vector(JsObject("id" -> JsNumber(1)), JsObject("id" -> JsNumber(2)))
+    }
+
+    "a missing-path selector yields zero rows, not an error" in {
+      val wrapped = JsObject("data" -> topLevelArray)
+      connector.toRows(wrapped, Some("nope")) shouldBe Vector.empty
+    }
+
+    "a selector walking through a non-object mid-path yields zero rows, not an error" in {
+      val wrapped = JsObject("data" -> JsNumber(1))
+      connector.toRows(wrapped, Some("data.items")) shouldBe Vector.empty
+    }
+
+    "a selector pointing at a nested object still produces one row, exactly like today's top-level-object case" in {
+      val wrapped = JsObject("data" -> topLevelObject)
+      connector.toRows(wrapped, Some("data")) shouldBe Vector(topLevelObject)
+    }
+  }
 }

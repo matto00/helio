@@ -34,7 +34,12 @@ export interface RestApiConfigBody {
   connectorId?: string;
   method?: string;
   headers?: Record<string, string>;
-  jsonPath?: string;
+  // HEL-826: the wire field is `rootSelector` (matching `RestApiConfigPayload.rootSelector`
+  // server-side) — `jsonPath` was never a real field, only ever collected by the form and
+  // silently dropped at the backend boundary.
+  rootSelector?: string;
+  body?: string;
+  bodyContentType?: string;
   auth?: object;
 }
 

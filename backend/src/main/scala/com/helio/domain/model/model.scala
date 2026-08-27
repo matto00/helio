@@ -2,6 +2,7 @@ package com.helio.domain.model
 
 import com.helio.api.http.RequestValidation
 import java.time.Instant
+import org.apache.pekko.http.scaladsl.model.{ContentType, ContentTypes}
 import org.slf4j.LoggerFactory
 import spray.json._
 
@@ -517,8 +518,38 @@ final case class RestApiConfig(
     queryParams: Map[String, String] = Map.empty,
     headers: Map[String, String] = Map.empty,
     body: Option[String] = None,
+    bodyContentType: Option[String] = None,
+    rootSelector: Option[String] = None,
     parameters: Map[String, String] = Map.empty
 )
+
+object RestApiConfig {
+
+  /** HEL-826 design.md Decision 3 — the safety guard for a body on a safe HTTP method.
+   *  Called ONLY at the two request-issuing choke points (`buildResolvedRequest`,
+   *  `buildEphemeralRequest`), plus belt-and-braces at create-time in `SourceService` —
+   *  NEVER from `RestApiConfigPayload.toDomain`/`decodeRest` (decode-is-total invariant). */
+  def rejectBodyOnSafeMethod(method: String, body: Option[String]): Either[String, Unit] =
+    if (body.isDefined && Set("GET", "HEAD").contains(method.toUpperCase)) {
+      Left(s"A request body cannot be sent with a $method request")
+    } else {
+      Right(())
+    }
+
+  /** HEL-826 design.md Decision 2/3 — the single place `bodyContentType` is parsed.
+   *  Defaults to `application/json` when unset; an unparseable explicit value is a `Left`.
+   *  Called ONLY at the two request-issuing choke points, never from `toDomain`. */
+  def parseBodyContentType(bodyContentType: Option[String]): Either[String, ContentType] =
+    bodyContentType match {
+      case None      => Right(ContentTypes.`application/json`)
+      case Some(raw) =>
+        ContentType.parse(raw) match {
+          case Right(ct)   => Right(ct)
+          case Left(errors) =>
+            Left(s"Invalid bodyContentType '$raw': ${errors.map(_.summary).mkString(", ")}")
+        }
+    }
+}
 
 /** HEL-822 design.md Decision 1c: a distinct, never-persisted carrier for a bare-`url`
  *  `infer`/`test` (or inline pipeline-proposal) request — used only as the in-memory
@@ -529,7 +560,10 @@ final case class RestApiConfig(
 final case class EphemeralRestConfig(
     url: String,
     method: String = "GET",
-    headers: Map[String, String] = Map.empty
+    headers: Map[String, String] = Map.empty,
+    body: Option[String] = None,
+    bodyContentType: Option[String] = None,
+    rootSelector: Option[String] = None
 )
 
 /** Classifies `DataFieldType` variants into two families: `Structured`
