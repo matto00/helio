@@ -1,5 +1,6 @@
 package com.helio.services.workspace
 
+import com.helio.api.protocols.sources.ConnectorSummary
 import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextPipelineStep}
 import com.helio.api.protocols.workspace.{WorkspaceContextDashboard, WorkspaceContextDataType, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextProtocol, WorkspaceContextResponse}
 import com.helio.services.workspace.WorkspaceContextBudget
@@ -66,9 +67,13 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
 
   private val NaturalJoinHintCount = 3
 
+  private val connectorFixture: Vector[ConnectorSummary] =
+    Vector(ConnectorSummary(id = "conn-1", name = "My API", kind = "rest_api", host = "https://api.example.com"))
+
   private def baseResponse(
       dataTypes: Vector[WorkspaceContextDataType],
-      joinHints: Vector[WorkspaceContextJoinHint] = (1 to NaturalJoinHintCount).map(joinHintFixture).toVector
+      joinHints: Vector[WorkspaceContextJoinHint] = (1 to NaturalJoinHintCount).map(joinHintFixture).toVector,
+      connectors: Vector[ConnectorSummary] = connectorFixture
   ): WorkspaceContextResponse =
     WorkspaceContextResponse(
       generatedAt = "2024-01-01T00:00:00Z",
@@ -79,7 +84,8 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
       dashboards = Vector.empty,
       joinHints = joinHints,
       truncation = WorkspaceContextBudget.PlaceholderTruncation,
-      agentContext = WorkspaceContextAgentSection.empty
+      agentContext = WorkspaceContextAgentSection.empty,
+      connectors = connectors
     )
 
   private val threeDataTypes: Vector[WorkspaceContextDataType] =
@@ -237,6 +243,16 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
       // Resources themselves are NEVER dropped, even at the tightest budget —
       // the acceptance criterion this case exists to prove.
       result.dataTypes.map(_.id) shouldBe threeDataTypes.map(_.id)
+    }
+
+    // HEL-828 design.md Decision 5 / spec "Connectors are a structural field, never shrunk by
+    // budget trimming" — mirrors the dataTypes-survive assertion immediately above.
+    "never shrink or omit connectors, even at the tightest budget" in {
+      val response = baseResponse(threeDataTypes)
+
+      val result = WorkspaceContextBudget.apply(response, 0, emptyPage, emptyPage, emptyPage)
+
+      result.connectors shouldBe connectorFixture
     }
   }
 

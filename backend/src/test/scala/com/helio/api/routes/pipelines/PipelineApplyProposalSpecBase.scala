@@ -12,7 +12,9 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
+import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
+import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
@@ -59,6 +61,7 @@ abstract class PipelineApplyProposalSpecBase
   private var privilegedDb: JdbcBackend.Database = _
   private var ctx: DbContext                     = _
   protected var routes: Route                    = _
+  protected var connectorRepo: ConnectorRepository = _
 
   protected val userId  = "00000000-0000-0000-0000-0000000000c1"
   protected val otherId = "00000000-0000-0000-0000-0000000000c2"
@@ -164,6 +167,7 @@ abstract class PipelineApplyProposalSpecBase
     val pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
     val pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
     val dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
+    connectorRepo        = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(routeEc))(routeEc)
 
     routes = new ApiRoutes(
       dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,

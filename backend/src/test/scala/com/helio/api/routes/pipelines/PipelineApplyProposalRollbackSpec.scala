@@ -3,7 +3,10 @@ package com.helio.api.routes.pipelines
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import com.helio.api.protocols.pipelines.PipelineProposalApplyResponse
 import com.helio.api._
+import com.helio.domain.model.UserId
 import spray.json._
+
+import java.util.UUID
 
 /** Mid-apply failure rollback + RLS coverage for `POST
  *  /api/pipelines/apply-proposal` (HEL-383, design.md D5/D6) — split out of
@@ -266,9 +269,21 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
 
   /** Creates a pre-existing `rest_api` source directly via `POST /api/sources`
    *  (not through apply-proposal), for the existing-`sourceId` coverage
-   *  above — returns the created source's id. */
+   *  above — returns the created source's id. HEL-828: `POST /api/sources` now rejects a
+   *  bare `url` at the wire boundary (`SourceRoutes`), so this seeds a real Connector first. */
   private def createRestSource(url: String, name: String): String = {
-    val body = s"""{"name":"$name","type":"rest_api","config":{"url":"$url"}}"""
+    val connectorId = await(
+      connectorRepo.create(
+        ownerId             = UserId(userId),
+        name                = s"rollback-conn-${UUID.randomUUID()}",
+        kind                = "rest_api",
+        baseUrl             = url,
+        config              = """{"authType":"none"}""",
+        credentialPlaintext = "",
+        credentialName      = "cred"
+      )
+    ).id.value
+    val body = s"""{"name":"$name","type":"rest_api","config":{"connectorId":"$connectorId"}}"""
     var id = ""
     Post("/api/sources", json(body)).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
       status shouldBe StatusCodes.Created

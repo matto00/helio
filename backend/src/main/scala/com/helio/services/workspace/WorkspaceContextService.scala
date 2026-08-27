@@ -6,9 +6,11 @@ import com.helio.services.pipelines.{DataTypeService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentPreferencesResponse}
 import com.helio.api.protocols.pipelines.{AnalyzeStepResponse, PipelineSummaryResponse}
+import com.helio.api.protocols.sources.ConnectorSummary
 import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextDashboard, WorkspaceContextDataSource, WorkspaceContextDataType, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextPipelineStep, WorkspaceContextResponse}
 import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, DataType, Dashboard, FieldTypeCategory, Page, PipelineId}
 import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 
 import java.time.Instant
@@ -57,7 +59,11 @@ final class WorkspaceContextService(
     pipelineService: PipelineService,
     agentPreferencesServiceOpt: Option[AgentPreferencesService] = None,
     agentMemoryServiceOpt: Option[AgentMemoryService] = None,
-    panelRepoOpt: Option[PanelRepository] = None
+    panelRepoOpt: Option[PanelRepository] = None,
+    // HEL-828 design.md Decision 5: same Option-guarded, trailing, default-None precedent as
+    // panelRepoOpt above -- every existing construction site keeps compiling unchanged. When
+    // `None`, `connectors` degrades to an empty Vector rather than failing `assemble`.
+    connectorRepoOpt: Option[ConnectorRepository] = None
 )(implicit ec: ExecutionContext) {
 
   /** Bounded sample-row count per pipeline-output DataType (design.md D1/D3)
@@ -162,6 +168,7 @@ final class WorkspaceContextService(
     val dashboardsF   = dashboardService.findAll(user, Page.Default)
     val summariesF    = pipelineService.listSummaries(user)
     val agentContextF = buildAgentContext(user)
+    val connectorsF   = buildConnectors(user)
 
     for {
       sourcesPage    <- sourcesF
@@ -172,6 +179,7 @@ final class WorkspaceContextService(
       dataTypes      <- Future.traverse(typesPage.items)(toDataTypeEntry(_, user))
       dashboards     <- Future.traverse(dashboardsPage.items)(toDashboardEntry(_, user))
       agentContext   <- agentContextF
+      connectors     <- connectorsF
     } yield {
       val assembled = WorkspaceContextResponse(
         generatedAt = Instant.now().toString,
@@ -190,7 +198,8 @@ final class WorkspaceContextService(
         // owner-scoped by `typesPage` (D3), no new DB access, no new Future step.
         joinHints    = computeJoinHints(dataTypes),
         truncation   = WorkspaceContextBudget.PlaceholderTruncation,
-        agentContext = agentContext
+        agentContext = agentContext,
+        connectors   = connectors
       )
       WorkspaceContextBudget.apply(assembled, budgetBytes, sourcesPage, typesPage, dashboardsPage)
     }
@@ -232,6 +241,18 @@ final class WorkspaceContextService(
             )
         }
       case _ => Future.successful(WorkspaceContextAgentSection.empty)
+    }
+
+  /** HEL-828 design.md Decision 5/6: the caller's Connectors, owner-scoped
+   *  (`ConnectorRepository.findAll`, the same RLS-scoped query `GET /api/connectors` uses),
+   *  projected through the slim, explicitly allow-listed `ConnectorSummary.fromDomain` --
+   *  `config`/`defaultHeaders`/`authType` are never read. Degrades to an empty `Vector` when
+   *  `connectorRepoOpt` is `None` (design.md Decision 5's "not currently wired" precedent),
+   *  mirroring `buildAgentContext`'s own not-wired degrade. */
+  private def buildConnectors(user: AuthenticatedUser): Future[Vector[ConnectorSummary]] =
+    connectorRepoOpt match {
+      case Some(repo) => repo.findAll(user).map(_.map(ConnectorSummary.fromDomain))
+      case None       => Future.successful(Vector.empty)
     }
 
   /** Ranks `entries` most-recently-useful first: entries with a `lastUsedAt` sorted descending by

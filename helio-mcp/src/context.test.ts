@@ -846,6 +846,70 @@ describe("buildWorkspaceContext — agentContext wiring (HEL-521, 420-C)", () =>
   });
 });
 
+describe("buildWorkspaceContext — connectors wiring (HEL-828)", () => {
+  function emptyPage<T>(): { items: T[]; total: number; offset: number; limit: number } {
+    return { items: [], total: 0, offset: 0, limit: 200 };
+  }
+
+  /** A minimal fake covering every call `buildWorkspaceContext` makes OTHER than
+   *  `listConnectorInstances` — mirrors the "agentContext wiring" block's `baseFakeApi`
+   *  precedent above. */
+  function baseFakeApi(): Record<string, unknown> {
+    return {
+      listDataSources: async () => emptyPage(),
+      listDataTypes: async () => emptyPage(),
+      listDashboards: async () => emptyPage(),
+      listPipelines: async () => [],
+      listPipelineShapes: async () => [],
+      listMetrics: async () => emptyPage(),
+      getAgentPreferences: async () => ({ extras: {} }),
+      listAgentMemory: async () => [],
+    };
+  }
+
+  it("populates connectors with only id/name/kind/host per entry", async () => {
+    const connectors = [
+      { id: "conn-1", name: "My API", kind: "rest_api", host: "https://api.example.com" },
+    ];
+    const fake = { ...baseFakeApi(), listConnectorInstances: async () => connectors };
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+
+    expect(context.connectors).toEqual(connectors);
+  });
+
+  it("degrades connectors to [] when listConnectorInstances rejects, without failing the whole call", async () => {
+    const fake = {
+      ...baseFakeApi(),
+      listConnectorInstances: async () => {
+        throw new Error("boom");
+      },
+    };
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+
+    expect(context.connectors).toEqual([]);
+    // The rest of the workspace snapshot is intact, not just connectors.
+    expect(context.counts).toEqual({ dataSources: 0, dataTypes: 0, pipelines: 0, dashboards: 0 });
+  });
+
+  it("degrades connectors to [] when listConnectorInstances is entirely unavailable (missing method)", async () => {
+    const fake = baseFakeApi();
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+
+    expect(context.connectors).toEqual([]);
+  });
+
+  it("reports an empty connectors list for a caller with no Connectors, not an error", async () => {
+    const fake = { ...baseFakeApi(), listConnectorInstances: async () => [] };
+
+    const context = await buildWorkspaceContext(fake as unknown as HelioApi);
+
+    expect(context.connectors).toEqual([]);
+  });
+});
+
 /**
  * HEL-374 tasks.md 5.3 — MCP-side unit tests for `classifySemanticRole`/
  * `normalizedNameTokens`, mirroring `WorkspaceContextServiceClassifySemanticRoleSpec`
@@ -1345,6 +1409,7 @@ describe("cross-language parity fixture (HEL-374 tasks.md 5.3)", () => {
           paginationTruncatedResources: [],
         },
         agentContext: { preferences: { extras: {} }, memory: [] },
+        connectors: [],
       };
 
       const naturalSize = applyBudget(context, Number.MAX_SAFE_INTEGER, []).truncation
@@ -1460,6 +1525,7 @@ describe("applyBudget", () => {
         paginationTruncatedResources: [],
       },
       agentContext: { preferences: { extras: {} }, memory: [] },
+      connectors: [],
     };
   }
 

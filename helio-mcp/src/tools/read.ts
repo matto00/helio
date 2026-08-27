@@ -208,6 +208,21 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "list_connectors",
+    {
+      title: "List connectors",
+      description:
+        "List the caller's real Connectors: id, name, kind, and host (base host/origin) only. " +
+        "Distinct from list_connector_types, which lists connector KIND capability metadata, not " +
+        "instances. Credentials are NEVER returned by this or any tool, in any form, including " +
+        "partially masked — do not waste turns trying to retrieve one. Call this before " +
+        "create_rest_data_source to obtain a connectorId to author against.",
+      inputSchema: {},
+    },
+    () => guarded(() => api.listConnectorInstances()),
+  );
+
+  server.registerTool(
     "list_pipeline_shapes",
     {
       title: "List pipeline shapes",

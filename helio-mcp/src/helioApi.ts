@@ -25,6 +25,7 @@ import type {
   CombinedProposal,
   CombinedProposalApplyResponse,
   ConnectorMetadataResponse,
+  ConnectorSummary,
   CreateMetricRequest,
   CreateSourceResult,
   CsvPreview,
@@ -51,7 +52,6 @@ import type {
   PipelineSummaryResponse,
   ProposalPanel,
   RefinementResult,
-  RestAuthInput,
   RowsPreview,
   RunResultResponse,
   ShapeStepExpansionResponse,
@@ -307,6 +307,23 @@ export class HelioApi {
     return this.http.get<ConnectorMetadataResponse[]>("/api/connector-types");
   }
 
+  /** HEL-828 design.md Decision 6: List the caller's real Connector INSTANCES
+   *  (`GET /api/connectors`) — distinct from `listConnectors()` above, which lists connector
+   *  KIND metadata. Maps the backend's `{items: ConnectorMeta[]}` wire shape into the slim,
+   *  explicitly allow-listed `ConnectorSummary` — never the full `ConnectorMeta` shape (which
+   *  carries `config`, structurally capable of holding a credential-shaped
+   *  `defaultHeaders.Authorization` value even though it never carries the raw credential
+   *  itself). Named/mapped by field, never by spreading `ConnectorMeta` and omitting keys. */
+  listConnectorInstances(): Promise<ConnectorSummary[]> {
+    return this.http
+      .get<{
+        items: Array<{ id: string; name: string; kind: string; baseUrl: string }>;
+      }>("/api/connectors")
+      .then((res) =>
+        res.items.map((c) => ({ id: c.id, name: c.name, kind: c.kind, host: c.baseUrl })),
+      );
+  }
+
   /** List every registered smart pipeline shape with its catalog metadata (HEL-391/402) —
    *  id/label/description/paramsSchema/outputContract, sorted by id. `outputContract.rowCount`/
    *  `description` carry the real signal. Thin pass-through, no reshaping. */
@@ -389,27 +406,36 @@ export class HelioApi {
     return this.http.postMultipart<DataSourceResponse>("/api/data-sources", form);
   }
 
-  /** Create a `rest_api` data source. The backend attempts an initial fetch at
-   *  creation time; on success it returns the auto-created companion DataType,
-   *  on failure it returns `dataType: null` + `fetchError` (not an opaque
-   *  failure) so the agent can diagnose and retry. Credentials (bearer token /
-   *  api-key value) are redacted server-side before this response is built —
-   *  never echoed back raw. */
+  /** Create a `rest_api` data source against an existing Connector (HEL-828 design.md
+   *  Decision 4/6 -- no `url`/`auth` field exists on this input at all, so an agent cannot
+   *  supply a credential inline even if instructed to; the Connector's configured auth is
+   *  resolved server-side, never passed through this call). The backend attempts an initial
+   *  fetch at creation time; on success it returns the auto-created companion DataType, on
+   *  failure it returns `dataType: null` + `fetchError` (not an opaque failure) so the agent
+   *  can diagnose and retry. */
   async createRestDataSource(input: {
     name: string;
-    url: string;
+    connectorId: string;
+    endpoint?: string;
     method?: string;
+    queryParams?: Record<string, string>;
     headers?: Record<string, string>;
-    auth?: RestAuthInput;
+    body?: string;
+    bodyContentType?: string;
+    rootSelector?: string;
   }): Promise<CreateSourceResult> {
     const raw = await this.http.post<RawCreateSourceResponse>("/api/sources", {
       name: input.name,
       type: "rest_api",
       config: {
-        url: input.url,
+        connectorId: input.connectorId,
+        endpoint: input.endpoint,
         method: input.method,
+        queryParams: input.queryParams,
         headers: input.headers,
-        auth: input.auth,
+        body: input.body,
+        bodyContentType: input.bodyContentType,
+        rootSelector: input.rootSelector,
       },
     });
     return {

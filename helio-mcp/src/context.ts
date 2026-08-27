@@ -21,6 +21,7 @@ import type {
   AgentMemoryEntryResponse,
   AgentPreferencesResponse,
   AssertionSummaryResponse,
+  ConnectorSummary,
   DataFieldResponse,
   MetricFormat,
   RowCountContractResponse,
@@ -104,6 +105,23 @@ export async function buildAgentContext(api: HelioApi): Promise<WorkspaceContext
     preferences,
     memory: rankMemoryEntries(rawMemory).slice(0, AGENT_MEMORY_TOP_N),
   };
+}
+
+// ── Connectors (HEL-828 design.md Decision 5) ────────────────────────────
+
+/** Fetches the caller's Connectors via `GET /api/connectors` (`HelioApi.listConnectorInstances`)
+ *  — its OWN separate, independently `.catch`-guarded call, mirroring `buildAgentContext`'s
+ *  precedent immediately above (design.md Decision 5's "degrade that one section to empty"
+ *  contract): a failed fetch degrades `connectors` to `[]`, never fails the whole
+ *  `get_workspace_context`/`buildWorkspaceContext` call. Already the slim, explicitly
+ *  allow-listed `id`/`name`/`kind`/`host` projection (`HelioApi.listConnectorInstances`) —
+ *  never the full `ConnectorMeta` shape. */
+async function buildConnectors(api: HelioApi): Promise<ConnectorSummary[]> {
+  try {
+    return await api.listConnectorInstances();
+  } catch {
+    return [];
+  }
 }
 
 // ── Sample rows (HEL-372 design.md D3/D6) ────────────────────────────────
@@ -1066,6 +1084,13 @@ export interface WorkspaceContext {
     preferences: AgentPreferencesResponse;
     memory: AgentMemoryEntryResponse[];
   };
+  /** HEL-828 design.md Decision 5/6: the caller's Connectors, each carrying only
+   *  `id`/`name`/`kind`/`host` — no credential field of any kind, and no
+   *  `config`/`defaultHeaders` value. ALWAYS present (an array, never omitted) — degrades to
+   *  `[]` when the `GET /api/connectors` fetch fails (see `buildConnectors`), never failing the
+   *  whole call. Lets an agent see what it can author a REST source against without a separate
+   *  `list_connectors` call. */
+  connectors: ConnectorSummary[];
 }
 
 /** Distinct panelIds referenced across all four breakpoints of a layout. */
@@ -1096,6 +1121,11 @@ export async function buildWorkspaceContext(
   // two fetches are already independently `.catch`-guarded, so a rejection here can never fail
   // this whole call, only degrade `agentContext`'s corresponding section.
   const agentContextPromise = buildAgentContext(api);
+  // HEL-828 design.md Decision 5: same "kicked off concurrently, own independent catch,
+  // deliberately NOT a member of the fail-fast Promise.all below" pattern as agentContextPromise
+  // immediately above — buildConnectors is already self-`.catch`-guarded, so a rejection here
+  // can never fail this whole call, only degrade `connectors` to `[]`.
+  const connectorsPromise = buildConnectors(api);
 
   const [sourcesPage, typesPage, dashboardsPage, pipelineSummaries, pipelineShapes, metricsPage] =
     await Promise.all([
@@ -1205,6 +1235,7 @@ export async function buildWorkspaceContext(
   );
 
   const agentContext = await agentContextPromise;
+  const connectors = await connectorsPromise;
 
   const context: WorkspaceContext = {
     generatedAt: new Date().toISOString(),
@@ -1259,6 +1290,7 @@ export async function buildWorkspaceContext(
     // `PLACEHOLDER_TRUNCATION`.
     truncation: PLACEHOLDER_TRUNCATION,
     agentContext,
+    connectors,
   };
 
   return applyBudget(

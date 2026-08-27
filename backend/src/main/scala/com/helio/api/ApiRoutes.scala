@@ -464,7 +464,10 @@ final class ApiRoutes(
     pipelineService,
     agentPreferencesServiceOpt,
     agentMemoryServiceOpt,
-    Some(panelRepo)
+    Some(panelRepo),
+    // HEL-828 design.md Decision 5: reuses the EXISTING connectorRepoOpt (constructed above,
+    // alongside sourceService/connectorEntityServiceOpt) — no new ConnectorRepository here.
+    connectorRepoOpt
   )
   // HEL-397: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
   // fixtures that don't pass a DbContext simply don't get the authoring routes' persistence

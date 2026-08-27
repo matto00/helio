@@ -20,6 +20,7 @@ import {
   metricFormatSchema,
 } from "./metricSchemas.js";
 import { panelSchema } from "./proposal.js";
+import { createRestDataSourceSchema } from "./restDataSourceSchema.js";
 import {
   buildUpdateDataTypeBody,
   buildUpdatePanelBody,
@@ -105,38 +106,47 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     ({ name, content, tag }) => guarded(() => api.createCsvDataSource({ name, content, tag })),
   );
 
-  const restAuthSchema = z.discriminatedUnion("type", [
-    z.object({ type: z.literal("none") }),
-    z.object({ type: z.literal("bearer"), token: z.string().min(1) }),
-    z.object({
-      type: z.literal("api_key"),
-      name: z.string().min(1),
-      value: z.string().min(1),
-      in: z.enum(["header", "query"]),
-    }),
-  ]);
-
   server.registerTool(
     "create_rest_data_source",
     {
       title: "Create data source (REST API)",
       description:
-        "Create a `rest_api` data source. The backend attempts an initial fetch at creation time: " +
-        "on success the response includes the auto-created companion DataType; on failure it returns " +
-        "dataType: null and a fetchError message instead of an opaque error, so a bad URL or " +
-        "credential can be diagnosed and retried. Bearer tokens / api-key values are redacted by the " +
-        "backend and never appear in this tool's result. Build a pipeline over the returned source id " +
-        "to produce a panel-bindable output type.",
-      inputSchema: {
-        name: z.string().min(1),
-        url: z.string().min(1),
-        method: z.string().optional(),
-        headers: z.record(z.string()).optional(),
-        auth: restAuthSchema.optional(),
-      },
+        "Create a `rest_api` data source against an existing Connector — call list_connectors first " +
+        "to obtain a connectorId. This tool accepts NO url or auth/credential field of any kind — " +
+        "the Connector's configured auth is resolved and applied server-side, never passed through " +
+        "this call, and credentials are never returned by this or any tool. An `auth`/`apiKey`/`token`/" +
+        "`password`/`credential` field is REJECTED with a validation error naming connectorId, not " +
+        "silently dropped. The backend attempts an " +
+        "initial fetch at creation time: on success the response includes the auto-created companion " +
+        "DataType; on failure it returns dataType: null and a fetchError message instead of an opaque " +
+        "error, so a bad endpoint can be diagnosed and retried. Build a pipeline over the returned " +
+        "source id to produce a panel-bindable output type.",
+      inputSchema: createRestDataSourceSchema,
     },
-    ({ name, url, method, headers, auth }) =>
-      guarded(() => api.createRestDataSource({ name, url, method, headers, auth })),
+    ({
+      name,
+      connectorId,
+      endpoint,
+      method,
+      queryParams,
+      headers,
+      body,
+      bodyContentType,
+      rootSelector,
+    }) =>
+      guarded(() =>
+        api.createRestDataSource({
+          name,
+          connectorId,
+          endpoint,
+          method,
+          queryParams,
+          headers,
+          body,
+          bodyContentType,
+          rootSelector,
+        }),
+      ),
   );
 
   server.registerTool(

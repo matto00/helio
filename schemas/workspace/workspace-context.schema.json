@@ -13,7 +13,8 @@
     "dashboards",
     "joinHints",
     "truncation",
-    "agentContext"
+    "agentContext",
+    "connectors"
   ],
   "properties": {
     "generatedAt": {
@@ -60,6 +61,13 @@
     "agentContext": {
       "$ref": "#/$defs/AgentContext",
       "description": "HEL-521 (420-C): the caller's agent-authoring preferences plus up to 20 of their most-recently-useful AgentMemoryEntry records, ranked by lastUsedAt descending (never-used entries last). ALWAYS present (an object, never omitted) -- an empty/all-default preferences object and an empty memory array when the caller has stored neither, or when the underlying services aren't wired server-side. Surfacing a memory entry here touches its lastUsedAt as a side effect of this same assemble call (see AgentContext.memory's description) -- never re-fetched, so this array reflects the pre-touch values."
+    },
+    "connectors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ConnectorSummary"
+      },
+      "description": "HEL-828: the caller's Connectors, owner-scoped, projected through a slim, explicitly allow-listed id/name/kind/host shape -- never the credential in any form, never config/defaultHeaders/authType. A STRUCTURAL field for budget-trimming purposes -- never shrunk/omitted under budgetBytes pressure, exactly like counts and each resource list's identity fields."
     }
   },
   "additionalProperties": false,
@@ -87,6 +95,27 @@
       },
       "additionalProperties": false,
       "description": "Each field is the resource kind's true PagedResult.total (design.md D3), not the possibly page-truncated items.length — dataSources/dataTypes/dashboards are fetched with Page.Default (limit 200, parity with the MCP's own unparameterized fan-out), so counts can exceed the corresponding array's length for a workspace over 200 of a given kind."
+    },
+    "ConnectorSummary": {
+      "type": "object",
+      "required": ["id", "name", "kind", "host"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string",
+          "description": "The Connector's base host/origin (baseUrl). Never the credential."
+        }
+      },
+      "additionalProperties": false
     },
     "DataSourceEntry": {
       "type": "object",
