@@ -47,6 +47,8 @@ retrieve one.
   silently fails to authenticate later; no source is created and the field never appears in any
   result
 
+## ADDED Requirements
+
 ### Requirement: list_connectors MCP tool
 The MCP server SHALL expose `list_connectors`, returning the caller's Connectors: `id`, `name`,
 `kind`, and `host` (the base host/origin only) per entry. The credential SHALL NOT appear in
