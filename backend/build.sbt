@@ -71,6 +71,13 @@ generateSbom := {
 lazy val root = (project in file("."))
   .settings(
     name := "helio-backend",
+    // HEL-536: RewrapConnectorCredentialsJob adds a second top-level `def main` (invoked only via
+    // `sbt runMain com.helio.maintenance.RewrapConnectorCredentialsJob`, per docs/secrets-inventory.md's
+    // rotation runbook), which makes `sbt run`/`bgRun` ambiguous between it and Main and forces an
+    // interactive "Enter number:" prompt — fatal in non-interactive contexts like CI/e2e (`sbt run`
+    // hangs/fails with "No main class detected"). Pin `run`'s main class explicitly so `sbt run` keeps
+    // launching the server unattended; `runMain <fqcn>` is unaffected and still reaches the job directly.
+    Compile / run / mainClass := Some("com.helio.app.Main"),
     assembly / mainClass := Some("com.helio.app.Main"),
     assembly / assemblyJarName := "helio-backend.jar",
     assembly / assemblyMergeStrategy := {
