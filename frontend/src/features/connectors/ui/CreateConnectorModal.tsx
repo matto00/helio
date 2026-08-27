@@ -9,7 +9,7 @@ import { useToast } from "../../toasts/hooks/useToast";
 import { FormField, Modal, TextField } from "../../../shared/ui/index";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { createConnector } from "../state/connectorsSlice";
-import type { ConnectorConfig } from "../types/connector";
+import type { Connector, ConnectorConfig } from "../types/connector";
 import {
   ConnectorCredentialField,
   emptyConnectorCredentialFieldValue,
@@ -17,9 +17,15 @@ import {
 
 interface CreateConnectorModalProps {
   onClose: () => void;
+  /** HEL-827: called with the newly created Connector just before `onClose()`
+   *  on success — lets a caller (e.g. the REST source form's Connector
+   *  picker) select the new Connector without a racy re-read of
+   *  `connectorsSlice`. Optional and backwards-compatible: `ConnectorsPage`'s
+   *  existing usage passes nothing and is unaffected. */
+  onCreated?: (connector: Connector) => void;
 }
 
-export function CreateConnectorModal({ onClose }: CreateConnectorModalProps) {
+export function CreateConnectorModal({ onClose, onCreated }: CreateConnectorModalProps) {
   const dispatch = useAppDispatch();
   const { push: pushToast } = useToast();
 
@@ -31,6 +37,17 @@ export function CreateConnectorModal({ onClose }: CreateConnectorModalProps) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    // HEL-827: when this modal is opened from inside another modal's own
+    // <form> (e.g. the REST source form's Connector picker), it's rendered
+    // via a portal to avoid invalid DOM form-in-form nesting — but React's
+    // synthetic event system bubbles by component (React) tree, not DOM
+    // tree, so this submit would otherwise still reach the ancestor
+    // `<form>`'s own onSubmit handler and fire its validation prematurely
+    // (probe: AddSourceModal's "A Connector is required." error appeared
+    // immediately on connector creation, before the new Connector was even
+    // selected). Stop it here so this modal's submit never leaks to an
+    // ancestor form regardless of where it's mounted.
+    e.stopPropagation();
     if (name.trim() === "" || baseUrl.trim() === "") return;
     if (credentialValue.authType !== "none" && credentialValue.credential.trim() === "") {
       setError("A credential is required for this authentication type.");
@@ -65,6 +82,7 @@ export function CreateConnectorModal({ onClose }: CreateConnectorModalProps) {
 
     if (createConnector.fulfilled.match(result)) {
       pushToast({ variant: "success", message: `Connector "${result.payload.name}" created.` });
+      onCreated?.(result.payload);
       onClose();
     } else {
       setError(result.payload ?? "Failed to create connector.");

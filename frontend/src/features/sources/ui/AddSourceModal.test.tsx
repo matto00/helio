@@ -7,13 +7,48 @@ import {
   createTextSourceUrl as createTextSourceUrlRequest,
   createPdfSourceUpload as createPdfSourceUploadRequest,
   createPdfSourceUrl as createPdfSourceUrlRequest,
+  createRestSource as createRestSourceRequest,
   createStaticSource as createStaticSourceRequest,
   inferFromJson as inferFromJsonRequest,
   testConnection as testConnectionRequest,
 } from "../services/dataSourceService";
 import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
+import { fetchConnectors as fetchConnectorsRequest } from "../../connectors/services/connectorEntityService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { AddSourceModal } from "./AddSourceModal";
+
+// HEL-827: ConnectorSelectField fetches GET /api/connectors on mount
+// (connectorsSlice's fetchConnectors thunk). Resolve with one Connector so
+// the REST tests below can select it the way a real user would.
+jest.mock("../../connectors/services/connectorEntityService", () => ({
+  fetchConnectors: jest.fn().mockResolvedValue([
+    {
+      id: "connector-1",
+      ownerId: "user-1",
+      name: "Test API",
+      kind: "rest_api",
+      baseUrl: "https://api.example.com",
+      config: { authType: "none" },
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      dependentCount: 0,
+    },
+  ]),
+  createConnector: jest.fn().mockResolvedValue({
+    id: "connector-new",
+    ownerId: "user-1",
+    name: "New API",
+    kind: "rest_api",
+    baseUrl: "https://new.example.com",
+    config: { authType: "none" },
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    dependentCount: 0,
+  }),
+  updateConnector: jest.fn(),
+  deleteConnector: jest.fn(),
+  rotateConnectorCredential: jest.fn(),
+}));
 
 // HEL-484: SourceTypeToggle fetches GET /api/connector-types on mount. Resolve
 // with the same 7-kind/order/label set the pre-registry hardcoded toggle
@@ -107,9 +142,20 @@ const createPdfSourceUrlMock = jest.mocked(createPdfSourceUrlRequest);
 const createImageSourceUploadMock = jest.mocked(createImageSourceUploadRequest);
 const createImageSourceUrlMock = jest.mocked(createImageSourceUrlRequest);
 const createStaticSourceMock = jest.mocked(createStaticSourceRequest);
+const createRestSourceMock = jest.mocked(createRestSourceRequest);
 const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 const inferFromJsonMock = jest.mocked(inferFromJsonRequest);
 const testConnectionMock = jest.mocked(testConnectionRequest);
+const fetchConnectorsMock = jest.mocked(fetchConnectorsRequest);
+
+/** HEL-827: selects the mocked Connector via the picker — the REST form now
+ *  requires this before endpoint/test/create are reachable. */
+async function selectTestConnector() {
+  fireEvent.click(screen.getByRole("combobox", { name: "Connector" }));
+  const option = await screen.findByRole("option", { name: /test api/i });
+  fireEvent.click(option);
+  await waitFor(() => expect(screen.getByLabelText("Endpoint path")).toBeEnabled());
+}
 
 describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
   beforeEach(() => {
@@ -437,6 +483,19 @@ describe("AddSourceModal — REST API connection test (HEL-480)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     fetchDataTypesMock.mockResolvedValue([]);
+    fetchConnectorsMock.mockResolvedValue([
+      {
+        id: "connector-1",
+        ownerId: "user-1",
+        name: "Test API",
+        kind: "rest_api",
+        baseUrl: "https://api.example.com",
+        config: { authType: "none" },
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+        dependentCount: 0,
+      },
+    ]);
     // jsdom does not implement showModal/close natively (Modal.tsx uses a
     // native <dialog>); stub them, mirroring shared/ui/Modal.test.tsx.
     HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
@@ -451,10 +510,19 @@ describe("AddSourceModal — REST API connection test (HEL-480)", () => {
   // REST API is the modal's default source type, so RestApiForm — and its
   // new TestConnectionAffordance — render without any tab switch.
 
-  it("renders a 'Test connection' affordance alongside the URL/JSON path fields", () => {
+  it("renders a Connector picker and a 'Test connection' affordance alongside the endpoint/JSON path fields", () => {
     renderWithStore(<AddSourceModal onClose={jest.fn()} />);
-    expect(screen.getByLabelText("URL")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Connector" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Endpoint path")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Test connection" })).toBeInTheDocument();
+  });
+
+  // HEL-827: no Connector selected yet — save/test before this point must be
+  // unreachable, proving the UI never emits a bare-url create/test request.
+  it("disables 'Test connection' and the endpoint field until a Connector is selected", () => {
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+    expect(screen.getByLabelText("Endpoint path")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Test connection" })).toBeDisabled();
   });
 
   // Design Decision 5a regression: TestConnectionAffordance's button MUST be
@@ -465,9 +533,10 @@ describe("AddSourceModal — REST API connection test (HEL-480)", () => {
   it("clicking 'Test connection' does not submit the configure form or advance past the configure step", async () => {
     testConnectionMock.mockResolvedValue({ ok: true, error: null });
     renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+    await selectTestConnector();
 
-    fireEvent.change(screen.getByLabelText("URL"), {
-      target: { value: "https://api.example.com/data" },
+    fireEvent.change(screen.getByLabelText("Endpoint path"), {
+      target: { value: "/v1/accounts" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
 
@@ -484,15 +553,99 @@ describe("AddSourceModal — REST API connection test (HEL-480)", () => {
   it("shows a success indicator after a successful test", async () => {
     testConnectionMock.mockResolvedValue({ ok: true, error: null });
     renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+    await selectTestConnector();
 
-    fireEvent.change(screen.getByLabelText("URL"), {
-      target: { value: "https://api.example.com/data" },
+    fireEvent.change(screen.getByLabelText("Endpoint path"), {
+      target: { value: "/v1/accounts" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
 
     await waitFor(() => {
       expect(screen.getByText(/Connected/)).toBeInTheDocument();
     });
+  });
+
+  it("test request carries the selected connectorId and endpoint, never a bare url", async () => {
+    testConnectionMock.mockResolvedValue({ ok: true, error: null });
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+    await selectTestConnector();
+
+    fireEvent.change(screen.getByLabelText("Endpoint path"), {
+      target: { value: "/v1/accounts" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
+
+    await waitFor(() => expect(testConnectionMock).toHaveBeenCalled());
+    const [, config] = testConnectionMock.mock.calls[0];
+    expect(config).toMatchObject({ connectorId: "connector-1", endpoint: "/v1/accounts" });
+    expect(config).not.toHaveProperty("url");
+  });
+
+  it("creates a REST source via the Connector + endpoint composed config", async () => {
+    inferFromJsonMock.mockResolvedValue([]);
+    createRestSourceMock.mockResolvedValue({
+      source: {
+        id: "ds-rest-1",
+        name: "Sales API",
+        type: "rest_api",
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+        config: { url: "https://api.example.com/v1/accounts" },
+      },
+      dataType: null,
+      fetchError: null,
+    });
+    const onClose = jest.fn();
+    renderWithStore(<AddSourceModal onClose={onClose} />);
+    await selectTestConnector();
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Sales API" } });
+    fireEvent.change(screen.getByLabelText("Endpoint path"), {
+      target: { value: "/v1/accounts" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /preview schema/i }));
+
+    await waitFor(() => expect(inferFromJsonMock).toHaveBeenCalled());
+    const previewConfig = inferFromJsonMock.mock.calls[0][0];
+    expect(previewConfig).toMatchObject({ connectorId: "connector-1", endpoint: "/v1/accounts" });
+    expect(previewConfig).not.toHaveProperty("url");
+
+    fireEvent.click(screen.getByRole("button", { name: /create source/i }));
+
+    await waitFor(() => expect(createRestSourceMock).toHaveBeenCalled());
+    const [, createConfig] = createRestSourceMock.mock.calls[0];
+    expect(createConfig).toMatchObject({ connectorId: "connector-1", endpoint: "/v1/accounts" });
+    expect(createConfig).not.toHaveProperty("url");
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  // design.md Decision 1 / spec scenario "User creates a Connector inline":
+  // creating a Connector via the picker's "create new" flow selects the
+  // returned Connector and preserves other REST field values already entered.
+  it("creates a Connector inline via the picker and selects it without losing other field values", async () => {
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Sales API" } });
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Connector" }));
+    fireEvent.click(await screen.findByRole("option", { name: /create new connector/i }));
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "New API" } });
+    fireEvent.change(screen.getByLabelText("Base URL"), {
+      target: { value: "https://new.example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create connector" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Create connector" })).not.toBeInTheDocument(),
+    );
+    // The inner modal closed and the picker now shows the newly created
+    // Connector selected — endpoint becomes reachable.
+    await waitFor(() => expect(screen.getByLabelText("Endpoint path")).toBeEnabled());
+    // The source name typed before opening the inner modal survived the
+    // round trip (state lives in useRestSourceForm, unaffected by the child
+    // modal mounting/unmounting).
+    expect(screen.getByLabelText("Source name")).toHaveValue("Sales API");
   });
 });
 

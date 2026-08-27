@@ -37,6 +37,7 @@ import { TextSourceForm, type TextIngestMode } from "./forms/TextSourceForm";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
+import { useRestSourceForm } from "../hooks/useRestSourceForm";
 
 type SourceType = "rest_api" | "csv" | "static" | "sql" | "text" | "pdf" | "image";
 type Step = "configure" | "preview";
@@ -52,11 +53,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
   const [step, setStep] = useState<Step>("configure");
   const [sourceType, setSourceType] = useState<SourceType>("rest_api");
   const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
-  const [method, setMethod] = useState("GET");
-  const [jsonPath, setJsonPath] = useState("");
-  const [body, setBody] = useState("");
-  const [bodyContentType, setBodyContentType] = useState("");
+  const restForm = useRestSourceForm();
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [fields, setFields] = useState<EditableField[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -112,22 +109,20 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
     try {
       let inferred: InferredField[];
       if (sourceType === "rest_api") {
-        if (!url.trim()) {
-          setError("URL is required.");
+        // HEL-827: a Connector is required before save/test is enabled — the
+        // UI never emits a create/preview request carrying a bare `url` with
+        // no `connectorId` (retirement of the dual-support bare-url path).
+        if (!restForm.connector) {
+          setError("A Connector is required.");
           setIsLoading(false);
           return;
         }
-        const supportsBody = method === "POST" || method === "PUT" || method === "PATCH";
-        const config = {
-          url: url.trim(),
-          method,
-          ...(jsonPath.trim() ? { rootSelector: jsonPath.trim() } : {}),
-          ...(supportsBody && body.trim() ? { body: body.trim() } : {}),
-          ...(supportsBody && body.trim() && bodyContentType.trim()
-            ? { bodyContentType: bodyContentType.trim() }
-            : {}),
-        };
-        inferred = await inferFromJson(config);
+        if (!restForm.endpoint.trim()) {
+          setError("Endpoint path is required.");
+          setIsLoading(false);
+          return;
+        }
+        inferred = await inferFromJson(restForm.buildRestSourceConfig());
       } else {
         if (!csvFile) {
           setError("CSV file is required.");
@@ -153,17 +148,11 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
 
     try {
       if (sourceType === "rest_api") {
-        const supportsBody = method === "POST" || method === "PUT" || method === "PATCH";
-        const config = {
-          url: url.trim(),
-          method,
-          ...(jsonPath.trim() ? { rootSelector: jsonPath.trim() } : {}),
-          ...(supportsBody && body.trim() ? { body: body.trim() } : {}),
-          ...(supportsBody && body.trim() && bodyContentType.trim()
-            ? { bodyContentType: bodyContentType.trim() }
-            : {}),
-        };
-        const { source } = await createRestSource(name.trim(), config, fields);
+        const { source } = await createRestSource(
+          name.trim(),
+          restForm.buildRestSourceConfig(),
+          fields,
+        );
         finishCreate(source);
       } else {
         const created = await createCsvSource(name.trim(), csvFile!, fields);
@@ -326,7 +315,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
           type="submit"
           form="add-source-configure-form"
           className="ui-modal-btn ui-modal-btn--primary"
-          disabled={isLoading}
+          disabled={isLoading || (sourceType === "rest_api" && !restForm.connector)}
         >
           {isLoading ? "Loading…" : "Preview schema"}
         </button>
@@ -496,18 +485,7 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
               isSaving={isLoading}
             />
           ) : sourceType === "rest_api" ? (
-            <RestApiForm
-              url={url}
-              method={method}
-              jsonPath={jsonPath}
-              body={body}
-              bodyContentType={bodyContentType}
-              onUrlChange={setUrl}
-              onMethodChange={setMethod}
-              onJsonPathChange={setJsonPath}
-              onBodyChange={setBody}
-              onBodyContentTypeChange={setBodyContentType}
-            />
+            <RestApiForm form={restForm} />
           ) : (
             <CsvForm onFileChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
           )}

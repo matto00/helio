@@ -32,8 +32,16 @@ interface CreateSourceResponse {
 export interface RestApiConfigBody {
   url?: string;
   connectorId?: string;
+  // HEL-827: the request path when `connectorId` is set — mutually exclusive
+  // with `url` server-side (`SourceService.createRest`); `RestApiConfigPayload`
+  // reads the path from `endpoint`, not `url`, on the `connectorId` branch.
+  endpoint?: string;
   method?: string;
   headers?: Record<string, string>;
+  // HEL-827: query parameters, sent as a plain map (already accepted server-side
+  // as `Map[String,String]`) — collapsed from the UI's ordered key/value list
+  // only inside the shared config composer.
+  queryParams?: Record<string, string>;
   // HEL-826: the wire field is `rootSelector` (matching `RestApiConfigPayload.rootSelector`
   // server-side) — `jsonPath` was never a real field, only ever collected by the form and
   // silently dropped at the backend boundary.
@@ -41,6 +49,9 @@ export interface RestApiConfigBody {
   body?: string;
   bodyContentType?: string;
   auth?: object;
+  // HEL-827: template-parameter values (HEL-823 `{{name}}` substitution),
+  // keyed by placeholder name, resolved only on the `connectorId` path.
+  parameters?: Record<string, string>;
 }
 
 interface FieldOverride {

@@ -23,6 +23,24 @@
   opacity: 0.7;
 }
 
+/* HEL-827: endpoint path field, prefixed with the selected Connector's
+   read-only baseUrl so the composed URL stays legible. */
+.add-source-modal__endpoint-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.add-source-modal__endpoint-prefix {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
+
 /* File input (type=file) — keep native since it's a platform widget */
 .add-source-modal__input[type="file"] {
   padding: 5px 0;
