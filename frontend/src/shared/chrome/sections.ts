@@ -3,6 +3,7 @@ import {
   ChartNoAxesColumn,
   Database,
   LayoutDashboard,
+  Link2,
   MessageCircle,
   Shapes,
   Workflow,
@@ -76,6 +77,16 @@ export const sections: SectionEntry[] = [
     pickerId: "pipelines",
     label: "Data Pipelines",
     icon: Workflow,
+    showInNav: true,
+  },
+  // HEL-824: a real nav destination alongside Data Sources / Data Pipelines, but not a
+  // pickable sidebar-list section (`pickerId: "other"`, matching Settings' own shape) — the
+  // Connectors page owns its own list rendering rather than driving `SidebarItemList`.
+  {
+    path: "/connectors",
+    pickerId: "other",
+    label: "Connectors",
+    icon: Link2,
     showInNav: true,
   },
   {

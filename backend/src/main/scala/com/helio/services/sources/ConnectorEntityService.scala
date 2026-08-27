@@ -3,7 +3,7 @@ package com.helio.services.sources
 import com.helio.api.protocols.sources.{CreateConnectorRequest, UpdateConnectorRequest}
 import com.helio.domain.connectors.ConnectorAuthShape
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.sources.{ConnectorHasDependents, ConnectorRepository}
+import com.helio.infrastructure.persistence.sources.{ConnectorHasDependents, ConnectorRepository, ConnectorRotationNotFound}
 import com.helio.services.ServiceError
 import spray.json._
 
@@ -20,13 +20,19 @@ final class ConnectorEntityService(
     dependentCount: ConnectorId => Future[Int] = _ => Future.successful(0)
 )(implicit ec: ExecutionContext) {
 
-  def findAll(user: AuthenticatedUser): Future[Vector[Connector]] =
-    connectorRepo.findAll(user)
+  /** Returns `(Connector, dependentCount)` pairs -- HEL-824 design.md Decision 1b. Deliberately
+   *  returns domain/primitive types only, never `ConnectorMeta`/the protocol layer (skeptic
+   *  design-round-2 non-blocking note 1); `ConnectorEntityRoutes` maps each pair to
+   *  `ConnectorMeta.fromDomain` at its own call sites. */
+  def findAll(user: AuthenticatedUser): Future[Vector[(Connector, Int)]] =
+    connectorRepo.findAll(user).flatMap { connectors =>
+      Future.sequence(connectors.map(c => dependentCount(c.id).map(n => (c, n))))
+    }
 
-  def findById(id: ConnectorId, user: AuthenticatedUser): Future[Either[ServiceError, Connector]] =
-    connectorRepo.findByIdOwned(id, user).map {
-      case Some(c) => Right(c)
-      case None    => Left(ServiceError.NotFound("Connector not found"))
+  def findById(id: ConnectorId, user: AuthenticatedUser): Future[Either[ServiceError, (Connector, Int)]] =
+    connectorRepo.findByIdOwned(id, user).flatMap {
+      case Some(c) => dependentCount(c.id).map(n => Right((c, n)))
+      case None    => Future.successful(Left(ServiceError.NotFound("Connector not found")))
     }
 
   def create(req: CreateConnectorRequest, user: AuthenticatedUser): Future[Either[ServiceError, Connector]] = {
@@ -67,7 +73,9 @@ final class ConnectorEntityService(
       }
   }
 
-  def update(id: ConnectorId, req: UpdateConnectorRequest, user: AuthenticatedUser): Future[Either[ServiceError, Connector]] =
+  /** `PATCH`'s dependent count is resolved for real (not the `create` 0-default) -- a rename
+   *  doesn't change dependents, but the row already had whatever count it had (task 1.2 note 2). */
+  def update(id: ConnectorId, req: UpdateConnectorRequest, user: AuthenticatedUser): Future[Either[ServiceError, (Connector, Int)]] =
     connectorRepo.findByIdOwned(id, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Connector not found")))
       case Some(existing) =>
@@ -86,11 +94,36 @@ final class ConnectorEntityService(
         else if (baseUrl.isEmpty)
           Future.successful(Left(ServiceError.BadRequest("baseUrl must not be empty")))
         else
-          connectorRepo.update(id, name, baseUrl, config, Instant.now(), user).map {
-            case Some(updated) => Right(updated)
-            case None          => Left(ServiceError.NotFound("Connector not found"))
+          connectorRepo.update(id, name, baseUrl, config, Instant.now(), user).flatMap {
+            case Some(updated) => dependentCount(id).map(n => Right((updated, n)))
+            case None          => Future.successful(Left(ServiceError.NotFound("Connector not found")))
           }
     }
+
+  /** Credential rotation (HEL-824 design.md Decision 1) -- stays thin, matching every other
+   *  method in this class: validates the new value is non-empty, delegates straight to
+   *  `connectorRepo.rotateCredential`, maps the result to `ServiceError`. No new
+   *  `ConnectorCredentialRepository` dependency is added here -- `ConnectorRepository` already
+   *  has one. */
+  def rotateCredential(
+      id: ConnectorId,
+      newCredentialPlaintext: String,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, (Connector, Int)]] =
+    if (newCredentialPlaintext.trim.isEmpty)
+      Future.successful(Left(ServiceError.BadRequest("credential is required")))
+    else
+      connectorRepo
+        .rotateCredential(
+          id                     = id,
+          newCredentialPlaintext = newCredentialPlaintext,
+          credentialName         = "Connector credential (rotated)",
+          user                   = user
+        )
+        .flatMap {
+          case Right(connector)                => dependentCount(id).map(n => Right((connector, n)))
+          case Left(ConnectorRotationNotFound) => Future.successful(Left(ServiceError.NotFound("Connector not found")))
+        }
 
   def delete(id: ConnectorId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     connectorRepo.delete(id, user, dependentCount).map {

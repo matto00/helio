@@ -8,11 +8,12 @@ import { navDestinations } from "./navDestinations";
 // App.test.tsx's "Main navigation" assertions for the desktop side, and
 // BottomNav.test.tsx for the phone side; both must agree with this list).
 describe("navDestinations", () => {
-  it("lists the six top-level sections in sidebar order with matching labels", () => {
+  it("lists the seven top-level sections in sidebar order with matching labels", () => {
     expect(navDestinations.map((d) => d.label)).toEqual([
       "Dashboards",
       "Data Sources",
       "Data Pipelines",
+      "Connectors",
       "Data Types",
       "Metrics",
       "Assistant",
@@ -24,6 +25,7 @@ describe("navDestinations", () => {
       "/",
       "/sources",
       "/pipelines",
+      "/connectors",
       "/registry",
       "/metrics",
       "/chat",

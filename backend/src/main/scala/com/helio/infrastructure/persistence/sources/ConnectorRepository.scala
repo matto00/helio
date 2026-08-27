@@ -113,9 +113,55 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
     ).map(_.map(rowToDomain).toVector)
   }
 
+  /** Credential rotation (HEL-824 design.md Decision 1) -- mirrors `create`'s existing
+   *  two-step-plus-compensation shape, in the same layer `create` lives in. Scoped by
+   *  `findByIdOwned` first (not-found for another owner's Connector id, matching
+   *  `update`/`delete`). On success: mints a NEW credential row via `credentialRepo.create`,
+   *  repoints `credential_id` on the `connectors` row, then best-effort deletes the OLD
+   *  credential row (mirroring `create`'s own compensation pattern -- nothing references the old
+   *  row once repointed, so its cleanup failing is inert, not a correctness issue). On repoint
+   *  failure, compensates by deleting the just-minted new row before propagating the failure --
+   *  never leaves the connector pointing at nothing. */
+  def rotateCredential(
+      id: ConnectorId,
+      newCredentialPlaintext: String,
+      credentialName: String,
+      user: AuthenticatedUser
+  ): Future[Either[ConnectorRotationNotFound.type, Connector]] =
+    findByIdOwned(id, user).flatMap {
+      case None => Future.successful(Left(ConnectorRotationNotFound))
+      case Some(existing) =>
+        credentialRepo.create(user.id, credentialName, newCredentialPlaintext).flatMap { newCredentialMeta =>
+          val now = Instant.now()
+          val repointAction = table
+            .filter(_.id === UUID.fromString(id.value))
+            .map(r => (r.credentialId, r.updatedAt))
+            .update((UUID.fromString(newCredentialMeta.id.value), now))
+          ctx.withUserContext(user.id.value)(repointAction)
+            .flatMap { updatedCount =>
+              if (updatedCount > 0) {
+                // Best-effort delete of the OLD credential row -- never block success on it.
+                credentialRepo.delete(existing.credentialId, user.id).recover { case _ => false }
+                Future.successful(
+                  Right(existing.copy(credentialId = newCredentialMeta.id, updatedAt = now))
+                )
+              } else {
+                // Repoint failed (e.g. row disappeared concurrently) -- compensate by deleting
+                // the just-minted new row so it isn't orphaned, then propagate not-found.
+                credentialRepo.delete(newCredentialMeta.id, user.id).recover { case _ => false }
+                  .map(_ => Left(ConnectorRotationNotFound))
+              }
+            }
+            .recoverWith { case repointFailure =>
+              credentialRepo.delete(newCredentialMeta.id, user.id).recover { case _ => false }
+              Future.failed(repointFailure)
+            }
+        }
+    }
+
   /** Updates non-secret fields only (name/baseUrl/config) + updatedAt. Never
-   *  touches `credential_id` -- rotation is a distinct, not-yet-built
-   *  operation (design.md Decision 3). */
+   *  touches `credential_id` -- rotation is a dedicated operation, see
+   *  [[rotateCredential]] (HEL-824 design.md Decision 1). */
   def update(id: ConnectorId, name: String, baseUrl: String, config: String, updatedAt: Instant, user: AuthenticatedUser): Future[Option[Connector]] = {
     val action = table
       .filter(_.id === UUID.fromString(id.value))
@@ -160,6 +206,11 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
  *  stays HTTP-agnostic; the service layer maps this to
  *  `ServiceError.Conflict`. */
 case object ConnectorHasDependents
+
+/** Marker for the not-found branch of [[ConnectorRepository.rotateCredential]] -- kept distinct
+ *  from `ServiceError` for the same reason as [[ConnectorHasDependents]]: the repository layer
+ *  stays HTTP-agnostic, the service layer maps this to `ServiceError.NotFound`. */
+case object ConnectorRotationNotFound
 
 object ConnectorRepository {
   implicit val instantColumnType: BaseColumnType[Instant] =

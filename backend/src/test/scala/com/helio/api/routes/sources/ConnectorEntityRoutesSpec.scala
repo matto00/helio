@@ -113,8 +113,16 @@ class ConnectorEntityRoutesSpec
         // Structural + textual proof: the whole response body never contains
         // the plaintext credential.
         meta.productElementNames.toSet shouldBe
-          Set("id", "ownerId", "name", "kind", "baseUrl", "config", "createdAt", "updatedAt")
+          Set("id", "ownerId", "name", "kind", "baseUrl", "config", "createdAt", "updatedAt", "dependentCount")
         responseAs[String] should not include "sk_super_secret_key"
+      }
+    }
+
+    // HEL-824 design.md Decision 1b: a brand-new Connector has no dependents yet.
+    "returns dependentCount = 0 for a freshly created Connector (task 1.3)" in {
+      val creds = createBody(name = "Fresh", credential = "fresh-secret")
+      Post("/connectors", creds) ~> routesFor(userA) ~> check {
+        responseAs[ConnectorMeta].dependentCount shouldBe 0
       }
     }
 
@@ -276,6 +284,67 @@ class ConnectorEntityRoutesSpec
       // Still there — not deleted.
       Get(s"/connectors/${created.id}") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.OK
+      }
+    }
+  }
+
+  "GET reflecting dependentCount (task 1.3)" should {
+    "reflects the injected dependentCount collaborator on list and single reads, 0/1/N" in {
+      val creds = createBody(name = "Counted", credential = "counted-secret")
+      val created = Post("/connectors", creds) ~> routesFor(userA) ~> check { responseAs[ConnectorMeta] }
+
+      Get(s"/connectors/${created.id}") ~> routesFor(userA) ~> check {
+        responseAs[ConnectorMeta].dependentCount shouldBe 0
+      }
+
+      val oneDependent: ConnectorId => Future[Int] = _ => Future.successful(1)
+      Get(s"/connectors/${created.id}") ~> routesFor(userA, oneDependent) ~> check {
+        responseAs[ConnectorMeta].dependentCount shouldBe 1
+      }
+      Get("/connectors") ~> routesFor(userA, oneDependent) ~> check {
+        responseAs[ConnectorsResponse].items.find(_.id == created.id).get.dependentCount shouldBe 1
+      }
+
+      val threeDependents: ConnectorId => Future[Int] = _ => Future.successful(3)
+      Get(s"/connectors/${created.id}") ~> routesFor(userA, threeDependents) ~> check {
+        responseAs[ConnectorMeta].dependentCount shouldBe 3
+      }
+    }
+  }
+
+  "PUT /api/connectors/:id/credential" should {
+    "rotates the credential and never echoes it, keeping dependentCount accurate (tasks 2.4/2.5)" in {
+      val creds = createBody(name = "Rotatable", credential = "old-secret-value")
+      val created = Post("/connectors", creds) ~> routesFor(userA) ~> check { responseAs[ConnectorMeta] }
+
+      val rotateBody = JsObject("credential" -> JsString("new-secret-value"))
+      Put(s"/connectors/${created.id}/credential", rotateBody) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        val rotated = responseAs[ConnectorMeta]
+        rotated.id shouldBe created.id
+        rotated.dependentCount shouldBe 0
+        responseAs[String] should not include "new-secret-value"
+        responseAs[String] should not include "old-secret-value"
+      }
+    }
+
+    "rejects an empty credential with 400" in {
+      val creds = createBody(name = "Rotate empty", credential = "some-secret")
+      val created = Post("/connectors", creds) ~> routesFor(userA) ~> check { responseAs[ConnectorMeta] }
+
+      val rotateBody = JsObject("credential" -> JsString(""))
+      Put(s"/connectors/${created.id}/credential", rotateBody) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "returns not-found for another user's Connector (cross-user ACL, task 2.5)" in {
+      val creds = createBody(name = "Cross-user rotate", credential = "cross-secret")
+      val created = Post("/connectors", creds) ~> routesFor(userA) ~> check { responseAs[ConnectorMeta] }
+
+      val rotateBody = JsObject("credential" -> JsString("attempted-new-value"))
+      Put(s"/connectors/${created.id}/credential", rotateBody) ~> routesFor(userB) ~> check {
+        status shouldBe StatusCodes.NotFound
       }
     }
   }

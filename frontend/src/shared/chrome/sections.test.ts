@@ -18,6 +18,7 @@ describe("sections registry", () => {
     { path: "/", label: "Dashboards", pickerId: "dashboards", showInNav: true },
     { path: "/sources", label: "Data Sources", pickerId: "sources", showInNav: true },
     { path: "/pipelines", label: "Data Pipelines", pickerId: "pipelines", showInNav: true },
+    { path: "/connectors", label: "Connectors", pickerId: "other", showInNav: true },
     { path: "/registry", label: "Data Types", pickerId: "registry", showInNav: true },
     { path: "/metrics", label: "Metrics", pickerId: "metrics", showInNav: true },
     { path: "/chat", label: "Assistant", pickerId: "chat", showInNav: true },
@@ -65,11 +66,11 @@ describe("sections registry", () => {
     expect(pickerIdForPathname("/metrics/metric-1")).toBe("metrics");
   });
 
-  it("nav-visible entries match the current 6 navDestinations, in order", () => {
+  it("nav-visible entries match the current 7 navDestinations, in order", () => {
     const navVisible = sections.filter((section) => section.showInNav);
     expect(navVisible.map((section) => section.path)).toEqual(navDestinations.map((d) => d.to));
     expect(navVisible.map((section) => section.label)).toEqual(navDestinations.map((d) => d.label));
-    expect(navVisible).toHaveLength(6);
+    expect(navVisible).toHaveLength(7);
   });
 
   // HEL-774 D11: dropping BottomNav's visible labels makes the glyph the

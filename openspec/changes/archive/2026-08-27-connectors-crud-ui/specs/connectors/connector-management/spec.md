@@ -1,11 +1,4 @@
-# connectors/connector-management Specification
-
-## Purpose
-A Connector is a saved, reusable, owner-scoped credentialed host (base URL/host + auth
-material) that many data sources can later reference, instead of each source re-entering its
-own copy of a credential.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Connector CRUD lifecycle
 The system SHALL allow an authenticated owner to create, read, list, update (non-secret
