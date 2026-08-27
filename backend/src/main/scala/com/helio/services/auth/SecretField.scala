@@ -17,17 +17,21 @@ final case class SecretField[Config](
 final case class HasSecrets[Config](fields: Set[SecretField[Config]])
 
 /** Masking strategy used by `SecretRedaction.redact`. `InlineSecretBackend` is the only concrete
- *  implementation today — HEL-536 owns every non-inline backend (GCP Secret Manager references,
- *  envelope encryption) and will add its own `SecretBackend` implementation behind this interface
- *  without reshaping `SecretRedaction.redact`'s call sites. */
+ *  implementation today. HEL-536's storage-time encryption (`EncryptedSecretBackend`, same
+ *  package) is a deliberately separate, sibling trait rather than an implementation of this
+ *  interface — `mask` is total/infallible (always returns a displayable string), while encryption
+ *  must be able to fail (no master key configured, unresolvable key id), so it cannot honestly
+ *  satisfy this contract. See design.md Decision 3a on the connector-credential-encryption
+ *  change. */
 trait SecretBackend {
   def mask(rawValue: String): String
 }
 
 /** Today's (and HEL-460's only) `SecretBackend`: replaces any present secret value with the literal
  *  `"***"`, reproducing the redaction behavior that lived inline in `DataSourceProtocol` before this
- *  seam existed. HEL-536 owns future non-inline backends (secret-manager references, envelope
- *  encryption) — this object is not the place to add them. */
+ *  seam existed. HEL-536's envelope encryption lives in the sibling `EncryptedSecretBackend` trait,
+ *  not here — see the note on `SecretBackend` above for why it is not implemented behind this
+ *  interface. */
 object InlineSecretBackend extends SecretBackend {
   override def mask(rawValue: String): String = "***"
 }

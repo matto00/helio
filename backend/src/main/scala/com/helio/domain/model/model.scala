@@ -66,6 +66,26 @@ final case class ApiToken(
  *  is allowed to consume it. */
 final case class TokenScope(tokenId: ApiTokenId, allowedPipelineIds: Set[String])
 
+final case class ConnectorCredentialId(value: String) extends AnyVal
+
+/** Owner-scoped, envelope-encrypted third-party connector credential (HEL-536, the storage
+ *  substrate v1.9 connectors build on -- see openspec/changes/connector-credential-encryption).
+ *  `name` is a caller-chosen label (e.g. "Stripe API key"), never the secret value itself.
+ *
+ *  This type carries no plaintext or ciphertext field by construction --
+ *  [[ConnectorCredentialRepository.get]]/`list` return exactly this shape, so there is nothing for
+ *  a `JsonProtocols` formatter to accidentally serialize a decrypted value from later (HEL-536
+ *  task 4.4 / skeptic CR5). The only path that ever returns plaintext is
+ *  `ConnectorCredentialRepository.decryptForUse`, which returns a plain `String`, not this type. */
+final case class ConnectorCredentialMeta(
+    id: ConnectorCredentialId,
+    userId: UserId,
+    name: String,
+    keyId: String,
+    createdAt: Instant,
+    updatedAt: Instant
+)
+
 sealed trait AuthProvider
 object AuthProvider {
   case object Google extends AuthProvider

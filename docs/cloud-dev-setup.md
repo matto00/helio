@@ -50,11 +50,24 @@ GOOGLE_CLIENT_SECRET=placeholder
 GOOGLE_REDIRECT_URI=http://localhost:5173/auth/callback
 
 HELIO_UPLOADS_BACKEND=local
+
+CONNECTOR_MASTER_KEY=REPLACE_WITH_OUTPUT_OF_openssl_rand_dash_base64_32
+CONNECTOR_MASTER_KEY_ID=env-dev
 EOF
+
+# Generate a real local value for CONNECTOR_MASTER_KEY (any base64 256-bit value works —
+# see the note below) and substitute it into the .env file just written:
+sed -i "s#REPLACE_WITH_OUTPUT_OF_openssl_rand_dash_base64_32#$(openssl rand -base64 32)#" backend/.env
 ```
 
 > Google OAuth values can be placeholders — the backend starts fine without real
 > credentials as long as you don't exercise the OAuth login flow.
+
+> `CONNECTOR_MASTER_KEY`/`CONNECTOR_MASTER_KEY_ID` (HEL-536) are resolved the same way in every
+> environment — any locally-generated value works for dev/CI; there is no dev-only fallback baked
+> into the backend, so a missing/invalid value here fails connector-credential writes hard/loud
+> rather than degrading to plaintext. See `docs/secrets-inventory.md` for the production rotation
+> story.
 
 ### 4. Start the backend
 
