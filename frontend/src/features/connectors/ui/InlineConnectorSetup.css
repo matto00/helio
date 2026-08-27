@@ -1,0 +1,93 @@
+/* HEL-829 tasks.md 2.5 — DESIGN.md pass. Mirrors ConnectorsPage.css's
+   `.connectors-page__btn` recipe (kept local per that file's own precedent —
+   no shared Button component exists yet) plus the 44px mobile touch-target
+   floor at the 768/430 canonical breakpoints (DESIGN.md §"Control metrics",
+   HEL-813 sweep). */
+
+.inline-connector-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-raised);
+}
+
+.inline-connector-setup__label {
+  margin: 0;
+}
+
+.inline-connector-setup__name {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+}
+
+.inline-connector-setup__instructions {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.inline-connector-setup__guarantee {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--app-radius-sm);
+  background: color-mix(in srgb, var(--app-accent) 10%, transparent);
+  color: var(--app-text);
+  font-size: var(--text-sm);
+}
+
+.inline-connector-setup__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.inline-connector-setup__btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-md);
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+.inline-connector-setup__btn--primary {
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+}
+
+.inline-connector-setup__btn--primary:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.inline-connector-setup__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* 1100/1440 (DESIGN.md §4 canonical breakpoints): the section is a simple
+   single-column form with no table/row layout to collapse — no dedicated
+   treatment needed at either width, verified against the review pages'
+   existing `size="lg"` Modal container, which already caps content width. */
+
+@media (max-width: 768px) {
+  .inline-connector-setup__btn {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 430px) {
+  .inline-connector-setup {
+    padding: var(--space-3);
+  }
+}

@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
+import { connectorsReducer } from "../../connectors/state/connectorsSlice";
 import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
 import { combinedProposalsReducer } from "../state/combinedProposalsSlice";
 import { applyCombinedProposal } from "../services/combinedProposalService";
@@ -11,6 +12,13 @@ import type { CombinedProposal, CombinedProposalApplyResponse } from "../types/c
 
 jest.mock("../services/combinedProposalService", () => ({
   applyCombinedProposal: jest.fn(),
+}));
+
+// HEL-829: the page now fetches the connector list to detect unresolved
+// connector references — mocked the same way ConnectorsPage.test.tsx mocks
+// it, so this suite never issues a real network call.
+jest.mock("../../connectors/services/connectorEntityService", () => ({
+  fetchConnectors: jest.fn().mockResolvedValue([]),
 }));
 
 const mockedApplyCombinedProposal = jest.mocked(applyCombinedProposal);
@@ -75,7 +83,11 @@ const appliedResponse: CombinedProposalApplyResponse = {
 
 function makeStore() {
   return configureStore({
-    reducer: { combinedProposals: combinedProposalsReducer, dashboards: dashboardsReducer },
+    reducer: {
+      combinedProposals: combinedProposalsReducer,
+      dashboards: dashboardsReducer,
+      connectors: connectorsReducer,
+    },
   });
 }
 

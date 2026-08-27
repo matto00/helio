@@ -1,7 +1,6 @@
 package com.helio.services.pipelines
 
-import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource}
-import com.helio.api.protocols.sources.RestApiConfigPayload
+import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.{AuthenticatedUser, DataSourceKind, RestApiConfig, UserId}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -44,7 +43,7 @@ class PipelineServiceInlineRestBodySpec extends AnyWordSpec with Matchers with S
         connector        = connector
       )
 
-      val restPayload = RestApiConfigPayload(
+      val restPayload = ProposalRestApiConfig(
         url             = Some("http://example.invalid/data"),
         method          = Some("POST"),
         body            = Some("""{"q":1}"""),

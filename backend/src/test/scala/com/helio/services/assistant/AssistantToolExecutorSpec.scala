@@ -10,7 +10,7 @@ import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchSer
 import com.helio.api.protocols.assistant.AssistantProposal
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal, ProposalPanel}
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, RestApiConfigPayload, SqlInferRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload, TestConnectionResponse}
-import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource}
+import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
@@ -93,8 +93,31 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
   private def sqlConfig(database: String = "app"): SqlSourceConfigPayload =
     SqlSourceConfigPayload(dialect = "postgresql", host = "db.example.com", port = 5432, database = database, user = "readonly", password = "", query = "SELECT 1")
 
+  // `restConfig()` above builds the `RestApiConfigPayload` fed to `test_connection` (its own
+  // schema is unchanged); `PipelineProposalSource.restConfig` is now `ProposalRestApiConfig`
+  // (task 1.1) — this converts the SAME shared fields so `requireVerifiedInlineSource`'s
+  // `ProposalRestApiConfig.toRestApiConfigPayload` round-trips back to an equal `RestApiConfigPayload`.
   private def inlineRestSource(config: RestApiConfigPayload): PipelineProposalSource =
-    PipelineProposalSource(sourceId = None, `type` = Some("rest_api"), name = Some("Inline REST"), csvConfig = None, restConfig = Some(config), sqlConfig = None, staticConfig = None)
+    PipelineProposalSource(
+      sourceId   = None,
+      `type`     = Some("rest_api"),
+      name       = Some("Inline REST"),
+      csvConfig  = None,
+      restConfig = Some(ProposalRestApiConfig(
+        connectorId     = config.connectorId,
+        url             = config.url,
+        endpoint        = config.endpoint,
+        method          = config.method,
+        queryParams     = config.queryParams,
+        headers         = config.headers,
+        body            = config.body,
+        bodyContentType = config.bodyContentType,
+        rootSelector    = config.rootSelector,
+        parameters      = config.parameters
+      )),
+      sqlConfig    = None,
+      staticConfig = None
+    )
 
   private def inlineSqlSource(config: SqlSourceConfigPayload): PipelineProposalSource =
     PipelineProposalSource(sourceId = None, `type` = Some("sql"), name = Some("Inline SQL"), csvConfig = None, restConfig = None, sqlConfig = Some(config), staticConfig = None)

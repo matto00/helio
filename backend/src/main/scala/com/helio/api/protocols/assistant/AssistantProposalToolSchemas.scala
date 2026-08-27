@@ -122,7 +122,15 @@ private[protocols] trait AssistantProposalToolSchemas {
           "Inline-source branch — the per-kind config payload selected by type: rest_api " +
             "{connectorId, endpoint?, method?, queryParams?, headers?} (connectorId must reference an " +
             "already-created Connector; auth lives on the Connector, never here — a bare 'url' legacy " +
-            "shape is dual-supported but resolved ephemerally, never persisting a Connector); " +
+            "shape is dual-supported but resolved ephemerally, never persisting a Connector). " +
+            "If list_connectors/find found no suitable existing Connector, use newConnector instead of " +
+            "connectorId/url: {name, baseUrl, authType, apiKeyName?, apiKeyPlacement?, " +
+            "retrievalInstructions} — exactly one of connectorId/url/newConnector must be set. " +
+            "retrievalInstructions must describe WHERE a human obtains the key for this API (e.g. " +
+            "'Generate an API key at https://dashboard.stripe.com/apikeys') and must NEVER contain an " +
+            "actual key value — you are never given a key to leak, and the review UI renders this " +
+            "string as display-only instructions, never as a value that can flow anywhere near the " +
+            "credential itself; " +
             "sql {dialect, host, port, database, user, password, query}; " +
             "static {columns, rows}."
         )

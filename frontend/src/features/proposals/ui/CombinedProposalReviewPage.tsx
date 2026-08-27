@@ -1,11 +1,16 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { IS_DEV } from "../../../config/env";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { fetchConnectors } from "../../connectors/state/connectorsSlice";
 import { applyCombinedProposal } from "../state/combinedProposalsSlice";
+import {
+  detectUnresolvedConnectorRefsForCombined,
+  resolveCombinedConnectorRef,
+} from "../utils/unresolvedConnectorRefs";
 import { CombinedProposalReview } from "./CombinedProposalReview";
 import type { CombinedProposal } from "../types/combinedProposal";
 
@@ -43,14 +48,39 @@ export function CombinedProposalReviewPage() {
   // whether `location.state` is empty.
   const useDemoFixture = IS_DEV && !stateProposal;
 
-  const proposal = useMemo<CombinedProposal | null>(() => {
+  const initialProposal = useMemo<CombinedProposal | null>(() => {
     if (stateProposal) return stateProposal;
     if (!useDemoFixture) return null;
     return demoCombinedProposal();
   }, [stateProposal, useDemoFixture]);
 
+  // HEL-829: local copy, patched in place as each unresolved connector
+  // reference resolves (design.md Decision 3, Point 5) — never round-trips
+  // through router state or any Redux slice other than
+  // `connectorsSlice.fetchConnectors`'s read-only list below.
+  const [proposal, setProposal] = useState<CombinedProposal | null>(initialProposal);
+
+  const connectorsStatus = useAppSelector((state) => state.connectors.status);
+  const connectors = useAppSelector((state) => state.connectors.items);
+  useEffect(() => {
+    if (connectorsStatus === "idle") {
+      void dispatch(fetchConnectors());
+    }
+  }, [connectorsStatus, dispatch]);
+
+  const unresolvedConnectorRefs = useMemo(
+    () => (proposal ? detectUnresolvedConnectorRefsForCombined(proposal, connectors) : []),
+    [proposal, connectors],
+  );
+
+  const handleConnectorResolved = (connectorId: string) => {
+    setProposal((current) =>
+      current ? resolveCombinedConnectorRef(current, connectorId) : current,
+    );
+  };
+
   const handleAccept = async () => {
-    if (!proposal) return;
+    if (!proposal || unresolvedConnectorRefs.length > 0) return;
     try {
       await dispatch(applyCombinedProposal(proposal)).unwrap();
       navigate("/");
@@ -93,6 +123,8 @@ export function CombinedProposalReviewPage() {
       proposal={proposal}
       applying={applying}
       error={applyError}
+      unresolvedConnectorRefs={unresolvedConnectorRefs}
+      onConnectorResolved={handleConnectorResolved}
       onAccept={handleAccept}
       onReject={handleReject}
     />

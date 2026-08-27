@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
+import { connectorsReducer } from "../../../connectors/state/connectorsSlice";
 import { pipelinesReducer } from "../../state/pipelinesSlice";
 import { applyPipelineProposal } from "../../services/pipelineProposalService";
 import { PipelineProposalReviewPage } from "./PipelineProposalReviewPage";
@@ -10,6 +11,13 @@ import type { PipelineProposal, PipelineProposalApplyResponse } from "../../type
 
 jest.mock("../../services/pipelineProposalService", () => ({
   applyPipelineProposal: jest.fn(),
+}));
+
+// HEL-829: the page now fetches the connector list to detect unresolved
+// connector references — mocked here the same way ConnectorsPage.test.tsx
+// mocks it, so this suite never issues a real network call.
+jest.mock("../../../connectors/services/connectorEntityService", () => ({
+  fetchConnectors: jest.fn().mockResolvedValue([]),
 }));
 
 const mockedApplyPipelineProposal = jest.mocked(applyPipelineProposal);
@@ -49,7 +57,9 @@ const appliedResponse: PipelineProposalApplyResponse = {
 };
 
 function makeStore() {
-  return configureStore({ reducer: { pipelines: pipelinesReducer } });
+  return configureStore({
+    reducer: { pipelines: pipelinesReducer, connectors: connectorsReducer },
+  });
 }
 
 /** Renders a route probe alongside the page so a test can assert navigation happened without

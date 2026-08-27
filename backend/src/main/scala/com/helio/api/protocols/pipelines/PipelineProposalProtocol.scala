@@ -23,10 +23,80 @@ final case class PipelineProposalSource(
     `type`: Option[String], // inline branch: csv|rest_api|sql|static
     name: Option[String], // inline branch: new source's name
     csvConfig: Option[CsvSourceConfigPayload],
-    restConfig: Option[RestApiConfigPayload],
+    restConfig: Option[ProposalRestApiConfig],
     sqlConfig: Option[SqlSourceConfigPayload],
     staticConfig: Option[StaticDataPayload]
 )
+
+// ── HEL-829: proposal-only REST config, carrying the `newConnector` draft ────
+//
+// Deliberately a NEW type, never `RestApiConfigPayload` (see design.md
+// Decision 2) — `RestApiConfigPayload` is the live `POST /api/sources`
+// request body (`CreateSourceRequest.config`), consumed by `SourceService`,
+// `SourcePreviewRoutes`, `PipelineService`, `AssistantToolExecutor`, and
+// `DataSourceConfigCodec`. Adding a `newConnector` field there would leak
+// into all of those. `ProposalRestApiConfig` is proposal-only: it is only
+// ever read by `PipelineProposalService.validateRestConfig`/`resolveRestSource`
+// and never converted through `RestApiConfigPayload.toDomain`.
+//
+// `NewConnectorDraft` has no field capable of holding a credential — the
+// model can describe the need for a new Connector without ever holding the
+// secret, by construction, not by convention.
+final case class ProposalRestApiConfig(
+    connectorId: Option[String] = None, // references an existing Connector
+    url: Option[String] = None,         // legacy bare-URL path — UNCHANGED, still dual-supported
+                                         // via SourceService.createRest's implicit-Connector synthesis
+    newConnector: Option[NewConnectorDraft] = None, // drafts a not-yet-existing Connector
+    endpoint: Option[String] = None,
+    method: Option[String] = None,
+    queryParams: Option[Map[String, String]] = None,
+    headers: Option[Map[String, String]] = None,
+    body: Option[String] = None,
+    bodyContentType: Option[String] = None,
+    rootSelector: Option[String] = None,
+    parameters: Option[Map[String, String]] = None
+)
+
+/** `retrievalInstructions` is model-authored prose describing where a human
+ *  obtains the key for this API — it must NEVER contain an actual key value
+ *  (the model has none to leak, by construction; this type has no field that
+ *  could carry one). */
+final case class NewConnectorDraft(
+    name: String,
+    baseUrl: String,
+    authType: String, // "none" | "bearer" | "api_key" — mirrors ConnectorAuthType
+    apiKeyName: Option[String],
+    apiKeyPlacement: Option[String], // "header" | "query"
+    retrievalInstructions: String
+)
+
+object ProposalRestApiConfig {
+
+  /** Maps the shared fields onto `RestApiConfigPayload` — used both by
+   *  `PipelineProposalService.resolveRestSource` (the apply-time conversion,
+   *  design.md Decision 2) and by `AssistantToolExecutor`/`PipelineService`'s
+   *  pre-existing `RestApiConfigPayload`-typed comparison/analysis logic,
+   *  which the `PipelineProposalSource.restConfig` type change (task 1.1)
+   *  requires those call sites to route through — a mechanical consequence
+   *  of the type change, not a behavioral change to either file: `newConnector`
+   *  never appears here (never mapped to any `RestApiConfigPayload` field),
+   *  so it structurally can never match a `test_connection`-verified config,
+   *  exactly the "unverified, not yet resolved" outcome that is already
+   *  correct for a draft that has no live endpoint to test yet. */
+  def toRestApiConfigPayload(cfg: ProposalRestApiConfig): RestApiConfigPayload =
+    RestApiConfigPayload(
+      connectorId     = cfg.connectorId,
+      url             = cfg.url,
+      endpoint        = cfg.endpoint,
+      method          = cfg.method,
+      queryParams     = cfg.queryParams,
+      headers         = cfg.headers,
+      body            = cfg.body,
+      bodyContentType = cfg.bodyContentType,
+      rootSelector    = cfg.rootSelector,
+      parameters      = cfg.parameters
+    )
+}
 
 /** `steps` reuses `CreatePipelineStepRequest` verbatim (design.md D2) — no new
  *  step DTO. Every field here is non-`Option`: all four are required by the
@@ -59,6 +129,14 @@ trait PipelineProposalProtocol
     // RunResultResponse, both defined/formatted in PipelineProtocol.
     with PipelineProtocol {
 
+  // HEL-829: standard jsonFormatN suffice for both new proposal-only types —
+  // unlike PipelineProposalSource, neither needs a hand-written reader/writer
+  // (no shared-key multiplexing).
+  implicit val newConnectorDraftFormat: RootJsonFormat[NewConnectorDraft] =
+    jsonFormat6(NewConnectorDraft.apply)
+  implicit val proposalRestApiConfigFormat: RootJsonFormat[ProposalRestApiConfig] =
+    jsonFormat11(ProposalRestApiConfig.apply)
+
   /** Hand-written (not `jsonFormatN`) so the writer can pick whichever of the
    *  four per-kind `Option` fields is populated and serialize *that one* to
    *  the single `"config"` key, and the reader can dispatch on `type` to
@@ -87,7 +165,7 @@ trait PipelineProposalProtocol
 
         val (csvConfig, restConfig, sqlConfig, staticConfig) = kind match {
           case Some("csv")      => (config.map(_.convertTo[CsvSourceConfigPayload]), None, None, None)
-          case Some("rest_api") => (None, config.map(_.convertTo[RestApiConfigPayload]), None, None)
+          case Some("rest_api") => (None, config.map(_.convertTo[ProposalRestApiConfig]), None, None)
           case Some("sql")      => (None, None, config.map(_.convertTo[SqlSourceConfigPayload]), None)
           case Some("static")   => (None, None, None, config.map(_.convertTo[StaticDataPayload]))
           case _                => (None, None, None, None)

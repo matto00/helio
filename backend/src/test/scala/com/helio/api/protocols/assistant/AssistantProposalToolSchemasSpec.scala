@@ -2,7 +2,7 @@ package com.helio.api.protocols.assistant
 
 import com.helio.api.protocols.assistant.AssistantProtocol
 import com.helio.api.protocols.patchsets.{PatchSet, PatchSetProtocol}
-import com.helio.api.protocols.pipelines.PipelineProposal
+import com.helio.api.protocols.pipelines.{PipelineProposal, ProposalRestApiConfig}
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
 import org.scalatest.matchers.should.Matchers
@@ -89,7 +89,7 @@ class AssistantProposalToolSchemasSpec
     "the inline rest_api example's config decodes through RestApiConfigPayload.toDomain" in {
       val decoded = examplesOf("propose_pipeline").head.convertTo[PipelineProposal]
       decoded.source.restConfig shouldBe defined
-      RestApiConfigPayload.toDomain(decoded.source.restConfig.get) shouldBe a[Right[_, _]]
+      RestApiConfigPayload.toDomain(ProposalRestApiConfig.toRestApiConfigPayload(decoded.source.restConfig.get)) shouldBe a[Right[_, _]]
     }
   }
 
