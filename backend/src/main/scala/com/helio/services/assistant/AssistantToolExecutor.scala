@@ -192,7 +192,7 @@ final class AssistantToolExecutor(
           case Failure(e) =>
             Future.successful(Left(s"test_connection: invalid config — ${Option(e.getMessage).getOrElse(e.getClass.getName)}"))
           case Success(restConfig) =>
-            sourceService.testRest(restConfig).map {
+            sourceService.testRest(restConfig, user).map {
               case Left(err) => Left(err.message)
               case Right(response) =>
                 if (response.ok) verifiedConfigs.updateAndGet(_ + VerifiedConfig.Rest(restConfig))

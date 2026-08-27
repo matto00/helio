@@ -86,9 +86,14 @@ abstract class PipelineApplyProposalSpecBase
   protected val RestRunFailUrl = "https://rest.test/run-fail"
   private val restRunFailCallCount = new AtomicInteger(0)
 
+  // HEL-822: a bare-`url` create/inline-proposal source synthesizes a real (UUID-`id`d)
+  // implicit Connector and splits the URL into baseUrl+endpoint — `connectorId` on the
+  // resolved `RestApiConfig` is no longer the fixture's own URL constant. Match on
+  // `config.endpoint` (the URL's path, preserved verbatim by the split/join round-trip)
+  // instead, which stays stable across the synthesis.
   private val stubConnector = new RestApiConnectorDriver(Some { config =>
-    if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
-    else if (config.url == RestRunFailUrl) {
+    if (config.endpoint == "/fail") Future.successful(Left("connector: endpoint unreachable"))
+    else if (config.endpoint == "/run-fail") {
       if (restRunFailCallCount.getAndIncrement() == 0)
         Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
       else
@@ -166,7 +171,11 @@ abstract class PipelineApplyProposalSpecBase
       userRepo, stubSessionRepo, userPrefRepo, pipelineRepo, pipelineStepRepo,
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc),
       pipelineRunRepo = pipelineRunRepo,
-      dataTypeRowRepo = dataTypeRowRepo
+      dataTypeRowRepo = dataTypeRowRepo,
+      // HEL-822: SourceService.createRest's bare-url dual-support path needs a real
+      // ConnectorRepository (constructed by ApiRoutes when dbContext is present) to
+      // synthesize an implicit Connector for this fixture's inline `{"url": ...}` sources.
+      dbContext = ctx
     ).routes
 
     seedFixtures()

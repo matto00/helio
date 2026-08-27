@@ -3,7 +3,7 @@ package com.helio.services.sources
 import com.helio.api.protocols.sources.{CreateSourceResponse, DataSourceResponse, FieldOverridePayload}
 import com.helio.api.protocols.pipelines.DataTypeResponse
 import com.helio.domain.model.{AuthenticatedUser, DataSource, DataType, DataTypeId}
-import com.helio.domain.connectors.ConnectorDriver
+import com.helio.domain.connectors.{ConnectorDriver, ConnectorResolveContext}
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 
 import java.time.Instant
@@ -37,7 +37,7 @@ object CreateSourceEnvelope {
       user:         AuthenticatedUser,
       overrides:    Map[String, FieldOverridePayload] = Map.empty
   )(implicit ec: ExecutionContext): Future[CreateSourceResponse] =
-    connector.inferSchema(config).flatMap {
+    connector.inferSchema(config, ConnectorResolveContext.Owned(user)).flatMap {
       case Left(err) =>
         Future.successful(CreateSourceResponse(
           source     = DataSourceResponse.fromDomain(source),

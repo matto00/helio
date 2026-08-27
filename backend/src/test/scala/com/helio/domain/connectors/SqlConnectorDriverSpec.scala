@@ -197,12 +197,12 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
 
     "succeed (open+close only) against a reachable database, even with an unexecutable query" in {
       // liveConfig's query is invalid SQL — if testConnection executed it, this would fail.
-      await(SqlConnectorDriver.testConnection(liveConfig())) shouldBe Right(())
+      await(SqlConnectorDriver.testConnection(liveConfig(), ConnectorResolveContext.Internal)) shouldBe Right(())
     }
 
     "fail with a distinct 'SQL connection failed' message when the database is unreachable" in {
       val unreachable = liveConfig().copy(port = 1)
-      await(SqlConnectorDriver.testConnection(unreachable)) shouldBe Left("SQL connection failed")
+      await(SqlConnectorDriver.testConnection(unreachable, ConnectorResolveContext.Internal)) shouldBe Left("SQL connection failed")
     }
   }
 
@@ -212,7 +212,7 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
       val runnable = liveConfig(query = "SELECT 1 AS one")
       val expected = await(SqlConnectorDriver.execute(runnable, maxRows = 100)).map(SqlConnectorDriver.toRows)
 
-      val viaTrait = await(SqlConnectorDriver.fetch(runnable, maxRows = 100))
+      val viaTrait = await(SqlConnectorDriver.fetch(runnable, maxRows = 100, ConnectorResolveContext.Internal))
       viaTrait shouldBe expected
       viaTrait shouldBe Right(Vector(JsObject("one" -> JsNumber(1))))
     }
@@ -225,7 +225,7 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
       val rows      = await(SqlConnectorDriver.execute(runnable, maxRows = 100)).getOrElse(fail("expected Right"))
       val expected  = SqlConnectorDriver.inferSchema(rows)
 
-      val result = await(SqlConnectorDriver.inferSchema(runnable))
+      val result = await(SqlConnectorDriver.inferSchema(runnable, ConnectorResolveContext.Internal))
       result.map(_.fields.map(_.name)) shouldBe Right(expected.fields.map(_.name))
     }
   }

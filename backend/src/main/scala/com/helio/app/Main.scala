@@ -15,7 +15,10 @@ import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaReposit
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
+import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository}
+import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
+import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
+import com.helio.services.sources.RestSourceConnectorMigration
 import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -114,7 +117,24 @@ object Main {
       // beside DataTypeService.delete guard and refresh upsert primitive.
       SourceSchemaHealthCheck.run(ctx, logger)
 
-      val connector = new RestApiConnectorDriver()
+      // HEL-822 task 8.3: injected ConnectorRepository/ConnectorCredentialRepository, wired
+      // as optional/defaulted constructor params so the 20 fetchOverride-based test
+      // constructions of RestApiConnectorDriver keep compiling unchanged.
+      val connectorMasterKeyProvider = new EnvMasterKeyProvider()
+      val connectorSecretBackend     = new EncryptedSecretBackend(connectorMasterKeyProvider)
+      val connectorCredentialRepo    = new ConnectorCredentialRepository(ctx, connectorSecretBackend)
+      val connectorRepo              = new ConnectorRepository(ctx, connectorCredentialRepo)
+      val connector = new RestApiConnectorDriver(
+        connectorRepoOpt = Some(connectorRepo),
+        credentialRepoOpt = Some(connectorCredentialRepo)
+      )
+
+      // HEL-822 design.md Decision 7: idempotent startup migration, after Flyway
+      // (Database.initApp above) and before HttpServer.start below — the backend does not
+      // begin serving traffic on a REST source until any legacy rows it owns have either
+      // been migrated or explicitly logged as failed-and-skipped.
+      val migrationDone: Future[Unit] = RestSourceConnectorMigration.run(dataSourceRepo, connectorRepo, ctx, logger)
+
       val host      = sys.env.getOrElse("HELIO_HTTP_HOST", "0.0.0.0")
       val port      = sys.env.get("PORT")
         .orElse(sys.env.get("HELIO_HTTP_PORT"))
@@ -181,7 +201,18 @@ object Main {
       )
       context.spawn(PipelineSchedulerActor(pipelineSchedulerService, schedulerTickInterval), "pipeline-scheduler")
 
-      HttpServer.start(apiRoutes.routes, host, port).onComplete {
+      // HEL-822 design.md Decision 7: the migration future is awaited (via flatMap, not
+      // blocked) before HttpServer.start — the backend does not begin serving traffic on a
+      // REST source until any legacy rows it owns have either been migrated or explicitly
+      // logged as failed-and-skipped. A hard failure of the migration future itself (as
+      // opposed to a per-row skip, which the migration handles internally) is logged and the
+      // server still starts, rather than hanging startup forever on an unexpected error.
+      migrationDone
+        .recover { case e =>
+          logger.error("RestSourceConnectorMigration failed unexpectedly; continuing startup", e)
+        }
+        .flatMap(_ => HttpServer.start(apiRoutes.routes, host, port))
+        .onComplete {
         case Success(binding) =>
           logger.info("Helio backend listening on {}", binding.localAddress)
         case Failure(exception) =>

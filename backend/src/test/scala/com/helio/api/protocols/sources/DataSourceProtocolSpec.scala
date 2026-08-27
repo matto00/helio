@@ -39,7 +39,7 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
         name      = "rest-src",
         createdAt = "2026-01-01T00:00:00Z",
         updatedAt = "2026-01-02T00:00:00Z",
-        config    = RestApiConfigPayload(url = "http://example.com", method = Some("GET"), auth = None, headers = None)
+        config    = RestApiConfigPayload(url = Some("http://example.com"), method = Some("GET"), auth = None, headers = None)
       )
       val json = r.toJson.asJsObject
       json.fields("type")                            shouldBe JsString("rest_api")
@@ -109,10 +109,23 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
       DataSourceConfigCodec.decodeCsv(raw).path shouldBe "/legacy/path.csv"
     }
 
-    "round-trip REST config (NoAuth)" in {
-      val cfg     = RestApiConfig(url = "http://example.com", method = "POST", headers = Map("h" -> "v"))
+    "round-trip REST config (connectorId-referencing)" in {
+      val cfg     = RestApiConfig(connectorId = "conn-1", endpoint = "/data", method = "POST", headers = Map("h" -> "v"))
       val encoded = DataSourceConfigCodec.encodeRest(cfg)
-      DataSourceConfigCodec.decodeRest(encoded) shouldBe cfg
+      DataSourceConfigCodec.decodeRest(encoded) shouldBe Right(cfg)
+    }
+
+    "decodeRest returns Left(\"legacy-unmigrated\") for a legacy url-shaped blob (HEL-822 Decision 6)" in {
+      val raw = JsObject("url" -> JsString("http://example.com")).compactPrint
+      DataSourceConfigCodec.decodeRest(raw) shouldBe Left("legacy-unmigrated")
+    }
+
+    "decodeRest returns a Left(\"malformed: ...\") for neither shape (HEL-822 Decision 6)" in {
+      val raw = JsObject("foo" -> JsString("bar")).compactPrint
+      DataSourceConfigCodec.decodeRest(raw) match {
+        case Left(msg) => msg should startWith("malformed:")
+        case other     => fail(s"expected Left(malformed: ...), got $other")
+      }
     }
 
     "round-trip SQL config" in {
@@ -142,22 +155,16 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
     val owner = UserId("00000000-0000-0000-0000-000000000001")
     val id    = DataSourceId("ds-redact")
 
-    "redact REST bearer tokens" in {
+    // HEL-822: `RestApiConfig`/`RestApiConfigPayload` carry no credential at all anymore —
+    // auth lives entirely on the referenced Connector, resolved separately. There is
+    // structurally nothing left to redact on a REST source response; these two cases replace
+    // the old bearer/api-key redaction assertions.
+    "carry no auth/credential field on a REST source response" in {
       val src = RestSource(id, "rest", owner, now, now,
-        RestApiConfig(url = "https://example.com", method = "GET",
-          auth = RestApiAuth.BearerAuth("super-secret-token")))
+        RestApiConfig(connectorId = "conn-1", endpoint = "/data", method = "GET"))
       val resp = DataSourceResponse.fromDomain(src).asInstanceOf[RestSourceResponse]
-      resp.config.auth.flatMap(_.token) shouldBe Some("***")
-    }
-
-    "redact REST api-key values" in {
-      val src = RestSource(id, "rest", owner, now, now,
-        RestApiConfig(url = "https://example.com", method = "GET",
-          auth = RestApiAuth.ApiKeyAuth("X-Api-Key", "super-secret", ApiKeyPlacement.Header)))
-      val resp = DataSourceResponse.fromDomain(src).asInstanceOf[RestSourceResponse]
-      resp.config.auth.flatMap(_.value) shouldBe Some("***")
-      // The key name (non-credential) is preserved.
-      resp.config.auth.flatMap(_.name)  shouldBe Some("X-Api-Key")
+      resp.config.auth shouldBe None
+      resp.config.connectorId shouldBe Some("conn-1")
     }
 
     "redact SQL passwords (non-empty)" in {
@@ -190,26 +197,15 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
     val owner = UserId("00000000-0000-0000-0000-000000000001")
     val id    = DataSourceId("ds-redact-json")
 
-    "never contain the raw bearer token in the serialized JSON" in {
-      val rawToken = "super-secret-bearer-token-xyz"
+    // HEL-822: no auth field remains on the REST source payload at all — the "never leaks"
+    // guarantee is now structural (no `auth`/token/value key can appear), not a redaction
+    // behavior to test.
+    "never contain an auth/token/value key in a REST source's serialized JSON" in {
       val src = RestSource(id, "rest", owner, now, now,
-        RestApiConfig(url = "https://example.com", method = "GET",
-          auth = RestApiAuth.BearerAuth(rawToken)))
+        RestApiConfig(connectorId = "conn-1", endpoint = "/data", method = "GET"))
       val text = DataSourceResponse.fromDomain(src).toJson.compactPrint
-      text should not include rawToken
-      text should include(""""token":"***"""")
-    }
-
-    "never contain the raw api-key value in the serialized JSON" in {
-      val rawValue = "super-secret-api-key-value-xyz"
-      val src = RestSource(id, "rest", owner, now, now,
-        RestApiConfig(url = "https://example.com", method = "GET",
-          auth = RestApiAuth.ApiKeyAuth("X-Api-Key", rawValue, ApiKeyPlacement.Header)))
-      val text = DataSourceResponse.fromDomain(src).toJson.compactPrint
-      text should not include rawValue
-      text should include(""""value":"***"""")
-      // The key name (non-credential) is still present verbatim.
-      text should include(""""name":"X-Api-Key"""")
+      text should not include "token"
+      text should not include "\"auth\""
     }
 
     "never contain the raw SQL password in the serialized JSON" in {

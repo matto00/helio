@@ -132,7 +132,7 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
 
   /** Opens and immediately closes a JDBC connection — no query is executed.
    *  Uses `scala.concurrent.blocking` on the caller-supplied `ec`, matching `execute`. */
-  def testConnection(config: SqlSourceConfig)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+  def testConnection(config: SqlSourceConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future {
       blocking {
         Try {
@@ -148,10 +148,10 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
 
   /** Forwards to the existing `execute`/`inferSchema(rows)` methods on the caller-supplied `ec`,
    *  matching `SourceService.inferSql`'s existing `maxRows = 100` sample size. */
-  def inferSchema(config: SqlSourceConfig)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+  def inferSchema(config: SqlSourceConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     execute(config, maxRows = 100).map(_.map(rows => inferSchema(rows)))
 
-  def fetch(config: SqlSourceConfig, maxRows: Int)(implicit ec: ExecutionContext)
+  def fetch(config: SqlSourceConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext)
       : Future[Either[String, Vector[JsValue]]] =
     execute(config, maxRows).map(_.map(rows => toRows(rows)))
 }

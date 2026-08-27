@@ -200,7 +200,7 @@ class PipelineRunRoutesSpec
   private val RestSuccessUrl = "https://pipeline-run-routes.test/ok"
   private val RestFailureUrl = "https://pipeline-run-routes.test/fail"
   private val stubConnector = new RestApiConnectorDriver(Some { config =>
-    if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
+    if (config.connectorId == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
     else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
   })
 
@@ -252,7 +252,7 @@ class PipelineRunRoutesSpec
     // source type" — rest_api now executes for real (design.md D1/D3).
     "POST /pipelines/:id/run returns 200 with populated rows for a healthy rest_api source" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDsWithConfig("rest_api", s"""{"url":"$RestSuccessUrl"}""")
+      val dsId  = seedDsWithConfig("rest_api", s"""{"connectorId":"$RestSuccessUrl"}""")
       val pid   = seedPipeline(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
@@ -264,7 +264,7 @@ class PipelineRunRoutesSpec
 
     "POST /pipelines/:id/run returns 422 when the rest_api source is unreachable" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDsWithConfig("rest_api", s"""{"url":"$RestFailureUrl"}""")
+      val dsId  = seedDsWithConfig("rest_api", s"""{"connectorId":"$RestFailureUrl"}""")
       val pid   = seedPipeline(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
@@ -442,7 +442,7 @@ class PipelineRunRoutesSpec
     // rest_api now supports preview, not just full runs (design.md D1/D3).
     "GET /pipelines/:id/steps/:stepId/preview returns 200 with preview rows for a healthy rest_api source" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDsWithConfig("rest_api", s"""{"url":"$RestSuccessUrl"}""")
+      val dsId  = seedDsWithConfig("rest_api", s"""{"connectorId":"$RestSuccessUrl"}""")
       val pid   = seedPipeline(dsId)
       val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name")), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {

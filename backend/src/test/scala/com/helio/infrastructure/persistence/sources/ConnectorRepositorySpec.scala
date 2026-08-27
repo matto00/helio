@@ -333,4 +333,78 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       }
     }
   }
+
+  // ── HEL-822 tasks 3.3/3.4: dependentCount seam's REAL implementation, end to end ──────────
+  // (HEL-821 shipped `dependentCount` stubbed to always-zero; the 409-blocking branch was
+  // permanently unreachable in production until this ticket wires the real query.)
+
+  "DataSourceRepository.countRestSourcesReferencing + ConnectorRepository.delete" should {
+
+    "blocks delete with ConnectorHasDependents when a real rest_api source references the Connector" in {
+      val dsRepo    = new DataSourceRepository(ctx)
+      val owner     = freshUser()
+      val user      = AuthenticatedUser(owner)
+      val connector = await(repo.create(
+        ownerId = owner, name = "dep-conn", kind = "rest_api", baseUrl = "https://dep.test",
+        config = """{"authType":"none"}""", credentialPlaintext = "", credentialName = "dep cred"
+      ))
+      val source = RestSource(
+        id        = DataSourceId(UUID.randomUUID().toString),
+        name      = "dependent-source",
+        ownerId   = owner,
+        createdAt = java.time.Instant.now(),
+        updatedAt = java.time.Instant.now(),
+        config    = RestApiConfig(connectorId = connector.id.value, endpoint = "/data")
+      )
+      await(dsRepo.insert(source, user))
+
+      val dependentCount = (id: ConnectorId) => dsRepo.countRestSourcesReferencing(id)
+      await(dsRepo.countRestSourcesReferencing(connector.id)) shouldBe 1
+
+      val result = await(repo.delete(connector.id, user, dependentCount))
+      result shouldBe Left(ConnectorHasDependents)
+      await(repo.findByIdOwned(connector.id, user)) shouldBe defined
+    }
+
+    "allows delete once the dependent source is removed" in {
+      val dsRepo    = new DataSourceRepository(ctx)
+      val owner     = freshUser()
+      val user      = AuthenticatedUser(owner)
+      val connector = await(repo.create(
+        ownerId = owner, name = "dep-conn-2", kind = "rest_api", baseUrl = "https://dep2.test",
+        config = """{"authType":"none"}""", credentialPlaintext = "", credentialName = "dep cred 2"
+      ))
+      val source = RestSource(
+        id        = DataSourceId(UUID.randomUUID().toString),
+        name      = "dependent-source-2",
+        ownerId   = owner,
+        createdAt = java.time.Instant.now(),
+        updatedAt = java.time.Instant.now(),
+        config    = RestApiConfig(connectorId = connector.id.value, endpoint = "/data")
+      )
+      await(dsRepo.insert(source, user))
+      val dependentCount = (id: ConnectorId) => dsRepo.countRestSourcesReferencing(id)
+
+      await(repo.delete(connector.id, user, dependentCount)) shouldBe Left(ConnectorHasDependents)
+      await(dsRepo.delete(source.id, user)) shouldBe true
+      await(repo.delete(connector.id, user, dependentCount)) shouldBe Right(true)
+      await(repo.findByIdOwned(connector.id, user)) shouldBe None
+    }
+
+    "never counts a different Connector's dependents" in {
+      val dsRepo     = new DataSourceRepository(ctx)
+      val owner      = freshUser()
+      val user       = AuthenticatedUser(owner)
+      val connectorA = await(repo.create(ownerId = owner, name = "A", kind = "rest_api", baseUrl = "https://a.test", config = "{}", credentialPlaintext = "", credentialName = "A cred"))
+      val connectorB = await(repo.create(ownerId = owner, name = "B", kind = "rest_api", baseUrl = "https://b.test", config = "{}", credentialPlaintext = "", credentialName = "B cred"))
+      await(dsRepo.insert(
+        RestSource(
+          DataSourceId(UUID.randomUUID().toString), "src-a", owner, java.time.Instant.now(), java.time.Instant.now(),
+          RestApiConfig(connectorId = connectorA.id.value)
+        ),
+        user
+      ))
+      await(dsRepo.countRestSourcesReferencing(connectorB.id)) shouldBe 0
+    }
+  }
 }

@@ -56,6 +56,10 @@ class ApiRoutesSpec
   private var pipelineRepo: PipelineRepository              = _
   private var pipelineStepRepo: PipelineStepRepository         = _
   private var realSessionRepo: SlickUserSessionRepository   = _
+  // HEL-822: promoted from a beforeAll-local val to a field so rawRoutes() below can pass it
+  // as dbContext — SourceService.createRest's bare-url dual-support path needs a real
+  // ConnectorRepository (constructed by ApiRoutes when dbContext is present).
+  private var ctx: DbContext = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -72,7 +76,7 @@ class ApiRoutesSpec
       Some(10)
     )
 
-    val ctx            = new DbContext(db, db)(typedSystem.executionContext)
+    ctx                = new DbContext(db, db)(typedSystem.executionContext)
     dashboardRepo      = new DashboardRepository(ctx)(typedSystem.executionContext)
     panelRepo          = new PanelRepository(ctx)(typedSystem.executionContext)
     dataSourceRepo     = new DataSourceRepository(ctx)(typedSystem.executionContext)
@@ -133,7 +137,11 @@ class ApiRoutesSpec
 
   /** Builds the raw routes (no automatic auth header). */
   private def rawRoutes(connector: RestApiConnectorDriver = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
+      // HEL-822: dbContext wired so SourceService.createRest's bare-url dual-support path has a
+      // real ConnectorRepository to synthesize an implicit Connector through.
+      dbContext = ctx
+    ).routes
 
   /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
   private def realSessionRoutes(): Route =
@@ -1828,7 +1836,7 @@ class ApiRoutesSpec
         CreateSourceRequest(
           name           = "My API",
           `type`         = "rest_api",
-          config         = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None),
+          config         = RestApiConfigPayload(url = Some("http://example.com"), method = None, auth = None, headers = None),
           fieldOverrides = None
         )
       ) ~> routes(stubConnector(Right(responseJson))) ~> check {
@@ -1848,7 +1856,7 @@ class ApiRoutesSpec
         CreateSourceRequest(
           name           = "Bad API",
           `type`         = "rest_api",
-          config         = RestApiConfigPayload(url = "http://example.com", method = None, auth = None, headers = None),
+          config         = RestApiConfigPayload(url = Some("http://example.com"), method = None, auth = None, headers = None),
           fieldOverrides = None
         )
       ) ~> routes(stubConnector(Left("HTTP 500: Internal Server Error"))) ~> check {
@@ -1873,7 +1881,7 @@ class ApiRoutesSpec
         ownerId   = UserId(testUserId),
         createdAt = now,
         updatedAt = now,
-        config    = RestApiConfig(url = "http://example.com", method = "GET")
+        config    = RestApiConfig(connectorId = "conn-1", endpoint = "http://example.com", method = "GET")
       )
       await(dataSourceRepo.insert(source, testUser))
 
@@ -1919,7 +1927,7 @@ class ApiRoutesSpec
         ownerId   = UserId(testUserId),
         createdAt = now,
         updatedAt = now,
-        config    = RestApiConfig(url = "http://example.com", method = "GET")
+        config    = RestApiConfig(connectorId = "conn-1", endpoint = "http://example.com", method = "GET")
       )
       await(dataSourceRepo.insert(source, testUser))
 

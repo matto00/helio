@@ -61,7 +61,7 @@ class ConnectorRegistrySpec extends AnyWordSpec with Matchers {
     // are all Option — not enumerated as top-level required fields.
     "match RestApiConfigPayload's required field names" in {
       val rest = ConnectorRegistry.all.find(_.kind == "rest_api").get
-      rest.requiredFields.map(_.name) shouldBe Vector("url")
+      rest.requiredFields.map(_.name) shouldBe Vector("connectorId")
       rest.requiredFields.head.secret shouldBe false
     }
   }

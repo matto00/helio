@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.connectors.{RestApiConnectorDriver, SqlConnectorDriver}
+import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineStep, RestSource, SqlSource, StaticSource, TextSource}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
@@ -133,12 +133,12 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
           )
         )
       else
-        connector.fetch(r.config, maxRunRows).flatMap {
+        connector.fetch(r.config, maxRunRows, ConnectorResolveContext.Internal).flatMap {
           case Left(err)    => Future.failed(new IllegalArgumentException(err))
           case Right(jsRows) => Future.successful(jsRows.map(PipelineRowJson.jsRowToRow))
         }
     case s: SqlSource =>
-      SqlConnectorDriver.fetch(s.config, maxRunRows).flatMap {
+      SqlConnectorDriver.fetch(s.config, maxRunRows, ConnectorResolveContext.Internal).flatMap {
         case Left(err)    => Future.failed(new IllegalArgumentException(err))
         case Right(jsRows) => Future.successful(jsRows.map(PipelineRowJson.jsRowToRow))
       }

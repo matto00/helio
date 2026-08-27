@@ -496,10 +496,33 @@ object RestApiAuth {
   final case class ApiKeyAuth(name: String, value: String, in: ApiKeyPlacement) extends RestApiAuth
 }
 
+/** HEL-822: `RestApiConfig` no longer carries a host or credential — both live on the
+ *  referenced Connector (`connectorId`). `auth` is removed entirely (not defaulted, not
+ *  left as a vestigial `Option`) so "no credential remains on the source" is enforced by
+ *  the type itself. `endpoint` is joined onto the Connector's `baseUrl` at fetch time
+ *  (`RestApiConnectorDriver.buildRequest`, design.md Decision 3) via a normalizing join.
+ *  `headers` here are source-level and merge OVER the Connector's config-level defaults —
+ *  source wins on key collision (design.md Decision 4). `body` is a structural placeholder
+ *  for HEL-826 — carried through wire<->domain but not given request-body-shaping semantics
+ *  by this ticket. */
 final case class RestApiConfig(
+    connectorId: String,
+    endpoint: String = "",
+    method: String = "GET",
+    queryParams: Map[String, String] = Map.empty,
+    headers: Map[String, String] = Map.empty,
+    body: Option[String] = None
+)
+
+/** HEL-822 design.md Decision 1c: a distinct, never-persisted carrier for a bare-`url`
+ *  `infer`/`test` (or inline pipeline-proposal) request — used only as the in-memory
+ *  argument to `RestApiConnectorDriver.fetchEphemeral`/`inferSchemaEphemeral`/
+ *  `testConnectionEphemeral`. Never implements or extends `RestApiConfig`, never
+ *  round-trips through `DataSourceConfigCodec`, never reachable from `ConnectorRepository`/
+ *  `DataSourceRepository`. */
+final case class EphemeralRestConfig(
     url: String,
     method: String = "GET",
-    auth: RestApiAuth = RestApiAuth.NoAuth,
     headers: Map[String, String] = Map.empty
 )
 

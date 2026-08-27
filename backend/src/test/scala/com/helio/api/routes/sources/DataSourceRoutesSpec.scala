@@ -103,6 +103,15 @@ class DataSourceRoutesSpec
     val tmpDir = Files.createTempDirectory("helio-csv-test")
     fileSystem = new LocalFileSystem(tmpDir)(ec)
 
+    // HEL-822: SourceService.createRest's bare-url dual-support path writes a real
+    // `connectors`/`connector_credentials` row FK'd to `users` — seed one for `testUserId`
+    // (this spec never needed a real `users` row before HEL-822; `data_sources.owner_id`
+    // carries no such FK).
+    {
+      import slick.jdbc.PostgresProfile.api._
+      Await.result(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($testUserId::uuid, 'ds-routes-spec@test.local', now())"""), 5.seconds)
+    }
+
     val testRoutes =
       concat(
         path("notes.txt") {
@@ -200,7 +209,10 @@ class DataSourceRoutesSpec
         dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo,
         stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
         new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
-        dataSourceUrlIsBlocked = testIsBlocked
+        dataSourceUrlIsBlocked = testIsBlocked,
+        // HEL-822: dbContext wired so SourceService.createRest's bare-url dual-support path has
+        // a real ConnectorRepository to synthesize an implicit Connector through.
+        dbContext = ctx
       ).routes
     }
   }

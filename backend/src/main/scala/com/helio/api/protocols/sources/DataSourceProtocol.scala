@@ -132,11 +132,22 @@ final case class RestApiAuthPayload(
     value: Option[String],
     in: Option[String]
 )
+
+/** HEL-822: wire shape carries BOTH halves of design.md Decision 1's dual-support —
+ *  `connectorId` (the new path) OR `url` (the legacy bare-URL path), as sibling `Option`
+ *  fields; exactly one must be present (`RestApiConfigPayload.toDomain` enforces this).
+ *  `auth` is retained here ONLY so a request that still carries it can be detected and
+ *  rejected (400) — it is never populated by `fromDomain`/never round-tripped into a
+ *  response; auth material lives entirely on the referenced Connector now. */
 final case class RestApiConfigPayload(
-    url: String,
-    method: Option[String],
-    auth: Option[RestApiAuthPayload],
-    headers: Option[Map[String, String]]
+    connectorId: Option[String] = None,
+    url: Option[String] = None,
+    endpoint: Option[String] = None,
+    method: Option[String] = None,
+    queryParams: Option[Map[String, String]] = None,
+    headers: Option[Map[String, String]] = None,
+    body: Option[String] = None,
+    auth: Option[JsValue] = None
 )
 
 final case class TextSourceConfigPayload(path: String, sourceUrl: Option[String])
@@ -298,75 +309,70 @@ object SqlSourceConfigPayload {
 }
 
 object RestApiConfigPayload {
-  def toDomain(p: RestApiConfigPayload): Either[String, RestApiConfig] = {
-    val auth: Either[String, RestApiAuth] = p.auth match {
-      case None => Right(RestApiAuth.NoAuth)
-      case Some(a) => a.`type` match {
-        case "none"    => Right(RestApiAuth.NoAuth)
-        case "bearer"  =>
-          a.token.toRight("bearer auth requires 'token'").map(RestApiAuth.BearerAuth(_))
-        case "api_key" =>
-          for {
-            name  <- a.name.toRight("api_key auth requires 'name'")
-            value <- a.value.toRight("api_key auth requires 'value'")
-            in    <- a.in.toRight("api_key auth requires 'in' (header or query)")
-            placement <- in match {
-              case "header" => Right(ApiKeyPlacement.Header)
-              case "query"  => Right(ApiKeyPlacement.Query)
-              case other    => Left(s"Invalid 'in' value: '$other'. Must be 'header' or 'query'")
-            }
-          } yield RestApiAuth.ApiKeyAuth(name, value, placement)
-        case other => Left(s"Unknown auth type: '$other'. Valid values: none, bearer, api_key")
+
+  /** Reserved `connectorId` values that can never arise from client input at this decode
+   *  boundary (design.md Decision 1c revised, round-3 CR2/CR3 — task 2a.2a): the sentinels
+   *  `DataSourceRepository.rowToDomain` synthesizes for an undecoded/malformed stored row.
+   *  Rejecting them here closes the bypass structurally, not by convention. */
+  val ReservedConnectorIds: Set[String] = Set("__unmigrated__", "__malformed__")
+
+  /** Create/update path only (design.md Decision 1c revised — NOT used for `infer`/`test`,
+   *  which resolve a bare `url` ephemerally instead, never through this method). Enforces:
+   *  - a request carrying an `auth` field is rejected (400) — auth lives on the Connector now.
+   *  - exactly one of `connectorId`/`url` must be present (the ambiguity guard, design.md
+   *    Decision 1 revised).
+   *  - a present `connectorId` is structurally validated (non-empty, not a reserved sentinel)
+   *    before it ever reaches `findByIdOwned`.
+   *
+   *  A bare `url` (no `connectorId`) is intentionally NOT resolved here — this method has no
+   *  repository/user access to synthesize the implicit Connector design.md Decision 1
+   *  describes; callers needing that dual-support (`SourceService.createRest`,
+   *  `PipelineService.resolveInlineSourceSchema`) branch on `p.url` themselves before ever
+   *  reaching this method's `connectorId`-only success path. */
+  def toDomain(p: RestApiConfigPayload): Either[String, RestApiConfig] =
+    if (p.auth.isDefined)
+      Left("auth is not accepted on a REST source — auth lives on the referenced Connector")
+    else
+      (p.connectorId, p.url) match {
+        case (Some(_), Some(_)) => Left("provide exactly one of connectorId or url")
+        case (None, None)       => Left("Missing required fields: connectorId or url")
+        case (None, Some(_))    => Left("legacy-url: caller must resolve the implicit Connector")
+        case (Some(cidRaw), None) =>
+          val cid = cidRaw.trim
+          if (cid.isEmpty || ReservedConnectorIds.contains(cid))
+            Left("Connector not found")
+          else
+            Right(
+              RestApiConfig(
+                connectorId = cid,
+                endpoint    = p.endpoint.getOrElse(""),
+                method      = p.method.getOrElse("GET"),
+                queryParams = p.queryParams.getOrElse(Map.empty),
+                headers     = p.headers.getOrElse(Map.empty),
+                body        = p.body
+              )
+            )
       }
-    }
-    auth.map(a =>
-      RestApiConfig(
-        url     = p.url,
-        method  = p.method.getOrElse("GET"),
-        auth    = a,
-        headers = p.headers.getOrElse(Map.empty)
-      )
-    )
-  }
 
-  def fromDomain(c: RestApiConfig): RestApiConfigPayload = {
-    val authPayload: Option[RestApiAuthPayload] = c.auth match {
-      case RestApiAuth.NoAuth                          => Some(RestApiAuthPayload("none", None, None, None, None))
-      case RestApiAuth.BearerAuth(token)               => Some(RestApiAuthPayload("bearer", Some(token), None, None, None))
-      case RestApiAuth.ApiKeyAuth(name, value, in) =>
-        val inStr = in match {
-          case ApiKeyPlacement.Header => "header"
-          case ApiKeyPlacement.Query  => "query"
-        }
-        Some(RestApiAuthPayload("api_key", None, Some(name), Some(value), Some(inStr)))
-    }
+  def fromDomain(c: RestApiConfig): RestApiConfigPayload =
     RestApiConfigPayload(
-      url     = c.url,
-      method  = Some(c.method),
-      auth    = authPayload,
-      headers = if (c.headers.isEmpty) None else Some(c.headers)
+      connectorId = Some(c.connectorId),
+      url         = None,
+      endpoint    = if (c.endpoint.isEmpty) None else Some(c.endpoint),
+      method      = Some(c.method),
+      queryParams = if (c.queryParams.isEmpty) None else Some(c.queryParams),
+      headers     = if (c.headers.isEmpty) None else Some(c.headers),
+      body        = c.body,
+      auth        = None
     )
-  }
 
-  /** Declares the two credential-bearing fields on this payload — the bearer `auth.token` and the
-   *  api-key `auth.value` — each gated on `auth` being present *and* its `type` discriminator
-   *  matching (only one kind of auth is ever active on a given config, matching the existing
-   *  `case "bearer" =>` / `case "api_key" =>` split). Both fields mask whenever `Some(_)`, empty
-   *  string or not — unlike SQL's password, REST auth has no emptiness exemption. */
-  implicit val hasSecrets: HasSecrets[RestApiConfigPayload] = HasSecrets(
-    Set(
-      SecretField[RestApiConfigPayload](
-        name = "auth.token",
-        get  = p => p.auth.filter(_.`type` == "bearer").flatMap(_.token),
-        set  = (p, v) => p.copy(auth = p.auth.map(_.copy(token = Some(v))))
-      ),
-      SecretField[RestApiConfigPayload](
-        name = "auth.value",
-        get  = p => p.auth.filter(_.`type` == "api_key").flatMap(_.value),
-        set  = (p, v) => p.copy(auth = p.auth.map(_.copy(value = Some(v))))
-      )
-    )
-  )
+  /** No secret fields remain on this payload (HEL-822 task 1.5) — auth/credential material
+   *  lives entirely on the referenced Connector, resolved separately via
+   *  `ConnectorCredentialRepository.decryptForUse`, never echoed on a `DataSource` response.
+   *  Kept (empty) rather than removed so `DataSourceResponse.fromDomain`'s
+   *  `SecretRedaction.redact` call keeps compiling unchanged — a `HasSecrets[Config]` instance
+   *  must exist in implicit scope for any redacted config type. */
+  implicit val hasSecrets: HasSecrets[RestApiConfigPayload] = HasSecrets(Set.empty)
 }
 
 // `DataSourceConfigCodec` lives in `DataSourceConfigCodec.scala` — used by
@@ -382,7 +388,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   implicit val csvSourceConfigPayloadFormat: RootJsonFormat[CsvSourceConfigPayload]   = jsonFormat1(CsvSourceConfigPayload.apply)
   implicit val sqlSourceConfigPayloadFormat: RootJsonFormat[SqlSourceConfigPayload]   = jsonFormat7(SqlSourceConfigPayload.apply)
   implicit val restApiAuthPayloadFormat: RootJsonFormat[RestApiAuthPayload]           = jsonFormat5(RestApiAuthPayload.apply)
-  implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload]       = jsonFormat4(RestApiConfigPayload.apply)
+  implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload]       = jsonFormat8(RestApiConfigPayload.apply)
   implicit val fieldOverridePayloadFormat: RootJsonFormat[FieldOverridePayload]       = jsonFormat3(FieldOverridePayload.apply)
   implicit val textSourceConfigPayloadFormat: RootJsonFormat[TextSourceConfigPayload]       = jsonFormat2(TextSourceConfigPayload.apply)
   implicit val textSourceUrlConfigPayloadFormat: RootJsonFormat[TextSourceUrlConfigPayload] = jsonFormat1(TextSourceUrlConfigPayload.apply)

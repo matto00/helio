@@ -51,7 +51,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private val RestSuccessUrl = "https://pipeline-run-service.test/ok"
   private val RestFailureUrl = "https://pipeline-run-service.test/fail"
   private val stubConnector = new RestApiConnectorDriver(Some { config =>
-    if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
+    if (config.connectorId == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
     else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
   })
 
@@ -117,7 +117,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private def seedRestDs(url: String): String = {
     import PostgresProfile.api._
     val dsId     = UUID.randomUUID().toString
-    val dsConfig = s"""{"url":"$url"}"""
+    val dsConfig = s"""{"connectorId":"$url"}"""
     await(db.run(sqlu"""INSERT INTO data_sources
       (id, name, source_type, config, owner_id, created_at, updated_at)
       VALUES ($dsId, 'ds-rest', 'rest_api', $dsConfig,

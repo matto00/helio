@@ -51,7 +51,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
   private val RestSuccessUrl = "https://rest-engine.test/ok"
   private val RestFailureUrl = "https://rest-engine.test/fail"
   private val stubConnector = new RestApiConnectorDriver(Some { config =>
-    if (config.url == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
+    if (config.connectorId == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
     else
       Future.successful(Right(JsArray(
         JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)),
@@ -2168,7 +2168,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
         createdAt = Instant.now(),
         updatedAt = Instant.now(),
-        config    = RestApiConfig(url = RestSuccessUrl)
+        config    = RestApiConfig(connectorId = RestSuccessUrl)
       )
       val rows = Await.result(restEngine.loadRows(ds, null), 5.seconds)
       rows should have size 2
@@ -2184,7 +2184,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
         createdAt = Instant.now(),
         updatedAt = Instant.now(),
-        config    = RestApiConfig(url = RestFailureUrl)
+        config    = RestApiConfig(connectorId = RestFailureUrl)
       )
       val ex = intercept[IllegalArgumentException](
         Await.result(restEngine.loadRows(ds, null), 5.seconds)
@@ -2199,7 +2199,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
         createdAt = Instant.now(),
         updatedAt = Instant.now(),
-        config    = RestApiConfig(url = RestSuccessUrl)
+        config    = RestApiConfig(connectorId = RestSuccessUrl)
       )
       // `engine` (module-level val, above) was constructed with no connector
       // (defaults to null) — this must NOT throw a raw NullPointerException.

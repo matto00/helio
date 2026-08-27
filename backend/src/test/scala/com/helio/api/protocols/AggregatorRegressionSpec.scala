@@ -82,7 +82,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
         name      = "Source 1",
         createdAt = "2026-01-01T00:00:00Z",
         updatedAt = "2026-01-02T00:00:00Z",
-        config    = RestApiConfigPayload(url = "http://example.com", method = Some("GET"), auth = None, headers = None)
+        config    = RestApiConfigPayload(url = Some("http://example.com"), method = Some("GET"), auth = None, headers = None)
       )
       roundTrip(original) shouldBe original
     }

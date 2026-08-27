@@ -20,7 +20,9 @@ import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.sources.ConnectorRepository
+import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.api.protocols.workspace.{TeardownRequest, TeardownResponse}
@@ -84,6 +86,7 @@ class AuditMutationInstrumentationSpec
   // is unnecessary here. Needed so `workspaceTeardownServiceOpt` is `Some`
   // and `POST /api/workspace/teardown` is mounted (task 2.1).
   private var dbContext: DbContext                          = _
+  private var connectorRepo: ConnectorRepository             = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -113,6 +116,10 @@ class AuditMutationInstrumentationSpec
     metricRepo         = new MetricRepository(ctx)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
     dbContext          = ctx
+    // HEL-822: real ConnectorRepository fixture for the direct SourceService.createRest(...)
+    // unit-level tests below, which need a repository to synthesize an implicit Connector
+    // through for their bare-`url` requests.
+    connectorRepo      = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider())))(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -1238,8 +1245,8 @@ class AuditMutationInstrumentationSpec
     "write exactly one data_source.refresh row on a successful rest refresh" in {
       cleanDb()
       val restConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
-      val svc            = new SourceService(dataSourceRepo, dataTypeRepo, restConnector, auditService = new AuditService(auditEventRepo))
-      val restConfigPayload = RestApiConfigPayload(url = "http://example.invalid/data", method = Some("GET"), auth = None, headers = None)
+      val svc            = new SourceService(dataSourceRepo, dataTypeRepo, restConnector, auditService = new AuditService(auditEventRepo), connectorRepo = connectorRepo)
+      val restConfigPayload = RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
 
       val created = await(svc.createRest(CreateSourceRequest("RefreshRest", DataSourceKind.RestApi, restConfigPayload, None), testUser)) match {
         case Right(r) => r
@@ -1259,9 +1266,9 @@ class AuditMutationInstrumentationSpec
       val failingConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Left("Request failed"))))
       val successConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
       val auditSvc          = new AuditService(auditEventRepo)
-      val failingSvc        = new SourceService(dataSourceRepo, dataTypeRepo, failingConnector, auditService = auditSvc)
-      val successSvc        = new SourceService(dataSourceRepo, dataTypeRepo, successConnector, auditService = auditSvc)
-      val restConfigPayload = RestApiConfigPayload(url = "http://example.invalid/data", method = Some("GET"), auth = None, headers = None)
+      val failingSvc        = new SourceService(dataSourceRepo, dataTypeRepo, failingConnector, auditService = auditSvc, connectorRepo = connectorRepo)
+      val successSvc        = new SourceService(dataSourceRepo, dataTypeRepo, successConnector, auditService = auditSvc, connectorRepo = connectorRepo)
+      val restConfigPayload = RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
 
       val created = await(failingSvc.createRest(CreateSourceRequest("RefreshRestFail", DataSourceKind.RestApi, restConfigPayload, None), testUser)) match {
         case Right(r) => r
