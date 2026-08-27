@@ -92,7 +92,11 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V88 — assistant_daily_usage, direct owner (user_id is part of the composite PK) (HEL-703)
     "assistant_daily_usage",
     // V90 — invite_codes, direct owner (HEL-704)
-    "invite_codes"
+    "invite_codes",
+    // V93 — connectors, direct owner (HEL-821). Note: connector_credentials (V92,
+    // HEL-536) is itself owner-only RLS'd but was never added to this allowlist --
+    // a pre-existing gap out of this ticket's scope, flagged as a finding.
+    "connectors"
   )
 
   override def beforeAll(): Unit = {

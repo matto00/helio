@@ -309,6 +309,14 @@ package object api {
   val ConnectorFieldDescriptorResponse: protocols.sources.ConnectorFieldDescriptorResponse.type = protocols.sources.ConnectorFieldDescriptorResponse
   type ConnectorMetadataResponse = protocols.sources.ConnectorMetadataResponse
   val ConnectorMetadataResponse: protocols.sources.ConnectorMetadataResponse.type = protocols.sources.ConnectorMetadataResponse
+  type ConnectorMeta = protocols.sources.ConnectorMeta
+  val ConnectorMeta: protocols.sources.ConnectorMeta.type = protocols.sources.ConnectorMeta
+  type ConnectorsResponse = protocols.sources.ConnectorsResponse
+  val ConnectorsResponse: protocols.sources.ConnectorsResponse.type = protocols.sources.ConnectorsResponse
+  type CreateConnectorRequest = protocols.sources.CreateConnectorRequest
+  val CreateConnectorRequest: protocols.sources.CreateConnectorRequest.type = protocols.sources.CreateConnectorRequest
+  type UpdateConnectorRequest = protocols.sources.UpdateConnectorRequest
+  val UpdateConnectorRequest: protocols.sources.UpdateConnectorRequest.type = protocols.sources.UpdateConnectorRequest
 
   // Pipeline shape catalog (HEL-391)
   type OutputContractResponse = protocols.pipelines.OutputContractResponse
