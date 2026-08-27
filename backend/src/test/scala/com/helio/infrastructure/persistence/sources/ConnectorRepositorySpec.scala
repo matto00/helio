@@ -2,7 +2,7 @@ package com.helio.infrastructure.persistence.sources
 
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
+import com.helio.infrastructure.persistence.auth.{ConnectorCredentialEncryptionFailed, ConnectorCredentialRepository}
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
@@ -405,6 +405,101 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
         user
       ))
       await(dsRepo.countRestSourcesReferencing(connectorB.id)) shouldBe 0
+    }
+  }
+
+  // ── HEL-824 task 2.5/2.6: rotateCredential ──────────────────────────────
+
+  "rotateCredential" should {
+    "replaces the plaintext resolvable via decryptForUse and makes the old credential id unresolvable" in {
+      val owner     = freshUser()
+      val connector = await(
+        repo.create(owner, "Rotatable", DataSourceKind.RestApi, "https://rotate.example.com", "{}", "old-plaintext-value", "cred")
+      )
+      val oldCredentialId = connector.credentialId
+
+      val user     = AuthenticatedUser(owner)
+      val rotated  = await(repo.rotateCredential(connector.id, "new-plaintext-value", "rotated cred", user))
+      rotated.isRight shouldBe true
+      val updatedConnector = rotated.toOption.get
+
+      updatedConnector.credentialId should not be oldCredentialId
+
+      await(credentialRepo.decryptForUse(updatedConnector.credentialId, owner)) shouldBe Some("new-plaintext-value")
+      await(credentialRepo.get(oldCredentialId, owner)) shouldBe None
+
+      // The connectors row itself now points at the new credential id.
+      val fetched = await(repo.findByIdOwned(connector.id, user))
+      fetched shouldBe defined
+      fetched.get.credentialId shouldBe updatedConnector.credentialId
+    }
+
+    "returns not-found for another user's Connector, performing no write" in {
+      val ownerA = freshUser()
+      val ownerB = freshUser()
+      val connA  = await(repo.create(ownerA, "A's rotate target", DataSourceKind.RestApi, "https://a-rotate.example.com", "{}", "secret-a", "A cred"))
+
+      val result = await(repo.rotateCredential(connA.id, "attempted-new-value", "cred", AuthenticatedUser(ownerB)))
+      result shouldBe Left(ConnectorRotationNotFound)
+
+      // Original credential still resolves under the true owner -- no partial write occurred.
+      val stillOwned = await(repo.findByIdOwned(connA.id, AuthenticatedUser(ownerA)))
+      stillOwned shouldBe defined
+      stillOwned.get.credentialId shouldBe connA.credentialId
+    }
+
+    "fails closed with no partial write when no master key is configured" in {
+      val backendNoKey = new EncryptedSecretBackend(new EnvMasterKeyProvider(Map.empty))
+      val credentialRepoNoKey = new ConnectorCredentialRepository(ctx, backendNoKey)
+      val repoNoKey = new ConnectorRepository(ctx, credentialRepoNoKey)
+
+      val owner     = freshUser()
+      val connector = await(
+        repo.create(owner, "No-key rotate target", DataSourceKind.RestApi, "https://no-key.example.com", "{}", "original-secret", "cred")
+      )
+      val user = AuthenticatedUser(owner)
+
+      a[ConnectorCredentialEncryptionFailed] should be thrownBy
+        await(repoNoKey.rotateCredential(connector.id, "attempted-new-value", "cred", user))
+
+      // No partial write: the connectors row still points at the original credential id, and
+      // the original credential is still resolvable via the properly-keyed repo.
+      val fetched = await(repo.findByIdOwned(connector.id, user))
+      fetched shouldBe defined
+      fetched.get.credentialId shouldBe connector.credentialId
+      await(credentialRepo.decryptForUse(connector.credentialId, owner)) shouldBe Some("original-secret")
+    }
+
+    // HEL-824 task 2.6: proves a dependent source picks up rotation transparently -- the
+    // pipeline-execution outbound-auth resolution path (findByIdInternal -> decryptForUse)
+    // returns the NEW plaintext after rotation, with no re-pointing of the source itself.
+    "a dependent rest_api source resolves the NEW plaintext via findByIdInternal + decryptForUse after rotation" in {
+      val dsRepo    = new DataSourceRepository(ctx)
+      val owner     = freshUser()
+      val user      = AuthenticatedUser(owner)
+      val connector = await(repo.create(
+        ownerId = owner, name = "dep-rotate-conn", kind = "rest_api", baseUrl = "https://dep-rotate.test",
+        config = "{}", credentialPlaintext = "before-rotation-secret", credentialName = "dep rotate cred"
+      ))
+      val source = RestSource(
+        id        = DataSourceId(UUID.randomUUID().toString),
+        name      = "dependent-source-rotation",
+        ownerId   = owner,
+        createdAt = java.time.Instant.now(),
+        updatedAt = java.time.Instant.now(),
+        config    = RestApiConfig(connectorId = connector.id.value, endpoint = "/data")
+      )
+      await(dsRepo.insert(source, user))
+
+      await(repo.rotateCredential(connector.id, "after-rotation-secret", "rotated dep cred", user))
+
+      // The pipeline-execution path never re-resolves the source -- it goes straight through
+      // the Connector via findByIdInternal, unscoped by design (see that method's own doc).
+      val resolvedConnector = await(repo.findByIdInternal(connector.id))
+      resolvedConnector shouldBe defined
+
+      val decrypted = await(credentialRepo.decryptForUse(resolvedConnector.get.credentialId, owner))
+      decrypted shouldBe Some("after-rotation-secret")
     }
   }
 }

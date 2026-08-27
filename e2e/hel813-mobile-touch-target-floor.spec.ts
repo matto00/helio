@@ -230,6 +230,51 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
 
         await sweepSurface(page, { selectors: [".panel-list__add"] });
       });
+
+      // Surface 7 (HEL-824 design.md Decision 5) — the Connectors page: the
+      // empty-state CTA on a fresh account, then the create modal's controls
+      // once open, then list-row actions (test/edit/delete) once a connector
+      // exists.
+      test("surface 7: Connectors page", async ({ page, request }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await registerAndLogin(page, request, `connectors-${width}`);
+        await page.goto("/connectors");
+
+        const main = page.locator("#app-main-content");
+        await expect(main.locator(".ui-empty-state__cta")).toBeVisible();
+        await sweepSurface(page, { selectors: [".ui-empty-state__cta"], scope: main });
+
+        await main.locator(".ui-empty-state__cta").click();
+        const createDialog = page.getByRole("dialog", { name: "Add connector" });
+        await expect(createDialog).toBeVisible();
+        // Settle wait — mirrors surface 5's own intervening action before its first
+        // sweep. `Modal.css`'s entrance animation (`ui-modal-in`, `--transition-slow`
+        // = 0.28s) starts at `scale(0.985)`; sweeping immediately after `toBeVisible()`
+        // catches the dialog mid-animation (44 * 0.985 = 43.34, under the 44px floor)
+        // even though the buttons are genuinely 44px once settled. Wait past
+        // `--transition-slow` before measuring rendered geometry.
+        await page.waitForTimeout(400);
+        await sweepSurface(page, {
+          selectors: [".connectors-page__btn"],
+          scope: createDialog,
+        });
+
+        await createDialog.locator("#create-connector-name").fill("HEL-813 Connector");
+        await createDialog
+          .locator("#create-connector-base-url")
+          .fill("https://api.hel813.example.com");
+        await createDialog.getByRole("button", { name: "Create connector" }).click();
+        await expect(createDialog).toBeHidden();
+        // Scoped to the list row, not a bare page-wide text match — the success
+        // toast ALSO renders "HEL-813 Connector" text (twice: the visually-hidden
+        // live-region echo plus the visible toast), which a page.getByText() would
+        // ambiguously resolve to 3 elements.
+        await expect(
+          main.locator(".connectors-page__name-cell", { hasText: "HEL-813 Connector" }),
+        ).toBeVisible();
+
+        await sweepSurface(page, { selectors: [".connectors-page__btn"], scope: main });
+      });
     });
   }
 });

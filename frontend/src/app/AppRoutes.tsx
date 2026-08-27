@@ -4,6 +4,7 @@ import { faCompass } from "@fortawesome/free-solid-svg-icons";
 
 import { ChatPage } from "../features/assistant/ui/ChatPage";
 import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
+import { ConnectorsPage } from "../features/connectors/ui/ConnectorsPage";
 import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
 import { LoginPage } from "../features/auth/ui/LoginPage";
 import { MfaVerifyPage } from "../features/auth/ui/MfaVerifyPage";
@@ -89,6 +90,7 @@ export function AppRoutes() {
           <Route path="/sources" element={<SourcesPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />
           <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
+          <Route path="/connectors" element={<ConnectorsPage />} />
           <Route path="/registry" element={<TypeRegistryPage />} />
           <Route path="/registry/:id" element={<TypeRegistryPage />} />
           <Route path="/metrics" element={<MetricsPage />} />

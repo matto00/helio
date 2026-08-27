@@ -17,12 +17,18 @@ interface TestConnectionAffordanceProps {
   type: "sql" | "rest_api";
   buildConfig: () => SqlSourceConfig | RestApiConfigBody;
   disabled?: boolean;
+  /** HEL-824 skeptic design-round-2 non-blocking note 5: `AddSourceModal`'s own chrome class
+   *  by default, so existing callers are unaffected — pass a page-local class when reusing this
+   *  affordance outside `/sources` (e.g. `/connectors`) rather than pulling in
+   *  `add-source-modal__btn`'s sources-modal-specific styling. */
+  buttonClassName?: string;
 }
 
 export function TestConnectionAffordance({
   type,
   buildConfig,
   disabled,
+  buttonClassName = "add-source-modal__btn add-source-modal__btn--secondary",
 }: TestConnectionAffordanceProps) {
   const [state, setState] = useState<ConnectionTestState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +56,7 @@ export function TestConnectionAffordance({
       <div className="test-connection-affordance__row">
         <button
           type="button"
-          className="add-source-modal__btn add-source-modal__btn--secondary"
+          className={buttonClassName}
           onClick={() => void handleClick()}
           disabled={disabled || state === "pending"}
         >

@@ -317,6 +317,9 @@ package object api {
   val CreateConnectorRequest: protocols.sources.CreateConnectorRequest.type = protocols.sources.CreateConnectorRequest
   type UpdateConnectorRequest = protocols.sources.UpdateConnectorRequest
   val UpdateConnectorRequest: protocols.sources.UpdateConnectorRequest.type = protocols.sources.UpdateConnectorRequest
+  type RotateConnectorCredentialRequest = protocols.sources.RotateConnectorCredentialRequest
+  val RotateConnectorCredentialRequest: protocols.sources.RotateConnectorCredentialRequest.type =
+    protocols.sources.RotateConnectorCredentialRequest
 
   // Pipeline shape catalog (HEL-391)
   type OutputContractResponse = protocols.pipelines.OutputContractResponse

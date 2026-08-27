@@ -36,7 +36,14 @@ describe("BottomNav", () => {
     expect(within(nav).getByRole("link", { name: "Dashboards" })).toHaveClass(
       "bottom-nav__tab--active",
     );
-    for (const label of ["Data Sources", "Data Pipelines", "Data Types", "Metrics", "Assistant"]) {
+    for (const label of [
+      "Data Sources",
+      "Data Pipelines",
+      "Connectors",
+      "Data Types",
+      "Metrics",
+      "Assistant",
+    ]) {
       expect(within(nav).getByRole("link", { name: label })).not.toHaveClass(
         "bottom-nav__tab--active",
       );

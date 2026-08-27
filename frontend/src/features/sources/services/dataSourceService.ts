@@ -22,8 +22,16 @@ interface CreateSourceResponse {
 // Wire shape for REST connector config in inference / create-source bodies.
 // Backend `RestApiConfigPayload` allows `method` / `auth` / `headers` to be
 // optional and adds a `jsonPath` extension used by the AddSourceModal flow.
+//
+// HEL-824 task 4.8: `url` relaxed to optional and `connectorId` added so this
+// same shape can carry a saved-Connector connection-test payload
+// (`{ connectorId }`, no `url`) — mirrors `RestApiConfigPayload`'s own
+// dual-support shape server-side (design.md Decision 1: exactly one of
+// `connectorId`/`url` is provided). `createRestSource`/`inferFromJson`
+// callers are unaffected: they always pass `url`, never `connectorId`.
 export interface RestApiConfigBody {
-  url: string;
+  url?: string;
+  connectorId?: string;
   method?: string;
   headers?: Record<string, string>;
   jsonPath?: string;

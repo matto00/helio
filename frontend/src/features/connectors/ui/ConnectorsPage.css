@@ -1,0 +1,244 @@
+/* HEL-824: DESIGN.md tokens throughout, no literal px / ad-hoc colors.
+   Table shape mirrors `ApiTokensSection.css`'s list table (same primitive
+   vocabulary); button recipe mirrors `AddSourceModal.css`'s
+   `.add-source-modal__btn` shape (kept as a local copy per skeptic
+   design-round-2 non-blocking note 5, rather than importing that class). */
+
+.connectors-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.connectors-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.connectors-page__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  color: var(--app-text);
+}
+
+.connectors-page__subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.connectors-page__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.connectors-page__th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.connectors-page__row:hover {
+  background: var(--app-surface-raised);
+}
+
+.connectors-page__td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--app-border-subtle);
+  color: var(--app-text);
+  vertical-align: top;
+}
+
+.connectors-page__td--mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.connectors-page__th--actions,
+.connectors-page__td--actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* HEL-824 skeptic-final-1.md change request 2: the blocked-delete error
+   lives in its own full-width row beneath the connector's row (colSpan),
+   never inside the nowrap `--actions` cell — a nowrap cell forces its whole
+   content (including a wrapped-looking sentence) onto one unbreakable line
+   that can run hundreds of px off-screen. This cell explicitly allows
+   wrapping. */
+.connectors-page__td--conflict {
+  white-space: normal;
+  text-align: left;
+}
+
+.connectors-page__name-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.connectors-page__row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.connectors-page__credential-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.connectors-page__credential-mask {
+  font-family: var(--font-mono);
+  color: var(--app-text-muted);
+  letter-spacing: 0.2em;
+}
+
+/* ── Buttons — mirrors AddSourceModal.css's `.add-source-modal__btn` recipe;
+   kept local rather than shared per skeptic design-round-2 note 5, and also
+   the 44px touch-target floor for row actions (HEL-813). */
+
+.connectors-page__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-md);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.connectors-page__btn:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.connectors-page__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.connectors-page__btn--primary {
+  border: none;
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+}
+
+.connectors-page__btn--primary:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.connectors-page__btn--secondary {
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.connectors-page__btn--danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+  background: var(--app-error-surface);
+  color: var(--app-error);
+}
+
+/* Tablet and below — stacked-card layout (HEL-824 skeptic-final-1.md change
+   request 1 + 5). Widened from 768px to 1100px, a DESIGN.md §4 canonical
+   breakpoint: the plain 6-column table overflows 198px at 1100px with no
+   dedicated treatment, and the ordinary Delete action sits off-screen with
+   no horizontal-scroll affordance. Mirrors `PipelineDetailHeader.css`'s own
+   "widened to 1100px to close the 769-1100 gap" precedent.
+
+   Fixed specificity bug (change request 1): the previous rule
+   `.connectors-page__table tr { display: block }` (0,1,1 specificity, one
+   class + one element) beat `.connectors-page__row { display: flex }`
+   (0,1,0), so the flex/column stacking rule never actually applied and the
+   six `<td>`s laid out side-by-side in an anonymous block row — 397px
+   overflow at 430px. Every selector below is scoped through
+   `.connectors-page__table tbody` (a class, never a bare element) so
+   nothing outranks `.connectors-page__row`/`.connectors-page__td`
+   specificity by an element-selector tiebreak again. Also adds the
+   previously-missing `.connectors-page__td { display: block }` — without
+   it the cells stayed inline/table-cell even once the row itself stacked. */
+@media (max-width: 1100px) {
+  .connectors-page {
+    padding: var(--space-4);
+  }
+
+  .connectors-page__btn {
+    min-height: 44px;
+  }
+
+  /* Scoped to this page's EmptyState instance only (not a blanket override
+     of the shared `ui-empty-state__cta` class, which would leak to every
+     other EmptyState on the page once this stylesheet is loaded). */
+  .connectors-page__empty .ui-empty-state__cta {
+    min-height: 44px;
+  }
+
+  .connectors-page__table {
+    display: block;
+    width: 100%;
+  }
+
+  .connectors-page__table thead {
+    display: none;
+  }
+
+  .connectors-page__table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .connectors-page__table tbody tr.connectors-page__row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--app-border-subtle);
+  }
+
+  .connectors-page__table tbody tr.connectors-page__row .connectors-page__td {
+    display: block;
+    width: 100%;
+    border-bottom: none;
+    padding: 0 var(--space-3);
+  }
+
+  .connectors-page__table tbody tr.connectors-page__conflict-row {
+    display: block;
+    width: 100%;
+  }
+
+  .connectors-page__table tbody tr.connectors-page__conflict-row .connectors-page__td--conflict {
+    display: block;
+    width: 100%;
+    padding: 0 var(--space-3) var(--space-3);
+  }
+
+  .connectors-page__row-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}

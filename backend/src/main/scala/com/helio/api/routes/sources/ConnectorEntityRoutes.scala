@@ -40,13 +40,16 @@ final class ConnectorEntityRoutes(
           concat(
             get {
               onSuccess(connectorService.findAll(user)) { connectors =>
-                complete(ConnectorsResponse(connectors.map(ConnectorMeta.fromDomain)))
+                complete(ConnectorsResponse(connectors.map { case (connector, count) =>
+                  ConnectorMeta.fromDomain(connector, count)
+                }))
               }
             },
             post {
               entity(as[CreateConnectorRequest]) { request =>
                 ServiceResponse.run(connectorService.create(request, user)) { connector =>
-                  StatusCodes.Created -> ConnectorMeta.fromDomain(connector)
+                  // A brand-new Connector has no dependents yet -- 0 is factual, not a stub.
+                  StatusCodes.Created -> ConnectorMeta.fromDomain(connector, dependentCount = 0)
                 }
               }
             }
@@ -55,7 +58,9 @@ final class ConnectorEntityRoutes(
         path(ConnectorIdSegment) { id =>
           concat(
             get {
-              ServiceResponse.run(connectorService.findById(id, user))(ConnectorMeta.fromDomain)
+              ServiceResponse.run(connectorService.findById(id, user)) { case (connector, count) =>
+                ConnectorMeta.fromDomain(connector, count)
+              }
             },
             patch {
               entity(as[JsValue]) { json =>
@@ -70,7 +75,9 @@ final class ConnectorEntityRoutes(
                 else
                   Try(json.convertTo[UpdateConnectorRequest]) match {
                     case Success(request) =>
-                      ServiceResponse.run(connectorService.update(id, request, user))(ConnectorMeta.fromDomain)
+                      ServiceResponse.run(connectorService.update(id, request, user)) { case (connector, count) =>
+                        ConnectorMeta.fromDomain(connector, count)
+                      }
                     case Failure(e) =>
                       complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
                   }
@@ -80,6 +87,22 @@ final class ConnectorEntityRoutes(
               ServiceResponse.runNoContent(connectorService.delete(id, user))
             }
           )
+        },
+        path(ConnectorIdSegment / "credential") { id =>
+          put {
+            entity(as[JsValue]) { json =>
+              Try(json.convertTo[RotateConnectorCredentialRequest]) match {
+                case Success(request) if request.credential.trim.isEmpty =>
+                  complete(StatusCodes.BadRequest, ErrorResponse("credential is required"))
+                case Success(request) =>
+                  ServiceResponse.run(connectorService.rotateCredential(id, request.credential, user)) { case (connector, count) =>
+                    ConnectorMeta.fromDomain(connector, count)
+                  }
+                case Failure(e) =>
+                  complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
+              }
+            }
+          }
         }
       )
     }

@@ -21,7 +21,8 @@ final case class ConnectorMeta(
     baseUrl: String,
     config: JsValue,
     createdAt: String,
-    updatedAt: String
+    updatedAt: String,
+    dependentCount: Int
 )
 
 final case class ConnectorsResponse(items: Vector[ConnectorMeta])
@@ -46,23 +47,31 @@ final case class UpdateConnectorRequest(
     config: Option[JsValue]
 )
 
+/** Credential rotation request (HEL-824 design.md Decision 1) -- write-only, dedicated from
+ *  `UpdateConnectorRequest` so a rotated secret can never ride along in a general-purpose PATCH
+ *  body. */
+final case class RotateConnectorCredentialRequest(credential: String)
+
 object ConnectorMeta {
-  def fromDomain(connector: Connector): ConnectorMeta =
+  def fromDomain(connector: Connector, dependentCount: Int): ConnectorMeta =
     ConnectorMeta(
-      id        = connector.id.value,
-      ownerId   = connector.ownerId.value,
-      name      = connector.name,
-      kind      = connector.kind,
-      baseUrl   = connector.baseUrl,
-      config    = connector.config.parseJson,
-      createdAt = connector.createdAt.toString,
-      updatedAt = connector.updatedAt.toString
+      id             = connector.id.value,
+      ownerId        = connector.ownerId.value,
+      name           = connector.name,
+      kind           = connector.kind,
+      baseUrl        = connector.baseUrl,
+      config         = connector.config.parseJson,
+      createdAt      = connector.createdAt.toString,
+      updatedAt      = connector.updatedAt.toString,
+      dependentCount = dependentCount
     )
 }
 
 trait ConnectorEntityProtocol extends SprayJsonSupport with DefaultJsonProtocol {
-  implicit val connectorMetaFormat: RootJsonFormat[ConnectorMeta]         = jsonFormat8(ConnectorMeta.apply)
+  implicit val connectorMetaFormat: RootJsonFormat[ConnectorMeta]         = jsonFormat9(ConnectorMeta.apply)
   implicit val connectorsResponseFormat: RootJsonFormat[ConnectorsResponse] = jsonFormat1(ConnectorsResponse.apply)
   implicit val createConnectorRequestFormat: RootJsonFormat[CreateConnectorRequest] = jsonFormat5(CreateConnectorRequest.apply)
   implicit val updateConnectorRequestFormat: RootJsonFormat[UpdateConnectorRequest] = jsonFormat3(UpdateConnectorRequest.apply)
+  implicit val rotateConnectorCredentialRequestFormat: RootJsonFormat[RotateConnectorCredentialRequest] =
+    jsonFormat1(RotateConnectorCredentialRequest.apply)
 }
