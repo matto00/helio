@@ -70,7 +70,7 @@ export const panelSchema = z.object({
   // MetricPanelConfig/ChartPanelConfig/TablePanelConfig metricId slot
   // create_panel uses. Unsupported on collection/timeline.
   metricId: z.string().optional(),
-  fieldMapping: z.record(z.string()).optional(),
+  fieldMapping: z.record(z.string(), z.string()).optional(),
   aggregation: aggregationSchema.optional(),
   // Initial config for non-data panels, applied at create time (HEL-293).
   content: z.string().optional(),
@@ -93,7 +93,7 @@ export const panelSchema = z.object({
   // above, then decoded by the same panel-create path as create_panel's
   // `config` (HEL-316) — see the propose_dashboard/apply_proposal
   // descriptions below for the per-type v1.5 shapes this unlocks.
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 });
 
 function jsonResult(value: unknown): CallToolResult {

@@ -60,7 +60,7 @@ const pipelineProposalSourceSchema = z.object({
   sourceId: z.string().min(1).optional(),
   type: z.enum(["csv", "rest_api", "sql", "static"]).optional(),
   name: z.string().min(1).optional(),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 });
 
 // Shared by all three tools below — the proposal `propose_pipeline` returns

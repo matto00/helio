@@ -23,7 +23,7 @@ import {
 } from "./refinementHandlers.js";
 
 // Mirrors `PatchSetProtocol.scala`'s recognized `target.kind`/`op` sets — `patch` stays an
-// untyped passthrough (`z.record(z.unknown())`, absent for `op: "delete"`), same convention
+// untyped passthrough (`z.record(z.string(), z.unknown())`, absent for `op: "delete"`), same convention
 // `proposal.ts`'s own `panelSchema.config` already uses for a per-kind opaque payload.
 const editTargetSchema = z.object({
   kind: z.enum(["panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep"]),
@@ -33,7 +33,7 @@ const editTargetSchema = z.object({
 const editSchema = z.object({
   target: editTargetSchema,
   op: z.enum(["update", "delete", "create"]),
-  patch: z.record(z.unknown()).optional(),
+  patch: z.record(z.string(), z.unknown()).optional(),
 });
 
 const patchSetSchema = z.object({

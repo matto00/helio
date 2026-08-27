@@ -40,7 +40,7 @@ import {
 // `panelSchema` from `proposal.ts`.
 export const boundPipelineStepSchema = z.object({
   type: z.string().min(1),
-  config: z.record(z.unknown()).default({}),
+  config: z.record(z.string(), z.unknown()).default({}),
 });
 
 function jsonResult(value: unknown): CallToolResult {
@@ -303,7 +303,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       inputSchema: {
         pipelineId: z.string().min(1),
         type: z.string().min(1),
-        config: z.record(z.unknown()).default({}),
+        config: z.record(z.string(), z.unknown()).default({}),
       },
     },
     ({ pipelineId, type, config }) =>
@@ -342,7 +342,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         sourceDataSourceId: z.string().min(1),
         outputDataTypeName: z.string().min(1),
         shapeId: z.string().min(1),
-        params: z.record(z.unknown()).default({}),
+        params: z.record(z.string(), z.unknown()).default({}),
         tag: z.string().min(1).max(200).optional(),
       },
     },
@@ -493,8 +493,8 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         type: z
           .enum(["metric", "chart", "table", "text", "markdown", "image", "collection", "timeline"])
           .optional(),
-        config: z.record(z.unknown()).optional(),
-        appearance: z.record(z.unknown()).optional(),
+        config: z.record(z.string(), z.unknown()).optional(),
+        appearance: z.record(z.string(), z.unknown()).optional(),
       },
     },
     ({ dashboardId, title, type, config, appearance }) =>
@@ -536,8 +536,8 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
                 "timeline",
               ])
               .optional(),
-            config: z.record(z.unknown()).optional(),
-            appearance: z.record(z.unknown()).optional(),
+            config: z.record(z.string(), z.unknown()).optional(),
+            appearance: z.record(z.string(), z.unknown()).optional(),
           }),
         ),
       },
@@ -568,7 +568,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       inputSchema: {
         panelId: z.string().min(1),
         dataTypeId: z.string().min(1),
-        fieldMapping: z.record(z.string()).optional(),
+        fieldMapping: z.record(z.string(), z.string()).optional(),
         panelType: z
           .enum(["metric", "chart", "table", "text", "markdown", "collection", "timeline"])
           .optional(),
@@ -630,10 +630,10 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         panel: z.object({
           type: z.enum(["metric", "chart", "table", "collection", "timeline"]),
           title: z.string().min(1),
-          config: z.record(z.unknown()).optional(),
-          appearance: z.record(z.unknown()).optional(),
+          config: z.record(z.string(), z.unknown()).optional(),
+          appearance: z.record(z.string(), z.unknown()).optional(),
         }),
-        fieldMapping: z.record(z.string()).optional(),
+        fieldMapping: z.record(z.string(), z.string()).optional(),
       },
     },
     ({ dashboardId, source, sourceDataSourceId, pipeline, panel, fieldMapping }) =>
@@ -665,7 +665,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "as the line default) rather than resetting the rest of chart.",
       inputSchema: {
         panelId: z.string().min(1),
-        appearance: z.record(z.unknown()),
+        appearance: z.record(z.string(), z.unknown()),
       },
     },
     ({ panelId, appearance }) => guarded(() => api.updatePanelAppearance(panelId, appearance)),
@@ -751,8 +751,8 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
             "divider",
           ])
           .optional(),
-        config: z.record(z.unknown()).optional(),
-        appearance: z.record(z.unknown()).optional(),
+        config: z.record(z.string(), z.unknown()).optional(),
+        appearance: z.record(z.string(), z.unknown()).optional(),
       },
     },
     ({ panelId, title, type, config, appearance }) =>
@@ -981,7 +981,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "reflected in the pipeline's projected schema.",
       inputSchema: {
         stepId: z.string().min(1),
-        config: z.record(z.unknown()).optional(),
+        config: z.record(z.string(), z.unknown()).optional(),
         position: z.number().int().optional(),
       },
     },
