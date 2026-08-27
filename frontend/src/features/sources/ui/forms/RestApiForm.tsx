@@ -1,94 +1,94 @@
-// REST API source configuration fields (URL + method + optional body + root
-// selector) rendered inside AddSourceModal when the user picks the REST API
-// source type.
+// REST API source configuration fields, rendered inside AddSourceModal when
+// the user picks the REST API source type.
 //
 // Extracted from AddSourceModal.tsx in CS3 cycle 2 (behavior-preserving).
 // HEL-826: adds a method selector (previously hardcoded "GET") and a
-// body/content-type editor, shown only for POST/PUT/PATCH — matching the
-// server's rejection of a body on GET/HEAD (design.md Decision 3/6).
+// body/content-type editor, shown only for POST/PUT/PATCH.
+// HEL-827: brings the form to parity with the agent/MCP authoring surface —
+// Connector selection replaces the bare URL input, plus query params,
+// headers, and template parameters. All field state now lives in
+// `useRestSourceForm` (design.md Decision 5); this component is purely
+// presentational over that hook's return value.
 
 import { TextField } from "../../../../shared/ui/TextField";
 import { Textarea } from "../../../../shared/ui/Textarea";
 import { Select } from "../../../../shared/ui/Select";
 import { TestConnectionAffordance } from "../TestConnectionAffordance";
-import type { RestApiConfigBody } from "../../services/dataSourceService";
+import type { UseRestSourceFormReturn } from "../../hooks/useRestSourceForm";
+import { HTTP_METHOD_OPTIONS } from "../../hooks/useRestSourceForm";
+import { ConnectorSelectField } from "./ConnectorSelectField";
+import { KeyValueListField } from "./KeyValueListField";
+import { TemplateParametersField } from "./TemplateParametersField";
 
-const HTTP_METHOD_OPTIONS = [
-  { value: "GET", label: "GET" },
-  { value: "POST", label: "POST" },
-  { value: "PUT", label: "PUT" },
-  { value: "PATCH", label: "PATCH" },
-];
-
-const BODIED_METHODS = new Set(["POST", "PUT", "PATCH"]);
+const METHOD_SELECT_OPTIONS = HTTP_METHOD_OPTIONS.map((m) => ({ value: m, label: m }));
 
 interface RestApiFormProps {
-  url: string;
-  method: string;
-  jsonPath: string;
-  body: string;
-  bodyContentType: string;
-  onUrlChange: (value: string) => void;
-  onMethodChange: (value: string) => void;
-  onJsonPathChange: (value: string) => void;
-  onBodyChange: (value: string) => void;
-  onBodyContentTypeChange: (value: string) => void;
+  form: UseRestSourceFormReturn;
 }
 
-export function RestApiForm({
-  url,
-  method,
-  jsonPath,
-  body,
-  bodyContentType,
-  onUrlChange,
-  onMethodChange,
-  onJsonPathChange,
-  onBodyChange,
-  onBodyContentTypeChange,
-}: RestApiFormProps) {
-  const supportsBody = BODIED_METHODS.has(method);
-
-  // Mirrors AddSourceModal.handlePreview's REST config-building exactly, so a
-  // successful connection test reflects the same shape "Preview schema" uses.
-  function buildConfig(): RestApiConfigBody {
-    return {
-      url: url.trim(),
-      method,
-      ...(jsonPath.trim() ? { rootSelector: jsonPath.trim() } : {}),
-      ...(supportsBody && body.trim() ? { body: body.trim() } : {}),
-      ...(supportsBody && body.trim() && bodyContentType.trim()
-        ? { bodyContentType: bodyContentType.trim() }
-        : {}),
-    };
-  }
+export function RestApiForm({ form }: RestApiFormProps) {
+  const {
+    connector,
+    setConnector,
+    endpoint,
+    setEndpoint,
+    method,
+    setMethod,
+    queryParams,
+    setQueryParams,
+    headers,
+    setHeaders,
+    rootSelector,
+    setRootSelector,
+    body,
+    setBody,
+    bodyContentType,
+    setBodyContentType,
+    parameterValues,
+    setParameterValue,
+    templateParameterNames,
+    supportsBody,
+    buildRestSourceConfig,
+  } = form;
 
   return (
     <>
+      <ConnectorSelectField connector={connector} onChange={setConnector} />
+
       <div className="add-source-modal__field">
-        <label className="add-source-modal__label" htmlFor="source-url">
-          URL
+        <label className="add-source-modal__label" htmlFor="source-endpoint">
+          Endpoint path
         </label>
-        <TextField
-          id="source-url"
-          type="url"
-          value={url}
-          onChange={(e) => onUrlChange(e.target.value)}
-          placeholder="https://api.example.com/data"
-          aria-label="URL"
-        />
+        <div className="add-source-modal__endpoint-row">
+          {connector && (
+            <span className="add-source-modal__endpoint-prefix">{connector.baseUrl}</span>
+          )}
+          <TextField
+            id="source-endpoint"
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            placeholder="/v1/accounts"
+            aria-label="Endpoint path"
+            disabled={!connector}
+          />
+        </div>
       </div>
+
       <div className="add-source-modal__field">
         <label className="add-source-modal__label" htmlFor="source-method">
           Method
         </label>
         <Select
           value={method}
-          options={HTTP_METHOD_OPTIONS}
-          onChange={onMethodChange}
+          options={METHOD_SELECT_OPTIONS}
+          onChange={setMethod}
           ariaLabel="Method"
         />
       </div>
+
+      <KeyValueListField label="Query params" entries={queryParams} onChange={setQueryParams} />
+      <KeyValueListField label="Headers" entries={headers} onChange={setHeaders} />
+
       {supportsBody && (
         <>
           <div className="add-source-modal__field">
@@ -99,7 +99,7 @@ export function RestApiForm({
               id="source-body"
               mono
               value={body}
-              onChange={(e) => onBodyChange(e.target.value)}
+              onChange={(e) => setBody(e.target.value)}
               placeholder='{"key": "{{value}}"}'
               aria-label="Body"
               rows={4}
@@ -112,26 +112,38 @@ export function RestApiForm({
             <TextField
               id="source-body-content-type"
               value={bodyContentType}
-              onChange={(e) => onBodyContentTypeChange(e.target.value)}
+              onChange={(e) => setBodyContentType(e.target.value)}
               placeholder="application/json"
               aria-label="Content type"
             />
           </div>
         </>
       )}
+
       <div className="add-source-modal__field">
         <label className="add-source-modal__label" htmlFor="source-json-path">
           JSON path <span className="add-source-modal__optional">(optional)</span>
         </label>
         <TextField
           id="source-json-path"
-          value={jsonPath}
-          onChange={(e) => onJsonPathChange(e.target.value)}
+          value={rootSelector}
+          onChange={(e) => setRootSelector(e.target.value)}
           placeholder="e.g. data.items"
           aria-label="JSON path"
         />
       </div>
-      <TestConnectionAffordance type="rest_api" buildConfig={buildConfig} />
+
+      <TemplateParametersField
+        names={templateParameterNames}
+        values={parameterValues}
+        onChange={setParameterValue}
+      />
+
+      <TestConnectionAffordance
+        type="rest_api"
+        buildConfig={buildRestSourceConfig}
+        disabled={!connector}
+      />
     </>
   );
 }

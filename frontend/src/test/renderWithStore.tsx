@@ -8,6 +8,7 @@ import { defaultDashboardLayout } from "../features/dashboards/state/dashboardLa
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
 import { auditEventsReducer } from "../features/audit/state/auditEventsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
+import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
 import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
@@ -176,6 +177,7 @@ export function renderWithStore(
     assistantConversations: assistantConversationsReducer,
     auditEvents: auditEventsReducer,
     auth: authReducer,
+    connectors: connectorsReducer,
     dashboards: dashboardsReducer,
     layoutHistory: layoutHistoryReducer,
     onboarding: onboardingReducer,
