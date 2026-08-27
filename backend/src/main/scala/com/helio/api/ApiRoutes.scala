@@ -33,7 +33,9 @@ import com.helio.services.auth.{ApiTokenService, AuthService, BetaAccessService,
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
 import com.helio.services.panels.{AutoLayoutService, BoundPanelService, PanelCapabilityService, PanelService}
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
-import com.helio.services.sources.{ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
+import com.helio.services.sources.{ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
+import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
+import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
 import com.helio.services.pipelines.{DataTypeService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
 import com.helio.services.hooks.HookTriggerService
@@ -46,7 +48,7 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.services.audit.AuditService
-import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, InviteCodeRepository, MfaRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
@@ -423,6 +425,18 @@ final class ApiRoutes(
     Option(dbContext).map(ctx =>
       new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx, dataTypeRepo), fileSystem, auditService)
     )
+  // HEL-821: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
+  // fixtures that don't pass a DbContext simply don't get the /api/connectors routes
+  // mounted. `EncryptedSecretBackend`/`EnvMasterKeyProvider` are consumed as-is (HEL-536) --
+  // no new encryption mechanism here (design.md).
+  private val connectorEntityServiceOpt: Option[ConnectorEntityService] =
+    Option(dbContext).map { ctx =>
+      val masterKeyProvider = new EnvMasterKeyProvider()
+      val secretBackend     = new EncryptedSecretBackend(masterKeyProvider)
+      val connectorCredentialRepo = new ConnectorCredentialRepository(ctx, secretBackend)
+      val connectorRepo           = new ConnectorRepository(ctx, connectorCredentialRepo)
+      new ConnectorEntityService(connectorRepo)
+    }
   // HEL-371: unconditional (not Option-guarded, unlike workspaceTeardownServiceOpt
   // above) — every dependency (dashboardService/dataSourceService/dataTypeService/
   // pipelineService) is already constructed unconditionally above, so there is
@@ -675,6 +689,11 @@ final class ApiRoutes(
                   new SourceRoutes(sourceService, authenticatedUser).routes,
                   new SourcePreviewRoutes(sourceService, authenticatedUser).routes,
                   new ConnectorRoutes(authenticatedUser).routes,
+                  // HEL-821: `ConnectorEntityRoutes` is distinct from `ConnectorRoutes` above
+                  // (design.md Decision 7) -- serves the new /api/connectors entity CRUD surface,
+                  // gated on connectorEntityServiceOpt like every other nullable-DbContext route
+                  // family (workspaceTeardownServiceOpt above).
+                  connectorEntityServiceOpt.fold(reject: Route)(svc => new ConnectorEntityRoutes(svc, authenticatedUser).routes),
                   // HEL-391: distinct top-level `pipeline-shapes` prefix, NOT nested under
                   // `pipelines` — mount order relative to PipelineRoutes doesn't matter (design.md
                   // Decision 6).

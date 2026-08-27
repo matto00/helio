@@ -128,3 +128,4 @@ trait JsonProtocols
     with AgentMemoryProtocol
     with BetaAccessProtocol
     with AuditEventProtocol
+    with ConnectorEntityProtocol

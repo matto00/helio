@@ -249,7 +249,12 @@ class ConnectorCredentialRepositorySpec extends AnyWordSpec with Matchers with B
       // rewrapAllBelow operates on every row in the table (it's an operator-run, cross-user
       // maintenance job) — truncate first so it only sees the row this test seeds, not leftover
       // rows from earlier tests in this spec under other key_ids.
-      await(ctx.withSystemContext(sqlu"TRUNCATE TABLE connector_credentials"))
+      // HEL-821: `connectors.credential_id` now FK-references this table (`ON
+      // DELETE RESTRICT`), so a bare TRUNCATE here fails once any test in this
+      // run has created a `connectors` row referencing a `connector_credentials`
+      // row -- CASCADE removes that dependent row too, which is fine: this test
+      // only cares about `connector_credentials` rows it seeds itself below.
+      await(ctx.withSystemContext(sqlu"TRUNCATE TABLE connector_credentials CASCADE"))
 
       val owner = freshUser()
 
