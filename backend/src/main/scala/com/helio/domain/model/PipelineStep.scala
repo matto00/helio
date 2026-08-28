@@ -107,6 +107,16 @@ object PipelineStep {
 
     /** Write a step subtype's config back to JsValue for the wire. */
     def writeToWire(config: Any): JsValue
+
+    /** Strict WRITE-path check of a caller-supplied raw config. `None` means
+     *  accept; `Some(message)` rejects the write with a message naming the
+     *  offending key and the expected shape. Distinct from `decodeConfig`,
+     *  which is contractually tolerant for the READ path (HEL-860) — this
+     *  method exists precisely so a mistyped config can be rejected at
+     *  create/update time instead of silently decoding to an empty no-op.
+     *  Defaults to `None` so existing kinds are unaffected; a step kind opts
+     *  into strictness by overriding this in its own file. */
+    def validateRawConfig(raw: String): Option[String] = None
   }
 
   /** Registry of every step kind. Single source of truth — `PipelineStepKind`,

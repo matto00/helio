@@ -1,9 +1,6 @@
 # pipeline-step-config-validation Specification
 
-## Purpose
-Validate step configuration values at analyze time, not only during execution, so a step that cannot possibly run is reported through its `validationError` before any run is attempted.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Step configuration is validated at analyze time, not only at execution
 The pipeline analyze surface SHALL validate each step's configuration values that are decidable from the

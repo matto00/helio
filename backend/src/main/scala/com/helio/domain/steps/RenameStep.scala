@@ -68,5 +68,16 @@ object RenameStep {
     def encodeConfig(config: Any): String     = config.asInstanceOf[RenameConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any      = json.convertTo[RenameConfig]
     def writeToWire(config: Any): JsValue     = config.asInstanceOf[RenameConfig].toJson
+
+    // HEL-860: a mistyped `renames` (e.g. a list, or an object with
+    // non-string values) must be rejected on write rather than silently
+    // decoded to Map.empty (RenameConfig.decode's read-path tolerance is
+    // unchanged).
+    override def validateRawConfig(raw: String): Option[String] =
+      StepCodecUtil.requireStringMap(
+        StepCodecUtil.asObject(raw), "renames", Kind,
+        shapeDescription = "from-field-name to to-field-name",
+        example          = "{\"renames\": {\"amount\": \"total_amount\"}}"
+      )
   }
 }

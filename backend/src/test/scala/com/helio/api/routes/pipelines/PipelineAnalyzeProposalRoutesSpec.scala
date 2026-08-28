@@ -11,7 +11,7 @@ import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineAna
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
-import com.helio.domain.SelectConfig
+import com.helio.domain.{CastConfig, SelectConfig}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -418,6 +418,40 @@ class PipelineAnalyzeProposalRoutesSpec
         val resp = responseAs[PipelineAnalyzeProposalResponse]
         resp.sourceName shouldBe "existing-source"
         resp.sourceSchema.map(_.name) shouldBe Vector("real_field")
+      }
+    }
+
+    // HEL-860 task 2.1/AC7: the raw-config-string contract (HEL-859 Decision
+    // 7) holds on THIS surface — PipelineService.analyzeProposal passes
+    // req.config.compactPrint straight through, never round-tripped, so a
+    // list-shaped `casts` that CastConfig.decode would reduce to Map.empty
+    // reaches inferCast intact and surfaces as a validationError.
+    "surface a validationError for a proposal cast step with a list-shaped casts config that CastConfig.decode reduces to Map.empty (AC7)" in {
+      cleanAll()
+      val rawCasts = """[{"field":"amount","to":"double"}]"""
+      // Confirms the premise: the typed tolerant decoder really does silently
+      // drop this shape (this is the bug HEL-860 exists to catch elsewhere).
+      CastConfig.decode(s"""{"casts":$rawCasts}""").casts shouldBe empty
+
+      val proposal = PipelineProposal(
+        pipelineName       = "Cast pipeline",
+        source              = noInlineSource.copy(
+          `type` = Some("static"),
+          staticConfig = Some(StaticDataPayload(columns = Vector(StaticColumnPayload("amount", "string")), rows = Vector.empty))
+        ),
+        outputDataTypeName = "Output",
+        steps = Vector(CreatePipelineStepRequest(
+          `type` = "cast",
+          config = s"""{"casts":$rawCasts}""".parseJson.asJsObject
+        ))
+      )
+
+      Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeProposalResponse]
+        resp.steps should have size 1
+        resp.steps.head.validationError shouldBe defined
+        resp.steps.head.validationError.get should include("cast config error")
       }
     }
   }

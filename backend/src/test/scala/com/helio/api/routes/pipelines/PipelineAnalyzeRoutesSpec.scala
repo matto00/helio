@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
 import com.helio.api.protocols.pipelines.{SchemaFieldResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
-import com.helio.domain.{ChunkByTokenCountConfig, ExtractHeadingsConfig, RenameConfig, SelectConfig, SplitTextConfig}
+import com.helio.domain.{AggregateConfig, AggregateField, Aggregation, ChunkByTokenCountConfig, ExtractHeadingsConfig, GroupByConfig, JoinConfig, PivotConfig, RenameConfig, SelectConfig, SplitTextConfig, UnionConfig, WindowConfig}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -315,6 +315,188 @@ class PipelineAnalyzeRoutesSpec
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeResponse]
         resp.sourceSchemaDrift shouldBe None
+      }
+    }
+
+    // HEL-860 task 1.2: HEL-859's five uncovered analyze validators, exercised
+    // at the real route (design Decision 4 — a unit-level test alone does not
+    // satisfy AC6). Each asserts the offending value AND the supported list.
+
+    "return 200 with a validationError naming the unsupported aggregate function" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      await(pipelineStepRepo.insert(
+        PipelineId(pid), "aggregate",
+        AggregateConfig(Vector(AggregateField("order_id", "string")), Vector(Aggregation("total", "bogus_fn", "amount"))),
+        dummyUser
+      ))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val step = responseAs[PipelineAnalyzeResponse].steps(0)
+        step.validationError shouldBe defined
+        step.validationError.get should include("bogus_fn")
+        step.validationError.get should include("Unsupported aggregation function")
+      }
+    }
+
+    "return 200 with a validationError naming the unsupported groupby aggregation function" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      await(pipelineStepRepo.insert(
+        PipelineId(pid), "groupby",
+        GroupByConfig(Vector("order_id"), "amount", "bogus_fn"),
+        dummyUser
+      ))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val step = responseAs[PipelineAnalyzeResponse].steps(0)
+        step.validationError shouldBe defined
+        step.validationError.get should include("bogus_fn")
+        step.validationError.get should include("Unsupported aggregation function")
+      }
+    }
+
+    "return 200 with a validationError naming the unsupported pivot aggregation function" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      await(pipelineStepRepo.insert(
+        PipelineId(pid), "pivot",
+        PivotConfig(Vector("order_id"), "amount", "amount", "bogus_agg"),
+        dummyUser
+      ))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val step = responseAs[PipelineAnalyzeResponse].steps(0)
+        step.validationError shouldBe defined
+        step.validationError.get should include("bogus_agg")
+        step.validationError.get should include("Unsupported pivot aggregation function")
+      }
+    }
+
+    "return 200 with a validationError naming the unsupported union mode" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
+      val (pid, dsId) = seedPipelineWithSchema(sourceFields)
+      await(pipelineStepRepo.insert(
+        PipelineId(pid), "union",
+        UnionConfig(dsId, "bogus_mode"),
+        dummyUser
+      ))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val step = responseAs[PipelineAnalyzeResponse].steps(0)
+        step.validationError shouldBe defined
+        step.validationError.get should include("bogus_mode")
+        step.validationError.get should include("Unsupported union mode")
+      }
+    }
+
+    "return 200 with a validationError naming the unsupported join type" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
+      val (pid, dsId) = seedPipelineWithSchema(sourceFields)
+      await(pipelineStepRepo.insert(
+        PipelineId(pid), "join",
+        JoinConfig(dsId, "order_id", "bogus_type"),
+        dummyUser
+      ))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val step = responseAs[PipelineAnalyzeResponse].steps(0)
+        step.validationError shouldBe defined
+        step.validationError.get should include("bogus_type")
+        step.validationError.get should include("Unsupported join type")
+        // design Decision 7a: `groupby`/`join` have no `inferOutputSchema`
+        // dispatch case, so the valid-config (no validationError) path is
+        // unassertable for these two kinds — validateStepConfig runs before
+        // dispatch and never falls through to the fallback for an invalid
+        // enum, so this negative-path coverage is unaffected and honest; the
+        // positive path is deliberately not asserted here.
+      }
+    }
+
+    // HEL-860 task 1.3: the multi-failure join at
+    // PipelineAnalyzeService.scala:126 (`validateStepConfig`'s
+    // `problems.mkString("; ")`) — one step with two independent validator
+    // failures must surface both in a single validationError.
+    "return 200 with a single validationError joining two independent failures for one step" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      // window: unsupported function AND (for lag/lead) a non-positive offset
+      // — WindowConfig.decode both go through validateWindow's two independent
+      // problem checks (function support, offset positivity for lag/lead).
+      await(pipelineStepRepo.insert(
+        PipelineId(pid), "window",
+        WindowConfig(
+          partitionBy = Vector.empty, orderBy = Vector.empty, function = "lag",
+          field = None, outputColumn = "win", offset = Some(-1)
+        ),
+        dummyUser
+      ))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val step = responseAs[PipelineAnalyzeResponse].steps(0)
+        step.validationError shouldBe defined
+        val msg = step.validationError.get
+        msg should include("requires 'field'")
+        msg should include("requires a positive 'offset'")
+        msg should include(";")
+      }
+    }
+
+    // HEL-860 task 2.1a: the complementary NEGATIVE proving why the write-path
+    // fix (section 3) is necessary — for a PERSISTED step, this surface's
+    // raw-config contract does NOT hold (design Decision 5).
+    // PipelineService.analyze re-encodes from the tolerantly-decoded typed
+    // config (PipelineStepConfigCodec.encode(s)), not from the stored text, so
+    // the mistyped shape is destroyed by the read round-trip before inferCast
+    // ever runs. Seeding via the typed repository insert would store
+    // {"casts":{}} — never mistyped — and this test would assert nothing; the
+    // raw sqlu INSERT below is load-bearing, matching the mechanism the
+    // pre-assertion below is bound to.
+    "does NOT report a validationError for a persisted cast step with a raw list-shaped casts config (2.1a negative — round-trip destroys the mistype)" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"amount","displayName":"Amount","dataType":"string","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+
+      import PostgresProfile.api._
+      val stepId = UUID.randomUUID().toString
+      val mistypedConfig = """{"casts":[{"field":"amount","to":"double"}]}"""
+      await(db.run(sqlu"""
+        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled)
+        VALUES ($stepId, $pid, 0, 'cast', $mistypedConfig, true)
+      """))
+
+      // Pre-assertion (standing requirement 3): the row really is stored as
+      // the mistyped shape, not something the typed repository would ever
+      // write — without this the negative below is unbound and vacuous.
+      val storedConfig = await(db.run(
+        sql"SELECT config FROM pipeline_steps WHERE id = $stepId".as[String]
+      )).head
+      storedConfig shouldBe mistypedConfig
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeResponse]
+        resp.steps should have size 1
+        val step = resp.steps(0)
+        step.`type` shouldBe "cast"
+        // The tolerant read-path decoder already reduced `casts` to Map.empty
+        // by the time this reaches inferCast, which re-encodes to a VALID
+        // empty object — no validationError is possible here for a stored
+        // row. This is exactly what section 3's write-path check exists to
+        // prevent from being created in the first place.
+        step.validationError shouldBe None
       }
     }
   }

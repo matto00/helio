@@ -5,7 +5,7 @@ import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineStepRequest, DateBucketAnalyzeStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineStepConfigCodec, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, PipelineId, PipelineSchemaDrift, PipelineStepId, PipelineStepKind, SchemaDrift}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, PipelineId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift}
 import com.helio.domain.engine.{PipelineAnalyzeService, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
@@ -458,10 +458,18 @@ final class PipelineService(
 
   /** Step creation — requires Editor or Owner. Viewer grantees get 403. */
   def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] = {
+    // HEL-860: strict write-path check runs before the tolerant decode below,
+    // so a mistyped `cast`/`rename` config is rejected instead of silently
+    // persisted as a no-op. `None` (unregistered kind, or a kind that hasn't
+    // opted in) falls through to the decode as before.
+    val rawConfigError: Option[String] =
+      PipelineStep.companionFor(req.`type`).toOption.flatMap(_.validateRawConfig(req.config.compactPrint))
     if (!PipelineStepKind.All.contains(req.`type`))
       Future.successful(Left(ServiceError.BadRequest(
         s"Invalid step type '${req.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
       )))
+    else if (rawConfigError.isDefined)
+      Future.successful(Left(ServiceError.UnprocessableEntity(rawConfigError.get)))
     else
       PipelineStepConfigCodec.decode(req.`type`, req.config.compactPrint) match {
         case Failure(ex) =>
@@ -628,6 +636,13 @@ final class PipelineService(
                           }
                           .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
                       case Some(cfgJson) =>
+                        // HEL-860: strict write-path check runs before the tolerant
+                        // decode below, mirroring addStep — see comment there.
+                        val rawConfigError: Option[String] =
+                          PipelineStep.companionFor(existing.kind).toOption.flatMap(_.validateRawConfig(cfgJson.compactPrint))
+                        if (rawConfigError.isDefined)
+                          Future.successful(Left(ServiceError.UnprocessableEntity(rawConfigError.get)))
+                        else
                         PipelineStepConfigCodec.decode(existing.kind, cfgJson.compactPrint) match {
                           case Failure(ex) =>
                             // HEL-311: keep the curated "Invalid '<type>' config" prefix,

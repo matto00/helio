@@ -82,5 +82,15 @@ object CastStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[CastConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[CastConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[CastConfig].toJson
+
+    // HEL-860: a mistyped `casts` (e.g. a list, or an object with non-string
+    // values) must be rejected on write rather than silently decoded to
+    // Map.empty (CastConfig.decode's read-path tolerance is unchanged).
+    override def validateRawConfig(raw: String): Option[String] =
+      StepCodecUtil.requireStringMap(
+        StepCodecUtil.asObject(raw), "casts", Kind,
+        shapeDescription = "field name to type name",
+        example          = "{\"casts\": {\"amount\": \"double\"}}"
+      )
   }
 }
