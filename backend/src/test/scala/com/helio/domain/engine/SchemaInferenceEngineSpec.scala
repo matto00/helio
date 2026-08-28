@@ -6,6 +6,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
+import scala.io.Source
+import scala.util.Random
+
 class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
 
   import DataFieldType._
@@ -73,6 +76,14 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
       schema.fields.find(_.name == "ts").get.nullable shouldBe true
     }
 
+    // [CHAR] task 3.5 (AC5): mere absence, as opposed to an explicit null, must NOT mark a
+    // field nullable -- unchanged before and after this ticket.
+    "not mark field nullable when merely absent from some sampled objects" in {
+      val json = """[{"x": 1, "y": "present"}, {"x": 2}]""".parseJson
+      val schema = fromJson(json)
+      schema.fields.find(_.name == "y").get.nullable shouldBe false
+    }
+
     "infer IntegerType for whole numbers" in {
       val json = """{"count": 42}""".parseJson
       fromJson(json).fields.head.dataType shouldBe IntegerType
@@ -100,6 +111,293 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
 
     "return empty schema for empty JsArray" in {
       fromJson(JsArray()).fields shouldBe empty
+    }
+  }
+
+  // HEL-858: recursive merge + type widening across sampled rows.
+  "SchemaInferenceEngine.fromJson (HEL-858 recursive merge / widening)" should {
+
+    // [RED] task 3.1 (CENTRAL, AC2): order-independence over a heterogeneous fixture whose
+    // elements differ in both nested shape and numeric precision.
+    "infer an identical schema regardless of row order (reversed and shuffled)" in {
+      val rows: Vector[JsValue] = Vector(
+        JsObject("id" -> JsNumber(1), "stats" -> JsObject("a" -> JsNumber(3))),
+        JsObject("id" -> JsNumber(2), "stats" -> JsObject("a" -> JsNumber(2.5), "b" -> JsNumber(1))),
+        JsObject("id" -> JsNumber(3), "stats" -> JsObject("b" -> JsNumber(4.4), "c" -> JsString("x")))
+      )
+      val forward = fromJson(JsArray(rows))
+
+      // Content assertion (not merely relative equality): pins what the forward schema actually
+      // contains, so this central test cannot be satisfied by a degenerate implementation that
+      // returns the same (e.g. empty) schema regardless of input.
+      val byName = forward.fields.map(f => f.name -> f.dataType).toMap
+      byName shouldBe Map(
+        "id"      -> IntegerType,
+        "stats.a" -> FloatType,   // widen(3, 2.5) across rows 0 and 1
+        "stats.b" -> FloatType,   // widen(1, 4.4) across rows 1 and 2
+        "stats.c" -> StringType
+      )
+
+      val reversed = fromJson(JsArray(rows.reverse))
+      reversed shouldBe forward
+
+      val shuffled = new Random(42).shuffle(rows)
+      fromJson(JsArray(shuffled)) shouldBe forward
+    }
+
+    // [RED] task 3.2 (AC1): a nested path absent from element 0 but present in a later element
+    // still appears in the schema, regardless of position.
+    "include a nested path even when the first element lacks it" in {
+      val rows: Vector[JsValue] = Vector(
+        JsObject("stats" -> JsObject("a" -> JsNumber(1))),
+        JsObject("stats" -> JsObject("a" -> JsNumber(2), "rec" -> JsNumber(3)))
+      )
+      val schema = fromJson(JsArray(rows))
+      schema.fields.map(_.name) should contain("stats.rec")
+    }
+
+    // [RED] task 3.3 (AC3): widening lattice, order in both directions, mixed-kind fallback,
+    // and null-alongside-numeric no longer forcing StringType (design D7).
+    "widen types across sampled values per the JSON lattice" in {
+      def typeOf(rows: JsValue*): DataFieldType =
+        fromJson(JsArray(rows.toVector)).fields.find(_.name == "v").get.dataType
+      def nullableOf(rows: JsValue*): Boolean =
+        fromJson(JsArray(rows.toVector)).fields.find(_.name == "v").get.nullable
+
+      // integral then fractional -> float
+      typeOf(JsObject("v" -> JsNumber(3)), JsObject("v" -> JsNumber(2.5))) shouldBe FloatType
+      // fractional then integral -> float
+      typeOf(JsObject("v" -> JsNumber(2.5)), JsObject("v" -> JsNumber(3))) shouldBe FloatType
+      // number + boolean -> string, NOT boolean
+      typeOf(JsObject("v" -> JsNumber(1)), JsObject("v" -> JsBoolean(true))) shouldBe StringType
+      // timestamp string + non-timestamp string -> string
+      typeOf(JsObject("v" -> JsString("2024-01-15")), JsObject("v" -> JsString("not a date"))) shouldBe StringType
+      // null + fractional -> nullable float
+      typeOf(JsObject("v" -> JsNull), JsObject("v" -> JsNumber(2.5))) shouldBe FloatType
+      nullableOf(JsObject("v" -> JsNull), JsObject("v" -> JsNumber(2.5))) shouldBe true
+      // null + integral -> nullable integer (design D7 -- pre-fix a single null forced string)
+      typeOf(JsObject("v" -> JsNull), JsObject("v" -> JsNumber(7))) shouldBe IntegerType
+      nullableOf(JsObject("v" -> JsNull), JsObject("v" -> JsNumber(7))) shouldBe true
+    }
+
+    // [CHAR] task 3.3b: all-null path is still a nullable string, both before and after the fix.
+    "infer a nullable StringType for a path that is null in every sampled object" in {
+      val rows: Vector[JsValue] = Vector(JsObject("v" -> JsNull), JsObject("v" -> JsNull))
+      val field = fromJson(JsArray(rows)).fields.find(_.name == "v").get
+      field.dataType shouldBe StringType
+      field.nullable shouldBe true
+    }
+
+    // [RED] task 3.6 (design D5): a path that is a scalar in one object and a subtree in another
+    // yields BOTH paths, and this holds regardless of which row comes first.
+    "emit both a scalar path and its subtree path on a cross-row leaf-vs-subtree collision" in {
+      val forward  = Vector(JsObject("a" -> JsNumber(1)), JsObject("a" -> JsObject("b" -> JsNumber(2))))
+      val backward = forward.reverse
+
+      val forwardSchema  = fromJson(JsArray(forward))
+      val backwardSchema = fromJson(JsArray(backward))
+
+      forwardSchema.fields.map(_.name) should contain allOf ("a", "a.b")
+      backwardSchema shouldBe forwardSchema
+    }
+
+    // [CHAR] task 3.7: within-object collision still yields exactly one `a.b` field -- unchanged
+    // since HEL-599, must stay green.
+    "still collapse a within-object literal-dotted-key vs nested-path collision to one field" in {
+      val json = """{"a.b": 1, "a": {"b": 2}}""".parseJson
+      val schema = fromJson(json)
+      schema.fields.count(_.name == "a.b") shouldBe 1
+      schema.fields.map(_.name) shouldBe Seq("a.b")
+    }
+
+    // Design D6's three-sided agreement property, asserted directly on the un-folded `Seq`.
+    def assertAgreement(rows: Seq[JsObject]): Unit = {
+      val schema = fromJson(JsArray(rows.toVector))
+      val schemaNames = schema.fields.map(_.name)
+      val rowKeySets  = rows.map(PipelineRowJson.jsRowToRow(_).keySet)
+
+      // (1) every row's key set is a subset of the schema's field-name set
+      rowKeySets.foreach { keys =>
+        keys.foreach { k => schemaNames should contain(k) }
+      }
+      // (2) schema field-name set == union of all rows' key sets
+      schemaNames.toSet shouldBe rowKeySets.foldLeft(Set.empty[String])(_ ++ _)
+      // (3) no duplicates in the schema's field-name Seq itself (never folded into a Set first)
+      schemaNames.distinct shouldBe schemaNames
+    }
+
+    // [CHAR] task 3.8a: agreement holds pre-fix on these inputs too -- must stay green.
+    "hold the three-sided agreement property on inputs where it already held pre-fix" in {
+      assertAgreement(Seq(
+        JsObject("x" -> JsNumber(1), "y" -> JsString("a")),
+        JsObject("x" -> JsNumber(2), "y" -> JsString("b"))
+      )) // single-shape rows
+
+      assertAgreement(Seq(JsObject("a.b" -> JsNumber(1)))) // dots inside keys
+      assertAgreement(Seq(JsObject("café" -> JsString("x"), "" -> JsString("y")))) // unicode + empty-string keys
+
+      // depth at and beyond JsonFlattener.MaxDepth
+      def nest(depth: Int): JsValue =
+        if (depth == 0) JsNumber(1) else JsObject("n" -> nest(depth - 1))
+      assertAgreement(Seq(JsObject("d" -> nest(JsonFlattener.MaxDepth))))
+      assertAgreement(Seq(JsObject("d" -> nest(JsonFlattener.MaxDepth + 5))))
+
+      // non-object array elements alongside real objects
+      val mixedArray = JsArray(JsObject("x" -> JsNumber(1)), JsString("not an object"), JsNumber(42))
+      val schema = fromJson(mixedArray)
+      schema.fields.map(_.name) shouldBe Seq("x")
+
+      assertAgreement(Seq("""{"a.b": 1, "a": {"b": 2}}""".parseJson.asInstanceOf[JsObject])) // within-object collision
+    }
+
+    // [RED] task 3.8b: the same three clauses over inputs where the fix is what makes them hold.
+    "hold the three-sided agreement property on heterogeneous shapes and cross-row collisions (fix-dependent)" in {
+      assertAgreement(Seq(
+        JsObject("stats" -> JsObject("a" -> JsNumber(1))),
+        JsObject("stats" -> JsObject("a" -> JsNumber(2), "rec" -> JsNumber(3)))
+      )) // heterogeneous nested shapes
+
+      assertAgreement(Seq(
+        JsObject("a" -> JsNumber(1)),
+        JsObject("a" -> JsObject("b" -> JsNumber(2)))
+      )) // D5 cross-row leaf-vs-subtree collision
+    }
+
+    // [RED] task 3.9 (AC4): the mixed-position Sleeper regression, with in-test fixture adequacy.
+    "infer the full stats.rec* family from the live mixed-position Sleeper fixture" in {
+      val text = Source.fromResource("hel858/sleeper-mixed-projections-slice.json").mkString
+      val rows = text.parseJson.asInstanceOf[JsArray].elements.collect { case o: JsObject => o }
+
+      // Fixture adequacy (design D6): must contain both an earlier element lacking the
+      // stats.rec* family and a later element carrying it, or this test proves nothing.
+      def hasRecFamily(o: JsObject): Boolean = {
+        val stats = o.fields.get("stats").collect { case s: JsObject => s }.getOrElse(JsObject.empty)
+        stats.fields.contains("rec") && stats.fields.contains("rec_yd") && stats.fields.contains("rec_td")
+      }
+      val firstIdxWithout = rows.indexWhere(o => !hasRecFamily(o))
+      val laterIdxWith    = rows.indexWhere(hasRecFamily, from = firstIdxWithout + 1)
+      withClue("fixture must have an earlier element lacking stats.rec* and a later element carrying it: ") {
+        firstIdxWithout should be >= 0
+        laterIdxWith should be > firstIdxWithout
+      }
+
+      val schema = fromJson(JsArray(rows.toVector))
+      schema.fields.map(_.name) should contain allOf ("stats.rec", "stats.rec_yd", "stats.rec_td")
+    }
+
+    // [CHAR] task 3.10a: the WR-only fixture's FIELD-NAME set is unaffected by this ticket --
+    // this half genuinely holds both pre-fix and post-fix (63 fields, same names, same sorted
+    // order; single-shape source, no D5 collision). Kept separate from 3.10b so revert
+    // verification (task 3.11) can check one outcome per artifact.
+    "characterise the existing WR-only fixture's field-NAME set (unaffected by this ticket)" in {
+      val text = Source.fromResource("hel599/sleeper-wr-projections-slice.json").mkString
+      val rows = text.parseJson.asInstanceOf[JsArray].elements.collect { case o: JsObject => o }
+      val schema = fromJson(JsArray(rows.toVector))
+
+      schema.fields.size shouldBe 63
+      schema.fields.map(_.name) should contain allOf ("stats.pts_ppr", "stats.rec", "player.first_name")
+    }
+
+    // [RED] task 3.10b: pins the FULL sorted (name, type, nullable) triple for every field on the
+    // WR-only fixture, so the comment's "no other field changes" claim is self-enforcing rather
+    // than attested -- a future regression on ANY field (not just the four known-changed ones)
+    // fails this test, not a manual diff. Necessarily red on revert: 4 of the 63 pinned values are
+    // this ticket's own post-fix answers (full comparison recorded in
+    // evidence/wr-fixture-characterisation.md). Two fields DO differ from pre-fix -- a real,
+    // correctly-attributed behaviour change:
+    //
+    //   player.injury_body_part, player.injury_status: nullable false -> true.
+    //   Element 2 of this fixture carries an explicit JsNull at both nested paths. Pre-fix,
+    //   mergeObjects picked element 0's whole `player` subtree first-non-null-wins (design D1's
+    //   defect 1), so `withNulls` -- which only ever nulls TOP-LEVEL keys -- never saw the
+    //   nested null. Post-fix, inferFromObjects unions leaf paths across every element, so
+    //   element 2's null is visible at its own path. This is NOT a D7 narrowing (D7 is a TYPE
+    //   change, string -> numeric; here the type, StringType, is unchanged in both directions)
+    //   and it is NOT "legitimate widening" in the D3 lattice sense either -- it is the
+    //   unchanged D2 nullability rule ("explicit JsNull anywhere -> nullable") reaching a nested
+    //   path for the first time, an inseparable consequence of fixing defect 1. Direction is
+    //   false -> true, i.e. strictly more accurate, never a silent loss of nullability info.
+    //
+    //   stats.pts_half_ppr, stats.rec_fd: integer -> float. Legitimate widening across non-null
+    //   values sampled from more than the first element -- unrelated to the nullability flip
+    //   above, and not a D7 case.
+    //
+    //   No other field changes name, type, or nullability on this fixture (no numeric column
+    //   here is ever null, so D7's narrowing does not trigger on this particular fixture) --
+    //   enforced by pinning all 63 fields below, not merely claimed.
+    "pin the WR-only fixture's full field-by-field schema (name, type, nullable)" in {
+      val text = Source.fromResource("hel599/sleeper-wr-projections-slice.json").mkString
+      val rows = text.parseJson.asInstanceOf[JsArray].elements.collect { case o: JsObject => o }
+      val schema = fromJson(JsArray(rows.toVector))
+      val actual = schema.fields.sortBy(_.name).map(f => (f.name, f.dataType, f.nullable))
+
+      val expected = Seq(
+        ("category", StringType, false),
+        ("company", StringType, false),
+        ("date", StringType, true),
+        ("game_id", StringType, false),
+        ("last_modified", IntegerType, false),
+        ("opponent", StringType, true),
+        ("player.fantasy_positions", StringType, false),
+        ("player.first_name", StringType, false),
+        ("player.injury_body_part", StringType, true),
+        ("player.injury_notes", StringType, true),
+        ("player.injury_start_date", StringType, true),
+        ("player.injury_status", StringType, true),
+        ("player.last_name", StringType, false),
+        ("player.metadata.channel_id", StringType, false),
+        ("player.metadata.genius_id", StringType, false),
+        ("player.metadata.rookie_year", StringType, false),
+        ("player.news_updated", IntegerType, false),
+        ("player.position", StringType, false),
+        ("player.team", StringType, false),
+        ("player.team_abbr", StringType, true),
+        ("player.team_changed_at", StringType, true),
+        ("player.years_exp", IntegerType, false),
+        ("player_id", StringType, false),
+        ("season", StringType, false),
+        ("season_type", StringType, false),
+        ("sport", StringType, false),
+        ("stats.adp_2qb", FloatType, false),
+        ("stats.adp_dynasty", IntegerType, false),
+        ("stats.adp_dynasty_2qb", FloatType, false),
+        ("stats.adp_dynasty_half_ppr", FloatType, false),
+        ("stats.adp_dynasty_ppr", FloatType, false),
+        ("stats.adp_dynasty_std", FloatType, false),
+        ("stats.adp_half_ppr", FloatType, false),
+        ("stats.adp_idp", FloatType, false),
+        ("stats.adp_idp_1qb", FloatType, false),
+        ("stats.adp_ppr", FloatType, false),
+        ("stats.adp_rookie", IntegerType, false),
+        ("stats.adp_std", FloatType, false),
+        ("stats.bonus_rec_wr", IntegerType, false),
+        ("stats.fum_lost", IntegerType, false),
+        ("stats.gp", IntegerType, false),
+        ("stats.pts_half_ppr", FloatType, false),
+        ("stats.pts_ppr", FloatType, false),
+        ("stats.pts_std", FloatType, false),
+        ("stats.rec", IntegerType, false),
+        ("stats.rec_0_4", FloatType, false),
+        ("stats.rec_10_19", FloatType, false),
+        ("stats.rec_20_29", FloatType, false),
+        ("stats.rec_2pt", IntegerType, false),
+        ("stats.rec_30_39", FloatType, false),
+        ("stats.rec_40p", FloatType, false),
+        ("stats.rec_5_9", FloatType, false),
+        ("stats.rec_fd", FloatType, false),
+        ("stats.rec_td", IntegerType, false),
+        ("stats.rec_yd", IntegerType, false),
+        ("stats.rush_att", IntegerType, false),
+        ("stats.rush_fd", FloatType, false),
+        ("stats.rush_yd", IntegerType, false),
+        ("status", StringType, true),
+        ("team", StringType, false),
+        ("updated_at", IntegerType, false),
+        ("week", StringType, true),
+        ("week_shard", StringType, false)
+      )
+
+      actual shouldBe expected
     }
   }
 

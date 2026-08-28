@@ -33,10 +33,11 @@ import spray.json._
  *     collision edge case. The returned `Seq` is additionally sorted by path for a stable,
  *     readable order (a global path sort, not the previous per-level `sortBy`
  *     `SchemaInferenceEngine.flattenObject` used before this ticket).
- *   - Purely per-object: no cross-row merge policy lives here. `SchemaInferenceEngine.mergeObjects`
- *     keeps its existing first-non-null-wins semantics untouched (design D8) -- HEL-858 is
- *     expected to replace row-set-level merge with a union/widen over the leaf *paths* this
- *     produces, without needing any change to this traversal itself.
+ *   - Purely per-object: no cross-row merge policy lives here. HEL-858 replaced the old
+ *     `SchemaInferenceEngine.mergeObjects` (which merged raw objects at the top level, before
+ *     flattening, first-non-null-wins) with `SchemaInferenceEngine.inferFromObjects`, a
+ *     union/widen over the leaf *paths* this traversal produces -- without needing any change to
+ *     this traversal itself, exactly as anticipated below.
  */
 object JsonFlattener {
 

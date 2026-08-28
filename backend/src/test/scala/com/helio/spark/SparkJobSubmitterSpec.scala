@@ -1,6 +1,7 @@
 package com.helio.spark
 
 import com.helio.domain._
+import com.helio.domain.engine.SchemaInferenceEngine
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineRunRepository}
@@ -99,6 +100,33 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         config    = RestApiConfig(connectorId = "conn-1", endpoint = "https://example.test", method = "GET")
       )
       an[IllegalArgumentException] should be thrownBy submitter.loadDataFrame(ds)
+    }
+
+    // [RED] HEL-858 task 3.4 / design D6: the declared column type MUST come from
+    // SchemaInferenceEngine.fromJson over rows containing 3 then 2.5, not a hand-declared
+    // "integer" -- otherwise reverting the SchemaInferenceEngine fix leaves this test green and
+    // it proves nothing. Pre-fix, fromJson's first-value-wins merge declares "integer" and
+    // SparkJobSubmitter.jsValueToAny's `case (JsNumber(n), IntegerType) => n.toInt` truncates
+    // 2.5 -> 2. Post-fix, fromJson widens to "float" and the fractional value survives.
+    "does not truncate a fractional value when the declared column type is derived from SchemaInferenceEngine.fromJson (HEL-858 AC3)" in {
+      val sampledRows = JsArray(
+        JsObject("v" -> JsNumber(3)),
+        JsObject("v" -> JsNumber(2.5))
+      )
+      val inferredType = SchemaInferenceEngine
+        .fromJson(sampledRows)
+        .fields
+        .find(_.name == "v")
+        .getOrElse(fail("field 'v' missing from inferred schema"))
+        .dataType
+      val declaredColumnType = DataFieldType.asString(inferredType)
+
+      val ds = staticDs(Seq("v" -> declaredColumnType), Seq(Seq(JsNumber(3)), Seq(JsNumber(2.5))))
+      val df = submitter.loadDataFrame(ds)
+      val values = df.collect().map(_.getAs[Any]("v")).toSeq
+
+      declaredColumnType shouldBe "float"
+      values should contain(2.5f)
     }
   }
 
