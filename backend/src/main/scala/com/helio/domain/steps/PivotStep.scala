@@ -73,7 +73,8 @@ final case class PivotStep(
 object PivotStep {
   val Kind: String = "pivot"
 
-  private val SupportedAggs = Vector("sum", "count", "avg", "min", "max", "first")
+  // HEL-859 (design.md Decision 5): not `private` — see StringOpsStep.SupportedOperations.
+  val SupportedAggs: Vector[String] = Vector("sum", "count", "avg", "min", "max", "first")
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: PivotConfig): Seq[PipelineRowJson.Row] = {
     if (!SupportedAggs.contains(cfg.agg))

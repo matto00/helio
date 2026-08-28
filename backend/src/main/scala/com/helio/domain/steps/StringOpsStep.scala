@@ -91,7 +91,10 @@ final case class StringOpsStep(
 object StringOpsStep {
   val Kind: String = "stringops"
 
-  private val SupportedOperations = Vector("trim", "upper", "lower", "split", "extractRegex", "concat")
+  // HEL-859 (design.md Decision 5): not `private` — PipelineAnalyzeService's
+  // analyze-time validator reads this same val so the engine's runtime check
+  // and the analyze-time check can never drift apart.
+  val SupportedOperations: Vector[String] = Vector("trim", "upper", "lower", "split", "extractRegex", "concat")
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: StringOpsConfig): Seq[PipelineRowJson.Row] = {
     if (!SupportedOperations.contains(cfg.operation))

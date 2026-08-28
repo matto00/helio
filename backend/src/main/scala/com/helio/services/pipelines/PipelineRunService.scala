@@ -6,7 +6,7 @@ import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, PipelineRunRecord, RunResultResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep}
-import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField}
+import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField, StepExecutionException}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
@@ -214,8 +214,14 @@ final class PipelineRunService(
                   }.recover { case ex =>
                     // HEL-311: keep the "Pipeline execution failed" prefix, drop
                     // the raw exception tail; log the detail server-side.
+                    // HEL-859 (design.md Decision 3): forward the attributed
+                    // step id/kind/reason when available, same as run's failure path.
                     log.error(s"previewStep failed for pipeline ${pipelineId.value}, step $stepId", ex)
-                    Left(ServiceError.UnprocessableEntity("Pipeline execution failed"))
+                    val errMsg = ex match {
+                      case see: StepExecutionException => see.getMessage
+                      case _                            => "Pipeline execution failed"
+                    }
+                    Left(ServiceError.UnprocessableEntity(errMsg))
                   }
               }
             }
@@ -371,7 +377,15 @@ final class PipelineRunService(
         // run-history. Genericizing here (keeping the static prefix, logging
         // the raw cause server-side) covers all three at construction.
         log.error(s"Pipeline execution failed for pipeline ${pipelineId.value}, run ${runId.value}", ex)
-        val errMsg = "Pipeline execution failed"
+        // HEL-859 (design.md Decision 3, Decision 3a): when the failure was
+        // attributed to a specific step by the in-process engine, forward its
+        // curated message (id, kind, allowlisted reason); the Spark path
+        // (out of scope) never produces a StepExecutionException, so it still
+        // falls through to the generic constant.
+        val errMsg = ex match {
+          case see: StepExecutionException => see.getMessage
+          case _                           => "Pipeline execution failed"
+        }
         publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg)))
         val failWork: Future[Unit] =
           // HEL-509 (419-B, design.md Decision 4): a failed dry run has no

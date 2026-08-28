@@ -57,7 +57,12 @@ final case class JoinStep(
         ctx.loadSource(rightDs).map { rightRows =>
           val rightIndex: Map[Any, Seq[PipelineRowJson.Row]] =
             rightRows.groupBy(_.getOrElse(joinKey, null))
-          joinType.toLowerCase match {
+          val normalizedType = joinType.toLowerCase
+          if (!JoinStep.SupportedJoinTypes.contains(normalizedType))
+            throw new IllegalArgumentException(
+              "Unsupported join type: " + normalizedType + ". Supported: " + JoinStep.SupportedJoinTypes.mkString(", ")
+            )
+          normalizedType match {
             case "inner" =>
               rows.flatMap { leftRow =>
                 val key     = leftRow.getOrElse(joinKey, null)
@@ -71,10 +76,6 @@ final case class JoinStep(
                 if (matches.isEmpty) Seq(leftRow)
                 else matches.map(rightRow => leftRow ++ rightRow)
               }
-            case other =>
-              throw new IllegalArgumentException(
-                "Unsupported join type: " + other + ". Supported: inner, left"
-              )
           }
         }
     }
@@ -83,6 +84,10 @@ final case class JoinStep(
 
 object JoinStep {
   val Kind: String = "join"
+
+  // HEL-859 (design.md Decisions 5/3.4a): single source of truth driving both
+  // the runtime `match` above and the analyze-time validator.
+  val SupportedJoinTypes: Vector[String] = Vector("inner", "left")
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
