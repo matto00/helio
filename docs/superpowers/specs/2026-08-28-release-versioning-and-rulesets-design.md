@@ -104,7 +104,15 @@ Change both CD workflows from `push: branches: ["release/**"]` to
 `push: tags: ["v*"]`, and add `workflow_dispatch` as a manual escape hatch. Merge to
 `main` first. Nothing auto-deploys for the remainder of the migration.
 
-Also extend the backend image tag to carry the semantic version alongside the SHA.
+**Artifact naming.** With tag-triggered deploys, `github.ref_name` *is* the version,
+so the backend image tag becomes `<version>-<sha8>` (e.g. `v0.8.0-1a2b3c4d`),
+replacing today's `<branch>-<sha8>` (e.g. `release-v1.6-6b269a79`).
+
+The SHA stays at **8 characters** — `cut -c1-8`, unchanged from the current
+workflow. This keeps new images at the same SHA width as the 51 already in the
+registry, so an image from either scheme can be matched to a commit the same way.
+(Note: GitHub's UI and `gh` abbreviate to 7 by default; 8 is this repo's existing
+convention, which is the reason to keep it.)
 
 *Caveat:* a tag pushed by Actions using the default `GITHUB_TOKEN` does **not**
 trigger workflows. Tagging stays manual (which is the intent); any future automation
@@ -146,8 +154,17 @@ then delete the old ref. New-before-delete means the commits are never unreachab
 
 ### Phase 5 — Registry lifecycle
 
-An Artifact Registry cleanup policy: keep the 10 most recent versions plus anything
-carrying a semver tag; delete untagged images and those older than 90 days.
+An Artifact Registry cleanup policy with two rules:
+
+- **Keep** images whose tag matches prefix `v` (the `<version>-<sha8>` scheme from
+  Phase 1), plus the 10 most recent versions regardless of tag.
+- **Delete** untagged images, and tagged images older than 90 days that the keep
+  rules do not cover.
+
+Note the 51 legacy images use the old `release-v…` prefix, which the `v` prefix does
+**not** match. They are therefore candidates for deletion — intentional, since each
+is reproducible from its now-tagged commit, but it is the single largest effect of
+this phase and must be confirmed against the dry-run list.
 
 Applied in **dry-run first**. The concrete delete list is reviewed before the policy
 is armed.
