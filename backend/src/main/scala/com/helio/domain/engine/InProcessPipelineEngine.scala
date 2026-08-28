@@ -11,6 +11,31 @@ import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+/** HEL-859 (design.md Decisions 1-3): wraps a step-execution failure with the
+ *  failing step's id and kind, plus a curated `reason`. `reason` is derived by
+ *  an allowlist — the underlying exception's `getMessage` when and only when
+ *  it is an `IllegalArgumentException` (the type every step's own hand-written
+ *  config validation throws), else a fixed non-descriptive string. `cause` is
+ *  retained so server-side logging still sees the full throwable. `message`
+ *  is what `PipelineRunService` forwards to the client, so it deliberately
+ *  contains no more than the curated `reason` — never `cause.toString`, never
+ *  a class name. */
+final class StepExecutionException(val stepId: String, val stepKind: String, val reason: String, cause: Throwable)
+    extends Exception(s"Pipeline execution failed at step $stepId ($stepKind): $reason", cause)
+
+object StepExecutionException {
+
+  /** Build a [[StepExecutionException]] from a failed step's throwable,
+   *  applying the Decision 3 allowlist. If `cause` is already a
+   *  `StepExecutionException` (e.g. a nested engine invocation), it is
+   *  returned unchanged rather than double-wrapped. */
+  def from(stepId: String, stepKind: String, cause: Throwable): StepExecutionException = cause match {
+    case already: StepExecutionException => already
+    case iae: IllegalArgumentException   => new StepExecutionException(stepId, stepKind, iae.getMessage, cause)
+    case other                           => new StepExecutionException(stepId, stepKind, "step execution failed", other)
+  }
+}
+
 /** In-process pipeline executor.
  *
  *  Cycle 3 reduces this to a thin orchestration shell — `applyStep` becomes
@@ -66,8 +91,23 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
       Future.successful((rows, Map.empty[String, Long]))
     steps.foldLeft(initial) { (acc, step) =>
       acc.flatMap { case (currentRows, counts) =>
-        step.evaluate(currentRows, ctx).map { nextRows =>
+        // HEL-859 (design.md Decision 1): many step `evaluate` implementations
+        // (e.g. `Future.successful(StringOpsStep.apply(rows, config))`)
+        // evaluate eagerly — a config-validation throw happens BEFORE any
+        // `Future` is returned, synchronously, which would otherwise bypass
+        // `.recoverWith` below entirely (the chain is never attached).
+        // Catching here guarantees every step failure — sync or async — is
+        // observed and attributed.
+        val stepResult: Future[Seq[Row]] =
+          try step.evaluate(currentRows, ctx)
+          catch { case ex: Throwable => Future.failed(ex) }
+        stepResult.map { nextRows =>
           (nextRows, counts.updated(step.id.value, nextRows.size.toLong))
+        }.recoverWith { case ex =>
+          // HEL-859 (design.md Decision 1): attribute the failure to this
+          // step, here in the fold, so every step kind is covered uniformly
+          // rather than each step self-describing its own failures.
+          Future.failed(StepExecutionException.from(step.id.value, step.kind, ex))
         }
       }
     }

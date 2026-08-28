@@ -69,15 +69,15 @@ final case class UnionStep(
         )
       case Some(otherDs) =>
         ctx.loadSource(otherDs).map { otherRows =>
+          if (!UnionStep.SupportedModes.contains(mode))
+            throw new IllegalArgumentException(
+              "Unsupported union mode: " + mode + ". Supported: " + UnionStep.SupportedModes.mkString(", ")
+            )
           mode match {
             case "byPosition" =>
               rows ++ otherRows
             case "byName" =>
               unionByName(rows, otherRows)
-            case other =>
-              throw new IllegalArgumentException(
-                "Unsupported union mode: " + other + ". Supported: byPosition, byName"
-              )
           }
         }
     }
@@ -110,6 +110,10 @@ final case class UnionStep(
 
 object UnionStep {
   val Kind: String = "union"
+
+  // HEL-859 (design.md Decisions 5/3.4a): single source of truth driving both
+  // the runtime `match` above and the analyze-time validator.
+  val SupportedModes: Vector[String] = Vector("byPosition", "byName")
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind

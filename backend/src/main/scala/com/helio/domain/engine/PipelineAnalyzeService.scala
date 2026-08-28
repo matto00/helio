@@ -1,6 +1,11 @@
 package com.helio.domain.engine
 
 import com.helio.domain.model.DataType
+import com.helio.domain.steps.{
+  AggregateConfig, AggregateStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
+  JoinConfig, JoinStep, PivotConfig, PivotStep, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep,
+  WindowConfig, WindowStep
+}
 import org.slf4j.LoggerFactory
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -57,7 +62,16 @@ object PipelineAnalyzeService {
   def analyze(steps: Vector[PipelineStepInput], sourceSchema: Vector[SchemaField]): Vector[AnalyzedStep] = {
     var currentSchema = sourceSchema
     steps.map { step =>
-      val (output, err) = inferOutputSchema(step.op, step.config, currentSchema)
+      // HEL-859 (design.md Decision 4): the config-validation hook runs
+      // BEFORE the per-kind infer* dispatch. On a validation failure the
+      // output schema falls back to identity (same contract a validation
+      // error from infer* itself already used) and infer* is never called
+      // for this step — validation and inference are deliberately kept
+      // separate (inference stays tolerant, validation is strict).
+      val (output, err) = validateStepConfig(step.op, step.config) match {
+        case Some(msg) => (currentSchema, Some(msg))
+        case None      => inferOutputSchema(step.op, step.config, currentSchema)
+      }
       val analyzed = AnalyzedStep(
         id              = step.id,
         position        = step.position,
@@ -70,6 +84,113 @@ object PipelineAnalyzeService {
       currentSchema = output
       analyzed
     }
+  }
+
+  /** HEL-859 (design.md Decisions 4/5/6/7): analyze-time validation of step
+   *  config values that today are checked only at execution. Dispatched by
+   *  `kind`, taking the RAW config string (not a decoded typed config) —
+   *  design.md Decision 7's constraint for HEL-860, which needs to see keys
+   *  the typed decoder silently drops. Each per-kind validator decodes the
+   *  config with that step's own tolerant `*Config.decode` and re-checks the
+   *  same `SupportedX` val the engine's own runtime check uses (Decision 5),
+   *  so this can never reject a value the engine accepts.
+   *
+   *  Scope is exactly Decision 6's enum-valued-config list; every other step
+   *  kind returns `None` unconditionally. Multiple failures for one step are
+   *  joined into a single message (Decision 7's corollary, task 3.3) rather
+   *  than one silently winning — the corollary HEL-860 must also respect. */
+  private def validateStepConfig(kind: String, config: String): Option[String] = {
+    // A malformed (non-JSON / wrong-shape) config is NOT this hook's concern
+    // — that is exactly the "<op> config error" category the existing
+    // `inferOutputSchema`/`parseConfig` try/catch already reports, and this
+    // hook runs BEFORE that dispatch (Decision 4). Swallow any decode
+    // exception here so a malformed config falls through to the unchanged
+    // downstream handling rather than this hook reporting a different
+    // (untyped, unaudited) validationError for the same root cause.
+    val problems: Vector[String] =
+      try {
+        kind match {
+          case StringOpsStep.Kind => validateStringOps(config)
+          case FillNullStep.Kind  => validateFillNull(config)
+          case WindowStep.Kind    => validateWindow(config)
+          case AggregateStep.Kind => validateAggregate(config)
+          case GroupByStep.Kind   => validateGroupBy(config)
+          case PivotStep.Kind     => validatePivot(config)
+          case UnionStep.Kind     => validateUnion(config)
+          case JoinStep.Kind      => validateJoin(config)
+          case _                  => Vector.empty
+        }
+      } catch {
+        case _: Exception => Vector.empty
+      }
+    if (problems.isEmpty) None else Some(problems.mkString("; "))
+  }
+
+  private def validateStringOps(config: String): Vector[String] = {
+    val cfg = StringOpsConfig.decode(config)
+    if (StringOpsStep.SupportedOperations.contains(cfg.operation)) Vector.empty
+    else Vector(s"Unsupported stringops operation: '${cfg.operation}'. Supported: ${StringOpsStep.SupportedOperations.mkString(", ")}")
+  }
+
+  private def validateFillNull(config: String): Vector[String] = {
+    val cfg = FillNullConfig.decode(config)
+    if (!FillNullStep.SupportedStrategies.contains(cfg.strategy))
+      Vector(s"Unsupported fillnull strategy: '${cfg.strategy}'. Supported: ${FillNullStep.SupportedStrategies.mkString(", ")}")
+    else if (cfg.strategy == "constant" && cfg.value.isEmpty)
+      Vector("fillnull strategy 'constant' requires 'value'")
+    else Vector.empty
+  }
+
+  private def validateWindow(config: String): Vector[String] = {
+    val cfg = WindowConfig.decode(config)
+    if (!WindowStep.SupportedFunctions.contains(cfg.function))
+      Vector(s"Unsupported window function: '${cfg.function}'. Supported: ${WindowStep.SupportedFunctions.mkString(", ")}")
+    else {
+      val fieldProblem =
+        if (WindowStep.FieldRequired.contains(cfg.function) && cfg.field.isEmpty)
+          Some(s"window function '${cfg.function}' requires 'field'")
+        else None
+      val offsetProblem =
+        if ((cfg.function == "lag" || cfg.function == "lead") && cfg.offset.exists(_ <= 0))
+          Some(s"window function '${cfg.function}' requires a positive 'offset', got ${cfg.offset.get}")
+        else None
+      Vector(fieldProblem, offsetProblem).flatten
+    }
+  }
+
+  private def validateAggregate(config: String): Vector[String] = {
+    val cfg = AggregateConfig.decode(config)
+    cfg.aggregations.flatMap { agg =>
+      val fn = agg.fn.toLowerCase
+      if (AggregateStep.SupportedFunctions.contains(fn)) None
+      else Some(s"Unsupported aggregation function: '$fn'. Supported: ${AggregateStep.SupportedFunctions.mkString(", ")}")
+    }
+  }
+
+  private def validateGroupBy(config: String): Vector[String] = {
+    val cfg = GroupByConfig.decode(config)
+    val fn  = cfg.aggFunction.toLowerCase
+    if (GroupByStep.SupportedFunctions.contains(fn)) Vector.empty
+    else Vector(s"Unsupported aggregation function: '$fn'. Supported: ${GroupByStep.SupportedFunctions.mkString(", ")}")
+  }
+
+  private def validatePivot(config: String): Vector[String] = {
+    val cfg = PivotConfig.decode(config)
+    if (PivotStep.SupportedAggs.contains(cfg.agg)) Vector.empty
+    else Vector(s"Unsupported pivot aggregation function: '${cfg.agg}'. Supported: ${PivotStep.SupportedAggs.mkString(", ")}")
+  }
+
+  private def validateUnion(config: String): Vector[String] = {
+    val cfg = UnionConfig.decode(config)
+    if (UnionStep.SupportedModes.contains(cfg.mode)) Vector.empty
+    else Vector(s"Unsupported union mode: '${cfg.mode}'. Supported: ${UnionStep.SupportedModes.mkString(", ")}")
+  }
+
+  private def validateJoin(config: String): Vector[String] = {
+    val cfg             = JoinConfig.decode(config)
+    val normalizedType = cfg.joinType.toLowerCase
+    if (JoinStep.SupportedJoinTypes.contains(normalizedType)) Vector.empty
+    else Vector(s"Unsupported join type: '$normalizedType'. Supported: ${JoinStep.SupportedJoinTypes.mkString(", ")}")
   }
 
 

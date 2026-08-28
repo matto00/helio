@@ -5,7 +5,7 @@ import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, Sq
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.domain.steps._
-import com.helio.domain.model.{DataSource, DataSourceId, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
+import com.helio.domain.model.{DataSource, DataSourceId, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
@@ -495,7 +495,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val rows = Seq(Map("ts" -> "not-a-date".asInstanceOf[Any]))
       val cfg  = """{ "field": "ts", "granularity": "day" }"""
       val step = makeStep("datebucket", cfg)
-      val ex = intercept[IllegalArgumentException](run(rows, step))
+      val ex = intercept[StepExecutionException](run(rows, step))
       ex.getMessage should include ("ts")
     }
 
@@ -503,7 +503,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val rows = Seq(Map("ts" -> "2026-03-17".asInstanceOf[Any]))
       val cfg  = """{ "field": "ts", "granularity": "fortnight" }"""
       val step = makeStep("datebucket", cfg)
-      val ex = intercept[IllegalArgumentException](run(rows, step))
+      val ex = intercept[StepExecutionException](run(rows, step))
       ex.getMessage should include ("fortnight")
       ex.getMessage should include ("day")
       ex.getMessage should include ("week")
@@ -610,7 +610,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val rows = Seq(Map[String, Any]("region" -> "west", "product" -> "widgets", "revenue" -> 10.0))
       val cfg  = """{"index":["region"],"column":"product","values":"revenue","agg":"median"}"""
       val step = makeStep("pivot", cfg)
-      val ex = intercept[IllegalArgumentException](run(rows, step))
+      val ex = intercept[StepExecutionException](run(rows, step))
       ex.getMessage should include ("median")
       ex.getMessage should include ("sum")
       ex.getMessage should include ("count")
@@ -713,7 +713,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     "window: running_sum without a field fails with a descriptive error" in {
       val rows = Seq(Map[String, Any]("category" -> "a", "amount" -> 10.0))
       val cfg  = """{"partitionBy":["category"],"orderBy":[],"function":"running_sum","outputColumn":"cum"}"""
-      val ex = intercept[IllegalArgumentException](run(rows, makeStep("window", cfg)))
+      val ex = intercept[StepExecutionException](run(rows, makeStep("window", cfg)))
       ex.getMessage should include ("running_sum")
       ex.getMessage should include ("field")
     }
@@ -756,14 +756,14 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     "window: non-positive offset fails with a descriptive error" in {
       val rows = Seq(Map[String, Any]("category" -> "a", "amount" -> 10.0))
       val cfg  = """{"partitionBy":["category"],"orderBy":[],"function":"lag","field":"amount","offset":0,"outputColumn":"prev"}"""
-      val ex = intercept[IllegalArgumentException](run(rows, makeStep("window", cfg)))
+      val ex = intercept[StepExecutionException](run(rows, makeStep("window", cfg)))
       ex.getMessage should include ("offset")
     }
 
     "window: unsupported function fails at execute time with a descriptive error" in {
       val rows = Seq(Map[String, Any]("category" -> "a", "amount" -> 10.0))
       val cfg  = """{"partitionBy":["category"],"orderBy":[],"function":"median","outputColumn":"m"}"""
-      val ex = intercept[IllegalArgumentException](run(rows, makeStep("window", cfg)))
+      val ex = intercept[StepExecutionException](run(rows, makeStep("window", cfg)))
       ex.getMessage should include ("median")
       ex.getMessage should include ("row_number")
       ex.getMessage should include ("rank")
@@ -1034,7 +1034,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(None)
       }
       val step = makeStep("union", """{ "mode": "byPosition" }""")
-      val ex = intercept[IllegalArgumentException] {
+      val ex = intercept[StepExecutionException] {
         Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
       }
       ex.getMessage should include ("DataSource not found for union")
@@ -1047,7 +1047,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       }
       val step = makeStep("union",
         """{ "otherDataSourceId": "does-not-exist", "mode": "byPosition" }""")
-      val ex = intercept[IllegalArgumentException] {
+      val ex = intercept[StepExecutionException] {
         Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
       }
       ex.getMessage should include ("does-not-exist")
@@ -1070,7 +1070,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       }
       val step = makeStep("union",
         """{ "otherDataSourceId": "ds-union-badmode", "mode": "byColumn" }""")
-      val ex = intercept[IllegalArgumentException] {
+      val ex = intercept[StepExecutionException] {
         Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
       }
       ex.getMessage should include ("byColumn")
@@ -1226,7 +1226,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(None)
       }
       val step = makeStep("lookup", """{ "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
-      val ex = intercept[IllegalArgumentException] {
+      val ex = intercept[StepExecutionException] {
         Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
       }
       ex.getMessage should include ("DataSource not found for lookup")
@@ -1239,7 +1239,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       }
       val step = makeStep("lookup",
         """{ "referenceDataSourceId": "does-not-exist", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
-      val ex = intercept[IllegalArgumentException] {
+      val ex = intercept[StepExecutionException] {
         Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
       }
       ex.getMessage should include ("does-not-exist")
@@ -1600,7 +1600,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val rows = Seq(Map[String, Any]("region" -> null))
       val cfg  = """{ "columns": ["region"], "strategy": "constant" }"""
       val step = makeStep("fillnull", cfg)
-      val ex = intercept[IllegalArgumentException](run(rows, step))
+      val ex = intercept[StepExecutionException](run(rows, step))
       ex.getMessage should include("value")
     }
 
@@ -1689,7 +1689,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val rows = Seq(Map[String, Any]("a" -> null))
       val cfg  = """{ "columns": ["a"], "strategy": "bogus" }"""
       val step = makeStep("fillnull", cfg)
-      val ex = intercept[IllegalArgumentException](run(rows, step))
+      val ex = intercept[StepExecutionException](run(rows, step))
       ex.getMessage should include("bogus")
     }
 
@@ -1747,7 +1747,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val rows = Seq(Map[String, Any]("path" -> "a/b/c"))
       val cfg  = """{ "operation": "split", "field": "path", "index": 1, "outputColumn": "segment" }"""
       val step = makeStep("stringops", cfg)
-      val ex = intercept[IllegalArgumentException](run(rows, step))
+      val ex = intercept[StepExecutionException](run(rows, step))
       ex.getMessage should include("separator")
     }
 
@@ -1755,7 +1755,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val rows = Seq(Map[String, Any]("path" -> "a/b/c"))
       val cfg  = """{ "operation": "split", "field": "path", "separator": "/", "outputColumn": "segment" }"""
       val step = makeStep("stringops", cfg)
-      val ex = intercept[IllegalArgumentException](run(rows, step))
+      val ex = intercept[StepExecutionException](run(rows, step))
       ex.getMessage should include("index")
     }
 
@@ -1779,7 +1779,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val rows = Seq(Map[String, Any]("email" -> "ada@example.com"))
       val cfg  = """{ "operation": "extractRegex", "field": "email", "pattern": "[^@]+", "outputColumn": "localPart" }"""
       val step = makeStep("stringops", cfg)
-      val ex = intercept[IllegalArgumentException](run(rows, step))
+      val ex = intercept[StepExecutionException](run(rows, step))
       ex.getMessage should include("[^@]+")
       ex.getMessage should include("capturing group")
     }
@@ -1832,7 +1832,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val rows = Seq(Map[String, Any]("code" -> "ab-12"))
       val cfg  = """{ "operation": "reverse", "field": "code", "outputColumn": "code" }"""
       val step = makeStep("stringops", cfg)
-      val ex = intercept[IllegalArgumentException](run(rows, step))
+      val ex = intercept[StepExecutionException](run(rows, step))
       ex.getMessage should include("reverse")
       ex.getMessage should include("trim")
     }
@@ -2323,6 +2323,59 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val step = makeStep("assert", cfg)
       val result = Await.result(engine.execute(sampleRows, Seq(step), null), 5.seconds)
       result shouldBe sampleRows
+    }
+
+    // ── HEL-859: step-failure attribution (design.md Decisions 1-3) ─────────
+
+    "executeWithStepCounts: an IllegalArgumentException failure is wrapped in a StepExecutionException naming the step id, kind, and the original message" in {
+      val cfg  = """{"operation":"regexExtract","field":"name","outputColumn":"extracted"}"""
+      val step = makeStep("stringops", cfg)
+      val thrown = intercept[StepExecutionException] {
+        Await.result(engine.executeWithStepCounts(sampleRows, Seq(step), null), 5.seconds)
+      }
+      thrown.stepId shouldBe "step-id"
+      thrown.stepKind shouldBe "stringops"
+      thrown.reason should include("regexExtract")
+      thrown.reason should include("extractRegex")
+      thrown.getMessage shouldBe s"Pipeline execution failed at step step-id (stringops): ${thrown.reason}"
+    }
+
+    // HEL-859 (design.md Decision 3, tasks.md 5.2): the allowlist forwards
+    // ONLY an `IllegalArgumentException`'s own message; a fake step
+    // deliberately failing with a `RuntimeException` (not on the allowlist)
+    // is still attributed to its step id/kind, but its `reason` is the fixed,
+    // non-descriptive string — never the throwable's own message.
+    "executeWithStepCounts: a non-IllegalArgumentException failure names the step but not the throwable's own message" in {
+      val now = Instant.now()
+      val leakyMessage = "leaky internal detail: connection refused at 10.0.0.1:5432"
+      val failingStep = new PipelineStep {
+        val id: PipelineStepId = PipelineStepId("leaky-step")
+        val pipelineId: PipelineId = PipelineId("pipe-id")
+        val position: Int = 0
+        val kind: String = "leaky"
+        val createdAt: Instant = now
+        val updatedAt: Instant = now
+        val enabled: Boolean = true
+        def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
+            ec: ExecutionContext
+        ): Future[Seq[Map[String, Any]]] =
+          Future.failed(new RuntimeException(leakyMessage))
+      }
+      val thrown = intercept[StepExecutionException] {
+        Await.result(engine.executeWithStepCounts(sampleRows, Seq(failingStep), null), 5.seconds)
+      }
+      thrown.stepId shouldBe "leaky-step"
+      thrown.stepKind shouldBe "leaky"
+      thrown.reason should not include leakyMessage
+      thrown.reason should not include "RuntimeException"
+      thrown.getMessage should not include leakyMessage
+      thrown.getMessage should not include "RuntimeException"
+    }
+
+    "executeWithStepCounts: an already-wrapped StepExecutionException is not double-wrapped" in {
+      val original = StepExecutionException.from("inner-step", "stringops", new IllegalArgumentException("bad op"))
+      val wrapped  = StepExecutionException.from("outer-step", "outer-kind", original)
+      wrapped shouldBe theSameInstanceAs(original)
     }
   }
   // ── Helpers ─────────────────────────────────────────────────────────────────

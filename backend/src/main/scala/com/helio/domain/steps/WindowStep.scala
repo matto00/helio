@@ -97,8 +97,9 @@ final case class WindowStep(
 object WindowStep {
   val Kind: String = "window"
 
-  private val SupportedFunctions = Vector("row_number", "rank", "dense_rank", "running_sum", "lag", "lead")
-  private val FieldRequired      = Set("running_sum", "lag", "lead")
+  // HEL-859 (design.md Decision 5): not `private` — see StringOpsStep.SupportedOperations.
+  val SupportedFunctions: Vector[String] = Vector("row_number", "rank", "dense_rank", "running_sum", "lag", "lead")
+  val FieldRequired: Set[String]         = Set("running_sum", "lag", "lead")
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: WindowConfig): Seq[PipelineRowJson.Row] = {
     if (!SupportedFunctions.contains(cfg.function))

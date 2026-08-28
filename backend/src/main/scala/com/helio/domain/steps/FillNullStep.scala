@@ -77,7 +77,8 @@ final case class FillNullStep(
 object FillNullStep {
   val Kind: String = "fillnull"
 
-  private val SupportedStrategies = Vector("constant", "forwardFill", "mean", "median", "mode")
+  // HEL-859 (design.md Decision 5): not `private` — see StringOpsStep.SupportedOperations.
+  val SupportedStrategies: Vector[String] = Vector("constant", "forwardFill", "mean", "median", "mode")
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: FillNullConfig): Seq[PipelineRowJson.Row] = {
     if (!SupportedStrategies.contains(cfg.strategy))

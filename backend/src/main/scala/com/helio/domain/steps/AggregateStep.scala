@@ -73,6 +73,11 @@ final case class AggregateStep(
 object AggregateStep {
   val Kind: String = "aggregate"
 
+  // HEL-859 (design.md Decisions 5/3.4a): single source of truth driving both
+  // the runtime `match` below and the analyze-time validator — no longer a
+  // hardcoded duplicate inside the error message.
+  val SupportedFunctions: Vector[String] = Vector("sum", "avg", "min", "max", "count")
+
   def apply(rows: Seq[PipelineRowJson.Row], cfg: AggregateConfig): Seq[PipelineRowJson.Row] = {
     val groupByFields = cfg.groupBy.map(_.name)
     val aggregations  = cfg.aggregations
@@ -87,17 +92,17 @@ object AggregateStep {
         val fn    = agg.fn.toLowerCase
         val field = agg.field
         val nums  = groupRows.flatMap(r => PipelineRowJson.toDouble(r.getOrElse(field, null)))
+        if (!SupportedFunctions.contains(fn))
+          throw new IllegalArgumentException(
+            "Unsupported aggregation function: " + fn +
+              ". Supported: " + SupportedFunctions.mkString(", ")
+          )
         val value: Any = fn match {
           case "sum"   => nums.sum
           case "avg"   => if (nums.isEmpty) null else nums.sum / nums.size
           case "min"   => if (nums.isEmpty) null else nums.min
           case "max"   => if (nums.isEmpty) null else nums.max
           case "count" => groupRows.count(r => r.getOrElse(field, null) != null).toLong
-          case other =>
-            throw new IllegalArgumentException(
-              "Unsupported aggregation function: " + other +
-                ". Supported: sum, avg, min, max, count"
-            )
         }
         alias -> value
       }.toMap

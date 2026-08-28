@@ -53,11 +53,19 @@ final case class GroupByStep(
 object GroupByStep {
   val Kind: String = "groupby"
 
+  // HEL-859 (design.md Decisions 5/3.4a): single source of truth driving both
+  // the runtime `match` below and the analyze-time validator.
+  val SupportedFunctions: Vector[String] = Vector("sum", "count")
+
   def apply(rows: Seq[PipelineRowJson.Row], cfg: GroupByConfig): Seq[PipelineRowJson.Row] = {
     val groupCols = cfg.groupBy
     val aggCol    = cfg.aggColumn
     val aggFn     = cfg.aggFunction.toLowerCase
     val outputCol = aggFn + "_" + aggCol
+    if (!SupportedFunctions.contains(aggFn))
+      throw new IllegalArgumentException(
+        "Unsupported aggregation function: " + aggFn + ". Supported: " + SupportedFunctions.mkString(", ")
+      )
     val grouped   = rows.groupBy(row => groupCols.map(c => row.getOrElse(c, null)))
     grouped.map { case (keyValues, groupRows) =>
       val keyMap: PipelineRowJson.Row = groupCols.zip(keyValues).toMap
@@ -67,10 +75,6 @@ object GroupByStep {
           nums.sum
         case "count" =>
           groupRows.count(r => r.getOrElse(aggCol, null) != null).toLong
-        case other =>
-          throw new IllegalArgumentException(
-            "Unsupported aggregation function: " + other + ". Supported: sum, count"
-          )
       }
       keyMap + (outputCol -> aggValue)
     }.toSeq

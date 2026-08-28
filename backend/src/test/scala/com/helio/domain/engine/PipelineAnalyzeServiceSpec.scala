@@ -684,12 +684,20 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema :+ field("prev", "string")
     }
 
-    "window — an unrecognized function degrades gracefully to string type (mirrors aggResultType's catch-all)" in {
+    // HEL-859: before the analyze-time validation hook, `inferWindow`'s type
+    // computation degraded an unrecognized function to "string" silently —
+    // exactly the "validation that exists but only fires at execution" gap
+    // this ticket closes. `window.function` is now analyze-time validated
+    // (design.md Decision 6), so an unrecognized function is reported before
+    // any run, with the identity-fallback outputSchema like every other
+    // validation failure.
+    "window — an unrecognized function is now reported as a validationError at analyze time" in {
       val steps  = Vector(step("window", """{"partitionBy":["order_id"],"orderBy":[],"function":"median","outputColumn":"m"}"""))
       val result = analyze(steps, baseSchema)
 
-      result(0).validationError shouldBe None
-      result(0).outputSchema shouldBe baseSchema :+ field("m", "string")
+      result(0).validationError shouldBe defined
+      result(0).validationError.get should include("median")
+      result(0).outputSchema shouldBe baseSchema
     }
 
     "window — outputColumn replaces an existing field of the same name (collision rule)" in {
@@ -782,6 +790,52 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
 
       result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    // HEL-859 (tasks.md 5.3): the ticket's own repro — the analyze surface
+    // must catch an unsupported stringops operation BEFORE any run is
+    // attempted, naming both the rejected value and the supported name the
+    // reporter actually needed.
+    "stringops — analyze-time validation: unsupported operation is reported before any run" in {
+      val steps  = Vector(step("stringops", """{"operation":"regexExtract","field":"order_id","pattern":"(a)","outputColumn":"x"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe defined
+      result(0).validationError.get should include("regexExtract")
+      result(0).validationError.get should include("extractRegex")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    // HEL-859 (tasks.md 5.4): a valid stringops step is unaffected by the new
+    // validation hook — it still reports no validationError and the
+    // previously inferred outputSchema (not the identity fallback).
+    "stringops — analyze-time validation: a valid operation still infers its outputSchema" in {
+      val steps  = Vector(step("stringops", """{"operation":"extractRegex","field":"order_id","pattern":"(a)","outputColumn":"extracted"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe baseSchema :+ field("extracted", "string")
+    }
+
+    // HEL-859 (tasks.md 5.5): proves the analyze-time validation hook is not
+    // a stringops special case — fillnull's `strategy` is validated too.
+    "fillnull — analyze-time validation: unsupported strategy is reported before any run" in {
+      val steps  = Vector(step("fillnull", """{"columns":["amount"],"strategy":"bogus"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe defined
+      result(0).validationError.get should include("bogus")
+      result(0).validationError.get should include("mean")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "fillnull — analyze-time validation: constant strategy without value is reported" in {
+      val steps  = Vector(step("fillnull", """{"columns":["amount"],"strategy":"constant"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe defined
+      result(0).validationError.get should include("requires 'value'")
       result(0).outputSchema shouldBe baseSchema
     }
 
