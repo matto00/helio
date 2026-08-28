@@ -47,7 +47,7 @@ worktree removed by another session, the pre-squash commits became unreachable a
 the check reported a false failure. Unreferenced commits on other people's branches
 are not this migration's to preserve.
 
-`comm -23` is deliberate: it reports baseline lines *absent* from the current state. New commits added by this work are expected and ignored.
+`comm -23` is deliberate: it reports baseline lines _absent_ from the current state. New commits added by this work are expected and ignored.
 
 ---
 
@@ -56,9 +56,11 @@ are not this migration's to preserve.
 Required status checks cannot be added until CI reports on every PR. `ci.yml` currently declares `paths-ignore` for `**.md`, `LICENSE`, `.github/ISSUE_TEMPLATE/**`, and `docs/**`. A skipped workflow reports **no status at all**, so requiring its jobs would leave any docs-only PR permanently pending. This plan's own branch is docs-only and would be the first casualty.
 
 **Files:**
+
 - Modify: `.github/workflows/ci.yml:3-17` (trigger block), and append a new `ci-complete` job
 
 **Interfaces:**
+
 - Produces: a job named `ci-complete` — the single required status check consumed by Task 4.
 
 - [ ] **Step 1: Remove `paths-ignore` from both triggers**
@@ -73,34 +75,34 @@ on:
     branches: [main]
 ```
 
-Rationale: the four jobs already cache aggressively, and correctness of the merge gate outweighs skipping a docs-only run. Path-based skipping is reintroduced *inside* jobs only if run time becomes a problem — never at the trigger level again, because that is what breaks required checks.
+Rationale: the four jobs already cache aggressively, and correctness of the merge gate outweighs skipping a docs-only run. Path-based skipping is reintroduced _inside_ jobs only if run time becomes a problem — never at the trigger level again, because that is what breaks required checks.
 
 - [ ] **Step 2: Append the aggregator job**
 
 Add at the end of `.github/workflows/ci.yml` (top-level under `jobs:`, 2-space indent to match `e2e`):
 
 ```yaml
-  # Single required status check for the `main` ruleset. Individual jobs may be
-  # skipped by future path filters; a skipped job reports "skipped", which this
-  # gate treats as success. Only failure/cancelled fail the gate. Never add
-  # `paths-ignore` to this workflow's triggers — a skipped WORKFLOW reports no
-  # status at all and would block every affected PR permanently.
-  ci-complete:
-    if: always()
-    needs: [frontend, backend, security, e2e]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Verify no job failed or was cancelled
-        run: |
-          set -euo pipefail
-          echo "results: ${{ join(needs.*.result, ', ') }}"
-          if ${{ contains(needs.*.result, 'failure') }}; then
-            echo "A required CI job failed." >&2; exit 1
-          fi
-          if ${{ contains(needs.*.result, 'cancelled') }}; then
-            echo "A required CI job was cancelled." >&2; exit 1
-          fi
-          echo "All CI jobs succeeded or were skipped."
+# Single required status check for the `main` ruleset. Individual jobs may be
+# skipped by future path filters; a skipped job reports "skipped", which this
+# gate treats as success. Only failure/cancelled fail the gate. Never add
+# `paths-ignore` to this workflow's triggers — a skipped WORKFLOW reports no
+# status at all and would block every affected PR permanently.
+ci-complete:
+  if: always()
+  needs: [frontend, backend, security, e2e]
+  runs-on: ubuntu-latest
+  steps:
+    - name: Verify no job failed or was cancelled
+      run: |
+        set -euo pipefail
+        echo "results: ${{ join(needs.*.result, ', ') }}"
+        if ${{ contains(needs.*.result, 'failure') }}; then
+          echo "A required CI job failed." >&2; exit 1
+        fi
+        if ${{ contains(needs.*.result, 'cancelled') }}; then
+          echo "A required CI job was cancelled." >&2; exit 1
+        fi
+        echo "All CI jobs succeeded or were skipped."
 ```
 
 - [ ] **Step 3: Validate the workflow parses**
@@ -137,10 +139,12 @@ making it a safe single required check."
 This is the disarming step. Until it is merged to `main`, Tasks 5 and 6 are unsafe.
 
 **Files:**
+
 - Modify: `.github/workflows/cd-backend.yml` (trigger + image tag steps)
 - Modify: `.github/workflows/cd-frontend.yml` (trigger + add artifact push + deploy message)
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: both CD workflows trigger on `push: tags: ["v*"]`; both compute `VERSION=${{ github.ref_name }}` and `SHA=$(echo "${{ github.sha }}" | cut -c1-8)`; both publish/stamp `release-${VERSION}-${SHA}`.
 
@@ -176,14 +180,14 @@ on:
 Replace the `Build and push image` step's `run:` block with:
 
 ```yaml
-        run: |
-          set -euo pipefail
-          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
-          SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          IMAGE=us-west1-docker.pkg.dev/helio-493120/helio-backend/helio-backend:release-${VERSION}-${SHA}
-          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
+run: |
+  set -euo pipefail
+  VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+  SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+  IMAGE=us-west1-docker.pkg.dev/helio-493120/helio-backend/helio-backend:release-${VERSION}-${SHA}
+  echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+  docker build -t "$IMAGE" .
+  docker push "$IMAGE"
 ```
 
 Also add `ref: ${{ github.event.inputs.tag || github.ref }}` under the `actions/checkout@v7` step's `with:` so `workflow_dispatch` checks out the requested tag.
@@ -199,26 +203,26 @@ Apply the same `on:` block and the same `checkout` `ref:` line to `.github/workf
 In `.github/workflows/cd-frontend.yml`, after the `Build` step and before the Firebase deploy, insert:
 
 ```yaml
-      - name: Configure Docker
-        run: gcloud auth configure-docker us-west1-docker.pkg.dev
+- name: Configure Docker
+  run: gcloud auth configure-docker us-west1-docker.pkg.dev
 
-      # Artifact of record for the frontend, at 1:1 parity with the backend:
-      # same registry, same release-<version>-<sha8> scheme, therefore the same
-      # retention policy. This image is NOT the deploy vehicle (Firebase Hosting
-      # serves the assets) — it exists for traceability and rollback.
-      - name: Build and push frontend artifact
-        run: |
-          set -euo pipefail
-          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
-          SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          IMAGE=us-west1-docker.pkg.dev/helio-493120/helio-frontend/helio-frontend:release-${VERSION}-${SHA}
-          echo "FRONTEND_IMAGE=$IMAGE" >> "$GITHUB_ENV"
-          cat > /tmp/Dockerfile.artifact <<'EOF'
-          FROM scratch
-          COPY dist /dist
-          EOF
-          docker build -f /tmp/Dockerfile.artifact -t "$IMAGE" frontend
-          docker push "$IMAGE"
+# Artifact of record for the frontend, at 1:1 parity with the backend:
+# same registry, same release-<version>-<sha8> scheme, therefore the same
+# retention policy. This image is NOT the deploy vehicle (Firebase Hosting
+# serves the assets) — it exists for traceability and rollback.
+- name: Build and push frontend artifact
+  run: |
+    set -euo pipefail
+    VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+    SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+    IMAGE=us-west1-docker.pkg.dev/helio-493120/helio-frontend/helio-frontend:release-${VERSION}-${SHA}
+    echo "FRONTEND_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+    cat > /tmp/Dockerfile.artifact <<'EOF'
+    FROM scratch
+    COPY dist /dist
+    EOF
+    docker build -f /tmp/Dockerfile.artifact -t "$IMAGE" frontend
+    docker push "$IMAGE"
 ```
 
 - [ ] **Step 5: Stamp the Firebase release with the version**
@@ -226,12 +230,12 @@ In `.github/workflows/cd-frontend.yml`, after the `Build` step and before the Fi
 Replace the frontend deploy step's `run:` with:
 
 ```yaml
-        run: |
-          set -euo pipefail
-          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
-          SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          npx firebase-tools deploy --only hosting --project helio-493120 \
-            --message "release-${VERSION}-${SHA}"
+run: |
+  set -euo pipefail
+  VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+  SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+  npx firebase-tools deploy --only hosting --project helio-493120 \
+    --message "release-${VERSION}-${SHA}"
 ```
 
 Firebase Hosting keeps its own release history; today it records no version. This is where the frontend's deploys are actually visible.
@@ -296,12 +300,14 @@ Expected: `tags: ["v*"]`, no `branches:`. **Do not start Task 5 or 6 until this 
 
 ### Task 3: Fix the release-branch ruleset
 
-Removes the bypass warning on every fast-forward. Ruleset `15879813` currently applies `creation` + `update` + `deletion` to `refs/heads/release/**`; `update` blocks *all* pushes including fast-forwards, which is why every FF consumes the owner bypass.
+Removes the bypass warning on every fast-forward. Ruleset `15879813` currently applies `creation` + `update` + `deletion` to `refs/heads/release/**`; `update` blocks _all_ pushes including fast-forwards, which is why every FF consumes the owner bypass.
 
 **Files:**
+
 - Create: `infra/rulesets/release-branches.json`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: ruleset `15879813` enforcing `deletion` + `non_fast_forward` only.
 
@@ -326,13 +332,8 @@ Create `infra/rulesets/release-branches.json`:
   "target": "branch",
   "enforcement": "active",
   "conditions": { "ref_name": { "include": ["refs/heads/release/**"], "exclude": [] } },
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" }
-  ],
-  "bypass_actors": [
-    { "actor_id": 64526343, "actor_type": "User", "bypass_mode": "always" }
-  ]
+  "rules": [{ "type": "deletion" }, { "type": "non_fast_forward" }],
+  "bypass_actors": [{ "actor_id": 64526343, "actor_type": "User", "bypass_mode": "always" }]
 }
 ```
 
@@ -377,6 +378,7 @@ Drops 'creation' so cutting a new release branch needs no bypass."
 Depends on Task 1 being merged, or every subsequent PR blocks.
 
 **Files:**
+
 - Create: `infra/rulesets/main-branch.json`
 
 - [ ] **Step 1: Confirm `ci-complete` has reported at least once**
@@ -460,10 +462,12 @@ workflow is a tracked follow-up, not bundled here."
 Nothing is pushed in this task. It produces a review artifact.
 
 **Files:**
+
 - Create: `scripts/release/backfill-tags.sh`
 - Create (generated, gitignored): `/tmp/helio-backfill/`
 
 **Interfaces:**
+
 - Consumes: `docs/superpowers/specs/2026-08-28-release-tag-manifest.tsv` (columns: tag, sha8, ISO timestamp, changelog range, commit count)
 - Produces: local annotated tags `v0.1.0`…`v0.7.4`; per-tag notes at `/tmp/helio-backfill/notes/<tag>.md`; a summary at `/tmp/helio-backfill/REVIEW.md`
 
@@ -726,6 +730,7 @@ This is the highest-risk task for the invariant. All 1123 baseline commits must 
 Armed last so it does not fight the backfill.
 
 **Files:**
+
 - Create: `infra/rulesets/tags.json`
 
 - [ ] **Step 1: Write it**
@@ -736,14 +741,8 @@ Armed last so it does not fight the backfill.
   "target": "tag",
   "enforcement": "active",
   "conditions": { "ref_name": { "include": ["refs/tags/v*"], "exclude": [] } },
-  "rules": [
-    { "type": "creation" },
-    { "type": "deletion" },
-    { "type": "update" }
-  ],
-  "bypass_actors": [
-    { "actor_id": 64526343, "actor_type": "User", "bypass_mode": "always" }
-  ]
+  "rules": [{ "type": "creation" }, { "type": "deletion" }, { "type": "update" }],
+  "bypass_actors": [{ "actor_id": 64526343, "actor_type": "User", "bypass_mode": "always" }]
 }
 ```
 
@@ -774,6 +773,7 @@ Armed after the backfill so it does not block creating the 52 historical tags."
 ### Task 9: Artifact Registry retention
 
 **Files:**
+
 - Create: `infra/artifact-registry-cleanup.json`
 
 - [ ] **Step 1: Write the policy**
@@ -847,10 +847,12 @@ converges. Low risk now that every deployed version has a git tag."
 ### Task 10: The `/release` skill
 
 **Files:**
+
 - Create: `.claude/commands/release.md`
 - Create: `scripts/release/cut-release.sh`
 
 **Interfaces:**
+
 - Consumes: the tag scheme `v<major>.<minor>.<patch>` and branches `release/v<major>.<minor>`.
 - Produces: `scripts/release/cut-release.sh <major.minor>` — prints a plan and the changelog, and acts only after explicit confirmation.
 
@@ -974,6 +976,7 @@ tag, and requires explicit confirmation because the tag push deploys."
 ### Task 11: Update version references
 
 **Files:**
+
 - Modify: `package.json:3`
 - Modify: `notes/roadmap-v2.md`, `notes/roadmap.md`, `development-plan.md`, `docs/cloud-dev-setup.md`, `infra/README.md`
 - Modify: Linear project names (9)

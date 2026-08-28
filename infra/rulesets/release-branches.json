@@ -3,11 +3,6 @@
   "target": "branch",
   "enforcement": "active",
   "conditions": { "ref_name": { "include": ["refs/heads/release/**"], "exclude": [] } },
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" }
-  ],
-  "bypass_actors": [
-    { "actor_id": 64526343, "actor_type": "User", "bypass_mode": "always" }
-  ]
+  "rules": [{ "type": "deletion" }, { "type": "non_fast_forward" }],
+  "bypass_actors": [{ "actor_id": 64526343, "actor_type": "User", "bypass_mode": "always" }]
 }

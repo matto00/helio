@@ -9,7 +9,7 @@ Four related administrative gaps, all touching how Helio ships:
 
 1. **Bypass warnings on every release fast-forward.** The `Release branch protection`
    ruleset (id `15879813`) applies `creation` + `update` + `deletion` to
-   `refs/heads/release/**`. The `update` rule blocks *all* pushes, fast-forward
+   `refs/heads/release/**`. The `update` rule blocks _all_ pushes, fast-forward
    included, so every FF consumes the owner's bypass and emits a warning.
 2. **Deploys fire on branch push.** `cd-backend.yml` and `cd-frontend.yml` trigger
    on `push: branches: ["release/**"]`, so a release cut is inseparable from a
@@ -30,7 +30,7 @@ Two operations could be mistaken for rewrites; neither is:
 - **Branch renames move a ref pointer.** Pushing `release/v0.6` at `82186dd7` and
   deleting `release/v1.6` changes which names point at a commit, not the commit.
 - **Tag backdating stamps the tag object.** `GIT_COMMITTER_DATE`/`GIT_AUTHOR_DATE`
-  set around `git tag -a` write the *tagger* date onto a new tag object that points
+  set around `git tag -a` write the _tagger_ date onto a new tag object that points
   at the commit. The commit is read-only in that operation.
 
 **Mechanical gate.** A baseline of all baseline commits was captured before any work:
@@ -44,7 +44,7 @@ After every phase, `git log --all --format='%H %aI %cI' | sort` must diff clean
 against that baseline (modulo commits newly added by this branch). A non-empty diff
 on any pre-existing commit means the phase is reverted, not patched.
 
-Phase 2 also *strengthens* this: `non_fast_forward` on `release/**` makes rewriting
+Phase 2 also _strengthens_ this: `non_fast_forward` on `release/**` makes rewriting
 a release branch impossible going forward. Today the owner's bypass permits it.
 
 ## Evidence base
@@ -76,15 +76,15 @@ offset.
 
 Sequential, closing the historical v1.2 gap:
 
-| old branch | new branch | tags | count |
-|---|---|---|---|
-| `release/v1.0` | `release/v0.1` | `v0.1.0` | 1 |
-| `release/v1.1` | `release/v0.2` | `v0.2.0` | 1 |
-| `release/v1.3` | `release/v0.3` | `v0.3.0`–`v0.3.2` | 3 |
-| `release/v1.4` | `release/v0.4` | `v0.4.0`–`v0.4.7` | 8 |
-| `release/v1.5` | `release/v0.5` | `v0.5.0`–`v0.5.7` | 8 |
-| `release/v1.6` | `release/v0.6` | `v0.6.0`–`v0.6.25` | 26 |
-| `release/v1.7` | `release/v0.7` | `v0.7.0`–`v0.7.4` | 5 |
+| old branch     | new branch     | tags               | count |
+| -------------- | -------------- | ------------------ | ----- |
+| `release/v1.0` | `release/v0.1` | `v0.1.0`           | 1     |
+| `release/v1.1` | `release/v0.2` | `v0.2.0`           | 1     |
+| `release/v1.3` | `release/v0.3` | `v0.3.0`–`v0.3.2`  | 3     |
+| `release/v1.4` | `release/v0.4` | `v0.4.0`–`v0.4.7`  | 8     |
+| `release/v1.5` | `release/v0.5` | `v0.5.0`–`v0.5.7`  | 8     |
+| `release/v1.6` | `release/v0.6` | `v0.6.0`–`v0.6.25` | 26    |
+| `release/v1.7` | `release/v0.7` | `v0.7.0`–`v0.7.4`  | 5     |
 
 **52 tags, covering 1118 commits.** The full ledger — tag, SHA, original push
 timestamp, changelog range, commit count — is committed alongside this document as
@@ -136,7 +136,7 @@ Both CD workflows therefore trigger on the same tag push and stamp the same
 `<version>-<sha8>` identifier, so a single tag maps to exactly one backend image, one
 frontend image, and one Firebase release.
 
-*Caveat:* a tag pushed by Actions using the default `GITHUB_TOKEN` does **not**
+_Caveat:_ a tag pushed by Actions using the default `GITHUB_TOKEN` does **not**
 trigger workflows. Tagging stays manual (which is the intent); any future automation
 needs a PAT or GitHub App.
 
@@ -151,7 +151,7 @@ needs a PAT or GitHub App.
 
 The tag ruleset is **armed last**, after the backfill, so it does not fight it.
 
-#### The `paths-ignore` deadlock (must be fixed *before* CI becomes required)
+#### The `paths-ignore` deadlock (must be fixed _before_ CI becomes required)
 
 `ci.yml` declares `paths-ignore: ["**.md", "LICENSE", ".github/ISSUE_TEMPLATE/**",
 "docs/**"]` on both `push` and `pull_request`. A skipped workflow **never reports a
@@ -215,19 +215,19 @@ Tag objects are backdated to the original push timestamp so
 versions only** (`v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.5.0`, `v0.6.0`,
 `v0.7.0`), each carrying the changelog for its whole minor.
 
-*Resolved:* the REST API exposes **no `published_at` parameter** on either
+_Resolved:_ the REST API exposes **no `published_at` parameter** on either
 `POST /repos/{owner}/{repo}/releases` or the `PATCH` update endpoint. Accepted body
 params are `tag_name`, `target_commitish`, `name`, `body`, `draft`, `prerelease`,
 `discussion_category_name`, `generate_release_notes`, `make_latest` — no timestamp
 among them. Backfilling all 52 would therefore stamp 52 Releases with today's date.
 
-Note that `created_at` *is* automatically the date of the release's commit (per
+Note that `created_at` _is_ automatically the date of the release's commit (per
 GitHub's docs), so that field stays historically accurate without intervention; only
 `published_at` is wrong. If the Releases UI proves to render `created_at`, expanding
 to all 52 is a one-line change to the backfill.
 
-Releases are **not** flagged `prerelease`: that flag means *unstable* (alpha/beta/rc),
-not *old*, and would mislabel versions that genuinely shipped to production.
+Releases are **not** flagged `prerelease`: that flag means _unstable_ (alpha/beta/rc),
+not _old_, and would mislabel versions that genuinely shipped to production.
 
 ### Phase 4 — Rename branches
 
@@ -246,10 +246,10 @@ An Artifact Registry cleanup policy:
 **Why 30 days and not 90.** Modeled against the live registry (53 images, 31.8 GB):
 
 | age rule | deletes | reclaims |
-|---|---|---|
-| >90 days | 7 | 2.4 GB |
-| >60 days | 9 | 3.7 GB |
-| >30 days | 26 | 14.4 GB |
+| -------- | ------- | -------- |
+| >90 days | 7       | 2.4 GB   |
+| >60 days | 9       | 3.7 GB   |
+| >30 days | 26      | 14.4 GB  |
 
 47 of 53 images were pushed within the last 90 days — the bloat is recency-dense,
 not old (2026-08-16 alone produced 26 images). A 90-day rule is close to a no-op and
