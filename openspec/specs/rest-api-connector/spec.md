@@ -336,18 +336,25 @@ sent.
 - **WHEN** a source's `bodyContentType` is not a parseable HTTP content type
 - **THEN** the create/update request is rejected (400) with a descriptive error
 
-### Requirement: Minimal response root-selector (jsonPath)
+### Requirement: Response root-selector with curated selection errors
 A `rest_api` source MAY declare `rootSelector`: a dot-separated path of object-key segments
 (e.g. `data.items`) locating the array or object within the response body that `toRows` should
 operate on. When `rootSelector` is unset, `toRows` behavior is byte-identical to the pre-existing
 behavior (top-level `JsArray` → one row per element; top-level `JsObject` → one row; anything
 else → one row). When set, the same array/object/other classification is applied to the value
-found at the end of the path walk instead of the response root. A path segment that does not
-exist, or that requires descending into a non-object value, SHALL yield zero rows (never a 500)
-and SHALL be logged server-side naming the source and the failing segment. This requirement is a
-deliberate strict subset of the response-shaping behavior HEL-599 will add (same dot-path
-convention; no flatten, no pagination-loop composition, no curated `fetchError` envelope, no
-inference-facade-specific handling) so that ticket can extend rather than rewrite this one.
+found at the end of the path walk instead of the response root.
+
+A path segment that does not exist, or that requires descending into a non-object value, SHALL
+produce a curated fetch error naming the selector and the failing segment, surfaced through the
+`fetch-error-envelope` capability's `fetchError` field. It SHALL NOT produce a 500, and it SHALL
+NOT produce a silent empty success — a caller that supplied a selector which did not match the
+response is told so rather than receiving zero rows indistinguishable from a genuinely empty
+result. The curated message SHALL NOT include the response body or any credential material. The
+failure SHALL also be logged server-side naming the source and the failing segment.
+
+Rows located by the selector SHALL be materialised through the shared traversal defined by the
+`nested-json-flattening` capability, so a selected row containing nested objects carries dotted
+columns matching its inferred schema.
 
 #### Scenario: Row array nested under a single key
 - **WHEN** a source's `rootSelector` is `data` and the response body is `{"data": [{"a": 1}]}`
@@ -362,8 +369,21 @@ inference-facade-specific handling) so that ticket can extend rather than rewrit
 - **WHEN** a source has no `rootSelector` and the response body is a top-level JSON array
 - **THEN** `toRows` produces the same rows it would have before this requirement existed
 
-#### Scenario: Selector pointing at a missing key yields zero rows, not an error
+#### Scenario: Selector pointing at a missing key yields a curated error rather than zero rows
 - **WHEN** a source's `rootSelector` is `missing.path` and the response body has no top-level
   `missing` key
-- **THEN** `toRows` produces zero rows, and the failure is logged server-side (not surfaced as a
-  client-visible fetch error by this requirement — see HEL-599 for a curated error envelope)
+- **THEN** the source's `fetchError` carries a curated message naming the selector and the failing
+  segment, no rows are reported as a successful empty result, and no 500 is returned
+
+#### Scenario: Selector descending through a non-object is a curated error
+- **WHEN** a source's `rootSelector` is `data.items` and the response body is `{"data": 5}`
+- **THEN** the source's `fetchError` carries a curated message naming the failing segment
+
+#### Scenario: Curated selector error leaks no response content
+- **WHEN** a selector failure produces a `fetchError`
+- **THEN** the message contains neither the response body nor any credential or header value
+
+#### Scenario: Selected rows carry dotted columns for nested objects
+- **WHEN** a source's `rootSelector` is `data` and the response body is
+  `{"data": [{"id": 1, "stats": {"pts": 33.7}}]}`
+- **THEN** the materialised row has columns `id` and `stats.pts`, and no column `stats`

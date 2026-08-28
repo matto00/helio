@@ -2,9 +2,11 @@
 Defines how `SchemaInferenceEngine` infers a `DataType`'s field schema (names, `DataFieldType`,
 nullability, display names) from JSON, CSV, and static-connector sources, and the REST endpoints
 that preview an inferred schema without persisting it.
+
 ## Requirements
+
 ### Requirement: JSON schema inference
-The `SchemaInferenceEngine.fromJson` function SHALL accept a `spray.json.JsValue` and return an `InferredSchema`. If the root value is a `JsArray` of objects, fields are inferred from the union of keys across all elements. If the root is a `JsObject`, fields are inferred directly from its keys. Nested `JsObject` values SHALL be flattened using dot notation. All other root shapes return an empty schema.
+The `SchemaInferenceEngine.fromJson` function SHALL accept a `spray.json.JsValue` and return an `InferredSchema`. If the root value is a `JsArray` of objects, fields are inferred from the union of keys across all elements. If the root is a `JsObject`, fields are inferred directly from its keys. Nested `JsObject` values SHALL be flattened using dot notation, via the shared bounded traversal defined by the `nested-json-flattening` capability — the same traversal from which rows are materialised, so an inferred dotted field is always a field the rows actually carry. Array values SHALL be leaves, inferred as `StringType`, and SHALL NOT be expanded into index-bearing field names. An object at the traversal's depth bound SHALL be inferred as a single `StringType` field at its dotted path. All other root shapes return an empty schema.
 
 #### Scenario: Root object infers fields from keys
 - **WHEN** `fromJson` is called with a `JsObject` containing keys `id` (number), `name` (string), `active` (boolean)
@@ -17,6 +19,14 @@ The `SchemaInferenceEngine.fromJson` function SHALL accept a `spray.json.JsValue
 #### Scenario: Nested object is flattened with dot notation
 - **WHEN** `fromJson` is called with `{ "address": { "city": "London" } }`
 - **THEN** the result contains a field named `address.city` of type `StringType`
+
+#### Scenario: Inferred nested field is one the rows carry
+- **WHEN** `fromJson` infers a dotted field from a nested object
+- **THEN** materialising a row from that same object produces a column of exactly that name
+
+#### Scenario: Array field is inferred as a string leaf
+- **WHEN** `fromJson` is called with `{ "tags": ["a", "b"] }`
+- **THEN** the result contains a single field `tags` of type `StringType`, and no `tags.0` field
 
 #### Scenario: Null value marks field as nullable
 - **WHEN** a field is `JsNull` in any sampled object
@@ -155,4 +165,3 @@ For static data sources, the system SHALL construct `DataField` entries directly
 #### Scenario: Unrecognised type defaults to string
 - **WHEN** a static source column is declared with an unrecognised type string
 - **THEN** the registered field has `dataType = "string"`
-
