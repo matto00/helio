@@ -195,19 +195,51 @@ tweaks ≤ 4px may be literal).
 Every button, input, and select uses a control-height token:
 `--control-sm` 28px (bar/compact controls) · `--control-md` 32px (default
 inputs & buttons) · `--control-lg` 40px (auth/hero). Inline mini icon-buttons
-inside dense rows may be 24px. A fifth, mobile-only value applies at the
-430/768 breakpoints: interactive controls reachable on phone (buttons, select
-triggers/options, CTAs) get a literal `44px` min-height/min-width tap-target
-floor (HEL-308/314/319) — this is intentional, not drift; it does not apply
-at desktop widths. Native `input[type="color"]` swatches (accent/appearance
-pickers) are also exempt, sized for visual color-swatch clarity rather than
-by a control token. For a painted chrome control that must not visually grow
-(border/background present, product decision against inflating it — e.g. the
-mobile command bar's icon buttons and avatar trigger, HEL-772), the sanctioned
-alternative is a sized `::after` hit expander (`width: 44px; height: 44px;
-top/left: 50%; transform: translate(-50%, -50%)` on a `position: relative`
-control) rather than `min-width`/`min-height`, which would grow the box. The
-expander extends `(44 - controlSize) / 2` per side (8px for a 28px control),
+inside dense rows may be 24px. Native `input[type="color"]` swatches
+(accent/appearance pickers) are exempt, sized for visual color-swatch clarity
+rather than by a control token.
+
+**The 44px touch floor.** Every interactive control reachable by touch must
+clear a 44x44px target. Two mechanisms, and which one you use is not a
+preference:
+
+- **Grow the box** (`min-height: 44px`) for full-width list/menu rows
+  (`MobileNavSheet` items, `ActionsMenu` items, `UserMenu` items, picker
+  rows), text inputs and select triggers, and `BottomNav` tabs. A 44px row is
+  the phone idiom and height there is legibility, not just target area.
+- **A sized `::after` hit expander** for every compact PAINTED control — any
+  button. `position: relative` on the control, then `width: 44px;
+height: 44px; top/left: 50%; transform: translate(-50%, -50%)` (or a
+  full-width strip: `left: 0; right: 0; height: 44px; top: 50%;
+transform: translateY(-50%)` for a labelled button). The canonical
+  rationale, and the list of where each mechanism applies, lives in
+  `shared/ui/tapTarget.css`; `shared/ui/tapTargetTestUtils.ts`'s
+  `expectTapExpander()` is the guard.
+
+Inflating painted buttons was the ORIGINAL approach and it was wrong: on a
+phone it made every secondary action — header CTAs, icon-only chrome, inline
+form actions — the largest, heaviest element on screen, and wrapped labels
+like "Add connector" onto two lines. Do not reintroduce `min-height: 44px` on
+a button. Size the expander explicitly (never a negative `inset`, which
+resolves against the PADDING box and lands 2px short per axis on a bordered
+control), and never omit `position: relative` — without it the expander
+resolves against the nearest positioned ancestor and the enlarged hit region
+silently lands elsewhere on the page, invisible to screenshots and unit tests.
+
+**Gate on the input device, not the viewport:**
+`@media (max-width: 768px), (pointer: coarse)`. A width-only gate was wrong —
+`max-width: 768px` covers only iPads in the narrowest portrait orientation.
+iPad 10.2/Air/Pro (810–1024px), every iPad in landscape (1080–1366px) and
+every iPhone 12+ held sideways (844–932px) all fell outside it and got
+desktop-sized 24–28px targets. `(pointer: coarse)` is true on exactly the
+devices that need this and false for a mouse, and the comma is a logical OR,
+so the existing narrow-viewport behaviour is preserved. This gate belongs on
+tap-target rules ONLY — phone-shaped LAYOUT (stacking a row, hiding desktop
+chrome, going full-bleed) stays width-gated, since an iPad Pro at 1366px has a
+desktop's worth of room and should get the desktop layout with finger-sized
+targets. **[mechanical]**
+
+**Expander tiling.** The expander extends `(44 - controlSize) / 2` per side (8px for a 28px control),
 so a cluster of expander-based controls needs a gap of at least twice that
 (16px for 28px controls), or adjacent hit regions overlap and the
 later-painted sibling steals the earlier control's taps in the overlapping
@@ -220,7 +252,10 @@ box-vs-box — so verification must bisect each control's real hit extent with
 bisects to just under 44px (~43.75px at a 0.25px sampling step), so the
 assertion threshold needs an epsilon (`>= 44 - samplingStep`, never a literal
 `>= 44`); the gap must never be widened past the tiling point to force the
-number over 44 — the threshold takes the epsilon, not the gap.
+number over 44 — the threshold takes the epsilon, not the gap. This is why
+`.app-command-bar__right`'s `--space-4` gap carries the SAME touch gate as the
+expanders it separates: gate the two differently and an iPad gets the
+expanders without the spacing they were measured against.
 **[mechanical]** No other control heights.
 
 ### Typography
@@ -270,6 +305,12 @@ breakpoint; 430px covers every iPhone portrait width (the largest is
 430–440pt) while staying clear of small tablets. `PanelDetailModal.css`'s
 pre-existing, unratified `480px` query was folded into this value.
 
+**These are LAYOUT breakpoints, and a viewport width is not a proxy for a
+touch device.** Tap-target rules take the touch gate instead — see §3's
+"Gate on the input device, not the viewport". Reaching for `max-width: 768px`
+to mean "is this a finger?" silently excludes every iPad above the narrowest
+portrait width and every phone in landscape.
+
 ## 5. Buttons
 
 Until a shared `Button` component exists, every button follows one of these
@@ -285,6 +326,18 @@ recipes (match metrics exactly; see `Modal.css` / `App.css` for reference):
 
 All at `--control-sm/md` height, `--app-radius-sm`, `--weight-medium`,
 `--text-xs/sm`. **[judgment]** A new button style is a defect, not a variant.
+
+**Chrome surfaces are borderless.** Inside `.app-command-bar` and
+`.app-sidebar`, every trigger drops its hairline at every width (`cmd-btn`,
+`ui-icon-btn`, `actions-menu__trigger`, `user-menu__trigger`) — these surfaces
+FRAME the app rather than being content, and a row of controls each in its own
+box reads heavier than what it frames. Hover backgrounds are kept, so feedback
+survives. This is scoped to those two surfaces, deliberately NOT to the
+primitives: the same recipes keep their border everywhere else, and especially
+on panel cards, where it separates a control from busy content rather than
+from flat chrome. Note each recipe re-asserts `border-color` on hover, so a
+borderless override must list `:hover` alongside the base selector or the
+outline returns on pointer-over. **[mechanical]**
 
 ### Icon-only buttons
 
@@ -345,6 +398,45 @@ Chrome in `frontend/src/shared/chrome/`: **Popover** (opaque
 
 Use these; do not hand-roll equivalents. **[mechanical]** (raw-element
 detection) **+ [judgment]**
+
+Utilities in `theme.css`: **`.page-title`** (a section page's `<h1>` —
+`--font-display` at `--text-2xl`, `--weight-semibold`; do not re-derive it
+per page, which is how `SettingsPage` and `ConnectorsPage` drifted apart) ·
+**`.eyebrow`** · **`.sr-only`**. `shared/ui/tapTarget.css` carries the
+`.tap-expand-44` utility and the canonical tap-target rationale (§3).
+
+### Section overview pages
+
+The six sidebar sections share one shape. Dashboards is the deliberate
+exception — that route IS the canvas, and a dashboard's useful representation
+is visual, not a table row.
+
+- **`/<section>` is an overview**: `.page-title` `<h1>` in a `__header`,
+  then a list table, then the create action in a `__toolbar` BELOW the table.
+  Geometry is identical across every one of them — `padding: var(--space-5)
+var(--space-6)`, `gap: var(--space-7)` on the page container — so switching
+  sections doesn't shift the title. Verified equal on all five.
+- **The create action goes below the list, never in the header.** As a
+  header-height block it pushes the list — the reason the page exists — down
+  the viewport.
+- **`/<section>/:id` is the detail**, and the ROUTE is the selection. Do not
+  reintroduce a Redux `selectedXId` with an `items[0]` fallback: that made a
+  bare section URL render an arbitrary item, and in the registry's case
+  force-navigated the address bar to it. An unknown id must be a real
+  not-found, not a silent fallback to whatever sorted first.
+- The sidebar, the phone picker sheet (`usePickerSelection`) and the
+  breadcrumb all read the same route id, so a deep link, a refresh and a click
+  resolve identically.
+- A section with no create action (Data Types — types are produced BY
+  pipelines) gets no toolbar and no `onAdd`; its table is a read-only audit
+  surface. **[judgment]**
+
+**Sanctioned exceptions**, both tracked so they are not mistaken for drift:
+**Dashboards** (the route is the canvas; a gallery, not a table, would be the
+right index if one is ever wanted) and **Chat** (`ActiveConversationPanel`
+still resolves selection from Redux with an `items[0]` fallback — a new
+conversation has no id until its first message persists, so "the route is the
+selection" needs an answer for that state first; HEL-855).
 
 ### DataGrid cell density
 

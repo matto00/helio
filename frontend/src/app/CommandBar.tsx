@@ -6,7 +6,6 @@ import {
   faArrowRotateRight,
   faComments,
   faPlus,
-  faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 
 import { UserMenu } from "../features/auth/ui/UserMenu";
@@ -24,11 +23,13 @@ import {
   undoLayout,
 } from "../features/layout/state/layoutHistorySlice";
 import { useLayoutUndoRedo } from "../features/layout/hooks/useLayoutUndoRedo";
+import { useCreatePanelAction } from "../features/panels/hooks/useCreatePanelAction";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { OrbitMark } from "../shared/chrome/OrbitMark";
 import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
 import { pickerIdForPathname } from "../shared/chrome/sections";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
+import { ActionsMenu, type ActionsMenuItem } from "../shared/chrome/ActionsMenu";
 import { IconButton } from "../shared/ui/IconButton";
 import { useSaveState } from "../context/SaveStateContext";
 
@@ -68,6 +69,21 @@ export function CommandBar({
   const onDashboardView = location.pathname === "/";
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
+
+  const createPanelAction = useCreatePanelAction();
+
+  // `disabled` is carried through rather than filtering the item out: the
+  // action is unavailable only when no dashboard is selected, and the menu
+  // itself is already gated on that — keeping the flag means the descriptor
+  // stays the single source of truth for its own availability.
+  const dashboardActionItems: ActionsMenuItem[] = [
+    {
+      label: "Add panel",
+      onClick: createPanelAction.cta.onClick,
+      disabled: createPanelAction.cta.disabled,
+    },
+    { label: "Refine with AI", onClick: onOpenRefinement },
+  ];
 
   const pickerSelection = usePickerSelection(location.pathname);
   const pickerId = pickerIdForPathname(location.pathname);
@@ -249,16 +265,6 @@ export function CommandBar({
             onPreviewChange={setDraftAppearance}
           />
         )}
-        {onDashboardView && selectedDashboard !== null && (
-          <IconButton
-            icon={<FontAwesomeIcon icon={faWandMagicSparkles} />}
-            variant="secondary"
-            size="sm"
-            onClick={onOpenRefinement}
-            aria-label="Refine this dashboard with AI"
-            title="Refine with AI"
-          />
-        )}
         {/* Quick-launcher trigger (design.md D7) -- same IconButton variant="secondary" size="sm"
             recipe as "Refine with AI" above, genuinely unconditional (unlike "Refine with AI",
             which is gated to the dashboard view). F-082: suppressed on /chat itself -- that route
@@ -273,6 +279,17 @@ export function CommandBar({
             aria-label="Open assistant"
             title="Assistant (Ctrl/Cmd+K)"
           />
+        )}
+        {/* Every dashboard-scoped action behind ONE kebab, so the dashboard
+            page's bar matches every other page's (assistant + user menu) and
+            the title keeps the width it was losing to a row of icons.
+            "Add panel" also lives here rather than in a bar above the grid —
+            that bar cost a full row of vertical space on every dashboard.
+            Gated as the individual triggers were: `PanelCreationModal` is
+            mounted by `PanelList` alone (route `/`), so neither item may
+            outlive the surface that responds to it. */}
+        {onDashboardView && selectedDashboard !== null && (
+          <ActionsMenu label="Dashboard actions" items={dashboardActionItems} />
         )}
         {authStatus === "authenticated" && currentUser !== null && (
           <UserMenu

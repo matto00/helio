@@ -32,9 +32,17 @@
      desktop-width browser, an iPhone with no top inset) -- a bare
      `padding-top: var(--app-safe-top)` would silently zero that 16px out in
      exactly those cases instead of adding the inset on top of it. */
+  /* `align-items` belongs to the same full-screen presentation, so it is
+     declared here rather than in a second rule with an identical selector:
+     this header carries a single-line title and no description, and the base
+     `align-items: flex-start` (which exists for stacked title+description
+     headers) top-aligns that title against its taller sibling controls. Above
+     this width the modal is a centred card whose header keeps the shared
+     alignment. */
   .ui-modal.panel-detail-modal .ui-modal__header,
   .ui-modal.panel-detail-modal--view .ui-modal__header {
     padding-top: calc(var(--app-safe-top) + var(--space-4));
+    align-items: center;
   }
 }
 
@@ -48,7 +56,8 @@
    768px is the canonical mobile-shell breakpoint (DESIGN.md §4), matching the
    BottomNav query where the 44px rule already lives. 44px is the a11y tap
    minimum (not a --control token), consistent with BottomNav.css. */
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
   /* HEL-303: the modal is reachable on phone by tapping a stack panel, so the
      header Edit control and the footer Save/Cancel actions — the entry and
      exit points of the reachable edit flow — must also meet the 44px tap
@@ -57,25 +66,71 @@
      own close control; HEL-718: that control now uses the shared
      `IconButton` primitive, whose mobile 44px override lives (and is locked
      by IconButton.css.test.ts) in `shared/ui/IconButton.css`. */
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`.
+     Growing this one also left the single-line title floating above it,
+     given Modal.css's `align-items: flex-start` (fixed just below). */
   .panel-detail-modal__edit-btn {
-    min-height: 44px;
+    position: relative;
   }
 
+  .panel-detail-modal__edit-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`. */
   .panel-detail-modal__btn {
-    min-height: 44px;
+    position: relative;
   }
 
+  .panel-detail-modal__btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`. */
   .panel-detail-modal__mode-toggle-btn {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .panel-detail-modal__mode-toggle-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 
   .panel-detail-modal__type-option {
     min-height: 44px;
   }
 
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`.
+     Icon-only and square, so the centered 44x44 form. */
   .panel-detail-modal__type-clear {
-    min-width: 44px;
-    min-height: 44px;
+    position: relative;
+  }
+
+  .panel-detail-modal__type-clear::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 
   .panel-detail-modal .ui-select__trigger {
@@ -93,13 +148,35 @@
     min-height: 44px;
   }
 
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`.
+     Icon-only and square, so the centered 44x44 form. */
   .panel-detail-modal__column-move-btn {
-    min-width: 44px;
-    min-height: 44px;
+    position: relative;
   }
 
+  .panel-detail-modal__column-move-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`. */
   .panel-detail-modal__reset-widths-btn {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .panel-detail-modal__reset-widths-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 
   /* HEL-248: Chart Display controls — the per-type boolean toggle rows and the
@@ -117,8 +194,19 @@
      also meet the 44px tap minimum. The base-type Select and the value-field /
      label / unit Selects are already covered by the `.ui-select__trigger` rule
      above, and the label/unit mode toggles by `.panel-detail-modal__mode-toggle-btn`. */
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`. */
   .panel-detail-modal__segmented-btn {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .panel-detail-modal__segmented-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 
   /* HEL-303 (cycle 2): the Chart Display checkbox rows — Show legend / Enable

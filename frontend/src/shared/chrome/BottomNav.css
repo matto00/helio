@@ -95,51 +95,35 @@
  * and theme.css's global `* { box-sizing: border-box }` then resolves
  * padding+border inward from that 22px — styling the <svg> directly would
  * clamp its content box to 0px and render an empty ring with no glyph.
- * Present on every tab, always with a transparent border, so the icon's box
- * never shifts when the active tab changes; only `background`/`border-color`
- * change on the active tab. */
+ * Present on every tab with identical geometry, so the icon's box never
+ * shifts when the active tab changes; only `background` changes. */
 .bottom-nav__lozenge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--app-radius-pill);
-  border: 1px solid transparent;
   /* The lozenge never travels between tabs (it's per-tab, not a shared
      indicator) — at most it fades in on activation. Gated below under
      `prefers-reduced-motion: reduce` (D8). */
-  transition:
-    background var(--app-transition),
-    border-color var(--app-transition);
+  transition: background var(--app-transition);
 }
 
 /* Accent is sanctioned here as the active-tab indicator (DESIGN.md §0.3) —
- * nowhere else in the bar. The lozenge's fill/border carry the material
+ * nowhere else in the bar. The lozenge's tinted fill carries the selection
  * affordance; the accent icon colour is a secondary cue, never the sole one. */
 .bottom-nav__tab--active {
   color: var(--app-accent);
 }
 
 .bottom-nav__tab--active .bottom-nav__lozenge {
-  /* --app-surface at alpha 0.95 (D6) — reuses the capsule's own token so the
-     active icon's backdrop reads as today's opaque bar. This fill supplies
-     depth only; it is NOT what makes the lozenge visible (it measures
-     ~1.01-1.15:1 against the capsule over theme-matched backdrops — the
-     border below does that work). NOT --app-surface-strong: an absolute fill
-     token from the adjacent rung of the neutral ramp converges to invisible
-     against the capsule composite at every alpha. */
-  background: color-mix(in srgb, var(--app-surface) 95%, transparent);
-  /* Full-strength var(--app-text), not a color-mix: a 70% mix measures only
-     2.50:1 at the shipping tint alpha, below the 3:1 floor this change writes
-     into DESIGN.md. At full strength the border's separation from the
-     capsule is arithmetically identical to the inactive icon's (both are
-     --app-text over the same composite) — 3.44:1 dark / 4.89:1 light,
-     clearing the floor. This is the whole active-tab affordance; do not
-     weaken it back to a color-mix. No `background-clip` is declared: with
-     this opaque border the fill underneath is fully covered, so `padding-box`
-     and the default paint model are pixel-identical — declaring it would be
-     dead CSS pinning a premise that no longer holds (D6). */
-  border-color: var(--app-text);
+  /* Accent-tinted highlight fill, no border (the previous full-strength
+     --app-text border read as an outlined box rather than a selection). The
+     tint is the whole affordance now, so it is mixed against --app-accent
+     (not the neutral ramp) — an accent wash separates from the capsule
+     composite in both themes where a neutral fill converges to invisible,
+     which is exactly why the border was carrying the contrast before. */
+  background: color-mix(in srgb, var(--app-accent) 22%, transparent);
 }
 
 .bottom-nav__tab:focus-visible {

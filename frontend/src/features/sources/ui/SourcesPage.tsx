@@ -3,11 +3,13 @@ import { Database } from "lucide-react";
 
 import "./SourcesPage.css";
 import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
+import { fetchPipelines } from "../../pipelines/state/pipelinesSlice";
+import { selectPipelineNamesBySourceId } from "../../pipelines/state/pipelinesSlice";
 import { useAddSourceAction } from "../hooks/useAddSourceAction";
 import { fetchSources, setAddSourceModalOpen } from "../state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
-import { SourceDetailPanel } from "./SourceDetailPanel";
+import { SourceListTable } from "./SourceListTable";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { PageContentSkeleton } from "../../../shared/ui/PageContentSkeleton";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
@@ -19,10 +21,11 @@ export function SourcesPage() {
     status: sourcesStatus,
     error: sourcesError,
     errorKind: sourcesErrorKind,
-    selectedSourceId,
     addModalOpen,
   } = useAppSelector((state) => state.sources);
   const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
+  const pipelinesStatus = useAppSelector((state) => state.pipelines.status);
+  const pipelineNamesBySourceId = useAppSelector(selectPipelineNamesBySourceId);
   const addSourceAction = useAddSourceAction();
 
   useEffect(() => {
@@ -39,7 +42,13 @@ export function SourcesPage() {
     if (dataTypesStatus === "idle") {
       void dispatch(fetchDataTypes());
     }
-  }, [dispatch, sourcesStatus, dataTypesStatus]);
+    // The overview's "Used by" column resolves each source's reading
+    // pipelines. Same `idle` guard — the sidebar's sources section already
+    // fetches pipelines for its delete-confirm warning.
+    if (pipelinesStatus === "idle") {
+      void dispatch(fetchPipelines());
+    }
+  }, [dispatch, sourcesStatus, dataTypesStatus, pipelinesStatus]);
 
   // HEL-554 D4/task 3.4 — mirrors `PanelList.tsx:193-197`'s identical
   // cleanup for `panelCreationModalOpen`. `addModalOpen` is a Redux flag, so
@@ -58,10 +67,6 @@ export function SourcesPage() {
     };
   }, [dispatch]);
 
-  // Derive the effective selection so the panel is never blank: explicit user
-  // choice from the sidebar wins; otherwise fall back to the first item.
-  const selected = sources.find((s) => s.id === selectedSourceId) ?? sources[0] ?? null;
-
   // Computed outside the JSX conditional below so it isn't affected by the
   // `sourcesStatus === "failed"` narrowing inside that branch.
   const isRetryingSources = sourcesStatus === "loading";
@@ -75,6 +80,10 @@ export function SourcesPage() {
 
   return (
     <div className="sources-page">
+      <header className="sources-page__header">
+        <h1 className="page-title">Data Sources</h1>
+      </header>
+
       <div className="sources-page__section">
         {showSourcesSkeleton && <PageContentSkeleton />}
         {sourcesStatus === "failed" && sourcesError && (
@@ -110,8 +119,24 @@ export function SourcesPage() {
           // isn't showing is the general form of that rule.
           !showSourcesSkeleton &&
             sourcesStatus !== "failed" &&
-            (selected !== null ? (
-              <SourceDetailPanel source={selected} />
+            (sources.length > 0 ? (
+              <>
+                <SourceListTable
+                  sources={sources}
+                  pipelineNamesBySourceId={pipelineNamesBySourceId}
+                />
+                {/* Below the list, matching Pipelines/Metrics/Connectors. */}
+                <div className="sources-page__toolbar">
+                  <button
+                    type="button"
+                    className="sources-page__create-btn"
+                    onClick={addSourceAction.cta.onClick}
+                    disabled={addSourceAction.cta.disabled}
+                  >
+                    Add source
+                  </button>
+                </div>
+              </>
             ) : (
               // F-102/F-174: this "Add source" CTA is fully functional on mobile even though a
               // non-empty source list is view-only there by design — deliberately blessed, not an

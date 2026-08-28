@@ -17,7 +17,6 @@ import {
   deleteDataType,
   fetchDataTypes,
   selectPipelineOutputDataTypes,
-  setSelectedTypeId,
 } from "../../features/dataTypes/state/dataTypesSlice";
 import { isUnstructuredDataType } from "../../features/dataTypes/types/dataType";
 import {
@@ -36,7 +35,6 @@ import {
   deleteSource,
   fetchSources,
   setAddSourceModalOpen,
-  setSelectedSourceId,
 } from "../../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { DashboardList } from "../../features/dashboards/ui/DashboardList";
@@ -111,10 +109,11 @@ export function SidebarBody() {
   ]);
 
   if (section === "sources") {
-    // Drive the page's selection via Redux so the sidebar acts as the source
-    // list (mirroring the dashboards pattern). Fall back to the first item
-    // when no explicit selection — the page renders the resolved selection.
-    const effectiveSourceId = sources.selectedSourceId ?? sources.items[0]?.id ?? null;
+    // Route-driven, like the pipelines and metrics branches below: `/sources`
+    // is now a section overview and `/sources/:id` the detail, so the URL is
+    // the selection. This replaces a Redux `selectedSourceId` + "fall back to
+    // items[0]" pairing, which made an unvisited `/sources` show an arbitrary
+    // source and left the sidebar highlighting something the user never picked.
     return (
       <SidebarItemList
         heading="Data Sources"
@@ -123,8 +122,8 @@ export function SidebarBody() {
           (sources.status === "idle" || sources.status === "loading") && sources.items.length === 0
         }
         error={sources.error}
-        onSelect={(item) => dispatch(setSelectedSourceId(item.id))}
-        activeId={effectiveSourceId}
+        toHref={(item) => `/sources/${item.id}`}
+        activeId={routeId ?? null}
         emptyText="Connect a data source"
         emptyIcon={<Database />}
         emptyDescription="Pull in data from PostgreSQL, MySQL, CSV, or static input."
@@ -137,9 +136,7 @@ export function SidebarBody() {
         }}
         onDelete={async (item) => {
           await dispatch(deleteSource(item.id));
-          if (sources.selectedSourceId === item.id) {
-            dispatch(setSelectedSourceId(null));
-          }
+          if (routeId === item.id) navigate("/sources");
         }}
       />
     );
@@ -208,7 +205,6 @@ export function SidebarBody() {
   }
 
   if (section === "registry") {
-    const effectiveTypeId = dataTypes.selectedTypeId ?? pipelineOutputDataTypes[0]?.id ?? null;
     // Classify over the full DataType[] list here — `renderBadge`'s `item` param
     // is typed `SidebarItem` ({id, name}), which has no `fields` to classify on.
     const unstructuredTypeIds = new Set(
@@ -234,8 +230,8 @@ export function SidebarBody() {
         }
         rowShape="stacked"
         error={dataTypes.error}
-        onSelect={(item) => dispatch(setSelectedTypeId(item.id))}
-        activeId={effectiveTypeId}
+        toHref={(item) => `/registry/${item.id}`}
+        activeId={routeId ?? null}
         emptyText="No types defined"
         emptyIcon={<Layers />}
         emptyDescription="Types are created by pipelines."
@@ -249,9 +245,7 @@ export function SidebarBody() {
         emptyCta={createPipelineAction.cta}
         onDelete={async (item) => {
           await dispatch(deleteDataType(item.id));
-          if (dataTypes.selectedTypeId === item.id) {
-            dispatch(setSelectedTypeId(null));
-          }
+          if (routeId === item.id) navigate("/registry");
         }}
         renderBadge={(item) =>
           unstructuredTypeIds.has(item.id) ? (

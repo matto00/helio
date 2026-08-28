@@ -213,7 +213,8 @@
 
 /* ── Mobile tap-target floor (HEL-319, following the HEL-308/314 convention) ── */
 
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
   /* Base selector, so it also floors the more-specific sidebar variant
      (--control-sm, 28px). HEL-773: this is no longer defensive-only — since
      that change, `MobileNavSheet`'s empty branch renders `variant="sidebar"`

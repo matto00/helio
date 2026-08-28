@@ -65,8 +65,21 @@
 
 /* Mobile tap-target floor (HEL-308/314/319 convention) — the labeled Retry
    button only; the icon-only variant already gets it from IconButton.css. */
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css` for
+     the pattern and the `position: relative` / explicit-height reasons. */
   .inline-error__retry {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .inline-error__retry::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }

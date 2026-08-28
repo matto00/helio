@@ -1,5 +1,16 @@
+/* `inline-flex`, not the `.popover` base's default `display: block`: the
+   wrapper otherwise establishes a line box around its inline-flex trigger, so
+   it measured 34.5px tall around a 28px button and left ~6.5px of descender
+   space BELOW it. Every flex parent then centred that taller wrapper, which
+   dropped the visible button 3.3px below its 28px siblings — measured in the
+   command bar (siblings centred at y=23.5, trigger at 26.8) and in
+   PipelineDetailHeader (row centre 65.5, trigger 68.8). Hugging the button
+   makes the wrapper's box the button's box, so centring the wrapper centres
+   what you can actually see. */
 .actions-menu {
   z-index: 4;
+  display: inline-flex;
+  align-items: center;
 }
 
 .actions-menu__trigger {
@@ -81,13 +92,13 @@
    Desktop density is unchanged (nothing outside this media block moves).
 
    HEL-314: the kebab trigger itself is a `--control-sm` (28px) square, also
-   under the 44px minimum. Lift both axes with `min-width`/`min-height: 44px`
-   (not fixed `width`/`height`) so desktop's 28px stays intact while the mobile
-   floor wins. The dots glyph stays centered without a flex switch here: the
-   co-applied `.popover__trigger` class (Popover.css) already supplies
-   `inline-flex` + `align-items`/`justify-content: center`, so the glyph
-   re-centers once the box grows. */
-@media (max-width: 768px) {
+   under the 44px minimum. It reaches the floor via a hit expander rather than
+   a 44px box — see `shared/ui/tapTarget.css`. Growing the painted box turned
+   a bordered 28px kebab into a 44px bordered square, which on a phone reads
+   as a heavy button rather than an overflow affordance, and (on
+   PipelineDetailPage's header) overhung the row it was aligned to. */
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
   .actions-menu__item {
     display: flex;
     align-items: center;
@@ -95,7 +106,16 @@
   }
 
   .actions-menu__trigger {
-    min-width: 44px;
-    min-height: 44px;
+    position: relative;
+  }
+
+  .actions-menu__trigger::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 }

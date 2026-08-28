@@ -126,12 +126,16 @@
   border-top: 1px solid var(--app-border-subtle);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* `stretch`, not `center`: the create action reads as a full-width section
+     action belonging to the list below it, rather than a floating pill
+     centred in its own band. */
+  align-items: stretch;
   gap: var(--space-2);
 }
 
 .mobile-nav-sheet__create-action {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
@@ -290,7 +294,21 @@
     min-height: 44px;
   }
 
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`. The
+     list ITEMS above keep a real 44px (a full-height row is the phone
+     idiom); this is a compact painted button, so it keeps its --control-sm
+     height and grows only its target. */
   .mobile-nav-sheet__create-action {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .mobile-nav-sheet__create-action::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }

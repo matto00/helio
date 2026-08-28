@@ -5,17 +5,13 @@ import { setSelectedConversationId } from "../../features/assistant/state/assist
 import type { CreateActionResult } from "../../features/dashboards/hooks/useCreateDashboardAction";
 import { useCreateDashboardAction } from "../../features/dashboards/hooks/useCreateDashboardAction";
 import { setSelectedDashboardId } from "../../features/dashboards/state/dashboardsSlice";
-import {
-  selectPipelineOutputDataTypes,
-  setSelectedTypeId,
-} from "../../features/dataTypes/state/dataTypesSlice";
+import { selectPipelineOutputDataTypes } from "../../features/dataTypes/state/dataTypesSlice";
 import { useCreatePipelineAction } from "../../features/pipelines/hooks/useCreatePipelineAction";
 import {
   fetchPipelines,
   selectPipelineNameByOutputTypeId,
 } from "../../features/pipelines/state/pipelinesSlice";
 import { useAddSourceAction } from "../../features/sources/hooks/useAddSourceAction";
-import { setSelectedSourceId } from "../../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { pickerIdForPathname, sectionLabel } from "./sections";
 
@@ -94,6 +90,8 @@ export function usePickerSelection(pathname: string): PickerSelection {
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
   const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
 
+  const sourceRouteId = pathname.startsWith("/sources/") ? pathname.split("/")[2] : null;
+  const registryRouteId = pathname.startsWith("/registry/") ? pathname.split("/")[2] : null;
   const pipelineRouteId = pathname.startsWith("/pipelines/") ? pathname.split("/")[2] : null;
   const metricRouteId = pathname.startsWith("/metrics/") ? pathname.split("/")[2] : null;
 
@@ -137,18 +135,21 @@ export function usePickerSelection(pathname: string): PickerSelection {
       };
     }
     case "sources": {
-      const effectiveId = sources.selectedSourceId ?? sources.items[0]?.id ?? null;
+      // Route-driven, matching the pipelines and metrics cases below. The
+      // former `selectedSourceId ?? items[0]` fallback named an arbitrary
+      // source in the breadcrumb on a bare `/sources`, which is now the
+      // section overview and names no single source at all.
       const items: PickerSelectionItem[] = sources.items.map((source) => ({
         id: source.id,
         name: source.name,
-        isActive: source.id === effectiveId,
+        isActive: source.id === sourceRouteId,
       }));
       return {
         items,
-        activeItemId: effectiveId,
-        activeItemName: items.find((item) => item.id === effectiveId)?.name ?? null,
+        activeItemId: sourceRouteId,
+        activeItemName: items.find((item) => item.id === sourceRouteId)?.name ?? null,
         heading,
-        onSelect: (item) => dispatch(setSelectedSourceId(item.id)),
+        onSelect: (item) => navigate(`/sources/${item.id}`),
         createAction: addSourceAction,
         emptyCreateAction: addSourceAction,
       };
@@ -170,7 +171,10 @@ export function usePickerSelection(pathname: string): PickerSelection {
       };
     }
     case "registry": {
-      const effectiveId = dataTypes.selectedTypeId ?? pipelineOutputDataTypes[0]?.id ?? null;
+      // Route-driven, matching sources/pipelines/metrics. `/registry` is now a
+      // section overview, so no type is "current" there — the former
+      // `selectedTypeId ?? items[0]` fallback named an arbitrary one.
+      const effectiveId = registryRouteId;
       // Attach the producing-pipeline provenance subtitle where resolvable;
       // omit it entirely when no pipeline is loaded for the DataType (HEL-270).
       const items: PickerSelectionItem[] = pipelineOutputDataTypes.map((dataType) => {
@@ -187,7 +191,7 @@ export function usePickerSelection(pathname: string): PickerSelection {
         activeItemId: effectiveId,
         activeItemName: items.find((item) => item.id === effectiveId)?.name ?? null,
         heading,
-        onSelect: (item) => dispatch(setSelectedTypeId(item.id)),
+        onSelect: (item) => navigate(`/registry/${item.id}`),
         // D7 — the registry section has no create action of its own (a type
         // exists only as a pipeline's output); the empty-branch CTA is its
         // only create path, matching `SidebarBody`'s `emptyCta` (NOT

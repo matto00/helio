@@ -84,17 +84,53 @@ export async function bisectHitExtent(
   samplingStep = 0.25,
   { minPx = DEFAULT_MIN_PX }: { minPx?: number } = {},
 ): Promise<number> {
-  const box = await locator.boundingBox();
+  const handle = await locator.elementHandle();
+  if (handle === null) {
+    throw new Error("bisectHitExtent: could not resolve an element handle");
+  }
+
+  // Settle before measuring. `boundingBox()` does NOT wait for actionability
+  // or stability, and under the Vite dev server (which both CI and local runs
+  // use) stylesheets are injected by JS after first paint — so a probe issued
+  // straight after `goto` can read the control's UNSTYLED coordinates, then
+  // walk points the control has since moved away from. The walk finds nothing
+  // at the very first step and the extent comes back as a flat `0`, which
+  // reads like a real overlap bug rather than a stale rect.
+  //
+  // Poll until the control's own centre actually hits it, re-reading the rect
+  // each time so the coordinates the walk uses are the ones that just passed.
+  // This is a genuinely different assertion from the walk below: this one says
+  // "the rect is current", the walk says "the hit region is big enough".
+  let box = await locator.boundingBox();
+  await expect
+    .poll(
+      async () => {
+        box = await locator.boundingBox();
+        if (box === null) return false;
+        const cx = box.x + box.width / 2;
+        const cy = box.y + box.height / 2;
+        return await page.evaluate(
+          ({ cx, cy, elHandle }) => {
+            const at = document.elementFromPoint(cx, cy);
+            return at !== null && (elHandle === at || elHandle.contains(at));
+          },
+          { cx, cy, elHandle: handle },
+        );
+      },
+      {
+        message:
+          "control's own centre must hit the control before its extent is measured — a stale " +
+          "rect (measured before dev-server CSS applied) would otherwise bisect to a bogus 0",
+        timeout: 5_000,
+      },
+    )
+    .toBe(true);
+
   if (box === null) {
     throw new Error("bisectHitExtent: control has no bounding box (not rendered)");
   }
   const centerX = box.x + box.width / 2;
   const centerY = box.y + box.height / 2;
-
-  const handle = await locator.elementHandle();
-  if (handle === null) {
-    throw new Error("bisectHitExtent: could not resolve an element handle");
-  }
 
   // Walk outward from center in BOTH directions along the axis, in
   // `samplingStep` increments, until `document.elementFromPoint` no longer

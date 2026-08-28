@@ -15,7 +15,9 @@ import { MetricsPage } from "../features/metrics/ui/MetricsPage";
 import { PipelineDetailPage } from "../features/pipelines/ui/PipelineDetailPage";
 import { PipelinesPage } from "../features/pipelines/ui/PipelinesPage";
 import { SettingsPage } from "../features/settings/ui/SettingsPage";
+import { SourceDetailPage } from "../features/sources/ui/SourceDetailPage";
 import { SourcesPage } from "../features/sources/ui/SourcesPage";
+import { TypeDetailPage } from "../features/dataTypes/ui/TypeDetailPage";
 import { TypeRegistryPage } from "../features/dataTypes/ui/TypeRegistryPage";
 import { PatchSetReviewPage } from "../features/patchSets/ui/PatchSetReviewPage";
 import { PanelList } from "../features/panels/ui/PanelList";
@@ -88,11 +90,12 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           <Route path="/" element={<PanelList />} />
           <Route path="/sources" element={<SourcesPage />} />
+          <Route path="/sources/:id" element={<SourceDetailPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />
           <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
           <Route path="/connectors" element={<ConnectorsPage />} />
           <Route path="/registry" element={<TypeRegistryPage />} />
-          <Route path="/registry/:id" element={<TypeRegistryPage />} />
+          <Route path="/registry/:id" element={<TypeDetailPage />} />
           <Route path="/metrics" element={<MetricsPage />} />
           <Route path="/metrics/:id" element={<MetricDetailPage />} />
           <Route path="/chat" element={<ChatPage />} />

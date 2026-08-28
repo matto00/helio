@@ -6,6 +6,11 @@
   min-height: 100%;
 }
 
+.metrics-page__header {
+  display: flex;
+  align-items: flex-start;
+}
+
 .metrics-page__section {
   display: flex;
   flex-direction: column;
@@ -23,10 +28,14 @@
   color: var(--app-error);
 }
 
+/* Below the list now, so the spacing flips: `margin-top`, not
+   `margin-bottom`. The old literal `4px` is exactly `--space-1`, so it moves
+   onto the token and drops out of tokenAuditSweep's baseline rather than just
+   shifting to a new line number in it. */
 .metrics-page__toolbar {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 4px;
+  margin-top: var(--space-1);
 }
 
 .metrics-page__create-btn {

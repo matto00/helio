@@ -56,8 +56,21 @@
 /* DESIGN.md mobile tap-target floor: 44px min-height, matching the sibling
    "Remove row" IconButton (shared/ui/IconButton.css) below the same 768px
    breakpoint. */
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css` for
+     the pattern and the `position: relative` / explicit-height reasons. */
   .key-value-list-field__add {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .key-value-list-field__add::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }

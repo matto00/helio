@@ -6,6 +6,11 @@
   min-height: 100%;
 }
 
+.pipelines-page__header {
+  display: flex;
+  align-items: flex-start;
+}
+
 .pipelines-page__section {
   display: flex;
   flex-direction: column;
@@ -77,10 +82,14 @@
  * same one RunHistoryModal/PipelineDetailPage already use, closing the
  * three-way status-pill casing drift this finding flagged. */
 
+/* Below the list now, so the spacing flips: `margin-top`, not
+   `margin-bottom`. The old literal `4px` is exactly `--space-1`, so it moves
+   onto the token and drops out of tokenAuditSweep's baseline rather than just
+   shifting to a new line number in it. */
 .pipelines-page__toolbar {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 4px;
+  margin-top: var(--space-1);
 }
 
 .pipelines-page__create-btn {
@@ -110,12 +119,22 @@
 }
 
 /* F-133/DESIGN.md §"Control metrics": 44px mobile tap-target floor for the
- * only entry point to pipeline creation once the list is non-empty (matches
- * the `@media (max-width: 768px)` convention PipelineDetailPage.css's
- * footer buttons already use for the same floor). */
-@media (max-width: 768px) {
+ * only entry point to pipeline creation once the list is non-empty. Met by a
+ * hit expander rather than a taller box — see `shared/ui/tapTarget.css`. */
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
   .pipelines-page__create-btn {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .pipelines-page__create-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }
 

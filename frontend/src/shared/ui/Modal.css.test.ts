@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { expectTapExpander } from "./tapTargetTestUtils";
 
 // Regression guard for the HEL-319 mobile touch-target fix. jsdom implements no
 // real layout or media-query evaluation, so no DOM-rendering Jest test can
@@ -108,9 +109,8 @@ describe("Modal.css — [open] entrance animation leaves no containing-block tra
 describe("Modal.css — mobile ≥44px tap targets (HEL-319)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 
-  it("the footer buttons get min-height: 44px at the mobile-shell breakpoint", () => {
-    const body = findRuleBody(mobileBlock, ".ui-modal-btn");
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  it("the footer buttons clear the 44px floor at the mobile-shell breakpoint", () => {
+    expectTapExpander(mobileBlock, ".ui-modal-btn");
   });
 });
 

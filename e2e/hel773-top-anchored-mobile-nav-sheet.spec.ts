@@ -142,13 +142,38 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
       expect(measurements.dragStrip).not.toBeNull();
       expect(measurements.dragStrip!).toBeGreaterThanOrEqual(44);
 
-      // Header create action — dashboards always has one.
-      const createActionHeight = await page.evaluate(() => {
+      // Header create action — dashboards always has one. It reaches the
+      // floor via a `::after` hit expander now (DESIGN.md §3), so its
+      // PAINTED height is deliberately `--control-sm` and a computed-height
+      // assertion would be measuring the wrong box. The hit region is what
+      // matters and what is asserted here, by walking outward from the
+      // control's centre with `elementFromPoint` — the same technique
+      // `e2e/support/touchTargetProbe.ts`'s `bisectHitExtent` uses.
+      const createActionHit = await page.evaluate(() => {
         const el = document.querySelector(".mobile-nav-sheet__create-action");
-        return el ? parseFloat(getComputedStyle(el).height) : null;
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const step = 0.25;
+        const walk = (direction: 1 | -1): number => {
+          let distance = 0;
+          for (;;) {
+            const next = distance + step;
+            const at = document.elementFromPoint(cx, cy + direction * next);
+            if (!at || !(el === at || el.contains(at))) break;
+            distance = next;
+          }
+          return distance;
+        };
+        return { hitHeight: walk(1) + walk(-1), paintedHeight: rect.height };
       });
-      expect(createActionHeight).not.toBeNull();
-      expect(createActionHeight!).toBeGreaterThanOrEqual(44);
+      expect(createActionHit).not.toBeNull();
+      // Epsilon-adjusted, per DESIGN.md: a correctly abutting hit region
+      // legitimately bisects to just under 44px at a 0.25px sampling step.
+      expect(createActionHit!.hitHeight).toBeGreaterThanOrEqual(44 - 0.25);
+      // The other half of the contract — it must NOT have re-inflated its box.
+      expect(createActionHit!.paintedHeight).toBeLessThan(44);
 
       // Empty-branch CTA — force it by navigating to a section that's empty
       // and has a create action (sources, freshly registered = no sources).

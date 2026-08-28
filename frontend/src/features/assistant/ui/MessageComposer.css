@@ -54,7 +54,8 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
   .message-composer__submit {
     min-height: 44px;
   }

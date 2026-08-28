@@ -38,6 +38,10 @@ export function PipelinesPage() {
 
   return (
     <div className="pipelines-page">
+      <header className="pipelines-page__header">
+        <h1 className="page-title">Data Pipelines</h1>
+      </header>
+
       <div className="pipelines-page__section">
         {showPipelinesSkeleton && <PageContentSkeleton />}
 
@@ -80,9 +84,15 @@ export function PipelinesPage() {
           // once loaded, but not a state worth being wrong in either).
           status !== "failed" && items.length > 0 && (
             <>
-              {/* HEL sweep F-133: mirrors MetricsPage.tsx's toolbar — the
-               *  sidebar "+" was the only way to create a pipeline once the
-               *  list was non-empty. */}
+              <PipelineListTable
+                pipelines={items}
+                currentUserId={currentUser?.id}
+                onShare={(p) => setSharingPipeline(p)}
+              />
+              {/* Below the list, not above it (HEL sweep F-133 put it above,
+               *  mirroring MetricsPage): as a header-height block it pushed
+               *  the list itself down the page, and the list is what the
+               *  page is for. The sidebar "+" is still the other way in. */}
               <div className="pipelines-page__toolbar">
                 <button
                   type="button"
@@ -92,11 +102,6 @@ export function PipelinesPage() {
                   New pipeline
                 </button>
               </div>
-              <PipelineListTable
-                pipelines={items}
-                currentUserId={currentUser?.id}
-                onShare={(p) => setSharingPipeline(p)}
-              />
             </>
           )
         }

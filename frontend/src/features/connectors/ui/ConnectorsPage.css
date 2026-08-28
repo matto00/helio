@@ -4,31 +4,33 @@
    `.add-source-modal__btn` shape (kept as a local copy per skeptic
    design-round-2 non-blocking note 5, rather than importing that class). */
 
+/* Geometry matches the other section overviews (PipelinesPage / MetricsPage /
+   SourcesPage / TypeRegistryPage) exactly: `--space-5 --space-6` padding and a
+   `--space-7` gap. It used to run `--space-6` padding with a `--space-5` gap,
+   which put the title 4px lower and the table 12px tighter than every sibling
+   page — small individually, obvious when switching between sections. */
 .connectors-page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-6);
+  gap: var(--space-7);
+  padding: var(--space-5) var(--space-6);
+  min-height: 100%;
 }
 
+/* Shared shape across every section overview's header. */
 .connectors-page__header {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
 }
 
-.connectors-page__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  color: var(--app-text);
-}
-
-.connectors-page__subtitle {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-sm);
-  color: var(--app-text-muted);
+/* The create button moved out of the header and below the table: as a
+   header-height block it pushed the list — the reason the page exists — down
+   the viewport. `justify-content: flex-end` matches PipelinesPage/MetricsPage's
+   identical toolbar, which now sits in the same place. */
+.connectors-page__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-1);
 }
 
 .connectors-page__table {
@@ -185,10 +187,6 @@
     padding: var(--space-4);
   }
 
-  .connectors-page__btn {
-    min-height: 44px;
-  }
-
   /* Scoped to this page's EmptyState instance only (not a blanket override
      of the shared `ui-empty-state__cta` class, which would leak to every
      other EmptyState on the page once this stylesheet is loaded). */
@@ -240,5 +238,28 @@
   .connectors-page__row-actions {
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+}
+
+/* Tap targets, split out of the 1100px table-collapse block above so they can
+   carry the touch gate rather than a width gate — see `shared/ui/tapTarget
+   .css`. Without this an iPad Pro in landscape (1366px) got no floor at all.
+   `white-space: nowrap` because the header CTA shares a row with a
+   `--text-2xl` title, so it is width-constrained enough to wrap "Add
+   connector" onto two lines once it is free to shrink again. */
+@media (max-width: 1100px), (pointer: coarse) {
+  .connectors-page__btn {
+    position: relative;
+    white-space: nowrap;
+  }
+
+  .connectors-page__btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }

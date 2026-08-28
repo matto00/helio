@@ -146,28 +146,33 @@ describe("BottomNav.css — inactive ink is full-contrast (HEL-774)", () => {
 });
 
 describe("BottomNav.css — active lozenge (HEL-774 D6)", () => {
-  it("every tab's lozenge carries a 1px transparent border always, so the icon never shifts on activation", () => {
+  it("every tab's lozenge carries identical geometry, so the icon never shifts on activation", () => {
     const body = findRuleBody(css, ".bottom-nav__lozenge {");
-    expect(body).toMatch(/border:\s*1px solid transparent\s*;/);
     expect(body).toMatch(/padding:\s*var\(--space-1\)\s*var\(--space-3\)\s*;/);
     expect(body).toMatch(/border-radius:\s*var\(--app-radius-pill\)\s*;/);
+    // Only `background` changes between states now, so no placeholder border
+    // is needed to hold the box steady — and declaring one would reintroduce
+    // the outlined-box look this replaced.
+    expect(body).not.toMatch(/border:/);
   });
 
-  it("the active lozenge's border is full-strength var(--app-text), never a color-mix", () => {
-    const body = findRuleBody(css, ".bottom-nav__tab--active .bottom-nav__lozenge {");
-    expect(body).toMatch(/border-color:\s*var\(--app-text\)\s*;/);
-    expect(body).not.toMatch(/color-mix\([^)]*--app-text[^)]*\)/);
-  });
-
-  it("the active lozenge's fill is --app-surface at alpha 0.95, not --app-surface-strong", () => {
+  it("the active lozenge is a tinted highlight fill with no border", () => {
     const body = findRuleBody(css, ".bottom-nav__tab--active .bottom-nav__lozenge {");
     expect(body).toMatch(
-      /background:\s*color-mix\(in srgb,\s*var\(--app-surface\)\s*95%,\s*transparent\)\s*;/,
+      /background:\s*color-mix\(in srgb,\s*var\(--app-accent\)\s*\d+%,\s*transparent\)\s*;/,
     );
-    expect(body).not.toMatch(/--app-surface-strong/);
+    expect(body).not.toMatch(/border/);
   });
 
-  it("no background-clip is declared anywhere — dead CSS with an opaque border (D6)", () => {
+  // A neutral fill converges to invisible against the capsule's own
+  // translucent composite at every alpha — that convergence is why the old
+  // treatment needed a border to carry the affordance at all.
+  it("the highlight is mixed from --app-accent, not the neutral surface ramp", () => {
+    const body = findRuleBody(css, ".bottom-nav__tab--active .bottom-nav__lozenge {");
+    expect(body).not.toMatch(/--app-surface/);
+  });
+
+  it("no background-clip is declared anywhere — dead CSS with no border to clip against", () => {
     expect(css).not.toMatch(/background-clip/);
   });
 
@@ -177,11 +182,9 @@ describe("BottomNav.css — active lozenge (HEL-774 D6)", () => {
 });
 
 describe("BottomNav.css — reduced motion disables the lozenge transition outright (HEL-774 D8)", () => {
-  it(".bottom-nav__lozenge declares a transition on background/border-color only", () => {
+  it(".bottom-nav__lozenge declares a transition on background only", () => {
     const body = findRuleBody(css, ".bottom-nav__lozenge {");
-    expect(body).toMatch(/transition:/);
-    expect(body).toMatch(/background/);
-    expect(body).toMatch(/border-color/);
+    expect(body).toMatch(/transition:\s*background\s+var\(--app-transition\)\s*;/);
   });
 
   it("reduced motion clears it with `transition: none`, not a shortened duration", () => {

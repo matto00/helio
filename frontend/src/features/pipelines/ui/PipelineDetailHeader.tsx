@@ -69,6 +69,14 @@ interface PipelineDetailHeaderProps {
   /** Toggles `enabled` without altering kind/expression/timezone. Only
    *  rendered when a schedule exists. */
   onToggleScheduleEnabled: (enabled: boolean) => void;
+  /** Opens the run-history modal. */
+  onOpenHistory: () => void;
+  /** Opens the output-preview modal. */
+  onOpenPreview: () => void;
+  /** Whether the current user owns the pipeline. Gates "Share" (owner-only). */
+  isOwner: boolean;
+  /** Opens the share dialog. Only invoked when `isOwner` is true. */
+  onOpenShare: () => void;
 }
 
 export function PipelineDetailHeader({
@@ -82,6 +90,10 @@ export function PipelineDetailHeader({
   schedule,
   onEditSchedule,
   onToggleScheduleEnabled,
+  onOpenHistory,
+  onOpenPreview,
+  isOwner,
+  onOpenShare,
 }: PipelineDetailHeaderProps) {
   const nextRun = schedule !== null ? formatNextRun(schedule.nextRunAt) : null;
 
@@ -90,10 +102,20 @@ export function PipelineDetailHeader({
   // schedule"/"Set schedule" is always present (mirrors the always-visible
   // button it replaces). Built fresh each render — cheap, and keeps item
   // gating trivially readable next to the JSX it used to live beside.
+  // The page's ONE actions menu. Previously there were two — this one (edit
+  // source/type/schedule) and a second in the footer (run history/preview/
+  // share). On desktop they sat at opposite corners and read as distinct; once
+  // the header stacks at <=1100px they end up as two identical kebabs a few
+  // hundred pixels apart, neither labeled, with no way to tell which holds
+  // what. Merged here, ordered edit-actions then view-actions, with the same
+  // per-item gating both menus already had.
   const actionItems: ActionsMenuItem[] = [
     ...(canEditSource ? [{ label: "Edit source", onClick: onEditSource }] : []),
     ...(canEditType ? [{ label: "Edit type", onClick: onEditType }] : []),
     { label: schedule === null ? "Set schedule" : "Edit schedule", onClick: onEditSchedule },
+    { label: "Run history", onClick: onOpenHistory },
+    { label: "Preview", onClick: onOpenPreview },
+    ...(isOwner ? [{ label: "Share", onClick: onOpenShare }] : []),
   ];
 
   return (

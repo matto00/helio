@@ -239,7 +239,9 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
               <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
               <Route path="/pipelines" element={<div>Pipelines List</div>} />
               <Route path="/sources" element={<div>Sources Page</div>} />
+              <Route path="/sources/:id" element={<div>Source Detail Page</div>} />
               <Route path="/registry" element={<div>Type Registry Page</div>} />
+              <Route path="/registry/:id" element={<div>Type Detail Page</div>} />
             </Routes>
           </OverlayProvider>
         </Provider>
@@ -248,25 +250,20 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
   );
 }
 
-/** design.md D7 (scope amendment): "Run history"/"Preview"/"Share" moved
- *  behind the footer's "More actions" `ActionsMenu` — open it before
- *  querying for one of their `menuitem`s. */
-function openMoreActionsMenu() {
-  fireEvent.click(screen.getByRole("button", { name: "More actions" }));
-}
-
-/** Opens the footer's overflow menu and activates "Run history" — the direct
- *  replacement for the pre-amendment `getByRole("button", { name: /Open run
- *  history/i })` click used throughout this file's run-history scenarios. */
-function openRunHistory() {
-  openMoreActionsMenu();
-  fireEvent.click(screen.getByRole("menuitem", { name: "Run history" }));
-}
-
-/** design.md D5 (scope amendment): "Edit source"/"Edit type"/"Edit schedule"/
- *  "Set schedule" moved behind the header's "Pipeline actions" `ActionsMenu`. */
+/** The page's single actions menu, in the header. Holds "Edit source"/"Edit
+ *  type"/"Edit schedule"/"Set schedule" (design.md D5) AND "Run history"/
+ *  "Preview"/"Share" — the latter three moved here from the footer's former
+ *  "More actions" menu, since two unlabeled kebabs on a stacked phone layout
+ *  gave no clue which held what. */
 function openPipelineActionsMenu() {
   fireEvent.click(screen.getByRole("button", { name: "Pipeline actions" }));
+}
+
+/** Opens the actions menu and activates "Run history" — used throughout this
+ *  file's run-history scenarios. */
+function openRunHistory() {
+  openPipelineActionsMenu();
+  fireEvent.click(screen.getByRole("menuitem", { name: "Run history" }));
 }
 
 describe("PipelineDetailPage", () => {
@@ -1163,13 +1160,13 @@ describe("PipelineDetailPage", () => {
   });
 
   it("run history menu item is reachable when there are no runs yet", () => {
-    // design.md D7 (scope amendment): the overflow menu's "Run history" item
+    // design.md D7 (scope amendment): the actions menu's "Run history" item
     // no longer carries a run-count suffix (ActionsMenuItem has no separate
     // aria-label field, so its label is both the visible text and the
     // accessible name) — this now just confirms the item still renders (not
     // conditionally hidden) when the pipeline has zero runs.
     renderDetailPage();
-    openMoreActionsMenu();
+    openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
   });
 
@@ -1319,9 +1316,9 @@ describe("PipelineDetailPage", () => {
   });
 });
 
-// ── HEL-719 — Share moved into the footer's "More actions" overflow menu ───
+// ── HEL-719 — Share lives in the page's single header actions menu ────────
 
-describe("PipelineDetailPage footer — Share menu item (HEL-719, design.md D7)", () => {
+describe("PipelineDetailPage — Share menu item (HEL-719)", () => {
   const ownedPipeline: PipelineSummary = { ...defaultPipeline, ownerId: "user-1" };
 
   beforeEach(() => {
@@ -1336,24 +1333,24 @@ describe("PipelineDetailPage footer — Share menu item (HEL-719, design.md D7)"
     jest.clearAllMocks();
   });
 
-  it("is present in the overflow menu when the current user owns the pipeline", () => {
+  it("is present in the actions menu when the current user owns the pipeline", () => {
     const store = makeStore([], { currentPipeline: ownedPipeline }, [], "user-1");
     renderDetailPage("pipe-1", store);
-    openMoreActionsMenu();
+    openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Share" })).toBeInTheDocument();
   });
 
-  it("is absent from the overflow menu when the current user does not own the pipeline", () => {
+  it("is absent from the actions menu when the current user does not own the pipeline", () => {
     const store = makeStore([], { currentPipeline: ownedPipeline }, [], "someone-else");
     renderDetailPage("pipe-1", store);
-    openMoreActionsMenu();
+    openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Share" })).not.toBeInTheDocument();
   });
 
   it("opens the share dialog when activated", () => {
     const store = makeStore([], { currentPipeline: ownedPipeline }, [], "user-1");
     renderDetailPage("pipe-1", store);
-    openMoreActionsMenu();
+    openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Share" }));
     expect(screen.getByRole("dialog", { name: /share/i })).toBeInTheDocument();
   });
@@ -1361,25 +1358,25 @@ describe("PipelineDetailPage footer — Share menu item (HEL-719, design.md D7)"
 
 // ── Task 8.2/8.3 — footer's pinned vs. overflow action split (design.md D7) ─
 
-describe("PipelineDetailPage footer — pinned actions + overflow menu (design.md D7)", () => {
+describe("PipelineDetailPage — pinned footer actions + header actions menu", () => {
   it("Dry run and Run pipeline are plain, always-visible buttons — not inside any menu", () => {
     renderDetailPage();
     expect(screen.getByRole("button", { name: "Dry run" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
   });
 
-  it("Run history and Preview are not always-visible buttons — reachable only via the overflow menu", () => {
+  it("Run history and Preview are not always-visible buttons — reachable only via the actions menu", () => {
     renderDetailPage();
     expect(screen.queryByRole("button", { name: "Run history" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
-    openMoreActionsMenu();
+    openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
   });
 
-  it("activating 'Preview' from the overflow menu opens the pipeline preview modal", () => {
+  it("activating 'Preview' from the actions menu opens the pipeline preview modal", () => {
     renderDetailPage();
-    openMoreActionsMenu();
+    openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Preview" }));
     expect(screen.getByRole("dialog", { name: /preview/i })).toBeInTheDocument();
   });
@@ -2490,13 +2487,17 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
   });
 
-  it("activating Edit source sets sources.selectedSourceId and navigates to /sources", () => {
+  // Deep-links to the source itself now that `/sources/:id` exists. It used to
+  // set `sources.selectedSourceId` and land on `/sources`, relying on that
+  // page to resolve the selection — the page is a section overview now, so a
+  // bare `/sources` would show the list rather than the source being edited.
+  it("activating Edit source navigates to that source's detail route", () => {
     const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit source" }));
-    expect(store.getState().sources.selectedSourceId).toBe("src-1");
-    expect(screen.getByText("Sources Page")).toBeInTheDocument();
+    expect(screen.getByText("Source Detail Page")).toBeInTheDocument();
+    expect(screen.queryByText("Sources Page")).not.toBeInTheDocument();
   });
 
   it("Edit type menu item is present when the output type is in dataTypes.items", () => {
@@ -2513,13 +2514,16 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     expect(screen.queryByRole("menuitem", { name: "Edit type" })).not.toBeInTheDocument();
   });
 
-  it("activating Edit type sets dataTypes.selectedTypeId and navigates to /registry", () => {
+  // Deep-links to the type itself now that `/registry/:id` exists. It used to
+  // set `dataTypes.selectedTypeId` and land on `/registry`, which is the
+  // section overview and no longer resolves a selection.
+  it("activating Edit type navigates to that type's detail route", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit type" }));
-    expect(store.getState().dataTypes.selectedTypeId).toBe("dt-1");
-    expect(screen.getByText("Type Registry Page")).toBeInTheDocument();
+    expect(screen.getByText("Type Detail Page")).toBeInTheDocument();
+    expect(screen.queryByText("Type Registry Page")).not.toBeInTheDocument();
   });
 
   // Shared-pipeline scenario: the current user has a pipeline-sharing grant

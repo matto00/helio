@@ -59,21 +59,7 @@ export function ConnectorsPage() {
   return (
     <div className="connectors-page">
       <header className="connectors-page__header">
-        <div>
-          <h1 className="connectors-page__title">Connectors</h1>
-          <p className="connectors-page__subtitle">
-            Saved, reusable credentialed hosts that data sources can reference.
-          </p>
-        </div>
-        {items.length > 0 && (
-          <button
-            type="button"
-            className="connectors-page__btn connectors-page__btn--primary"
-            onClick={() => setCreateOpen(true)}
-          >
-            Add connector
-          </button>
-        )}
+        <h1 className="page-title">Connectors</h1>
       </header>
 
       {status === "failed" && <InlineError error={error} variant="banner" />}
@@ -195,6 +181,18 @@ export function ConnectorsPage() {
             })}
           </tbody>
         </table>
+      )}
+
+      {items.length > 0 && (
+        <div className="connectors-page__toolbar">
+          <button
+            type="button"
+            className="connectors-page__btn connectors-page__btn--primary"
+            onClick={() => setCreateOpen(true)}
+          >
+            Add connector
+          </button>
+        </div>
       )}
 
       {createOpen && <CreateConnectorModal onClose={() => setCreateOpen(false)} />}

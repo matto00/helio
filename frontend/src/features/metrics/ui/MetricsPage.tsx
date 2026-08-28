@@ -36,6 +36,10 @@ export function MetricsPage() {
 
   return (
     <div className="metrics-page">
+      <header className="metrics-page__header">
+        <h1 className="page-title">Metrics</h1>
+      </header>
+
       <div className="metrics-page__section">
         {status === "loading" && <p className="metrics-page__loading">Loading metrics…</p>}
 
@@ -51,6 +55,12 @@ export function MetricsPage() {
 
         {status === "succeeded" && items.length > 0 && (
           <>
+            <MetricListTable
+              metrics={items}
+              dataTypeNameById={dataTypeNameById}
+              onDelete={handleDelete}
+            />
+            {/* Below the list — see PipelinesPage.tsx for the reasoning. */}
             <div className="metrics-page__toolbar">
               <button
                 type="button"
@@ -60,11 +70,6 @@ export function MetricsPage() {
                 New metric
               </button>
             </div>
-            <MetricListTable
-              metrics={items}
-              dataTypeNameById={dataTypeNameById}
-              onDelete={handleDelete}
-            />
           </>
         )}
       </div>

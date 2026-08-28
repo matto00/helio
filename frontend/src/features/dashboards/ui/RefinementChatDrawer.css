@@ -195,12 +195,27 @@
   line-height: 1.5;
 }
 
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
   /* Close button's own 44px floor now lives in shared/ui/IconButton.css
      (HEL-718). */
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css` for
+     the pattern and the `position: relative` / explicit-height reasons. */
   .refinement-drawer__submit,
   .refinement-drawer__review,
   .refinement-drawer__retry {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .refinement-drawer__submit::after,
+  .refinement-drawer__review::after,
+  .refinement-drawer__retry::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }

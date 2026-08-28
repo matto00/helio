@@ -1,0 +1,81 @@
+/* Mobile tap-target expansion — the canonical pattern, documented once.
+ *
+ * The a11y floor for a touch target is 44x44px, but a control does not have
+ * to BE 44px to HIT 44px. The codebase originally met the floor by inflating
+ * the painted box (`min-height: 44px`), which is correct for a11y and wrong
+ * for the eye: on a phone it turned every secondary action — header CTAs,
+ * icon-only chrome, inline form actions — into the largest, heaviest element
+ * on the screen, and forced some labels ("Add connector") to wrap.
+ *
+ * Instead: leave the painted box at its `--control-*` height and overlay an
+ * invisible, absolutely-positioned pseudo-element sized to the floor. The
+ * target grows; the visual weight does not. `UserMenu.css` (HEL-772)
+ * established this for its avatar trigger; this file generalizes it.
+ *
+ * Two things every site must get right, and the reason the rules below are
+ * always written as a PAIR:
+ *
+ *  1. The control needs `position: relative`. Without it, the expander
+ *     resolves against the nearest positioned ancestor and the enlarged hit
+ *     region silently lands somewhere else on the page — a bug that is
+ *     invisible in every screenshot and every unit test.
+ *
+ *  2. Size the expander EXPLICITLY (`height: 44px`), never with a negative
+ *     `inset`. `inset` on an absolutely-positioned pseudo resolves against
+ *     the PADDING box, so on any bordered control a negative inset lands 2px
+ *     short on each axis and quietly misses the floor it exists to meet.
+ *
+ * WHERE THIS DOES NOT APPLY. Not every 44px in the codebase is this pattern,
+ * and converting the rest would be a regression:
+ *   - Full-width list/menu rows (`MobileNavSheet`, `ActionsMenu`, `UserMenu`
+ *     items). A 44px row is the expected phone idiom, not oversized chrome.
+ *   - Text inputs and select triggers (`inputs.css`). Height there is
+ *     legibility and comfortable text entry, not just a tap target.
+ *   - `BottomNav` tabs, whose 44px IS the bar's geometry.
+ * Reach for this only where a COMPACT PAINTED CONTROL — a button — is being
+ * inflated purely to satisfy the floor.
+ *
+ * `.tap-expand-44` is the ready-made utility for new markup. Existing
+ * components declare the same pair in their own stylesheets against their own
+ * BEM selectors (so the rule travels with the component and is visible where
+ * that component is styled) and point back here for the rationale rather than
+ * restating it.
+ *
+ * ── THE GATE: `@media (max-width: 768px), (pointer: coarse)` ──
+ *
+ * Touch targets are a property of the INPUT DEVICE, not the viewport. The
+ * codebase's `max-width: 768px` convention silently equated the two, and the
+ * two do not line up:
+ *
+ *   iPad mini portrait        744px   covered
+ *   iPad 10.2 / Air / Pro     810-1024px    MISSED
+ *   iPad landscape (all)      1080-1366px   MISSED
+ *   iPhone 12+ landscape      844-932px     MISSED
+ *
+ * Only iPads in the narrowest portrait orientation ever qualified. Every
+ * other iPad, and every modern iPhone held sideways, got desktop-sized 24-28px
+ * hit targets. `(pointer: coarse)` is true on exactly the devices that need
+ * this and false for a mouse, so the comma (a logical OR) keeps the existing
+ * narrow-viewport behaviour and adds every touch device at any width.
+ *
+ * This gate belongs on TAP-TARGET rules only. Phone-shaped LAYOUT changes —
+ * stacking a row, hiding desktop chrome, going full-bleed — stay width-gated:
+ * an iPad Pro at 1366px has a desktop's worth of room and should get the
+ * desktop layout, just with targets a finger can hit.
+ */
+
+@media (max-width: 768px), (pointer: coarse) {
+  .tap-expand-44 {
+    position: relative;
+  }
+
+  .tap-expand-44::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}

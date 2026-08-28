@@ -47,9 +47,10 @@ describe("TypeRegistryPage", () => {
   it("HEL-528: keeps rendering already-loaded types instead of the skeleton if status re-enters loading", async () => {
     fetchDataTypesMock.mockResolvedValueOnce([testDataType]);
     const { container } = renderWithStore(<TypeRegistryPage />);
-    await waitFor(() =>
-      expect(screen.getByRole("textbox", { name: "Data type name" })).toHaveValue("Metrics"),
-    );
+    // `/registry` is the section overview now, so the resolved content is the
+    // type's row in the table rather than a detail panel for an auto-selected
+    // type (that lives at `/registry/:id`).
+    await waitFor(() => expect(screen.getByRole("link", { name: "Metrics" })).toBeInTheDocument());
 
     expect(container.querySelector(".ui-skeleton")).not.toBeInTheDocument();
   });
@@ -75,16 +76,17 @@ describe("TypeRegistryPage", () => {
     expect(store.getState().pipelines.createModalOpen).toBe(true);
   });
 
-  it("auto-selects the first type and renders the detail panel when types load", async () => {
-    // Selection is now driven by the sidebar (Redux state); the page derives
-    // the effective type as "explicit selection OR first item" so the detail
-    // panel is never blank.
+  // The page no longer auto-selects. It used to derive "explicit selection OR
+  // first item" and then force-navigate the URL to match, so `/registry`
+  // always redirected to some type's detail; it is a section overview now, and
+  // the detail lives at `/registry/:id` (TypeDetailPage).
+  it("lists every type in the overview table, selecting none", async () => {
     fetchDataTypesMock.mockResolvedValue([testDataType]);
 
     renderWithStore(<TypeRegistryPage />);
-    await waitFor(() =>
-      expect(screen.getByRole("textbox", { name: "Data type name" })).toHaveValue("Metrics"),
-    );
+    await waitFor(() => expect(screen.getByRole("link", { name: "Metrics" })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Metrics" })).toHaveAttribute("href", "/registry/dt-1");
+    expect(screen.queryByRole("textbox", { name: "Data type name" })).not.toBeInTheDocument();
   });
 
   // Note: Delete used to live in the detail panel; it's now owned by the

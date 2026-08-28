@@ -57,8 +57,21 @@
   opacity: 0.6;
 }
 
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css` for
+     the pattern and the `position: relative` / explicit-height reasons. */
   .status-message__retry {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .status-message__retry::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { expectTapExpander } from "../../../../shared/ui/tapTargetTestUtils";
 
 // Regression guard for the HEL-245 mobile touch-target fix (skeptic final-gate
 // change request #2). jsdom implements no real layout or media-query
@@ -59,8 +60,10 @@ function findRuleBody(block: string, selectorSubstring: string): string {
 describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-245)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 
+  // A picker ROW and a select trigger legitimately grow to 44px — the phone
+  // idiom for a list row, and legibility for a text-bearing control. Only the
+  // compact painted buttons moved to the expander (`shared/ui/tapTarget.css`).
   it.each([
-    [".panel-detail-modal__mode-toggle-btn", "min-height"],
     [".panel-detail-modal__type-option", "min-height"],
     [".panel-detail-modal .ui-select__trigger", "min-height"],
   ])("%s gets min-height: 44px at the mobile-shell breakpoint", (selector) => {
@@ -68,10 +71,12 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-245)", () => 
     expect(body).toMatch(/min-height:\s*44px\s*;/);
   });
 
-  it("the type-clear button gets a 44x44 minimum tap target", () => {
-    const body = findRuleBody(mobileBlock, ".panel-detail-modal__type-clear");
-    expect(body).toMatch(/min-width:\s*44px\s*;/);
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  it("the mode-toggle button clears the 44px floor", () => {
+    expectTapExpander(mobileBlock, ".panel-detail-modal__mode-toggle-btn");
+  });
+
+  it("the type-clear button clears a 44x44 tap target", () => {
+    expectTapExpander(mobileBlock, ".panel-detail-modal__type-clear", "square");
   });
 });
 
@@ -88,12 +93,34 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-245)", () => 
 describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-303 header/footer)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 
-  it.each([
-    [".panel-detail-modal__edit-btn", "min-height"],
-    [".panel-detail-modal__btn", "min-height"],
-  ])("%s gets min-height: 44px at the mobile-shell breakpoint", (selector) => {
-    const body = findRuleBody(mobileBlock, selector);
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  // The footer actions still grow to 44px — they are the primary controls on
+  // a full-bleed footer, where the size reads as deliberate.
+  it(".panel-detail-modal__btn clears the 44px floor at the mobile-shell breakpoint", () => {
+    expectTapExpander(mobileBlock, ".panel-detail-modal__btn");
+  });
+
+  // The header Edit control does NOT: growing it made a secondary action the
+  // tallest thing in the header. It reaches the same floor through a hit
+  // expander instead (the `.user-menu__trigger::after` pattern, HEL-772).
+  it(".panel-detail-modal__edit-btn reaches the 44px floor via a hit expander, not a taller box", () => {
+    const body = findRuleBody(mobileBlock, ".panel-detail-modal__edit-btn::after");
+    expect(body).toMatch(/height:\s*44px\s*;/);
+    expect(body).toMatch(/position:\s*absolute\s*;/);
+    expect(findRuleBody(mobileBlock, ".panel-detail-modal__edit-btn {")).toMatch(
+      /position:\s*relative\s*;/,
+    );
+  });
+
+  // Modal.css's base `align-items: flex-start` exists for stacked
+  // title+description headers; this header has a single-line title, so it
+  // left the title floating above its taller sibling controls.
+  // In the 430px full-screen block, NOT the tap-target block: above this
+  // width the modal is a centred card whose header keeps the shared
+  // `align-items: flex-start` alignment.
+  it("the full-screen header centers its items so the title aligns with its controls", () => {
+    const phoneBlock = findMediaBlock(css, "max-width: 430px");
+    const body = findRuleBody(phoneBlock, ".ui-modal.panel-detail-modal .ui-modal__header,");
+    expect(body).toMatch(/align-items:\s*center\s*;/);
   });
 });
 
@@ -105,19 +132,21 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-303 header/fo
 describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-255 table display)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 
+  // Rows stay at a real 44px (see the note above); the buttons expand.
   it.each([
     [".panel-detail-modal__column-row", "min-height"],
     [".panel-detail-modal__column-visibility", "min-height"],
-    [".panel-detail-modal__reset-widths-btn", "min-height"],
   ])("%s gets min-height: 44px at the mobile-shell breakpoint", (selector) => {
     const body = findRuleBody(mobileBlock, selector);
     expect(body).toMatch(/min-height:\s*44px\s*;/);
   });
 
-  it("the column reorder buttons get a 44x44 minimum tap target", () => {
-    const body = findRuleBody(mobileBlock, ".panel-detail-modal__column-move-btn");
-    expect(body).toMatch(/min-width:\s*44px\s*;/);
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  it("the reset-widths button clears the 44px floor", () => {
+    expectTapExpander(mobileBlock, ".panel-detail-modal__reset-widths-btn");
+  });
+
+  it("the column reorder buttons clear a 44x44 tap target", () => {
+    expectTapExpander(mobileBlock, ".panel-detail-modal__column-move-btn", "square");
   });
 });
 
@@ -169,8 +198,7 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-303 chart dis
 describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-247 collection editor)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 
-  it("the layout segmented buttons get min-height: 44px at the mobile-shell breakpoint", () => {
-    const body = findRuleBody(mobileBlock, ".panel-detail-modal__segmented-btn");
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  it("the layout segmented buttons clear the 44px floor", () => {
+    expectTapExpander(mobileBlock, ".panel-detail-modal__segmented-btn");
   });
 });

@@ -49,6 +49,10 @@ interface OverrideProps {
   schedule?: PipelineSchedule | null;
   onEditSchedule?: () => void;
   onToggleScheduleEnabled?: (enabled: boolean) => void;
+  onOpenHistory?: () => void;
+  onOpenPreview?: () => void;
+  isOwner?: boolean;
+  onOpenShare?: () => void;
 }
 
 function renderHeader(overrides: OverrideProps = {}) {
@@ -64,6 +68,10 @@ function renderHeader(overrides: OverrideProps = {}) {
       schedule={overrides.schedule ?? null}
       onEditSchedule={overrides.onEditSchedule ?? jest.fn()}
       onToggleScheduleEnabled={overrides.onToggleScheduleEnabled ?? jest.fn()}
+      onOpenHistory={overrides.onOpenHistory ?? jest.fn()}
+      onOpenPreview={overrides.onOpenPreview ?? jest.fn()}
+      isOwner={overrides.isOwner ?? false}
+      onOpenShare={overrides.onOpenShare ?? jest.fn()}
     />,
   );
 }
@@ -209,15 +217,31 @@ describe("PipelineDetailHeader — schedule (ported from PipelineScheduleBar)", 
   });
 });
 
-describe("PipelineDetailHeader — actions menu (scope amendment, design.md D5)", () => {
+// This is the page's ONE actions menu: the three edit actions (design.md D5)
+// plus Run history / Preview / Share, which moved here from the footer's
+// former second `ActionsMenu`.
+describe("PipelineDetailHeader — actions menu", () => {
   it("one trigger exposes every available action", () => {
-    renderHeader({ source: sqlSource, canEditSource: true, canEditType: true, schedule: null });
+    renderHeader({
+      source: sqlSource,
+      canEditSource: true,
+      canEditType: true,
+      schedule: null,
+      isOwner: true,
+    });
     expect(screen.getAllByRole("button", { name: "Pipeline actions" })).toHaveLength(1);
     openActionsMenu();
-    expect(screen.getAllByRole("menuitem")).toHaveLength(3);
-    expect(screen.getByRole("menuitem", { name: "Edit source" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Edit type" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Set schedule" })).toBeInTheDocument();
+    expect(screen.getAllByRole("menuitem")).toHaveLength(6);
+    for (const name of [
+      "Edit source",
+      "Edit type",
+      "Set schedule",
+      "Run history",
+      "Preview",
+      "Share",
+    ]) {
+      expect(screen.getByRole("menuitem", { name })).toBeInTheDocument();
+    }
   });
 
   it("the menu narrows to only the actions the user has", () => {
@@ -226,12 +250,23 @@ describe("PipelineDetailHeader — actions menu (scope amendment, design.md D5)"
       canEditSource: false,
       canEditType: true,
       schedule: enabledSchedule,
+      isOwner: false,
     });
     openActionsMenu();
-    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
+    expect(screen.getAllByRole("menuitem")).toHaveLength(4);
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
+    // Owner-only, and this user is not the owner — the same gating the item
+    // carried as a footer menu item before the merge.
+    expect(screen.queryByRole("menuitem", { name: "Share" })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Edit type" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Edit schedule" })).toBeInTheDocument();
+  });
+
+  it("the view actions are always present, regardless of edit permissions", () => {
+    renderHeader({ canEditSource: false, canEditType: false, schedule: null, isOwner: false });
+    openActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
   });
 });
 

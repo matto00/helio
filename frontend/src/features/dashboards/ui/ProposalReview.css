@@ -88,10 +88,23 @@
 /* F-176 — matches the established HEL-308/314/319 44px mobile tap-target floor already used on
    Modal's close button and ActionsMenu's trigger/items; this was the one control in the same
    feature area left at a fixed 24×24. */
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`.
+     Icon-only and square, so this is the centered 44x44 form (as in
+     `IconButton.css`), not the utility's full-width strip. */
   .proposal-review__remove {
-    min-width: 44px;
-    min-height: 44px;
+    position: relative;
+  }
+
+  .proposal-review__remove::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 }
 

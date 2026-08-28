@@ -1373,13 +1373,30 @@
  * so both the header's and footer's new menu triggers inherit it for free —
  * no page-local rule needed. `__dry-run-btn` stays here unchanged: it
  * remains a real, always-visible button under D7. */
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css` for
+     the pattern and the `position: relative` / explicit-height reasons. */
   .pipeline-detail-page__dry-run-btn,
   .pipeline-detail-page__run-btn,
   .pipeline-detail-page__save-btn,
   .pipeline-detail-page__cancel-btn,
   .pipeline-detail-page__cancel-confirm-btn {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .pipeline-detail-page__dry-run-btn::after,
+  .pipeline-detail-page__run-btn::after,
+  .pipeline-detail-page__save-btn::after,
+  .pipeline-detail-page__cancel-btn::after,
+  .pipeline-detail-page__cancel-confirm-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }
 
@@ -1398,14 +1415,76 @@
     width: 100%;
   }
 
-  /* Step-card header icon-buttons (drag handle, move up/down, enable
-   * toggle, duplicate) sit at a fixed 24x24px — well under the 44px tap
-   * floor. */
-  .pipeline-detail-page__step-card-drag-handle,
+  /* Tighter gutters only. The river KEEPS `flex: 1`: it is what holds the
+     footer against the bottom of the page. Sizing it to content instead
+     (tried, reverted) does shrink the dotted canvas, but the footer then
+     stops at the end of the content and leaves an even larger dead band
+     between "Run pipeline" and the bottom nav — trading a void inside the
+     canvas for a worse one below the primary action. */
+  .pipeline-detail-page__river {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  /* Drop the footer's own surface fill on phone. The BottomNav capsule floats
+     over the page on a translucent tint (its DESIGN.md §0.2 carve-out), so an
+     opaque `--app-surface` slab directly behind it read as a hard block of a
+     different material butting into the bar. Transparent lets both sit on the
+     page ground; the hairline above still separates the footer from the
+     canvas, so the region is no less legible as a distinct area. */
+  .pipeline-detail-page__footer-region {
+    background: transparent;
+  }
+
+  /* Stack the two dashed CTAs. Side by side at this width each gets ~180px,
+     which breaks "+ Add transformation step" mid-phrase. */
+  .pipeline-detail-page__add-step-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pipeline-detail-page__add-step-dashed-btn,
+  .pipeline-detail-page__shape-picker-btn {
+    width: 100%;
+  }
+
+  /* The drag handle is `aria-hidden` and pointer-only (StepCard.tsx: the
+     keyboard/AT reorder path is the Move up/down buttons beside it). There is
+     no HTML5-drag equivalent on touch, so at phone width it is a dead 44px
+     control competing for a row that cannot fit what it already has. Hidden
+     here rather than removed — it is the primary reorder affordance with a
+     mouse. */
+  .pipeline-detail-page__step-card-drag-handle {
+    display: none;
+  }
+
+  /* The remaining four controls reach the 44px floor via a hit expander
+     instead of a 44x44 painted box (`shared/ui/tapTarget.css`). At 44px
+     square they consumed ~176px of a 430px row, forcing even a two-word step
+     label ("Select fields") to wrap onto two lines. */
   .pipeline-detail-page__step-card-move-btn,
   .pipeline-detail-page__step-card-toggle-enabled-btn,
   .pipeline-detail-page__step-card-duplicate-btn {
+    position: relative;
+  }
+
+  .pipeline-detail-page__step-card-move-btn::after,
+  .pipeline-detail-page__step-card-toggle-enabled-btn::after,
+  .pipeline-detail-page__step-card-duplicate-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
     width: 44px;
     height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Belt and braces: even with the row's budget restored, a long label should
+     truncate rather than wrap the header to two lines and shove the actions
+     cluster out of alignment. */
+  .pipeline-detail-page__step-card-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

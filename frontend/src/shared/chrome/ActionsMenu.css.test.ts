@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { expectTapExpander } from "../ui/tapTargetTestUtils";
 
 // Regression guard for the HEL-308 mobile touch-target fix. jsdom implements no
 // real layout or media-query evaluation, so no DOM-rendering Jest test can
@@ -68,13 +69,28 @@ describe("ActionsMenu.css — mobile ≥44px tap targets (HEL-308)", () => {
     expect(body).toMatch(/align-items:\s*center\s*;/);
   });
 
-  // HEL-314: the kebab trigger itself must also clear 44px on both axes (it is a
-  // square icon button). Centering is inherited from the co-applied
-  // `.popover__trigger` class, so this rule only needs the min-width/min-height
-  // floor inside the same mobile-shell media block.
-  it("the actions-menu trigger gets min-width and min-height: 44px at the mobile-shell breakpoint", () => {
-    const body = findRuleBody(mobileBlock, ".actions-menu__trigger");
-    expect(body).toMatch(/min-width:\s*44px\s*;/);
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  // HEL-314: the kebab trigger must clear 44px on both axes. It does so with a
+  // hit expander, keeping its painted 28px box — a 44px bordered square reads
+  // as a heavy button rather than an overflow affordance. Note the contrast
+  // with the menu ITEMS above, which genuinely grow: a 44px menu row is the
+  // phone idiom, a 44px kebab is not.
+  it("the actions-menu trigger clears a 44x44 tap target at the mobile-shell breakpoint", () => {
+    expectTapExpander(mobileBlock, ".actions-menu__trigger", "square");
+  });
+});
+
+// Regression guard for a 3.3px vertical misalignment. The `.popover` base
+// leaves this wrapper `display: block`, which builds a line box around the
+// inline-flex trigger: the wrapper measured 34.5px around a 28px button, with
+// the extra space BELOW it as descender room. Flex parents then centred the
+// wrapper, dropping the visible button below its 28px siblings — in the
+// command bar (siblings at y=23.5, trigger at 26.8) and in the pipeline
+// header (row centre 65.5, trigger 68.8). Both measured from the rendered
+// page; both read as "the kebab sits low".
+describe("ActionsMenu.css — the wrapper hugs its trigger", () => {
+  it("is inline-flex and centers, so centering the wrapper centers the button", () => {
+    const body = findRuleBody(css, ".actions-menu {");
+    expect(body).toMatch(/display:\s*inline-flex\s*;/);
+    expect(body).toMatch(/align-items:\s*center\s*;/);
   });
 });
