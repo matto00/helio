@@ -3,18 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "LICENSE"
-      - ".github/ISSUE_TEMPLATE/**"
-      - "docs/**"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "LICENSE"
-      - ".github/ISSUE_TEMPLATE/**"
-      - "docs/**"
 
 permissions:
   contents: read
@@ -311,3 +301,25 @@ jobs:
             /tmp/backend.log
             /tmp/frontend.log
           retention-days: 7
+
+  # Single required status check for the `main` ruleset. Individual jobs may be
+  # skipped by future path filters; a skipped job reports "skipped", which this
+  # gate treats as success. Only failure/cancelled fail the gate. Never add
+  # `paths-ignore` to this workflow's triggers — a skipped WORKFLOW reports no
+  # status at all and would block every affected PR permanently.
+  ci-complete:
+    if: always()
+    needs: [frontend, backend, security, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no job failed or was cancelled
+        run: |
+          set -euo pipefail
+          echo "results: ${{ join(needs.*.result, ', ') }}"
+          if ${{ contains(needs.*.result, 'failure') }}; then
+            echo "A required CI job failed." >&2; exit 1
+          fi
+          if ${{ contains(needs.*.result, 'cancelled') }}; then
+            echo "A required CI job was cancelled." >&2; exit 1
+          fi
+          echo "All CI jobs succeeded or were skipped."
