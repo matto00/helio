@@ -910,5 +910,130 @@ class PipelineStepRoutesSpec
         status shouldBe StatusCodes.Forbidden
       }
     }
+
+    // ── HEL-860: reject mistyped cast/rename config (AC1, AC2, AC5) ─────────
+
+    "POST /pipelines/:id/steps returns 422 for a list-shaped casts config and creates no step (4.1)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val badReq = JsObject(
+        "type"   -> JsString("cast"),
+        "config" -> JsObject("casts" -> JsArray(JsObject("field" -> JsString("stats.adp_ppr"), "to" -> JsString("float"))))
+      )
+      Post(s"/pipelines/$pid/steps", badReq) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        val msg = responseAs[ErrorResponse].message
+        msg should include("casts")
+        msg should include("object mapping field name to type name")
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[Vector[PipelineStepResponse]] shouldBe empty
+      }
+    }
+
+    "POST /pipelines/:id/steps returns 422 for a casts object with non-string values and creates no step (4.2)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val badReq = JsObject(
+        "type"   -> JsString("cast"),
+        "config" -> JsObject("casts" -> JsObject("amount" -> JsNumber(1)))
+      )
+      Post(s"/pipelines/$pid/steps", badReq) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        val msg = responseAs[ErrorResponse].message
+        msg should include("casts")
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[Vector[PipelineStepResponse]] shouldBe empty
+      }
+    }
+
+    "POST /pipelines/:id/steps returns 422 for a list-shaped renames config and creates no step (4.3)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val badReq = JsObject(
+        "type"   -> JsString("rename"),
+        "config" -> JsObject("renames" -> JsArray(JsString("order_id")))
+      )
+      Post(s"/pipelines/$pid/steps", badReq) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        val msg = responseAs[ErrorResponse].message
+        msg should include("renames")
+        // evaluation-1.md CR-1: `renames` is a from-field-name -> to-field-name
+        // map, NOT a field -> type map — the two kinds must NOT share wording.
+        // A caller following "type name" guidance for `renames` would send
+        // {"renames":{"amount":"double"}}, which this validator ACCEPTS and
+        // which silently renames the column `amount` to the string "double"
+        // — the exact green-run/wrong-result shape this ticket exists to
+        // prevent, now reachable through the rejection message itself.
+        msg should include("from-field-name to to-field-name")
+        msg should not include "type name"
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[Vector[PipelineStepResponse]] shouldBe empty
+      }
+    }
+
+    "POST /pipelines/:id/steps still accepts a correctly-shaped cast config, storing the supplied mapping, and still accepts {} (4.4)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val goodReq = JsObject(
+        "type"   -> JsString("cast"),
+        "config" -> JsObject("casts" -> JsObject("amount" -> JsString("double")))
+      )
+      Post(s"/pipelines/$pid/steps", goodReq) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse].asInstanceOf[CastStepResponse]
+        resp.config.casts shouldBe Map("amount" -> "double")
+      }
+      Post(s"/pipelines/$pid/steps", castReq()) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse].asInstanceOf[CastStepResponse]
+        resp.config.casts shouldBe empty
+      }
+    }
+
+    "PATCH /pipeline-steps/:id returns 422 for a mistyped config and leaves the stored config unchanged (4.5)" in {
+      cleanSteps(); val pid = seedPipeline()
+      var stepId = ""
+      val goodReq = JsObject(
+        "type"   -> JsString("cast"),
+        "config" -> JsObject("casts" -> JsObject("amount" -> JsString("double")))
+      )
+      Post(s"/pipelines/$pid/steps", goodReq) ~> routes ~> check {
+        stepId = responseAs[PipelineStepResponse].id
+      }
+      val badPatch = JsObject(
+        "config" -> JsObject("casts" -> JsArray(JsString("amount")))
+      )
+      Patch(s"/pipeline-steps/$stepId", badPatch) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        val msg = responseAs[ErrorResponse].message
+        msg should include("casts")
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        val resp = responseAs[Vector[PipelineStepResponse]].head.asInstanceOf[CastStepResponse]
+        resp.config.casts shouldBe Map("amount" -> "double")
+      }
+    }
+
+    // AC3: a legacy-shaped stored row (list-shaped casts, pre-dating this
+    // change) still decodes through the READ path unchanged — this change
+    // only adds a WRITE-path check; CastConfig.decode's tolerance is
+    // untouched. Mirrors task 2.1a's raw-insert seeding mechanism.
+    "GET /pipelines/:id/steps still decodes a legacy list-shaped stored casts config unchanged (AC3, 4.6)" in {
+      cleanSteps(); val pid = seedPipeline()
+      import PostgresProfile.api._
+      val stepId = UUID.randomUUID().toString
+      await(db.run(sqlu"""
+        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled)
+        VALUES ($stepId, $pid, 0, 'cast', '{"casts":[{"field":"amount","to":"double"}]}', true)
+      """))
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[Vector[PipelineStepResponse]].head.asInstanceOf[CastStepResponse]
+        resp.config.casts shouldBe empty
+      }
+    }
   }
 }
