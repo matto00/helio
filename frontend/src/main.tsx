@@ -10,6 +10,7 @@ import { setupAuthInterceptor } from "./services/httpClient";
 import { store, type RootState, type AppDispatch } from "./store/store";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import "./theme/theme.css";
+import "./shared/ui/tapTarget.css";
 
 // Wire global 401 interceptor — must run before first API call
 setupAuthInterceptor(

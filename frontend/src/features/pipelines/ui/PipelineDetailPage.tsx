@@ -658,6 +658,10 @@ export function PipelineDetailPage() {
         schedule={pipelineSchedule}
         onEditSchedule={() => setScheduleOpen(true)}
         onToggleScheduleEnabled={handleToggleScheduleEnabled}
+        onOpenHistory={() => setHistoryOpen(true)}
+        onOpenPreview={() => setPreviewModalOpen(true)}
+        isOwner={isOwner}
+        onOpenShare={() => setShareOpen(true)}
       />
 
       {/* ── River view ── */}
@@ -710,18 +714,14 @@ export function PipelineDetailPage() {
         confirmCancelDiscard={confirmCancelDiscard}
         dismissCancelConfirm={dismissCancelConfirm}
         handleCancel={handleCancel}
-        openHistory={() => setHistoryOpen(true)}
-        openPreview={() => setPreviewModalOpen(true)}
         handleDryRun={() => void handleDryRun()}
         handleRunPipeline={handleRunPipeline}
-        isOwner={isOwner}
-        onOpenShare={() => setShareOpen(true)}
         lastRunAt={currentPipeline.lastRunAt}
         lastRunRowCount={currentPipeline.lastRunRowCount}
         lastRunStatus={currentPipeline.lastRunStatus}
       />
 
-      {/* ── Run history modal (button lives in the footer) ── */}
+      {/* ── Run history modal (opened from the header's actions menu) ── */}
       {historyOpen && <RunHistoryModal runs={runs} onClose={() => setHistoryOpen(false)} />}
 
       {/* ── Pipeline output preview modal ── */}

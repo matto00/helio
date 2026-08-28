@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { expectTapExpander } from "../../../shared/ui/tapTargetTestUtils";
 
 // Regression guard for the F-006 mobile-footer fix. jsdom implements no real
 // layout or media-query evaluation, so no DOM-rendering Jest test can
@@ -77,8 +78,7 @@ describe("PipelineDetailPage.css — phone footer wrap + reachability (F-006)", 
   it("Run pipeline is full-width on phone and meets the 44px tap minimum (via the 768px floor)", () => {
     const phoneBody = findRuleBody(phoneBlock, ".pipeline-detail-page__run-btn");
     expect(phoneBody).toMatch(/width:\s*100%\s*;/);
-    const tabletBody = findRuleBody(tabletBlock, ".pipeline-detail-page__run-btn");
-    expect(tabletBody).toMatch(/min-height:\s*44px\s*;/);
+    expectTapExpander(tabletBlock, ".pipeline-detail-page__run-btn");
   });
 
   // design.md D8 (scope amendment): `__history-btn`/`__preview-btn` dropped
@@ -91,19 +91,25 @@ describe("PipelineDetailPage.css — phone footer wrap + reachability (F-006)", 
   it.each([".pipeline-detail-page__dry-run-btn"])(
     "%s meets the 44px tap minimum at both the 768px and 430px breakpoints",
     (selector) => {
-      const body = findRuleBody(tabletBlock, selector);
-      expect(body).toMatch(/min-height:\s*44px\s*;/);
+      expectTapExpander(tabletBlock, selector);
     },
   );
 
   it.each([
-    ".pipeline-detail-page__step-card-drag-handle",
     ".pipeline-detail-page__step-card-move-btn",
     ".pipeline-detail-page__step-card-toggle-enabled-btn",
     ".pipeline-detail-page__step-card-duplicate-btn",
-  ])("%s (step-card header icon button) gets a 44x44 tap target on phone", (selector) => {
-    const body = findRuleBody(phoneBlock, selector);
-    expect(body).toMatch(/width:\s*44px\s*;/);
-    expect(body).toMatch(/height:\s*44px\s*;/);
+  ])("%s (step-card header icon button) clears a 44x44 tap target on phone", (selector) => {
+    expectTapExpander(phoneBlock, selector, "square");
+  });
+
+  // The drag handle is `aria-hidden` and pointer-only (StepCard.tsx routes
+  // keyboard/AT reordering through the Move up/down buttons instead), and
+  // HTML5 drag has no touch equivalent — so at phone width it was a dead 44px
+  // control crowding a row that already could not fit its contents. Hidden
+  // rather than deleted: with a mouse it is the primary reorder affordance.
+  it("the drag handle is hidden on phone rather than given a tap target", () => {
+    const body = findRuleBody(phoneBlock, ".pipeline-detail-page__step-card-drag-handle");
+    expect(body).toMatch(/display:\s*none\s*;/);
   });
 });

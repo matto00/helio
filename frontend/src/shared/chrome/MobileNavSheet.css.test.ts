@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { expectTapExpander } from "../ui/tapTargetTestUtils";
 
 // Regression guards for HEL-773's top-anchored sheet, plus the pre-existing
 // HEL-303 mobile touch-target fix. jsdom implements no real layout or
@@ -82,8 +83,14 @@ describe("MobileNavSheet.css — top anchor (HEL-773 design.md D1)", () => {
     expect(panelBody).not.toMatch(/(?<![-\w])top:/);
   });
 
-  it("every `top:` declaration in the file uses the same top-chrome-seam token — the wrapper (anchor, D1) and the backdrop (scrim start, D2), nothing else", () => {
-    const topDeclarations = css.match(/(?<![-\w])top:\s*[^;]+;/g) ?? [];
+  it("every LAYOUT `top:` declaration in the file uses the same top-chrome-seam token — the wrapper (anchor, D1) and the backdrop (scrim start, D2), nothing else", () => {
+    // The create action's tap expander (`::after`) also declares a `top`, but
+    // it is a self-centring offset inside its own button, not a page anchor —
+    // it cannot detach the sheet from the seam, which is the regression this
+    // guards. Excluded by rule rather than by loosening the assertion, so a
+    // stray `top` on any real layout element still fails.
+    const layoutCss = css.replace(/[^{}]*::after\s*\{[^}]*\}/g, "");
+    const topDeclarations = layoutCss.match(/(?<![-\w])top:\s*[^;]+;/g) ?? [];
     expect(topDeclarations).toHaveLength(2);
     for (const declaration of topDeclarations) {
       expect(declaration).toBe("top: var(--app-top-chrome-height);");
@@ -209,11 +216,23 @@ describe("MobileNavSheet.css — mobile ≥44px sheet rows and create action (HE
     expect(occurrences).toBe(1);
   });
 
-  it("the header create action gets min-height: 44px at the mobile-shell breakpoint, declared exactly once inside that block", () => {
-    const body = findRuleBody(mobileBlock, ".mobile-nav-sheet__create-action");
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  it("the header create action clears the 44px floor, declared exactly once inside that block", () => {
+    expectTapExpander(mobileBlock, ".mobile-nav-sheet__create-action");
 
     const occurrences = mobileBlock.split(".mobile-nav-sheet__create-action {").length - 1;
     expect(occurrences).toBe(1);
+  });
+
+  // The action is a full-width section action, not a centred pill: the row
+  // must stretch it AND the button must be block-level to fill that width —
+  // an `inline-flex` child ignores `align-items: stretch` on its parent, so
+  // both halves are load-bearing and each is guarded here.
+  it("the header create action spans the sheet's full width", () => {
+    const rowBody = findRuleBody(css, ".mobile-nav-sheet__header-action-row");
+    expect(rowBody).toMatch(/align-items:\s*stretch\s*;/);
+
+    const btnBody = findRuleBody(css, ".mobile-nav-sheet__create-action");
+    expect(btnBody).toMatch(/display:\s*flex\s*;/);
+    expect(btnBody).toMatch(/width:\s*100%\s*;/);
   });
 });

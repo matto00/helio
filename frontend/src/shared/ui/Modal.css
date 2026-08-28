@@ -117,6 +117,13 @@
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+  /* Absorbs the header's slack so `headerActions` and the close button group
+     together at the trailing edge. Without it the header's
+     `justify-content: space-between` distributes the gap BETWEEN all three
+     children, stranding a `headerActions` control (e.g. PanelDetailModal's
+     "Edit") mid-header rather than beside the close control it belongs
+     with. */
+  flex: 1;
 }
 
 .ui-modal__title {
@@ -208,10 +215,21 @@
    `shared/ui/IconButton.css` (`.ui-icon-btn`'s mobile block), guarded by
    `IconButton.css.test.ts`. */
 
-@media (max-width: 768px) {
-  /* Footer button — already flex-centered, so only the height floor is
-     needed. Desktop keeps its fixed --control-md height. */
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css` for
+     the pattern and the `position: relative` / explicit-height reasons. */
   .ui-modal-btn {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .ui-modal-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }

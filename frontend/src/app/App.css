@@ -382,7 +382,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 45vw;
+  /* No `max-width: 45vw` cap. That was a fixed fraction of the viewport,
+     unrelated to what the bar actually has spare, and it truncated names that
+     had room to spare — on a 390px phone it cut the name off at 175px while
+     ~190px was free, and it could not widen when the dashboard page's action
+     icons collapsed into a single kebab. The ellipsis now falls out of the
+     flex layout instead: `__left` is `flex: 1; min-width: 0`, `__right` is
+     `flex-shrink: 0`, so the name takes exactly the room the controls leave
+     and truncates only when there genuinely is none. `min-width: 0` here is
+     what lets it shrink below its intrinsic text width at all — without it a
+     flex item's automatic minimum size is its content, and a long name would
+     push the controls off the right edge rather than clipping. */
+  min-width: 0;
 }
 
 .app-command-bar__mobile-title:focus-visible {
@@ -485,17 +496,14 @@
     transform: translate(-50%, -50%);
   }
 
-  /* The 44px hit regions above extend 8px past each 28px painted box on
-     every side. At the default --space-2 (8px) gap, adjacent regions
-     OVERLAP each other by 8px -- not a neighbour's painted box, which they
-     never reach -- and the later sibling wins the hit test in that
-     overlapping band, truncating the earlier control's real tap extent to
-     ~35.75px even though getComputedStyle still reports 44px for its own
-     ::after. --space-4 (16px) is the exact gap at which the regions abut
-     with zero overlap (design.md Decision 8b) -- do not widen this further,
-     it would break that exact tiling. */
-  .app-command-bar__right {
-    gap: var(--space-4);
+  /* The dashboard-actions kebab sits in the same icon row and must match it:
+     `.popover__trigger` (Popover.css) gives every popover trigger a hairline,
+     which is right for a standalone control on a page but reads as boxed
+     chrome here, beside icon buttons that go borderless at this width.
+     Scoped to the command bar so ActionsMenu triggers elsewhere (panel cards,
+     dashboard rows) keep their border. */
+  .app-command-bar .actions-menu__trigger {
+    border-color: transparent;
   }
 
   /* Desktop layout-editing affordances (undo/redo, dashboard appearance,
@@ -539,4 +547,26 @@
   align-items: center;
   justify-content: center;
   background: var(--app-surface);
+}
+
+/* The command bar's 44px hit regions extend 8px past each 28px painted box on
+   every side. At the default --space-2 (8px) gap, adjacent regions OVERLAP
+   each other by 8px -- not a neighbour's painted box, which they never reach
+   -- and the later sibling wins the hit test in that overlapping band,
+   truncating the earlier control's real tap extent to ~35.75px even though
+   getComputedStyle still reports 44px for its own ::after. --space-4 (16px)
+   is the exact gap at which the regions abut with zero overlap (design.md
+   Decision 8b) -- do not widen this further, it would break that exact
+   tiling.
+   
+   Carries the SAME touch gate as the hit regions it exists to separate
+   (`shared/ui/tapTarget.css`), not the width gate the rest of the phone
+   command-bar layout uses. The expanders now apply on any coarse pointer, so
+   an iPad at 1024px gets them while a width-gated gap fix would leave them
+   overlapping there — the two must move together or the spacing silently
+   stops matching the thing it was measured against. */
+@media (max-width: 768px), (pointer: coarse) {
+  .app-command-bar__right {
+    gap: var(--space-4);
+  }
 }

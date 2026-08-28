@@ -151,8 +151,12 @@ describe("App.css — mobile tap targets: 28px painted box, 44px hit area (HEL-7
     expect(body).toMatch(/height:\s*44px\s*;/);
   });
 
+  // Queried against the whole file: this rule moved into its own TOUCH-gated
+  // block (it must match the gate on the hit regions it separates), so a
+  // first-match lookup for the width-gated mobile block returns the wrong one.
   it("widens .app-command-bar__right's gap to var(--space-4) so hit regions abut instead of overlapping", () => {
-    const body = findRuleBody(mobileBlock, ".app-command-bar__right");
+    const touchBlock = findMediaBlock(css, "max-width: 768px), (pointer: coarse");
+    const body = findRuleBody(touchBlock, ".app-command-bar__right");
     expect(body).toMatch(/gap:\s*var\(--space-4\)\s*;/);
   });
 });

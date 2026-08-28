@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useContainerWidth } from "react-grid-layout";
-import { LayoutDashboard, LayoutGrid, Plus, TriangleAlert } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, TriangleAlert } from "lucide-react";
 
 import "./PanelList.css";
 import { defaultDashboardLayout } from "../../dashboards/state/dashboardLayout";
@@ -18,7 +18,6 @@ import { fetchPanels, setPanelCreationModalOpen } from "../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
 import { EmptyState } from "../../../shared/ui/EmptyState";
-import { Skeleton } from "../../../shared/ui/Skeleton";
 import { resolveDashboardGridBackground } from "../../../theme/appearance";
 import { useTheme } from "../../../theme/ThemeProvider";
 import { useDashboardAppearancePreview } from "../../dashboards/hooks/dashboardAppearancePreviewContext";
@@ -278,57 +277,6 @@ export function PanelList() {
           : undefined
       }
     >
-      <header className="panel-list__header">
-        <div className="panel-list__header-actions">
-          <div className="panel-list__panel-actions">
-            <span className="panel-list__count">
-              {showPanelGridSkeleton || showBootstrapSkeleton ? (
-                // HEL-528 design.md D13 — while the skeleton is up this count is
-                // either "0 panels" (cold boot) or the PREVIOUS dashboard's count
-                // (mid-switch), the same premature-data-claim class D13 rejects
-                // for a metric panel's "--"/"No data" pre-dispatch frame.
-                //
-                // skeptic-final-1.md CR2 — `showBootstrapSkeleton` opened a SECOND
-                // window in which the grid skeleton is up (the dashboards-fetch
-                // bootstrap gap, CR3) without this gate covering it, so the pill
-                // read a literal "0 panels" above a three-card skeleton grid on
-                // every cold boot — the exact defect task 6.8a closed on the
-                // panels-loading path, reopened on the bootstrap path. Covering
-                // both flags closes it on both.
-                //
-                // Sized to the real box, not a decorative default: this bar is a
-                // sole `display: block` child of `.panel-list__count` (the real
-                // pill — padding/border/font all come from that class, same as
-                // every other Skeleton usage), and `1lh` resolves to the line-box
-                // height of THIS element's own inherited font (`--font-mono` at
-                // `--text-xs`), which is exactly the real text's line-box height —
-                // the same fix as the sidebar rows in DashboardList.css, and the
-                // same defect class: a bar with no intrinsic size collapses the
-                // ambient box that depends on real content to size itself.
-                // `ch` (not `em`) matches WIDTH because `--font-mono` is a true
-                // monospace family, so `1ch` is exactly one character's advance —
-                // `8ch` approximates the common "N panels" length; the exact
-                // panel count is genuinely unknown pre-fetch (same acceptance the
-                // grid skeleton's placeholder COUNT makes under D10), so this is
-                // a close match rather than a guaranteed exact one.
-                <Skeleton variant="line" width="8ch" height="1lh" />
-              ) : (
-                `${items.length} panel${items.length === 1 ? "" : "s"}`
-              )}
-            </span>
-            <button
-              type="button"
-              className="panel-list__add"
-              onClick={createPanelAction.cta.onClick}
-              disabled={createPanelAction.cta.disabled}
-              title={selectedDashboardId === null ? "Select a dashboard first" : undefined}
-            >
-              <Plus aria-hidden="true" />
-              Add panel
-            </button>
-          </div>
-        </div>
-      </header>
       {selectedDashboardId ? (
         <div role="group" aria-label="Zoom controls" className="panel-list__zoom-widget">
           <button

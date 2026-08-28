@@ -180,7 +180,8 @@
    mobile-shell breakpoint. The trigger is already `display: flex; align-items:
    center`, so the label stays centered with only a height bump — no flex switch
    needed. The more-specific `.panel-detail-modal`-scoped override is unaffected. */
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
   .ui-select__option {
     display: flex;
     align-items: center;

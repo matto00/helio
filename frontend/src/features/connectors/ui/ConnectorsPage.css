@@ -185,10 +185,6 @@
     padding: var(--space-4);
   }
 
-  .connectors-page__btn {
-    min-height: 44px;
-  }
-
   /* Scoped to this page's EmptyState instance only (not a blanket override
      of the shared `ui-empty-state__cta` class, which would leak to every
      other EmptyState on the page once this stylesheet is loaded). */
@@ -240,5 +236,28 @@
   .connectors-page__row-actions {
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+}
+
+/* Tap targets, split out of the 1100px table-collapse block above so they can
+   carry the touch gate rather than a width gate — see `shared/ui/tapTarget
+   .css`. Without this an iPad Pro in landscape (1366px) got no floor at all.
+   `white-space: nowrap` because the header CTA shares a row with a
+   `--text-2xl` title, so it is width-constrained enough to wrap "Add
+   connector" onto two lines once it is free to shrink again. */
+@media (max-width: 1100px), (pointer: coarse) {
+  .connectors-page__btn {
+    position: relative;
+    white-space: nowrap;
+  }
+
+  .connectors-page__btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }

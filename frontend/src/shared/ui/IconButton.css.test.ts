@@ -54,9 +54,38 @@ function findRuleBody(block: string, selectorSubstring: string): string {
 describe("IconButton.css — mobile ≥44px tap targets (HEL-319/718)", () => {
   const mobileBlock = findMediaBlock(css, "max-width: 768px");
 
-  it("the icon button gets min-width and min-height: 44px at the mobile-shell breakpoint", () => {
-    const body = findRuleBody(mobileBlock, ".ui-icon-btn");
-    expect(body).toMatch(/min-width:\s*44px\s*;/);
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  // The floor is met by a 44x44 ::after hit expander, NOT by inflating the
+  // painted box (which made every icon-only control read as oversized chrome
+  // on phones). Same pattern as `.user-menu__trigger::after` (HEL-772).
+  it("the icon button reaches the 44px floor via a hit expander, not by growing the painted box", () => {
+    const body = findRuleBody(mobileBlock, ".ui-icon-btn::after");
+    expect(body).toMatch(/width:\s*44px\s*;/);
+    expect(body).toMatch(/height:\s*44px\s*;/);
+    expect(body).toMatch(/position:\s*absolute\s*;/);
+    expect(findRuleBody(mobileBlock, ".ui-icon-btn {")).toMatch(/position:\s*relative\s*;/);
+  });
+
+  // Without this the expander resolves against the nearest positioned
+  // ancestor and the enlarged target lands somewhere else entirely.
+  it("the expander's containing block is the button itself", () => {
+    expect(findRuleBody(mobileBlock, ".ui-icon-btn {")).toMatch(/position:\s*relative\s*;/);
+  });
+
+  // Queried against the whole file, not `mobileBlock`: this rule lives in its
+  // own width-gated block (phone chrome, not a touch affordance), while the
+  // block above is touch-gated. Both preludes start `@media (max-width:
+  // 768px)`, so a first-match media lookup would return the wrong one.
+  it("the bordered variants go borderless on phones", () => {
+    const body = findRuleBody(css, ".ui-icon-btn--secondary,");
+    expect(body).toMatch(/border-color:\s*transparent\s*;/);
+  });
+
+  // The borderless rule must NOT pick up the touch gate — an iPad has room
+  // for the desktop treatment and should keep its hairlines.
+  it("the borderless rule is width-gated, while the tap-target rule is touch-gated", () => {
+    expect(css).toMatch(/@media \(max-width: 768px\), \(pointer: coarse\) \{/);
+    const borderlessIndex = css.indexOf(".ui-icon-btn--secondary,");
+    const gateBefore = css.lastIndexOf("@media", borderlessIndex);
+    expect(css.slice(gateBefore, borderlessIndex)).not.toMatch(/pointer: coarse/);
   });
 });

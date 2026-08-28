@@ -110,12 +110,22 @@
 }
 
 /* F-133/DESIGN.md §"Control metrics": 44px mobile tap-target floor for the
- * only entry point to pipeline creation once the list is non-empty (matches
- * the `@media (max-width: 768px)` convention PipelineDetailPage.css's
- * footer buttons already use for the same floor). */
-@media (max-width: 768px) {
+ * only entry point to pipeline creation once the list is non-empty. Met by a
+ * hit expander rather than a taller box — see `shared/ui/tapTarget.css`. */
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
   .pipelines-page__create-btn {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .pipelines-page__create-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }
 

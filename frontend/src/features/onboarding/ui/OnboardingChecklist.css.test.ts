@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { expectTapExpander } from "../../../shared/ui/tapTargetTestUtils";
 
 // Regression guard for the HEL-554 checklist's mobile tap-target floor.
 // jsdom implements no real layout or media-query evaluation, so no
@@ -52,10 +53,9 @@ function findRuleBody(block: string, selectorSubstring: string): string {
 }
 
 describe("OnboardingChecklist.css — 44px tap-target floor at <=768px (HEL-554)", () => {
-  it("the <=768px block declares min-height: 44px for both the step action and the done button", () => {
+  it("the <=768px block clears the 44px floor for both the step action and the done button", () => {
     const mobileBlock = findMediaBlock(css, "max-width: 768px");
-    const body = findRuleBody(mobileBlock, ".onboarding-checklist__action");
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+    expectTapExpander(mobileBlock, ".onboarding-checklist__action");
   });
 
   it("the <=768px selector covers both .onboarding-checklist__action and .onboarding-checklist__done", () => {

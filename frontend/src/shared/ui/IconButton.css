@@ -91,12 +91,33 @@
 /* ── Mobile tap-target floor (HEL-308/314/319 convention, matching
    .ui-modal__close's precedent) ── */
 
-@media (max-width: 768px) {
-  /* Square icon button — both axes must clear the 44px floor. `min-*` leaves
-     desktop's fixed size intact while the mobile floor wins; the glyph is
-     already flex-centered so it stays centered as the box grows. */
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`.
+     Icon-only and square, so this is the centered 44x44 form rather than
+     that utility's full-width strip. */
   .ui-icon-btn {
-    min-width: 44px;
-    min-height: 44px;
+    position: relative;
+  }
+
+  .ui-icon-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* Deliberately a WIDTH gate, unlike the tap-target block above: this is phone
+   command-bar chrome, not a touch affordance. A row of icons each in its own
+   hairline box reads as heavy at phone width; an iPad has the room for the
+   desktop treatment and should keep it. */
+@media (max-width: 768px) {
+  .ui-icon-btn--secondary,
+  .ui-icon-btn--danger {
+    border-color: transparent;
   }
 }

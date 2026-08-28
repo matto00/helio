@@ -9,80 +9,11 @@
   transition: background-color var(--app-transition);
 }
 
-.panel-list__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
-}
-
-.panel-list__header-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  width: 100%;
-}
-
-.panel-list__header h2 {
-  margin: 0;
-  font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
-  letter-spacing: -0.01em;
-}
-
-.panel-list__count {
-  padding: 2px var(--space-2);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-pill);
-  background: var(--app-surface);
-  color: var(--app-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-variant-numeric: tabular-nums;
-}
-
-/* F-118: promoted from an unlabeled 24px icon-only button to a labeled
- * Primary action (DESIGN.md §5) — "Add panel" is the one primary action of
- * this view. */
-.panel-list__add {
-  height: var(--control-sm);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--app-radius-sm);
-  background: var(--app-accent);
-  color: var(--app-accent-ink);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  line-height: 1;
-  transition: background-color var(--app-transition);
-}
-
-.panel-list__add:hover:not(:disabled) {
-  background: var(--app-accent-strong);
-}
-
-.panel-list__add:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* HEL-548 D8/7.1 — this button's icon moved from FontAwesome (self-sizes to
- * 1em via its auto-injected base stylesheet) to lucide's `Plus` (a bare
- * <svg>, no such stylesheet), matching InlineError.css's identical pattern. */
-.panel-list__add svg {
-  width: 1em;
-  height: 1em;
-}
-
-.panel-list__panel-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
+/* The "Add panel" button and the panel-count pill that shared its header row
+ * are gone (with `.panel-list__header`/`__count`/`__add` and their rules):
+ * that bar cost a full row above the grid on every dashboard, and the action
+ * now lives in the command bar's dashboard-actions menu (CommandBar.tsx).
+ * `EmptyState`'s CTA remains this view's other route to the same action. */
 
 .panel-list__zoom-widget {
   /* Fixed (not absolute): the panel list grows with its content and the page
@@ -164,24 +95,18 @@
     padding: var(--space-5);
     min-height: auto;
   }
+}
 
-  .panel-list__header {
-    flex-direction: column;
-  }
-
-  /* HEL-781: mobile tap-target floor, following the EmptyState.css:219-228
-     convention. Placed AFTER the base `.panel-list__add` rule above so
-     source order cannot make it inert at equal specificity (HEL-535
-     lesson). */
-  .panel-list__add {
-    min-height: 44px;
-  }
-
-  /* HEL-781: same floor on both axes for the zoom-widget controls — the
-     base rule above also declares `width: 22px` on `.panel-list__zoom-button`,
-     so height alone would leave it under-width. The widget is already
-     `display: none` below 430px via its own rule, so this only applies in
-     the 431–768px band where it's actually reachable. */
+/* Tap targets, split out of the layout block above so they can carry the
+   touch gate rather than the width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  /* HEL-781: same floor on both axes for the zoom-widget controls — the base
+     rule also declares `width: 22px` on `.panel-list__zoom-button`, so height
+     alone would leave it under-width. These are a genuine box change, not an
+     expander: the two controls sit 2px apart inside a pill, so overlapping
+     44px expanders would fight over the same taps. The widget is
+     `display: none` below 430px, so this lands on tablets and the 431-768px
+     band, which is exactly where it is reachable by touch. */
   .panel-list__zoom-button,
   .panel-list__zoom-reset {
     min-height: 44px;

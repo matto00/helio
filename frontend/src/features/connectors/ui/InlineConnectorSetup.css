@@ -80,9 +80,22 @@
    treatment needed at either width, verified against the review pages'
    existing `size="lg"` Modal container, which already caps content width. */
 
-@media (max-width: 768px) {
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css` for
+     the pattern and the `position: relative` / explicit-height reasons. */
   .inline-connector-setup__btn {
-    min-height: 44px;
+    position: relative;
+  }
+
+  .inline-connector-setup__btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }
 

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { expectTapExpander } from "../ui/tapTargetTestUtils";
 
 // Regression guard for the HEL-308 mobile touch-target fix. jsdom implements no
 // real layout or media-query evaluation, so no DOM-rendering Jest test can
@@ -68,13 +69,12 @@ describe("ActionsMenu.css — mobile ≥44px tap targets (HEL-308)", () => {
     expect(body).toMatch(/align-items:\s*center\s*;/);
   });
 
-  // HEL-314: the kebab trigger itself must also clear 44px on both axes (it is a
-  // square icon button). Centering is inherited from the co-applied
-  // `.popover__trigger` class, so this rule only needs the min-width/min-height
-  // floor inside the same mobile-shell media block.
-  it("the actions-menu trigger gets min-width and min-height: 44px at the mobile-shell breakpoint", () => {
-    const body = findRuleBody(mobileBlock, ".actions-menu__trigger");
-    expect(body).toMatch(/min-width:\s*44px\s*;/);
-    expect(body).toMatch(/min-height:\s*44px\s*;/);
+  // HEL-314: the kebab trigger must clear 44px on both axes. It does so with a
+  // hit expander, keeping its painted 28px box — a 44px bordered square reads
+  // as a heavy button rather than an overflow affordance. Note the contrast
+  // with the menu ITEMS above, which genuinely grow: a 44px menu row is the
+  // phone idiom, a 44px kebab is not.
+  it("the actions-menu trigger clears a 44x44 tap target at the mobile-shell breakpoint", () => {
+    expectTapExpander(mobileBlock, ".actions-menu__trigger", "square");
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export type PortalPopoverPos = {
   /** Distance from the viewport top. Mutually exclusive with `bottom` in
@@ -15,6 +15,9 @@ export type PortalPopoverPos = {
   left?: number;
   width?: number;
 };
+
+/** Minimum gap kept between a portalled panel and the viewport edge. */
+const VIEWPORT_MARGIN = 8;
 
 /** Encapsulates trigger ref, open/close state, and panel position calculation
  * for portal-rendered popovers. All popover components use this hook to avoid
@@ -50,6 +53,8 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>() {
   const panelRef = useRef<HTMLElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<PortalPopoverPos | null>(null);
+  /** Guards the viewport clamp below against re-measuring its own output. */
+  const hasClampedRef = useRef(false);
 
   // Close on Escape regardless of where focus is — portalled panels are outside
   // the trigger's DOM subtree and won't bubble keyboard events through it.
@@ -85,6 +90,63 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>() {
     document.addEventListener("focusout", onFocusOut);
     return () => document.removeEventListener("focusout", onFocusOut);
   }, [isOpen]);
+
+  // Keep the panel inside the viewport horizontally.
+  //
+  // `computePos` runs against the TRIGGER's rect before the panel exists, so
+  // it cannot know how wide the panel will be. Every consumer that anchors to
+  // the trigger's right edge (`right: window.innerWidth - rect.right`) is
+  // therefore fine for a trigger near the right of the screen and broken for
+  // one near the left: the panel grows leftward from the anchor and its left
+  // edge goes negative, clipping the content off-screen with no scroll and no
+  // visible affordance. Seen on PipelineDetailPage's footer menu at phone
+  // width, where the trigger sits ~130px from the left and the panel is
+  // `min-width: 140px`.
+  //
+  // Measuring after mount is what makes this fixable at all — the panel's
+  // width is only knowable once it is laid out. `useLayoutEffect` so the
+  // correction lands in the same paint as the open, with no visible jump.
+  //
+  // Only ever runs for consumers that attach `panelRef`, and only nudges
+  // along the axis the panel is actually anchored on, so a `left`-positioned
+  // panel is left alone. The `>= 1` threshold makes the already-fitting case
+  // (the overwhelmingly common one) a no-op.
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      hasClampedRef.current = false;
+      return;
+    }
+    // At most one correction per open. The effect depends on `panelPos`, which
+    // it also writes — without this it would re-measure its own output and,
+    // anywhere `getBoundingClientRect()` reports a stale or synthetic value,
+    // recurse forever.
+    if (hasClampedRef.current) return;
+    if (panelPos === null) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    if (panelPos.right === undefined) return;
+
+    const rect = panel.getBoundingClientRect();
+    // A zero-width rect means the panel has no layout to correct against —
+    // a non-rendering environment (jsdom reports 0 for every rect) or a panel
+    // measured before layout. Clamping on those numbers would move a
+    // correctly-placed panel based on nothing.
+    if (rect.width === 0) return;
+
+    hasClampedRef.current = true;
+
+    const overflowLeft = VIEWPORT_MARGIN - rect.left;
+    if (overflowLeft < 1) return;
+
+    // Shrinking `right` slides the panel rightward, back into view. Clamped at
+    // 0 so a panel wider than the viewport pins to the right edge rather than
+    // overshooting off the other side.
+    setPanelPos((current) =>
+      current === null || current.right === undefined
+        ? current
+        : { ...current, right: Math.max(0, current.right - overflowLeft) },
+    );
+  }, [isOpen, panelPos]);
 
   /** Reads the trigger element's bounding rect, calls computePos to derive
    * panel coordinates, and transitions to the open state. */

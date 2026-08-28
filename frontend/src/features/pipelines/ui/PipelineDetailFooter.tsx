@@ -1,8 +1,8 @@
 // PipelineDetailFooter — the single footer region shown on the
 // PipelineDetailPage. Renders the last-run metadata (when present), the
 // output-name editor, step count + live run status, dirty-state save/cancel
-// buttons (with inline discard-confirm), the always-visible dry-run/run-
-// pipeline buttons, and an overflow menu for the remaining actions.
+// buttons (with inline discard-confirm), and the always-visible dry-run/
+// run-pipeline buttons.
 //
 // Extracted from `./PipelineDetailPage.tsx` as part of CS3 cycle 2 — purely
 // to keep the parent file under the 400L hard cap. All wiring is preserved.
@@ -11,16 +11,20 @@
 // (formerly two separate strips rendered below this footer) so the page has
 // exactly one footer region — see design.md D3.
 //
-// Scope amendment (design.md D7): "Run history"/"Preview"/"Share" collapse
-// into a second `ActionsMenu` ("More actions"); "Dry run"/"Run pipeline"
-// stay plain, always-visible buttons at every viewport, 430px included.
+// "Dry run"/"Run pipeline" stay plain, always-visible buttons at every
+// viewport, 430px included.
+//
+// This footer no longer owns an actions menu. "Run history"/"Preview"/"Share"
+// (formerly a second `ActionsMenu` here, design.md D7) moved into
+// `PipelineDetailHeader`'s menu: once the header stacks at <=1100px the two
+// unlabeled kebabs read as the same control repeated, with nothing to
+// distinguish which holds what. The page has exactly one actions menu now.
 
 import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
 import type { SchemaField } from "../types/pipelineStep";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { TextField } from "../../../shared/ui/TextField";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
-import { ActionsMenu, type ActionsMenuItem } from "../../../shared/chrome/ActionsMenu";
 
 interface SseLike {
   status: RunStatusEventData["status"] | null;
@@ -52,14 +56,8 @@ interface PipelineDetailFooterProps {
   confirmCancelDiscard: () => void;
   dismissCancelConfirm: () => void;
   handleCancel: () => void;
-  openHistory: () => void;
-  openPreview: () => void;
   handleDryRun: () => void;
   handleRunPipeline: () => void;
-  /** Whether the current user owns the pipeline. Gates the Share button
-   *  (owner-only), mirroring the standalone share bar it replaces. */
-  isOwner: boolean;
-  onOpenShare: () => void;
   /** Persisted last-run metadata from `currentPipeline` — rendered as a top
    *  row inside this footer only when `lastRunAt` is non-null (spec:
    *  "PipelineDetailPage shows persistent last-run metadata bar"). */
@@ -89,25 +87,12 @@ export function PipelineDetailFooter({
   confirmCancelDiscard,
   dismissCancelConfirm,
   handleCancel,
-  openHistory,
-  openPreview,
   handleDryRun,
   handleRunPipeline,
-  isOwner,
-  onOpenShare,
   lastRunAt,
   lastRunRowCount,
   lastRunStatus,
 }: PipelineDetailFooterProps) {
-  // design.md D7 (scope amendment) — same left-to-right priority order as the
-  // three buttons this menu replaces; "Share" keeps its existing owner-only
-  // gating.
-  const overflowItems: ActionsMenuItem[] = [
-    { label: "Run history", onClick: openHistory },
-    { label: "Preview", onClick: openPreview },
-    ...(isOwner ? [{ label: "Share", onClick: onOpenShare }] : []),
-  ];
-
   return (
     <div className="pipeline-detail-page__footer-region">
       {lastRunAt != null && (
@@ -271,19 +256,6 @@ export function PipelineDetailFooter({
               </span>
             </>
           )}
-          {/* design.md D7 (scope amendment): "Run history"/"Preview"/"Share"
-           *  collapse into one overflow menu instead of three always-visible
-           *  buttons — same left-to-right priority order as before. `Share`
-           *  is still owner-gated exactly as it was as a standalone button. */}
-          {/* `align="above"` — this trigger sits in the page's fixed-height
-           *  footer (`.pipeline-detail-page { height: 100% }`), which is
-           *  always flush with the viewport's bottom edge; opening downward
-           *  (ActionsMenu's default) rendered the panel entirely past the
-           *  visible viewport at every tested height, 430px through 1080px+
-           *  (confirmed via live Playwright measurement — see
-           *  files-modified.md Cycle 4). Mirrors this same footer's existing
-           *  Cancel-confirm "dropup" idiom just below. */}
-          <ActionsMenu label="More actions" items={overflowItems} align="above" />
           <button
             type="button"
             className="pipeline-detail-page__dry-run-btn"

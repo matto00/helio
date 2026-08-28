@@ -6,6 +6,7 @@ import {
 } from "../services/panelService";
 import { createDashboard as createDashboardRequest } from "../../dashboards/services/dashboardService";
 import { renderWithStore } from "../../../test/renderWithStore";
+import { setPanelCreationModalOpen } from "../state/panelsSlice";
 import { PanelGrid } from "./grid/PanelGrid";
 import { PanelList } from "./PanelList";
 
@@ -399,7 +400,11 @@ describe("PanelList", () => {
     expect(screen.getByRole("button", { name: "Chart" })).toBeInTheDocument();
   });
 
-  it("clicking 'Add panel' header button opens the creation modal at type-select step", () => {
+  // The header's "Add panel" button (and the panel-count pill beside it) were
+  // removed — that bar cost a full row above every dashboard. The trigger now
+  // lives in the command bar; `PanelList`'s own remaining trigger is the empty
+  // state's CTA, covered by the test above.
+  it("opens the creation modal at type-select step when the creation flag is set", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
         items: [
@@ -413,10 +418,13 @@ describe("PanelList", () => {
         ],
         selectedDashboardId: "dashboard-1",
       },
-      panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+        panelCreationModalOpen: true,
+      },
     });
-
-    fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
 
     // Modal is open at type-select step — no radio buttons, type cards instead
     expect(screen.queryByRole("radio", { name: "Metric" })).not.toBeInTheDocument();
@@ -436,14 +444,23 @@ describe("PanelList", () => {
     });
     fetchPanelsMock.mockResolvedValue([]);
 
+    // The "Add panel" trigger now lives in the command bar (CommandBar.tsx),
+    // outside this component — so the modal is opened here through the same
+    // public slice state that button flips, rather than by clicking a control
+    // `PanelList` no longer renders. `PanelList` still OWNS the modal; only
+    // the trigger moved.
     renderWithStore(<PanelList />, {
       dashboards: baseDashboardsState,
-      panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+        panelCreationModalOpen: true,
+      },
       ...dataTypeStoreAdditions,
     });
 
-    // Open modal, select metric type, select DataType, enter title, submit
-    fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
+    // Select metric type, select DataType, enter title, submit
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     // Metric is data-bound — navigate through the DataType step
@@ -477,12 +494,17 @@ describe("PanelList", () => {
 
     renderWithStore(<PanelList />, {
       dashboards: baseDashboardsState,
-      panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+        panelCreationModalOpen: true,
+      },
       ...dataTypeStoreAdditions,
     });
 
-    // Open modal, select chart type, select DataType, enter title, submit
-    fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
+    // Modal is opened by the store flag (the trigger lives in the command
+    // bar now); select chart type, select DataType, enter title, submit
     fireEvent.click(screen.getByRole("button", { name: "Chart" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     // Chart is data-bound — navigate through the DataType step
@@ -516,14 +538,19 @@ describe("PanelList", () => {
     });
     fetchPanelsMock.mockResolvedValue([]);
 
-    renderWithStore(<PanelList />, {
+    const { store } = renderWithStore(<PanelList />, {
       dashboards: baseDashboardsState,
-      panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+        panelCreationModalOpen: true,
+      },
       ...dataTypeStoreAdditions,
     });
 
-    // Open modal, select table, navigate DataType step, create
-    fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
+    // Modal is opened by the store flag; select table, navigate DataType
+    // step, create
     fireEvent.click(screen.getByRole("button", { name: "Table" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     // Table is data-bound — navigate through the DataType step
@@ -534,8 +561,13 @@ describe("PanelList", () => {
 
     await waitFor(() => expect(createPanelMock).toHaveBeenCalled());
 
-    // Reopen modal — should start at type-select step with no pre-selection
-    fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
+    // Reopen modal — should start at type-select step with no pre-selection.
+    // Dispatched rather than clicked: this is exactly what the command bar's
+    // "Add panel" item does, and it is the only remaining way in now that
+    // `PanelList` renders no trigger of its own in this state.
+    act(() => {
+      store.dispatch(setPanelCreationModalOpen(true));
+    });
     expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
   });
@@ -623,32 +655,11 @@ describe("PanelList", () => {
       expect(screen.queryByText("No panels yet")).not.toBeInTheDocument();
     });
 
-    // 6.8a / skeptic-final-1.md CR2 — the "N panels" pill must not read a
-    // literal count while the count itself is not yet trustworthy data.
-    it("6.8a — the panel-count pill shows a skeleton, not a literal '0 panels', while the selected dashboard's panels are loading", () => {
-      const { container } = renderWithStore(<PanelList />, {
-        dashboards: baseDashboardsState,
-        panels: { items: [], loadedDashboardId: null, status: "loading" },
-      });
-
-      expect(container.querySelector(".panel-list__count .ui-skeleton")).toBeInTheDocument();
-      expect(screen.queryByText("0 panels")).not.toBeInTheDocument();
-    });
-
-    // skeptic-final-1.md CR2 — the SAME defect reopened on the CR3 bootstrap
-    // path: `showBootstrapSkeleton` (no dashboard selected yet, dashboards
-    // fetch in flight) put the grid skeleton up a second way without the
-    // pill's gate covering it, so a cold boot showed a literal "0 panels"
-    // above the three-card bootstrap skeleton on every load.
-    it("CR3 bootstrap window — the panel-count pill shows a skeleton, not a literal '0 panels', while the dashboards fetch is in flight and none is selected yet", () => {
-      const { container } = renderWithStore(<PanelList />, {
-        dashboards: { items: [], selectedDashboardId: null, status: "loading" },
-        panels: { items: [], status: "idle" },
-      });
-
-      expect(container.querySelector(".panel-list__count .ui-skeleton")).toBeInTheDocument();
-      expect(screen.queryByText("0 panels")).not.toBeInTheDocument();
-    });
+    // The two panel-count-pill guards that lived here (6.8a and the CR3
+    // bootstrap window) are gone with the pill itself: the header bar that
+    // held it was removed, so "0 panels" can no longer be shown prematurely
+    // because it is never shown at all. The grid-skeleton assertions those
+    // tests sat beside are untouched.
 
     // HEL-548 D2a — HEL-528 task 6.5c-ii assigned closing this gap to
     // HEL-548 by name. INVERTED, not deleted: the sibling "no skeleton"
@@ -806,12 +817,13 @@ describe("PanelList", () => {
         ],
         loadedDashboardId: "dashboard-1",
         status: "succeeded",
+        panelCreationModalOpen: true,
       },
       ...dataTypeStoreAdditions,
     });
 
-    // Open modal, select type, navigate DataType step, enter title, submit
-    fireEvent.click(screen.getByRole("button", { name: "Add panel" }));
+    // Modal is opened by the store flag (the trigger lives in the command bar
+    // now); select type, navigate DataType step, enter title, submit
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
     // Metric is data-bound — navigate through the DataType step
@@ -1218,10 +1230,13 @@ describe("PanelList", () => {
         ],
         selectedDashboardId: "dashboard-1",
       },
-      panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+      panels: {
+        items: [],
+        loadedDashboardId: "dashboard-1",
+        status: "succeeded",
+        panelCreationModalOpen: true,
+      },
     });
-
-    fireEvent.click(screen.getAllByRole("button", { name: "Add panel" })[0]);
 
     expect(screen.getByRole("button", { name: "Image" })).toBeInTheDocument();
   });
