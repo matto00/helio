@@ -233,25 +233,40 @@ class RestApiConnectorDriver(
    *  of the walk. A missing key or a non-object encountered mid-walk yields `Vector.empty`
    *  (curated-empty, not a 500) plus a server-side warn log — HEL-599 owns the real
    *  user-facing error envelope. */
-  def toRows(json: JsValue, rootSelector: Option[String] = None): Vector[JsValue] = {
-    val target = rootSelector match {
-      case None       => Some(json)
+  def toRows(json: JsValue, rootSelector: Option[String] = None): Vector[JsValue] =
+    toRowsEither(json, rootSelector).getOrElse(Vector.empty)
+
+  /** HEL-599 design.md D5: the curated-error counterpart of [[toRows]]. `rootSelector = None` is
+   *  the byte-identical unset path — `toRows` is kept as a thin wrapper over this so that
+   *  "unset selector is byte-identical to today" is verifiable against an unchanged function
+   *  (task 4.3). `Left` fires ONLY when a selector was supplied and the walk failed (a missing
+   *  segment, or descending through a non-object) — every other outcome, including a genuinely
+   *  empty array, is `Right`; conflating "selector broken" with "selector matched nothing" would
+   *  defeat the whole point of this criterion. The curated message names the selector and the
+   *  failing segment only — no response body, no header, no credential (HEL-311 convention). */
+  def toRowsEither(json: JsValue, rootSelector: Option[String] = None): Either[String, Vector[JsValue]] = {
+    val target: Either[String, JsValue] = rootSelector match {
+      case None       => Right(json)
       case Some(path) =>
-        path.split("\\.").toVector.foldLeft[Option[JsValue]](Some(json)) {
-          case (Some(obj: JsObject), segment) => obj.fields.get(segment)
-          case _                              => None
-        } match {
-          case found @ Some(_) => found
-          case None =>
+        val segments = path.split("\\.").toVector
+        segments.foldLeft[Either[String, JsValue]](Right(json)) {
+          case (Right(obj: JsObject), segment) =>
+            obj.fields.get(segment) match {
+              case Some(next) => Right(next)
+              case None =>
+                log.warn(s"REST source rootSelector '$path' did not match the response shape; yielding zero rows")
+                Left(s"rootSelector '$path' not found: no field '$segment'")
+            }
+          case (Right(_), segment) =>
             log.warn(s"REST source rootSelector '$path' did not match the response shape; yielding zero rows")
-            None
+            Left(s"rootSelector '$path' not found: '$segment' is not an object")
+          case (left @ Left(_), _) => left
         }
     }
-    target match {
-      case Some(JsArray(elements)) => elements.toVector
-      case Some(obj: JsObject)     => Vector(obj)
-      case Some(other)             => Vector(other)
-      case None                    => Vector.empty
+    target.map {
+      case JsArray(elements) => elements.toVector
+      case obj: JsObject     => Vector(obj)
+      case other             => Vector(other)
     }
   }
 
@@ -317,12 +332,15 @@ class RestApiConnectorDriver(
    *  handles (JSON array, single object, non-object scalar), so this produces byte-for-byte
    *  identical output to the pre-change `fromJson(json)` call (design.md Decision 1). */
   def inferSchema(config: RestApiConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
-    fetch(config, resolveContext).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json, config.rootSelector))))
+    fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector))
+      .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows)))
 
-  /** Forwards to the existing `fetch`/`toRows` methods, truncating to `maxRows` — matching
-   *  `SourceService.previewRest`'s `connector.toRows(json).take(10)` pattern. */
+  /** Forwards to the existing `fetch`/`toRowsEither` methods, truncating to `maxRows` — matching
+   *  `SourceService.previewRest`'s `connector.toRows(json).take(10)` pattern. A `Left` from a
+   *  broken `rootSelector` (design D5) propagates as-is so `InProcessPipelineEngine.loadRows`
+   *  fails the run loudly instead of materialising zero rows. */
   def fetch(config: RestApiConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
-    fetch(config, resolveContext).map(_.map(json => toRows(json, config.rootSelector).take(maxRows)))
+    fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector)).map(_.take(maxRows)))
 
   // Never resolves/persists a Connector — no auth, no normalizing join (no `baseUrl` to join
   // against). Used only by `POST /api/sources/infer|test` and inline pipeline-proposal sources
@@ -384,5 +402,6 @@ class RestApiConnectorDriver(
     }
 
   def inferSchemaEphemeral(config: EphemeralRestConfig): Future[Either[String, InferredSchema]] =
-    fetchEphemeral(config).map(_.map(json => SchemaInferenceEngine.inferSchemaFromRows(toRows(json, config.rootSelector))))
+    fetchEphemeral(config).map(_.flatMap(json => toRowsEither(json, config.rootSelector))
+      .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows)))
 }

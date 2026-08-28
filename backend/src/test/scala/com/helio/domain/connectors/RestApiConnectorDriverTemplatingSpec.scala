@@ -157,9 +157,10 @@ class RestApiConnectorDriverTemplatingSpec extends AnyWordSpec with Matchers wit
       rows should have size 1
       rows.head("path")  shouldBe "/echo/42"
       rows.head("query") shouldBe "tag=gold"
-      // `PipelineRowJson.jsValueToAny` serializes a nested JsObject field back to its
-      // compact JSON string rather than a Map — still proves the header was resolved.
-      rows.head("headers").asInstanceOf[String] should include("\"X-Custom\":\"custom-header-value\"")
+      // HEL-599: `headers` is now flattened by `JsonFlattener`/`jsRowToRow` rather than
+      // serialized back to compact JSON text — the dotted `headers.X-Custom` column carries the
+      // resolved value directly, matching what schema inference already advertised.
+      rows.head("headers.X-Custom") shouldBe "custom-header-value"
     }
   }
 

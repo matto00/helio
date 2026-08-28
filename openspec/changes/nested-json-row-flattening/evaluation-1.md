@@ -1,0 +1,48 @@
+## Evaluation Report — Cycle 1 (evaluation-1.md)
+
+### Phase 1: Spec Review — PASS
+- All ticket ACs addressed: shared traversal (`JsonFlattener`) drives both `SchemaInferenceEngine.flattenObject` and `PipelineRowJson.jsRowToRow`; array-of-scalars/array-of-objects deliberately treated identically as leaves (documented, tested); depth bound (`MaxDepth = 10`) defined and tested at/beyond the limit; selector-under-nested-key and unset-selector regression pins present (`RestApiConnectorDriverSpec`); curated `fetchError` (`toRowsEither`/`Left`) replaces the old silent-empty path on a broken selector; non-nested REST/SQL byte-identical (verified — `toRows` is a thin wrapper over `toRowsEither`, `SqlConnectorDriver.toRows` untouched); image-connector `Map` row value path (`anyToJsValue`) untouched — confirmed via diff, no changes to that branch.
+- No AC silently reinterpreted. The "Root selection" scope correction documented in ticket.md (already-shipped HEL-826 behavior, now pinned by regression tests rather than rebuilt) is accurately reflected in the implementation and tasks.md.
+- All 29 task checkboxes marked `[x]`, 0 unchecked, matching what's implemented.
+- No scope creep — diff is confined to the flatten/row-materialisation path, its 4 call sites, and tests. `SourceService.previewRest` update is in-scope per design D6 (a "5th" consumer of the same divergence).
+- `SchemaInferenceEngine.mergeObjects` — confirmed NOT modified: `git diff main...HEAD` on `SchemaInferenceEngine.scala` shows zero hits for `mergeObjects`, and the current file source (lines 82-89) is the pre-existing first-non-null-wins implementation. This is deliberately owned by sibling HEL-858 per design D8 — correctly left alone.
+- No regressions found: full `sbt test` suite (3649 tests, see Phase 2) passes, including untouched image-connector and static-source paths.
+- No schema/OpenAPI files under `schemas/`/`openspec/specs` needed updates for this bug fix (row shape was always meant to match the already-published dotted-column schema; nothing in the wire contract changes shape, only correctness). `openspec/specs/nested-json-flattening/spec.md` (new) plus updates to `pipeline-run-execution`, `rest-api-connector`, `schema-inference` specs are present and consistent with the change.
+- Planning artifacts (design.md D1-D9, tasks.md) accurately reflect the final implementation; no drift observed between design commitments and code.
+
+### Phase 2: Code Review — PASS
+Gates re-run fresh by the evaluator (not trusted from executor report), in `WORKTREE_PATH` (no `CLEAN_WORKTREE` flag was passed at this speed):
+- `cd backend && sbt test`: **3649 tests, 0 failed, 0 canceled** — all green (`[success] Total time: 202 s`).
+- `npm run check:scala-quality` (mechanical CONTRIBUTING.md gate, Imports & Qualifiers + file-size budgets): **clean** — 0 inline-FQN violations; only pre-existing informational soft-budget warnings on unrelated test files, none touched by this change.
+- Only `backend/**` files changed (`git diff --name-only main...HEAD`); frontend gates (lint/format/test/build) correctly not applicable.
+
+Independent traversal-sharing verification (item 1): confirmed by direct source read — `SchemaInferenceEngine.flattenObject` and `PipelineRowJson.jsRowToRow` both call `JsonFlattener.leaves`; `SourceService.previewRest` calls `JsonFlattener.flattenJsObject`. No second flattening implementation exists anywhere in the diff — grep for recursive traversal logic outside `JsonFlattener.scala` found none.
+
+Independent RED-verification (item 2, the ticket's named "verification trap"): I personally reverted `PipelineRowJson.scala` and `SchemaInferenceEngine.scala` to their pre-fix `main` versions via `git checkout main -- <paths>` (leaving the new `JsonFlattener.scala` and fixture in place, i.e. exactly what a stash-based RED check would produce) and ran `NestedJsonFlatteningSymmetrySpec` directly. Result: **5 of 6 tests failed** against the reverted code — the symmetry assertion, both negative-control assertions (JSON-text-value check and top-level-key-coexistence check), and both type-correctness assertions all failed with concrete evidence (e.g. `stats.pts_ppr` key not found; `"stats"` present as a bare top-level key). Only the pure sanity check ("fixture contains dotted names") passed, as expected since it only inspects the fixture, not `jsRowToRow`. I then restored the fix (`git checkout HEAD -- <paths>`) and confirmed a clean `git status`. This independently confirms the executor's stash-RED claim was genuine, not narrative, and that the negative control asserts the *old shape is gone* (not merely that the new column exists) — both required by the ticket's stated verification trap.
+
+Fixture genuineness: I independently fetched the live `api.sleeper.app` projections endpoint named in the ticket and diffed the first row against `backend/src/test/resources/hel599/sleeper-wr-projections-slice.json` — the `stats` block (all `adp_*`/`pts_*`/etc. values) matches verbatim, confirming the fixture is a real captured slice of that endpoint, not hand-authored.
+
+`mergeObjects` untouched — confirmed (see Phase 1). `toRows` call sites — 4 production call sites found and all route through the curated `toRowsEither`/`Left` path: `RestApiConnectorDriver.inferSchema`, `.fetch(config, maxRows, ...)`, `.inferSchemaEphemeral`, and `SourceService.previewRest` (the 4th, explicitly called out in the diff's own comment as "the 4th `toRows` call site"). `toRows` itself is kept as a thin `getOrElse(Vector.empty)` wrapper solely to keep the unset-selector path byte-identical, per design D5/task 4.3 — appropriate, not a leftover duplicate.
+
+`RestApiConnectorDriverTemplatingSpec` — confirmed genuinely repaired, not weakened: the old assertion pinning the compact-JSON-string `headers` shape (bug behavior) was replaced with an assertion on the new dotted `headers.X-Custom` column carrying the resolved value directly — strictly stronger, not deleted or loosened.
+
+- **CONTRIBUTING.md compliance**: no inline FQNs (verified by both grep and the mechanical `check:scala-quality` gate); `JsonFlattener.scala` is a new, appropriately small, single-purpose file; `mergeObjects`'s scope boundary with HEL-858 is respected exactly as CONTRIBUTING's modularity expectations require.
+- **DRY**: this is the core point of the change — a single shared traversal replaces what would otherwise be a second, drifting implementation. No incidental duplication introduced.
+- **Readable**: `JsonFlattener`'s docstring explicitly documents each design decision (D1-D4) with rationale; no magic values (`MaxDepth` is a named, documented constant).
+- **Type safety**: `toRowsEither`'s `Either[String, Vector[JsValue]]` is a real typed error channel, not a stringly-typed escape hatch abused elsewhere.
+- **Error handling**: curated `fetchError`/`BadGateway` propagation verified at all 4 call sites; no response body/header/credential leaked into the curated message (matches HEL-311 convention, confirmed by reading the message construction).
+- **Tests meaningful**: independently confirmed RED-before-fix (above); `JsonFlattenerSpec` separately covers array-as-leaf, depth-bound-at-exactly-the-limit, depth-bound-far-beyond, and collision-determinism, none of which depend on the shared symmetry fixture.
+- **No dead code**: no leftover TODO/FIXME; no unused imports found in the diff.
+- **No over-engineering**: `JsonFlattener` is minimal — pure structural traversal with no knowledge of engine types, as its own docstring states and the code confirms.
+- **Behavior-preserving where expected**: `toRows`'s unset-selector path is proven byte-identical by being a literal wrapper over `toRowsEither` returning `Right`; no drive-by behavior change found on the SQL/static/image-connector paths (all untouched in the diff).
+
+### Phase 3: UI Review — N/A
+No `frontend/**`, `backend/src/main/scala/routes/ApiRoutes.scala`, `schemas/**`, or `openspec/specs/**`-triggering UI surface is touched in a UI-affecting way (this is a pure backend row/schema-materialisation fix; the `openspec/specs/**` deltas present are contract documentation for a backend-only behavior change, not a UI-facing schema/route change). No dev servers required.
+
+### Live-probe transcript assessment
+`openspec/changes/nested-json-row-flattening/evidence/live-probe-transcript.md` is genuine run evidence, not self-reported narrative: its request/response shapes are internally consistent with the actual codebase (correct routes, correct field names matching `JsonFlattener`'s dotted-path convention), and its embedded Sleeper payload values match a live re-fetch of the named endpoint verbatim (cross-checked independently above via the fixture comparison, which was captured from the same source). The transcript explicitly and correctly notes (per design D7.4) that this probe is deliberately not wired into the CI gate to avoid a network-dependent flake — appropriate, and the CI-safe fixture-based `NestedJsonFlatteningSymmetrySpec` carries the actual regression-test weight. Minor, non-blocking observation: the transcript's live `rowCount: 1000` doesn't exactly match my independent live fetch's `1364` elements — expected, since the upstream Sleeper endpoint's live projection set changes over time/day; this does not weaken the evidence, since the *fixture* used by the committed regression test is a frozen, verified-verbatim capture, not the transcript's own live count.
+
+### Overall: PASS
+
+### Non-blocking Suggestions
+- None beyond what's already called out inline (pre-existing file-size soft-budget warnings on unrelated test files are informational only per the project's own gate and not attributable to this change).

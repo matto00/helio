@@ -345,4 +345,47 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       refreshed.version shouldBe 2
     }
   }
+
+  // ── HEL-599 design.md D6 / task 5.9: previewRest agrees with the advertised schema + rows ──
+
+  "SourceService.preview (REST)" should {
+
+    "returns flat dotted keys for a nested response, matching the advertised schema" in {
+      cleanDb()
+      val json: JsValue = JsArray(
+        JsObject("player_id" -> JsString("8800"), "stats" -> JsObject("pts_ppr" -> JsNumber(33.7)))
+      )
+      val svc     = service(restConnector(Right(json)))
+      val created = await(svc.createRest(CreateSourceRequest("PreviewNested", DataSourceKind.RestApi, restConfigPayload, None), user)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"createRest failed: $e")
+      }
+      val dt = created.dataType.getOrElse(fail("expected a DataType"))
+      dt.fields.map(_.name) should contain("stats.pts_ppr")
+
+      val previewed = await(svc.preview(DataSourceId(created.source.id), user)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"preview failed: $e")
+      }
+      previewed.rows should have size 1
+      val row = previewed.rows.head.asInstanceOf[JsObject]
+      row.fields should contain key "stats.pts_ppr"
+      row.fields should not contain key("stats")
+    }
+
+    "surfaces a broken rootSelector as BadGateway, not a 200 with zero rows" in {
+      cleanDb()
+      val json: JsValue = JsObject("data" -> JsArray(JsObject("id" -> JsNumber(1))))
+      val svc     = service(restConnector(Right(json)))
+      val payload = restConfigPayload.copy(rootSelector = Some("nope"))
+      val created = await(svc.createRest(CreateSourceRequest("PreviewBadSelector", DataSourceKind.RestApi, payload, None), user)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"createRest failed: $e")
+      }
+
+      val result = await(svc.preview(DataSourceId(created.source.id), user))
+      result.isLeft shouldBe true
+      result.left.getOrElse(fail("expected Left")) shouldBe a[ServiceError.BadGateway]
+    }
+  }
 }
