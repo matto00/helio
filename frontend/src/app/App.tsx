@@ -6,6 +6,10 @@ import "./App.css";
 import { CreatePipelineModal } from "../features/pipelines/ui/CreatePipelineModal";
 import { QuickLauncherOverlay } from "../features/assistant/ui/QuickLauncherOverlay";
 import { RefinementChatDrawer } from "../features/dashboards/ui/RefinementChatDrawer";
+import { BuiltInCommandActions } from "../features/commandPalette/BuiltInCommandActions";
+import { CommandPaletteProvider } from "../features/commandPalette/CommandPaletteProvider";
+import { GlobalCommandShortcuts } from "../features/commandPalette/GlobalCommandShortcuts";
+import { CommandPalette } from "../features/commandPalette/ui/CommandPalette";
 import { fetchDashboards } from "../features/dashboards/state/dashboardsSlice";
 import { setCreatePipelineModalOpen } from "../features/pipelines/state/pipelinesSlice";
 import { fetchPanels } from "../features/panels/state/panelsSlice";
@@ -102,19 +106,6 @@ export function AppShell() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [pendingPanelUpdates]);
-
-  // Quick-launcher keyboard shortcut (design.md D7) -- Cmd/Ctrl+K, the conventional "quick open"
-  // binding, additive alongside the command-bar trigger button.
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setIsQuickLauncherOpen(true);
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   useEffect(() => {
     void dispatch(fetchDashboards());
@@ -227,6 +218,16 @@ export function AppShell() {
         open={isQuickLauncherOpen}
         onClose={() => setIsQuickLauncherOpen(false)}
       />
+      {/* HEL-496 — command palette shell + registry. Provider is scoped to this cluster (nothing
+          else in AppShell consumes the registry directly); GlobalCommandShortcuts owns Cmd/Ctrl+K
+          (palette) and Cmd/Ctrl+J (quick-launcher, moved off K per the
+          `palette-takes-k-launcher-moves` resolution), BuiltInCommandActions seeds navigation/
+          theme/"Open assistant" actions. */}
+      <CommandPaletteProvider>
+        <GlobalCommandShortcuts onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
+        <BuiltInCommandActions onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
+        <CommandPalette />
+      </CommandPaletteProvider>
     </SaveStateContext.Provider>
   );
 }

@@ -1,0 +1,19 @@
+- `frontend/src/shared/chrome/shortcuts.ts` — new: the single enumerable global keyboard-binding table (`command-palette` = Cmd/Ctrl+K, `quick-launcher` = Cmd/Ctrl+J), `matchesCombo`, and the shared `isTypingTarget` guard.
+- `frontend/src/shared/chrome/shortcuts.test.ts` — new: unit tests for the declaration table, `matchesCombo`, and `isTypingTarget` (including contenteditable/select cases).
+- `frontend/src/features/commandPalette/model/types.ts` — new: the `CommandAction` contract.
+- `frontend/src/features/commandPalette/model/commandRegistry.ts` — new: the framework-free register/dispose/query store, with its usage-doc comment.
+- `frontend/src/features/commandPalette/model/commandRegistry.test.ts` — new: registry unit tests (register/dispose isolation, idempotent dispose, duplicate-id warn, query notify).
+- `frontend/src/features/commandPalette/model/ranking.ts` — new: pure `rankActions` (title-prefix/substring/subsequence/keyword tiers, opt-out handling).
+- `frontend/src/features/commandPalette/model/ranking.test.ts` — new: ranking unit tests.
+- `frontend/src/features/commandPalette/model/builtInActions.ts` — new: seeded navigation (derived from `sections.ts`), theme-toggle, and "Open assistant" actions.
+- `frontend/src/features/commandPalette/model/builtInActions.test.tsx` — new: built-in action unit tests.
+- `frontend/src/features/commandPalette/CommandPaletteProvider.tsx` — new: creates the shared registry instance + open/close state, exposed via context.
+- `frontend/src/features/commandPalette/hooks.ts` — new: `useCommandActions`, `useCommandQuery`, `useCommandPalette`, plus internal registry-read/query-set hooks.
+- `frontend/src/features/commandPalette/hooks.test.tsx` — new: hook unit tests (register/unmount/replace, query lifecycle).
+- `frontend/src/features/commandPalette/BuiltInCommandActions.tsx` — new: registers the seeded actions via `useCommandActions`.
+- `frontend/src/features/commandPalette/GlobalCommandShortcuts.tsx` — new: wires Cmd/Ctrl+K (palette) and Cmd/Ctrl+J (quick-launcher) from `shortcuts.ts`, applying the typing-target guard (with the palette's own input excluded).
+- `frontend/src/features/commandPalette/ui/CommandPalette.tsx` — new: the overlay itself, built on the shared `Modal`, with search/filter/arrow-nav/Enter/grouped results/empty state.
+- `frontend/src/features/commandPalette/ui/CommandPalette.css` — new: token-only styling.
+- `frontend/src/features/commandPalette/ui/CommandPalette.test.tsx` — new: render tests (open/close, arrow nav + wrap, Enter run/close, empty state + no-op Enter, clean-query reopen).
+- `frontend/src/app/App.tsx` — rebinds the quick-launcher shortcut to `shortcuts.ts`/Cmd+J, removes the old inline Cmd+K handler, and mounts `CommandPaletteProvider` + `GlobalCommandShortcuts` + `BuiltInCommandActions` + `CommandPalette` inside `AppShell`.
+- `frontend/src/app/App.test.tsx` — migrates the quick-launcher shortcut test to Cmd/Ctrl+J and adds a test asserting Cmd/Ctrl+K now opens the command palette instead.

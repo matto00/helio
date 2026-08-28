@@ -1,0 +1,113 @@
+/* HEL-496 — tokens only, no hardcoded color/spacing/type (DESIGN.md §6/§7). The entrance
+   animation and overlay backdrop are inherited from `Modal.css`'s `.ui-modal` — this file adds
+   no second animation. */
+
+.command-palette .ui-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.command-palette__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.command-palette__search-icon {
+  position: absolute;
+  left: var(--space-3);
+  width: var(--text-base);
+  height: var(--text-base);
+  color: var(--app-text-muted);
+  pointer-events: none;
+}
+
+.command-palette__search .ui-input {
+  padding-left: calc(var(--space-3) * 2 + var(--text-base));
+}
+
+.command-palette__results {
+  overflow-y: auto;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.command-palette__group-label {
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.command-palette__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.command-palette__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+/* HEL-496 skeptic follow-up: `--app-surface-raised` is IDENTICAL to `--app-surface-strong`
+   (the Modal's own background) in light theme (#ffffff = #ffffff in theme.css), making the
+   active/hover row invisible there — only visible in dark theme, where the two tokens differ.
+   `--app-surface-soft` is distinct from `--app-surface-strong` in BOTH themes (no dedicated
+   menu/list-hover token exists in theme.css), so it's used here instead. */
+.command-palette__item:hover,
+.command-palette__item[data-active="true"] {
+  background: var(--app-surface-soft);
+}
+
+.command-palette__item:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: -2px;
+}
+
+.command-palette__item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--text-lg);
+  height: var(--text-lg);
+  color: var(--app-text-muted);
+  flex-shrink: 0;
+}
+
+.command-palette__item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.command-palette__item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-palette__item-subtitle {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
