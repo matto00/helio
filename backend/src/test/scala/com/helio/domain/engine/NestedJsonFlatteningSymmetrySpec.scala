@@ -10,10 +10,17 @@ import scala.io.Source
 /** HEL-599 design.md D7 — the verification a flat fixture cannot fake.
  *
  *  1. Symmetry (task 5.2): for a single row object, the field-name set
- *     `SchemaInferenceEngine` infers must equal the column-key set `PipelineRowJson.jsRowToRow`
- *     materialises. Deliberately scoped PER ROW OBJECT — a whole-array assertion would fail
- *     against a *correct* implementation because of the `mergeObjects` first-non-null-wins /
- *     `withNulls` residual that design D8 explicitly leaves to HEL-858.
+ *     `SchemaInferenceEngine` infers must EQUAL the column-key set `PipelineRowJson.jsRowToRow`
+ *     materialises. Deliberately scoped PER ROW OBJECT — a whole-array assertion under this exact
+ *     equality relation would have failed against a *correct* implementation pre-HEL-858 (the old
+ *     `mergeObjects` first-non-null-wins / `withNulls` residual), AND it still fails, deliberately,
+ *     against the post-HEL-858 implementation: `inferFromObjects` unions leaf paths across every
+ *     sampled row, so the schema legitimately carries fields no single row has (a QB row has no
+ *     `stats.rec`, but the schema does) — see design D6, which names this naive whole-array
+ *     equality WRONG for exactly that reason. The per-row scope above stays correct and unchanged.
+ *     The relation that DOES hold whole-array post-HEL-858 is D6's three-sided subset + union +
+ *     no-duplicates property, a different assertion from the equality here — asserted separately
+ *     in `SchemaInferenceEngineSpec`'s `assertAgreement` tests (3.8a/3.8b), not in this file.
  *  2. Negative control (task 5.3): the pre-fix shape must be gone — no column whose value is
  *     JSON text starting with `{`, and no top-level `stats`/`player` column coexisting with its
  *     own dotted children.

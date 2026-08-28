@@ -14,11 +14,12 @@ object SchemaInferenceEngine {
   def fromJson(json: JsValue): InferredSchema = json match {
     case JsArray(elements) =>
       val objects = elements.collect { case obj: JsObject => obj }
-      val merged  = mergeObjects(objects)
-      InferredSchema(flattenObject(merged, prefix = ""))
+      InferredSchema(inferFromObjects(objects))
 
     case obj: JsObject =>
-      InferredSchema(flattenObject(obj, prefix = ""))
+      // HEL-858 design D1: route the single-object root through the same accumulator as the
+      // array case (a one-element sequence) so there is one code path, not two.
+      InferredSchema(inferFromObjects(Seq(obj)))
 
     case _ =>
       InferredSchema(Seq.empty)
@@ -79,35 +80,66 @@ object SchemaInferenceEngine {
 
   // JSON helpers
 
-  private def mergeObjects(objects: Seq[JsObject]): JsObject = {
-    val merged = objects.foldLeft(Map.empty[String, JsValue]) { (acc, obj) =>
-      obj.fields.foldLeft(acc) { case (m, (k, v)) =>
-        m.get(k) match {
-          case Some(JsNull) => m.updated(k, v)   // prefer non-null if we have one
-          case Some(_)      => m                 // keep first non-null value
-          case None         => m.updated(k, v)
+  // HEL-858 design D1: flatten each object via the shared `JsonFlattener.leaves` traversal,
+  // THEN merge over the resulting dotted paths -- rather than HEL-599's `mergeObjects`, which
+  // merged raw objects at the top level BEFORE flattening and could only pick one `JsValue` per
+  // key (first-non-null-wins), so a nested subtree from object 0 won its sub-keys wholesale and
+  // a column's type was fixed by whichever value happened to be sampled first. Union-over-paths
+  // makes recursion fall out structurally -- `leaves` already recurses -- instead of being
+  // reimplemented as a second recursive walk with its own depth bound and collision semantics.
+  // `mergeObjects` had no other caller (verified by grep) and is deleted, not left dead.
+  //
+  // Per-path accumulator: the widened `DataFieldType` over all non-null values seen so far at
+  // that path (`None` until the first non-null value arrives), and whether any sampled object
+  // carried an explicit `JsNull` there (design D2 -- absence never contributes; only an explicit
+  // null does).
+  private case class PathAcc(dataType: Option[DataFieldType], nullable: Boolean)
+
+  private def inferFromObjects(objects: Seq[JsObject]): Seq[InferredField] = {
+    val accByPath = objects.foldLeft(Map.empty[String, PathAcc]) { (acc, obj) =>
+      JsonFlattener.leaves(obj).foldLeft(acc) { case (m, (path, value)) =>
+        val prior = m.getOrElse(path, PathAcc(None, nullable = false))
+        value match {
+          case JsNull =>
+            // design D3: JsNull contributes nullability only and never participates in the
+            // widening join -- a path seen as null in one object and numeric in another still
+            // infers as the numeric type (design D7), not StringType.
+            m.updated(path, prior.copy(nullable = true))
+          case other =>
+            val (valueType, _) = inferJsonType(other)
+            val widened = prior.dataType match {
+              case None       => valueType
+              case Some(seen) => widenJson(seen, valueType)
+            }
+            m.updated(path, prior.copy(dataType = Some(widened)))
         }
       }
     }
-    // Mark keys that had nulls in any object
-    val withNulls = objects.foldLeft(merged) { (acc, obj) =>
-      obj.fields.foldLeft(acc) { case (m, (k, v)) =>
-        if (v == JsNull) m.updated(k, JsNull) else m
-      }
+    // design D4: `leaves` sorts per object, but the union spans many objects, so re-sort the
+    // merged path set globally for a stable, order-independent field sequence.
+    accByPath.toSeq.sortBy(_._1).map { case (path, PathAcc(dataTypeOpt, nullable)) =>
+      // A path that was only ever seen as JsNull (dataTypeOpt empty) infers StringType, matching
+      // inferJsonType(JsNull) and the "all-null path is a nullable string" spec scenario.
+      InferredField(path, displayName(path), dataTypeOpt.getOrElse(DataFieldType.StringType), nullable)
     }
-    JsObject(withNulls)
   }
 
-  // HEL-599 design.md D1: a projection of the shared `JsonFlattener.leaves` traversal through
-  // this object's own type-inference rules. Both call sites in this file pass `prefix = ""` —
-  // `JsonFlattener` now owns recursion/path-building — so the parameter is preserved only to
-  // keep `fromJson`'s two call sites textually unchanged.
-  private def flattenObject(obj: JsObject, prefix: String): Seq[InferredField] = {
-    require(prefix.isEmpty, "flattenObject is only ever called with an empty prefix")
-    JsonFlattener.leaves(obj).map { case (path, value) =>
-      val (fieldType, nullable) = inferJsonType(value)
-      InferredField(path, displayName(path), fieldType, nullable)
-    }
+  // HEL-858 design D3: the JSON widening join -- a true lattice (commutative, associative,
+  // idempotent, StringType at top), deliberately DIVERGING from the CSV path's `widenType`
+  // below, which widens a running type against a raw string cell and is order-sensitive (e.g.
+  // IntegerType widens to BooleanType on encountering "true"). Copying that order here would
+  // type a mixed number/boolean JSON column as boolean and break order-independence, the
+  // central acceptance criterion for this ticket -- so JSON gets its own, order-independent
+  // join instead of reusing CSV's.
+  private def widenJson(a: DataFieldType, b: DataFieldType): DataFieldType = {
+    import DataFieldType._
+    if (a == b) a
+    else
+      (a, b) match {
+        case (IntegerType, FloatType) | (FloatType, IntegerType)       => FloatType
+        case (TimestampType, StringType) | (StringType, TimestampType) => StringType
+        case _                                                         => StringType
+      }
   }
 
   private def inferJsonType(value: JsValue): (DataFieldType, Boolean) = value match {
