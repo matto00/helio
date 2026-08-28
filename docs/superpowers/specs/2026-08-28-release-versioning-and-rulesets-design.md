@@ -120,6 +120,22 @@ registry, so an image from either scheme can be matched to a commit the same way
 (Note: GitHub's UI and `gh` abbreviate to 7 by default; 8 is this repo's existing
 convention, which is the reason to keep it.)
 
+**Frontend parity.** The frontend gets versioned artifacts at 1:1 parity with the
+backend. It deploys to Firebase Hosting, which has no container, so parity is
+achieved in two complementary places:
+
+- **Artifact of record:** a new Artifact Registry repository `helio-frontend`
+  receives an image of the built assets tagged `release-<version>-<sha8>` — the same
+  scheme, the same registry, and therefore the same Phase 5 retention policy. This is
+  the rollback and traceability artifact, not the deploy vehicle.
+- **Deploy record:** `firebase deploy` is given `--message "<version>-<sha8>"`, so
+  Firebase Hosting's own release history names the version that produced it. This is
+  where the frontend's deploys are actually recorded, and today it says nothing.
+
+Both CD workflows therefore trigger on the same tag push and stamp the same
+`<version>-<sha8>` identifier, so a single tag maps to exactly one backend image, one
+frontend image, and one Firebase release.
+
 *Caveat:* a tag pushed by Actions using the default `GITHUB_TOKEN` does **not**
 trigger workflows. Tagging stays manual (which is the intent); any future automation
 needs a PAT or GitHub App.
@@ -131,7 +147,57 @@ needs a PAT or GitHub App.
 - **Tags (new, `target: "tag"`):** `creation` + `deletion` on `refs/tags/v*`, with
   the owner as sole bypass actor.
 
+- **`main` (new):** require the CI workflow's status checks to pass before merge.
+
 The tag ruleset is **armed last**, after the backfill, so it does not fight it.
+
+#### The `paths-ignore` deadlock (must be fixed *before* CI becomes required)
+
+`ci.yml` declares `paths-ignore: ["**.md", "LICENSE", ".github/ISSUE_TEMPLATE/**",
+"docs/**"]` on both `push` and `pull_request`. A skipped workflow **never reports a
+status**, so the moment its jobs are required checks, any PR touching only those
+paths blocks forever — the required check is permanently pending, not failing.
+
+This is not hypothetical: the PR carrying this very spec is docs-only and would be
+the first casualty.
+
+Fix before arming: keep the cost saving but always report. Replace `paths-ignore`
+with a `dorny/paths-filter`-style change detection inside the jobs, plus an
+aggregator job that always runs:
+
+```yaml
+ci-complete:
+  if: always()
+  needs: [frontend, backend, security, e2e]
+  runs-on: ubuntu-latest
+  steps:
+    - run: |
+        # fail only on failure/cancelled; treat 'skipped' as success
+        [[ "${{ contains(needs.*.result, 'failure') }}" == "false" ]] || exit 1
+        [[ "${{ contains(needs.*.result, 'cancelled') }}" == "false" ]] || exit 1
+```
+
+`ci-complete` — not the four individual jobs — is the required check. Jobs may skip;
+the gate still reports green.
+
+Current CI jobs: `frontend`, `backend`, `security`, `e2e`.
+
+#### Consequence for Dependabot
+
+`dependabot-auto-merge.yml` exists **only** because this repo has no required status
+checks. Its own header says so: `gh pr merge --auto` and GitHub's native auto-merge
+"merge immediately on request rather than waiting for CI — a real safety hazard", so
+the workflow reimplements CI gating by reacting to `workflow_run` and re-verifying
+the live head SHA.
+
+Once `main` requires `ci-complete`, that hazard is gone at the source and `--auto`
+becomes safe. Simplifying or retiring that workflow is a **follow-up**, not bundled
+here — it is load-bearing security machinery (HEL-459 CVE gating flows through the
+same CI run) and deserves its own change with its own review.
+
+This also **invalidates a standing project convention** ("never `gh pr merge --auto`
+on helio; no branch protection → merges instantly"). That guidance must be updated
+wherever it is recorded once this lands, or it will cause the wrong call later.
 
 ### Phase 3 — Backfill tags and releases
 
@@ -145,13 +211,23 @@ Driven entirely by the committed manifest, in two reviewable stages:
 Tag objects are backdated to the original push timestamp so
 `git tag --sort=creatordate` reflects true chronology.
 
-All 52 Releases are published normally — GitHub marks the newest as Latest on its
-own. They are **not** flagged `prerelease`: that flag means *unstable* (alpha/beta/rc),
-not *old*, and would mislabel 51 versions that genuinely shipped to production.
+**All 52 git tags are created.** GitHub Releases are published for the **7 minor
+versions only** (`v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.5.0`, `v0.6.0`,
+`v0.7.0`), each carrying the changelog for its whole minor.
 
-*To verify:* GitHub sets `published_at` itself. If the API accepts no override, all
-52 Releases will show today's publish date; the true date then lives in the release
-notes and the tag object.
+*Resolved:* the REST API exposes **no `published_at` parameter** on either
+`POST /repos/{owner}/{repo}/releases` or the `PATCH` update endpoint. Accepted body
+params are `tag_name`, `target_commitish`, `name`, `body`, `draft`, `prerelease`,
+`discussion_category_name`, `generate_release_notes`, `make_latest` — no timestamp
+among them. Backfilling all 52 would therefore stamp 52 Releases with today's date.
+
+Note that `created_at` *is* automatically the date of the release's commit (per
+GitHub's docs), so that field stays historically accurate without intervention; only
+`published_at` is wrong. If the Releases UI proves to render `created_at`, expanding
+to all 52 is a one-line change to the backfill.
+
+Releases are **not** flagged `prerelease`: that flag means *unstable* (alpha/beta/rc),
+not *old*, and would mislabel versions that genuinely shipped to production.
 
 ### Phase 4 — Rename branches
 
@@ -221,9 +297,18 @@ is armed.
 - **Release skill:** exercised for both paths (new minor, patch increment) with the
   push step stubbed before it is trusted live.
 
-## Open questions
+## Resolved decisions
 
-1. Should `main` also get a ruleset requiring CI to pass before merge? Out of scope
-   here, but adjacent — the repo currently has no required status checks.
-2. Should the frontend get versioned artifacts too? It deploys to Firebase Hosting,
-   which keeps its own release history, so this plan leaves it alone.
+1. **`main` gets a ruleset requiring CI to pass before merge** — with the
+   `paths-ignore` deadlock fixed first (Phase 2). Retiring the Dependabot
+   auto-merge workaround is a deliberate follow-up.
+2. **Frontend gets versioned artifacts at 1:1 parity with the backend** — AR image
+   plus a versioned Firebase deploy message (Phase 1).
+3. **GitHub Releases for the 7 minors only** — the API cannot set `published_at`
+   (Phase 3). All 52 tags are still created.
+
+## Remaining open question
+
+Does GitHub's Releases UI render `created_at` (historically correct, automatic) or
+`published_at` (always today)? If the former, Phase 3 expands to all 52 Releases.
+Cheap to check against the first published minor before doing the rest.
