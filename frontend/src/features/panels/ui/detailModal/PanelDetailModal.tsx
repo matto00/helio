@@ -80,7 +80,6 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
   const [modalMode, setModalMode] = useState<"view" | "edit">(initialMode);
 
-  // ── Appearance state (common to every subtype) ──────────────────────────
   // Background / color hold the RAW appearance value — which may be a sentinel
   // (`"transparent"` / `"inherit"`), not the display-fallback hex. They are only
   // resolved to a color-input-safe hex at the `<AppearanceEditor>` prop boundary.
@@ -122,7 +121,6 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     return null;
   }
 
-  // ── Unified saving / dirty state ─────────────────────────────────────────
   const [isSaving, setIsSaving] = useState(false);
   const [subtypeDirty, setSubtypeDirty] = useState(false);
   const handleSubtypeDirtyChange = useCallback((d: boolean) => {

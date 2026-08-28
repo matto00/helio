@@ -36,7 +36,6 @@ interface MetricsState {
   updateError: string | null;
   deleteStatus: "idle" | "loading" | "succeeded" | "failed";
   deleteError: string | null;
-  // Single-metric detail (mirrors pipelinesSlice's currentPipeline* triple).
   currentMetric: Metric | null;
   currentMetricStatus: "idle" | "loading" | "succeeded" | "failed";
   currentMetricError: string | null;
@@ -134,7 +133,6 @@ const metricsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // fetchMetrics
       .addCase(fetchMetrics.pending, (state) => {
         state.status = "loading";
         state.error = null;
@@ -148,7 +146,6 @@ const metricsSlice = createSlice({
         state.status = "failed";
         state.error = action.payload ?? "Failed to load metrics.";
       })
-      // fetchMetricById
       .addCase(fetchMetricById.pending, (state) => {
         state.currentMetricStatus = "loading";
       })
@@ -162,7 +159,6 @@ const metricsSlice = createSlice({
         state.currentMetricStatus = "failed";
         state.currentMetricError = action.payload ?? "Failed to load metric.";
       })
-      // createMetric
       .addCase(createMetric.pending, (state) => {
         state.createStatus = "loading";
         state.createError = null;
@@ -176,7 +172,6 @@ const metricsSlice = createSlice({
         state.createStatus = "failed";
         state.createError = action.payload ?? "Failed to create metric.";
       })
-      // updateMetric
       .addCase(updateMetric.pending, (state) => {
         state.updateStatus = "loading";
         state.updateError = null;
@@ -191,7 +186,6 @@ const metricsSlice = createSlice({
         state.updateStatus = "failed";
         state.updateError = action.payload ?? "Failed to update metric.";
       })
-      // deleteMetric
       .addCase(deleteMetric.pending, (state) => {
         state.deleteStatus = "loading";
         state.deleteError = null;

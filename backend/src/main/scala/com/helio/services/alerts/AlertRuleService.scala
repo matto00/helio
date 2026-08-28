@@ -18,7 +18,6 @@ final class AlertRuleService(
     dataTypeRepo:  DataTypeRepository
 )(implicit ec: ExecutionContext) {
 
-  // ── Read ──────────────────────────────────────────────────────────────────
 
   def findAll(user: AuthenticatedUser): Future[Vector[AlertRule]] =
     alertRuleRepo.findAll(user.id)
@@ -29,7 +28,6 @@ final class AlertRuleService(
       case None       => Left(ServiceError.NotFound("Alert rule not found"))
     }
 
-  // ── Create ────────────────────────────────────────────────────────────────
 
   def create(req: CreateAlertRuleRequest, user: AuthenticatedUser): Future[Either[ServiceError, AlertRule]] = {
     val name          = req.name.trim
@@ -83,7 +81,6 @@ final class AlertRuleService(
     }
   }
 
-  // ── Update / delete (ACL-gated) ──────────────────────────────────────────
 
   def update(id: AlertRuleId, req: UpdateAlertRuleRequest, user: AuthenticatedUser): Future[Either[ServiceError, AlertRule]] =
     alertRuleRepo.findByIdOwned(id, user).flatMap {
@@ -130,7 +127,6 @@ final class AlertRuleService(
         }
     }
 
-  // ── Validation ────────────────────────────────────────────────────────────
 
   /** Validates that `condition` is a JSON object carrying a well-formed
    *  `comparator` (one of `Comparator`'s wire values) and a numeric

@@ -262,8 +262,6 @@
   }
 }
 
-/* Container Query: Compact width (< 220px) */
-
 @container panel-card (max-width: 219px) {
   .panel-grid-card {
     padding: var(--space-3);
@@ -274,8 +272,6 @@
     font-size: var(--text-sm);
   }
 }
-
-/* Container Query: Compact height (< 180px) */
 
 @container panel-card (max-height: 179px) {
   .panel-grid-card {

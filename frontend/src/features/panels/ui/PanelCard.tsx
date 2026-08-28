@@ -17,8 +17,6 @@ import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import type { Panel } from "../types/panel";
 
-// ─── Style helper ────────────────────────────────────────────────────────────
-
 // Exported for reuse by `MobilePanelStack` (HEL-301), which builds its own
 // read-only card markup rather than reusing this file's drag/edit-oriented
 // `PanelCard` wrapper — the appearance-to-style mapping is the one piece
@@ -43,7 +41,6 @@ export function getPanelCardStyle(
   return style;
 }
 
-// ─── PanelCardBody ────────────────────────────────────────────────────────────
 // Data-driven body content of a panel.  Wrapped in React.memo so it skips
 // re-renders when its `panel` prop is referentially unchanged, and returns null
 // immediately when `frozen` is true so expensive chart/table repaints are
@@ -110,7 +107,6 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   );
 });
 
-// ─── PanelCard ────────────────────────────────────────────────────────────────
 // Shell component for a single panel in the grid.  Wrapped in React.memo with a
 // stable props contract so only the actively dragged panel (and the grid wrapper)
 // re-renders during a drag operation — not all N panels.

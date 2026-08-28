@@ -38,8 +38,6 @@ export function PivotConfig({ config, analyzeSchema, analyzeColumns, onChange }:
     onChange(next);
   }
 
-  // ── Index-field handlers ────────────────────────────────────────────────────
-
   function handleAddIndexRow() {
     const defaultField = analyzeSchema.length > 0 ? analyzeSchema[0].name : "";
     emit({ ...config, index: [...config.index, defaultField] });

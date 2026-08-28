@@ -41,8 +41,6 @@
   gap: var(--space-3);
 }
 
-/* State overlays: loading, error. */
-
 .active-conversation-panel--state {
   flex-direction: row;
   align-items: center;

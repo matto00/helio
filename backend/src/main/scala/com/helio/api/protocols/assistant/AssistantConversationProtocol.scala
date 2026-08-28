@@ -3,7 +3,6 @@ package com.helio.api.protocols.assistant
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Assistant-conversation persistence API types (HEL-663) ──────────────────
 //
 // `AssistantConversationRoutes`'s HTTP surface (design.md D5). `firstMessage`/`turns`/`transcript`
 // carry the caller-facing Claude tool-message shape as raw `JsValue`, deliberately -- `ClaudeContentBlock`/

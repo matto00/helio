@@ -64,8 +64,6 @@ export function WindowConfig({
     onChange(next);
   }
 
-  // ── Partition-by handlers ────────────────────────────────────────────────
-
   function handleAddPartitionRow() {
     const defaultField = analyzeSchema.length > 0 ? analyzeSchema[0].name : "";
     emit({ ...config, partitionBy: [...config.partitionBy, defaultField] });

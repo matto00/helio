@@ -25,7 +25,6 @@ final class AssistantConversationService(
 
   import AssistantConversationService._
 
-  // ── Create ────────────────────────────────────────────────────────────────
 
   /** Creates a brand-new conversation, optionally seeded with a first message (design.md D5).
    *  `title` derivation (design.md D6): an explicit `title` wins outright; otherwise derive from
@@ -65,7 +64,6 @@ final class AssistantConversationService(
     }
   }
 
-  // ── Append ────────────────────────────────────────────────────────────────
 
   /** Appends `turns` onto an existing, owned conversation (`NotFound` if missing/not-owned — checked
    *  BEFORE any blob read, tasks.md 6.9). Re-writes the WHOLE blob (no partial/append-in-place —
@@ -100,7 +98,6 @@ final class AssistantConversationService(
         }
     }
 
-  // ── Read ──────────────────────────────────────────────────────────────────
 
   /** Metadata + the read+deserialized transcript blob, owner-scoped. `Left(NotFound)` for a
    *  missing/foreign-owned id. */
@@ -167,7 +164,6 @@ final class AssistantConversationService(
     }
   }
 
-  // ── Internal helpers ──────────────────────────────────────────────────────
 
   private def blobPath(user: AuthenticatedUser, id: AssistantConversationId): String =
     s"assistant-conversations/${user.id.value}/${id.value}.json"

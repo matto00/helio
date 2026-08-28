@@ -55,8 +55,6 @@
   outline-offset: 2px;
 }
 
-/* ── List table ── */
-
 .metric-list-table {
   width: 100%;
   border-collapse: collapse;
@@ -132,8 +130,6 @@
  * ConfirmInline component (shared/ui/ConfirmInline.tsx) instead, so these
  * were dead CSS (flagged by FOUND-B's crossPackageRequest, which owns
  * MetricListTable.tsx). */
-
-/* ── Status badge ── */
 
 .metric-status {
   display: inline-block;

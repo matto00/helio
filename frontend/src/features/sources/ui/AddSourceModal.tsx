@@ -322,7 +322,6 @@ export function AddSourceModal({ onClose }: AddSourceModalProps) {
       </>
     ) : null;
 
-  // Footer for preview step
   const previewFooter =
     step === "preview" ? (
       <>

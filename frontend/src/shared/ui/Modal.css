@@ -1,5 +1,3 @@
-/* ── Modal primitive ──────────────────────────────────────────────────────── */
-
 .ui-modal {
   padding: 0;
   border: 1px solid var(--app-border-subtle);
@@ -37,7 +35,6 @@
   }
 }
 
-/* Size presets */
 .ui-modal--sm {
   width: min(420px, calc(100vw - 32px));
 }
@@ -58,7 +55,6 @@
   width: min(1200px, calc(100vw - 32px));
 }
 
-/* Backdrop */
 .ui-modal::backdrop {
   background: var(--app-overlay);
   backdrop-filter: blur(2px);
@@ -106,8 +102,6 @@
   min-height: 0;
 }
 
-/* ── Header ───────────────────────────────────────────────────────────────── */
-
 .ui-modal__header {
   display: flex;
   align-items: flex-start;
@@ -150,15 +144,11 @@
    (`shared/ui/IconButton.css`, `variant="ghost"`); its recipe lived here as
    `.ui-modal__close` prior to this change. */
 
-/* ── Body ─────────────────────────────────────────────────────────────────── */
-
 .ui-modal__body {
   flex: 1;
   overflow-y: auto;
   padding: var(--space-5);
 }
-
-/* ── Footer ───────────────────────────────────────────────────────────────── */
 
 .ui-modal__footer {
   display: flex;
@@ -169,8 +159,6 @@
   border-top: 1px solid var(--app-border-subtle);
   flex-shrink: 0;
 }
-
-/* ── Shared button styles for modal footers ───────────────────────────────── */
 
 .ui-modal-btn {
   display: inline-flex;

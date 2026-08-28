@@ -3,7 +3,6 @@ package com.helio.api.protocols.patchsets
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Conversational refinement API types (HEL-411) ────────────────────────────
 //
 // POST /api/refinements's wire shape. See `com.helio.services.RefinementService` for how these are
 // built — live-state grounding (D1) + workspace context (HEL-345) + panel-capability menu (HEL-365)

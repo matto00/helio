@@ -7,8 +7,6 @@
   min-height: 0;
 }
 
-/* Metric */
-
 .panel-content--metric {
   flex-direction: column;
   gap: var(--space-1);
@@ -42,8 +40,6 @@
   color: color-mix(in srgb, currentColor 60%, transparent);
   margin-left: var(--space-1);
 }
-
-/* Text */
 
 /* F-038 — shared scroll-affordance recipe: see the full rationale comment above
    `.panel-content--collection` in `renderers/CollectionRenderer.css` (that
@@ -107,8 +103,6 @@
   width: 60%;
 }
 
-/* Table */
-
 /* F-038 — the scroll-affordance recipe (background, scrollbar-width/-color,
    and the ::-webkit-scrollbar rules) now lives on the combined
    `.panel-content--text, .panel-content--table` selector above; only this
@@ -140,8 +134,6 @@
   background: color-mix(in srgb, currentColor 6%, transparent);
   width: 50%;
 }
-
-/* Chart */
 
 .panel-content--chart {
   padding: 0;
@@ -176,8 +168,6 @@
   word-break: break-word;
 }
 
-/* State overlays: loading, error, no-data */
-
 .panel-content--state {
   flex-direction: column;
   gap: var(--space-2);
@@ -201,16 +191,12 @@
   text-align: center;
 }
 
-/* Live text */
-
 .panel-content__text-live {
   font-size: var(--text-sm);
   color: inherit;
   white-space: pre-wrap;
   word-break: break-word;
 }
-
-/* Trend indicator */
 
 .panel-content__metric-trend {
   font-family: var(--font-mono);

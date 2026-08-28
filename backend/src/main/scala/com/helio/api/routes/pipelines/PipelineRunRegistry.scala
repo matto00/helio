@@ -11,7 +11,6 @@ import spray.json._
 
 import java.util.concurrent.ConcurrentHashMap
 
-// -- Domain event -------------------------------------------------------------
 
 final case class RunStatusEvent(
     status:   String,
@@ -43,7 +42,6 @@ object RunStatusEvent {
   }
 }
 
-// -- Registry -----------------------------------------------------------------
 
 /**
  * In-memory publish/subscribe channel for pipeline run-status events.

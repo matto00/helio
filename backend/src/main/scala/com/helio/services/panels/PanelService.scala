@@ -81,7 +81,6 @@ final class PanelService(
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, "panel", resourceId, metadata)
 
-  // ── Read ──────────────────────────────────────────────────────────────────
 
   /** Sharing-aware read. Returns the panel only when the caller has access
    *  to the parent dashboard (owner, grantee, or public viewer when
@@ -179,7 +178,6 @@ final class PanelService(
     }
   }
 
-  // ── Create ────────────────────────────────────────────────────────────────
 
   def create(
       request: CreatePanelRequest,
@@ -288,7 +286,6 @@ final class PanelService(
     loop(requests.zipWithIndex, Vector.empty)
   }
 
-  // ── Delete / duplicate ────────────────────────────────────────────────────
 
   def delete(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     panelRepo.findByIdInternal(panelId).flatMap {
@@ -325,7 +322,6 @@ final class PanelService(
         }
     }
 
-  // ── Batch update ──────────────────────────────────────────────────────────
 
   /** Batch update panels. ACL is enforced via `accessChecker.requireAccess`
    *  on the parent dashboard — the authoritative gate. Per-panel owner checks
@@ -394,7 +390,6 @@ final class PanelService(
       }
   }
 
-  // ── Batch create ──────────────────────────────────────────────────────────
 
   /** `POST /api/panels/batch` (HEL-370) — create N panels on ONE existing
    *  dashboard in a single transaction, all-or-nothing. Rejects an empty
@@ -473,7 +468,6 @@ final class PanelService(
         }
     }
 
-  // ── Patch ─────────────────────────────────────────────────────────────────
 
   def update(
       panelId: PanelId,
@@ -569,7 +563,6 @@ final class PanelService(
         }
     }
 
-  // ── Internal: authorize as editor on the parent dashboard ─────────────────
 
   private def authorizeEditorOnDashboard(
       dashboardId: DashboardId,

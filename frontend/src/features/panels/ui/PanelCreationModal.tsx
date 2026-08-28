@@ -142,7 +142,6 @@ interface PanelCreationModalProps {
 export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   const dispatch = useAppDispatch();
   const { selectedDashboardId } = useAppSelector((state) => state.dashboards);
-  // 3.6 — Slice for DataType picker.
   const dataTypes = useAppSelector((state) => state.dataTypes);
   const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
   // F-108 — producing-pipeline provenance for the DataType list's metadata line.
@@ -401,9 +400,7 @@ export function PanelCreationModal({ onClose }: PanelCreationModalProps) {
   function getStepTitle(): string {
     if (step === "type-select") return "Choose panel type";
     if (step === "template-select") return "Choose a template";
-    // 3.11 — DataType picker step title.
     if (step === "datatype-select") return "Choose a data type";
-    // HEL-399 — Shape-instantiate step title.
     if (step === "shape-instantiate") return `Start from a shape — ${selectedShape?.label ?? ""}`;
     return "Name your panel";
   }

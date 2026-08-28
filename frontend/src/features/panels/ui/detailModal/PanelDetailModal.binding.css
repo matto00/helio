@@ -1,5 +1,3 @@
-/* Content */
-
 .panel-detail-modal__content {
   flex: 1;
   overflow-y: auto;
@@ -53,8 +51,6 @@
   font-size: var(--text-sm);
   color: var(--app-text);
 }
-
-/* Data tab */
 
 .panel-detail-modal__data-section {
   display: grid;

@@ -32,7 +32,6 @@
   color: var(--app-text-muted);
 }
 
-/* ── River view ── */
 .pipeline-detail-page__river {
   flex: 1;
   overflow-y: auto;
@@ -106,7 +105,6 @@
   color: var(--app-accent);
 }
 
-/* ── Empty state ── */
 .pipeline-detail-page__empty-state {
   display: flex;
   flex-direction: column;
@@ -193,7 +191,6 @@
   border-style: solid;
 }
 
-/* ── Op type dropdown ── */
 .pipeline-detail-page__op-dropdown {
   /* Positioned inline (position: fixed + coords) by OpDropdown, which portals
      this menu to document.body. `max-height` is also set inline per-open
@@ -232,7 +229,6 @@
   color: var(--app-accent);
 }
 
-/* ── Step card ── */
 .pipeline-detail-page__step-card {
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);
@@ -475,7 +471,6 @@
   background: var(--app-error-surface);
 }
 
-/* ── Step preview ── */
 .pipeline-detail-page__step-preview {
   margin-top: var(--space-3);
   border-top: 1px solid var(--app-border-subtle);
@@ -748,7 +743,6 @@
   color: var(--app-text);
 }
 
-/* ── Run status indicator ── */
 .pipeline-detail-page__run-status {
   display: inline-flex;
   align-items: center;
@@ -962,7 +956,6 @@
   margin-right: var(--space-2);
 }
 
-/* ---- Run status animations ---- */
 @keyframes pipeline-run-spin {
   to {
     transform: rotate(360deg);

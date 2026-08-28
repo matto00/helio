@@ -250,7 +250,6 @@ export function pipelineStepToStep(ps: PipelineStep): Step {
   };
 }
 
-// ── Narrowing helpers ────────────────────────────────────────────────────────
 //
 // CS2c-3a: configs are already typed objects (the wire shape is a
 // discriminated union). These helpers narrow `Step.config` to the kind-specific

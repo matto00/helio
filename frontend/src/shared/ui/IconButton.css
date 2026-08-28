@@ -34,8 +34,6 @@
   display: inline-flex;
 }
 
-/* ── Sizes ─────────────────────────────────────────────────────────────── */
-
 /* Dense-row exception (DESIGN.md §3) -- no control-height token at this size. */
 .ui-icon-btn--xs {
   width: 24px;
@@ -54,8 +52,6 @@
   height: var(--control-md);
   font-size: var(--text-lg);
 }
-
-/* ── Variants ──────────────────────────────────────────────────────────── */
 
 /* Ghost -- borderless, matches .ui-modal__close. */
 .ui-icon-btn--ghost {

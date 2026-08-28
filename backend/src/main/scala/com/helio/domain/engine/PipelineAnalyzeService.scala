@@ -5,11 +5,9 @@ import org.slf4j.LoggerFactory
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-// ── Shared schema field type (wire-format compatible) ─────────────────────────
 
 final case class SchemaField(name: String, `type`: String)
 
-// ── PipelineAnalyzeService — pure schema-math inference for all 8 ops ─────────
 
 object PipelineAnalyzeService {
 
@@ -74,7 +72,6 @@ object PipelineAnalyzeService {
     }
   }
 
-  // ── Dispatch ──────────────────────────────────────────────────────────────
 
   private def inferOutputSchema(
       op:          String,
@@ -108,7 +105,6 @@ object PipelineAnalyzeService {
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
 
-  // ── Per-op inference rules ────────────────────────────────────────────────
 
   /** select — keep only fields whose names appear in config.fields (in inputSchema order). */
   private def inferSelect(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
@@ -515,7 +511,6 @@ object PipelineAnalyzeService {
    *  dataset-level `rowCountMin`/`rowCountMax`. */
   private val AssertRuleKinds: Set[String] = AssertFieldRequiredKinds ++ Set("rowCountMin", "rowCountMax")
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
 
   /** Safely parse the JSON config and apply the transformation.
    *  On any parse/extraction failure, returns (inputSchema, Some(errorMessage)). */

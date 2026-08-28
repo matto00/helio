@@ -117,7 +117,6 @@
   min-height: 320px;
 }
 
-/* Type selection grid */
 .panel-creation-modal__type-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -167,7 +166,6 @@
   line-height: 1.35;
 }
 
-/* Name entry form */
 .panel-creation-modal__form {
   display: flex;
   flex-direction: column;
@@ -232,7 +230,6 @@
   cursor: not-allowed;
 }
 
-/* Name-entry two-column layout */
 .panel-creation-modal__name-entry {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -240,7 +237,6 @@
   align-items: start;
 }
 
-/* Panel creation preview */
 .panel-creation-preview__frame {
   display: flex;
   flex-direction: column;
@@ -326,7 +322,6 @@
   }
 }
 
-/* Template selection step */
 .panel-creation-modal__template-step {
   display: flex;
   flex-direction: column;
@@ -380,7 +375,6 @@
   line-height: 1.35;
 }
 
-/* DataType picker step */
 .panel-creation-modal__datatype-step {
   display: flex;
   flex-direction: column;
@@ -534,7 +528,6 @@
   padding: var(--space-4) 0;
 }
 
-/* "Start from a shape" cards (HEL-399) */
 .panel-creation-modal__shape-section {
   display: flex;
   flex-direction: column;

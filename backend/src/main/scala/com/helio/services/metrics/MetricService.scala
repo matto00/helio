@@ -30,7 +30,6 @@ final class MetricService(
     dataTypeRepo: DataTypeRepository
 )(implicit ec: ExecutionContext) {
 
-  // ── Read ──────────────────────────────────────────────────────────────────
 
   def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[MetricDefinition]] =
     metricRepo.findAll(user.id, page)
@@ -51,7 +50,6 @@ final class MetricService(
         metricRepo.usage(id, user).map(panels => Right(MetricUsage(id, panels.size, panels)))
     }
 
-  // ── Create ────────────────────────────────────────────────────────────────
 
   def create(req: CreateMetricRequest, user: AuthenticatedUser): Future[Either[ServiceError, MetricDefinition]] =
     RequestValidation.validateMetricName(req.name) match {
@@ -82,7 +80,6 @@ final class MetricService(
         }
     }
 
-  // ── Update (ACL-gated) ────────────────────────────────────────────────────
 
   def update(id: MetricId, req: UpdateMetricRequest, user: AuthenticatedUser): Future[Either[ServiceError, MetricDefinition]] =
     metricRepo.findByIdOwned(id, user).flatMap {
@@ -134,7 +131,6 @@ final class MetricService(
     }
   }
 
-  // ── Delete (ACL-gated) ────────────────────────────────────────────────────
 
   /** Deletes the metric and returns the number of panels that were bound to
    *  it at deletion time (HEL-560 design.md D2) — those panels are unbound
@@ -154,7 +150,6 @@ final class MetricService(
         }
     }
 
-  // ── Validation ────────────────────────────────────────────────────────────
 
   /** Resolves `dataTypeId` (owner-scoped) and validates, in the AC's order:
    *  the DataType exists and is owned by the caller; it is a pipeline-output

@@ -181,7 +181,6 @@ final class PipelineProposalService(
         case Failure(_) => Left(ServiceError.BadRequest(s"step ${idx + 1}: invalid '${step.`type`}' config"))
       }
 
-  // ── Source resolution (design.md D3/D4/D5) ───────────────────────────────
 
   private def resolveSource(
       source: PipelineProposalSource,
@@ -287,7 +286,6 @@ final class PipelineProposalService(
   private def inlineName(source: PipelineProposalSource): String =
     source.name.getOrElse("").trim
 
-  // ── External rollback entry point (design.md D4, HEL-387) ────────────────
 
   /** Undo an already-successful `apply` result FROM OUTSIDE this service —
    *  e.g. a combined proposal (HEL-387) whose later dashboard phase fails

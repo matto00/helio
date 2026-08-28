@@ -48,7 +48,6 @@ final class SourceService(
       // DataSource domain type.
       auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, JsObject.empty)
 
-  // ── Create ────────────────────────────────────────────────────────────────
 
   def createSql(request: SqlCreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
@@ -161,7 +160,6 @@ final class SourceService(
     }
   }
 
-  // ── Infer ─────────────────────────────────────────────────────────────────
 
   def inferSql(request: SqlInferRequest): Future[Either[ServiceError, InferredSchemaResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
@@ -206,7 +204,6 @@ final class SourceService(
         }
     }
 
-  // ── Test connection ──────────────────────────────────────────────────────
 
   def testSql(request: SqlInferRequest): Future[Either[ServiceError, TestConnectionResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
@@ -255,7 +252,6 @@ final class SourceService(
     }
   }
 
-  // ── Refresh ───────────────────────────────────────────────────────────────
 
   def refresh(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
     dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
@@ -306,7 +302,6 @@ final class SourceService(
         }
     }
 
-  // ── Preview ───────────────────────────────────────────────────────────────
 
   def preview(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
     dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
@@ -352,7 +347,6 @@ final class SourceService(
         }
     }
 
-  // ── Internal helpers ──────────────────────────────────────────────────────
 
   private def upsertDataType(source: DataSource, fields: Vector[DataField], now: Instant, bumpVersion: Boolean, user: AuthenticatedUser): Future[Option[DataType]] =
     dataTypeRepo.findBySourceId(source.id, user.id).flatMap { existing =>

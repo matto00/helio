@@ -5,7 +5,6 @@ import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalAppl
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Combined (pipeline + dashboard) proposal types (HEL-387) ─────────────────
 //
 // Stitches PipelineProposalService's and DashboardProposalService's own
 // apply paths into one atomic request/response — see CombinedProposalService

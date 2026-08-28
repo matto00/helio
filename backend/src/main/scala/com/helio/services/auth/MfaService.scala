@@ -37,7 +37,6 @@ final class MfaService(
     if (auditService != null)
       auditService.record(actorUserId, tokenId, source, action, "user", actorUserId.map(_.value), metadata)
 
-  // ── Status ────────────────────────────────────────────────────────────────
 
   def status(user: AuthenticatedUser): Future[Either[ServiceError, MfaStatusResponse]] =
     mfaRepo.findUserMfa(user.id).flatMap {
@@ -55,7 +54,6 @@ final class MfaService(
         }
     }
 
-  // ── Enrollment ───────────────────────────────────────────────────────────
 
   /** 409 if already enabled; otherwise generates a fresh secret and upserts
    *  a disabled row (re-issuing replaces any prior unconfirmed secret —
@@ -112,7 +110,6 @@ final class MfaService(
       result
     }
 
-  // ── Login-time challenge (mfa-login-gate spec) ──────────────────────────
 
   /** `Some(challengeToken)` iff the user has MFA enabled — `None` tells
    *  [[AuthService.finishLogin]] there is no gate to apply, so it mints a
@@ -150,7 +147,6 @@ final class MfaService(
       case _ => Future.successful(Left(InvalidCode))
     }
 
-  // ── Internal helpers ─────────────────────────────────────────────────────
 
   private def establishSession(challengeToken: String, userId: UserId): Future[Either[ServiceError, AuthResult]] =
     for {

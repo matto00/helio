@@ -99,7 +99,6 @@ object PanelRowMapper extends PanelProtocol {
     }
   }
 
-  // ── Per-subtype config builders from row columns ───────────────────────────
 
   private def metricConfig(row: PanelRepository.PanelRow): MetricPanelConfig =
     MetricPanelConfig(
@@ -195,7 +194,6 @@ object PanelRowMapper extends PanelProtocol {
     TimelinePanelConfig.decode(merged)
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
 
   private def optString(s: String): Option[String] =
     if (s.isEmpty) None else Some(s)

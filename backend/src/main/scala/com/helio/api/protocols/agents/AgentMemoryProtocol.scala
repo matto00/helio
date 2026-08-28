@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model.{AgentMemoryEntry, AgentMemoryKind}
 import spray.json._
 
-// ── AgentMemory API types (HEL-478 / 420-B) ──────────────────────────────────
 
 /** `POST /api/agent/memory` request body. `kind` is validated against the closed
  *  `fact`/`goal`/`preference-note` allow-list by `AgentMemoryKind.fromString`

@@ -268,7 +268,6 @@ private[protocols] trait AssistantProposalToolSchemas {
     "examples" -> JsArray(Vector(PatchSetExample))
   )
 
-  // ── test_connection (HEL-756 tasks.md 1.1, design.md D5) ────────────────────────────────────
   //
   // Reuses the same discriminated `type`/`config` shape `PipelineProposalSourceSchema` documents for
   // its inline branch, and the SAME dispatch convention `SourcePreviewRoutes`'s `POST /sources/test`
@@ -338,7 +337,6 @@ private[protocols] trait AssistantProposalToolSchemas {
     inputSchema = TestConnectionSchema
   )
 
-  // ── Tools ────────────────────────────────────────────────────────────────────────────────────
 
   val proposeDashboardTool: ClaudeTool = ClaudeTool(
     name = "propose_dashboard",

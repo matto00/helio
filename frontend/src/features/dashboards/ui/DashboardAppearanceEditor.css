@@ -79,8 +79,6 @@
   cursor: wait;
 }
 
-/* ── Preset strip ──────────────────────────────────────────────────────────── */
-
 .dashboard-appearance-editor__presets {
   display: flex;
   flex-wrap: wrap;
@@ -133,8 +131,6 @@
 .appearance-preset__label {
   line-height: 1;
 }
-
-/* ── Contrast warning ──────────────────────────────────────────────────────── */
 
 .dashboard-appearance-editor__contrast-warning {
   margin: 0;

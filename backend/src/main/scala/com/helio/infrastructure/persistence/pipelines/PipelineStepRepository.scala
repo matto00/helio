@@ -254,7 +254,6 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       stepsTable.filter(_.id === id.value).delete
     ).map(_ > 0)
 
-  // ── Row ↔ domain ──────────────────────────────────────────────────────────
 
   private def rowToDomain(row: PipelineStepRow): PipelineStep = {
     val stepId = PipelineStepId(row.id)

@@ -27,7 +27,6 @@
   display: none;
 }
 
-/* Section heading — gallery label */
 .dashboard-list__header h2 {
   margin: 0;
   font-family: var(--font-mono);

@@ -6,7 +6,6 @@ import com.helio.domain.model._
 import com.helio.services.auth.{HasSecrets, SecretField, SecretRedaction}
 import spray.json._
 
-// ── DataSource API types ─────────────────────────────────────────────────────
 //
 // CS2c-2 evolves the wire shape to a discriminated union over `type`. Each
 // subtype emits its own typed `config` payload (StaticSource has no `config`
@@ -111,7 +110,6 @@ final case class PreviewSourceResponse(
     evaluationErrors: Vector[String] = Vector.empty
 )
 
-// ── Typed config payloads (wire <-> domain mirrors) ──────────────────────────
 
 final case class CsvSourceConfigPayload(path: String)
 
@@ -191,7 +189,6 @@ final case class SqlInferRequest(`type`: String, config: SqlSourceConfigPayload)
  *  present. Carries no field derived from the request's `config` beyond this curated message. */
 final case class TestConnectionResponse(ok: Boolean, error: Option[String])
 
-// ── Static connector API types ───────────────────────────────────────────────
 
 final case class StaticColumnPayload(name: String, `type`: String)
 final case class StaticDataPayload(columns: Vector[StaticColumnPayload], rows: Vector[Vector[JsValue]])
@@ -398,7 +395,6 @@ object RestApiConfigPayload {
  *  in implicit scope. Passive structural dependency. */
 trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with DataTypeProtocol {
 
-  // ── Connector config payload formats ─────────────────────────────────────
   implicit val csvSourceConfigPayloadFormat: RootJsonFormat[CsvSourceConfigPayload]   = jsonFormat1(CsvSourceConfigPayload.apply)
   implicit val sqlSourceConfigPayloadFormat: RootJsonFormat[SqlSourceConfigPayload]   = jsonFormat7(SqlSourceConfigPayload.apply)
   implicit val restApiAuthPayloadFormat: RootJsonFormat[RestApiAuthPayload]           = jsonFormat5(RestApiAuthPayload.apply)
@@ -461,16 +457,13 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]           = jsonFormat2(CsvPreviewResponse.apply)
   implicit val previewSourceResponseFormat: RootJsonFormat[PreviewSourceResponse]     = jsonFormat2(PreviewSourceResponse.apply)
 
-  // SQL connector formats
   implicit val sqlCreateSourceRequestFormat: RootJsonFormat[SqlCreateSourceRequest] = jsonFormat3(SqlCreateSourceRequest.apply)
   implicit val sqlInferRequestFormat: RootJsonFormat[SqlInferRequest]               = jsonFormat2(SqlInferRequest.apply)
   implicit val testConnectionResponseFormat: RootJsonFormat[TestConnectionResponse] = jsonFormat2(TestConnectionResponse.apply)
 
-  // REST connector formats
   implicit val createSourceRequestFormat: RootJsonFormat[CreateSourceRequest]   = jsonFormat4(CreateSourceRequest.apply)
   implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse] = jsonFormat3(CreateSourceResponse.apply)
 
-  // Static connector formats
   implicit val staticColumnPayloadFormat: RootJsonFormat[StaticColumnPayload]         = jsonFormat2(StaticColumnPayload.apply)
   implicit val staticDataPayloadFormat: RootJsonFormat[StaticDataPayload]             = jsonFormat2(StaticDataPayload.apply)
   implicit val staticDataSourceRequestFormat: RootJsonFormat[StaticDataSourceRequest] = jsonFormat5(StaticDataSourceRequest.apply)

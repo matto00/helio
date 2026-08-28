@@ -5,7 +5,6 @@ import com.helio.domain.shapes.{OutputContract, RowCountContract, ShapeParamDesc
 import com.helio.services.pipelines.PipelineShapeCatalogEntry
 import spray.json._
 
-// ── Pipeline shape catalog API types (HEL-391) ───────────────────────────────
 //
 // `GET /api/pipeline-shapes` wire shape. `ShapeParamDescriptor` (domain,
 // com.helio.domain.shapes) is reused directly on the wire — every field is
@@ -47,7 +46,6 @@ object PipelineShapeCatalogEntryResponse {
     )
 }
 
-// ── POST /api/pipeline-shapes/:id/expand wire shapes (HEL-402) ──────────────
 
 /** Request body for `POST /api/pipeline-shapes/:id/expand` — the caller-supplied params passed
  *  straight through to [[com.helio.domain.shapes.PipelineShape.expand]] without server-side

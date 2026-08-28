@@ -304,8 +304,6 @@ export type PipelineStepConfig =
 
 export type PipelineStepKind = PipelineStep["type"];
 
-// ── Pipeline analyze types ────────────────────────────────────────────────────
-
 export interface SchemaField {
   name: string;
   type: string;
@@ -447,7 +445,6 @@ export interface PipelineAnalyzeResponse {
   steps: AnalyzeStepResult[];
 }
 
-// ── Pipeline + run-status summary types ─────────────────────────────────────
 // Extracted from `types/models.ts` in CS4 cycle 1.
 
 export interface Pipeline {
@@ -507,8 +504,6 @@ export interface PipelineRunRecord {
   triggerSource: "manual" | "scheduled" | "external";
   assertions: AssertionSummary;
 }
-
-// ── Pipeline sharing types ────────────────────────────────────────────────────
 
 export type GrantRole = "viewer" | "editor";
 

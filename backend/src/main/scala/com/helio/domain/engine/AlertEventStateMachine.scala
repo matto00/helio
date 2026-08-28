@@ -34,7 +34,6 @@ object AlertEventStateMachine {
   def transition(event: AlertEvent, action: AlertEventAction): Either[ServiceError, AlertEvent] =
     (event.state, action) match {
 
-      // ── User-driven transitions out of an active state ──────────────────
       case (AlertEventState.Firing, AlertEventAction.Acknowledge) =>
         Right(event.copy(state = AlertEventState.Acknowledged, acknowledgedAt = Some(Instant.now())))
 
@@ -87,7 +86,6 @@ object AlertEventStateMachine {
             lastEvaluatedAt = now
           ))
 
-      // ── Everything else is illegal ───────────────────────────────────────
       // Includes: any action on a resolved event (terminal — a re-breach
       // opens a new event via the repository's insert branch, never a
       // transition on the resolved row), acknowledge/resolve a snoozed

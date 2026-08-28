@@ -145,7 +145,6 @@ final class BoundPanelService(
     PipelineAnalyzeService.analyze(stepInputs, sourceSchema).lastOption.map(_.outputSchema).getOrElse(sourceSchema)
   }
 
-  // ── Execution chain (design.md D4) ─────────────────────────────────────────
 
   private def resolveSource(
       request: BoundPanelRequest,
@@ -302,7 +301,6 @@ final class BoundPanelService(
     JsObject(fieldMapping.fold(withTypeId)(fm => withTypeId + ("fieldMapping" -> fm)))
   }
 
-  // ── Compensating cleanup (design.md D5) ────────────────────────────────────
 
   /** Best-effort cleanup of everything this call created so far, run from
    *  every failure branch of the execution chain from stage "pipeline"
@@ -358,7 +356,6 @@ final class BoundPanelService(
     }
   }
 
-  // ── Internal helpers ────────────────────────────────────────────────────────
 
   /** Every failure branch prefixes the underlying `ServiceError`'s message
    *  with the stage that failed (`"source"|"pipeline"|"steps"|"run"|"panel"`)

@@ -89,7 +89,6 @@ final class AuthService(
     if (auditService != null)
       auditService.record(actorUserId, None, AuditSource.Ui, action, "user", actorUserId.map(_.value), metadata)
 
-  // ── Register ──────────────────────────────────────────────────────────────
 
   def register(rawRequest: RegisterRequest): Future[Either[ServiceError, AuthResult]] =
     RequestValidation.validateRegisterRequest(rawRequest) match {
@@ -122,7 +121,6 @@ final class AuthService(
         }
     }
 
-  // ── Login ─────────────────────────────────────────────────────────────────
 
   def login(rawRequest: LoginRequest): Future[Either[ServiceError, LoginOutcome]] =
     RequestValidation.validateLoginRequest(rawRequest) match {
@@ -170,7 +168,6 @@ final class AuthService(
     case LoginOutcome.MfaRequired(_)        => audit(Some(userId), "auth.login.challenged")
   }
 
-  // ── Logout ────────────────────────────────────────────────────────────────
 
   def logout(token: String): Future[Either[ServiceError, Unit]] =
     userRepo.findSession(token).flatMap {
@@ -182,7 +179,6 @@ final class AuthService(
         }
     }
 
-  // ── OAuth completion ──────────────────────────────────────────────────────
 
   /** Given a Google profile fetched by the route layer, upsert the user (tier assignment/promotion
    *  happens inside `upsertGoogleUser` itself, alongside its existing avatar-refresh-on-return
@@ -212,7 +208,6 @@ final class AuthService(
       userRepo.updateTier(user.id, UserTier.Owner).map(_ => user.copy(tier = UserTier.Owner))
     else Future.successful(user)
 
-  // ── CSRF state token store (OAuth `state` parameter) ──────────────────────
 
   /** Instance forwarder to [[AuthService.generateCsrfState]] so OAuth routes
    *  can call `authService.generateCsrfState()` without leaking the companion. */
@@ -223,7 +218,6 @@ final class AuthService(
   def validateCsrfState(state: String): Boolean =
     AuthService.validateCsrfState(state)
 
-  // ── Internal helpers ──────────────────────────────────────────────────────
 
   private def authResultOf(session: UserSession, user: User): AuthResult =
     AuthResult(
@@ -234,7 +228,6 @@ final class AuthService(
       )
     )
 
-  // ── MFA gate (HEL-702, design.md D3) ────────────────────────────────────────
   //
   // Single call site inserted at both session-establishment points above
   // (the password `login` success branch, and `completeOAuth`) rather than
@@ -295,7 +288,6 @@ object AuthService {
       expiresAt = now.plusSeconds(SessionTtlSeconds)
     )
 
-  // ── CSRF state store ──────────────────────────────────────────────────────
 
   /** In-memory CSRF state store: state -> expiry (epochSecond). In production
    *  this would be a session cookie or distributed store; behaviour preserved

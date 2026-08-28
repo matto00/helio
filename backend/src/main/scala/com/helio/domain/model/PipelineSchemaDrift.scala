@@ -1,7 +1,6 @@
 package com.helio.domain.model
 
 import com.helio.domain.engine.SchemaField
-// ── Schema-drift wire-adjacent domain types (HEL-462) ─────────────────────────
 
 final case class TypeChangedColumn(name: String, previousType: String, currentType: String)
 

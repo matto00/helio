@@ -4,7 +4,6 @@ import com.helio.domain.model.{DashboardId, DataTypeId, Panel, PanelAppearance, 
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-// ── Timeline-specific display options (HEL-317) ─────────────────────────────
 //
 // `timelineOptions` is a small closed shape — today just `sort` — modeled as
 // its own top-level case class (mirroring the per-chart-type options classes

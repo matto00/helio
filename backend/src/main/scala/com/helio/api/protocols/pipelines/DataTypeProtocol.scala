@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import spray.json._
 
-// ── DataType API types ───────────────────────────────────────────────────────
 
 final case class DataFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
 final case class ComputedFieldResponse(name: String, displayName: String, expression: String, dataType: String)
@@ -29,13 +28,11 @@ final case class UpdateDataTypeRequest(
 )
 final case class ValidateExpressionResponse(valid: Boolean, message: Option[String])
 
-// ── Inferred / schema field types ────────────────────────────────────────────
 
 final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
 final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 final case class SchemaFieldResponse(name: String, `type`: String)
 
-// ── DataType row snapshot ────────────────────────────────────────────────────
 
 final case class DataTypeRowsResponse(rows: Vector[JsObject], rowCount: Int)
 
@@ -59,7 +56,6 @@ trait DataTypeProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dataFieldFormat: RootJsonFormat[DataField]         = jsonFormat4(DataField.apply)
   implicit val computedFieldFormat: RootJsonFormat[ComputedField] = jsonFormat4(ComputedField.apply)
 
-  // DataType API formats
   implicit val dataFieldResponseFormat: RootJsonFormat[DataFieldResponse]                   = jsonFormat4(DataFieldResponse.apply)
   implicit val computedFieldResponseFormat: RootJsonFormat[ComputedFieldResponse]           = jsonFormat4(ComputedFieldResponse.apply)
   implicit val dataTypeResponseFormat: RootJsonFormat[DataTypeResponse]                     = jsonFormat9(DataTypeResponse.apply)
@@ -69,11 +65,9 @@ trait DataTypeProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest]           = jsonFormat3(UpdateDataTypeRequest.apply)
   implicit val validateExpressionResponseFormat: RootJsonFormat[ValidateExpressionResponse] = jsonFormat2(ValidateExpressionResponse.apply)
 
-  // Inferred / schema-field formats
   implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
   implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)
   implicit val schemaFieldResponseFormat: RootJsonFormat[SchemaFieldResponse]       = jsonFormat2(SchemaFieldResponse.apply)
 
-  // Row-snapshot
   implicit val dataTypeRowsResponseFormat: RootJsonFormat[DataTypeRowsResponse] = jsonFormat2(DataTypeRowsResponse.apply)
 }

@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import spray.json._
 
-// ── Permission API types ─────────────────────────────────────────────────────
 
 final case class GrantPermissionRequest(granteeId: Option[String], role: String)
 final case class PermissionResponse(granteeId: Option[String], role: String, createdAt: String)

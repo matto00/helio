@@ -40,7 +40,6 @@ final class WorkspaceSearchService(
    *  (`SampleRowLimit`/`MaxJoinHints`). `find` NEVER returns more than this many summaries. */
   private val MaxFindResults: Int = 20
 
-  // ── find ────────────────────────────────────────────────────────────────
 
   /** Keyword/substring search across the caller's own data sources, DataTypes, pipelines,
    *  dashboards, and metrics (owner-scoped throughout — every composed `findAll`/`listSummaries` call
@@ -113,7 +112,6 @@ final class WorkspaceSearchService(
     matches.sortBy(s => (namePosition(s), s.resourceType, s.name)).take(MaxFindResults)
   }
 
-  // ── find: per-type summary + description synthesis (design.md D5) ────────
 
   private def toDataSourceSummary(ds: DataSource): WorkspaceResourceSummary =
     WorkspaceResourceSummary(
@@ -161,7 +159,6 @@ final class WorkspaceSearchService(
       description  = m.description.getOrElse(s"${m.aggregation} of ${m.measureField}")
     )
 
-  // ── getResource ────────────────────────────────────────────────────────
 
   /** Full per-resource detail for exactly one owned resource, dispatched by `resourceType`. Reuses
    *  `workspaceContextService`'s (now `private[services]`) per-entry converters for the 4 existing

@@ -3,7 +3,6 @@ package com.helio.api.protocols.hooks
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── External trigger hook types (HEL-369) ────────────────────────────────────
 
 /** `POST /api/hooks/run` request body. */
 final case class HookRunRequest(pipelineId: String)

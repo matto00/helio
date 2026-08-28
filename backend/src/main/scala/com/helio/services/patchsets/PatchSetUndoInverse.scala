@@ -22,7 +22,6 @@ import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
  *  `PatchSetUndoService`'s call site rather than getting a dedicated builder here. */
 private[services] object PatchSetUndoInverse {
 
-  // ── panel ────────────────────────────────────────────────────────────────
 
   private def fullPanelAppearancePatch(appearance: PanelAppearanceResponse): JsValue =
     JsObject(
@@ -94,7 +93,6 @@ private[services] object PatchSetUndoInverse {
       appearance  = Some(panelAppearancePayloadFromResponse(response.appearance))
     )
 
-  // ── dashboard ────────────────────────────────────────────────────────────
 
   def fullDashboardInverse(response: DashboardResponse): UpdateDashboardRequest = {
     def layoutItems(items: Vector[DashboardLayoutItemResponse]): Vector[DashboardLayoutItemPayload] =
@@ -111,7 +109,6 @@ private[services] object PatchSetUndoInverse {
     )
   }
 
-  // ── dataType ─────────────────────────────────────────────────────────────
 
   def fullDataTypeInverse(response: DataTypeResponse): UpdateDataTypeRequest =
     UpdateDataTypeRequest(
@@ -120,7 +117,6 @@ private[services] object PatchSetUndoInverse {
       computedFields = Some(response.computedFields.map(cf => ComputedFieldPayload(cf.name, cf.displayName, cf.expression, cf.dataType)))
     )
 
-  // ── pipelineStep ─────────────────────────────────────────────────────────
   //
   // Unlike the five kinds above, `PipelineStepResponse` is a 22-subtype sealed union whose
   // typed `config` field isn't exposed on the common trait -- decoding into it would only force

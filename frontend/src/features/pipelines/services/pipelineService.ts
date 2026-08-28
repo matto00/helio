@@ -213,8 +213,6 @@ export async function fetchStepPreview(
   return response.data;
 }
 
-// ── Pipeline permission management ────────────────────────────────────────────
-
 /** List all sharing grants for a pipeline. Owner-only. */
 export async function listPipelinePermissions(pipelineId: string): Promise<PermissionGrant[]> {
   const response = await httpClient.get<{ items: PermissionGrant[] }>(
@@ -243,8 +241,6 @@ export async function revokePipelinePermission(
 ): Promise<void> {
   await httpClient.delete(`/api/pipelines/${pipelineId}/permissions/${granteeId}`);
 }
-
-// ── Pipeline schedule (HEL-414 routes) ────────────────────────────────────────
 
 /** spray-json's default `Option` formatter omits `None` fields from the wire
  *  entirely rather than serializing `null` (documented codebase gotcha) — the
@@ -285,8 +281,6 @@ export async function putPipelineSchedule(
 export async function deletePipelineSchedule(pipelineId: string): Promise<void> {
   await httpClient.delete(`/api/pipelines/${pipelineId}/schedule`);
 }
-
-// ── Pipeline shape catalog + instantiation (HEL-391 / HEL-402) ───────────────
 
 /** GET /api/pipeline-shapes — the registry of smart-pipeline-shape kinds
  *  (`passthrough`, `single-row`, `top-n`, `time-series`, `pivot-matrix` at

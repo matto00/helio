@@ -1,12 +1,8 @@
-/* ── ShapePickerModal ────────────────────────────────────────────────────── */
-
 .shape-picker-modal__loading {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--app-text-muted);
 }
-
-/* ── Step 1: shape list ──────────────────────────────────────────────────── */
 
 .shape-picker-modal__list {
   display: flex;
@@ -47,8 +43,6 @@
   font-size: var(--text-xs);
   color: var(--app-text-muted);
 }
-
-/* ── Step 2: params form ─────────────────────────────────────────────────── */
 
 .shape-picker-modal__form {
   display: flex;

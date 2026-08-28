@@ -99,7 +99,6 @@ object SingleRowShape extends PipelineShape {
         Left("single-row shape: missing required field 'mode' (expected \"aggregate\" or \"filter\")")
     }
 
-  // ── aggregate mode ─────────────────────────────────────────────────────
 
   private def expandAggregate(params: JsObject): Either[String, Vector[ShapeStepExpansion]] =
     params.fields.get("measures") match {
@@ -145,7 +144,6 @@ object SingleRowShape extends PipelineShape {
         }
     }
 
-  // ── filter mode ────────────────────────────────────────────────────────
 
   private def expandFilter(params: JsObject): Either[String, Vector[ShapeStepExpansion]] =
     params.fields.get("conditions") match {

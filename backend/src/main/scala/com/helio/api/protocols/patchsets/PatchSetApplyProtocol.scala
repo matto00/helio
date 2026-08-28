@@ -3,7 +3,6 @@ package com.helio.api.protocols.patchsets
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Patch-set apply response types (HEL-406) ─────────────────────────────────
 //
 // `PatchSetApplyService.apply` (see design.md D4/D4a/D4b) returns one
 // `EditOutcome` per edit in the caller's given order. `priorState`/

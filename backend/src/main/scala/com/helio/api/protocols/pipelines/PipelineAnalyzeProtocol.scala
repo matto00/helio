@@ -161,7 +161,6 @@ final case class AssertAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.Assert }
 
-// ── Schema-drift wire types (HEL-462, design D6) ───────────────────────────
 
 final case class TypeChangedColumnResponse(name: String, previousType: String, currentType: String)
 
@@ -197,7 +196,6 @@ trait PipelineAnalyzeProtocol
     with DataTypeProtocol
     with PipelineStepProtocol {
 
-  // ── Analyze formats (per-subtype, dispatched on `type`) ──────────────────
   private val renameAnalyzeFormat: RootJsonFormat[RenameAnalyzeStepResponse]       = jsonFormat6(RenameAnalyzeStepResponse.apply)
   private val filterAnalyzeFormat: RootJsonFormat[FilterAnalyzeStepResponse]       = jsonFormat6(FilterAnalyzeStepResponse.apply)
   private val joinAnalyzeFormat: RootJsonFormat[JoinAnalyzeStepResponse]           = jsonFormat6(JoinAnalyzeStepResponse.apply)
@@ -281,7 +279,6 @@ trait PipelineAnalyzeProtocol
       }
   }
 
-  // HEL-462: schema-drift wire formats.
   implicit val typeChangedColumnResponseFormat: RootJsonFormat[TypeChangedColumnResponse] = jsonFormat3(TypeChangedColumnResponse.apply)
   implicit val sourceSchemaDriftResponseFormat: RootJsonFormat[SourceSchemaDriftResponse] = jsonFormat3(SourceSchemaDriftResponse.apply)
 

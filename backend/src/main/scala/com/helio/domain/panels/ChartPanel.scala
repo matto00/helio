@@ -4,7 +4,6 @@ import com.helio.domain.model.{DashboardId, DataTypeId, MetricId, Panel, PanelAp
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-// ── Per-chart-type display options (HEL-248) ────────────────────────────────
 //
 // `chartOptions` is keyed per chart type so switching bar→pie→bar restores the
 // original bar settings — nothing is destroyed on a type change. Each key is

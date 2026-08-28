@@ -93,7 +93,6 @@ final class DataSourceRoutes(
       )
     }
 
-  // ── Multipart unmarshalling lives at the route boundary ───────────────────
 
   /** JSON create dispatch: a single `entity(as[JsValue])` route that inspects
    *  the `type` discriminator once and branches to `StaticDataSourceRequest`

@@ -59,7 +59,6 @@ private[services] object PatchSetPreviewProjection {
         }
     }
 
-  // ── Dispatch ────────────────────────────────────────────────────────────
 
   private def computeAfter(
       edit: ResolvedEdit,
@@ -67,7 +66,6 @@ private[services] object PatchSetPreviewProjection {
       ctx: PatchSetApplyContext
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Option[JsValue]]] =
     edit.action match {
-      // ── panel ──────────────────────────────────────────────────────────
       case ResolvedAction.PanelUpdate(_, request, prior) =>
         Future.successful(panelUpdateAfter(request, prior))
       case ResolvedAction.PanelDelete(_, _) =>
@@ -75,7 +73,6 @@ private[services] object PatchSetPreviewProjection {
       case ResolvedAction.PanelCreate(request) =>
         Future.successful(Right(Some(panelCreateAfter(request, user))))
 
-      // ── dashboard ──────────────────────────────────────────────────────
       case ResolvedAction.DashboardUpdate(_, request, prior) =>
         Future.successful(dashboardUpdateAfter(request, prior))
       case ResolvedAction.DashboardDelete(_, _) =>
@@ -83,7 +80,6 @@ private[services] object PatchSetPreviewProjection {
       case ResolvedAction.DashboardCreate(request) =>
         Future.successful(Right(Some(dashboardCreateAfter(request, user))))
 
-      // ── dataSource ─────────────────────────────────────────────────────
       case ResolvedAction.DataSourceUpdate(_, request, prior) =>
         Future.successful(Right(Some(dataSourceUpdateAfter(request, prior))))
       case ResolvedAction.DataSourceDelete(_, _) =>
@@ -97,7 +93,6 @@ private[services] object PatchSetPreviewProjection {
       case ResolvedAction.DataTypeDelete(id, prior) =>
         dataTypeDeleteAfter(id, prior, user, ctx)
 
-      // ── pipeline ───────────────────────────────────────────────────────
       case ResolvedAction.PipelineUpdate(_, request, prior) =>
         Future.successful(pipelineRenameAfter(request, prior))
       case ResolvedAction.PipelineDelete(_, _) =>
@@ -112,7 +107,6 @@ private[services] object PatchSetPreviewProjection {
         Future.successful(Right(None))
     }
 
-  // ── panel ───────────────────────────────────────────────────────────────
 
   private def panelUpdateAfter(request: UpdatePanelRequest, prior: Panel): Either[ServiceError, Option[JsValue]] =
     PanelServiceHelpers.resolvePatch(request, prior) match {
@@ -176,7 +170,6 @@ private[services] object PatchSetPreviewProjection {
     }
   }
 
-  // ── dashboard ───────────────────────────────────────────────────────────
 
   private def dashboardUpdateAfter(request: UpdateDashboardRequest, prior: Dashboard): Either[ServiceError, Option[JsValue]] =
     DashboardServiceValidation.validateDashboardUpdateRequest(request) match {
@@ -206,7 +199,6 @@ private[services] object PatchSetPreviewProjection {
     dashboardResponseFormat.write(DashboardResponse.fromDomain(dashboard))
   }
 
-  // ── dataSource ──────────────────────────────────────────────────────────
 
   /** Trivial rename-only `.copy`, mirroring `PatchSetApplyRollback`'s own
    *  `DataSourceUpdate` inverse-request composition style -- `updatedAt` is
@@ -239,7 +231,6 @@ private[services] object PatchSetPreviewProjection {
     dataSourceResponseFormat.write(DataSourceResponse.fromDomain(source))
   }
 
-  // ── dataType ────────────────────────────────────────────────────────────
 
   /** Mirrors `DataTypeService.applyUpdate`'s content-level checks exactly
    *  (design.md D1/D1a): `RequestValidation.MaxExpressionLength` per
@@ -323,7 +314,6 @@ private[services] object PatchSetPreviewProjection {
         }
     }
 
-  // ── pipeline ────────────────────────────────────────────────────────────
 
   /** Mirrors `PipelineService.updateName`'s blank-name check
    *  (`PipelineService.scala:154-155`, design.md D1/D1a) before the trivial
@@ -378,7 +368,6 @@ private[services] object PatchSetPreviewProjection {
       tag                  = s.tag
     )
 
-  // ── pipelineStep ────────────────────────────────────────────────────────
 
   private def pipelineStepUpdateAfter(request: UpdatePipelineStepRequest, prior: PipelineStep): Either[ServiceError, Option[JsValue]] = {
     val configuredEither: Either[String, PipelineStep] = request.config match {

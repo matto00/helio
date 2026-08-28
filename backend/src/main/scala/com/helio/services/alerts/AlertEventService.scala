@@ -18,7 +18,6 @@ import scala.concurrent.{ExecutionContext, Future}
  *  (HEL-432) are out of scope here. */
 final class AlertEventService(alertEventRepo: AlertEventRepository)(implicit ec: ExecutionContext) {
 
-  // ── Read ──────────────────────────────────────────────────────────────────
 
   def findAll(user: AuthenticatedUser, stateFilter: Option[String]): Future[Either[ServiceError, Vector[AlertEvent]]] =
     stateFilter match {

@@ -30,7 +30,6 @@ final class PipelineScheduleService(
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, "pipeline_schedule", Some(pipelineId.value), JsObject.empty)
 
-  // ── Read ──────────────────────────────────────────────────────────────────
 
   def find(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSchedule]] =
     pipelineRepo.findByIdOwned(pipelineId, user).flatMap {
@@ -42,7 +41,6 @@ final class PipelineScheduleService(
         }
     }
 
-  // ── Create-or-replace ─────────────────────────────────────────────────────
 
   def put(
       pipelineId: PipelineId,
@@ -96,7 +94,6 @@ final class PipelineScheduleService(
         }
     }
 
-  // ── Delete ────────────────────────────────────────────────────────────────
 
   def delete(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     pipelineRepo.findByIdOwned(pipelineId, user).flatMap {

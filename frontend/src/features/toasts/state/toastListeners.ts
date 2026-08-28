@@ -22,7 +22,6 @@ import type { UnknownAction } from "@reduxjs/toolkit";
 import type { AppStartListening } from "../../../store/listenerMiddleware";
 import { pushToast } from "./toastsSlice";
 
-// Dashboards
 import {
   createDashboard,
   deleteDashboard,
@@ -31,7 +30,6 @@ import {
   updateDashboardLayout,
 } from "../../dashboards/state/dashboardsSlice";
 
-// Panels
 import {
   createPanel,
   deletePanel,
@@ -41,7 +39,6 @@ import {
   updatePanelsBatch,
 } from "../../panels/state/panelsSlice";
 
-// Sources
 import {
   createSqlSource,
   createStaticSource,
@@ -49,13 +46,10 @@ import {
   inferSqlSource,
 } from "../../sources/state/sourcesSlice";
 
-// DataTypes
 import { deleteDataType } from "../../dataTypes/state/dataTypesSlice";
 
-// Metrics
 import { deleteMetric } from "../../metrics/state/metricsSlice";
 
-// Pipelines
 import {
   createPipeline,
   deletePipeline,
@@ -63,7 +57,6 @@ import {
   submitPipelineRun,
 } from "../../pipelines/state/pipelinesSlice";
 
-// Settings (agent memory)
 import {
   clearAgentMemoryThunk,
   deleteAgentMemoryEntryThunk,
@@ -146,7 +139,6 @@ const SUCCESS_TOASTS: SuccessToastEntry[] = [
   success(deleteMetric.fulfilled, () => "Metric deleted."),
 ];
 
-// ── Errors (meaningful failures) ────────────────────────────────────────────
 const ERROR_TOASTS: ErrorToastEntry[] = [
   // HEL-548/HEL-770 D6a/task 3.6 — REMOVED `error(createDashboard.rejected,
   // "Failed to create dashboard.")`. Both surfaces that dispatch this thunk

@@ -3,7 +3,6 @@ package com.helio.api.protocols.auth
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Beta access request/redeem types (HEL-704) ────────────────────────────────
 
 /** `POST /api/beta-access/redeem` body. `request-access` has no request body -- the caller's
  *  identity alone determines eligibility/recipients. */

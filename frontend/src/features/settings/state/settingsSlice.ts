@@ -350,8 +350,6 @@ export const redeemInviteCodeThunk = createAsyncThunk<User, string, { rejectValu
   },
 );
 
-// ── Personal access tokens (HEL-727) ────────────────────────────────────────
-
 export const fetchApiTokens = createAsyncThunk<ApiTokenResponse[], void, { rejectValue: string }>(
   "settings/fetchApiTokens",
   async (_, { rejectWithValue }) => {
@@ -417,7 +415,6 @@ const settingsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // fetchPreferences
       .addCase(fetchPreferences.pending, (state) => {
         state.preferences.status = "loading";
         state.preferences.error = null;
@@ -431,7 +428,6 @@ const settingsSlice = createSlice({
         state.preferences.status = "failed";
         state.preferences.error = action.payload ?? "Failed to load preferences.";
       })
-      // savePreferences
       .addCase(savePreferences.pending, (state) => {
         state.preferences.saveStatus = "loading";
         state.preferences.saveError = null;
@@ -445,7 +441,6 @@ const settingsSlice = createSlice({
         state.preferences.saveStatus = "failed";
         state.preferences.saveError = action.payload ?? "Failed to save preferences.";
       })
-      // fetchAgentMemory
       .addCase(fetchAgentMemory.pending, (state) => {
         state.agentMemory.status = "loading";
         state.agentMemory.error = null;
@@ -459,7 +454,6 @@ const settingsSlice = createSlice({
         state.agentMemory.status = "failed";
         state.agentMemory.error = action.payload ?? "Failed to load agent memory.";
       })
-      // deleteAgentMemoryEntryThunk
       .addCase(deleteAgentMemoryEntryThunk.pending, (state, action) => {
         const id = action.meta.arg;
         state.agentMemory.deleteStatus[id] = "loading";
@@ -476,7 +470,6 @@ const settingsSlice = createSlice({
         state.agentMemory.deleteStatus[id] = "failed";
         state.agentMemory.deleteError[id] = action.payload ?? "Failed to delete memory entry.";
       })
-      // clearAgentMemoryThunk
       .addCase(clearAgentMemoryThunk.pending, (state) => {
         state.agentMemory.clearStatus = "loading";
         state.agentMemory.clearError = null;
@@ -490,7 +483,6 @@ const settingsSlice = createSlice({
         state.agentMemory.clearStatus = "failed";
         state.agentMemory.clearError = action.payload ?? "Failed to clear agent memory.";
       })
-      // fetchMfaStatus
       .addCase(fetchMfaStatus.pending, (state) => {
         state.mfa.status = "loading";
         state.mfa.error = null;
@@ -506,7 +498,6 @@ const settingsSlice = createSlice({
         state.mfa.status = "failed";
         state.mfa.error = action.payload ?? "Failed to load MFA status.";
       })
-      // startMfaEnrollment
       .addCase(startMfaEnrollment.pending, (state) => {
         state.mfa.enrollStatus = "loading";
         state.mfa.enrollError = null;
@@ -520,7 +511,6 @@ const settingsSlice = createSlice({
         state.mfa.enrollStatus = "failed";
         state.mfa.enrollError = action.payload ?? "Failed to start enrollment.";
       })
-      // confirmMfaEnrollment
       .addCase(confirmMfaEnrollment.pending, (state) => {
         state.mfa.confirmStatus = "loading";
         state.mfa.confirmError = null;
@@ -538,7 +528,6 @@ const settingsSlice = createSlice({
         state.mfa.confirmStatus = "failed";
         state.mfa.confirmError = action.payload ?? "Invalid code. Please try again.";
       })
-      // regenerateMfaBackupCodes
       .addCase(regenerateMfaBackupCodes.pending, (state) => {
         state.mfa.regenerateStatus = "loading";
         state.mfa.regenerateError = null;
@@ -553,7 +542,6 @@ const settingsSlice = createSlice({
         state.mfa.regenerateStatus = "failed";
         state.mfa.regenerateError = action.payload ?? "Invalid code. Please try again.";
       })
-      // disableMfa
       .addCase(disableMfa.pending, (state) => {
         state.mfa.disableStatus = "loading";
         state.mfa.disableError = null;
@@ -570,7 +558,6 @@ const settingsSlice = createSlice({
         state.mfa.disableStatus = "failed";
         state.mfa.disableError = action.payload ?? "Invalid code. Please try again.";
       })
-      // requestBetaAccessThunk
       .addCase(requestBetaAccessThunk.pending, (state) => {
         state.betaAccess.requestStatus = "loading";
         state.betaAccess.requestError = null;
@@ -583,7 +570,6 @@ const settingsSlice = createSlice({
         state.betaAccess.requestStatus = "failed";
         state.betaAccess.requestError = action.payload ?? "Failed to request Beta access.";
       })
-      // redeemInviteCodeThunk
       .addCase(redeemInviteCodeThunk.pending, (state) => {
         state.betaAccess.redeemStatus = "loading";
         state.betaAccess.redeemError = null;
@@ -596,7 +582,6 @@ const settingsSlice = createSlice({
         state.betaAccess.redeemStatus = "failed";
         state.betaAccess.redeemError = action.payload ?? "Invalid or already-used invite code";
       })
-      // fetchApiTokens
       .addCase(fetchApiTokens.pending, (state) => {
         state.apiTokens.status = "loading";
         state.apiTokens.error = null;
@@ -610,7 +595,6 @@ const settingsSlice = createSlice({
         state.apiTokens.status = "failed";
         state.apiTokens.error = action.payload ?? "Failed to load personal access tokens.";
       })
-      // createApiTokenThunk
       .addCase(createApiTokenThunk.pending, (state) => {
         state.apiTokens.createStatus = "loading";
         state.apiTokens.createError = null;
@@ -637,7 +621,6 @@ const settingsSlice = createSlice({
         state.apiTokens.createStatus = "failed";
         state.apiTokens.createError = action.payload ?? "Failed to create token.";
       })
-      // revokeApiTokenThunk
       .addCase(revokeApiTokenThunk.pending, (state, action) => {
         const id = action.meta.arg;
         state.apiTokens.revokeStatus[id] = "loading";

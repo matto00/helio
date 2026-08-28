@@ -316,7 +316,6 @@ final class PipelineRunService(
   def pipelineExistsShared(pipelineId: PipelineId, user: AuthenticatedUser): Future[Boolean] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).map(_.isDefined)
 
-  // ── Internal helpers ──────────────────────────────────────────────────────
 
   private def publish(pipelineId: String, event: RunStatusEvent): Unit =
     if (registry != null) registry.publish(pipelineId, event)

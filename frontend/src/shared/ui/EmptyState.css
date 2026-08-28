@@ -1,5 +1,3 @@
-/* ── EmptyState primitive ──────────────────────────────────────────────────── */
-
 .ui-empty-state {
   display: flex;
   flex-direction: column;
@@ -159,7 +157,6 @@
   opacity: 0.7;
 }
 
-/* Sidebar CTAs are slightly smaller */
 .ui-empty-state--sidebar .ui-empty-state__cta,
 .ui-empty-state--sidebar .ui-empty-state__secondary-cta {
   height: var(--control-sm);

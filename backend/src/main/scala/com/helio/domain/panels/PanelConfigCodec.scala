@@ -16,7 +16,6 @@ object PanelConfigCodec {
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  // ── Encode: domain Panel → JsValue config payload ─────────────────────────
 
   /** Encode a `Panel`'s typed config as the wire `config` field. The
    *  per-subtype `RootJsonFormat[*Config]` produced by `jsonFormatN` is the
@@ -34,7 +33,6 @@ object PanelConfigCodec {
     case other               => deserializationError(s"Unknown panel kind for encode: '${other.kind}'")
   }
 
-  // ── Decode: (kind, JsValue) → typed Config (create-path) ──────────────────
 
   /** Sealed marker for a per-subtype `*Config` carried through the service
    *  layer at create time. Each variant wraps the typed config from one
@@ -69,7 +67,6 @@ object PanelConfigCodec {
     }
   }
 
-  // ── Decode: (storedPanel, JsValue) → applied Patch (update-path) ──────────
 
   /** Apply a wire-shape `(config: JsValue)` patch to the stored panel,
    *  preserving absent-vs-null semantics per the subtype's `Patch.decode`.
@@ -90,7 +87,6 @@ object PanelConfigCodec {
     case other               => deserializationError(s"Unknown panel kind for patch: '${other.kind}'")
   }
 
-  // ── Internal helper ───────────────────────────────────────────────────────
 
   private def safe[A](thunk: => A): Either[String, A] =
     try Right(thunk)

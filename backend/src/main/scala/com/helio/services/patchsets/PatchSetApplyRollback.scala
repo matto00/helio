@@ -65,7 +65,6 @@ private[services] object PatchSetApplyRollback {
   )(implicit ec: ExecutionContext): Future[EditOutcome] =
     edit.action match {
 
-      // ── panel ──────────────────────────────────────────────────────────
       case ResolvedAction.PanelCreate(_) =>
         forwardOutcome.newId match {
           case None => Future.successful(edit.toOutcome("unrecoverable"))
@@ -90,7 +89,6 @@ private[services] object PatchSetApplyRollback {
           case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
         }
 
-      // ── dashboard ──────────────────────────────────────────────────────
       case ResolvedAction.DashboardCreate(_) =>
         forwardOutcome.newId match {
           case None => Future.successful(edit.toOutcome("unrecoverable"))
@@ -110,7 +108,6 @@ private[services] object PatchSetApplyRollback {
         // DashboardProposalService's own composition. Never attempted.
         Future.successful(edit.toOutcome("unrecoverable"))
 
-      // ── dataSource ─────────────────────────────────────────────────────
       case ResolvedAction.DataSourceCreate(_) =>
         forwardOutcome.newId match {
           case None => Future.successful(edit.toOutcome("unrecoverable"))
@@ -139,7 +136,6 @@ private[services] object PatchSetApplyRollback {
         // design.md D1: no create API to restore via — hard constraint.
         Future.successful(edit.toOutcome("unrecoverable"))
 
-      // ── pipeline ───────────────────────────────────────────────────────
       case ResolvedAction.PipelineCreate(_) =>
         forwardOutcome.newId match {
           case None => Future.successful(edit.toOutcome("unrecoverable"))
@@ -201,7 +197,6 @@ private[services] object PatchSetApplyRollback {
   private def logFailure(edit: ResolvedEdit, message: String): Unit =
     log.error(s"compensation failed for edit ${edit.index} (kind=${edit.kind}, op=${edit.op}): $message")
 
-  // ── Full-overwrite inverse-request builders ─────────────────────────────
   //
   // Every field is populated from the captured prior state — never just the
   // fields the forward edit changed (design.md D3).

@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import spray.json._
 
-// ── Connector entity API types (HEL-821) ─────────────────────────────────────
 //
 // Distinct from `ConnectorProtocol.scala` (HEL-484/825, `GET /api/connector-types`
 // metadata) -- see design.md Decision 7. `ConnectorMeta` structurally cannot carry

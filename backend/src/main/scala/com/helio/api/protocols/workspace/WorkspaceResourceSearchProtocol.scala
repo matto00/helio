@@ -5,7 +5,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model.MetricFormat
 import spray.json._
 
-// ── Workspace resource search API types (HEL-661) ────────────────────────────
 //
 // `WorkspaceSearchService.find`/`getResource`'s wire shapes — deliberately NOT
 // reuse of `WorkspaceContext*` for the compact `find` summary (design.md D6):

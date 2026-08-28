@@ -104,7 +104,6 @@
   min-width: 20px;
 }
 
-/* ── Schedule value ── */
 .pipeline-detail-header__schedule-empty {
   font-size: var(--text-sm);
   color: var(--app-text-muted);

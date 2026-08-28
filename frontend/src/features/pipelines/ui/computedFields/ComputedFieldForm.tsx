@@ -61,7 +61,6 @@ export function ComputedFieldForm({ typeId, initial, onSave, onCancel }: Compute
       setExprError("Expression is required");
       return;
     }
-    // Final server validation before saving
     if (typeId) {
       setIsValidating(true);
       try {

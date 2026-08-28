@@ -3,7 +3,6 @@ package com.helio.api.protocols.patchsets
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Patch-set preview response types (HEL-408) ───────────────────────────────
 //
 // `PatchSetPreviewService.preview` (design.md D5) returns one `EditPreview`
 // per edit, in the caller's given order. `before`/`after` reuse each target

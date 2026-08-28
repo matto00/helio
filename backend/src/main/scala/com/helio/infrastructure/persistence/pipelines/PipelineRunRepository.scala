@@ -239,7 +239,6 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       runsTable.filter(r => r.pipelineId === pipelineId.value && r.completedAt.isEmpty).result.headOption
     )
 
-  // ── HEL-509 (419-B): pipeline_run_assertions ──────────────────────────────
 
   /** Privileged insert for the [[AssertionResult]]s evaluated during a run
     * (design.md Decision 6 — always `withSystemContext`, mirroring
@@ -346,7 +345,6 @@ object PipelineRunRepository {
     def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId).mapTo[PipelineRunRow]
   }
 
-  // ── HEL-509 (419-B): pipeline_run_assertions ──────────────────────────────
 
   case class PipelineRunAssertionRow(
       id: String,

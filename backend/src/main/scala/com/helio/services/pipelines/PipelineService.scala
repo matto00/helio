@@ -65,7 +65,6 @@ final class PipelineService(
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, resourceType, resourceId, metadata)
 
-  // ── Pipeline CRUD ─────────────────────────────────────────────────────────
 
   /** `tag`, when given, exact-matches (HEL-366 tasks.md 2.5) — `None` is the
    *  pre-existing unfiltered behavior. */
@@ -132,7 +131,6 @@ final class PipelineService(
         }
     }
 
-  // ── Analyze ───────────────────────────────────────────────────────────────
 
   /** Sharing-aware analyze. Owner, editor, and viewer can analyze. */
   def analyze(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeResponse]] = {
@@ -445,7 +443,6 @@ final class PipelineService(
     }
   }
 
-  // ── Pipeline step CRUD ────────────────────────────────────────────────────
 
   /** Sharing-aware step list. Owner, editor, and viewer can list steps. */
   def listSteps(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
@@ -835,7 +832,6 @@ final class PipelineService(
         }
     }
 
-  // ── Internal helpers ──────────────────────────────────────────────────────
 
   /** Verifies that the caller has editor (not just viewer) access to the pipeline.
    *  Called only when the caller is NOT the owner (i.e. they have a grant).

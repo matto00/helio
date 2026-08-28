@@ -38,8 +38,6 @@ const variantIcon = {
   error: faCircleXmark,
 };
 
-// ── Single toast item ────────────────────────────────────────────────────────
-
 interface ToastItemProps {
   toast: ToastData;
 }
@@ -120,8 +118,6 @@ function ToastItem({ toast }: ToastItemProps) {
     </div>
   );
 }
-
-// ── Viewport (rendered once in App) ─────────────────────────────────────────
 
 /** Render this once at the top level. Portals to document.body and displays
  * all active toasts stacked in the bottom-right corner of the viewport. */

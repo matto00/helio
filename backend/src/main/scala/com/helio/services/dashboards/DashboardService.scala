@@ -51,7 +51,6 @@ final class DashboardService(
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, "dashboard", resourceId, metadata)
 
-  // ── CRUD ──────────────────────────────────────────────────────────────────
 
   def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[Dashboard]] =
     dashboardRepo.findAll(user.id, page)
@@ -253,7 +252,6 @@ final class DashboardService(
     }
   }
 
-  // ── Snapshot export / import ──────────────────────────────────────────────
 
   /** Sharing-aware export. Owner and editor grantees may export.
    *  - No access → 404
@@ -272,7 +270,6 @@ final class DashboardService(
           case Some(value) => Right(value)
         }
       case Some(_) =>
-        // Non-owner grantee: check role.
         accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
           case Left(err)                    => Future.successful(Left(err))
           case Right(ResourceAccess.Viewer) => Future.successful(Left(ServiceError.Forbidden()))

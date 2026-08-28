@@ -3,7 +3,6 @@ package com.helio.api.protocols.pipelines
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Pipeline summary / CRUD types ────────────────────────────────────────────
 
 final case class CreatePipelineRequest(
     name: String,
@@ -26,7 +25,6 @@ final case class PipelineSummaryResponse(
     tag: Option[String] = None
 )
 
-// ── Pipeline run API types ───────────────────────────────────────────────────
 
 final case class RunSubmitResponse(runId: String)
 final case class RunStatusResponse(
@@ -118,12 +116,10 @@ trait PipelineProtocol
     with PipelineStepProtocol
     with PipelineAnalyzeProtocol {
 
-  // CRUD formats
   implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat4(CreatePipelineRequest.apply)
   implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest]     = jsonFormat1(UpdatePipelineRequest.apply)
   implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat11(PipelineSummaryResponse.apply)
 
-  // Run formats
   implicit val assertionFailureDetailFormat: RootJsonFormat[AssertionFailureDetail] =
     jsonFormat4(AssertionFailureDetail.apply)
   implicit val assertionSummaryFormat: RootJsonFormat[AssertionSummary]           = jsonFormat4(AssertionSummary.apply)

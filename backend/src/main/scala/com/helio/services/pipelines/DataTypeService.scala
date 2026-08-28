@@ -27,7 +27,6 @@ final class DataTypeService(
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, "data_type", resourceId, JsObject.empty)
 
-  // ── Read ──────────────────────────────────────────────────────────────────
 
   /** `tag`, when given, exact-matches (HEL-366 tasks.md 2.5) — `None` is the
    *  pre-existing unfiltered behavior. */
@@ -74,7 +73,6 @@ final class DataTypeService(
         }
     }
 
-  // ── Update / delete (ACL-gated) ───────────────────────────────────────────
 
   def update(
       id: DataTypeId,

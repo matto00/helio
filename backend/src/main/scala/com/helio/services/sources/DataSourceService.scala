@@ -81,7 +81,6 @@ final class DataSourceService(
   private val imageMaxBytes: Long =
     sys.env.get("IMAGE_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
 
-  // ── Read ──────────────────────────────────────────────────────────────────
 
   /** `tag`, when given, exact-matches (HEL-366 tasks.md 2.5) — `None` is the
    *  pre-existing unfiltered behavior. */
@@ -98,7 +97,6 @@ final class DataSourceService(
       case None     => Left(ServiceError.NotFound("Data source not found"))
     }
 
-  // ── Create (Static) ───────────────────────────────────────────────────────
 
   def createStatic(req: StaticDataSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
     if (req.name.trim.isEmpty)
@@ -147,7 +145,6 @@ final class DataSourceService(
       }
     }
 
-  // ── Create (CSV) ──────────────────────────────────────────────────────────
 
   def createCsv(
       name: String,
@@ -204,7 +201,6 @@ final class DataSourceService(
     }
     }
 
-  // ── Create (Text/Markdown, HEL-215) ───────────────────────────────────────
 
   /** Upload path: `filename` is the original uploaded file's name (used only
    *  to determine + validate the extension; the stored `path`'s basename is
@@ -289,7 +285,6 @@ final class DataSourceService(
       }
     }
 
-  // ── Create (PDF, HEL-214) ─────────────────────────────────────────────────
 
   /** Upload path: `filename` is the original uploaded file's name (used only
    *  to determine + validate the extension; the stored `path`'s basename is
@@ -387,7 +382,6 @@ final class DataSourceService(
       }
     }
 
-  // ── Create (Image, HEL-216) ────────────────────────────────────────────────
 
   /** Upload path: `filename` is the original uploaded file's name (used only
    *  to determine + validate the extension; the stored `path`'s basename is
@@ -480,7 +474,6 @@ final class DataSourceService(
       }
     }
 
-  // ── Update / delete ───────────────────────────────────────────────────────
 
   def update(sourceId: DataSourceId, req: UpdateDataSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
     req.name match {
@@ -533,7 +526,6 @@ final class DataSourceService(
         }
     }
 
-  // ── Refresh ───────────────────────────────────────────────────────────────
 
   /** Unified refresh entry point. The route provides:
    *  - `None` for CSV — service re-reads the stored file.
@@ -769,7 +761,6 @@ final class DataSourceService(
       }
     }
 
-  // ── Preview ───────────────────────────────────────────────────────────────
 
   def preview(sourceId: DataSourceId, limit: Int, user: AuthenticatedUser): Future[Either[ServiceError, CsvPreviewResponse]] = {
     val clampedLimit = math.max(1, math.min(500, limit))
@@ -820,7 +811,6 @@ final class DataSourceService(
           Left(ServiceError.InternalError("Failed to read data file"))
       }
 
-  // ── Infer ─────────────────────────────────────────────────────────────────
 
   /** Schema inference from a raw CSV byte array. The route layer is
    *  responsible for unmarshalling the multipart form. */

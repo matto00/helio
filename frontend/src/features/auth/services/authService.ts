@@ -61,8 +61,6 @@ export async function oauthCallbackRequest(code: string, state?: string): Promis
   return response.data;
 }
 
-// ── TOTP MFA (HEL-702) ───────────────────────────────────────────────────────
-
 /** spray-json omits `Option`-typed fields entirely when `None` rather than
  *  serializing `null` (documented codebase gotcha, see `settingsService.ts`'s
  *  `normalizePreferences`) — `verifiedAt: Option[Instant]` on the backend
