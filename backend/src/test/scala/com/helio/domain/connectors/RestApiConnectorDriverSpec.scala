@@ -181,4 +181,49 @@ class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRoute
       connector.toRows(wrapped, Some("data")) shouldBe Vector(topLevelObject)
     }
   }
+
+  // ── HEL-599 design.md D5 / task 5.6: toRowsEither curated-error path ────────────────
+
+  "RestApiConnectorDriver.toRowsEither" should {
+    val topLevelArray = JsArray(JsObject("id" -> JsNumber(1)), JsObject("id" -> JsNumber(2)))
+
+    "returns Right for an unset selector, byte-identical to toRows" in {
+      connector.toRowsEither(topLevelArray, None) shouldBe Right(connector.toRows(topLevelArray, None))
+    }
+
+    "returns Right for a nested-key selector that resolves" in {
+      val wrapped = JsObject("result" -> JsObject("items" -> topLevelArray))
+      connector.toRowsEither(wrapped, Some("result.items")) shouldBe
+        Right(Vector(JsObject("id" -> JsNumber(1)), JsObject("id" -> JsNumber(2))))
+    }
+
+    "returns Left naming the selector and the missing segment when a path segment is absent" in {
+      val wrapped = JsObject("data" -> JsObject("foo" -> JsNumber(1)))
+      val result  = connector.toRowsEither(wrapped, Some("data.nope"))
+      result.isLeft shouldBe true
+      val Left(msg) = result: @unchecked
+      msg should include("data.nope")
+      msg should include("nope")
+    }
+
+    "returns Left when the walk descends through a non-object mid-path" in {
+      val wrapped = JsObject("data" -> JsNumber(1))
+      val result  = connector.toRowsEither(wrapped, Some("data.items"))
+      result.isLeft shouldBe true
+      val Left(msg) = result: @unchecked
+      msg should include("data.items")
+    }
+
+    "returns Right(empty) — NOT Left — for a selector that resolves to a genuinely empty array" in {
+      val wrapped = JsObject("data" -> JsArray())
+      connector.toRowsEither(wrapped, Some("data")) shouldBe Right(Vector.empty)
+    }
+
+    "the curated Left message leaks no response body, header, or credential" in {
+      val wrapped = JsObject("Authorization" -> JsString("Bearer super-secret-token"), "data" -> JsNumber(1))
+      val result  = connector.toRowsEither(wrapped, Some("nope"))
+      val Left(msg) = result: @unchecked
+      msg should not include "super-secret-token"
+    }
+  }
 }

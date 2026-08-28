@@ -98,17 +98,17 @@ object SchemaInferenceEngine {
     JsObject(withNulls)
   }
 
-  private def flattenObject(obj: JsObject, prefix: String): Seq[InferredField] =
-    obj.fields.toSeq.sortBy(_._1).flatMap { case (key, value) =>
-      val fullKey = if (prefix.isEmpty) key else s"$prefix.$key"
-      value match {
-        case nested: JsObject =>
-          flattenObject(nested, fullKey)
-        case _ =>
-          val (fieldType, nullable) = inferJsonType(value)
-          Seq(InferredField(fullKey, displayName(fullKey), fieldType, nullable))
-      }
+  // HEL-599 design.md D1: a projection of the shared `JsonFlattener.leaves` traversal through
+  // this object's own type-inference rules. Both call sites in this file pass `prefix = ""` —
+  // `JsonFlattener` now owns recursion/path-building — so the parameter is preserved only to
+  // keep `fromJson`'s two call sites textually unchanged.
+  private def flattenObject(obj: JsObject, prefix: String): Seq[InferredField] = {
+    require(prefix.isEmpty, "flattenObject is only ever called with an empty prefix")
+    JsonFlattener.leaves(obj).map { case (path, value) =>
+      val (fieldType, nullable) = inferJsonType(value)
+      InferredField(path, displayName(path), fieldType, nullable)
     }
+  }
 
   private def inferJsonType(value: JsValue): (DataFieldType, Boolean) = value match {
     case JsNull        => (DataFieldType.StringType, true)

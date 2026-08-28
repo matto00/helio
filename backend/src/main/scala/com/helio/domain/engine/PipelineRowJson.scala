@@ -83,10 +83,17 @@ object PipelineRowJson {
    *  non-object elements for a REST endpoint whose JSON root is a bare
    *  scalar/array-of-scalars (`RestApiConnectorDriver.scala:60-64`); `SqlConnectorDriver.
    *  toRows` always produces `JsObject` rows so that branch is unreached on
-   *  the SQL path. */
+   *  the SQL path.
+   *
+   *  HEL-599 design.md D1: the `JsObject` branch is a projection of the shared
+   *  `JsonFlattener.leaves` traversal through `jsValueToAny` — a nested `JsObject` value used to
+   *  fall into `jsValueToAny`'s `other => other.compactPrint` catch-all and land as a raw JSON
+   *  *string* under the top-level key, even though `SchemaInferenceEngine` already advertised
+   *  the nested field as a dotted, typed column. Deriving both from the same `leaves` call is
+   *  what keeps them from disagreeing again. */
   def jsRowToRow(v: JsValue): Row = v match {
-    case JsObject(fields) => fields.map { case (k, fv) => k -> jsValueToAny(fv) }
-    case other            => Map("value" -> jsValueToAny(other))
+    case obj: JsObject => JsonFlattener.leaves(obj).map { case (k, fv) => k -> jsValueToAny(fv) }.toMap
+    case other          => Map("value" -> jsValueToAny(other))
   }
 
   /** Parse a static-source `config` blob (the `{columns, rows}` shape stored

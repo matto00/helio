@@ -3,7 +3,7 @@ package com.helio.services.sources
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.domain.connectors.{ConnectorResolveContext, SqlConnectorDriver}
-import com.helio.domain.engine.ExpressionEvaluator
+import com.helio.domain.engine.{ExpressionEvaluator, JsonFlattener}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, PreviewSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlInferRequest, SqlSourceConfigPayload, TestConnectionResponse}
 import com.helio.api.protocols.pipelines.{InferredFieldResponse, InferredSchemaResponse}
@@ -339,11 +339,27 @@ final class SourceService(
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(json) =>
-        val rawRows = connector.toRows(json, source.config.rootSelector).take(10)
-        dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
-          val computedFields = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
-          val (rows, evalErrors) = applyComputedFields(rawRows, computedFields)
-          Right(PreviewSourceResponse(rows, evalErrors))
+        // HEL-599 design.md D5: this is the 4th `toRows` call site — a broken `rootSelector`
+        // must surface here too, reusing the existing HEL-311 `BadGateway` pass-through rather
+        // than a new error channel (this is the surface a user configuring a selector actually
+        // looks at, so a silent empty success here is exactly the bug being fixed).
+        connector.toRowsEither(json, source.config.rootSelector) match {
+          case Left(err) => Future.successful(Left(ServiceError.BadGateway(err)))
+          case Right(jsRows) =>
+            // design.md D6: preview stays in `JsValue` space (never routes through
+            // `jsRowToRow`), so it needs its own flatten to keep it in agreement with the
+            // advertised schema and the executed rows — otherwise this fix would create a
+            // *new* three-way divergence on a user-facing surface. Non-object rows (a bare
+            // scalar/array REST root) pass through unchanged, same as `jsRowToRow`'s fallback.
+            val normalizedRows: Vector[JsValue] = jsRows.take(10).map {
+              case obj: JsObject => JsonFlattener.flattenJsObject(obj)
+              case other         => other
+            }
+            dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
+              val computedFields = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
+              val (rows, evalErrors) = applyComputedFields(normalizedRows, computedFields)
+              Right(PreviewSourceResponse(rows, evalErrors))
+            }
         }
     }
 

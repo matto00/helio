@@ -1268,6 +1268,19 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       result.head.keys should not contain "age"
     }
 
+    // HEL-599 acceptance criteria / task 5.8: a dotted column produced by nested-JSON row
+    // materialisation is an exact key, so `select`'s key-set intersection (SelectStep.scala:50)
+    // retains it exactly like any other field — this was the field report's failing case
+    // ("select with dotted fields silently drops them"), now unblocked once the column exists.
+    "select: retains a dotted column produced by nested-JSON flattening" in {
+      val nestedRows = Seq(Map("player_id" -> "8800", "stats.pts_ppr" -> 33.7, "team" -> "DAL"))
+      val cfg        = """{ "fields": ["player_id", "stats.pts_ppr"] }"""
+      val step       = makeStep("select", cfg)
+      val result     = run(nestedRows, step)
+      result.head.keys should contain theSameElementsAs Seq("player_id", "stats.pts_ppr")
+      result.head("stats.pts_ppr") shouldBe 33.7
+    }
+
     "select: silently omits missing fields" in {
       val cfg  = """{ "fields": ["name", "nonexistent"] }"""
       val step = makeStep("select", cfg)
@@ -2188,6 +2201,52 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Await.result(restEngine.loadRows(ds, null), 5.seconds)
       )
       ex.getMessage should include ("connector: endpoint unreachable")
+    }
+
+    // HEL-599 design.md D1/D5: nested REST rows carry dotted columns (not raw JSON text), and a
+    // broken rootSelector fails the run loudly instead of yielding an empty row set.
+
+    "loadRows: RestSource with a nested JSON response materialises dotted columns via jsRowToRow" in {
+      val nestedConnector = new RestApiConnectorDriver(Some { _ =>
+        Future.successful(Right(JsArray(
+          JsObject(
+            "player_id" -> JsString("8800"),
+            "stats"     -> JsObject("pts_ppr" -> JsNumber(33.7))
+          )
+        )))
+      })
+      val nestedEngine = new InProcessPipelineEngine(fileSystem, nestedConnector)
+      val ds = RestSource(
+        id        = DataSourceId("ds-rest-nested"),
+        name      = "rest-src-nested",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = RestApiConfig(connectorId = "https://rest-engine.test/nested")
+      )
+      val rows = Await.result(nestedEngine.loadRows(ds, null), 5.seconds)
+      rows should have size 1
+      rows.head("stats.pts_ppr") shouldBe 33.7
+      rows.head.keySet should not contain "stats"
+    }
+
+    "loadRows: RestSource with a broken rootSelector fails the run rather than yielding zero rows" in {
+      val brokenSelectorConnector = new RestApiConnectorDriver(Some { _ =>
+        Future.successful(Right(JsObject("data" -> JsArray(JsObject("id" -> JsNumber(1))))))
+      })
+      val brokenEngine = new InProcessPipelineEngine(fileSystem, brokenSelectorConnector)
+      val ds = RestSource(
+        id        = DataSourceId("ds-rest-badselector"),
+        name      = "rest-src-badselector",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = RestApiConfig(connectorId = "https://rest-engine.test/badselector", rootSelector = Some("nope"))
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(brokenEngine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include("nope")
     }
 
     "loadRows: RestSource with no connector configured (null) fails fast with a diagnostic error, not an NPE" in {
