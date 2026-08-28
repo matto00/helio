@@ -1145,7 +1145,23 @@ describe("App", () => {
       await screen.findByText("Hello there");
     });
 
-    it("opens the overlay via the Cmd/Ctrl+K keyboard shortcut", async () => {
+    // HEL-496 `palette-takes-k-launcher-moves` resolution — the command palette now owns
+    // Cmd/Ctrl+K; the quick-launcher rebinds to Cmd/Ctrl+J.
+    it("opens the overlay via the Cmd/Ctrl+J keyboard shortcut", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({ initialPath: "/pipelines" });
+      await screen.findByRole("button", { name: "Open assistant" });
+
+      fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+
+      const dialog = screen.getByRole("dialog", { name: "Assistant conversation", hidden: true });
+      expect(dialog).toHaveAttribute("open");
+      await screen.findByText("Hello there");
+    });
+
+    it("Cmd/Ctrl+K no longer opens the quick-launcher (it opens the command palette instead)", async () => {
       fetchDashboardsMock.mockResolvedValue([]);
       fetchPanelsMock.mockResolvedValue([]);
 
@@ -1154,9 +1170,12 @@ describe("App", () => {
 
       fireEvent.keyDown(window, { key: "k", ctrlKey: true });
 
-      const dialog = screen.getByRole("dialog", { name: "Assistant conversation", hidden: true });
-      expect(dialog).toHaveAttribute("open");
-      await screen.findByText("Hello there");
+      // Neither dialog exposes role="dialog" via testing-library's role query while closed (no
+      // `open` attribute), so assert directly against the DOM nodes by their distinguishing class.
+      const quickLauncherDialog = document.querySelector(".quick-launcher-overlay");
+      expect(quickLauncherDialog).not.toHaveAttribute("open");
+      const paletteDialog = document.querySelector(".command-palette");
+      expect(paletteDialog).toHaveAttribute("open");
     });
 
     it("closes the overlay on Escape", async () => {
