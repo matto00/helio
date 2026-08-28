@@ -1,11 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { faCodeBranch } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { IS_DEV } from "../../../../config/env";
-import { useAppDispatch } from "../../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
+import { fetchConnectors } from "../../../connectors/state/connectorsSlice";
 import { applyPipelineProposal } from "../../state/pipelinesSlice";
+import {
+  detectUnresolvedConnectorRefs,
+  resolvePipelineConnectorRef,
+} from "../../../proposals/utils/unresolvedConnectorRefs";
 import { PipelineProposalReview } from "./PipelineProposalReview";
 import type { PipelineProposal } from "../../types/pipelineProposal";
 
@@ -37,14 +42,39 @@ export function PipelineProposalReviewPage() {
   // whether `location.state` is empty.
   const useDemoFixture = IS_DEV && !stateProposal;
 
-  const proposal = useMemo<PipelineProposal | null>(() => {
+  const initialProposal = useMemo<PipelineProposal | null>(() => {
     if (stateProposal) return stateProposal;
     if (!useDemoFixture) return null;
     return demoPipelineProposal();
   }, [stateProposal, useDemoFixture]);
 
+  // HEL-829: the review page's OWN local copy — patched in place as each
+  // unresolved connector reference resolves (design.md Decision 3, Point 5).
+  // Never round-trips through router state or any Redux slice other than
+  // `connectorsSlice.fetchConnectors`'s read-only list below.
+  const [proposal, setProposal] = useState<PipelineProposal | null>(initialProposal);
+
+  const connectorsStatus = useAppSelector((state) => state.connectors.status);
+  const connectors = useAppSelector((state) => state.connectors.items);
+  useEffect(() => {
+    if (connectorsStatus === "idle") {
+      void dispatch(fetchConnectors());
+    }
+  }, [connectorsStatus, dispatch]);
+
+  const unresolvedConnectorRefs = useMemo(
+    () => (proposal ? detectUnresolvedConnectorRefs(proposal, connectors) : []),
+    [proposal, connectors],
+  );
+
+  const handleConnectorResolved = (connectorId: string) => {
+    setProposal((current) =>
+      current ? resolvePipelineConnectorRef(current, connectorId) : current,
+    );
+  };
+
   const handleAccept = async () => {
-    if (!proposal) return;
+    if (!proposal || unresolvedConnectorRefs.length > 0) return;
     setApplying(true);
     setApplyError(null);
     try {
@@ -95,6 +125,8 @@ export function PipelineProposalReviewPage() {
       proposal={proposal}
       applying={applying}
       error={applyError}
+      unresolvedConnectorRefs={unresolvedConnectorRefs}
+      onConnectorResolved={handleConnectorResolved}
       onAccept={handleAccept}
       onReject={handleReject}
     />

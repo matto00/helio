@@ -17,6 +17,7 @@
     "check:openspec:selftest": "node scripts/check-openspec-hygiene.selftest.mjs",
     "check:spec-structure": "node scripts/check-spec-structure.mjs",
     "check:scala-quality": "node scripts/check-scala-quality.mjs",
+    "check:no-credential-leak": "node scripts/check-no-credential-in-agent-surface.mjs",
     "selftest:concertino-git-env": "bash scripts/concertino/lib/git-child-env.selftest.sh",
     "test": "jest --passWithNoTests && npm --prefix frontend test",
     "e2e": "playwright test"

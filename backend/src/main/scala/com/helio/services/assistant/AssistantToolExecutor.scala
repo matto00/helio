@@ -11,7 +11,7 @@ import com.helio.api.protocols.assistant.AssistantProposal
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal}
 import com.helio.api.protocols.panels.PanelCapabilityProtocol
 import com.helio.api.protocols.patchsets.{PatchSet, PatchSetPreviewProtocol, PatchSetProtocol}
-import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource}
+import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlInferRequest, SqlSourceConfigPayload}
 import com.helio.api.protocols.workspace.{WorkspaceResourceDetail, WorkspaceResourceSearchProtocol}
 import com.helio.domain.model.{AuthenticatedUser, DataTypeId, WorkspaceResourceType}
@@ -232,8 +232,14 @@ final class AssistantToolExecutor(
     else
       source.`type` match {
         case Some("rest_api") =>
+          // HEL-829: `source.restConfig` is now `ProposalRestApiConfig` (task 1.1) — converted
+          // via `ProposalRestApiConfig.toRestApiConfigPayload` before the equality check, which
+          // keeps this comparison byte-identical to before for the connectorId/url branches. A
+          // `newConnector` draft never maps into any `RestApiConfigPayload` field, so it can
+          // never match a `test_connection`-verified config — correctly falling through to
+          // `unverified`, since a not-yet-created Connector has nothing live to test yet.
           source.restConfig match {
-            case Some(config) if verifiedConfigs.get().contains(VerifiedConfig.Rest(config)) => Right(())
+            case Some(config) if verifiedConfigs.get().contains(VerifiedConfig.Rest(ProposalRestApiConfig.toRestApiConfigPayload(config))) => Right(())
             case _                                                                             => unverified
           }
         case Some("sql") =>

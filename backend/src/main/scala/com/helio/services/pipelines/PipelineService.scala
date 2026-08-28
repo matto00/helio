@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineStepRequest, DateBucketAnalyzeStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
+import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineStepRequest, DateBucketAnalyzeStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineStepConfigCodec, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, PipelineId, PipelineSchemaDrift, PipelineStepId, PipelineStepKind, SchemaDrift}
 import com.helio.domain.engine.{PipelineAnalyzeService, SchemaField}
@@ -340,11 +340,15 @@ final class PipelineService(
         // HEL-822 design.md Decision 1c revised (round-3 CR3): a bare `url` resolves
         // ephemerally (never persists a Connector — a pipeline proposal is provisional); a
         // `connectorId` resolves the real Connector, ownership-scoped to the acting user.
+        // HEL-829: `source.restConfig` is now `ProposalRestApiConfig` (task 1.1) — it has no
+        // `auth` field at all (structurally incapable of carrying one, unlike the old
+        // `RestApiConfigPayload`), so the `auth`-rejection guard that used to be needed here is
+        // now enforced by the type itself. `RestApiConfigPayload.toDomain` still requires the
+        // old shape, so the `connectorId`-branch payload is converted via
+        // `ProposalRestApiConfig.toRestApiConfigPayload` first.
         source.restConfig match {
           case None =>
             Future.successful(Left(ServiceError.BadRequest("inline 'rest_api' source requires a 'config' object")))
-          case Some(payload) if payload.auth.isDefined =>
-            Future.successful(Left(ServiceError.BadRequest("auth is not accepted on a REST source — auth lives on the referenced Connector")))
           case Some(payload) =>
             Option(connector) match {
               case None =>
@@ -356,7 +360,7 @@ final class PipelineService(
                   case (None, None) =>
                     Future.successful(Left(ServiceError.BadRequest("Missing required fields: connectorId or url")))
                   case (Some(_), None) =>
-                    RestApiConfigPayload.toDomain(payload) match {
+                    RestApiConfigPayload.toDomain(ProposalRestApiConfig.toRestApiConfigPayload(payload)) match {
                       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
                       case Right(domainConfig) =>
                         c.inferSchema(domainConfig, ConnectorResolveContext.Owned(user)).map {

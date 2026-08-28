@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.services.sources.{DataSourceService, SourceService}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, StaticDataSourceRequest}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, DataTypeId, PipelineId, PipelineStepKind}
 import com.helio.domain.connectors.SqlConnectorDriver
@@ -131,7 +131,11 @@ final class PipelineProposalService(
     else
       kind match {
         case DataSourceKind.Csv     => requireConfig(source.csvConfig)
-        case DataSourceKind.RestApi => requireConfig(source.restConfig)
+        case DataSourceKind.RestApi =>
+          source.restConfig match {
+            case None      => Left(ServiceError.BadRequest("source.config is required for an inline source"))
+            case Some(cfg) => validateRestConfig(cfg)
+          }
         case DataSourceKind.Static  => requireConfig(source.staticConfig)
         case DataSourceKind.Sql =>
           source.sqlConfig match {
@@ -143,6 +147,18 @@ final class PipelineProposalService(
   private def requireConfig(config: Option[_]): Either[ServiceError, Unit] =
     if (config.isDefined) Right(())
     else Left(ServiceError.BadRequest("source.config is required for an inline source"))
+
+  /** HEL-829 design.md Decision 2: exactly one of `connectorId`/`url`/
+   *  `newConnector` must be present. `url` is kept (the legacy bare-URL path
+   *  is still dual-supported via `SourceService.createRest`'s implicit-
+   *  Connector synthesis, unchanged by this ticket). */
+  private[services] def validateRestConfig(cfg: ProposalRestApiConfig): Either[ServiceError, Unit] = {
+    val presentCount = Vector(cfg.connectorId, cfg.url, cfg.newConnector).count(_.isDefined)
+    if (presentCount == 1) Right(())
+    else Left(ServiceError.BadRequest(
+      "source.config: exactly one of connectorId, url, or newConnector is required for a rest_api source"
+    ))
+  }
 
   /** Every step's `type` must be a recognized `PipelineStepKind`, and its
    *  `config` must decode for that kind — catches malformed step configs
@@ -210,7 +226,10 @@ final class PipelineProposalService(
       case None => Future.successful(Left(ServiceError.BadRequest("source.config is required for an inline source")))
       case Some(cfg) =>
         sourceService
-          .createRest(CreateSourceRequest(inlineName(source), DataSourceKind.RestApi, cfg, fieldOverrides = None), user)
+          .createRest(
+            CreateSourceRequest(inlineName(source), DataSourceKind.RestApi, ProposalRestApiConfig.toRestApiConfigPayload(cfg), fieldOverrides = None),
+            user
+          )
           .flatMap {
             case Left(err)  => Future.successful(Left(err))
             case Right(csr) => handleInlineCreated(csr, DataSourceKind.RestApi, user)

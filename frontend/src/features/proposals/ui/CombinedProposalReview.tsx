@@ -1,8 +1,10 @@
 import { Modal } from "../../../shared/ui/Modal";
 import { InlineError } from "../../../shared/chrome/InlineError";
+import { InlineConnectorSetup } from "../../connectors/ui/InlineConnectorSetup";
 import { PipelineProposalSummary } from "../../pipelines/ui/proposalReview/PipelineProposalSummary";
 import type { ProposalPanel } from "../../dashboards/types/proposal";
 import type { CombinedProposal } from "../types/combinedProposal";
+import type { UnresolvedConnectorRef } from "../utils/unresolvedConnectorRefs";
 import "./CombinedProposalReview.css";
 
 /** The reserved sentinel a combined proposal's dashboard panels may bind to,
@@ -54,6 +56,12 @@ interface CombinedProposalReviewProps {
   proposal: CombinedProposal;
   applying: boolean;
   error?: string | null;
+  /** HEL-829: unresolved connector references the nested pipeline's REST
+   *  source needs set up before this proposal can be applied (design.md
+   *  Decision 3). The dashboard half never contributes any (no source/
+   *  connector field on that type). */
+  unresolvedConnectorRefs?: UnresolvedConnectorRef[];
+  onConnectorResolved?: (connectorId: string) => void;
   /** Called on accept — a single action covering BOTH halves. Nothing is
    *  written until this fires. */
   onAccept: () => void;
@@ -72,10 +80,13 @@ export function CombinedProposalReview({
   proposal,
   applying,
   error,
+  unresolvedConnectorRefs = [],
+  onConnectorResolved = () => {},
   onAccept,
   onReject,
 }: CombinedProposalReviewProps) {
   const { pipeline, dashboard } = proposal;
+  const blocked = unresolvedConnectorRefs.length > 0;
 
   const footer = (
     <>
@@ -91,7 +102,7 @@ export function CombinedProposalReview({
         type="button"
         className="ui-modal-btn ui-modal-btn--primary"
         onClick={onAccept}
-        disabled={applying}
+        disabled={applying || blocked}
       >
         {applying ? "Creating…" : "Accept & create"}
       </button>
@@ -114,6 +125,9 @@ export function CombinedProposalReview({
             Pipeline — {pipeline.pipelineName}
           </p>
           <PipelineProposalSummary proposal={pipeline} />
+          {unresolvedConnectorRefs.map((ref) => (
+            <InlineConnectorSetup key={ref.key} reference={ref} onResolved={onConnectorResolved} />
+          ))}
         </section>
 
         <section aria-label="Proposed dashboard">

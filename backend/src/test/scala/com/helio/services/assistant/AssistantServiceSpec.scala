@@ -2,7 +2,7 @@ package com.helio.services.assistant
 
 import com.helio.api.protocols.sources.{RestApiConfigPayload, StaticColumnPayload, StaticDataPayload}
 import com.helio.api.protocols.assistant.{AssistantProposal, AssistantProtocol}
-import com.helio.api.protocols.pipelines.PipelineProposalSource
+import com.helio.api.protocols.pipelines.{PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.api.protocols.assistant.AssistantTurnResult
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalProtocol}
 import com.helio.api.protocols.proposals.{DashboardProposal, DashboardProposalProtocol, ProposalPanel}
@@ -600,7 +600,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         `type` = Some("rest_api"),
         name = Some("Inline REST"),
         csvConfig = None,
-        restConfig = Some(RestApiConfigPayload(url = Some("https://api.example.com/data"), method = Some("GET"), auth = None, headers = None)),
+        restConfig = Some(ProposalRestApiConfig(url = Some("https://api.example.com/data"), method = Some("GET"), headers = None)),
         sqlConfig = None,
         staticConfig = None
       )
