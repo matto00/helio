@@ -7,7 +7,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
 
   private def field(name: String, t: String): SchemaField = SchemaField(name, t)
 
@@ -20,7 +19,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     field("created_at", "string")
   )
 
-  // ── Empty step list ───────────────────────────────────────────────────────────
 
   "PipelineAnalyzeService.analyze" should {
 
@@ -29,7 +27,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result shouldBe empty
     }
 
-    // ── select inference ──────────────────────────────────────────────────────
 
     "select — filters fields present in config.fields" in {
       val steps = Vector(step("select", """{"fields":["order_id","amount"]}"""))
@@ -57,7 +54,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── rename inference ──────────────────────────────────────────────────────
 
     "rename — replaces field names per config.renames map" in {
       val steps  = Vector(step("rename", """{"renames":{"order_id":"id","amount":"total"}}"""))
@@ -80,7 +76,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── cast inference ────────────────────────────────────────────────────────
 
     "cast — retypes fields per config.casts map" in {
       val steps  = Vector(step("cast", """{"casts":{"amount":"integer"}}"""))
@@ -99,7 +94,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── filter / limit / sort identity ────────────────────────────────────────
 
     "filter — identity: outputSchema equals inputSchema" in {
       val steps  = Vector(step("filter", """{"expression":"amount > 0"}"""))
@@ -178,7 +172,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).validationError shouldBe None
     }
 
-    // ── assert inference (HEL-454 / 419-A) ──────────────────────────────────────
 
     "assert — identity output schema, no validationError for a well-formed config" in {
       val cfg = """{"rules":[{"kind":"notNull","field":"order_id","params":{},"severity":"error"}]}"""
@@ -262,7 +255,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── compute inference ─────────────────────────────────────────────────────
 
     "compute — appends the declared output field to the schema (unified config shape)" in {
       val cfg    = """{"column":"tax","expression":"$amount * 0.1","type":"number"}"""
@@ -339,7 +331,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema.find(_.name == "x").map(_.`type`) shouldBe Some("number")
     }
 
-    // ── aggregate inference ───────────────────────────────────────────────────
 
     "aggregate — groupBy fields plus alias fields in outputSchema" in {
       val cfg = """{
@@ -391,7 +382,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── splittext inference (HEL-219) ─────────────────────────────────────────
 
     "splittext — valid string-body field appends indexField as integer" in {
       val schema = Vector(field("content", "string-body"))
@@ -453,7 +443,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── extractheadings inference (HEL-220) ───────────────────────────────────
 
     "extractheadings — valid string-body field appends indexField and levelField as integer" in {
       val schema = Vector(field("content", "string-body"))
@@ -517,7 +506,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── chunkbytokencount inference (HEL-221) ─────────────────────────────────
 
     "chunkbytokencount — valid string-body field appends indexField and tokenCountField as integer" in {
       val schema = Vector(field("content", "string-body"))
@@ -581,7 +569,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── datebucket inference (HEL-378) ────────────────────────────────────────
 
     "datebucket — overwrite case: resolved output field is retyped date, no duplicate" in {
       val steps  = Vector(step("datebucket", """{"field":"created_at","granularity":"day"}"""))
@@ -612,7 +599,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── pivot inference (HEL-375) ────────────────────────────────────────────
 
     "pivot — output schema is index-only, no false validation error" in {
       val steps  = Vector(step("pivot", """{"index":["order_id"],"column":"created_at","values":"amount","agg":"sum"}"""))
@@ -665,7 +651,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── window inference (HEL-376) ────────────────────────────────────────────
 
     "window — appends outputColumn with integer type for row_number/rank/dense_rank" in {
       val steps  = Vector(step("window", """{"partitionBy":["order_id"],"orderBy":[{"field":"amount","direction":"desc"}],"function":"rank","outputColumn":"category_rank"}"""))
@@ -723,7 +708,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── unpivot inference (HEL-380) ───────────────────────────────────────────
 
     "unpivot — output schema is idVars + varName(string) + valueName(common type), no false validation error" in {
       val steps  = Vector(step("unpivot", """{"idVars":["order_id"],"valueVars":["amount"],"varName":"month","valueName":"value"}"""))
@@ -767,7 +751,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── stringops inference (HEL-389) ─────────────────────────────────────────
 
     "stringops — overwrite case: outputColumn == field retypes in place, no duplicate" in {
       val steps  = Vector(step("stringops", """{"operation":"trim","field":"order_id","outputColumn":"order_id"}"""))
@@ -802,7 +785,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
-    // ── renamed-field cascade ─────────────────────────────────────────────────
 
     "rename cascade — renamed field is visible to downstream step" in {
       val steps = Vector(
@@ -819,7 +801,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(1).outputSchema.map(_.name) shouldBe Vector("id", "amount")
     }
 
-    // ── malformed-config validationError + identity fallback ──────────────────
 
     "malformed config step treats as identity so downstream steps get prior schema" in {
       val steps = Vector(
@@ -834,7 +815,6 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(1).outputSchema shouldBe Vector(field("order_id", "string"))
     }
 
-    // ── unknown op ────────────────────────────────────────────────────────────
 
     "unknown op produces validationError and identity outputSchema" in {
       val steps  = Vector(step("explode", """{}"""))

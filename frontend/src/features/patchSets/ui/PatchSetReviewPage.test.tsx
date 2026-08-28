@@ -207,8 +207,6 @@ describe("PatchSetReviewPage", () => {
     expect(mockedApplyPatchSet).toHaveBeenCalledWith(explicitPatchSet);
   });
 
-  // ── HEL-413: Undo toast ─────────────────────────────────────────────────
-
   it("Accept pushes an Undo toast with duration 0 when the apply response carries an applicationId", async () => {
     mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
     mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponseWithApplicationId);

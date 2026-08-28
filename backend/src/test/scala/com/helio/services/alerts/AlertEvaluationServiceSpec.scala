@@ -119,7 +119,6 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     await(arRepo.insert(rule, user))
   }
 
-  // ── 4.2: metric extraction ────────────────────────────────────────────────
 
   "AlertEvaluationService.numericValue" should {
     "coerce genuinely numeric-typed values" in {
@@ -175,7 +174,6 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     }
   }
 
-  // ── 4.3: comparator matrix ────────────────────────────────────────────────
 
   "AlertEvaluationService.breaches" should {
     "evaluate all six comparators at equality (gte/eq/lte breach, gt/lt/neq do not)" in {
@@ -194,7 +192,6 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     }
   }
 
-  // ── 4.4: breach/clear-driven event transitions ───────────────────────────
 
   "AlertEvaluationService.evaluateForDataType" should {
 
@@ -278,7 +275,6 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
       await(aeRepo.findActiveByRule(rule.id)).flatMap(_.pipelineRunId) shouldBe None
     }
 
-    // ── 4.5: per-rule failure isolation ─────────────────────────────────────
 
     "log and skip one rule's malformed-condition exception without blocking a sibling rule" in {
       cleanDb(); seedUser()

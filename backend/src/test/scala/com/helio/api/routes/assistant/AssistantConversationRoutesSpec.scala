@@ -541,7 +541,6 @@ class AssistantConversationRoutesSpec
     }
   }
 
-  // ── HEL-703 tasks.md 6.4 — tier gating ──────────────────────────────────────────────────────
 
   "Tier gating" should {
 

@@ -164,7 +164,6 @@ class PipelineSharingAclSpec extends AnyWordSpec with Matchers with BeforeAndAft
              ON CONFLICT (resource_type, resource_id, grantee_id) DO UPDATE SET role = EXCLUDED.role"""
     ))
 
-  // ── helio_can_access_pipeline function ───────────────────────────────────
 
   "helio_can_access_pipeline" should {
 
@@ -223,7 +222,6 @@ class PipelineSharingAclSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
-  // ── pipelines RLS SELECT ──────────────────────────────────────────────────
 
   "RLS on pipelines (SELECT)" should {
 
@@ -292,7 +290,6 @@ class PipelineSharingAclSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
-  // ── resource_permissions RLS for pipeline grants ──────────────────────────
 
   "RLS on resource_permissions (pipeline grants)" should {
 

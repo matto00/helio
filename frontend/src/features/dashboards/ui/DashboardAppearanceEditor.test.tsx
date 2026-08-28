@@ -102,7 +102,6 @@ describe("DashboardAppearanceEditor", () => {
     expect(presetButton).toHaveAttribute("aria-pressed", "true");
   });
 
-  // ── 3.2b: Contrast warning — shown for known low-contrast input ───────────────
   it("shows the contrast warning when getDashboardBgContrastRatio returns a value below 4.5", () => {
     contrastRatioMock.mockReturnValue(2.1);
     renderWithStore(<DashboardAppearanceEditor dashboard={solidDashboard} />);
@@ -121,7 +120,6 @@ describe("DashboardAppearanceEditor", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  // ── 3.2c: No contrast warning when background is transparent ──────────────────
   it("does not show the contrast warning when the dashboard background is transparent", () => {
     // getDashboardBgContrastRatio returns null for transparent backgrounds —
     // simulated here via the mock (default beforeEach sets null).
@@ -131,7 +129,6 @@ describe("DashboardAppearanceEditor", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  // ── Preset strip presence ─────────────────────────────────────────────────────
   it("renders the preset group with at least 6 preset buttons", () => {
     renderWithStore(<DashboardAppearanceEditor dashboard={solidDashboard} />);
     openEditor();
@@ -141,7 +138,6 @@ describe("DashboardAppearanceEditor", () => {
     expect(buttons.length).toBeGreaterThanOrEqual(6);
   });
 
-  // ── F-030: cancelling a close must not leak the unsaved draft pick ────────────
   it("reverts an unsaved preset pick when the popover is dismissed without saving", () => {
     renderWithStore(<DashboardAppearanceEditor dashboard={solidDashboard} />);
     openEditor();
@@ -169,7 +165,6 @@ describe("DashboardAppearanceEditor", () => {
     );
   });
 
-  // ── F-098: a supported path back to "no override" ─────────────────────────────
   it("offers a Default preset that resets appearance back to transparent and persists it on save", async () => {
     const presetDashboard: Dashboard = {
       ...solidDashboard,

@@ -115,7 +115,6 @@ class DashboardPanelAclSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  // ── DB helpers ─────────────────────────────────────────────────────────────
 
   private def seedUsers(): Unit = {
     import PostgresProfile.api._
@@ -188,7 +187,6 @@ class DashboardPanelAclSpec
     ))
   }
 
-  // ── Route fixtures ─────────────────────────────────────────────────────────
 
   private def mkPipelineRepo =
     new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
@@ -230,7 +228,6 @@ class DashboardPanelAclSpec
   private def routesA() = fullRoutes(tokenA)
   private def routesB() = fullRoutes(tokenB)
 
-  // ── Repository-level ACL tests ─────────────────────────────────────────────
 
   "DashboardRepository.findById(id, callerOpt)" should {
     "return Some for the owner" in {
@@ -357,7 +354,6 @@ class DashboardPanelAclSpec
     }
   }
 
-  // ── HTTP route ACL tests — owner regression ────────────────────────────────
 
   "GET /api/dashboards/:id/panels (owner)" should {
     "return 200 for the dashboard owner" in {
@@ -397,7 +393,6 @@ class DashboardPanelAclSpec
     }
   }
 
-  // ── HTTP route ACL tests — cross-user with NO grant ────────────────────────
   // Note: GET /dashboards/:id/panels goes through AclDirective.authorizeResourceWithSharing
   // which returns 403 for authenticated users with no grant (not 404). The dashboard
   // CRUD paths (delete/duplicate/update/export) use DashboardService.findById(sharing-aware)
@@ -459,7 +454,6 @@ class DashboardPanelAclSpec
     }
   }
 
-  // ── Editor grant ───────────────────────────────────────────────────────────
 
   "Editor grant on dashboard" should {
     "allow GET /api/dashboards/:id/panels" in {
@@ -536,7 +530,6 @@ class DashboardPanelAclSpec
     }
   }
 
-  // ── Public-viewer fallback ─────────────────────────────────────────────────
 
   "Public-viewer grant" should {
     "allow anonymous GET /api/dashboards/:id/panels" in {
@@ -558,7 +551,6 @@ class DashboardPanelAclSpec
     }
   }
 
-  // ── EXPLAIN ANALYZE index-scan gate (AC3) ─────────────────────────────────
   // Asserts that the grantee-path SQL produced by the rewritten single-JOIN
   // queries uses an index scan on resource_permissions, not a sequential scan.
   // A "Seq Scan on resource_permissions" here would indicate a missing index

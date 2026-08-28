@@ -86,7 +86,6 @@ class DataTypeRoutesSpec
     new DataTypeRoutes(service, capabilityService, pipelineRunService, dummyUser)(typedSystem).routes
   }
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
 
   private def seedDataType(): String = {
     import PostgresProfile.api._
@@ -146,7 +145,6 @@ class DataTypeRoutesSpec
     PipelineId(pid)
   }
 
-  // ── Tests ────────────────────────────────────────────────────────────────────
 
   "GET /types/:id/rows" should {
 
@@ -189,7 +187,6 @@ class DataTypeRoutesSpec
     "reflect the latest snapshot after an overwrite" in {
       val dtId = seedDataType()
 
-      // First snapshot
       await(dataTypeRowRepo.overwriteRows(dtId, Seq(
         JsObject("x" -> JsNumber(1)),
         JsObject("x" -> JsNumber(2))
@@ -199,7 +196,6 @@ class DataTypeRoutesSpec
         responseAs[DataTypeRowsResponse].rowCount shouldBe 2
       }
 
-      // Overwrite with a single row
       await(dataTypeRowRepo.overwriteRows(dtId, Seq(JsObject("x" -> JsNumber(99)))))
       Get(s"/types/$dtId/rows") ~> makeRoutes ~> check {
         status shouldBe StatusCodes.OK
@@ -209,7 +205,6 @@ class DataTypeRoutesSpec
       }
     }
 
-    // ── HEL-372 4.6: ?limit=/?excludeContentFields= query params ─────────
 
     "?limit=2 returns at most 2 rows, even when more are stored" in {
       val dtId = seedDataType()
@@ -334,7 +329,6 @@ class DataTypeRoutesSpec
     }
   }
 
-  // ── HEL-576: GET /types/:id/assertion-status ────────────────────────────
 
   "GET /types/:id/assertion-status" should {
 

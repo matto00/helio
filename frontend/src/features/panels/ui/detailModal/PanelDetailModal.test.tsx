@@ -262,7 +262,6 @@ describe("PanelDetailModal", () => {
     // Fire keydown on the input — it bubbles to the dialog with e.target = input
     fireEvent.keyDown(input, { key: "e" });
 
-    // Should still be in view mode
     expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
@@ -442,7 +441,6 @@ describe("PanelDetailModal", () => {
     expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
   });
 
-  // 2.2 — Title field pre-filled
   it("title field is pre-filled with the current panel title", () => {
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
@@ -506,17 +504,13 @@ describe("PanelDetailModal", () => {
     const { store } = renderModalWithDataType(onClose);
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    // Make appearance dirty
     fireEvent.change(screen.getByLabelText("Revenue transparency"), {
       target: { value: "50" },
     });
-    // Make data dirty
     fireEvent.click(screen.getByText("Sales Metrics"));
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    // Appearance accumulated into pending updates
     expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
-    // Data binding sent to the server
     await waitFor(() =>
       expect(updateBindingMock).toHaveBeenCalledWith(
         "p1",
@@ -536,7 +530,6 @@ describe("PanelDetailModal", () => {
         undefined,
       ),
     );
-    // Transitions to view mode, not closes
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
@@ -555,7 +548,6 @@ describe("PanelDetailModal", () => {
     await waitFor(() => {
       expect(screen.getByText("Failed to save data binding.")).toBeInTheDocument();
     });
-    // Modal must remain open
   });
 
   // Task 2.3 — Cancel with no changes transitions to view mode (not close)
@@ -650,15 +642,12 @@ describe("PanelDetailModal", () => {
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
 
-    // No indicator yet
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
 
-    // Make a change
     fireEvent.change(screen.getByLabelText("Revenue transparency"), {
       target: { value: "50" },
     });
 
-    // Indicator should now appear
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
   });
 
@@ -675,7 +664,6 @@ describe("PanelDetailModal", () => {
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
 
-    // Change the background color
     fireEvent.change(screen.getByLabelText("Revenue background color"), {
       target: { value: "#ff0000" },
     });

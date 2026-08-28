@@ -11,8 +11,6 @@ const sampleSchema: SchemaField[] = [
 const emptyConfig: AssertConfigValue = { rules: [] };
 
 describe("AssertConfig", () => {
-  // ── Render with empty config ───────────────────────────────────────────────
-
   it("renders the Add rule button with empty config", () => {
     render(<AssertConfig config={emptyConfig} analyzeSchema={sampleSchema} onChange={jest.fn()} />);
     expect(screen.getByRole("button", { name: /add rule/i })).toBeInTheDocument();
@@ -22,8 +20,6 @@ describe("AssertConfig", () => {
     render(<AssertConfig config={emptyConfig} analyzeSchema={sampleSchema} onChange={jest.fn()} />);
     expect(screen.queryByRole("combobox", { name: /kind for rule 1/i })).not.toBeInTheDocument();
   });
-
-  // ── Add rule ────────────────────────────────────────────────────────────────
 
   it("clicking 'Add rule' appends a rule with kind=notNull and severity=error", () => {
     const onChange = jest.fn();
@@ -47,8 +43,6 @@ describe("AssertConfig", () => {
     const parsed = onChange.mock.calls[0][0] as AssertConfigValue;
     expect(parsed.rules[0].field).toBe("id");
   });
-
-  // ── Remove rule ─────────────────────────────────────────────────────────────
 
   it("removing a rule calls onChange without that rule", () => {
     const onChange = jest.fn();
@@ -92,8 +86,6 @@ describe("AssertConfig", () => {
     },
   );
 
-  // ── Kind-specific params inputs ─────────────────────────────────────────────
-
   it("shows min/max inputs for kind=range", () => {
     const config: AssertConfigValue = {
       rules: [{ kind: "range", field: "amount", params: {}, severity: "warn" }],
@@ -127,8 +119,6 @@ describe("AssertConfig", () => {
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /pattern/i })).not.toBeInTheDocument();
   });
-
-  // ── onChange wiring ────────────────────────────────────────────────────────
 
   it("changing the kind dropdown calls onChange with the updated kind", () => {
     const onChange = jest.fn();
@@ -206,8 +196,6 @@ describe("AssertConfig", () => {
     const parsed = onChange.mock.calls[0][0] as AssertConfigValue;
     expect(parsed.rules[0].params.pattern).toBe("^[A-Z]+$");
   });
-
-  // ── Hydration ──────────────────────────────────────────────────────────────
 
   it("hydrates a persisted rule's kind, field, and severity", () => {
     const rule: AssertRuleValue = {

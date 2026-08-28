@@ -5,8 +5,6 @@ import type { ComputeConfigValue } from "./ComputeFieldConfig";
 const emptyConfig: ComputeConfigValue = { column: "", expression: "", type: "number" };
 
 describe("ComputeFieldConfig", () => {
-  // ── Render inputs ──────────────────────────────────────────────────────────
-
   it("renders the output field name input", () => {
     render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={jest.fn()} />);
     expect(screen.getByRole("textbox", { name: "Output field name" })).toBeInTheDocument();
@@ -16,8 +14,6 @@ describe("ComputeFieldConfig", () => {
     render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={jest.fn()} />);
     expect(screen.getByRole("textbox", { name: "Expression" })).toBeInTheDocument();
   });
-
-  // ── Available fields hint ──────────────────────────────────────────────────
 
   it("renders available-fields hint list, $-prefixed, when analyzeColumns is non-empty", () => {
     render(
@@ -37,8 +33,6 @@ describe("ComputeFieldConfig", () => {
     render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={jest.fn()} />);
     expect(screen.queryByRole("list", { name: "Available fields" })).not.toBeInTheDocument();
   });
-
-  // ── Config hydration ───────────────────────────────────────────────────────
 
   it("hydrates column name input from config prop", () => {
     const config: ComputeConfigValue = {
@@ -61,8 +55,6 @@ describe("ComputeFieldConfig", () => {
     render(<ComputeFieldConfig config={config} analyzeColumns={[]} onChange={jest.fn()} />);
     expect(screen.getByRole("textbox", { name: "Expression" })).toHaveValue("revenue / users");
   });
-
-  // ── onChange patch ─────────────────────────────────────────────────────────
 
   it("calls onChange with serialized config when column name changes", () => {
     const onChange = jest.fn();
@@ -114,8 +106,6 @@ describe("ComputeFieldConfig", () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
   });
-
-  // ── validationError inline rendering (HEL-262) ────────────────────────────
 
   it("renders the validationError message inline when present", () => {
     render(

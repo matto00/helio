@@ -35,7 +35,6 @@ class PanelAppearanceMergeSpec extends AnyWordSpec with Matchers with OptionValu
     chart        = Some(storedChart)
   )
 
-  // ── Task 5.1: omitted top-level field preserves the stored value ──────────
 
   "PanelAppearance.applyPatchJson" should {
     "preserve the stored background when the field is genuinely absent from the JSON" in {
@@ -50,7 +49,6 @@ class PanelAppearanceMergeSpec extends AnyWordSpec with Matchers with OptionValu
       merged.chart shouldBe stored.chart
     }
 
-    // ── Task 5.2: partial chart payload sets only the provided field ────────
 
     "accept a partial chart payload and leave unlisted chart fields at stored values" in {
       val json = JsObject("chart" -> JsObject("chartType" -> JsString("scatter")))
@@ -112,7 +110,6 @@ class PanelAppearanceMergeSpec extends AnyWordSpec with Matchers with OptionValu
       merged.chart.value.chartType shouldBe storedChart.chartType
     }
 
-    // ── Task 5.4: invalid chartType is rejected ────────────────────────────
 
     "reject an invalid chartType with a curated error message" in {
       val json = JsObject("chart" -> JsObject("chartType" -> JsString("donut")))

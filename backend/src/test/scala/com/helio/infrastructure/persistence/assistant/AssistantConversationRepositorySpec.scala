@@ -248,7 +248,6 @@ class AssistantConversationRepositorySpec extends AnyWordSpec with Matchers with
       result shouldBe None
     }
 
-    // ── HEL-698 idempotency key (design.md D2/D3) ──────────────────────────
 
     "touchUpdatedAt with a Some key persists it in the same update as gcs_body_ref/updated_at" in {
       cleanDb()

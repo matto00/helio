@@ -29,8 +29,6 @@ function chooseSelectOption(comboboxName: string, optionLabel: string) {
 }
 
 describe("StringOpsConfig", () => {
-  // ── Operation dropdown ──────────────────────────────────────────────────────
-
   it("operation dropdown offers exactly the six supported operations", () => {
     render(
       <StringOpsConfig
@@ -60,8 +58,6 @@ describe("StringOpsConfig", () => {
 
     expect(onChange).toHaveBeenCalledWith({ ...emptyConfig, operation: "upper" });
   });
-
-  // ── Field reveal per operation (spec.md scenario) ────────────────────────────
 
   it("trim shows a source field selector and an output column input, hides split/extractRegex/concat params", () => {
     render(
@@ -127,8 +123,6 @@ describe("StringOpsConfig", () => {
     expect(screen.queryByRole("textbox", { name: /^pattern$/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole("checkbox")).toHaveLength(sampleColumns.length);
   });
-
-  // ── onChange wiring ───────────────────────────────────────────────────────────
 
   it("changing the output column input calls onChange with outputColumn patched in", () => {
     const onChange = jest.fn();

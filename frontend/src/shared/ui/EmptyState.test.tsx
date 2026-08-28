@@ -70,7 +70,6 @@ describe("EmptyState", () => {
     expect(container.firstChild).toHaveClass("ui-empty-state--main");
   });
 
-  // HEL-539 — intent="error" full-surface treatment
   describe('intent="error"', () => {
     it("carries an alert role, error-tinted styling, and no aria-label", () => {
       const { container } = render(
@@ -118,7 +117,6 @@ describe("EmptyState", () => {
     });
   });
 
-  // HEL-539 — secondaryCta alongside cta
   it("renders cta and secondaryCta together, using the Primary/Secondary recipes respectively", () => {
     const handlePrimary = jest.fn();
     const handleSecondary = jest.fn();

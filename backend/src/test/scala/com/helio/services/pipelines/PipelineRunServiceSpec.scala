@@ -99,7 +99,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
-  // ── DB helpers ─────────────────────────────────────────────────────────────
 
   private def seedDsWithData(): String = {
     import PostgresProfile.api._
@@ -424,7 +423,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
-  // ── HEL-412: disabled steps are skipped during run/dry-run ────────────────
 
   "PipelineRunService (HEL-412 disable/enable)" should {
 
@@ -511,7 +509,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
-  // ── HEL-462: schema-drift baseline persistence ────────────────────────────
 
   "PipelineRunService onRunSuccess (HEL-462 schema-drift baseline capture)" should {
 
@@ -573,7 +570,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
-  // ── HEL-576: history()'s per-run AssertionSummary ─────────────────────────
 
   "PipelineRunService.history (HEL-576 assertion summary)" should {
 
@@ -619,7 +615,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
-  // ── HEL-755 design.md D3: recordUnrunnable persistence ────────────────────
 
   "PipelineRunService.recordUnrunnable (HEL-755 design.md D3)" should {
 
@@ -649,7 +644,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
-  // ── HEL-758: rest_api/sql base-source execution ────────────────────────────
 
   "PipelineRunService.submit (HEL-758 rest_api/sql base-source execution)" should {
 

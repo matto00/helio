@@ -81,7 +81,6 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
       )
       // Allow postgres (the login user) to SET ROLE helio_app_test.
       stmt.execute("GRANT helio_app_test TO postgres")
-      // App role table permissions.
       stmt.execute("GRANT USAGE ON SCHEMA public TO helio_app_test")
       stmt.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO helio_app_test")
       stmt.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO helio_app_test")
@@ -154,7 +153,6 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     ))
   }
 
-  // ── 1.5: current_role sanity check ───────────────────────────────────────
 
   "withSystemContext" should {
 
@@ -394,7 +392,6 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     }
   }
 
-  // ── 1.6: withUserContext RLS-filtered spot-check ──────────────────────────
 
   "withUserContext on the non-superuser app pool" should {
 
@@ -413,14 +410,12 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
                        ${ownerB.value}::uuid, now(), now())"""
       )))
 
-      // ownerA's context sees only srcA.
       val rowsA = await(ctx.withUserContext(ownerA.value)(
         sql"SELECT id::text FROM data_sources".as[String]
       ))
       rowsA.toSet shouldBe Set(srcA)
       rowsA should not contain srcB
 
-      // ownerB's context sees only srcB.
       val rowsB = await(ctx.withUserContext(ownerB.value)(
         sql"SELECT id::text FROM data_sources".as[String]
       ))

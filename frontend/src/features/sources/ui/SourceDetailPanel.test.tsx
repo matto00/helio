@@ -107,7 +107,6 @@ describe("SourceDetailPanel", () => {
     expect(container.querySelector(".ui-data-grid")).toHaveClass("ui-data-grid--condensed");
   });
 
-  // HEL-528 design.md D3/D7
   describe("preview skeleton (HEL-528)", () => {
     it("shows a shape-matched preview skeleton on the initial load, not the 'Click Preview' hint", () => {
       fetchCsvPreviewMock.mockReturnValue(new Promise(() => {})); // never resolves

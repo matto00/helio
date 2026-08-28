@@ -382,8 +382,6 @@ describe("usePanelData", () => {
     expect(result.current.data).toBe(dataRef);
   });
 
-  // ─── HEL-292: panel-level aggregation ────────────────────────────────────
-
   describe("metric aggregation", () => {
     it("renders the aggregate over all fetched rows instead of rows[0]", async () => {
       mockFetchDataTypeRows.mockResolvedValue({
@@ -490,8 +488,6 @@ describe("usePanelData", () => {
       expect(result.current.data?.value).toBe("6700");
     });
   });
-
-  // ─── HEL-293: metric literal label/unit override ─────────────────────────
 
   describe("metric literal label/unit", () => {
     it("literal label/unit override the fieldMapping-resolved value when both are present", async () => {
@@ -626,8 +622,6 @@ describe("usePanelData", () => {
       expect(result.current.chartAggregate).toBeNull();
     });
   });
-
-  // ─── HEL-244: Text panel joins the bound-capable panel set ───────────────
 
   describe("bound Text panel", () => {
     it("resolves data.content from the first row's mapped field", async () => {

@@ -91,7 +91,6 @@ class PipelineAclSpec
 
   private val fileSystem = new LocalFileSystem(Paths.get("/"))
 
-  // ── DB helpers ─────────────────────────────────────────────────────────────
 
   private def seedUsers(): Unit = {
     import PostgresProfile.api._
@@ -136,7 +135,6 @@ class PipelineAclSpec
     dsId
   }
 
-  // ── Route fixtures ────────────────────────────────────────────────────────
 
   /** Compose the full pipeline route surface for a single authenticated
     * user. Each test calls this twice — once as A, once as B — and asserts
@@ -159,7 +157,6 @@ class PipelineAclSpec
     )
   }
 
-  // ── Listing endpoint ──────────────────────────────────────────────────────
 
   "GET /pipelines" should {
     "return only the caller's pipelines (owner filter; cross-user not leaked)" in {
@@ -175,7 +172,6 @@ class PipelineAclSpec
     }
   }
 
-  // ── /pipelines/:id GET / PATCH / DELETE ───────────────────────────────────
 
   "GET /pipelines/:id" should {
     "return 200 for the owner" in {
@@ -207,7 +203,6 @@ class PipelineAclSpec
       Patch(s"/pipelines/${pid.value}", body) ~> routesFor(userB) ~> check {
         status shouldBe StatusCodes.NotFound
       }
-      // And the row is unchanged.
       Get(s"/pipelines/${pid.value}") ~> routesFor(userA) ~> check {
         responseAs[PipelineSummaryResponse].name shouldBe "pipe"
       }
@@ -235,7 +230,6 @@ class PipelineAclSpec
     }
   }
 
-  // ── /pipelines/:id/analyze ────────────────────────────────────────────────
 
   "GET /pipelines/:id/analyze" should {
     "return 404 for a cross-user caller" in {
@@ -246,7 +240,6 @@ class PipelineAclSpec
     }
   }
 
-  // ── /pipelines/:id/steps + /pipeline-steps/:id ────────────────────────────
 
   "Pipeline step CRUD" should {
 
@@ -304,7 +297,6 @@ class PipelineAclSpec
     }
   }
 
-  // ── /pipelines/:id/run and friends ────────────────────────────────────────
 
   "POST /pipelines/:id/run" should {
     "return 404 for a cross-user caller" in {
@@ -327,7 +319,6 @@ class PipelineAclSpec
   "GET /pipelines/:id/run-history" should {
     "return only the owner's run records" in {
       val pid = seedOwnedPipeline(userAId)
-      // Owner sees the (empty) history.
       Get(s"/pipelines/${pid.value}/run-history") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.OK
         responseAs[Vector[PipelineRunRecord]] shouldBe empty
@@ -350,7 +341,6 @@ class PipelineAclSpec
     }
   }
 
-  // ── Create-time source binding check ──────────────────────────────────────
 
   "POST /pipelines" should {
     "reject a sourceDataSourceId the caller does not own with 404 (not 400)" in {

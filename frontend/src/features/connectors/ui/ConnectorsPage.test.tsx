@@ -189,7 +189,6 @@ describe("ConnectorsPage", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/ConnectorHasDependents/)).not.toBeInTheDocument();
-    // Not removed on a blocked delete.
     expect(screen.getByText("Stripe")).toBeInTheDocument();
   });
 });

@@ -300,7 +300,6 @@ describe("DashboardList", () => {
 
     const filterInput = screen.getByLabelText("Filter dashboards by name");
 
-    // Initially all dashboards are visible
     expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Executive" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Marketing" })).toBeInTheDocument();
@@ -335,14 +334,12 @@ describe("DashboardList", () => {
     // Filter to only show items containing "exec"
     fireEvent.change(filterInput, { target: { value: "exec" } });
 
-    // Active dashboard (Operations) remains visible
     expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
 
     // Find the list item containing the Operations button
     const operationsButton = screen.getByRole("button", { name: "Operations" });
     const listItem = operationsButton.closest("li");
 
-    // Verify it has the --outside-filter class
     expect(listItem).toHaveClass("dashboard-list__item--outside-filter");
   });
 
@@ -367,17 +364,14 @@ describe("DashboardList", () => {
     // Filter to only show items containing "exec"
     fireEvent.change(filterInput, { target: { value: "exec" } });
 
-    // Marketing should be hidden
     expect(screen.queryByRole("button", { name: "Marketing" })).not.toBeInTheDocument();
 
-    // Click the clear button
     const clearButton = screen.getByRole("button", { name: "Clear filter" });
     // HEL-718: this icon-only control already had aria-label; this locks in
     // the added visible title tooltip pairing it.
     expect(clearButton).toHaveAttribute("title", "Clear filter");
     fireEvent.click(clearButton);
 
-    // All dashboards should be visible again
     expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Executive" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Marketing" })).toBeInTheDocument();
@@ -427,17 +421,13 @@ describe("DashboardList", () => {
     // Clear button should not be present initially
     expect(screen.queryByRole("button", { name: "Clear filter" })).not.toBeInTheDocument();
 
-    // Type something into the filter
     const filterInput = screen.getByLabelText("Filter dashboards by name");
     fireEvent.change(filterInput, { target: { value: "exec" } });
 
-    // Clear button should appear
     expect(screen.getByRole("button", { name: "Clear filter" })).toBeInTheDocument();
 
-    // Clear the filter
     fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
 
-    // Clear button should disappear
     expect(screen.queryByRole("button", { name: "Clear filter" })).not.toBeInTheDocument();
   });
 

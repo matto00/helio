@@ -200,7 +200,6 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         AggregateConfig(Vector.empty, Vector.empty)
     }
 
-    // ── Partial-config tolerance for the remaining 7 kinds ────────────────────
     //
     // Regression coverage for the CS2c-3a read-path regression: pre-fix any
     // persisted row with `config = '{}'` on rename/join/groupby/cast/select/

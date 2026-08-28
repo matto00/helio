@@ -100,7 +100,6 @@ class AssistantTelemetrySpec
     db.close(); embeddedPostgres.close(); super.afterAll()
   }
 
-  // ── Fixtures ────────────────────────────────────────────────────────────
 
   private def newUser(): AuthenticatedUser = {
     implicit val ec: ExecutionContext = routeEc

@@ -130,7 +130,6 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
   private def run[T](action: DBIO[T]): T =
     Await.result(db.run(action), 10.seconds)
 
-  // ── V34: helio_privileged role ────────────────────────────────────────────
 
   "helio_privileged role (V34)" should {
 
@@ -144,7 +143,6 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     }
   }
 
-  // ── V35 + V36: RLS and FORCE RLS on all ACL'd tables ─────────────────────
 
   "Row Level Security (V35 + V36)" should {
 
@@ -191,7 +189,6 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     }
   }
 
-  // ── V37: performance indexes ──────────────────────────────────────────────
 
   "Performance indexes (V37)" should {
 

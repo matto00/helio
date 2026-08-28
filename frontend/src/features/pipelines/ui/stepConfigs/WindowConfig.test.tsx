@@ -28,8 +28,6 @@ function chooseSelectOption(comboboxName: string, optionLabel: string) {
 }
 
 describe("WindowConfig", () => {
-  // ── Render with empty config ───────────────────────────────────────────────
-
   it("renders Add partition field button with empty config", () => {
     render(
       <WindowConfig
@@ -136,8 +134,6 @@ describe("WindowConfig", () => {
     expect(screen.getByRole("spinbutton", { name: /offset/i })).toBeInTheDocument();
   });
 
-  // ── Partition-by add / remove / change ───────────────────────────────────────
-
   it("clicking Add partition field appends a new row with the first schema field", () => {
     const onChange = jest.fn();
     render(
@@ -192,8 +188,6 @@ describe("WindowConfig", () => {
     expect(onChange).toHaveBeenCalledWith({ ...config, partitionBy: ["amount"] });
   });
 
-  // ── Order-by (delegates to SortConfig) ───────────────────────────────────────
-
   it("adding an order-by key calls onChange with orderBy populated", () => {
     const onChange = jest.fn();
     render(
@@ -211,8 +205,6 @@ describe("WindowConfig", () => {
     const parsed = onChange.mock.calls[0][0] as WindowConfigValue;
     expect(parsed.orderBy).toEqual([{ field: "category", direction: "asc" }]);
   });
-
-  // ── Function / field / offset / outputColumn onChange wiring ────────────────
 
   it("selecting a function calls onChange with function patched in", () => {
     const onChange = jest.fn();

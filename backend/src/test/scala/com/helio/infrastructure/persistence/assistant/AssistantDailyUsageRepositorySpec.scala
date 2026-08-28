@@ -188,7 +188,6 @@ class AssistantDailyUsageRepositorySpec extends AnyWordSpec with Matchers with B
       yesterdayCount shouldBe 999
     }
 
-    // ── RLS (design.md D5) ────────────────────────────────────────────────────────────────────
 
     "RLS: ownerB's context cannot see ownerA's daily usage row" in {
       cleanDb()

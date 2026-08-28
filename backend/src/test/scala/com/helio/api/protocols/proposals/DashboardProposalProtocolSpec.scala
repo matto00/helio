@@ -86,7 +86,6 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
     }
   }
 
-  // ── HEL-293: content/url/orientation/chart-appearance/metric-literal ──────
 
   "ProposalPanel.write/read" should {
     "omit the new HEL-293 keys when absent" in {
@@ -143,7 +142,6 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
     }
   }
 
-  // ── HEL-321: flat timeline `sort` ─────────────────────────────────────────
 
   "ProposalPanel.write/read — sort" should {
     "omit the sort key when absent" in {
@@ -176,7 +174,6 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
     }
   }
 
-  // ── HEL-316: generic `config` passthrough ─────────────────────────────────
 
   "ProposalPanel.write/read — config" should {
     "omit the config key when absent" in {

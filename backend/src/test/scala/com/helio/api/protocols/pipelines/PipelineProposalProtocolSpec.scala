@@ -57,7 +57,6 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
       steps              = steps
     )
 
-  // ── HEL-379: round-trip — existing sourceId ───────────────────────────────
 
   "PipelineProposal.write/read — existing sourceId" should {
     "round-trip a proposal referencing an existing source" in {
@@ -71,7 +70,6 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
     }
   }
 
-  // ── HEL-379: round-trip — inline source ───────────────────────────────────
 
   "PipelineProposal.write/read — inline source" should {
     "round-trip a proposal with an inline sql source" in {
@@ -91,7 +89,6 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
     }
   }
 
-  // ── HEL-379: absent-optional tolerance ────────────────────────────────────
 
   "PipelineProposal.read" should {
     "tolerate every source-level optional field being absent, reading only the required fields" in {
@@ -118,7 +115,6 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
     }
   }
 
-  // ── HEL-379: absent-optional write omission ───────────────────────────────
 
   "PipelineProposalSource.write" should {
     "omit the sourceId key when absent" in {

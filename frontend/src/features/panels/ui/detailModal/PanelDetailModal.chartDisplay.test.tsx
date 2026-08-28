@@ -127,7 +127,6 @@ describe("BindingEditor chart Display controls (HEL-248)", () => {
     renderModal(chartPanelWith("line"));
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
 
-    // Line controls first.
     expect(screen.getByRole("heading", { name: "Display" })).toBeInTheDocument();
     expect(screen.getByText("Smooth lines")).toBeInTheDocument();
 
@@ -176,7 +175,6 @@ describe("BindingEditor chart Display controls (HEL-248)", () => {
 
     await waitFor(() => expect(updateBindingMock).toHaveBeenCalled());
     const call = updateBindingMock.mock.calls[0];
-    // Binding preserved.
     expect(call[0]).toBe("p1");
     expect(call[1]).toBe("dt-1");
     // Refresh interval preserved (4th positional arg, index 3).

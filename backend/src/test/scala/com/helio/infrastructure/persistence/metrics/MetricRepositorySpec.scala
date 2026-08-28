@@ -439,7 +439,6 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
     }
   }
 
-  // ── HEL-560 tasks.md 8.1: "where used" query ────────────────────────────────
 
   "MetricRepository.usage" should {
 

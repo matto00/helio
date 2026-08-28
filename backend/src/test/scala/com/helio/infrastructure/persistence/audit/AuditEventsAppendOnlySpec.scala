@@ -232,7 +232,6 @@ class AuditEventsAppendOnlySpec extends AnyWordSpec with Matchers with BeforeAnd
     }
   }
 
-  // ── 5.3: privileged pool, TWO PHASES ────────────────────────────────────
 
   "the privileged (BYPASSRLS) pool, phase (a): with the V91 REVOKE still in place" should {
     "fail UPDATE with 42501 permission denied — the defence-in-depth revoke working" in {

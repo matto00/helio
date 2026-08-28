@@ -34,7 +34,6 @@ class DateBucketStepSpec extends AnyWordSpec with Matchers {
   private def evaluate(rows: Seq[Map[String, Any]], s: DateBucketStep): Seq[Map[String, Any]] =
     Await.result(s.evaluate(rows, ctx), 5.seconds)
 
-  // ── §1.1 / §2.3 accepted-shape parsing (RED then GREEN) ────────────────────
 
   "DateBucketStep.evaluate — accepted timezone-less shapes" should {
 
@@ -107,7 +106,6 @@ class DateBucketStepSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ── §3 zero-parse-rate execution-failure guard ──────────────────────────────
 
   "DateBucketStep.evaluate — zero-parse-rate guard" should {
 

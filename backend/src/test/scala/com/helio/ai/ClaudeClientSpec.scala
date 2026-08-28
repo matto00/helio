@@ -237,7 +237,6 @@ class ClaudeClientSpec extends AnyWordSpec with Matchers with ScalatestRouteTest
     }
   }
 
-  // ── sendWithTools (HEL-660) ─────────────────────────────────────────────
 
   private def toolUseResponse(id: String, name: String, input: JsValue, usage: ClaudeApiUsage = ClaudeApiUsage(10, 5)): ClaudeApiResponse =
     ClaudeApiResponse(

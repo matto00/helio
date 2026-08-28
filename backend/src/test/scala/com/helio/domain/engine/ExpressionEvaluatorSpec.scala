@@ -54,7 +54,6 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       ExpressionEvaluator.validate("""$a + "unterminated""", Set("a")) shouldBe a[Left[_, _]]
     }
 
-    // ── function-call syntax ──────────────────────────────────────────────────
 
     "accept concat with $-prefixed refs and a string literal" in {
       ExpressionEvaluator.validate(
@@ -119,7 +118,6 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ── inferType ────────────────────────────────────────────────────────────────
 
   "ExpressionEvaluator.inferType" should {
 
@@ -163,7 +161,6 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ── evaluate — arithmetic (new $-prefixed grammar) ──────────────────────────
 
   "ExpressionEvaluator.evaluate" should {
 
@@ -192,7 +189,6 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       ExpressionEvaluator.evaluate("2 + 3 * 4", Map.empty) shouldBe Right(JsNumber(14.0))
     }
 
-    // ── $-prefixed field references ─────────────────────────────────────────
 
     "resolve a numeric $-prefixed field reference" in {
       val r = row("price" -> JsNumber(5.0), "quantity" -> JsNumber(3.0))
@@ -209,7 +205,6 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       ExpressionEvaluator.evaluate("""$first + " " + $last""", r) shouldBe Right(JsString("Hello World"))
     }
 
-    // ── string concatenation via + ──────────────────────────────────────────
 
     "concatenate two string literals with +" in {
       ExpressionEvaluator.evaluate(""""foo" + "bar"""", Map.empty) shouldBe Right(JsString("foobar"))
@@ -229,7 +224,6 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       ExpressionEvaluator.evaluate("$a + $b", r) shouldBe Right(JsNumber(3.0))
     }
 
-    // ── string functions ─────────────────────────────────────────────────────
 
     "concat joins multiple $-prefixed arguments as strings" in {
       val r = row("first_name" -> JsString("Ada"), "last_name" -> JsString("Lovelace"))
@@ -313,7 +307,6 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    // ── errors ───────────────────────────────────────────────────────────────
 
     "return DivisionByZero error for division by zero" in {
       ExpressionEvaluator.evaluate("10 / 0", Map.empty) match {

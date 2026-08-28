@@ -199,7 +199,6 @@ class InviteCodeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       tierOf(user) shouldBe "beta"
     }
 
-    // ── RLS (design.md D1) ──────────────────────────────────────────────────────────────────
 
     "RLS: a foreign user's application context cannot see another user's invite code row" in {
       cleanDb()

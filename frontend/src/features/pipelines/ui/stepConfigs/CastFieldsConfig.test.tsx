@@ -16,7 +16,6 @@ describe("CastFieldsConfig", () => {
     expect(screen.getByRole("combobox", { name: "Target type for name" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Target type for value" })).toBeInTheDocument();
 
-    // Source field names appear as cells
     expect(screen.getByText("id")).toBeInTheDocument();
     expect(screen.getByText("name")).toBeInTheDocument();
     expect(screen.getByText("value")).toBeInTheDocument();

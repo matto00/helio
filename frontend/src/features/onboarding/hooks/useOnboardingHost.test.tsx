@@ -100,7 +100,6 @@ describe("useOnboardingHost", () => {
     getPipelinesMock.mockReset().mockResolvedValue([]);
   });
 
-  // 6.1 — auto-activation
   describe("auto-activation (D3)", () => {
     it("activates when dashboards succeeded + empty and no stored dismissal", async () => {
       const store = makeStore({
@@ -203,7 +202,6 @@ describe("useOnboardingHost", () => {
     });
   });
 
-  // 6.2 — stickiness
   it("stays visible (sticky `active`) once autoActivate goes false again (e.g. a dashboard now exists)", async () => {
     const store = makeStore({
       dashboards: { status: "succeeded", items: [] },
@@ -228,7 +226,6 @@ describe("useOnboardingHost", () => {
     expect(result.current.visible).toBe(true);
   });
 
-  // 6.4 — re-open fetch trigger
   describe("fetch trigger (D3)", () => {
     it("dispatches fetchSources/fetchPipelines when visible and their collections are idle", async () => {
       const store = makeStore({
@@ -351,7 +348,6 @@ describe("useOnboardingHost", () => {
     });
   });
 
-  // 6.7 — all-four-complete
   describe("all-four-complete (D2/task 1.12)", () => {
     it("records the dismissal but leaves `active` set once all four steps read complete", async () => {
       const store = makeStore({

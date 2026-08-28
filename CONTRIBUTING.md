@@ -24,6 +24,47 @@ Before starting work on anything non-trivial, open an issue or comment on an exi
 - Prefer small, composable units over large files or functions. Soft budgets: **~250 lines per source file**, **~80 lines for an aggregator/index file**. If a file you're editing crosses ~400 lines, propose a split in the PR description rather than adding to it
 - Never commit secrets, credentials, or `.env` files
 
+### Comments
+
+A comment costs a reader's attention every time they pass it, and it is the one
+part of the file the compiler never checks. Write the ones that carry something
+the code cannot, and leave the rest out.
+
+- **The test before you write one: could a competent reader derive this from the code itself?** If yes, delete it — the code is the better version of that sentence. A comment that restates the line below it is not neutral; it is a second thing to keep in sync
+- **Write, in rough order of worth:** _hazards_ (ordering traps, precedence, "this must be mounted before X"), _contracts_ (an invariant a caller depends on that the signature does not express), and _why_ (the reason, the tradeoff, the alternative you rejected). The `HEL-364` route-mounting note in `ApiRoutes.scala` is the model: it explains a shadowing hazard that no amount of reading the routes reveals
+- **Don't write:** a restatement of the next line; a short label naming the thing beneath it (`// Clear the input`, `// Past should be unchanged`); commented-out code — git remembers it for you
+- **Prefer explaining _why_ a value or ordering is what it is over restating _what_ it is.** The explanation survives a change; the restatement silently stops being true
+
+**Ticket references.** Prefixing a comment with `HEL-N` is worth doing — it is
+how a future reader finds the discussion behind a decision. But **the id must
+never carry the payload**: state the decision inline as well. Nothing downstream
+resolves it for you, and a reader who cannot reach Linear (or reads this in a
+diff, a PR review, or a code-search result) gets nothing from a bare pointer.
+
+```scala
+// Good — the reason survives without leaving the file
+// HEL-364: mounted ahead of PanelRoutes so the literal "/panels/bound" path is
+// never shadowed by PanelRoutes' `path(PanelIdSegment)`.
+
+// Bad — the reader has to go somewhere else to learn anything
+// See HEL-364.
+```
+
+**Section dividers** (`// ── Foo ─────`) are justified only in genuinely large
+files — roughly 1,000 lines and up — where they measurably cut the cost of
+finding a section. In a normal-sized file they are noise; if you feel you need
+them to navigate, the file wants splitting instead (see the size budgets above).
+
+**Tests are held to a stricter line than production code.**
+
+- The test name carries the intent. If you need a comment to say what a test does, rename the test
+- No step narration (`// Clear the input`, `// Restore original name`) and no restating an assertion in prose
+- What _is_ worth a comment in a test: why a fixture has this particular shape, why an ordering matters, or why an assertion is deliberately loose
+
+**Scaladoc / JSDoc** on exported and public surface is encouraged and exempt from
+the brevity pressure above — it documents a contract for callers who will never
+read the implementation.
+
 ### Imports & Qualifiers
 
 - **Always import at the top of the file; never inline a fully-qualified name when an `import` would do.** Inline FQNs (`com.helio.domain.PanelId(...)`, `spray.json.JsObject`, `java.util.UUID.randomUUID()`) make code noisier and harder to grep

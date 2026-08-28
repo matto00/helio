@@ -104,7 +104,6 @@ class ResourceTaggingSpec
     )))
   }
 
-  // ── Route fixtures ──────────────────────────────────────────────────────
 
   private def dataSourceRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
@@ -162,7 +161,6 @@ class ResourceTaggingSpec
   private def createStaticSourceJson(name: String, tagField: String): String =
     s"""{"name":"$name","type":"static","columns":[{"name":"value","type":"string"}],"rows":[["x"]]$tagField}"""
 
-  // ── 6.1 Tag persists through create -> read ────────────────────────────
 
   "tag (6.1 persists create -> read)" should {
     "round-trip through a tagged data source create + list" in {
@@ -218,7 +216,6 @@ class ResourceTaggingSpec
     }
   }
 
-  // ── 6.2 ?tag= list filtering, owner-scoped ─────────────────────────────
 
   "tag (6.2 list filtering)" should {
     "GET /data-sources?tag= returns exactly the tagged set" in {

@@ -116,7 +116,6 @@ class StructuredJsonLoggingSpec extends AnyWordSpec with Matchers {
       output should include("plain text line")
       output should include("INFO")
       output should include("com.helio.plain")
-      // Confirm it is NOT JSON.
       a[JsonParser.ParsingException] should be thrownBy output.trim.parseJson
     }
   }

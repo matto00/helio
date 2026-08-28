@@ -24,8 +24,6 @@ function chooseSelectOption(comboboxName: string, optionLabel: string) {
 }
 
 describe("UnpivotConfig", () => {
-  // ── Render with empty config ───────────────────────────────────────────────
-
   it("renders Add id field and Add value field buttons with empty config", () => {
     render(
       <UnpivotConfig config={emptyConfig} analyzeSchema={sampleSchema} onChange={jest.fn()} />,
@@ -50,16 +48,12 @@ describe("UnpivotConfig", () => {
     expect(screen.getByLabelText(/value column/i)).toHaveValue("value");
   });
 
-  // ── Render with hydrated config ────────────────────────────────────────────
-
   it("hydrates id/value rows with persisted field names", () => {
     const config: UnpivotConfigValue = { ...emptyConfig, idVars: ["region"], valueVars: ["jan"] };
     render(<UnpivotConfig config={config} analyzeSchema={sampleSchema} onChange={jest.fn()} />);
     expect(screen.getByRole("combobox", { name: /id field 1/i })).toHaveTextContent("region");
     expect(screen.getByRole("combobox", { name: /value field 1/i })).toHaveTextContent("jan");
   });
-
-  // ── Add / remove id field ───────────────────────────────────────────────────
 
   it("clicking Add id field appends a new id row with the first schema field", () => {
     const onChange = jest.fn();
@@ -94,8 +88,6 @@ describe("UnpivotConfig", () => {
     expect(onChange).toHaveBeenCalledWith({ ...config, idVars: ["jan"] });
   });
 
-  // ── Add / remove value field ────────────────────────────────────────────────
-
   it("clicking Add value field appends a new value row with the first schema field", () => {
     const onChange = jest.fn();
     render(<UnpivotConfig config={emptyConfig} analyzeSchema={sampleSchema} onChange={onChange} />);
@@ -128,8 +120,6 @@ describe("UnpivotConfig", () => {
 
     expect(onChange).toHaveBeenCalledWith({ ...config, valueVars: ["feb"] });
   });
-
-  // ── varName / valueName onChange wiring ─────────────────────────────────────
 
   it("editing the variable column input calls onChange with varName patched in", () => {
     const onChange = jest.fn();

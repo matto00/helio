@@ -151,7 +151,6 @@ class ComputedFieldsRoutesSpec
     await(dataTypeRepo.insert(dt, testUser))
   }
 
-  // ── Task 3.2 tests ──────────────────────────────────────────────────────────
 
   "PATCH /api/types/:id with valid computedFields" should {
 
@@ -293,7 +292,6 @@ class ComputedFieldsRoutesSpec
     }
   }
 
-  // ── Task 3.3 tests ──────────────────────────────────────────────────────────
 
   "GET /api/types/:id/validate-expression" should {
 

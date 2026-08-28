@@ -125,7 +125,6 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     UserId(id)
   }
 
-  // ── 4.1: DB-direct ciphertext proof (AC2) ───────────────────────────────
 
   "create" should {
     "persist ciphertext at the storage layer that neither equals nor contains the plaintext (task 4.1)" in {
@@ -194,7 +193,6 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     }
   }
 
-  // ── 4.5: cross-user RLS proof ───────────────────────────────────────────
 
   "RLS on connectors" should {
     "denies cross-user reads under a real non-bypassing session (task 4.5)" in {
@@ -227,7 +225,6 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     }
   }
 
-  // ── 4.6: delete-with-dependents behavior (AC6) ──────────────────────────
 
   "delete" should {
     "blocks with ConnectorHasDependents when the dependentCount collaborator returns nonzero (task 4.6)" in {
@@ -237,7 +234,6 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       val result = await(repo.delete(connector.id, AuthenticatedUser(owner), dependentCount = _ => Future.successful(3)))
       result shouldBe Left(ConnectorHasDependents)
 
-      // No row deleted.
       await(repo.findByIdOwned(connector.id, AuthenticatedUser(owner))) shouldBe defined
     }
 
@@ -253,7 +249,6 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     }
   }
 
-  // ── 4.4: real outbound-auth proof (AC5, design.md Decision 6a) ─────────
 
   "the stored credential" should {
     "authenticates a real outbound HTTP request against a local stub server (task 4.4 / AC5)" in {
@@ -408,7 +403,6 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     }
   }
 
-  // ── HEL-824 task 2.5/2.6: rotateCredential ──────────────────────────────
 
   "rotateCredential" should {
     "replaces the plaintext resolvable via decryptForUse and makes the old credential id unresolvable" in {

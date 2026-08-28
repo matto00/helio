@@ -20,7 +20,6 @@ import spray.json._
  *  constructed directly. */
 class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers with WorkspaceContextProtocol {
 
-  // ── Fixtures ──────────────────────────────────────────────────────────
 
   private val NaturalSampleRowCount    = 5
   private val NaturalExampleValueCount = 5
@@ -106,7 +105,6 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
     JsObject(full.fields - "truncation").compactPrint.length
   }
 
-  // ── 5.1 within-budget (unchanged) ────────────────────────────────────────
 
   "apply (within budget)" should {
     "leave the response entirely unchanged and report applied = false" in {
@@ -167,7 +165,6 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
     }
   }
 
-  // ── 5.1 tier-1+2 (tier 1 fully exhausted, tier 2 partial) ────────────────
 
   "apply (tier 1 exhausted, tier 2 partial)" should {
     "empty sampleRows everywhere and partially shrink exampleValues, leaving joinHints natural" in {
@@ -221,7 +218,6 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
     }
   }
 
-  // ── 5.1 structural floor (D5) ────────────────────────────────────────────
 
   "apply (structural floor exceeded)" should {
     "empty sampleRows/exampleValues/joinHints entirely and flag structuralFloorExceedsBudget" in {
@@ -256,7 +252,6 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
     }
   }
 
-  // ── 5.1 tier 0 fields never altered, even at budgetBytes = 0 ─────────────
 
   "apply (budgetBytes = 0)" should {
     "never alter any tier-0 (structural) field" in {
@@ -343,7 +338,6 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
     }
   }
 
-  // ── 5.1 determinism ───────────────────────────────────────────────────────
 
   "apply (determinism)" should {
     "produce byte-identical output for the same input and budget across repeated calls" in {
@@ -426,7 +420,6 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
     }
   }
 
-  // ── 5.2 paginationTruncatedResources ─────────────────────────────────────
 
   "paginationTruncatedResources" should {
     "report [] when no page was truncated" in {

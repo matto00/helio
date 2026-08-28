@@ -85,7 +85,6 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     )
   }
 
-  // ── HEL-756 fixtures ─────────────────────────────────────────────────────────────────────────
 
   private def restConfig(url: String = "https://api.example.com/data"): RestApiConfigPayload =
     RestApiConfigPayload(url = Some(url), method = Some("GET"), auth = None, headers = None)

@@ -2,8 +2,6 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { usePipelineRunEvents } from "./usePipelineRunEvents";
 import type { RunStatusEventData } from "./usePipelineRunEvents";
 
-// ---- Fetch/ReadableStream mock -----------------------------------------
-
 interface SseController {
   /** Push a named SSE event to the stream. */
   push: (eventName: string, data: string) => void;
@@ -64,8 +62,6 @@ data: ${data}
   return { controller, fetchMock };
 }
 
-// ---- Setup / teardown --------------------------------------------------
-
 let originalFetch: typeof global.fetch;
 
 beforeEach(() => {
@@ -75,8 +71,6 @@ beforeEach(() => {
 afterEach(() => {
   global.fetch = originalFetch;
 });
-
-// ---- Tests (3.5 – 3.7) -------------------------------------------------
 
 describe("usePipelineRunEvents", () => {
   // HEL-287: session identity is the `helio_session` HttpOnly cookie, not a

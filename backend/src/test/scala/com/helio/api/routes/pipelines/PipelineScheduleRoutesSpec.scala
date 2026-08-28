@@ -118,7 +118,6 @@ class PipelineScheduleRoutesSpec
     JsObject(if (includeEnabled) base + ("enabled" -> JsBoolean(enabled)) else base)
   }
 
-  // ── PUT ─────────────────────────────────────────────────────────────────
 
   "PUT /pipelines/:id/schedule" should {
 
@@ -207,7 +206,6 @@ class PipelineScheduleRoutesSpec
     }
   }
 
-  // ── GET ─────────────────────────────────────────────────────────────────
 
   "GET /pipelines/:id/schedule" should {
 
@@ -235,7 +233,6 @@ class PipelineScheduleRoutesSpec
     }
   }
 
-  // ── DELETE ──────────────────────────────────────────────────────────────
 
   "DELETE /pipelines/:id/schedule" should {
 

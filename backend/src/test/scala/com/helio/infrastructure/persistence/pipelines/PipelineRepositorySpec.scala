@@ -289,7 +289,6 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(pipelineRepo.findByIdShared(pid, Some(otherUser)))
       result shouldBe None
 
-      // Owner can still see it.
       val ownerResult = await(pipelineRepo.findByIdShared(pid, Some(systemUser)))
       ownerResult shouldBe defined
     }
@@ -319,7 +318,6 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
-  // ── HEL-234: findLastRunAtByOutputDataTypeId ──────────────────────────────
 
   "PipelineRepository.findLastRunAtByOutputDataTypeId" should {
 

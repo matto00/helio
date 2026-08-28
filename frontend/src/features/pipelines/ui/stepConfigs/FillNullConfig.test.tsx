@@ -103,7 +103,6 @@ describe("FillNullConfig", () => {
     });
   });
 
-  // Scenario: User enters a constant value
   it("typing into the constant-value input calls onChange with the typed value", () => {
     const onChange = jest.fn();
     const config: FillNullConfigValue = {

@@ -57,7 +57,6 @@ describe("ComputedFieldsEditor", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /add computed field/i }));
 
-    // Fill in the form
     fireEvent.change(screen.getByLabelText(/Computed field name/i), {
       target: { value: "profit" },
     });

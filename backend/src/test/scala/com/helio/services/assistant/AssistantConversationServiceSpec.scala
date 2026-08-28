@@ -129,7 +129,6 @@ class AssistantConversationServiceSpec extends AnyWordSpec with Matchers with Be
     }
   }
 
-  // ── HEL-698 idempotency key (design.md D3 append-time check) ────────────────
   "AssistantConversationService.appendTurn idempotency key" should {
 
     "a keyed append records the key on the returned record" in {

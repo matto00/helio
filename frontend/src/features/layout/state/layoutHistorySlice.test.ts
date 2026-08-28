@@ -112,7 +112,6 @@ describe("layoutHistorySlice", () => {
         before,
         redoLayout({ dashboardId, currentLayout: layoutB }),
       );
-      // Past should be unchanged
       expect(after.byDashboard[dashboardId].past).toHaveLength(1);
       expect(after.byDashboard[dashboardId].future).toHaveLength(0);
     });

@@ -136,7 +136,6 @@ class RefinementServiceSpec
     db.close(); embeddedPostgres.close(); super.afterAll()
   }
 
-  // ── Fixtures ────────────────────────────────────────────────────────────
 
   private def newUser(): AuthenticatedUser = {
     implicit val ec: ExecutionContext = routeEc
@@ -215,7 +214,6 @@ class RefinementServiceSpec
   private def pipelineUpdateJson(pipelineId: String, name: String): String =
     s"""{"summary":"Rename pipeline","edits":[{"target":{"kind":"pipeline","id":"$pipelineId"},"op":"update","patch":{"name":"$name"}}]}"""
 
-  // ── refine — dashboard target (D1) ──────────────────────────────────────
 
   "RefinementService.refine — dashboard target" should {
 
@@ -280,7 +278,6 @@ class RefinementServiceSpec
     }
   }
 
-  // ── refine — pipeline target (D1) ───────────────────────────────────────
 
   "RefinementService.refine — pipeline target" should {
 
@@ -306,7 +303,6 @@ class RefinementServiceSpec
     }
   }
 
-  // ── Parse/validate/repair core (D2) ─────────────────────────────────────
 
   "RefinementService.refine — validation/repair" should {
 
@@ -346,7 +342,6 @@ class RefinementServiceSpec
     }
   }
 
-  // ── Multi-turn continuation + D3a cross-flow rejection ──────────────────
 
   "RefinementService.refine — multi-turn conversations" should {
 

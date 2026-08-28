@@ -126,7 +126,6 @@ class WorkspaceContextServiceClassifySemanticRoleSpec extends AnyWordSpec with M
     }
   }
 
-  // ── D1's remaining precedence branches ───────────────────────────────────
 
   "classifySemanticRole (remaining precedence branches)" should {
     "classify a string column with no columnStats entry as text, not dimension " +

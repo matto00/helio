@@ -29,12 +29,10 @@ describe("SelectFieldsConfig", () => {
   it("renders an empty list (not a run-pipeline prompt) when columns is empty", () => {
     render(<SelectFieldsConfig columns={[]} selectedFields={[]} onToggle={jest.fn()} />);
 
-    // No prompt text
     expect(
       screen.queryByText(/Run the pipeline to preview available fields/i),
     ).not.toBeInTheDocument();
 
-    // No checkboxes
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 
     // An empty list element is still rendered (empty <ul>)

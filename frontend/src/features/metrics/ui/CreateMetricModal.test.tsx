@@ -143,7 +143,6 @@ describe("CreateMetricModal — Allowed-dimensions Escape containment", () => {
 
     fireEvent.keyDown(trigger, { key: "Escape" });
 
-    // Only the popover closed.
     expect(
       screen.queryByRole("listbox", { name: "Allowed dimensions options" }),
     ).not.toBeInTheDocument();

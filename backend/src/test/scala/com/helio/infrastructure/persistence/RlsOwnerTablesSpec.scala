@@ -93,7 +93,6 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       )
       // Allow postgres (the login user) to SET ROLE helio_app_test.
       stmt.execute("GRANT helio_app_test TO postgres")
-      // Grant table-level permissions to both roles.
       stmt.execute("GRANT USAGE ON SCHEMA public TO helio_app_test")
       stmt.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO helio_app_test")
       // helio_privileged also needs explicit table access since SET ROLE drops postgres superuser privs.
@@ -171,7 +170,6 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     id
   }
 
-  // ── data_sources RLS ─────────────────────────────────────────────────────
 
   "RLS on data_sources" should {
 
@@ -213,7 +211,6 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     }
   }
 
-  // ── data_types RLS ────────────────────────────────────────────────────────
 
   "RLS on data_types" should {
 
@@ -255,7 +252,6 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     }
   }
 
-  // ── pipelines RLS ─────────────────────────────────────────────────────────
 
   "RLS on pipelines" should {
 
@@ -305,7 +301,6 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     }
   }
 
-  // ── image_uploads RLS (HEL-246) ──────────────────────────────────────────
 
   /** Seed via `ImageUploadRepository.insert` (not raw SQL like the helpers
    *  above) — this is the real write path, so the assertions below prove
@@ -365,7 +360,6 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     }
   }
 
-  // ── agent_preferences RLS (HEL-472 / 420-A) ──────────────────────────────
 
   /** Seed via `AgentPreferencesRepository.put` (not raw SQL like the `seedSource`/`seedDataType`
    *  helpers above) — this is the real write path, so the assertions below prove the
@@ -452,7 +446,6 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     }
   }
 
-  // ── agent_memory RLS (HEL-478 / 420-B) ───────────────────────────────────
 
   /** Seed via `AgentMemoryRepository.add` (not raw SQL like the `seedSource`/`seedDataType`
    *  helpers above) — this is the real write path, so the assertions below prove the

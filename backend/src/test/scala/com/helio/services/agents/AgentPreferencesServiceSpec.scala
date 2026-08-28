@@ -143,7 +143,6 @@ class AgentPreferencesServiceSpec extends AnyWordSpec with Matchers with BeforeA
       await(service.get(user1)) shouldBe replaced
     }
 
-    // ── HEL-531 (420-E) tasks.md 5.1 — memoryEnabled carry-forward ──────────
 
     "preserve a previously-opted-out caller's memoryEnabled while updating the other four fields " +
       "(design.md Decision 2)" in {

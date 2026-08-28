@@ -98,14 +98,12 @@ class RateLimitDirectiveSpec extends AnyWordSpec with Matchers with ScalatestRou
     "keep two different users' budgets independent" in {
       val directive = newDirective(limit = 1)
       val route = routeFor(directive)
-      // Exhaust user A's budget.
       Get("/").withHeaders(Cookie(SessionCookies.Name -> sessionTokenA)) ~> route ~> check {
         status shouldBe StatusCodes.OK
       }
       Get("/").withHeaders(Cookie(SessionCookies.Name -> sessionTokenA)) ~> route ~> check {
         status shouldBe StatusCodes.TooManyRequests
       }
-      // User B is unaffected.
       Get("/").withHeaders(Cookie(SessionCookies.Name -> sessionTokenB)) ~> route ~> check {
         status shouldBe StatusCodes.OK
       }
@@ -122,7 +120,6 @@ class RateLimitDirectiveSpec extends AnyWordSpec with Matchers with ScalatestRou
     "keep two PATs belonging to the SAME user independently budgeted" in {
       val directive = newDirective(limit = 1)
       val route = routeFor(directive)
-      // Exhaust PAT 1's budget.
       Get("/").withHeaders(Authorization(OAuth2BearerToken(patTokenA1))) ~> route ~> check {
         status shouldBe StatusCodes.OK
       }

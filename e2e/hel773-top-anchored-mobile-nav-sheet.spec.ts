@@ -415,7 +415,6 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
         });
         expect(dashboardRes.status()).toBe(201);
 
-        // Dashboards — has a create action.
         await page.goto("/");
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         const dashboardsTrigger = await openSheet(page, /Switch dashboards/i);

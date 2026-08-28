@@ -164,7 +164,6 @@ describe("PanelCreationModal", () => {
     // HEL-247 — Collection joins the creatable set.
     expect(screen.getByRole("button", { name: "Collection" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Divider" })).not.toBeInTheDocument();
-    // at least one description is visible
     expect(screen.getByText("Display a single KPI value or stat")).toBeInTheDocument();
   });
 
@@ -592,7 +591,6 @@ describe("PanelCreationModal — DataType picker step", () => {
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
-    // Should be on the datatype-select step
     expect(screen.getByText("Choose a data type")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Data type" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
@@ -669,7 +667,6 @@ describe("PanelCreationModal — DataType picker step", () => {
     fireEvent.click(screen.getByRole("button", { name: "Image" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
-    // Should land directly on name-entry step
     expect(screen.getByLabelText("Panel title")).toBeInTheDocument();
     expect(screen.queryByText("Choose a data type")).not.toBeInTheDocument();
   });
@@ -712,10 +709,8 @@ describe("PanelCreationModal — DataType picker step", () => {
     // Next button should be disabled before any DataType is selected
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 
-    // Select a DataType
     fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
 
-    // Next button should now be enabled
     expect(screen.getByRole("button", { name: "Next" })).not.toBeDisabled();
   });
 
@@ -727,7 +722,6 @@ describe("PanelCreationModal — DataType picker step", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Metric" }));
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
-    // Select the DataType and advance
     fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "My Metric" } });
@@ -916,7 +910,6 @@ describe("PanelCreationModal — shape flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
 
     expect(await screen.findByText("Single row")).toBeInTheDocument();
-    // The existing DataType list is unaffected.
     expect(screen.getByRole("button", { name: "Revenue" })).toBeInTheDocument();
   });
 
@@ -1003,7 +996,6 @@ describe("PanelCreationModal — shape flow", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Create and bind" }));
 
-    // Only run succeeding advances to name-entry.
     await screen.findByLabelText("Panel title");
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "From Shape" } });
     fireEvent.click(screen.getByRole("button", { name: "Create panel" }));

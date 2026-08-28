@@ -125,7 +125,6 @@ class DataSourceServiceSpec
         path("missing.txt") {
           get { complete(StatusCodes.NotFound) }
         },
-        // HEL-214: PDF connector URL-ingestion test routes.
         path("report.pdf") {
           get {
             val bytes = PdfFixtures.multiPagePdf(Seq("Hello from URL"))
@@ -263,7 +262,6 @@ class DataSourceServiceSpec
     }
   }
 
-  // ── HEL-215: text/Markdown connector ────────────────────────────────────────
 
   "DataSourceService.createTextUpload" should {
 
@@ -440,7 +438,6 @@ class DataSourceServiceSpec
     }
   }
 
-  // ── HEL-214: PDF connector ───────────────────────────────────────────────────
 
   "DataSourceService.createPdfUpload" should {
 
@@ -595,7 +592,6 @@ class DataSourceServiceSpec
     }
   }
 
-  // ── HEL-216: image connector ─────────────────────────────────────────────────
 
   "DataSourceService.createImageUpload" should {
 

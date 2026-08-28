@@ -123,7 +123,6 @@ class WorkspaceSearchServiceSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  // ── Fixtures ────────────────────────────────────────────────────────────
 
   private def createSource(user: AuthenticatedUser, name: String = s"src-${UUID.randomUUID()}"): DataSource = {
     val req = StaticDataSourceRequest(
@@ -219,7 +218,6 @@ class WorkspaceSearchServiceSpec
       createdAt    = Instant.now()
     )))
 
-  // ── 5.1 find matches an owned resource's name, per resource type ────────
 
   "find (5.1 per-type name match)" should {
     "return a summary for a query matching an owned data source's name" in {
@@ -267,7 +265,6 @@ class WorkspaceSearchServiceSpec
     }
   }
 
-  // ── 5.2 find on a query matching nothing ─────────────────────────────────
 
   "find (5.2 no match)" should {
     "return an empty result, not an error, for a query matching no owned resource" in {
@@ -277,7 +274,6 @@ class WorkspaceSearchServiceSpec
     }
   }
 
-  // ── 5.3 resourceTypes restricts which types are searched ────────────────
 
   "find (5.3 resourceTypes filter)" should {
     "restrict results to the requested type when a query matches both a metric and a dashboard" in {
@@ -292,7 +288,6 @@ class WorkspaceSearchServiceSpec
     }
   }
 
-  // ── 5.3a find's result set is bounded ────────────────────────────────────
 
   "find (5.3a MaxFindResults bound)" should {
     "cap the result set at MaxFindResults (20) even when more owned resources match, deterministically" in {
@@ -331,7 +326,6 @@ class WorkspaceSearchServiceSpec
     }
   }
 
-  // ── 5.4 getResource DataType detail matches assemble's own detail ───────
 
   "getResource (5.4 DataType detail parity with assemble)" should {
     "return the same columns/sampleRows/columnStats assemble would produce for that DataType" in {
@@ -362,7 +356,6 @@ class WorkspaceSearchServiceSpec
     }
   }
 
-  // ── 5.5 getResource on a nonexistent/unowned id, per resource type ──────
 
   "getResource (5.5 NotFound, not an exception)" should {
     "return Left(NotFound) for a nonexistent data source id" in {
@@ -404,7 +397,6 @@ class WorkspaceSearchServiceSpec
     }
   }
 
-  // ── 5.6 getResource on a metric returns its full definition ─────────────
 
   "getResource (5.6 metric detail)" should {
     "return the metric's full definition" in {
@@ -456,7 +448,6 @@ class WorkspaceSearchServiceSpec
     }
   }
 
-  // ── 5.9 DashboardService.findById / DataSourceService.findById ──────────
 
   "DashboardService.findById (5.9)" should {
     "return Right for an owned dashboard" in {

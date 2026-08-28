@@ -89,7 +89,6 @@ class DataTypeDataSourceAclSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  // ── DB helpers ─────────────────────────────────────────────────────────────
 
   private def seedUsers(): Unit = {
     import PostgresProfile.api._
@@ -122,7 +121,6 @@ class DataTypeDataSourceAclSpec
     DataSourceId(dsId)
   }
 
-  // ── Route fixtures ─────────────────────────────────────────────────────────
 
   private def dataTypeRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
@@ -160,7 +158,6 @@ class DataTypeDataSourceAclSpec
     )
   }
 
-  // ── DataType ACL tests ─────────────────────────────────────────────────────
 
   "GET /types/:id" should {
     "return 200 for the owner" in {
@@ -269,14 +266,12 @@ class DataTypeDataSourceAclSpec
       Delete(s"/types/${dtId.value}") ~> dataTypeRoutesFor(userB) ~> check {
         status shouldBe StatusCodes.NotFound
       }
-      // Owner can still read it
       Get(s"/types/${dtId.value}") ~> dataTypeRoutesFor(userA) ~> check {
         status shouldBe StatusCodes.OK
       }
     }
   }
 
-  // ── DataSource ACL tests ───────────────────────────────────────────────────
 
   "GET /data-sources (list)" should {
     "return only the caller's data sources (cross-user sources not leaked)" in {
@@ -361,7 +356,6 @@ class DataTypeDataSourceAclSpec
     }
   }
 
-  // ── Repository-level ACL tests ─────────────────────────────────────────────
 
   "DataTypeRepository.findByIdOwned" should {
     "return None for wrong owner" in {

@@ -11,7 +11,6 @@ import spray.json._
  *  to its pre-cache-support shape, and `ClaudeApiUsage`'s cache counters parse absent-tolerantly. */
 class ClaudeProtocolSpec extends AnyWordSpec with Matchers with ClaudeProtocol {
 
-  // ── ClaudeApiMessage ────────────────────────────────────────────────────
 
   "claudeApiMessageFormat" should {
 
@@ -40,7 +39,6 @@ class ClaudeProtocolSpec extends AnyWordSpec with Matchers with ClaudeProtocol {
     }
   }
 
-  // ── ClaudeApiContentBlock ───────────────────────────────────────────────
 
   "claudeApiContentBlockFormat" should {
 
@@ -83,7 +81,6 @@ class ClaudeProtocolSpec extends AnyWordSpec with Matchers with ClaudeProtocol {
     }
   }
 
-  // ── ClaudeApiTool ───────────────────────────────────────────────────────
 
   "claudeApiToolFormat" should {
 
@@ -114,7 +111,6 @@ class ClaudeProtocolSpec extends AnyWordSpec with Matchers with ClaudeProtocol {
     }
   }
 
-  // ── ClaudeApiUsage ──────────────────────────────────────────────────────
 
   "claudeApiUsageFormat" should {
 

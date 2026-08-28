@@ -8,7 +8,6 @@ import org.scalatest.wordspec.AnyWordSpec
  *  mixed-type edge cases, and confirms apply/infer parity for count. */
 class AggregateStepSpec extends AnyWordSpec with Matchers {
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
 
   private def agg(alias: String, fn: String, field: String): Aggregation =
     Aggregation(alias, fn, field)
@@ -29,7 +28,6 @@ class AggregateStepSpec extends AnyWordSpec with Matchers {
   ): Seq[Map[String, Any]] =
     AggregateStep.apply(rows, cfg(groupBy, aggregations))
 
-  // ── 1.2  Empty rows → empty output ────────────────────────────────────────
 
   "AggregateStep.apply" should {
 
@@ -42,7 +40,6 @@ class AggregateStepSpec extends AnyWordSpec with Matchers {
       result shouldBe empty
     }
 
-    // ── 1.3  Empty groupBy collapses all rows to one output row ──────────────
 
     "collapse all rows to one output row when groupBy is empty" in {
       val rows = Seq(
@@ -125,7 +122,6 @@ class AggregateStepSpec extends AnyWordSpec with Matchers {
       result.head("n") shouldBe 0L
     }
 
-    // ── 1.6  Multi-group sum ──────────────────────────────────────────────────
 
     "produce correct sum per group for multi-group input" in {
       val rows = Seq(
@@ -193,7 +189,6 @@ class AggregateStepSpec extends AnyWordSpec with Matchers {
       result.head("mx_label").asInstanceOf[AnyRef] shouldBe null
     }
 
-    // ── Single-row edge cases ──────────────────────────────────────────────────
 
     "handle single-row input for sum" in {
       val rows = Seq(Map[String, Any]("dept" -> "eng", "age" -> 42.0))

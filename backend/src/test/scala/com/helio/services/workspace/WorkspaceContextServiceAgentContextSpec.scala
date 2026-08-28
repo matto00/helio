@@ -146,7 +146,6 @@ class WorkspaceContextServiceAgentContextSpec
       lastUsedAt = lastUsedAt
     )
 
-  // ── 7.1 population ───────────────────────────────────────────────────────
 
   "assemble (7.1 agentContext population)" should {
     "populate agentContext.preferences and agentContext.memory for a caller with both stored" in {
@@ -166,7 +165,6 @@ class WorkspaceContextServiceAgentContextSpec
     }
   }
 
-  // ── 7.1 empty defaults ───────────────────────────────────────────────────
 
   "assemble (7.1 empty defaults)" should {
     "report empty agentContext when the caller has stored neither preferences nor memory" in {
@@ -186,7 +184,6 @@ class WorkspaceContextServiceAgentContextSpec
       }
   }
 
-  // ── 7.1 top-20 ranking ───────────────────────────────────────────────────
 
   "assemble (7.1 top-20 ranking)" should {
     "surface exactly 20 entries: touched entries most-recently-used first, never-used entries last" in {
@@ -219,7 +216,6 @@ class WorkspaceContextServiceAgentContextSpec
     }
   }
 
-  // ── 7.2 touch side effect ────────────────────────────────────────────────
 
   "assemble (7.2 touch side effect)" should {
     "touch each surfaced memory entry's lastUsedAt, leaving non-surfaced entries unchanged" in {
@@ -248,7 +244,6 @@ class WorkspaceContextServiceAgentContextSpec
     }
   }
 
-  // ── 7.3 memoryEnabled opt-out (HEL-531 / 420-E tasks.md 5.4) ─────────────
 
   "assemble (7.3 memoryEnabled opt-out)" should {
     "produce an empty agentContext.memory when memoryEnabled is false, while agentContext.preferences " +

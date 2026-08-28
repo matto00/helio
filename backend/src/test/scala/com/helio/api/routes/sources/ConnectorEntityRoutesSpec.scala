@@ -281,7 +281,6 @@ class ConnectorEntityRoutesSpec
         responseAs[ErrorResponse].message should include("ConnectorHasDependents")
       }
 
-      // Still there — not deleted.
       Get(s"/connectors/${created.id}") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.OK
       }

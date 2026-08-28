@@ -38,7 +38,6 @@ class DashboardApplyProposalMetricBindingSpec extends ApplyProposalSpecBase {
         .map(_.asJsObject.fields("title").convertTo[String])
     }
 
-  // ── POST /api/dashboards/apply-proposal ────────────────────────────────────
 
   "POST /api/dashboards/apply-proposal" should {
 
@@ -123,7 +122,6 @@ class DashboardApplyProposalMetricBindingSpec extends ApplyProposalSpecBase {
     }
   }
 
-  // ── PUT /api/dashboards/:id/contents ────────────────────────────────────────
   // DashboardContentsService shares ProposalPanelSupport.preValidateBindings,
   // so the same metricId checks apply here — proven atomic on an EXISTING
   // dashboard's panel set instead of "nothing created".

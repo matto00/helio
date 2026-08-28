@@ -211,7 +211,6 @@ class DashboardAuthoringRoutesSpec
     }
   }
 
-  // ── GET /api/authoring/conversations/:id (HEL-397 design.md D7) ─────────
 
   "GET /api/authoring/conversations/:id" should {
 

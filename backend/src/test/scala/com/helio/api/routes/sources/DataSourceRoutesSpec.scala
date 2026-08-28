@@ -288,7 +288,6 @@ class DataSourceRoutesSpec
         body.`type` shouldBe "csv"
         body.id         should not be empty
 
-        // DataType should be registered
         Get("/api/types") ~> routes() ~> check {
           status shouldBe StatusCodes.OK
           val types = responseAs[PagedResult[DataTypeResponse]]
@@ -725,7 +724,6 @@ class DataSourceRoutesSpec
 
     "return 200 and update the linked DataType schema" in {
       cleanDb()
-      // Upload initial CSV
       var sourceId = ""
       Post("/api/data-sources", multipartUpload("Refresh Test", "col1,col2\n1,true")) ~> routes() ~> check {
         status shouldBe StatusCodes.Created

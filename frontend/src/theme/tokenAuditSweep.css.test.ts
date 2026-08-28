@@ -214,23 +214,19 @@ const SPACING_BASELINE: BaselineEntry[] = [
   { file: "features/sources/ui/SourceDetailPanel.css", line: 20 },
 ];
 
-// --- Color -------------------------------------------------------------
 const COLOR_PATTERN = /#[0-9a-fA-F]{3,8}\b|rgba?\(/;
 const colorIsDisallowed = (): boolean => true; // any hit is a raw literal; no var()-based exclusion applies
 const COLOR_BASELINE: BaselineEntry[] = [];
 
-// --- Font-size -----------------------------------------------------------
 // design.md's widened font-size pattern: includes em/% (not just px/rem).
 const FONT_SIZE_PATTERN = /font-size:\s*[0-9.]+(px|rem|em|%)/;
 const fontSizeIsDisallowed = (line: string): boolean => !line.includes("var(--text-");
 const FONT_SIZE_BASELINE: BaselineEntry[] = [];
 
-// --- Font-weight ---------------------------------------------------------
 const FONT_WEIGHT_PATTERN = /font-weight:\s*[0-9]+/;
 const fontWeightIsDisallowed = (line: string): boolean => !line.includes("var(--weight-");
 const FONT_WEIGHT_BASELINE: BaselineEntry[] = [];
 
-// --- Font-family -----------------------------------------------------------
 const FONT_FAMILY_PATTERN = /font-family:/;
 const fontFamilyIsDisallowed = (line: string): boolean =>
   !/var\(--font-sans\)|var\(--font-display\)|var\(--font-mono\)|inherit|initial|unset/.test(line);

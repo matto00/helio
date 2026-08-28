@@ -86,7 +86,6 @@ class AgentMemoryRoutesSpec
     new AgentMemoryRoutes(service, user)(typedSystem).routes
   }
 
-  // ── GET/POST round-trip ────────────────────────────────────────────────
 
   "GET /agent/memory" should {
 
@@ -152,7 +151,6 @@ class AgentMemoryRoutesSpec
     }
   }
 
-  // ── DELETE /:id ─────────────────────────────────────────────────────────
 
   "DELETE /agent/memory/:id" should {
 
@@ -195,7 +193,6 @@ class AgentMemoryRoutesSpec
     }
   }
 
-  // ── DELETE (clear all) ─────────────────────────────────────────────────
 
   "DELETE /agent/memory" should {
 

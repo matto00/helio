@@ -86,7 +86,6 @@ class PipelineRunRoutesSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  // ── DB helpers ─────────────────────────────────────────────────────────────
 
   private def seedDsWithData(): String = {
     import PostgresProfile.api._
@@ -187,7 +186,6 @@ class PipelineRunRoutesSpec
     await(alertRuleRepo.insert(rule, dummyUser)).id
   }
 
-  // ── Test fixture helpers ──────────────────────────────────────────────────
 
   private val fileSystem = new LocalFileSystem(Paths.get("/"))
 
@@ -407,7 +405,6 @@ class PipelineRunRoutesSpec
       dt.fields.map(_.name) should contain allOf ("name", "score")
     }
 
-    // ── step preview tests ─────────────────────────────────────────────────
 
     "GET /pipelines/:id/steps/:stepId/preview returns first 10 rows for a valid step" in {
       val cache = new PipelineRunCache()
@@ -644,7 +641,6 @@ class PipelineRunRoutesSpec
       statusOpt shouldBe Some("failed")
     }
 
-    // ── SSE endpoint tests ─────────────────────────────────────────────────
 
     "GET /pipelines/:id/run-events returns text/event-stream for existing pipeline" in {
       val cache = new PipelineRunCache()
@@ -762,7 +758,6 @@ class PipelineRunRoutesSpec
       events.last.errorLog.get should not include "DataSource not found for join"
     }
 
-    // ── HEL-216: BinaryRefRepository.overwriteForDataType wiring ────────────
 
     "POST /pipelines/:id/run over an ImageSource populates binary_refs" in {
       val cache       = new PipelineRunCache()
@@ -815,7 +810,6 @@ class PipelineRunRoutesSpec
       await(binaryRefRepo.findByDataTypeId(dtId)) shouldBe empty
     }
 
-    // ── HEL-466: onRunSuccess -> AlertEvaluationService hook ────────────────
 
     "POST /pipelines/:id/run (non-dry, failure) invokes no alert evaluation and creates no events" in {
       val cache            = new PipelineRunCache()

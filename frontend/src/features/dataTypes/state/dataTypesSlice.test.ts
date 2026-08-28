@@ -91,7 +91,6 @@ describe("deleteDataType", () => {
         "One or more panels are bound to this type. Unbind them before deleting.",
       ),
     );
-    // Items unchanged on rejection
     expect(nextState.items).toHaveLength(1);
   });
 });
