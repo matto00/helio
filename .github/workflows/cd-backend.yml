@@ -55,4 +55,10 @@ jobs:
           # --max-instances=2 keeps the privileged DB pool (5 connections/instance,
           # helio.db.privileged in application.conf) within db-g1-small's
           # connection budget — 3+ instances previously exhausted it under load.
-          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001,HELIO_OWNER_EMAILS=mattheworr018@gmail.com --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest --max-instances=2"
+          # CONNECTOR_MASTER_KEY / _KEY_ID wrap connector credentials at rest
+          # (HEL-536). Both are required together: EnvMasterKeyProvider fails
+          # CLOSED without them, so every connector credential write errors
+          # rather than silently storing plaintext. NOTE this workflow — not
+          # infra/deploy-backend.sh — is what actually deploys; the script is
+          # for manual/local deploys and its wiring does NOT reach Cloud Run.
+          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001,HELIO_OWNER_EMAILS=mattheworr018@gmail.com,CONNECTOR_MASTER_KEY_ID=env-2026-08 --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest --max-instances=2"
