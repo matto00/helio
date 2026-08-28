@@ -7,7 +7,6 @@ import com.helio.domain.model._
 import com.helio.domain.panels._
 import spray.json._
 
-// ── Panel request / response types ───────────────────────────────────────────
 
 final case class PanelAppearancePayload(
     background: Option[String],
@@ -157,7 +156,6 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
     }
   }
 
-  // Chart appearance sub-types (panel-scoped)
   implicit val chartLegendFormat: RootJsonFormat[ChartLegend]         = jsonFormat2(ChartLegend.apply)
   implicit val chartTooltipFormat: RootJsonFormat[ChartTooltip]       = jsonFormat1(ChartTooltip.apply)
   implicit val chartAxisLabelFormat: RootJsonFormat[ChartAxisLabel]   = jsonFormat2(ChartAxisLabel.apply)
@@ -165,7 +163,6 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   implicit val chartAppearanceFormat: RootJsonFormat[ChartAppearance] = jsonFormat5(ChartAppearance.apply)
   implicit val panelAppearanceFormat: RootJsonFormat[PanelAppearance] = jsonFormat4(PanelAppearance.apply)
 
-  // Panel request / response formats
   implicit val panelAppearancePayloadFormat: RootJsonFormat[PanelAppearancePayload]   = jsonFormat4(PanelAppearancePayload.apply)
   implicit val panelAppearanceResponseFormat: RootJsonFormat[PanelAppearanceResponse] = jsonFormat4(PanelAppearanceResponse.apply)
   implicit val panelResponseFormat: RootJsonFormat[PanelResponse]                     = jsonFormat9(PanelResponse.apply)

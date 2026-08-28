@@ -222,7 +222,6 @@ final class ApiRoutes(
   // MDC put/remove is negligible and keeps the traced scope uniform.
   private val traceContext = new TraceContextDirective()
 
-  // Services
   private val accessChecker     = new AccessCheckerImpl(permissionRepo, registry)
   // HEL-703: read once, shared by authService (register/login/OAuth tier assignment) and
   // chatAccessServiceOpt (beta daily cap) below — mirrors cookieConfig's fromEnv-once convention.

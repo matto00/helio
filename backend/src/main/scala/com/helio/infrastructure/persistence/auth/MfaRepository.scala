@@ -22,7 +22,6 @@ class MfaRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
   private val backupCodes  = TableQuery[BackupCodeTable]
   private val challenges   = TableQuery[ChallengeTable]
 
-  // ── user_mfa ──────────────────────────────────────────────────────────────
 
   def findUserMfa(userId: UserId): Future[Option[UserMfa]] =
     db.run(userMfaTable.filter(_.userId === UUID.fromString(userId.value)).result.headOption)
@@ -67,7 +66,6 @@ class MfaRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
     db.run(action.transactionally)
   }
 
-  // ── mfa_backup_codes ─────────────────────────────────────────────────────
 
   def insertBackupCodes(userId: UserId, hashes: Seq[String]): Future[Unit] = {
     val uuid = UUID.fromString(userId.value)
@@ -97,7 +95,6 @@ class MfaRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
         .update(Some(Instant.now()))
     ).map(_ > 0)
 
-  // ── mfa_login_challenges ─────────────────────────────────────────────────
 
   def createChallenge(challenge: MfaLoginChallenge): Future[MfaLoginChallenge] = {
     val row = ChallengeRow(
@@ -130,7 +127,6 @@ class MfaRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
   def deleteChallenge(token: String): Future[Unit] =
     db.run(challenges.filter(_.tokenHash === TokenHashing.sha256Hex(token)).delete).map(_ => ())
 
-  // ── Row <-> domain ───────────────────────────────────────────────────────
 
   private def rowToDomain(row: UserMfaRow): UserMfa =
     UserMfa(

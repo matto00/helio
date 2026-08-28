@@ -67,8 +67,6 @@ export function AggregateConfig({
     onChange(next);
   }
 
-  // ── Group-by handlers ──────────────────────────────────────────────────────
-
   function handleAddGroupByRow() {
     // HEL sweep F-129: default to the first schema field not already used by
     // another group-by row — duplicating a partition key is never useful and
@@ -98,8 +96,6 @@ export function AggregateConfig({
     const groupBy = config.groupBy.filter((_, i) => i !== index);
     emit({ ...config, groupBy });
   }
-
-  // ── Aggregation handlers ───────────────────────────────────────────────────
 
   function handleAddAggregation() {
     // HEL sweep F-129: default to the first numeric-typed schema field

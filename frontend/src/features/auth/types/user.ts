@@ -39,8 +39,6 @@ export interface UpdateUserPreferenceRequest {
   user: UserPreferencePayload;
 }
 
-// ── TOTP MFA (HEL-702) ───────────────────────────────────────────────────────
-
 /** Returned by `POST /api/auth/login` / `GET /api/auth/google/callback` in
  *  place of `AuthResponse` when the account has MFA enabled (design.md D3/D5)
  *  — no session cookie is set and no user object is returned. */

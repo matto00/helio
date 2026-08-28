@@ -81,16 +81,13 @@ interface PipelinesState {
   runError: string | null;
   runIsDry: boolean | null;
   runHistory: Record<string, PipelineRunRecord[]>;
-  // Single-pipeline detail
   currentPipeline: PipelineSummary | null;
   currentPipelineStatus: "idle" | "loading" | "succeeded" | "failed";
   currentPipelineError: string | null;
   currentPipelineErrorKind: RequestErrorKind | null;
-  // Steps per pipeline
   steps: Record<string, PipelineStep[]>;
   stepsStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
   stepsError: Record<string, string | null>;
-  // Update operation
   updateStatus: "idle" | "loading" | "succeeded" | "failed";
   updateError: string | null;
   // Last successful run output rows (used to derive available field names for select ops)
@@ -308,8 +305,6 @@ export const applyPipelineProposal = createAsyncThunk<
   }
 });
 
-// ── Pipeline schedule (HEL-416) ─────────────────────────────────────────────
-
 /** GET the pipeline's schedule. A 404 ("no schedule set") is an expected
  *  domain state, not a failure — it resolves `fulfilled` with `schedule: null`
  *  (design D5, mirrors `dataTypesSlice.ts`'s 409-branching precedent). Any
@@ -387,7 +382,6 @@ const pipelinesSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // fetchPipelines
       .addCase(fetchPipelines.pending, (state) => {
         state.status = "loading";
         state.error = null;
@@ -404,7 +398,6 @@ const pipelinesSlice = createSlice({
         state.error = action.payload?.message ?? "Failed to load pipelines.";
         state.errorKind = action.payload?.kind ?? "error";
       })
-      // fetchPipelineById
       .addCase(fetchPipelineById.pending, (state) => {
         state.currentPipelineStatus = "loading";
         // Preserve currentPipelineError/currentPipelineErrorKind so the UI can
@@ -423,7 +416,6 @@ const pipelinesSlice = createSlice({
         state.currentPipelineError = action.payload?.message ?? "Failed to load pipeline.";
         state.currentPipelineErrorKind = action.payload?.kind ?? "error";
       })
-      // fetchPipelineSteps
       .addCase(fetchPipelineSteps.pending, (state, action) => {
         const pid = action.meta.arg;
         state.stepsStatus[pid] = "loading";
@@ -440,7 +432,6 @@ const pipelinesSlice = createSlice({
         state.stepsStatus[pid] = "failed";
         state.stepsError[pid] = action.payload ?? "Failed to load pipeline steps.";
       })
-      // updatePipeline
       .addCase(updatePipeline.pending, (state) => {
         state.updateStatus = "loading";
         state.updateError = null;
@@ -454,14 +445,12 @@ const pipelinesSlice = createSlice({
         state.updateStatus = "failed";
         state.updateError = action.payload ?? "Failed to update pipeline.";
       })
-      // deletePipeline
       .addCase(deletePipeline.fulfilled, (state, action) => {
         state.items = state.items.filter((p) => p.id !== action.payload);
         if (state.currentPipeline?.id === action.payload) {
           state.currentPipeline = null;
         }
       })
-      // createPipeline
       .addCase(createPipeline.pending, (state) => {
         state.createStatus = "loading";
         state.createError = null;
@@ -485,7 +474,6 @@ const pipelinesSlice = createSlice({
         state.createStatus = "failed";
         state.createError = action.payload ?? "Failed to create pipeline.";
       })
-      // submitPipelineRun
       .addCase(submitPipelineRun.pending, (state, action) => {
         state.runId = null;
         state.runStatus = "queued";
@@ -505,11 +493,9 @@ const pipelinesSlice = createSlice({
         state.runIsDry = null;
         state.runError = action.payload ?? "Failed to start pipeline run.";
       })
-      // fetchPipelineRunHistory
       .addCase(fetchPipelineRunHistory.fulfilled, (state, action) => {
         state.runHistory[action.payload.pipelineId] = action.payload.records;
       })
-      // analyzePipeline
       .addCase(analyzePipeline.pending, (state, action) => {
         const pid = action.meta.arg;
         state.analyzeStatus[pid] = "loading";
@@ -526,7 +512,6 @@ const pipelinesSlice = createSlice({
         state.analyzeStatus[pid] = "failed";
         state.analyzeError[pid] = action.payload ?? "Failed to analyze pipeline.";
       })
-      // fetchPipelineSchedule
       .addCase(fetchPipelineSchedule.pending, (state, action) => {
         const pid = action.meta.arg;
         state.scheduleStatus[pid] = "loading";
@@ -543,7 +528,6 @@ const pipelinesSlice = createSlice({
         state.scheduleStatus[pid] = "failed";
         state.scheduleError[pid] = action.payload ?? "Failed to load pipeline schedule.";
       })
-      // savePipelineSchedule
       .addCase(savePipelineSchedule.pending, (state) => {
         state.scheduleSaveStatus = "loading";
         state.scheduleSaveError = null;
@@ -560,7 +544,6 @@ const pipelinesSlice = createSlice({
         state.scheduleSaveStatus = "failed";
         state.scheduleSaveError = action.payload ?? "Failed to save pipeline schedule.";
       })
-      // deletePipelineSchedule
       .addCase(deletePipelineSchedule.pending, (state) => {
         state.scheduleSaveStatus = "loading";
         state.scheduleSaveError = null;

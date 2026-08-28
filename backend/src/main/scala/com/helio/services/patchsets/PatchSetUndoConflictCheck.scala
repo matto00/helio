@@ -66,7 +66,6 @@ private[services] object PatchSetUndoConflictCheck {
   private def changed(edit: JournaledEdit, detail: String): String =
     s"edit ${edit.index} (${edit.targetKind} ${edit.op}): $detail"
 
-  // ── panel ────────────────────────────────────────────────────────────────
 
   /** `config` is compared with `metricDeprecated` stripped from both sides unconditionally (it
    *  is server-materialized, never patch-decodable). For the rest of `config`, this prefers
@@ -108,7 +107,6 @@ private[services] object PatchSetUndoConflictCheck {
     case other          => other
   }
 
-  // ── dashboard ────────────────────────────────────────────────────────────
 
   private def checkDashboard(edit: JournaledEdit, user: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Option[String]] =
     edit.resultingState match {
@@ -124,7 +122,6 @@ private[services] object PatchSetUndoConflictCheck {
         }
     }
 
-  // ── dataSource ───────────────────────────────────────────────────────────
 
   private def checkDataSource(edit: JournaledEdit, user: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Option[String]] =
     edit.resultingState match {
@@ -139,7 +136,6 @@ private[services] object PatchSetUndoConflictCheck {
         }
     }
 
-  // ── dataType ─────────────────────────────────────────────────────────────
 
   private def checkDataType(edit: JournaledEdit, user: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Option[String]] =
     edit.resultingState match {
@@ -155,7 +151,6 @@ private[services] object PatchSetUndoConflictCheck {
         }
     }
 
-  // ── pipeline ─────────────────────────────────────────────────────────────
   //
   // design.md D4a: `PipelineSummaryResponse.lastRunStatus`/`lastRunAt`/`lastRunRowCount` update
   // on every pipeline run (scheduled, manual, or hook-triggered — HEL-340) independent of any
@@ -175,7 +170,6 @@ private[services] object PatchSetUndoConflictCheck {
         }
     }
 
-  // ── pipelineStep ─────────────────────────────────────────────────────────
 
   private def checkPipelineStep(edit: JournaledEdit, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Option[String]] =
     edit.resultingState match {

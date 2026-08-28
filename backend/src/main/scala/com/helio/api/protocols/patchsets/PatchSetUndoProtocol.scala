@@ -3,7 +3,6 @@ package com.helio.api.protocols.patchsets
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Patch-set undo response types (HEL-413) ──────────────────────────────────
 //
 // `PatchSetUndoService.undo` (design.md D4/D5) returns one `EditUndoOutcome` per journaled edit,
 // in ascending `index` order (mirrors `PatchSetApplyResponse.edits`'s own convention). Unlike

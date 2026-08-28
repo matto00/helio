@@ -3,7 +3,6 @@ package com.helio.api.protocols.proposals
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Dashboard proposal types (HEL-223/225 apply-proposal contract) ───────────
 //
 // A proposal carries NO ids: applying it (POST /api/dashboards/apply-proposal)
 // mints the dashboard + panels via the existing services. Data panels reference

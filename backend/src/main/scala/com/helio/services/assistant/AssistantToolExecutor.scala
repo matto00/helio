@@ -110,7 +110,6 @@ final class AssistantToolExecutor(
       case other                => Future.successful(Left(s"Unknown tool: $other"))
     }
 
-  // ── find / get_resource (HEL-661 dispatch, design.md D4) ────────────────────────────────────
 
   private def executeFind(input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] = {
     val obj   = input.asJsObject
@@ -173,7 +172,6 @@ final class AssistantToolExecutor(
     }
   }
 
-  // ── test_connection (HEL-756 tasks.md 1.3) ──────────────────────────────────────────────────
 
   /** Decodes `{type, config}` by `type` (mirrors `SourcePreviewRoutes`'s `POST /sources/test`
    *  dispatch), calls `sourceService.testRest`/`testSql`, and — on a `Right(TestConnectionResponse)`
@@ -216,7 +214,6 @@ final class AssistantToolExecutor(
     }
   }
 
-  // ── propose_* (design.md D5/D6, Hard Boundary) ──────────────────────────────────────────────
 
   /** HEL-756 tasks.md 1.4/1.5 (design.md D1/D4) — `Right(())` for a `sourceId` source (existing,
    *  already-tested) or an inline `csv`/`static` source (no live endpoint to reach); for inline

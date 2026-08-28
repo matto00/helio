@@ -6,7 +6,6 @@ package com.helio
  *  even though their authoritative definitions now live under
  *  `com.helio.api.protocols`. */
 package object api {
-  // Resource / shared
   type ResourceMetaResponse = protocols.ResourceMetaResponse
   val ResourceMetaResponse: protocols.ResourceMetaResponse.type = protocols.ResourceMetaResponse
   type ErrorResponse = protocols.ErrorResponse
@@ -14,7 +13,6 @@ package object api {
   type HealthResponse = protocols.HealthResponse
   val HealthResponse: protocols.HealthResponse.type = protocols.HealthResponse
 
-  // Auth
   type RegisterRequest = protocols.auth.RegisterRequest
   val RegisterRequest: protocols.auth.RegisterRequest.type = protocols.auth.RegisterRequest
   type LoginRequest = protocols.auth.LoginRequest
@@ -30,7 +28,6 @@ package object api {
   type UpdateUserPreferenceRequest = protocols.auth.UpdateUserPreferenceRequest
   val UpdateUserPreferenceRequest: protocols.auth.UpdateUserPreferenceRequest.type = protocols.auth.UpdateUserPreferenceRequest
 
-  // MFA / TOTP (HEL-702)
   type MfaStatusResponse = protocols.auth.MfaStatusResponse
   val MfaStatusResponse: protocols.auth.MfaStatusResponse.type = protocols.auth.MfaStatusResponse
   type MfaEnrollResponse = protocols.auth.MfaEnrollResponse
@@ -46,7 +43,6 @@ package object api {
   type MfaRequiredResponse = protocols.auth.MfaRequiredResponse
   val MfaRequiredResponse: protocols.auth.MfaRequiredResponse.type = protocols.auth.MfaRequiredResponse
 
-  // ApiToken (PAT)
   type CreateApiTokenRequest = protocols.auth.CreateApiTokenRequest
   val CreateApiTokenRequest: protocols.auth.CreateApiTokenRequest.type = protocols.auth.CreateApiTokenRequest
   type CreateApiTokenResponse = protocols.auth.CreateApiTokenResponse
@@ -54,7 +50,6 @@ package object api {
   type ApiTokenResponse = protocols.auth.ApiTokenResponse
   val ApiTokenResponse: protocols.auth.ApiTokenResponse.type = protocols.auth.ApiTokenResponse
 
-  // Dashboard
   type DashboardAppearancePayload = protocols.dashboards.DashboardAppearancePayload
   val DashboardAppearancePayload: protocols.dashboards.DashboardAppearancePayload.type = protocols.dashboards.DashboardAppearancePayload
   type DashboardLayoutItemPayload = protocols.dashboards.DashboardLayoutItemPayload
@@ -86,7 +81,6 @@ package object api {
   type DashboardSnapshotPayload = protocols.dashboards.DashboardSnapshotPayload
   val DashboardSnapshotPayload: protocols.dashboards.DashboardSnapshotPayload.type = protocols.dashboards.DashboardSnapshotPayload
 
-  // Dashboard proposal (apply-proposal)
   type DashboardProposal = protocols.proposals.DashboardProposal
   val DashboardProposal: protocols.proposals.DashboardProposal.type = protocols.proposals.DashboardProposal
   type ProposalPanel = protocols.proposals.ProposalPanel
@@ -94,18 +88,15 @@ package object api {
   type ProposalPanelLayout = protocols.proposals.ProposalPanelLayout
   val ProposalPanelLayout: protocols.proposals.ProposalPanelLayout.type = protocols.proposals.ProposalPanelLayout
 
-  // Dashboard contents replace (HEL-363)
   type ReplaceDashboardContentsRequest = protocols.proposals.ReplaceDashboardContentsRequest
   val ReplaceDashboardContentsRequest: protocols.proposals.ReplaceDashboardContentsRequest.type =
     protocols.proposals.ReplaceDashboardContentsRequest
 
-  // Dashboard auto-layout (HEL-367)
   type AutoLayoutItemPayload = protocols.dashboards.AutoLayoutItemPayload
   val AutoLayoutItemPayload: protocols.dashboards.AutoLayoutItemPayload.type = protocols.dashboards.AutoLayoutItemPayload
   type AutoLayoutRequest = protocols.dashboards.AutoLayoutRequest
   val AutoLayoutRequest: protocols.dashboards.AutoLayoutRequest.type = protocols.dashboards.AutoLayoutRequest
 
-  // Panel
   type PanelAppearancePayload = protocols.panels.PanelAppearancePayload
   val PanelAppearancePayload: protocols.panels.PanelAppearancePayload.type = protocols.panels.PanelAppearancePayload
   type PanelAppearanceResponse = protocols.panels.PanelAppearanceResponse
@@ -131,13 +122,11 @@ package object api {
   type CreatePanelsBatchResponse = protocols.panels.CreatePanelsBatchResponse
   val CreatePanelsBatchResponse: protocols.panels.CreatePanelsBatchResponse.type = protocols.panels.CreatePanelsBatchResponse
 
-  // Bound panel (HEL-364)
   type BoundPanelRequest = protocols.panels.BoundPanelRequest
   val BoundPanelRequest: protocols.panels.BoundPanelRequest.type = protocols.panels.BoundPanelRequest
   type BoundPanelResponse = protocols.panels.BoundPanelResponse
   val BoundPanelResponse: protocols.panels.BoundPanelResponse.type = protocols.panels.BoundPanelResponse
 
-  // DataType
   type DataTypeResponse = protocols.pipelines.DataTypeResponse
   val DataTypeResponse: protocols.pipelines.DataTypeResponse.type = protocols.pipelines.DataTypeResponse
   type DataTypesResponse = protocols.pipelines.DataTypesResponse
@@ -159,7 +148,6 @@ package object api {
   type DataTypeRowsResponse = protocols.pipelines.DataTypeRowsResponse
   val DataTypeRowsResponse: protocols.pipelines.DataTypeRowsResponse.type = protocols.pipelines.DataTypeRowsResponse
 
-  // DataSource
   type DataSourceResponse = protocols.sources.DataSourceResponse
   val DataSourceResponse: protocols.sources.DataSourceResponse.type = protocols.sources.DataSourceResponse
   type DataSourcesResponse = protocols.sources.DataSourcesResponse
@@ -217,7 +205,6 @@ package object api {
   type ImageSourceResponse = protocols.sources.ImageSourceResponse
   val ImageSourceResponse: protocols.sources.ImageSourceResponse.type = protocols.sources.ImageSourceResponse
 
-  // Pipeline
   type CreatePipelineRequest = protocols.pipelines.CreatePipelineRequest
   val CreatePipelineRequest: protocols.pipelines.CreatePipelineRequest.type = protocols.pipelines.CreatePipelineRequest
   type UpdatePipelineRequest = protocols.pipelines.UpdatePipelineRequest
@@ -228,7 +215,6 @@ package object api {
   val CreatePipelineStepRequest: protocols.pipelines.CreatePipelineStepRequest.type = protocols.pipelines.CreatePipelineStepRequest
   type UpdatePipelineStepRequest = protocols.pipelines.UpdatePipelineStepRequest
   val UpdatePipelineStepRequest: protocols.pipelines.UpdatePipelineStepRequest.type = protocols.pipelines.UpdatePipelineStepRequest
-  // Batch step reorder (HEL-407)
   type ReorderPipelineStepsRequest = protocols.pipelines.ReorderPipelineStepsRequest
   val ReorderPipelineStepsRequest: protocols.pipelines.ReorderPipelineStepsRequest.type = protocols.pipelines.ReorderPipelineStepsRequest
   type PipelineStepResponse = protocols.pipelines.PipelineStepResponse
@@ -247,7 +233,6 @@ package object api {
   val PipelineRunRecord: protocols.pipelines.PipelineRunRecord.type = protocols.pipelines.PipelineRunRecord
   type RunResultResponse = protocols.pipelines.RunResultResponse
   val RunResultResponse: protocols.pipelines.RunResultResponse.type = protocols.pipelines.RunResultResponse
-  // Assertion summary (HEL-576)
   type AssertionFailureDetail = protocols.pipelines.AssertionFailureDetail
   val AssertionFailureDetail: protocols.pipelines.AssertionFailureDetail.type = protocols.pipelines.AssertionFailureDetail
   type AssertionSummary = protocols.pipelines.AssertionSummary
@@ -255,11 +240,9 @@ package object api {
   type AssertionStatusResponse = protocols.pipelines.AssertionStatusResponse
   val AssertionStatusResponse: protocols.pipelines.AssertionStatusResponse.type = protocols.pipelines.AssertionStatusResponse
 
-  // Image upload (HEL-246)
   type ImageUploadResponse = protocols.sources.ImageUploadResponse
   val ImageUploadResponse: protocols.sources.ImageUploadResponse.type = protocols.sources.ImageUploadResponse
 
-  // Permission
   type GrantPermissionRequest = protocols.auth.GrantPermissionRequest
   val GrantPermissionRequest: protocols.auth.GrantPermissionRequest.type = protocols.auth.GrantPermissionRequest
   type PermissionResponse = protocols.auth.PermissionResponse
@@ -267,7 +250,6 @@ package object api {
   type PermissionsResponse = protocols.auth.PermissionsResponse
   val PermissionsResponse: protocols.auth.PermissionsResponse.type = protocols.auth.PermissionsResponse
 
-  // AlertRule (HEL-447)
   type AlertRuleResponse = protocols.alerts.AlertRuleResponse
   val AlertRuleResponse: protocols.alerts.AlertRuleResponse.type = protocols.alerts.AlertRuleResponse
   type AlertRulesResponse = protocols.alerts.AlertRulesResponse
@@ -277,7 +259,6 @@ package object api {
   type UpdateAlertRuleRequest = protocols.alerts.UpdateAlertRuleRequest
   val UpdateAlertRuleRequest: protocols.alerts.UpdateAlertRuleRequest.type = protocols.alerts.UpdateAlertRuleRequest
 
-  // AlertEvent (HEL-455)
   type AlertEventResponse = protocols.alerts.AlertEventResponse
   val AlertEventResponse: protocols.alerts.AlertEventResponse.type = protocols.alerts.AlertEventResponse
   type AlertEventsResponse = protocols.alerts.AlertEventsResponse
@@ -292,19 +273,16 @@ package object api {
   val CreateMetricRequest: protocols.metrics.CreateMetricRequest.type = protocols.metrics.CreateMetricRequest
   type UpdateMetricRequest = protocols.metrics.UpdateMetricRequest
   val UpdateMetricRequest: protocols.metrics.UpdateMetricRequest.type = protocols.metrics.UpdateMetricRequest
-  // Metric usage (HEL-560 — GET /api/metrics/:id/usage)
   type MetricUsagePanelResponse = protocols.metrics.MetricUsagePanelResponse
   val MetricUsagePanelResponse: protocols.metrics.MetricUsagePanelResponse.type = protocols.metrics.MetricUsagePanelResponse
   type MetricUsageResponse = protocols.metrics.MetricUsageResponse
   val MetricUsageResponse: protocols.metrics.MetricUsageResponse.type = protocols.metrics.MetricUsageResponse
 
-  // PipelineSchedule (HEL-414)
   type PipelineScheduleResponse = protocols.pipelines.PipelineScheduleResponse
   val PipelineScheduleResponse: protocols.pipelines.PipelineScheduleResponse.type = protocols.pipelines.PipelineScheduleResponse
   type PutPipelineScheduleRequest = protocols.pipelines.PutPipelineScheduleRequest
   val PutPipelineScheduleRequest: protocols.pipelines.PutPipelineScheduleRequest.type = protocols.pipelines.PutPipelineScheduleRequest
 
-  // Connector registry (HEL-484)
   type ConnectorFieldDescriptorResponse = protocols.sources.ConnectorFieldDescriptorResponse
   val ConnectorFieldDescriptorResponse: protocols.sources.ConnectorFieldDescriptorResponse.type = protocols.sources.ConnectorFieldDescriptorResponse
   type ConnectorMetadataResponse = protocols.sources.ConnectorMetadataResponse
@@ -321,19 +299,16 @@ package object api {
   val RotateConnectorCredentialRequest: protocols.sources.RotateConnectorCredentialRequest.type =
     protocols.sources.RotateConnectorCredentialRequest
 
-  // Pipeline shape catalog (HEL-391)
   type OutputContractResponse = protocols.pipelines.OutputContractResponse
   val OutputContractResponse: protocols.pipelines.OutputContractResponse.type = protocols.pipelines.OutputContractResponse
   type PipelineShapeCatalogEntryResponse = protocols.pipelines.PipelineShapeCatalogEntryResponse
   val PipelineShapeCatalogEntryResponse: protocols.pipelines.PipelineShapeCatalogEntryResponse.type = protocols.pipelines.PipelineShapeCatalogEntryResponse
 
-  // Pipeline shape expand (HEL-402)
   type ExpandPipelineShapeRequest = protocols.pipelines.ExpandPipelineShapeRequest
   val ExpandPipelineShapeRequest: protocols.pipelines.ExpandPipelineShapeRequest.type = protocols.pipelines.ExpandPipelineShapeRequest
   type ShapeStepExpansionResponse = protocols.pipelines.ShapeStepExpansionResponse
   val ShapeStepExpansionResponse: protocols.pipelines.ShapeStepExpansionResponse.type = protocols.pipelines.ShapeStepExpansionResponse
 
-  // Workspace tag-teardown (HEL-366)
   type TeardownRequest = protocols.workspace.TeardownRequest
   val TeardownRequest: protocols.workspace.TeardownRequest.type = protocols.workspace.TeardownRequest
   type TeardownConflictResponse = protocols.workspace.TeardownConflictResponse
@@ -341,13 +316,11 @@ package object api {
   type TeardownResponse = protocols.workspace.TeardownResponse
   val TeardownResponse: protocols.workspace.TeardownResponse.type = protocols.workspace.TeardownResponse
 
-  // External trigger hook (HEL-369)
   type HookRunRequest = protocols.hooks.HookRunRequest
   val HookRunRequest: protocols.hooks.HookRunRequest.type = protocols.hooks.HookRunRequest
   type HookTriggerResponse = protocols.hooks.HookTriggerResponse
   val HookTriggerResponse: protocols.hooks.HookTriggerResponse.type = protocols.hooks.HookTriggerResponse
 
-  // Workspace context assembler (HEL-371)
   type WorkspaceContextCounts = protocols.workspace.WorkspaceContextCounts
   val WorkspaceContextCounts: protocols.workspace.WorkspaceContextCounts.type = protocols.workspace.WorkspaceContextCounts
   type WorkspaceContextDataSource = protocols.workspace.WorkspaceContextDataSource
@@ -367,7 +340,6 @@ package object api {
   type WorkspaceContextResponse = protocols.workspace.WorkspaceContextResponse
   val WorkspaceContextResponse: protocols.workspace.WorkspaceContextResponse.type = protocols.workspace.WorkspaceContextResponse
 
-  // Dashboard authoring (HEL-392)
   type AuthoringContextOptions = protocols.proposals.AuthoringContextOptions
   val AuthoringContextOptions: protocols.proposals.AuthoringContextOptions.type = protocols.proposals.AuthoringContextOptions
   type DashboardAuthoringRequest = protocols.proposals.DashboardAuthoringRequest
@@ -382,7 +354,6 @@ package object api {
   type AuthoringOutcomeRequest = protocols.proposals.AuthoringOutcomeRequest
   val AuthoringOutcomeRequest: protocols.proposals.AuthoringOutcomeRequest.type = protocols.proposals.AuthoringOutcomeRequest
 
-  // Conversational refinement (HEL-411)
   type RefinementTarget = protocols.patchsets.RefinementTarget
   val RefinementTarget: protocols.patchsets.RefinementTarget.type = protocols.patchsets.RefinementTarget
   type RefinementRequest = protocols.patchsets.RefinementRequest

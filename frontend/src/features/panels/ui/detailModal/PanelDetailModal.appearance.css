@@ -1,5 +1,3 @@
-/* Chart appearance section */
-
 .panel-detail-modal__section-heading {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
@@ -47,8 +45,6 @@
   cursor: pointer;
   padding: 1px;
 }
-
-/* Chart type selector */
 
 .panel-detail-modal__chart-type-section {
   display: grid;

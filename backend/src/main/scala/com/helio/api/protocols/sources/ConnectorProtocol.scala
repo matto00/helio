@@ -4,7 +4,6 @@ import com.helio.domain.connectors.ConnectorMetadata
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Connector registry API types (HEL-484) ───────────────────────────────────
 
 /** Wire shape for one `ConnectorFieldDescriptor` — a name/label/secret-flag
  *  descriptor only, never a value. */

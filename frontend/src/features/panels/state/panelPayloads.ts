@@ -34,8 +34,6 @@ import type {
 import { emptyConfigForKind } from "../types/panel";
 import { defaultChartAppearance, defaultPanelAppearance } from "../../../theme/appearance";
 
-// ── Create payload ──────────────────────────────────────────────────────────
-
 export interface CreatePanelBody {
   dashboardId: string;
   title: string;
@@ -164,7 +162,6 @@ function seedCreateConfig(
   }
 }
 
-// ── Update payload ──────────────────────────────────────────────────────────
 //
 // PATCH `config` objects are partial — only the fields the user is changing
 // appear, so the per-subtype `Patch.decode` on the backend preserves
@@ -358,8 +355,6 @@ export function buildDividerPatch(args: {
     color: args.color,
   };
 }
-
-// ── Batch payload ───────────────────────────────────────────────────────────
 
 export interface BatchPanelItem {
   id: string;

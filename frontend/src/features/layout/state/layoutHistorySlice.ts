@@ -84,8 +84,6 @@ const layoutHistorySlice = createSlice({
 export const { pushLayoutSnapshot, undoLayout, redoLayout } = layoutHistorySlice.actions;
 export const layoutHistoryReducer = layoutHistorySlice.reducer;
 
-// --- Selectors ---
-
 export function selectCanUndo(dashboardId: string | null) {
   return (state: RootState): boolean => {
     if (!dashboardId) return false;

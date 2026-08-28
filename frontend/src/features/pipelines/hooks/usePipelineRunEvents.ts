@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-// -- Types ---------------------------------------------------------------
-
 export type SseRunStatus = "queued" | "running" | "succeeded" | "failed" | "dry_run";
 
 export interface RunStatusEventData {
@@ -25,8 +23,6 @@ export interface UsePipelineRunEventsOptions {
 }
 
 const TERMINAL_STATUSES = new Set<SseRunStatus>(["succeeded", "failed", "dry_run"]);
-
-// -- Hook -----------------------------------------------------------------
 
 /**
  * Opens an authenticated SSE connection to GET /api/pipelines/:id/run-events

@@ -34,8 +34,6 @@ export function UnpivotConfig({ config, analyzeSchema, onChange }: UnpivotConfig
     onChange(next);
   }
 
-  // ── idVars handlers ─────────────────────────────────────────────────────
-
   function handleAddIdVarRow() {
     const defaultField = analyzeSchema.length > 0 ? analyzeSchema[0].name : "";
     emit({ ...config, idVars: [...config.idVars, defaultField] });
@@ -50,8 +48,6 @@ export function UnpivotConfig({ config, analyzeSchema, onChange }: UnpivotConfig
     const idVars = config.idVars.filter((_, i) => i !== rowIndex);
     emit({ ...config, idVars });
   }
-
-  // ── valueVars handlers ──────────────────────────────────────────────────
 
   function handleAddValueVarRow() {
     const defaultField = analyzeSchema.length > 0 ? analyzeSchema[0].name : "";

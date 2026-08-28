@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import org.apache.pekko.util.ByteString
 import spray.json._
 
-// ── NL → dashboard-proposal authoring API types (HEL-392) ───────────────────
 //
 // POST /api/authoring/dashboard's wire shape. See
 // `com.helio.services.DashboardAuthoringService` for how these are built —

@@ -103,7 +103,6 @@ export function Select({
     }
   }
 
-  // Reposition on resize/scroll while open.
   useEffect(() => {
     if (!isOpen) return;
     function reposition() {

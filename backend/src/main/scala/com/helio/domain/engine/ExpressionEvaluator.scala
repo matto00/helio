@@ -56,7 +56,6 @@ object EvaluationError {
  */
 object ExpressionEvaluator {
 
-  // ── Tokens ──────────────────────────────────────────────────────────────────
 
   private sealed trait Token
   private object Token {
@@ -159,7 +158,6 @@ object ExpressionEvaluator {
     Right(buf.toVector)
   }
 
-  // ── AST ─────────────────────────────────────────────────────────────────────
 
   private sealed trait Expr
   private final case class NumLit(v: Double)          extends Expr
@@ -307,7 +305,6 @@ object ExpressionEvaluator {
     }
   }
 
-  // ── Internal parse entry points ─────────────────────────────────────────────
 
   private def parse(expr: String): Either[String, Expr] =
     if (expr.trim.isEmpty) Left("Expression is empty")
@@ -319,7 +316,6 @@ object ExpressionEvaluator {
 
   private def isDollarPrefixError(msg: String): Boolean = msg == DollarPrefixRequiredMsg
 
-  // ── Validation ──────────────────────────────────────────────────────────────
 
   /**
    * Validate expression syntax and field references without evaluating. STRICT:
@@ -364,7 +360,6 @@ object ExpressionEvaluator {
       }
   }
 
-  // ── Type inference (design.md Decision 5) ───────────────────────────────────
 
   /**
    * Compute the result type (`"number"` or `"string"`) of `expr` by walking its AST
@@ -404,7 +399,6 @@ object ExpressionEvaluator {
           }
     }
 
-  // ── Evaluation ───────────────────────────────────────────────────────────────
 
   /** Intermediate value type used during evaluation. */
   private sealed trait Val
@@ -468,7 +462,6 @@ object ExpressionEvaluator {
       // Null propagation — if either side is null the result is null
       case (_, VNull, _) | (_, _, VNull) => Right(VNull)
 
-      // Numeric arithmetic
       case ('+', VNum(a), VNum(b)) => Right(VNum(a + b))
       case ('-', VNum(a), VNum(b)) => Right(VNum(a - b))
       case ('*', VNum(a), VNum(b)) => Right(VNum(a * b))
@@ -476,12 +469,10 @@ object ExpressionEvaluator {
         if (b == 0) Left(EvaluationError.DivisionByZero(exprStr))
         else Right(VNum(a / b))
 
-      // String concatenation (+ only)
       case ('+', VStr(a), VStr(b)) => Right(VStr(a + b))
       case ('+', VNum(a), VStr(b)) => Right(VStr(numStr(a) + b))
       case ('+', VStr(a), VNum(b)) => Right(VStr(a + numStr(b)))
 
-      // Type error
       case _ =>
         Left(EvaluationError.TypeError(
           s"Operator '$op' cannot be applied to ${typeName(l)} and ${typeName(r)}"

@@ -114,7 +114,6 @@ export type DataSource =
   | PdfSource
   | ImageSource;
 
-// ── Type-narrowing helpers ───────────────────────────────────────────────────
 // Used by multiple consumers (SourceDetailPanel, refresh dispatcher) so we
 // lift them out of the call sites.
 
@@ -126,7 +125,6 @@ export const isTextSource = (s: DataSource): s is TextSource => s.type === "text
 export const isPdfSource = (s: DataSource): s is PdfSource => s.type === "pdf";
 export const isImageSource = (s: DataSource): s is ImageSource => s.type === "image";
 
-// ── Source schema + static-source payload types ─────────────────────────────
 // Extracted from `types/models.ts` in CS4 cycle 1.
 
 export interface InferredField {

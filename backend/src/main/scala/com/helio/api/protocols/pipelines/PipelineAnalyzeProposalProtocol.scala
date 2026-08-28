@@ -3,7 +3,6 @@ package com.helio.api.protocols.pipelines
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Dry-analyze-a-proposal API types (HEL-381) ────────────────────────────────
 //
 // `POST /api/pipelines/analyze-proposal` projects the output schema of a
 // not-yet-created `PipelineProposal` (HEL-379) — no id/outputDataTypeId

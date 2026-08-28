@@ -1,4 +1,3 @@
-/* ── Toast system ────────────────────────────────────────────────────────── */
 /* Intent tokens (--app-success/warning/error/info) come from theme.css. */
 
 /* Viewport: fixed stack in the bottom-right corner */
@@ -26,7 +25,6 @@
   }
 }
 
-/* Individual toast card */
 .toast {
   display: flex;
   align-items: flex-start;
@@ -70,7 +68,6 @@
   }
 }
 
-/* Variant intent colors */
 .toast--info {
   --toast-intent-color: var(--app-info);
 }
@@ -87,7 +84,6 @@
   --toast-intent-color: var(--app-error);
 }
 
-/* Icon column */
 .toast__icon {
   flex-shrink: 0;
   margin-top: 1px;
@@ -95,7 +91,6 @@
   font-size: var(--text-sm);
 }
 
-/* Text body */
 .toast__body {
   flex: 1;
   min-width: 0;
@@ -108,7 +103,6 @@
   margin: 0;
 }
 
-/* Optional action button */
 .toast__action {
   display: inline-flex;
   align-items: center;
@@ -129,7 +123,6 @@
   opacity: 0.8;
 }
 
-/* Close button */
 .toast__close {
   flex-shrink: 0;
   display: flex;
@@ -179,7 +172,6 @@
   }
 }
 
-/* Animations */
 @keyframes toast-slide-in {
   from {
     opacity: 0;

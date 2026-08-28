@@ -7,7 +7,6 @@ package com.helio
  *  service / repo / test call sites untouched. */
 package object domain {
 
-  // ── Step subtypes ──────────────────────────────────────────────────────────
   type RenameStep    = steps.RenameStep
   val  RenameStep    = steps.RenameStep
   type FilterStep    = steps.FilterStep
@@ -55,7 +54,6 @@ package object domain {
   type AssertStep     = steps.AssertStep
   val  AssertStep     = steps.AssertStep
 
-  // ── Typed configs ──────────────────────────────────────────────────────────
   type RenameConfig    = steps.RenameConfig
   val  RenameConfig    = steps.RenameConfig
   type FilterCondition = steps.FilterCondition

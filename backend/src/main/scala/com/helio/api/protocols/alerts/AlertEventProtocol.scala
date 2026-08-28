@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import spray.json._
 
-// ── AlertEvent API types ─────────────────────────────────────────────────────
 
 final case class AlertEventResponse(
     id: String,

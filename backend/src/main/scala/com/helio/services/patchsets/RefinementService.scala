@@ -47,7 +47,6 @@ final class RefinementService(
    *  verbatim) and the REAL accumulated token usage across every Claude call this attempt made. */
   private final case class AttemptOutcome(patchSet: PatchSet, finalResponseText: String, tokens: TokenUsage)
 
-  // ── Public API ──────────────────────────────────────────────────────────
 
   def refine(request: RefinementRequest, user: AuthenticatedUser): Future[Either[AuthoringError, RefinementResponse]] =
     request.conversationId match {
@@ -55,7 +54,6 @@ final class RefinementService(
       case None         => startBuffered(request, user)
     }
 
-  // ── Turn 1 (no conversationId) ─────────────────────────────────────────
 
   private def startBuffered(request: RefinementRequest, user: AuthenticatedUser): Future[Either[AuthoringError, RefinementResponse]] =
     refinementGrounding.assemble(request.target, user).flatMap {
@@ -71,7 +69,6 @@ final class RefinementService(
         }
     }
 
-  // ── Continued turns (conversationId present, design.md D3a) ────────────
 
   private def continueBuffered(
       id: AuthoringConversationId,
@@ -121,7 +118,6 @@ final class RefinementService(
       case Some(record) => Right(record)
     }
 
-  // ── Shared parse -> validate core (design.md D2) ────────────────────────
 
   private def parseAndValidate(text: String, user: AuthenticatedUser): Future[Either[String, PatchSet]] =
     RefinementParsing.parsePatchSet(text) match {

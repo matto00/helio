@@ -3,7 +3,6 @@ package com.helio.api.protocols.panels
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Panel-capability introspection API types (HEL-365) ──────────────────────
 //
 // `GET /api/types/:id/panel-capabilities` wire shape. See
 // `com.helio.services.PanelCapabilityService` for how these are built and

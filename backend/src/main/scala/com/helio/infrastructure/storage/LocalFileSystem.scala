@@ -59,7 +59,6 @@ class LocalFileSystem(baseDir: Path)(implicit ec: ExecutionContext) extends File
           else None
         ListPage(page, nextCursor)
       } else {
-        // prefix points to a file directly
         if (cursor.isDefined) {
           ListPage(Seq.empty, None)
         } else {

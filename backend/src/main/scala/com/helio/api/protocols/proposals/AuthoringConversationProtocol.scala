@@ -4,7 +4,6 @@ import com.helio.api.protocols.patchsets.{PatchSet, PatchSetProtocol}
 import spray.json._
 
 // ── Multi-turn authoring/refinement-conversation reload/hydration API types (HEL-397, generalized
-//    by HEL-411 design.md D3/D4) ──────────────────────────────────────────────────────────────
 //
 // GET /api/authoring/conversations/:id's response shape (design.md D3/D7, HEL-411 design.md D4).
 // Deliberately DISPLAY-ONLY: `api_history` (the raw Vector[ClaudeMessage] needed to continue the

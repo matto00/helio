@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import spray.json._
 
-// ── AlertRule API types ──────────────────────────────────────────────────────
 
 final case class AlertRuleResponse(
     id: String,

@@ -7,7 +7,6 @@ import com.helio.api.protocols.sources.{DataSourceProtocol, UpdateDataSourceRequ
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Patch-set types (HEL-403 schema + protocol foundation) ───────────────────
 //
 // A patch set describes N targeted edits across one or more EXISTING
 // resources (panel/dashboard/dataSource/dataType/pipeline/pipelineStep) so a

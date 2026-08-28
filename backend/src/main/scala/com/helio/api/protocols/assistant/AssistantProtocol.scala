@@ -6,7 +6,6 @@ import com.helio.api.protocols.proposals.{CombinedProposal, DashboardProposal}
 import com.helio.ai.{ClaudeTool, ClaudeToolMessage, TokenUsage}
 import com.helio.services.workspace.WorkspaceAssistantTools
 
-// ── Top-level assistant conversation-loop types (HEL-662) ───────────────────
 //
 // `AssistantService.converse`'s result shape (`AssistantTurnResult`), the closed union over what a
 // successful `propose_*` tool call can produce (`AssistantProposal`), and the streaming event shape

@@ -80,7 +80,6 @@ final class DashboardAuthoringService(
    *  estimate (design.md D5). */
   private final case class AttemptOutcome(proposal: DashboardProposal, warnings: Vector[String], finalResponseText: String, tokens: TokenUsage)
 
-  // ── Public API ──────────────────────────────────────────────────────────
 
   /** `mdcSnapshot` (HEL-401 design.md D3) defaults to `null` (= "empty MDC", matching
    *  `MdcPropagatingExecutionContext`'s own convention) so every pre-existing caller that predates
@@ -114,7 +113,6 @@ final class DashboardAuthoringService(
         Right(AuthoringConversationView(id.value, displayTurns, latestProposal, latestPatchSet))
     }
 
-  // ── Turn 1 (no conversationId) ─────────────────────────────────────────
 
   private def startBuffered(
       request: DashboardAuthoringRequest,
@@ -156,7 +154,6 @@ final class DashboardAuthoringService(
       DashboardAuthoringPrompt.userMessage(goal, pipelineOutputTypes(ctx.workspace), ctx.capabilities, ctx.workspace.agentContext)
     )
 
-  // ── Continued turns (conversationId present, design.md D2) ────────────
 
   private def continueBuffered(
       id: AuthoringConversationId,
@@ -299,7 +296,6 @@ final class DashboardAuthoringService(
 
   private def totalTokensOf(outcome: AttemptOutcome): Int = outcome.tokens.inputTokens + outcome.tokens.outputTokens
 
-  // ── Buffered path ───────────────────────────────────────────────────────
 
   private def runAttempt(
       messages: Vector[ClaudeMessage],

@@ -4,7 +4,6 @@ import com.helio.api.protocols.sources.{CsvSourceConfigPayload, DataSourceProtoc
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Pipeline proposal types (HEL-379 schema + protocol foundation) ───────────
 //
 // A proposal carries NO ids: it describes an (optionally new) data source, an
 // ordered list of transform steps, and an output DataType contract. Nothing is
@@ -108,7 +107,6 @@ final case class PipelineProposal(
     steps: Vector[CreatePipelineStepRequest]
 )
 
-// ── Apply-proposal response (HEL-383, design.md D7) ──────────────────────────
 //
 // `source` is `None` for the existing-sourceId branch (nothing new to report)
 // and `Some` for the inline branch — mirrors DashboardProposalService's

@@ -3,7 +3,6 @@ package com.helio.api.protocols.auth
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── TOTP MFA types (HEL-702) ─────────────────────────────────────────────────
 
 final case class MfaStatusResponse(enabled: Boolean, verifiedAt: Option[String], backupCodesRemaining: Int)
 final case class MfaEnrollResponse(secret: String, otpauthUri: String)

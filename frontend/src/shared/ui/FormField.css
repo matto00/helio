@@ -1,4 +1,3 @@
-/* ── FormField primitive ─────────────────────────────────────────────────── */
 /* Canonical label + control + error/hint layout for form fields. Consolidates
    the field-internal-spacing decision (`gap: var(--space-2)`) that used to
    drift between 5px/6px/12px literals across feature CSS (F-058). */

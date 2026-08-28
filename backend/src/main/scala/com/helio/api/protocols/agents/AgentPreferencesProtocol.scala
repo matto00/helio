@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model.AgentPreferences
 import spray.json._
 
-// ── AgentPreferences API types (HEL-472 / 420-A) ─────────────────────────────
 
 /** `GET`/`PUT /api/preferences` response body. Decoupled from the domain `AgentPreferences` case
  *  class (design.md Decision 4a): carries neither `userId` (the caller's identity, never echoed

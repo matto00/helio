@@ -63,7 +63,6 @@ class RestApiConnectorDriver(
           .withIdleTimeout(30.seconds)
       )
 
-  // ── Connector resolution (design.md Decision 3 / Decision 11) ──────────────────────
 
   /** Resolves `config.connectorId` per `resolveContext` (design.md Decision 11): `Owned`
    *  scopes to the caller (`findByIdOwned`), `Internal` bypasses ownership
@@ -224,7 +223,6 @@ class RestApiConnectorDriver(
       case _ => uri
     }
 
-  // ── Fetch (Connector-resolving) ─────────────────────────────────────────────
 
   def fetch(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, JsValue]] =
     fetchOverride.fold(doFetch(config, resolveContext))(fn => fn(config))
@@ -304,7 +302,6 @@ class RestApiConnectorDriver(
         Left("Request failed")
       }
 
-  // ── ConnectorDriver[RestApiConfig] ──────────────────────────────────────────────
 
   /** Issues the same request/auth/header pipeline as `fetch`, but only inspects the response
    *  status — never calls `parseJson` on the body, so a non-JSON 200 response still succeeds. */
@@ -327,7 +324,6 @@ class RestApiConnectorDriver(
   def fetch(config: RestApiConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
     fetch(config, resolveContext).map(_.map(json => toRows(json, config.rootSelector).take(maxRows)))
 
-  // ── Ephemeral (design.md Decision 1c) ──────────────────────────────────────────
   // Never resolves/persists a Connector — no auth, no normalizing join (no `baseUrl` to join
   // against). Used only by `POST /api/sources/infer|test` and inline pipeline-proposal sources
   // when the request carries a bare `url` instead of a `connectorId`.

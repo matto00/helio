@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import spray.json._
 
-// ── Auth / User / Google OAuth / Preferences types ───────────────────────────
 
 final case class RegisterRequest(email: String, password: String, displayName: Option[String])
 final case class LoginRequest(email: String, password: String)

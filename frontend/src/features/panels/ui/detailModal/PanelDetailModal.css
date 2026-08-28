@@ -58,16 +58,12 @@
   outline-offset: 2px;
 }
 
-/* View mode content area */
-
 .panel-detail-modal__view-body {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
-
-/* Edit-mode section headings */
 
 .panel-detail-modal__edit-section-heading {
   font-size: var(--text-xs);
@@ -84,8 +80,6 @@
   padding-top: 0;
   border-top: none;
 }
-
-/* Discard warning */
 
 .panel-detail-modal__discard-warning {
   display: flex;

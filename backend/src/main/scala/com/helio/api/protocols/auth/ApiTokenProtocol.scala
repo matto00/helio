@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model.ApiToken
 import spray.json._
 
-// ── Personal Access Token types (HEL-148 agent-native layer, Phase 1) ────────
 
 /** `expiresInDays` is optional: absent on the wire means a non-expiring token.
  *  spray-json omits `None` when writing and reads a missing field as `None`,

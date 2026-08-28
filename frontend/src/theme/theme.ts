@@ -42,7 +42,6 @@ export interface DashboardAppearancePreset {
 // on the dark app theme; the light presets below give the light theme options
 // that don't wash out. Any preset works in either theme.
 export const DASHBOARD_APPEARANCE_PRESETS: DashboardAppearancePreset[] = [
-  // Dark
   { label: "Twilight", background: "#1a2035", gridBackground: "#1c2e4a" },
   { label: "Forest", background: "#0d2115", gridBackground: "#132a1e" },
   { label: "Plum", background: "#1e1035", gridBackground: "#261540" },
@@ -51,7 +50,6 @@ export const DASHBOARD_APPEARANCE_PRESETS: DashboardAppearancePreset[] = [
   { label: "Teal", background: "#061e20", gridBackground: "#0a2a2e" },
   { label: "Rose", background: "#250e15", gridBackground: "#301220" },
   { label: "Gold", background: "#1e1804", gridBackground: "#2a2208" },
-  // Light
   { label: "Paper", background: "#ece4d3", gridBackground: "#f6efe1" },
   { label: "Mist", background: "#e0e6ef", gridBackground: "#eef2f8" },
   { label: "Sage", background: "#e2eadd", gridBackground: "#eef3ea" },

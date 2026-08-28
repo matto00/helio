@@ -22,8 +22,6 @@
   color: var(--app-text);
 }
 
-/* ── Series color swatches ── */
-
 .preferences-editor__swatch-list {
   display: flex;
   flex-direction: column;
@@ -97,8 +95,6 @@
   color: var(--app-text);
 }
 
-/* ── Naming convention rows ── */
-
 .preferences-editor__row-list {
   display: flex;
   flex-direction: column;
@@ -161,8 +157,6 @@
   background: var(--app-surface-raised);
   color: var(--app-text);
 }
-
-/* ── Save action ── */
 
 .preferences-editor__actions {
   display: flex;

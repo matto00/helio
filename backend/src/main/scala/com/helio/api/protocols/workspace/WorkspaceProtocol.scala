@@ -3,7 +3,6 @@ package com.helio.api.protocols.workspace
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Workspace tag-teardown API types (HEL-366) ───────────────────────────────
 
 /** `tag`/`dryRun` are both `Option` on the wire per design.md Decision 8 —
  *  absent-from-JSON and explicit-`null` both normalize to `None` at the

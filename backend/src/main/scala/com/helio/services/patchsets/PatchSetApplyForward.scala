@@ -30,7 +30,6 @@ private[services] object PatchSetApplyForward {
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, EditOutcome]] =
     edit.action match {
 
-      // ── panel ──────────────────────────────────────────────────────────
       case ResolvedAction.PanelUpdate(id, request, _) =>
         services.panelService.update(id, request, user).map(_.map { panel =>
           edit.toOutcome("applied", resultingState = Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))))
@@ -42,7 +41,6 @@ private[services] object PatchSetApplyForward {
           edit.toOutcome("applied", newId = Some(panel.id.value), resultingState = Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))))
         })
 
-      // ── dashboard ──────────────────────────────────────────────────────
       case ResolvedAction.DashboardUpdate(id, request, _) =>
         services.dashboardService.update(id, request, user).map(_.map { dashboard =>
           edit.toOutcome("applied", resultingState = Some(dashboardResponseFormat.write(DashboardResponse.fromDomain(dashboard))))
@@ -60,7 +58,6 @@ private[services] object PatchSetApplyForward {
             ))
           }
 
-      // ── dataSource ─────────────────────────────────────────────────────
       case ResolvedAction.DataSourceUpdate(id, request, _) =>
         services.dataSourceService.update(id, request, user).map(_.map { ds =>
           edit.toOutcome("applied", resultingState = Some(dataSourceResponseFormat.write(DataSourceResponse.fromDomain(ds))))
@@ -80,7 +77,6 @@ private[services] object PatchSetApplyForward {
       case ResolvedAction.DataTypeDelete(id, _) =>
         services.dataTypeService.delete(id, user).map(_.map(_ => edit.toOutcome("applied")))
 
-      // ── pipeline ───────────────────────────────────────────────────────
       case ResolvedAction.PipelineUpdate(id, request, _) =>
         services.pipelineService.updateName(id, request, user).map(_.map { summary =>
           edit.toOutcome("applied", resultingState = Some(pipelineSummaryResponseFormat.write(summary)))

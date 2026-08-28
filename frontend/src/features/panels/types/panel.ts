@@ -1,4 +1,3 @@
-// ── Panel discriminated union (CS2c-3c wire shape) ──────────────────────────
 //
 // Mirrors the backend `domain/panels/*Panel.scala` ADT and the wire
 // `{ type, config }` shape emitted by `PanelResponse.fromDomain` /
@@ -12,7 +11,6 @@
 
 import type { ResourceMeta } from "../../../types/models";
 
-// ── Panel appearance + chart appearance shapes ──────────────────────────────
 // Extracted from `types/models.ts` in CS4 cycle 1.
 
 export interface ChartLegend {
@@ -68,14 +66,12 @@ export type TableDensity = "condensed" | "normal" | "spacious";
 
 export type DividerOrientation = "horizontal" | "vertical";
 
-// ── Per-subtype config shapes ───────────────────────────────────────────────
 //
 // Field names mirror backend `domain/panels/<Subtype>PanelConfig`. The
 // "bound trio" (metric/chart/table) all carry `dataTypeId` + `fieldMapping`;
 // the backend emits `dataTypeId: ""` for unbound rows, so `isBound` checks
 // must compare to a non-empty string rather than to `null`.
 
-// ── Viz-level aggregation specs (HEL-292) ───────────────────────────────────
 //
 // Mirrors backend `domain/panels/{Metric,Chart}PanelConfig.aggregation` and
 // `schemas/panels/panel.schema.json` `$defs.MetricAggregation`/`ChartAggregation`.
@@ -119,7 +115,6 @@ export interface MetricPanelConfig {
   metricDeprecated?: boolean;
 }
 
-// ── Per-chart-type display options (HEL-248) ────────────────────────────────
 //
 // Mirrors backend `domain/panels/ChartPanel.scala` (`ChartOptions` + per-type
 // case classes) and `schemas/panels/panel.schema.json` `$defs.ChartOptions`. Keyed
@@ -237,7 +232,6 @@ export interface DividerPanelConfig {
   color?: string | null;
 }
 
-// ── Collection panel (HEL-247) ──────────────────────────────────────────────
 //
 // Mirrors backend `domain/panels/CollectionPanel.scala` and
 // `schemas/panels/panel.schema.json` `$defs.CollectionConfig`. A Collection renders N
@@ -274,7 +268,6 @@ export interface CollectionPanelConfig {
   itemOptions?: CollectionItemOptions | null;
 }
 
-// ── Timeline panel (HEL-317) ────────────────────────────────────────────────
 //
 // Mirrors backend `domain/panels/TimelinePanel.scala` and
 // `schemas/panels/panel.schema.json` `$defs.TimelineConfig`. A Timeline renders the
@@ -308,7 +301,6 @@ export type PanelConfig =
   | CollectionPanelConfig
   | TimelinePanelConfig;
 
-// ── Discriminated union ─────────────────────────────────────────────────────
 //
 // Common fields live on `PanelBase`; each variant adds `type` + typed
 // `config`. `refreshInterval` is a frontend-only field that the backend
@@ -393,7 +385,6 @@ export type Panel =
 // not rename.
 export type PanelType = PanelKind;
 
-// ── Default config factories ────────────────────────────────────────────────
 //
 // Used by `panelPayloads.ts` to build a typed `config` for create requests
 // when the caller supplies no subtype-specific configuration.
@@ -471,7 +462,6 @@ export function emptyConfigForKind(kind: PanelKind): PanelConfig {
   }
 }
 
-// ── Panel creation initial type-specific config ─────────────────────────────
 // Extracted from `types/models.ts` in CS4 cycle 1.
 //
 // Optional config fields collected in step 3 of the panel creation modal
@@ -482,8 +472,6 @@ export type ChartTypeConfig = { type: "chart"; chartType?: "line" | "bar" | "pie
 export type ImageTypeConfig = { type: "image"; imageUrl?: string };
 
 export type TypeConfig = MetricTypeConfig | ChartTypeConfig | ImageTypeConfig;
-
-// ── Panel update + batch shapes ─────────────────────────────────────────────
 
 export interface PanelUpdateFields {
   title?: string;
@@ -512,8 +500,6 @@ export interface UpdatePanelsBatchRequest {
 export interface UpdatePanelsBatchResponse {
   panels: Panel[];
 }
-
-// ── Panel query pagination state ────────────────────────────────────────────
 
 export interface PanelPaginationState {
   currentPage: number;

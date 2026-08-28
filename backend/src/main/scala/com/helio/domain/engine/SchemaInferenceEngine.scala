@@ -9,9 +9,7 @@ import scala.util.Try
 
 object SchemaInferenceEngine {
 
-  // ---------------------------------------------------------------------------
   // Public API
-  // ---------------------------------------------------------------------------
 
   def fromJson(json: JsValue): InferredSchema = json match {
     case JsArray(elements) =>
@@ -79,9 +77,7 @@ object SchemaInferenceEngine {
     parts.map(_.toLowerCase.capitalize).mkString(" ")
   }
 
-  // ---------------------------------------------------------------------------
   // JSON helpers
-  // ---------------------------------------------------------------------------
 
   private def mergeObjects(objects: Seq[JsObject]): JsObject = {
     val merged = objects.foldLeft(Map.empty[String, JsValue]) { (acc, obj) =>
@@ -134,9 +130,7 @@ object SchemaInferenceEngine {
     Try(LocalDate.parse(s, DateTimeFormatter.ISO_LOCAL_DATE)).isSuccess ||
     Try(LocalDate.parse(s, DateTimeFormatter.ofPattern("MM/dd/yyyy"))).isSuccess
 
-  // ---------------------------------------------------------------------------
   // CSV helpers
-  // ---------------------------------------------------------------------------
 
   private def widenType(current: DataFieldType, value: String): DataFieldType = {
     import DataFieldType._
@@ -206,9 +200,7 @@ object SchemaInferenceEngine {
     fields.toVector
   }
 
-  // ---------------------------------------------------------------------------
   // displayName helpers
-  // ---------------------------------------------------------------------------
 
   private def splitCamel(s: String): Seq[String] =
     s.foldLeft(Vector.empty[String]) { (acc, ch) =>

@@ -73,7 +73,6 @@ final class PatchSetUndoService(
         }
     }
 
-  // ── Phase 2: reverse-walk restore ───────────────────────────────────────────
 
   private def restoreAll(edits: Vector[JournaledEdit], user: AuthenticatedUser): Future[Vector[EditUndoOutcome]] = {
     def loop(
@@ -148,7 +147,6 @@ final class PatchSetUndoService(
         }
     }
 
-  // ── panel ────────────────────────────────────────────────────────────────
 
   private def restorePanelUpdate(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
     edit.priorState match {
@@ -177,7 +175,6 @@ final class PatchSetUndoService(
         }
     }
 
-  // ── dashboard ────────────────────────────────────────────────────────────
 
   private def restoreDashboardUpdate(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
     edit.priorState match {
@@ -191,7 +188,6 @@ final class PatchSetUndoService(
         }
     }
 
-  // ── dataSource ───────────────────────────────────────────────────────────
 
   private def restoreDataSourceUpdate(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
     edit.priorState match {
@@ -219,7 +215,6 @@ final class PatchSetUndoService(
         }
     }
 
-  // ── pipeline ─────────────────────────────────────────────────────────────
 
   private def restorePipelineUpdate(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
     edit.priorState match {

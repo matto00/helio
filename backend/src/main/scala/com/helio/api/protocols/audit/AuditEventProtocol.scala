@@ -4,7 +4,6 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import spray.json._
 
-// ── AuditEvent API types (HEL-471) ───────────────────────────────────────────
 // Deliberately minimal — no route consumes this yet. The audit-query ticket
 // extends this with list/paging response shapes.
 

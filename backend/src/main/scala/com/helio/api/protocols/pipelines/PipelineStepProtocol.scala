@@ -5,7 +5,6 @@ import com.helio.domain._
 import com.helio.domain.model._
 import spray.json._
 
-// ── Pipeline step API types (CS2c-3a cycle 3) ────────────────────────────────
 //
 // Wire shape is a discriminated union on `type` with a typed `config` object
 // per subtype. Per-config JSON formats are owned by each step module under
@@ -198,7 +197,6 @@ object PipelineStepResponse {
  *  tolerance defaults co-located per kind. */
 trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
 
-  // ── Typed config formatters re-exported from the per-step modules ───────
   //
   // Each step module exposes its own RootJsonFormat as `SomeConfig.format`.
   // The protocol-trait scope needs them as `implicit val` to satisfy the

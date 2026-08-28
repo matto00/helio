@@ -62,7 +62,6 @@ async function main(): Promise<void> {
       name: "HEL-364 Bound Panel Verify",
     });
 
-    // ── 1. Happy path ──────────────────────────────────────────────────────
     const bound = await call<{
       sourceId: string;
       pipelineId: string;
@@ -100,7 +99,6 @@ async function main(): Promise<void> {
       `  happy path: sourceId=${bound.sourceId} pipelineId=${bound.pipelineId} rowCount=${rows.rowCount}`,
     );
 
-    // ── 2. Stage-naming failure ─────────────────────────────────────────────
     // An invalid step type passes the validation gate (PipelineAnalyzeService's
     // unknown-op fallback is a soft identity projection, not a hard error) and
     // fails for real once the pipeline (created) tries to add the step —

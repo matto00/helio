@@ -52,8 +52,6 @@ import type { OpType, Step } from "../types/step";
 const EMPTY_ANALYZE_COLUMNS: string[] = [];
 const EMPTY_ANALYZE_SCHEMA: SchemaField[] = [];
 
-// ── Main page ────────────────────────────────────────────────────────────────
-
 export function PipelineDetailPage() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
@@ -125,7 +123,6 @@ export function PipelineDetailPage() {
 
   const currentUser = useAppSelector((state) => state.auth.currentUser);
 
-  // ── SSE run-status hook ──
   const sseData = usePipelineRunEvents({
     pipelineId: id,
     active: sseActive,
@@ -180,7 +177,6 @@ export function PipelineDetailPage() {
     void dispatch(fetchPipelineSchedule(id));
   }, [dispatch, id, currentPipelineStatus, currentPipelineId]);
 
-  // ── Sources ──
   useEffect(() => {
     if (sourcesStatus === "idle") {
       void dispatch(fetchSources());
@@ -222,7 +218,6 @@ export function PipelineDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, stepsFingerprint, dispatch]);
 
-  // Fetch run history on mount
   useEffect(() => {
     if (id) {
       void dispatch(fetchPipelineRunHistory(id));
@@ -296,10 +291,8 @@ export function PipelineDetailPage() {
     return analyzeByStepId.get(stepId)?.validationError;
   }
 
-  // ── Dirty-state tracking ──
   const isDirty = outputNamePipelineId !== null && outputName !== (currentPipeline?.name ?? "");
 
-  // ── beforeunload guard ──
   useEffect(() => {
     if (!isDirty) return;
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -320,7 +313,6 @@ export function PipelineDetailPage() {
     currentUser?.id != null &&
     currentUser.id === currentPipeline.ownerId;
 
-  // ── Handlers ──
   function handleEditSource() {
     if (!boundSource) return;
     dispatch(setSelectedSourceId(boundSource.id));

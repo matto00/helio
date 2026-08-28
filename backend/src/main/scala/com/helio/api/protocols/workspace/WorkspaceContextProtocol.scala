@@ -5,7 +5,6 @@ import com.helio.api.protocols.sources.{ConnectorEntityProtocol, ConnectorSummar
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Workspace context assembler API types (HEL-371) ─────────────────────────
 //
 // Server-side port of `helio-mcp/src/context.ts`'s `WorkspaceContext` — see
 // `schemas/workspace/workspace-context.schema.json` for the documented structural-parity

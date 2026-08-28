@@ -1,12 +1,8 @@
-/* ── PipelineShareDialog ─────────────────────────────────────────────────── */
-
 .pipeline-share-dialog {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
 }
-
-/* ── Section ─────────────────────────────────────────────────────────────── */
 
 .pipeline-share-dialog__section {
   display: flex;
@@ -19,8 +15,6 @@
   color: var(--app-text-muted);
   font-size: var(--text-xs);
 }
-
-/* ── Grant list ──────────────────────────────────────────────────────────── */
 
 .pipeline-share-dialog__grant-list {
   list-style: none;
@@ -67,8 +61,6 @@
   background: var(--app-error-surface);
 }
 
-/* ── Empty / loading / error ─────────────────────────────────────────────── */
-
 .pipeline-share-dialog__empty,
 .pipeline-share-dialog__loading {
   font-size: var(--text-sm);
@@ -81,8 +73,6 @@
   color: var(--app-error);
   margin: 0;
 }
-
-/* ── Add grantee form ────────────────────────────────────────────────────── */
 
 .pipeline-share-dialog__add-form {
   display: flex;

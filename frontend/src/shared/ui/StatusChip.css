@@ -1,4 +1,3 @@
-/* ── StatusChip primitive ────────────────────────────────────────────────── */
 /* Canonical intent-colored status pill. Consolidates the 6 independently
    hardcoded `border-radius: 999px` recipes onto `var(--app-radius-pill)`
    (F-073 / F-238). */

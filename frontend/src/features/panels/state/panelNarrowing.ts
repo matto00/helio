@@ -28,8 +28,6 @@ import type {
   TimelinePanel,
 } from "../types/panel";
 
-// ── Narrowing predicates ────────────────────────────────────────────────────
-
 export const isMetricPanel = (p: Panel): p is MetricPanel => p.type === "metric";
 export const isChartPanel = (p: Panel): p is ChartPanel => p.type === "chart";
 export const isTablePanel = (p: Panel): p is TablePanel => p.type === "table";
@@ -59,7 +57,6 @@ export const isBoundCapablePanel = (
   p.type === "collection" ||
   p.type === "timeline";
 
-// ── Read-only accessors ─────────────────────────────────────────────────────
 //
 // Backend emits `dataTypeId: ""` for unbound bound-capable panels (the
 // empty-string convention preserves typed-config invariants). Frontend

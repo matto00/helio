@@ -7,7 +7,6 @@ import com.helio.domain.model._
 import com.helio.domain.panels._
 import spray.json._
 
-// ── Dashboard request / response types ───────────────────────────────────────
 
 final case class DashboardAppearancePayload(background: Option[String], gridBackground: Option[String])
 final case class DashboardLayoutItemPayload(panelId: String, x: Int, y: Int, w: Int, h: Int)
@@ -47,7 +46,6 @@ final case class UpdateDashboardRequest(
 )
 final case class UpdateDashboardBatchRequest(fields: Vector[String], dashboard: UpdateDashboardRequest)
 
-// ── Auto-layout API types (HEL-367) ──────────────────────────────────────────
 
 /** One `{panelId, w, h}` size to pack — sizes only, no position. `kind` is
  *  never part of the wire shape; `AutoLayoutService` resolves it server-side
@@ -59,7 +57,6 @@ final case class AutoLayoutItemPayload(panelId: String, w: Int, h: Int)
  *  column count) — see design.md D1. */
 final case class AutoLayoutRequest(items: Vector[AutoLayoutItemPayload], cols: Option[Int])
 
-// ── Snapshot API types ───────────────────────────────────────────────────────
 
 /** Snapshot panel entry (CS2c-3c discriminated wire shape).
  *
@@ -200,7 +197,6 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val dashboardLayoutItemFormat: RootJsonFormat[DashboardLayoutItem] = jsonFormat5(DashboardLayoutItem.apply)
   implicit val dashboardLayoutFormat: RootJsonFormat[DashboardLayout]         = jsonFormat4(DashboardLayout.apply)
 
-  // Dashboard request / response formats
   implicit val dashboardAppearancePayloadFormat: RootJsonFormat[DashboardAppearancePayload]   = jsonFormat2(DashboardAppearancePayload.apply)
   implicit val dashboardLayoutItemPayloadFormat: RootJsonFormat[DashboardLayoutItemPayload]   = jsonFormat5(DashboardLayoutItemPayload.apply)
   implicit val dashboardLayoutPayloadFormat: RootJsonFormat[DashboardLayoutPayload]           = jsonFormat4(DashboardLayoutPayload.apply)
@@ -214,11 +210,9 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest]           = jsonFormat3(UpdateDashboardRequest.apply)
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
 
-  // Auto-layout formats (HEL-367)
   implicit val autoLayoutItemPayloadFormat: RootJsonFormat[AutoLayoutItemPayload] = jsonFormat3(AutoLayoutItemPayload.apply)
   implicit val autoLayoutRequestFormat: RootJsonFormat[AutoLayoutRequest]         = jsonFormat2(AutoLayoutRequest.apply)
 
-  // Snapshot formats
   implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat6(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)
   implicit val dashboardSnapshotPayloadFormat: RootJsonFormat[DashboardSnapshotPayload]               = jsonFormat3(DashboardSnapshotPayload.apply)

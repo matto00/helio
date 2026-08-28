@@ -31,7 +31,6 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
     )
   )
 
-  // ── DDL/DML keyword check ─────────────────────────────────────────────────
 
   private val ddlDmlPattern =
     """(?i)\b(CREATE|DROP|ALTER|DELETE|INSERT|UPDATE|TRUNCATE)\b""".r
@@ -44,7 +43,6 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
     else
       Right(())
 
-  // ── JDBC URL construction ─────────────────────────────────────────────────
 
   def buildJdbcUrl(config: SqlSourceConfig): String = config.dialect match {
     case "postgresql" =>
@@ -61,7 +59,6 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
     DriverManager.getConnection(url, config.user, config.password)
   }
 
-  // ── Query execution ───────────────────────────────────────────────────────
 
   /** Executes the query and returns rows as a sequence of column-name → JsValue maps.
    *  Uses `scala.concurrent.blocking` to avoid starving the Pekko dispatcher.
@@ -117,7 +114,6 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
       }
     }
 
-  // ── Schema inference ──────────────────────────────────────────────────────
 
   /** Converts rows to the shared row shape and runs schema inference via the
    *  `SchemaInferenceEngine.inferSchemaFromRows` facade (HEL-473). */
@@ -128,7 +124,6 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
   def toRows(rows: Seq[Map[String, JsValue]]): Vector[JsValue] =
     rows.map(row => JsObject(row)).toVector
 
-  // ── ConnectorDriver[SqlSourceConfig] ────────────────────────────────────────────
 
   /** Opens and immediately closes a JDBC connection — no query is executed.
    *  Uses `scala.concurrent.blocking` on the caller-supplied `ec`, matching `execute`. */

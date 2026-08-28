@@ -82,7 +82,6 @@ private[services] object PatchSetApplyResolvers {
         Future.successful(Left(ServiceError.BadRequest(s"edit $index: unsupported target.kind '$kind' for op '$op'")))
     }
 
-  // ── Shared helpers ─────────────────────────────────────────────────────────
 
   private def requireTargetId(edit: Edit, index: Int): Either[ServiceError, String] =
     edit.target.id.map(_.trim).filter(_.nonEmpty) match {
@@ -144,7 +143,6 @@ private[services] object PatchSetApplyResolvers {
       tag                  = s.tag
     )
 
-  // ── design.md D2a: embedded cross-resource reference checks ────────────────
 
   /** panel update/create: `rejectCompanionBinding`/`rejectUnresolvableMetric`'s
    *  SAME checks (`PanelService.scala:483-524`), mirrored — not reimplemented
@@ -244,7 +242,6 @@ private[services] object PatchSetApplyResolvers {
         }
     }
 
-  // ── panel ────────────────────────────────────────────────────────────────
 
   private def resolvePanelUpdate(
       edit: Edit,
@@ -335,7 +332,6 @@ private[services] object PatchSetApplyResolvers {
         }
     }
 
-  // ── dashboard ────────────────────────────────────────────────────────────
 
   private def resolveDashboardUpdate(
       edit: Edit,
@@ -413,7 +409,6 @@ private[services] object PatchSetApplyResolvers {
         Future.successful(Right(ResolvedEdit(index, "dashboard", "create", None, ResolvedAction.DashboardCreate(request))))
     }
 
-  // ── dataSource ───────────────────────────────────────────────────────────
 
   private def resolveDataSourceUpdate(
       edit: Edit,
@@ -477,7 +472,6 @@ private[services] object PatchSetApplyResolvers {
         Future.successful(Right(ResolvedEdit(index, "dataSource", "create", None, ResolvedAction.DataSourceCreate(request))))
     }
 
-  // ── dataType ─────────────────────────────────────────────────────────────
 
   private def resolveDataTypeUpdate(
       edit: Edit,
@@ -525,7 +519,6 @@ private[services] object PatchSetApplyResolvers {
         }
     }
 
-  // ── pipeline ─────────────────────────────────────────────────────────────
 
   private def resolvePipelineUpdate(
       edit: Edit,
@@ -604,7 +597,6 @@ private[services] object PatchSetApplyResolvers {
           }
     }
 
-  // ── pipelineStep ─────────────────────────────────────────────────────────
 
   private def resolvePipelineStepUpdate(
       edit: Edit,

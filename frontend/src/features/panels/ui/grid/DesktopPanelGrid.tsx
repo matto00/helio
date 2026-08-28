@@ -156,8 +156,6 @@ export function DesktopPanelGrid({
     registerLayoutFlush,
   });
 
-  // ─── Stable title-editing callbacks ───────────────────────────────────────
-
   const cancelEditingTitle = useCallback(() => {
     titleCancelledRef.current = true;
     setEditingTitleId(null);
@@ -211,8 +209,6 @@ export function DesktopPanelGrid({
     [commitTitleEdit],
   );
 
-  // ─── Stable card interaction callbacks ────────────────────────────────────
-
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLElement>) => {
     mousedownPos.current = { x: e.clientX, y: e.clientY };
   }, []);
@@ -239,8 +235,6 @@ export function DesktopPanelGrid({
     setDetailPanelMode("edit");
     setDetailPanelId(panelId);
   }, []);
-
-  // ─── 2.7 Stable drag callbacks ────────────────────────────────────────────
 
   const handleDragStart = useCallback(() => {
     setIsDragging(true);

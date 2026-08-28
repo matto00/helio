@@ -87,8 +87,6 @@
   background: var(--app-accent-strong);
 }
 
-/* ── Create form ── */
-
 .api-tokens-section__create-row {
   display: flex;
   gap: var(--space-2);

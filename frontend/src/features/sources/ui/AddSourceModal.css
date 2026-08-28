@@ -48,7 +48,6 @@
   color: var(--app-text-muted);
 }
 
-/* Source type toggle buttons */
 .add-source-modal__type-toggle {
   display: flex;
   gap: 6px;
@@ -96,7 +95,6 @@
   color: var(--app-accent-strong);
 }
 
-/* Preview / schema section */
 .add-source-modal__preview-hint {
   margin: 0;
   font-size: var(--text-sm);
@@ -109,7 +107,6 @@
   color: var(--app-text-muted);
 }
 
-/* Schema table */
 .add-source-modal__fields-table {
   width: 100%;
   border-collapse: collapse;

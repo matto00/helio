@@ -5,7 +5,6 @@ import com.helio.api.protocols.sources.{DataSourceProtocol, StaticColumnPayload}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
-// ── Compound bound-panel API types (HEL-364) ─────────────────────────────────
 //
 // `POST /api/panels/bound` — one call composing source (create-or-reuse) →
 // pipeline+steps → synchronous run → panel create+bind. See

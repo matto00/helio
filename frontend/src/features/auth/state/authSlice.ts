@@ -223,7 +223,6 @@ const authSlice = createSlice({
         state.status = "unauthenticated";
         state.submitStatus = "idle";
       })
-      // handleOAuthCallback
       .addCase(handleOAuthCallback.pending, (state) => {
         state.status = "loading";
       })
@@ -242,7 +241,6 @@ const authSlice = createSlice({
         state.currentUser = null;
         state.status = "unauthenticated";
       })
-      // verifyMfa
       .addCase(verifyMfa.pending, (state) => {
         state.status = "loading";
       })
@@ -261,7 +259,6 @@ const authSlice = createSlice({
       .addCase(logout.fulfilled, () => {
         // state is already cleared by the clearAuth action dispatched inside the thunk
       })
-      // updateUserPreferences
       .addCase(updateUserPreferences.fulfilled, (state, action) => {
         if (state.currentUser) {
           state.currentUser.preferences = action.payload;

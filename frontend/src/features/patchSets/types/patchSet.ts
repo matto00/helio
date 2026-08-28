@@ -27,8 +27,6 @@ export interface PatchSet {
   edits: Edit[];
 }
 
-// ── Preview (HEL-408) ────────────────────────────────────────────────────────
-
 /** One edit's before/after diff + impact hints. `before`/`after` reuse each
  *  target kind's EXISTING response shape (PanelResponse/DashboardResponse/
  *  etc.) — rendered as raw JSON, not a bespoke per-kind diff widget
@@ -49,8 +47,6 @@ export interface EditPreview {
 export interface PatchSetPreviewResponse {
   edits: EditPreview[];
 }
-
-// ── Apply (HEL-406, reused verbatim — no changes made in this ticket) ──────
 
 /** One edit's outcome from `POST /api/patch-sets/apply`. */
 export interface EditOutcome {
@@ -73,8 +69,6 @@ export interface PatchSetApplyResponse {
   failure?: string | null;
   applicationId?: string | null;
 }
-
-// ── Undo (HEL-413) ───────────────────────────────────────────────────────────
 
 /** One edit's undo outcome from `POST /api/patch-sets/:id/undo`. `status` is
  *  one of `restored` (an `update` edit's captured pre-apply state was

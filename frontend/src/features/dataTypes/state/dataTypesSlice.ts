@@ -165,8 +165,6 @@ const dataTypesSlice = createSlice({
 export const { setSelectedTypeId } = dataTypesSlice.actions;
 export const dataTypesReducer = dataTypesSlice.reducer;
 
-// --- Selectors ---
-
 /** DataTypes produced by a pipeline (`sourceId === null`) — the only DataTypes
  * a panel may bind to, and the only ones surfaced in user-facing type lists
  * (BindingEditor, panel-creation DataType step, Type Registry). Companion

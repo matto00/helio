@@ -1,5 +1,3 @@
-/* ── PipelineScheduleDialog ──────────────────────────────────────────────── */
-
 .pipeline-schedule-dialog {
   display: flex;
   flex-direction: column;
@@ -81,7 +79,6 @@
   background: var(--app-surface-raised);
 }
 
-/* F-140: computed "Next run" preview. */
 .pipeline-schedule-dialog__next-run-preview {
   margin: 0;
   font-size: var(--text-xs);
@@ -104,8 +101,6 @@
   cursor: pointer;
   accent-color: var(--app-accent);
 }
-
-/* ── Footer actions ──────────────────────────────────────────────────────── */
 
 .pipeline-schedule-dialog__footer {
   display: flex;

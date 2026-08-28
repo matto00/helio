@@ -84,7 +84,6 @@ object PipelineStepConfigCodec {
   def encodeJsObject(kind: String, configJson: JsObject): Try[String] =
     decode(kind, configJson.compactPrint).map(_ => configJson.compactPrint)
 
-  // ── Internal helpers ────────────────────────────────────────────────────
 
   /** Pull the typed config out of a `PipelineStep` subtype. Each subtype
    *  exposes its config under the same accessor name (`config`); the match

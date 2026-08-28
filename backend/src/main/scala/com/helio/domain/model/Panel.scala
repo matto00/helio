@@ -47,7 +47,6 @@ trait Panel {
   def appearance: PanelAppearance
   def ownerId: UserId
 
-  // ── Polymorphic surface (per-subtype implementation) ──────────────────────
 
   /** Stable discriminator string. Always equals the subtype's `Kind` constant. */
   def kind: String

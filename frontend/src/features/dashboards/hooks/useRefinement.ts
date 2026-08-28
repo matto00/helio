@@ -4,8 +4,6 @@ import { postRefinement, RefinementRequestError } from "../services/refinementSe
 import type { AuthoringErrorKind } from "../types/authoring";
 import type { RefinementResult, RefinementTarget } from "../types/refinement";
 
-// -- Types ---------------------------------------------------------------
-
 export interface UseRefinementOptions {
   target: RefinementTarget;
   message: string;
@@ -36,8 +34,6 @@ const INITIAL_STATE: RefinementState = {
   error: null,
   errorKind: null,
 };
-
-// -- Hook -----------------------------------------------------------------
 
 /** Buffered (no SSE) request/response state for `POST /api/refinements` (HEL-411) — mirrors
  *  `useDashboardAuthoringStream`'s shape (options in, terminal state out, one attempt per
