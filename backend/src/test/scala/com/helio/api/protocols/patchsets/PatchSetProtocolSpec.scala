@@ -77,7 +77,6 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     edits   = Vector(panelUpdateEdit, panelDeleteEdit, dashboardUpdateEdit)
   )
 
-  // ── HEL-403: mixed round-trip ──────────────────────────────────────────────
 
   "PatchSet.write/read" should {
     "round-trip a mixed patch set (panel update + panel delete + dashboard layout update)" in {
@@ -98,7 +97,6 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     }
   }
 
-  // ── HEL-403: absent-optional tolerance ─────────────────────────────────────
 
   "PatchSet.read" should {
     "tolerate an absent summary field" in {
@@ -187,7 +185,6 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     }
   }
 
-  // ── HEL-403: unrecognized op/target.kind rejection ─────────────────────────
 
   "Edit.read — validation" should {
     "raise a deserializationError for an unrecognized op" in {
@@ -219,7 +216,6 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     }
   }
 
-  // ── HEL-403: absent-optional write omission ────────────────────────────────
 
   "PatchSet.write" should {
     "omit the summary key when absent" in {

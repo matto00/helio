@@ -116,7 +116,6 @@ describe("LoginPage", () => {
     expect(screen.queryByText("Signing in…")).not.toBeInTheDocument();
   });
 
-  // HEL-702 design.md D7
   it("navigates to /login/verify when login returns an MFA challenge instead of a session", async () => {
     mockedAuthService.loginRequest.mockResolvedValue({
       mfaRequired: true,

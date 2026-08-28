@@ -152,8 +152,6 @@ describe("DataGrid — custom column render", () => {
   });
 });
 
-// ── HEL-253: column-resize drag handles ─────────────────────────────────────
-
 describe("DataGrid — column-resize handle rendering", () => {
   afterEach(() => jest.restoreAllMocks());
 

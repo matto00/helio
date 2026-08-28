@@ -41,7 +41,6 @@ describe("CollectionRenderer — one row per item (HEL-247)", () => {
     expect(screen.getByText("100")).toBeInTheDocument();
     expect(screen.getByText("200")).toBeInTheDocument();
     expect(screen.getByText("300")).toBeInTheDocument();
-    // And its own row's label.
     expect(screen.getByText("North")).toBeInTheDocument();
     expect(screen.getByText("South")).toBeInTheDocument();
   });

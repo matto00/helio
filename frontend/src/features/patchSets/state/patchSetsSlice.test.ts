@@ -52,8 +52,6 @@ describe("patchSetsSlice", () => {
     expect(state.applyError).toBeNull();
   });
 
-  // ── previewPatchSet ───────────────────────────────────────────────────────
-
   it("sets previewStatus to loading and clears previewError on previewPatchSet.pending", () => {
     const withError = patchSetsReducer(
       undefined,
@@ -87,8 +85,6 @@ describe("patchSetsSlice", () => {
     expect(state.preview).toBeNull();
   });
 
-  // ── applyPatchSet ─────────────────────────────────────────────────────────
-
   it("marks applyStatus succeeded on applyPatchSet.fulfilled", () => {
     const state = patchSetsReducer(
       undefined,
@@ -109,8 +105,6 @@ describe("patchSetsSlice", () => {
     expect(state.applyStatus).toBe("failed");
     expect(state.applyError).toBe("Cannot delete DataType: one or more panels are bound to it");
   });
-
-  // ── undoPatchSet (HEL-413) ────────────────────────────────────────────────
 
   const sampleUndoArg = { applicationId: "app-1", patchSet: samplePatchSet };
   const sampleUndoResponse: PatchSetUndoResponse = {

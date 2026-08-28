@@ -482,7 +482,6 @@ describe("PipelineDetailPage", () => {
   it("removing a step removes its card", () => {
     renderDetailPage();
 
-    // Add a step first
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(screen.getByRole("menuitem", { name: /Rename column/i }));
 
@@ -1531,12 +1530,10 @@ describe("PipelineDetailPage dirty-state detection", () => {
     const editBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
     fireEvent.click(editBtn);
 
-    // Change the name
     const input = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input, { target: { value: "Changed Name" } });
     fireEvent.blur(input);
 
-    // Save and Cancel should now appear
     await waitFor(() => {
       expect(screen.getByLabelText("Save pipeline")).toBeInTheDocument();
       expect(screen.getByLabelText("Cancel changes")).toBeInTheDocument();
@@ -1556,7 +1553,6 @@ describe("PipelineDetailPage dirty-state detection", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Save pipeline")).toBeInTheDocument());
 
-    // Restore original name
     const editBtn2 = screen.getByRole("button", { name: "Edit pipeline name" });
     fireEvent.click(editBtn2);
     const input2 = screen.getByRole("textbox", { name: "Pipeline name" });
@@ -1599,7 +1595,6 @@ describe("PipelineDetailPage Cancel confirmation", () => {
     await makeDirty();
 
     fireEvent.click(screen.getByLabelText("Cancel changes"));
-    // Inline confirm appears; clicking "Discard" navigates.
     fireEvent.click(screen.getByLabelText("Discard changes"));
 
     await waitFor(() => {
@@ -1697,7 +1692,6 @@ describe("PipelineDetailPage select step config round-trip", () => {
       expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
     });
 
-    // Expand the step card
     fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
 
     // Previously saved fields should be checked; unsaved field should not be
@@ -1791,7 +1785,6 @@ describe("PipelineDetailPage rename step config", () => {
       expect(screen.getByRole("button", { name: /Rename column/i })).toBeInTheDocument();
     });
 
-    // Expand the step card
     fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
 
     // Each field from the analyze inputSchema gets a text input
@@ -1863,7 +1856,6 @@ describe("PipelineDetailPage rename step config", () => {
       expect(screen.getByRole("textbox", { name: "New name for name" })).toHaveValue("full_name");
     });
 
-    // Clear the input
     fireEvent.change(screen.getByRole("textbox", { name: "New name for name" }), {
       target: { value: "" },
     });
@@ -2031,16 +2023,13 @@ describe("PipelineDetailPage step preview", () => {
       expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
     });
 
-    // Expand the step card
     fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
 
-    // Click the Preview data button
     const previewBtn = await screen.findByRole("button", { name: "Preview data" });
     await act(async () => {
       fireEvent.click(previewBtn);
     });
 
-    // fetchStepPreview should have been called
     await waitFor(() => {
       expect(fetchStepPreviewMock).toHaveBeenCalledWith("pipe-1", "step-preview-1");
     });
@@ -2114,12 +2103,10 @@ describe("PipelineDetailPage step preview", () => {
       fireEvent.click(previewBtn);
     });
 
-    // Table should be visible
     await waitFor(() => {
       expect(screen.getByText("alice")).toBeInTheDocument();
     });
 
-    // Click again to hide
     const hideBtn = screen.getByRole("button", { name: "Hide preview" });
     fireEvent.click(hideBtn);
 
@@ -2744,7 +2731,6 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Group & aggregate/i })).toBeInTheDocument();
     });
-    // Modal closes on success.
     expect(screen.queryByRole("dialog", { name: "Start from a shape" })).not.toBeInTheDocument();
   });
 

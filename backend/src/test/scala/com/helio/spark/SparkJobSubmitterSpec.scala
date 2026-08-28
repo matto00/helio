@@ -211,7 +211,6 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
     }
   }
 
-  // ── Persistence tests: updateLastRun is called on terminal states ────────────
 
   "submit" when {
 
@@ -287,7 +286,6 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
           Thread.sleep(3000)
           val found = await(pipelineRepoForSubmit.findByIdInternal(PipelineId(pid)))
           found.get.lastRunStatus shouldBe Some(RunStatus.Succeeded)
-          // Verify run record was persisted
           val runs = await(pipelineRunRepoForSubmit.listByPipeline(PipelineId(pid), AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))))
           runs should have size 1
           runs.head.status   shouldBe RunStatus.Succeeded

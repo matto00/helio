@@ -218,7 +218,6 @@ class GcsFileSystemSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ---- helpers ----
 
   private def withEnv(pairs: (String, String)*)(block: => Unit): Unit = {
     val saved = pairs.map { case (k, _) => k -> sys.env.get(k) }

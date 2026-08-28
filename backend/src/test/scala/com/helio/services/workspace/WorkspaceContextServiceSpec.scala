@@ -561,14 +561,12 @@ class WorkspaceContextServiceSpec
       val wideFields = (0 until 45).map(i => DataField(s"col$i", s"col$i", "string", nullable = false)).toVector
       setDataTypeFields(outputId, userA, wideFields)
 
-      // Empty-snapshot case (no rows written yet).
       val emptyResp  = await(service.assemble(userA))
       val emptyEntry = emptyResp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
       emptyEntry.columnStats.keySet should have size 40
       emptyEntry.columnStats.keySet should contain("col39")
       emptyEntry.columnStats.keySet should not contain "col40"
 
-      // Non-empty-snapshot case.
       val wideRow = JsObject(wideFields.map(f => f.name -> JsString(f.name)).toMap)
       await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(wideRow)))
       val resp  = await(service.assemble(userA))

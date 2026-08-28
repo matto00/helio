@@ -85,7 +85,6 @@ class WorkspaceContextServiceComputeJoinHintsSpec extends AnyWordSpec with Match
       columnStats     = columns.take(columnStatsLimit).map { case (c, s) => c.name -> s }.toMap
     )
 
-  // ── spec.md scenarios ("Bounded, precision-favoring join hints") ────────
 
   "computeJoinHints" should {
     "produce a hint with confidence > 0.5 for a matching identifier column pair with partial overlap" in {
@@ -126,7 +125,6 @@ class WorkspaceContextServiceComputeJoinHintsSpec extends AnyWordSpec with Match
     }
   }
 
-  // ── Jaccard divide-by-zero guard ─────────────────────────────────────────
 
   "computeJoinHints (empty-vs-empty example values)" should {
     "yield confidence exactly 0.5, not a fabricated NaN, for two all-null identifier columns" in {
@@ -209,7 +207,6 @@ class WorkspaceContextServiceComputeJoinHintsSpec extends AnyWordSpec with Match
     }
   }
 
-  // ── bounding the comparison work (design.md D2) ──────────────────────────
 
   "computeJoinHints (bounded comparison work)" should {
     "cap a single name-bucket at MaxColumnsPerNameBucket (50) BEFORE pairwise comparison, so a " +
@@ -252,7 +249,6 @@ class WorkspaceContextServiceComputeJoinHintsSpec extends AnyWordSpec with Match
     }
   }
 
-  // ── canonical (left, right) assignment ───────────────────────────────────
 
   "computeJoinHints (canonical left/right assignment)" should {
     "always assign the lexicographically smaller dataTypeId as left, regardless of input order" in {

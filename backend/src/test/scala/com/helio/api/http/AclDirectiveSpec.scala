@@ -33,7 +33,6 @@ class AclDirectiveSpec
   private val guestUser    = AuthenticatedUser(UserId(guestUserId))
   private val nonOwnerUser = AuthenticatedUser(UserId(otherUserId))
 
-  // ── Permission repo stub factory ─────────────────────────────────────────────
 
   private def makePermRepo(
       grantFor: Map[String, Role] = Map.empty,
@@ -70,7 +69,6 @@ class AclDirectiveSpec
   private val ownerRegistry   = makeRegistry(ownerResolver)
   private val missingRegistry = makeRegistry(missingResolver)
 
-  // ── authorizeResource tests ──────────────────────────────────────────────────
 
   "AclDirective.authorizeResource" should {
 
@@ -141,7 +139,6 @@ class AclDirectiveSpec
     }
   }
 
-  // ── ResourceTypeRegistry tests ───────────────────────────────────────────────
 
   "ResourceTypeRegistry" should {
 
@@ -155,7 +152,6 @@ class AclDirectiveSpec
     }
   }
 
-  // ── authorizeResourceWithSharing tests ───────────────────────────────────────
 
   "AclDirective.authorizeResourceWithSharing" should {
 

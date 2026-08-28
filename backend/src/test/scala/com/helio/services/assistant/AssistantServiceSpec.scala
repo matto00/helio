@@ -64,7 +64,6 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
   private def pipelineOutputDataType(id: DataTypeId): DataType =
     DataType(id, None, "Orders", Vector(DataField("amount", "amount", "float", nullable = false)), Vector.empty, 1, now, now, ownerId)
 
-  // ── propose_*/find/get_resource JSON fixtures ───────────────────────────────────────────────
 
   private def dashboardProposal(dataTypeId: String): DashboardProposal = {
     val panel = ProposalPanel(
@@ -88,7 +87,6 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
   private val findInput: JsValue = JsObject("query" -> JsString("orders"), "resourceTypes" -> JsArray(JsString("dataType")))
   private def getResourceInput(id: String): JsValue = JsObject("id" -> JsString(id), "type" -> JsString("dataType"))
 
-  // ── FakeToolTransport (mirrors ClaudeClientSpec's own fixture style) ────────────────────────
 
   private def toolUseResponse(id: String, name: String, input: JsValue, usage: ClaudeApiUsage = ClaudeApiUsage(10, 5)): ClaudeApiResponse =
     ClaudeApiResponse(

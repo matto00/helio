@@ -155,7 +155,6 @@ class PanelMetricBindingRoutesSpec
     )
   }
 
-  // ── Route fixtures ──────────────────────────────────────────────────────
 
   private def registry(): ResourceTypeRegistry =
     new ResourceTypeRegistry(
@@ -182,7 +181,6 @@ class PanelMetricBindingRoutesSpec
     new MetricRoutes(new MetricService(metricRepo, dataTypeRepo), user).routes
   }
 
-  // ── T.3: MetricPanel read-path materialization ─────────────────────────────
 
   "GET /api/dashboards/:id/panels" should {
 
@@ -239,7 +237,6 @@ class PanelMetricBindingRoutesSpec
       }
     }
 
-    // ── T.4: cross-user / deleted metricId clears on read ────────────────────
 
     "clear metricId on read when it references another user's metric (no 500)" in {
       val dashId  = seedDashboard(userAId)
@@ -279,7 +276,6 @@ class PanelMetricBindingRoutesSpec
       }
     }
 
-    // ── HEL-560 tasks.md 8.3: metricDeprecated materialization ───────────────
 
     "surface config.metricDeprecated = true for a MetricPanel bound to a deprecated metric, even with a raw override" in {
       val dashId = seedDashboard(userAId)
@@ -366,7 +362,6 @@ class PanelMetricBindingRoutesSpec
       }
     }
 
-    // ── HEL-560 tasks.md 8.4: rename requires no re-binding ───────────────────
 
     "reflect a metric rename on every subsequent panel read with no PATCH /api/panels/:id call" in {
       val dashId = seedDashboard(userAId)

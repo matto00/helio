@@ -210,7 +210,6 @@ class MetricRoutesSpec
     resp
   }
 
-  // ── Create — happy path ────────────────────────────────────────────────────
 
   "POST /metrics" should {
 
@@ -280,7 +279,6 @@ class MetricRoutesSpec
     }
   }
 
-  // ── List ────────────────────────────────────────────────────────────────
 
   "GET /metrics" should {
 
@@ -313,7 +311,6 @@ class MetricRoutesSpec
     }
   }
 
-  // ── Get / Patch / Delete + ACL ─────────────────────────────────────────────
 
   "GET /metrics/:id" should {
 
@@ -492,7 +489,6 @@ class MetricRoutesSpec
     }
   }
 
-  // ── HEL-560 tasks.md 8.2: GET /metrics/:id/usage ────────────────────────────
 
   "GET /metrics/:id/usage" should {
 

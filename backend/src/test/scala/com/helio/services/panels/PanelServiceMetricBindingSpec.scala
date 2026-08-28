@@ -83,7 +83,6 @@ class PanelServiceMetricBindingSpec extends AnyWordSpec with Matchers {
   ): PanelService =
     new PanelService(panelRepo, dtRepo, stubAccess, mock(classOf[DashboardRepository]), metricRepo)
 
-  // ── POST /api/panels ─────────────────────────────────────────────────────
 
   "PanelService.create" should {
 
@@ -223,7 +222,6 @@ class PanelServiceMetricBindingSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ── PATCH /api/panels/:id ────────────────────────────────────────────────
 
   "PanelService.update" should {
 

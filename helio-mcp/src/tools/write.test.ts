@@ -202,8 +202,6 @@ describe("addPipelineStepHandler (assert config validation, HEL-581)", () => {
     expect(calls).toHaveLength(1);
   });
 
-  // ── Malformed configs: rejected before any API call ────────────────────
-
   it("rejects an invalid rule kind before any API call", async () => {
     const { api, calls } = makeFakeApi();
     const config = { rules: [{ kind: "bogus", field: "email", params: {}, severity: "error" }] };
@@ -270,8 +268,6 @@ describe("addPipelineStepHandler (assert config validation, HEL-581)", () => {
 
     expect(calls).toHaveLength(1);
   });
-
-  // ── Non-assert types: no validation, straight pass-through ─────────────
 
   it("passes a non-assert type's config through unchanged, performing no assert validation at all", async () => {
     const { api, calls } = makeFakeApi();

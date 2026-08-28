@@ -134,7 +134,6 @@ class ContentSourceSupportSpec extends AnyWordSpec with Matchers with ScalatestR
     }
   }
 
-  // ── SSRF guard (HEL-215 cycle-2 fix) ───────────────────────────────────────
 
   "ContentSourceSupport.isBlockedAddress" should {
 

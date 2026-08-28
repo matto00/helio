@@ -558,7 +558,6 @@ class PipelineStepRoutesSpec
       }
     }
 
-    // ── HEL-407: PUT /pipelines/:id/steps/order (atomic batch reorder) ──────
 
     "PUT /pipelines/:id/steps/order reorders steps and reindexes positions 0..n-1" in {
       cleanSteps(); val pid = seedPipeline()
@@ -783,7 +782,6 @@ class PipelineStepRoutesSpec
       }
     }
 
-    // ── HEL-412: enabled flag (create/PATCH round-trip) ──────────────────────
 
     "POST without enabled creates an enabled step" in {
       cleanSteps(); val pid = seedPipeline()
@@ -838,7 +836,6 @@ class PipelineStepRoutesSpec
       }
     }
 
-    // ── HEL-412: POST /pipeline-steps/:id/duplicate ──────────────────────────
 
     "POST /pipeline-steps/:id/duplicate clones the step directly after the original" in {
       cleanSteps(); val pid = seedPipeline()

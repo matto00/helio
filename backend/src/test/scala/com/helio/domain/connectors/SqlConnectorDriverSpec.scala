@@ -52,7 +52,6 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
       query    = "SELECT 1"
     )
 
-  // ── DDL/DML keyword rejection ──────────────────────────────────────────────
 
   "SqlConnectorDriver.checkQuery" should {
 
@@ -111,7 +110,6 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
     }
   }
 
-  // ── JDBC URL construction ──────────────────────────────────────────────────
 
   "SqlConnectorDriver.buildJdbcUrl" should {
 
@@ -168,7 +166,6 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
     }
   }
 
-  // ── SqlConnectorDriver as ConnectorDriver[SqlSourceConfig] (HEL-449 task 4.2) ─────────
 
   "SqlConnectorDriver.metadata" should {
     // HEL-484: requiredFields now non-empty (design.md Decision 2) — a

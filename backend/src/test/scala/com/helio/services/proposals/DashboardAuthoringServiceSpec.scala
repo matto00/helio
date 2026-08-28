@@ -130,7 +130,6 @@ class DashboardAuthoringServiceSpec
     db.close(); embeddedPostgres.close(); super.afterAll()
   }
 
-  // ── Fixtures ────────────────────────────────────────────────────────────
 
   private def newUser(): AuthenticatedUser = {
     implicit val ec: ExecutionContext = routeEc
@@ -182,7 +181,6 @@ class DashboardAuthoringServiceSpec
     dt
   }
 
-  // ── Stub Claude transport (zero real network calls) ────────────────────
 
   private def cannedResponse(text: String): Future[ClaudeApiResponse] =
     Future.successful(ClaudeApiResponse(
@@ -244,7 +242,6 @@ class DashboardAuthoringServiceSpec
   // failure.
   private val invalidProposalJson: String = """{"dashboardName":"","panels":[]}"""
 
-  // ── author (buffered) ────────────────────────────────────────────────────
 
   "DashboardAuthoringService.author" should {
 
@@ -368,7 +365,6 @@ class DashboardAuthoringServiceSpec
     }
   }
 
-  // ── authorStreaming ────────────────────────────────────────────────────────
 
   "DashboardAuthoringService.authorStreaming" should {
 
@@ -517,7 +513,6 @@ class DashboardAuthoringServiceSpec
     }
   }
 
-  // ── Multi-turn conversations (HEL-397 tasks.md 6.1) ─────────────────────
 
   private def seedConversation(
       owner: AuthenticatedUser,

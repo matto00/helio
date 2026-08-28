@@ -75,7 +75,6 @@ class PanelServiceScatterAggregationSpec extends AnyWordSpec with Matchers {
   private def tablePanel(id: String): TablePanel =
     TablePanel(PanelId(id), dashId, "Table", meta, PanelAppearance.Default, ownerId, TablePanelConfig.Empty)
 
-  // ── Create ──────────────────────────────────────────────────────────────
 
   "PanelService.create" should {
 
@@ -198,7 +197,6 @@ class PanelServiceScatterAggregationSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ── Batch update ───────────────────────────────────────────────────────
 
   "PanelService.batchUpdate" should {
 

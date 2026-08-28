@@ -66,9 +66,7 @@ class PipelineAnalyzeRoutesSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
-  // ---------------------------------------------------------------------------
   // DB helpers
-  // ---------------------------------------------------------------------------
 
   private def cleanPipelines(): Unit = {
     import PostgresProfile.api._
@@ -105,9 +103,7 @@ class PipelineAnalyzeRoutesSpec
     new PipelineRoutes(service, dummyUser).routes
   }
 
-  // ---------------------------------------------------------------------------
   // Tests
-  // ---------------------------------------------------------------------------
 
   "GET /pipelines/:id/analyze" should {
 
@@ -252,7 +248,6 @@ class PipelineAnalyzeRoutesSpec
       }
     }
 
-    // ── HEL-462: schema-drift surfacing ────────────────────────────────────
 
     "(a) omit sourceSchemaDrift when the pipeline has never run successfully (no baseline)" in {
       cleanPipelines()

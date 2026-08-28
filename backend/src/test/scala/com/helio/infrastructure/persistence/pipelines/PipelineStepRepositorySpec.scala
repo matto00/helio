@@ -138,7 +138,6 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
     }
   }
 
-  // ── HEL-412: enabled flag persistence ─────────────────────────────────────
 
   "PipelineStepRepository (HEL-412 enabled)" should {
 

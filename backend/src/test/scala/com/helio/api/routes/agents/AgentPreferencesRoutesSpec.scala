@@ -93,7 +93,6 @@ class AgentPreferencesRoutesSpec
     extras              = Some(JsObject("favoriteChart" -> JsString("bar")))
   )
 
-  // ── GET ─────────────────────────────────────────────────────────────────
 
   "GET /preferences" should {
 
@@ -124,7 +123,6 @@ class AgentPreferencesRoutesSpec
     }
   }
 
-  // ── PUT ─────────────────────────────────────────────────────────────────
 
   "PUT /preferences" should {
 
@@ -168,7 +166,6 @@ class AgentPreferencesRoutesSpec
     }
   }
 
-  // ── PUT /preferences/memory-enabled (HEL-531 / 420-E tasks.md 5.6) ───────
 
   "PUT /preferences/memory-enabled" should {
 

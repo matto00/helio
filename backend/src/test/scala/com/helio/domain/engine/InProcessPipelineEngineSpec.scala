@@ -1245,7 +1245,6 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       ex.getMessage should include ("does-not-exist")
     }
 
-        // 6.2 Multi-step pipeline test
     "multi-step: applies steps in order" in {
       val renameStep  = makeStep("rename",  """{ "renames": { "name": "person" } }""")
       val computeStep = makeStep("compute", """{ "column": "age_doubled", "expression": "age + age" }""")
@@ -1259,7 +1258,6 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       result.head("age") shouldBe 30
     }
 
-    // 3.1 — select op
     "select: retains only specified fields" in {
       val cfg  = """{ "fields": ["name", "dept"] }"""
       val step = makeStep("select", cfg)

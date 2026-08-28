@@ -244,7 +244,6 @@ class AgentMemoryRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     }
   }
 
-  // ── HEL-531 (420-E) tasks.md 5.3 — retention ─────────────────────────────
 
   private def rowCount(id: AgentMemoryId): Int = {
     import PostgresProfile.api._

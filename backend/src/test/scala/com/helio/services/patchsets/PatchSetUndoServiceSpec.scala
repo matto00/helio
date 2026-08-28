@@ -140,7 +140,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  // ── DB / seed helpers (mirrors PatchSetApplyServiceSpec) ────────────────────
 
   private def seedUsers(): Unit = {
     import PostgresProfile.api._
@@ -222,7 +221,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       case other                                  => fail(s"expected a successful, journaled apply, got $other")
     }
 
-  // ── 5.3: undo restores update edits, all six kinds ──────────────────────────
 
   "PatchSetUndoService.undo" should {
 
@@ -271,7 +269,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       restoredStep.enabled shouldBe false
     }
 
-    // ── 5.3b: create/delete undo ────────────────────────────────────────────
 
     "restore a panel create edit by deleting the created panel, and a panel delete edit by recreating it under a new id (5.3b)" in {
       val dashboard     = seedDashboard(userA)
@@ -388,7 +385,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       await(panelRepo.findByIdInternal(panel.id)).map(_.title) shouldBe Some("After")
     }
 
-    // ── 5.3e: a conflicting edit blocks the WHOLE undo ──────────────────────
 
     "refuse the whole undo when a touched resource conflicts, restoring none of the application's edits (5.3e)" in {
       val dashboard = seedDashboard(userA, "Conflict dashboard v1")
@@ -458,7 +454,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       await(panelRepo.findByIdInternal(panelA.id)).map(_.title) shouldBe Some("Panel A v2")
     }
 
-    // ── 5.3g: RLS ────────────────────────────────────────────────────────────
 
     "reject undoing another user's application (404), touching nothing (5.3g)" in {
       val dashboard = seedDashboard(userA)
@@ -481,7 +476,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       }
     }
 
-    // ── 5.3h: metric-materialized raw-field conflict precision (D4a) ────────
 
     "catch a raw override on a metric-bound panel's dataTypeId/fieldMapping/aggregation/unit, changed independently since apply with metricId unchanged, as a conflict (5.3h, round-3 regression)" in {
       val dashboard  = seedDashboard(userA)

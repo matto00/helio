@@ -107,7 +107,6 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
   private val restConfigPayload =
     RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
 
-  // ── createSql ────────────────────────────────────────────────────────────
 
   "SourceService.createSql" should {
 
@@ -143,7 +142,6 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
     }
   }
 
-  // ── createRest ───────────────────────────────────────────────────────────
 
   "SourceService.createRest" should {
 
@@ -220,7 +218,6 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
     }
   }
 
-  // ── inferSql / inferRest ─────────────────────────────────────────────────
 
   "SourceService.inferSql" should {
 
@@ -259,7 +256,6 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
     }
   }
 
-  // ── refresh ──────────────────────────────────────────────────────────────
 
   "SourceService.refresh (SQL)" should {
 

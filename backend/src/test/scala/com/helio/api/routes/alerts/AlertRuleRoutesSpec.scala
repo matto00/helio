@@ -111,7 +111,6 @@ class AlertRuleRoutesSpec
     id
   }
 
-  // ── Create ──────────────────────────────────────────────────────────────
 
   "POST /alert-rules" should {
 
@@ -172,7 +171,6 @@ class AlertRuleRoutesSpec
     }
   }
 
-  // ── List ────────────────────────────────────────────────────────────────
 
   "GET /alert-rules" should {
 
@@ -198,7 +196,6 @@ class AlertRuleRoutesSpec
     }
   }
 
-  // ── Get / Patch / Delete + ACL ─────────────────────────────────────────────
 
   "GET /alert-rules/:id" should {
 

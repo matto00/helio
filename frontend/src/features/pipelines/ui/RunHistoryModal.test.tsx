@@ -83,7 +83,6 @@ describe("RunHistoryModal — HEL-576 assertion summary", () => {
     });
     render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
 
-    // Not shown until expanded.
     expect(screen.queryByText("below minimum row count")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Show log" }));

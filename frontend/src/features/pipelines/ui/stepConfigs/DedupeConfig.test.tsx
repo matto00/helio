@@ -7,7 +7,6 @@ const columns = ["id", "region", "amount"];
 const emptyConfig: DedupeConfigValue = { keys: [], keep: "first" };
 
 describe("DedupeConfig", () => {
-  // Scenario: User selects key fields
   it("selecting a key field calls onChange with the field added to keys", () => {
     const onChange = jest.fn();
     render(<DedupeConfig config={emptyConfig} analyzeColumns={columns} onChange={onChange} />);
@@ -53,7 +52,6 @@ describe("DedupeConfig", () => {
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
-  // Scenario: User toggles keep to last
   it("toggling the keep control from first to last calls onChange with keep=last", () => {
     const onChange = jest.fn();
     render(<DedupeConfig config={emptyConfig} analyzeColumns={columns} onChange={onChange} />);

@@ -37,7 +37,6 @@ function makeStore() {
     } as never,
   });
 
-  // Seed a dashboard
   store.dispatch(
     fetchDashboards.fulfilled(
       [
@@ -91,14 +90,12 @@ describe("useLayoutUndoRedo", () => {
 
     renderHook(() => useLayoutUndoRedo(dashboardId), { wrapper: wrapper(store) });
 
-    // Undo first
     act(() => {
       window.dispatchEvent(
         new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
       );
     });
 
-    // Redo
     act(() => {
       window.dispatchEvent(
         new KeyboardEvent("keydown", { key: "z", ctrlKey: true, shiftKey: true, bubbles: true }),

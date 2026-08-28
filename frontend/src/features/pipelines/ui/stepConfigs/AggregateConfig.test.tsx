@@ -14,8 +14,6 @@ const sampleColumns = sampleSchema.map((f) => f.name);
 const emptyConfig: AggregateConfigValue = { groupBy: [], aggregations: [] };
 
 describe("AggregateConfig", () => {
-  // ── Render with empty config ───────────────────────────────────────────────
-
   it("renders Add group-by field button with empty config", () => {
     render(
       <AggregateConfig
@@ -66,8 +64,6 @@ describe("AggregateConfig", () => {
     ).not.toBeInTheDocument();
   });
 
-  // ── Render with hydrated config ────────────────────────────────────────────
-
   it("hydrates group-by row with persisted field name", () => {
     const config: AggregateConfigValue = {
       groupBy: [{ name: "dept", type: "string" }],
@@ -107,8 +103,6 @@ describe("AggregateConfig", () => {
       "age",
     );
   });
-
-  // ── Add group-by field ─────────────────────────────────────────────────────
 
   it("clicking Add group-by field appends a new group-by row with first schema field", () => {
     const onChange = jest.fn();
@@ -202,8 +196,6 @@ describe("AggregateConfig", () => {
     expect(parsed.groupBy[0].name).toBe("age");
   });
 
-  // ── Add / remove aggregation row ──────────────────────────────────────────
-
   it("clicking Add aggregation appends a new aggregation row with fn=sum", () => {
     const onChange = jest.fn();
     render(
@@ -287,8 +279,6 @@ describe("AggregateConfig", () => {
     expect(parsed.aggregations[0].alias).toBe("cnt");
   });
 
-  // ── Inline warning for missing field ──────────────────────────────────────
-
   it("shows inline warning when aggregation field is not in analyzeSchema", () => {
     const config: AggregateConfigValue = {
       groupBy: [],
@@ -342,8 +332,6 @@ describe("AggregateConfig", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  // ── onChange wiring ────────────────────────────────────────────────────────
-
   it("changing alias input calls onChange with updated alias", () => {
     const onChange = jest.fn();
     const config: AggregateConfigValue = {
@@ -392,8 +380,6 @@ describe("AggregateConfig", () => {
     const parsed = onChange.mock.calls[0][0] as AggregateConfigValue;
     expect(parsed.aggregations[0].fn).toBe("avg");
   });
-
-  // ── 3.1  Per-function inline hints ────────────────────────────────────────
 
   it("shows sum hint text below fn dropdown when fn=sum", () => {
     const config: AggregateConfigValue = {
@@ -479,8 +465,6 @@ describe("AggregateConfig", () => {
     expect(screen.getByText("Counts non-null values in the field")).toBeInTheDocument();
   });
 
-  // ── 3.2  No alias error before blur ───────────────────────────────────────
-
   it("does not show alias error before the alias input has been blurred", () => {
     const config: AggregateConfigValue = {
       groupBy: [],
@@ -496,8 +480,6 @@ describe("AggregateConfig", () => {
     );
     expect(screen.queryByText("Output name required")).not.toBeInTheDocument();
   });
-
-  // ── 3.3  Alias error shown after blur on empty alias ─────────────────────
 
   it("shows 'Output name required' after blurring an empty alias input", () => {
     const config: AggregateConfigValue = {
@@ -518,8 +500,6 @@ describe("AggregateConfig", () => {
     expect(screen.getByText("Output name required")).toBeInTheDocument();
   });
 
-  // ── 3.4  No alias error when alias is non-empty after blur ────────────────
-
   it("does not show alias error after blur when alias is non-empty", () => {
     const config: AggregateConfigValue = {
       groupBy: [],
@@ -538,8 +518,6 @@ describe("AggregateConfig", () => {
 
     expect(screen.queryByText("Output name required")).not.toBeInTheDocument();
   });
-
-  // ── 3.5  Relationship description text ────────────────────────────────────
 
   it("shows group-by relationship description text", () => {
     render(

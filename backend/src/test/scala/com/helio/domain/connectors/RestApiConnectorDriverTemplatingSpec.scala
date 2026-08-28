@@ -198,7 +198,6 @@ class RestApiConnectorDriverTemplatingSpec extends AnyWordSpec with Matchers wit
     }
   }
 
-  // ── 4.4: escaping ──
 
   "escaping (4.4)" should {
     "query param value containing &, a quote, a newline, and unicode round-trips through Uri.Query's own percent-encoding" in {
@@ -260,7 +259,6 @@ class RestApiConnectorDriverTemplatingSpec extends AnyWordSpec with Matchers wit
     }
   }
 
-  // ── 4.5: credential unreachability ──
 
   "credential unreachability (4.5)" should {
     "hostile templates {{apiKey}}/{{credential}}/{{secret}} with no matching parameters entry fail loud like any other unresolved variable" in {
@@ -322,7 +320,6 @@ class RestApiConnectorDriverTemplatingSpec extends AnyWordSpec with Matchers wit
     }
   }
 
-  // ── 4.7: body templating boundary ──
 
   "TemplateInterpolator.resolve applied to body string content (4.7)" should {
     "resolves placeholders in a JSON body template with per-value JSON escaping" in {

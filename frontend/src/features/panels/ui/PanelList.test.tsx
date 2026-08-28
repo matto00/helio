@@ -395,7 +395,6 @@ describe("PanelList", () => {
     const emptyState = screen.getByLabelText("No panels yet");
     fireEvent.click(within(emptyState).getByRole("button", { name: "Add panel" }));
 
-    // Modal type-select step is shown
     expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Chart" })).toBeInTheDocument();
   });

@@ -189,7 +189,6 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
       expect(mutatedBox.height).toBeLessThan(44);
       expect(mutatedBox.width).toBeLessThan(44);
 
-      // 4. Revert.
       await writeAndSettle(TOAST_CSS, original);
       mutated = false;
       await reloadAndSettle(page);
@@ -198,7 +197,6 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
       await page.getByRole("button", { name: "Copy" }).click();
       await expect(page.locator(".toast")).toBeVisible();
 
-      // 5. Confirm PASS again, post-revert.
       await assertFloor(page.locator(".toast__close"));
       const revertedBox = await measureBox(page.locator(".toast__close"));
       console.log(`[hel813-regression][Case A][reverted PASS] ${JSON.stringify(revertedBox)}`);
@@ -231,7 +229,6 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
       ).toBeVisible();
       const addBtn = page.locator(".panel-list__add");
 
-      // 1. Baseline PASS.
       await assertFloor(addBtn);
       const baselineBox = await measureBox(addBtn);
       console.log(`[hel813-regression][Case B][baseline PASS] ${JSON.stringify(baselineBox)}`);
@@ -260,7 +257,6 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
       expect(mutatedBox.width).toBeLessThan(44);
       expect(mutatedBox.height).toBeGreaterThanOrEqual(44);
 
-      // 4. Revert.
       await writeAndSettle(PANEL_LIST_CSS, original);
       mutated = false;
       await reloadAndSettle(page);
@@ -268,7 +264,6 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
         page.getByRole("heading", { name: /HEL-813 Regression PanelList/ }),
       ).toBeVisible();
 
-      // 5. Confirm PASS again, post-revert.
       await assertFloor(page.locator(".panel-list__add"));
       const revertedBox = await measureBox(page.locator(".panel-list__add"));
       console.log(`[hel813-regression][Case B][reverted PASS] ${JSON.stringify(revertedBox)}`);

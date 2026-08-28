@@ -46,7 +46,6 @@ class AlertEventStateMachineSpec extends AnyWordSpec with Matchers {
 
   "AlertEventStateMachine.transition" should {
 
-    // ── Legal user-driven transitions ──────────────────────────────────────
 
     "firing -> acknowledged" in {
       val event = baseEvent(AlertEventState.Firing)
@@ -179,7 +178,6 @@ class AlertEventStateMachineSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    // ── Illegal transitions ──────────────────────────────────────────────────
 
     "reject resolve then acknowledge" in {
       val event = baseEvent(AlertEventState.Resolved, resolvedAt = Some(Instant.now()))

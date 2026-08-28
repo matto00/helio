@@ -126,7 +126,6 @@ class AlertEventRoutesSpec
     event.id.value
   }
 
-  // ── List ────────────────────────────────────────────────────────────────
 
   "GET /alerts" should {
 
@@ -190,7 +189,6 @@ class AlertEventRoutesSpec
     }
   }
 
-  // ── Get + ACL ───────────────────────────────────────────────────────────
 
   "GET /alerts/:id" should {
 
@@ -216,7 +214,6 @@ class AlertEventRoutesSpec
     }
   }
 
-  // ── Acknowledge ─────────────────────────────────────────────────────────
 
   "POST /alerts/:id/acknowledge" should {
 
@@ -260,7 +257,6 @@ class AlertEventRoutesSpec
     }
   }
 
-  // ── Snooze ──────────────────────────────────────────────────────────────
 
   "POST /alerts/:id/snooze" should {
 
@@ -293,7 +289,6 @@ class AlertEventRoutesSpec
     }
   }
 
-  // ── Resolve ─────────────────────────────────────────────────────────────
 
   "POST /alerts/:id/resolve" should {
 

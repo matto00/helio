@@ -11,9 +11,7 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
   import DataFieldType._
   import SchemaInferenceEngine._
 
-  // ---------------------------------------------------------------------------
   // JSON tests
-  // ---------------------------------------------------------------------------
 
   "SchemaInferenceEngine.fromJson" should {
 
@@ -81,9 +79,7 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // inferSchemaFromRows (HEL-473 facade)
-  // ---------------------------------------------------------------------------
 
   "SchemaInferenceEngine.inferSchemaFromRows" should {
 
@@ -132,9 +128,7 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // CSV tests
-  // ---------------------------------------------------------------------------
 
   "SchemaInferenceEngine.fromCsv" should {
 
@@ -217,9 +211,7 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // displayName tests
-  // ---------------------------------------------------------------------------
 
   "SchemaInferenceEngine.displayName" should {
 
@@ -244,9 +236,7 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // DataFieldType.asString
-  // ---------------------------------------------------------------------------
 
   "DataFieldType.asString" should {
 

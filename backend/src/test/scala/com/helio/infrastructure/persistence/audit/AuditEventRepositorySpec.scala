@@ -106,7 +106,6 @@ class AuditEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     UserId(id)
   }
 
-  // ── 6.1: append persists all fields; read filters ───────────────────────
 
   "append" should {
     "persist all supplied fields, retrievable via findByActor" in {
@@ -168,7 +167,6 @@ class AuditEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     }
   }
 
-  // ── 6.2: RLS read scoping ─────────────────────────────────────────────
 
   "RLS read scoping" should {
     "let the app pool see only its own actor's rows, not another actor's or a NULL-actor row" in {
@@ -344,7 +342,6 @@ class AuditEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     }
   }
 
-  // ── 6.4: model-shape check for Decision 4 ────────────────────────────────
 
   "the audit event model" should {
     "express a rate-limit-trip-shaped event (source=system, null actor, limit details in metadata) without any schema/model change" in {

@@ -124,7 +124,6 @@ class ApiRoutesSpec
   private val testToken   = "valid-test-token"
   private val testUser    = AuthenticatedUser(UserId(testUserId))
 
-  // Second user for ACL tests (non-owner)
   private val otherUserId = "00000000-0000-0000-0000-000000000098"
   private val otherToken  = "valid-other-token"
   private val otherUser   = AuthenticatedUser(UserId(otherUserId))
@@ -1317,7 +1316,6 @@ class ApiRoutesSpec
       )
       await(dataTypeRepo.insert(dt, testUser))
 
-      // bind
       Patch(
         s"/api/panels/$panelId",
         UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsString(dt.id.value))))
@@ -2147,7 +2145,6 @@ class ApiRoutesSpec
         snapshotPanel.snapshotId shouldBe panelId
         snapshotPanel.title shouldBe "My Panel"
         snapshotPanel.`type` shouldBe "metric"
-        // layout panelId references match the snapshotId
         snapshot.dashboard.layout.lg.head.panelId shouldBe snapshotPanel.snapshotId
         // HEL-368: the additive `id` field equals both `snapshotId` and the panel's real id
         snapshotPanel.id shouldBe Some(panelId)
@@ -3763,7 +3760,6 @@ class ApiRoutesSpec
       import java.time.Instant
       import java.util.UUID
 
-      // Create a source as testUser
       var sourceId = ""
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
         """{"name":"Protected Source","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
@@ -3838,7 +3834,6 @@ class ApiRoutesSpec
       import java.time.Instant
       import java.util.UUID
 
-      // testUser creates a type
       var typeId = ""
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
         """{"name":"My Type","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
@@ -3863,7 +3858,6 @@ class ApiRoutesSpec
       import java.time.Instant
       import java.util.UUID
 
-      // testUser creates a type
       var typeId = ""
       Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
         """{"name":"My Type2","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
@@ -3891,7 +3885,6 @@ class ApiRoutesSpec
       import java.time.Instant
       import java.util.UUID
 
-      // testUser creates a dashboard and panel
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("My Dashboard"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
@@ -4305,7 +4298,6 @@ class ApiRoutesSpec
       Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
       }
-      // Unauthenticated request should see the panels
       Get(s"/api/dashboards/$dashboardId/panels") ~> rawRoutes() ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PagedResult[PanelResponse]]
@@ -4344,7 +4336,6 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.Created
         panelId = responseAs[PanelResponse].id
       }
-      // Grant editor access to otherUser
       val grantBody = s"""{"granteeId":"$otherUserId","role":"editor"}"""
       Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, grantBody)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
@@ -4364,7 +4355,6 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.Created
         dashboardId = responseAs[DashboardResponse].id
       }
-      // Grant editor access to otherUser
       val grantBody = s"""{"granteeId":"$otherUserId","role":"editor"}"""
       Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, grantBody)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
@@ -4388,7 +4378,6 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.Created
         panelId = responseAs[PanelResponse].id
       }
-      // Grant viewer access to otherUser
       val grantBody = s"""{"granteeId":"$otherUserId","role":"viewer"}"""
       Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, grantBody)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
@@ -4416,7 +4405,6 @@ class ApiRoutesSpec
 
     "return 200 with updated preferences when updating zoom level" in {
       cleanDb()
-      // First, create a dashboard
       Post("/api/dashboards", CreateDashboardRequest(Some("Test"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         val dashboard = responseAs[DashboardResponse]
@@ -4436,7 +4424,6 @@ class ApiRoutesSpec
   "GET /api/auth/me" should {
     "return user with preferences field" in {
       cleanDb()
-      // Save some preferences first
       val saveBody = """{"fields":["accentColor"],"user":{"accentColor":"#f97316"}}"""
       Patch("/api/users/me/update", HttpEntity(ContentTypes.`application/json`, saveBody)) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
@@ -4693,9 +4680,7 @@ class ApiRoutesSpec
         val panels   = responseAs[PanelsResponse].items
         val panel    = panels.find(_.id == panelId).get
         panel.dataAsOf shouldBe defined
-        // Value is a non-empty ISO string
         panel.dataAsOf.get should not be empty
-        // Parses as an Instant
         noException should be thrownBy Instant.parse(panel.dataAsOf.get)
       }
     }

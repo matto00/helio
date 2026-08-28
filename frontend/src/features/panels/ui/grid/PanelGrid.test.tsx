@@ -117,7 +117,6 @@ const PHONE_WIDTH = 375;
 //     to the pre-fix baseline.
 //   - Coordinate offsets that previously caused panels to "jump" on drag start at
 //     non-100% zoom are eliminated.
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("PanelGrid", () => {
   beforeEach(() => {
@@ -214,7 +213,6 @@ describe("PanelGrid", () => {
     });
     expect(updatePanelTitleMock).not.toHaveBeenCalled();
   });
-  // ─────────────────────────────────────────────────────────────────────────────
 
   // Task 5.4 — committing a title edit dispatches accumulatePanelUpdate instead of updatePanelTitle
   it("committing a title edit populates pendingPanelUpdates and does not call the updatePanelTitle service", () => {
@@ -263,7 +261,6 @@ describe("PanelGrid", () => {
     expect(updatePanelsBatchMock).not.toHaveBeenCalled();
   });
 
-  // ─── Panel body click opens detail modal ─────────────────────────────────────
   // Tasks 2.1–2.4: verify the mousedown-displacement + target-exclusion logic.
   // HTMLDialogElement.prototype.showModal is mocked to set the open attribute so
   // PanelDetailModal is accessible via getByRole('dialog') in jsdom.
@@ -361,7 +358,6 @@ describe("PanelGrid", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });
-  // ─────────────────────────────────────────────────────────────────────────────
 
   // ─── HEL-284: drag freeze — PanelCardBody hidden during drag ─────────────────
   // When `onDragStart` fires, PanelGrid sets `isDragging = true`.  PanelCard
@@ -405,7 +401,6 @@ describe("PanelGrid", () => {
       expect(screen.getByText("No data available")).toBeInTheDocument();
     });
   });
-  // ─────────────────────────────────────────────────────────────────────────────
 
   // ── HEL-234: dataAsOf freshness indicator ───────────────────────────────────
   describe("dataAsOf freshness indicator", () => {
@@ -468,7 +463,6 @@ describe("PanelGrid", () => {
       expect(screen.queryByText(/Data as of/i)).not.toBeInTheDocument();
     });
   });
-  // ─────────────────────────────────────────────────────────────────────────────
 
   // Task 5.2 — desktop/tablet width (>=768) renders the RGL grid, unchanged.
   it("renders the RGL <Responsive> grid, not the mobile stack, at a >=768px container width", () => {
@@ -520,7 +514,6 @@ describe("PanelGrid", () => {
         { panels: { items: [testPanel] } },
       );
 
-      // Mount.
       expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
       expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
 
@@ -635,7 +628,6 @@ describe("PanelGrid", () => {
       expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
     });
   });
-  // ─────────────────────────────────────────────────────────────────────────────
 
   // ─── HEL-304 — width-independent panel-update flush (remedy (a)) ──────────────
   // The pending-panel-updates flush lifecycle (30s interval, dashboard-switch
@@ -696,13 +688,11 @@ describe("PanelGrid", () => {
       // A real flush handler is registered even at phone width.
       expect(holder.fn).not.toBeNull();
 
-      // No-op with nothing pending.
       act(() => {
         holder.fn?.();
       });
       expect(updatePanelsBatchMock).not.toHaveBeenCalled();
 
-      // Stage, then Save now.
       act(() => {
         store.dispatch(
           accumulatePanelUpdate({ panelId: "panel-1", fields: { appearance: stagedAppearance } }),
@@ -754,7 +744,6 @@ describe("PanelGrid", () => {
       expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
     });
   });
-  // ─────────────────────────────────────────────────────────────────────────────
 
   // ─── HEL-306 — staged layout flushes when the desktop grid unmounts ──────────
   // A layout change staged on desktop (drag/resize within the 30s auto-save
@@ -870,7 +859,6 @@ describe("PanelGrid", () => {
         { panels: { items: [testPanel] } },
       );
 
-      // Stage a layout change on desktop.
       act(() => {
         (
           latestResponsiveProps().onLayoutChange as unknown as (
@@ -922,5 +910,4 @@ describe("PanelGrid", () => {
       expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
     });
   });
-  // ─────────────────────────────────────────────────────────────────────────────
 });

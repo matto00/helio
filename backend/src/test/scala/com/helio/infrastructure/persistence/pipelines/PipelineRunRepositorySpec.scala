@@ -104,7 +104,6 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       runs.head.triggerSource shouldBe "manual"
     }
 
-    // ── HEL-417: trigger_source persistence ─────────────────────────────────
 
     "insertRun persists the passed triggerSource (scheduled)" in {
       val pid   = seedPipeline()
@@ -175,7 +174,6 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
     "deleteOldRuns retains only the N most recent runs" in {
       val pid = seedPipeline()
-      // Insert 12 runs
       val base = Instant.now()
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
@@ -206,7 +204,6 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
       val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs should have size 3
-      // Most recent first
       runs.head.startedAt.isAfter(runs(1).startedAt) shouldBe true
       runs(1).startedAt.isAfter(runs(2).startedAt)   shouldBe true
       // Corresponds to ids(2), ids(1), ids(0)
@@ -238,7 +235,6 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     "deleteOldDryRuns retains only the N most recent dry-run rows" in {
       val pid  = seedPipeline()
       val base = Instant.now()
-      // Insert 12 dry-run rows
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds(i.toLong), rowCount = i, systemUser))
@@ -350,7 +346,6 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       after.count(_.status != "dry_run") shouldBe 10
     }
 
-    // ── HEL-509 (419-B): pipeline_run_assertions ────────────────────────────
 
     def sampleResults(): Vector[AssertionResult] = Vector(
       AssertionResult("step-1", "notNull", Some("email"), "error", passed = true, observed = Some("0 nulls"), message = None),
@@ -429,7 +424,6 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       await(pipelineRunRepo.listAssertionsByRunInternal(runId)) shouldBe empty
     }
 
-    // ── HEL-576: findLatestRunIdByOutputDataTypeIdInternal ─────────────────
 
     "findLatestRunIdByOutputDataTypeIdInternal returns None when the pipeline has never had a non-dry run" in {
       val (_, dtId) = seedPipelineWithDataType()

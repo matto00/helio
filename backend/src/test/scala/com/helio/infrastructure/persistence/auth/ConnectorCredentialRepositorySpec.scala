@@ -114,7 +114,6 @@ class ConnectorCredentialRepositorySpec extends AnyWordSpec with Matchers with B
     UserId(id)
   }
 
-  // ── 4.2: DB-level ciphertext assertion ──────────────────────────────────
 
   "create" should {
 
@@ -167,7 +166,6 @@ class ConnectorCredentialRepositorySpec extends AnyWordSpec with Matchers with B
     }
   }
 
-  // ── 4.3: RLS proof under a non-bypassing role ───────────────────────────
 
   "RLS on connector_credentials" should {
 
@@ -197,7 +195,6 @@ class ConnectorCredentialRepositorySpec extends AnyWordSpec with Matchers with B
     }
   }
 
-  // ── 4.4: metadata-only return shape ─────────────────────────────────────
 
   "get/list" should {
 
@@ -215,7 +212,6 @@ class ConnectorCredentialRepositorySpec extends AnyWordSpec with Matchers with B
     }
   }
 
-  // ── delete ───────────────────────────────────────────────────────────────
 
   "delete" should {
     "removes the caller's own credential and returns true" in {
@@ -236,7 +232,6 @@ class ConnectorCredentialRepositorySpec extends AnyWordSpec with Matchers with B
     }
   }
 
-  // ── 5.2: rotation re-wrap job ────────────────────────────────────────────
 
   "rewrapAllBelow" should {
 

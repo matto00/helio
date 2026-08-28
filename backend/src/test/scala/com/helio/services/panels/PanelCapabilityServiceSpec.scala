@@ -233,7 +233,6 @@ class PanelCapabilityServiceSpec extends AnyWordSpec with Matchers with BeforeAn
       }
     }
 
-    // Task 5.5 — design.md D5
     "return 404 (never 403) for a cross-tenant caller" in {
       cleanDb()
       val dt = insertDataType(sourceId = None, fields = Vector.empty, owner = ownerA)

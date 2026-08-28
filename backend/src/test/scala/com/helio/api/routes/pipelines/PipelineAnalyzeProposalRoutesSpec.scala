@@ -73,9 +73,7 @@ class PipelineAnalyzeProposalRoutesSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  // ---------------------------------------------------------------------------
   // DB helpers
-  // ---------------------------------------------------------------------------
 
   private def cleanAll(): Unit = {
     import PostgresProfile.api._
@@ -112,9 +110,7 @@ class PipelineAnalyzeProposalRoutesSpec
     dsId
   }
 
-  // ---------------------------------------------------------------------------
   // Route wiring
-  // ---------------------------------------------------------------------------
 
   /** A `RestApiConnectorDriver` that never actually reaches the network — the
    *  static/sql-only tests below never exercise it; the "no connector call"
@@ -154,9 +150,7 @@ class PipelineAnalyzeProposalRoutesSpec
     csvConfig = None, restConfig = None, sqlConfig = None, staticConfig = None
   )
 
-  // ---------------------------------------------------------------------------
   // Tests
-  // ---------------------------------------------------------------------------
 
   "POST /pipelines/analyze-proposal" should {
 

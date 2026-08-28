@@ -160,8 +160,6 @@ describe("PipelineScheduleDialog", () => {
     expect(screen.getByRole("textbox", { name: "Cron expression" })).toHaveValue("0 * * * *");
   });
 
-  // ── F-140: client-side validation, cron presets, next-run preview ────────
-
   it("blocks save and shows a friendly message for an empty interval, without calling the API", async () => {
     renderDialog(null);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

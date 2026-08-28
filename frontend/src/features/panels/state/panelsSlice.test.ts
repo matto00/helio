@@ -262,8 +262,6 @@ describe("panelsSlice", () => {
     expect(afterReject.pendingPanelUpdates["panel-1"]).toEqual({ title: "Unsaved" });
   });
 
-  // ── pagination state tests (Task 4.2) ────────────────────────────────────────
-
   describe("fetchPanelPage", () => {
     it("initial load (page 0) populates rows and hasMore", () => {
       const rows = [{ n: 1 }, { n: 2 }];
@@ -433,7 +431,6 @@ describe("panelsSlice", () => {
         "panel-a2",
         "panel-b",
       ]);
-      // Row contents preserved on every panel.
       expect(afterStale.paginationState["panel-a1"].rows).toEqual([{ v: 1 }]);
     });
 
@@ -444,7 +441,6 @@ describe("panelsSlice", () => {
       const seeded = seedThreePanels();
       const withText = panelsReducer(seeded, fetchPanels.fulfilled([textPanel], "req", "d1"));
 
-      // No throw, no mutation.
       expect(() => panelsReducer(withText, markDataTypeRowsStale("dt-A"))).not.toThrow();
     });
   });
@@ -537,7 +533,6 @@ describe("panelsSlice", () => {
     }
   });
 
-  // Task 6.2 — lastSavedAt
   it("lastSavedAt starts as null in initial state", () => {
     const state = panelsReducer(undefined, { type: "@@INIT" });
     expect(state.lastSavedAt).toBeNull();

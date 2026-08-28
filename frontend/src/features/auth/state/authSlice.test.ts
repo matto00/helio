@@ -179,7 +179,6 @@ describe("login thunk", () => {
     expect(store.getState().auth.status).toBe("unauthenticated");
   });
 
-  // HEL-702 design.md D7
   it("stores the challenge and stays unauthenticated when MFA is required", async () => {
     mockedAuthService.loginRequest.mockResolvedValue(testMfaRequiredResponse);
     const store = makeStore();
@@ -193,7 +192,6 @@ describe("login thunk", () => {
   });
 });
 
-// HEL-702 design.md D7
 describe("handleOAuthCallback thunk (MFA gate)", () => {
   it("stores the challenge and stays unauthenticated when MFA is required", async () => {
     mockedAuthService.oauthCallbackRequest.mockResolvedValue(testMfaRequiredResponse);
@@ -207,7 +205,6 @@ describe("handleOAuthCallback thunk (MFA gate)", () => {
   });
 });
 
-// HEL-702 design.md D4/D7
 describe("verifyMfa thunk", () => {
   async function storeWithPendingChallenge() {
     mockedAuthService.loginRequest.mockResolvedValue(testMfaRequiredResponse);
@@ -264,7 +261,6 @@ describe("verifyMfa thunk", () => {
   });
 });
 
-// HEL-702 design.md D7
 describe("clearAuth (MFA challenge)", () => {
   it("clears a pending mfaChallenge", () => {
     const action = login.fulfilled(testMfaRequiredResponse, "request-1", {
@@ -365,12 +361,10 @@ describe("updateUserPreferences thunk", () => {
     const preferences = { accentColor: "#3b82f6", zoomLevels: { "dash-1": 1.5 } };
     mockedAuthService.updateUserPreferencesRequest.mockResolvedValue(preferences);
 
-    // First set up an authenticated user
     mockedAuthService.loginRequest.mockResolvedValue(testAuthResponse);
     const store = makeStore();
     await store.dispatch(login({ email: "test@example.com", password: "pass1234" }));
 
-    // Now update preferences
     await store.dispatch(
       updateUserPreferences({
         fields: ["accentColor"],

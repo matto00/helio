@@ -174,7 +174,6 @@ describe("toastsSlice", () => {
     });
   });
 
-  // HEL-535 5.4 — D1: coalescing.
   describe("duplicate coalescing (D1)", () => {
     it("coalesces an identical variant+message into a single entry with a fresh id", () => {
       let state = toastsReducer(undefined, { type: "@@INIT" });

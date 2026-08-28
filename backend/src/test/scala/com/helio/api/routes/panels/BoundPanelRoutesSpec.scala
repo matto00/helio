@@ -106,7 +106,6 @@ class BoundPanelRoutesSpec
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
   private def json(s: String) = HttpEntity(ContentTypes.`application/json`, s)
 
-  // ── DB seed helpers ─────────────────────────────────────────────────────────
 
   private def seedUsers(): Unit = {
     import PostgresProfile.api._
@@ -161,7 +160,6 @@ class BoundPanelRoutesSpec
     (DataSourceId(srcId), DataTypeId(dtId))
   }
 
-  // ── Route fixture ─────────────────────────────────────────────────────────
 
   private val fileSystem = new LocalFileSystem(Paths.get("/"))
 

@@ -504,8 +504,6 @@ describe("ChartPanel \u2014 scatter chart", () => {
   });
 });
 
-// ── HEL-248: per-chart-type display options → ECharts option mapping ─────────
-
 describe("ChartPanel — chartOptions (HEL-248)", () => {
   const lineAppearance = {
     ...baseAppearance,
@@ -830,9 +828,7 @@ describe("ChartPanel — measured compact from ResizeObserver (F-094/F-026)", ()
       observe() {
         /* no-op: the test triggers `observerCallback` manually */
       }
-      disconnect() {
-        /* no-op */
-      }
+      disconnect() {}
     }
     (global as { ResizeObserver?: unknown }).ResizeObserver = FakeResizeObserver;
   });

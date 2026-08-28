@@ -141,13 +141,11 @@ class GoogleOAuthRoutesSpec
     rows
   }
 
-  // ─── Configurable stub for Google HTTP calls ──────────────────────────────
 
   // Helper to extract the state param from a redirect URL
   private def extractStateFromLocation(location: String): String =
     location.split("state=").last.split("&").head
 
-  // ─── Tests ────────────────────────────────────────────────────────────────
 
   "GET /api/auth/google" should {
 
@@ -372,7 +370,6 @@ class GoogleOAuthRoutesSpec
           Future.successful(profile)
       }
 
-      // First login — creates user
       var firstUserId = ""
       val routes1     = makeOAuthRoutes()
       val route1: Route = pathPrefix("api") { pathPrefix("auth") { routes1.routes } }
@@ -402,7 +399,6 @@ class GoogleOAuthRoutesSpec
         secondUserId shouldBe firstUserId
       }
 
-      // Confirm no duplicate records in DB
       import slick.jdbc.PostgresProfile.api._
       val count = await(db.run(sql"SELECT COUNT(*) FROM users WHERE google_id = 'google-sub-002'".as[Int].head))
       count shouldBe 1

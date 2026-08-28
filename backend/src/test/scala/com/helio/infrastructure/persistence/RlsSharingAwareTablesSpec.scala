@@ -179,7 +179,6 @@ class RlsSharingAwareTablesSpec extends AnyWordSpec with Matchers with BeforeAnd
              ON CONFLICT DO NOTHING"""
     ))
 
-  // ── dashboards RLS ────────────────────────────────────────────────────────
 
   "RLS on dashboards" should {
 
@@ -263,7 +262,6 @@ class RlsSharingAwareTablesSpec extends AnyWordSpec with Matchers with BeforeAnd
     }
   }
 
-  // ── panels RLS ────────────────────────────────────────────────────────────
 
   "RLS on panels" should {
 
@@ -335,7 +333,6 @@ class RlsSharingAwareTablesSpec extends AnyWordSpec with Matchers with BeforeAnd
     }
   }
 
-  // ── resource_permissions RLS ──────────────────────────────────────────────
 
   "RLS on resource_permissions" should {
 

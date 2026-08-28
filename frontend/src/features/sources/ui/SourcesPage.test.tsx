@@ -172,7 +172,6 @@ describe("SourcesPage", () => {
 
       // "Navigate away with it open" — unmount while the flag is still true.
       rerender(<></>);
-      // "Return" — a fresh mount.
       rerender(<SourcesPage />);
 
       expect(screen.queryByRole("dialog", { name: "Add data source" })).not.toBeInTheDocument();

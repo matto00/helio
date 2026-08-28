@@ -72,7 +72,6 @@ describe("ChunkByTokenCountConfig", () => {
     expect(onChange).toHaveBeenCalledWith({ ...emptyConfig, field: "content" });
   });
 
-  // Scenario: Target token count input
   it("changing the target token count input patches targetTokenCount", () => {
     const onChange = jest.fn();
     render(

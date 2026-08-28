@@ -129,7 +129,6 @@ describe("OAuthCallbackPage", () => {
     expect(consumeReturnTo()).toBeNull();
   });
 
-  // HEL-702 design.md D7
   it("navigates to /login/verify when the callback returns an MFA challenge instead of a session", async () => {
     mockedAuthService.oauthCallbackRequest.mockResolvedValue({
       mfaRequired: true,

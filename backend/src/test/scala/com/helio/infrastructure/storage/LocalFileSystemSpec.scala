@@ -112,7 +112,6 @@ class LocalFileSystemSpec extends AnyWordSpec with BeforeAndAfterAll {
         val result = LocalFileSystem.fromEnv()
         assert(result.baseDir.isAbsolute)
         assert(result.baseDir.toString.endsWith("relative/path/test"))
-        // clean up
         deleteRecursively(result.baseDir)
       }
     }
@@ -145,7 +144,6 @@ class LocalFileSystemSpec extends AnyWordSpec with BeforeAndAfterAll {
     }
   }
 
-  // ---- helpers ----
 
   /** Expose baseDir for test assertions without touching production API surface. */
   implicit class LocalFileSystemTestOps(fs: LocalFileSystem) {

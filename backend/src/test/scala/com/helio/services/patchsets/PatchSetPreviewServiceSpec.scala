@@ -198,7 +198,6 @@ class PatchSetPreviewServiceSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  // ── DB / seed helpers ────────────────────────────────────────────────────
 
   private def seedUsers(): Unit = {
     import slick.jdbc.PostgresProfile.api._
@@ -367,7 +366,6 @@ class PatchSetPreviewServiceSpec
       }
     }
 
-    // ── 6.2: create sentinel / delete None ─────────────────────────────────
 
     "give a create edit's after the '(pending)' id sentinel, and a delete edit's after is None (6.2)" in {
       val dashboard = seedDashboard(userA)
@@ -394,7 +392,6 @@ class PatchSetPreviewServiceSpec
       await(panelRepo.findAllByDashboardId(dashboard.id, Some(userA), Page(0, 10))).total shouldBe 1
     }
 
-    // ── 6.3: resolveAll-level rejection ─────────────────────────────────────
 
     "reject an edit targeting a nonexistent resource, changing nothing, identically to apply (6.3a)" in {
       val dashboard = seedDashboard(userA)
@@ -435,7 +432,6 @@ class PatchSetPreviewServiceSpec
       await(dashboardRepo.findByIdInternal(dashboard.id)) shouldBe defined
     }
 
-    // ── 6.4: content-check parity (design.md D1/D1a) ────────────────────────
 
     "reject a panel-update edit with a blank title, matching PATCH /api/panels/:id (6.4a)" in {
       val dashboard = seedDashboard(userA)
@@ -520,7 +516,6 @@ class PatchSetPreviewServiceSpec
       }
     }
 
-    // ── 6.5: impact hints ────────────────────────────────────────────────────
 
     "hint that pipeline output rows will be stale on a pipeline-update edit (6.5a)" in {
       val (sourceId, _) = seedStaticSource(userA, "PipelineUpdateSrc")
@@ -705,7 +700,6 @@ class PatchSetPreviewServiceSpec
     }
   }
 
-  // ── 6.5 (direct): PanelRepository.existsBoundToType RLS-narrowing ────────
 
   "PanelRepository.existsBoundToType (2.3a)" should {
 

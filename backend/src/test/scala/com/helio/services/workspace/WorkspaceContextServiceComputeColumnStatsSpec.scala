@@ -31,7 +31,6 @@ class WorkspaceContextServiceComputeColumnStatsSpec extends AnyWordSpec with Mat
 
   "computeColumnStats" should {
 
-    // ── numeric vs. non-numeric ────────────────────────────────────────────
 
     "report min/max/mean for a numeric column" in {
       val fields = Vector(structuredField("amount", "float"))
@@ -78,7 +77,6 @@ class WorkspaceContextServiceComputeColumnStatsSpec extends AnyWordSpec with Mat
       stats.exampleValues should contain theSameElementsAs Vector(JsString("active"), JsString("inactive"))
     }
 
-    // ── numeric-declared column holding unparseable strings ────────────────
 
     "report no min/max/mean and nullRate 0 for a numeric-declared column whose values are all unparseable strings" in {
       val fields = Vector(structuredField("amount", "float"))
@@ -259,7 +257,6 @@ class WorkspaceContextServiceComputeColumnStatsSpec extends AnyWordSpec with Mat
       stats.mean shouldBe Some(-0.0001)
     }
 
-    // ── all-null column ──────────────────────────────────────────────────
 
     "report nullRate 1, distinctCount 0, and no min/max for an all-null column" in {
       val fields = Vector(structuredField("notes", "string"))
@@ -278,7 +275,6 @@ class WorkspaceContextServiceComputeColumnStatsSpec extends AnyWordSpec with Mat
       stats.max shouldBe None
     }
 
-    // ── empty snapshot ───────────────────────────────────────────────────
 
     "produce a non-empty per-column entry with nullRate 0 / distinctCount 0 for an empty rawRows" in {
       val fields = Vector(structuredField("id", "string"), structuredField("amount", "float"))
@@ -293,7 +289,6 @@ class WorkspaceContextServiceComputeColumnStatsSpec extends AnyWordSpec with Mat
       stats("amount").min shouldBe None
     }
 
-    // ── wide DataType column cap (>40 Structured columns) ───────────────
 
     "cap columnStats columns at the first 40 declared Structured fields, in field order, for a non-empty snapshot" in {
       val fields = (0 until 45).map(i => structuredField(s"col$i")).toVector
@@ -319,7 +314,6 @@ class WorkspaceContextServiceComputeColumnStatsSpec extends AnyWordSpec with Mat
       stats.keySet should not contain "col40"
     }
 
-    // ── high-cardinality / distinctCount cap ────────────────────────────
 
     "report distinctCountCapped true and distinctCount equal to the cap for a high-cardinality column" in {
       val fields = Vector(structuredField("id", "string"))
@@ -331,7 +325,6 @@ class WorkspaceContextServiceComputeColumnStatsSpec extends AnyWordSpec with Mat
       stats.distinctCount shouldBe 100
     }
 
-    // ── Content-category exclusion ──────────────────────────────────────
 
     "have no entry for a Content-category field" in {
       val fields = Vector(structuredField("title"), structuredField("body", "string-body"))
@@ -342,7 +335,6 @@ class WorkspaceContextServiceComputeColumnStatsSpec extends AnyWordSpec with Mat
       stats.keySet shouldBe Set("title")
     }
 
-    // ── determinism ──────────────────────────────────────────────────────
 
     "produce identical output (including exampleValues order and mean) across repeated calls over " +
       "the same input" in {

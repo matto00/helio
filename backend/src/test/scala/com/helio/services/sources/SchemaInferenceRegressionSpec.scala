@@ -80,7 +80,6 @@ class SchemaInferenceRegressionSpec
     await(db.run(sqlu"TRUNCATE TABLE data_types, data_sources RESTART IDENTITY CASCADE"))
   }
 
-  // ── CSV ───────────────────────────────────────────────────────────────────
 
   "CSV source creation" should {
 
@@ -127,7 +126,6 @@ class SchemaInferenceRegressionSpec
     }
   }
 
-  // ── Static ────────────────────────────────────────────────────────────────
 
   "Static source creation" should {
 

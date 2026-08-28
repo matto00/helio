@@ -136,7 +136,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  // ── DB / seed helpers ────────────────────────────────────────────────────
 
   private def seedUsers(): Unit = {
     import PostgresProfile.api._
@@ -234,7 +233,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     r.copy(createdAt = "", updatedAt = "")
   }
 
-  // ── 7.2: mixed patch set applies cleanly ────────────────────────────────
 
   "PatchSetApplyService.apply" should {
 
@@ -265,7 +263,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       await(dashboardRepo.findByIdInternal(dashboard.id)).map(_.name) shouldBe Some("Renamed dashboard")
     }
 
-    // ── 7.3: mid-set failure rolls back every edit ────────────────────────
 
     "roll back every already-applied edit on a mid-set failure (7.3)" in {
       val dashboard     = seedDashboard(userA, "Original dashboard name")
@@ -293,7 +290,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       response.failure shouldBe defined
       response.edits.map(_.status).toSet shouldBe Set("rolledBack", "recreated")
 
-      // panel update reverted
       await(panelRepo.findByIdInternal(panelToUpdate.id)).map(_.title) shouldBe Some("Original title")
       // deleted panel recreated under a NEW id, content restored
       val deleteOutcome = response.edits.find(_.index == 1).getOrElse(fail("missing panel-delete outcome"))
@@ -343,7 +339,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       await(panelRepo.findByIdInternal(panel.id)).collect { case mp: MetricPanel => mp.config.aggregation } shouldBe Some(None)
     }
 
-    // ── 7.4: pre-apply rejection, editor-vs-owner-only split ──────────────
 
     "reject an edit targeting a nonexistent resource pre-apply, changing nothing (7.4a)" in {
       val dashboard = seedDashboard(userA)
@@ -392,7 +387,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       await(dashboardRepo.findByIdInternal(dashboard.id)) shouldBe defined
     }
 
-    // ── 7.5: create rejected pre-apply where no viable path exists ────────
 
     "reject a create edit targeting dataType or pipelineStep pre-apply with a clear message (7.5)" in {
       val dataTypeCreate = Edit(EditTarget("dataType", None), "create", None, None, None, None, None, None, Some(JsObject()))
@@ -408,7 +402,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
-    // ── 7.6: dashboard create rejects ifExists ─────────────────────────────
 
     "reject a dashboard-create edit whose createPatch sets ifExists (7.6)" in {
       val createPatch = JsObject("name" -> JsString("Should not be created"), "ifExists" -> JsString("return"))
@@ -419,7 +412,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
-    // ── 7.7: unrecoverable delete rollback is reported honestly ───────────
 
     "report an unrecoverable delete rollback honestly, not silently hidden (7.7)" in {
       val standaloneType = seedPipelineOutputType(userA, "Standalone")
@@ -534,7 +526,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
-    // ── 7.10 (design.md D4a): priorState capture ───────────────────────────
 
     "populate a panel-update edit's priorState with the existing PanelResponse shape, field-for-field (7.10a)" in {
       val dashboard = seedDashboard(userA)
@@ -597,7 +588,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
-    // ── 7.11 (design.md D4b): resultingState capture ───────────────────────
 
     "populate a panel-create edit's resultingState with the created panel's PanelResponse, including its new id (7.11a)" in {
       val dashboard = seedDashboard(userA)
@@ -663,7 +653,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
-    // ── HEL-413 5.1: journal write ─────────────────────────────────────────
 
     "journal a fully successful apply and return its applicationId (HEL-413 5.1a)" in {
       val dashboard = seedDashboard(userA)

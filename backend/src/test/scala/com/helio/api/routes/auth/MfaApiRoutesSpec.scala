@@ -175,7 +175,6 @@ class MfaApiRoutesSpec
     (secret, codes)
   }
 
-  // ── MFA-off paths stay unchanged ────────────────────────────────────────
 
   "POST /api/auth/login without MFA enabled" should {
     "return 200 with a session cookie and user, exactly as before HEL-702" in {
@@ -190,7 +189,6 @@ class MfaApiRoutesSpec
     }
   }
 
-  // ── MFA-on login gate ────────────────────────────────────────────────────
 
   "POST /api/auth/login with MFA enabled" should {
     "return 200 {mfaRequired, challengeToken} with no cookie and no user object" in {
@@ -311,7 +309,6 @@ class MfaApiRoutesSpec
     }
   }
 
-  // ── Authenticated enrollment lifecycle ──────────────────────────────────
 
   "GET /api/auth/mfa" should {
     "return the un-enrolled default for a user with no MFA row" in {

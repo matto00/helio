@@ -123,7 +123,6 @@ class AgentMemoryServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       result.map(_.content) shouldBe Right("padded content")
     }
 
-    // ── HEL-531 (420-E) tasks.md 5.2 — memoryEnabled opt-out ────────────────
 
     "be a no-op when memoryEnabled is false: no row persisted, still a normal success response" in {
       cleanDb()

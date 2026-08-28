@@ -55,7 +55,6 @@ describe("ChartDisplayFields (HEL-248) — controls swap per chart type", () => 
     expect(screen.getByText("Smooth lines")).toBeInTheDocument();
     expect(screen.getByText("Point markers")).toBeInTheDocument();
     expect(screen.getByText("Area fill")).toBeInTheDocument();
-    // Not the bar/pie/scatter controls.
     expect(screen.queryByRole("combobox", { name: "Bar orientation" })).not.toBeInTheDocument();
     expect(screen.queryByRole("slider", { name: "Donut hole size" })).not.toBeInTheDocument();
   });

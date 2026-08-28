@@ -109,7 +109,6 @@ class DbContextSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
         DBIO.failed(new RuntimeException("intentional rollback"))
       )
 
-      // The Future should fail …
       val result = await(ctx.withUserContext(userId)(failingAction).failed)
       result.getMessage shouldBe "intentional rollback"
 
@@ -153,7 +152,6 @@ class DbContextSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
      *  `app.current_user_id`, so a policy that checks that variable on the
      *  app pool cannot be triggered on the privileged pool. */
     "route withSystemContext to the helio_privileged role pool" in {
-      // Privileged pool: current_role must be helio_privileged.
       val privilegedRole = await(ctx.withSystemContext(
         sql"SELECT current_role".as[String].head
       ))

@@ -60,11 +60,9 @@ class DataTypeRowRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     }
 
     "second overwriteRows call replaces all existing rows" in {
-      // First write: 2 rows
       await(repo.overwriteRows(dtId, Seq(makeRow("alice", 10), makeRow("bob", 20))))
       await(repo.listRows(dtId)) should have size 2
 
-      // Second write with completely different data
       val newRows = Seq(makeRow("carol", 30), makeRow("dave", 40), makeRow("eve", 50))
       await(repo.overwriteRows(dtId, newRows))
 
@@ -74,11 +72,9 @@ class DataTypeRowRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     }
 
     "zero-row overwriteRows clears the snapshot" in {
-      // Write some rows first
       await(repo.overwriteRows(dtId, Seq(makeRow("alice", 10), makeRow("bob", 20))))
       await(repo.listRows(dtId)) should have size 2
 
-      // Overwrite with empty sequence → clear
       await(repo.overwriteRows(dtId, Seq.empty))
 
       val result = await(repo.listRows(dtId))
@@ -105,14 +101,12 @@ class DataTypeRowRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       await(repo.overwriteRows(dtA, Seq(makeRow("a1", 1))))
       await(repo.overwriteRows(dtB, Seq(makeRow("b1", 2), makeRow("b2", 3))))
 
-      // Overwrite A — B is unchanged
       await(repo.overwriteRows(dtA, Seq(makeRow("a-new", 99))))
 
       await(repo.listRows(dtA)) should have size 1
       await(repo.listRows(dtB)) should have size 2
     }
 
-    // ── HEL-372 design.md D1: SQL-tier row/key bounding ──────────────────
 
     "limit bounds the result at the SQL tier, preserving row_index order" in {
       val dtLimit = "dt-limit-" + java.util.UUID.randomUUID().toString

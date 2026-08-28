@@ -122,7 +122,6 @@ describe("InlineConnectorSetup — credential carrier discipline (HEL-829 AC, de
     expect(url).toBe("/api/connectors");
     expect(JSON.stringify(body)).toContain(TEST_CREDENTIAL);
 
-    // No other outbound request captured it.
     expect(mockedHttpClient.get).not.toHaveBeenCalled();
     expect(mockedHttpClient.patch).not.toHaveBeenCalled();
     expect(mockedHttpClient.put).not.toHaveBeenCalled();

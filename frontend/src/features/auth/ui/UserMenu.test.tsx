@@ -185,7 +185,6 @@ describe("UserMenu", () => {
     });
   });
 
-  // F-189
   it("scrim is hidden from the accessibility tree and out of the tab order", () => {
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: "User menu" }));

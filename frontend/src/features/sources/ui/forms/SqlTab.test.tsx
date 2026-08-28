@@ -26,8 +26,6 @@ describe("SqlTab", () => {
     jest.clearAllMocks();
   });
 
-  // ── Port defaults by dialect (task 6.4) ──────────────────────────────────
-
   it("defaults port to 5432 when PostgreSQL is selected", () => {
     renderWithStore(<SqlTab name="Test Source" onSave={noop} isSaving={false} />);
     const portInput = screen.getByLabelText("Port") as HTMLInputElement;
@@ -95,8 +93,6 @@ describe("SqlTab", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/Connection refused|Failed to connect/i);
   });
 
-  // ── New "Test connection" affordance (HEL-480) ─────────────────────────────
-
   it("renders a distinct 'Test connection' button alongside 'Infer schema'", () => {
     renderWithStore(<SqlTab name="Test Source" onSave={noop} isSaving={false} />);
     expect(screen.getByRole("button", { name: "Infer schema" })).toBeInTheDocument();
@@ -133,15 +129,11 @@ describe("SqlTab", () => {
     });
   });
 
-  // ── Password field is masked ──────────────────────────────────────────────
-
   it("renders password field as type=password", () => {
     renderWithStore(<SqlTab name="Test Source" onSave={noop} isSaving={false} />);
     const passwordInput = screen.getByLabelText("Password") as HTMLInputElement;
     expect(passwordInput.type).toBe("password");
   });
-
-  // ── Create source button disabled until test connection passes ────────────
 
   it("disables Create source button until test connection is run", () => {
     renderWithStore(<SqlTab name="Test Source" onSave={noop} isSaving={false} />);

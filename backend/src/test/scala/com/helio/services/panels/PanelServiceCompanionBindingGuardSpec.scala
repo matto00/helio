@@ -62,7 +62,6 @@ class PanelServiceCompanionBindingGuardSpec extends AnyWordSpec with Matchers {
   private def newService(dtRepo: DataTypeRepository, panelRepo: PanelRepository): PanelService =
     new PanelService(panelRepo, dtRepo, stubAccess, mock(classOf[DashboardRepository]), mock(classOf[MetricRepository]))
 
-  // ── POST /api/panels ─────────────────────────────────────────────────────
 
   "PanelService.create" should {
 
@@ -175,7 +174,6 @@ class PanelServiceCompanionBindingGuardSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ── PATCH /api/panels/:id ────────────────────────────────────────────────
 
   "PanelService.update" should {
 

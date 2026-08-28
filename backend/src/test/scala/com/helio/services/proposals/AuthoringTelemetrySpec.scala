@@ -123,7 +123,6 @@ class AuthoringTelemetrySpec
     db.close(); embeddedPostgres.close(); super.afterAll()
   }
 
-  // ── Fixtures ────────────────────────────────────────────────────────────
 
   private def newUser(): AuthenticatedUser = {
     implicit val ec: ExecutionContext = routeEc
@@ -310,7 +309,6 @@ class AuthoringTelemetrySpec
     }
   }
 
-  // ── Buffered: success (generated) telemetry ────────────────────────────
 
   "POST /api/authoring/dashboard (buffered) success telemetry" should {
     "a successful call emits a generated-outcome telemetry line with panelCount/modelId/tokens and the trace id" in {
@@ -350,7 +348,6 @@ class AuthoringTelemetrySpec
     }
   }
 
-  // ── Streaming: kind on the SSE body + a matching telemetry line ────────
 
   private def sseEvents(raw: String): Seq[(String, JsObject)] =
     raw.split("\n\n").toSeq.filter(_.trim.nonEmpty).flatMap { block =>
@@ -446,7 +443,6 @@ class AuthoringTelemetrySpec
     }
   }
 
-  // ── POST /api/authoring/requests/:id/outcome (HEL-401 design.md D4, tasks.md 3.1/5.2) ──────
 
   "POST /api/authoring/requests/:id/outcome" should {
 

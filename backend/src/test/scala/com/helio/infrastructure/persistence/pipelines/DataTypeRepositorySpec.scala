@@ -185,7 +185,6 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       result shouldBe false
     }
 
-    // ── Ownership enforcement tests (HEL-265 CS3) ────────────────────────────
 
     "findByIdOwned returns Some when owner matches" in {
       cleanDb()
@@ -217,7 +216,6 @@ class DataTypeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dt = newDataType(sourceId = Some(source.id))
       await(dtRepo.insert(dt, user1))
 
-      // Verify linked before deletion
       await(dtRepo.findBySourceId(source.id, owner1)).map(_.id) should contain (dt.id)
 
       // Delete the source — ON DELETE SET NULL

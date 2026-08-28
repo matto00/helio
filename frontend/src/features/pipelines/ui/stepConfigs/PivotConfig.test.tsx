@@ -21,8 +21,6 @@ function chooseSelectOption(comboboxName: string, optionLabel: string) {
 }
 
 describe("PivotConfig", () => {
-  // ── Render with empty config ───────────────────────────────────────────────
-
   it("renders Add index field button with empty config", () => {
     render(
       <PivotConfig
@@ -76,8 +74,6 @@ describe("PivotConfig", () => {
     expect(options).toEqual(["sum", "count", "avg", "min", "max", "first"]);
   });
 
-  // ── Render with hydrated config ────────────────────────────────────────────
-
   it("hydrates index row with persisted field name", () => {
     const config: PivotConfigValue = { ...emptyConfig, index: ["region"] };
     render(
@@ -90,8 +86,6 @@ describe("PivotConfig", () => {
     );
     expect(screen.getByRole("combobox", { name: /index field 1/i })).toHaveTextContent("region");
   });
-
-  // ── Add / remove index field ───────────────────────────────────────────────
 
   it("clicking Add index field appends a new index row with first schema field", () => {
     const onChange = jest.fn();
@@ -146,8 +140,6 @@ describe("PivotConfig", () => {
 
     expect(onChange).toHaveBeenCalledWith({ ...config, index: ["product"] });
   });
-
-  // ── column / values / agg onChange wiring ───────────────────────────────────
 
   it("selecting the pivot column calls onChange with column patched in", () => {
     const onChange = jest.fn();

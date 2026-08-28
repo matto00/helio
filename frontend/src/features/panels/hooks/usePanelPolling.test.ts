@@ -2,9 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 
 import { usePanelPolling } from "./usePanelPolling";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function setVisibility(state: "visible" | "hidden") {
   Object.defineProperty(document, "visibilityState", {
@@ -17,9 +15,7 @@ function fireVisibilityChange() {
   document.dispatchEvent(new Event("visibilitychange"));
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("usePanelPolling", () => {
   beforeEach(() => {
@@ -107,7 +103,6 @@ describe("usePanelPolling", () => {
 
     const { rerender } = renderHook(() => usePanelPolling(refresh, 30, typeId));
 
-    // Confirm interval fires before the change
     act(() => {
       jest.advanceTimersByTime(30_000);
     });
@@ -132,7 +127,6 @@ describe("usePanelPolling", () => {
     });
     expect(refresh).toHaveBeenCalledTimes(1);
 
-    // Hide the tab
     act(() => {
       setVisibility("hidden");
       fireVisibilityChange();
@@ -141,7 +135,6 @@ describe("usePanelPolling", () => {
     act(() => {
       jest.advanceTimersByTime(60_000);
     });
-    // Should not have fired while hidden
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
@@ -149,7 +142,6 @@ describe("usePanelPolling", () => {
     const refresh = jest.fn();
     renderHook(() => usePanelPolling(refresh, 30, "type-1"));
 
-    // Hide the tab immediately
     act(() => {
       setVisibility("hidden");
       fireVisibilityChange();
@@ -160,7 +152,6 @@ describe("usePanelPolling", () => {
     });
     expect(refresh).not.toHaveBeenCalled();
 
-    // Show the tab
     act(() => {
       setVisibility("visible");
       fireVisibilityChange();
@@ -226,7 +217,6 @@ describe("usePanelPolling", () => {
 
     const { rerender } = renderHook(() => usePanelPolling(refresh, 30, "type-1"));
 
-    // Update to a new callback identity
     refresh = refresh2;
     rerender();
 

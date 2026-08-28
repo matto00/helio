@@ -80,7 +80,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
   private val ownerId = UserId(UUID.randomUUID().toString)
   private val user    = AuthenticatedUser(ownerId)
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
 
   private def newDashboard(name: String = "Dash"): Dashboard = {
     val now = Instant.now()
@@ -126,7 +125,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
     d.id
   }
 
-  // ── DashboardRepository pagination (task 7.1) ─────────────────────────────
 
   "DashboardRepository.findAll pagination" should {
 
@@ -172,7 +170,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
     }
   }
 
-  // ── DataTypeRepository pagination (task 7.2) ──────────────────────────────
 
   "DataTypeRepository.findAll pagination" should {
 
@@ -208,7 +205,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
     }
   }
 
-  // ── DataSourceRepository pagination (task 7.3) ────────────────────────────
 
   "DataSourceRepository.findAll pagination" should {
 
@@ -244,7 +240,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
     }
   }
 
-  // ── PanelRepository pagination (task 7.4) ────────────────────────────────
 
   "PanelRepository.findAllByDashboardId pagination" should {
 

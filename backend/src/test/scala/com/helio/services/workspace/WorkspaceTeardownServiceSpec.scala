@@ -152,7 +152,6 @@ class WorkspaceTeardownServiceSpec
    *  tagged sets — no interstitial `TRUNCATE` needed between tests. */
   private def freshTag(): String = s"t-${UUID.randomUUID().toString.take(8)}"
 
-  // ── Fixtures ────────────────────────────────────────────────────────────
 
   /** Create a `static` DataSource (+ its auto-created, same-tagged companion
    *  DataType — design.md Decision 6 / tasks.md 2.3(a)) owned by `user`. */
@@ -247,7 +246,6 @@ class WorkspaceTeardownServiceSpec
   private def pipelineExists(id: String, user: AuthenticatedUser): Boolean =
     await(pipelineRepo.findByIdOwned(PipelineId(id), user)).isDefined
 
-  // ── 6.3 Happy path ──────────────────────────────────────────────────────
 
   "teardown (6.3 happy path)" should {
     "delete only the tagged set, with correct per-kind counts, leaving untagged resources untouched" in {
@@ -274,13 +272,11 @@ class WorkspaceTeardownServiceSpec
       sourceExists(src.id, userA) shouldBe false
       pipelineExists(pipeline.id, userA) shouldBe false
 
-      // Control set is completely untouched.
       sourceExists(controlSrc.id, userA) shouldBe true
       pipelineExists(controlPipeline.id, userA) shouldBe true
     }
   }
 
-  // ── 6.4 DataSource -> Pipeline out-of-batch dependent guard ────────────
 
   "teardown (6.4 DataSource -> Pipeline dependent guard)" should {
     "block the whole call when the dependent pipeline is untagged, then succeed once it is tagged in" in {
@@ -297,7 +293,6 @@ class WorkspaceTeardownServiceSpec
       blockedResp.pipelinesDeleted shouldBe 0
       blockedResp.typesDeleted shouldBe 0
 
-      // Nothing deleted.
       sourceExists(src.id, userA) shouldBe true
       pipelineExists(dep.id, userA) shouldBe true
 
@@ -340,7 +335,6 @@ class WorkspaceTeardownServiceSpec
     }
   }
 
-  // ── 6.5 output DataType -> Pipeline out-of-batch dependent guard ───────
 
   "teardown (6.5 output DataType -> Pipeline dependent guard)" should {
     "block the whole call when the producing pipeline is untagged" in {
@@ -454,7 +448,6 @@ class WorkspaceTeardownServiceSpec
     }
   }
 
-  // ── 6.7 Idempotency ─────────────────────────────────────────────────────
 
   "teardown (6.7 idempotency)" should {
     "return all-zero counts on a repeat call with the same tag after success" in {
@@ -474,7 +467,6 @@ class WorkspaceTeardownServiceSpec
     }
   }
 
-  // ── 6.8 Dry run ─────────────────────────────────────────────────────────
 
   "teardown (6.8 dry run)" should {
     "report would-be counts for a clean set without deleting anything" in {
@@ -592,7 +584,6 @@ class WorkspaceTeardownServiceSpec
       resp.typesDeleted shouldBe 1
 
       typeExists(DataTypeId(danglingId), userA) shouldBe false
-      // B's source itself is never touched.
       sourceExists(bSrc.id, userB) shouldBe true
     }
   }
