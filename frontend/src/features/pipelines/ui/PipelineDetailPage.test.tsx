@@ -239,7 +239,9 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
               <Route path="/pipelines/:id" element={<PipelineDetailPage />} />
               <Route path="/pipelines" element={<div>Pipelines List</div>} />
               <Route path="/sources" element={<div>Sources Page</div>} />
+              <Route path="/sources/:id" element={<div>Source Detail Page</div>} />
               <Route path="/registry" element={<div>Type Registry Page</div>} />
+              <Route path="/registry/:id" element={<div>Type Detail Page</div>} />
             </Routes>
           </OverlayProvider>
         </Provider>
@@ -2485,13 +2487,17 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
   });
 
-  it("activating Edit source sets sources.selectedSourceId and navigates to /sources", () => {
+  // Deep-links to the source itself now that `/sources/:id` exists. It used to
+  // set `sources.selectedSourceId` and land on `/sources`, relying on that
+  // page to resolve the selection — the page is a section overview now, so a
+  // bare `/sources` would show the list rather than the source being edited.
+  it("activating Edit source navigates to that source's detail route", () => {
     const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit source" }));
-    expect(store.getState().sources.selectedSourceId).toBe("src-1");
-    expect(screen.getByText("Sources Page")).toBeInTheDocument();
+    expect(screen.getByText("Source Detail Page")).toBeInTheDocument();
+    expect(screen.queryByText("Sources Page")).not.toBeInTheDocument();
   });
 
   it("Edit type menu item is present when the output type is in dataTypes.items", () => {
@@ -2508,13 +2514,16 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     expect(screen.queryByRole("menuitem", { name: "Edit type" })).not.toBeInTheDocument();
   });
 
-  it("activating Edit type sets dataTypes.selectedTypeId and navigates to /registry", () => {
+  // Deep-links to the type itself now that `/registry/:id` exists. It used to
+  // set `dataTypes.selectedTypeId` and land on `/registry`, which is the
+  // section overview and no longer resolves a selection.
+  it("activating Edit type navigates to that type's detail route", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit type" }));
-    expect(store.getState().dataTypes.selectedTypeId).toBe("dt-1");
-    expect(screen.getByText("Type Registry Page")).toBeInTheDocument();
+    expect(screen.getByText("Type Detail Page")).toBeInTheDocument();
+    expect(screen.queryByText("Type Registry Page")).not.toBeInTheDocument();
   });
 
   // Shared-pipeline scenario: the current user has a pipeline-sharing grant

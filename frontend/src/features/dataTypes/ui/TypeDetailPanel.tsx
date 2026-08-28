@@ -53,7 +53,7 @@ export function TypeDetailPanel({ dataType }: TypeDetailPanelProps) {
   // F-076: monotonic request token so an out-of-order (superseded) preview
   // response can never overwrite a newer one's rows/error — guards a rapid
   // double Reload-click, not just a dataType switch (the latter now also
-  // remounts this whole component via `TypeRegistryBrowser`'s `key` prop,
+  // remounts this whole component via `TypeDetailPage`'s `key` prop,
   // per F-001).
   const previewRequestIdRef = useRef(0);
 

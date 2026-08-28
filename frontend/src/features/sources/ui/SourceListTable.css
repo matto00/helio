@@ -1,0 +1,109 @@
+/* Styles for SourceListTable.tsx — the `/sources` overview table.
+ *
+ * Cells are styled via element selectors scoped under `.source-list-table`
+ * rather than per-cell `__th`/`__td` classes (PipelineListTable's approach).
+ * Same rendered result with markup that can't drift: there is no way to add a
+ * cell here and forget its class. The block class keeps the scope tight, so
+ * this never reaches a nested or unrelated table. */
+
+.source-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  /* Fixed layout so the derived Location column can be given a bounded width
+     and actually clip; with `auto`, a long REST URL widens the column until
+     it dominates the table instead of ellipsising. */
+  table-layout: fixed;
+}
+
+.source-list-table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  border-bottom: 1px solid var(--app-border-subtle);
+  white-space: nowrap;
+}
+
+.source-list-table td {
+  padding: var(--space-2) 10px;
+  border-bottom: 1px solid var(--app-border-subtle);
+  color: var(--app-text);
+}
+
+/* Name gets the slack; the three short columns are sized to their content so
+   Location absorbs what is left. */
+.source-list-table th:nth-child(1) {
+  width: 26%;
+}
+
+.source-list-table th:nth-child(2),
+.source-list-table th:nth-child(4),
+.source-list-table th:nth-child(5) {
+  width: 14%;
+}
+
+/* Row-click-to-navigate affordance — the row hover wash below says the row is
+   interactive, so the cursor should agree (matching PipelineListTable). */
+.source-list-table__row {
+  cursor: pointer;
+}
+
+.source-list-table__row:hover {
+  background: var(--app-surface-raised);
+}
+
+.source-list-table__name {
+  color: var(--app-text);
+  text-decoration: none;
+  font-weight: var(--weight-medium);
+}
+
+.source-list-table__name:hover {
+  color: var(--app-accent);
+  text-decoration: underline;
+}
+
+/* The derived locator: one line, clipped, with the full value on `title`. */
+.source-list-table__location {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.source-list-table__muted {
+  color: var(--app-text-muted);
+}
+
+/* ── Scroll container + scroll-shadow affordance ──
+   Own scroll region rather than the page-level `.app-content` one, so the
+   shadow appears only when THIS table overflows. Mirrors
+   `.pipeline-list-table__scroll` / `.ui-data-grid`'s inset-box-shadow
+   technique: it composites over whatever the real background is instead of
+   having to match it. */
+.source-list-table__scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.source-list-table__scroll--left {
+  box-shadow: inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.source-list-table__scroll--right {
+  box-shadow: inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.source-list-table__scroll--left.source-list-table__scroll--right {
+  box-shadow:
+    inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent),
+    inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}

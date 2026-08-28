@@ -569,6 +569,29 @@ const pipelinesSlice = createSlice({
  * map only ever holds resolvable DataType → pipeline pairs. Memoized on
  * `state.pipelines.items` so consumers (desktop sidebar + phone sheet) share one
  * stable reference. */
+/** Pipeline names grouped by the DataSource they READ FROM, for the `/sources`
+ *  overview's "Used by" column. The inverse direction of
+ *  [[selectPipelineNameByOutputTypeId]] below (which keys by the type a
+ *  pipeline WRITES), and many-to-one rather than one-to-one: several pipelines
+ *  can read the same source, so this maps to an array where that one maps to a
+ *  single name. Memoized on `items` like its sibling, so the table doesn't
+ *  rebuild the map on unrelated store activity. */
+export const selectPipelineNamesBySourceId = createSelector(
+  (state: RootState) => state.pipelines.items,
+  (items): Map<string, string[]> => {
+    const map = new Map<string, string[]>();
+    for (const pipeline of items) {
+      const existing = map.get(pipeline.sourceDataSourceId);
+      if (existing === undefined) {
+        map.set(pipeline.sourceDataSourceId, [pipeline.name]);
+      } else {
+        existing.push(pipeline.name);
+      }
+    }
+    return map;
+  },
+);
+
 export const selectPipelineNameByOutputTypeId = createSelector(
   (state: RootState) => state.pipelines.items,
   (items): Map<string, string> => {

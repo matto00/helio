@@ -767,13 +767,13 @@ describe("App", () => {
     expect(within(dialog).getByRole("button", { name: "New pipeline" })).toBeInTheDocument();
   });
 
-  // HEL-724 — sources is a Redux-selection section (like registry/chat), not
-  // navigation like pipelines/metrics. `usePickerSelection` is the single
-  // implementation now driving both the breadcrumb-item-name and the phone
-  // sheet's selection dispatch for this section; these two tests mirror the
-  // pre-existing /chat coverage above (design.md tasks 1.3/3.3 — the two
-  // used to be independent switches in App.tsx that could silently drift).
-  it("shows the fallback-selected (first) source's name in the breadcrumb when nothing is explicitly selected", async () => {
+  // HEL-724 — `usePickerSelection` is the single implementation driving both
+  // the breadcrumb item name and the phone sheet's selection for this section
+  // (design.md tasks 1.3/3.3 — the two used to be independent switches in
+  // App.tsx that could silently drift). Sources has since moved from Redux
+  // selection to NAVIGATION, like pipelines/metrics: `/sources` is a section
+  // overview and `/sources/:id` the detail.
+  it("names no source in the breadcrumb on the section overview, where none is selected", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
     fetchSourcesMock.mockResolvedValue([
@@ -795,14 +795,21 @@ describe("App", () => {
 
     renderApp({ initialPath: "/sources" });
 
+    // The breadcrumb resolves to the section alone. It used to name
+    // `items[0]` ("Profit CSV") via a `selectedSourceId ?? items[0]` fallback,
+    // which claimed a source was open when none was — the same arbitrary
+    // fallback that made a bare `/sources` render one source's detail.
     await waitFor(() =>
       expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
-        "Profit CSV",
+        "Data Sources",
       ),
+    );
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).not.toHaveTextContent(
+      "Profit CSV",
     );
   });
 
-  it("phone section sheet on /sources dispatches the same selection action the desktop sidebar would", async () => {
+  it("phone section sheet on /sources navigates to the chosen source's detail route", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
     fetchSourcesMock.mockResolvedValue([
@@ -834,12 +841,12 @@ describe("App", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Ops SQL" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    await waitFor(() =>
-      expect(
-        (store.getState() as { sources: { selectedSourceId: string | null } }).sources
-          .selectedSourceId,
-      ).toBe("src-2"),
-    );
+    // Sources moved from Redux selection to route-driven selection when
+    // `/sources` became a section overview and `/sources/:id` the detail, so
+    // the observable outcome is the resolved route, not
+    // `sources.selectedSourceId`. Asserted via the breadcrumb rather than
+    // `window.location`: these tests run under MemoryRouter, whose history is
+    // in-memory and never touches the jsdom URL.
     await waitFor(() =>
       expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Ops SQL"),
     );
@@ -848,7 +855,7 @@ describe("App", () => {
   // HEL-724 — registry is likewise a Redux-selection section, and its
   // pipeline-prefetch effect (for the provenance subtitle, HEL-270) is one of
   // the four call sites `usePickerSelection` consolidates.
-  it("shows the fallback-selected (first) data type's name in the breadcrumb when nothing is explicitly selected", async () => {
+  it("names no data type in the breadcrumb on the section overview, where none is selected", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
     fetchDataTypesMock.mockResolvedValue([
@@ -876,14 +883,21 @@ describe("App", () => {
 
     renderApp({ initialPath: "/registry" });
 
+    // Route-driven now: `/registry` is the section overview, so the breadcrumb
+    // resolves to the section alone. It used to name `items[0]` ("RevenueRow")
+    // via a `selectedTypeId ?? items[0]` fallback — the same fallback that
+    // made `/registry` force-navigate to one arbitrary type's detail.
     await waitFor(() =>
       expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
-        "RevenueRow",
+        "Data Types",
       ),
+    );
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).not.toHaveTextContent(
+      "RevenueRow",
     );
   });
 
-  it("phone section sheet on /registry dispatches the same selection action the desktop sidebar would", async () => {
+  it("phone section sheet on /registry navigates to the chosen type's detail route", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
     fetchDataTypesMock.mockResolvedValue([
@@ -918,11 +932,13 @@ describe("App", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "OpsRow" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // The registry moved from Redux selection to route-driven selection, so
+    // the observable outcome is the resolved route rather than
+    // `dataTypes.selectedTypeId`. Asserted through the breadcrumb because
+    // these tests run under MemoryRouter, whose history never touches the
+    // jsdom URL.
     await waitFor(() =>
-      expect(
-        (store.getState() as { dataTypes: { selectedTypeId: string | null } }).dataTypes
-          .selectedTypeId,
-      ).toBe("type-2"),
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("OpsRow"),
     );
     await waitFor(() =>
       expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("OpsRow"),

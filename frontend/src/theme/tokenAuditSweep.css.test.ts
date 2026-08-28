@@ -55,7 +55,6 @@ const SRC_ROOT = path.join(__dirname, "..");
 const SWEPT_FILES = [
   "features/dashboards/ui/DashboardAppearanceEditor.css",
   "features/dataTypes/ui/TypeDetailPanel.css",
-  "features/dataTypes/ui/TypeRegistryBrowser.css",
   "features/dataTypes/ui/TypeRegistryPage.css",
   "features/metrics/ui/MetricsPage.css",
   "features/panels/ui/ImagePanel.css",

@@ -23,8 +23,25 @@ export interface RestApiAuth {
   in?: "header" | "query";
 }
 
+/**
+ * Exactly one of `url` (bare-URL branch) or `connectorId` (saved-Connector
+ * branch) is present — the backend's own `RestApiConfigPayload` invariant
+ * (HEL-824 Decision 1, enforced in `SourceService.createRest`).
+ *
+ * `url` was previously typed as a required `string`, which was wrong for
+ * every connector-backed source: those serialize as
+ * `{ connectorId, endpoint, method }` with no `url` at all, so the field
+ * arrived `undefined` while TypeScript insisted it was a `string`. Nothing
+ * dereferenced it unguarded, so the mistake stayed latent — the `/sources`
+ * overview's Location column was the first consumer to read it and get blank
+ * cells for real, connector-backed sources.
+ */
 export interface RestApiSourceConfig {
-  url: string;
+  url?: string;
+  /** Saved-Connector branch; mutually exclusive with `url`. */
+  connectorId?: string;
+  /** Request path, read INSTEAD of `url` on the `connectorId` branch. */
+  endpoint?: string;
   method?: RestApiMethod;
   auth?: RestApiAuth;
   headers?: Record<string, string>;

@@ -68,7 +68,7 @@ describe("TypeDetailPanel", () => {
 
   // F-001 (critical): switching the selected type must reset the editable
   // Name/Schema form — otherwise a save could silently overwrite a
-  // different type with stale data. `TypeRegistryBrowser` fixes this by
+  // different type with stale data. `TypeDetailPage` fixes this by
   // keying `<TypeDetailPanel key={selectedType.id} .../>` on the type id, so
   // this regression test mirrors that: it rerenders with a new `key` (as the
   // real parent does on selection change) rather than merely swapping props
@@ -124,7 +124,7 @@ describe("TypeDetailPanel", () => {
 
   // F-076: an out-of-order (superseded) preview response must never overwrite
   // a newer one's rows — regression-tests the monotonic request-token guard
-  // in `handlePreview` directly (independent of `TypeRegistryBrowser`'s
+  // in `handlePreview` directly (independent of `TypeDetailPage`'s
   // F-001 `key` fix, which already prevents the cross-type case structurally
   // by remounting; this is the defense-in-depth layer the fix note called
   // for). Rerenders the SAME component instance (no `key` change) with a new

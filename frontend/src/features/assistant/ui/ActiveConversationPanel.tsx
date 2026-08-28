@@ -39,7 +39,8 @@ function buildToolResultsById(
  * the transcript. Rendered by both `/chat` (`ChatPage.tsx`) and the quick-launcher
  * (`QuickLauncherOverlay.tsx`) — the same component reading the same Redux slice is what makes the
  * two entry points "one coherent visual system" (design.md D5). Derives the selected conversation
- * with fallback to the first item, mirroring `SourcesPage.tsx`/`TypeRegistryBrowser.tsx`'s pattern,
+ * with fallback to the first item. Sources and the type registry have since moved to
+ * route-driven selection (`/sources/:id`, `/registry/:id`); chat still uses this pattern,
  * and implements DESIGN.md §7's 3 required UI states.
  *
  * `MessageComposer` (HEL-665, reopened composer ticket, design.md D5) renders as the LAST child of

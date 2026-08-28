@@ -15,8 +15,8 @@ import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 
 import "./PipelineDetailPage.css";
-import { fetchSources, setSelectedSourceId } from "../../sources/state/sourcesSlice";
-import { fetchDataTypes, setSelectedTypeId } from "../../dataTypes/state/dataTypesSlice";
+import { fetchSources } from "../../sources/state/sourcesSlice";
+import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
 import { markDataTypeRowsStale } from "../../panels/state/panelsSlice";
 import {
   analyzePipeline,
@@ -315,14 +315,18 @@ export function PipelineDetailPage() {
 
   function handleEditSource() {
     if (!boundSource) return;
-    dispatch(setSelectedSourceId(boundSource.id));
-    void navigate("/sources");
+    // Deep-links straight to the source now that `/sources/:id` exists; this
+    // previously set a Redux selection and landed on `/sources`, relying on
+    // that page to resolve it.
+    void navigate(`/sources/${boundSource.id}`);
   }
 
   function handleEditType() {
     if (!currentPipeline?.outputDataTypeId) return;
-    dispatch(setSelectedTypeId(currentPipeline.outputDataTypeId));
-    void navigate("/registry");
+    // Deep-links straight to the type now that `/registry/:id` is the detail
+    // route; this previously set a Redux selection and landed on `/registry`,
+    // which is the section overview and would no longer resolve it.
+    void navigate(`/registry/${currentPipeline.outputDataTypeId}`);
   }
 
   // Toggles `enabled` from the bar without opening the dialog — persists the
