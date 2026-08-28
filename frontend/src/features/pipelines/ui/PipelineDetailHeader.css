@@ -202,6 +202,14 @@
   flex-shrink: 0;
 }
 
+/* Borderless: `.popover__trigger` (Popover.css) gives every popover trigger a
+   hairline, which suits a standalone control on a page but boxes in what is
+   an overflow affordance sitting at the end of a field row. Unscoped by
+   width — the same reasoning holds at every viewport. */
+.pipeline-detail-header__actions .actions-menu__trigger {
+  border-color: transparent;
+}
+
 /* ── Tablet and below — stack the three field groups instead of crowding
  * them into one row (design.md Risks: "combining three field groups into one
  * header risks visual crowding at 1100/768px"; evaluation-1.md change

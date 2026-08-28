@@ -14,21 +14,16 @@
 .connectors-page__header {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
 }
 
-.connectors-page__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  color: var(--app-text);
-}
-
-.connectors-page__subtitle {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-sm);
-  color: var(--app-text-muted);
+/* The create button moved out of the header and below the table: as a
+   header-height block it pushed the list — the reason the page exists — down
+   the viewport. `justify-content: flex-end` matches PipelinesPage/MetricsPage's
+   identical toolbar, which now sits in the same place. */
+.connectors-page__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-1);
 }
 
 .connectors-page__table {

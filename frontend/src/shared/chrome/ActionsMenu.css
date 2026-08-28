@@ -1,5 +1,16 @@
+/* `inline-flex`, not the `.popover` base's default `display: block`: the
+   wrapper otherwise establishes a line box around its inline-flex trigger, so
+   it measured 34.5px tall around a 28px button and left ~6.5px of descender
+   space BELOW it. Every flex parent then centred that taller wrapper, which
+   dropped the visible button 3.3px below its 28px siblings — measured in the
+   command bar (siblings centred at y=23.5, trigger at 26.8) and in
+   PipelineDetailHeader (row centre 65.5, trigger 68.8). Hugging the button
+   makes the wrapper's box the button's box, so centring the wrapper centres
+   what you can actually see. */
 .actions-menu {
   z-index: 4;
+  display: inline-flex;
+  align-items: center;
 }
 
 .actions-menu__trigger {

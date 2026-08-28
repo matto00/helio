@@ -322,6 +322,21 @@ a {
    off-screen technique like this. Canonical home for the "sr-only" clip
    pattern (HEL UI-sweep F-204) — feature CSS should use this shared class
    instead of redefining it locally. */
+/* Top-level page title — the `<h1>` that names a section page (Connectors,
+ * Data Pipelines, Metrics, Settings). Promoted to a utility once the same
+ * recipe had been written out per-page: `--font-display` at `--text-2xl` had
+ * independently converged in `SettingsPage.css` and `ConnectorsPage.css`, and
+ * two more pages were about to copy it. `--weight-semibold` matches the
+ * Settings copy — ConnectorsPage omitted it and so inherited the h1 default,
+ * which is the sort of drift a shared class exists to stop. */
+.page-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

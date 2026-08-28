@@ -148,6 +148,45 @@
   flex-shrink: 0;
 }
 
+/* ── Chrome surfaces go borderless ──
+   The command bar and the sidebar frame the app; they are not page content.
+   A row of controls each in its own hairline box reads as heavier than the
+   content it frames, and the boxes compete with the wordmark, the dashboard
+   title and the nav links for attention. Every trigger on both surfaces drops
+   its outline: the glyph is the affordance, and the hover background still
+   supplies feedback, so nothing is lost but the box.
+
+   Deliberately scoped to these two surfaces rather than changing the
+   primitives. The same recipes — `.ui-icon-btn`, `.actions-menu__trigger` —
+   keep their hairline everywhere else, and especially on panel cards, where
+   the border separates a control from busy panel content rather than from
+   flat chrome.
+
+   No width gate is needed for "desktop only": `.app-sidebar` is `display:
+   none` below 768px (see the mobile block below), so these selectors have
+   nothing to match at phone width. The command bar's half applies at every
+   width, which is where it was already heading — it was phone-only before.
+
+   `:hover` is listed alongside each base selector because every one of these
+   recipes re-asserts `border-color` on hover; without it the outline would
+   reappear on pointer-over, which is exactly when it is most conspicuous. */
+.app-command-bar .cmd-btn,
+.app-command-bar .cmd-btn:hover,
+.app-command-bar .ui-icon-btn,
+.app-command-bar .ui-icon-btn:hover:not(:disabled),
+.app-command-bar .actions-menu__trigger,
+.app-command-bar .actions-menu__trigger:hover,
+.app-command-bar .user-menu__trigger,
+.app-command-bar .user-menu__trigger:hover,
+.app-sidebar .cmd-btn,
+.app-sidebar .cmd-btn:hover,
+.app-sidebar .ui-icon-btn,
+.app-sidebar .ui-icon-btn:hover:not(:disabled),
+.app-sidebar .actions-menu__trigger,
+.app-sidebar .actions-menu__trigger:hover {
+  border-color: transparent;
+}
+
 /* Small compact buttons in the command bar */
 .cmd-btn {
   display: inline-flex;
@@ -295,11 +334,62 @@
   outline-offset: -2px;
 }
 
-/* Collapsed rail: icon-only. The label stays in the DOM (accessible name,
- * and the tooltip via the link's `title` in App.tsx) but isn't painted. */
+/* ── Collapsed rail: icon-only ──
+ * The label stays in the DOM (accessible name, and the tooltip via the link's
+ * `title` in Sidebar.tsx) but isn't painted.
+ *
+ * `.app-sidebar__nav-row` is a horizontal flex row — nav on the left, toggle
+ * on the right — which is right at 240px and breaks completely at 56px: the
+ * 28px toggle plus gap and padding leaves the nav about 8px, so every
+ * `__nav-link` computed to width 0 and its icon spilled out of a zero-width
+ * box. That is what made the icons look left-shoved and unalignable — they
+ * were not being laid out at all, just overflowing. Measured before this
+ * change: rail 56px, every nav link 0px wide, icons all painting at x=12
+ * regardless of `justify-content: center` (nothing to centre within).
+ *
+ * Collapsed, the row becomes a column so the toggle gets its own line and the
+ * nav gets the rail's full inner width to centre icons in. */
+.app-sidebar--collapsed .app-sidebar__nav-row {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Toggle above the nav, mirroring its top-right placement when expanded —
+ * DOM order puts it after the nav (correct for the expanded row), so this is
+ * a visual reorder only. Both are single, independently-labeled controls, so
+ * reading order is unaffected. */
+.app-sidebar--collapsed .app-sidebar-toggle {
+  order: -1;
+}
+
+.app-sidebar--collapsed .app-sidebar__nav {
+  width: 100%;
+  /* `flex: 1` would make the nav absorb the rail's whole height in a column,
+     stretching nothing useful and pushing the separator to the floor. */
+  flex: none;
+  padding: 0;
+  /* The border separates the nav from the dashboard LIST below it — and that
+     list is unmounted while collapsed (`Sidebar.tsx` renders `<SidebarBody>`
+     only when expanded), so the rule was pointing at nothing and read as a
+     stray hairline floating under the last icon. */
+  border-bottom: none;
+}
+
 .app-sidebar--collapsed .app-sidebar__nav-link {
   justify-content: center;
   padding: 0;
+  /* The actual fix for centring: gives the icon a real box to be centred in. */
+  width: 100%;
+}
+
+/* The active marker is a 2px bar pinned to the link's left edge. Against a
+ * full-width label row that reads as a margin marker; against a centred icon
+ * in a 40px rail it detaches from the glyph and reads as a stray tick. The
+ * `--app-accent-dim` background (inherited from the expanded `.active` rule)
+ * already carries the state on its own here. */
+.app-sidebar--collapsed .app-sidebar__nav-link.active::before {
+  content: none;
 }
 
 .app-sidebar--collapsed .app-sidebar__nav-label {
@@ -494,16 +584,6 @@
     width: 44px;
     height: 44px;
     transform: translate(-50%, -50%);
-  }
-
-  /* The dashboard-actions kebab sits in the same icon row and must match it:
-     `.popover__trigger` (Popover.css) gives every popover trigger a hairline,
-     which is right for a standalone control on a page but reads as boxed
-     chrome here, beside icon buttons that go borderless at this width.
-     Scoped to the command bar so ActionsMenu triggers elsewhere (panel cards,
-     dashboard rows) keep their border. */
-  .app-command-bar .actions-menu__trigger {
-    border-color: transparent;
   }
 
   /* Desktop layout-editing affordances (undo/redo, dashboard appearance,

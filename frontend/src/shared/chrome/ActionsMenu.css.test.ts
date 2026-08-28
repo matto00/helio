@@ -78,3 +78,19 @@ describe("ActionsMenu.css — mobile ≥44px tap targets (HEL-308)", () => {
     expectTapExpander(mobileBlock, ".actions-menu__trigger", "square");
   });
 });
+
+// Regression guard for a 3.3px vertical misalignment. The `.popover` base
+// leaves this wrapper `display: block`, which builds a line box around the
+// inline-flex trigger: the wrapper measured 34.5px around a 28px button, with
+// the extra space BELOW it as descender room. Flex parents then centred the
+// wrapper, dropping the visible button below its 28px siblings — in the
+// command bar (siblings at y=23.5, trigger at 26.8) and in the pipeline
+// header (row centre 65.5, trigger 68.8). Both measured from the rendered
+// page; both read as "the kebab sits low".
+describe("ActionsMenu.css — the wrapper hugs its trigger", () => {
+  it("is inline-flex and centers, so centering the wrapper centers the button", () => {
+    const body = findRuleBody(css, ".actions-menu {");
+    expect(body).toMatch(/display:\s*inline-flex\s*;/);
+    expect(body).toMatch(/align-items:\s*center\s*;/);
+  });
+});
