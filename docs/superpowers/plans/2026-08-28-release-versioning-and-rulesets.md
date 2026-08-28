@@ -12,7 +12,7 @@
 
 **Manifest:** `docs/superpowers/specs/2026-08-28-release-tag-manifest.tsv` (52 rows: tag, sha8, push timestamp, changelog range, commit count)
 
-**Baseline:** `docs/superpowers/specs/2026-08-28-commits-baseline.txt` (1134 commits, sha256 `dc843c7cd1d8a9dde41a995d49f19e558ec767e4dfa1b45906896ff7b490dcd4`)
+**Baseline:** `docs/superpowers/specs/2026-08-28-commits-baseline.txt` (1123 commits, sha256 `d249f2931ff91e6db71480527809aa43faf920a5822c31481ad97a61fa00b22f`)
 
 ## Global Constraints
 
@@ -31,13 +31,21 @@ Run after every mutating task. Referenced below as **"run the history check"**.
 ```bash
 cd /home/matt/Development/helio
 git fetch --all --tags --prune -q
-git log --all --format='%H %aI %cI' | sort > /tmp/helio-history-now.txt
+git log --format='%H %aI %cI' origin/main $(git branch -r --list 'origin/release/*' | tr -d ' ' | tr '\n' ' ') | sort -u > /tmp/helio-history-now.txt
 comm -23 docs/superpowers/specs/2026-08-28-commits-baseline.txt /tmp/helio-history-now.txt > /tmp/helio-history-lost.txt
 if [ -s /tmp/helio-history-lost.txt ]; then
   echo "FAIL: baseline commits altered or unreachable:"; cat /tmp/helio-history-lost.txt; exit 1
 fi
-echo "PASS: all 1134 baseline commits intact with original dates"
+echo "PASS: all 1123 baseline commits intact with original dates"
 ```
+
+**Scope note.** The baseline covers commits reachable from `origin/main` and the
+release branches — the history this migration touches — NOT `git log --all`. An
+earlier `--all` baseline captured a sibling worktree's in-flight branch
+(`bug/reject-mistyped-step-config/HEL-860`); when that PR was squash-merged and its
+worktree removed by another session, the pre-squash commits became unreachable and
+the check reported a false failure. Unreferenced commits on other people's branches
+are not this migration's to preserve.
 
 `comm -23` is deliberate: it reports baseline lines *absent* from the current state. New commits added by this work are expected and ignored.
 
@@ -709,7 +717,7 @@ Expected: no `CD Backend` / `CD Frontend` runs from these pushes. The absence of
 
 - [ ] **Step 4: Run the history check**
 
-This is the highest-risk task for the invariant. All 1134 baseline commits must still be reachable and unchanged, now via the renamed refs.
+This is the highest-risk task for the invariant. All 1123 baseline commits must still be reachable and unchanged, now via the renamed refs.
 
 ---
 

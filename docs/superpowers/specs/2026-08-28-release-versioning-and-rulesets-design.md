@@ -33,11 +33,11 @@ Two operations could be mistaken for rewrites; neither is:
   set around `git tag -a` write the *tagger* date onto a new tag object that points
   at the commit. The commit is read-only in that operation.
 
-**Mechanical gate.** A baseline of all 1134 commits was captured before any work:
+**Mechanical gate.** A baseline of all baseline commits was captured before any work:
 
 ```
 git log --all --format='%H %aI %cI' | sort > commits-before.txt
-# sha256: dc843c7cd1d8a9dde41a995d49f19e558ec767e4dfa1b45906896ff7b490dcd4
+# sha256: d249f2931ff91e6db71480527809aa43faf920a5822c31481ad97a61fa00b22f
 ```
 
 After every phase, `git log --all --format='%H %aI %cI' | sort` must diff clean
