@@ -28,6 +28,21 @@ conditions such as `datebucket` finding no parseable timestamp, referenced-DataS
 When more than one validation failure applies to a single step, the messages SHALL be combined into that
 step's single `validationError` value rather than any one failure silently taking precedence.
 
+The **proposal** analyze surface SHALL be driven from the caller-supplied RAW configuration text rather
+than from a decoded typed configuration, so that it reports configuration keys which a step's tolerant
+persistence decoder would silently reduce to an empty default. This property SHALL be demonstrable through
+that surface's own observable output: for a configuration the typed decoder reduces to an empty value, the
+proposal analyze surface SHALL still report a non-empty `validationError` for that step.
+
+This property SHALL NOT be claimed of the stored-pipeline analyze surface. That surface re-encodes each
+step from its already-decoded typed configuration, so a dropped key is destroyed by the read round-trip
+before inference runs and cannot be reported there. A mistyped configuration on a persisted step is
+therefore detectable only at write time.
+
+Every validator in the validated set, and the combining of multiple failures into one message, SHALL be
+observable through the analyze surface a caller actually uses, rather than only through an internal
+stand-in.
+
 #### Scenario: Unsupported stringops operation is reported before any run
 - **GIVEN** a pipeline containing a `stringops` step with `operation` set to `"regexExtract"`
 - **WHEN** the pipeline is analyzed
@@ -47,3 +62,49 @@ step's single `validationError` value rather than any one failure silently takin
 - **GIVEN** a pipeline containing a `datebucket` step over a field whose values may not parse as dates
 - **WHEN** the pipeline is analyzed
 - **THEN** no `validationError` is reported for that step on account of unparseable values
+
+#### Scenario: An unsupported aggregate function is reported at analyze time
+- **GIVEN** a pipeline containing an `aggregate` step whose aggregation function is not supported
+- **WHEN** the pipeline is analyzed
+- **THEN** that step's `validationError` names the unsupported function and lists the supported ones
+- **AND** that step's `outputSchema` equals its `inputSchema`
+
+#### Scenario: An unsupported groupby function is reported at analyze time
+- **GIVEN** a pipeline containing a `groupby` step whose aggregation function is not supported
+- **WHEN** the pipeline is analyzed
+- **THEN** that step's `validationError` names the unsupported function and lists the supported ones
+
+#### Scenario: An unsupported pivot aggregation is reported at analyze time
+- **GIVEN** a pipeline containing a `pivot` step whose `agg` is not supported
+- **WHEN** the pipeline is analyzed
+- **THEN** that step's `validationError` names the unsupported aggregation and lists the supported ones
+
+#### Scenario: An unsupported union mode is reported at analyze time
+- **GIVEN** a pipeline containing a `union` step whose `mode` is not supported
+- **WHEN** the pipeline is analyzed
+- **THEN** that step's `validationError` names the unsupported mode and lists the supported ones
+
+#### Scenario: An unsupported join type is reported at analyze time
+- **GIVEN** a pipeline containing a `join` step whose `type` is not supported
+- **WHEN** the pipeline is analyzed
+- **THEN** that step's `validationError` names the unsupported join type and lists the supported ones
+
+#### Scenario: Multiple failures on one step are combined into a single message
+- **GIVEN** a pipeline containing a step with two independent configuration failures
+- **WHEN** the pipeline is analyzed
+- **THEN** that step's single `validationError` contains both failure messages
+- **AND** neither failure is silently dropped in favour of the other
+
+#### Scenario: The proposal analyze surface reports a key the typed decoder would discard
+- **GIVEN** a pipeline proposal containing a `cast` step whose `casts` value uses a shape the step's typed
+  decoder reduces to an empty cast map
+- **WHEN** that proposal is analyzed through the proposal analyze endpoint
+- **THEN** that step's `validationError` is present and non-empty
+- **AND** the typed decoder independently yields an empty cast map for the same raw configuration,
+  demonstrating that the proposal analyze surface observed what the decoder discarded
+
+#### Scenario: The stored-pipeline analyze surface cannot report such a key
+- **GIVEN** a persisted `cast` step whose stored configuration uses that same shape
+- **WHEN** the stored pipeline is analyzed
+- **THEN** no `validationError` is reported for that step on account of the discarded key
+- **AND** the defect is instead prevented at write time by rejecting the configuration
