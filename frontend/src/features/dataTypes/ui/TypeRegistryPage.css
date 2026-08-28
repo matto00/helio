@@ -1,26 +1,19 @@
+/* `--space-7`, matching every other section overview. The old `--space-3` was
+   sized for the bordered eyebrow header this page used to have, not for the
+   `.page-title` heading it carries now. */
 .type-registry-page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-7);
   padding: var(--space-5) var(--space-6);
   min-height: 100%;
 }
 
+/* Shared shape across every section overview's header. The border-bottom and
+   padding-bottom this rule used to carry belonged to the uppercase eyebrow
+   label it once wrapped; against an `.page-title` <h1> that rule read as a
+   second divider stacked above the table's own header row. */
 .type-registry-page__header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--app-border-subtle);
-}
-
-.type-registry-page__title {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--eyebrow-size);
-  font-weight: var(--eyebrow-weight);
-  letter-spacing: var(--eyebrow-tracking);
-  text-transform: uppercase;
-  color: var(--app-text-muted);
+  align-items: flex-start;
 }

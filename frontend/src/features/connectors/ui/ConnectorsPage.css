@@ -4,13 +4,20 @@
    `.add-source-modal__btn` shape (kept as a local copy per skeptic
    design-round-2 non-blocking note 5, rather than importing that class). */
 
+/* Geometry matches the other section overviews (PipelinesPage / MetricsPage /
+   SourcesPage / TypeRegistryPage) exactly: `--space-5 --space-6` padding and a
+   `--space-7` gap. It used to run `--space-6` padding with a `--space-5` gap,
+   which put the title 4px lower and the table 12px tighter than every sibling
+   page — small individually, obvious when switching between sections. */
 .connectors-page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-6);
+  gap: var(--space-7);
+  padding: var(--space-5) var(--space-6);
+  min-height: 100%;
 }
 
+/* Shared shape across every section overview's header. */
 .connectors-page__header {
   display: flex;
   align-items: flex-start;
