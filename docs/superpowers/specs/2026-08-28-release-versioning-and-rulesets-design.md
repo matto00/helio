@@ -104,9 +104,15 @@ Change both CD workflows from `push: branches: ["release/**"]` to
 `push: tags: ["v*"]`, and add `workflow_dispatch` as a manual escape hatch. Merge to
 `main` first. Nothing auto-deploys for the remainder of the migration.
 
-**Artifact naming.** With tag-triggered deploys, `github.ref_name` *is* the version,
-so the backend image tag becomes `<version>-<sha8>` (e.g. `v0.8.0-1a2b3c4d`),
-replacing today's `<branch>-<sha8>` (e.g. `release-v1.6-6b269a79`).
+**Artifact naming.** The backend image tag becomes `release-<version>-<sha8>`
+(e.g. `release-v0.8.0-1a2b3c4d`), continuous in shape with today's
+`release-v1.6-6b269a79`.
+
+The `release-` prefix is retained deliberately: it denotes the **channel**, not the
+branch. It only looked branch-derived because release branches were historically the
+only thing that deployed. Keeping it reserves `staging-v…` / `dev-v…` for future
+channels, and means one keep-prefix (`release-`) covers both legacy and new images
+so no image is swept merely for predating the migration.
 
 The SHA stays at **8 characters** — `cut -c1-8`, unchanged from the current
 workflow. This keeps new images at the same SHA width as the 51 already in the
@@ -154,17 +160,30 @@ then delete the old ref. New-before-delete means the commits are never unreachab
 
 ### Phase 5 — Registry lifecycle
 
-An Artifact Registry cleanup policy with two rules:
+An Artifact Registry cleanup policy:
 
-- **Keep** images whose tag matches prefix `v` (the `<version>-<sha8>` scheme from
-  Phase 1), plus the 10 most recent versions regardless of tag.
-- **Delete** untagged images, and tagged images older than 90 days that the keep
-  rules do not cover.
+- **Keep** the 10 most recent versions, unconditionally. Keep rules win over delete
+  rules in Artifact Registry, so this is the rollback floor.
+- **Delete** untagged images, and images tagged `release-` older than **30 days**
+  that the keep rule does not cover.
 
-Note the 51 legacy images use the old `release-v…` prefix, which the `v` prefix does
-**not** match. They are therefore candidates for deletion — intentional, since each
-is reproducible from its now-tagged commit, but it is the single largest effect of
-this phase and must be confirmed against the dry-run list.
+**Why 30 days and not 90.** Modeled against the live registry (53 images, 31.8 GB):
+
+| age rule | deletes | reclaims |
+|---|---|---|
+| >90 days | 7 | 2.4 GB |
+| >60 days | 9 | 3.7 GB |
+| >30 days | 26 | 14.4 GB |
+
+47 of 53 images were pushed within the last 90 days — the bloat is recency-dense,
+not old (2026-08-16 alone produced 26 images). A 90-day rule is close to a no-op and
+never converges at this deploy cadence. The 30-day rule matters less for immediate
+reclaim than for reaching a bounded steady state: bursts age out and the repository
+settles at the keep-10 floor (~6 GB).
+
+Aggressive retention is low-risk here precisely because of Phase 3 — every deployed
+version now has a git tag and a GitHub Release, so any image is reproducible from a
+known commit.
 
 Applied in **dry-run first**. The concrete delete list is reviewed before the policy
 is armed.
