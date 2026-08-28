@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
   assertHiddenAtWidth,
@@ -55,6 +55,36 @@ async function openSheet(page: Page, triggerNameRe: RegExp) {
   return page.getByRole("dialog");
 }
 
+/** Bisects the real hit extent on BOTH axes for every visible match of an
+ *  expander-based control, and asserts the painted box is genuinely compact.
+ *
+ *  Controls that meet the floor via a `::after` hit expander cannot be
+ *  verified by `sweepSurface`, which measures `getBoundingClientRect()` and
+ *  would see their (correct) sub-44px painted box as a violation. The box
+ *  assertion here is the other half of the contract: it fails if a control
+ *  silently regresses BACK to an inflated box, so the two mechanisms stay
+ *  distinguishable rather than one quietly becoming the other. */
+async function assertExpanderFloor(page: Page, locator: Locator): Promise<void> {
+  const count = await locator.count();
+  expect(count, "expander-based control must render at least one match").toBeGreaterThan(0);
+  let checked = 0;
+  for (let i = 0; i < count; i++) {
+    const el = locator.nth(i);
+    if (!(await el.isVisible())) continue;
+    await bisectHitExtent(page, el, "x", 0.25);
+    await bisectHitExtent(page, el, "y", 0.25);
+    const box = await measureBox(el);
+    expect(
+      box.height,
+      "expander-based control must keep its compact painted box (not re-inflate to 44px)",
+    ).toBeLessThan(44);
+    checked += 1;
+  }
+  expect(checked, "at least one visible expander-based control must be measured").toBeGreaterThan(
+    0,
+  );
+}
+
 test.describe("HEL-813 mobile touch-target floor guard", () => {
   for (const width of WIDTHS) {
     test.describe(`at ${width}px`, () => {
@@ -88,10 +118,15 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
 
         // Sheet rows — real, non-zero visible-floored match for the surface.
         const dialog = await openSheet(page, /Switch dashboards/i);
+        // The sheet's ROWS keep a real 44px box — a full-height row is the
+        // phone idiom — so they remain the surface's box-floored match.
         await sweepSurface(page, {
-          selectors: [".mobile-nav-sheet__item", ".mobile-nav-sheet__create-action"],
+          selectors: [".mobile-nav-sheet__item"],
           scope: dialog,
         });
+        // The create action is a compact painted button and moved to the
+        // expander mechanism, so it is verified by hit extent.
+        await assertExpanderFloor(page, dialog.locator(".mobile-nav-sheet__create-action"));
       });
 
       // Surface 2 (design.md D3 item 2) + Requirement D4 discriminator, in
@@ -110,18 +145,17 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
         await page.goto("/settings");
         await page.getByRole("button", { name: "Add color" }).click();
 
-        await sweepSurface(page, {
-          selectors: [
-            '.preferences-editor__swatch-row input[type="color"]',
-            ".preferences-editor__swatch-row .ui-icon-btn",
-          ],
-          exempt: [
-            {
-              selector: 'input[type="color"]',
-              reason: "DESIGN.md-exempt color swatch",
-            },
-          ],
-        });
+        // `.ui-icon-btn` moved to the expander mechanism app-wide, so this
+        // row no longer has a box-floored control and `sweepSurface` (which
+        // measures the painted box) cannot express it. The D4 discriminator
+        // is preserved and in fact sharpened: the icon button must clear the
+        // floor by HIT EXTENT while keeping a compact box, and the swatch
+        // beside it must clear neither — so "floored" and "intentionally
+        // unfloored" stay distinguishable, which is this surface's whole job.
+        await assertExpanderFloor(
+          page,
+          page.locator(".preferences-editor__swatch-row .ui-icon-btn"),
+        );
 
         const swatch = page.locator('.preferences-editor__swatch-row input[type="color"]').first();
         const swatchBox = await measureBox(swatch);
@@ -204,12 +238,14 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
         await sweepSurface(page, { selectors: [".ui-select__option"], scope: dialog });
       });
 
-      // Surface 6 (design.md D3 item 6) — panel-list zoom/add controls
-      // (HEL-781). The zoom widget is genuinely hidden (not merely small)
-      // at 430px; `.panel-list__add` is floored and visible at both widths,
-      // giving the surface a real non-zero visible-floored match even when
-      // the zoom-widget assertion is a "hidden" one.
-      test("surface 6: panel-list zoom/add controls", async ({ page, request }) => {
+      // Surface 6 (design.md D3 item 6) — panel-list zoom controls (HEL-781)
+      // and the dashboard-actions trigger. The zoom widget is genuinely
+      // hidden (not merely small) at 430px, so at that width the surface's
+      // real measured control is the command bar's "Dashboard actions"
+      // kebab — which is where "Add panel" moved when the panel-list header
+      // bar (count pill + `.panel-list__add`) was removed. That button no
+      // longer exists, so it cannot be the surface's anchor any more.
+      test("surface 6: panel-list zoom + dashboard-actions controls", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, `panellist-${width}`);
         const dashboardRes = await page.request.post("/api/dashboards", {
@@ -223,12 +259,14 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
         if (width === 430) {
           await assertHiddenAtWidth(page.locator(".panel-list__zoom-widget"));
         } else {
+          // These two DO grow their box: they sit 2px apart inside a pill, so
+          // overlapping 44px expanders would fight over the same taps.
           await sweepSurface(page, {
             selectors: [".panel-list__zoom-button", ".panel-list__zoom-reset"],
           });
         }
 
-        await sweepSurface(page, { selectors: [".panel-list__add"] });
+        await assertExpanderFloor(page, page.locator(".app-command-bar .actions-menu__trigger"));
       });
 
       // Surface 7 (HEL-824 design.md Decision 5) — the Connectors page: the
@@ -254,10 +292,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
         // even though the buttons are genuinely 44px once settled. Wait past
         // `--transition-slow` before measuring rendered geometry.
         await page.waitForTimeout(400);
-        await sweepSurface(page, {
-          selectors: [".connectors-page__btn"],
-          scope: createDialog,
-        });
+        await assertExpanderFloor(page, createDialog.locator(".connectors-page__btn"));
 
         await createDialog.locator("#create-connector-name").fill("HEL-813 Connector");
         await createDialog
@@ -273,7 +308,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
           main.locator(".connectors-page__name-cell", { hasText: "HEL-813 Connector" }),
         ).toBeVisible();
 
-        await sweepSurface(page, { selectors: [".connectors-page__btn"], scope: main });
+        await assertExpanderFloor(page, main.locator(".connectors-page__btn"));
       });
     });
   }
