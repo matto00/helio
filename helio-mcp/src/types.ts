@@ -190,6 +190,35 @@ export interface PipelineSummaryResponse {
   tag?: string | null;
 }
 
+/** `GET`/`PUT /api/pipelines/:id/schedule` (HEL-415) — mirrors the backend's
+ *  `PipelineScheduleResponse` (`jsonFormat10`) exactly: `nextRunAt`/
+ *  `lastRunAt` are the only optional fields (spray-json drops `Option =
+ *  None`); every other field, including `timezone`, is always present. */
+export interface PipelineScheduleResponse {
+  id: string;
+  pipelineId: string;
+  kind: string;
+  expression: string;
+  enabled: boolean;
+  timezone: string;
+  nextRunAt?: string;
+  lastRunAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** `PUT /api/pipelines/:id/schedule` body — mirrors the backend's
+ *  `PutPipelineScheduleRequest(kind, expression, enabled: Option[Boolean],
+ *  timezone)` (`jsonFormat4`). `timezone` is REQUIRED server-side; only
+ *  `enabled` is optional (absent normalises to `true` server-side — see
+ *  `buildSetPipelineScheduleBody` in `tools/scheduleTools.ts`). */
+export interface PutPipelineScheduleRequest {
+  kind: string;
+  expression: string;
+  timezone: string;
+  enabled?: boolean;
+}
+
 /** One step from `GET /api/pipelines/:id/steps`. `config` shape is keyed by
  *  `type` (rename/filter/join/…); passed through untouched. */
 export interface PipelineStepResponse {
