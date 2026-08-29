@@ -93,9 +93,16 @@ object FilterStep {
       case "is not null" => fieldVal != null
       case "contains"    => fieldVal != null && fieldVal.toString.contains(value.getOrElse(""))
       case "=" | "!=" =>
-        val fieldStr = if (fieldVal == null) null else fieldVal.toString
-        val valStr   = value.getOrElse("")
-        if (operator == "=") fieldStr == valStr else fieldStr != valStr
+        val numericMatch = for {
+          f <- numericFieldValue(fieldVal)
+          v <- value.flatMap(_.toDoubleOption)
+        } yield f == v
+        val isEqual = numericMatch.getOrElse {
+          val fieldStr = if (fieldVal == null) null else fieldVal.toString
+          val valStr   = value.getOrElse("")
+          fieldStr == valStr
+        }
+        if (operator == "=") isEqual else !isEqual
       case ">" | ">=" | "<" | "<=" =>
         val fieldNum = Option(fieldVal).flatMap(v => Try(v.toString.toDouble).toOption)
         val valNum   = Try(value.getOrElse("").toDouble).toOption
@@ -112,6 +119,20 @@ object FilterStep {
         }
       case _ => false
     }
+
+  /** HEL-889: `=`/`!=` coerce numerically only when the row value's runtime type is itself
+   *  numeric — a numeric-looking String (e.g. `player_id = "007"`) must keep exact string
+   *  equality, so this is deliberately narrower than `PipelineRowJson.toDouble`'s String case
+   *  (design D1/D5). */
+  private def numericFieldValue(v: Any): Option[Double] = v match {
+    case i: Int                    => Some(i.toDouble)
+    case l: Long                   => Some(l.toDouble)
+    case f: Float                  => Some(f.toDouble)
+    case d: Double                 => Some(d)
+    case bd: BigDecimal            => Some(bd.toDouble)
+    case jbd: java.math.BigDecimal => Some(jbd.doubleValue)
+    case _                         => None
+  }
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
