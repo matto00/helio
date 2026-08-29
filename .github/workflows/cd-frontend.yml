@@ -1,8 +1,17 @@
 name: CD Frontend
 
+# Deploys are triggered by pushing a version tag (see /release), never by a
+# branch push. A release branch fast-forward no longer deploys on its own.
+# NOTE: a tag pushed by Actions with the default GITHUB_TOKEN does NOT trigger
+# workflows — tagging is deliberately manual. Automating it needs a PAT/App.
 on:
   push:
-    branches: ["release/**"]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing version tag to deploy (e.g. v0.7.4)"
+        required: true
 
 permissions:
   contents: read
@@ -13,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - uses: actions/setup-node@v7
         with:
@@ -34,6 +45,34 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
 
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-west1-docker.pkg.dev
+
+      # Artifact of record for the frontend, at 1:1 parity with the backend:
+      # same registry, same release-<version>-<sha8> scheme, therefore the same
+      # retention policy. This image is NOT the deploy vehicle (Firebase Hosting
+      # serves the assets) — it exists for traceability and rollback.
+      - name: Build and push frontend artifact
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+          SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          IMAGE=us-west1-docker.pkg.dev/helio-493120/helio-frontend/helio-frontend:release-${VERSION}-${SHA}
+          echo "FRONTEND_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          cat > /tmp/Dockerfile.artifact <<'EOF'
+          FROM scratch
+          COPY dist /dist
+          EOF
+          docker build -f /tmp/Dockerfile.artifact -t "$IMAGE" frontend
+          docker push "$IMAGE"
+
       - name: Deploy to Firebase Hosting
-        run: npx firebase-tools deploy --only hosting --project helio-493120
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+          SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          npx firebase-tools deploy --only hosting --project helio-493120 \
+            --message "release-${VERSION}-${SHA}"
         working-directory: frontend

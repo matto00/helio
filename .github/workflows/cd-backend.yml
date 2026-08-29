@@ -1,8 +1,17 @@
 name: CD Backend
 
+# Deploys are triggered by pushing a version tag (see /release), never by a
+# branch push. A release branch fast-forward no longer deploys on its own.
+# NOTE: a tag pushed by Actions with the default GITHUB_TOKEN does NOT trigger
+# workflows — tagging is deliberately manual. Automating it needs a PAT/App.
 on:
   push:
-    branches: ["release/**"]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing version tag to deploy (e.g. v0.7.4)"
+        required: true
 
 permissions:
   contents: read
@@ -13,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - id: auth
         uses: google-github-actions/auth@v2
@@ -27,9 +38,10 @@ jobs:
 
       - name: Build and push image
         run: |
-          BRANCH=$(echo "${{ github.ref_name }}" | sed 's|/|-|g')
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
           SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          IMAGE=us-west1-docker.pkg.dev/helio-493120/helio-backend/helio-backend:${BRANCH}-${SHA}
+          IMAGE=us-west1-docker.pkg.dev/helio-493120/helio-backend/helio-backend:release-${VERSION}-${SHA}
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"

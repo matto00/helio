@@ -16,3 +16,6 @@ scripts/concertino
 
 # Local working doc (gitignored)
 development-plan.md
+
+# Superpowers SDD workspace (gitignored scratch)
+.superpowers
