@@ -331,6 +331,23 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema.find(_.name == "x").map(_.`type`) shouldBe Some("number")
     }
 
+    // HEL-867 task 2.2: verify the dotted-reference error wording end-to-end on the
+    // step-card validationError surface a user actually reads, not only at the
+    // evaluator's return value.
+    "compute — an unresolved dotted reference produces a validationError that names the whole" +
+      " dotted reference, states it is matched as a literal flattened column (not a path), and" +
+      " does not imply traversal was attempted" in {
+      val cfg    = """{"column":"x","expression":"$stats.pts_ppr * 2","type":"number"}"""
+      val steps  = Vector(step("compute", cfg))
+      val result = analyze(steps, baseSchema)
+
+      val msg = result(0).validationError.getOrElse(fail("Expected a validationError"))
+      msg should include ("stats.pts_ppr")
+      msg should include ("literal")
+      msg should include ("not traversed as a path")
+      result(0).outputSchema.find(_.name == "x").map(_.`type`) shouldBe Some("number")
+    }
+
 
     "aggregate — groupBy fields plus alias fields in outputSchema" in {
       val cfg = """{

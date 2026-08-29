@@ -317,7 +317,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
 
     "return UnknownField error for missing $-prefixed field reference" in {
       ExpressionEvaluator.evaluate("$missing_field + 1", Map.empty) match {
-        case Left(EvaluationError.UnknownField("missing_field")) => succeed
+        case Left(EvaluationError.UnknownField("missing_field", _)) => succeed
         case other => fail(s"Expected UnknownField, got $other")
       }
     }
@@ -370,6 +370,170 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
     "evaluate a legacy bare-identifier string-concat expression" in {
       val r = row("first" -> JsString("Ada"), "last" -> JsString("Lovelace"))
       ExpressionEvaluator.evaluate("""first + " " + last""", r) shouldBe Right(JsString("Ada Lovelace"))
+    }
+  }
+
+  // ── HEL-867: dotted $-references ────────────────────────────────────────────
+
+  "ExpressionEvaluator (dotted $-references)" should {
+
+    // 3.1
+    "evaluate: a dotted reference resolves to the flattened column of that exact name" in {
+      val r = row("stats.pts_ppr" -> JsNumber(12.0))
+      ExpressionEvaluator.evaluate("$stats.pts_ppr * 2", r) shouldBe Right(JsNumber(24.0))
+    }
+
+    // 3.2 — must assert the error names the FULL dotted reference AND that it does not fall
+    // back to the prefix column and return 5.
+    "evaluate: a dotted reference is not split into a prefix when only the prefix column exists" in {
+      val r = row("stats" -> JsNumber(5.0))
+      val result = ExpressionEvaluator.evaluate("$stats.pts_ppr", r)
+      result should not be Right(JsNumber(5.0))
+      result match {
+        case Left(err: EvaluationError.UnknownField) =>
+          err.name shouldBe "stats.pts_ppr"
+          err.message should include ("stats.pts_ppr")
+        case other => fail(s"Expected UnknownField naming 'stats.pts_ppr', got $other")
+      }
+    }
+
+    // 3.3
+    "validate (strict): accepts a dotted reference present in the schema" in {
+      ExpressionEvaluator.validate("$stats.pts_ppr + 1", Set("stats.pts_ppr")) shouldBe Right(())
+    }
+
+    // 3.4
+    "inferType: resolves a dotted reference's type from the field-type map" in {
+      ExpressionEvaluator.inferType("$stats.pts_ppr * 2", Map("stats.pts_ppr" -> "number")) shouldBe
+        Right("number")
+    }
+
+    // 3.5
+    "validateTolerant: accepts a dotted reference present in the schema" in {
+      ExpressionEvaluator.validateTolerant("$stats.pts_ppr", Set("stats.pts_ppr")) shouldBe Right(())
+    }
+
+    // 3.6
+    "evaluate: a multi-segment dotted reference resolves against a row keyed with all segments" in {
+      val r = row("a.b.c" -> JsNumber(7.0))
+      ExpressionEvaluator.evaluate("$a.b.c", r) shouldBe Right(JsNumber(7.0))
+    }
+
+    // 3.8 — driven through the real JsonFlattener, not a hand-built Map. Which of the two
+    // colliding values wins is JsonFlattener's own contract (unordered-but-stable, see
+    // JsonFlattenerSpec) — this test's job is only to prove the ticket's ambiguity criterion:
+    // exactly one "a.b" column survives flattening, and $a.b resolves to that single value
+    // rather than erroring on ambiguity or returning the wrong one.
+    "evaluate: a literal dotted column colliding with a nested path resolves to the flattener's single deduplicated column" in {
+      val nested = JsObject(
+        "a.b" -> JsNumber(1.0),
+        "a"   -> JsObject("b" -> JsNumber(2.0))
+      )
+      val flattened = JsonFlattener.flattenJsObject(nested)
+
+      flattened.fields.keySet shouldBe Set("a.b")
+      val expectedValue = flattened.fields("a.b")
+      expectedValue should (be(JsNumber(1.0)) or be(JsNumber(2.0)))
+
+      ExpressionEvaluator.evaluate("$a.b", flattened.fields) shouldBe Right(expectedValue)
+    }
+
+    // 3.7 — Source computed fields: exercised at the same call ExpressionEvaluator.evaluate
+    // that SourceService.applyComputedFields makes (obj.fields of an already-flattened row).
+    "evaluate: source computed field over a flattened row (SourceService.applyComputedFields seam)" in {
+      val sourceRow  = JsObject("stats" -> JsObject("pts_ppr" -> JsNumber(12.0)))
+      val flattened  = JsonFlattener.flattenJsObject(sourceRow)
+      val result     = ExpressionEvaluator.evaluate("$stats.pts_ppr * 2", flattened.fields)
+      result shouldBe Right(JsNumber(24.0))
+    }
+
+    // ── 4. Regression: what must NOT change ────────────────────────────────
+
+    // 4.1
+    "regression: .5 and 1.05 still lex as number literals; $amount * .5 evaluates correctly" in {
+      ExpressionEvaluator.evaluate("$amount * .5", row("amount" -> JsNumber(100.0))) shouldBe
+        Right(JsNumber(50.0))
+      ExpressionEvaluator.evaluate("$amount * 1.05", row("amount" -> JsNumber(100.0))) shouldBe
+        Right(JsNumber(105.0))
+    }
+
+    // 4.2
+    "regression: 1.2.3 still fails as an invalid number literal" in {
+      ExpressionEvaluator.evaluate("1.2.3", Map.empty) match {
+        case Left(EvaluationError.ParseError(msg)) => msg should include ("Invalid number literal: 1.2.3")
+        case other => fail(s"Expected ParseError(Invalid number literal), got $other")
+      }
+    }
+
+    // 4.3
+    "regression: legacy bare-identifier price * quantity still evaluates unchanged" in {
+      ExpressionEvaluator.evaluate("price * quantity", row("price" -> JsNumber(2.0), "quantity" -> JsNumber(3.0))) shouldBe
+        Right(JsNumber(6.0))
+    }
+
+    // 4.4 — a dot must not have become an operator, and the legacy parser must not have
+    // gained dotted refs: a bare (non-$) dotted identifier still fails, unchanged (D1/D2 leave
+    // the bare-identifier scan byte-for-byte untouched). The unqualified "price * quantity"
+    // case (no dot) is covered separately below and DOES still get the literal
+    // $-prefix-required message; here the dot itself makes tokenization fail one step
+    // earlier — via the (also untouched) number branch — before the parser's $-prefix check
+    // is even reached. Both are still, correctly, parse failures rather than a successful
+    // parse of a bare dotted legacy reference.
+    "regression: bare (non-$) stats.pts_ppr still fails to parse — a dot does not become an operator" in {
+      ExpressionEvaluator.validate("stats.pts_ppr", Set("stats.pts_ppr")) shouldBe a[Left[_, _]]
+      ExpressionEvaluator.validate("price * quantity", Set("price", "quantity")) shouldBe
+        Left("Column references require a '$' prefix")
+    }
+
+    // 4.5
+    "regression: $stats. and $a..b are parse errors" in {
+      ExpressionEvaluator.validate("$stats.", Set("stats.pts_ppr")) shouldBe a[Left[_, _]]
+      ExpressionEvaluator.validate("$a..b", Set("a.b")) shouldBe a[Left[_, _]]
+    }
+
+    // 4.6 — a dotted-reference parse failure must not trigger the legacy fallback: the strict
+    // failure for "$stats." is NOT the "$ prefix required" message, so evaluate() must surface
+    // it as a ParseError rather than silently retrying via parseLegacy.
+    "regression: a dotted-reference parse failure does not trigger the legacy fallback" in {
+      ExpressionEvaluator.evaluate("$stats.", Map("stats" -> JsNumber(5.0))) match {
+        case Left(EvaluationError.ParseError(msg)) =>
+          msg should not include "Column references require a '$' prefix"
+        case other => fail(s"Expected a ParseError not routed through the legacy fallback, got $other")
+      }
+    }
+
+    // ── HEL-867 added scope (post-delivery fold-in): trailing/doubled-dot wording ──────────
+
+    "added scope: a trailing dot after a $-reference names an incomplete dotted reference, not a number literal" in {
+      ExpressionEvaluator.validate("$stats.", Set("stats.pts_ppr")) match {
+        case Left(msg) =>
+          msg should include ("Incomplete")
+          msg should include ("dotted")
+          msg should not include "number literal"
+        case other => fail(s"Expected a parse error, got $other")
+      }
+    }
+
+    "added scope: a doubled dot after a $-reference names an incomplete dotted reference, not a number literal" in {
+      ExpressionEvaluator.validate("$a..b", Set("a.b")) match {
+        case Left(msg) =>
+          msg should include ("Incomplete")
+          msg should include ("dotted")
+          msg should not include "number literal"
+        case other => fail(s"Expected a parse error, got $other")
+      }
+    }
+
+    "added scope regression: .5 and 1.05 are unaffected by the trailing-dot wording change" in {
+      ExpressionEvaluator.evaluate("$amount * .5", row("amount" -> JsNumber(100.0))) shouldBe
+        Right(JsNumber(50.0))
+      ExpressionEvaluator.evaluate("$amount * 1.05", row("amount" -> JsNumber(100.0))) shouldBe
+        Right(JsNumber(105.0))
+    }
+
+    "added scope regression: a standalone malformed number literal (1.2.3, no preceding $-ref) keeps its existing message unchanged" in {
+      ExpressionEvaluator.evaluate("1.2.3", Map.empty) shouldBe
+        Left(EvaluationError.ParseError("Invalid number literal: 1.2.3"))
     }
   }
 }
