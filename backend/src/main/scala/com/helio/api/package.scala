@@ -180,6 +180,10 @@ package object api {
   val StaticDataPayload: protocols.sources.StaticDataPayload.type = protocols.sources.StaticDataPayload
   type StaticDataSourceRequest = protocols.sources.StaticDataSourceRequest
   val StaticDataSourceRequest: protocols.sources.StaticDataSourceRequest.type = protocols.sources.StaticDataSourceRequest
+  type CsvSourceUrlConfigPayload = protocols.sources.CsvSourceUrlConfigPayload
+  val CsvSourceUrlConfigPayload: protocols.sources.CsvSourceUrlConfigPayload.type = protocols.sources.CsvSourceUrlConfigPayload
+  type CsvSourceUrlRequest = protocols.sources.CsvSourceUrlRequest
+  val CsvSourceUrlRequest: protocols.sources.CsvSourceUrlRequest.type = protocols.sources.CsvSourceUrlRequest
   type TextSourceConfigPayload = protocols.sources.TextSourceConfigPayload
   val TextSourceConfigPayload: protocols.sources.TextSourceConfigPayload.type = protocols.sources.TextSourceConfigPayload
   type TextSourceUrlConfigPayload = protocols.sources.TextSourceUrlConfigPayload

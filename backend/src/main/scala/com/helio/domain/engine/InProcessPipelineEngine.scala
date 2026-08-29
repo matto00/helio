@@ -64,8 +64,23 @@ object InProcessPipelineEngine {
  *  an implicit `ActorSystem` to construct, so it's threaded in rather than
  *  constructed here; `SqlConnectorDriver` is a stateless `object` and needs no DI.
  *  A `null` connector attempting a `RestSource` load fails fast with a clear
- *  `IllegalArgumentException` rather than a confusing `NullPointerException`. */
-class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnectorDriver = null)(implicit ec: ExecutionContext) {
+ *  `IllegalArgumentException` rather than a confusing `NullPointerException`.
+ *
+ *  `csvUrlFetch` (HEL-862, design.md Decision 3) is the injectable seam for
+ *  re-fetching a URL-backed CSV source on a scheduled/manual run. Defaults to
+ *  a function that always returns `Left("not configured")` so tests that omit
+ *  it keep compiling and fail loudly (not silently) if they exercise a
+ *  URL-backed CSV run without wiring the seam. `PipelineRunService` supplies
+ *  the real implementation — a thin closure over `CsvUrlFetch.fetch` that
+ *  closes over its `ActorSystem` LAZILY (never dereferenced at construction),
+ *  because `InProcessPipelineEngine` is built as an eagerly-initialised field
+ *  and `system` is `null` in every fixture that omits it. */
+class InProcessPipelineEngine(
+    fileSystem: FileSystem,
+    connector:  RestApiConnectorDriver = null,
+    csvUrlFetch: String => Future[Either[String, Array[Byte]]] =
+      (_: String) => Future.successful(Left("URL-backed CSV fetch is not configured"))
+)(implicit ec: ExecutionContext) {
 
   /** Row bound for a real `rest_api`/`sql` run (design.md D2) — distinct from
    *  `previewStep`'s pre-existing 10-row preview cap (unchanged; preview
@@ -144,14 +159,32 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
         case Some(raw) => (parseStaticRows(raw), SourceReadStats(truncated = false, availableRowCount = None))
       }
     case c: CsvSource =>
-      if (c.config.path.isEmpty)
-        Future.failed(
-          new IllegalArgumentException(
-            "CSV data source '" + c.name + "' (id=" + c.id.value +
-              ") is missing required config key 'path'"
-          )
-        )
-      else fileSystem.read(c.config.path).map(bytes => (loadCsvRowsFromBytes(bytes), SourceReadStats(truncated = false, availableRowCount = None)))
+      c.config.sourceUrl match {
+        case Some(url) =>
+          // HEL-862 design.md Decision 4: the load-bearing branch for AC3 — a
+          // scheduled run never calls DataSourceService.refreshCsv, so this
+          // engine-level re-fetch is the only thing that keeps a scheduled
+          // run from serving the original snapshot forever.
+          csvUrlFetch(url).flatMap {
+            case Left(err) =>
+              Future.failed(
+                new IllegalArgumentException(
+                  "CSV data source '" + c.name + "' (id=" + c.id.value + "): " + err
+                )
+              )
+            case Right(bytes) =>
+              Future.successful((loadCsvRowsFromBytes(bytes), SourceReadStats(truncated = false, availableRowCount = None)))
+          }
+        case None =>
+          if (c.config.path.isEmpty)
+            Future.failed(
+              new IllegalArgumentException(
+                "CSV data source '" + c.name + "' (id=" + c.id.value +
+                  ") is missing required config key 'path'"
+              )
+            )
+          else fileSystem.read(c.config.path).map(bytes => (loadCsvRowsFromBytes(bytes), SourceReadStats(truncated = false, availableRowCount = None)))
+      }
     case t: TextSource =>
       if (t.config.path.isEmpty)
         Future.failed(

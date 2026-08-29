@@ -288,7 +288,10 @@ final class ApiRoutes(
   val pipelineRunService = new PipelineRunService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
     dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
-    alertEvaluationServiceOpt.orNull, connector, auditService
+    alertEvaluationServiceOpt.orNull, connector, auditService,
+    // HEL-862: threads the same implicit ActorSystem this class already has,
+    // so a scheduled/manual run over a URL-backed CSV source can re-fetch it.
+    system
   )
   // HEL-383: atomic pipeline-proposal apply — composes sourceService/
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,

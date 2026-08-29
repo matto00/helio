@@ -8,6 +8,8 @@ import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
 import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField, SourceReadStats, StepExecutionException}
 import com.helio.domain.connectors.RestApiConnectorDriver
+import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
+import org.apache.pekko.actor.typed.ActorSystem
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -18,10 +20,11 @@ import org.slf4j.LoggerFactory
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
+import java.net.InetAddress
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** Service-side run lifecycle. Extracted from the pre-CS2c-3a 380-line
  *  `PipelineRunRoutes` so HTTP routes become thin shells that translate
@@ -48,12 +51,33 @@ final class PipelineRunService(
     // such threading (SqlConnectorDriver is a stateless object).
     connector: RestApiConnectorDriver = null,
     // HEL-477: nullable-optional wiring mirrors connector above.
-    auditService: AuditService = null
+    auditService: AuditService = null,
+    // HEL-862 (design.md Decision 3): nullable/defaulted convention mirrors
+    // binaryRefRepo/alertEvaluationService/connector/auditService above.
+    // `system` MUST NOT be dereferenced at construction time — it is `null`
+    // in every fixture above that omits it, and `engine` (below) is an
+    // eagerly-initialised field, so the csvUrlFetch closure passed to it
+    // resolves `system` LAZILY, at call time, inside the closure body.
+    system: ActorSystem[_] = null,
+    resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+    isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  private val engine = new InProcessPipelineEngine(fileSystem, connector)
+  /** HEL-862 design.md Decision 3/task 6.7: a thin closure over
+   *  `CsvUrlFetch.fetch` — NOT a second implementation of its checks. `system`
+   *  is read INSIDE the closure (call time), never at this val's own
+   *  construction, so a fixture that never runs a URL-backed CSV never pays
+   *  for (or NPEs on) a null `system`. */
+  private def csvUrlFetchSeam(url: String): Future[Either[String, Array[Byte]]] =
+    if (system == null)
+      Future.successful(Left("URL-backed CSV fetch is not configured"))
+    else
+      CsvUrlFetch.fetch(url, CsvUrlFetch.maxFileSizeBytes, resolveHost, isBlocked)(system)
+        .map(_.left.map(_.message))
+
+  private val engine = new InProcessPipelineEngine(fileSystem, connector, csvUrlFetchSeam)
 
   /** HEL-861 (design D4): the run-wide truncation fields, computed once from the primary
    *  source's own [[SourceReadStats]] plus any secondary-source truncated reads recorded in

@@ -2006,6 +2006,102 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       ex.getMessage                 should not include "key not found"
     }
 
+    // HEL-862 (design.md Decision 3/4, task 6): the engine-level csvUrlFetch
+    // seam — the load-bearing branch for AC3, since a scheduled run never
+    // calls DataSourceService.refreshCsv.
+    "loadRows: a URL-backed CSV source re-fetches via the seam and reflects CHANGED upstream content across two runs" in {
+      var callCount = 0
+      val responses = Vector("name,age\nalice,30", "name,age\nalice,31\nbob,40")
+      val seamEngine = new InProcessPipelineEngine(
+        fileSystem,
+        csvUrlFetch = (_: String) => {
+          val body = responses(math.min(callCount, responses.size - 1))
+          callCount += 1
+          Future.successful(Right(body.getBytes(StandardCharsets.UTF_8)))
+        }
+      )
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-url"),
+        name      = "url-csv-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig("csv/ds-csv-url.csv", sourceUrl = Some("https://example.com/data.csv"))
+      )
+      val firstRun  = Await.result(seamEngine.loadRows(ds, null), 5.seconds)
+      val secondRun = Await.result(seamEngine.loadRows(ds, null), 5.seconds)
+
+      firstRun should have size 1
+      firstRun.head("age") shouldBe "30"
+
+      secondRun should have size 2
+      secondRun.head("age") shouldBe "31"
+      secondRun(1)("name")  shouldBe "bob"
+      callCount shouldBe 2
+    }
+
+    "loadRows: a snapshot-backed (no sourceUrl) CSV source reads the file and never calls the seam" in {
+      val tmp = java.io.File.createTempFile("helio-csv-snapshot-", ".csv")
+      tmp.deleteOnExit()
+      val writer = new java.io.PrintWriter(tmp)
+      try { writer.println("name,age"); writer.println("carol,50") } finally writer.close()
+
+      var seamCalled = false
+      val seamEngine = new InProcessPipelineEngine(
+        fileSystem,
+        csvUrlFetch = (_: String) => { seamCalled = true; Future.successful(Right(Array.emptyByteArray)) }
+      )
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-snapshot"),
+        name      = "snapshot-csv-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig(tmp.getAbsolutePath, sourceUrl = None)
+      )
+      val rows = Await.result(seamEngine.loadRows(ds, null), 5.seconds)
+      rows should have size 1
+      rows.head("name") shouldBe "carol"
+      seamCalled shouldBe false
+    }
+
+    "loadRows: a URL-backed CSV source fails the run with a message naming the source and the reason, on a failing fetch" in {
+      val seamEngine = new InProcessPipelineEngine(
+        fileSystem,
+        csvUrlFetch = (_: String) => Future.successful(Left("URL host 'sneaky.example' resolves to a disallowed address"))
+      )
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-fail"),
+        name      = "failing-url-csv",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig("csv/ds-csv-fail.csv", sourceUrl = Some("https://sneaky.example/data.csv"))
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(seamEngine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include ("failing-url-csv")
+      ex.getMessage should include ("disallowed address")
+    }
+
+    "loadRows: constructing the engine with the DEFAULT (unconfigured) seam does not throw, and a URL-backed CSV run fails 'not configured'" in {
+      noException should be thrownBy new InProcessPipelineEngine(fileSystem)
+      val defaultEngine = new InProcessPipelineEngine(fileSystem)
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-unconfigured"),
+        name      = "unconfigured-url-csv",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig("csv/ds-csv-unconfigured.csv", sourceUrl = Some("https://example.com/data.csv"))
+      )
+      val ex = intercept[IllegalArgumentException](
+        Await.result(defaultEngine.loadRows(ds, null), 5.seconds)
+      )
+      ex.getMessage should include ("not configured")
+    }
+
     // HEL-215: text/Markdown connector — single-row loader.
 
     "loadRows: TextSource yields exactly one row with content/filename/sizeBytes keys" in {

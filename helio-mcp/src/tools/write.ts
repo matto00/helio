@@ -14,6 +14,7 @@ import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { ProposalPanel } from "../types.js";
 import { addPipelineStepHandler } from "./assertSchemas.js";
+import { assertExactlyOneCsvInput } from "./csvDataSourceSchema.js";
 import {
   buildUpdateMetricBody,
   metricAggregationSchema,
@@ -89,21 +90,34 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     {
       title: "Create data source (CSV)",
       description:
-        "Create a `csv` data source from inline CSV text content — no filesystem access from the " +
-        "MCP process required. Posts the content as a multipart upload to the same endpoint the " +
-        "UI's file-upload flow uses. Like `static`, the backend auto-creates a source-companion " +
-        "DataType (NOT returned inline — inspect it via list_source_objects); build a pipeline over " +
-        "the returned source id to produce a panel-bindable output type. Optional `tag` (HEL-366, " +
-        "free-form grouping key, max 200 chars) is propagated to the auto-created companion " +
-        "DataType too, and lets a whole workflow run's resources be torn down together later with " +
+        "Create a `csv` data source from EITHER inline CSV text content OR an HTTPS `sourceUrl` — " +
+        "exactly one of `content`/`sourceUrl` is required; supplying neither or both fails before " +
+        "any HTTP call, naming both arguments. `content` — no filesystem access from the MCP " +
+        "process required — posts as a multipart upload to the same endpoint the UI's file-upload " +
+        "flow uses; that source's refresh always re-reads the originally-uploaded content, and it " +
+        "cannot refresh on a schedule. `sourceUrl` MUST be `https` (an internal/link-local address " +
+        "is also rejected); the backend fetches it at create time, and — unlike `content` — a " +
+        "URL-backed source RE-FETCHES the URL on every manual refresh AND on every scheduled " +
+        "pipeline run, so it is the only variant that reflects upstream changes automatically. This " +
+        "tool accepts NO caller-supplied filesystem `path` of any kind — only `content` or " +
+        "`sourceUrl`. Like `static`, the backend auto-creates a source-companion DataType (NOT " +
+        "returned inline — inspect it via list_source_objects); build a pipeline over the returned " +
+        "source id to produce a panel-bindable output type. Optional `tag` (HEL-366, free-form " +
+        "grouping key, max 200 chars) is propagated to the auto-created companion DataType too, " +
+        "and lets a whole workflow run's resources be torn down together later with " +
         "teardown_resources.",
       inputSchema: {
         name: z.string().min(1),
-        content: z.string().min(1),
+        content: z.string().min(1).optional(),
+        sourceUrl: z.string().min(1).optional(),
         tag: z.string().min(1).max(200).optional(),
       },
     },
-    ({ name, content, tag }) => guarded(() => api.createCsvDataSource({ name, content, tag })),
+    ({ name, content, sourceUrl, tag }) =>
+      guarded(() => {
+        assertExactlyOneCsvInput(content, sourceUrl);
+        return api.createCsvDataSource({ name, content, sourceUrl, tag });
+      }),
   );
 
   server.registerTool(

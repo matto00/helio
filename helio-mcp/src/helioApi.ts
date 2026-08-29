@@ -393,9 +393,21 @@ export class HelioApi {
     });
   }
 
-  /** Create a `csv` data source from inline CSV text content (no filesystem
-   *  access from the MCP process — the agent has content, not a path). Posts
-   *  multipart form data to the same route the UI's file-upload flow uses.
+  /** Create a `csv` data source, from EITHER inline CSV text content (no
+   *  filesystem access from the MCP process — the agent has content, not a
+   *  path) OR an HTTPS `sourceUrl` the backend fetches and re-fetches on
+   *  refresh/schedule (HEL-862). Mutual exclusion between the two is enforced
+   *  by the caller (`registerWriteTools`'s tool handler) BEFORE this method
+   *  is ever called — a single HTTP request is either multipart or JSON and
+   *  can never carry both, so there is no state here in which both are
+   *  present.
+   *
+   *  `content` posts `multipart/form-data` to the same route the UI's
+   *  file-upload flow uses, byte-for-byte unchanged from before HEL-862.
+   *  `sourceUrl` posts a JSON `{name, type: "csv", config: {url}, tag?}` body
+   *  to the same `/api/data-sources` endpoint, hitting the backend's new
+   *  `csv`-via-URL JSON branch (mirrors `createDataSource`'s JSON POST).
+   *
    *  Like `static`, the backend auto-creates a source-companion DataType but
    *  this route only ever returns the flat `DataSourceResponse` (no `dataType`
    *  field) — inspect the companion via `list_source_objects`. `tag`
@@ -403,12 +415,21 @@ export class HelioApi {
    *  auto-created companion DataType as well — see `teardown_resources`. */
   createCsvDataSource(input: {
     name: string;
-    content: string;
+    content?: string;
+    sourceUrl?: string;
     tag?: string;
   }): Promise<DataSourceResponse> {
+    if (input.sourceUrl !== undefined) {
+      return this.http.post<DataSourceResponse>("/api/data-sources", {
+        name: input.name,
+        type: "csv",
+        config: { url: input.sourceUrl },
+        tag: input.tag,
+      });
+    }
     const form = new FormData();
     form.set("name", input.name);
-    form.set("file", new Blob([input.content], { type: "text/csv" }), `${input.name}.csv`);
+    form.set("file", new Blob([input.content ?? ""], { type: "text/csv" }), `${input.name}.csv`);
     if (input.tag) form.set("tag", input.tag);
     return this.http.postMultipart<DataSourceResponse>("/api/data-sources", form);
   }

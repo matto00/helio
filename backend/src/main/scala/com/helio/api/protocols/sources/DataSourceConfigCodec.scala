@@ -15,10 +15,15 @@ import spray.json._
  *  is missing. */
 object DataSourceConfigCodec extends DefaultJsonProtocol {
 
-  private implicit val csvCfgFmt: RootJsonFormat[CsvSourceConfigPayload] = jsonFormat1(CsvSourceConfigPayload.apply)
+  private implicit val csvCfgFmt: RootJsonFormat[CsvSourceConfigPayload] = jsonFormat2(CsvSourceConfigPayload.apply)
   private implicit val sqlCfgFmt: RootJsonFormat[SqlSourceConfigPayload] = jsonFormat7(SqlSourceConfigPayload.apply)
   private implicit val restCfgFmt: RootJsonFormat[RestApiConfigPayload]  = jsonFormat11(RestApiConfigPayload.apply)
 
+  /** Decode CSV-source config. `sourceUrl` (HEL-862) is absent-tolerant —
+   *  every pre-existing stored CSV config has no `sourceUrl` key at all
+   *  (spray-json omits `Option = None` on the wire), so it must decode to
+   *  `None` rather than requiring the key, following the exact
+   *  `path`+`sourceUrl` idiom [[decodeText]] uses. */
   def decodeCsv(raw: String): CsvSourceConfig = {
     val obj = JsonParser(raw) match {
       case o: JsObject => o
@@ -28,11 +33,14 @@ object DataSourceConfigCodec extends DefaultJsonProtocol {
       case Some(JsString(p)) => p
       case _                 => ""
     }
-    CsvSourceConfig(path)
+    val sourceUrl = obj.fields.get("sourceUrl").collect { case JsString(u) => u }
+    CsvSourceConfig(path, sourceUrl)
   }
 
   def encodeCsv(cfg: CsvSourceConfig): String =
-    JsObject("path" -> JsString(cfg.path)).compactPrint
+    JsObject(
+      Map("path" -> JsString(cfg.path)) ++ cfg.sourceUrl.map("sourceUrl" -> JsString(_))
+    ).compactPrint
 
   /** Decode REST config (HEL-822 design.md Decision 6 — fail-loud, no silent corruption).
    *  Three distinct, never-conflated outcomes:
