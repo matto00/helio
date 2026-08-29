@@ -1,0 +1,5 @@
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionEvaluator.scala` — tokenizer `$`-ref scan now admits interior dots (D1/D2); `UnknownField` carries available columns and its message distinguishes a dotted reference (D4).
+- `backend/src/test/scala/com/helio/domain/engine/ExpressionEvaluatorSpec.scala` — new-capability tests (3.1–3.8) and regression tests (4.1–4.6) for dotted references; fixed a pre-existing `UnknownField` pattern match for the new field.
+- `backend/src/test/scala/com/helio/domain/engine/PipelineAnalyzeServiceSpec.scala` — verifies the dotted-reference error wording end-to-end on the step-card `validationError` surface (task 2.2).
+- `backend/src/test/scala/com/helio/domain/steps/FilterStepSpec.scala` — characterisation test proving `filter` already accepts dotted column names unchanged (task 4.7).
+- `docs/compute-expression-grammar.md` — documents the dotted-reference grammar, exact-match/no-traversal resolution rule, and the pre-existing Spark-divergence non-goal; fixes the stale evaluator file path.

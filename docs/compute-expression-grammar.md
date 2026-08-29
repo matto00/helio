@@ -1,6 +1,6 @@
 # Compute step expression grammar
 
-Shared contract between the backend (`backend/src/main/scala/com/helio/domain/ExpressionEvaluator.scala`)
+Shared contract between the backend (`backend/src/main/scala/com/helio/domain/engine/ExpressionEvaluator.scala`)
 and the frontend (`frontend/src/features/pipelines/ui/stepConfigs/ComputeFieldConfig.tsx`) for the
 pipeline **Compute** step's `expression` field. This is the grammar `ExpressionEvaluator.validate`
 enforces (strict, `$`-required) — the same grammar the step-card UI's hints and placeholder text
@@ -19,16 +19,41 @@ describe.
 
 ## Column references — `$` required
 
-A column (field) reference is written as `$` immediately followed by an identifier
-(`[A-Za-z_][A-Za-z0-9_]*`), e.g. `$price`, `$first_name`. **A bare identifier without the `$`
-prefix is always a parse error** under this grammar — this disambiguates a column reference from
-a bare word that might otherwise be mistaken for a string. (Numeric constants and double-quoted
-string literals never need `$`.)
+A column (field) reference is written as `$` immediately followed by an identifier matching
+`[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*` — one or more `_`/alphanumeric segments optionally
+joined by interior dots, e.g. `$price`, `$first_name`, `$stats.pts_ppr`. **A bare identifier
+without the `$` prefix is always a parse error** under this grammar — this disambiguates a column
+reference from a bare word that might otherwise be mistaken for a string. (Numeric constants and
+double-quoted string literals never need `$`.) A dot is admitted only between two identifier
+characters: a leading, trailing, or doubled dot (`$.a`, `$a.`, `$a..b`) is a parse error, not a
+silently-truncated or empty segment.
 
 ```
 $price * $qty
 $first_name + " " + $last_name
+$stats.pts_ppr * 2
 ```
+
+### Dotted references name one flattened column — exact match, no traversal
+
+A dotted reference such as `$stats.pts_ppr` names exactly **one** column whose literal name
+contains those dots — it is never split into segments and never traversed as a path into a nested
+value. Resolution is a plain exact-key lookup against the row (at evaluation time) or the schema's
+field names (at validation/inference time): a reference `$stats.pts_ppr` resolves if and only if a
+column literally named `stats.pts_ppr` exists, with no shorter-prefix fallback (`$stats.pts_ppr`
+never resolves to a column named just `stats`, even if one exists).
+
+This is unambiguous rather than an arbitrary tie-break: by the time an expression evaluates, every
+row is already a **flat** `Map[String, JsValue]` produced by `JsonFlattener`, which flattens nested
+JSON into dotted column names and deduplicates a literal-dotted-name collision (e.g. a source
+object containing both a literal key `"a.b"` and a nested `{"a": {"b": ...}}`) down to a single
+`a.b` column before any expression ever runs. There is no nested structure left to traverse and no
+second candidate interpretation competing with the literal one — the evaluator inherits the
+flattener's already-resolved decision rather than re-deciding it.
+
+If no column matches, the error names the whole unresolved dotted reference and says it is matched
+as a single literal (flattened) column name, not a path — so the fix is to check the exact column
+name (e.g. after a `rename` step that stripped the prefix), not to look for a nested value.
 
 ## Operators
 
@@ -119,3 +144,10 @@ for this change (see the `compute-step-expression-rework` OpenSpec change's desi
 - No unary minus / negative number literals (e.g. `-5` as a standalone value) — only binary `-`.
 - No boolean/comparison operators, conditionals, or aggregate functions.
 - No autocomplete for column references (stretch goal, not implemented).
+- No member-access/property-traversal operator — a dot is only ever part of a literal column
+  name, never an operator, and no quoted/bracketed reference syntax exists for column names
+  containing spaces or operator characters.
+- Pre-existing, out of scope: the Spark execution path (`SparkJobSubmitter`) hands the same
+  stored expression string to Spark SQL's `F.expr`, a different grammar where `$` is not a
+  column sigil and a dotted name means struct access unless backtick-quoted. This divergence
+  predates dotted references and is unaffected (not fixed) by this grammar change.

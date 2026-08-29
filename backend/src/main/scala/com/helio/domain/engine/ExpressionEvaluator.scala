@@ -10,8 +10,8 @@ object EvaluationError {
   final case class DivisionByZero(expr: String) extends EvaluationError {
     def message: String = s"Division by zero in expression: $expr"
   }
-  final case class UnknownField(name: String) extends EvaluationError {
-    def message: String = s"Unknown field: $name"
+  final case class UnknownField(name: String, availableColumns: Set[String] = Set.empty) extends EvaluationError {
+    def message: String = ExpressionEvaluator.unknownFieldMessage(name, availableColumns)
   }
   final case class ParseError(msg: String) extends EvaluationError {
     def message: String = s"Parse error: $msg"
@@ -125,11 +125,27 @@ object ExpressionEvaluator {
           buf += Token.Str(sb.toString)
 
         case '$' =>
+          // design D1: this scan is a deliberate, near-identical duplicate of the
+          // bare-identifier scan below rather than a shared helper. `$`-refs alone
+          // admit interior dots (design D2); widening the shared bare-identifier
+          // scan instead would change what the frozen `LegacyParser` accepts
+          // (`a.b` would become one legacy ref instead of a parse error), moving
+          // backwards-compatible grammar the ticket requires to stay frozen.
           i += 1
           if (i >= s.length || !(s(i).isLetter || s(i) == '_'))
             return Left("Expected an identifier after '$'")
           val start = i
           while (i < s.length && (s(i).isLetterOrDigit || s(i) == '_')) i += 1
+          // design D2: admit any number of interior dots (`$a.b.c` is one ref), but
+          // consume a dot only when the character immediately following it is itself
+          // an identifier character, so a trailing/doubled dot (`$a.`, `$a..b`) is
+          // left unconsumed and becomes a parse error downstream rather than a
+          // silently-truncated/empty segment.
+          while (i < s.length && s(i) == '.' && i + 1 < s.length &&
+                 (s(i + 1).isLetterOrDigit || s(i + 1) == '_')) {
+            i += 1 // consume '.'
+            while (i < s.length && (s(i).isLetterOrDigit || s(i) == '_')) i += 1
+          }
           buf += Token.Ref(s.substring(start, i))
 
         case d if d.isDigit || d == '.' =>
@@ -142,6 +158,12 @@ object ExpressionEvaluator {
           }
 
         case l if l.isLetter || l == '_' =>
+          // design D1: this scan intentionally does NOT admit dots, unlike the
+          // `$`-ref scan above. It feeds `Token.Ident`/`Token.FnName`, consumed by
+          // the frozen `LegacyParser` and the function-name path; widening it would
+          // silently change the frozen legacy grammar (`a.b` would parse as one
+          // legacy identifier instead of remaining a parse error). Do not merge
+          // this with the `$`-ref scan.
           val start = i
           while (i < s.length && (s(i).isLetterOrDigit || s(i) == '_')) i += 1
           val name = s.substring(start, i)
@@ -316,6 +338,23 @@ object ExpressionEvaluator {
 
   private def isDollarPrefixError(msg: String): Boolean = msg == DollarPrefixRequiredMsg
 
+  /** Design D4: an unresolved dotted reference must lead the caller to the right
+   *  fix rather than suggest path traversal was attempted. A dotted reference is
+   *  matched as ONE literal column name produced by nested-JSON flattening — never
+   *  split or traversed — so the message says exactly that and lists the columns
+   *  that ARE available, instead of the generic "Unknown field" wording alone. */
+  private[engine] def unknownFieldMessage(name: String, available: Set[String]): String =
+    if (name.contains('.')) {
+      val availList =
+        if (available.isEmpty) "no columns are available"
+        else s"available columns: ${available.toVector.sorted.mkString(", ")}"
+      s"Unknown field: $name — '$name' is matched as a single literal column name produced by " +
+        s"nested-JSON flattening, not traversed as a path; check that a column named exactly " +
+        s"'$name' exists ($availList)"
+    } else {
+      s"Unknown field: $name"
+    }
+
 
   /**
    * Validate expression syntax and field references without evaluating. STRICT:
@@ -351,7 +390,7 @@ object ExpressionEvaluator {
   private def checkRefs(expr: Expr, names: Set[String]): Either[String, Unit] = expr match {
     case NumLit(_) | StrLit(_) => Right(())
     case FieldRef(name) =>
-      if (names.contains(name)) Right(()) else Left(s"Unknown field: $name")
+      if (names.contains(name)) Right(()) else Left(unknownFieldMessage(name, names))
     case BinOp(_, l, r) =>
       checkRefs(l, names).flatMap(_ => checkRefs(r, names))
     case Call(_, args) =>
@@ -376,7 +415,7 @@ object ExpressionEvaluator {
       case NumLit(_) => Right("number")
       case StrLit(_) => Right("string")
       case FieldRef(name) =>
-        fieldTypes.get(name).toRight(s"Unknown field: $name")
+        fieldTypes.get(name).toRight(unknownFieldMessage(name, fieldTypes.keySet))
       case BinOp(op, l, r) =>
         for {
           lt <- inferTypeOf(l, fieldTypes)
@@ -434,7 +473,7 @@ object ExpressionEvaluator {
 
       case FieldRef(name) =>
         row.get(name) match {
-          case None               => Left(EvaluationError.UnknownField(name))
+          case None               => Left(EvaluationError.UnknownField(name, row.keySet))
           case Some(JsNull)       => Right(VNull)
           case Some(JsNumber(v))  => Right(VNum(v.toDouble))
           case Some(JsString(s))  => Right(VStr(s))
