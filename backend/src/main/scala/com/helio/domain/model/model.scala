@@ -625,7 +625,13 @@ object DataFieldType {
 }
 
 final case class InferredField(name: String, displayName: String, dataType: DataFieldType, nullable: Boolean)
-final case class InferredSchema(fields: Seq[InferredField])
+/** `observedRowCount` (HEL-861, design D6): the true row total the connector's `inferSchema`
+ *  actually measured, when it could for free -- `RestApiConnectorDriver` already materializes the
+ *  full row vector; `SqlConnectorDriver` samples at most 100 rows and cannot know the total, so it
+ *  leaves this `None` rather than guess. Defaulted so all 11 existing construction sites keep
+ *  compiling unchanged. Has no spray-json format of its own -- the wire type is the separate
+ *  `InferredSchemaResponse`. */
+final case class InferredSchema(fields: Seq[InferredField], observedRowCount: Option[Long] = None)
 
 final case class DataField(
     name: String,

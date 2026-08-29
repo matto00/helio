@@ -84,6 +84,14 @@ final case class AssertionStatusResponse(
     invalid: Boolean,
     failedRuleCount: Int
 )
+/** One truncated read reported on a run result (HEL-861, design D8) -- one entry per truncated
+ *  read, primary source included, so a caller can tell WHICH source was cut and by how much. */
+final case class TruncatedReadResponse(
+    dataSourceName: String,
+    rowsRead: Long,
+    availableRowCount: Option[Long]
+)
+
 /** `runId` (HEL-369) surfaces the persisted run's id so `HookTriggerService`
  *  can return it to an external caller; `None` only for `previewStep`
  *  (no run is persisted for a step preview). `blocked`/`blockedReason`
@@ -91,7 +99,15 @@ final case class AssertionStatusResponse(
  *  completed execution without exception but was withheld from writing the
  *  output DataType by the assert fail-policy (see `pipeline-assert-fail-policy`);
  *  `blockedReason` carries the same summary persisted as the run's `errorLog`.
- *  Both default-valued so no existing positional construction breaks. */
+ *  Both default-valued so no existing positional construction breaks.
+ *
+ *  HEL-861 (design D4/D8): `sourceTruncated` is run-WIDE -- true if ANY read in the run
+ *  (primary or a `join`/`union`/`lookup` secondary source) was truncated by the row cap.
+ *  `sourceAvailableRowCount` is scoped to the PRIMARY source only, and only when its driver
+ *  could measure a true total (REST always can; SQL never can) -- never a run-wide total.
+ *  `truncationNotice` is composed once, server-side, and is `None` when nothing was truncated,
+ *  so every surface (API, MCP, UI) reads the identical, already-correct sentence.
+ *  `sourceRowCount` keeps its pre-existing meaning (rows actually read) unchanged. */
 final case class RunResultResponse(
     rows: Vector[JsObject],
     rowCount: Int,
@@ -99,7 +115,11 @@ final case class RunResultResponse(
     sourceRowCount: Long = 0L,
     runId: Option[String] = None,
     blocked: Boolean = false,
-    blockedReason: Option[String] = None
+    blockedReason: Option[String] = None,
+    sourceTruncated: Boolean = false,
+    sourceAvailableRowCount: Option[Long] = None,
+    truncationNotice: Option[String] = None,
+    truncatedReads: Vector[TruncatedReadResponse] = Vector.empty
 )
 
 /** `PipelineProtocol extends DataTypeProtocol with PipelineStepProtocol with
@@ -150,5 +170,10 @@ trait PipelineProtocol
     }
   }
 
-  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat7(RunResultResponse.apply)
+  // HEL-861: MUST be declared ABOVE runResultResponseFormat -- implicit vals in a spray-json
+  // protocol trait initialize in declaration order, so declaring this after runResultResponseFormat
+  // compiles but yields a null implicit at runtime.
+  implicit val truncatedReadResponseFormat: RootJsonFormat[TruncatedReadResponse] =
+    jsonFormat3(TruncatedReadResponse.apply)
+  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat11(RunResultResponse.apply)
 }

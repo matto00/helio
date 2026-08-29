@@ -35,11 +35,13 @@ object RowSupplyingConnector extends ConnectorDriver[RowSupplyingConfig] {
     Future.successful(Right(()))
 
   def fetch(config: RowSupplyingConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext)
-      : Future[Either[String, Vector[JsValue]]] =
-    Future.successful(Right(config.rows.take(maxRows)))
+      : Future[Either[String, FetchOutcome]] =
+    Future.successful(
+      Right(FetchOutcome(config.rows.take(maxRows), truncated = config.rows.size > maxRows, availableRowCount = Some(config.rows.size.toLong)))
+    )
 
   def inferSchema(config: RowSupplyingConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
-    fetch(config, maxRows = 100, ConnectorResolveContext.Internal).map(_.map(SchemaInferenceEngine.inferSchemaFromRows))
+    fetch(config, maxRows = 100, ConnectorResolveContext.Internal).map(_.map(outcome => SchemaInferenceEngine.inferSchemaFromRows(outcome.rows)))
 }
 
 class NewConnectorInferenceSpec extends AnyWordSpec with Matchers {

@@ -34,10 +34,12 @@ object FixtureConnector extends ConnectorDriver[FixtureConfig] {
     )
 
   def fetch(config: FixtureConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext)
-      : Future[Either[String, Vector[JsValue]]] =
+      : Future[Either[String, FetchOutcome]] = {
+    val all = (1 to config.rowCount).map(i => JsObject("id" -> JsNumber(i))).toVector
     Future.successful(
-      Right((1 to config.rowCount).map(i => JsObject("id" -> JsNumber(i))).toVector.take(maxRows))
+      Right(FetchOutcome(all.take(maxRows), truncated = all.size > maxRows, availableRowCount = Some(all.size.toLong)))
     )
+  }
 }
 
 /** Proves the `ConnectorDriver[Config]` trait contract (lifecycle dispatch through the trait interface,
@@ -79,7 +81,7 @@ class ConnectorSpec extends AnyWordSpec with Matchers {
 
     "return normalized JsObject rows from fetch, bounded by maxRows" in {
       val result = await(asConnector.fetch(FixtureConfig(reachable = true, rowCount = 5), maxRows = 2, resolveContext = ConnectorResolveContext.Internal))
-      result shouldBe Right(Vector(JsObject("id" -> JsNumber(1)), JsObject("id" -> JsNumber(2))))
+      result shouldBe Right(FetchOutcome(Vector(JsObject("id" -> JsNumber(1)), JsObject("id" -> JsNumber(2))), truncated = true, availableRowCount = Some(5L)))
     }
 
     "not declare a refresh method (refresh = re-fetch by default, per trait doc comment)" in {

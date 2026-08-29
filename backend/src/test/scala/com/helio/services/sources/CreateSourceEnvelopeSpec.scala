@@ -1,7 +1,7 @@
 package com.helio.services.sources
 
 import com.helio.services.sources.CreateSourceEnvelope
-import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata, ConnectorResolveContext}
+import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata, ConnectorResolveContext, FetchOutcome}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
@@ -40,8 +40,8 @@ object EnvelopeFixtureConnector extends ConnectorDriver[EnvelopeFixtureConfig] {
   def testConnection(config: EnvelopeFixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future.successful(Right(()))
 
-  def fetch(config: EnvelopeFixtureConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
-    Future.successful(Right(Vector.empty))
+  def fetch(config: EnvelopeFixtureConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]] =
+    Future.successful(Right(FetchOutcome(Vector.empty, truncated = false, availableRowCount = None)))
 
   def inferSchema(config: EnvelopeFixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     Future.successful(config.result)
@@ -136,6 +136,53 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
 
       val persisted = await(dataTypeRepo.findBySourceId(inserted.id, owner))
       persisted.map(_.fields.map(_.name)) shouldBe Seq(Seq("sku", "qty"))
+    }
+
+    // HEL-861 (design D6, task 7.6a): the create-time advisory, composed generically from
+    // whatever the connector's inferSchema measured -- content-asserted, not key-presence-asserted.
+
+    "populates rowCapNotice naming both the observed count and the cap when inference observes more rows than the cap" in {
+      cleanDb()
+      val inserted = insertedSource("Over-Cap Fixture")
+      val schema = InferredSchema(
+        Seq(InferredField(name = "sku", displayName = "sku", dataType = DataFieldType.StringType, nullable = false)),
+        observedRowCount = Some(3303L)
+      )
+      val config = EnvelopeFixtureConfig(Right(schema))
+
+      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataTypeRepo, user))
+
+      result.rowCapNotice shouldBe defined
+      result.rowCapNotice.get should include("3303")
+      result.rowCapNotice.get should include("1000")
+    }
+
+    "leaves rowCapNotice absent when inference observes fewer rows than the cap" in {
+      cleanDb()
+      val inserted = insertedSource("Under-Cap Fixture")
+      val schema = InferredSchema(
+        Seq(InferredField(name = "sku", displayName = "sku", dataType = DataFieldType.StringType, nullable = false)),
+        observedRowCount = Some(42L)
+      )
+      val config = EnvelopeFixtureConfig(Right(schema))
+
+      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataTypeRepo, user))
+
+      result.rowCapNotice shouldBe None
+    }
+
+    "leaves rowCapNotice absent when the connector could not measure a total (e.g. SQL-shaped inference)" in {
+      cleanDb()
+      val inserted = insertedSource("Unknown-Total Fixture")
+      val schema = InferredSchema(
+        Seq(InferredField(name = "sku", displayName = "sku", dataType = DataFieldType.StringType, nullable = false)),
+        observedRowCount = None
+      )
+      val config = EnvelopeFixtureConfig(Right(schema))
+
+      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataTypeRepo, user))
+
+      result.rowCapNotice shouldBe None
     }
   }
 }

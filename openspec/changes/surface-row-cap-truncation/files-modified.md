@@ -1,0 +1,28 @@
+# Files Modified — HEL-861 surface-row-cap-truncation
+
+- `backend/src/main/scala/com/helio/domain/connectors/ConnectorDriver.scala` — `fetch` returns `Future[Either[String, FetchOutcome]]`; new `FetchOutcome` case class
+- `backend/src/main/scala/com/helio/domain/connectors/RestApiConnectorDriver.scala` — `fetch` computes exact truncation + true total from the already-materialized row vector
+- `backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala` — `fetch` probes with `maxRows + 1`; exact truncation flag, no total
+- `backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala` — `SourceReadStats`, `loadRowsWithStats`, `truncationSink` param on `executeWithStepCounts`, `MaxRunRows` companion object
+- `backend/src/main/scala/com/helio/domain/model/AssertionResult.scala` — new `TruncatedRead`/`TruncationSink` (mirrors `AssertionSink`)
+- `backend/src/main/scala/com/helio/domain/model/model.scala` — `InferredSchema` gains defaulted `observedRowCount`
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProtocol.scala` — `RunResultResponse` gains truncation fields + `TruncatedReadResponse`; `jsonFormat7` → `jsonFormat11`
+- `backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala` — `CreateSourceResponse` gains `rowCapNotice`; `jsonFormat3` → `jsonFormat4`
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — truncation-field composition (`truncationFields`, `composeTruncationNotice`), wired into both run and preview call sites
+- `backend/src/main/scala/com/helio/services/sources/CreateSourceEnvelope.scala` — composes `rowCapNotice` generically from `observedRowCount`
+- `backend/src/test/scala/com/helio/domain/connectors/ConnectorSpec.scala` — fixture + call site updated for `FetchOutcome`
+- `backend/src/test/scala/com/helio/domain/connectors/NewConnectorInferenceSpec.scala` — fixture updated for `FetchOutcome`
+- `backend/src/test/scala/com/helio/domain/connectors/SqlConnectorDriverSpec.scala` — call site updated for `FetchOutcome`
+- `backend/src/test/scala/com/helio/domain/engine/InProcessPipelineEngineSpec.scala` — new truncation tests (tasks 7.1-7.5, 7.6b)
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceSpec.scala` — new truncation tests (tasks 7.1, 7.2, 7.6c) plus a big-REST-source stub outcome
+- `backend/src/test/scala/com/helio/services/sources/CreateSourceEnvelopeSpec.scala` — fixture updated for `FetchOutcome`; new `rowCapNotice` tests (task 7.6a)
+- `frontend/src/features/pipelines/services/pipelineService.ts` — `RunResult` gains truncation fields
+- `frontend/src/features/pipelines/state/pipelinesSlice.ts` — truncation state + thunk result type + reducer wiring
+- `frontend/src/features/pipelines/state/pipelinesSlice.test.ts` — preloaded-state literal updated for new state fields
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.css` — truncation banner styles (`--app-warning` tokens)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.tsx` — renders the truncation warning banner
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — new banner content tests (task 5.4)
+- `helio-mcp/src/types.ts` — `RunResultResponse` gains truncation fields
+- `helio-mcp/src/helioApi.ts` — `RunOutcome` gains `truncated`/`availableRowCount`/`truncationNotice`; `runPipeline` maps them
+- `helio-mcp/src/tools/write.ts` — `run_pipeline` tool description updated, no longer promises an unqualified complete row count
+- `helio-mcp/src/runPipelineTruncation.test.ts` — new content-assertion test for the MCP surface (task 4.4)

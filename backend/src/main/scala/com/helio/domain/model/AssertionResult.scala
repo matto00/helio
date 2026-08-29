@@ -43,3 +43,26 @@ final class AssertionSink {
     _results
   }
 }
+
+/** One truncated read recorded during a run (HEL-861, design D8) — the source's own name, how
+ *  many rows were actually read, and its true total when the driver could measure it. */
+final case class TruncatedRead(dataSourceName: String, rowsRead: Long, availableRowCount: Option[Long])
+
+/** Caller-supplied, mutable output parameter mirroring [[AssertionSink]] exactly (design D8):
+ *  `InProcessPipelineEngine.makeContext`'s `loadSource` re-enters `loadRowsWithStats` for every
+ *  `join`/`union`/`lookup` secondary-source read, so a run-level `sourceTruncated` computed from
+ *  only the primary source would be a false assertion of completeness whenever a secondary read
+ *  was itself truncated. Every truncated read observed anywhere in a run — primary or secondary —
+ *  is appended here. `synchronized` guards concurrent `record`/`reads` access, same rationale as
+ *  `AssertionSink`. */
+final class TruncationSink {
+  private var _reads: Vector[TruncatedRead] = Vector.empty
+
+  def record(read: TruncatedRead): Unit = synchronized {
+    _reads = _reads :+ read
+  }
+
+  def reads: Vector[TruncatedRead] = synchronized {
+    _reads
+  }
+}

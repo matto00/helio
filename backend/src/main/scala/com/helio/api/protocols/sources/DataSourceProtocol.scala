@@ -175,10 +175,16 @@ final case class CreateSourceRequest(
     config: RestApiConfigPayload,
     fieldOverrides: Option[Vector[FieldOverridePayload]]
 )
+/** `rowCapNotice` (HEL-861, design D6): a forward-looking advisory -- populated when the
+ *  connector's inference measured a true row total AND that total exceeds
+ *  `InProcessPipelineEngine.MaxRunRows` -- that a run over this source will be truncated. Not a
+ *  report that creation itself applied a cap (it does not; create-time caps are much smaller and
+ *  distinct). `None` when the total is unknown (SQL) or under the cap. */
 final case class CreateSourceResponse(
     source: DataSourceResponse,
     dataType: Option[DataTypeResponse],
-    fetchError: Option[String]
+    fetchError: Option[String],
+    rowCapNotice: Option[String] = None
 )
 
 final case class SqlCreateSourceRequest(name: String, `type`: String, config: SqlSourceConfigPayload)
@@ -462,7 +468,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   implicit val testConnectionResponseFormat: RootJsonFormat[TestConnectionResponse] = jsonFormat2(TestConnectionResponse.apply)
 
   implicit val createSourceRequestFormat: RootJsonFormat[CreateSourceRequest]   = jsonFormat4(CreateSourceRequest.apply)
-  implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse] = jsonFormat3(CreateSourceResponse.apply)
+  implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse] = jsonFormat4(CreateSourceResponse.apply)
 
   implicit val staticColumnPayloadFormat: RootJsonFormat[StaticColumnPayload]         = jsonFormat2(StaticColumnPayload.apply)
   implicit val staticDataPayloadFormat: RootJsonFormat[StaticDataPayload]             = jsonFormat2(StaticDataPayload.apply)

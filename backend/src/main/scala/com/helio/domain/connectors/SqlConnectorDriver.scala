@@ -146,7 +146,16 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
   def inferSchema(config: SqlSourceConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     execute(config, maxRows = 100).map(_.map(rows => inferSchema(rows)))
 
+  /** HEL-861 design D3: probes with `maxRows + 1` — the JDBC cap (`execute`'s `setMaxRows`) never
+   *  lets rows beyond the cap arrive, so the true total is unknowable without a second `COUNT(*)`
+   *  query. If the `(maxRows + 1)`-th row arrives, more rows provably exist; if it does not, the
+   *  result is provably complete. `execute` itself is unchanged — this `+ 1` lives only here, so
+   *  `inferSchema` (100) and `previewSql` (10) keep their current behaviour. `availableRowCount`
+   *  stays `None`: proving truncation this way does not reveal the true total. */
   def fetch(config: SqlSourceConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext)
-      : Future[Either[String, Vector[JsValue]]] =
-    execute(config, maxRows).map(_.map(rows => toRows(rows)))
+      : Future[Either[String, FetchOutcome]] =
+    execute(config, maxRows + 1).map(_.map { rows =>
+      val all = toRows(rows)
+      FetchOutcome(all.take(maxRows), truncated = all.size > maxRows, availableRowCount = None)
+    })
 }

@@ -87,6 +87,13 @@ export interface RunOutcome {
   rowCount: number;
   sourceRowCount: number;
   outputDataTypeId: string;
+  /** HEL-861: `true` when the run's source read (or a join/union/lookup secondary source read)
+   *  was capped by the 1000-row run limit — ALWAYS `false`, never `undefined`, so a truncated run
+   *  is never indistinguishable from a missing field. `guarded`/`jsonResult` stringify this object
+   *  verbatim (no bespoke formatter), so this is exactly what an agent reads. */
+  truncated: boolean;
+  availableRowCount?: number;
+  truncationNotice?: string;
 }
 
 /** Composed dashboard view: the list record plus its panels from the snapshot. */
@@ -560,6 +567,10 @@ export class HelioApi {
       rowCount: result.rowCount,
       sourceRowCount: result.sourceRowCount ?? 0,
       outputDataTypeId: summary.outputDataTypeId,
+      // HEL-861: default to `false`, never `undefined` — see RunOutcome's doc comment.
+      truncated: result.sourceTruncated ?? false,
+      availableRowCount: result.sourceAvailableRowCount,
+      truncationNotice: result.truncationNotice,
     };
   }
 

@@ -210,8 +210,8 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
       val expected = await(SqlConnectorDriver.execute(runnable, maxRows = 100)).map(SqlConnectorDriver.toRows)
 
       val viaTrait = await(SqlConnectorDriver.fetch(runnable, maxRows = 100, ConnectorResolveContext.Internal))
-      viaTrait shouldBe expected
-      viaTrait shouldBe Right(Vector(JsObject("one" -> JsNumber(1))))
+      viaTrait.map(_.rows) shouldBe expected
+      viaTrait shouldBe Right(FetchOutcome(Vector(JsObject("one" -> JsNumber(1))), truncated = false, availableRowCount = None))
     }
   }
 

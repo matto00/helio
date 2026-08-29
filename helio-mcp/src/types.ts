@@ -326,12 +326,20 @@ export interface BoundPanelResponse {
   panel: PanelResponse;
 }
 
-/** `POST /api/pipelines/:id/run` — synchronous run result (rows already written). */
+/** `POST /api/pipelines/:id/run` — synchronous run result (rows already written).
+ *
+ *  HEL-861: `sourceTruncated`/`sourceAvailableRowCount`/`truncationNotice` surface the backend's
+ *  1000-row run cap honestly — `sourceTruncated: true` means the run computed everything
+ *  (including any filter/sort/aggregate) over only a partial read of the source, and
+ *  `truncationNotice` is the server-composed sentence explaining exactly that, verbatim. */
 export interface RunResultResponse {
   rows: Record<string, unknown>[];
   rowCount: number;
   stepRowCounts?: Record<string, number>;
   sourceRowCount?: number;
+  sourceTruncated?: boolean;
+  sourceAvailableRowCount?: number;
+  truncationNotice?: string;
 }
 
 /** Per-panel grid placement in a proposal (optional). */

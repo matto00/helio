@@ -140,6 +140,14 @@ export interface RunResult {
   rows: Record<string, unknown>[];
   stepRowCounts: Record<string, number>;
   sourceRowCount: number;
+  /** HEL-861: `true` when this run's source read (or a join/union/lookup secondary source read)
+   *  was capped by the backend's 1000-row run limit — the run's rowCount/results describe only a
+   *  partial population, not the full source. */
+  sourceTruncated?: boolean;
+  sourceAvailableRowCount?: number;
+  /** Server-composed, ready-to-render sentence explaining exactly what was read vs. what exists.
+   *  Render verbatim — do not re-derive wording client-side. */
+  truncationNotice?: string;
 }
 
 export async function runPipeline(pipelineId: string, dryRun?: boolean): Promise<RunResult> {

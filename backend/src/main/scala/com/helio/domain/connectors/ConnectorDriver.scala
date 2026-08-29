@@ -33,6 +33,21 @@ object ConnectorResolveContext {
  */
 final case class ConnectorFieldDescriptor(name: String, label: String, secret: Boolean)
 
+/** Result of a capped `ConnectorDriver.fetch` call (HEL-861). `truncated` and `availableRowCount`
+ *  are independent facts, not derivable from one another: a driver may be able to prove
+ *  truncation occurred without knowing the true total (SQL's `maxRows + 1` probe), so
+ *  `availableRowCount` is populated ONLY when the driver actually observed a total — never
+ *  synthesized from a saturation heuristic like `rows.size == maxRows` (which would produce a
+ *  false positive for a source with exactly `maxRows` rows).
+ *
+ *  @param rows              the (possibly capped) rows returned, at most `maxRows` in length
+ *  @param truncated         whether more rows existed than were returned
+ *  @param availableRowCount the true total row count, when the driver could measure it for free;
+ *                           `None` when truncation is known but the total is not (or cannot be
+ *                           determined without an extra round trip)
+ */
+final case class FetchOutcome(rows: Vector[JsValue], truncated: Boolean, availableRowCount: Option[Long])
+
 /** Static capability metadata for a `ConnectorDriver[Config]` implementation.
  *  Describes properties of the connector kind itself (not a specific config
  *  instance) — consumed by the HEL-484 connector registry for aggregation.
@@ -118,7 +133,8 @@ trait ConnectorDriver[Config] {
    *  `resolveContext`. */
   def inferSchema(config: Config, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]]
 
-  /** Fetches up to `maxRows` normalized rows (one `JsObject` per row). See `testConnection`
-   *  for `resolveContext`. */
-  def fetch(config: Config, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]]
+  /** Fetches up to `maxRows` normalized rows (one `JsObject` per row), plus whether the cap
+   *  truncated the read and the true total when it is known for free (HEL-861: see
+   *  `FetchOutcome`). See `testConnection` for `resolveContext`. */
+  def fetch(config: Config, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]]
 }

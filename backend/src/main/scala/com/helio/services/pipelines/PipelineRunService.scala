@@ -3,10 +3,10 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
-import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, PipelineRunRecord, RunResultResponse}
+import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep}
-import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField, StepExecutionException}
+import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
+import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField, SourceReadStats, StepExecutionException}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
@@ -54,6 +54,36 @@ final class PipelineRunService(
   private val log = LoggerFactory.getLogger(getClass)
 
   private val engine = new InProcessPipelineEngine(fileSystem, connector)
+
+  /** HEL-861 (design D4): the run-wide truncation fields, computed once from the primary
+   *  source's own [[SourceReadStats]] plus any secondary-source truncated reads recorded in
+   *  `sink` (design D8 -- `join`/`union`/`lookup` re-entries). Deduped by data-source name
+   *  (task 3.1a) so two steps reading the same truncated secondary source produce one entry and
+   *  the notice names it once. Returns `(sourceTruncated, sourceAvailableRowCount, notice,
+   *  truncatedReads)`. */
+  private def truncationFields(
+      primaryName: String,
+      primaryRowsRead: Long,
+      primaryStats: SourceReadStats,
+      sink: TruncationSink
+  ): (Boolean, Option[Long], Option[String], Vector[TruncatedReadResponse]) = {
+    val primaryRead =
+      if (primaryStats.truncated) Vector(TruncatedRead(primaryName, primaryRowsRead, primaryStats.availableRowCount))
+      else Vector.empty
+    // Task 3.1a dedupe MUST be order-preserving, primary first — `groupBy(...).values` returns
+    // hash-ordered results, which would let a multi-source notice name its sources in a different
+    // order between two identical runs. A fold-based distinct keeps first-seen order instead.
+    val allReads = (primaryRead ++ sink.reads).foldLeft(Vector.empty[TruncatedRead]) { (acc, read) =>
+      if (acc.exists(_.dataSourceName == read.dataSourceName)) acc else acc :+ read
+    }
+    val notice = PipelineRunService.composeTruncationNotice(allReads, InProcessPipelineEngine.MaxRunRows)
+    (
+      allReads.nonEmpty,
+      primaryStats.availableRowCount,
+      notice,
+      allReads.map(r => TruncatedReadResponse(r.dataSourceName, r.rowsRead, r.availableRowCount))
+    )
+  }
 
   /** HEL-477 design.md Decision 5: only run *submission* is audited, not
    *  every internal status transition — fired once, from `submit` itself,
@@ -132,6 +162,9 @@ final class PipelineRunService(
       }
       .flatMap { _ => pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user) }
       .map { _ =>
+        // HEL-861 (design D4/task 3.5): no source read occurred here -- the run was never
+        // attempted -- so leaving sourceTruncated/etc. on their defaulted `false`/`None` is
+        // factually correct, not an oversight.
         RunResultResponse(
           rows = Vector.empty, rowCount = 0, runId = Some(runId.value), blocked = true, blockedReason = Some(reason)
         )
@@ -200,16 +233,28 @@ final class PipelineRunService(
                   // Disabled steps are excluded from the executed prefix — the
                   // preview reflects the pipeline as it would actually run.
                   val slicedSteps = sortedSteps.take(k + 1).filter(_.enabled)
-                  engine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
+                  // HEL-861 (design D8/task 2.2c): the step-preview site is the one call site
+                  // design.md calls out by name -- it must construct and pass its OWN
+                  // truncationSink here, mirroring the real-run site, or a preview whose
+                  // union/join/lookup reads a truncated secondary source would silently report
+                  // sourceTruncated: false. Verified by test 7.6c.
+                  val truncationSink = new TruncationSink
+                  engine.loadRowsWithStats(dataSource, dataSourceRepo).flatMap { case (sourceRows, primaryStats) =>
                     engine
-                      .executeWithStepCounts(sourceRows, slicedSteps, dataSourceRepo)
+                      .executeWithStepCounts(sourceRows, slicedSteps, dataSourceRepo, truncationSink = truncationSink)
                       .map { case (out, counts) =>
                         val allJsRows = out.map { rowMap =>
                           JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
                         }.toVector
-                        val totalCount = allJsRows.size
+                        val totalCount  = allJsRows.size
                         val previewRows = allJsRows.take(10)
-                        Right(RunResultResponse(previewRows, totalCount, counts, sourceRows.size.toLong))
+                        val (truncated, availableRowCount, notice, truncatedReads) =
+                          truncationFields(dataSource.name, sourceRows.size.toLong, primaryStats, truncationSink)
+                        Right(RunResultResponse(
+                          previewRows, totalCount, counts, sourceRows.size.toLong,
+                          sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
+                          truncationNotice = notice, truncatedReads = truncatedReads
+                        ))
                       }
                   }.recover { case ex =>
                     // HEL-311: keep the "Pipeline execution failed" prefix, drop
@@ -348,6 +393,9 @@ final class PipelineRunService(
     // `assertionSink.results` populated with whatever was evaluated up to
     // that point.
     val assertionSink = new AssertionSink
+    // HEL-861 (design D8): caller-supplied output parameter mirroring assertionSink exactly --
+    // constructed here, before the engine call, and merged with the primary read's stats below.
+    val truncationSink = new TruncationSink
 
     publish(pidStr, RunStatusEvent("queued"))
 
@@ -362,10 +410,10 @@ final class PipelineRunService(
     publish(pidStr, RunStatusEvent("running"))
 
     val runFuture = preExec.flatMap { _ =>
-      engine.loadRows(dataSource, dataSourceRepo).flatMap { sourceRows =>
+      engine.loadRowsWithStats(dataSource, dataSourceRepo).flatMap { case (sourceRows, primaryStats) =>
         engine
-          .executeWithStepCounts(sourceRows, steps, dataSourceRepo, assertionSink)
-          .map { case (out, counts) => (out, counts, sourceRows.size.toLong) }
+          .executeWithStepCounts(sourceRows, steps, dataSourceRepo, assertionSink, truncationSink)
+          .map { case (out, counts) => (out, counts, sourceRows.size.toLong, primaryStats) }
       }
     }
 
@@ -406,7 +454,7 @@ final class PipelineRunService(
           } else Future.successful(())
         failWork.map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
 
-      case Success((resultRows, stepCounts, sourceCount)) =>
+      case Success((resultRows, stepCounts, sourceCount, primaryStats)) =>
         val jsRows = resultRows.map { rowMap =>
           JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
         }.toVector
@@ -421,10 +469,14 @@ final class PipelineRunService(
         val followUp: Future[Option[String]] =
           if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results).map(_ => None)
           else onRunSuccess(pipeline.outputDataTypeId, pipeline.sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
+        val (truncated, availableRowCount, notice, truncatedReads) =
+          truncationFields(dataSource.name, sourceCount, primaryStats, truncationSink)
         followUp.map { blockedSummary =>
           val response = RunResultResponse(
             jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value),
-            blocked = blockedSummary.isDefined, blockedReason = blockedSummary
+            blocked = blockedSummary.isDefined, blockedReason = blockedSummary,
+            sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
+            truncationNotice = notice, truncatedReads = truncatedReads
           )
           Right(response)
         }
@@ -707,6 +759,30 @@ final class PipelineRunService(
  *  unrunnable kind needs only a one-line addition here, no new plumbing. */
 object PipelineRunService {
   val SparkUnsupportedKinds: Set[String] = Set.empty[String]
+
+  private val truncationConsequenceSentence: String =
+    "Results computed from this run — including any filter, sort, or aggregate — describe only " +
+      "that partial population, not the full source."
+
+  /** One truncated source's clause, per design.md Decision 4's exact wording (both branches). */
+  private def truncationReadClause(read: TruncatedRead, cap: Int): String =
+    read.availableRowCount match {
+      case Some(available) =>
+        s"""Source "${read.dataSourceName}" truncated: this run read the first ${read.rowsRead} """ +
+          s"""rows returned, out of $available available, because of the $cap-row run cap."""
+      case None =>
+        s"""Source "${read.dataSourceName}" truncated: this run read the first ${read.rowsRead} """ +
+          s"""rows returned because of the $cap-row run cap, and more rows exist (the total is not known)."""
+    }
+
+  /** HEL-861 (design D4/task 3.2): the ONE server-side notice composer, so the API, MCP, and UI
+   *  surfaces all read the identical, already-correct sentence rather than each composing their
+   *  own wording that could drift. `None` when nothing was truncated. When more than one source
+   *  was truncated, each is named with its own read/available counts, followed once by the
+   *  shared consequence sentence. */
+  def composeTruncationNotice(reads: Vector[TruncatedRead], cap: Int): Option[String] =
+    if (reads.isEmpty) None
+    else Some((reads.map(truncationReadClause(_, cap)) :+ truncationConsequenceSentence).mkString(" "))
 }
 
 /** Service-side projection of a cached run's status. Translated by routes

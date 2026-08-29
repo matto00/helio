@@ -9,6 +9,7 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.domain._
 import com.helio.domain.model._
+import com.helio.domain.steps.{LookupConfig, UnionConfig}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
@@ -50,8 +51,16 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   // instance exercises both a successful and a failing REST fetch.
   private val RestSuccessUrl = "https://pipeline-run-service.test/ok"
   private val RestFailureUrl = "https://pipeline-run-service.test/fail"
+  // HEL-861 (task 7.1): a third keyed outcome — 3303 rows, the ticket's own repro shape —
+  // exercising the real REST-truncation path end to end through PipelineRunService.
+  private val RestBigUrl        = "https://pipeline-run-service.test/big"
+  private val RestBigTotalRows  = 3303
   private val stubConnector = new RestApiConnectorDriver(Some { config =>
     if (config.connectorId == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
+    else if (config.connectorId == RestBigUrl)
+      Future.successful(Right(JsArray(
+        (1 to RestBigTotalRows).map(i => JsObject("id" -> JsNumber(i))).toVector
+      )))
     else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
   })
 
@@ -113,13 +122,18 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   /** HEL-758: seeds a `rest_api` DataSource whose config's `url` is one of
    *  `stubConnector`'s two keyed outcomes (`RestSuccessUrl`/`RestFailureUrl`). */
-  private def seedRestDs(url: String): String = {
+  private def seedRestDs(url: String): String = seedRestDsNamed(url, "ds-rest")
+
+  // HEL-861 (evaluation-1 item 3): a distinctly-named variant — `seedRestDs` above always names
+  // its source `'ds-rest'`, which would collapse multiple sources into one dedupe key and hide
+  // an order regression. Needed only by the multi-source order-pinning test.
+  private def seedRestDsNamed(url: String, name: String): String = {
     import PostgresProfile.api._
     val dsId     = UUID.randomUUID().toString
     val dsConfig = s"""{"connectorId":"$url"}"""
     await(db.run(sqlu"""INSERT INTO data_sources
       (id, name, source_type, config, owner_id, created_at, updated_at)
-      VALUES ($dsId, 'ds-rest', 'rest_api', $dsConfig,
+      VALUES ($dsId, $name, 'rest_api', $dsConfig,
         '00000000-0000-0000-0000-000000000001', now(), now())"""))
     dsId
   }
@@ -736,6 +750,124 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(service.previewStep(pid, step.id.value, dummyUser))
       result shouldBe a[Right[_, _]]
       result.toOption.get.rows should not be empty
+    }
+  }
+
+  "PipelineRunService truncation reporting (HEL-861)" should {
+
+    // Task 7.1: the ticket's own 3303-row repro shape, end to end through a real run.
+    "a real run over a REST source with more rows than the cap reports truncation, naming both 1000 and 3303" in {
+      val dsId = seedRestDs(RestBigUrl)
+      val pid  = seedPipeline(dsId)
+      await(stepRepo.insert(pid, "limit", LimitConfig(2000), dummyUser))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+
+      response.sourceRowCount shouldBe 1000L
+      response.sourceTruncated shouldBe true
+      response.sourceAvailableRowCount shouldBe Some(3303L)
+      response.truncationNotice shouldBe defined
+      response.truncationNotice.get should include("read the first 1000 rows")
+      response.truncationNotice.get should include("3303")
+      response.truncatedReads should have size 1
+      response.truncatedReads.head.availableRowCount shouldBe Some(3303L)
+    }
+
+    // Task 7.2: no false positives — a source under the cap reports no truncation.
+    "a real run over a source under the cap reports no truncation" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+
+      response.sourceTruncated shouldBe false
+      response.truncationNotice shouldBe None
+      response.truncatedReads shouldBe empty
+    }
+
+    // Task 7.6c: the step-preview path over a truncated SECONDARY source — a separate code path
+    // from the real-run test above (2.2c), which today passes no truncationSink at all. This test
+    // must fail if that sink is dropped from the preview site.
+    "previewStep over a union step reading a truncated secondary source reports sourceTruncated: true" in {
+      val primaryDsId = seedRestDs(RestSuccessUrl) // primary is UNDER the cap
+      val pid          = seedPipeline(primaryDsId)
+      val secondaryDsId = seedRestDs(RestBigUrl) // secondary is OVER the cap
+      val step = await(stepRepo.insert(
+        pid, "union", UnionConfig(otherDataSourceId = secondaryDsId, mode = "byPosition"), dummyUser
+      ))
+
+      val result = await(service.previewStep(pid, step.id.value, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+
+      response.sourceTruncated shouldBe true
+      response.truncatedReads.map(_.dataSourceName) should contain("ds-rest")
+    }
+
+    // HEL-861 (evaluation-1 item 3): `truncationFields`'s dedupe used to be
+    // `groupBy(...).values` (hash-ordered) — a multi-source notice could name its sources in a
+    // different order between two identical runs, and the primary source was not guaranteed to
+    // come first. Pins BOTH: primary first, secondaries in first-seen (step-execution) order.
+    "a real run with the primary AND two distinct secondary sources truncated reports them in a stable order — primary first, then step-execution order" in {
+      val primaryDsId = seedRestDsNamed(RestBigUrl, "primary-source")
+      val pid          = seedPipeline(primaryDsId)
+      val unionSecondaryDsId  = seedRestDsNamed(RestBigUrl, "union-secondary")
+      val lookupSecondaryDsId = seedRestDsNamed(RestBigUrl, "lookup-secondary")
+      await(stepRepo.insert(
+        pid, "union", UnionConfig(otherDataSourceId = unionSecondaryDsId, mode = "byPosition"), dummyUser
+      ))
+      await(stepRepo.insert(
+        pid, "lookup",
+        LookupConfig(referenceDataSourceId = lookupSecondaryDsId, sourceKey = "id", lookupKey = "id", columns = Vector.empty),
+        dummyUser
+      ))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+
+      response.truncatedReads.map(_.dataSourceName) shouldBe Vector(
+        "primary-source", "union-secondary", "lookup-secondary"
+      )
+    }
+  }
+
+  // HEL-861 (evaluation-1 item 2): direct unit coverage of `composeTruncationNotice`'s
+  // unknown-total (SQL) branch — the driver-level SQL truncation test (task 7.3) only asserted
+  // `SourceReadStats`; the wording for this branch, the one most at risk of implying a number
+  // nobody measured, was asserted nowhere until now. No DB / no PipelineRunService instance
+  // needed — this is a pure function of the composer.
+  "PipelineRunService.composeTruncationNotice (HEL-861)" should {
+
+    "the unknown-total branch says the total is not known and names no total figure" in {
+      val notice = PipelineRunService.composeTruncationNotice(
+        Vector(TruncatedRead("db", 1000L, None)), cap = 1000
+      )
+      notice shouldBe defined
+      notice.get should include("not known")
+      notice.get should not include "3303"
+      // No digit sequence other than the cap itself (1000) may appear — a total figure of any
+      // other size would mean the composer is implying a number nobody measured.
+      val digitGroups = """\d+""".r.findAllIn(notice.get).toVector
+      digitGroups.distinct shouldBe Vector("1000")
+    }
+
+    "the known-total branch names both the read count and the available total" in {
+      val notice = PipelineRunService.composeTruncationNotice(
+        Vector(TruncatedRead("db", 1000L, Some(3303L))), cap = 1000
+      )
+      notice shouldBe defined
+      notice.get should include("1000")
+      notice.get should include("3303")
+      notice.get should not include "not known"
+    }
+
+    "returns None when nothing was truncated" in {
+      PipelineRunService.composeTruncationNotice(Vector.empty, cap = 1000) shouldBe None
     }
   }
 }

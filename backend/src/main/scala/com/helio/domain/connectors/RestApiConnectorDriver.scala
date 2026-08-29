@@ -331,16 +331,26 @@ class RestApiConnectorDriver(
    *  directly on the raw response. `toRows` case-matches the same three response shapes `fromJson`
    *  handles (JSON array, single object, non-object scalar), so this produces byte-for-byte
    *  identical output to the pre-change `fromJson(json)` call (design.md Decision 1). */
+  /** HEL-861 (design D6): this fetch already materializes the full row vector before schema
+   *  inference runs, so `observedRowCount = Some(rows.size)` is free -- populated here, not in
+   *  `SchemaInferenceEngine.inferSchemaFromRows` itself, which has no notion of a "total" (it
+   *  only ever sees whatever rows it's handed). */
   def inferSchema(config: RestApiConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector))
-      .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows)))
+      .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows).copy(observedRowCount = Some(rows.size.toLong))))
 
   /** Forwards to the existing `fetch`/`toRowsEither` methods, truncating to `maxRows` — matching
    *  `SourceService.previewRest`'s `connector.toRows(json).take(10)` pattern. A `Left` from a
    *  broken `rootSelector` (design D5) propagates as-is so `InProcessPipelineEngine.loadRows`
-   *  fails the run loudly instead of materialising zero rows. */
-  def fetch(config: RestApiConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Vector[JsValue]]] =
-    fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector)).map(_.take(maxRows)))
+   *  fails the run loudly instead of materialising zero rows.
+   *
+   *  HEL-861 design D2: the full row vector is already materialized here before `.take(maxRows)`,
+   *  so the pre-`take` size is the true available count, free. `truncated` is strictly `all.size >
+   *  maxRows` — a source of exactly `maxRows` rows is NOT truncated. */
+  def fetch(config: RestApiConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]] =
+    fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector)).map { all =>
+      FetchOutcome(all.take(maxRows), truncated = all.size > maxRows, availableRowCount = Some(all.size.toLong))
+    })
 
   // Never resolves/persists a Connector — no auth, no normalizing join (no `baseUrl` to join
   // against). Used only by `POST /api/sources/infer|test` and inline pipeline-proposal sources

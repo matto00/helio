@@ -96,6 +96,10 @@ interface PipelinesState {
   // sourceRowCount is the input row count to the first step.
   runStepRowCounts: Record<string, number>;
   runSourceRowCount: number | null;
+  // HEL-861: truncation reporting from the last run — see RunResult's doc comments.
+  runSourceTruncated: boolean;
+  runSourceAvailableRowCount: number | null;
+  runTruncationNotice: string | null;
   // Per-pipeline schema inference results from GET /api/pipelines/:id/analyze
   analyzeResult: Record<string, PipelineAnalyzeResponse>;
   analyzeStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
@@ -139,6 +143,9 @@ const initialState: PipelinesState = {
   runResult: null,
   runStepRowCounts: {},
   runSourceRowCount: null,
+  runSourceTruncated: false,
+  runSourceAvailableRowCount: null,
+  runTruncationNotice: null,
   analyzeResult: {},
   analyzeStatus: {},
   analyzeError: {},
@@ -233,6 +240,9 @@ export const submitPipelineRun = createAsyncThunk<
     rows: Record<string, unknown>[];
     stepRowCounts: Record<string, number>;
     sourceRowCount: number;
+    sourceTruncated?: boolean;
+    sourceAvailableRowCount?: number;
+    truncationNotice?: string;
   },
   { pipelineId: string; dryRun?: boolean },
   { rejectValue: string }
@@ -363,6 +373,14 @@ const pipelinesSlice = createSlice({
       state.runError = null;
       state.runIsDry = null;
       state.runResult = null;
+      // HEL-861 (skeptic-final-1): these three were added alongside the other run-scoped
+      // fields above but were missed here — without this, navigating from a truncated
+      // pipeline's run to a different pipeline left the truncation banner showing the
+      // PREVIOUS pipeline's source/notice/counts (submitPipelineRun.pending already guards
+      // the same hazard for a fresh run; this is the pipeline-navigation cleanup path).
+      state.runSourceTruncated = false;
+      state.runSourceAvailableRowCount = null;
+      state.runTruncationNotice = null;
     },
     setCreatePipelineModalOpen(state, action: { payload: boolean }) {
       state.createModalOpen = action.payload;
@@ -479,6 +497,11 @@ const pipelinesSlice = createSlice({
         state.runStatus = "queued";
         state.runError = null;
         state.runIsDry = action.meta.arg.dryRun ?? false;
+        // HEL-861: reset truncation state alongside the rest of the run state so a stale
+        // notice from a previous run never lingers on screen during a new run.
+        state.runSourceTruncated = false;
+        state.runSourceAvailableRowCount = null;
+        state.runTruncationNotice = null;
       })
       .addCase(submitPipelineRun.fulfilled, (state, action) => {
         state.runId = null;
@@ -486,6 +509,9 @@ const pipelinesSlice = createSlice({
         state.runResult = action.payload.rows;
         state.runStepRowCounts = action.payload.stepRowCounts ?? {};
         state.runSourceRowCount = action.payload.sourceRowCount ?? null;
+        state.runSourceTruncated = action.payload.sourceTruncated ?? false;
+        state.runSourceAvailableRowCount = action.payload.sourceAvailableRowCount ?? null;
+        state.runTruncationNotice = action.payload.truncationNotice ?? null;
       })
       .addCase(submitPipelineRun.rejected, (state, action) => {
         state.runId = null;

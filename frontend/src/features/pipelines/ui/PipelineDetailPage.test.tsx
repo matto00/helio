@@ -137,6 +137,9 @@ type PipelinesPreloadedState = {
   runIsDry?: boolean | null;
   runHistory?: Record<string, PipelineRunRecord[]>;
   runResult?: Record<string, unknown>[] | null;
+  runSourceTruncated?: boolean;
+  runSourceAvailableRowCount?: number | null;
+  runTruncationNotice?: string | null;
   currentPipeline?: PipelineSummary | null;
   currentPipelineStatus?: "idle" | "loading" | "succeeded" | "failed";
   currentPipelineError?: string | null;
@@ -216,6 +219,9 @@ function makeStore(
         updateStatus: pipelinesState.updateStatus ?? "idle",
         updateError: pipelinesState.updateError ?? null,
         runResult: pipelinesState.runResult ?? null,
+        runSourceTruncated: pipelinesState.runSourceTruncated ?? false,
+        runSourceAvailableRowCount: pipelinesState.runSourceAvailableRowCount ?? null,
+        runTruncationNotice: pipelinesState.runTruncationNotice ?? null,
         analyzeResult: {},
         analyzeStatus: {},
         analyzeError: {},
@@ -1120,6 +1126,39 @@ describe("PipelineDetailPage", () => {
     await waitFor(() => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
     });
+  });
+
+  // HEL-861 (task 5.4): the banner must render `runTruncationNotice` verbatim rather than being
+  // present/absent by a test id. This is a PASS-THROUGH FIDELITY test, not coverage of the
+  // notice's wording — the store is seeded with a fixture string here, so it stays green under
+  // ANY backend wording change (evaluation-1 item 4). The composer's own wording is covered by
+  // `PipelineRunServiceSpec.scala`'s `composeTruncationNotice` unit tests.
+
+  it("renders the truncation warning banner with the notice content after a truncated run", () => {
+    const notice =
+      'Source "big-source" truncated: this run read the first 1000 rows returned, out of 3303 ' +
+      "available, because of the 1000-row run cap. Results computed from this run — including " +
+      "any filter, sort, or aggregate — describe only that partial population, not the full source.";
+    const store = makeStore([], {
+      runSourceTruncated: true,
+      runSourceAvailableRowCount: 3303,
+      runTruncationNotice: notice,
+    });
+    renderDetailPage("pipe-1", store);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("1000");
+    expect(screen.getByRole("alert")).toHaveTextContent("3303");
+    expect(screen.getByRole("alert")).toHaveTextContent("truncated");
+  });
+
+  it("does not render the truncation warning banner after a complete (non-truncated) run", () => {
+    const store = makeStore([], {
+      runSourceTruncated: false,
+      runTruncationNotice: null,
+    });
+    renderDetailPage("pipe-1", store);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("status indicator shows 'Queued' when runStatus is queued", () => {

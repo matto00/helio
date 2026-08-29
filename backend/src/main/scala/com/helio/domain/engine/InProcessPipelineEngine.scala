@@ -1,7 +1,7 @@
 package com.helio.domain.engine
 
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
-import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineStep, RestSource, SqlSource, StaticSource, TextSource}
+import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineStep, RestSource, SqlSource, StaticSource, TextSource, TruncatedRead, TruncationSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.services.sources.{ImageSourceSupport, PdfTextSupport}
@@ -36,6 +36,20 @@ object StepExecutionException {
   }
 }
 
+/** Per-read truncation stats (HEL-861, design D5) — `SourceReadStats(false, None)` for every
+ *  uncapped kind (static/CSV/text/PDF/image), which is factually correct: those paths apply no
+ *  cap. REST and SQL populate it from their `FetchOutcome`. */
+final case class SourceReadStats(truncated: Boolean, availableRowCount: Option[Long])
+
+object InProcessPipelineEngine {
+
+  /** The pipeline-run row cap (HEL-861, design D9), defined exactly once here so that both the
+   *  engine instance (`maxRunRows`) and `CreateSourceEnvelope.build` — which has no engine
+   *  reference and no way to obtain one — read the same value rather than a duplicated literal.
+   *  Unchanged in value from before this ticket: 1000. */
+  val MaxRunRows: Int = 1000
+}
+
 /** In-process pipeline executor.
  *
  *  Cycle 3 reduces this to a thin orchestration shell — `applyStep` becomes
@@ -62,7 +76,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
    *  `SqlConnectorDriver.inferSchema`'s 100-row sample because a real run is the
    *  one place a REST/SQL pipeline actually produces its panel-bindable
    *  data. */
-  private val maxRunRows: Int = 1000
+  private val maxRunRows: Int = InProcessPipelineEngine.MaxRunRows
 
   def execute(
       rows: Seq[Row],
@@ -84,9 +98,10 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
       rows: Seq[Row],
       steps: Seq[PipelineStep],
       dataSourceRepo: DataSourceRepository,
-      assertionSink: AssertionSink = new AssertionSink
+      assertionSink: AssertionSink = new AssertionSink,
+      truncationSink: TruncationSink = new TruncationSink
   ): Future[(Seq[Row], Map[String, Long])] = {
-    val ctx = makeContext(dataSourceRepo, assertionSink)
+    val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink)
     val initial: Future[(Seq[Row], Map[String, Long])] =
       Future.successful((rows, Map.empty[String, Long]))
     steps.foldLeft(initial) { (acc, step) =>
@@ -113,14 +128,20 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
     }
   }
 
-  /** Load the initial rows for a pipeline's source data source. Static /
-   *  CSV are supported in-process; other source kinds belong on the Spark
-   *  path. */
-  def loadRows(ds: DataSource, dataSourceRepo: DataSourceRepository): Future[Seq[Row]] = ds match {
+  /** Load the initial rows for a pipeline's source data source, discarding the read stats.
+   *  Kept with an unchanged signature (design D5) — ~20 test call sites and one internal
+   *  re-entry rely on it. */
+  def loadRows(ds: DataSource, dataSourceRepo: DataSourceRepository): Future[Seq[Row]] =
+    loadRowsWithStats(ds, dataSourceRepo).map(_._1)
+
+  /** Load the initial rows for a pipeline's source data source, plus whether the read was
+   *  truncated by `maxRunRows` and the true total when known (HEL-861, design D5). Static /
+   *  CSV / text / PDF / image are uncapped and always report `SourceReadStats(false, None)`. */
+  def loadRowsWithStats(ds: DataSource, dataSourceRepo: DataSourceRepository): Future[(Seq[Row], SourceReadStats)] = ds match {
     case s: StaticSource =>
       dataSourceRepo.readRawConfig(s.id).map {
-        case None      => Seq.empty
-        case Some(raw) => parseStaticRows(raw)
+        case None      => (Seq.empty, SourceReadStats(truncated = false, availableRowCount = None))
+        case Some(raw) => (parseStaticRows(raw), SourceReadStats(truncated = false, availableRowCount = None))
       }
     case c: CsvSource =>
       if (c.config.path.isEmpty)
@@ -130,7 +151,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
               ") is missing required config key 'path'"
           )
         )
-      else fileSystem.read(c.config.path).map(loadCsvRowsFromBytes)
+      else fileSystem.read(c.config.path).map(bytes => (loadCsvRowsFromBytes(bytes), SourceReadStats(truncated = false, availableRowCount = None)))
     case t: TextSource =>
       if (t.config.path.isEmpty)
         Future.failed(
@@ -139,7 +160,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
               ") is missing required config key 'path'"
           )
         )
-      else fileSystem.read(t.config.path).map(loadTextRowFromBytes(t.config.path, _))
+      else fileSystem.read(t.config.path).map(bytes => (loadTextRowFromBytes(t.config.path, bytes), SourceReadStats(truncated = false, availableRowCount = None)))
     case p: PdfSource =>
       if (p.config.path.isEmpty)
         Future.failed(
@@ -148,7 +169,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
               ") is missing required config key 'path'"
           )
         )
-      else fileSystem.read(p.config.path).flatMap(loadPdfRowsFromBytes(p, _))
+      else fileSystem.read(p.config.path).flatMap(loadPdfRowsFromBytes(p, _)).map(rows => (rows, SourceReadStats(truncated = false, availableRowCount = None)))
     case i: ImageSource =>
       if (i.config.path.isEmpty)
         Future.failed(
@@ -160,7 +181,7 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
       else
         fileSystem.read(i.config.path).flatMap { bytes =>
           loadImageRowFromBytes(i.config.path, bytes) match {
-            case Right(row) => Future.successful(row)
+            case Right(row) => Future.successful((row, SourceReadStats(truncated = false, availableRowCount = None)))
             case Left(msg)  => Future.failed(new IllegalArgumentException(msg))
           }
         }
@@ -174,13 +195,19 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
         )
       else
         connector.fetch(r.config, maxRunRows, ConnectorResolveContext.Internal).flatMap {
-          case Left(err)    => Future.failed(new IllegalArgumentException(err))
-          case Right(jsRows) => Future.successful(jsRows.map(PipelineRowJson.jsRowToRow))
+          case Left(err)      => Future.failed(new IllegalArgumentException(err))
+          case Right(outcome) =>
+            Future.successful(
+              (outcome.rows.map(PipelineRowJson.jsRowToRow), SourceReadStats(outcome.truncated, outcome.availableRowCount))
+            )
         }
     case s: SqlSource =>
       SqlConnectorDriver.fetch(s.config, maxRunRows, ConnectorResolveContext.Internal).flatMap {
-        case Left(err)    => Future.failed(new IllegalArgumentException(err))
-        case Right(jsRows) => Future.successful(jsRows.map(PipelineRowJson.jsRowToRow))
+        case Left(err)      => Future.failed(new IllegalArgumentException(err))
+        case Right(outcome) =>
+          Future.successful(
+            (outcome.rows.map(PipelineRowJson.jsRowToRow), SourceReadStats(outcome.truncated, outcome.availableRowCount))
+          )
       }
     case other =>
       Future.failed(
@@ -191,14 +218,21 @@ class InProcessPipelineEngine(fileSystem: FileSystem, connector: RestApiConnecto
       )
   }
 
-  /** Build the execution context handed to every step. `loadSource` closes
-   *  over the engine's own [[loadRows]] so each step can re-enter the same
-   *  source-loading dispatch without needing the engine reference itself. */
-  private def makeContext(dataSourceRepo: DataSourceRepository, assertionSink: AssertionSink): PipelineExecutionContext =
+  /** Build the execution context handed to every step. `loadSource` closes over
+   *  [[loadRowsWithStats]] so each step can re-enter the same source-loading dispatch without
+   *  needing the engine reference itself; a truncated secondary-source read (design D8 — `join`,
+   *  `union`, `lookup` all re-enter through this one choke point) is appended to `truncationSink`
+   *  so the run never asserts completeness it cannot support. */
+  private def makeContext(dataSourceRepo: DataSourceRepository, assertionSink: AssertionSink, truncationSink: TruncationSink): PipelineExecutionContext =
     PipelineExecutionContext(
       dataSourceRepo = dataSourceRepo,
-      loadSource     = (ds: DataSource) => loadRows(ds, dataSourceRepo),
-      assertionSink  = assertionSink
+      loadSource = (ds: DataSource) =>
+        loadRowsWithStats(ds, dataSourceRepo).map { case (rows, stats) =>
+          if (stats.truncated)
+            truncationSink.record(TruncatedRead(ds.name, rows.size.toLong, stats.availableRowCount))
+          rows
+        },
+      assertionSink = assertionSink
     )
 
   // ── Text loader (HEL-215): single-row loader, deliberately not shared with

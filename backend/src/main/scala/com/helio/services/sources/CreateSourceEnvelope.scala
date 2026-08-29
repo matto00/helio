@@ -2,8 +2,9 @@ package com.helio.services.sources
 
 import com.helio.api.protocols.sources.{CreateSourceResponse, DataSourceResponse, FieldOverridePayload}
 import com.helio.api.protocols.pipelines.DataTypeResponse
-import com.helio.domain.model.{AuthenticatedUser, DataSource, DataType, DataTypeId}
+import com.helio.domain.model.{AuthenticatedUser, DataSource, DataType, DataTypeId, InferredSchema}
 import com.helio.domain.connectors.{ConnectorDriver, ConnectorResolveContext}
+import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 
 import java.time.Instant
@@ -58,10 +59,28 @@ object CreateSourceEnvelope {
         )
         dataTypeRepo.insert(dt, user).map { createdDt =>
           CreateSourceResponse(
-            source     = DataSourceResponse.fromDomain(source),
-            dataType   = Some(DataTypeResponse.fromDomain(createdDt)),
-            fetchError = None
+            source       = DataSourceResponse.fromDomain(source),
+            dataType     = Some(DataTypeResponse.fromDomain(createdDt)),
+            fetchError   = None,
+            rowCapNotice = rowCapNotice(schema)
           )
         }
+    }
+
+  /** HEL-861 (design D6): a forward-looking advisory composed generically from whatever the
+   *  connector's `inferSchema` measured -- reads `InProcessPipelineEngine.MaxRunRows` directly
+   *  (never a literal `1000`) so the cap can never desynchronize from the message. `None` when the
+   *  connector couldn't measure a total (SQL) or the total is under the cap. No second fetch --
+   *  this is composed purely from the already-computed `schema.observedRowCount`. */
+  private def rowCapNotice(schema: InferredSchema): Option[String] =
+    schema.observedRowCount.collect {
+      case count if count > InProcessPipelineEngine.MaxRunRows =>
+        // HEL-861 (skeptic-final-1, non-blocking item a): "already holds" overstated a
+        // point-in-time inference measurement as a standing fact -- a REST source can grow
+        // or shrink between inference and any later run. "held ... when its schema was
+        // inferred" says only what was actually measured.
+        s"This source held $count rows when its schema was inferred, more than the " +
+          s"${InProcessPipelineEngine.MaxRunRows}-row run cap. Pipeline runs over this source " +
+          s"will be truncated to ${InProcessPipelineEngine.MaxRunRows} rows."
     }
 }

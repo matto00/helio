@@ -1488,3 +1488,29 @@
     white-space: nowrap;
   }
 }
+
+/* HEL-861: run-truncation warning banner, shown only when the last run's source read (or a
+   join/union/lookup secondary read) was capped. No shared warning/banner primitive exists in
+   shared/ui/ (Toast is transient, StatusChip is a pill) — a page-local region per design.md D7,
+   using the same --app-warning tokens the diff-chip "renamed" state above already establishes. */
+.pipeline-detail-page__truncation-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-warning-surface);
+  color: var(--app-warning);
+  border: 1px solid color-mix(in srgb, var(--app-warning) 35%, transparent);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.pipeline-detail-page__truncation-banner-icon {
+  flex: 0 0 auto;
+}
+
+.pipeline-detail-page__truncation-banner-text {
+  flex: 1 1 auto;
+}
