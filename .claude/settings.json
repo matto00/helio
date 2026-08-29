@@ -17,6 +17,10 @@
     }
   },
   "permissions": {
-    "allow": ["Bash(gh pr merge:*)", "Task(concertino-auditor)"]
+    "allow": [
+      "Bash(gh pr merge:*)",
+      "Bash(scripts/release/cut-release.sh:*)",
+      "Task(concertino-auditor)"
+    ]
   }
 }
