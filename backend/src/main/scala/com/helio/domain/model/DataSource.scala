@@ -31,8 +31,12 @@ sealed trait DataSource {
 }
 
 /** CSV-backed source. The `path` is a FileSystem-relative key into the uploads
- *  root (resolved by [[com.helio.infrastructure.FileSystem]]). */
-final case class CsvSourceConfig(path: String)
+ *  root (resolved by [[com.helio.infrastructure.FileSystem]]). `sourceUrl`
+ *  (HEL-862) is `Some(url)` when the source was created from an HTTPS URL
+ *  rather than an upload/inline content — mirrors [[TextSourceConfig]]'s
+ *  convention. Defaulted to `None` so every pre-existing positional
+ *  construction (upload-created sources, test fixtures) keeps compiling. */
+final case class CsvSourceConfig(path: String, sourceUrl: Option[String] = None)
 
 final case class CsvSource(
     id: DataSourceId,

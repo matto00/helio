@@ -111,7 +111,9 @@ final case class PreviewSourceResponse(
 )
 
 
-final case class CsvSourceConfigPayload(path: String)
+final case class CsvSourceConfigPayload(path: String, sourceUrl: Option[String] = None)
+final case class CsvSourceUrlConfigPayload(url: String)
+final case class CsvSourceUrlRequest(name: String, `type`: String, config: CsvSourceUrlConfigPayload, tag: Option[String] = None)
 
 final case class SqlSourceConfigPayload(
     dialect: String,
@@ -223,7 +225,7 @@ object DataSourceResponse {
         name      = c.name,
         createdAt = c.createdAt.toString,
         updatedAt = c.updatedAt.toString,
-        config    = CsvSourceConfigPayload(c.config.path),
+        config    = CsvSourceConfigPayload(c.config.path, c.config.sourceUrl),
         tag       = c.tag
       )
     case r: RestSource =>
@@ -401,7 +403,9 @@ object RestApiConfigPayload {
  *  in implicit scope. Passive structural dependency. */
 trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with DataTypeProtocol {
 
-  implicit val csvSourceConfigPayloadFormat: RootJsonFormat[CsvSourceConfigPayload]   = jsonFormat1(CsvSourceConfigPayload.apply)
+  implicit val csvSourceConfigPayloadFormat: RootJsonFormat[CsvSourceConfigPayload]   = jsonFormat2(CsvSourceConfigPayload.apply)
+  implicit val csvSourceUrlConfigPayloadFormat: RootJsonFormat[CsvSourceUrlConfigPayload] = jsonFormat1(CsvSourceUrlConfigPayload.apply)
+  implicit val csvSourceUrlRequestFormat: RootJsonFormat[CsvSourceUrlRequest]             = jsonFormat4(CsvSourceUrlRequest.apply)
   implicit val sqlSourceConfigPayloadFormat: RootJsonFormat[SqlSourceConfigPayload]   = jsonFormat7(SqlSourceConfigPayload.apply)
   implicit val restApiAuthPayloadFormat: RootJsonFormat[RestApiAuthPayload]           = jsonFormat5(RestApiAuthPayload.apply)
   implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload]       = jsonFormat11(RestApiConfigPayload.apply)

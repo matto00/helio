@@ -10,7 +10,7 @@ import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
 import com.helio.domain.model._
-import com.helio.services.sources.DataSourceService
+import com.helio.services.sources.{CsvUrlFetch, DataSourceService}
 import spray.json._
 
 import scala.concurrent.ExecutionContextExecutor
@@ -30,8 +30,9 @@ final class DataSourceRoutes(
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
   private implicit val mat: Materializer                         = SystemMaterializer(system).materializer
 
-  private val csvMaxBytes: Long =
-    sys.env.get("CSV_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(52428800L)
+  // HEL-862 design.md Decision 7: read the same value CsvUrlFetch.fetch enforces on every
+  // URL path, so the multipart route check and the URL paths cannot silently diverge.
+  private val csvMaxBytes: Long = CsvUrlFetch.maxFileSizeBytes
 
   /** Early route-layer rejection, mirroring CSV's `csvMaxBytes` check. The
    *  service-layer check in `DataSourceService.ingestText` (via
@@ -105,7 +106,15 @@ final class DataSourceRoutes(
     entity(as[JsValue]) { json =>
       val typeStr = json.asJsObject.fields.get("type").collect { case JsString(s) => s }
 
-      if (typeStr.contains(DataSourceKind.Text)) {
+      if (typeStr.contains(DataSourceKind.Csv)) {
+        Try(json.convertTo[CsvSourceUrlRequest]) match {
+          case Success(request) =>
+            ServiceResponse.run(dataSourceService.createCsvUrl(request.name, request.config.url, user, request.tag)) { ds =>
+              StatusCodes.Created -> DataSourceResponse.fromDomain(ds)
+            }
+          case Failure(e) => complete(StatusCodes.BadRequest, ErrorResponse(e.getMessage))
+        }
+      } else if (typeStr.contains(DataSourceKind.Text)) {
         Try(json.convertTo[TextSourceUrlRequest]) match {
           case Success(request) =>
             ServiceResponse.run(dataSourceService.createTextUrl(request.name, request.config.url, user, request.tag)) { ds =>

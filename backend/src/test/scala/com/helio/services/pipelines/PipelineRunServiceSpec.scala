@@ -155,6 +155,20 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     dsId
   }
 
+  /** HEL-862: seeds a `csv` DataSource carrying `sourceUrl`, exercising the
+   *  same encode shape `DataSourceConfigCodec.encodeCsv` produces for a
+   *  URL-backed CSV source. */
+  private def seedCsvUrlDs(url: String): String = {
+    import PostgresProfile.api._
+    val dsId     = UUID.randomUUID().toString
+    val dsConfig = s"""{"path":"csv/$dsId.csv","sourceUrl":"$url"}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-csv-url', 'csv', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
+  }
+
   private def seedPipeline(dsId: String): PipelineId = {
     import PostgresProfile.api._
     val pid  = UUID.randomUUID().toString
@@ -727,6 +741,57 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
       val pipeline = await(pipelineRepo.findByIdInternal(pid)).get
       pipeline.lastRunStatus shouldBe Some("failed")
+    }
+  }
+
+  "PipelineRunService (HEL-862 URL-backed CSV, no ActorSystem threaded)" should {
+
+    // `service` (this spec's shared fixture) is constructed with no `system`
+    // argument (see beforeAll above) — mirrors every other fixture across the
+    // codebase that omits it. Constructing it at all must not throw (design.md
+    // Decision 3/task 6.7 — the csvUrlFetch seam closes over `system` LAZILY).
+    //
+    // That lazy-construction property is NOT what this test discriminates —
+    // any non-`StepExecutionException` genericizes to the same
+    // "Pipeline execution failed" errorLog constant (`PipelineRunService`'s
+    // `transformWith` at the run-failure branch), so a real NPE would satisfy
+    // this test's assertion just as well. The lazy-construction property is
+    // proven elsewhere: by the fixture's own construction with no `system`
+    // succeeding at all (`beforeAll` above, not aborting the suite), and
+    // explicitly by `InProcessPipelineEngineSpec`'s
+    // `noException should be thrownBy new InProcessPipelineEngine(fileSystem)`
+    // test. What THIS test actually discriminates: a URL-backed CSV run under
+    // a service constructed without an ActorSystem fails as an ordinary,
+    // handled run failure — reaching the same ServiceResponse/errorLog shape
+    // every other primary-source-load failure reaches — rather than
+    // propagating an unhandled exception out of `submit`.
+    "a URL-backed CSV run under a service constructed with no ActorSystem fails as a normal handled run failure, not an unhandled exception" in {
+      val dsId = seedCsvUrlDs("https://example.com/data.csv")
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs should have size 1
+      runs.head.status shouldBe "failed"
+      // A primary-source-load failure (any IllegalArgumentException raised by
+      // `engine.loadRowsWithStats`, including the engine's own "not configured"
+      // Left from an unwired csvUrlFetch seam) is NOT wrapped in a
+      // `StepExecutionException` — that wrapper only covers step-evaluation
+      // failures inside `executeWithStepCounts`'s fold (HEL-311's genericizing
+      // `errMsg` match in `PipelineRunService.submit`) — so the persisted
+      // `errorLog` is the SAME pre-existing generic constant every other
+      // primary-source-load failure (e.g. a missing-path CSV) already
+      // produces, not the engine's own "not configured" text. Asserting its
+      // EXACT content — not merely that some message is present — is what
+      // proves this ran the ordinary curated-failure path rather than an
+      // unhandled `NullPointerException` (which would propagate a
+      // "java.lang.NullPointerException" cause into server-side logs, and,
+      // absent the `recover`/`transformWith` handling this path exercises,
+      // could plausibly surface a null/NPE-shaped string here instead).
+      runs.head.errorLog shouldBe Some("Pipeline execution failed")
     }
   }
 

@@ -202,6 +202,76 @@ final class DataSourceService(
     }
 
 
+  /** Map a [[CsvUrlFetchError]] to its `ServiceError` per design.md
+   *  Decision 2's mapping table — deliberately NOT `createTextUrl`/
+   *  `refreshText`'s uniform `BadGateway` mapping, which would emit 502 for a
+   *  rejected scheme and for an oversize body. */
+  private def csvUrlErrorToServiceError(err: CsvUrlFetchError): ServiceError = err match {
+    case CsvUrlFetchError.InvalidScheme(msg) => ServiceError.BadRequest(msg)
+    case CsvUrlFetchError.Upstream(msg)      => ServiceError.BadGateway(msg)
+    case CsvUrlFetchError.TooLarge(msg)      => ServiceError.PayloadTooLarge(msg)
+    case CsvUrlFetchError.NotCsv(msg)        => ServiceError.BadRequest(msg)
+  }
+
+  /** URL path (HEL-862): fetches the URL via the shared [[CsvUrlFetch]]
+   *  helper — https-only, SSRF-guarded, size-limited, non-CSV-body-gated —
+   *  then stores the bytes exactly like an upload at the fixed
+   *  `csv/<id>.csv` path and persists `sourceUrl` so refresh/run can
+   *  re-fetch. Validates and fetches BEFORE persisting (design.md Decision 5)
+   *  so a failed fetch leaves no data source row and no stored file. No
+   *  `filenameFromUrl`/`validateExtension` — CSV has no filename metadata
+   *  field and an extensionless/query-driven CSV endpoint is the target use
+   *  case (design.md Decision 6). */
+  def createCsvUrl(name: String, url: String, user: AuthenticatedUser, tag: Option[String] = None): Future[Either[ServiceError, DataSource]] =
+    if (name.trim.isEmpty)
+      Future.successful(Left(ServiceError.BadRequest("name is required")))
+    else RequestValidation.validateTag(tag) match {
+      case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right(validTag) =>
+        CsvUrlFetch.fetch(url, CsvUrlFetch.maxFileSizeBytes, resolveHost, isBlocked).flatMap {
+          case Left(err) =>
+            Future.successful(Left(csvUrlErrorToServiceError(err)))
+          case Right(bytes) =>
+            DataSourceCsvSupport.decodeUtf8(bytes) match {
+              case None =>
+                Future.successful(Left(ServiceError.BadRequest("File must be UTF-8 encoded")))
+              case Some(csvContent) =>
+                val schema   = SchemaInferenceEngine.fromCsv(csvContent)
+                val now      = Instant.now()
+                val sourceId = DataSourceId(UUID.randomUUID().toString)
+                val filePath = s"csv/${sourceId.value}.csv"
+                val source = CsvSource(
+                  id        = sourceId,
+                  name      = name.trim,
+                  ownerId   = user.id,
+                  createdAt = now,
+                  updatedAt = now,
+                  config    = CsvSourceConfig(filePath, sourceUrl = Some(url)),
+                  tag       = validTag
+                )
+                fileSystem.write(filePath, bytes).flatMap { _ =>
+                  dataSourceRepo.insert(source, user).flatMap { ds =>
+                    val dt = DataType(
+                      id        = DataTypeId(UUID.randomUUID().toString),
+                      sourceId  = Some(ds.id),
+                      name      = name.trim,
+                      fields    = schema.fields.map(f =>
+                        DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+                      ).toVector,
+                      version   = 1,
+                      createdAt = now,
+                      updatedAt = now,
+                      ownerId   = user.id,
+                      tag       = validTag
+                    )
+                    dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
+                  }
+                }
+            }
+        }
+    }
+
+
   /** Upload path: `filename` is the original uploaded file's name (used only
    *  to determine + validate the extension; the stored `path`'s basename is
    *  what's reported as the `filename` field value at pipeline-run time). */
@@ -575,24 +645,43 @@ final class DataSourceService(
     }
   }
 
+  /** Refresh a CSV source (HEL-862): re-read the stored file when it was
+   *  upload/inline-created (`sourceUrl` is `None`, byte-for-byte the
+   *  pre-existing behaviour including the `NoSuchFileException` message), or
+   *  re-fetch via the shared [[CsvUrlFetch]] helper and overwrite the stored
+   *  snapshot when it was URL-created (`sourceUrl` is `Some(url)`). */
   private def refreshCsv(source: CsvSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
-    if (source.config.path.isEmpty)
-      Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
-    else
-      fileSystem.read(source.config.path).flatMap { bytes =>
-        val csv    = new String(bytes, StandardCharsets.UTF_8)
-        val schema = SchemaInferenceEngine.fromCsv(csv)
-        val now    = Instant.now()
-        val fields = schema.fields.map(f =>
-          DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-        ).toVector
-        upsertSourceDataType(source, fields, user, now).map(_ => Right(source))
-      }.recover {
-        case _: java.nio.file.NoSuchFileException =>
-          Left(ServiceError.BadRequest(
-            "Source file is missing on disk; the source can no longer be refreshed. Delete this source and re-upload the file."
-          ))
-      }
+    source.config.sourceUrl match {
+      case None =>
+        if (source.config.path.isEmpty)
+          Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
+        else
+          fileSystem.read(source.config.path).flatMap { bytes =>
+            finishCsvRefresh(source, bytes, user)
+          }.recover {
+            case _: java.nio.file.NoSuchFileException =>
+              Left(ServiceError.BadRequest(
+                "Source file is missing on disk; the source can no longer be refreshed. Delete this source and re-upload the file."
+              ))
+          }
+      case Some(url) =>
+        CsvUrlFetch.fetch(url, CsvUrlFetch.maxFileSizeBytes, resolveHost, isBlocked).flatMap {
+          case Left(err) =>
+            Future.successful(Left(csvUrlErrorToServiceError(err)))
+          case Right(bytes) =>
+            fileSystem.write(source.config.path, bytes).flatMap(_ => finishCsvRefresh(source, bytes, user))
+        }
+    }
+
+  private def finishCsvRefresh(source: CsvSource, bytes: Array[Byte], user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
+    val csv    = new String(bytes, StandardCharsets.UTF_8)
+    val schema = SchemaInferenceEngine.fromCsv(csv)
+    val now    = Instant.now()
+    val fields = schema.fields.map(f =>
+      DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+    ).toVector
+    upsertSourceDataType(source, fields, user, now).map(_ => Right(source))
+  }
 
   /** Refresh a text source (HEL-215): re-read the stored file when it was
    *  upload-created (`sourceUrl` is `None`), or re-fetch and overwrite the

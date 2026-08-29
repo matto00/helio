@@ -1,6 +1,6 @@
 package com.helio.api.protocols.sources
 
-import com.helio.api.protocols.sources.{CsvSourceConfigPayload, RestApiConfigPayload, SqlSourceConfigPayload, TextSourceConfigPayload}
+import com.helio.api.protocols.sources.{CsvSourceConfigPayload, CsvSourceUrlRequest, RestApiConfigPayload, SqlSourceConfigPayload, TextSourceConfigPayload}
 import com.helio.api.protocols.sources.{CsvSourceResponse, DataSourceConfigCodec, DataSourceResponse, RestSourceResponse, SqlSourceResponse, StaticSourceResponse, TextSourceResponse}
 import com.helio.api.JsonProtocols
 import com.helio.domain.model.{CsvSourceConfig, RestApiConfig, SqlSourceConfig, TextSourceConfig}
@@ -31,6 +31,28 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
       json.fields("type")                            shouldBe JsString("csv")
       json.fields("config").asJsObject.fields("path") shouldBe JsString("uploads/test.csv")
       roundTrip(r) shouldBe r
+    }
+
+    "emit `type: csv` and round-trip a CsvSourceResponse carrying a sourceUrl (HEL-862)" in {
+      val r: DataSourceResponse = CsvSourceResponse(
+        id        = "ds-csv-url",
+        name      = "csv-url-src",
+        createdAt = "2026-01-01T00:00:00Z",
+        updatedAt = "2026-01-02T00:00:00Z",
+        config    = CsvSourceConfigPayload("csv/ds-csv-url.csv", Some("https://example.com/data.csv"))
+      )
+      val json = r.toJson.asJsObject
+      json.fields("config").asJsObject.fields("sourceUrl") shouldBe JsString("https://example.com/data.csv")
+      roundTrip(r) shouldBe r
+    }
+
+    "decode a CsvSourceUrlRequest JSON body (HEL-862 create-from-URL wire contract)" in {
+      val json = """{"name":"URL CSV","type":"csv","config":{"url":"https://example.com/data.csv"}}""".parseJson
+      val req  = json.convertTo[CsvSourceUrlRequest]
+      req.name          shouldBe "URL CSV"
+      req.`type`        shouldBe "csv"
+      req.config.url    shouldBe "https://example.com/data.csv"
+      req.tag           shouldBe None
     }
 
     "emit `type: rest_api` and round-trip a RestSourceResponse" in {
