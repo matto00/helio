@@ -1,7 +1,7 @@
 # Helio — Product Roadmap — v1
 
 > **Superseded by [`roadmap-v2.md`](roadmap-v2.md).** This document predates the Pipeline concept and
-> describes direct DataSource → Panel binding via the TypeRegistry — a model replaced in v1.3 by the
+> describes direct DataSource → Panel binding via the TypeRegistry — a model replaced in v0.3 by the
 > linear flow DataSource → Pipeline → DataType → Panel. Kept for historical context only.
 
 **Last updated:** 2026-03-20
