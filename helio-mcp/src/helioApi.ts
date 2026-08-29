@@ -47,10 +47,12 @@ import type {
   PipelineProposal,
   PipelineProposalApplyResponse,
   PipelineRunRecordResponse,
+  PipelineScheduleResponse,
   PipelineShapeCatalogEntryResponse,
   PipelineStepResponse,
   PipelineSummaryResponse,
   ProposalPanel,
+  PutPipelineScheduleRequest,
   RefinementResult,
   RowsPreview,
   RunResultResponse,
@@ -902,6 +904,52 @@ export class HelioApi {
    *  `UpdatePipelineRequest` has exactly one, required field. */
   updatePipeline(pipelineId: string, name: string): Promise<PipelineSummaryResponse> {
     return this.http.patch<PipelineSummaryResponse>(`/api/pipelines/${pipelineId}`, { name });
+  }
+
+  /** `PATCH /api/dashboards/:id`, name-only (design.md D7) — mirrors
+   *  `updateDataSource`/`updatePipeline`'s inline-body convention. `layout`
+   *  has its own dedicated tools (`update_dashboard_layout`,
+   *  `auto_layout_dashboard`); dashboard `appearance` is unexposed over MCP
+   *  entirely today (a separate gap, not this method's concern). */
+  updateDashboard(dashboardId: string, name: string): Promise<DashboardResponse> {
+    return this.http.patch<DashboardResponse>(`/api/dashboards/${dashboardId}`, { name });
+  }
+
+  /** `GET /api/pipelines/:id/schedule` (HEL-415). A pipeline with no
+   *  schedule 404s server-side (`PipelineScheduleService`) — surfaced
+   *  verbatim by the tool's `guarded` handler, never converted into an
+   *  absent/empty success value here. */
+  getPipelineSchedule(pipelineId: string): Promise<PipelineScheduleResponse> {
+    return this.http.get<PipelineScheduleResponse>(`/api/pipelines/${pipelineId}/schedule`);
+  }
+
+  /** `PUT /api/pipelines/:id/schedule` (HEL-415) — a genuine upsert: the
+   *  backend reuses the existing schedule's id/createdAt when one already
+   *  exists, so calling this twice for the same pipeline PUTs to the same
+   *  path rather than forking into a create-vs-update case. `body` is the
+   *  ALREADY-BUILT wire body (`buildSetPipelineScheduleBody` in
+   *  `tools/scheduleTools.ts` does the omit-vs-absent `enabled` encoding
+   *  before calling this method), matching this class's established
+   *  already-built-patch convention (`updateDataType`/`updateMetric`). */
+  setPipelineSchedule(
+    pipelineId: string,
+    body: PutPipelineScheduleRequest,
+  ): Promise<PipelineScheduleResponse> {
+    return this.http.put<PipelineScheduleResponse>(`/api/pipelines/${pipelineId}/schedule`, body);
+  }
+
+  /** `DELETE /api/pipelines/:id/schedule` (HEL-415). The route is
+   *  `ServiceResponse.runNoContent` — an empty 204 body — so, exactly like
+   *  `deleteDashboard`/`deletePipeline`, a synthesised acknowledgement is
+   *  returned rather than `void`: `guarded()`'s `JSON.stringify(value, null,
+   *  2)` yields `undefined` (not a string at all) for an actual `undefined` return,
+   *  which would be a broken tool result. Deliberately `{ pipelineId }`, NOT
+   *  `{ id }` (design.md D11): the caller addresses the schedule by its
+   *  PIPELINE id and never sees the schedule's own id, so echoing it back
+   *  under the `id` key would misrepresent whose id it is. */
+  async deletePipelineSchedule(pipelineId: string): Promise<{ deleted: true; pipelineId: string }> {
+    await this.http.delete(`/api/pipelines/${pipelineId}/schedule`);
+    return { deleted: true, pipelineId };
   }
 
   /** `PATCH /api/pipeline-steps/:id`. `patch` is the already-built wire body

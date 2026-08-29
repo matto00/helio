@@ -23,6 +23,16 @@ import {
 import { panelSchema } from "./proposal.js";
 import { createRestDataSourceSchema } from "./restDataSourceSchema.js";
 import {
+  DELETE_PIPELINE_SCHEDULE_DESCRIPTION,
+  deletePipelineScheduleHandler,
+  GET_PIPELINE_SCHEDULE_DESCRIPTION,
+  getPipelineScheduleHandler,
+  SET_PIPELINE_SCHEDULE_DESCRIPTION,
+  setPipelineScheduleHandler,
+  UPDATE_DASHBOARD_DESCRIPTION,
+  updateDashboardHandler,
+} from "./scheduleTools.js";
+import {
   buildUpdateDataTypeBody,
   buildUpdatePanelBody,
   buildUpdatePipelineStepBody,
@@ -978,6 +988,62 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       },
     },
     ({ pipelineId, name }) => guarded(() => api.updatePipeline(pipelineId, name)),
+  );
+
+  server.registerTool(
+    "update_dashboard",
+    {
+      title: "Update dashboard (rename)",
+      description: UPDATE_DASHBOARD_DESCRIPTION,
+      inputSchema: {
+        dashboardId: z.string().min(1),
+        name: z.string().min(1),
+      },
+    },
+    ({ dashboardId, name }) => guarded(() => updateDashboardHandler(api, dashboardId, name)),
+  );
+
+  server.registerTool(
+    "get_pipeline_schedule",
+    {
+      title: "Get pipeline schedule",
+      description: GET_PIPELINE_SCHEDULE_DESCRIPTION,
+      inputSchema: {
+        pipelineId: z.string().min(1),
+      },
+    },
+    ({ pipelineId }) => guarded(() => getPipelineScheduleHandler(api, pipelineId)),
+  );
+
+  server.registerTool(
+    "set_pipeline_schedule",
+    {
+      title: "Set pipeline schedule (create or replace)",
+      description: SET_PIPELINE_SCHEDULE_DESCRIPTION,
+      inputSchema: {
+        pipelineId: z.string().min(1),
+        kind: z.enum(["cron", "interval"]),
+        expression: z.string().min(1),
+        timezone: z.string().min(1),
+        enabled: z.boolean().optional(),
+      },
+    },
+    ({ pipelineId, kind, expression, timezone, enabled }) =>
+      guarded(() =>
+        setPipelineScheduleHandler(api, { pipelineId, kind, expression, timezone, enabled }),
+      ),
+  );
+
+  server.registerTool(
+    "delete_pipeline_schedule",
+    {
+      title: "Delete pipeline schedule",
+      description: DELETE_PIPELINE_SCHEDULE_DESCRIPTION,
+      inputSchema: {
+        pipelineId: z.string().min(1),
+      },
+    },
+    ({ pipelineId }) => guarded(() => deletePipelineScheduleHandler(api, pipelineId)),
   );
 
   server.registerTool(
