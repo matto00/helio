@@ -154,7 +154,22 @@ object ExpressionEvaluator {
           val numStr = s.substring(start, i)
           numStr.toDoubleOption match {
             case Some(v) => buf += Token.Num(v)
-            case None    => return Left(s"Invalid number literal: $numStr")
+            case None =>
+              // HEL-867 added scope: a trailing/doubled dot directly after a `$`-reference
+              // (`$stats.`, `$a..b`) lands here because the ref scan above correctly declined
+              // to consume a dot not followed by an identifier char (D2) — the leftover text
+              // is a malformed dotted reference, not a malformed number, so name it as such
+              // instead of the generic "number literal" wording (standing requirement 4: the
+              // wording is behaviour). Gated on the immediately preceding token being a
+              // `Token.Ref` AND the leftover text starting with '.', so a genuinely malformed
+              // standalone number literal (e.g. `1.2.3`) is never affected.
+              if (numStr.startsWith(".") && buf.lastOption.exists(_.isInstanceOf[Token.Ref]))
+                return Left(
+                  s"Incomplete dotted column reference: '.' must be followed by another " +
+                    s"identifier segment, not end the reference or repeat (found '$numStr')"
+                )
+              else
+                return Left(s"Invalid number literal: $numStr")
           }
 
         case l if l.isLetter || l == '_' =>

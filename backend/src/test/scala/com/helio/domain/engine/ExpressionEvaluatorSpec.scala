@@ -501,5 +501,39 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
         case other => fail(s"Expected a ParseError not routed through the legacy fallback, got $other")
       }
     }
+
+    // ── HEL-867 added scope (post-delivery fold-in): trailing/doubled-dot wording ──────────
+
+    "added scope: a trailing dot after a $-reference names an incomplete dotted reference, not a number literal" in {
+      ExpressionEvaluator.validate("$stats.", Set("stats.pts_ppr")) match {
+        case Left(msg) =>
+          msg should include ("Incomplete")
+          msg should include ("dotted")
+          msg should not include "number literal"
+        case other => fail(s"Expected a parse error, got $other")
+      }
+    }
+
+    "added scope: a doubled dot after a $-reference names an incomplete dotted reference, not a number literal" in {
+      ExpressionEvaluator.validate("$a..b", Set("a.b")) match {
+        case Left(msg) =>
+          msg should include ("Incomplete")
+          msg should include ("dotted")
+          msg should not include "number literal"
+        case other => fail(s"Expected a parse error, got $other")
+      }
+    }
+
+    "added scope regression: .5 and 1.05 are unaffected by the trailing-dot wording change" in {
+      ExpressionEvaluator.evaluate("$amount * .5", row("amount" -> JsNumber(100.0))) shouldBe
+        Right(JsNumber(50.0))
+      ExpressionEvaluator.evaluate("$amount * 1.05", row("amount" -> JsNumber(100.0))) shouldBe
+        Right(JsNumber(105.0))
+    }
+
+    "added scope regression: a standalone malformed number literal (1.2.3, no preceding $-ref) keeps its existing message unchanged" in {
+      ExpressionEvaluator.evaluate("1.2.3", Map.empty) shouldBe
+        Left(EvaluationError.ParseError("Invalid number literal: 1.2.3"))
+    }
   }
 }

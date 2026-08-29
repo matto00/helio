@@ -45,9 +45,12 @@ to check the flattened column name rather than assume path traversal was attempt
 - **THEN** exactly one column `a.b` exists, and the expression resolves to that column's single
   deduplicated value rather than erroring on ambiguity
 
-#### Scenario: Trailing dot in a reference is a parse error
-- **WHEN** the expression `$stats.` is validated
-- **THEN** validation returns a parse error
+#### Scenario: Trailing or doubled dot in a reference is a parse error naming an incomplete reference
+- **WHEN** the expression `$stats.` (or `$a..b`) is validated
+- **THEN** validation returns a parse error whose message names the failure as an incomplete
+  dotted column reference and does NOT describe it as an invalid number literal — the leftover
+  dot follows a `$`-reference, not a numeric constant, and the message must not point the caller
+  at the wrong construct
 
 #### Scenario: Bare identifier without `$` is a parse error
 - **WHEN** the expression `price * qty` is validated

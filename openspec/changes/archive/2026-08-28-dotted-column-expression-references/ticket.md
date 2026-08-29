@@ -27,3 +27,20 @@ These override the original ticket text where they conflict:
 - [ ] Ambiguity between a literal dotted column name and any other interpretation is decided, documented normatively in both `docs/compute-expression-grammar.md` and `openspec/specs/compute-expression-language/spec.md`, and tested.
 - [ ] Existing expressions, including the frozen bare-identifier legacy path and number literals such as `.5`, are unaffected — regression tests prove it.
 - [ ] An unresolvable dotted reference produces an error that leads the caller to the right fix (user-facing wording is behaviour).
+
+## Added scope (folded in post-delivery, coordinator-approved)
+
+Follow-up triage on the final gate's non-blocking note 2 returned `fold-in`. Rationale: the trailing-dot
+parse error is pre-existing, but THIS ticket is what makes it likely to be hit — dotted references are now
+the point, so `$stats.` is a natural mid-edit state, and `Invalid number literal: .` names a construct the
+user never wrote and points them nowhere. Standing requirement 4 in its purest form.
+
+- [x] A reference typo that leaves a trailing or doubled dot (`$stats.`, `$a..b`) produces an error that
+      names it as an incomplete dotted column reference and does NOT say "number literal". Both halves are
+      asserted — the negative is what pins it.
+- [x] `.5`, `1.05` and `1.2.3` are unaffected: a number literal that genuinely is one, or genuinely is
+      malformed on its own, keeps its existing message.
+
+Explicitly NOT folded in: capping the available-column list (discarded — the columns are the caller's own
+tenant data and no AC bounds it; a cap would invent a limit nobody asked for). The Spark divergence is
+filed separately by the coordinator; `SparkJobSubmitter` is not touched on this branch.

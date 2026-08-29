@@ -26,7 +26,11 @@ without the `$` prefix is always a parse error** under this grammar — this dis
 reference from a bare word that might otherwise be mistaken for a string. (Numeric constants and
 double-quoted string literals never need `$`.) A dot is admitted only between two identifier
 characters: a leading, trailing, or doubled dot (`$.a`, `$a.`, `$a..b`) is a parse error, not a
-silently-truncated or empty segment.
+silently-truncated or empty segment. A trailing or doubled dot directly after a `$`-reference
+(`$stats.`, `$a..b`) produces a message naming it as an **incomplete dotted column reference** —
+not a "number literal" — since the leftover text is a reference typo, not a malformed number. A
+leading-dot number literal on its own (`$amount * .5`, or a standalone `1.2.3`) is unaffected and
+keeps its ordinary numeric-literal handling/message.
 
 ```
 $price * $qty
