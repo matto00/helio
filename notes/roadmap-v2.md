@@ -1,7 +1,7 @@
 # Helio — Product Roadmap — v2
 
 **Last updated:** 2026-04-28
-**Baseline:** v1.0 released — panel types, data ingestion, TypeRegistry, core dashboard grid
+**Baseline:** v0.0 released — panel types, data ingestion, TypeRegistry, core dashboard grid
 **Builds on:** [roadmap.md](roadmap.md)
 
 ---
@@ -19,9 +19,9 @@ Priority order:
 
 ---
 
-## v1.1 — UX Foundations
+## v0.1 — UX Foundations
 
-> **Linear project:** `Helio v1.1 — UX Foundations`
+> **Linear project:** `Helio v0.1 — UX Foundations`
 > Dashboard zoom and panel content sizing. Makes the product feel navigable and well-proportioned.
 
 ---
@@ -59,9 +59,9 @@ Panel content should fill its container meaningfully at default sizes rather tha
 
 ---
 
-## v1.2 — Panel System
+## v0.2 — Panel System
 
-> **Linear project:** `Helio v1.2 — Panel System`
+> **Linear project:** `Helio v0.2 — Panel System`
 > Cosmetic panel types, a rebuilt creation flow, and a full-screen detail/edit view.
 
 ---
@@ -98,9 +98,9 @@ Click any panel to open a full-screen modal. Two modes: view (read-only, content
 
 ---
 
-## v1.3 — Data Pipeline & Registry Hardening
+## v0.3 — Data Pipeline & Registry Hardening
 
-> **Linear project:** `Helio v1.3 — Data Pipeline & Registry Hardening`
+> **Linear project:** `Helio v0.3 — Data Pipeline & Registry Hardening`
 > Separate Data Sources, Data Pipelines, and Type Registry into distinct first-class views. Establish the pipeline as the canonical transformation layer. Type Registry becomes the only binding target for panels.
 
 **Architecture:**
@@ -147,11 +147,11 @@ User-triggered pipeline execution from the pipeline tab. The backend runs the pi
 
 - Pipeline run button in the pipeline editor/detail view
 - Dry-run mode: execute all steps and return a preview of the output rows without writing to the Type Registry
-- Overwrite mode (v1.3 default): full replacement of the current DataType snapshot on each run
+- Overwrite mode (v0.3 default): full replacement of the current DataType snapshot on each run
 - Run status indicator: in-progress / succeeded / failed with error message
 - "Last run" timestamp and row count displayed in the pipeline list and detail view
 
-### Epic: Spark Integration _(Stretch within v1.3)_
+### Epic: Spark Integration _(Stretch within v0.3)_
 
 Self-hosted Apache Spark as the pipeline execution backend for optimized, scalable processing. Decouples pipeline execution from the application server.
 
@@ -161,7 +161,7 @@ Self-hosted Apache Spark as the pipeline execution backend for optimized, scalab
 - Async job tracking: run status (queued / running / succeeded / failed) polled from Spark
 - Job history & logs: per-pipeline run history with duration, row count, and error output accessible in the pipeline tab
 
-### Epic: Spark-Backed Panel Queries _(Stretch within v1.3)_
+### Epic: Spark-Backed Panel Queries _(Stretch within v0.3)_
 
 Once pipelines run on Spark, panel data reads should also go through Spark rather than querying the DataType snapshot store directly. This gives panels the full power of Spark for filtering, aggregation, and field projection at query time — and keeps the execution model consistent end-to-end.
 
@@ -182,9 +182,9 @@ Enforce the pipeline → DataType → Panel binding chain. Panels may no longer 
 
 ---
 
-## v1.4 — Unstructured Data _(Stretch)_
+## v0.4 — Unstructured Data _(Stretch)_
 
-> **Linear project:** `Helio v1.4 — Unstructured Data`
+> **Linear project:** `Helio v0.4 — Unstructured Data`
 > Extend sources and the Type Registry to handle unstructured content. Foundation for agentic workflows.
 
 ---
@@ -210,7 +210,7 @@ Enforce the pipeline → DataType → Panel binding chain. Panels may no longer 
 
 > **Linear project:** `Helio v2.0 — Agentic Dashboard Creation`
 > An AI agent creates dashboards from a natural-language goal using the user's registered DataTypes, pipelines, and sources as context.
-> **Prerequisites:** v1.3 complete (stable Type Registry); v1.4 preferred (unstructured types expand context surface).
+> **Prerequisites:** v0.3 complete (stable Type Registry); v0.4 preferred (unstructured types expand context surface).
 
 ---
 
@@ -225,10 +225,10 @@ Enforce the pipeline → DataType → Panel binding chain. Panels may no longer 
 
 ## Open Questions
 
-These should be resolved before or during v1.3 design:
+These should be resolved before or during v0.3 design:
 
-1. **Pipeline versioning:** ✅ **Resolved (v1.3):** Pipelines are live and schema-aware. When a source schema changes, the pipeline editor surfaces a lint-style warning highlighting steps that reference removed or renamed fields. The user resolves conflicts manually. No versioning in v1.3. **Long-term (post-v1.3):** Revisit immutable pipeline versions (snapshots per save, explicit schema upgrade flow) once live conflict resolution proves insufficient at scale.
-2. **Pipeline scheduling & caching:** ✅ **Resolved (v1.3):** Manual runs only. The user triggers a pipeline run from the pipeline tab; output overwrites the current DataType snapshot (append mode deferred). Dry-run option shows a preview of what would be written without committing. Panels read from the last committed snapshot and display a "last updated" timestamp. **Long-term:** Scheduled execution (server-side cron per pipeline) is the target; execution API should be designed so a scheduler can call the same run path as the manual trigger. See also: Spark Integration epic in v1.3.
-3. **Multi-source pipelines (join):** ✅ **Resolved:** Deferred to post-v1.3 (candidate for v1.4–v1.5). Single-source pipelines cover the majority of v1.3 use cases. Multi-source (join) and multi-output pipelines are a follow-on scope item. Spark as the execution backend makes the backend implementation straightforward when the time comes; the UI is the primary complexity.
-4. **Type Registry namespacing:** ✅ **Resolved (v1.3 stretch):** Search + tags. Flat list with name search is sufficient at launch; user-defined tags added when users accumulate enough types to feel the pain. No folder hierarchy. **Long-term:** Sub-types (a type that extends or narrows a parent type's schema) are planned; when sub-types land, an ontology view grouped by tag — showing type inheritance relationships — becomes the natural navigation surface for the registry.
-5. **Zoom persistence:** ✅ **Resolved:** Per-user per-dashboard (auth has already landed). Zoom is a personal viewing preference, not part of the dashboard definition. Stored as a lightweight user preference row; does not affect other users' view of the same dashboard. Implemented as part of the batch update epic in v1.1 (see below).
+1. **Pipeline versioning:** ✅ **Resolved (v0.3):** Pipelines are live and schema-aware. When a source schema changes, the pipeline editor surfaces a lint-style warning highlighting steps that reference removed or renamed fields. The user resolves conflicts manually. No versioning in v0.3. **Long-term (post-v0.3):** Revisit immutable pipeline versions (snapshots per save, explicit schema upgrade flow) once live conflict resolution proves insufficient at scale.
+2. **Pipeline scheduling & caching:** ✅ **Resolved (v0.3):** Manual runs only. The user triggers a pipeline run from the pipeline tab; output overwrites the current DataType snapshot (append mode deferred). Dry-run option shows a preview of what would be written without committing. Panels read from the last committed snapshot and display a "last updated" timestamp. **Long-term:** Scheduled execution (server-side cron per pipeline) is the target; execution API should be designed so a scheduler can call the same run path as the manual trigger. See also: Spark Integration epic in v0.3.
+3. **Multi-source pipelines (join):** ✅ **Resolved:** Deferred to post-v0.3 (candidate for v0.4–v0.5). Single-source pipelines cover the majority of v0.3 use cases. Multi-source (join) and multi-output pipelines are a follow-on scope item. Spark as the execution backend makes the backend implementation straightforward when the time comes; the UI is the primary complexity.
+4. **Type Registry namespacing:** ✅ **Resolved (v0.3 stretch):** Search + tags. Flat list with name search is sufficient at launch; user-defined tags added when users accumulate enough types to feel the pain. No folder hierarchy. **Long-term:** Sub-types (a type that extends or narrows a parent type's schema) are planned; when sub-types land, an ontology view grouped by tag — showing type inheritance relationships — becomes the natural navigation surface for the registry.
+5. **Zoom persistence:** ✅ **Resolved:** Per-user per-dashboard (auth has already landed). Zoom is a personal viewing preference, not part of the dashboard definition. Stored as a lightweight user preference row; does not affect other users' view of the same dashboard. Implemented as part of the batch update epic in v0.1 (see below).

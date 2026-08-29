@@ -111,8 +111,10 @@ Then edit `infra/.env.deploy`:
 `deploy-backend.sh` is a **manual/bootstrap deploy path** — it is not the
 routine way production gets deployed. The automated deploy pipeline is
 `.github/workflows/cd-backend.yml`, which builds and pushes a fresh
-git-sha-tagged image (`<branch>-<8-char-sha>`, e.g.
-`release-v1.6-4b1d794f`) and deploys it on every push to `release/**`. Use
+versioned image (`release-<version>-<8-char-sha>`, e.g.
+`release-v0.8.0-4b1d794f`) and deploys it on every push of a `v*` **tag** —
+not on a branch push. Cut a release with `/release <major.minor>`
+(`scripts/release/cut-release.sh`); the tag push is what deploys. Use
 `deploy-backend.sh` for one-off/manual deploys (e.g. redeploying an existing
 image, a cutover deploy with extra flags) — not as a substitute for the CD
 pipeline.

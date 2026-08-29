@@ -1,0 +1,17 @@
+[
+  {
+    "name": "keep-recent-releases",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": { "keepCount": 10 }
+  },
+  {
+    "name": "delete-untagged",
+    "action": { "type": "Delete" },
+    "condition": { "tagState": "UNTAGGED", "olderThan": "7d" }
+  },
+  {
+    "name": "delete-aged-releases",
+    "action": { "type": "Delete" },
+    "condition": { "tagState": "TAGGED", "tagPrefixes": ["release-"], "olderThan": "30d" }
+  }
+]
