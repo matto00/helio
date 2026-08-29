@@ -1,112 +1,95 @@
 # Helio
 
-Helio is a dashboard builder that lets you create, arrange, and customize panels to visualize your data. Panels support charts, metrics, tables, and text — all draggable and resizable on a responsive grid.
+**Helio turns raw data into dashboards you can build by asking.**
 
-![Helio dashboard — dark theme](docs/dashboard-overview.png)
+Point it at a CSV, a SQL database, or a REST API. Shape the data with a visual
+pipeline. Bind the result to panels — charts, metrics, tables, timelines — and
+arrange them on a responsive grid. Then keep going in plain language: describe a
+change, review the exact diff, and apply it.
 
-![Helio dashboard — light theme](docs/dashboard-customize.png)
+[helioapp.dev](https://helioapp.dev)
 
-## What you can do
+![Helio — News Overview dashboard](docs/images/news-overview.jpg)
 
-- Create multiple dashboards and switch between them instantly
-- Add panels (charts, metrics, tables, text) and arrange them freely via drag-and-drop
-- Resize panels across four responsive breakpoints (lg / md / sm / xs)
-- Customize dashboard and panel appearance — background, transparency, text color
-- Connect data sources and map fields to chart axes
-- Import and export dashboards
-- Light and dark theme
+## Describe a change, review it, apply it
 
-## Project Structure
+Helio's assistant edits real dashboards. It never applies anything silently: every
+request becomes a **patch set** you see as a before/after diff, accept or reject,
+and undo afterwards.
+
+![Refining a dashboard with AI](docs/images/refine-with-ai.gif)
+
+## How data flows
+
+Everything in Helio follows one path, and every panel is bound to the end of it:
 
 ```
-helio/
-├── frontend/          # React/Redux/TypeScript app
-│   └── src/
-│       ├── components/    # UI components (DashboardList, PanelGrid, ...)
-│       ├── features/      # Redux slices (dashboards, panels)
-│       ├── services/      # Axios service layer
-│       ├── store/         # Redux store
-│       ├── theme/         # ThemeProvider + appearance helpers
-│       └── types/         # Shared TypeScript model types
-├── backend/           # Scala/Pekko HTTP server
-│   └── src/main/scala/com/helio/
-│       ├── api/           # Routes, request validation, JSON protocols
-│       ├── domain/        # Domain models and value types
-│       ├── infrastructure/ # Slick repositories and DB wiring
-│       └── app/           # Server entry point
-├── schemas/           # JSON Schema definitions for API payloads
-└── openspec/          # API specs and change history
+Data source  →  Pipeline  →  Data type  →  Panel
+   CSV            filter       typed         chart
+   SQL            aggregate    schema        metric
+   REST           date bucket  +             table
+   files          join, pivot  rows          timeline
 ```
 
-## Tech Stack
+A **pipeline** is an ordered list of transformation steps over one source. Twenty-three operations ship today — filter, aggregate, join, pivot, window, unpivot, date
+bucket, lookup, dedupe, and more — each previewable step by step, with the output
+schema computed before you run it.
 
-| Layer            | Technology                                               |
-| ---------------- | -------------------------------------------------------- |
-| Frontend         | React 18, TypeScript, Redux Toolkit, React Grid Layout   |
-| Backend          | Scala 2.13, Apache Pekko HTTP, Slick, PostgreSQL         |
-| API contracts    | JSON Schema 2020-12                                      |
-| Frontend tooling | Vite, ESLint, Prettier, Jest                             |
-| Backend testing  | ScalaTest, embedded PostgreSQL (via `embedded-postgres`) |
+![The pipeline editor](docs/images/pipeline-editor.png)
 
-## Running Locally
+Pipelines produce **data types**: named, typed schemas that panels bind to. Because
+binding always goes through a pipeline output, a panel can never silently drift
+from the shape of its data.
 
-### Prerequisites
+## What you can build
 
-- Node.js 18+
-- JDK 21
-- sbt 1.x
-- PostgreSQL
+The dashboard below is built from Helio's own delivery record — 459 merged pull
+requests and 805 Linear tickets — ingested as two CSVs and shaped by five
+pipelines.
 
-### Backend
+![Delivery analytics dashboard](docs/images/delivery-analytics.png)
 
-Create a `.env` file in `backend/`:
+- **Panels** — chart (line, bar, pie, scatter), metric, table, timeline,
+  collection, markdown, text, image
+- **Pipelines** — 20 transformation ops, step-by-step preview, dry runs,
+  cron/interval schedules, and assertions that flag untrustworthy runs
+- **Metrics layer** — define a measure once, reuse it across panels
+- **Alerts** — threshold rules over pipeline output, with snooze and resolve
+- **Connectors** — reusable, encrypted credentials shared across sources
+- **Mobile** — installable PWA with a layout built for phones
+- **Sharing** — export and import dashboards as portable JSON
 
-```env
-DATABASE_URL=jdbc:postgresql://localhost:5432/helio?user=helio&password=secret
-```
+## Agent-native
 
-Start the server on port 8080:
+Helio is designed to be driven by agents as well as people. The same operations the
+UI performs are available over an **MCP server** (`helio-mcp/`), authenticated with
+a personal access token — list sources, author pipelines, create and bind panels,
+propose a whole dashboard, apply a patch set, undo it.
 
-```bash
-cd backend
-sbt run
-```
+The delivery-analytics dashboard above was built end to end through that server.
 
-### Frontend
+## Documentation
 
-```bash
-npm install
-npm run dev
-```
+|                                     |                                                      |
+| ----------------------------------- | ---------------------------------------------------- |
+| Local setup, database, environment  | [`docs/cloud-dev-setup.md`](docs/cloud-dev-setup.md) |
+| Architecture, commands, conventions | [`CLAUDE.md`](CLAUDE.md)                             |
+| Deployment and infrastructure       | [`docs/deployment.md`](docs/deployment.md)           |
+| Design language and UI standards    | [`DESIGN.md`](DESIGN.md)                             |
+| Contributing and code quality       | [`CONTRIBUTING.md`](CONTRIBUTING.md)                 |
+| API contracts                       | [`schemas/`](schemas/) and [`openspec/`](openspec/)  |
 
-The Vite dev server starts on port 5173 and proxies `/api` and `/health` to `localhost:8080`.
+## Stack
 
-## Development Commands
+React 19 · TypeScript · Redux Toolkit · Vite — frontend
+Scala 2.13 · Apache Pekko HTTP · Slick · PostgreSQL — backend
+Flyway migrations · JSON Schema 2020-12 contracts · Cloud Run + Firebase Hosting
 
-### Frontend (from `frontend/` or repo root)
+## Releases
 
-```bash
-npm run dev           # Start dev server
-npm run build         # Production build
-npm test              # Run Jest tests
-npm run lint          # ESLint (zero-warnings policy)
-npm run lint:fix      # Auto-fix lint issues
-npm run typecheck     # tsc --noEmit against frontend/tsconfig.json
-npm run format        # Format with Prettier
-npm run format:check  # Check formatting without modifying
-```
+Releases are cut with `/release <major.minor>`, which tags the release branch and
+publishes a changelog. Pushing a `v*` tag is what deploys.
 
-### Backend (from `backend/`)
+## License
 
-```bash
-sbt run   # Start server
-sbt test  # Run ScalaTest suite
-```
-
-## Deployment
-
-See [infra/README.md](infra/README.md) for Docker build, Cloud Run deployment, environment variables, and logging.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [`LICENSE`](LICENSE).
