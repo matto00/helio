@@ -7,11 +7,22 @@
 # prompting for confirmation.
 set -euo pipefail
 
+# Every network call is announced and bounded. A blackholed connection to
+# GitHub is otherwise indistinguishable from work in progress: `git fetch -q`
+# prints nothing and waits forever, which reads as a hung script.
+step() { printf '==> %s\n' "$*" >&2; }
+
+# Fail a stalled transfer instead of hanging: abort if throughput stays under
+# 1 KiB/s for 30s. Applies to every git network op below, fetch and push alike.
+export GIT_HTTP_LOW_SPEED_LIMIT="${GIT_HTTP_LOW_SPEED_LIMIT:-1024}"
+export GIT_HTTP_LOW_SPEED_TIME="${GIT_HTTP_LOW_SPEED_TIME:-30}"
+
 MM="${1:-}"
 [[ "$MM" =~ ^[0-9]+\.[0-9]+$ ]] || { echo "usage: cut-release.sh <major.minor>  e.g. 0.8" >&2; exit 1; }
 
 BRANCH="release/v${MM}"
-git fetch --all --tags --prune -q
+step "fetching refs and tags from origin"
+git fetch --all --tags --prune --progress
 
 if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
   LAST=$(git tag -l "v${MM}.*" --sort=-v:refname | head -1)
@@ -64,9 +75,13 @@ fi
 read -r -p "Push $BRANCH and tag $NEXT? This DEPLOYS. [y/N] " ans
 [ "$ans" = "y" ] || { echo "Aborted."; rm -f "$NOTES"; exit 0; }
 
-git push origin "${TARGET}:refs/heads/${BRANCH}"
+step "pushing $BRANCH -> $SHA8"
+git push --progress origin "${TARGET}:refs/heads/${BRANCH}"
+step "creating tag $NEXT"
 git tag -a "$NEXT" -F "$NOTES" "$TARGET"
-git push origin "$NEXT"
+step "pushing tag $NEXT (this triggers the deploy)"
+git push --progress origin "$NEXT"
+step "publishing GitHub Release $NEXT"
 gh release create "$NEXT" --title "$NEXT" --notes-file "$NOTES" --verify-tag
 rm -f "$NOTES"
 echo "Released $NEXT. Deploy triggered by the tag push."
