@@ -366,8 +366,13 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Run a pipeline to completion and write rows to its output DataType. The run is " +
         "SYNCHRONOUS: this returns only once rows exist, so it is safe to bind a panel immediately " +
-        "after. Returns { status, rowCount, outputDataTypeId }. Set dry=true to validate without " +
-        "persisting rows.",
+        "after. Returns { pipelineId, status, rowCount, sourceRowCount, outputDataTypeId, " +
+        "truncated, availableRowCount, truncationNotice }. rowCount is NOT guaranteed to be the " +
+        "source's complete row count: " +
+        "every run caps its source read at 1000 rows, and when the source (or a join/union/lookup " +
+        "secondary source) has more rows than that, truncated is true and truncationNotice explains " +
+        "exactly what was read vs. what exists — read it before treating a filter/sort/aggregate " +
+        "result as complete. Set dry=true to validate without persisting rows.",
       inputSchema: {
         pipelineId: z.string().min(1),
         dry: z.boolean().default(false),

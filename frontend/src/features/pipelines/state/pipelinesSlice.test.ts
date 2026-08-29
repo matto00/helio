@@ -1,6 +1,7 @@
 import {
   analyzePipeline,
   applyPipelineProposal,
+  clearRunState,
   createPipeline,
   deletePipelineSchedule,
   fetchPipelineById,
@@ -131,6 +132,9 @@ describe("pipelinesSlice", () => {
       runResult: null,
       runStepRowCounts: {},
       runSourceRowCount: null,
+      runSourceTruncated: false,
+      runSourceAvailableRowCount: null,
+      runTruncationNotice: null,
       analyzeResult: {},
       analyzeStatus: {},
       analyzeError: {},
@@ -341,6 +345,45 @@ describe("submitPipelineRun reducer", () => {
     expect(nextState.runId).toBeNull();
     expect(nextState.runStatus).toBeNull();
     expect(nextState.runError).toBe("Failed to start pipeline run.");
+  });
+});
+
+describe("clearRunState reducer (HEL-861 skeptic-final-1: stale banner-across-pipelines regression)", () => {
+  it("clears the truncation fields alongside every other run-scoped field", () => {
+    // Simulates the state left behind by a truncated run BEFORE navigating to a
+    // different pipeline — PipelineDetailPage's id-keyed effect cleanup dispatches
+    // clearRunState() on every pipeline switch (PipelineDetailPage.tsx:229-234).
+    const stateWithTruncation = pipelinesReducer(
+      undefined,
+      submitPipelineRun.fulfilled(
+        {
+          rowCount: 1000,
+          rows: [],
+          stepRowCounts: {},
+          sourceRowCount: 1000,
+          sourceTruncated: true,
+          sourceAvailableRowCount: 3303,
+          truncationNotice:
+            'Source "big-source" truncated: this run read the first 1000 rows returned, out of ' +
+            "3303 available, because of the 1000-row run cap.",
+        },
+        "req-1",
+        { pipelineId: "p-1" },
+      ),
+    );
+    // Precondition — the fixture actually carries truncation state before clearing.
+    expect(stateWithTruncation.runSourceTruncated).toBe(true);
+    expect(stateWithTruncation.runTruncationNotice).not.toBeNull();
+
+    const nextState = pipelinesReducer(stateWithTruncation, clearRunState());
+
+    expect(nextState.runSourceTruncated).toBe(false);
+    expect(nextState.runSourceAvailableRowCount).toBeNull();
+    expect(nextState.runTruncationNotice).toBeNull();
+    // Every sibling run-scoped field is cleared too — same reducer, same call.
+    expect(nextState.runId).toBeNull();
+    expect(nextState.runStatus).toBeNull();
+    expect(nextState.runResult).toBeNull();
   });
 });
 

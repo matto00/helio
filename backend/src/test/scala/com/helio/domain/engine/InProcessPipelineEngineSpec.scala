@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.model.{AssertionSink, CsvSourceConfig, ImageSourceConfig, PdfSourceConfig, RestApiConfig, TextSourceConfig}
+import com.helio.domain.model.{AssertionSink, CsvSourceConfig, ImageSourceConfig, PdfSourceConfig, RestApiConfig, TextSourceConfig, TruncationSink}
 import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, SqlSource, TextSource, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
@@ -2376,6 +2376,120 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val original = StepExecutionException.from("inner-step", "stringops", new IllegalArgumentException("bad op"))
       val wrapped  = StepExecutionException.from("outer-step", "outer-kind", original)
       wrapped shouldBe theSameInstanceAs(original)
+    }
+
+    // ── HEL-861: truncation reporting (design D1-D9, tasks 7.1-7.6b) ─────────
+
+    "MaxRunRows: the row cap is exactly 1000 (task 7.5 — catches a future change to the bound)" in {
+      InProcessPipelineEngine.MaxRunRows shouldBe 1000
+    }
+
+    "loadRowsWithStats: a REST source with more rows than the cap reports truncated with the true total (task 7.1)" in {
+      val totalRows = 3303
+      val bigRestConnector = new RestApiConnectorDriver(Some { _ =>
+        Future.successful(Right(JsArray(
+          (1 to totalRows).map(i => JsObject("id" -> JsNumber(i))).toVector
+        )))
+      })
+      val bigRestEngine = new InProcessPipelineEngine(fileSystem, bigRestConnector)
+      val ds = RestSource(
+        id        = DataSourceId("ds-rest-big"),
+        name      = "rest-src-big",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = RestApiConfig(connectorId = "https://rest-engine.test/big")
+      )
+      val (rows, stats) = Await.result(bigRestEngine.loadRowsWithStats(ds, null), 5.seconds)
+      rows should have size 1000
+      stats.truncated shouldBe true
+      stats.availableRowCount shouldBe Some(totalRows.toLong)
+    }
+
+    "loadRowsWithStats: a REST source with exactly 1000 rows is NOT truncated — no false positives (task 7.2)" in {
+      val exactRestConnector = new RestApiConnectorDriver(Some { _ =>
+        Future.successful(Right(JsArray(
+          (1 to 1000).map(i => JsObject("id" -> JsNumber(i))).toVector
+        )))
+      })
+      val exactRestEngine = new InProcessPipelineEngine(fileSystem, exactRestConnector)
+      val ds = RestSource(
+        id        = DataSourceId("ds-rest-exact"),
+        name      = "rest-src-exact",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = RestApiConfig(connectorId = "https://rest-engine.test/exact")
+      )
+      val (rows, stats) = Await.result(exactRestEngine.loadRowsWithStats(ds, null), 5.seconds)
+      rows should have size 1000
+      stats.truncated shouldBe false
+      stats.availableRowCount shouldBe Some(1000L)
+    }
+
+    "loadRowsWithStats: a SQL source with more rows than the cap proves truncation but reports no total (task 7.3)" in {
+      val ds = SqlSource(
+        id        = DataSourceId("ds-sql-big"),
+        name      = "sql-src-big",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = liveSqlConfig(query = "SELECT * FROM generate_series(1, 1001) AS n")
+      )
+      val (rows, stats) = Await.result(engine.loadRowsWithStats(ds, null), 5.seconds)
+      rows should have size 1000
+      stats.truncated shouldBe true
+      stats.availableRowCount shouldBe None
+    }
+
+    "loadRowsWithStats: an uncapped source kind (static) always reports not truncated (task 7.4)" in {
+      val ds = StaticSource(
+        id        = DataSourceId("ds-static-uncapped"),
+        name      = "static-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val staticConfigJson = buildStaticConfig(Seq("a"), Seq(Map[String, Any]("a" -> 1))).compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(Some(staticConfigJson))
+      }
+      val (_, stats) = Await.result(engine.loadRowsWithStats(ds, mockRepo), 5.seconds)
+      stats shouldBe SourceReadStats(truncated = false, availableRowCount = None)
+    }
+
+    "executeWithStepCounts: a union step reading a truncated secondary source records it into the caller's truncationSink, even when the primary is under the cap (task 7.6b)" in {
+      val primaryRows = Seq(Map[String, Any]("a" -> 1, "b" -> 2))
+      val bigUnionConnector = new RestApiConnectorDriver(Some { _ =>
+        Future.successful(Right(JsArray(
+          (1 to 1500).map(i => JsObject("a" -> JsNumber(i), "b" -> JsNumber(i * 2))).toVector
+        )))
+      })
+      val bigUnionEngine = new InProcessPipelineEngine(fileSystem, bigUnionConnector)
+      val secondaryDs = RestSource(
+        id        = DataSourceId("ds-union-truncated"),
+        name      = "union-secondary-truncated",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = RestApiConfig(connectorId = "https://rest-engine.test/union-big")
+      )
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
+          Future.successful(if (dsId.value == "ds-union-truncated") Some(secondaryDs) else None)
+      }
+      val step = makeStep("union", """{ "otherDataSourceId": "ds-union-truncated", "mode": "byPosition" }""")
+      val truncationSink = new TruncationSink
+      val (result, _) = Await.result(
+        bigUnionEngine.executeWithStepCounts(primaryRows, Seq(step), mockRepo, truncationSink = truncationSink),
+        5.seconds
+      )
+      result.size shouldBe (1 + 1000)
+      truncationSink.reads should have size 1
+      truncationSink.reads.head.dataSourceName shouldBe "union-secondary-truncated"
+      truncationSink.reads.head.rowsRead shouldBe 1000L
+      truncationSink.reads.head.availableRowCount shouldBe Some(1500L)
     }
   }
   // ── Helpers ─────────────────────────────────────────────────────────────────

@@ -68,6 +68,8 @@ export function PipelineDetailPage() {
     runResult,
     runStepRowCounts,
     runSourceRowCount,
+    runSourceTruncated,
+    runTruncationNotice,
     currentPipeline,
     currentPipelineStatus,
     currentPipelineError,
@@ -667,6 +669,20 @@ export function PipelineDetailPage() {
         isOwner={isOwner}
         onOpenShare={() => setShareOpen(true)}
       />
+
+      {/* ── HEL-861: run-truncation warning — shown only when the last run's source read (or a
+          join/union/lookup secondary read) was capped. Renders the server-composed notice
+          verbatim (design.md D7) so the human sees exactly what an MCP agent reads. ── */}
+      {runSourceTruncated && runTruncationNotice && (
+        <div className="pipeline-detail-page__truncation-banner" role="alert">
+          <span className="pipeline-detail-page__truncation-banner-icon" aria-hidden="true">
+            ⚠
+          </span>
+          <span className="pipeline-detail-page__truncation-banner-text">
+            {runTruncationNotice}
+          </span>
+        </div>
+      )}
 
       {/* ── River view ── */}
       <PipelineRiverView
