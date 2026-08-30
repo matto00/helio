@@ -18,12 +18,9 @@ object ComputeConfig {
 
   def decode(raw: String): ComputeConfig = {
     val obj        = StepCodecUtil.asObject(raw)
-    val column     = StepCodecUtil.stringOr(obj, "column", "")
-    val expression = StepCodecUtil.stringOr(obj, "expression", "")
-    val typ        = obj.fields.get("type") match {
-      case Some(JsString(s)) => Some(s)
-      case _                 => None
-    }
+    val column     = StepCodecUtil.str(obj, "column", "")
+    val expression = StepCodecUtil.str(obj, "expression", "")
+    val typ        = StepCodecUtil.strOpt(obj, "type")
     ComputeConfig(column, expression, typ)
   }
 }
@@ -41,6 +38,8 @@ final case class ComputeStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = ComputeStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
@@ -70,5 +69,15 @@ object ComputeStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[ComputeConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[ComputeConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[ComputeConfig].toJson
+
+    /** HEL-814 D3. An empty `column` makes the shipped requirement
+     *  ("SHALL append a new field named `column` to every row") write a field
+     *  named `""` into the output DataType — HEL-888's bug, and the case the
+     *  production measurement found. Saving it stays legal (D2); running or
+     *  analyzing it does not. See this change's `pipeline-compute-op` delta. */
+    override def requiredConfigProblems(raw: String): Vector[String] = {
+      val cfg = ComputeConfig.decode(raw)
+      StepCodecUtil.missingRequired(Kind, "column" -> cfg.column, "expression" -> cfg.expression)
+    }
   }
 }

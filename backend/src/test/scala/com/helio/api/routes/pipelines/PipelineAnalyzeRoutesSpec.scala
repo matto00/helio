@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
 import com.helio.api.protocols.pipelines.{SchemaFieldResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
-import com.helio.domain.{AggregateConfig, AggregateField, Aggregation, ChunkByTokenCountConfig, ExtractHeadingsConfig, GroupByConfig, JoinConfig, PivotConfig, RenameConfig, SelectConfig, SplitTextConfig, UnionConfig, WindowConfig}
+import com.helio.domain.{AggregateConfig, AggregateField, Aggregation, CastConfig, ChunkByTokenCountConfig, ExtractHeadingsConfig, GroupByConfig, JoinConfig, PivotConfig, RenameConfig, SelectConfig, SplitTextConfig, StepConfigTypeMismatch, UnionConfig, WindowConfig}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -464,7 +464,22 @@ class PipelineAnalyzeRoutesSpec
     // {"casts":{}} — never mistyped — and this test would assert nothing; the
     // raw sqlu INSERT below is load-bearing, matching the mechanism the
     // pre-assertion below is bound to.
-    "does NOT report a validationError for a persisted cast step with a raw list-shaped casts config (2.1a negative — round-trip destroys the mistype)" in {
+    // HEL-814 task 2.7 (sibling of the PipelineStepRoutesSpec change).
+    // PROOF that D1 took effect on the STORED-pipeline analyze surface.
+    //
+    // Previously this asserted 200 + `validationError` None, because the
+    // tolerant read decoder reduced the mistyped `casts` to `Map.empty`
+    // before `inferCast` ever saw it — the round-trip destroyed the mistype.
+    // Under D1 the mistype is no longer destroyed: the stored row fails to
+    // decode, `rowToDomain` raises, and the request is a 500.
+    //
+    // The shipped `pipeline-step-config-validation` scenario "The
+    // stored-pipeline analyze surface cannot report such a key" is what this
+    // asserts, in its strongest form: the configuration cannot be decoded for
+    // analysis AT ALL. The defect is prevented at write time (section 3) and
+    // on read (D1), not reported here. See the same narrowing, with its
+    // measurement, in PipelineStepRoutesSpec.
+    "a persisted cast step with a raw list-shaped casts config now FAILS the analyze read rather than being silently reduced to an empty cast map (HEL-814 D1)" in {
       cleanPipelines()
       val sourceFields = """[{"name":"amount","displayName":"Amount","dataType":"string","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
@@ -485,18 +500,13 @@ class PipelineAnalyzeRoutesSpec
       )).head
       storedConfig shouldBe mistypedConfig
 
+      // Bound to the mechanism rather than to a bare status code: the exact
+      // stored text raises, naming the offending key.
+      val thrown = intercept[StepConfigTypeMismatch] { CastConfig.decode(mistypedConfig) }
+      thrown.getMessage should include("casts")
+
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
-        status shouldBe StatusCodes.OK
-        val resp = responseAs[PipelineAnalyzeResponse]
-        resp.steps should have size 1
-        val step = resp.steps(0)
-        step.`type` shouldBe "cast"
-        // The tolerant read-path decoder already reduced `casts` to Map.empty
-        // by the time this reaches inferCast, which re-encodes to a VALID
-        // empty object — no validationError is possible here for a stored
-        // row. This is exactly what section 3's write-path check exists to
-        // prevent from being created in the first place.
-        step.validationError shouldBe None
+        status shouldBe StatusCodes.InternalServerError
       }
     }
   }

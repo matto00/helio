@@ -24,10 +24,17 @@ object SplitTextConfig {
 
   def decode(raw: String): SplitTextConfig = {
     val obj          = StepCodecUtil.asObject(raw)
-    val field        = StepCodecUtil.stringOr(obj, "field", "")
-    val mode         = StepCodecUtil.stringOr(obj, "mode", "paragraph")
-    val headingLevel = StepCodecUtil.intOr(obj, "headingLevel", 1)
-    val indexField   = StepCodecUtil.stringOr(obj, "indexField", "segmentIndex")
+    val field        = StepCodecUtil.str(obj, "field", "")
+    // HEL-814 D4/5.1b: normalize a case-variant, pass an unknown `mode`
+    // through unchanged. Defaulting an unrecognised mode to "paragraph" was
+    // never a specced guarantee (see spec-tolerance-enumeration.md), so this
+    // removes unspecced silent coercion rather than reversing a promise.
+    val mode         = StepCodecUtil.normalizeEnum(
+      StepCodecUtil.str(obj, "mode", "paragraph"),
+      SplitTextStep.SupportedModes
+    )
+    val headingLevel = StepCodecUtil.int(obj, "headingLevel", 1)
+    val indexField   = StepCodecUtil.str(obj, "indexField", "segmentIndex")
     SplitTextConfig(field, mode, headingLevel, indexField)
   }
 }
@@ -57,6 +64,8 @@ final case class SplitTextStep(
 ) extends PipelineStep {
   val kind: String = SplitTextStep.Kind
 
+  def configValue: Any = config
+
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
@@ -65,6 +74,9 @@ final case class SplitTextStep(
 
 object SplitTextStep {
   val Kind: String = "splittext"
+
+  /** HEL-814 D4: the engine's own `mode` set. */
+  val SupportedModes: Vector[String] = Vector("paragraph", "heading")
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: SplitTextConfig): Seq[PipelineRowJson.Row] = {
     val field      = cfg.field
@@ -117,5 +129,16 @@ object SplitTextStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[SplitTextConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[SplitTextConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[SplitTextConfig].toJson
+
+    /** HEL-814 D3/D4. `field` is required (`pipeline-split-text-op:9-12`
+     *  declares `headingLevel` and `indexField` with defaults and `field`
+     *  with none; an empty `field` drops every row per `:12-13`). An unknown
+     *  `mode` is rejected — the previous silent default to `"paragraph"` was
+     *  never a specced guarantee. */
+    override def requiredConfigProblems(raw: String): Vector[String] = {
+      val cfg = SplitTextConfig.decode(raw)
+      StepCodecUtil.missingRequired(Kind, "field" -> cfg.field) ++
+        StepCodecUtil.unsupportedEnum(Kind, "mode", cfg.mode, SupportedModes)
+    }
   }
 }

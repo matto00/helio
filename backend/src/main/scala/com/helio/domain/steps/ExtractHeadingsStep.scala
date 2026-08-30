@@ -25,9 +25,9 @@ object ExtractHeadingsConfig {
 
   def decode(raw: String): ExtractHeadingsConfig = {
     val obj        = StepCodecUtil.asObject(raw)
-    val field      = StepCodecUtil.stringOr(obj, "field", "")
-    val indexField = StepCodecUtil.stringOr(obj, "indexField", "headingIndex")
-    val levelField = StepCodecUtil.stringOr(obj, "levelField", "headingLevel")
+    val field      = StepCodecUtil.str(obj, "field", "")
+    val indexField = StepCodecUtil.str(obj, "indexField", "headingIndex")
+    val levelField = StepCodecUtil.str(obj, "levelField", "headingLevel")
     ExtractHeadingsConfig(field, indexField, levelField)
   }
 }
@@ -56,6 +56,8 @@ final case class ExtractHeadingsStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = ExtractHeadingsStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
@@ -105,5 +107,11 @@ object ExtractHeadingsStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[ExtractHeadingsConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[ExtractHeadingsConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[ExtractHeadingsConfig].toJson
+
+    /** HEL-814 D3. `pipeline-extract-headings-op:9-11` declares `indexField`
+     *  and `levelField` with explicit defaults and `field` with none; an
+     *  empty `field` drops every row per `:11-12`. */
+    override def requiredConfigProblems(raw: String): Vector[String] =
+      StepCodecUtil.missingRequired(Kind, "field" -> ExtractHeadingsConfig.decode(raw).field)
   }
 }

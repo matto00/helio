@@ -4,7 +4,7 @@ import com.helio.services.patchsets.RefinementEditShape
 import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.api.protocols.patchsets.{Edit, PatchSetProtocol}
 import com.helio.domain.panels.{ChartPanelConfig, CollectionPanelConfig, MetricPanelConfig, TablePanelConfig, TimelinePanelConfig}
-import com.helio.domain.steps.{AggregateConfig, GroupByConfig, JoinConfig, PivotConfig, UnpivotConfig, WindowConfig}
+import com.helio.domain.steps.{AggregateConfig, GroupByConfig, JoinConfig, PivotConfig, StepConfigTypeMismatch, UnpivotConfig, WindowConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -251,6 +251,29 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
   // assertion. This is what makes "the tolerance HEL-671 exists to reason about is real" a tested
   // fact rather than a code-read/doc-comment inference.
 
+  // HEL-814 UPDATE — the outcome of the warning below, recorded so the counts
+  // are not read as a shortfall. HEL-814 landed and **3 of these 4 tests
+  // flipped**; the `join` one did not, deliberately.
+  //
+  //  * `pivot`, `unpivot`, `window` supply a key that is PRESENT but of the
+  //    WRONG JSON TYPE (a string where an array is declared, a bare string
+  //    where an order-key object is declared). D1 makes exactly that raise.
+  //    Those three are now PROOF that the hardening worked.
+  //  * `join` hinges on `joinKey` being ABSENT, not mistyped. Absence stays
+  //    tolerant on read (D1) and is deliberately not rejected on write (D2),
+  //    because a step added and not yet configured is a legitimate,
+  //    currently-occurring production state and `rowToDomain` turns a decode
+  //    failure into a 500 — making absence raise would break opening the
+  //    pipeline editor. Its completeness is enforced instead at RUN and
+  //    ANALYZE time (D3), which is where an unconfigured `joinKey` now fails.
+  //    It keeps its original assertion and is relabelled a GUARD below.
+  //
+  // The lost flip is replaced by a NEW proof in `PatchSetPreviewServiceSpec`:
+  // preview rejects a `join` edit whose `joinKey` is present but of the wrong
+  // JSON type. Three honest flips and one correctly-labelled guard is the
+  // accurate outcome; contriving a fourth would be worse than not having it.
+  //
+  // ── Original HEL-671 note, kept verbatim for provenance ────────────────
   // CHARACTERIZATION-TEST WARNING (added post skeptic-final-2.md CONFIRM): the 4 tests below
   // deliberately assert the CURRENT silently-tolerant decoder behavior (`joinKey shouldBe ""`,
   // `index shouldBe empty`, `orderBy shouldBe empty`, etc.) as EXPECTED for HEL-671's scope
@@ -261,45 +284,91 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
   // to INVERT each assertion (e.g. assert `JoinConfig.decode(wrongShape)` raises, rather than that
   // it returns a degraded value) — never to weaken the assertion or revert the hardening just to
   // turn these tests green again.
-  "The real config decoders' silent-tolerance behavior on a hand-constructed WRONG-SHAPE config (negative control)" should {
+  "The real config decoders' behavior on a hand-constructed WRONG-SHAPE config (negative control)" should {
 
-    "join: an edit missing joinKey silently decodes to joinKey = \"\" (no exception, no signal)" in {
-      val wrongShape = """{"rightDataSourceId": "src_456", "joinType": "inner"}"""
-      val decoded = JoinConfig.decode(wrongShape)
+    // GUARD (HEL-814 task 6.3) — NOT a reverted hardening, and not a weakened
+    // assertion. `joinKey` is ABSENT here, not mistyped, and D1 keeps absence
+    // tolerant on the read path by design: every read of a stored step decodes
+    // its config, so raising here would 500 the pipeline editor for any step a
+    // user added and has not finished configuring (20 such rows measured live
+    // across dev and prod). The corruption this value used to cause is closed
+    // at run and analyze time instead — see `PipelineStepRequiredConfigSpec`,
+    // which proves a `join` step with an empty `joinKey` now fails the run
+    // naming the step and the field.
+    //
+    // Failable by mutation, not by reverting the fix: make `StepCodecUtil.str`
+    // raise on an absent key and this goes red.
+    "GUARD: join — an edit OMITTING joinKey still decodes to joinKey = \"\" (absence is deliberately tolerant on read)" in {
+      val absentKey = """{"rightDataSourceId": "src_456", "joinType": "inner"}"""
+      val decoded = JoinConfig.decode(absentKey)
 
       decoded.rightDataSourceId shouldBe "src_456"
-      decoded.joinKey shouldBe "" // silently defaulted — the real degradation this ticket is about
+      decoded.joinKey shouldBe ""
       decoded.joinType shouldBe "inner"
     }
 
-    "pivot: a non-array index silently decodes to an EMPTY index vector (no exception, no signal)" in {
+    // PROOF (HEL-814 task 6.1) — flipped. `index` is declared as an array of
+    // source column names; a bare string cannot represent it. This used to
+    // decode to an EMPTY index, which pivots every row into one group — a
+    // plausible-looking result that is not what was configured.
+    "PROOF: pivot — a non-array index FAILS the config rather than decoding to an empty index vector" in {
       val wrongShape = """{"index": "region", "column": "quarter", "values": "revenue", "agg": "sum"}"""
-      val decoded = PivotConfig.decode(wrongShape)
-
-      decoded.index shouldBe empty // silently defaulted from a non-JsArray "index"
-      decoded.column shouldBe "quarter"
+      val thrown = intercept[StepConfigTypeMismatch] { PivotConfig.decode(wrongShape) }
+      thrown.getMessage should include("index")
+      thrown.getMessage should include("an array of strings")
+      thrown.getMessage should include("got a string")
     }
 
-    "unpivot: a bare-string valueVars AND a missing varName both silently decode to degraded values" in {
+    // PROOF (HEL-814 task 6.1) — flipped. A bare-string `valueVars` used to
+    // decode to an EMPTY vector, which makes unpivot emit
+    // `(rows * 0) == 0` output rows: the whole dataset silently vanishes.
+    //
+    // Note this test can no longer also assert `varName shouldBe "variable"`,
+    // because `valueVars` now raises first. That absence-default assertion is
+    // not lost — it moved into the task-2.5 guard immediately below.
+    "PROOF: unpivot — a bare-string valueVars FAILS the config rather than decoding to an empty vector" in {
       val wrongShape = """{"idVars": ["region"], "valueVars": "q1", "valueName": "revenue"}"""
-      val decoded = UnpivotConfig.decode(wrongShape)
-
-      decoded.idVars should contain("region")
-      decoded.valueVars shouldBe empty // silently defaulted from a non-JsArray "valueVars"
-      decoded.varName shouldBe "variable" // StepCodecUtil.stringOr's own hardcoded default, not "" — still a
-      // SILENT substitution for a value the caller never actually provided, i.e. the same defect class
+      val thrown = intercept[StepConfigTypeMismatch] { UnpivotConfig.decode(wrongShape) }
+      thrown.getMessage should include("valueVars")
+      thrown.getMessage should include("got a string")
     }
 
-    "window: plain-string orderBy entries are silently DROPPED (item-level flatMap-drop), and a non-array partitionBy silently defaults to empty" in {
-      val wrongShape =
-        """{"partitionBy": "region", "orderBy": ["revenue"], "function": "row_number", "outputColumn": "rank"}"""
-      val decoded = WindowConfig.decode(wrongShape)
+    // GUARD (HEL-814 task 2.5) — the assertion displaced from the unpivot
+    // proof above, re-sited so the coverage is not lost. An ABSENT `varName`
+    // still takes its documented default (`pipeline-unpivot-op:11`, named
+    // scenario "Default varName/valueName apply when omitted from config"),
+    // and an EMPTY-but-correctly-typed array is still an empty array rather
+    // than a failure. Failable by mutation: make `str`/`stringArray` raise on
+    // an absent or empty value and this goes red.
+    "GUARD: unpivot — an absent varName still defaults to \"variable\", and empty-but-correctly-typed arrays still decode" in {
+      val absentAndEmpty = """{"idVars": [], "valueVars": [], "valueName": "revenue"}"""
+      val decoded = UnpivotConfig.decode(absentAndEmpty)
 
-      decoded.partitionBy shouldBe empty // silently defaulted from a non-JsArray "partitionBy"
-      decoded.orderBy shouldBe empty // the plain-string "revenue" entry doesn't convertTo[SortKey] and is
-      // silently DROPPED by the flatMap(...).toOption pattern — the same mechanism AggregateConfig/
-      // GroupByConfig had before HEL-411's fix
-      decoded.function shouldBe "row_number"
+      decoded.varName shouldBe "variable"
+      decoded.valueName shouldBe "revenue"
+      decoded.idVars shouldBe empty
+      decoded.valueVars shouldBe empty
+    }
+
+    // PROOF (HEL-814 task 6.1) — flipped, and it covers BOTH mechanisms in
+    // one config. `partitionBy` is a non-array (whole-value mismatch) and
+    // `orderBy` holds a bare string where an order-key object is declared
+    // (ELEMENT mismatch). The element case is the more important half: the
+    // old `flatMap(...).toOption` DROPPED the bad element and kept its
+    // siblings, producing a PARTIALLY decoded collection, which is strictly
+    // worse than a total failure because it looks plausible.
+    "PROOF: window — a non-array partitionBy and a plain-string orderBy element each FAIL the whole config rather than being defaulted or dropped" in {
+      val wrongPartitionBy =
+        """{"partitionBy": "region", "orderBy": [], "function": "row_number", "outputColumn": "rank"}"""
+      val partitionByFailure = intercept[StepConfigTypeMismatch] { WindowConfig.decode(wrongPartitionBy) }
+      partitionByFailure.getMessage should include("partitionBy")
+      partitionByFailure.getMessage should include("got a string")
+
+      val droppedOrderByElement =
+        """{"partitionBy": ["region"], "orderBy": ["revenue"], "function": "row_number", "outputColumn": "rank"}"""
+      val orderByFailure = intercept[StepConfigTypeMismatch] { WindowConfig.decode(droppedOrderByElement) }
+      orderByFailure.getMessage should include("orderBy")
+      orderByFailure.getMessage should include("{field, direction}")
     }
   }
 }

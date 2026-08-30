@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.model.{AuthenticatedUser, UserId}
+import com.helio.domain.{CastConfig, StepConfigTypeMismatch}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -1016,17 +1017,61 @@ class PipelineStepRoutesSpec
       }
     }
 
-    // AC3: a legacy-shaped stored row (list-shaped casts, pre-dating this
-    // change) still decodes through the READ path unchanged — this change
-    // only adds a WRITE-path check; CastConfig.decode's tolerance is
-    // untouched. Mirrors task 2.1a's raw-insert seeding mechanism.
-    "GET /pipelines/:id/steps still decodes a legacy list-shaped stored casts config unchanged (AC3, 4.6)" in {
+    // HEL-814 task 2.6 — PROOF that D1 took effect, not incidental churn.
+    //
+    // This test previously asserted (as HEL-860's AC3) that a legacy
+    // list-shaped stored `casts` row still returned 200 with an EMPTY cast
+    // map, "because this change only adds a WRITE-path check". HEL-814
+    // knowingly NARROWS that read-tolerance guarantee for the wrong-TYPE half:
+    // a stored key present but of a JSON type that cannot represent the
+    // field now fails to decode, and `PipelineStepRepository.rowToDomain`
+    // turns that decode failure into a 500.
+    //
+    // Why that narrowing is acceptable, and why it is only the wrong-TYPE
+    // half: 0 of 233 configs measured across dev and prod carry a wrong-type
+    // value, so no real row is reachable — whereas ABSENT and EMPTY keys have
+    // 20 real rows behind them (steps a user added and has not configured
+    // yet) and stay fully tolerant, which is why the sibling test below still
+    // asserts a 200. Reversing that half instead would have turned a silently
+    // degraded run into a failure to open the pipeline editor at all.
+    //
+    // The residual risk this asserts is real and is stated in the PR: a
+    // wrong-type row created between the measurement and the deploy would
+    // become a 500 on listing rather than a silently degraded read.
+    "GET /pipelines/:id/steps now FAILS to decode a legacy list-shaped stored casts config, instead of returning an empty cast map (HEL-814 D1, narrowing HEL-860 AC3)" in {
       cleanSteps(); val pid = seedPipeline()
       import PostgresProfile.api._
       val stepId = UUID.randomUUID().toString
       await(db.run(sqlu"""
         INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled)
         VALUES ($stepId, $pid, 0, 'cast', '{"casts":[{"field":"amount","to":"double"}]}', true)
+      """))
+
+      // Bound to the mechanism, not just the status: the same raw config the
+      // row holds is asserted to raise `StepConfigTypeMismatch` naming the
+      // offending key, so this cannot pass for some unrelated 500.
+      val thrown = intercept[StepConfigTypeMismatch] {
+        CastConfig.decode("""{"casts":[{"field":"amount","to":"double"}]}""")
+      }
+      thrown.getMessage should include("casts")
+      thrown.getMessage should include("got an array")
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.InternalServerError
+      }
+    }
+
+    // GUARD (HEL-814 task 2.5 / 7.5), sited next to the proof above so the
+    // pair is legible in one place: the ABSENT half of HEL-860's read
+    // tolerance is untouched. Failable by mutation — make `stringMap` raise
+    // on an absent key and this goes red while the proof above stays green.
+    "GET /pipelines/:id/steps still returns 200 for a stored cast row that OMITS casts entirely (absence stays tolerant)" in {
+      cleanSteps(); val pid = seedPipeline()
+      import PostgresProfile.api._
+      val stepId = UUID.randomUUID().toString
+      await(db.run(sqlu"""
+        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled)
+        VALUES ($stepId, $pid, 0, 'cast', '{}', true)
       """))
 
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {

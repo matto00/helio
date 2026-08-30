@@ -220,6 +220,27 @@ private[services] object PatchSetApplyResolvers {
     request.config match {
       case None => Future.successful(Right(()))
       case Some(cfgJson) =>
+        // HEL-814 D0/D2 — THE defect this ticket names. `validateRawConfig`
+        // has existed since HEL-860 and is wired into
+        // `PipelineService.addStep`/`updateStep`, but NOT here, so preview and
+        // refinement apply checked only decode Success/Failure — precisely the
+        // check the ticket identifies as insufficient, because a tolerant
+        // decoder turns a wrong-shape config into a plausible-looking one.
+        // It runs BEFORE the decode and referential checks below so a caller
+        // gets the specific "which key, what shape" message rather than the
+        // generic "invalid config" one.
+        //
+        // Status is 422 (UnprocessableEntity), matching
+        // `pipeline-step-config-rejection`'s 422 for the create/update
+        // surfaces — this is the same rejection, applied at a different
+        // surface, so it gets the same status. Deliberately NOT the
+        // BadRequest (400) this function emits for a decode failure: that one
+        // means "unparseable", this one means "understood and refused".
+        PipelineStep.companionFor(existing.kind).toOption
+          .flatMap(_.validateRawConfig(cfgJson.compactPrint)) match {
+          case Some(msg) =>
+            Future.successful(Left(ServiceError.UnprocessableEntity(s"edit $index: $msg")))
+          case None =>
         PipelineStepConfigCodec.decode(existing.kind, cfgJson.compactPrint) match {
           case Failure(_) =>
             Future.successful(Left(ServiceError.BadRequest(s"edit $index: invalid '${existing.kind}' config")))
@@ -239,6 +260,7 @@ private[services] object PatchSetApplyResolvers {
               case Some(_) => Right(())
             }
           case Success(_) => Future.successful(Right(()))
+        }
         }
     }
 

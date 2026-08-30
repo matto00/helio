@@ -3,14 +3,14 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.PipelineProposalService
-import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource}
+import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineProposal, PipelineProposalSource}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.mockito.Mockito.{mock, verifyNoInteractions, when}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import spray.json.JsString
+import spray.json._
 
 import java.time.Instant
 import java.util.UUID
@@ -69,6 +69,61 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       val result = await(newService(dsRepo).validate(proposal(existingSourceRef(sourceId.value)), user))
 
       result shouldBe Right(())
+    }
+
+    // ══ HEL-814 task 7.2b — PROOF, shown red before the fix ═══════════════
+    //
+    // The second surface that checked only decode Success/Failure. Because
+    // the decoder is contractually tolerant, a wrong-shape config used to
+    // decode "successfully" into a degraded value and the proposal applied
+    // clean — an MCP-authored `window` step whose `partitionBy` was a string
+    // would have been stored with an EMPTY partition list, silently computing
+    // the window over the whole dataset instead of per partition.
+    //
+    // Asserted on the specific 422 and a message naming the key, never merely
+    // on `Left`: this surface also emits a 400 BadRequest for a config that
+    // does not parse, so accepting any `Left` would pass with the
+    // `validateRawConfig` wiring omitted entirely.
+    "reject a proposal step whose window partitionBy holds a string rather than an array, with a 422 naming the key (HEL-814)" in {
+      val sourceId = DataSourceId(UUID.randomUUID().toString)
+      val dsRepo   = mock(classOf[DataSourceRepository])
+      when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
+
+      val badStep = CreatePipelineStepRequest(
+        `type`   = "window",
+        config   = """{"partitionBy":"region","orderBy":[],"function":"row_number","outputColumn":"rn"}""".parseJson.asJsObject,
+        position = None,
+        enabled  = None
+      )
+      val withBadStep = proposal(existingSourceRef(sourceId.value)).copy(steps = Vector(badStep))
+
+      val err = await(newService(dsRepo).validate(withBadStep, user)).swap.toOption.get
+      err shouldBe a[ServiceError.UnprocessableEntity]
+      err.message should include("partitionBy")
+      err.message should include("an array of strings")
+      err.message should include("window")
+      err.message should include("step 1")
+    }
+
+    // GUARD, sited next to the proof: an INCOMPLETE draft step is still
+    // accepted by this surface. D2 rejects wrong-TYPE values only, so a
+    // proposal carrying a not-yet-configured step stays applicable.
+    // Failable by mutation: make `validateRawConfig` reject an empty string
+    // and this goes red while the proof above stays green.
+    "GUARD: still accept a proposal step whose required values are empty (a draft, not a wrong shape)" in {
+      val sourceId = DataSourceId(UUID.randomUUID().toString)
+      val dsRepo   = mock(classOf[DataSourceRepository])
+      when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
+
+      val draftStep = CreatePipelineStepRequest(
+        `type`   = "compute",
+        config   = """{"column":"","expression":""}""".parseJson.asJsObject,
+        position = None,
+        enabled  = None
+      )
+      val withDraft = proposal(existingSourceRef(sourceId.value)).copy(steps = Vector(draftStep))
+
+      await(newService(dsRepo).validate(withDraft, user)) shouldBe Right(())
     }
 
     "reject a blank pipelineName before any repository lookup" in {

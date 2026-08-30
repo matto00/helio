@@ -18,11 +18,8 @@ object RenameConfig {
   /** Tolerant decoder used at the persistence boundary — a partial config
    *  (e.g. `{}` from a legacy row) decodes to `RenameConfig(Map.empty)`. */
   def decode(raw: String): RenameConfig = {
-    val obj = StepCodecUtil.asObject(raw)
-    val renames = obj.fields.get("renames") match {
-      case Some(o: JsObject) => Try(o.convertTo[Map[String, String]]).getOrElse(Map.empty)
-      case _                 => Map.empty[String, String]
-    }
+    val obj     = StepCodecUtil.asObject(raw)
+    val renames = StepCodecUtil.stringMap(obj, "renames", RenameStep.RenamesShape)
     RenameConfig(renames)
   }
 }
@@ -41,6 +38,8 @@ final case class RenameStep(
 ) extends PipelineStep {
   val kind: String = RenameStep.Kind
 
+  def configValue: Any = config
+
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
@@ -49,6 +48,12 @@ final case class RenameStep(
 
 object RenameStep {
   val Kind: String = "rename"
+
+  /** HEL-860's per-key shape wording for `renames`. Deliberately NOT shared
+   *  with `cast`'s: both are `Map[String, String]` at the type level but mean
+   *  entirely different things, and one shared string is actively wrong for
+   *  one of them. */
+  val RenamesShape: String = "from-field-name to to-field-name"
 
   /** Pure transformation logic — extracted so non-engine callers (tests,
    *  spark submitter) can exercise it without spinning up an
@@ -73,11 +78,16 @@ object RenameStep {
     // non-string values) must be rejected on write rather than silently
     // decoded to Map.empty (RenameConfig.decode's read-path tolerance is
     // unchanged).
+    // HEL-814: see CastStep's companion for why this is guarded.
     override def validateRawConfig(raw: String): Option[String] =
-      StepCodecUtil.requireStringMap(
-        StepCodecUtil.asObject(raw), "renames", Kind,
-        shapeDescription = "from-field-name to to-field-name",
-        example          = "{\"renames\": {\"amount\": \"total_amount\"}}"
-      )
+      scala.util.Try(StepCodecUtil.asObject(raw)).toOption
+        .flatMap(obj =>
+          StepCodecUtil.requireStringMap(
+            obj, "renames", Kind,
+            shapeDescription = RenamesShape,
+            example          = "{\"renames\": {\"amount\": \"total_amount\"}}"
+          )
+        )
+        .orElse(strictDecodeProblem(raw))
   }
 }

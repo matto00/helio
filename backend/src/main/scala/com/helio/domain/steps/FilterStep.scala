@@ -30,12 +30,17 @@ object FilterConfig {
    *  defaults to empty. */
   def decode(raw: String): FilterConfig = {
     val obj        = StepCodecUtil.asObject(raw)
-    val combinator = StepCodecUtil.stringOr(obj, "combinator", "AND")
-    val conditions = obj.fields.get("conditions") match {
-      case Some(JsArray(items)) =>
-        items.flatMap(it => Try(it.convertTo[FilterCondition]).toOption)
-      case _ => Vector.empty[FilterCondition]
-    }
+    // HEL-814 D4/5.1b: normalize a case-variant ("and" -> "AND") and pass an
+    // UNKNOWN combinator through unchanged. Silently yielding "AND" for an
+    // unrecognised value turns an OR filter into an AND filter — it changes
+    // WHICH ROWS SURVIVE, the highest-severity finding in the enumeration.
+    val combinator = StepCodecUtil.normalizeEnum(
+      StepCodecUtil.str(obj, "combinator", "AND"),
+      FilterStep.SupportedCombinators
+    )
+    val conditions = StepCodecUtil.typedArray[FilterCondition](
+      obj, "conditions", "an array of {field, operator, value} objects"
+    )
     FilterConfig(combinator, conditions)
   }
 }
@@ -54,6 +59,8 @@ final case class FilterStep(
 ) extends PipelineStep {
   val kind: String = FilterStep.Kind
 
+  def configValue: Any = config
+
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
@@ -62,6 +69,10 @@ final case class FilterStep(
 
 object FilterStep {
   val Kind: String = "filter"
+
+  /** HEL-814 D4: the engine's own combinator set, used BOTH by the runtime
+   *  match below and by the analyze/run validator — never a copy. */
+  val SupportedCombinators: Vector[String] = Vector("AND", "OR")
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: FilterConfig): Seq[PipelineRowJson.Row] = {
     val conditions = cfg.conditions
@@ -140,5 +151,12 @@ object FilterStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[FilterConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[FilterConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[FilterConfig].toJson
+
+    /** HEL-814 D4. `conditions` stays optional — `pipeline-filter-op:11`
+     *  guarantees an empty array passes all rows. An unknown `combinator` is
+     *  rejected: silently yielding `AND` turns an OR filter into an AND
+     *  filter, changing WHICH ROWS SURVIVE. */
+    override def requiredConfigProblems(raw: String): Vector[String] =
+      StepCodecUtil.unsupportedEnum(Kind, "combinator", FilterConfig.decode(raw).combinator, SupportedCombinators)
   }
 }

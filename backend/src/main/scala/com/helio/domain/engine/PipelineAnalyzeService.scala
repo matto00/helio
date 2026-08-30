@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.model.DataType
+import com.helio.domain.model.{DataType, PipelineStep}
 import com.helio.domain.steps.{
   AggregateConfig, AggregateStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
   JoinConfig, JoinStep, PivotConfig, PivotStep, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep,
@@ -107,9 +107,39 @@ object PipelineAnalyzeService {
     // exception here so a malformed config falls through to the unchanged
     // downstream handling rather than this hook reporting a different
     // (untyped, unaudited) validationError for the same root cause.
+    val companion = PipelineStep.companionFor(kind).toOption
+
+    // HEL-814: a key that is PRESENT but of the wrong JSON type. Computed
+    // FIRST and OUTSIDE the try/catch below, because it is the one problem
+    // whose detection must not depend on the config decoding: under D1 the
+    // decoder raises for exactly this input, and the catch-all below would
+    // swallow that into `Vector.empty`, leaving the caller with no message at
+    // all. `validateRawConfig` reads the RAW config and RETURNS the problem
+    // rather than throwing, so it survives.
+    //
+    // This is what keeps the shipped `pipeline-step-config-validation`
+    // guarantee true for the PROPOSAL analyze surface — "reports configuration
+    // keys which a step's tolerant persistence decoder would silently reduce
+    // to an empty default" — now that the decoder rejects them instead of
+    // reducing them. The STORED analyze surface never reaches here for such a
+    // config, because `rowToDomain` cannot read the row at all; that
+    // asymmetry is the delta's "the stored-pipeline analyze surface cannot
+    // report such a key" scenario.
+    val shapeRejection: Vector[String] = companion.flatMap(_.validateRawConfig(config)).toVector
+
     val problems: Vector[String] =
+      if (shapeRejection.nonEmpty) shapeRejection
+      else
       try {
-        kind match {
+        // HEL-814 D3/D4: the step kind's own required-config + enum/numeric
+        // declaration, evaluated against the SAME raw config string the run
+        // path evaluates it against (see
+        // `InProcessPipelineEngine.requiredConfigProblems`). Combined with the
+        // pre-existing per-kind validators below rather than replacing them,
+        // so multiple failures on one step still join into a single
+        // `validationError` instead of one silently winning.
+        val declared: Vector[String] = companion.map(_.requiredConfigProblems(config)).getOrElse(Vector.empty)
+        declared ++ (kind match {
           case StringOpsStep.Kind => validateStringOps(config)
           case FillNullStep.Kind  => validateFillNull(config)
           case WindowStep.Kind    => validateWindow(config)
@@ -119,7 +149,7 @@ object PipelineAnalyzeService {
           case UnionStep.Kind     => validateUnion(config)
           case JoinStep.Kind      => validateJoin(config)
           case _                  => Vector.empty
-        }
+        })
       } catch {
         case _: Exception => Vector.empty
       }

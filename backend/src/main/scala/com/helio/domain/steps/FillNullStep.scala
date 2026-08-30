@@ -24,13 +24,10 @@ object FillNullConfig {
    *  error, mirroring `WindowConfig.decode`'s missing-`function` handling),
    *  missing `value` defaults to `None`. */
   def decode(raw: String): FillNullConfig = {
-    val obj     = StepCodecUtil.asObject(raw)
-    val columns = obj.fields.get("columns") match {
-      case Some(JsArray(items)) => items.collect { case JsString(s) => s }
-      case _                    => Vector.empty[String]
-    }
-    val strategy = StepCodecUtil.stringOr(obj, "strategy", "")
-    val value    = obj.fields.get("value").collect { case JsString(s) => s }
+    val obj      = StepCodecUtil.asObject(raw)
+    val columns  = StepCodecUtil.stringArray(obj, "columns")
+    val strategy = StepCodecUtil.str(obj, "strategy", "")
+    val value    = StepCodecUtil.strOpt(obj, "value")
     FillNullConfig(columns, strategy, value)
   }
 }
@@ -67,6 +64,8 @@ final case class FillNullStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = FillNullStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext

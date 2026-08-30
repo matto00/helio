@@ -64,6 +64,17 @@ trait PipelineStep {
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]]
+
+  /** This step's own typed `*Config`, type-erased.
+   *
+   *  HEL-814: the run path needs each step's RAW config text to evaluate the
+   *  same required-config declaration the analyze path evaluates (D3's
+   *  "single source of truth" — the two surfaces cannot disagree because they
+   *  run the same predicate over the same representation). The engine gets
+   *  there via `companion.encodeConfig(step.configValue)`, which keeps the
+   *  whole check inside `com.helio.domain` rather than reaching up into the
+   *  protocol layer for it. Every subtype implements this as `= config`. */
+  def configValue: Any
 }
 
 /** Resources the engine threads through every step. Kept minimal — add fields
@@ -116,7 +127,51 @@ object PipelineStep {
      *  create/update time instead of silently decoding to an empty no-op.
      *  Defaults to `None` so existing kinds are unaffected; a step kind opts
      *  into strictness by overriding this in its own file. */
-    def validateRawConfig(raw: String): Option[String] = None
+    def validateRawConfig(raw: String): Option[String] = strictDecodeProblem(raw)
+
+    /** HEL-814 D2: the shared wrong-TYPE rejection, derived from this kind's
+     *  own strict decoder so the write path can never reject a shape the read
+     *  path accepts, or accept one it rejects. `decodeConfig` raises
+     *  `StepConfigTypeMismatch` with a message naming the offending key and
+     *  the shape that key expects (per-key, never a shared generic string),
+     *  which is prefixed here with the step kind.
+     *
+     *  Any OTHER decode failure — malformed JSON — returns `None`: that is
+     *  the pre-existing "invalid config" category the calling surfaces
+     *  already report from the decode `Try` itself, and duplicating it here
+     *  would give one root cause two different messages. */
+    protected final def strictDecodeProblem(raw: String): Option[String] =
+      scala.util.Try(decodeConfig(raw)) match {
+        case scala.util.Failure(e: StepConfigTypeMismatch) =>
+          Some(s"Invalid '$kind' config: ${e.getMessage}")
+        case _ => None
+      }
+
+    /** HEL-814 D3 — the single per-kind declaration of required configuration,
+     *  evaluated against the **raw config string**.
+     *
+     *  Both the run path (`InProcessPipelineEngine.executeWithStepCounts`,
+     *  which obtains the raw text via `encodeConfig(step.configValue)`) and
+     *  the analyze path (`PipelineAnalyzeService.validateStepConfig`, which
+     *  already holds it) call this one method, so "the two surfaces cannot
+     *  disagree" is structural rather than aspirational.
+     *
+     *  It returns a `Vector[String]` computed from the raw config rather than
+     *  a flat list of required field names because requiredness is sometimes
+     *  **conditional on another config value** — `stringops.field` is required
+     *  by five of the six operations and genuinely unused by `concat` — and
+     *  sometimes conditional on a sibling inside a nested array ELEMENT. A
+     *  flat required-field list cannot express either, and would be wrong in
+     *  one direction or the other for those kinds. See `enumeration.md` for
+     *  the per-field table and the spec citation behind every entry.
+     *
+     *  Scope note: this declaration covers only the fields `enumeration.md`
+     *  marks `required`. Values that an existing run/analyze check ALREADY
+     *  rejects with a specced message (`window.function`, `fillnull.strategy`,
+     *  `datebucket.granularity`, `lookup`/`union` reference ids, ...) are
+     *  deliberately not re-declared here — a second, blunter message would
+     *  replace a specced one. */
+    def requiredConfigProblems(raw: String): Vector[String] = Vector.empty
   }
 
   /** Registry of every step kind. Single source of truth — `PipelineStepKind`,

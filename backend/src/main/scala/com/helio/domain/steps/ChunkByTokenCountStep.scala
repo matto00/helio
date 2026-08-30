@@ -28,16 +28,21 @@ final case class ChunkByTokenCountConfig(
 object ChunkByTokenCountConfig {
   implicit val format: RootJsonFormat[ChunkByTokenCountConfig] = jsonFormat5(ChunkByTokenCountConfig.apply)
 
-  private val KnownEncodings = Set("o200k_base", "cl100k_base")
-
   def decode(raw: String): ChunkByTokenCountConfig = {
     val obj              = StepCodecUtil.asObject(raw)
-    val field            = StepCodecUtil.stringOr(obj, "field", "")
-    val targetTokenCount = StepCodecUtil.intOr(obj, "targetTokenCount", 500)
-    val encodingRaw      = StepCodecUtil.stringOr(obj, "encoding", "o200k_base")
-    val encoding         = if (KnownEncodings.contains(encodingRaw)) encodingRaw else "o200k_base"
-    val indexField       = StepCodecUtil.stringOr(obj, "indexField", "chunkIndex")
-    val tokenCountField  = StepCodecUtil.stringOr(obj, "tokenCountField", "tokenCount")
+    val field            = StepCodecUtil.str(obj, "field", "")
+    val targetTokenCount = StepCodecUtil.int(obj, "targetTokenCount", 500)
+    // HEL-814 D4/5.1b: normalize a case-variant to its canonical spelling,
+    // and pass an UNKNOWN value through unchanged rather than rewriting it to
+    // "o200k_base". Preserving it is what lets analyze and run report it;
+    // rewriting it here would tokenize with an encoding the caller never
+    // asked for while reporting success.
+    val encoding         = StepCodecUtil.normalizeEnum(
+      StepCodecUtil.str(obj, "encoding", "o200k_base"),
+      ChunkByTokenCountStep.SupportedEncodings
+    )
+    val indexField       = StepCodecUtil.str(obj, "indexField", "chunkIndex")
+    val tokenCountField  = StepCodecUtil.str(obj, "tokenCountField", "tokenCount")
     ChunkByTokenCountConfig(field, targetTokenCount, encoding, indexField, tokenCountField)
   }
 }
@@ -71,6 +76,8 @@ final case class ChunkByTokenCountStep(
 ) extends PipelineStep {
   val kind: String = ChunkByTokenCountStep.Kind
 
+  def configValue: Any = config
+
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
@@ -80,13 +87,25 @@ final case class ChunkByTokenCountStep(
 object ChunkByTokenCountStep {
   val Kind: String = "chunkbytokencount"
 
+  /** HEL-814 D4: the engine's own encoding set, driving both `encodingFor`'s
+   *  dispatch and the analyze/run validator. */
+  val SupportedEncodings: Vector[String] = Vector("o200k_base", "cl100k_base")
+
   /** Shared registry — `jtokkit`'s default registry is stateless/thread-safe
    *  and expensive to rebuild per row, so it's resolved once per JVM. */
   private val registry = Encodings.newDefaultEncodingRegistry()
 
   private def encodingFor(name: String): Encoding = name match {
     case "cl100k_base" => registry.getEncoding(EncodingType.CL100K_BASE)
-    case _              => registry.getEncoding(EncodingType.O200K_BASE)
+    case "o200k_base"  => registry.getEncoding(EncodingType.O200K_BASE)
+    // HEL-814 D4: unreachable in a run, because `requiredConfigProblems`
+    // rejects an unsupported encoding before the step executes. Kept as a
+    // loud failure rather than a silent fallback so a future caller that
+    // bypasses that check cannot tokenize with an encoding nobody asked for.
+    case other =>
+      throw new IllegalArgumentException(
+        s"Unsupported chunkbytokencount encoding: '$other'. Supported: ${SupportedEncodings.mkString(", ")}"
+      )
   }
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: ChunkByTokenCountConfig): Seq[PipelineRowJson.Row] = {
@@ -139,5 +158,17 @@ object ChunkByTokenCountStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[ChunkByTokenCountConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[ChunkByTokenCountConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[ChunkByTokenCountConfig].toJson
+
+    /** HEL-814 D3/D4. `field` is required (`pipeline-chunk-by-token-count-op:10-14`
+     *  declares every OTHER key with an explicit default and `field` with
+     *  none; an empty `field` drops every row per `:14-16`, annihilating the
+     *  dataset while reporting success). `encoding` is rejected when it
+     *  matches no supported member — see the `pipeline-chunk-by-token-count-op`
+     *  delta. */
+    override def requiredConfigProblems(raw: String): Vector[String] = {
+      val cfg = ChunkByTokenCountConfig.decode(raw)
+      StepCodecUtil.missingRequired(Kind, "field" -> cfg.field) ++
+        StepCodecUtil.unsupportedEnum(Kind, "encoding", cfg.encoding, SupportedEncodings)
+    }
   }
 }

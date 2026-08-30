@@ -16,10 +16,7 @@ object SelectConfig {
 
   def decode(raw: String): SelectConfig = {
     val obj    = StepCodecUtil.asObject(raw)
-    val fields = obj.fields.get("fields") match {
-      case Some(JsArray(items)) => items.collect { case JsString(s) => s }
-      case _                    => Vector.empty[String]
-    }
+    val fields = StepCodecUtil.stringArray(obj, "fields")
     SelectConfig(fields)
   }
 }
@@ -37,6 +34,8 @@ final case class SelectStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = SelectStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext

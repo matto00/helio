@@ -22,13 +22,10 @@ object DateBucketConfig {
   implicit val format: RootJsonFormat[DateBucketConfig] = jsonFormat3(DateBucketConfig.apply)
 
   def decode(raw: String): DateBucketConfig = {
-    val obj         = StepCodecUtil.asObject(raw)
-    val field       = StepCodecUtil.stringOr(obj, "field", "")
-    val granularity = StepCodecUtil.stringOr(obj, "granularity", "")
-    val outputColumn = obj.fields.get("outputColumn") match {
-      case Some(JsString(s)) => Some(s)
-      case _                 => None
-    }
+    val obj          = StepCodecUtil.asObject(raw)
+    val field        = StepCodecUtil.str(obj, "field", "")
+    val granularity  = StepCodecUtil.str(obj, "granularity", "")
+    val outputColumn = StepCodecUtil.strOpt(obj, "outputColumn")
     DateBucketConfig(field, granularity, outputColumn)
   }
 }
@@ -55,6 +52,8 @@ final case class DateBucketStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = DateBucketStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
@@ -180,5 +179,13 @@ object DateBucketStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[DateBucketConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[DateBucketConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[DateBucketConfig].toJson
+
+    /** HEL-814 D3. With `outputColumn` absent (spec `:11` makes it optional),
+     *  an empty `field` makes the op write its bucketed value into a column
+     *  named `""` — the same corruption as `compute`. `granularity` is NOT
+     *  re-declared here: `pipeline-date-bucket-op:23-24` already requires a
+     *  descriptive run failure for an unsupported value, and `""` is one. */
+    override def requiredConfigProblems(raw: String): Vector[String] =
+      StepCodecUtil.missingRequired(Kind, "field" -> DateBucketConfig.decode(raw).field)
   }
 }

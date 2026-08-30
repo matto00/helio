@@ -44,17 +44,28 @@ class AssertStepSpec extends AnyWordSpec with Matchers {
       decoded.rules.head.kind shouldBe ""
     }
 
-    "a non-object rule array element decodes to an all-defaults rule rather than throwing" in {
+    // HEL-814 task 2.6b — PROOF. This previously asserted three ALL-DEFAULT
+    // rules, i.e. an assert step that reports success while checking three
+    // things nobody configured, which is the exact failure mode this
+    // capability exists to prevent. The `pipeline-assert-op` delta narrows
+    // "decode SHALL NOT throw for ANY input" to absence and open `params`
+    // CONTENTS only: a rules ELEMENT whose JSON type cannot represent a rule
+    // is a value the caller affirmatively supplied, and it now fails the
+    // whole config rather than being silently replaced.
+    "a non-object rule array element FAILS the whole config rather than decoding to three all-defaults rules" in {
       val raw = """{"rules":["not-an-object", 42, null]}"""
-      noException should be thrownBy AssertConfig.decode(raw)
-      val decoded = AssertConfig.decode(raw)
-      decoded.rules should have size 3
-      decoded.rules.foreach(_ shouldBe AssertRule("", None, JsObject.empty, "warn"))
+      val thrown = intercept[StepConfigTypeMismatch] { AssertConfig.decode(raw) }
+      thrown.getMessage should include("rules")
+      thrown.getMessage should include("not an object")
     }
 
-    "a non-object top-level config decodes to empty rules rather than throwing" in {
-      noException should be thrownBy AssertConfig.decode("42")
-      AssertConfig.decode("42") shouldBe AssertConfig(Vector.empty)
+    // HEL-814 task 2.4 — PROOF, and the test the `asObject` decision moves.
+    // `asObject` used to turn a stored top-level scalar into `JsObject.empty`,
+    // silently defaulting the WHOLE config at once — the single worst instance
+    // of this class. It is covered by D1 rather than exempted.
+    "a non-object top-level config FAILS rather than decoding to an all-defaults config" in {
+      val thrown = intercept[StepConfigTypeMismatch] { AssertConfig.decode("42") }
+      thrown.getMessage should include("must be a JSON object")
     }
 
     "params preserves an arbitrary JsObject payload verbatim" in {
@@ -63,9 +74,30 @@ class AssertStepSpec extends AnyWordSpec with Matchers {
       decoded.rules.head.params shouldBe JsObject("min" -> JsNumber(0), "max" -> JsNumber(100))
     }
 
-    "a non-object params value falls back to an empty object" in {
+    // HEL-814 task 2.6b — PROOF. `params` CONTENTS stay deliberately open
+    // (asserted by the "preserves an arbitrary JsObject payload verbatim"
+    // test above, which is unchanged), but a `params` VALUE whose JSON type
+    // is not an object cannot represent the declared shape and now fails.
+    "a non-object params value FAILS rather than falling back to an empty object" in {
       val raw = """{"rules":[{"kind":"notNull","field":"id","params":"not-an-object","severity":"error"}]}"""
-      AssertConfig.decode(raw).rules.head.params shouldBe JsObject.empty
+      val thrown = intercept[StepConfigTypeMismatch] { AssertConfig.decode(raw) }
+      thrown.getMessage should include("params")
+      thrown.getMessage should include("must be an object")
+    }
+
+    // GUARD (HEL-814 task 2.5), sited next to the three proofs above.
+    // Absence stays tolerant at every level: a missing `rules` key, and a rule
+    // entry omitting `field`/`params`/`severity`, both still decode to their
+    // documented defaults. Failable by mutation — make `present` stop
+    // filtering absent keys and this goes red while the proofs stay green.
+    "GUARD: an absent rules key, and an absent params/severity within a rule, still decode to their defaults" in {
+      AssertConfig.decode("{}").rules shouldBe empty
+      val partial = AssertConfig.decode("""{"rules":[{"kind":"notNull"}]}""")
+      partial.rules should have size 1
+      partial.rules.head.kind shouldBe "notNull"
+      partial.rules.head.field shouldBe None
+      partial.rules.head.params shouldBe JsObject.empty
+      partial.rules.head.severity shouldBe "warn"
     }
   }
 

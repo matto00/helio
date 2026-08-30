@@ -19,8 +19,8 @@ object UnionConfig {
    *  pattern). */
   def decode(raw: String): UnionConfig = {
     val obj  = StepCodecUtil.asObject(raw)
-    val dsId = StepCodecUtil.stringOr(obj, "otherDataSourceId", "")
-    val mode = StepCodecUtil.stringOr(obj, "mode", "byPosition")
+    val dsId = StepCodecUtil.str(obj, "otherDataSourceId", "")
+    val mode = StepCodecUtil.str(obj, "mode", "byPosition")
     UnionConfig(dsId, mode)
   }
 }
@@ -51,6 +51,8 @@ final case class UnionStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = UnionStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext

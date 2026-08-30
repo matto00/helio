@@ -142,9 +142,20 @@ class ChunkByTokenCountStepSpec extends AnyWordSpec with Matchers {
   }
 
   "ChunkByTokenCountConfig.decode" should {
-    "falls back to o200k_base for an unrecognized encoding value" in {
+    // HEL-814 task 5.1b — GUARD on the read path. Same reasoning as
+    // `dedupe.keep`: rewriting an unrecognised encoding to "o200k_base" would
+    // tokenize with an encoding the caller never asked for, producing chunk
+    // boundaries no downstream consumer can detect are wrong, while reporting
+    // success. Decode preserves the value so the stored row stays readable
+    // and analyze/run can report it; the rejection is proven separately.
+    "an unrecognized encoding value is preserved verbatim rather than rewritten to o200k_base" in {
       val cfg = ChunkByTokenCountConfig.decode("""{"field":"content","encoding":"unknown-encoding"}""")
-      cfg.encoding shouldBe "o200k_base"
+      cfg.encoding shouldBe "unknown-encoding"
+    }
+
+    // GUARD: a case-variant normalizes to its canonical member.
+    "a case-variant encoding value normalizes to its canonical member" in {
+      ChunkByTokenCountConfig.decode("""{"field":"content","encoding":"CL100K_BASE"}""").encoding shouldBe "cl100k_base"
     }
 
     "accepts cl100k_base as a valid encoding value" in {
