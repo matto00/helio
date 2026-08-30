@@ -1,6 +1,0 @@
-- `backend/src/main/scala/com/helio/domain/engine/PipelineExecutionBackend.scala` — new: the `PipelineExecutionBackend` trait + `PipelineExecutionOutcome` case class (design.md Decision 1).
-- `backend/src/main/scala/com/helio/domain/engine/InProcessExecutionBackend.scala` — new: wraps `InProcessPipelineEngine.loadRowsWithStats` + `.executeWithStepCounts` verbatim behind the trait.
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — added `null`-defaulted `executionBackend` constructor parameter + `backend` field (design.md Decision 3); `executeRun` and `previewStep` now call `backend.execute(...)` instead of the two direct `engine` calls.
-- `backend/src/main/scala/com/helio/spark/SparkJobSubmitter.scala` — now `extends PipelineExecutionBackend`; added an additive `execute(...)` method (design.md Decision 2) that bypasses `submit`/`PipelineRunCache` entirely; `submit`'s own body is unchanged.
-- `backend/src/test/scala/com/helio/spark/SparkJobSubmitterSpec.scala` — added a direct unit test for `SparkJobSubmitter.execute` against a trivial static-source pipeline (tasks.md 4.2).
-- `backend/src/test/scala/com/helio/domain/engine/InProcessPipelineEngineSpec.scala` — added a parity test for `InProcessExecutionBackend.execute` vs. the direct `loadRowsWithStats`/`executeWithStepCounts` calls (tasks.md 4.3).
