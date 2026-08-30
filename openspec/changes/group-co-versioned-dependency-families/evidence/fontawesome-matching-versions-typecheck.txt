@@ -1,0 +1,32 @@
+=== HEL-898 FontAwesome matching-versions probe (2026-08-30T06:34:51Z)
+
+$ npm --prefix frontend install --no-save --no-package-lock @fortawesome/fontawesome-svg-core@7.3.1 @fortawesome/free-solid-svg-icons@7.3.1 @fortawesome/free-brands-svg-icons@7.3.1 @fortawesome/react-fontawesome@3.5.0
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+added 50 packages, removed 77 packages, changed 170 packages, and audited 872 packages in 43s
+
+264 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+install exit=0
+
+$ npm --prefix frontend ls @fortawesome/fontawesome-svg-core @fortawesome/free-solid-svg-icons @fortawesome/free-brands-svg-icons @fortawesome/react-fontawesome
+helio-frontend@0.0.0 /home/matt/Development/helio/.claude/worktrees/task/group-co-versioned-dependabot-families/HEL-898/frontend
+├── @fortawesome/fontawesome-svg-core@7.3.1
+├── @fortawesome/free-brands-svg-icons@7.3.1
+├── @fortawesome/free-solid-svg-icons@7.3.1
+└─┬ @fortawesome/react-fontawesome@3.5.0
+  └── @fortawesome/fontawesome-svg-core@7.3.1 deduped
+
+
+$ npm run typecheck
+
+> helio@0.7.4 typecheck
+> npm --prefix frontend run typecheck
+
+
+> helio-frontend@0.0.0 typecheck
+> tsc --noEmit
+
+typecheck exit=0

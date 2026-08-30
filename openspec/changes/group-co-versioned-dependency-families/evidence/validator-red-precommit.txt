@@ -1,0 +1,16 @@
+$ git rev-parse HEAD
+6352b1a22deb1cd403101ee14c3f65e82a5c8a4a
+
+$ git status --short .github/dependabot.yml   (unmodified — nothing listed)
+
+$ node scripts/check-dependabot-groups.mjs
+check-dependabot-groups: FAILED
+
+  - family "fortawesome" is split/ungrouped: @fortawesome/fontawesome-svg-core, @fortawesome/free-brands-svg-icons, @fortawesome/free-solid-svg-icons, @fortawesome/react-fontawesome resolve to no group in npm /frontend — each would arrive as its own PR
+  - family "echarts" is split/ungrouped: echarts, echarts-for-react resolve to no group in npm /frontend — each would arrive as its own PR
+  - family "redux" is split/ungrouped: @reduxjs/toolkit, react-redux resolve to no group in npm /frontend — each would arrive as its own PR
+  - family "markdown" is split/ungrouped: react-markdown, remark-gfm resolve to no group in npm /frontend — each would arrive as its own PR
+  - family "react" is split across 2 groups (react, dev-dependencies): react -> react, react-dom -> react, @types/react -> dev-dependencies, @types/react-dom -> dev-dependencies
+
+5 problem(s). Co-versioned families must upgrade in one PR; see openspec design.md Decision 1.
+exit=1

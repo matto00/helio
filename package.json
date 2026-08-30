@@ -12,6 +12,8 @@
     "format:check": "prettier . --check",
     "check:schemas": "node scripts/check-schema-drift.mjs",
     "check:repo-integrity": "node scripts/check-repo-integrity.mjs",
+    "check:dependabot": "node scripts/check-dependabot-groups.mjs",
+    "check:dependabot:selftest": "node scripts/check-dependabot-groups.selftest.mjs",
     "check:openspec": "node scripts/check-openspec-hygiene.mjs",
     "check:openspec-version": "node scripts/check-openspec-version.mjs",
     "check:openspec:selftest": "node scripts/check-openspec-hygiene.selftest.mjs",
