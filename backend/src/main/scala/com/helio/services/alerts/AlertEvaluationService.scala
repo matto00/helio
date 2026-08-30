@@ -31,8 +31,9 @@ final class AlertEvaluationService(
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  /** Numeric coercion consistent with `PipelineRunService.inferFieldType`
-   *  (ticket.md's explicit instruction) — deliberately NOT
+  /** Numeric coercion consistent with the value-class checks pipeline-output schema inference
+   *  performs on runtime row values (ticket.md's explicit instruction; see
+   *  `PipelineRunService.upsertFieldsFromRows`, HEL-891) — deliberately NOT
    *  `PipelineRowJson.toDouble`, which parses numeric-looking `String`s.
    *  Only genuinely numeric-typed values coerce; every `String` (numeric-
    *  looking or not), `Boolean`, `null`, and nested value is `None`. See
