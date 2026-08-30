@@ -899,3 +899,17 @@ DELETE FROM patch_set_applications WHERE edits = '[]'::jsonb;
 ALTER TABLE alert_rules ALTER COLUMN target_data_type_id DROP NOT NULL;
 
 ALTER TABLE alert_events ALTER COLUMN target_data_type_id DROP NOT NULL;
+
+-- ── 16. pipelines.output_data_type_id relaxed to NULLable (task 3.5) ────────
+--
+-- Task 3.5 makes `PipelineRepository.create` stop minting a DataType for
+-- every new pipeline (design.md "Output model" -- a pipeline's
+-- panel-bindable output is now an explicit Output row, created separately,
+-- not an implicit DataType at pipeline-creation time). `pipelines.
+-- output_data_type_id` stays in place and readable (task 2.10 / section 4
+-- still owns the eventual drop) so every pre-existing pipeline's legacy
+-- DataType binding keeps working -- this section only relaxes the NOT NULL
+-- constraint so a newly-created pipeline can leave it unset. Same shape as
+-- section 15's `alert_rules`/`alert_events` NOT-NULL deferral above.
+
+ALTER TABLE pipelines ALTER COLUMN output_data_type_id DROP NOT NULL;

@@ -1933,3 +1933,102 @@ collapse still pending), 3.7, 3.9, 3.10, 3.10a, 3.11, 3.11a, 3.12, 3.15.
    analysis (still valid — nothing this cycle changed that finding).
 3. 3.2/3.3/3.7/3.15 remain as scoped in the ticket; 3.15 specifically blocked on 3.3 (dataType
    patch-set targets) and §4.2 (route deletion), not schedulable standalone.
+
+## Cycle 20 — V95→V94 migration fold, tasks.md checkbox corrections, task 3.7 landed
+
+Starting state verified fresh: HEAD = `039c4823` (cycle 19's commit), tree clean, full `sbt test`
+re-confirmed 3629/3629 green before starting.
+
+**Bookkeeping/correctness corrections requested by the orchestrator (landed first):**
+
+1. **V95 folded into V94.** Cycle 19 created a separate
+   `V95__pipelines_output_data_type_id_nullable.sql` for task 3.5's
+   `pipelines.output_data_type_id` NOT-NULL relaxation, violating design.md decision 2's
+   single-migration-file rule. Folded its one `ALTER TABLE` statement into V94 as a new numbered
+   section (16, following section 15's identically-shaped `alert_rules`/`alert_events` NOT-NULL
+   deferral) and deleted V95. No spec references "V95" by number (grepped
+   `backend/src/test/scala` — none found), so nothing needed retargeting there; three doc-comment
+   references in `PipelineRepository.scala` were updated from "V95" to "V94". Re-ran
+   `V94OutputsMigrationSpec` in isolation post-fold: 34/34 green, no regression from the merge.
+2. **tasks.md checkboxes for 3.6/3.9/3.10/3.10a corrected from stale `[ ]` to `[x]`.** Verified
+   directly against the live tree (not trusting any prior cycle's prose summary) that all four were
+   genuinely completed at commit `fb7593d9` (cycle 16): the five old bound `*Panel.scala` files
+   (`MetricPanel`/`ChartPanel`/`TablePanel`/`CollectionPanel`/`TimelinePanel`) are deleted,
+   `OutputBindingSpec.scala` exists and `PanelBindingSpec.scala` does not,
+   `DashboardProposalService.scala:166` reads `DataPanelKinds: Set[String] = Set("output")`, and
+   `MetricKind`/`TimelineKind`/`MetricIdSupportedKinds`/`ChartPanel` are all absent from both
+   `ProposalPanelSupport.scala` and `DashboardProposalService.scala` (only historical removal
+   comments remain). Each checkbox's note now cites `fb7593d9` and the specific verification
+   evidence.
+
+**Task 3.7 landed in full:** `DemoData` reseeded onto a real Source → Pipeline → three Outputs
+chain — no more placeholder unbound `OutputPanel`s.
+
+- `DemoData.seedIfEmpty` gained three new params (`dataSourceRepo: DataSourceRepository`,
+  `pipelineRepo: PipelineRepository`, `outputRepo: OutputRepository`) and now, inside the
+  existing `count == 0` guard: inserts one `CsvSource` ("Demo Orders", a 3-field
+  `inferredSchema`, no real file — no refresh/ingestion is triggered, this is boot-time seed data
+  only, matching the pre-existing convention that `DemoData` never ran a real pipeline), creates
+  one pipeline via `pipelineRepo.create` bound to that source, and creates three Outputs via
+  `outputRepo.insertInternal` (kinds `Chart`/`Table`/`Metric`, `nodeStepId = None` — attached to
+  the pipeline's raw source, no tail steps needed for a static demo), each carrying the source's
+  `inferredSchema` directly (no run required).
+- All four demo panels (`panel-ops-latency`/`panel-ops-incidents`/`panel-exec-revenue`/
+  `panel-exec-forecast`) now construct `OutputPanel` with a real, non-empty `OutputPanelConfig` —
+  the first two bind 1:1 to the Chart/Table Outputs, and the two exec panels both bind to the
+  single Metric Output (three Outputs feeding four panels, matching the ticket's literal "one
+  source → one pipeline → three Outputs" scope without inventing a fourth Output).
+  `AuthenticatedUser(SystemUserId)` is used for the new user-context repo calls
+  (`dataSourceRepo.insert`/`pipelineRepo.create`), mirroring the existing
+  `PanelRepository.insert(panel)`/`DashboardRepository.insert(dashboard)` pattern of deriving the
+  RLS user context from the object's own `ownerId`.
+- `Main.scala`: added `import ... OutputRepository`, constructed
+  `val outputRepo = new OutputRepository(ctx)`, and updated the `DemoData.seedIfEmpty(...)` call
+  site to pass the three new repos (`dataSourceRepo`/`pipelineRepo` were already constructed
+  above it).
+- No existing spec references `DemoData` (grepped `backend/src/test` — none), so no test fallout
+  from this signature change.
+
+**Verification this cycle (fresh, exit codes/counts read directly):**
+- `sbt -batch compile` — clean.
+- `sbt -batch Test/compile` — clean.
+- `sbt -batch "testOnly com.helio.infrastructure.persistence.pipelines.V94OutputsMigrationSpec"`
+  (isolated, immediately after the V95→V94 fold, before any other change) — 34/34 green.
+- Full `sbt -batch test` run TWICE this cycle (once right after the migration fold, once again
+  after the DemoData/Main.scala changes) — **3629/3629 passing both times**, exit code 0, 238
+  suites, 0 aborted, 0 failed — same count as cycle 19's baseline, confirming the fold + DemoData
+  reseed introduced zero regressions.
+- `node scripts/check-scala-quality.mjs` — clean (139 pre-existing soft file-size warnings,
+  unchanged from cycle 19 — no new violations).
+- `node scripts/check-schema-drift.mjs` — clean (no schema-surface changes this cycle).
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+
+**Deliberately NOT started this cycle:** 3.2, 3.3, 3.11, 3.11a, 3.12, 3.15. This cycle's remaining
+budget went to landing the two orchestrator-requested corrections carefully (migration folds are
+the highest-blast-radius kind of change to get wrong) plus task 3.7, and re-verifying full-suite
+stability twice. Cycle 18's own analysis of the 3.11/3.12 coupling (verified again this cycle by a
+quick grep of `WorkspaceSearchService.scala`'s `WorkspaceResourceType.DataType`/`Metric` branches,
+which reach directly into `WorkspaceContextService.toDataTypeEntry`/
+`WorkspaceResourceDetail.DataTypeDetail` — the same reshape task 3.12 owns) still holds: 3.2's
+`WorkspaceSearchService` DataType/Metric branches are themselves part of the same
+`WorkspaceContextService`-rooted cluster as 3.11/3.12, not an independent task despite tasks.md
+listing it separately from 3.11/3.12. Attempting 3.2 without first landing 3.12's
+`WorkspaceResourceDetail` reshape would risk the same "guessing at an undecided shape" trap flagged
+in cycle 18 — chose not to guess.
+
+**Section 3 status after this cycle:** 3.1/3.4/3.5/3.6/3.8/3.9/3.10/3.10a/3.13/3.14 confirmed `[x]`
+in tasks.md (all verified against the live tree this cycle, not just trusted from prose); 3.7 newly
+`[x]` this cycle. Remaining: 3.2, 3.3, 3.11, 3.11a, 3.12, 3.15 — all six cluster around the same
+`WorkspaceContextService`/`WorkspaceResourceDetail` reshape (3.12 is the root) and the
+`PatchSetApplyService` dataType-target retirement (3.3, which 3.15's route-deletion is blocked on).
+Section 3 is NOT fully done — 6 of 15 numbered items remain, and they are the largest, most
+interconnected remaining chunk (not a short tail).
+
+**Next cycle should:**
+1. Take task 3.12 (`WorkspaceContextService`) first, as the root of the 3.2/3.11/3.12 cluster —
+   confirmed again this cycle that 3.2 is coupled to it too, not schedulable standalone.
+2. Then 3.2 and 3.11/3.11a as natural follow-ons once 3.12 settles the `WorkspaceResourceDetail`
+   shape.
+3. 3.3 (`PatchSetApplyService` dataType-target retirement) and 3.15 (its dependent route deletion)
+   remain independently schedulable whenever there's a clean slot — not blocked on the
+   3.2/3.11/3.12 cluster.

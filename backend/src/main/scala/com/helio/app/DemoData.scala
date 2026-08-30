@@ -1,9 +1,12 @@
 package com.helio.app
 
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.domain.panels._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import spray.json.JsObject
 
 import java.time.Instant
@@ -12,14 +15,58 @@ import scala.concurrent.duration.DurationInt
 
 object DemoData {
   val SystemUserId: UserId = UserId("00000000-0000-0000-0000-000000000001")
+  private val SystemUser: AuthenticatedUser = AuthenticatedUser(SystemUserId)
 
+  /** HEL-904 task 3.7: reseeds onto a real Source → Pipeline → three Outputs
+   *  chain (no unbound panels) — the four demo panels each carry a real,
+   *  non-empty `outputId`, two of them sharing the pipeline's third Output.
+   *  No pipeline run/refresh is triggered here (this is boot-time seed data,
+   *  not a live ingestion) — each Output's `schema` is set directly to a
+   *  small illustrative shape so it round-trips a non-trivial demo without
+   *  depending on the Spark run path. */
   def seedIfEmpty(
       dashboardRepo: DashboardRepository,
-      panelRepo: PanelRepository
+      panelRepo: PanelRepository,
+      dataSourceRepo: DataSourceRepository,
+      pipelineRepo: PipelineRepository,
+      outputRepo: OutputRepository
   )(implicit ec: ExecutionContext): Unit = {
     val count = Await.result(dashboardRepo.count(), 5.seconds)
     if (count == 0) {
-      val data = build()
+      val now = Instant.now()
+      val source = CsvSource(
+        id             = DataSourceId("source-demo"),
+        name           = "Demo Orders",
+        ownerId        = SystemUserId,
+        createdAt      = now,
+        updatedAt      = now,
+        config         = CsvSourceConfig(path = "demo/orders.csv"),
+        inferredSchema = Vector(SchemaField("orderId", "string"), SchemaField("amount", "number"), SchemaField("status", "string"))
+      )
+      Await.result(dataSourceRepo.insert(source, SystemUser), 5.seconds)
+
+      val pipelineSummary = Await.result(pipelineRepo.create("Demo Pipeline", source.id, SystemUser), 5.seconds)
+        .fold(err => throw new IllegalStateException(s"DemoData: failed to seed demo pipeline: $err"), identity)
+      val pipelineId = PipelineId(pipelineSummary.id)
+
+      def seedOutput(name: String, kind: OutputKind): Output =
+        Await.result(
+          outputRepo.insertInternal(
+            pipelineId = pipelineId,
+            nodeStepId = None,
+            ownerId    = SystemUserId,
+            name       = name,
+            kind       = kind,
+            schema     = source.inferredSchema
+          ),
+          5.seconds
+        )
+
+      val latencyOutput  = seedOutput("Latency", OutputKind.Chart)
+      val incidentOutput = seedOutput("Incident Queue", OutputKind.Table)
+      val revenueOutput  = seedOutput("Revenue Pulse", OutputKind.Metric)
+
+      val data = build(latencyOutput.id, incidentOutput.id, revenueOutput.id)
       data.dashboards.foreach(d => Await.result(dashboardRepo.insert(d), 5.seconds))
       data.panels.foreach(p => Await.result(panelRepo.insert(p), 5.seconds))
     }
@@ -27,7 +74,7 @@ object DemoData {
 
   private final case class SeedData(dashboards: Vector[Dashboard], panels: Vector[Panel])
 
-  private def build(): SeedData = {
+  private def build(latencyOutputId: OutputId, incidentOutputId: OutputId, revenueOutputId: OutputId): SeedData = {
     val operationsId = DashboardId("dashboard-operations")
     val executiveId  = DashboardId("dashboard-executive")
 
@@ -95,16 +142,12 @@ object DemoData {
       )
     )
 
-    // HEL-904 task 3.6 (collapse): the bound trio (MetricPanel/ChartPanel/
-    // TablePanel) no longer exists — a real reseed onto Source → Pipeline →
-    // Output (task 3.7, not yet done: `seedIfEmpty`'s signature doesn't yet
-    // thread a `PipelineRunService`/`OutputRepository`) is deferred. In the
-    // interim these four seed panels are placeholder unbound `OutputPanel`s
-    // (empty `outputId`, mirroring the prior empty-`dataTypeId` "unbound"
-    // convention) so `DemoData` keeps compiling and inserting cleanly — NOT
-    // a real Output-bound demo experience. See execution-progress.md.
-    val emptyOutput = OutputPanelConfig.Empty
-
+    // HEL-904 task 3.7: real Source → Pipeline → three Outputs, no unbound
+    // panels — each panel below carries a real, non-empty `outputId`
+    // (`seedIfEmpty` creates the source/pipeline/Outputs before calling
+    // `build`). The exec-forecast panel deliberately shares the
+    // revenueOutputId (three Outputs feed four panels, per the ticket's
+    // "one source → one pipeline → three Outputs" scope).
     val panels: Vector[Panel] = Vector(
       OutputPanel(
         id          = PanelId("panel-ops-latency"),
@@ -113,7 +156,7 @@ object DemoData {
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T08:45:00Z"), Instant.parse("2026-02-27T09:15:00Z")),
         appearance  = PanelAppearance("#132238", "#e2e8f0", 0.12),
         ownerId     = SystemUserId,
-        config      = emptyOutput
+        config      = OutputPanelConfig(latencyOutputId)
       ),
       OutputPanel(
         id          = PanelId("panel-ops-incidents"),
@@ -122,7 +165,7 @@ object DemoData {
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T09:00:00Z"), Instant.parse("2026-02-27T09:25:00Z")),
         appearance  = PanelAppearance("#1f2937", "#f8fafc", 0.18),
         ownerId     = SystemUserId,
-        config      = emptyOutput
+        config      = OutputPanelConfig(incidentOutputId)
       ),
       OutputPanel(
         id          = PanelId("panel-exec-revenue"),
@@ -131,7 +174,7 @@ object DemoData {
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T10:15:00Z"), Instant.parse("2026-02-27T11:00:00Z")),
         appearance  = PanelAppearance("#1d2a44", "#f8fafc", 0.08),
         ownerId     = SystemUserId,
-        config      = emptyOutput
+        config      = OutputPanelConfig(revenueOutputId)
       ),
       OutputPanel(
         id          = PanelId("panel-exec-forecast"),
@@ -140,7 +183,7 @@ object DemoData {
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T10:30:00Z"), Instant.parse("2026-02-27T11:20:00Z")),
         appearance  = PanelAppearance("#243b53", "#eff6ff", 0.16),
         ownerId     = SystemUserId,
-        config      = emptyOutput
+        config      = OutputPanelConfig(revenueOutputId)
       )
     )
 

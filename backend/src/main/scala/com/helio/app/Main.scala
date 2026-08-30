@@ -12,7 +12,7 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository}
@@ -71,6 +71,7 @@ object Main {
       val permissionRepo     = new ResourcePermissionRepository(ctx)
       val pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
       val pipelineStepRepo   = new PipelineStepRepository(ctx)
+      val outputRepo         = new OutputRepository(ctx)
       val pipelineRunRepo    = new PipelineRunRepository(ctx)
       val dataTypeRowRepo    = new DataTypeRowRepository(ctx)
       val apiTokenRepo       = new ApiTokenRepository(ctx)
@@ -110,7 +111,7 @@ object Main {
       // Eagerly initialise SparkSession to absorb cold-start penalty
       Future(sparkJobSubmitter.initialize())(ec)
 
-      DemoData.seedIfEmpty(dashboardRepo, panelRepo)
+      DemoData.seedIfEmpty(dashboardRepo, panelRepo, dataSourceRepo, pipelineRepo, outputRepo)
 
       // HEL-256: surface any data_sources rows that lack a linked DataType
       // (orphans render empty schemas on the Sources page). Defense-in-depth

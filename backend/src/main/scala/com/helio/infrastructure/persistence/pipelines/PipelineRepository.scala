@@ -194,7 +194,7 @@ class PipelineRepository(
     * HEL-904 task 3.5: no longer mints a DataType — a new pipeline's
     * panel-bindable output is an explicit Output row, created separately
     * (see `PipelineProposalService`'s own Output-creation path, task 3.8).
-    * `output_data_type_id` is left `NULL` (V95 relaxed the NOT NULL
+    * `output_data_type_id` is left `NULL` (V94 relaxed the NOT NULL
     * constraint) for every pipeline created via this path. */
   def create(
       name: String,
@@ -267,14 +267,14 @@ class PipelineRepository(
   }
 
   /** Privileged read of the raw (legacy, nullable) `output_data_type_id`
-    * column — `None` for every pipeline created after V95 (task 3.5's
+    * column — `None` for every pipeline created after V94 (task 3.5's
     * DataType-minting create-path retirement), `Some` for a pre-existing
     * pipeline's still-live legacy DataType binding. The `Pipeline` domain
     * model itself no longer carries this field (task 3.5); this is the one
     * remaining reader, backing `PipelineRunService`'s legacy DataType
     * schema/row writes. */
   /** Privileged write of the raw (legacy, nullable) `output_data_type_id`
-    * column — no production caller sets this anymore since V95/task 3.5
+    * column — no production caller sets this anymore since V94/task 3.5
     * retired the DataType-minting create-path; exists so tests exercising
     * the still-live legacy DataType read/write paths
     * (`onUnblockedRunSuccess`'s `dataTypeRepo`/`dataTypeRowRepo` writes,
@@ -418,7 +418,7 @@ object PipelineRepository {
   )
 
   /** `outputDataTypeId` (HEL-904 task 3.5): `None` for every pipeline
-    * created after V95 (the DataType-minting create-path is retired); still
+    * created after V94 (the DataType-minting create-path is retired); still
     * `Some` for pre-existing pipelines' legacy DataType binding, which
     * `findLastRunAtByOutputDataTypeId` alone still reads. */
   case class PipelineRow(

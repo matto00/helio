@@ -149,14 +149,15 @@
 - [x] 3.5 `PipelineRepository.create` stops minting a type; `PipelineService.create` drops
       `outputDataTypeName`. In the SAME task, remove `Pipeline.outputDataTypeId` from the domain
       model (added additively in 1.1) now that no code path sets or reads it — round-2 finding 4
-      flagged this removal as dangling; it belongs here, not left implicit. Landed cycle 19: V95
-      relaxes `pipelines.output_data_type_id` to nullable (column stays, task 2.10/section 4 still
+      flagged this removal as dangling; it belongs here, not left implicit. Landed cycle 19: V94
+      (folded in cycle 20 per decision 2's single-migration-file rule — was briefly a separate
+      V95 file) relaxes `pipelines.output_data_type_id` to nullable (column stays, task 2.10/section 4 still
       owns the eventual drop); `CreatePipelineRequest`/`PipelineSummaryResponse`/
       `PipelineAnalyzeResponse` drop `outputDataTypeName`/`outputDataTypeId`; `PipelineRepository`
       gained `findOutputDataTypeIdInternal`/`setOutputDataTypeIdInternalForTest` for the still-live
       legacy DataType read/write paths (`PipelineRunService.onUnblockedRunSuccess`, and tests
       exercising pre-3.12 DataType behavior).
-- [ ] 3.6 (partial) `Panel.scala` + `domain/panels/*Panel.scala` + `package.scala`: bound kinds
+- [x] 3.6 `Panel.scala` + `domain/panels/*Panel.scala` + `package.scala`: bound kinds
       collapse to `OutputPanel`; `PanelBindingSpec` → `OutputBindingSpec` keyed by `OutputKind`.
       **Write-path increment landed this cycle** (cycle 15): `PanelType` (model.scala) gains
       `Output`/`"output"` as a 10th valid value (additive, NOT the eventual 5-value collapse —
@@ -174,18 +175,24 @@
       `CollectionPanel`/`TimelinePanel`) are NOT yet deleted (still live constructor targets for
       the other 9 `PanelType` values), `PanelBindingSpec` → `OutputBindingSpec` is NOT yet cut
       over, and `PanelType`'s eventual 5-value collapse (dropping the five old bound values
-      entirely) is deferred to land together with tasks 3.9/3.10/3.10a/4.1 — see
+      entirely) was deferred at cycle 15 to land together with tasks 3.9/3.10/3.10a/4.1 — see
       execution-progress.md cycle 14's sizing (15+ real-source-file blast radius: `BoundPanelService`,
       `PanelCapabilityService`, `ProposalPanelSupport`, `DashboardProposalService`, `PatchSet*`,
       `DemoData`) and cycle 15's own note on why option (b) (additive, not full collapse) was
-      chosen for this increment.
-- [ ] 3.7 `DemoData` reseeded: one source → one pipeline → three Outputs, no unbound panels.
+      chosen for that increment. **Completed in full at commit `fb7593d9`** (cycle 16): the five
+      old bound `*Panel.scala` files are deleted, `PanelBindingSpec` → `OutputBindingSpec` cut
+      over, and `PanelType`/`Panel.Registry`/`PanelKind` collapsed to the final 5-value set
+      (output|text|markdown|image|divider) — verified directly against the live tree this cycle
+      (files deleted, `OutputBindingSpec.scala` present, `PanelBindingSpec.scala` absent).
+- [x] 3.7 `DemoData` reseeded: one source → one pipeline → three Outputs, no unbound panels.
 - [x] 3.8 `PipelineProposalService` (35 refs, `:48` takes `DataTypeService`, `:23` rollback path
       through `DataTypeService.delete`): rewire to create/roll back an Output on the pipeline's
       last trunk step instead of a DataType — see design.md's proposal-service scope decision.
-- [ ] 3.9 `ProposalPanelSupport` (26 refs, `:81` `dataTypeRepo`/`MetricRepository`): rewire panel
-      resolution to Outputs; drop metric binding resolution (metrics no longer exist).
-- [ ] 3.10 `DashboardProposalService` (`:12-13,:44`, also `DataPanelKinds:211` — see §5.7): rewire
+- [x] 3.9 `ProposalPanelSupport` (26 refs, `:81` `dataTypeRepo`/`MetricRepository`): rewire panel
+      resolution to Outputs; drop metric binding resolution (metrics no longer exist). **Completed
+      at commit `fb7593d9`** (cycle 16) — verified this cycle: no `MetricRepository`/metric-binding
+      references remain in the file.
+- [x] 3.10 `DashboardProposalService` (`:12-13,:44`, also `DataPanelKinds:211` — see §5.7): rewire
       DataType/Metric composition to Outputs. `DataPanelKinds` is a live validation predicate, NOT
       a passive list (round-4 finding) — retarget it to `Set("output")` (the one panel *kind*
       requiring an Output binding), not the old Output-visualization-kind enumeration; the
@@ -197,8 +204,10 @@
       `dashboard-proposal.schema.json`, see design.md's `DataPanelKinds` decision). Update
       `CombinedApplyProposalDanglingRefSpec.scala:39` (and any other spec asserting today's
       `DataPanelKinds` membership, e.g. a `chart`-panel scenario) to assert on `type = "output"` in
-      the same commit — task 6.4 requires this spec green.
-- [ ] 3.10a `ProposalPanelSupport`'s other kind-valued predicates (round-4 finding 2 — same class
+      the same commit — task 6.4 requires this spec green. **Completed at commit `fb7593d9`**
+      (cycle 16) — verified this cycle: `DataPanelKinds: Set[String] = Set("output")` at
+      `DashboardProposalService.scala:166`.
+- [x] 3.10a `ProposalPanelSupport`'s other kind-valued predicates (round-4 finding 2 — same class
       as `DataPanelKinds`, different constants, previously unowned): delete outright, along with
       the code paths they guard, rather than retarget to a value that no longer exists on the
       panel — see design.md's "other kind-valued predicates are retired" decision.
@@ -206,7 +215,10 @@
       `ChartPanel.rejectsAggregation`), `:46,217` (`== TimelineKind` gating timeline `sort`
       validation/config derivation), `:209` (`== MetricKind` gating label/unit derivation), `:136`
       (`MetricIdSupportedKinds`, `DashboardProposalService.scala:219`, itself deleted). Update or
-      delete the specs covering each (grep for the deleted symbol names to find them).
+      delete the specs covering each (grep for the deleted symbol names to find them). **Completed
+      at commit `fb7593d9`** (cycle 16) — verified this cycle: `MetricKind`/`TimelineKind`/
+      `MetricIdSupportedKinds`/`ChartPanel` are all absent from both files (only historical
+      code-comments mentioning their removal remain).
 - [ ] 3.11 `PanelCapabilityService` (16 refs, `:8` takes `DataTypeRepository` +
       `DataTypeRowRepository`): **KEEP and rewire** — verified directly against the live tree
       (round 3), this is NOT dead code with only the two deleted-route callers a round-2 skeptic
