@@ -98,3 +98,78 @@ Next cycle should:
    methods (1.6 remainder) and their tests (1.7 remainder) should land
    *together with* 2.2, per the scoping note above, before proceeding to the
    data-migration steps (2.9) and the red-first tests (2.11-2.13).
+
+## Cycle 3 (this cycle) — task 2 (V94 migration), additive slice
+
+Landed `backend/src/main/resources/db/migration/V94__outputs_model.sql`
+(grows across future cycles per its own header note) covering ticket.md
+scope items 1-5 (tasks 2.2-2.6), plus a red-first migration test
+(`V94OutputsMigrationSpec`) covering 2.11 (partial, hand-built fixture not
+yet a real `pg_dump`), 2.12 (step-order preservation), and 2.13 (partial,
+`outputs` RLS smoke test with a real `SET ROLE` non-superuser role and a
+red-then-green policy-drop proof; `node_snapshots` RLS not yet smoke-tested
+since nothing writes to it yet).
+
+Two real regressions were found and fixed via a full `sbt test` run (NOT
+skipped — this is exactly why 1b's "additive, nothing breaks" framing
+matters):
+
+1. **`panels.kind SET NOT NULL` broke every panel-insert path.** Originally
+   followed ticket.md's literal "nullable -> backfilled -> SET NOT NULL"
+   sequence. A full `sbt test` run showed 11 failures (500s on every
+   panel-creation code path) because no current write path (PanelRepository,
+   PanelService, proposal-apply) populates `kind` yet — that's task 3.6's
+   job. **Fix:** deferred `SET NOT NULL` to land in the same commit as 3.6;
+   kept a nullable CHECK constraint in the meantime. Documented inline in
+   the migration file at that exact line.
+2. **`node_snapshots`'s FKs made it TRUNCATE-CASCADE-reachable, and its
+   BIGSERIAL identity column then broke `RESTART IDENTITY`.** A full `sbt
+   test` run showed `BetaAccessRoutesSpec` failing with `must be owner of
+   sequence node_snapshots_id_seq`. Root cause (probe-confirmed, not
+   guessed): `BetaAccessRoutesSpec.afterEach` runs `TRUNCATE TABLE ...,
+   users RESTART IDENTITY CASCADE`; `users -> pipelines -> node_snapshots`
+   (via my new FKs) put `node_snapshots` in that cascade; Postgres's
+   `RESTART IDENTITY` requires *ownership* of the identity sequence (not
+   satisfiable via `GRANT UPDATE`, which is all the test harness's
+   `helio_privileged` role has). `data_type_rows` (the table `node_snapshots`
+   replaces) has the exact same BIGSERIAL shape but was deliberately built
+   with **no FK** for this exact reason (V46's own comment: "matching the
+   existing data_type_rows precedent"). **Fix:** dropped the FK constraints
+   on `node_snapshots.pipeline_id`/`node_step_id` (referential integrity
+   stays an application-level contract via
+   `NodeSnapshotRepository.overwriteRows`'s delete-then-insert, same as
+   `data_type_rows` today) — documented at length inline in the migration
+   file so a future reader doesn't "helpfully" re-add the FK.
+
+Both fixes are the kind of thing task 2.9/3.x work will keep surfacing —
+every new table/column added ahead of its consumers needs this same
+"does a full `sbt test` still pass" check, not just the new spec's own
+green.
+
+**Verification this cycle (confirmed, fresh):** `V94OutputsMigrationSpec`
+8/8 green after both fixes. Full `sbt test` re-run: **3867/3867 passing**
+(was 3859 before this cycle's migration work; +8 new), exit code 0,
+confirmed by reading the actual completed run output — no regressions from
+the two fixes above.
+
+**Next cycle should:**
+1. Confirm the full `sbt test` re-run above is green (or fix whatever it
+   surfaces) before committing this cycle's work.
+2. Commit section 2's additive slice (2.1-2.6, 2.11-2.13 partial) as its own
+   commit.
+3. Continue with 2.7 (alert_rules/alert_events retarget to
+   `target_output_id`) and 2.8 (binary_refs re-key to `data_source_id` --
+   inspect the dev DB first for any ref pointing at a pipeline-output type,
+   per the ticket) — both are destructive/NOT-NULL-shaped changes, so apply
+   the same "full `sbt test` before declaring done" discipline, and expect
+   they may also need a deferred-NOT-NULL or FK-shape workaround if a
+   pre-existing consumer isn't ready yet.
+4. Then 2.9 (the 9-step data migration DML) and 2.10 (drops) — these are the
+   ticket's most load-bearing, least-reversible pieces; do not rush them.
+   2.10's drops in particular must not land before section 3/4's consumer
+   rewires are complete (decision 1e) -- almost certainly a later cycle's
+   work, not this migration file's next edit.
+5. Deferred DB-backed remainder of 1.6/1.7 (sibling-scoped insert/reorder,
+   splice-on-delete, and their tests) can land once 2.2's `parent_step_id`
+   column is stable (it is, as of this cycle) -- worth picking up alongside
+   or shortly after finishing section 2's DDL, per the earlier cycle's note.

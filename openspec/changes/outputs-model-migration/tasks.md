@@ -39,13 +39,33 @@
 
 ## 2. Flyway migration V94 (additive schema, full data migration)
 
-- [ ] 2.1 Verify the exact current `panels` column list against
-      `PanelRepository.scala:348-387` / `PanelRowMapper.scala` before writing DDL.
-- [ ] 2.2 `pipeline_steps.parent_step_id` + backfill from `position` (no `position` reset).
-- [ ] 2.3 `outputs` table + sharing-aware RLS (mirrors `pipelines`/V39).
-- [ ] 2.4 `node_snapshots` table + RLS mirroring `outputs`.
-- [ ] 2.5 `panels.kind` (nullable → backfilled from `type` → `SET NOT NULL`) + `output_id`.
-- [ ] 2.6 `data_sources.inferred_schema`.
+- [x] 2.1 Verified the exact current `panels` column list against
+      `PanelRepository.scala:348-387` / `PanelRowMapper.scala`: `type, type_id, field_mapping,
+      aggregation, metric_id, metric_label, metric_unit, chart_options, collection_options,
+      timeline_options, column_widths, table_density, column_order, chart_annotation` —
+      matches the ticket's own citation exactly, `table_display_config` confirmed absent.
+- [x] 2.2 `pipeline_steps.parent_step_id` added (nullable, FK to itself) + backfilled from
+      `position` order (each step's parent = the step immediately before it in position order;
+      position 0 = NULL/root). `position` itself is untouched. V94
+      (`backend/src/main/resources/db/migration/V94__outputs_model.sql`).
+- [x] 2.3 `outputs` table + sharing-aware RLS (mirrors `pipelines`/V39 `helio_can_access_pipeline`
+      exactly — SELECT is sharing-aware, INSERT/UPDATE/DELETE are owner-only via `WITH
+      CHECK`/`USING`). Same V94 file.
+- [x] 2.4 `node_snapshots` table + RLS mirroring `outputs` (not `data_type_rows`'s owner-only V35
+      policy — sharing-aware via the parent pipeline, per design.md). Partial-unique-index pair
+      (keyed vs. root, since Postgres UNIQUE treats NULL as distinct) instead of a single
+      compound UNIQUE. Same V94 file.
+- [x] 2.5 (partial) `panels.kind` added nullable, backfilled from `type` (bound viz kinds +
+      data-bound `text` → `output`; literal `text`/markdown/image/divider pass through), +
+      `output_id` (nullable FK, not yet populated — that's task 2.9). **`SET NOT NULL` deferred**
+      to land in the same commit as task 3.6 (the Panel-model rewire) — verified empirically this
+      cycle that adding it now 500s every existing panel-insert code path (11 spec failures on a
+      full `sbt test` run, all NOT NULL violations on `kind`), since no current write path
+      populates it yet. See the migration file's own comment at that line for the full rationale.
+      Same V94 file.
+- [x] 2.6 `data_sources.inferred_schema` added (`JSONB NOT NULL DEFAULT '[]'`) — every
+      pre-existing row reads back as `Vector.empty`, matching task 1.3's domain default, with no
+      backfill pass needed. Same V94 file.
 - [ ] 2.7 `alert_rules`/`alert_events` retarget to `target_output_id`.
 - [ ] 2.8 `binary_refs` re-key to `data_source_id`; inspect dev DB first for any ref pointing
       at a pipeline-output type and record the finding in the PR.
@@ -57,13 +77,22 @@
       deleted.
 - [ ] 2.10 Drop `panels`' retired columns; drop `metrics`, `data_types`, `data_type_rows`,
       `pipelines.output_data_type_id`.
-- [ ] 2.11 Red-first migration test: build the dev-DB-derived fixture (`pg_dump --data-only`,
-      restricted to affected tables, seeded up to the required-shapes checklist), prove it fails
-      against pre-migration schema, then passes.
-- [ ] 2.12 Step-order-preserved test (5-step pipeline, migrate, compare `trunkOf` order).
-- [ ] 2.13 RLS smoke test: non-superuser/non-BYPASSRLS role via test-created `SET ROLE`; owner
-      read / grantee read / cross-tenant denial on `outputs` + `node_snapshots`; prove itself red
-      by dropping a policy.
+- [x] 2.11 (partial) Red-first migration test for the additive slice landed so far —
+      `V94OutputsMigrationSpec`: hand-built fixture (not yet a real `pg_dump --data-only` of the
+      shared dev DB — that operational step is outside this cycle's reach; a genuine `pg_dump`
+      fixture should replace/augment this once 2.9's full data migration exists to test against),
+      migrates to V93, asserts the pre-migration schema genuinely lacks the new columns/tables
+      (proves non-vacuousness), migrates to V94, asserts the backfills. Will grow alongside the
+      migration file as 2.7-2.10 land.
+- [x] 2.12 Step-order-preservation test: 5-step pipeline seeded pre-migration, migrated, walks
+      `parent_step_id` from the root and confirms it exactly reproduces the original `position`
+      order — same spec, `"V94 pipeline_steps.parent_step_id backfill"`.
+- [x] 2.13 (partial) RLS smoke test for `outputs`: a real non-superuser, non-BYPASSRLS role
+      (`helio_app_test_v94`, created by the test itself via `SET ROLE`) proves owner read works
+      and cross-tenant read is denied; then proves itself red by dropping `outputs_select` and
+      confirming access disappears, then restoring it and confirming access returns. Same spec.
+      **`node_snapshots`' RLS is not yet covered by an equivalent smoke test** — deferred to when
+      real snapshot data exists post-2.9 (currently no writer path populates it).
 
 ## 3. Rewire live consumers (alerts, search, teardown, dashboard contents, assistant, patch sets)
 
