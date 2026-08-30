@@ -9,6 +9,8 @@ npm run check:schemas
 npm run check:spec-structure
 npm run check:openspec
 npm run check:openspec:selftest
+npm run check:dependabot
+npm run check:dependabot:selftest
 npm run check:scala-quality
 npm run check:no-credential-leak
 npm test

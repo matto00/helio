@@ -1,4 +1,15 @@
 version: 2
+# Group ordering is load-bearing: Dependabot assigns each dependency to the
+# FIRST group whose criteria it matches, in declaration order. Pattern groups
+# must therefore be declared BEFORE the `dev-dependencies` catch-all, or the
+# catch-all claims every devDependency a pattern group meant to hold (e.g.
+# `@types/react*`). Do not "tidy" the catch-all back to the top.
+#
+# Every family pattern is an exact package name, with `@types/react*` as the
+# only wildcard anywhere: once specific groups are declared first, a loose
+# pattern such as `react*` would swallow react-dom, react-redux,
+# react-markdown, react-router-dom and react-grid-layout into whichever group
+# is declared earliest. Enforced by `npm run check:dependabot` (HEL-898).
 updates:
   - package-ecosystem: "npm"
     directory: "/"
@@ -14,16 +25,42 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    # 15, not 10: this config alone held exactly 10 open PRs against a limit of
+    # 10 in the HEL-898 backlog — saturated, silently suppressing further
+    # frontend updates. 15 with four families grouped is a lower effective
+    # flood than 10 ungrouped was. The other three configs are nowhere near
+    # their limits and stay at 10.
+    open-pull-requests-limit: 15
     labels: ["dependencies"]
     groups:
-      dev-dependencies:
-        dependency-type: "development"
+      # Co-versioned families: each shares a compile-time or runtime contract,
+      # so a member raised alone is typechecked against its siblings' old
+      # versions — the HEL-898 failure (`IconDefinition` vs `IconProp`).
+      fortawesome:
+        patterns:
+          - "@fortawesome/fontawesome-svg-core"
+          - "@fortawesome/free-brands-svg-icons"
+          - "@fortawesome/free-solid-svg-icons"
+          - "@fortawesome/react-fontawesome"
+      echarts:
+        patterns:
+          - "echarts"
+          - "echarts-for-react"
+      redux:
+        patterns:
+          - "@reduxjs/toolkit"
+          - "react-redux"
+      markdown:
+        patterns:
+          - "react-markdown"
+          - "remark-gfm"
       react:
         patterns:
           - "react"
           - "react-dom"
           - "@types/react*"
+      dev-dependencies:
+        dependency-type: "development"
 
   - package-ecosystem: "github-actions"
     directory: "/"
