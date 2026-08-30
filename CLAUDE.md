@@ -154,6 +154,24 @@ The orchestration system is provided by **Concertino** (`concertino.config.json`
 Design and architecture notes for the original in-repo system live in
 `notes/orchestration-iron-laws-handoff.md` (historical).
 
+### `scripts/concertino/` is a render target — do not hand-edit it
+
+Every file under `scripts/concertino/` (except `.concertino.env`'s consumers reading
+it, which is fine) is rendered by `concertino sync` from Concertino's own `core/`
+templates, and is now tracked in this repo (HEL-812) so a delivery worktree
+actually has these scripts present — but tracked does not mean editable here.
+A local edit to a rendered script is silently erased by the next `concertino sync`
+(this is exactly the CON-133 failure mode). If a script under `scripts/concertino/`
+needs a behavior change, the fix goes to the Concertino repo
+(`~/Development/concertino`) and reaches this repo only via a subsequent
+`concertino sync`, committed here as its own reviewable diff.
+
+`concertino sync` is **manual, not automatic**, in this repo:
+`concertino.config.json` sets `cleanup.skipSync: true`, so `cleanup.sh`'s
+Phase-4 fast-forward never auto-renders into a tracked working tree. Run
+`concertino sync` deliberately when you need to pick up an upstream Concertino
+change.
+
 ## Development Rules
 
 ### Behavior

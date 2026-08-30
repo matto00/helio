@@ -56,5 +56,7 @@ docs/demo/
 
 # Concertino
 .concertino/
-scripts/concertino/
-concertino.config.json
+# Stray render artifacts leaked from a dirty upstream Concertino checkout
+# (unreviewed WIP, never invoked from helio) — HEL-812.
+scripts/concertino/pricing-table.json
+scripts/concertino/report-cost.sh

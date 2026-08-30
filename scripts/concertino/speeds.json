@@ -1,0 +1,42 @@
+{
+  "budgets": {
+    "executionCycles": 3,
+    "skepticDesignRounds": 5,
+    "skepticFinalRounds": 2,
+    "debugAttempts": 2
+  },
+  "speeds": {
+    "default": {
+      "budgets": {},
+      "roleTiers": {
+        "orchestrator": "standard",
+        "executor": "standard",
+        "evaluator": "standard",
+        "skeptic": "standard",
+        "auditor": "standard"
+      }
+    }
+  },
+  "modelTiers": {
+    "claude-code": {
+      "cheap": "haiku",
+      "standard": "sonnet",
+      "capable": "opus"
+    },
+    "codex": {
+      "cheap": "codex-mini-latest",
+      "standard": "codex-mini-latest",
+      "capable": "gpt-5.1-codex"
+    },
+    "opencode": {
+      "cheap": "anthropic/claude-haiku-4-5",
+      "standard": "anthropic/claude-sonnet-4-5",
+      "capable": "anthropic/claude-opus-4-1"
+    }
+  },
+  "models": {
+    "claude-code": {},
+    "codex": {},
+    "opencode": {}
+  }
+}
