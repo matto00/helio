@@ -87,3 +87,28 @@ the full reasoning on why no DML was landed this cycle.
 - `openspec/changes/outputs-model-migration/tasks.md` — 2.9 step (b) marked done (steps (c)-(h) still
   not started).
 - `openspec/changes/outputs-model-migration/execution-progress.md`, this file — updated for cycle 7.
+
+## Cycle 8 (this cycle) — task 2.9 steps (c)-(h)
+
+- `backend/src/main/resources/db/migration/V94__outputs_model.sql` — added `ORDER BY p.id` to
+  section 9's panel loop (determinism fix, required by step (f)'s "lowest-position Output"
+  resolution); added six new sections: (10) unbound data panels deleted + `hel904_migration_counts`
+  audit table (step c); (11) `data_type_rows` → `node_snapshots` under each pipeline's ORIGINAL
+  frozen last-trunk-step (step e, run before section 12 so it never sees a migration-created node);
+  (12) computed fields → `compute` pipeline steps for pipeline-output types, attached as a sibling
+  child of the original last-trunk-step (step g; companion-type case is a documented no-op, 0 rows
+  in the dev DB); (13) orphan pipeline-output types (no bound panel) → one `table` Output named
+  after the type on the last-trunk-step (step d); (14) alert rules/events → `target_output_id`
+  resolved to the lowest-position Output on the rule's type's frozen last-trunk-step (step f);
+  (15) patch-set journal cleanup — removes `dataType`/`metric`-targeted edit entries from
+  `patch_set_applications.edits`, deleting the whole row if that empties it (step h).
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/V94OutputsMigrationSpec.scala`
+  — added fixtures for all six steps (an unbound panel; a zero-panel `pipeline-orphan`/`dt-orphan`
+  pair carrying both the orphan-type case and a computed field; `data_type_rows` for both dt-1 and
+  dt-orphan; two new alert rules + one alert event; two `patch_set_applications` rows exercising
+  both the partial-filter and the empty-row-deleted cases), red-first pre-migration assertions for
+  each, and 13 new post-migration tests (one per assertion named in the resume brief, including the
+  row-for-row `node_snapshots` equality check and the exact deleted/logged counts).
+- `openspec/changes/outputs-model-migration/tasks.md` — 2.9 steps (c)-(h) marked done; 2.10 (the
+  drops) still explicitly not started (blocked on sections 3/4's consumer rewires, decision 1e).
+- `openspec/changes/outputs-model-migration/execution-progress.md`, this file — updated for cycle 8.

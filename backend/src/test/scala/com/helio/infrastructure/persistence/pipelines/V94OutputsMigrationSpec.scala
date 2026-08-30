@@ -119,7 +119,51 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
                      '{"value":"ratinglevel"}', '{"agg":"avg","value":"someOtherField"}', 'metric-1')""",
       sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id, field_mapping)
              VALUES ('panel-table-plain', $dashboardId, 'table-plain', $ownerId::uuid, now(), now(), '{}', 'table', 'dt-1', $ownerId::uuid,
-                     '{"anyCol":"colName"}')"""
+                     '{"anyCol":"colName"}')""",
+      // Task 2.9(c) fixture: an unbound data panel (bound-visualization
+      // `type`, but `type_id` NULL) -- must be deleted, count logged.
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
+             VALUES ('panel-unbound-metric', $dashboardId, 'unbound', $ownerId::uuid, now(), now(), '{}', 'metric', $ownerId::uuid)""",
+      // Task 2.9(d)/(e)/(f)/(g) fixture: a second pipeline whose output type
+      // has NO bound panel (qualifies for (d)'s orphan table Output) and
+      // DOES carry a computed field (qualifies for (g)'s pipeline-output
+      // compute-step case) -- one fixture pipeline deliberately exercises
+      // both, since they attach to the same frozen last-trunk-step node.
+      sqlu"""INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
+             VALUES ('dt-orphan', NULL, 'Orphan Type', '[]',
+                     '[{"name":"doubled","displayName":"Doubled","expression":"amount * 2","dataType":"number"}]',
+                     1, now(), now(), $ownerId::uuid)""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, created_at, updated_at, owner_id)
+             VALUES ('pipeline-orphan', 'orphan-pipeline', $sourceId, 'dt-orphan', now(), now(), $ownerId::uuid)""",
+      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at)
+             VALUES ('orphan-step-0', 'pipeline-orphan', 0, 'select', '{}', true, now(), now())""",
+      // Task 2.9(e) fixtures: real `data_type_rows` for BOTH a
+      // pre-existing-trunk pipeline (dt-1) and the zero-panel orphan
+      // pipeline (dt-orphan) -- row-for-row equality with `node_snapshots`
+      // is asserted for both.
+      sqlu"""INSERT INTO data_type_rows (data_type_id, row_index, data) VALUES ('dt-1', 0, '{"profit": 10}')""",
+      sqlu"""INSERT INTO data_type_rows (data_type_id, row_index, data) VALUES ('dt-1', 1, '{"profit": 20}')""",
+      sqlu"""INSERT INTO data_type_rows (data_type_id, row_index, data) VALUES ('dt-orphan', 0, '{"amount": 5}')""",
+      // Task 2.9(f) fixtures: alert rules whose `target_output_id` must be
+      // resolved automatically by the migration DML (distinct from
+      // pre-existing 'rule-1', which the RLS/FK test group above sets
+      // manually and is unrelated to this DML).
+      sqlu"""INSERT INTO alert_rules (id, owner_id, target_data_type_id, metric, condition, name, severity)
+             VALUES ('rule-auto-dt1', $ownerId::uuid, 'dt-1', 'value', '{}', 'auto-dt1', 'info')""",
+      sqlu"""INSERT INTO alert_rules (id, owner_id, target_data_type_id, metric, condition, name, severity)
+             VALUES ('rule-auto-orphan', $ownerId::uuid, 'dt-orphan', 'value', '{}', 'auto-orphan', 'info')""",
+      sqlu"""INSERT INTO alert_events (id, alert_rule_id, owner_id, target_data_type_id, value, severity, state, first_fired_at, last_evaluated_at)
+             VALUES ('event-auto-dt1', 'rule-auto-dt1', $ownerId::uuid, 'dt-1', '{}', 'info', 'firing', now(), now())""",
+      // Task 2.9(h) fixtures: patch-set journal entries targeting
+      // dataType/metric -- one row that keeps a surviving (panel) edit
+      // after filtering, one row that becomes fully empty and must be
+      // deleted outright.
+      sqlu"""INSERT INTO patch_set_applications (id, owner_id, applied_at, edits)
+             VALUES ('pset-mixed', $ownerId::uuid, now(),
+                     '[{"index":0,"targetKind":"panel","op":"update"},{"index":1,"targetKind":"dataType","op":"update"}]'::jsonb)""",
+      sqlu"""INSERT INTO patch_set_applications (id, owner_id, applied_at, edits)
+             VALUES ('pset-all-datatype', $ownerId::uuid, now(),
+                     '[{"index":0,"targetKind":"dataType","op":"update"},{"index":1,"targetKind":"metric","op":"update"}]'::jsonb)"""
     )))
 
     // Sanity: the pre-migration schema genuinely lacks the new columns --
@@ -146,6 +190,26 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       sql"SELECT count(*) FROM pipeline_steps WHERE pipeline_id = $pipelineId".as[Int].head
     ))
     preMigrationStepCount shouldBe 5
+
+    // Red-first (task 2.9(c)/(d)/(e)/(f)/(g)/(h)): pre-migration, the
+    // unbound panel, the orphan pipeline's steps, and the patch-set journal
+    // rows exist exactly as seeded -- `hel904_migration_counts` doesn't
+    // exist at all yet (proves the count assertions below are not vacuous).
+    val preMigrationUnboundCount = await(superDb.run(
+      sql"SELECT count(*) FROM panels WHERE id = 'panel-unbound-metric'".as[Int].head
+    ))
+    preMigrationUnboundCount shouldBe 1
+    val preMigrationOrphanStepCount = await(superDb.run(
+      sql"SELECT count(*) FROM pipeline_steps WHERE pipeline_id = 'pipeline-orphan'".as[Int].head
+    ))
+    preMigrationOrphanStepCount shouldBe 1
+    a[java.sql.SQLException] should be thrownBy
+      await(superDb.run(sql"SELECT 1 FROM hel904_migration_counts LIMIT 1".as[Int]))
+    val preMigrationPatchSetEditCounts = await(superDb.run(
+      sql"SELECT jsonb_array_length(edits) FROM patch_set_applications WHERE id IN ('pset-mixed', 'pset-all-datatype') ORDER BY id"
+        .as[Int]
+    ))
+    preMigrationPatchSetEditCounts shouldBe Vector(2, 2)
 
     // ── Now migrate to latest (applies V94) ─────────────────────────────────
     Flyway
@@ -498,6 +562,149 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
           .as[Int]
       ))
       positions.sorted shouldBe Vector(0, 1, 2, 3, 4)
+    }
+  }
+
+  "V94 data migration step 2.9(c) (unbound data panels deleted)" should {
+    "delete the unbound panel and log the exact count" in {
+      val count = await(superDb.run(
+        sql"SELECT count(*) FROM panels WHERE id = 'panel-unbound-metric'".as[Int].head
+      ))
+      count shouldBe 0
+
+      val logged = await(superDb.run(
+        sql"SELECT count FROM hel904_migration_counts WHERE step = 'unbound_panels_deleted'".as[Int].head
+      ))
+      logged shouldBe 1 // exactly the one seeded unbound panel
+    }
+  }
+
+  "V94 data migration step 2.9(g) (computed fields -> compute steps)" should {
+    "append one compute step as a sibling child of the trunk-last step for a pipeline-output type with computed fields" in {
+      val computeStepId = "hel904-compute-dt-orphan-0"
+      val (parentStepId, op, config) = await(superDb.run(
+        sql"SELECT parent_step_id, op, config::text FROM pipeline_steps WHERE id = $computeStepId"
+          .as[(Option[String], String, String)].head
+      ))
+      parentStepId shouldBe Some("orphan-step-0") // pipeline-orphan's only (= last-trunk) step
+      op shouldBe "compute"
+      config.parseJson shouldBe """{"column":"doubled","expression":"amount * 2","type":"number"}""".parseJson
+    }
+
+    "log a zero count for the companion-type case (dev DB has none) and a non-zero count for the pipeline-output case" in {
+      val pipelineOutputCount = await(superDb.run(
+        sql"SELECT count FROM hel904_migration_counts WHERE step = 'computed_fields_migrated_pipeline_output'".as[Int].head
+      ))
+      pipelineOutputCount shouldBe 1 // exactly dt-orphan in this fixture
+      val companionCount = await(superDb.run(
+        sql"SELECT count FROM hel904_migration_counts WHERE step = 'computed_fields_migrated_companion'".as[Int].head
+      ))
+      companionCount shouldBe 0
+    }
+
+    "leave dt-1's already-created section-9 Outputs attached to the ORIGINAL trunk-last, unaffected by dt-1 having no computed fields" in {
+      // dt-1 itself carries no computed_fields in this fixture -- this is a
+      // negative-space check that section 12 only touches pipelines that
+      // actually have computed fields.
+      val computeStepCount = await(superDb.run(
+        sql"SELECT count(*) FROM pipeline_steps WHERE pipeline_id = $pipelineId AND id LIKE 'hel904-compute-%'".as[Int].head
+      ))
+      computeStepCount shouldBe 0
+    }
+  }
+
+  "V94 data migration step 2.9(d) (orphan pipeline-output types -> table Output)" should {
+    "create exactly one table Output, named after the type, on the pipeline's last-trunk-step" in {
+      val outputId = "hel904-orphan-output-dt-orphan"
+      val (pipelineIdCol, nodeStepId, name, kind) = await(superDb.run(
+        sql"SELECT pipeline_id, node_step_id, name, kind FROM outputs WHERE id = $outputId"
+          .as[(String, Option[String], String, String)].head
+      ))
+      pipelineIdCol shouldBe "pipeline-orphan"
+      nodeStepId shouldBe Some("orphan-step-0")
+      name shouldBe "Orphan Type"
+      kind shouldBe "table"
+    }
+
+    "log the exact orphan-type count" in {
+      val logged = await(superDb.run(
+        sql"SELECT count FROM hel904_migration_counts WHERE step = 'orphan_output_types_backfilled'".as[Int].head
+      ))
+      logged shouldBe 1 // exactly dt-orphan in this fixture (dt-1 has bound panels, excluded)
+    }
+  }
+
+  "V94 data migration step 2.9(e) (data_type_rows -> node_snapshots)" should {
+    "copy dt-1's rows row-for-row onto the pipeline's last-trunk-step (not any migration-created tail)" in {
+      val rows = await(superDb.run(
+        sql"""SELECT row_index, data::text FROM node_snapshots
+              WHERE pipeline_id = $pipelineId AND node_step_id = ${stepIds.last} ORDER BY row_index"""
+          .as[(Int, String)]
+      ))
+      rows.map(_._1) shouldBe Vector(0, 1)
+      rows(0)._2.parseJson shouldBe """{"profit": 10}""".parseJson
+      rows(1)._2.parseJson shouldBe """{"profit": 20}""".parseJson
+    }
+
+    "copy dt-orphan's rows onto pipeline-orphan's last-trunk-step, unaffected by that pipeline's own migration-created compute step" in {
+      val rows = await(superDb.run(
+        sql"""SELECT row_index, data::text FROM node_snapshots
+              WHERE pipeline_id = 'pipeline-orphan' ORDER BY row_index"""
+          .as[(Int, String)]
+      ))
+      rows shouldBe Vector((0, "{\"amount\": 5}"))
+      // The migration-created compute step gets NO snapshot (decision 13).
+      val computeSnapshotCount = await(superDb.run(
+        sql"SELECT count(*) FROM node_snapshots WHERE node_step_id = 'hel904-compute-dt-orphan-0'".as[Int].head
+      ))
+      computeSnapshotCount shouldBe 0
+    }
+  }
+
+  "V94 data migration step 2.9(f) (alert rules/events -> target_output_id)" should {
+    "resolve to the lowest-position Output on dt-1's trunk-last node (panel-bound, first alphabetically among co-located panels)" in {
+      val targetOutputId = await(superDb.run(
+        sql"SELECT target_output_id FROM alert_rules WHERE id = 'rule-auto-dt1'".as[Option[String]].head
+      )).get
+      val panelBoundOutputId = await(superDb.run(
+        sql"SELECT output_id FROM panels WHERE id = 'panel-bound'".as[Option[String]].head
+      )).get
+      targetOutputId shouldBe panelBoundOutputId
+
+      val eventTargetOutputId = await(superDb.run(
+        sql"SELECT target_output_id FROM alert_events WHERE id = 'event-auto-dt1'".as[Option[String]].head
+      ))
+      eventTargetOutputId shouldBe Some(targetOutputId)
+    }
+
+    "resolve to the single orphan-type table Output for a rule targeting dt-orphan" in {
+      val targetOutputId = await(superDb.run(
+        sql"SELECT target_output_id FROM alert_rules WHERE id = 'rule-auto-orphan'".as[Option[String]].head
+      ))
+      targetOutputId shouldBe Some("hel904-orphan-output-dt-orphan")
+    }
+  }
+
+  "V94 data migration step 2.9(h) (patch-set journal cleanup)" should {
+    "drop only the dataType-targeted edit, keeping the row and its surviving panel edit" in {
+      val edits = await(superDb.run(
+        sql"SELECT edits::text FROM patch_set_applications WHERE id = 'pset-mixed'".as[String].head
+      ))
+      edits.parseJson shouldBe """[{"index":0,"targetKind":"panel","op":"update"}]""".parseJson
+    }
+
+    "delete the whole application row once every edit is removed" in {
+      val count = await(superDb.run(
+        sql"SELECT count(*) FROM patch_set_applications WHERE id = 'pset-all-datatype'".as[Int].head
+      ))
+      count shouldBe 0
+    }
+
+    "log the exact number of removed entries (2 from pset-all-datatype + 1 from pset-mixed)" in {
+      val logged = await(superDb.run(
+        sql"SELECT count FROM hel904_migration_counts WHERE step = 'patch_set_journal_entries_removed'".as[Int].head
+      ))
+      logged shouldBe 3
     }
   }
 }

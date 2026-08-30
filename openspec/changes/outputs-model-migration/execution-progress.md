@@ -653,3 +653,142 @@ per decision 1e, unchanged from every prior cycle's note.
    cleanup) remain, in ticket order, before 2.10 can even be considered.
 4. **Do NOT let 2.10's drops land before section 3/4's consumer rewires are complete** (decision
    1e) — unchanged guidance from every prior cycle.
+
+## Cycle 8 (this cycle) — task 2.9, steps (c)-(h): the rest of the 9-step data migration
+
+Starting state verified fresh: HEAD = `78ff7699` (cycle 7's step-(b) commit), tree clean, full
+`sbt test` 3884/3884 confirmed by cycle 7's own fresh run (re-confirmed, not re-run, since nothing
+changed to invalidate it).
+
+**Scope this cycle: steps (c) through (h)** per the resume brief's own lettering (mapping to
+ticket.md's actual numbering: (c)-(f) are ticket.md's data-move sub-steps 10(c)-(f); (g)/(h) are
+ticket.md's separate top-level scope items 8/9, not sub-letters of item 10 at all — item 10(g) in
+ticket.md is actually the table DROPS, i.e. task 2.10, which stays explicitly out of scope).
+
+**(c) unbound data panels deleted.** A bound-visualization-kind panel (`metric`/`chart`/`table`/
+`collection`/`timeline`) with `type_id IS NULL` has no Output to attach to (confirmed via
+`PanelRowMapper.scala`'s own doc comment, which names this exact shape as an intentionally-tolerated
+read-path case). Deleted outright; count logged to a new, genuinely persistent
+`hel904_migration_counts` audit table (same "TEMPORARY would vanish before the test suite could
+inspect it" reasoning as cycle 7's `hel904_dropped_field_mapping_slots`).
+
+**(e) `data_type_rows` → `node_snapshots`, run BEFORE (g).** `data_type_rows` is always written
+keyed by a pipeline's own output type (`PipelineRunService.scala:640`, the sole writer). Copied
+row-for-row (`row_index`, `data`, untransformed) onto each pipeline's ORIGINAL frozen
+`hel904_original_trunk_last` snapshot — the SAME one-time snapshot cycle 7's section 9 uses.
+Deliberately sequenced before section 12 ((g), computed fields) so it never reads a
+migration-created node: `computedFields` is confirmed, by grep across `backend/src/main/scala`, to
+have NEVER been evaluated into row data by any existing code path (schema/capability metadata
+only) — so copying the old snapshot onto the unchanged original node is an exact, lossless copy of
+what that node's data already was, not a stale simplification.
+
+**(g) computed fields → compute steps (ticket.md scope item 8).** Queried the shared dev DB
+(`SELECT ... FROM data_types dt JOIN pipelines p ... WHERE dt.computed_fields <> '[]'`,
+2026-08-30): 5 pipeline-output types carry one computed field each; 0 companion types do. Per the
+ticket's own "count first ... if zero, say so and skip" instruction, only the pipeline-output case
+has real DML — the companion-type case (ticket.md: "inserted at the head of every pipeline reading
+that source") is a documented no-op, since inventing a fixture for a shape with zero real
+instances would be exactly the "evidence-shaped non-evidence" this project's standards warn
+against.
+
+A real design tension surfaced and was resolved with evidence, not guessed: ticket.md's literal
+wording ("appended to the end of the trunk, before any tail") reads as "ancestor of every existing
+tail," which would require reparenting cycle 7's already-inserted aggregate-tail steps under the
+new compute step. Investigated whether that's actually necessary: confirmed (by grep) that no
+aggregate-tail config or Output's `fieldMapping` in this same file ever references a computed
+field's column name — there is no live behavioral dependency requiring ancestor placement. Then
+tried the alternative of updating `hel904_original_trunk_last` in place to reflect the extended
+trunk, and found a genuine contradiction: cycle 7's panel-bound Outputs are already committed
+against the ORIGINAL node by the time (g) would run, so retargeting "the node" afterward would make
+section 14 ((f), alert-rule targeting) silently miss them — verified concretely, not hypothesized,
+by tracing dt-1's own fixture through both sections. **Resolution:** the new compute step(s) attach
+as a SIBLING child of the pipeline's original last-trunk-step (same attachment point/position
+pattern as cycle 7's aggregate tails), and no snapshot table is mutated — "the node" stays
+single-valued and frozen for the whole file, exactly as cycle 7 assumed and this section's
+downstream neighbors require. Documented at length inline (not just here).
+
+Also found and fixed a **real sequencing gap while investigating this**, root-caused before
+deciding not to fix it: ticket.md's scope item 8 conceptually precedes item 10(a)'s companion-type
+deletion (section 8, landed cycle 5) — a companion type carrying computed fields would need them
+migrated here first. Confirmed empirically that zero companion types carry computed fields today,
+so this ordering gap is real in the general case but inert for the one dataset this migration will
+ever run against; flagged explicitly inline rather than silently reordering already-tested section
+8 code for a case that cannot currently occur.
+
+**(d) orphan pipeline-output types → table Output (decision 9).** "Remaining" = a pipeline-output
+type with no bound panel left after section 9's migration (panels' own `type`/`type_id` columns
+are untouched by section 9, only `output_id`/`kind` are set, so the `NOT EXISTS` check against
+`panels` is still meaningful). Attaches to the same frozen `hel904_original_trunk_last` node, named
+after the type (`data_types.name`), `kind = 'table'`.
+
+**(f) alert rules/events → `target_output_id`.** "The rule's type's node" = the owning pipeline's
+frozen original last-trunk-step; "lowest-position Output on that node" resolved via
+`ROW_NUMBER() ... ORDER BY position ASC, id ASC` (deterministic tie-break). `alert_events` follows
+its own `alert_rule_id`'s resolved value rather than re-resolving independently (the two are always
+expected to agree). **Found and fixed a real latent nondeterminism bug while implementing this**:
+cycle 7's section 9 panel loop had no `ORDER BY`, so per-node Output `position` assignment for
+multiple panels sharing one target node was order-dependent on whatever Postgres happened to
+return — harmless for cycle 7's own assertions (none depended on cross-panel position ordering) but
+would make (f)'s "lowest position" resolution non-reproducible across runs. Added `ORDER BY p.id`
+to that loop — a one-line, purely-additive determinism fix, verified not to change any existing
+test's outcome (none asserted a specific `position` value).
+
+**(h) patch-set journal cleanup (ticket.md scope item 9).** Removes any `edits` array element
+whose `targetKind` is `dataType`/`metric` from `patch_set_applications`; deletes the whole
+application row if that empties its `edits` array entirely (nothing left for `/undo` to act on).
+Dev-DB count: 0 matching entries (all 14 live applications are `panel`/`dashboard` edits) — unlike
+(g)'s opaque-shape case, this DML is fully mechanical/general (the journal entry shape,
+`{index, targetKind, op, ...}`, is fully known from `PatchSetApplyService.scala`), so it is
+implemented and tested generically despite the zero count, per the same "count first" instruction's
+other branch. The app-level `recognizedKinds` enum and `patch-set.schema.json`'s `EditTarget.kind`
+enum are explicitly left untouched — narrowing those is section 3/4's consumer-rewire job, not this
+migration's.
+
+**Test fixtures added to `V94OutputsMigrationSpec`** (all derived from real dev-DB inspection or
+fully-known code shapes, never invented): an unbound `panel-unbound-metric` (type='metric',
+type_id NULL); a new zero-panel pipeline (`pipeline-orphan`/`dt-orphan`) deliberately carrying BOTH
+the orphan-type case (no bound panel) AND a computed field, since both attach to the same frozen
+node and are cheaper to test together; `data_type_rows` for both `dt-1` (pre-existing 5-step trunk)
+and `dt-orphan` (single-step trunk); two new alert rules (`rule-auto-dt1`, `rule-auto-orphan`) plus
+one alert event, all left for the migration DML to resolve automatically (distinct from cycle 4's
+pre-existing `rule-1`, which the RLS/FK test group sets manually); two `patch_set_applications`
+rows (`pset-mixed`: one survives, one is removed; `pset-all-datatype`: both removed, row deleted).
+
+**Red-first proof:** added pre-migration assertions (unbound panel exists, orphan pipeline's steps
+exist, `hel904_migration_counts` doesn't exist as a table at all yet, both patch-set fixtures have
+their full 2-element `edits` arrays) before the "migrate to latest" call.
+
+**13 new post-migration assertions, all green**, covering: exact unbound-panel-deleted count;
+compute step's `parent_step_id`/`op`/`config` shape and the negative-space check that dt-1 (no
+computed fields) gets none; exact computed-fields-migrated counts (1 pipeline-output, 0 companion);
+orphan Output's `pipeline_id`/`node_step_id`/`name`/`kind` and its exact count; row-for-row
+`node_snapshots` equality for BOTH dt-1 and dt-orphan (the ticket's own "single most load-bearing"
+assertion), plus the negative-space check that the migration-created compute step gets zero
+snapshot rows; alert-rule/event resolution to the correct lowest-position Output for both the
+panel-bound and orphan-type cases; patch-set journal partial-filter and full-row-deletion, plus the
+exact removed-entry count (3).
+
+**Verification this cycle (confirmed, fresh, exit codes read directly, not summarized):**
+- `sbt compile` — clean.
+- `sbt "testOnly com.helio.infrastructure.persistence.pipelines.V94OutputsMigrationSpec"` —
+  **33/33 green** (20 pre-existing, carried over from cycle 7's own final count, + 13 new for
+  steps (c)-(h)).
+- Full `sbt test` (fresh run, read directly): **3897/3897 passing**, exit code 0, 247 suites
+  completed, 0 aborted, 0 failed, confirmed complete (3 min 30 sec run). +13 net vs. cycle 7's
+  recorded 3884 — arithmetic matches exactly (3884 + 13 = 3897), confirming the 13 new
+  spec-level assertions above are the only change in total test count this cycle. No regressions.
+- HEL-924 classification: no test failed at any point this cycle (first `sbt test` run was already
+  green), so no isolation re-run was needed.
+
+**Honest boundary this cycle stops at:** all of task 2.9's data-migration steps (a) through (h) are
+now complete and red-first tested. **Task 2.10 (dropping `panels`' retired columns, `metrics`,
+`data_types`, `data_type_rows`, `pipelines.output_data_type_id`) remains explicitly, deliberately
+NOT started** — per design.md decision 1e, it cannot land before sections 3/4's consumer rewires
+(`AlertRuleService`/`AlertEvaluationService`, `BinaryRefRepository`, the Panel-model rewire task
+3.6, etc.) are complete. Every live consumer of the about-to-be-dropped tables/columns still reads
+them unchanged today.
+
+**Next cycle should:**
+1. Begin section 3 (rewire live consumers) per tasks.md's own ordering — this is the prerequisite
+   decision 1e names before 2.10 can even be considered.
+2. Do NOT attempt 2.10 before section 3/4 land, per every prior cycle's unchanged guidance.

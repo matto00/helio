@@ -99,14 +99,20 @@
       key those by (pipeline_id, node_step_id) instead and say so in the PR"), keyed by node
       instead of `data_source_id`. RLS rewrite (currently selects from `data_types`) deferred
       to land with 2.9/2.10, same as `target_data_type_id`'s drop. Same V94 file.
-- [ ] 2.9 (partial — steps (a) and (b) only) Data migration steps, in ticket order: companion types →
-      inferred_schema (DONE, red-first tested in `V94OutputsMigrationSpec`); computed
-      fields → compute steps (count first, skip+log if zero); bound panels → Outputs (+ tail
-      steps for aggregation/metric panels, invalid fieldMapping slots dropped+logged) (DONE,
-      red-first tested in `V94OutputsMigrationSpec` — see execution-progress.md cycle 7); unbound
-      panels deleted (count logged); orphan types → table Outputs; `data_type_rows` →
-      `node_snapshots`; alert rules retargeted; patch-set journal entries for `dataType`/`metric`
-      deleted. Steps (c)-(h) NOT done this cycle — see execution-progress.md cycle 7.
+- [x] 2.9 Data migration steps, in ticket order: companion types →
+      inferred_schema (DONE cycle 5, red-first tested in `V94OutputsMigrationSpec`); bound panels
+      → Outputs (+ tail steps for aggregation/metric panels, invalid fieldMapping slots
+      dropped+logged) (DONE cycle 7); unbound panels deleted (count logged, DONE cycle 8);
+      `data_type_rows` → `node_snapshots` under each pipeline's original last-trunk-step (DONE
+      cycle 8); computed fields → compute steps for pipeline-output types, sibling-attached to the
+      original last-trunk-step — companion-type case is a documented no-op, 0 rows in the dev DB
+      (DONE cycle 8); orphan pipeline-output types (no bound panel) → table Outputs (DONE cycle 8);
+      alert rules/events retargeted to the lowest-position Output on their type's node (DONE
+      cycle 8); patch-set journal entries for `dataType`/`metric` deleted (DONE cycle 8, count
+      logged: 0 in the dev DB, implemented generically anyway and red-first tested against a
+      synthetic fixture). All red-first tested in `V94OutputsMigrationSpec` — see
+      execution-progress.md cycle 8. **2.10 (the drops) remains explicitly NOT started** — blocked
+      on sections 3/4's consumer rewires (decision 1e).
 - [ ] 2.10 Drop `panels`' retired columns; drop `metrics`, `data_types`, `data_type_rows`,
       `pipelines.output_data_type_id`.
 - [x] 2.11 (partial) Red-first migration test for the additive slice landed so far —

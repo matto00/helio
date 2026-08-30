@@ -437,6 +437,14 @@ BEGIN
     FROM panels p
     WHERE p.type IN ('metric', 'chart', 'table', 'collection', 'timeline')
        OR (p.type = 'text' AND p.type_id IS NOT NULL)
+    -- ORDER BY added this cycle (task 2.9 c-h): makes per-node Output
+    -- `position` assignment deterministic across runs for panels that share
+    -- a target node -- required so step (f) below ("lowest-position Output
+    -- on the rule's type's node") resolves to a REPRODUCIBLE Output, not
+    -- whatever order Postgres happened to return rows in. Purely additive
+    -- to this loop's own behavior (an explicit tie-break where none existed
+    -- before, not a change to which Output any panel gets).
+    ORDER BY p.id
   LOOP
     -- Resolve the owning pipeline (1:1: each pipeline mints exactly one
     -- output type today, `PipelineRepository.create`).
@@ -549,3 +557,289 @@ BEGIN
     UPDATE panels SET output_id = new_output_id, kind = 'output' WHERE id = panel_row.id;
   END LOOP;
 END $$;
+
+-- ── 10. Data migration step 2.9(c): unbound data panels deleted ────────────
+--
+-- A "bound" panel of a visualization kind (metric/chart/table/collection/
+-- timeline) is one with `type_id` set (resolved to an Output by section 9
+-- above). Any row of those kinds with `type_id IS NULL` was never actually
+-- bound to data -- ticket.md's own reference: DemoData seeds four such rows
+-- (`PanelRowMapper.scala:15-18`'s comment documents this exact shape as an
+-- intentionally-tolerated read-path case, not a real binding). These have
+-- no Output to attach to and are deleted outright; the count is logged to
+-- a genuine (non-temporary) audit table for the same observability reason
+-- as `hel904_dropped_field_mapping_slots` above -- a session-scoped TEMP
+-- table would vanish before this file's own test suite could inspect it.
+
+CREATE TABLE hel904_migration_counts (
+  step  TEXT PRIMARY KEY,
+  count INT NOT NULL
+);
+
+INSERT INTO hel904_migration_counts (step, count)
+SELECT 'unbound_panels_deleted', count(*)
+FROM panels
+WHERE type IN ('metric', 'chart', 'table', 'collection', 'timeline') AND type_id IS NULL;
+
+DELETE FROM panels
+WHERE type IN ('metric', 'chart', 'table', 'collection', 'timeline') AND type_id IS NULL;
+
+-- ── 11. Data migration step 2.9(e): data_type_rows -> node_snapshots ───────
+--
+-- `data_type_rows` (V29) is always written keyed by a pipeline's OWN output
+-- type (`PipelineRunService.scala:640`, the sole writer, always keys by
+-- `outputDataTypeId`) -- so every row here maps 1:1 to a pipeline via
+-- `pipelines.output_data_type_id`, onto that pipeline's node_snapshots
+-- entry for its ORIGINAL last-trunk-step (`hel904_original_trunk_last`,
+-- the SAME frozen, pre-loop snapshot used by section 9 above -- this
+-- section deliberately runs BEFORE section 12 (task 2.9(g), computed
+-- fields) precisely so it reads the untouched original node, never a
+-- migration-created tail: decision 13 ("migration-created tails get no
+-- snapshot") applies to computed-field compute steps exactly as it does to
+-- the aggregate tails in section 9 -- a synthesized node has no real
+-- engine-run rows to backfill, and `data_type_rows`'s stored data never
+-- included computed-field columns anyway (`computedFields` is confirmed,
+-- by grep across `backend/src/main/scala`, to be schema/capability
+-- metadata only -- no code path ever evaluates it into row data), so
+-- copying it onto the original node is not a lossy simplification, it is
+-- an exact, row-for-row-equal copy of what that node's data already was.
+--
+-- Row-for-row equality (`row_index`, `data`) is preserved by a straight
+-- `INSERT ... SELECT` -- no transformation of `data` itself.
+
+INSERT INTO node_snapshots (pipeline_id, node_step_id, row_index, data)
+SELECT p.id, htl.step_id, dtr.row_index, dtr.data
+FROM data_type_rows dtr
+JOIN pipelines p ON p.output_data_type_id = dtr.data_type_id
+JOIN hel904_original_trunk_last htl ON htl.pipeline_id = p.id;
+
+-- ── 12. Data migration step 2.9(g) / ticket.md scope item 8: computed
+--       fields -> compute steps ───────────────────────────────────────────
+--
+-- Dev-DB count (2026-08-30): 5 pipeline-output types carry non-empty
+-- `computed_fields` (each a single field, e.g. `{"name":"doubled",
+-- "displayName":"Doubled","expression":"amount * 2","dataType":"number"}`);
+-- 0 companion types do. Per the ticket's own "count first ... if zero, say
+-- so and skip" instruction, only the pipeline-output-type case has real
+-- DML below. The companion-type case (ticket.md: "inserted at the head of
+-- every pipeline reading that source") is a DELIBERATE, DOCUMENTED NO-OP
+-- this migration: zero rows exist anywhere to derive or verify a shape
+-- against, and inventing one would be exactly the "evidence-shaped
+-- non-evidence" this project's own standards warn against.
+--
+-- SEQUENCING NOTE (honest, not silently left): ticket.md's scope item 8
+-- conceptually precedes item 10(a)'s companion-type deletion (section 8
+-- above, landed cycle 5) -- a companion type that carried computed fields
+-- would need them migrated here BEFORE that DELETE runs. Confirmed
+-- empirically (2026-08-30) that zero companion types carry computed
+-- fields today, so this ordering gap is real in the general case but
+-- inert for the one dataset this migration will ever be applied to;
+-- flagged here for whoever next touches this file if that ever changes,
+-- rather than silently reordering already-tested section 8 code for a
+-- case that cannot currently occur.
+--
+-- PLACEMENT DECISION (evidence-based, not the literal "ancestor of every
+-- tail" reading of ticket.md's "appended to the end of the trunk before
+-- any tail"): the new compute step(s) attach as a SIBLING child of the
+-- pipeline's ORIGINAL last-trunk-step (`hel904_original_trunk_last`) --
+-- the SAME attachment point and sibling-scoped-position pattern as section
+-- 9's aggregate tails -- rather than being spliced in as a literal
+-- ancestor of any pre-existing tail. Two things make sibling-attachment
+-- the correct choice here, not just the simpler one: (1) `computedFields`
+-- is confirmed (by grep) to have NEVER been evaluated into row data by any
+-- existing code path, so no pre-existing Output/aggregate-tail-config in
+-- this same file could possibly already depend on seeing a computed
+-- column -- there is no live behavioral requirement for ancestor
+-- placement; (2) making this section instead REDEFINE "the pipeline's
+-- current last-producing node" for sections 13/14 below (by updating
+-- `hel904_original_trunk_last` in place) was tried and rejected: section
+-- 9's pre-existing Outputs for a panel-bound pipeline are already
+-- committed against the ORIGINAL node, so retargeting "the node" after
+-- the fact would make section 14's alert-rule resolution silently miss
+-- them (a real, verified contradiction, not a hypothetical) -- keeping
+-- "the node" single-valued and frozen for the whole file is what section
+-- 9 assumed and section 14 requires; sibling-attachment here preserves
+-- that invariant.
+
+DO $$
+DECLARE
+  cf_row        RECORD;
+  cf_elem       RECORD;
+  chain_parent  TEXT;
+  next_position INT;
+  new_step_id   TEXT;
+  step_config   JSONB;
+  seq           INT;
+BEGIN
+  FOR cf_row IN
+    SELECT dt.id AS data_type_id, p.id AS pipeline_id, dt.computed_fields::jsonb AS fields
+    FROM data_types dt
+    JOIN pipelines p ON p.output_data_type_id = dt.id
+    WHERE dt.computed_fields <> '[]'
+    ORDER BY dt.id
+  LOOP
+    SELECT step_id INTO chain_parent FROM hel904_original_trunk_last WHERE pipeline_id = cf_row.pipeline_id;
+    seq := 0;
+
+    FOR cf_elem IN
+      SELECT value FROM jsonb_array_elements(cf_row.fields) WITH ORDINALITY AS t(value, ord) ORDER BY ord
+    LOOP
+      step_config := jsonb_build_object(
+        'column', cf_elem.value ->> 'name',
+        'expression', cf_elem.value ->> 'expression',
+        'type', cf_elem.value ->> 'dataType'
+      );
+      new_step_id := 'hel904-compute-' || cf_row.data_type_id || '-' || seq;
+
+      SELECT COALESCE(MAX(position) + 1, 0) INTO next_position
+      FROM pipeline_steps
+      WHERE pipeline_id = cf_row.pipeline_id
+        AND ((parent_step_id IS NULL AND chain_parent IS NULL) OR parent_step_id = chain_parent);
+
+      INSERT INTO pipeline_steps (id, pipeline_id, parent_step_id, position, op, config, enabled, created_at, updated_at)
+      VALUES (new_step_id, cf_row.pipeline_id, chain_parent, next_position, 'compute', step_config::text, true, now(), now());
+
+      chain_parent := new_step_id;
+      seq := seq + 1;
+    END LOOP;
+  END LOOP;
+END $$;
+
+INSERT INTO hel904_migration_counts (step, count)
+SELECT 'computed_fields_migrated_pipeline_output', count(*)
+FROM data_types dt
+JOIN pipelines p ON p.output_data_type_id = dt.id
+WHERE dt.computed_fields <> '[]';
+
+INSERT INTO hel904_migration_counts (step, count)
+SELECT 'computed_fields_migrated_companion', count(*)
+FROM data_types dt
+WHERE dt.source_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM pipelines p WHERE p.output_data_type_id = dt.id)
+  AND dt.computed_fields <> '[]';
+
+-- ── 13. Data migration step 2.9(d): orphan pipeline-output types -> table
+--       Output (decision 9) ────────────────────────────────────────────────
+--
+-- "Remaining" = a pipeline-output type with no bound panel left after
+-- section 9's panel->Output migration (panels' own `type`/`type_id`
+-- columns are untouched by section 9 -- only `output_id`/`kind` are set --
+-- so this NOT-EXISTS check against `panels` is still meaningful here).
+-- Attaches to the pipeline's ORIGINAL last-trunk-step, exactly like every
+-- other Output-creating section in this file, so alert-rule resolution
+-- (section 14) finds it on the same node as any panel-derived Output for
+-- that pipeline would have been.
+
+INSERT INTO hel904_migration_counts (step, count)
+SELECT 'orphan_output_types_backfilled', count(*)
+FROM data_types dt
+JOIN pipelines p ON p.output_data_type_id = dt.id
+WHERE NOT EXISTS (
+  SELECT 1 FROM panels pnl
+  WHERE pnl.type_id = dt.id
+    AND (pnl.type IN ('metric', 'chart', 'table', 'collection', 'timeline')
+         OR (pnl.type = 'text' AND pnl.type_id IS NOT NULL))
+);
+
+DO $$
+DECLARE
+  orphan_row    RECORD;
+  trunk_last_id TEXT;
+  next_position INT;
+  new_output_id TEXT;
+BEGIN
+  FOR orphan_row IN
+    SELECT dt.id AS data_type_id, dt.name AS type_name, p.id AS pipeline_id, p.owner_id AS owner_id
+    FROM data_types dt
+    JOIN pipelines p ON p.output_data_type_id = dt.id
+    WHERE NOT EXISTS (
+      SELECT 1 FROM panels pnl
+      WHERE pnl.type_id = dt.id
+        AND (pnl.type IN ('metric', 'chart', 'table', 'collection', 'timeline')
+             OR (pnl.type = 'text' AND pnl.type_id IS NOT NULL))
+    )
+    ORDER BY dt.id
+  LOOP
+    SELECT step_id INTO trunk_last_id FROM hel904_original_trunk_last WHERE pipeline_id = orphan_row.pipeline_id;
+
+    SELECT COALESCE(MAX(position) + 1, 0) INTO next_position
+    FROM outputs
+    WHERE pipeline_id = orphan_row.pipeline_id
+      AND ((node_step_id IS NULL AND trunk_last_id IS NULL) OR node_step_id = trunk_last_id);
+
+    new_output_id := 'hel904-orphan-output-' || orphan_row.data_type_id;
+
+    INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, position, created_at, updated_at)
+    VALUES (new_output_id, orphan_row.pipeline_id, trunk_last_id, orphan_row.owner_id, orphan_row.type_name, 'table', next_position, now(), now());
+  END LOOP;
+END $$;
+
+-- ── 14. Data migration step 2.9(f): alert rules/events -> target_output_id
+--       ────────────────────────────────────────────────────────────────────
+--
+-- "The rule's type's node" = the pipeline owning `target_data_type_id`'s
+-- ORIGINAL last-trunk-step (same frozen snapshot every other section uses).
+-- "Lowest-position Output on that node" is resolved with `ROW_NUMBER()
+-- ... ORDER BY position ASC` rather than a bare `MIN(position)` subquery so
+-- the winning Output's `id` (not just its position) is picked in one pass.
+-- `alert_events` follows its own `alert_rule_id`'s resolved
+-- `target_output_id` rather than independently re-resolving from its own
+-- `target_data_type_id` -- the two columns are expected to always agree
+-- (an event is always created against its rule's own target), and
+-- following the rule avoids a second, redundant resolution.
+
+WITH rule_node AS (
+  SELECT ar.id AS rule_id, p.id AS pipeline_id, htl.step_id AS node_step_id
+  FROM alert_rules ar
+  JOIN pipelines p ON p.output_data_type_id = ar.target_data_type_id
+  JOIN hel904_original_trunk_last htl ON htl.pipeline_id = p.id
+),
+rule_output AS (
+  SELECT rn.rule_id, o.id AS output_id,
+         ROW_NUMBER() OVER (PARTITION BY rn.rule_id ORDER BY o.position ASC, o.id ASC) AS rk
+  FROM rule_node rn
+  JOIN outputs o
+    ON o.pipeline_id = rn.pipeline_id
+   AND ((o.node_step_id IS NULL AND rn.node_step_id IS NULL) OR o.node_step_id = rn.node_step_id)
+)
+UPDATE alert_rules ar
+SET target_output_id = ro.output_id
+FROM rule_output ro
+WHERE ar.id = ro.rule_id AND ro.rk = 1;
+
+UPDATE alert_events ae
+SET target_output_id = ar.target_output_id
+FROM alert_rules ar
+WHERE ae.alert_rule_id = ar.id AND ar.target_output_id IS NOT NULL;
+
+-- ── 15. Patch-set journal cleanup (ticket.md scope item 9) ─────────────────
+--
+-- `patch_set_applications.edits` is a JSON array of edit-journal entries
+-- (`{index, targetKind, op, ...}`, distinct from the wire `EditTarget`
+-- shape -- see `PatchSetApplyService.scala:163`). Any entry whose
+-- `targetKind` is `dataType` or `metric` is removed from its array; if
+-- that empties an application's `edits` entirely, the whole row is
+-- deleted (an application with zero surviving edits has nothing left for
+-- `/undo` to act on). Dev-DB count (2026-08-30): 0 entries match either
+-- kind (all 14 live applications are `panel`/`dashboard` edits) -- unlike
+-- section 12's computed-fields case, this DML is fully general/mechanical
+-- (not derived from an ambiguous opaque shape), so it is still implemented
+-- generically here rather than skipped, per the same "count first" spirit.
+-- The app-level `recognizedKinds` enum (`PatchSetProtocol.scala:60`) and
+-- `patch-set.schema.json`'s `EditTarget.kind` enum still list `dataType`
+-- today -- narrowing those is section 3/4's consumer-rewire job (task
+-- 2.10-adjacent, decision 1e), not this migration's.
+
+INSERT INTO hel904_migration_counts (step, count)
+SELECT 'patch_set_journal_entries_removed', count(*)
+FROM patch_set_applications, jsonb_array_elements(edits) elem
+WHERE elem ->> 'targetKind' IN ('dataType', 'metric');
+
+UPDATE patch_set_applications
+SET edits = COALESCE(
+  (SELECT jsonb_agg(elem) FROM jsonb_array_elements(edits) elem WHERE elem ->> 'targetKind' NOT IN ('dataType', 'metric')),
+  '[]'::jsonb
+)
+WHERE EXISTS (SELECT 1 FROM jsonb_array_elements(edits) elem WHERE elem ->> 'targetKind' IN ('dataType', 'metric'));
+
+DELETE FROM patch_set_applications WHERE edits = '[]'::jsonb;
