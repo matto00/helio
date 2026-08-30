@@ -20,11 +20,22 @@
 - [x] 1.4 Add `targetOutputId` to `AlertRule` domain model, additive alongside
       `targetDataTypeId` at this point; `targetDataTypeId` is removed in task 3.1 once
       `AlertRuleService`/`AlertEvaluationService` are rewired to `evaluateForOutput`.
-- [ ] 1.5 New `OutputRepository`, `NodeSnapshotRepository`.
-- [ ] 1.6 `PipelineStepRepository`: tree-ordered reads (`trunkOf`, `childrenOf`, `tailsOf`),
-      sibling-scoped `insert`/`insertAtInternal`/`reorderInternal`, splice-on-delete.
-- [ ] 1.7 Unit tests: splice-on-delete (mid-trunk re-link; tail deletion + Output cascade +
-      placement count), sibling-scoped insert/reorder, `trunkOf` order preservation.
+- [x] 1.5 New `OutputRepository`, `NodeSnapshotRepository` — compiling scaffolding against
+      the planned `outputs`/`node_snapshots` schema; both tables land in the V94 migration
+      (task 2.3/2.4), so no runtime DB test exists for these yet (deferred to land alongside
+      2.3/2.4).
+- [x] 1.6 (partial) `PipelineStepRepository`: tree-ordered reads (`trunkOf`, `childrenOf`,
+      `tailsOf`) added as pure functions over an already-fetched `Vector[PipelineStep]`,
+      walking `parentStepId` (task 1.2) — safe to call today since every real row currently
+      decodes `parentStepId = None` (degrades to today's flat list). Sibling-scoped
+      `insert`/`insertAtInternal`/`reorderInternal` and splice-on-delete are DB-backed and
+      require the real `parent_step_id` column — **deferred to task 2.2** (the migration that
+      adds the column); see execution-progress.md for the scoping rationale.
+- [x] 1.7 (partial) Unit tests for `trunkOf`/`childrenOf`/`tailsOf` (pure-function coverage:
+      empty pipeline, pure trunk, branch-point tail-ignoring, pre-backfill degrade-to-root-list,
+      sibling ordering, multi-tail depth-first expansion) —
+      `PipelineStepRepositoryTreeOrderingSpec` (8 tests, all green). Splice-on-delete /
+      sibling-scoped insert-reorder tests deferred alongside task 2.2 (same reason as 1.6).
 
 ## 2. Flyway migration V94 (additive schema, full data migration)
 

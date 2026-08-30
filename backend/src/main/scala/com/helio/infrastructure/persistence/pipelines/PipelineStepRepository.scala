@@ -255,6 +255,58 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ).map(_ > 0)
 
 
+  // ── Tree-ordered reads (HEL-904 task 1.6) ─────────────────────────────────
+  //
+  // Pure functions over an already-fetched Vector[PipelineStep], walking
+  // `parentStepId` links (added additively in task 1.2). Every real row
+  // today decodes with `parentStepId = None` (the DB column lands in the
+  // V94 migration, task 2.2's backfill) — until that backfill runs, every
+  // step is a root-level sibling and `trunkOf` degrades to today's flat
+  // position-sorted list, which is intentional: these reads must be safe to
+  // call before the migration exists. Once V94 backfills `parent_step_id`
+  // from `position`, every pre-existing pipeline becomes a pure trunk (one
+  // root child chained by `parentStepId`) and `trunkOf` walks it exactly as
+  // `list` does today. Only *new* branches created after P1.2's engine
+  // tree-walk ships produce a step with siblings or a non-trunk tail.
+
+  /** The pipeline's trunk: starting from the position-0 root child (`parentStepId
+    * = None`), follow the position-0 child at each level. Ties are broken by
+    * `position` ascending (sibling order). Returns steps in root-to-leaf
+    * order. A pipeline with no steps returns an empty Vector. */
+  def trunkOf(steps: Vector[PipelineStep]): Vector[PipelineStep] = {
+    def loop(parent: Option[PipelineStepId], acc: Vector[PipelineStep]): Vector[PipelineStep] =
+      childrenOf(steps, parent).headOption match {
+        case Some(next) => loop(Some(next.id), acc :+ next)
+        case None       => acc
+      }
+    loop(None, Vector.empty)
+  }
+
+  /** Direct children of `parent` (`None` = root), sorted by `position`
+    * ascending (sibling order). */
+  def childrenOf(steps: Vector[PipelineStep], parent: Option[PipelineStepId]): Vector[PipelineStep] =
+    steps.filter(_.parentStepId == parent).sortBy(_.position)
+
+  /** Every branch other than the trunk: for each step with more than one
+    * child, every child after the position-0 one roots its own tail,
+    * expanded depth-first. Returns one Vector per tail root, each in
+    * root-to-leaf order (mirrors `trunkOf`'s shape for a branch). */
+  def tailsOf(steps: Vector[PipelineStep]): Vector[Vector[PipelineStep]] = {
+    def expand(root: PipelineStep): Vector[PipelineStep] = {
+      def loop(current: PipelineStep, acc: Vector[PipelineStep]): Vector[PipelineStep] =
+        childrenOf(steps, Some(current.id)).headOption match {
+          case Some(next) => loop(next, acc :+ next)
+          case None       => acc
+        }
+      loop(root, Vector(root))
+    }
+
+    val allParents = steps.map(_.parentStepId).distinct
+    allParents.flatMap { parent =>
+      childrenOf(steps, parent).drop(1).map(expand)
+    }
+  }
+
   private def rowToDomain(row: PipelineStepRow): PipelineStep = {
     val stepId = PipelineStepId(row.id)
     val pid    = PipelineId(row.pipelineId)
