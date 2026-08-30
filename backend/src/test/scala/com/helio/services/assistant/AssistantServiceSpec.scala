@@ -138,7 +138,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     val workspaceSearchService   = new WorkspaceSearchService(null, null, dataTypeService, null, null, workspaceContextService)
     val panelCapabilityService   = new PanelCapabilityService(dtRepo, rowRepo)
     val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null)
-    val pipelineProposalService  = new PipelineProposalService(null, null, null, null, null, dsRepo, null)
+    val pipelineProposalService  = new PipelineProposalService(null, null, null, null, null, dsRepo, null, null)
     val claudeClient             = new ClaudeClient(config(), transport)
     // combinedProposalService/patchSetPreviewService/sourceService: null — no scripted sequence
     // below invokes propose_combined/propose_patch_set/test_connection (mirrors

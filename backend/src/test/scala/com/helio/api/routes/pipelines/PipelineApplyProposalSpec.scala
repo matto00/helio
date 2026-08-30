@@ -45,11 +45,12 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       // Static source's companion DataType + the pipeline's own output DataType.
       dataTypeCount() shouldBe (beforeTypes + 2)
 
-      // Output DataType is pipeline-bindable per V41: sourceId absent/null.
-      Get(s"/api/types/$outputTypeId").addHeader(sessionCookie) ~> routes ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[String].parseJson.asJsObject.fields.get("sourceId") shouldBe None
-      }
+      // HEL-904 task 3.8: `outputDataTypeId` (field name unchanged — see
+      // design.md) is now a real Output id, not a DataType id — there is no
+      // `GET /api/outputs/:id` route yet (P1.3/HEL-906's job), so the old
+      // "read it back and check sourceId is absent" verification has no
+      // Output-shaped equivalent here; `outputTypeId should not be empty`
+      // above already covers the meaningful assertion (a real id was minted).
     }
 
     "create nothing new for the source when the proposal references an existing sourceId" in {

@@ -24,15 +24,19 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
     // pipeline-only binding rule (V41) is enforced against the FLAT field
     // (preValidateBindings), so config's dataTypeId is silently ignored and the
     // flat value remains authoritative on the created panel.
+    // HEL-904 task 3.8/3.9: an "output"-kind panel's flat binding field is
+    // still named `dataTypeId` on the wire (schema stability), but its
+    // authoritative-after-merge key on the CREATED panel's config is
+    // `outputId` — `fieldMapping` no longer exists on an Output panel (the
+    // Output itself owns field mapping).
     "keep the flat dataTypeId authoritative when config attempts to override it (HEL-316, V41)" in {
       val before = dashboardCount()
       val body =
         s"""{
            |  "dashboardName": "Bypass Attempt",
            |  "panels": [
-           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{"value":"region"},
-           |     "config":{"dataTypeId":"$companionTypeId"}}
+           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputId",
+           |     "config":{"outputId":"$companionTypeId"}}
            |  ]
            |}""".stripMargin
       apply(body) ~> routes ~> check {
@@ -40,7 +44,7 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
         val obj    = responseAs[String].parseJson.asJsObject
         val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
         val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
-        metric.fields("config").asJsObject.fields("dataTypeId").convertTo[String] shouldBe pipelineOutputTypeId
+        metric.fields("config").asJsObject.fields("outputId").convertTo[String] shouldBe pipelineOutputId
       }
       dashboardCount() shouldBe (before + 1)
     }
@@ -54,8 +58,7 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "Flat Only",
            |  "panels": [
-           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{"value":"region"}}
+           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputId"}
            |  ]
            |}""".stripMargin
       apply(body) ~> routes ~> check {
@@ -63,10 +66,7 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
         val obj    = responseAs[String].parseJson.asJsObject
         val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
         val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
-        metric.fields("config").asJsObject shouldBe JsObject(
-          "dataTypeId"   -> JsString(pipelineOutputTypeId),
-          "fieldMapping" -> JsObject("value" -> JsString("region"))
-        )
+        metric.fields("config").asJsObject shouldBe JsObject("outputId" -> JsString(pipelineOutputId))
       }
       dashboardCount() shouldBe (before + 1)
     }

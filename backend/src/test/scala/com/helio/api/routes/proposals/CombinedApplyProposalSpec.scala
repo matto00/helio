@@ -32,7 +32,7 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
           |  "dashboard": {
           |    "dashboardName": "Combined Dashboard",
           |    "panels": [
-          |      {"title":"Total","type":"output","dataTypeId":"$pipelineOutput","fieldMapping":{"value":"name"}}
+          |      {"title":"Total","type":"output","dataTypeId":"$pipelineOutput"}
           |    ]
           |  }
           |}""".stripMargin
@@ -40,6 +40,8 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
         status shouldBe StatusCodes.Created
         val obj           = responseAs[String].parseJson.asJsObject
         val pipelineResp  = obj.fields("pipeline").asJsObject
+        // HEL-904 task 3.8: `outputDataTypeId` (field name unchanged — see
+        // design.md) now carries a real Output id.
         val outputTypeId  = pipelineResp.fields("outputDataTypeId").convertTo[String]
         outputTypeId should not be empty
         pipelineResp.fields("run").asJsObject.fields("rowCount").convertTo[Int] shouldBe 2
@@ -48,7 +50,7 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
         dashboardResp.fields("dashboard").asJsObject.fields("name").convertTo[String] shouldBe "Combined Dashboard"
         val panels = dashboardResp.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
         val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
-        metric.fields("config").asJsObject.fields("dataTypeId").convertTo[String] shouldBe outputTypeId
+        metric.fields("config").asJsObject.fields("outputId").convertTo[String] shouldBe outputTypeId
       }
       dataSourceCount()    shouldBe (beforeSources + 1)
       pipelineCount()      shouldBe (beforePipelines + 1)
@@ -71,8 +73,8 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
            |  "dashboard": {
            |    "dashboardName": "Mixed Dashboard",
            |    "panels": [
-           |      {"title":"New","type":"output","dataTypeId":"$$pipelineOutput","fieldMapping":{"value":"name"}},
-           |      {"title":"Existing","type":"output","dataTypeId":"$pipelineOutputTypeId","fieldMapping":{"value":"region"}}
+           |      {"title":"New","type":"output","dataTypeId":"$$pipelineOutput"},
+           |      {"title":"Existing","type":"output","dataTypeId":"$pipelineOutputId"}
            |    ]
            |  }
            |}""".stripMargin
@@ -82,9 +84,9 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
         val outputTypeId = obj.fields("pipeline").asJsObject.fields("outputDataTypeId").convertTo[String]
         val panels       = obj.fields("dashboard").asJsObject.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
         panels.find(_.fields("title").convertTo[String] == "New").get
-          .fields("config").asJsObject.fields("dataTypeId").convertTo[String] shouldBe outputTypeId
+          .fields("config").asJsObject.fields("outputId").convertTo[String] shouldBe outputTypeId
         panels.find(_.fields("title").convertTo[String] == "Existing").get
-          .fields("config").asJsObject.fields("dataTypeId").convertTo[String] shouldBe pipelineOutputTypeId
+          .fields("config").asJsObject.fields("outputId").convertTo[String] shouldBe pipelineOutputId
       }
     }
 

@@ -13,7 +13,7 @@ import com.helio.api.protocols.sources.{CsvSourceConfigPayload, RestApiConfigPay
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository}
 import org.mockito.ArgumentMatchers.{any, eq => meq}
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.matchers.should.Matchers
@@ -46,6 +46,11 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
   private def pipelineOutputDataType(id: DataTypeId): DataType =
     DataType(id, None, "Orders", Vector(DataField("amount", "amount", "float", nullable = false)), Vector.empty, 1, now, now, ownerId)
 
+  // HEL-904 task 3.8/3.9: a real Output, for tests exercising an "output"-kind proposal
+  // panel's binding validation (now against OutputRepository, not DataTypeRepository).
+  private def pipelineOutput(id: OutputId): Output =
+    Output(id, "Orders", ownerId, NodeRef(PipelineId(UUID.randomUUID().toString), None), OutputKind.Table, now, now)
+
   /** Builds a real `AssistantToolExecutor` over mocked `dtRepo`/`rowRepo`. `combinedProposalService`/
    *  `patchSetPreviewService` default to `null` — only the decode-before-dispatch tests below (which
    *  never reach either) rely on that; a test that DOES exercise one passes a real instance.
@@ -58,13 +63,14 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       combinedProposalService: CombinedProposalService = null,
       patchSetPreviewService: PatchSetPreviewService = null,
       sourceService: SourceService = mock(classOf[SourceService]),
-      pipelineProposalServiceOverride: PipelineProposalService = null
+      pipelineProposalServiceOverride: PipelineProposalService = null,
+      outputRepo: OutputRepository = null
   ): AssistantToolExecutor = {
     val dataTypeService          = new DataTypeService(dtRepo, rowRepo, null)
     val workspaceContextService  = new WorkspaceContextService(null, null, dataTypeService, null)
     val workspaceSearchService   = new WorkspaceSearchService(null, null, dataTypeService, null, null, workspaceContextService)
     val panelCapabilityService   = new PanelCapabilityService(dtRepo, rowRepo)
-    val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null)
+    val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null, outputRepo)
     // HEL-756 tasks.md 2.4/2.5/2.7 — the default is a REAL instance whose own collaborators are all
     // null, safe because `PipelineProposalService.validate`'s `validateSourceReference` never
     // touches `dataSourceRepo` for an inline (sourceId = None) source. A test that needs `validate`
@@ -72,7 +78,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     // working instance via `pipelineProposalServiceOverride`.
     val pipelineProposalService =
       if (pipelineProposalServiceOverride != null) pipelineProposalServiceOverride
-      else new PipelineProposalService(null, null, null, null, null, null, null)
+      else new PipelineProposalService(null, null, null, null, null, null, null, null)
     new AssistantToolExecutor(
       workspaceSearchService,
       panelCapabilityService,
@@ -220,8 +226,9 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
 
     "validate, capture the proposal on success, and echo it back as the tool_result" in {
       val dtRepo = mock(classOf[DataTypeRepository])
-      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputId))))
-      val executor = newExecutor(dtRepo)
+      val outRepo = mock(classOf[OutputRepository])
+      when(outRepo.findByIdOwned(OutputId(outputId.value), user)).thenReturn(Future.successful(Some(pipelineOutput(OutputId(outputId.value)))))
+      val executor = newExecutor(dtRepo, outputRepo = outRepo)
 
       val panel    = ProposalPanel(
         title = "Total", `type` = "output", dataTypeId = Some(outputId.value), metricId = None,
@@ -248,8 +255,9 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     // proposeDecodeFailures — decode already succeeded before validate ever ran.
     "increment proposeAttempts and proposeValidationFailures (not proposeDecodeFailures) when validate rejects a decodable proposal" in {
       val dtRepo = mock(classOf[DataTypeRepository])
-      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(None))
-      val executor = newExecutor(dtRepo)
+      val outRepo = mock(classOf[OutputRepository])
+      when(outRepo.findByIdOwned(OutputId(outputId.value), user)).thenReturn(Future.successful(None))
+      val executor = newExecutor(dtRepo, outputRepo = outRepo)
 
       val panel    = ProposalPanel(
         title = "Total", `type` = "output", dataTypeId = Some(outputId.value), metricId = None,
@@ -431,7 +439,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val sourceServiceM = mock(classOf[SourceService])
       when(sourceServiceM.testSql(SqlInferRequest("sql", config))).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
       val realCombined = new CombinedProposalService(
-        new PipelineProposalService(null, null, null, null, null, null, null),
+        new PipelineProposalService(null, null, null, null, null, null, null, null),
         new DashboardProposalService(null, null, mock(classOf[DataTypeRepository]), null)
       )
       val executor = newExecutor(mock(classOf[DataTypeRepository]), combinedProposalService = realCombined, sourceService = sourceServiceM)
@@ -485,7 +493,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val dataSourceRepo = mock(classOf[DataSourceRepository])
       val existing         = RestSource(DataSourceId("src_existing"), "Existing REST", ownerId, now, now, RestApiConfig(connectorId = "conn-1", endpoint = "https://api.example.com", method = "GET", headers = Map.empty))
       when(dataSourceRepo.findByIdOwned(DataSourceId("src_existing"), user)).thenReturn(Future.successful(Some(existing)))
-      val realPipelineService = new PipelineProposalService(null, null, null, null, null, dataSourceRepo, null)
+      val realPipelineService = new PipelineProposalService(null, null, null, null, null, dataSourceRepo, null, null)
       val executor              = newExecutor(mock(classOf[DataTypeRepository]), pipelineProposalServiceOverride = realPipelineService)
 
       val proposal = pipelineProposalWith(sourceIdSource("src_existing"))

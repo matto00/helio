@@ -11,7 +11,7 @@ import com.helio.services.workspace.WorkspaceContextService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -72,6 +72,7 @@ class DashboardAuthoringServiceSpec
   private var dataSourceRepo: DataSourceRepository = _
   private var dataTypeRepo: DataTypeRepository     = _
   private var dataTypeRowRepo: DataTypeRowRepository = _
+  private var outputRepo: OutputRepository = _
 
   private var workspaceContextService: WorkspaceContextService     = _
   private var panelCapabilityService: PanelCapabilityService       = _
@@ -99,6 +100,7 @@ class DashboardAuthoringServiceSpec
     dataSourceRepo   = new DataSourceRepository(ctx)
     dataTypeRepo     = new DataTypeRepository(ctx)
     dataTypeRowRepo  = new DataTypeRowRepository(ctx)
+    outputRepo       = new OutputRepository(ctx)
     val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
@@ -122,7 +124,7 @@ class DashboardAuthoringServiceSpec
     // DashboardAuthoringService calls) — null, same rationale as
     // DashboardProposalServiceValidateSpec. metricRepo: null mirrors PanelService's
     // nullable-optional wiring convention (no proposal panel here ever carries a metricId).
-    dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null)
+    dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null, outputRepo)
     conversationRepo         = new AuthoringConversationRepository(ctx)
   }
 
@@ -138,6 +140,15 @@ class DashboardAuthoringServiceSpec
     AuthenticatedUser(UserId(id))
   }
 
+  // HEL-904 task 3.8/3.9: an "output"-kind panel's `validProposalJson` binding
+  // now validates against a real Output (OutputRepository), not a DataType —
+  // this helper additively seeds a pipeline + real Output REUSING the
+  // DataType's own id string as the Output's id (`outputs.id` is an
+  // independent TEXT PK, no FK to `data_types`, so this is a legitimate
+  // reuse, not a collision) so every existing `insertPipelineOutputType`/
+  // `validProposalJson(dt.id.value)` call site keeps working unmodified —
+  // the DataType itself still exists too, for the workspace-non-emptiness
+  // short-circuit callers that only need a DataType to be present.
   private def insertPipelineOutputType(owner: AuthenticatedUser, name: String = "Sales"): DataType = {
     implicit val ec: ExecutionContext = routeEc
     val now = Instant.now()
@@ -152,6 +163,17 @@ class DashboardAuthoringServiceSpec
       ownerId   = owner.id
     )
     await(dataTypeRepo.insert(dt, owner))
+
+    val srcId = UUID.randomUUID().toString
+    val pipelineId = UUID.randomUUID().toString
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($srcId::uuid, 'authoring-spec-src', 'static', '{}'::jsonb, ${owner.id.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
+             VALUES ($pipelineId, $name, $srcId::uuid, ${dt.id.value}::uuid, ${owner.id.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+             VALUES (${dt.id.value}, $pipelineId, NULL, ${owner.id.value}::uuid, $name, 'table', '{}'::jsonb, '[]'::jsonb, 0, now(), now())"""
+    )))
     dt
   }
 
@@ -302,7 +324,11 @@ class DashboardAuthoringServiceSpec
       transport.streamInvocations.get() shouldBe 0
     }
 
-    "reject a binding to a non-pipeline-output DataType identically to DashboardProposalService.apply's own rejection" in {
+    // HEL-904 task 3.8/3.9: an "output"-kind panel's binding now validates
+    // against a real Output, not a DataType — `insertCompanionType` mints a
+    // DataType only, never an Output, so it's an ordinary not-found now
+    // (there is no "companion" concept for Outputs).
+    "reject a binding to a nonexistent Output identically to DashboardProposalService.apply's own rejection" in {
       val user      = newUser()
       insertPipelineOutputType(user) // keeps the workspace non-empty, so the empty-workspace short-circuit doesn't fire
       val companion = insertCompanionType(user)
@@ -315,7 +341,7 @@ class DashboardAuthoringServiceSpec
       result shouldBe a[Left[_, _]]
       val err = result.swap.toOption.get.serviceError
       err shouldBe a[ServiceError.UnprocessableEntity]
-      err.message.toLowerCase should include("pipeline-output")
+      err.message.toLowerCase should include("not found")
       transport.sendInvocations.get() shouldBe 2
     }
 

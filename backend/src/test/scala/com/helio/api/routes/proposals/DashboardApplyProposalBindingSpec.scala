@@ -14,15 +14,21 @@ class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
 
   "POST /api/dashboards/apply-proposal" should {
 
-    "reject binding a source-companion DataType and create nothing (V41, atomic)" in {
+    // HEL-904 task 3.8/3.9: an "output"-kind panel's binding now validates
+    // against a real Output (OutputRepository), not a DataType — there is no
+    // "companion" concept for Outputs (that distinction was DataType-only,
+    // keyed on `sourceId.isDefined`). A DataType id (of ANY kind) simply
+    // doesn't resolve as an Output, so the rejection here is an ordinary
+    // not-found, not the old companion-specific message.
+    "reject an \"output\" panel bound to a DataType id (not an Output id) and create nothing" in {
       val before = dashboardCount()
       val body =
         s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"X","type":"output","dataTypeId":"$companionTypeId","fieldMapping":{"value":"region"}}
+           |  {"title":"X","type":"output","dataTypeId":"$companionTypeId"}
            |]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[String].toLowerCase should include("pipeline-output")
+        responseAs[String].toLowerCase should include("not found")
       }
       dashboardCount() shouldBe before
     }

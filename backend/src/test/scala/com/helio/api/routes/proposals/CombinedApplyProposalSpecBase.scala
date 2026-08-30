@@ -65,6 +65,9 @@ abstract class CombinedApplyProposalSpecBase
   // Seeded via the privileged pool in beforeAll — see seedFixtures.
   protected var otherUserSourceId  = ""
   protected var pipelineOutputTypeId = ""
+  // HEL-904 task 3.9: a real, bindable Output row — see ApplyProposalSpecBase's
+  // identically-named/documented fixture.
+  protected var pipelineOutputId = ""
 
   private val stubConnector = new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP"))))
 
@@ -138,7 +141,10 @@ abstract class CombinedApplyProposalSpecBase
       userRepo, stubSessionRepo, userPrefRepo, pipelineRepo, pipelineStepRepo,
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc),
       pipelineRunRepo = pipelineRunRepo,
-      dataTypeRowRepo = dataTypeRowRepo
+      dataTypeRowRepo = dataTypeRowRepo,
+      // HEL-904 task 3.9: wires a real OutputRepository so an "output"-kind
+      // panel's binding validates against it.
+      dbContext = ctx
     ).routes
 
     seedFixtures()
@@ -149,6 +155,8 @@ abstract class CombinedApplyProposalSpecBase
     val otherTypeId = UUID.randomUUID().toString
     otherUserSourceId  = otherSrcId
     pipelineOutputTypeId = UUID.randomUUID().toString
+    val pipelineForOutputId = UUID.randomUUID().toString
+    pipelineOutputId = UUID.randomUUID().toString
     val staticPayload = """{"columns":[{"name":"name","type":"string"}],"rows":[["seed"]]}"""
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, 'd1@helio.test', now())""",
@@ -164,7 +172,14 @@ abstract class CombinedApplyProposalSpecBase
       sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
              VALUES ($pipelineOutputTypeId::uuid, 'Existing Output',
                      '[{"name":"region","displayName":"region","dataType":"string","nullable":true}]'::jsonb,
-                     1, $userId::uuid, now(), now())"""
+                     1, $userId::uuid, now(), now())""",
+      // HEL-904 task 3.9: a real pipeline + Output, owned by userId — the
+      // "output"-kind panel binding target every test below now uses.
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
+             VALUES ($pipelineForOutputId, 'Existing Pipeline', $otherSrcId::uuid, $pipelineOutputTypeId::uuid, $userId::uuid, now(), now())""",
+      sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+             VALUES ($pipelineOutputId, $pipelineForOutputId, NULL, $userId::uuid, 'Existing Output', 'table', '{}'::jsonb,
+                     '[{"name":"region","type":"string"}]'::jsonb, 0, now(), now())"""
     )))
   }
 

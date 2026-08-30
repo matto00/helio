@@ -38,7 +38,7 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private val user    = AuthenticatedUser(ownerId)
 
   private def newService(dataSourceRepo: DataSourceRepository): CombinedProposalService = {
-    val pipelineProposalService = new PipelineProposalService(null, null, null, null, null, dataSourceRepo, null)
+    val pipelineProposalService = new PipelineProposalService(null, null, null, null, null, dataSourceRepo, null, null)
     new CombinedProposalService(pipelineProposalService, null)
   }
 

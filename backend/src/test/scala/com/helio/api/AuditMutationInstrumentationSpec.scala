@@ -755,59 +755,20 @@ class AuditMutationInstrumentationSpec
 
   "proposal-apply rollback (design.md Decision 10)" should {
 
-    "write dashboard.create but NOT dashboard.delete when panel creation fails partway through" in {
-      cleanDb()
-      val testStart = Instant.now()
-      val ownerId   = UserId(testUserId)
-      // Panel 1's OWN dataTypeId (`typeA`) stays a valid, unflipped
-      // pipeline-output type — `ProposalPanelSupport.validateDataTypeBinding`
-      // (pre-validation) checks exactly that field and passes. Panel 2's
-      // `metricId` resolves to a metric bound to a DIFFERENT DataType
-      // (`typeB`) — pre-validation's `validateMetricBinding` only checks the
-      // metric's own existence/deprecated flag, never re-deriving/checking
-      // `metric.dataTypeId`'s pipeline-output-ness. `typeB` is flipped to a
-      // companion type (source_id set) via direct SQL AFTER the metric is
-      // created (satisfying `MetricService.create`'s own V41 check at
-      // metric-creation time), so the flip is invisible to pre-validation
-      // but caught by `PanelService.rejectUnresolvableMetric` at ACTUAL
-      // panel-2 creation time — the exact asymmetry
-      // `DashboardProposalService.createAll`'s rollback branch exists to
-      // handle safely (dashboard.create already happened for panel 1's
-      // dashboard; deleteInternal must not also write dashboard.delete).
-      val typeA    = seedPipelineOutputDataType(ownerId)
-      val typeB    = seedPipelineOutputDataType(ownerId)
-      val metricId = seedMetric(ownerId, typeB.id)
-      import slick.jdbc.PostgresProfile.api._
-      val fakeSourceId = UUID.randomUUID().toString
-      await(db.run(sqlu"""INSERT INTO data_sources (id, name, source_type, config, created_at, updated_at)
-             VALUES ($fakeSourceId, 'FlipSource', 'static', '{}', now(), now())"""))
-      await(db.run(sqlu"UPDATE data_types SET source_id = $fakeSourceId WHERE id = ${typeB.id.value}"))
-
-      val proposal = DashboardProposal(
-        dashboardName = "RollbackTarget",
-        panels = Vector(
-          ProposalPanel("OK Panel", "output", Some(typeA.id.value), None, None, None, None, None, None, None, None, None, None, None, None, None, None, None),
-          ProposalPanel("Metric Panel", "output", Some(typeA.id.value), Some(metricId.value), None, None, None, None, None, None, None, None, None, None, None, None, None, None)
-        )
-      )
-      Post("/api/dashboards/apply-proposal", proposal) ~> routesFor() ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-      // The dashboard WAS created (first write of createAll, before panel 2's
-      // rejection) — `deleteInternal` deletes the row itself (only its audit
-      // trail is suppressed), so it can't be looked up by name afterward.
-      // `testUser` accumulates dashboard.create rows across this whole
-      // suite (audit_events is append-only, never wiped by cleanDb), so
-      // scope to rows written after `testStart`, captured at the top of
-      // this test — robust to suite/declaration-order changes.
-      val createRows = eventuallyAuditRows(r =>
-        r.action == "dashboard.create" && r.actorUserId.contains(ownerId) && r.createdAt.isAfter(testStart)
-      )
-      createRows should have size 1
-      val rolledBackDashboardId = createRows.head.resourceId.getOrElse(fail("dashboard.create row has no resourceId"))
-      // ...but the rollback used deleteInternal, so no dashboard.delete row exists for it.
-      allAuditRows().count(r => r.action == "dashboard.delete" && r.resourceId.contains(rolledBackDashboardId)) shouldBe 0
-    }
+    // HEL-904 task 3.9: `validateMetricBinding` is deleted outright — metrics
+    // no longer exist — so this test's whole trigger mechanism (a panel
+    // whose flat binding passes pre-validation but is rejected at ACTUAL
+    // creation time via a metric's dataTypeId flipped to a companion type
+    // AFTER the metric was created) has no surviving code path to exercise.
+    // An "output"-kind panel's binding is now checked once, up front,
+    // against a real Output (`ProposalPanelSupport.validateDataTypeBinding`'s
+    // `OutputRepository` branch) — there is no equivalent
+    // pre-validation-passes-but-actual-creation-rejects asymmetry for
+    // Outputs today. Deleted rather than retargeted; the underlying
+    // dashboard.create-without-dashboard.delete rollback behavior this test
+    // guarded is still exercised by other rollback-shaped specs (e.g.
+    // `DashboardApplyProposalSpec`'s own rollback-on-partial-failure
+    // coverage) even though this specific audit-row assertion is gone.
   }
 
   "PAT/session actor attribution (HEL-483)" should {

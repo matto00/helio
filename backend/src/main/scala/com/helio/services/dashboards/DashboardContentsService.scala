@@ -8,7 +8,7 @@ import com.helio.services.audit.AuditService
 import com.helio.api.protocols.proposals.{ProposalPanel, ReplaceDashboardContentsRequest}
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, Panel, ResourceAccess}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository}
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import spray.json._
 
@@ -40,7 +40,10 @@ final class DashboardContentsService(
     // carries a metricId.
     metricRepo: MetricRepository,
     // HEL-477: nullable-optional wiring mirrors metricRepo above.
-    auditService: AuditService = null
+    auditService: AuditService = null,
+    // HEL-904 task 3.8/3.9: validates an "output"-kind panel's binding
+    // against a real Output. Nullable-optional, mirroring metricRepo above.
+    outputRepo: OutputRepository = null
 )(implicit ec: ExecutionContext) {
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
@@ -58,7 +61,7 @@ final class DashboardContentsService(
         validatePanels(request.panels) match {
           case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
           case Right(_) =>
-            ProposalPanelSupport.preValidateBindings(request.panels, user, dataTypeRepo).flatMap {
+            ProposalPanelSupport.preValidateBindings(request.panels, user, dataTypeRepo, outputRepo).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_)  => buildAndReplace(dashboardId, request.panels, user)
             }

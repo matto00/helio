@@ -21,8 +21,8 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "Regional Sales",
            |  "panels": [
-           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{"value":"region"},"layout":{"x":0,"y":0,"w":4,"h":3}},
+           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputId",
+           |     "layout":{"x":0,"y":0,"w":4,"h":3}},
            |    {"title":"Notes","type":"text"}
            |  ]
            |}""".stripMargin
@@ -34,7 +34,10 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
         val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
         panels.map(_.fields("title").convertTo[String]) should contain allOf ("Total", "Notes")
         val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
-        metric.fields("config").asJsObject.fields("dataTypeId").convertTo[String] shouldBe pipelineOutputTypeId
+        // HEL-904 task 3.8/3.9: an "output"-kind panel's config carries
+        // `outputId` (an Output id), not `dataTypeId`/`fieldMapping` — the
+        // Output itself (not the panel) owns field mapping/visualization.
+        metric.fields("config").asJsObject.fields("outputId").convertTo[String] shouldBe pipelineOutputId
       }
       dashboardCount() shouldBe (before + 1)
 
@@ -47,49 +50,12 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
       }
     }
 
-    // HEL-292 — the aggregation spec is opaque JSON to the backend; it is
-    // threaded through DashboardProposalService.buildCreateRequest verbatim
-    // and stored on the created panel's typed config via the same
-    // MetricPanelConfig/ChartPanelConfig tolerant-decode path as a direct
-    // PATCH would use.
-    "preserve the aggregation spec on a created panel (HEL-292)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{
-           |  "dashboardName": "Aggregated Sales",
-           |  "panels": [
-           |    {"title":"Avg","type":"output","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{},"aggregation":{"value":"region","agg":"count"}}
-           |  ]
-           |}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.Created
-        val obj    = responseAs[String].parseJson.asJsObject
-        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
-        val metric = panels.find(_.fields("title").convertTo[String] == "Avg").get
-        metric.fields("config").asJsObject.fields("aggregation") shouldBe
-          JsObject("value" -> JsString("region"), "agg" -> JsString("count"))
-      }
-      dashboardCount() shouldBe (before + 1)
-    }
-
-    "apply a proposal without an aggregation field unchanged (no aggregation on the created panel)" in {
-      val body =
-        s"""{
-           |  "dashboardName": "No Aggregation",
-           |  "panels": [
-           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{"value":"region"}}
-           |  ]
-           |}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.Created
-        val obj    = responseAs[String].parseJson.asJsObject
-        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
-        val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
-        metric.fields("config").asJsObject.fields.keySet should not contain "aggregation"
-      }
-    }
+    // HEL-904 task 3.10a: HEL-292 panel-level aggregation is retired outright
+    // (design.md: "aggregation exists only as steps... an Output is
+    // render-only") — the two aggregation-preservation tests this comment
+    // used to guard (HEL-292's "preserve the aggregation spec" and "apply a
+    // proposal without an aggregation field unchanged") are deleted, not
+    // rewritten: there is no Output-panel-config equivalent to preserve.
 
     // HEL-293 — content/url/orientation flow through the create-side config
     // for non-data panels, applied via the existing PanelConfigCodec decoders.
@@ -122,71 +88,14 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
       dashboardCount() shouldBe (before + 1)
     }
 
-    // HEL-293 — chart appearance (chartType/axis labels/seriesColors) applies
-    // as a best-effort follow-up PATCH after create (Decision 2).
-    "apply chart appearance (chartType/axis labels/seriesColors) from a proposal (HEL-293)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{
-           |  "dashboardName": "Chart Appearance",
-           |  "panels": [
-           |    {"title":"Titles by Rating","type":"chart","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{},"chartType":"bar","xAxisLabel":"Rating","yAxisLabel":"Count",
-           |     "seriesColors":["#111111","#222222"]}
-           |  ]
-           |}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.Created
-        val obj      = responseAs[String].parseJson.asJsObject
-        val panels   = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
-        val chart    = panels.find(_.fields("title").convertTo[String] == "Titles by Rating").get
-        val chartApp = chart.fields("appearance").asJsObject.fields("chart").asJsObject
-        chartApp.fields("chartType").convertTo[String] shouldBe "bar"
-        chartApp.fields("axisLabels").asJsObject.fields("x").asJsObject.fields("label").convertTo[String] shouldBe "Rating"
-        chartApp.fields("axisLabels").asJsObject.fields("y").asJsObject.fields("label").convertTo[String] shouldBe "Count"
-        chartApp.fields("seriesColors").convertTo[Vector[String]] shouldBe Vector("#111111", "#222222")
-      }
-      dashboardCount() shouldBe (before + 1)
-    }
-
-    // HEL-293 — metric literal label/unit override, threaded through the
-    // metric config JSON alongside dataTypeId/fieldMapping/aggregation.
-    "apply metric literal label/unit from a proposal (HEL-293)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{
-           |  "dashboardName": "Metric Literal",
-           |  "panels": [
-           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{},"label":"Total Revenue","unit":"USD"}
-           |  ]
-           |}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.Created
-        val obj    = responseAs[String].parseJson.asJsObject
-        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
-        val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
-        metric.fields("config").asJsObject.fields("label").convertTo[String] shouldBe "Total Revenue"
-        metric.fields("config").asJsObject.fields("unit").convertTo[String] shouldBe "USD"
-      }
-      dashboardCount() shouldBe (before + 1)
-    }
-
-    // HEL-293 (Decision 6) — an invalid chartType/orientation 400s in
-    // validateStructure, BEFORE any creation — nothing is created.
-    "reject an invalid chartType and create nothing" in {
-      val before = dashboardCount()
-      val body =
-        s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"X","type":"chart","dataTypeId":"$pipelineOutputTypeId","fieldMapping":{},
-           |   "chartType":"bogus"}
-           |]}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[String].toLowerCase should include("charttype")
-      }
-      dashboardCount() shouldBe before
-    }
+    // HEL-904 task 3.10a: `"chart"` is a fully retired panel type — appearance
+    // (chartType/axis labels/seriesColors), metric literal label/unit
+    // overrides, and chartType-validity rejection are all now Output-owned
+    // concepts with no Panel-level equivalent to test here (design.md:
+    // "everything about WHAT is shown is edited on the Output"). The three
+    // tests this comment used to guard (HEL-293's "apply chart appearance",
+    // "apply metric literal label/unit", and Decision 6's "reject an invalid
+    // chartType") are deleted outright, not rewritten.
 
     "reject an invalid divider orientation and create nothing" in {
       val before = dashboardCount()

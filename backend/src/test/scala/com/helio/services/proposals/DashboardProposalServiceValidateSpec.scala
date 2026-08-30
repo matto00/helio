@@ -5,7 +5,7 @@ import com.helio.services.ServiceError
 import com.helio.services.proposals.DashboardProposalService
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository}
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import org.mockito.Mockito.{mock, verifyNoInteractions, when}
 import org.scalatest.matchers.should.Matchers
@@ -48,8 +48,17 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private def companionDataType(id: DataTypeId): DataType =
     DataType(id, Some(DataSourceId(UUID.randomUUID().toString)), "Companion", Vector.empty, Vector.empty, 1, now, now, ownerId)
 
-  private def newService(dtRepo: DataTypeRepository, metricRepo: MetricRepository = mock(classOf[MetricRepository])): DashboardProposalService =
-    new DashboardProposalService(null, null, dtRepo, metricRepo)
+  // HEL-904 task 3.8/3.9: an "output"-kind panel's binding now validates
+  // against a real Output, not a DataType.
+  private def realOutput(id: OutputId): Output =
+    Output(id, "Output", ownerId, NodeRef(PipelineId(UUID.randomUUID().toString), None), OutputKind.Table, now, now)
+
+  private def newService(
+      dtRepo: DataTypeRepository,
+      metricRepo: MetricRepository = mock(classOf[MetricRepository]),
+      outputRepo: OutputRepository = mock(classOf[OutputRepository])
+  ): DashboardProposalService =
+    new DashboardProposalService(null, null, dtRepo, metricRepo, outputRepo)
 
   private def metricPanel(dataTypeId: DataTypeId, `type`: String = "output"): ProposalPanel =
     ProposalPanel(
@@ -77,28 +86,32 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
 
     "accept a structurally valid proposal bound to a pipeline-output DataType" in {
       val dtRepo = mock(classOf[DataTypeRepository])
-      when(dtRepo.findByIdOwned(outputTypeId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputTypeId))))
+      val outputRepo = mock(classOf[OutputRepository])
+      when(outputRepo.findByIdOwned(OutputId(outputTypeId.value), user)).thenReturn(Future.successful(Some(realOutput(OutputId(outputTypeId.value)))))
 
       val proposal = DashboardProposal("Sales", Vector(metricPanel(outputTypeId)))
-      val result   = await(newService(dtRepo).validate(proposal, user))
+      val result   = await(newService(dtRepo, outputRepo = outputRepo).validate(proposal, user))
 
       result shouldBe Right(())
     }
 
-    // The exact AC this locks in: "an NL proposal binding to a non-pipeline-output type is
-    // rejected exactly as apply would reject it" — same ServiceError.BadRequest + "pipeline-output"
-    // text DashboardApplyProposalBindingSpec asserts on for the route-level apply path.
-    "reject a binding to a non-pipeline-output (source-companion) DataType, identically to apply" in {
+    // The exact AC this locks in: "an NL proposal binding to a non-existent Output is rejected
+    // exactly as apply would reject it" — HEL-904 task 3.8/3.9: an "output"-kind panel's binding
+    // is now checked against OutputRepository, not DataTypeRepository — there is no "companion"
+    // concept for Outputs (that distinction was DataType-only), so the rejection is an ordinary
+    // not-found.
+    "reject a binding to a nonexistent Output, identically to apply" in {
       val dtRepo = mock(classOf[DataTypeRepository])
-      when(dtRepo.findByIdOwned(companionTypeId, user)).thenReturn(Future.successful(Some(companionDataType(companionTypeId))))
+      val outputRepo = mock(classOf[OutputRepository])
+      when(outputRepo.findByIdOwned(OutputId(companionTypeId.value), user)).thenReturn(Future.successful(None))
 
       val proposal = DashboardProposal("Sales", Vector(metricPanel(companionTypeId)))
-      val result   = await(newService(dtRepo).validate(proposal, user))
+      val result   = await(newService(dtRepo, outputRepo = outputRepo).validate(proposal, user))
 
       result shouldBe a[Left[_, _]]
       val err = result.swap.toOption.get
       err shouldBe a[ServiceError.BadRequest]
-      err.message.toLowerCase should include("pipeline-output")
+      err.message.toLowerCase should include("not found")
     }
 
     "reject a blank dashboardName before any repository lookup" in {

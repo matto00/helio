@@ -174,7 +174,7 @@
       `DemoData`) and cycle 15's own note on why option (b) (additive, not full collapse) was
       chosen for this increment.
 - [ ] 3.7 `DemoData` reseeded: one source → one pipeline → three Outputs, no unbound panels.
-- [ ] 3.8 `PipelineProposalService` (35 refs, `:48` takes `DataTypeService`, `:23` rollback path
+- [x] 3.8 `PipelineProposalService` (35 refs, `:48` takes `DataTypeService`, `:23` rollback path
       through `DataTypeService.delete`): rewire to create/roll back an Output on the pipeline's
       last trunk step instead of a DataType — see design.md's proposal-service scope decision.
 - [ ] 3.9 `ProposalPanelSupport` (26 refs, `:81` `dataTypeRepo`/`MetricRepository`): rewire panel

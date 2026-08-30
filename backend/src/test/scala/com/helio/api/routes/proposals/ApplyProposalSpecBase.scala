@@ -70,6 +70,11 @@ abstract class ApplyProposalSpecBase
   protected var pipelineOutputTypeId = ""
   protected var companionTypeId = ""
   protected var otherUserTypeId = ""
+  // HEL-904 task 3.9: a real, bindable Output row (an "output"-kind panel's
+  // dataTypeId/config.dataTypeId must resolve via OutputRepository now, not
+  // DataTypeRepository — OutputPanelConfig's outputId also carries a real
+  // FK to outputs(id) at the DB layer).
+  protected var pipelineOutputId = ""
 
   private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
     override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =
@@ -142,7 +147,11 @@ abstract class ApplyProposalSpecBase
       // HEL-549: wires a real MetricRepository so apply-proposal specs can
       // exercise the metricId validation path (nullable-optional default
       // otherwise, mirroring ApiRoutes's own convention).
-      metricRepo = metricRepo
+      metricRepo = metricRepo,
+      // HEL-904 task 3.9: wires a real OutputRepository (via `dbContext`) so
+      // `DashboardProposalService`/`DashboardContentsService` can validate an
+      // "output"-kind panel's binding.
+      dbContext = ctx
     ).routes
 
     // Seed users, a data source, and three DataTypes via the privileged pool.
@@ -150,6 +159,8 @@ abstract class ApplyProposalSpecBase
     pipelineOutputTypeId = UUID.randomUUID().toString
     companionTypeId = UUID.randomUUID().toString
     otherUserTypeId = UUID.randomUUID().toString
+    val pipelineForOutputId = UUID.randomUUID().toString
+    pipelineOutputId = UUID.randomUUID().toString
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, 'a1@helio.test', now())""",
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'a2@helio.test', now())""",
@@ -168,7 +179,16 @@ abstract class ApplyProposalSpecBase
       // Pipeline-output type owned by the OTHER user → invisible under RLS.
       sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
              VALUES ($otherUserTypeId::uuid, 'other output',
-                     '[]'::jsonb, 1, $otherId::uuid, now(), now())"""
+                     '[]'::jsonb, 1, $otherId::uuid, now(), now())""",
+      // HEL-904 task 3.9: a real pipeline + Output, owned by userId — the
+      // "output"-kind panel binding target every test below now uses
+      // (`pipelineOutputId`, NOT `pipelineOutputTypeId`, which stays only for
+      // the legacy DataType-shaped fixtures/tests still exercising other kinds).
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
+             VALUES ($pipelineForOutputId, 'Sales Pipeline', $srcId::uuid, $pipelineOutputTypeId::uuid, $userId::uuid, now(), now())""",
+      sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+             VALUES ($pipelineOutputId, $pipelineForOutputId, NULL, $userId::uuid, 'Sales Output', 'table', '{}'::jsonb,
+                     '[{"name":"region","type":"string"}]'::jsonb, 0, now(), now())"""
     )))
   }
 

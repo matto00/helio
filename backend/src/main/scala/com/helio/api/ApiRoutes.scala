@@ -248,10 +248,10 @@ final class ApiRoutes(
   private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo, auditService)
   // HEL-549: metricRepo threaded in the same nullable-optional way as panelService
   // above — only touched when a proposal panel actually carries a metricId.
-  private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo, metricRepo)
+  private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo, metricRepo, outputRepoOpt.orNull)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // dataTypeRepo/accessChecker instances the other dashboard/panel services use.
-  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker, metricRepo, auditService)
+  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker, metricRepo, auditService, outputRepoOpt.orNull)
   // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
@@ -313,7 +313,7 @@ final class ApiRoutes(
   // read-only lookups its own scaladoc documents (no direct DB writes).
   private val pipelineProposalService = new PipelineProposalService(
     sourceService, dataSourceService, pipelineService, pipelineRunService, dataTypeService,
-    dataSourceRepo, dataTypeRepo
+    dataSourceRepo, dataTypeRepo, outputRepoOpt.orNull
   )
   // HEL-387: atomic combined pipeline+dashboard proposal apply — composes the
   // already-constructed pipelineProposalService/proposalService (the latter

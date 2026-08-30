@@ -118,7 +118,16 @@ object PanelType {
   case object Divider  extends PanelType
   case object Output   extends PanelType
 
-  val Default: PanelType = Output
+  // HEL-904: was `Output` from the 5-value collapse commit — a genuine bug
+  // (not a design decision), since `OutputPanelConfig` REQUIRES a non-empty
+  // `outputId` (unlike the old default `Metric`, which tolerated an empty
+  // config) — an ordinary `POST /api/panels` with no `type` at all now 400s
+  // instead of creating a plain panel. `Divider` is the only kind that is
+  // both content-only (no data binding ever required) and always
+  // config-valid empty, matching this ticket's own established convention
+  // for "no binding needed" fallbacks elsewhere (e.g.
+  // `ProposalPanelSupport.buildDataConfig`'s empty-config panels).
+  val Default: PanelType = Divider
 
   def fromString(s: String): Either[String, PanelType] = s match {
     case "text"     => Right(Text)

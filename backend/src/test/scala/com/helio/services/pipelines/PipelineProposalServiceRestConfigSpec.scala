@@ -16,7 +16,7 @@ class PipelineProposalServiceRestConfigSpec extends AnyWordSpec with Matchers {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private val service = new PipelineProposalService(null, null, null, null, null, null, null)
+  private val service = new PipelineProposalService(null, null, null, null, null, null, null, null)
 
   private val draft = NewConnectorDraft("Stripe", "https://api.stripe.com", "api_key", Some("Authorization"), Some("header"), "Get it from the dashboard")
 
