@@ -1,7 +1,5 @@
 {
-  "harnesses": [
-    "claude-code"
-  ],
+  "harnesses": ["claude-code"],
   "project": {
     "name": "helio",
     "baseBranch": "main"
@@ -25,15 +23,9 @@
       "frontendBase": 5173,
       "backendBase": 8080
     },
-    "envFiles": [
-      "backend/.env"
-    ],
-    "linkModules": [
-      "frontend/node_modules"
-    ],
-    "hooks": [
-      "npx husky install"
-    ]
+    "envFiles": ["backend/.env"],
+    "linkModules": ["frontend/node_modules"],
+    "hooks": ["npx husky install"]
   },
   "devServers": {
     "backend": {
@@ -80,20 +72,13 @@
     {
       "path": "CONTRIBUTING.md",
       "summary": "code-quality standard (imports/qualifiers, file-size budgets, AI-collaborator expectations)",
-      "bindTo": [
-        "executor",
-        "evaluator"
-      ],
+      "bindTo": ["executor", "evaluator"],
       "when": "always"
     },
     {
       "path": "DESIGN.md",
       "summary": "design-language standard (--app-*/--space-*/--text-* tokens, shared components, light/dark parity)",
-      "bindTo": [
-        "executor",
-        "evaluator",
-        "skeptic"
-      ],
+      "bindTo": ["executor", "evaluator", "skeptic"],
       "when": "frontend/**"
     }
   ],
@@ -106,18 +91,16 @@
       "schemas/**",
       "openspec/specs/**"
     ],
-    "breakpoints": [
-      1440,
-      1100,
-      768,
-      0
-    ]
+    "breakpoints": [1440, 1100, 768, 0]
   },
   "budgets": {
     "executionCycles": 3,
     "skepticDesignRounds": 5,
     "skepticFinalRounds": 2,
     "debugAttempts": 2
+  },
+  "cleanup": {
+    "skipSync": true
   },
   "commitTrailer": "Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>",
   "dashboard": {
