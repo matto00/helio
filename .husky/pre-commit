@@ -4,6 +4,8 @@ set -e
 npm run check:repo-integrity
 npm run lint
 npm run typecheck
+npm run check:e2e-types
+npm run check:helio-mcp-types
 npm run format:check
 npm run check:schemas
 npm run check:spec-structure

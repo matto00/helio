@@ -17,25 +17,36 @@ import { dirname, resolve } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 const serverEntry = resolve(here, "../dist/index.js");
 
+/** The actual (structural) resolved type of `Client#callTool` — covers both
+ * the plain-content shape and the legacy `toolResult` compatibility shape. */
+type ToolCallResult = Awaited<ReturnType<Client["callTool"]>>;
+
 function section(title: string): void {
   process.stdout.write(`\n${"=".repeat(72)}\n${title}\n${"=".repeat(72)}\n`);
 }
 
+/** Narrows `ToolCallResult` to the plain-content shape — the legacy
+ * `toolResult` compatibility shape carries neither `content` nor `isError`. */
+function hasContent(
+  result: ToolCallResult,
+): result is Extract<ToolCallResult, { content: unknown }> {
+  return Array.isArray((result as { content?: unknown }).content);
+}
+
 /** Pull the first text block out of a tool result. */
-function textOf(result: {
-  content?: Array<{ type: string; text?: string }>;
-  isError?: boolean;
-}): string {
-  const block = (result.content ?? []).find((c) => c.type === "text");
+function textOf(result: ToolCallResult): string {
+  if (!hasContent(result)) return "";
+  const block = result.content.find((c) => c.type === "text");
   return block?.text ?? "";
 }
 
-function parse<T>(result: {
-  content?: Array<{ type: string; text?: string }>;
-  isError?: boolean;
-}): T {
-  if (result.isError) throw new Error(`tool returned isError: ${textOf(result)}`);
+function parse<T>(result: ToolCallResult): T {
+  if (isErrorOf(result)) throw new Error(`tool returned isError: ${textOf(result)}`);
   return JSON.parse(textOf(result)) as T;
+}
+
+function isErrorOf(result: ToolCallResult): boolean {
+  return hasContent(result) ? Boolean(result.isError) : false;
 }
 
 async function main(): Promise<void> {
@@ -248,9 +259,9 @@ async function main(): Promise<void> {
       },
     });
     process.stdout.write(
-      `  • isError=${invalidParamsResult.isError} text=${textOf(invalidParamsResult)}\n`,
+      `  • isError=${isErrorOf(invalidParamsResult)} text=${textOf(invalidParamsResult)}\n`,
     );
-    if (!invalidParamsResult.isError) {
+    if (!isErrorOf(invalidParamsResult)) {
       throw new Error("expected create_pipeline_from_shape to fail on missing 'n'");
     }
     if (!textOf(invalidParamsResult).includes("missing required field 'n'")) {
@@ -273,9 +284,9 @@ async function main(): Promise<void> {
       },
     });
     process.stdout.write(
-      `  • isError=${unknownShapeResult.isError} text=${textOf(unknownShapeResult)}\n`,
+      `  • isError=${isErrorOf(unknownShapeResult)} text=${textOf(unknownShapeResult)}\n`,
     );
-    if (!unknownShapeResult.isError) {
+    if (!isErrorOf(unknownShapeResult)) {
       throw new Error("expected create_pipeline_from_shape to fail on an unknown shape id");
     }
     if (!textOf(unknownShapeResult).includes("Unknown pipeline shape")) {
@@ -304,7 +315,8 @@ async function main(): Promise<void> {
 
     section("resource read: helio://workspace/context");
     const ctx = await client.readResource({ uri: "helio://workspace/context" });
-    const ctxText = ctx.contents[0]?.text ?? "";
+    const ctxContent = ctx.contents[0];
+    const ctxText = (ctxContent && "text" in ctxContent ? ctxContent.text : undefined) ?? "";
     process.stdout.write(ctxText + "\n");
     const ctxParsed = JSON.parse(ctxText) as { pipelineShapes?: Array<{ id: string }> };
     if (!Array.isArray(ctxParsed.pipelineShapes) || ctxParsed.pipelineShapes.length !== 5) {

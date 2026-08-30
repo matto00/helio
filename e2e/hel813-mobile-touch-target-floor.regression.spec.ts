@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 import { assertFloor, measureBox } from "./support/touchTargetProbe";
 
@@ -27,11 +27,7 @@ function uniqueEmail(label: string): string {
   return `hel813reg-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
 }
 
-async function registerAndLogin(
-  page: Page,
-  request: Parameters<Parameters<typeof test>[1]>[0]["request"],
-  label: string,
-) {
+async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
