@@ -402,3 +402,107 @@ did not bring 2.10 forward.
 4. (f)-(h) (alert retarget, computed-fields → compute steps, patch-set journal cleanup) can
    likely each land as smaller, independent slices once (b)-(e)'s Output/tail machinery exists.
 5. Still do NOT bring 2.10 forward — same standing instruction as every prior cycle.
+
+## Cycle 6 (this cycle) — investigation only, NO code landed; clean stop before step (b)
+
+Starting state verified fresh (not trusted blindly): `git log`/`git status` confirmed HEAD =
+`e983d9d5` (cycle 5's step-(a) commit), tree clean, full `sbt test` 3878/3878 already confirmed
+by cycle 5's own fresh run (re-checked the recorded output above, not re-run this cycle since
+nothing changed to invalidate it).
+
+**What this cycle did:** a from-first-principles schema investigation of everything step (b)
+depends on, specifically so the next cycle does not have to re-derive it. **No migration SQL,
+no test, and no other file was written or committed this cycle** — this is a deliberate,
+honestly-labelled zero-diff cycle. Rationale below.
+
+**Findings (verified by reading the actual source, not assumed):**
+
+- `panels` table's real columns (`PanelRepository.PanelTable`, `V1`/`V43`/`V44`/`V76`):
+  `type` (kind discriminator), `type_id`, `field_mapping` (JSON `TEXT`), `aggregation` (JSON
+  `TEXT`, opaque `JsObject` blob — see below), `metric_id`, plus per-kind columns
+  (`chart_options`, `collection_options`, `timeline_options`, `column_widths`, `table_density`,
+  `column_order`, `metric_label`, `metric_unit`, `chart_annotation`, `image_*`, `divider_*`,
+  `content`). Bound kinds are `metric`/`chart`/`table`/`collection`/`timeline`, plus `text` when
+  `type_id IS NOT NULL` (→ Output `kind = 'markdown'` per ticket.md).
+- `pipeline_steps` table's real columns (`V23`+ alters, NOT what I'd assumed from the domain
+  model's `kind`/naming): `id`, `pipeline_id`, `position`, **`op`** (not `kind` — the DB column
+  is named `op`, checked against a CHECK-constraint allowlist that already includes
+  `'aggregate'` since V31), `config` (**`TEXT`**, JSON-encoded — NOT `JSONB`, unlike `outputs`/
+  `node_snapshots`), `created_at`, `updated_at`, plus `parent_step_id` (this ticket's task 2.2)
+  and `enabled` (V86, pre-existing). A migration-time tail-step INSERT must produce `op =
+  'aggregate'` (or `'groupby'` per the ticket's `groupBy`+`aggregate` alternative) with a
+  `config` string matching `AggregateConfig`'s wire shape exactly:
+  `{"groupBy":[{"name":str,"type":str}],"aggregations":[{"alias":str,"fn":str,"field":str}]}`
+  (`backend/src/main/scala/com/helio/domain/steps/AggregateStep.scala`).
+- `metrics` table (V75): `measure_field`, `aggregation` (a single function name string, e.g.
+  `"sum"`), `format` (JSONB), `allowed_dimensions` (JSONB) — a metric-bound panel's tail step
+  would need `aggregations = [{alias: <TBD>, fn: metrics.aggregation, field:
+  metrics.measure_field}]`; **the alias naming convention for a migration-generated tail has NOT
+  been decided** — nothing in ticket.md/design.md specifies it, and there's no existing
+  migration-generated-step precedent to follow. This is a real open question, not yet an
+  escalation-worthy one (it's a naming choice within my own authority, not a spec contradiction)
+  but worth deciding deliberately alongside the actual DML rather than picked arbitrarily under
+  time pressure.
+- **`panels.aggregation` (HEL-292) is a genuinely opaque, undocumented-shape `JsObject` at the
+  domain-model layer** (`MetricPanelConfig`/`ChartPanelConfig.aggregation: Option[JsObject]`,
+  round-tripped as an opaque blob through `ChartPanel.scala`/`MetricPanel.scala` — no
+  `groupBy`/`aggregations` fields are ever read out of it anywhere in
+  `backend/src/main/scala`, confirmed by grep across `services/`). This means the HEL-292
+  `aggregation` panel column and the pipeline-engine's `AggregateStep.AggregateConfig` are TWO
+  DIFFERENT, so-far-unrelated JSON shapes — the migration cannot simply copy one into the other
+  as JSON. **This is the one finding from this cycle that could plausibly need a design
+  decision** (what does a migration-generated `aggregate` tail's config look like, derived from
+  an opaque legacy blob with no guaranteed internal shape?) rather than an ordinary
+  implementation call — flagged here for the next cycle to either (a) inspect the actual shape
+  of every live `panels.aggregation` value in the shared dev DB (same "inspect before assuming"
+  discipline as 2.8's `binary_refs` finding) and derive a safe, defensive parse, or (b) escalate
+  if the shared dev DB's real values turn out to be irreducibly ambiguous.
+- `PanelBindingSpec` (`backend/src/main/scala/com/helio/domain/panels/PanelBindingSpec.scala`)
+  is the authoritative valid-`fieldMapping`-slot-name source per kind, confirming HEL-892 AC 6's
+  scope precisely: `metric`/`collection` → `{value, label?, unit?}`; `chart` →
+  `{xAxis, yAxis, series?, annotation?}`; `timeline` → `{time, event}` (both required);
+  `table` → **no fixed slots at all** (arbitrary key → column-name map, `PanelBindingSpec.Table`
+  has empty `requiredSlots`/`optionalSlots` — every key is legitimate, nothing to drop). So the
+  "invalid slot dropped" rule from HEL-892 AC 6 (the prod `{"x","y"}`-shaped chart example) only
+  ever applies to `metric`/`chart`/`collection`/`timeline` kinds, keyed against that exact
+  `allSlots` list per kind — never to `table` or bound-`text`(→markdown, which also has no fixed
+  slot list, per `PanelBindingSpec.DataBindable` only listing the five visualization kinds).
+- Sketched (not yet written into a migration file) the last-trunk-step resolution as a
+  `WITH RECURSIVE` walk over `parent_step_id`/`position` mirroring the already-tested
+  `PipelineStepRepository.trunkOf` pure function's semantics (position-0-child descent from the
+  root), terminating at the trunk node with no trunk-child — this avoids needing a depth counter
+  or `ORDER BY ... LIMIT 1` tie-break. Not yet validated against a real fixture.
+
+**Why nothing was landed this cycle (the actual judgment call):** step (b) requires, in one
+correctly-sequenced migration edit: (i) resolving each bound panel's pipeline via
+`type_id = pipelines.output_data_type_id`, (ii) a recursive last-trunk-step walk per pipeline,
+(iii) conditionally inserting a new `pipeline_steps` row (correct `op`/`config`/`position`
+scoped to the right sibling set, re-using this ticket's own 1.6 sibling-scoping fix) for
+aggregation/metric panels — which itself is now blocked on the undecided
+`panels.aggregation`-blob-to-`AggregateConfig` translation above, (iv) inserting one `outputs`
+row per panel with `kind` mapped, `config` built from the per-kind column set with
+slot-filtered `field_mapping`, (v) a drop-and-log side-channel for invalid slots, and (vi)
+setting `panels.output_id`/`panels.kind = 'output'`. That is roughly the same order of
+complexity as the *entire* V94 file landed across cycles 3-4 combined, in the single
+riskiest, most load-bearing piece of the whole ticket (design.md decision 1e's explicit
+"least-reversible" framing) — and per the resume brief's own instruction, "prioritize getting
+it fully right and fully tested... before moving to (c)-(h)," not rushed. Writing it from
+memory/inference under this cycle's remaining budget without the `aggregation`-blob shape
+question resolved first would risk landing DML that is *wrong in a way the tests wouldn't
+catch* (a test fixture I construct myself would just encode my own guess about the blob shape
+back at itself) — exactly the "evidence-shaped non-evidence" failure mode this project's own
+standards warn about. Better to stop clean here than land that.
+
+**Verification this cycle:** no code changed; re-confirmed (not re-run — nothing invalidated
+it) cycle 5's fresh `sbt test` result of 3878/3878, exit code 0. `git status` clean at both the
+start and end of this cycle.
+
+**Next cycle should, in order:**
+1. Resolve the `panels.aggregation` blob-shape question empirically (inspect real dev-DB values
+   for every panel with `aggregation IS NOT NULL`, per this project's established "inspect the
+   shared dev DB before assuming" discipline used for 2.8) before writing any tail-step DML.
+2. Decide and document the migration-generated tail step's `aggregations[].alias` naming
+   convention (this cycle's other open, non-escalation-worthy call).
+3. Then implement (b) per the resume brief's original ordering, with the slot-validation-drop
+   test (HEL-892 AC 6) written first as instructed.
+4. (c)-(h) unchanged from every prior cycle's note. 2.10 still explicitly out of scope.

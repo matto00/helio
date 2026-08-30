@@ -41,3 +41,15 @@
 - `backend/src/test/scala/com/helio/infrastructure/persistence/ResourceTagMigrationSpec.scala` — same fix, same reasoning, for this V73-focused spec's companion-type fixture.
 - `openspec/changes/outputs-model-migration/tasks.md` — 2.9 marked partial (step (a) only, (b)-(h) not started).
 - `openspec/changes/outputs-model-migration/execution-progress.md`, `openspec/changes/outputs-model-migration/files-modified.md` — updated for cycle 5.
+
+## Cycle 6 (this cycle — investigation only, zero-diff on source/migration/test files)
+
+No source, migration, or test file was changed this cycle. Only
+`openspec/changes/outputs-model-migration/execution-progress.md` was updated, recording a
+from-source schema investigation of everything step (b) depends on (`panels`/`pipeline_steps`/
+`metrics` real column shapes, `AggregateStep`'s wire config shape, `PanelBindingSpec`'s
+authoritative valid-slot-name list per kind) and one genuinely open question flagged for the
+next cycle to resolve empirically before writing DML: `panels.aggregation` (HEL-292) is an
+opaque, undocumented-shape `JsObject` at the domain layer with no established translation to
+the pipeline engine's `AggregateConfig` shape. See execution-progress.md's "Cycle 6" section for
+the full reasoning on why no DML was landed this cycle.
