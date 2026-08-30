@@ -11,7 +11,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.api._
-import com.helio.api.protocols.pipelines.{CastStepResponse, LookupStepResponse, PipelineStepResponse, RenameStepResponse, SelectStepResponse, UnionStepResponse}
+import com.helio.api.protocols.pipelines.{CastStepResponse, ComputeStepResponse, LookupStepResponse, PipelineStepResponse, RenameStepResponse, SelectStepResponse, UnionStepResponse}
 import com.helio.api.routes.pipelines.PipelineStepRoutes
 import com.helio.services.pipelines.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -135,6 +135,10 @@ class PipelineStepRoutesSpec
       "lookupKey"             -> JsString("code"),
       "columns"               -> JsArray(JsString("label"))
     )
+  )
+  private def computeReq(column: String, expression: String): JsObject = JsObject(
+    "type"   -> JsString("compute"),
+    "config" -> JsObject("column" -> JsString(column), "expression" -> JsString(expression))
   )
   // HEL-410: merge an optional `position` list-index into a request body built by
   // one of the *Req() helpers above.
@@ -972,6 +976,59 @@ class PipelineStepRoutesSpec
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         status shouldBe StatusCodes.OK
         responseAs[Vector[PipelineStepResponse]] shouldBe empty
+      }
+    }
+
+    // ── HEL-888: reject a statically unparseable compute expression on write ──
+
+    // PROOF (task 2.2). Run on unmodified `main`: 200s and stores the step —
+    // the production defect (measured on v0.7.6). Uses the real step-create
+    // route + real Postgres-backed repository, not a direct companion call.
+    "POST /pipelines/:id/steps returns 422 for an unparseable compute expression and creates no step" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/$pid/steps", computeReq("value_vs_adp", "stats.adp_ppr - stats.pts_ppr")) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        val msg = responseAs[ErrorResponse].message
+        msg should include("expression")
+        msg should include("Invalid number literal")
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[Vector[PipelineStepResponse]] shouldBe empty
+      }
+    }
+
+    // PROOF (task 2.6), relabelled up from an initial GUARD claim per
+    // evaluation-1.md's non-blocking correction: run against `main`, this
+    // 200s the PATCH and stores the unparseable expression — a genuine
+    // behavioural red, not a mutation-only one. The update surface
+    // (`PipelineService:670`) reaches the same `validateRawConfig` override
+    // as create — a valid compute step cannot be edited into an unparseable
+    // one.
+    "PATCH /pipeline-steps/:id returns 422 when updating a compute step to an unparseable expression, leaving it unchanged" in {
+      cleanSteps(); val pid = seedPipeline()
+      var stepId = ""
+      Post(s"/pipelines/$pid/steps", computeReq("doubled", "$amount * 2")) ~> routes ~> check {
+        stepId = responseAs[PipelineStepResponse].id
+      }
+      val badPatch = JsObject(
+        "config" -> JsObject("column" -> JsString("doubled"), "expression" -> JsString("stats.a - stats.b"))
+      )
+      Patch(s"/pipeline-steps/$stepId", badPatch) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[ErrorResponse].message should include("expression")
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        responseAs[Vector[PipelineStepResponse]].head.asInstanceOf[ComputeStepResponse].config.expression shouldBe "$amount * 2"
+      }
+    }
+
+    // GUARD: a legacy bare-identifier compute expression remains creatable
+    // through the real route (design.md Decision 1's write-surface guarantee).
+    "POST /pipelines/:id/steps still accepts a legacy bare-identifier compute expression" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/$pid/steps", computeReq("revenue", "price * qty")) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
       }
     }
 

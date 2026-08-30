@@ -536,4 +536,71 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
         Left(EvaluationError.ParseError("Invalid number literal: 1.2.3"))
     }
   }
+
+  // ── parseProblem (HEL-888 design.md Decision 1) ─────────────────────────────
+
+  "ExpressionEvaluator.parseProblem" should {
+
+    // PROOF (task 1.2), of the WEAK/compile-only form: run against `main`
+    // before `parseProblem` existed, this file did not compile at all
+    // (`object parseProblem is not a member`) — a compile red, not a
+    // behavioural one (evaluation-1.md non-blocking correction). The
+    // BEHAVIOURAL red for this same expression is separately, genuinely
+    // carried by the write/run/route-level proofs in `ComputeStepSpec`,
+    // `PipelineStepRequiredConfigSpec`, `PipelineStepRoutesSpec`, and
+    // `PipelineRunServiceSpec`. This is the production expression from the
+    // ticket; the claim that it fails BOTH grammars (so the legacy fallback
+    // cannot rescue it) is a code reading (design.md Decision 1) and is
+    // measured here, not assumed.
+    "report a non-empty message for the production expression 'stats.adp_ppr - stats.pts_ppr'" in {
+      val result = ExpressionEvaluator.parseProblem("stats.adp_ppr - stats.pts_ppr")
+      result shouldBe defined
+      result.get should not be empty
+      result.get shouldBe "Invalid number literal: ."
+    }
+
+    "return None for a strict, $-prefixed expression" in {
+      ExpressionEvaluator.parseProblem("$price * $qty") shouldBe None
+    }
+
+    // The single most load-bearing case in the change (design.md Decision 1):
+    // a bare identifier fails strict `validate` but evaluates correctly via
+    // `parseLegacy`, so it must NOT be reported as a parse problem.
+    "return None for a legacy bare-identifier expression that fails strict validate but parses under parseLegacy" in {
+      ExpressionEvaluator.validate("price * qty", Set("price", "qty")) shouldBe a[Left[_, _]]
+      ExpressionEvaluator.parseProblem("price * qty") shouldBe None
+    }
+
+    "return None for an empty expression's caller-visible predicate (parse() itself still reports a problem, callers short-circuit on trim.isEmpty first)" in {
+      ExpressionEvaluator.parseProblem("") shouldBe defined
+      ExpressionEvaluator.parseProblem("   ") shouldBe defined
+    }
+
+    // GUARD (task 1.3): `parseProblem` and `evaluate` must never disagree on
+    // parseability. Failable by mutation — e.g. dropping the legacy fallback
+    // from `parseProblem` (returning `Some` for a bare identifier that
+    // `evaluate` still runs successfully) — which is exactly the Decision 1
+    // regression this test exists to catch.
+    "GUARD: agree with evaluate on parseability across strict-valid, legacy-only, unparseable, and empty expressions" in {
+      val cases = Seq(
+        "$a + $b",                          // strict-valid
+        "a + b",                            // legacy-only (bare identifiers)
+        "stats.adp_ppr - stats.pts_ppr",    // unparseable under either grammar
+        "",                                 // empty
+        "   ",                              // whitespace-only
+        "$a ++ $b"                          // syntax error
+      )
+      val row = Map("a" -> JsNumber(1), "b" -> JsNumber(2))
+      cases.foreach { expr =>
+        val problem      = ExpressionEvaluator.parseProblem(expr)
+        val evalIsParseErr = ExpressionEvaluator.evaluate(expr, row) match {
+          case Left(EvaluationError.ParseError(_)) => true
+          case _                                    => false
+        }
+        withClue(s"expr='$expr': ") {
+          problem.isDefined shouldBe evalIsParseErr
+        }
+      }
+    }
+  }
 }

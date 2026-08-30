@@ -98,6 +98,72 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
       runFailure(step).reason should include("expression")
     }
 
+    // ── HEL-888: a stored compute step with a statically unparseable expression ──
+
+    // PROOF (task 3.1, unit-level companion of the full-fixture proof in
+    // PipelineRunServiceSpec). A step shaped exactly like one stored BEFORE
+    // write-path validation existed (this spec constructs `ComputeStep`
+    // directly, bypassing the new `validateRawConfig` gate). Run on
+    // unmodified `main`: succeeds, producing a column of nulls — the
+    // production defect.
+    "fail a compute step whose expression is unparseable under either grammar, naming the step, kind, and parse error" in {
+      val step = ComputeStep(
+        PipelineStepId("compute-3"), PipelineId("p"), 0,
+        ComputeConfig(column = "value_vs_adp", expression = "stats.adp_ppr - stats.pts_ppr", `type` = None), now, now
+      )
+      val thrown = runFailure(step)
+      thrown.stepId shouldBe "compute-3"
+      thrown.stepKind shouldBe "compute"
+      thrown.reason should include("Invalid number literal")
+    }
+
+    // GUARD (task 3.4). Ordering is load-bearing: an empty expression must
+    // report "missing", not a parse error about blank input. Failable by
+    // mutation: swap the two branches in `requiredConfigProblems`.
+    "GUARD: an empty expression is reported as missing configuration, not a parse error" in {
+      // Exact "missing required config value" wording (StepCodecUtil.missingRequired),
+      // not a substring check loose enough to also match the parse-error branch's
+      // "invalid expression: Expression is empty" wording.
+      ComputeStep.companion.requiredConfigProblems("""{"column":"x","expression":""}""") shouldBe
+        Vector("compute step is missing required config value 'expression'.")
+    }
+
+    // GUARD (task 4.1), ENGINE-LEVEL — a direct `engine.execute` call, i.e. an
+    // in-memory function return, NOT materialised rows. evaluation-1.md
+    // Change Request 1 caught an earlier version of this comment falsely
+    // claiming "on MATERIALISED ROWS, not a function return"; that claim now
+    // lives correctly on `PipelineRunServiceSpec`'s
+    // "GUARD: a parseable expression over divide-by-zero and null-operand
+    // rows persists null for those rows only" test, which runs through the
+    // real `service.submit` -> `dataTypeRowRepo.listRows` and is this test's
+    // materialised-rows counterpart. This one stays as a fast, DB-free
+    // engine-level check of the same behaviour. Measured against unmodified
+    // `main` and found already GREEN here too — row-dependent per-row `null`
+    // semantics were never broken by this change, only the static-parse case
+    // above was. Relabelled from tasks.md's "proof" to guard per the
+    // evidence rule: a test is proof only if it is red before the fix, and
+    // this one is not. Kept because it is exactly the test that would catch
+    // design.md Decision 6 (hoisting the parse out of the row loop)
+    // accidentally collapsing the row-dependent case into the
+    // row-independent one — failable by mutation (confirmed: evaluating
+    // every row against an empty row map instead of that row's own data
+    // turns every value null, not just the divide-by-zero/null-operand
+    // rows).
+    "GUARD: a compute step with a parseable expression over divide-by-zero and null-operand rows — those rows are null, others compute, run succeeds" in {
+      val mixedRows: Seq[Map[String, Any]] = Seq(
+        Map("id" -> "1", "a" -> 10, "b" -> 2),    // normal: 5.0
+        Map("id" -> "2", "a" -> 10, "b" -> 0),    // divide by zero -> null
+        Map("id" -> "3", "a" -> null, "b" -> 2),  // null operand -> null
+        Map("id" -> "4", "a" -> 20, "b" -> 4)     // normal: 5.0
+      )
+      val step = ComputeStep(
+        PipelineStepId("compute-4"), PipelineId("p"), 0,
+        ComputeConfig(column = "ratio", expression = "$a / $b", `type` = None), now, now
+      )
+      val out = Await.result(engine.execute(mixedRows, Seq(step), null), 5.seconds)
+      out.map(_("ratio")) shouldBe Seq(5.0, null, null, 5.0)
+    }
+
     // PROOF (7.3). The runtime-completeness spec's other named scenario.
     "fail a join step whose joinKey is empty, naming the step and the field" in {
       val step = JoinStep(
@@ -170,6 +236,21 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
 
     "report a join step whose joinKey is empty" in {
       analyzeError("join", """{"rightDataSourceId":"ds-1","joinKey":"","joinType":"inner"}""").get should include("joinKey")
+    }
+
+    // PROOF (task 3.5). Design.md Decision 4: analyze reaches an unparseable
+    // compute expression through `validateRawConfig` (the write-path
+    // override), which `shapeRejection` evaluates FIRST and which
+    // short-circuits `requiredConfigProblems` — so this test intentionally
+    // asserts by SUBSTRING against the write path's "compute: invalid
+    // expression: " prefix, not the run path's "invalid expression: "
+    // prefix. Also confirms `outputSchema` falls back to `inputSchema` for a
+    // step with a validation error, per the runtime-completeness spec.
+    "report a compute step with an unparseable expression, and fall back to the input schema" in {
+      val step = analyzed("compute", """{"column":"value_vs_adp","expression":"stats.adp_ppr - stats.pts_ppr"}""")
+      step.validationError shouldBe defined
+      step.validationError.get should include("Invalid number literal")
+      step.outputSchema shouldBe step.inputSchema
     }
 
     // The combining requirement: two independent failures on one step join
