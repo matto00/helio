@@ -14,7 +14,7 @@ import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResult
 import com.helio.domain._
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -60,6 +60,7 @@ class PipelineRunRoutesSpec
   private var binaryRefRepo: BinaryRefRepository        = _
   private var alertRuleRepo: AlertRuleRepository        = _
   private var alertEventRepo: AlertEventRepository      = _
+  private var outputRepo: OutputRepository              = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -78,6 +79,7 @@ class PipelineRunRoutesSpec
     binaryRefRepo    = new BinaryRefRepository(ctx)(routeEc)
     alertRuleRepo    = new AlertRuleRepository(ctx)(routeEc)
     alertEventRepo   = new AlertEventRepository(ctx)(routeEc)
+    outputRepo       = new OutputRepository(ctx)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -167,21 +169,30 @@ class PipelineRunRoutesSpec
     dsId
   }
 
-  /** HEL-466: seed an enabled `AlertRule` targeting `dataTypeId`, for the
-   *  onRunSuccess -> AlertEvaluationService hook tests below. */
-  private def seedAlertRule(dataTypeId: String, metric: String, comparator: String, threshold: Double): AlertRuleId = {
+  /** HEL-904 (task 3.1): `AlertRule` now targets an Output on the
+   *  pipeline, not the pipeline's output DataType directly — seeds a
+   *  root-node (`node_step_id = None`) Output attached to `pid` so
+   *  `PipelineRunService`'s `outputRepo.listByPipelineInternal` hook
+   *  (task 3.1) can find it. */
+  private def seedOutputForPipeline(pid: PipelineId): OutputId =
+    await(outputRepo.insertInternal(pid, None, dummyUser.id, "out", OutputKind.Table)).id
+
+  /** HEL-466: seed an enabled `AlertRule` targeting the pipeline's Output,
+   *  for the onRunSuccess -> AlertEvaluationService hook tests below. */
+  private def seedAlertRule(pid: PipelineId, metric: String, comparator: String, threshold: Double): AlertRuleId = {
     val now = Instant.now()
+    val outputId = seedOutputForPipeline(pid)
     val rule = AlertRule(
-      id               = AlertRuleId(UUID.randomUUID().toString),
-      ownerId          = dummyUser.id,
-      targetDataTypeId = DataTypeId(dataTypeId),
-      metric           = metric,
-      condition        = JsObject("comparator" -> JsString(comparator), "threshold" -> JsNumber(threshold)),
-      name             = "HEL-466 test rule",
-      enabled          = true,
-      severity         = Severity.Warning,
-      createdAt        = now,
-      updatedAt        = now
+      id             = AlertRuleId(UUID.randomUUID().toString),
+      ownerId        = dummyUser.id,
+      targetOutputId = outputId,
+      metric         = metric,
+      condition      = JsObject("comparator" -> JsString(comparator), "threshold" -> JsNumber(threshold)),
+      name           = "HEL-466 test rule",
+      enabled        = true,
+      severity       = Severity.Warning,
+      createdAt      = now,
+      updatedAt      = now
     )
     await(alertRuleRepo.insert(rule, dummyUser)).id
   }
@@ -212,11 +223,18 @@ class PipelineRunRoutesSpec
       user: AuthenticatedUser = dummyUser,
       binRefRepo: BinaryRefRepository = null,
       alertEvalSvc: AlertEvaluationService = null,
-      connector: RestApiConnectorDriver = stubConnector
+      connector: RestApiConnectorDriver = stubConnector,
+      // HEL-904 (task 3.1): alert evaluation now resolves Outputs via
+      // `outputRepo` — defaults to this spec's real `outputRepo` (not
+      // nullable-default `null` like the other repos above) so every
+      // existing `makeRoutes(...)` call site that never mentions Outputs
+      // still exercises the real per-Output evaluation hook unchanged.
+      outRepo: OutputRepository = outputRepo
   ): Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new PipelineRunService(
-      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem, binRefRepo, alertEvalSvc, connector
+      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem, binRefRepo, alertEvalSvc, connector,
+      outputRepo = outRepo
     )
     concat(
       new PipelineRunSubmitRoutes(service, user).routes,
@@ -843,7 +861,7 @@ class PipelineRunRoutesSpec
       val cache            = new PipelineRunCache()
       val dsId             = seedDsWithData()
       val (pid, dtId)      = seedPipelineWithDtId(dsId)
-      val ruleId           = seedAlertRule(dtId, "score", "gt", 0)
+      val ruleId           = seedAlertRule(pid, "score", "gt", 0)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
       await(stepRepo.insert(pid, "join", JoinConfig(missingSourceId, "name", "inner"), dummyUser))
       val alertEvalSvc = new AlertEvaluationService(alertRuleRepo, alertEventRepo)(routeEc)
@@ -859,7 +877,7 @@ class PipelineRunRoutesSpec
       val cache        = new PipelineRunCache()
       val dsId         = seedDsWithData()
       val (pid, dtId)  = seedPipelineWithDtId(dsId)
-      val ruleId       = seedAlertRule(dtId, "score", "gt", 50) // sum(42.0, 37.0) = 79 > 50
+      val ruleId       = seedAlertRule(pid, "score", "gt", 50) // sum(42.0, 37.0) = 79 > 50
       val alertEvalSvc = new AlertEvaluationService(alertRuleRepo, alertEventRepo)(routeEc)
 
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, rowRepo = dataTypeRowRepo, alertEvalSvc = alertEvalSvc) ~> check {
@@ -881,7 +899,7 @@ class PipelineRunRoutesSpec
       val dsId        = seedDsWithData()
       val (pid, dtId) = seedPipelineWithDtId(dsId)
       val failingRuleRepo = new AlertRuleRepository(ctx)(routeEc) {
-        override def listEnabledByDataTypeInternal(dataTypeId: DataTypeId): Future[Vector[AlertRule]] =
+        override def listEnabledByOutputInternal(outputId: OutputId): Future[Vector[AlertRule]] =
           Future.failed(new RuntimeException("boom: evaluation should never fail the run"))
       }
       val alertEvalSvc = new AlertEvaluationService(failingRuleRepo, alertEventRepo)(routeEc)

@@ -15,7 +15,7 @@
       "type": "string",
       "format": "uuid"
     },
-    "targetDataTypeId": {
+    "targetOutputId": {
       "type": "string"
     },
     "value": {},
@@ -55,7 +55,7 @@
     "id",
     "alertRuleId",
     "ownerId",
-    "targetDataTypeId",
+    "targetOutputId",
     "value",
     "pipelineRunId",
     "severity",

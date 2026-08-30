@@ -6,7 +6,8 @@ import com.helio.services.alerts.AlertRuleService
 import com.helio.api.protocols.alerts.{CreateAlertRuleRequest, UpdateAlertRuleRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -32,6 +33,9 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
   private var db: JdbcBackend.Database           = _
   private var alertRuleRepo: AlertRuleRepository = _
   private var dataTypeRepo: DataTypeRepository   = _
+  private var dataSourceRepo: DataSourceRepository = _
+  private var pipelineRepo: PipelineRepository   = _
+  private var outputRepo: OutputRepository       = _
   private var service: AlertRuleService          = _
 
   private val owner1Id = UUID.randomUUID().toString
@@ -53,7 +57,10 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     val ctx        = new DbContext(db, db)
     alertRuleRepo  = new AlertRuleRepository(ctx)
     dataTypeRepo   = new DataTypeRepository(ctx)
-    service        = new AlertRuleService(alertRuleRepo, dataTypeRepo)
+    dataSourceRepo = new DataSourceRepository(ctx)
+    pipelineRepo   = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    outputRepo     = new OutputRepository(ctx)
+    service        = new AlertRuleService(alertRuleRepo, outputRepo)
   }
 
   override def afterAll(): Unit = {
@@ -65,7 +72,10 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
   private def cleanDb(): Unit = {
     import PostgresProfile.api._
     await(db.run(sqlu"DELETE FROM alert_rules"))
+    await(db.run(sqlu"DELETE FROM outputs"))
+    await(db.run(sqlu"DELETE FROM pipelines"))
     await(db.run(sqlu"DELETE FROM data_types"))
+    await(db.run(sqlu"DELETE FROM data_sources"))
     await(db.run(sqlu"DELETE FROM users"))
   }
 
@@ -77,20 +87,19 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     )))
   }
 
-  private def insertDataType(ownerId: UserId): DataType = {
-    val now = Instant.now()
-    val dt = DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = "MyType",
-      fields    = Vector(DataField("value", "Value", "integer", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = ownerId
+  /** HEL-904 (task 3.1): `AlertRuleService.create` now resolves a
+   *  `targetOutputId` — builds the minimal real source -> pipeline -> Output
+   *  chain its FK requires. Renamed call sites keep `.id`/`.id.value`
+   *  unchanged (`Output.id: OutputId` mirrors `DataType.id: DataTypeId`). */
+  private def insertDataType(ownerId: UserId): Output = {
+    val now    = Instant.now()
+    val user   = AuthenticatedUser(ownerId)
+    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
+    val createdSource = await(dataSourceRepo.insert(source, user))
+    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, "pipe-output", user)).getOrElse(
+      throw new IllegalStateException("insertDataType fixture: pipeline create failed")
     )
-    await(dataTypeRepo.insert(dt, AuthenticatedUser(ownerId)))
-    dt
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table))
   }
 
   private val validCondition: JsValue =
@@ -105,7 +114,7 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
       metric: String = "count"
   ): CreateAlertRuleRequest =
     CreateAlertRuleRequest(
-      targetDataTypeId = targetDataTypeId,
+      targetOutputId   = targetDataTypeId,
       metric           = metric,
       condition        = condition,
       severity         = severity,
@@ -123,7 +132,7 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
 
       result match {
         case Right(rule) =>
-          rule.targetDataTypeId shouldBe dt.id
+          rule.targetOutputId shouldBe dt.id
           rule.metric shouldBe "count"
           rule.condition shouldBe validCondition
           rule.severity shouldBe Severity.Warning
@@ -147,7 +156,7 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
         .getOrElse(fail("expected Right"))
       val fetched = await(service.findById(created.id, user1)).getOrElse(fail("expected Right"))
 
-      fetched.targetDataTypeId shouldBe dt.id
+      fetched.targetOutputId shouldBe dt.id
       fetched.metric shouldBe created.metric
       fetched.condition shouldBe condition
       fetched.severity shouldBe created.severity

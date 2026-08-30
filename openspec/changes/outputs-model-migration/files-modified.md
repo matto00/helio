@@ -112,3 +112,58 @@ the full reasoning on why no DML was landed this cycle.
 - `openspec/changes/outputs-model-migration/tasks.md` — 2.9 steps (c)-(h) marked done; 2.10 (the
   drops) still explicitly not started (blocked on sections 3/4's consumer rewires, decision 1e).
 - `openspec/changes/outputs-model-migration/execution-progress.md`, this file — updated for cycle 8.
+
+## Cycle 9 (this cycle) — task 3.1: AlertRuleService/AlertEvaluationService rewired to Outputs
+
+- `backend/src/main/scala/com/helio/domain/model/model.scala` — `AlertRule.targetDataTypeId`
+  removed, replaced by non-`Option` `targetOutputId: OutputId`; `AlertEvent.targetDataTypeId`
+  removed, replaced by `targetOutputId: OutputId`.
+- `backend/src/main/resources/db/migration/V94__outputs_model.sql` — two new additive statements:
+  `alert_rules.target_data_type_id`/`alert_events.target_data_type_id` DROP NOT NULL (task 3.1's
+  code no longer populates them on insert; every existing row was already backfilled with
+  `target_output_id` by cycle 8's step (f) DML — the legacy columns stay in place, read-only, until
+  task 2.10 drops them alongside the rest of the DataType/Metric infrastructure).
+- `backend/src/main/scala/com/helio/infrastructure/persistence/alerts/AlertRuleRepository.scala` —
+  `AlertRuleRow`/`AlertRuleTable` re-keyed from `target_data_type_id` to `target_output_id`;
+  `listEnabledByDataTypeInternal` → `listEnabledByOutputInternal`.
+- `backend/src/main/scala/com/helio/infrastructure/persistence/alerts/AlertEventRepository.scala` —
+  same re-key for `AlertEventRow`/`AlertEventTable`/`upsertFiringInternal`'s parameter.
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputRepository.scala` —
+  added `findByIdOwned(id, user)`, an owner-scoped (not merely sharing-aware) read mirroring
+  `DataTypeRepository.findByIdOwned`'s explicit `ownerId` filter — used by `AlertRuleService.create`
+  to validate a rule's `targetOutputId` before persisting (existence-not-leaked ACL semantics
+  preserved exactly as before the migration).
+- `backend/src/main/scala/com/helio/services/alerts/AlertEvaluationService.scala` —
+  `evaluateForDataType` → `evaluateForOutput`.
+- `backend/src/main/scala/com/helio/services/alerts/AlertRuleService.scala` — takes
+  `OutputRepository` instead of `DataTypeRepository`; resolves `targetOutputId` via
+  `outputRepo.findByIdOwned` instead of `dataTypeRepo.findByIdOwned`.
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — added
+  `outputRepo`/`nodeSnapshotRepo` nullable-default constructor params (task 3.1/3.14): the
+  `onUnblockedRunSuccess` alert-evaluation hook now lists every Output on the pipeline
+  (`outputRepo.listByPipelineInternal`) and calls `evaluateForOutput` once per Output (per-Output
+  isolation mirrors `AlertEvaluationService`'s own per-rule isolation) instead of the retired
+  single `evaluateForDataType` call; a new `nodeSnapshotUpsert` dual-writes `node_snapshots`
+  (keyed by the pipeline's trunk-last step, resolved via `pipelineStepRepo.trunkOf`) alongside the
+  still-live `dataTypeRowRepo` write (both stay live until section 4 deletes the old route/table).
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — added `outputRepoOpt`/
+  `nodeSnapshotRepoOpt` (built from the existing nullable `dbContext` param, no new constructor
+  param needed); `pipelineRunService` now threads them through; `alertRuleServiceOpt` now requires
+  BOTH `alertRuleRepo` and an `OutputRepository` to mount `/api/alert-rules`.
+- `backend/src/main/scala/com/helio/api/protocols/alerts/AlertRuleProtocol.scala`,
+  `AlertEventProtocol.scala` — wire field `targetDataTypeId` → `targetOutputId` on
+  `AlertRuleResponse`/`AlertEventResponse`/`CreateAlertRuleRequest`.
+- `schemas/alerts/alert-rule.schema.json`, `alert-event.schema.json`,
+  `create-alert-rule-request.schema.json` — `targetDataTypeId` → `targetOutputId` (keeps the
+  schema-drift gate's JSON Schema in sync with the renamed protocol field).
+- Nine test files rewired to build a real source → pipeline → Output chain (via
+  `DataSourceRepository`/`PipelineRepository`/`OutputRepository`, or equivalent raw SQL for the
+  route-level specs) in place of the retired bare-DataType fixture, and to use
+  `targetOutputId`/`evaluateForOutput`/`listEnabledByOutputInternal` throughout:
+  `AlertRuleRepositorySpec.scala`, `AlertEventRepositorySpec.scala`, `AlertEvaluationServiceSpec.scala`,
+  `AlertEventServiceSpec.scala`, `AlertRuleServiceSpec.scala`, `AlertEventRoutesSpec.scala`,
+  `AlertRuleRoutesSpec.scala`, `AlertEventStateMachineSpec.scala` (pure field rename, no DB),
+  `PipelineRunRoutesSpec.scala` (also rewires `makeRoutes`'s `outRepo` param and the
+  `listEnabledByOutputInternal` override in its `failingRuleRepo` fixture).
+- `openspec/changes/outputs-model-migration/tasks.md` — task 3.1 marked done.
+- `openspec/changes/outputs-model-migration/execution-progress.md`, this file — updated for cycle 9.

@@ -27,7 +27,9 @@ class AlertEventRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       id               = AlertEventId(row.id),
       alertRuleId      = AlertRuleId(row.alertRuleId),
       ownerId          = UserId(row.ownerId.toString),
-      targetDataTypeId = DataTypeId(row.targetDataTypeId),
+      targetOutputId   = OutputId(row.targetOutputId.getOrElse(
+        throw new IllegalStateException(s"alert_events row '${row.id}' has no target_output_id")
+      )),
       value            = row.value.parseJson,
       pipelineRunId    = row.pipelineRunId,
       severity         = Severity.fromString(row.severity)
@@ -46,7 +48,7 @@ class AlertEventRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       id               = event.id.value,
       alertRuleId      = event.alertRuleId.value,
       ownerId          = UUID.fromString(event.ownerId.value),
-      targetDataTypeId = event.targetDataTypeId.value,
+      targetOutputId   = Some(event.targetOutputId.value),
       value            = event.value.compactPrint,
       pipelineRunId    = event.pipelineRunId,
       severity         = Severity.asString(event.severity),
@@ -139,7 +141,7 @@ class AlertEventRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def upsertFiringInternal(
       ruleId: AlertRuleId,
       ownerId: UserId,
-      targetDataTypeId: DataTypeId,
+      targetOutputId: OutputId,
       value: JsValue,
       pipelineRunId: Option[String],
       severity: Severity
@@ -165,7 +167,7 @@ class AlertEventRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             id               = AlertEventId(UUID.randomUUID().toString),
             alertRuleId      = ruleId,
             ownerId          = ownerId,
-            targetDataTypeId = targetDataTypeId,
+            targetOutputId   = targetOutputId,
             value            = value,
             pipelineRunId    = pipelineRunId,
             severity         = severity,
@@ -256,7 +258,7 @@ object AlertEventRepository {
       id: String,
       alertRuleId: String,
       ownerId: UUID,
-      targetDataTypeId: String,
+      targetOutputId: Option[String],
       value: String,
       pipelineRunId: Option[String],
       severity: String,
@@ -272,7 +274,7 @@ object AlertEventRepository {
     def id               = column[String]("id", O.PrimaryKey)
     def alertRuleId      = column[String]("alert_rule_id")
     def ownerId          = column[UUID]("owner_id")
-    def targetDataTypeId = column[String]("target_data_type_id")
+    def targetOutputId   = column[Option[String]]("target_output_id")
     def value            = column[String]("value")(jsonbStringType)
     def pipelineRunId    = column[Option[String]]("pipeline_run_id")
     def severity         = column[String]("severity")
@@ -283,7 +285,7 @@ object AlertEventRepository {
     def acknowledgedAt   = column[Option[Instant]]("acknowledged_at")
     def snoozedUntil     = column[Option[Instant]]("snoozed_until")
 
-    def * = (id, alertRuleId, ownerId, targetDataTypeId, value, pipelineRunId, severity, state,
+    def * = (id, alertRuleId, ownerId, targetOutputId, value, pipelineRunId, severity, state,
       firstFiredAt, lastEvaluatedAt, resolvedAt, acknowledgedAt, snoozedUntil).mapTo[AlertEventRow]
   }
 }

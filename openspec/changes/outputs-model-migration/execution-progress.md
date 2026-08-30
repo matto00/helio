@@ -792,3 +792,116 @@ them unchanged today.
 1. Begin section 3 (rewire live consumers) per tasks.md's own ordering — this is the prerequisite
    decision 1e names before 2.10 can even be considered.
 2. Do NOT attempt 2.10 before section 3/4 land, per every prior cycle's unchanged guidance.
+
+## Cycle 9 (this cycle) — section 3, task 3.1: AlertRuleService/AlertEvaluationService → Outputs
+
+Starting state verified fresh: HEAD = `2a315cd9` (cycle 8's final 2.9(c)-(h) commit), tree clean,
+full `sbt test` 3897/3897 confirmed by cycle 8's own fresh run (re-confirmed, not re-run, since
+nothing changed to invalidate it).
+
+**Scope this cycle: task 3.1 only** (the resume brief's own instruction to treat section 3's 15
+tasks as individual checkpoints, given the section's size). `AlertRule.targetDataTypeId`/
+`AlertEvent.targetDataTypeId` removed from the domain model entirely (per the resume brief's
+explicit instruction, in the same task, not left dangling); `AlertRuleRepository`/
+`AlertEventRepository` re-keyed to `target_output_id`; `AlertEvaluationService.evaluateForDataType`
+→ `evaluateForOutput`; `AlertRuleService` now resolves a caller-owned Output instead of a
+caller-owned DataType; `PipelineRunService`'s `onRunSuccess` hook now evaluates per-Output (task
+3.1's own wording: "invoked per Output of every materialized node") instead of a single
+per-DataType call, and — since task 3.14 (verify `node_snapshots` write call sites) shares the same
+constructor-wiring seam — added a `node_snapshots` dual-write alongside the still-live
+`data_type_rows` write in the same edit (both tables/routes stay live until section 4 deletes the
+old ones).
+
+**A real, load-bearing schema gap found and fixed, not guessed:** `alert_rules.target_data_type_id`
+and `alert_events.target_data_type_id` were still `NOT NULL` (V60/V61's original constraint) —
+cycle 4 only ever added `target_output_id` as an ADDITIVE nullable column alongside the existing
+one, and cycle 8's DML backfilled it for every EXISTING row, but neither cycle relaxed the NOT NULL
+constraint on the legacy column. The moment this cycle's `AlertRuleRow`/`AlertEventRow` stopped
+populating `target_data_type_id` on INSERT, every new-rule/new-event write would have failed
+outright against the live constraint — confirmed by reading the V60/V61 DDL directly (not assumed),
+not discovered via a failing test (this was caught during implementation, before running anything).
+**Fix:** two `ALTER TABLE ... ALTER COLUMN target_data_type_id DROP NOT NULL` statements appended
+to `V94__outputs_model.sql` (same "additive relaxation ahead of section 4's real DROP" pattern
+cycle 3 already established for `panels.kind` and cycle 4 for the FK-vs-TRUNCATE-CASCADE
+`node_snapshots` fix) — the legacy column stays in place, now nullable and unpopulated by new
+writes, until task 2.10 drops it alongside the rest of the DataType/Metric infrastructure.
+
+**A second real gap found and fixed via the first failing test run (not guessed):**
+`AlertRuleServiceSpec`'s "reject a targetOutputId owned by a different user" test passed
+unexpectedly (got `Right` instead of the expected rejection) on the first pass, because my initial
+`OutputRepository.findByIdOwned` relied on `outputs`' sharing-aware RLS policy alone
+(`helio_can_access_pipeline`), and this test suite's embedded-Postgres `DbContext` runs both pools
+as the Postgres superuser (the same documented dev/CI RLS-bypass gap `AlertRuleRepositorySpec`'s own
+comment already names for `delete`) — RLS is never actually evaluated in this test environment, so
+a sharing-aware-only check admits every row regardless of ownership. **Root cause (probe-confirmed
+via the failing assertion, not guessed):** `DataTypeRepository.findByIdOwned` (the method this one
+replaces) never relied on RLS for its ACL check at all — it filters `r.ownerId === ownerUuid`
+explicitly in the WHERE clause, at the app layer, and only uses `ctx.withUserContext` for the
+privileged-pool-vs-user-pool discipline, not as the ACL mechanism itself. **Fix:** added the same
+explicit `r.ownerId === ownerUuid` filter to `OutputRepository.findByIdOwned`, preserving this
+migration's predecessor behavior exactly (owner-level action for alert-rule creation, not merely
+"can see the pipeline") — documented at length inline so a future reader doesn't "helpfully"
+loosen it back to sharing-aware-only and reintroduce the same RLS-bypass-masked regression.
+
+**Third gap, mechanical, not a design question:** `AlertRuleRoutesSpec`'s `createBody` helper still
+sent the JSON wire key `"targetDataTypeId"` after the protocol's Scala field was renamed to
+`targetOutputId` — caught immediately by every POST test in the file failing with
+`MalformedRequestContentRejection: Object is missing required member 'targetOutputId'`. Fixed the
+wire key, and additionally updated `schemas/alerts/{alert-rule,alert-event,create-alert-rule-
+request}.schema.json` to keep the JSON-Schema contract in sync with the renamed protocol field
+(these aren't exercised by `sbt test`, but the pre-commit schema-drift gate would have caught the
+mismatch on commit had they been left stale).
+
+**Files touched:** see `files-modified.md`'s "Cycle 9" entry for the full, itemized list — main
+code: `model.scala`, `V94__outputs_model.sql` (2 new statements), `AlertRuleRepository.scala`,
+`AlertEventRepository.scala`, `OutputRepository.scala` (new `findByIdOwned`),
+`AlertEvaluationService.scala`, `AlertRuleService.scala`, `PipelineRunService.scala` (new
+`outputRepo`/`nodeSnapshotRepo` params + rewired hook), `ApiRoutes.scala` (new
+`outputRepoOpt`/`nodeSnapshotRepoOpt`, rewired `alertRuleServiceOpt`/`pipelineRunService`
+construction), `AlertRuleProtocol.scala`/`AlertEventProtocol.scala`; 3 schema files; 9 test files
+(all 8 alert-package specs + `PipelineRunRoutesSpec`'s alert-hook tests).
+
+**Verification this cycle (confirmed, fresh, exit codes read directly, not summarized):**
+- `sbt compile` — clean (main code).
+- `sbt Test/compile` — clean (all test sources), after fixing every one of the ~56 initial
+  compile errors the field/method renames surfaced across the 9 test files above.
+- `sbt "testOnly com.helio.services.alerts.* com.helio.api.routes.alerts.*
+  com.helio.infrastructure.persistence.alerts.* com.helio.domain.engine.AlertEventStateMachineSpec
+  com.helio.api.routes.pipelines.PipelineRunRoutesSpec"` — **171/171 green** on the second run
+  (first run: 158/171, 13 failures — the two real gaps above, both root-caused and fixed before
+  re-running, not worked around).
+- Full `sbt test` (fresh run, read directly): **3897/3897 passing**, exit code 0, 247 suites
+  completed, 0 aborted, 0 failed, confirmed complete (3 min 29 sec run) — identical total test
+  count to cycle 8's own fresh run (this cycle renamed/rewired existing tests' fixtures, added no
+  new test cases), confirming zero regressions elsewhere in the suite from this cycle's rewire.
+- HEL-924 classification: the 13 alert-suite failures on the first run were re-diagnosed via
+  root-cause analysis (not blind isolation re-runs, since the causes were immediately legible from
+  the assertion/rejection messages) before the fix — both were genuine defects in this cycle's own
+  new code (the RLS-bypass-masked ACL gap, the stale wire key), not HEL-924 flakiness; the
+  full-suite run that followed the fix was clean on its first pass, so no isolation re-run was
+  needed for HEL-924 purposes.
+
+**Honest boundary this cycle stops at:** task 3.1 only. Tasks 3.2-3.15 (search/teardown/dashboard-
+contents/assistant-executor rewire, patch-set targets, `BinaryRefRepository` re-key,
+`PipelineRepository.create`/`Pipeline.outputDataTypeId` removal, `Panel.scala`/`OutputBindingSpec`,
+`DemoData` reseed, `PipelineProposalService`, `ProposalPanelSupport`/`DashboardProposalService`'s
+`DataPanelKinds`, `PanelCapabilityService` KEEP-and-rewire + its 10-spec blast radius,
+`WorkspaceContextService`, `ApiRoutes.scala`'s `data-type` `ResourceType` removal) remain
+**NOT started**. Task 2.10 (the drops) remains explicitly, deliberately untouched — still blocked
+on section 3's remaining tasks (and section 4) per design.md decision 1e; this cycle's two new
+`DROP NOT NULL` statements are the additive-relaxation kind decision 1e already established a
+precedent for (cycle 3's `panels.kind`, cycle 4's `node_snapshots` FK), not a step toward the real
+drop.
+
+**Next cycle should:**
+1. Continue section 3 in tasks.md's own order — task 3.2 (`WorkspaceSearchService`,
+   `WorkspaceTeardownRepository`, `DashboardContentsService`, `AssistantToolExecutor`) is next.
+2. Each task should land as its own commit with a fresh `sbt compile`/`sbt test` check, per the
+   resume brief's own "treat each numbered task as its own checkpoint" instruction — this cycle's
+   single-task-per-commit boundary worked well and should continue.
+3. Watch for the same class of gap this cycle found twice: a legacy NOT NULL column the migration
+   never relaxed, and a wire-level (schema/JSON key) reference the Scala-level rename didn't
+   automatically catch — both are "did the OLD column/key actually get relaxed/renamed everywhere,
+   not just the Scala field" checks worth doing proactively for 3.2-3.15's own DataType/Metric
+   column references before assuming a rename is complete.
+4. Do NOT bring 2.10 forward — unchanged standing instruction from every prior cycle.

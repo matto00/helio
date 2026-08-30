@@ -2,7 +2,8 @@ package com.helio.infrastructure.persistence.alerts
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model._
 import com.helio.services.ServiceError
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -30,6 +31,9 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
   private var aeRepo: AlertEventRepository       = _
   private var arRepo: AlertRuleRepository        = _
   private var dtRepo: DataTypeRepository         = _
+  private var dsRepo: DataSourceRepository       = _
+  private var pipeRepo: PipelineRepository       = _
+  private var outRepo: OutputRepository          = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -46,6 +50,9 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     aeRepo = new AlertEventRepository(ctx)
     arRepo = new AlertRuleRepository(ctx)
     dtRepo = new DataTypeRepository(ctx)
+    dsRepo = new DataSourceRepository(ctx)
+    pipeRepo = new PipelineRepository(ctx, dtRepo, dsRepo)
+    outRepo = new OutputRepository(ctx)
   }
 
   override def afterAll(): Unit = {
@@ -59,7 +66,10 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     import PostgresProfile.api._
     await(db.run(sqlu"DELETE FROM alert_events"))
     await(db.run(sqlu"DELETE FROM alert_rules"))
+    await(db.run(sqlu"DELETE FROM outputs"))
+    await(db.run(sqlu"DELETE FROM pipelines"))
     await(db.run(sqlu"DELETE FROM data_types"))
+    await(db.run(sqlu"DELETE FROM data_sources"))
     await(db.run(sqlu"DELETE FROM users"))
   }
 
@@ -95,27 +105,39 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
   private val defaultCondition: JsValue =
     JsObject("comparator" -> JsString("gt"), "threshold" -> JsNumber(5))
 
-  private def newRule(ownerId: UserId, targetDataTypeId: DataTypeId): AlertRule = {
+  private def newRule(ownerId: UserId, targetOutputId: OutputId): AlertRule = {
     val now = Instant.now()
     AlertRule(
-      id               = AlertRuleId(UUID.randomUUID().toString),
-      ownerId          = ownerId,
-      targetDataTypeId = targetDataTypeId,
-      metric           = "count",
-      condition        = defaultCondition,
-      name             = "My Rule",
-      enabled          = true,
-      severity         = Severity.Warning,
-      createdAt        = now,
-      updatedAt        = now
+      id             = AlertRuleId(UUID.randomUUID().toString),
+      ownerId        = ownerId,
+      targetOutputId = targetOutputId,
+      metric         = "count",
+      condition      = defaultCondition,
+      name           = "My Rule",
+      enabled        = true,
+      severity       = Severity.Warning,
+      createdAt      = now,
+      updatedAt      = now
     )
   }
 
-  /** Seeds a user + DataType + AlertRule owned by `ownerId`, returning the rule. */
+  /** HEL-904 (task 3.1): builds the minimal real source -> pipeline ->
+   *  Output chain a rule's `targetOutputId` FK requires. */
+  private def newOutput(ownerId: UserId, user: AuthenticatedUser): OutputId = {
+    val now    = Instant.now()
+    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
+    val createdSource = await(dsRepo.insert(source, user))
+    val pipeline = await(pipeRepo.create("pipe", createdSource.id, "pipe-output", user)).getOrElse(
+      throw new IllegalStateException("newOutput fixture: pipeline create failed")
+    )
+    await(outRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table)).id
+  }
+
+  /** Seeds a user + Output + AlertRule owned by `ownerId`, returning the rule. */
   private def seedRule(ownerId: UserId): AlertRule = {
-    val user = AuthenticatedUser(ownerId)
-    val dt   = await(dtRepo.insert(newDataType(ownerId), user))
-    await(arRepo.insert(newRule(ownerId, dt.id), user))
+    val user   = AuthenticatedUser(ownerId)
+    val output = newOutput(ownerId, user)
+    await(arRepo.insert(newRule(ownerId, output), user))
   }
 
   "AlertEventRepository.upsertFiringInternal" should {
@@ -125,7 +147,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       val rule = seedRule(owner1)
 
       val event = await(aeRepo.upsertFiringInternal(
-        rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning
+        rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning
       ))
 
       event.state shouldBe AlertEventState.Firing
@@ -139,13 +161,13 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
 
-      val first = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val first = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
       // Re-fetch the persisted `firstFiredAt` (rather than using `first`'s
       // in-memory value) so both sides of the comparison below have been
       // through the same Postgres TIMESTAMPTZ round-trip — see the
       // "re-breach while acknowledged" test's comment for why.
       val firstFiredAtPersisted = await(aeRepo.findByIdOwned(first.id, user1)).getOrElse(fail("expected Some")).firstFiredAt
-      val second = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(20), Some("run-2"), Severity.Critical))
+      val second = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(20), Some("run-2"), Severity.Critical))
 
       second.id shouldBe first.id
       second.state shouldBe AlertEventState.Firing
@@ -160,7 +182,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "re-breach while acknowledged updates in place without changing state/acknowledgedAt" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Acknowledge, user1))
       // Re-fetch the persisted `acknowledgedAt` (rather than using the value
       // `applyTransition` returned in-memory) so both sides of the comparison
@@ -170,7 +192,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       // `truncatedTo` truncates), which is not the dedup behavior under test.
       val ackedAtPersisted = await(aeRepo.findByIdOwned(fired.id, user1)).getOrElse(fail("expected Some")).acknowledgedAt
 
-      val reFired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(30), Some("run-2"), Severity.Critical))
+      val reFired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(30), Some("run-2"), Severity.Critical))
 
       reFired.id shouldBe fired.id
       reFired.state shouldBe AlertEventState.Acknowledged
@@ -185,7 +207,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "re-breach while snoozed (not expired) updates in place without changing state/snoozedUntil" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
       val until = Instant.now().plusSeconds(3600)
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Snooze(until), user1))
       // Re-fetch the persisted `snoozedUntil` (rather than comparing to the
@@ -194,7 +216,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       // "re-breach while acknowledged" test's comment for why.
       val snoozedUntilPersisted = await(aeRepo.findByIdOwned(fired.id, user1)).getOrElse(fail("expected Some")).snoozedUntil
 
-      val reFired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(40), Some("run-2"), Severity.Info))
+      val reFired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(40), Some("run-2"), Severity.Info))
 
       reFired.id shouldBe fired.id
       reFired.state shouldBe AlertEventState.Snoozed
@@ -208,11 +230,11 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "re-breach while snoozed (expired) flips to firing and clears snoozedUntil" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
       val expiredUntil = Instant.now().minusSeconds(3600)
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Snooze(expiredUntil), user1))
 
-      val reFired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(50), Some("run-2"), Severity.Info))
+      val reFired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(50), Some("run-2"), Severity.Info))
 
       reFired.id shouldBe fired.id
       reFired.state shouldBe AlertEventState.Firing
@@ -226,10 +248,10 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "breach after resolve opens a new event" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Resolve, user1))
 
-      val second = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(60), Some("run-2"), Severity.Warning))
+      val second = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(60), Some("run-2"), Severity.Warning))
 
       second.id should not be fired.id
       second.state shouldBe AlertEventState.Firing
@@ -245,7 +267,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "return None when the only event is resolved" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Resolve, user1))
 
       await(aeRepo.findActiveByRule(rule.id)) shouldBe None
@@ -254,7 +276,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "return the active event when one is firing" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
 
       await(aeRepo.findActiveByRule(rule.id)).map(_.id) shouldBe Some(fired.id)
     }
@@ -265,7 +287,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "resolve an active firing event" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
 
       val result = await(aeRepo.resolveInternal(rule.id))
 
@@ -278,7 +300,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "resolve an active acknowledged event" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Acknowledge, user1))
 
       val result = await(aeRepo.resolveInternal(rule.id))
@@ -292,7 +314,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "leave an active snoozed event untouched and return None (no illegal transition attempted)" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
       val until = Instant.now().plusSeconds(3600)
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Snooze(until), user1))
 
@@ -317,7 +339,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "findByIdOwned excludes non-owned rows" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), Some("run-1"), Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), Some("run-1"), Severity.Warning))
 
       await(aeRepo.findByIdOwned(fired.id, user1)) shouldBe defined
       await(aeRepo.findByIdOwned(fired.id, user2)) shouldBe None
@@ -327,8 +349,8 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       cleanDb(); seedUsers()
       val rule1 = seedRule(owner1)
       val rule2 = seedRule(owner2)
-      val e1 = await(aeRepo.upsertFiringInternal(rule1.id, owner1, rule1.targetDataTypeId, JsNumber(1), None, Severity.Warning))
-      val e2 = await(aeRepo.upsertFiringInternal(rule2.id, owner2, rule2.targetDataTypeId, JsNumber(2), None, Severity.Warning))
+      val e1 = await(aeRepo.upsertFiringInternal(rule1.id, owner1, rule1.targetOutputId, JsNumber(1), None, Severity.Warning))
+      val e2 = await(aeRepo.upsertFiringInternal(rule2.id, owner2, rule2.targetOutputId, JsNumber(2), None, Severity.Warning))
 
       val forOwner1 = await(aeRepo.findAll(owner1, None))
       forOwner1.map(_.id) should contain(e1.id)
@@ -341,7 +363,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "findAll(?state=firing) includes expired-snoozed events" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), None, Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), None, Severity.Warning))
       val expiredUntil = Instant.now().minusSeconds(3600)
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Snooze(expiredUntil), user1))
 
@@ -352,7 +374,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "findAll(?state=firing) excludes not-yet-expired-snoozed events" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), None, Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), None, Severity.Warning))
       val futureUntil = Instant.now().plusSeconds(3600)
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Snooze(futureUntil), user1))
 
@@ -363,7 +385,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "applyTransition returns NotFound for a cross-user caller and leaves the row unchanged" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), None, Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), None, Severity.Warning))
 
       val result = await(aeRepo.applyTransition(fired.id, AlertEventAction.Acknowledge, user2))
       result match {
@@ -376,7 +398,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "applyTransition returns Conflict for an illegal transition and leaves the row unchanged" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), None, Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), None, Severity.Warning))
       await(aeRepo.applyTransition(fired.id, AlertEventAction.Resolve, user1))
 
       val result = await(aeRepo.applyTransition(fired.id, AlertEventAction.Acknowledge, user1))
@@ -392,7 +414,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     "deleting the parent alert_rules row removes its alert_events" in {
       cleanDb(); seedUsers()
       val rule = seedRule(owner1)
-      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetDataTypeId, JsNumber(10), None, Severity.Warning))
+      val fired = await(aeRepo.upsertFiringInternal(rule.id, owner1, rule.targetOutputId, JsNumber(10), None, Severity.Warning))
 
       await(arRepo.delete(rule.id, user1))
 

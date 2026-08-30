@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.model.{AlertEventId, AlertRuleId, DataTypeId, UserId}
+import com.helio.domain.model.{AlertEventId, AlertRuleId, OutputId, UserId}
 import com.helio.domain.engine.AlertEventStateMachine
 import com.helio.domain.model.{AlertEvent, AlertEventAction, AlertEventState, Severity}
 import com.helio.services.ServiceError
@@ -27,7 +27,7 @@ class AlertEventStateMachineSpec extends AnyWordSpec with Matchers {
       id               = AlertEventId(UUID.randomUUID().toString),
       alertRuleId      = AlertRuleId(UUID.randomUUID().toString),
       ownerId          = UserId(UUID.randomUUID().toString),
-      targetDataTypeId = DataTypeId(UUID.randomUUID().toString),
+      targetOutputId   = OutputId(UUID.randomUUID().toString),
       value            = JsNumber(1),
       pipelineRunId    = Some("run-1"),
       severity         = Severity.Warning,

@@ -51,7 +51,7 @@ import com.helio.services.audit.AuditService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -183,6 +183,14 @@ final class ApiRoutes(
   // rest of this file's nullable-optional convention.
   private val auditService: AuditService = Option(auditEventRepo).map(new AuditService(_)).orNull
 
+  // HEL-904 (task 3.1/3.14): built from the already-nullable `dbContext`
+  // param (task 3.16-adjacent: no new ApiRoutes/Main.scala constructor
+  // param needed) — `null` in every fixture that doesn't pass a DbContext,
+  // matching this file's existing nullable-optional convention.
+  // `PipelineRunService` and `AlertRuleService` both null-check these.
+  private val outputRepoOpt: Option[OutputRepository] = Option(dbContext).map(new OutputRepository(_))
+  private val nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = Option(dbContext).map(new NodeSnapshotRepository(_))
+
   // HEL-488: same nullable-optional wiring pattern as auditService above —
   // fixtures that don't pass an AuditEventRepository simply don't get the
   // GET /api/audit-events route mounted (see the `.fold(reject)` mount site
@@ -291,7 +299,13 @@ final class ApiRoutes(
     alertEvaluationServiceOpt.orNull, connector, auditService,
     // HEL-862: threads the same implicit ActorSystem this class already has,
     // so a scheduled/manual run over a URL-backed CSV source can re-fetch it.
-    system
+    system,
+    // HEL-904 (task 3.1/3.14): resolves per-Output alert evaluation +
+    // node_snapshots dual-write — `null` in fixtures that don't pass a
+    // DbContext (outputRepoOpt/nodeSnapshotRepoOpt above).
+    executionBackend = null,
+    outputRepo = outputRepoOpt.orNull,
+    nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull
   )
   // HEL-383: atomic pipeline-proposal apply — composes sourceService/
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,
@@ -365,7 +379,13 @@ final class ApiRoutes(
   private val imageUploadServiceOpt       = Option(imageUploadRepo).map(new ImageUploadService(_, fileSystem, auditService))
   // HEL-447: same optional-wiring pattern — fixtures that don't pass an
   // AlertRuleRepository simply don't get the /api/alert-rules routes.
-  private val alertRuleServiceOpt         = Option(alertRuleRepo).map(new AlertRuleService(_, dataTypeRepo))
+  // HEL-904 (task 3.1): both alertRuleRepo AND an OutputRepository are now
+  // required to mount /api/alert-rules — a rule's targetOutputId can't be
+  // validated without one.
+  private val alertRuleServiceOpt = for {
+    ruleRepo <- Option(alertRuleRepo)
+    outRepo  <- outputRepoOpt
+  } yield new AlertRuleService(ruleRepo, outRepo)
   // HEL-455: same optional-wiring pattern — fixtures that don't pass an
   // AlertEventRepository simply don't get the /api/alerts routes.
   private val alertEventServiceOpt        = Option(alertEventRepo).map(new AlertEventService(_))

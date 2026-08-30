@@ -11,7 +11,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.PipelineRunAssertionRow
@@ -66,7 +66,17 @@ final class PipelineRunService(
     // `new InProcessExecutionBackend(engine)` cannot compile as a constructor default (`engine`
     // is an instance field, out of scope in a synthesized static default-argument method) --
     // resolved to the `backend` field below instead.
-    executionBackend: PipelineExecutionBackend = null
+    executionBackend: PipelineExecutionBackend = null,
+    // HEL-904 (task 3.1/3.14): nullable-default convention mirrors
+    // binaryRefRepo/alertEvaluationService above. `outputRepo` resolves the
+    // Outputs attached to a pipeline's trunk-last node so alert evaluation
+    // runs `evaluateForOutput` per Output instead of the retired
+    // `evaluateForDataType`; `nodeSnapshotRepo` writes `node_snapshots`
+    // keyed by that same node, alongside the still-live `dataTypeRowRepo`
+    // write (both tables/routes stay live until section 4 deletes the old
+    // ones — see design.md decision 1e).
+    outputRepo: OutputRepository = null,
+    nodeSnapshotRepo: NodeSnapshotRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -639,6 +649,18 @@ final class PipelineRunService(
     val rowsUpsert =
       if (dataTypeRowRepo != null) dataTypeRowRepo.overwriteRows(outputDataTypeId.value, jsRows).map(_ => ())
       else Future.successful(())
+    // HEL-904 (task 3.14): dual-write `node_snapshots`, keyed by this
+    // pipeline's trunk-last step (the sole node the pre-tree-walk engine
+    // ever materializes — see P1.2/HEL-905 for the real per-node write).
+    // Additive alongside `dataTypeRowRepo` above; both stay live until
+    // section 4 deletes `data_type_rows`/`GET /api/types/:id/rows`.
+    val nodeSnapshotUpsert =
+      if (nodeSnapshotRepo != null)
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { steps =>
+          val trunkLastStepId = pipelineStepRepo.trunkOf(steps).lastOption.map(_.id)
+          nodeSnapshotRepo.overwriteRows(pipelineId.value, trunkLastStepId.map(_.value), jsRows)
+        }
+      else Future.successful(())
     // HEL-216: wire BinaryRefRepository.overwriteForDataType into the one
     // real row-write call site, generically over row shape (not gated on
     // source kind) — see design.md Decision "BinaryRefRepository...wired
@@ -655,14 +677,26 @@ final class PipelineRunService(
     // failure is logged inside AlertEvaluationService and never fails or
     // rolls back this run — see design.md "Per-rule isolation"/"Hook
     // placement".
+    // HEL-904 (task 3.1): evaluate per Output of every materialized node —
+    // today that's just this pipeline's Outputs (the pre-tree-walk engine
+    // only ever materializes one node; see P1.2/HEL-905 for the real
+    // per-node walk). Each Output's evaluation is independently isolated
+    // (mirrors AlertEvaluationService's own per-rule isolation) so one
+    // Output's failure never blocks a sibling Output on the same pipeline.
     val alertEvaluation =
-      if (alertEvaluationService != null)
-        alertEvaluationService
-          .evaluateForDataType(outputDataTypeId, resultRows, Some(runId.value))
-          .recoverWith { case ex =>
-            log.error(s"AlertEvaluationService.evaluateForDataType failed for dataType ${outputDataTypeId.value}, run ${runId.value}", ex)
-            Future.successful(())
-          }
+      if (alertEvaluationService != null && outputRepo != null)
+        outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+          Future
+            .sequence(outputs.map { output =>
+              alertEvaluationService
+                .evaluateForOutput(output.id, resultRows, Some(runId.value))
+                .recoverWith { case ex =>
+                  log.error(s"AlertEvaluationService.evaluateForOutput failed for output ${output.id.value}, run ${runId.value}", ex)
+                  Future.successful(())
+                }
+            })
+            .map(_ => ())
+        }
       else Future.successful(())
     val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user).map(_ => ())
     val updateRun =
@@ -694,6 +728,7 @@ final class PipelineRunService(
     for {
       _ <- schemaUpsert
       _ <- rowsUpsert
+      _ <- nodeSnapshotUpsert
       _ <- binaryRefsUpsert
       _ <- alertEvaluation
       _ <- updateMeta

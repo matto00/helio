@@ -77,6 +77,26 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def findByIdInternal(id: OutputId): Future[Option[Output]] =
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption).map(_.map(rowToDomain))
 
+  /** Owner-scoped read (not merely sharing-aware) — used by
+   *  `AlertRuleService.create` (task 3.1) to validate a rule's
+   *  `targetOutputId` before persisting, mirroring the strict
+   *  `r.ownerId === ownerUuid` app-level filter every other
+   *  `findByIdOwned` in this codebase applies (e.g.
+   *  `DataTypeRepository.findByIdOwned`, which this replaces). Deliberately
+   *  NOT relying on `outputs`' sharing-aware RLS policy alone (which would
+   *  admit a non-owner grantee too) — creating an alert rule against an
+   *  Output is an owner-level action, matching this migration's predecessor
+   *  behavior exactly (existence-not-leaked either way, CONTRIBUTING.md's
+   *  ACL triad). `ctx.withUserContext` is still used for the privileged-pool
+   *  discipline this file's other methods share, not for the ACL check
+   *  itself. */
+  def findByIdOwned(id: OutputId, user: AuthenticatedUser): Future[Option[Output]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    ctx.withUserContext(user.id.value)(
+      table.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption
+    ).map(_.map(rowToDomain))
+  }
+
   /** ACL-bypassing insert. Safe to call only after the caller's pipeline
    *  access has been confirmed by the service layer (mirrors
    *  `PipelineStepRepository.insertInternal`'s contract). */

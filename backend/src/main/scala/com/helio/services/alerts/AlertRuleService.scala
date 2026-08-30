@@ -4,7 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.api.protocols.alerts.{CreateAlertRuleRequest, UpdateAlertRuleRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import spray.json._
 
 import java.time.Instant
@@ -15,7 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  Storage-only (HEL-447) — no evaluation of rules happens here (HEL-455). */
 final class AlertRuleService(
     alertRuleRepo: AlertRuleRepository,
-    dataTypeRepo:  DataTypeRepository
+    outputRepo:    OutputRepository
 )(implicit ec: ExecutionContext) {
 
 
@@ -32,14 +32,14 @@ final class AlertRuleService(
   def create(req: CreateAlertRuleRequest, user: AuthenticatedUser): Future[Either[ServiceError, AlertRule]] = {
     val name          = req.name.trim
     val metric        = req.metric.trim
-    val targetIdInput = req.targetDataTypeId.trim
+    val targetIdInput = req.targetOutputId.trim
 
     if (name.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name is required")))
     else if (metric.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("metric is required")))
     else if (targetIdInput.isEmpty)
-      Future.successful(Left(ServiceError.BadRequest("targetDataTypeId is required")))
+      Future.successful(Left(ServiceError.BadRequest("targetOutputId is required")))
     else {
       val validated = for {
         severity <- Severity.fromString(req.severity).left.map(ServiceError.BadRequest(_))
@@ -49,22 +49,22 @@ final class AlertRuleService(
       validated match {
         case Left(err) => Future.successful(Left(err))
         case Right(severity) =>
-          val targetDataTypeId = DataTypeId(targetIdInput)
-          // Owner-scoped (not *Internal): a non-existent or non-owned target
-          // is indistinguishable here, matching the ACL triad's
+          val targetOutputId = OutputId(targetIdInput)
+          // Owner-scoped (not *Internal): a non-existent or unreachable
+          // target is indistinguishable here, matching the ACL triad's
           // existence-not-leaked semantics (CONTRIBUTING.md).
-          dataTypeRepo.findByIdOwned(targetDataTypeId, user).flatMap {
+          outputRepo.findByIdOwned(targetOutputId, user).flatMap {
             case None =>
               Future.successful(Left(ServiceError.UnprocessableEntity(
-                s"Target DataType not found or not owned by caller: $targetIdInput"
+                s"Target Output not found or not accessible by caller: $targetIdInput"
               )))
             case Some(_) =>
               val now = Instant.now()
               val rule = AlertRule(
-                id               = AlertRuleId(UUID.randomUUID().toString),
-                ownerId          = user.id,
-                targetDataTypeId = targetDataTypeId,
-                metric           = metric,
+                id             = AlertRuleId(UUID.randomUUID().toString),
+                ownerId        = user.id,
+                targetOutputId = targetOutputId,
+                metric         = metric,
                 // spray-json omits `None` on the wire — `enabled` defaults to
                 // `true` when absent from the request body (AC: "Absent
                 // optional fields normalize at the boundary").

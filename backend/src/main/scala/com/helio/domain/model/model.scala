@@ -858,7 +858,6 @@ object Comparator {
 final case class AlertRule(
     id: AlertRuleId,
     ownerId: UserId,
-    targetDataTypeId: DataTypeId,
     metric: String,
     condition: JsValue,
     name: String,
@@ -866,12 +865,12 @@ final case class AlertRule(
     severity: Severity,
     createdAt: Instant,
     updatedAt: Instant,
-    // HEL-904 (Outputs remodel, additive step 1.4): the Output this rule
-    // evaluates against. Additive alongside `targetDataTypeId` at this task;
-    // `targetDataTypeId` is removed in task 3.1 once
-    // `AlertRuleService`/`AlertEvaluationService` are rewired to
-    // `evaluateForOutput`. `None` until the V94 migration backfills it.
-    targetOutputId: Option[OutputId] = None
+    // HEL-904 (Outputs remodel): the Output this rule evaluates against.
+    // `targetDataTypeId` is retired as of task 3.1 — every rule now targets
+    // an Output (backfilled by the V94 migration's step (f)); every new
+    // rule created via `AlertRuleService.create` resolves an `OutputId`
+    // up front, so this is non-`Option` at the domain layer.
+    targetOutputId: OutputId
 )
 
 /** HEL-414 — scheduled-runs data model foundation (no runtime firing here;
@@ -959,14 +958,14 @@ object AlertEventAction {
  *  `AlertEventRepository.upsertFiringInternal` for the dedup/upsert path and
  *  `AlertEventStateMachine` for the single-source-of-truth transition
  *  function every mutation (user-driven or engine-driven) goes through.
- *  `ownerId`/`targetDataTypeId` are denormalized from the parent `AlertRule`
+ *  `ownerId`/`targetOutputId` are denormalized from the parent `AlertRule`
  *  at creation (design.md Decision: "Table shape"). `pipelineRunId` is
  *  unenforced (no FK) — pipeline runs are ephemeral execution records. */
 final case class AlertEvent(
     id: AlertEventId,
     alertRuleId: AlertRuleId,
     ownerId: UserId,
-    targetDataTypeId: DataTypeId,
+    targetOutputId: OutputId,
     value: JsValue,
     pipelineRunId: Option[String],
     severity: Severity,

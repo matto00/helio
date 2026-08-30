@@ -3,7 +3,8 @@ package com.helio.services.alerts
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -33,6 +34,9 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
   private var arRepo: AlertRuleRepository        = _
   private var aeRepo: AlertEventRepository       = _
   private var dtRepo: DataTypeRepository         = _
+  private var dsRepo: DataSourceRepository       = _
+  private var pipeRepo: PipelineRepository       = _
+  private var outRepo: OutputRepository          = _
   private var svc: AlertEvaluationService        = _
 
   override def beforeAll(): Unit = {
@@ -50,6 +54,9 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     arRepo = new AlertRuleRepository(ctx)
     aeRepo = new AlertEventRepository(ctx)
     dtRepo = new DataTypeRepository(ctx)
+    dsRepo = new DataSourceRepository(ctx)
+    pipeRepo = new PipelineRepository(ctx, dtRepo, dsRepo)
+    outRepo = new OutputRepository(ctx)
     svc    = new AlertEvaluationService(arRepo, aeRepo)
   }
 
@@ -64,7 +71,10 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     import PostgresProfile.api._
     await(db.run(sqlu"DELETE FROM alert_events"))
     await(db.run(sqlu"DELETE FROM alert_rules"))
+    await(db.run(sqlu"DELETE FROM outputs"))
+    await(db.run(sqlu"DELETE FROM pipelines"))
     await(db.run(sqlu"DELETE FROM data_types"))
+    await(db.run(sqlu"DELETE FROM data_sources"))
     await(db.run(sqlu"DELETE FROM users"))
   }
 
@@ -91,13 +101,23 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     )
   }
 
-  private def seedDataType(): DataTypeId = await(dtRepo.insert(newDataType(), user)).id
+  /** HEL-904 (task 3.1): `AlertRule` now targets an Output — builds the
+   *  minimal real source -> pipeline -> Output chain its FK requires. */
+  private def seedOutput(): OutputId = {
+    val now    = Instant.now()
+    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner, now, now)
+    val createdSource = await(dsRepo.insert(source, user))
+    val pipeline = await(pipeRepo.create("pipe", createdSource.id, "pipe-output", user)).getOrElse(
+      throw new IllegalStateException("seedOutput fixture: pipeline create failed")
+    )
+    await(outRepo.insertInternal(PipelineId(pipeline.id), None, owner, "out", OutputKind.Table)).id
+  }
 
   private def condition(comparator: String, threshold: Double): JsValue =
     JsObject("comparator" -> JsString(comparator), "threshold" -> JsNumber(threshold))
 
   private def seedRule(
-      dataTypeId: DataTypeId,
+      outputId: OutputId,
       metric: String,
       cond: JsValue,
       enabled: Boolean = true,
@@ -105,16 +125,16 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
   ): AlertRule = {
     val now = Instant.now()
     val rule = AlertRule(
-      id               = AlertRuleId(UUID.randomUUID().toString),
-      ownerId          = owner,
-      targetDataTypeId = dataTypeId,
-      metric           = metric,
-      condition        = cond,
-      name             = "Rule " + UUID.randomUUID().toString.take(8),
-      enabled          = enabled,
-      severity         = severity,
-      createdAt        = now,
-      updatedAt        = now
+      id             = AlertRuleId(UUID.randomUUID().toString),
+      ownerId        = owner,
+      targetOutputId = outputId,
+      metric         = metric,
+      condition      = cond,
+      name           = "Rule " + UUID.randomUUID().toString.take(8),
+      enabled        = enabled,
+      severity       = severity,
+      createdAt      = now,
+      updatedAt      = now
     )
     await(arRepo.insert(rule, user))
   }
@@ -193,14 +213,14 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
   }
 
 
-  "AlertEvaluationService.evaluateForDataType" should {
+  "AlertEvaluationService.evaluateForOutput" should {
 
     "create a firing event on breach with no active event" in {
       cleanDb(); seedUser()
-      val dtId = seedDataType()
+      val dtId = seedOutput()
       val rule = seedRule(dtId, "errorCount", condition("gt", 5))
 
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
 
       val active = await(aeRepo.findActiveByRule(rule.id))
       active shouldBe defined
@@ -210,11 +230,11 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
 
     "dedup a repeated breach — no duplicate, value refreshed" in {
       cleanDb(); seedUser()
-      val dtId = seedDataType()
+      val dtId = seedOutput()
       val rule = seedRule(dtId, "errorCount", condition("gt", 5))
 
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 20)), Some("run-2")))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 20)), Some("run-2")))
 
       val all = await(aeRepo.findAll(owner, None))
       all should have size 1
@@ -223,13 +243,13 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
 
     "auto-resolve an active firing event once the condition clears" in {
       cleanDb(); seedUser()
-      val dtId = seedDataType()
+      val dtId = seedOutput()
       val rule = seedRule(dtId, "errorCount", condition("gt", 5))
 
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
       await(aeRepo.findActiveByRule(rule.id)).map(_.state) shouldBe Some(AlertEventState.Firing)
 
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 1)), Some("run-2")))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 1)), Some("run-2")))
 
       await(aeRepo.findActiveByRule(rule.id)) shouldBe None
       val all = await(aeRepo.findAll(owner, None))
@@ -238,39 +258,39 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
 
     "no-op when there is no breach and no active event" in {
       cleanDb(); seedUser()
-      val dtId = seedDataType()
+      val dtId = seedOutput()
       seedRule(dtId, "errorCount", condition("gt", 5))
 
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 1)), Some("run-1")))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 1)), Some("run-1")))
 
       await(aeRepo.findAll(owner, None)) shouldBe empty
     }
 
     "evaluate none and no-op when no enabled rule targets the DataType" in {
       cleanDb(); seedUser()
-      val dtId = seedDataType()
+      val dtId = seedOutput()
 
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
 
       await(aeRepo.findAll(owner, None)) shouldBe empty
     }
 
     "skip a disabled rule regardless of whether its condition would breach" in {
       cleanDb(); seedUser()
-      val dtId = seedDataType()
+      val dtId = seedOutput()
       seedRule(dtId, "errorCount", condition("gt", 5), enabled = false)
 
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
 
       await(aeRepo.findAll(owner, None)) shouldBe empty
     }
 
     "record pipelineRunId = None for a triggeringRunId-less call (the scheduled-run clear seam)" in {
       cleanDb(); seedUser()
-      val dtId = seedDataType()
+      val dtId = seedOutput()
       val rule = seedRule(dtId, "errorCount", condition("gt", 5))
 
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 10)), None))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 10)), None))
 
       await(aeRepo.findActiveByRule(rule.id)).flatMap(_.pipelineRunId) shouldBe None
     }
@@ -278,11 +298,11 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
 
     "log and skip one rule's malformed-condition exception without blocking a sibling rule" in {
       cleanDb(); seedUser()
-      val dtId = seedDataType()
+      val dtId = seedOutput()
       val badRule  = seedRule(dtId, "errorCount", JsObject.empty) // missing comparator/threshold
       val goodRule = seedRule(dtId, "errorCount", condition("gt", 5))
 
-      await(svc.evaluateForDataType(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
+      await(svc.evaluateForOutput(dtId, Seq(Map("errorCount" -> 10)), Some("run-1")))
 
       await(aeRepo.findActiveByRule(badRule.id)) shouldBe None
       await(aeRepo.findActiveByRule(goodRule.id)).map(_.state) shouldBe Some(AlertEventState.Firing)

@@ -134,7 +134,7 @@
 
 ## 3. Rewire live consumers (alerts, search, teardown, dashboard contents, assistant, patch sets)
 
-- [ ] 3.1 `AlertRuleService`/`AlertEvaluationService`: `evaluateForDataType` → `evaluateForOutput`,
+- [x] 3.1 `AlertRuleService`/`AlertEvaluationService`: `evaluateForDataType` → `evaluateForOutput`,
       invoked per Output of every materialized node from `PipelineRunService.scala:649`. In the
       SAME task, remove `targetDataTypeId` from the `AlertRule` domain model (added additively in
       1.4) now that every caller reads `targetOutputId` instead — round-2 finding 4 flagged this

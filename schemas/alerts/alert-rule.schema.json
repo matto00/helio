@@ -12,7 +12,7 @@
       "type": "string",
       "format": "uuid"
     },
-    "targetDataTypeId": {
+    "targetOutputId": {
       "type": "string"
     },
     "metric": {
@@ -43,7 +43,7 @@
   "required": [
     "id",
     "ownerId",
-    "targetDataTypeId",
+    "targetOutputId",
     "metric",
     "condition",
     "name",

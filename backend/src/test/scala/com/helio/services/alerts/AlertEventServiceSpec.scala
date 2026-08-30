@@ -5,7 +5,8 @@ import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEventService
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -33,6 +34,9 @@ class AlertEventServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfte
   private var alertEventRepo: AlertEventRepository = _
   private var alertRuleRepo: AlertRuleRepository    = _
   private var dataTypeRepo: DataTypeRepository      = _
+  private var dataSourceRepo: DataSourceRepository  = _
+  private var pipelineRepo: PipelineRepository      = _
+  private var outputRepo: OutputRepository          = _
   private var service: AlertEventService            = _
 
   private val owner1Id = UUID.randomUUID().toString
@@ -55,6 +59,9 @@ class AlertEventServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfte
     alertEventRepo  = new AlertEventRepository(ctx)
     alertRuleRepo   = new AlertRuleRepository(ctx)
     dataTypeRepo    = new DataTypeRepository(ctx)
+    dataSourceRepo  = new DataSourceRepository(ctx)
+    pipelineRepo    = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    outputRepo      = new OutputRepository(ctx)
     service         = new AlertEventService(alertEventRepo)
   }
 
@@ -68,7 +75,10 @@ class AlertEventServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfte
     import PostgresProfile.api._
     await(db.run(sqlu"DELETE FROM alert_events"))
     await(db.run(sqlu"DELETE FROM alert_rules"))
+    await(db.run(sqlu"DELETE FROM outputs"))
+    await(db.run(sqlu"DELETE FROM pipelines"))
     await(db.run(sqlu"DELETE FROM data_types"))
+    await(db.run(sqlu"DELETE FROM data_sources"))
     await(db.run(sqlu"DELETE FROM users"))
   }
 
@@ -80,38 +90,38 @@ class AlertEventServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfte
     )))
   }
 
+  /** HEL-904 (task 3.1): builds the minimal real source -> pipeline ->
+   *  Output chain a rule's `targetOutputId` FK requires. */
+  private def newOutput(ownerId: UserId, user: AuthenticatedUser): OutputId = {
+    val now    = Instant.now()
+    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
+    val createdSource = await(dataSourceRepo.insert(source, user))
+    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, "pipe-output", user)).getOrElse(
+      throw new IllegalStateException("newOutput fixture: pipeline create failed")
+    )
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table)).id
+  }
+
   private def seedFiringEvent(ownerId: UserId): AlertEvent = {
     val user = AuthenticatedUser(ownerId)
     val now  = Instant.now()
-    val dt = await(dataTypeRepo.insert(
-      DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "MyType",
-        fields    = Vector(DataField("value", "Value", "integer", nullable = false)),
-        version   = 1,
-        createdAt = now,
-        updatedAt = now,
-        ownerId   = ownerId
-      ),
-      user
-    ))
+    val output = newOutput(ownerId, user)
     val rule = await(alertRuleRepo.insert(
       AlertRule(
-        id               = AlertRuleId(UUID.randomUUID().toString),
-        ownerId          = ownerId,
-        targetDataTypeId = dt.id,
-        metric           = "count",
-        condition        = JsObject("comparator" -> JsString("gt"), "threshold" -> JsNumber(5)),
-        name             = "My Rule",
-        enabled          = true,
-        severity         = Severity.Warning,
-        createdAt        = now,
-        updatedAt        = now
+        id             = AlertRuleId(UUID.randomUUID().toString),
+        ownerId        = ownerId,
+        targetOutputId = output,
+        metric         = "count",
+        condition      = JsObject("comparator" -> JsString("gt"), "threshold" -> JsNumber(5)),
+        name           = "My Rule",
+        enabled        = true,
+        severity       = Severity.Warning,
+        createdAt      = now,
+        updatedAt      = now
       ),
       user
     ))
-    await(alertEventRepo.upsertFiringInternal(rule.id, ownerId, dt.id, JsNumber(10), Some("run-1"), Severity.Warning))
+    await(alertEventRepo.upsertFiringInternal(rule.id, ownerId, output, JsNumber(10), Some("run-1"), Severity.Warning))
   }
 
   "AlertEventService.acknowledge" should {

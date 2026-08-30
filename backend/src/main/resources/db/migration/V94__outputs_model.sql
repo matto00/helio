@@ -843,3 +843,22 @@ SET edits = COALESCE(
 WHERE EXISTS (SELECT 1 FROM jsonb_array_elements(edits) elem WHERE elem ->> 'targetKind' IN ('dataType', 'metric'));
 
 DELETE FROM patch_set_applications WHERE edits = '[]'::jsonb;
+
+-- ── 15. alert_rules.target_data_type_id relaxed to NULLable (task 3.1) ──────
+--
+-- Task 3.1 rewires `AlertRuleService`/`AlertEvaluationService` to
+-- `targetOutputId` exclusively and removes `AlertRule.targetDataTypeId`
+-- from the domain model entirely -- no code path populates this column on
+-- INSERT any longer. Every EXISTING row was already backfilled with a
+-- `target_output_id` by section 14's DML above, so `target_data_type_id`
+-- is now purely legacy-read-only data, kept in place (not dropped -- that
+-- is task 2.10's job, still blocked on decision 1e) until the whole
+-- DataType/Metric infrastructure comes out together. Relaxing NOT NULL is
+-- required now, not deferred to 2.10, because it would otherwise block
+-- every new alert-rule INSERT the moment 3.1's code lands (`AlertRuleRow`
+-- no longer supplies a value for it) -- same shape as V94's earlier
+-- `panels.kind` NOT-NULL deferral (task 3.6's own note, cycle 3).
+
+ALTER TABLE alert_rules ALTER COLUMN target_data_type_id DROP NOT NULL;
+
+ALTER TABLE alert_events ALTER COLUMN target_data_type_id DROP NOT NULL;
