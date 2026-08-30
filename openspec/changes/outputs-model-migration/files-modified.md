@@ -264,3 +264,37 @@ the full reasoning on why no DML was landed this cycle.
   increment; existing suite re-confirms zero regressions from the `OutputKind` fix and the
   additive `PanelRow`/`PanelRowMapper` changes), exit code 0, 247 suites.
 - `openspec/changes/outputs-model-migration/execution-progress.md` — cycle 12 section added.
+
+## Cycle 13 (this cycle)
+
+- `backend/src/main/scala/com/helio/domain/model/Panel.scala` — registered `OutputPanel.Kind ->
+  OutputPanel.companion` in `Panel.Registry`, and added `PanelKind.Output` alongside the
+  existing 9 constants. `OutputPanel`/`OutputPanelConfig`/`OutputBindingSpec` were already
+  landed additively in cycle 12 but not yet registered — this is the actual cutover of the
+  Registry (the single source of truth every protocol/repo/service dispatcher derives from),
+  making `"output"` a real, parseable `PanelKind` for the first time. Still no write path
+  constructs one (`PanelService.create`/`ProposalPanelSupport` etc. are unchanged this cycle) —
+  registering only makes reads/round-trips (already wired in `PanelRowMapper` in cycle 12) live;
+  a POST with `type: "output"` is not yet reachable from any real client path.
+- `backend/src/test/scala/com/helio/domain/model/PanelSpec.scala` — updated the kind-set parity
+  test (`"be the single source of truth for all 9 panel kinds"` → `10`) to include
+  `OutputPanel.Kind` in both the `Panel.Registry.keySet` assertion and the canonical
+  kind-string assertion. This is exactly the "stale hardcoded expectation surfaces as a real
+  regression" case flagged in the resume brief — the test was asserting the literal old set,
+  which is correct test behaviour (it exists to catch exactly this kind of unregistered-kind
+  drift), not a defect in the test itself.
+- Full `sbt -batch test`, run twice (once before this cycle's edits as a fresh baseline, once
+  after): **3899/3899 both times**, exit code 0, 247 suites — no regressions, no net-new tests
+  (the parity test's assertion body changed but its count and pass/fail status did not).
+- Deliberately NOT done this cycle (unchanged remainder from cycle 12's own list): no write path
+  constructs `OutputPanel` yet (`PanelService.create`/`update`/`CreatePanelRequest` protocol
+  decoding); the five old bound `*Panel.scala` files are not deleted; `PanelCapabilityService`
+  (§3.11) still reads `PanelBindingSpec`/`DataTypeRepository`; `ProposalPanelSupport`/
+  `DashboardProposalService`/`PipelineProposalService` (§3.8/3.9/3.10/3.10a) untouched;
+  `Pipeline.outputDataTypeId` (§3.5) untouched; `WorkspaceContextService` (§3.12) untouched.
+  Given the size of the remaining write-path/service-layer cutover (confirmed via grep: `Metric
+  Panel`/`ChartPanel`/`TablePanel` are referenced across `PanelService.scala`,
+  `PanelServiceHelpers.scala`, `ProposalPanelSupport.scala`, `DashboardProposalService.scala`,
+  `PanelRoutes.scala`, and the `patchsets` package), this cycle stopped at a real, small,
+  fully-compiling-and-green Registry-cutover checkpoint rather than attempting the write-path
+  rewire and risking an uncommitted stop mid-way through a much larger, more coupled change.

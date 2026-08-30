@@ -46,7 +46,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
     TimelinePanel(id, dashboardId, "t", meta, appearance, owner, cfg)
 
   "Panel.Registry" should {
-    "be the single source of truth for all 9 panel kinds" in {
+    "be the single source of truth for all 10 panel kinds" in {
       Panel.Registry.keySet shouldBe Set(
         MetricPanel.Kind,
         ChartPanel.Kind,
@@ -56,7 +56,8 @@ class PanelSpec extends AnyWordSpec with Matchers {
         ImagePanel.Kind,
         DividerPanel.Kind,
         CollectionPanel.Kind,
-        TimelinePanel.Kind
+        TimelinePanel.Kind,
+        OutputPanel.Kind
       )
     }
 
@@ -70,6 +71,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
       DividerPanel.Kind    shouldBe "divider"
       CollectionPanel.Kind shouldBe "collection"
       TimelinePanel.Kind   shouldBe "timeline"
+      OutputPanel.Kind     shouldBe "output"
     }
   }
 

@@ -1222,3 +1222,55 @@ informed by real measurement instead of estimate):**
    payloads that must resolve through the same `Panel.Registry` entry.
 6. `Pipeline.outputDataTypeId` (§3.5) and `WorkspaceContextService` (§3.12) remain independently
    schedulable once 2-5 land, per the original ordering guess in this cycle's own resume brief.
+
+## Cycle 13 — task 3.6 continued: Registry cutover (small, real, compiling+tested checkpoint)
+
+Resumed after a collision was caught and correctly avoided: another executor instance had
+already committed cycle 12's additive scaffolding (`c4104a11`) before this cycle made any edits
+of its own — verified `git status`/`git log` showed a clean tree at `c4104a11` before touching
+anything, so no reconciliation was needed.
+
+Fresh baseline re-confirmed first: full `sbt -batch test` at `c4104a11` = 3899/3899, exit 0.
+
+**This cycle's increment: register `OutputPanel` in `Panel.Registry`/`PanelKind`** (step 1 of
+cycle 12's own "next cycle" plan), plus the one test fix that registration correctly surfaces
+(`PanelSpec`'s kind-set parity assertion, which exists specifically to catch an unregistered-kind
+drift like this one — updated from 9 to 10 kinds, not weakened).
+
+Explicitly stopped here rather than continuing into the write-path rewire
+(`PanelService.create`/`ProposalPanelSupport`/etc.) in the same cycle: grepped the real blast
+radius first (`MetricPanel`/`ChartPanel`/`TablePanel` referenced across `PanelService.scala`,
+`PanelServiceHelpers.scala`, `ProposalPanelSupport.scala`, `DashboardProposalService.scala`,
+`PanelRoutes.scala`, `patchsets/*`) and judged it too large to land compiling+tested in the
+remaining budget without risking another uncommitted stop — the explicit failure mode this
+cycle's brief called out. Committing this small checkpoint now per that same instruction
+("prioritize reaching ONE real compiling+tested checkpoint... over attempting the whole cluster").
+
+**Verification (fresh, exit codes read directly):**
+- `sbt -batch compile` — clean after the `Panel.scala` Registry edit.
+- `sbt -batch Test/compile` — clean after the `PanelSpec.scala` parity-test edit.
+- `sbt -batch test` (full suite) — **3899/3899**, exit code 0, 247 suites, both before (baseline)
+  and after this cycle's two edits.
+
+**Next cycle should pick up exactly where cycle 12's own plan left off, step 2 onward:**
+1. Rewire `PanelService.create`/`update`/`resolveBindingsForRead` to construct/patch an
+   `OutputPanel` when `outputId` is supplied on `CreatePanelRequest` — the first real write path.
+   `panels.kind`'s `SET NOT NULL` migration addendum (called out in V94's own comment) becomes
+   safe to land in the SAME commit as this step, once a write path populates it on every insert.
+2. Once a real write path exists, delete the five old bound `*Panel.scala` files
+   (`MetricPanel`/`ChartPanel`/`TablePanel`/`CollectionPanel`/`TimelinePanel`) and cut
+   `Panel.Registry`/`PanelKind` over fully in the SAME commit as step 1 — a half-registered
+   Registry (old five AND new "output" both live) is a footgun for any `Panel`-subtype
+   pattern-match expecting the old five.
+3. Rewire `PanelCapabilityService` (§3.11/3.11a) onto `OutputBindingSpec` — it already has a
+   live successor spec (cycle 12's `OutputBindingSpec`) to point at; ~10-file test blast radius
+   per the original resume brief, not yet measured by grep this cycle.
+4. Only after 1-3 land does `ProposalPanelSupport`/`DashboardProposalService`/
+   `PipelineProposalService` (§3.8/3.9/3.10/3.10a) become tractable — they build
+   `CreatePanelRequest` payloads that must resolve through the same `Panel.Registry` entry.
+   Remember design.md's confirmed decision on 3.10/3.10a: `DataPanelKinds` → `Set("output")`,
+   NOT the six visualization-kind set — a real validation-inversion bug caught during design
+   review; also delete `ProposalPanelSupport`'s other kind-valued predicates
+   (`panel.type=="chart"`/`TimelineKind`/`MetricKind`/`MetricIdSupportedKinds`).
+5. `Pipeline.outputDataTypeId` (§3.5) and `WorkspaceContextService` (§3.12, do NOT touch
+   `asNumeric`'s structure/rounding per HEL-631) remain independently schedulable once 1-4 land.
