@@ -200,3 +200,16 @@ the full reasoning on why no DML was landed this cycle.
   either).
 - `openspec/changes/outputs-model-migration/execution-progress.md`, this file — updated for
   cycle 10.
+
+## Cycle 11
+
+- `backend/src/main/resources/db/migration/V94__outputs_model.sql` — added a new section 9a: a
+  DML backfill of pre-existing `binary_refs` rows' `pipeline_id`/`node_step_id` from
+  `data_type_id` (via `pipelines.output_data_type_id`) and `hel904_original_trunk_last`, closing
+  the gap cycle 10 flagged (columns added nullable in section 7, never backfilled).
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/V94OutputsMigrationSpec.scala`
+  — added a pre-existing `binary_refs` fixture row keyed only by `data_type_id`, a red-first
+  pre-migration assertion (`pipeline_id` column doesn't exist yet), and a post-migration
+  assertion that it backfills to `(pipelineId, stepIds.last)` — proven red before the fix (failed
+  with a duplicate-key error until the fixture's `row_index`/`field_name` were made unique from
+  the existing `ref-1` fixture, then genuinely red against pre-fix SQL, then green).

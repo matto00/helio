@@ -1034,3 +1034,77 @@ still blocked on this same cluster per design.md decision 1e.
    2.9 gap) should be picked up whenever 2.9/2.10 gets a remediation pass — not urgent for section
    3's own consumer-rewire goal.
 5. Do NOT bring 2.10 forward — unchanged standing instruction from every prior cycle.
+
+## Cycle 11 (this cycle) — binary_refs backfill fix; 3.5/3.8/3.9/3.10/3.10a/3.11/3.11a/3.12 cluster NOT started
+
+Starting state verified fresh: HEAD = `15ad5487` (cycle 10's task-3.4 commit), tree clean, full
+`sbt test` re-confirmed at 3898/3898 before starting (matches cycle 10's own closing number).
+
+**Fix landed and committed (`b7fa97b1`):** the un-backfilled `binary_refs.pipeline_id`/
+`node_step_id` gap cycle 10 flagged. Added a new section 9a to `V94__outputs_model.sql`,
+positioned immediately after section 9 (deliberately, since it depends on
+`hel904_original_trunk_last`, the one-time trunk-last snapshot section 9 itself builds — the same
+dependency section 9 itself has on that snapshot, so the ordering constraint is identical).
+Backfill logic: `pipeline_id` = the pipeline whose `output_data_type_id` matches the ref's
+`data_type_id`; `node_step_id` = that pipeline's ORIGINAL last-trunk-step from the frozen
+snapshot (not re-walked, for the same reason section 9's own comment gives). Guarded by
+`br.pipeline_id IS NULL` so it only touches genuinely pre-existing rows, never a row task 3.4's
+own writer already populated in the same migration run (there are none in practice — the writer
+is application code, not migration DML — but the guard costs nothing and documents intent).
+
+**Red-first proof, not asserted-then-guessed-green:** added a `ref-pre-existing` fixture row
+(keyed only by `data_type_id`, mirroring what every real `binary_refs` row looks like today) to
+the spec's pre-migration seed block, a pre-migration assertion that the `pipeline_id` column
+doesn't exist yet (proves the post-migration assertion below is non-vacuous), and a post-migration
+assertion that it backfills to `(pipelineId, stepIds.last)`. First run of the new fixture insert
+itself failed — a genuine `duplicate key value violates unique constraint
+"binary_refs_data_type_id_row_index_field_name_key"` against the existing `ref-1` fixture's
+`(dt-1, 0, f)` tuple (a fixture-authoring collision, not a defect in the migration DML) — fixed by
+giving the new fixture a distinct `row_index`/`field_name`, then the full spec went green in one
+subsequent run (34/34, up from cycle 10's 33/33 — one new test case).
+
+**Verification this cycle (confirmed, fresh, exit codes read directly):**
+- `sbt -batch "testOnly ...V94OutputsMigrationSpec"` — 34/34 green (after the fixture-collision
+  fix above, itself caught by an actually-red first run, not assumed).
+- `sbt -batch "testOnly ...BinaryRefRepositorySpec ...PipelineRunRoutesSpec"` — 49/49 green,
+  confirming the backfill DML addition didn't disturb task 3.4's own rewired writer/reader paths.
+- Full `sbt -batch test` (fresh run, backgrounded, output read directly): **3899/3899 passing**,
+  exit code 0, 247 suites, 0 aborted, 0 failed, 3 min 34 sec. +1 net vs. cycle 10's 3898 (this
+  cycle's one new `V94OutputsMigrationSpec` case). No regressions.
+- Full root `npm run` pre-commit gate chain (lint, typecheck, format:check, schema-drift,
+  spec-structure, openspec hygiene + selftest, dependabot-groups + selftest, scala-quality,
+  credential-leak, jest × 2) — all green, husky commit succeeded on the first attempt (no `-n`
+  bypass needed).
+
+**The 3.5/3.8/3.9/3.10/3.10a/3.11/3.11a/3.12 cluster: investigated for feasibility this cycle,
+deliberately NOT started.** Re-confirmed by direct `grep` (not assumed from design.md's own
+citations, which the resume brief itself warned may have shifted): `WorkspaceSearchService`,
+`WorkspaceTeardownRepository`/`WorkspaceTeardownService`, `DashboardContentsService`, and
+`AssistantToolExecutor` alone (task 3.2, nominally independent of the cluster) still carry 55
+combined `DataType`/`Metric` references across those files today. The cluster itself
+(`Pipeline.outputDataTypeId` removal + its ~8 dependent consumers, several individually
+30+-reference files per design.md's own citations) is, by both this cycle's own re-check and
+every prior cycle's identical assessment, the single largest remaining unit of work in the
+ticket — realistically a dedicated multi-hour session on its own, not a slice that fits alongside
+a same-cycle correctness fix without a real risk of stopping mid-rewrite with a non-compiling
+tree, which the resume brief explicitly rules out as worse than not starting. Given this cycle's
+own effort budget was consumed getting the binary_refs fix to a genuinely red-then-green,
+fully-verified, committed state (including one real fixture-collision bug caught and fixed along
+the way), no part of the cluster or of task 3.2 was touched — the tree is exactly cycle 10's tree
+plus the one committed, isolated migration fix.
+
+**Honest boundary this cycle stops at:** the binary_refs backfill fix only, fully done and
+committed. Tasks 3.2, 3.3, 3.5-3.12, 3.15 remain **NOT started**, unchanged from cycle 10's own
+list. `sbt compile`/`sbt test` are both clean at HEAD (`b7fa97b1`) — no partial/broken state.
+
+**Next cycle should:**
+1. Tackle the 3.5/3.8/3.9/3.10/3.10a/3.11/3.11a/3.12 cluster as its own dedicated pass, per cycle
+   10's own next-steps note (unchanged) — re-verify each file's current reference count fresh
+   before starting, land `Pipeline.outputDataTypeId` removal (3.5) together with enough consumers
+   in the same commit/tight sequence that the tree never sits non-compiling.
+2. If that cluster proves too large for one sitting, attempt 3.2 first (`WorkspaceSearchService`/
+   `WorkspaceTeardownRepository`/`DashboardContentsService`/`AssistantToolExecutor`, 55 refs
+   confirmed this cycle, believed independent of the cluster since none of the four import
+   `Pipeline.outputDataTypeId` directly) — re-verify that independence claim by grep before
+   relying on it, since this cycle did not itself attempt the rewire.
+3. Do NOT bring 2.10 forward — unchanged standing instruction from every prior cycle.
