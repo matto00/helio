@@ -150,15 +150,11 @@ private[services] object PatchSetApplyResolvers {
    *  but the same repo lookups + same rejection conditions. */
   private def validatePanelBindingRefs(
       dataTypeIdOpt: Option[DataTypeId],
-      metricIdOpt: Option[MetricId],
       user: AuthenticatedUser,
       index: Int,
       ctx: PatchSetApplyContext
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    rejectCompanionBinding(dataTypeIdOpt, user, index, ctx).flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_)  => rejectUnresolvableMetric(metricIdOpt, user, index, ctx)
-    }
+    rejectCompanionBinding(dataTypeIdOpt, user, index, ctx)
 
   /** A foreign-owned or nonexistent `dataTypeId` passes through unchanged
    *  (matches `PanelService.update`'s own documented pass-through behavior) —
@@ -179,32 +175,8 @@ private[services] object PatchSetApplyResolvers {
         }
     }
 
-  /** Unlike `dataTypeId` above, a foreign/nonexistent `metricId` IS actively
-   *  rejected (matches `rejectUnresolvableMetric`'s own documented
-   *  behavior) — `metricRepo` mirrors `PanelService`'s nullable-optional
-   *  wiring convention. */
-  private def rejectUnresolvableMetric(
-      metricIdOpt: Option[MetricId],
-      user: AuthenticatedUser,
-      index: Int,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    metricIdOpt match {
-      case None => Future.successful(Right(()))
-      case Some(metricId) =>
-        Option(ctx.metricRepo) match {
-          case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: metricId does not resolve to a metric you own")))
-          case Some(metricRepo) =>
-            metricRepo.findByIdOwned(metricId, user).flatMap {
-              case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: metricId does not resolve to a metric you own")))
-              case Some(metric) =>
-                ctx.dataTypeRepo.findByIdOwned(metric.dataTypeId, user).map {
-                  case Some(dt) if dt.sourceId.isEmpty => Right(())
-                  case _ => Left(ServiceError.BadRequest(s"edit $index: metricId's bound data type is not a valid pipeline-output binding"))
-                }
-            }
-        }
-    }
+  // HEL-904 task 3.9: `rejectUnresolvableMetric` removed — metrics no longer
+  // exist.
 
   /** pipelineStep update: when the decoded config patch is a
    *  `JoinConfig`/`UnionConfig`/`LookupConfig`, the SAME "Pre-flight ACL"
@@ -285,8 +257,7 @@ private[services] object PatchSetApplyResolvers {
                   case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: patch is required for a panel update")))
                   case Some(request) =>
                     val dataTypeIdOpt = request.config.flatMap(PanelServiceHelpers.dataTypeIdFromConfigPatch)
-                    val metricIdOpt   = request.config.flatMap(PanelServiceHelpers.metricIdFromConfigPatch)
-                    validatePanelBindingRefs(dataTypeIdOpt, metricIdOpt, user, index, ctx).map {
+                    validatePanelBindingRefs(dataTypeIdOpt, user, index, ctx).map {
                       case Left(err) => Left(err)
                       case Right(_) =>
                         Right(ResolvedEdit(
@@ -344,8 +315,7 @@ private[services] object PatchSetApplyResolvers {
                   case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"edit $index: $msg")))
                   case Right(createConfig) =>
                     val dataTypeIdOpt = PanelServiceHelpers.dataTypeIdFromCreateConfig(createConfig)
-                    val metricIdOpt   = PanelServiceHelpers.metricIdFromCreateConfig(createConfig)
-                    validatePanelBindingRefs(dataTypeIdOpt, metricIdOpt, user, index, ctx).map {
+                    validatePanelBindingRefs(dataTypeIdOpt, user, index, ctx).map {
                       case Left(err) => Left(err)
                       case Right(_)  => Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request)))
                     }

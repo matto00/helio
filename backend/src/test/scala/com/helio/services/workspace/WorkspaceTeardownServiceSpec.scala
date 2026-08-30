@@ -12,7 +12,7 @@ import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.api.protocols.workspace.{TeardownRequest, TeardownResponse}
 import com.helio.domain.model._
-import com.helio.domain.panels.{MetricPanel, MetricPanelConfig}
+import com.helio.domain.panels.{TextPanel, TextPanelConfig}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
@@ -221,14 +221,14 @@ class WorkspaceTeardownServiceSpec
       ownerId    = user.id
     )
     await(dashboardRepo.insert(dash))
-    val panel = MetricPanel(
+    val panel = TextPanel(
       id          = PanelId(UUID.randomUUID().toString),
       dashboardId = dash.id,
-      title       = "Metric",
+      title       = "Text",
       meta        = ResourceMeta(user.id.value, now, now),
       appearance  = PanelAppearance.Default,
       ownerId     = user.id,
-      config      = MetricPanelConfig(dataTypeId, JsObject.empty)
+      config      = TextPanelConfig("c", dataTypeId, JsObject.empty)
     )
     await(panelRepo.insert(panel))
   }

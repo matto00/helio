@@ -109,15 +109,10 @@ object Panel {
    *  Adding an 8th panel kind means dropping in one `panels/<Kind>Panel.scala`
    *  file and adding one line here. */
   val Registry: Map[String, Companion] = Map(
-    MetricPanel.Kind     -> MetricPanel.companion,
-    ChartPanel.Kind      -> ChartPanel.companion,
-    TablePanel.Kind      -> TablePanel.companion,
     TextPanel.Kind       -> TextPanel.companion,
     MarkdownPanel.Kind   -> MarkdownPanel.companion,
     ImagePanel.Kind      -> ImagePanel.companion,
     DividerPanel.Kind    -> DividerPanel.companion,
-    CollectionPanel.Kind -> CollectionPanel.companion,
-    TimelinePanel.Kind   -> TimelinePanel.companion,
     OutputPanel.Kind     -> OutputPanel.companion
   )
 
@@ -144,18 +139,13 @@ object Panel {
  *  derived from the registry so the allow-list cannot drift from the
  *  actual set of registered kinds. */
 object PanelKind {
-  val Metric: String     = MetricPanel.Kind
-  val Chart: String      = ChartPanel.Kind
-  val Table: String      = TablePanel.Kind
   val Text: String       = TextPanel.Kind
   val Markdown: String   = MarkdownPanel.Kind
   val Image: String      = ImagePanel.Kind
   val Divider: String    = DividerPanel.Kind
-  val Collection: String = CollectionPanel.Kind
-  val Timeline: String   = TimelinePanel.Kind
   val Output: String     = OutputPanel.Kind
 
-  val Default: String = Metric
+  val Default: String = Output
 
   /** Registry-derived allow-list. After cycle 1 no consumer enumerates these
    *  manually — adding a new kind only requires updating [[Panel.Registry]]. */

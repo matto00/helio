@@ -122,11 +122,6 @@ package object api {
   type CreatePanelsBatchResponse = protocols.panels.CreatePanelsBatchResponse
   val CreatePanelsBatchResponse: protocols.panels.CreatePanelsBatchResponse.type = protocols.panels.CreatePanelsBatchResponse
 
-  type BoundPanelRequest = protocols.panels.BoundPanelRequest
-  val BoundPanelRequest: protocols.panels.BoundPanelRequest.type = protocols.panels.BoundPanelRequest
-  type BoundPanelResponse = protocols.panels.BoundPanelResponse
-  val BoundPanelResponse: protocols.panels.BoundPanelResponse.type = protocols.panels.BoundPanelResponse
-
   type DataTypeResponse = protocols.pipelines.DataTypeResponse
   val DataTypeResponse: protocols.pipelines.DataTypeResponse.type = protocols.pipelines.DataTypeResponse
   type DataTypesResponse = protocols.pipelines.DataTypesResponse

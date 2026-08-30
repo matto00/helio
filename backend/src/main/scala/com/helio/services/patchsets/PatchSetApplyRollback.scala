@@ -215,17 +215,13 @@ private[services] object PatchSetApplyRollback {
 
   /** Per-kind set of Option-typed config field names each kind's own
    *  `*Config.Patch.decode`/`applyPatch` actually reads (skeptic-final-1.md
-   *  CR1). `metricDeprecated` (Metric/Chart/Table) is deliberately excluded
-   *  — it is server-materialized and never decoded from a patch at all (see
-   *  `MetricPanelConfig`'s own doc comment). Text/Markdown/Timeline have no
-   *  Option-typed Patch field, so they map to the empty set. */
+   *  CR1). HEL-904: the bound trio's metric/aggregation fields were removed
+   *  along with `MetricPanel`/`ChartPanel`/`TablePanel`/`CollectionPanel`.
+   *  Text/Markdown/Output have no Option-typed Patch field, so they map to
+   *  the empty set. */
   private def optionalConfigFieldNames(kind: String): Set[String] = kind match {
-    case MetricPanel.Kind     => Set("aggregation", "label", "unit", "metricId")
-    case ChartPanel.Kind      => Set("aggregation", "chartOptions", "annotation", "metricId")
-    case TablePanel.Kind      => Set("density", "columnOrder", "metricId")
     case ImagePanel.Kind      => Set("caption")
     case DividerPanel.Kind    => Set("weight", "color")
-    case CollectionPanel.Kind => Set("itemOptions")
     case _                    => Set.empty
   }
 

@@ -16,7 +16,8 @@ import type { DataTypeResponse, MetricResponse, ProposalPanel } from "../types.j
 
 /** Panel types whose binding is a `dataTypeId` (flat field, checked here).
  *  Mirrors the backend's `DashboardProposalService.DataPanelKinds`. */
-export const DATA_PANEL_TYPES = new Set(["metric", "chart", "table", "collection", "timeline"]);
+// HEL-904 task 3.10: retargeted to the one panel kind requiring an Output binding.
+export const DATA_PANEL_TYPES = new Set(["output"]);
 
 /** HEL-549: the exact panel-type set the backend's `metricId` slot supports
  *  (MetricPanelConfig/ChartPanelConfig/TablePanelConfig only) — mirrors

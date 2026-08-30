@@ -112,18 +112,17 @@ private[services] object PatchSetPreviewProjection {
     PanelServiceHelpers.resolvePatch(request, prior) match {
       case Left(err) => Left(ServiceError.BadRequest(err))
       case Right(spec) =>
-        PanelServiceHelpers.validateScatterAggregationConflict(prior, spec) match {
-          case Left(err) => Left(ServiceError.BadRequest(err))
-          case Right(_) =>
-            val titled = withTitleAndAppearance(prior, spec.trimmedTitle, spec.appearance)
-            val configured: Either[String, Panel] = spec.configPatch match {
-              case None      => Right(titled)
-              case Some(cfg) => PanelConfigCodec.applyConfigPatch(titled, cfg)
-            }
-            configured match {
-              case Left(err)    => Left(ServiceError.BadRequest(err))
-              case Right(panel) => Right(Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))))
-            }
+        // HEL-904: the `validateScatterAggregationConflict` gate here was
+        // removed along with `ChartPanel` — Outputs carry no panel-side
+        // `aggregation` field to conflict with a chart type.
+        val titled = withTitleAndAppearance(prior, spec.trimmedTitle, spec.appearance)
+        val configured: Either[String, Panel] = spec.configPatch match {
+          case None      => Right(titled)
+          case Some(cfg) => PanelConfigCodec.applyConfigPatch(titled, cfg)
+        }
+        configured match {
+          case Left(err)    => Left(ServiceError.BadRequest(err))
+          case Right(panel) => Right(Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))))
         }
     }
 
@@ -158,15 +157,11 @@ private[services] object PatchSetPreviewProjection {
     def t(existing: String): String = title.getOrElse(existing)
     def a(existing: PanelAppearance): PanelAppearance = appearance.getOrElse(existing)
     panel match {
-      case p: MetricPanel     => p.copy(title = t(p.title), appearance = a(p.appearance))
-      case p: ChartPanel      => p.copy(title = t(p.title), appearance = a(p.appearance))
-      case p: TablePanel      => p.copy(title = t(p.title), appearance = a(p.appearance))
       case p: TextPanel       => p.copy(title = t(p.title), appearance = a(p.appearance))
       case p: MarkdownPanel   => p.copy(title = t(p.title), appearance = a(p.appearance))
       case p: ImagePanel      => p.copy(title = t(p.title), appearance = a(p.appearance))
       case p: DividerPanel    => p.copy(title = t(p.title), appearance = a(p.appearance))
-      case p: CollectionPanel => p.copy(title = t(p.title), appearance = a(p.appearance))
-      case p: TimelinePanel   => p.copy(title = t(p.title), appearance = a(p.appearance))
+      case p: OutputPanel     => p.copy(title = t(p.title), appearance = a(p.appearance))
     }
   }
 

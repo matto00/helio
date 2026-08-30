@@ -136,15 +136,10 @@ object PanelServiceHelpers {
       ownerId: UserId,
       createConfig: PanelConfigCodec.CreateConfig
   ): Panel = createConfig match {
-    case PanelConfigCodec.MetricCreate(c)   => MetricPanel(id, dashboardId, title, meta, appearance, ownerId, c)
-    case PanelConfigCodec.ChartCreate(c)    => ChartPanel(id, dashboardId, title, meta, appearance, ownerId, c)
-    case PanelConfigCodec.TableCreate(c)    => TablePanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.TextCreate(c)     => TextPanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.MarkdownCreate(c) => MarkdownPanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.ImageCreate(c)    => ImagePanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.DividerCreate(c)  => DividerPanel(id, dashboardId, title, meta, appearance, ownerId, c)
-    case PanelConfigCodec.CollectionCreate(c) => CollectionPanel(id, dashboardId, title, meta, appearance, ownerId, c)
-    case PanelConfigCodec.TimelineCreate(c)   => TimelinePanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.OutputCreate(c)     => OutputPanel(id, dashboardId, title, meta, appearance, ownerId, c)
   }
 
@@ -186,13 +181,8 @@ object PanelServiceHelpers {
    *  same reason — every new bound kind must be covered on day one. */
   private[services] def dataTypeIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[DataTypeId] =
     config match {
-      case PanelConfigCodec.MetricCreate(c)     => Option(c.dataTypeId).filter(_.value.nonEmpty)
-      case PanelConfigCodec.ChartCreate(c)      => Option(c.dataTypeId).filter(_.value.nonEmpty)
-      case PanelConfigCodec.TableCreate(c)      => Option(c.dataTypeId).filter(_.value.nonEmpty)
-      case PanelConfigCodec.CollectionCreate(c) => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case PanelConfigCodec.TextCreate(c)       => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case PanelConfigCodec.MarkdownCreate(c)   => Option(c.dataTypeId).filter(_.value.nonEmpty)
-      case PanelConfigCodec.TimelineCreate(c)   => Option(c.dataTypeId).filter(_.value.nonEmpty)
       case _                                    => None
     }
 
@@ -210,151 +200,13 @@ object PanelServiceHelpers {
       case _ => None
     }
 
-  /** Extract the bound `metricId` a create-side config targets, if any
-   *  (HEL-500). Only the "bound trio" (Metric/Chart/Table) carries a
-   *  `metricId` — mirrors `dataTypeIdFromCreateConfig`'s shape, scoped to
-   *  the kinds that actually have the field. */
-  private[services] def metricIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[MetricId] =
-    config match {
-      case PanelConfigCodec.MetricCreate(c) => c.metricId
-      case PanelConfigCodec.ChartCreate(c)  => c.metricId
-      case PanelConfigCodec.TableCreate(c)  => c.metricId
-      case _                                => None
-    }
-
-  /** Extract the `metricId` an incoming PATCH `config` payload explicitly
-   *  sets to a non-null value, if any (HEL-500). Mirrors
-   *  `dataTypeIdFromConfigPatch` exactly: absent and explicit `null` both
-   *  yield `None` — only an actual re-bind attempt triggers the create/
-   *  update-time validation. */
-  private[services] def metricIdFromConfigPatch(json: JsValue): Option[MetricId] =
-    json match {
-      case JsObject(fields) =>
-        fields.get("metricId").collect { case JsString(s) if s.nonEmpty => MetricId(s) }
-      case _ => None
-    }
-
-  /** Extract the bound `metricId` from a panel's stored config, if any
-   *  (HEL-500). Only the "bound trio" carries the field; every other panel
-   *  kind returns `None`. Mirrors `Panel.dataTypeId`'s trait-level accessor
-   *  without promoting `metricId` onto the `Panel` trait itself — kept as a
-   *  service-layer concern since only `PanelService`'s read/validation
-   *  paths need it. */
-  private[services] def metricIdOf(panel: Panel): Option[MetricId] = panel match {
-    case mp: MetricPanel => mp.config.metricId
-    case cp: ChartPanel  => cp.config.metricId
-    case tp: TablePanel  => tp.config.metricId
-    case _               => None
-  }
-
-  /** Clear a bound-trio panel's `metricId` only, leaving every other config
-   *  field (including the raw `dataTypeId`/`fieldMapping` trio) untouched.
-   *  A no-op for any non-bound-trio panel. Distinct from
-   *  `Panel.withBindingCleared`, which wipes the *entire* binding — HEL-500
-   *  design.md D3 requires an unresolvable `metricId` to clear independently
-   *  of the panel's raw fields. */
-  private[services] def withMetricCleared(panel: Panel): Panel = panel match {
-    case mp: MetricPanel => mp.copy(config = mp.config.copy(metricId = None))
-    case cp: ChartPanel  => cp.copy(config = cp.config.copy(metricId = None))
-    case tp: TablePanel  => tp.copy(config = tp.config.copy(metricId = None))
-    case other           => other
-  }
-
-  /** Materialize a resolved `MetricDefinition`'s effective fields onto a
-   *  bound-trio panel. Two independent concerns, both driven by the same
-   *  resolved `metric`:
-   *
-   *   - `MetricPanel`-only (HEL-500 design.md D4): the effective
-   *     `dataTypeId`/`fieldMapping`/`aggregation`/`unit`, with any raw field
-   *     the panel's own config already sets always overriding its
-   *     metric-derived counterpart. A no-op for `ChartPanel`/`TablePanel` —
-   *     their field mappings aren't derivable from a single measure field
-   *     (see `ChartPanelConfig`'s own scaladoc).
-   *   - `metricDeprecated` (HEL-560 design.md D6): set for ALL THREE bound
-   *     kinds (`MetricPanel`/`ChartPanel`/`TablePanel`) — deprecated
-   *     awareness applies regardless of materialization scope, since a
-   *     chart/table panel can be bound to a deprecated metric too. */
-  private[services] def withMaterializedMetric(panel: Panel, metric: MetricDefinition): Panel = panel match {
-    case mp: MetricPanel =>
-      val effectiveDataTypeId =
-        if (mp.config.dataTypeId.value.nonEmpty) mp.config.dataTypeId else metric.dataTypeId
-      val effectiveFieldMapping =
-        if (mp.config.fieldMapping.fields.nonEmpty) mp.config.fieldMapping
-        else JsObject("value" -> JsString(metric.measureField))
-      val effectiveAggregation = mp.config.aggregation.orElse(
-        Some(JsObject("value" -> JsString(metric.measureField), "agg" -> JsString(metric.aggregation)))
-      )
-      val effectiveUnit = mp.config.unit.orElse(metric.format.unit)
-      mp.copy(config = mp.config.copy(
-        dataTypeId       = effectiveDataTypeId,
-        fieldMapping     = effectiveFieldMapping,
-        aggregation      = effectiveAggregation,
-        unit             = effectiveUnit,
-        metricDeprecated = Some(metric.deprecated)
-      ))
-    case cp: ChartPanel =>
-      cp.copy(config = cp.config.copy(metricDeprecated = Some(metric.deprecated)))
-    case tp: TablePanel =>
-      tp.copy(config = tp.config.copy(metricDeprecated = Some(metric.deprecated)))
-    case other => other
-  }
-
-  /** Peek an incoming PATCH `config` payload's `aggregation` field, tolerant
-   *  raw-JSON style (mirrors `chartTypeFromAppearanceJson`/
-   *  `dataTypeIdFromConfigPatch`): `Some(true)` = the patch sets a JsObject
-   *  aggregation spec, `Some(false)` = the patch explicitly clears it
-   *  (`null`), `None` = the field is absent from this patch (unchanged). */
-  private[services] def aggregationPresenceFromConfigPatch(json: JsValue): Option[Boolean] =
-    json match {
-      case JsObject(fields) =>
-        fields.get("aggregation") match {
-          case Some(_: JsObject) => Some(true)
-          case Some(JsNull)      => Some(false)
-          case _                 => None
-        }
-      case _ => None
-    }
-
-  /** D2's single-update enforcement site: reject a PATCH that would result in
-   *  a `ChartPanel` combining `chartType: "scatter"` with a present
-   *  `aggregation`, accounting for a partial PATCH (only one of the two
-   *  fields provided) against the stored panel's other field. A no-op for any
-   *  non-`ChartPanel` — `PanelAppearance.chart` is a field every panel kind
-   *  structurally carries, so a `TablePanel`'s incidental value must never
-   *  trigger this check. */
-  private[services] def validateScatterAggregationConflict(
-      existing: Panel,
-      spec: ResolvedPanelPatch
-  ): Either[String, Unit] = existing match {
-    case cp: ChartPanel =>
-      val effectiveChartType =
-        spec.appearance.orElse(Some(cp.appearance)).flatMap(_.chart).flatMap(_.chartType)
-      val effectiveAggregationPresent =
-        spec.configPatch.flatMap(aggregationPresenceFromConfigPatch).getOrElse(cp.config.aggregation.isDefined)
-      ChartPanel.rejectsAggregation(effectiveChartType, effectiveAggregationPresent) match {
-        case Some(msg) => Left(msg)
-        case None      => Right(())
-      }
-    case _ => Right(())
-  }
-
-  /** D2's batch-update enforcement site: same rule, same type-narrowing
-   *  guard, applied per `(item, panel)` pair before the transactional batch
-   *  write so one conflicting item 400s the whole batch (no partial write). */
-  private[services] def validateBatchAggregationConflict(
-      pairs: Vector[(PanelBatchItem, Panel)]
-  ): Either[String, Unit] =
-    pairs.foldLeft[Either[String, Unit]](Right(())) {
-      case (Left(err), _) => Left(err)
-      case (Right(_), (item, panel: ChartPanel)) =>
-        val effectiveChartType =
-          item.appearance.flatMap(chartTypeFromAppearanceJson).orElse(panel.appearance.chart.flatMap(_.chartType))
-        val effectiveAggregationPresent =
-          item.config.flatMap(aggregationPresenceFromConfigPatch).getOrElse(panel.config.aggregation.isDefined)
-        ChartPanel.rejectsAggregation(effectiveChartType, effectiveAggregationPresent) match {
-          case Some(msg) => Left(s"panel '${item.id}': $msg")
-          case None      => Right(())
-        }
-      case (Right(_), _) => Right(())
-    }
+  // HEL-904 task 3.9/4.1: metric-binding resolution (metricIdFromCreateConfig/
+  // metricIdFromConfigPatch/metricIdOf/withMetricCleared/withMaterializedMetric)
+  // and the ChartPanel-scatter-aggregation-conflict validators
+  // (validateScatterAggregationConflict/validateBatchAggregationConflict/
+  // aggregationPresenceFromConfigPatch) were removed here — both were scoped
+  // exclusively to the now-deleted bound trio (MetricPanel/ChartPanel/
+  // TablePanel); metrics no longer exist and Outputs carry no `aggregation`
+  // field on the panel placement side (design.md: everything those configs
+  // carried now lives on the Output itself).
 }

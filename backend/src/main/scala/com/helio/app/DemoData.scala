@@ -95,51 +95,52 @@ object DemoData {
       )
     )
 
-    // enforce-pipeline-only-bindings: these seed panels are unbound (empty
-    // dataTypeId) — DemoData creates no DataSource/DataType/Pipeline rows at
-    // all, so there is no companion-DataType binding here to convert. The
-    // backend guard (PanelService.rejectCompanionBinding) and this seed are
-    // consistent by construction; verified rather than changed (task 1.3).
-    val emptyMetric = MetricPanelConfig(DataTypeId(""), JsObject.empty)
-    val emptyTable  = TablePanelConfig(DataTypeId(""), JsObject.empty)
-    val emptyChart  = ChartPanelConfig(DataTypeId(""), JsObject.empty)
+    // HEL-904 task 3.6 (collapse): the bound trio (MetricPanel/ChartPanel/
+    // TablePanel) no longer exists — a real reseed onto Source → Pipeline →
+    // Output (task 3.7, not yet done: `seedIfEmpty`'s signature doesn't yet
+    // thread a `PipelineRunService`/`OutputRepository`) is deferred. In the
+    // interim these four seed panels are placeholder unbound `OutputPanel`s
+    // (empty `outputId`, mirroring the prior empty-`dataTypeId` "unbound"
+    // convention) so `DemoData` keeps compiling and inserting cleanly — NOT
+    // a real Output-bound demo experience. See execution-progress.md.
+    val emptyOutput = OutputPanelConfig.Empty
 
     val panels: Vector[Panel] = Vector(
-      MetricPanel(
+      OutputPanel(
         id          = PanelId("panel-ops-latency"),
         dashboardId = operationsId,
         title       = "Latency",
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T08:45:00Z"), Instant.parse("2026-02-27T09:15:00Z")),
         appearance  = PanelAppearance("#132238", "#e2e8f0", 0.12),
         ownerId     = SystemUserId,
-        config      = emptyMetric
+        config      = emptyOutput
       ),
-      TablePanel(
+      OutputPanel(
         id          = PanelId("panel-ops-incidents"),
         dashboardId = operationsId,
         title       = "Incident Queue",
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T09:00:00Z"), Instant.parse("2026-02-27T09:25:00Z")),
         appearance  = PanelAppearance("#1f2937", "#f8fafc", 0.18),
         ownerId     = SystemUserId,
-        config      = emptyTable
+        config      = emptyOutput
       ),
-      ChartPanel(
+      OutputPanel(
         id          = PanelId("panel-exec-revenue"),
         dashboardId = executiveId,
         title       = "Revenue Pulse",
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T10:15:00Z"), Instant.parse("2026-02-27T11:00:00Z")),
         appearance  = PanelAppearance("#1d2a44", "#f8fafc", 0.08),
         ownerId     = SystemUserId,
-        config      = emptyChart
+        config      = emptyOutput
       ),
-      ChartPanel(
+      OutputPanel(
         id          = PanelId("panel-exec-forecast"),
         dashboardId = executiveId,
         title       = "Forecast",
         meta        = ResourceMeta(SystemUserId.value, Instant.parse("2026-02-26T10:30:00Z"), Instant.parse("2026-02-27T11:20:00Z")),
         appearance  = PanelAppearance("#243b53", "#eff6ff", 0.16),
         ownerId     = SystemUserId,
-        config      = emptyChart
+        config      = emptyOutput
       )
     )
 

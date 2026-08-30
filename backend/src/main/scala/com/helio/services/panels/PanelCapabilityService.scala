@@ -2,8 +2,8 @@ package com.helio.services.panels
 
 import com.helio.services.ServiceError
 import com.helio.api.protocols.panels.{PanelCapabilitiesResponse, PanelCapabilityColumnResponse, PanelCapabilityResponse}
-import com.helio.domain.panels.PanelBindingSpec
-import com.helio.domain.model.{AuthenticatedUser, DataFieldType, DataType, DataTypeId, PanelType}
+import com.helio.domain.panels.OutputBindingSpec
+import com.helio.domain.model.{AuthenticatedUser, DataFieldType, DataType, DataTypeId, OutputKind}
 import com.helio.domain.engine.SchemaField
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
 
@@ -11,8 +11,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Business logic for `GET /api/types/:id/panel-capabilities` (HEL-365).
  *
- *  Given an owner-scoped DataType, reports which of the five data-bindable
- *  panel kinds (`PanelBindingSpec.DataBindable`) are structurally bindable,
+ *  Given an owner-scoped DataType, reports which of the six Output kinds
+ *  (`OutputBindingSpec.All` — HEL-904: rewired from the retired
+ *  `PanelBindingSpec.DataBindable`) are structurally bindable,
  *  each kind's required/optional `fieldMapping` slots, the columns eligible
  *  per slot, and coarse shape signals (columns+types, row count,
  *  single-row flag, pipeline-output vs. source-companion).
@@ -48,8 +49,8 @@ final class PanelCapabilityService(
   private def build(dt: DataType, rowCount: Int): PanelCapabilitiesResponse = {
     val columns          = columnsOf(dt)
     val isPipelineOutput = dt.sourceId.isEmpty
-    val capabilities = PanelBindingSpec.DataBindable.map { spec =>
-      PanelType.asString(spec.panelType) -> capabilityFor(spec, columns, isPipelineOutput)
+    val capabilities = OutputBindingSpec.All.map { spec =>
+      OutputKind.asString(spec.outputKind) -> capabilityFor(spec, columns, isPipelineOutput)
     }.toMap
 
     PanelCapabilitiesResponse(
@@ -77,7 +78,7 @@ final class PanelCapabilityService(
   private def wireType(raw: String): Option[String] = DataFieldType.fromString(raw).map(DataFieldType.asString)
 
   private def capabilityFor(
-      spec: PanelBindingSpec,
+      spec: OutputBindingSpec,
       columns: Vector[PanelCapabilityColumnResponse],
       isPipelineOutput: Boolean
   ): PanelCapabilityResponse =
@@ -100,7 +101,7 @@ final class PanelCapabilityService(
       // `event` (eligibility `Any`) are already non-empty whenever
       // `yAxis`/`time` is.
       val schemaColumns = columns.map(c => SchemaField(c.name, c.dataType))
-      val result = PanelBindingSpec.evaluate(spec, schemaColumns)
+      val result = OutputBindingSpec.evaluate(spec, schemaColumns)
       PanelCapabilityResponse(
         bindable        = result.bindable,
         requiredSlots   = spec.requiredSlots,

@@ -31,7 +31,7 @@ import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
 import com.helio.services.auth.{ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserTierConfig}
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
-import com.helio.services.panels.{AutoLayoutService, BoundPanelService, PanelCapabilityService, PanelService}
+import com.helio.services.panels.{AutoLayoutService, PanelCapabilityService, PanelService}
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.{ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
@@ -353,15 +353,10 @@ final class ApiRoutes(
     panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
     patchSetApplicationRepo
   )
-  // HEL-364: compound POST /api/panels/bound — composes the four services
-  // above (constructed after all of them, same DI-ordering convention this
-  // file already follows) plus the repos it needs directly (dataSourceRepo
-  // for the owner-scoped sourceDataSourceId re-verify, panelRepo to persist
-  // the panel PanelService.buildForCreate only builds — design.md D1).
-  private val boundPanelService = new BoundPanelService(
-    dataSourceService, pipelineService, pipelineRunService, panelService,
-    dataSourceRepo, dataTypeRepo, dataTypeRowRepo, panelRepo, accessChecker, auditService
-  )
+  // HEL-904 task 3.6/4.1: `BoundPanelService` (`POST /api/panels/bound`) is
+  // deleted outright — design.md's P1.1 row lists it explicitly, and its
+  // `PanelBindingSpec`/bound-`*Panel.scala` dependencies no longer exist
+  // after this ticket's `PanelType` collapse.
   private val permissionService           = new PermissionService(permissionRepo, accessChecker)
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)
   // Optional wiring mirrors the nullable constructor param: fixtures that
@@ -709,14 +704,8 @@ final class ApiRoutes(
                   new AutoLayoutRoutes(autoLayoutService, authenticatedUser).routes,
                   new DashboardRoutes(dashboardService, authenticatedUser).routes,
                   new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
-                  // HEL-364: mounted ahead of PanelRoutes so the literal
-                  // "/panels/bound" path is never shadowed by PanelRoutes'
-                  // `path(PanelIdSegment)` (which would otherwise treat
-                  // "bound" as a panel id — Pekko's rejection/backtracking
-                  // happens to make either order work today since that
-                  // branch only defines delete/patch, but explicit ordering
-                  // doesn't depend on that staying true).
-                  new BoundPanelRoutes(boundPanelService, authenticatedUser).routes,
+                  // HEL-904: `BoundPanelRoutes`/`POST /api/panels/bound` removed
+                  // alongside `BoundPanelService` (see its deletion note above).
                   new PanelRoutes(panelService, authenticatedUser).routes,
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
                   new DataTypeRoutes(dataTypeService, panelCapabilityService, pipelineRunService, authenticatedUser).routes,

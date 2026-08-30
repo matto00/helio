@@ -29,12 +29,15 @@ object PanelPacker {
    *  [[Bounds]] (text/divider/timeline, per design.md D4's table). */
   private val DefaultBounds = ClampBounds(minW = 1, minH = 2, maxH = 24)
 
-  /** Ported verbatim from `_BOUNDS` (design.md D4). */
+  /** Ported verbatim from `_BOUNDS` (design.md D4), with one HEL-904
+   *  adjustment: `Metric`/`Chart`/`Table`/`Collection` collapsed onto the
+   *  single `PanelKind.Output` kind now that they're the same panel type —
+   *  bounds merged to the widest of the four former entries (`Chart`'s) as a
+   *  placeholder pending the real per-Output-kind sizing decision (design.md
+   *  references a future "decision-15 default size" for `POST /api/panels`
+   *  that this ticket doesn't itself define). */
   private val Bounds: Map[String, ClampBounds] = Map(
-    PanelKind.Metric     -> ClampBounds(minW = 2, minH = 3, maxH = 5),
-    PanelKind.Chart      -> ClampBounds(minW = 4, minH = 6, maxH = 24),
-    PanelKind.Table      -> ClampBounds(minW = 3, minH = 4, maxH = 24),
-    PanelKind.Collection -> ClampBounds(minW = 3, minH = 4, maxH = 24),
+    PanelKind.Output     -> ClampBounds(minW = 4, minH = 6, maxH = 24),
     PanelKind.Image      -> ClampBounds(minW = 3, minH = 5, maxH = 24),
     PanelKind.Markdown   -> ClampBounds(minW = 3, minH = 5, maxH = 24)
   )

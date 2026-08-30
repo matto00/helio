@@ -176,15 +176,10 @@ trait DashboardSnapshotOps { self: DashboardRepository =>
         case Left(err) => throw new IllegalArgumentException(s"snapshot panel '${entry.snapshotId}' invalid config: $err")
       }
       created match {
-        case PanelConfigCodec.MetricCreate(c)   => MetricPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
-        case PanelConfigCodec.ChartCreate(c)    => ChartPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
-        case PanelConfigCodec.TableCreate(c)    => TablePanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
         case PanelConfigCodec.TextCreate(c)     => TextPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
         case PanelConfigCodec.MarkdownCreate(c) => MarkdownPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
         case PanelConfigCodec.ImageCreate(c)    => ImagePanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
         case PanelConfigCodec.DividerCreate(c)  => DividerPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
-        case PanelConfigCodec.CollectionCreate(c) => CollectionPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
-        case PanelConfigCodec.TimelineCreate(c)   => TimelinePanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
         case PanelConfigCodec.OutputCreate(c)     => OutputPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
       }
     }

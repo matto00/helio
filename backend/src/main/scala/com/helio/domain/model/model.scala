@@ -99,68 +99,42 @@ object ResourceType {
   case object Panel     extends ResourceType
 }
 
-/** HEL-904 task 3.6 (write-path increment): `Output` is ADDED here as a 10th
- *  valid value alongside the nine pre-existing ones — deliberately NOT yet a
- *  full replacement/collapse of this set (design.md's confirmed decision is
- *  that `PanelType` is eventually REPLACED by the 5-value `output | text |
- *  markdown | image | divider` set, not extended). Landing that full
- *  collapse in this same commit was sized and rejected as too large: it
- *  requires deleting `MetricPanel`/`ChartPanel`/`TablePanel`/
- *  `CollectionPanel`/`TimelinePanel` (still live constructor targets of
- *  `PanelServiceHelpers.buildNewPanel`) and rewiring every one of their
- *  downstream consumers (`BoundPanelService`, `PanelCapabilityService`,
- *  `ProposalPanelSupport`, `DashboardProposalService`, `PatchSet*`,
- *  `DemoData` — a 15+ real-source-file blast radius, not just tests) in the
- *  SAME commit to avoid a half-collapsed tree. That full collapse is
- *  properly scoped to land together with tasks 3.9/3.10/3.10a/4.1 once those
- *  proposal-service/capability rewires exist to receive it — see
- *  execution-progress.md cycle 15 for the full sizing note. This additive
- *  step unblocks the one new REAL write path this cycle targets (`POST
- *  /api/panels` with `type: "output"`) without leaving the tree in a
- *  half-migrated state: the schema-drift gate's `< 8` arm-count guard and
- *  every enum surface it checks are updated in the SAME commit to include
- *  `"output"` (additively, alongside the existing nine), so no surface goes
- *  out of sync. */
+/** HEL-904 task 3.6 (collapse complete): the nine pre-existing values plus
+ *  `Output` (cycle 15's additive increment) are collapsed to the final
+ *  5-value set design.md specifies (`output | text | markdown | image |
+ *  divider`). `Metric`/`Chart`/`Table`/`Collection`/`Timeline` are removed
+ *  outright — everything they used to carry now lives on the `Output`
+ *  (`outputs.config`, `OutputRepository`), not on a panel placement. Their
+ *  bound `*Panel.scala` case classes (`MetricPanel`/`ChartPanel`/
+ *  `TablePanel`/`CollectionPanel`/`TimelinePanel`) are deleted in the same
+ *  commit, along with `PanelBindingSpec` (superseded by `OutputBindingSpec`,
+ *  keyed by `OutputKind` — added additively in this same task). See
+ *  execution-progress.md cycles 14/15 for the sizing history that led here. */
 sealed trait PanelType
 object PanelType {
-  case object Metric   extends PanelType
-  case object Chart    extends PanelType
   case object Text     extends PanelType
-  case object Table    extends PanelType
-  case object Markdown   extends PanelType
-  case object Image      extends PanelType
-  case object Divider    extends PanelType
-  case object Collection extends PanelType
-  case object Timeline   extends PanelType
-  case object Output      extends PanelType
+  case object Markdown extends PanelType
+  case object Image    extends PanelType
+  case object Divider  extends PanelType
+  case object Output   extends PanelType
 
-  val Default: PanelType = Metric
+  val Default: PanelType = Output
 
   def fromString(s: String): Either[String, PanelType] = s match {
-    case "metric"     => Right(Metric)
-    case "chart"      => Right(Chart)
-    case "text"       => Right(Text)
-    case "table"      => Right(Table)
-    case "markdown"   => Right(Markdown)
-    case "image"      => Right(Image)
-    case "divider"    => Right(Divider)
-    case "collection" => Right(Collection)
-    case "timeline"   => Right(Timeline)
-    case "output"     => Right(Output)
-    case other        => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table, markdown, image, divider, collection, timeline, output")
+    case "text"     => Right(Text)
+    case "markdown" => Right(Markdown)
+    case "image"    => Right(Image)
+    case "divider"  => Right(Divider)
+    case "output"   => Right(Output)
+    case other      => Left(s"Unknown panel type: '$other'. Valid values: text, markdown, image, divider, output")
   }
 
   def asString(t: PanelType): String = t match {
-    case Metric     => "metric"
-    case Chart      => "chart"
-    case Text       => "text"
-    case Table      => "table"
-    case Markdown   => "markdown"
-    case Image      => "image"
-    case Divider    => "divider"
-    case Collection => "collection"
-    case Timeline   => "timeline"
-    case Output     => "output"
+    case Text     => "text"
+    case Markdown => "markdown"
+    case Image    => "image"
+    case Divider  => "divider"
+    case Output   => "output"
   }
 }
 

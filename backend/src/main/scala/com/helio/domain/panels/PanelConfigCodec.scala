@@ -21,15 +21,10 @@ object PanelConfigCodec {
    *  per-subtype `RootJsonFormat[*Config]` produced by `jsonFormatN` is the
    *  canonical writer; this method just narrows on the subtype. */
   def encodeConfig(panel: Panel): JsValue = panel match {
-    case mp: MetricPanel    => mp.config.toJson
-    case cp: ChartPanel     => cp.config.toJson
-    case tp: TablePanel     => tp.config.toJson
     case t:  TextPanel      => t.config.toJson
     case m:  MarkdownPanel  => m.config.toJson
     case i:  ImagePanel      => i.config.toJson
     case d:  DividerPanel    => d.config.toJson
-    case c:  CollectionPanel => c.config.toJson
-    case tl: TimelinePanel   => tl.config.toJson
     case op: OutputPanel     => op.config.toJson
     case other               => deserializationError(s"Unknown panel kind for encode: '${other.kind}'")
   }
@@ -39,15 +34,10 @@ object PanelConfigCodec {
    *  layer at create time. Each variant wraps the typed config from one
    *  subtype's companion. */
   sealed trait CreateConfig
-  final case class MetricCreate(config: MetricPanelConfig)     extends CreateConfig
-  final case class ChartCreate(config: ChartPanelConfig)       extends CreateConfig
-  final case class TableCreate(config: TablePanelConfig)       extends CreateConfig
   final case class TextCreate(config: TextPanelConfig)         extends CreateConfig
   final case class MarkdownCreate(config: MarkdownPanelConfig) extends CreateConfig
   final case class ImageCreate(config: ImagePanelConfig)       extends CreateConfig
   final case class DividerCreate(config: DividerPanelConfig)   extends CreateConfig
-  final case class CollectionCreate(config: CollectionPanelConfig) extends CreateConfig
-  final case class TimelineCreate(config: TimelinePanelConfig)     extends CreateConfig
   final case class OutputCreate(config: OutputPanelConfig)         extends CreateConfig
 
   /** Decode a create-side typed config from `(kind, config?)`. `decode(None)`
@@ -55,15 +45,10 @@ object PanelConfigCodec {
   def decodeCreateConfig(kind: String, json: Option[JsValue]): Either[String, CreateConfig] = {
     val payload = json.getOrElse(JsObject.empty)
     kind match {
-      case MetricPanel.Kind   => safe(MetricCreate(MetricPanelConfig.decodeCreate(payload)))
-      case ChartPanel.Kind    => safe(ChartCreate(ChartPanelConfig.decodeCreate(payload)))
-      case TablePanel.Kind    => safe(TableCreate(TablePanelConfig.decodeCreate(payload)))
       case TextPanel.Kind     => safe(TextCreate(TextPanelConfig.decodeCreate(payload)))
       case MarkdownPanel.Kind => safe(MarkdownCreate(MarkdownPanelConfig.decodeCreate(payload)))
       case ImagePanel.Kind    => safe(ImageCreate(ImagePanelConfig.decodeCreate(payload)))
       case DividerPanel.Kind  => safe(DividerCreate(DividerPanelConfig.decodeCreate(payload)))
-      case CollectionPanel.Kind => safe(CollectionCreate(CollectionPanelConfig.decodeCreate(payload)))
-      case TimelinePanel.Kind   => safe(TimelineCreate(TimelinePanelConfig.decodeCreate(payload)))
       case OutputPanel.Kind     => safe(OutputCreate(OutputPanelConfig.decodeCreate(payload)))
       case unknown            =>
         Left(s"Unknown panel type: '$unknown'. Valid values: ${Panel.Registry.keySet.toSeq.sorted.mkString(", ")}")
@@ -78,15 +63,10 @@ object PanelConfigCodec {
     safe(applyConfigPatchUnsafe(existing, json))
 
   private def applyConfigPatchUnsafe(existing: Panel, json: JsValue): Panel = existing match {
-    case mp: MetricPanel   => mp.applyPatch(MetricPanelConfig.Patch.decode(json))
-    case cp: ChartPanel    => cp.applyPatch(ChartPanelConfig.Patch.decode(json))
-    case tp: TablePanel    => tp.applyPatch(TablePanelConfig.Patch.decode(json))
     case t:  TextPanel     => t.applyPatch(TextPanelConfig.Patch.decode(json))
     case m:  MarkdownPanel => m.applyPatch(MarkdownPanelConfig.Patch.decode(json))
     case i:  ImagePanel      => i.applyPatch(ImagePanelConfig.Patch.decode(json))
     case d:  DividerPanel    => d.applyPatch(DividerPanelConfig.Patch.decode(json))
-    case c:  CollectionPanel => c.applyPatch(CollectionPanelConfig.Patch.decode(json))
-    case tl: TimelinePanel   => tl.applyPatch(TimelinePanelConfig.Patch.decode(json))
     case op: OutputPanel     => op.applyPatch(OutputPanelConfig.Patch.decode(json))
     case other               => deserializationError(s"Unknown panel kind for patch: '${other.kind}'")
   }

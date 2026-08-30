@@ -28,7 +28,7 @@ function makeProposal(overrides: Partial<CombinedProposal> = {}): CombinedPropos
       panels: [
         {
           title: "Total sales",
-          type: "metric",
+          type: "output",
           dataTypeId: "$pipelineOutput",
           fieldMapping: { value: "amount" },
         },
@@ -85,7 +85,7 @@ describe("CombinedProposalReview", () => {
       proposal: makeProposal({
         dashboard: {
           dashboardName: "Sales overview",
-          panels: [{ title: "Total sales", type: "metric", dataTypeId: "dt-real-id" }],
+          panels: [{ title: "Total sales", type: "output", dataTypeId: "dt-real-id" }],
         },
       }),
     });

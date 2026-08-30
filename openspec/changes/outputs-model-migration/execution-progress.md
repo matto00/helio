@@ -1420,3 +1420,133 @@ separate spinoff, since it's the same line of code this cycle needed to touch an
 3. `Pipeline.outputDataTypeId` (§3.5) and `WorkspaceContextService` (§3.12, do NOT touch
    `asNumeric`'s structure/rounding per HEL-631) remain independently schedulable in parallel,
    as noted by every prior cycle.
+
+## Cycle 16 — completed task 3.6's full PanelType collapse (5-value set) + 3.9 + 3.10/3.10a;
+## main sources compile clean; CHECKPOINT COMMIT while test-source rewiring is still in progress
+
+Resumed with an explicit, larger scope than cycle 15's additive increment: finish the
+`PanelType`/`Panel.Registry` collapse to the 5-value `output|text|markdown|image|divider` set,
+delete the 5 old bound `*Panel.scala` files, and continue into whichever of 3.5/3.8/3.9/3.10/
+3.10a/3.11/3.11a/3.12 this unblocked.
+
+**Re-grepped the blast radius fresh before writing any code** (per cycle 15's own instruction to
+next cycle): 36 main-source files matched `MetricPanel|ChartPanel|TablePanel|CollectionPanel|
+TimelinePanel|PanelBindingSpec` (up from cycle 15's 24-file main-source estimate — the true count
+was always this large; cycle 14/15's number was scoped to a narrower grep pattern). Also found,
+by direct inspection (not estimate), that `PanelBindingSpec.Metric/.Chart/.Table/.Collection/
+.Timeline` all type their `panelType` field as `PanelType` directly — meaning `PanelBindingSpec`
+itself (and therefore its two real consumers, `BoundPanelService` and `PanelCapabilityService`)
+is UNAVOIDABLY coupled to the `PanelType` collapse, not an independent later task as cycle 14's
+own doc comment suggested. Verified against design.md's own P1.1 row (source of truth,
+`docs/superpowers/specs/2026-08-30-pipelines-outputs-remodel-design.md`), which explicitly lists
+`BoundPanelService` (whole file) as deleted in THIS ticket, confirming this coupling was
+intentional in the design, not a scope-creep risk to stop and escalate over.
+
+**Scope actually completed this cycle** (see files-modified.md's cycle-16 section for the full
+per-file list):
+1. **Task 3.6 (full collapse)**: `PanelType`/`Panel.Registry`/`PanelKind` collapsed to 5 values;
+   `MetricPanel`/`ChartPanel`/`TablePanel`/`CollectionPanel`/`TimelinePanel`/`PanelBindingSpec`
+   deleted; every downstream consumer (`PanelConfigCodec`, `PanelServiceHelpers`, `PanelService`,
+   `PanelRowMapper`, `DashboardSnapshotRepository`, `PatchSet*`, `DemoData`) rewired to compile
+   against the 5-kind set.
+2. **Task 3.9**: `ProposalPanelSupport` rewired — dropped ALL metric-binding-resolution
+   (`validateMetricBinding`, `metricRepo` param) and the retired kind-valued predicates.
+3. **Task 3.10/3.10a**: `DashboardProposalService.DataPanelKinds` retargeted `Set("output")`;
+   `MetricKind`/`TimelineKind`/`MetricIdSupportedKinds` deleted along with the code paths they
+   guarded (including the now-permanently-dead `applyAppearance` chart-panel-appearance
+   follow-up, since `created.kind == ChartPanel.Kind` can never fire again).
+4. **Forced-by-compile piece of task 4.1**: `BoundPanelService` (whole file) + its route
+   (`BoundPanelRoutes`) + its protocol (`BoundPanelProtocol`) deleted, per design.md's own P1.1
+   row — NOT a broader 4.1 pass (DataType/Metric repositories/services/routes are untouched and
+   still fully live, per the "do NOT touch 2.10" instruction's spirit: section 4's full deletion
+   pass is still future work).
+5. **`PanelCapabilityService` (task 3.11, PARTIAL)**: mechanically rewired from
+   `PanelBindingSpec.DataBindable`/`PanelType` onto `OutputBindingSpec.All`/`OutputKind` (same
+   string keys, same `DataTypeRepository`-based column source) so it keeps compiling and its 4
+   real internal callers (`RefinementGrounding`/`AssistantToolExecutor`/`AssistantService`/
+   `DashboardAuthoringService`) are undisturbed. This is NOT task 3.11's full scope — the design
+   calls for resolving against a pipeline node's Outputs instead of a DataType, which requires
+   plumbing (a `GET /api/pipelines/:id/capabilities` route, Output-schema resolution) that
+   doesn't exist yet anywhere in the tree. Left as real, explicitly-flagged remaining work rather
+   than either skipped silently or over-built as an improvisation under time pressure.
+
+**Explicitly NOT done, flagged rather than silently skipped:**
+- Task 3.7 (`DemoData` real reseed onto Source→Pipeline→Output) — the 4 seed panels are
+  placeholder unbound `OutputPanel`s (empty `outputId`) only, to keep `DemoData` compiling.
+- Task 3.8 (`PipelineProposalService` → Output instead of DataType) — not started.
+- Task 3.5 (`Pipeline.outputDataTypeId` removal) — not started.
+- Task 3.11's real semantic rewire (see point 5 above) — not started beyond the mechanical
+  spec-source swap.
+- Task 3.11a (12-file test-side blast radius for `PanelCapabilityService`'s constructor) — not
+  yet needed since this cycle didn't change `PanelCapabilityService`'s constructor signature.
+- Task 3.12 (`WorkspaceContextService` rewire) — not started.
+- `ProposalPanelSupport.buildDataConfig`'s real Output `outputId` composition — the method still
+  only produces `dataTypeId`/`fieldMapping` (meaningful for Text/Markdown only); an "output"-kind
+  proposal panel does not yet compose a real `outputId` config. Flagged in files-modified.md.
+- `RefinementEditShape.scala`'s Metric/Chart/Table/Collection/Timeline worked prompt examples are
+  UNCHANGED (still describe retired panel kinds) and are now UNTESTED (their regression spec,
+  `RefinementEditShapeSpec.scala`, had those test blocks deleted since the `*PanelConfig` classes
+  they decoded against no longer exist). A real Output-oriented prompt rewrite is future work —
+  this is a known, real gap, not an oversight.
+
+**Verification this cycle (fresh, exit codes read directly):**
+- `sbt -batch compile` (main sources) — **clean**, confirmed immediately before this checkpoint
+  commit.
+- `sbt -batch Test/compile` — **NOT yet clean**. Two files still fail: `MetricRoutesSpec.scala`
+  and `MetricRepositorySpec.scala`, both because their panel fixture incidentally constructs a
+  `MetricPanel`/`MetricPanelConfig` (the `/api/metrics` feature itself is untouched — these are
+  fixture-only fixes, same mechanical pattern already applied to ~15 other test files this
+  cycle). Every other test-compile error surfaced across 4 rounds of `Test/compile` this cycle
+  was fixed (19 test files edited/deleted total — see files-modified.md).
+- Full `sbt test` was NOT run this cycle (Test/compile isn't green yet, so a full-suite run
+  would be premature per verification-before-completion).
+
+**Checkpoint discipline this cycle:** per the orchestrator's mid-cycle nudge (49 uncommitted
+files, no commit in 10+ minutes), this commit is being made the moment `sbt compile` (main) is
+confirmed clean, WITHOUT waiting for `Test/compile` to also be green — a deliberate, documented
+exception to this ticket's usual "compiling+tested checkpoint" bar, made explicitly to avoid
+stranding a large, mostly-complete, high-value diff. The two remaining `Test/compile` failures
+are narrow and already diagnosed (see above); genuinely one small step from green.
+
+**Next cycle should, before writing any new code:**
+1. Fix `MetricRoutesSpec.scala`/`MetricRepositorySpec.scala`'s `MetricPanel`/`MetricPanelConfig`
+   fixture (retarget to `TextPanel`/`TextPanelConfig`, matching every other file's fix this
+   cycle), then re-run `sbt -batch Test/compile` to confirm green.
+2. Run the full `sbt test` suite fresh; classify any failures per HEL-924 (re-run failing suites
+   in isolation before reporting anything as a real regression vs. known flakiness).
+3. Re-run `node scripts/check-scala-quality.mjs`, `node scripts/check-schema-drift.mjs`,
+   `npm run check:helio-mcp-types`, `node scripts/check-openspec-hygiene.mjs` — none were run this
+   cycle (deliberately deferred to the next cycle's own post-green-test verification pass, since
+   `Test/compile` itself wasn't green yet at commit time).
+4. Once green, continue into 3.7/3.8/3.11 (real)/3.5/3.12 in whatever order best unblocks the
+   remaining cluster, per the task list's own dependency notes.
+5. `Pipeline.outputDataTypeId` (§3.5) and `WorkspaceContextService` (§3.12, do NOT touch
+   `asNumeric`'s structure/rounding per HEL-631) remain independently schedulable, as ever.
+
+## Cycle 16 addendum — schema-drift gate fix required before this cycle's commit could land
+
+The pre-commit hook's `check-schema-drift.mjs` failed twice on the first commit attempt:
+1. Its panel-type arm-count guard (`< 8`) rejected the collapsed 5-value set outright — fixed by
+   moving the threshold to `< 5` (task 5.4(a)/(b)'s own anticipated minimal script fix, per this
+   ticket's established pattern of doing these inline as they come up rather than batching them
+   into section 5).
+2. Once past the guard, the real drift check correctly flagged 7 panel-type-enum surfaces still
+   carrying the 5 retired values (`schemas/panels/{create-panel-request,panel,
+   update-panels-batch-request}.schema.json`, `dashboard-proposal.schema.json`,
+   `helio-mcp/src/tools/proposal.ts`'s `PANEL_TYPES`, `proposalValidation.ts`'s
+   `DATA_PANEL_TYPES`, and — a genuine surface the script's own message pointed at but wasn't in
+   its checked set — the frontend's two `ProposalReview`/`CombinedProposalReview` components'
+   local `DATA_PANEL_TYPES` copies) plus 2 orphaned `bound-panel-{request,response}.schema.json`
+   files. All fixed in this same commit (see files-modified.md's cycle-16 addendum for the exact
+   per-file diffs) — re-verified `node scripts/check-schema-drift.mjs` clean afterward.
+
+Two pieces of REAL, explicitly-flagged cleanup debt from this fix (not silently absorbed):
+`panel.schema.json`'s per-kind `allOf` conditional subschemas for the 5 retired kinds are
+unreachable dead branches, not deleted; `proposalValidation.ts`'s `METRIC_ID_SUPPORTED_TYPES` and
+its metricId-validation logic are now similarly unreachable. Both are cosmetic/dead-code, not
+correctness bugs (an unreachable `if type === "metric"` branch can never fire since `type` itself
+can no longer validate as `"metric"`), so left for a future cleanup cycle rather than expanding
+this commit's already-large scope further under time pressure.
+
+Re-verified fresh, in order, after the schema-drift fix: `sbt -batch compile` (backend, clean),
+`npm --prefix helio-mcp run typecheck` (clean), `npm --prefix frontend run typecheck` (clean).

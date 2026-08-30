@@ -363,3 +363,132 @@ entirely) is deferred to land with tasks 3.9/3.10/3.10a/4.1 per cycle 14's sizin
   checked").
 - `npm run check:helio-mcp-types` — clean.
 - `node scripts/check-openspec-hygiene.mjs` — clean ("openspec/ is clean").
+
+## Cycle 16 — completed task 3.6's full PanelType/Panel-kind collapse (5-value
+## set), plus tasks 3.9/3.10/3.10a; main sources compile clean; test-source
+## rewiring still in progress (see execution-progress.md)
+
+- `backend/src/main/scala/com/helio/domain/model/model.scala` — `PanelType` collapsed from
+  10 to 5 values (`Text|Markdown|Image|Divider|Output`); `Default` now `Output`.
+- `backend/src/main/scala/com/helio/domain/model/Panel.scala` — `Panel.Registry`/`PanelKind`
+  collapsed to the same 5 kinds; `PanelKind.Default` now `Output`.
+- `backend/src/main/scala/com/helio/domain/panels/MetricPanel.scala`,
+  `ChartPanel.scala`, `TablePanel.scala`, `CollectionPanel.scala`, `TimelinePanel.scala`,
+  `PanelBindingSpec.scala` — deleted outright (collapsed into `OutputPanel`/
+  `OutputBindingSpec`).
+- `backend/src/main/scala/com/helio/domain/panels/OutputBindingSpec.scala` — gained
+  `SlotEligibility` (moved here from the deleted `PanelBindingSpec.scala`, same three-value
+  contract).
+- `backend/src/main/scala/com/helio/domain/panels/PanelConfigCodec.scala` — dropped the 5 old
+  kinds' `CreateConfig` variants/decode/encode/patch cases.
+- `backend/src/main/scala/com/helio/services/panels/PanelServiceHelpers.scala` — dropped
+  `buildNewPanel`'s 5 old cases, `dataTypeIdFromCreateConfig`'s old cases (Text/Markdown only
+  remain), and ALL metric-binding-resolution + scatter/aggregation-conflict helpers
+  (`metricIdFromCreateConfig`/`metricIdFromConfigPatch`/`metricIdOf`/`withMetricCleared`/
+  `withMaterializedMetric`/`validateScatterAggregationConflict`/
+  `validateBatchAggregationConflict`/`aggregationPresenceFromConfigPatch`).
+- `backend/src/main/scala/com/helio/services/panels/PanelService.scala` — `resolveBindingsForRead`/
+  `resolveOne`/`resolveSingleBinding` simplified to dataType-only (metric half removed);
+  `rejectUnresolvableMetric` removed + its call sites in `create`/`update`; scatter-aggregation
+  call sites removed from `update`/`batchUpdate`.
+- `backend/src/main/scala/com/helio/services/panels/BoundPanelService.scala` — deleted outright
+  (design.md P1.1 row lists this explicitly; forced by the `PanelBindingSpec`/`PanelType`
+  collapse — its `/api/panels/bound` route depended on both).
+- `backend/src/main/scala/com/helio/api/routes/panels/BoundPanelRoutes.scala`,
+  `backend/src/main/scala/com/helio/api/protocols/panels/BoundPanelProtocol.scala` — deleted
+  alongside `BoundPanelService`.
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala`, `JsonProtocols.scala`,
+  `package.scala` — removed `BoundPanelService`/`BoundPanelRoutes`/`BoundPanelProtocol`
+  wiring/aliases.
+- `backend/src/main/scala/com/helio/services/panels/PanelCapabilityService.scala` — rewired
+  from `PanelBindingSpec.DataBindable`/`PanelType` onto `OutputBindingSpec.All`/`OutputKind` —
+  a mechanical spec-source swap (same string keys, same `DataTypeRepository`-based column
+  source); does NOT yet do task 3.11's deeper "resolve against a pipeline node's Outputs
+  instead of a DataType" semantic rewire (no `GET /api/pipelines/:id/capabilities` route or
+  Output-schema-resolution plumbing exists yet to receive it — flagged as real remaining scope
+  for task 3.11, not silently skipped).
+- `backend/src/main/scala/com/helio/services/panels/PanelPacker.scala` — `Bounds` map's
+  `Metric`/`Chart`/`Table`/`Collection` entries collapsed onto one `PanelKind.Output` entry
+  (merged to `Chart`'s widest bound as a placeholder — see file's own doc comment).
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoInverse.scala`,
+  `PatchSetApplyRollback.scala` — `optionalConfigFieldNames`'s Metric/Chart/Table/Collection
+  cases removed (Image/Divider remain).
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewProjection.scala` —
+  `withTitleAndAppearance`'s dispatch collapsed to the 5 kinds;
+  `validateScatterAggregationConflict` call removed from `panelUpdateAfter`.
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala` —
+  `validatePanelBindingRefs`/`rejectCompanionBinding` calls no longer take a `metricId`;
+  `rejectUnresolvableMetric` removed.
+- `backend/src/main/scala/com/helio/services/proposals/DashboardProposalService.scala` —
+  task 3.10: `DataPanelKinds` retargeted `Set("metric","chart","table","collection","timeline")`
+  → `Set("output")`; `MetricKind`/`TimelineKind`/`MetricIdSupportedKinds` deleted (3.10a); the
+  dead `applyAppearance`/`hasChartAppearanceFields`/`buildChartAppearance` chart-panel-appearance
+  follow-up removed (unreachable now that `ChartPanel` doesn't exist).
+- `backend/src/main/scala/com/helio/services/proposals/ProposalPanelSupport.scala` — task 3.10a:
+  the chart/timeline/metric kind-valued predicates in `validatePanel` deleted;
+  `validateMetricBinding`/`preValidateBindings`'s `metricRepo` param removed; `buildDataConfig`'s
+  Metric/Timeline literal-folding branches removed (dataTypeId/fieldMapping only remain — a real
+  Output `outputId` composition for proposal panels is NOT yet wired, flagged as task 3.8/3.10
+  remaining scope).
+- `backend/src/main/scala/com/helio/services/dashboards/DashboardServiceValidation.scala`,
+  `DashboardContentsService.scala` — `ChartPanel`-specific scatter/aggregation import-time check
+  removed; `preValidateBindings` call site updated (no `metricRepo` arg).
+- `backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelRowMapper.scala` —
+  `rowToDomain`/`domainToRow` dispatch collapsed to the 5 kinds (unknown/legacy bound-kind rows
+  fall back to `OutputPanel`, matching the V94 backfill); all 5 old per-kind config-rebuild
+  helpers + their column serializers deleted.
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardSnapshotRepository.scala` —
+  snapshot-import panel-construction match collapsed to the 5 kinds.
+- `backend/src/main/scala/com/helio/app/DemoData.scala` — all 4 seed panels rewritten as
+  placeholder unbound `OutputPanel`s (empty `outputId`) — a REAL Source→Pipeline→Output reseed
+  (task 3.7) is NOT done; flagged as remaining scope, not silently skipped.
+- `backend/src/main/scala/com/helio/api/http/RequestValidation.scala` — `validateTimelineSort`
+  deleted (no remaining caller; `TimelineOptions` no longer exists).
+- Test files: `PanelSpec.scala` rewritten to the 5-kind set (all Metric/Chart/Table/Collection/
+  Timeline-specific sections deleted); `PanelTypeSpec.scala`, `PanelPackerSpec.scala` updated to
+  the 5-value `PanelType`/`PanelKind` set; `PanelRowMapperSpec.scala` trimmed to Text/Markdown/
+  Image round-trips; `PanelServiceCompanionBindingGuardSpec.scala`,
+  `PanelServiceResolveBindingsSpec.scala`, `WorkspaceTeardownServiceSpec.scala` rewired from
+  `MetricPanel`/`MetricPanelConfig` fixtures onto `TextPanel`/`TextPanelConfig`;
+  `PatchSetUndoInverseSpec.scala` rewired from Metric's aggregation fields onto Divider's
+  weight/color; `PatchSetApplyServiceSpec.scala`, `PatchSetPreviewServiceSpec.scala` — dropped
+  metricId-binding-rejection and scatter-aggregation-conflict tests (retired features), retargeted
+  `seedPanel`'s default type; `RefinementEditShapeSpec.scala` — dropped the panel-update/-create
+  worked-example test blocks (their `*PanelConfig` subjects deleted; `RefinementEditShape.scala`'s
+  own prompt-example strings are UNCHANGED and now untested — flagged as a real gap for a future
+  cycle's Output-oriented prompt rewrite); `CombinedProposalServiceValidateSpec.scala` — sentinel
+  panel type retargeted `"metric"` → `"output"`.
+- Deleted specs (subject fully retired): `BoundPanelRoutesSpec.scala`,
+  `PanelMetricBindingRoutesSpec.scala`, `PanelBindingSpecSpec.scala`,
+  `PanelServiceMetricBindingSpec.scala`, `PanelServiceScatterAggregationSpec.scala`.
+- **Still failing `Test/compile`** at commit time: `MetricRoutesSpec.scala`,
+  `MetricRepositorySpec.scala` (both construct a `MetricPanel` fixture incidentally — `/api/metrics`
+  itself is untouched, only their panel fixture needs retargeting). Next cycle should fix these
+  two files first, then run the full suite and classify failures per HEL-924.
+
+### Cycle 16 addendum — schema-drift gate fix required to commit (task 5.4(a)/(b) piece)
+
+- `scripts/check-schema-drift.mjs` — the panel-type-enum arm-count guard's threshold moved from
+  `< 8` to `< 5` (the collapsed set's own final size), per the resume brief's explicit
+  authorization to do this minimal script fix inline rather than defer entirely to section 5.
+- `schemas/panels/bound-panel-request.schema.json`, `bound-panel-response.schema.json` — deleted
+  (their `BoundPanelRequest`/`BoundPanelResponse` case classes no longer exist).
+- `schemas/panels/create-panel-request.schema.json`, `panel.schema.json`,
+  `update-panels-batch-request.schema.json`, `schemas/dashboards/dashboard-proposal.schema.json` —
+  `type` enum lists narrowed to the 5-value set (dropped `metric`/`chart`/`table`/`collection`/
+  `timeline`). `panel.schema.json`'s per-kind `allOf` conditional `config` subschemas for the 5
+  retired kinds (`MetricConfig`/`ChartConfig`/etc.) are UNCHANGED — now permanently unreachable
+  dead branches (the `type` enum can never validate as those consts again) rather than deleted
+  outright; flagged as real schema-cleanup debt for a future cycle, not silently left unnoted.
+- `helio-mcp/src/tools/proposal.ts` — `PANEL_TYPES` narrowed to `text|markdown|image|output`
+  (agent-facing surface excludes `divider`, matching the pre-existing convention).
+- `helio-mcp/src/tools/proposalValidation.ts` — `DATA_PANEL_TYPES` retargeted `Set(["output"])`
+  (was the 5 old bound kinds); `METRIC_ID_SUPPORTED_TYPES` and its metricId-specific validation
+  logic UNCHANGED (not schema-drift-checked) — now dead/unreachable since no proposal panel type
+  can carry a functioning `metricId` anymore; flagged as cleanup debt, not silently left unnoted.
+- `frontend/src/features/proposals/ui/CombinedProposalReview.tsx`,
+  `frontend/src/features/dashboards/ui/ProposalReview.tsx` — `DATA_PANEL_TYPES` retargeted
+  `Set(["output"])` to match.
+- Verified fresh after this fix: `node scripts/check-schema-drift.mjs` clean (7 panel-type
+  surfaces checked), `sbt -batch compile` clean, `npm --prefix helio-mcp run typecheck` clean,
+  `npm --prefix frontend run typecheck` clean.

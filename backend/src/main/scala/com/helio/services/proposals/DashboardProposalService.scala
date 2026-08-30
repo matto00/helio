@@ -5,13 +5,9 @@ import com.helio.services.panels.PanelService
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
-import com.helio.api.protocols.panels.UpdatePanelRequest
-import com.helio.api.protocols.panels.PanelProtocol
-import com.helio.domain.model.{AuthenticatedUser, ChartAppearance, Dashboard, DashboardId, Panel}
-import com.helio.domain.panels.ChartPanel
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, Panel}
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.metrics.MetricRepository
-import spray.json.JsObject
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -42,9 +38,10 @@ final class DashboardProposalService(
     dashboardService: DashboardService,
     panelService: PanelService,
     dataTypeRepo: DataTypeRepository,
-    // HEL-549: mirrors PanelService's nullable-optional wiring convention
-    // (design.md D5) — only touched when a panel actually carries a
-    // metricId, so a test fixture that never sets one never exercises it.
+    // HEL-904 task 3.9: retained as an unused legacy constructor parameter
+    // (mirrors `PanelService.metricRepo`) rather than touching this class's
+    // 8 constructor call sites — metrics no longer exist, and
+    // `ProposalPanelSupport.preValidateBindings` no longer takes one.
     metricRepo: MetricRepository
 )(implicit ec: ExecutionContext) {
 
@@ -58,7 +55,7 @@ final class DashboardProposalService(
   def validate(proposal: DashboardProposal, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     validateStructure(proposal) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(_)  => ProposalPanelSupport.preValidateBindings(proposal.panels, user, dataTypeRepo, metricRepo)
+      case Right(_)  => ProposalPanelSupport.preValidateBindings(proposal.panels, user, dataTypeRepo)
     }
 
   def apply(
@@ -97,9 +94,10 @@ final class DashboardProposalService(
             // the caller's perspective, never existed.
             dashboardService.deleteInternal(dashboard.id, user).map(_ => Left(err))
           case Right(panels) =>
-            applyAppearance(proposal.panels, panels, user).flatMap { panelsWithAppearance =>
-              applyLayout(dashboard, proposal.panels, panelsWithAppearance, user).map(Right(_))
-            }
+            // HEL-904: the chart-panel appearance follow-up (`applyAppearance`)
+            // was removed here — `ChartPanel` no longer exists, so
+            // `created.kind == ChartPanel.Kind` could never fire again.
+            applyLayout(dashboard, proposal.panels, panels, user).map(Right(_))
         }
     }
 
@@ -145,83 +143,21 @@ final class DashboardProposalService(
     }
   }
 
-  /** True when the proposal panel carries at least one chart-appearance
-   *  field — the trigger for the best-effort follow-up below. */
-  private def hasChartAppearanceFields(panel: ProposalPanel): Boolean =
-    panel.chartType.isDefined || panel.xAxisLabel.isDefined ||
-    panel.yAxisLabel.isDefined || panel.seriesColors.isDefined
-
-  /** Overrides [[ChartAppearance.Default]] field-by-field with whatever the
-   *  proposal specifies. Only called after `validateStructure` has already
-   *  confirmed `chartType` (if set) is valid (Decision 6), so this performs
-   *  no validation of its own. */
-  private def buildChartAppearance(panel: ProposalPanel): ChartAppearance = {
-    val default = ChartAppearance.Default
-    default.copy(
-      chartType    = panel.chartType.orElse(default.chartType),
-      seriesColors = panel.seriesColors.getOrElse(default.seriesColors),
-      axisLabels = default.axisLabels.copy(
-        x = default.axisLabels.x.copy(label = panel.xAxisLabel.orElse(default.axisLabels.x.label)),
-        y = default.axisLabels.y.copy(label = panel.yAxisLabel.orElse(default.axisLabels.y.label))
-      )
-    )
-  }
-
-  /** Best-effort follow-up (Decision 2): for each created chart panel whose
-   *  proposal specifies at least one chart-appearance field, PATCH the
-   *  panel's appearance via the existing `PanelService.update`. Mirrors
-   *  `applyLayout`'s swallow-on-failure contract — the panel already exists,
-   *  so a failure here just leaves it with the default appearance rather than
-   *  rejecting the whole proposal. Performs NO validation: by the time this
-   *  runs, `chartType` has already been checked in `validateStructure`. */
-  private def applyAppearance(
-      proposalPanels: Vector[ProposalPanel],
-      createdPanels: Vector[Panel],
-      user: AuthenticatedUser
-  ): Future[Vector[Panel]] =
-    proposalPanels.zip(createdPanels).foldLeft(Future.successful(Vector.empty[Panel])) {
-      case (accF, (proposal, created)) =>
-        accF.flatMap { acc =>
-          if (created.kind == ChartPanel.Kind && hasChartAppearanceFields(proposal)) {
-            val appearance = buildChartAppearance(proposal)
-            // HEL-362: `appearance` is now a raw JsValue merge patch (mirroring
-            // `config`); background/color/transparency are omitted (absent =
-            // preserve, harmless here since the panel was just created with
-            // `PanelAppearance.Default`) and only `chart` is set, wholesale.
-            val request = UpdatePanelRequest(
-              title      = None,
-              appearance = Some(JsObject("chart" -> DashboardProposalServiceJson.chartAppearanceFormat.write(appearance))),
-              `type`     = None,
-              config     = None
-            )
-            panelService.update(created.id, request, user).map {
-              case Right(updated) => acc :+ updated
-              case Left(_)        => acc :+ created // appearance is cosmetic; panel already exists
-            }
-          } else Future.successful(acc :+ created)
-        }
-    }
 }
 
 object DashboardProposalService {
   // package-private (not `private`) so `ProposalPanelSupport` (HEL-363) can
-  // reference these without redefining them — see scripts/check-schema-drift.mjs,
+  // reference this without redefining it — see scripts/check-schema-drift.mjs,
   // which parses `DataPanelKinds` directly out of THIS file by name; keep the
   // constant here rather than moving it to ProposalPanelSupport.
-  private[services] val DataPanelKinds: Set[String] = Set("metric", "chart", "table", "collection", "timeline")
-  private[services] val MetricKind: String          = "metric"
-  private[services] val TimelineKind: String        = "timeline"
-  // HEL-549: the exact panel-type set HEL-500 added `metricId` support to on
-  // MetricPanelConfig/ChartPanelConfig/TablePanelConfig — collection/timeline
-  // never got a metricId slot, so a proposal panel of those types carrying a
-  // metricId is rejected by `preValidateBindings` rather than silently
-  // dropped (design.md D4).
-  private[services] val MetricIdSupportedKinds: Set[String] = Set("metric", "chart", "table")
+  //
+  // HEL-904 task 3.10: retargeted from the old five-visualization-kind
+  // enumeration to the ONE panel *kind* that requires an Output binding
+  // (round-4 finding — this is a live validation predicate, not a passive
+  // list; retargeting it to the wrong set would silently re-require
+  // `dataTypeId` on every proposal panel or silently stop requiring it on
+  // any). `MetricKind`/`TimelineKind`/`MetricIdSupportedKinds` (task 3.10a)
+  // were deleted outright along with the code paths they guarded — metrics,
+  // and the bound panel kinds that could carry a `metricId`, no longer exist.
+  private[services] val DataPanelKinds: Set[String] = Set("output")
 }
-
-/** Spray-JSON helper import surface for the service layer (mirrors
- *  `SourceConfigParsing`) — gives `applyAppearance` access to
- *  `chartAppearanceFormat` to serialize a domain `ChartAppearance` into the
- *  raw `JsValue` merge-patch shape `UpdatePanelRequest.appearance` now
- *  expects (HEL-362), without duplicating `PanelProtocol`'s field encoding. */
-private[services] object DashboardProposalServiceJson extends PanelProtocol

@@ -13,7 +13,8 @@ import "./CombinedProposalReview.css";
  *  Risk 1). Must never be resolved/displayed as a real DataType id. */
 const PIPELINE_OUTPUT_SENTINEL = "$pipelineOutput";
 
-const DATA_PANEL_TYPES = new Set(["metric", "chart", "table", "collection", "timeline"]);
+// HEL-904 task 3.10: retargeted to the one panel kind requiring an Output binding.
+const DATA_PANEL_TYPES = new Set(["output"]);
 
 function boundDataTypeLabel(panel: ProposalPanel): string | null {
   if (!DATA_PANEL_TYPES.has(panel.type)) return null;

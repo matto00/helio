@@ -58,7 +58,7 @@ final class DashboardContentsService(
         validatePanels(request.panels) match {
           case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
           case Right(_) =>
-            ProposalPanelSupport.preValidateBindings(request.panels, user, dataTypeRepo, metricRepo).flatMap {
+            ProposalPanelSupport.preValidateBindings(request.panels, user, dataTypeRepo).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_)  => buildAndReplace(dashboardId, request.panels, user)
             }

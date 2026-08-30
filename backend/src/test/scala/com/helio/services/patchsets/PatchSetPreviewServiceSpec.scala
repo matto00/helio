@@ -219,11 +219,13 @@ class PatchSetPreviewServiceSpec
     await(dashboardService.create(DashboardService.CreateDashboardInput(Some(name)), owner))._1
 
   private def seedPanel(dashboardId: DashboardId, owner: AuthenticatedUser, title: String = "Panel"): Panel =
-    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("metric"), None), owner)) match {
+    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("divider"), None), owner)) match {
       case Right(p) => p
       case Left(e)  => fail(s"seedPanel failed: $e")
     }
 
+  // HEL-904: renamed conceptually from "MetricPanelBoundTo" -- Text is now
+  // the only remaining panel kind with a real `dataTypeId` binding.
   private def seedMetricPanelBoundTo(
       dashboardId: DashboardId,
       owner: AuthenticatedUser,
@@ -231,26 +233,12 @@ class PatchSetPreviewServiceSpec
       title: String = "Bound panel"
   ): Panel = {
     val config = JsObject("dataTypeId" -> JsString(dataTypeId.value))
-    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("metric"), Some(config)), owner)) match {
+    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("text"), Some(config)), owner)) match {
       case Right(p) => p
       case Left(e)  => fail(s"seedMetricPanelBoundTo failed: $e")
     }
   }
-
-  private def seedChartPanel(
-      dashboardId: DashboardId,
-      owner: AuthenticatedUser,
-      chartType: String,
-      aggregation: Option[JsObject],
-      title: String = "Chart panel"
-  ): Panel = {
-    val config = aggregation.map(a => JsObject("aggregation" -> a))
-    val appearance = PanelAppearancePayload(None, None, None, Some(ChartAppearance.Default.copy(chartType = Some(chartType))))
-    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("chart"), config, Some(appearance)), owner)) match {
-      case Right(p) => p
-      case Left(e)  => fail(s"seedChartPanel failed: $e")
-    }
-  }
+  // HEL-904: `seedChartPanel` removed -- ChartPanel no longer exists.
 
   private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): (DataSourceId, DataTypeId) = {
     val ds = await(dataSourceService.createStatic(
@@ -373,7 +361,7 @@ class PatchSetPreviewServiceSpec
       val createPatch = JsObject(
         "dashboardId" -> JsString(dashboard.id.value),
         "title"       -> JsString("New panel"),
-        "type"        -> JsString("metric")
+        "type"        -> JsString("divider")
       )
       val edits = Vector(
         Edit(EditTarget("panel", None), "create", None, None, None, None, None, None, Some(createPatch)),
@@ -445,18 +433,7 @@ class PatchSetPreviewServiceSpec
       }
     }
 
-    "reject a panel-update edit combining chartType scatter with a set aggregation, matching PanelService.validateScatterAggregationConflict (6.4b)" in {
-      val dashboard = seedDashboard(userA)
-      val panel     = seedChartPanel(dashboard.id, userA, "bar", aggregation = Some(JsObject("op" -> JsString("sum"))))
-      val patch = JsObject("chart" -> JsObject("chartType" -> JsString("scatter")))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, Some(patch), None, None)), None, None, None, None, None, None)
-
-      preview(Vector(edit), userA) match {
-        case Left(ServiceError.BadRequest(msg)) => msg should include("aggregation is not supported for scatter charts")
-        case other                                => fail(s"expected BadRequest, got $other")
-      }
-    }
+    // HEL-904: scatter/aggregation conflict check (6.4b) removed -- ChartPanel no longer exists.
 
     "reject a pipeline-rename edit with a blank name, matching PipelineService.updateName (6.4c)" in {
       val (sourceId, _) = seedStaticSource(userA, "Pipeline source")

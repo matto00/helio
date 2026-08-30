@@ -74,7 +74,7 @@ class PanelServiceCompanionBindingGuardSpec extends AnyWordSpec with Matchers {
       val request = CreatePanelRequest(
         dashboardId = Some(dashId.value),
         title       = Some("Metric"),
-        `type`      = Some(MetricPanel.Kind),
+        `type`      = Some(TextPanel.Kind),
         config      = Some(JsObject("dataTypeId" -> JsString(companionTypeId.value)))
       )
 
@@ -94,7 +94,7 @@ class PanelServiceCompanionBindingGuardSpec extends AnyWordSpec with Matchers {
       val request = CreatePanelRequest(
         dashboardId = Some(dashId.value),
         title       = Some("Metric"),
-        `type`      = Some(MetricPanel.Kind),
+        `type`      = Some(TextPanel.Kind),
         config      = Some(JsObject("dataTypeId" -> JsString(outputTypeId.value)))
       )
 
@@ -177,8 +177,8 @@ class PanelServiceCompanionBindingGuardSpec extends AnyWordSpec with Matchers {
 
   "PanelService.update" should {
 
-    def existingMetricPanel(typeId: DataTypeId): MetricPanel =
-      MetricPanel(PanelId("p-1"), dashId, "Metric", meta, appearance, ownerId, MetricPanelConfig(typeId, JsObject.empty))
+    def existingMetricPanel(typeId: DataTypeId): TextPanel =
+      TextPanel(PanelId("p-1"), dashId, "Metric", meta, appearance, ownerId, TextPanelConfig("c", typeId, JsObject.empty))
 
     "reject with 400 when the PATCH re-binds to a companion DataType" in {
       val dtRepo    = mock(classOf[DataTypeRepository])

@@ -25,17 +25,7 @@ import { computeProposalWarnings } from "./proposalValidation.js";
 // on other paths, this tool just no longer offers it.
 // Exported so `replace_dashboard_contents` (write.ts, HEL-363) can reuse the
 // exact same agent-facing panel-type set instead of redefining it.
-export const PANEL_TYPES = [
-  "metric",
-  "chart",
-  "table",
-  "text",
-  "markdown",
-  "image",
-  "collection",
-  "timeline",
-  "output",
-] as const;
+export const PANEL_TYPES = ["text", "markdown", "image", "output"] as const;
 
 const layoutSchema = z.object({
   x: z.number().int().nonnegative(),

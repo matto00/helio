@@ -37,9 +37,9 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
   private val user      = AuthenticatedUser(ownerId)
   private val appearance = PanelAppearance.Default
 
-  private def metricPanel(id: String, typeId: DataTypeId): MetricPanel =
-    MetricPanel(PanelId(id), dashId, "t", meta, appearance, ownerId,
-      MetricPanelConfig(typeId, JsObject.empty))
+  private def typedTextPanel(id: String, typeId: DataTypeId): TextPanel =
+    TextPanel(PanelId(id), dashId, "t", meta, appearance, ownerId,
+      TextPanelConfig("c", typeId, JsObject.empty))
 
   private def textPanel(id: String): TextPanel =
     TextPanel(PanelId(id), dashId, "t", meta, appearance, ownerId, TextPanelConfig.Empty)
@@ -70,8 +70,8 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
         .thenReturn(Future.successful(Map(typeId1 -> dt1)))
 
       val panels = Vector(
-        metricPanel("p-1", typeId1),
-        metricPanel("p-2", typeId2),
+        typedTextPanel("p-1", typeId1),
+        typedTextPanel("p-2", typeId2),
         textPanel("p-3")
       )
 
@@ -80,7 +80,7 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
       verify(dtRepo, times(1)).findByIdsOwned(any[Seq[DataTypeId]], any[AuthenticatedUser])
       result(0).dataTypeId shouldBe Some(typeId1)
       result(1).dataTypeId shouldBe None
-      result(2).isInstanceOf[TextPanel] shouldBe true
+      result(2).isInstanceOf[TextPanel] shouldBe true // p-3 (untyped textPanel)
     }
 
     "short-circuit without any DB call when no panels carry a typeId" in {
@@ -103,7 +103,7 @@ class PanelServiceResolveBindingsSpec extends AnyWordSpec with Matchers {
       val service       = new PanelService(panelRepo, dtRepo, stubAccess, dashboardRepo, mock(classOf[MetricRepository]))
 
       val typeId = DataTypeId(UUID.randomUUID().toString)
-      val panels = Vector(metricPanel("p-1", typeId), textPanel("p-2"))
+      val panels = Vector(typedTextPanel("p-1", typeId), textPanel("p-2"))
 
       val result = await(service.resolveBindingsForRead(panels, None))
 

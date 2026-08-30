@@ -40,12 +40,8 @@ private[services] object PatchSetUndoInverse {
    *  `PatchSetUndoInverseSpec` (tasks.md 5.2) is the regression test guarding against the two
    *  implementations drifting apart the way HEL-406's own final gate caught once already. */
   private def optionalConfigFieldNames(kind: String): Set[String] = kind match {
-    case MetricPanel.Kind     => Set("aggregation", "label", "unit", "metricId")
-    case ChartPanel.Kind      => Set("aggregation", "chartOptions", "annotation", "metricId")
-    case TablePanel.Kind      => Set("density", "columnOrder", "metricId")
     case ImagePanel.Kind      => Set("caption")
     case DividerPanel.Kind    => Set("weight", "color")
-    case CollectionPanel.Kind => Set("itemOptions")
     case _                    => Set.empty
   }
 

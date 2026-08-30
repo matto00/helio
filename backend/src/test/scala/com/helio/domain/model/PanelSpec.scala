@@ -1,6 +1,5 @@
 package com.helio.domain.model
 
-import com.helio.domain.model.{ChartAppearance, MetricId}
 import com.helio.domain.model.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelId, PanelKind, ResourceMeta, UserId}
 import com.helio.domain.panels._
 import org.scalatest.matchers.should.Matchers
@@ -9,12 +8,20 @@ import spray.json._
 
 import java.time.Instant
 
+
 /** Spec for the per-file `Panel` ADT introduced in CS2c-3b cycle 1.
  *
  *  Mirrors the structure of `PipelineStepSpec`: Registry parity,
  *  per-subtype `kind` correctness, polymorphic-method behavior, and the
  *  exhaustiveness pattern-match that catches new subtypes added to the
- *  registry without test surface updates. */
+ *  registry without test surface updates.
+ *
+ *  HEL-904 task 3.6: the bound trio + Collection + Timeline sections
+ *  (MetricPanelConfig/ChartPanelConfig/TablePanelConfig/CollectionPanelConfig/
+ *  TimelinePanelConfig aggregation, metricId, chartOptions, annotation,
+ *  columnWidths/density/columnOrder, and their PanelConfigCodec dispatch
+ *  tests) were deleted outright along with the subtypes themselves -- the
+ *  panel-kind set collapsed to output|text|markdown|image|divider. */
 class PanelSpec extends AnyWordSpec with Matchers {
 
   private val now = Instant.parse("2026-05-16T00:00:00Z")
@@ -24,14 +31,8 @@ class PanelSpec extends AnyWordSpec with Matchers {
   private val appearance  = PanelAppearance.Default
   private val owner       = UserId("u")
 
-  // ── Per-subtype factory helpers ────────────────────────────────────────────
+  // -- Per-subtype factory helpers --------------------------------------------
 
-  private def metric(cfg: MetricPanelConfig = MetricPanelConfig.Empty): MetricPanel =
-    MetricPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
-  private def chart(cfg: ChartPanelConfig = ChartPanelConfig.Empty): ChartPanel =
-    ChartPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
-  private def table(cfg: TablePanelConfig = TablePanelConfig.Empty): TablePanel =
-    TablePanel(id, dashboardId, "t", meta, appearance, owner, cfg)
   private def text(cfg: TextPanelConfig = TextPanelConfig.Empty): TextPanel =
     TextPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
   private def md(cfg: MarkdownPanelConfig = MarkdownPanelConfig.Empty): MarkdownPanel =
@@ -40,37 +41,25 @@ class PanelSpec extends AnyWordSpec with Matchers {
     ImagePanel(id, dashboardId, "t", meta, appearance, owner, cfg)
   private def divider(cfg: DividerPanelConfig = DividerPanelConfig.Empty): DividerPanel =
     DividerPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
-  private def collection(cfg: CollectionPanelConfig = CollectionPanelConfig.Empty): CollectionPanel =
-    CollectionPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
-  private def timeline(cfg: TimelinePanelConfig = TimelinePanelConfig.Empty): TimelinePanel =
-    TimelinePanel(id, dashboardId, "t", meta, appearance, owner, cfg)
+  private def output(cfg: OutputPanelConfig = OutputPanelConfig.Empty): OutputPanel =
+    OutputPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
 
   "Panel.Registry" should {
-    "be the single source of truth for all 10 panel kinds" in {
+    "be the single source of truth for all 5 panel kinds" in {
       Panel.Registry.keySet shouldBe Set(
-        MetricPanel.Kind,
-        ChartPanel.Kind,
-        TablePanel.Kind,
         TextPanel.Kind,
         MarkdownPanel.Kind,
         ImagePanel.Kind,
         DividerPanel.Kind,
-        CollectionPanel.Kind,
-        TimelinePanel.Kind,
         OutputPanel.Kind
       )
     }
 
     "expose canonical kind strings" in {
-      MetricPanel.Kind     shouldBe "metric"
-      ChartPanel.Kind      shouldBe "chart"
-      TablePanel.Kind      shouldBe "table"
       TextPanel.Kind       shouldBe "text"
       MarkdownPanel.Kind   shouldBe "markdown"
       ImagePanel.Kind      shouldBe "image"
       DividerPanel.Kind    shouldBe "divider"
-      CollectionPanel.Kind shouldBe "collection"
-      TimelinePanel.Kind   shouldBe "timeline"
       OutputPanel.Kind     shouldBe "output"
     }
   }
@@ -81,67 +70,50 @@ class PanelSpec extends AnyWordSpec with Matchers {
     }
 
     "parse known kinds and reject unknown" in {
-      PanelKind.parseKind("metric") shouldBe Right("metric")
+      PanelKind.parseKind("output") shouldBe Right("output")
       PanelKind.parseKind("nope").isLeft shouldBe true
     }
   }
 
   "Each subtype" should {
     "expose its registered kind via the trait" in {
-      val all: Seq[Panel] = Seq(metric(), chart(), table(), text(), md(), img(), divider())
+      val all: Seq[Panel] = Seq(text(), md(), img(), divider(), output())
       all.foreach { p =>
         Panel.Registry.contains(p.kind) shouldBe true
         Panel.Registry(p.kind).kind shouldBe p.kind
       }
     }
 
-    "dispatch dataTypeId correctly (bound-capable subtypes → Some, others → None)" in {
-      // HEL-244 — Text joins the bound-capable set alongside metric/chart/table.
-      metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty)).dataTypeId shouldBe Some(DataTypeId("dt1"))
-      chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty)).dataTypeId   shouldBe Some(DataTypeId("dt1"))
-      table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty)).dataTypeId   shouldBe Some(DataTypeId("dt1"))
+    "dispatch dataTypeId correctly (bound-capable subtypes -> Some, others -> None)" in {
       text(TextPanelConfig("hi", DataTypeId("dt1"), JsObject.empty)).dataTypeId shouldBe Some(DataTypeId("dt1"))
-      // HEL-245 — Markdown joins the bound-capable set alongside Text.
       md(MarkdownPanelConfig("hi", DataTypeId("dt1"), JsObject.empty)).dataTypeId shouldBe Some(DataTypeId("dt1"))
-      // Empty dataTypeId on bound-capable subtype reads as None (cycle-1 read-path tolerance)
-      metric().dataTypeId shouldBe None
       text().dataTypeId      shouldBe None
       md().dataTypeId        shouldBe None
       img().dataTypeId       shouldBe None
       divider().dataTypeId   shouldBe None
+      // OutputPanel never has a meaning for the legacy dataTypeId accessor.
+      output().dataTypeId    shouldBe None
     }
 
     "build a query for bound-capable subtypes only" in {
-      metric(MetricPanelConfig(DataTypeId("dt1"), JsObject("a" -> JsString("b")))).buildQuery shouldBe defined
-      chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty)).buildQuery shouldBe defined
-      table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty)).buildQuery shouldBe defined
-      // HEL-244 — a bound Text panel builds a query too.
       text(TextPanelConfig("hi", DataTypeId("dt1"), JsObject("content" -> JsString("headline")))).buildQuery shouldBe defined
-      // HEL-245 — a bound Markdown panel builds a query too.
       md(MarkdownPanelConfig("hi", DataTypeId("dt1"), JsObject("content" -> JsString("body")))).buildQuery shouldBe defined
-      // Unbound subtypes always return None
       text().buildQuery     shouldBe None
       md().buildQuery       shouldBe None
       img().buildQuery      shouldBe None
       divider().buildQuery  shouldBe None
-      // Metric with empty dataTypeId also returns None (cycle-1 tolerance)
-      metric().buildQuery shouldBe None
-    }
-
-    "build the correct selected fields from the field mapping" in {
-      val mapping = JsObject("slot1" -> JsString("colA"), "slot2" -> JsString("colB"))
-      val q       = metric(MetricPanelConfig(DataTypeId("dt1"), mapping)).buildQuery.get
-      q.selectedFields should contain theSameElementsAs List("colA", "colB")
+      // OutputPanel data comes from NodeSnapshotRepository/OutputRepository, not
+      // the DataTypeId-keyed PanelQuery path.
+      output().buildQuery   shouldBe None
     }
 
     "expose validateConfig per subtype" in {
-      metric().validateConfig shouldBe Right(())
-      chart().validateConfig  shouldBe Right(())
-      table().validateConfig  shouldBe Right(())
       text().validateConfig   shouldBe Right(())
       md().validateConfig     shouldBe Right(())
       img().validateConfig    shouldBe Right(())
       divider().validateConfig shouldBe Right(())
+      output(OutputPanelConfig(OutputId("out-1"))).validateConfig shouldBe Right(())
+      output().validateConfig.isLeft shouldBe true // empty outputId is invalid
 
       // DividerPanel.weight invariant: must be positive if present.
       divider(DividerPanelConfig("horizontal", Some(0), None)).validateConfig.isLeft shouldBe true
@@ -150,16 +122,19 @@ class PanelSpec extends AnyWordSpec with Matchers {
     }
 
     "clear bindings only for bound subtypes" in {
-      val bound = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty))
-      bound.withBindingCleared.asInstanceOf[MetricPanel].config.dataTypeId.value shouldBe ""
+      val bound = text(TextPanelConfig("hi", DataTypeId("dt1"), JsObject.empty))
+      bound.withBindingCleared.asInstanceOf[TextPanel].config.dataTypeId.value shouldBe ""
 
       val image = img(ImagePanelConfig("http://example.com/x.png", "cover"))
       image.withBindingCleared shouldBe image
+
+      val out = output(OutputPanelConfig(OutputId("out-1")))
+      out.withBindingCleared.asInstanceOf[OutputPanel].config.outputId.value shouldBe ""
     }
 
-    // HEL-244 design.md Decision 1 — Text's withBindingCleared diverges from
-    // Metric's blanket-Empty reset: it clears only dataTypeId/fieldMapping,
-    // preserving literal content (Metric's equivalent wipes label/unit too).
+    // HEL-244 design.md Decision 1 -- Text's withBindingCleared diverges from
+    // a blanket-Empty reset: it clears only dataTypeId/fieldMapping,
+    // preserving literal content.
     "preserve literal content when clearing a Text panel's binding (Decision 1 divergence)" in {
       val bound = text(TextPanelConfig("Hello world", DataTypeId("dt1"), JsObject("content" -> JsString("headline"))))
       val cleared = bound.withBindingCleared.asInstanceOf[TextPanel]
@@ -171,18 +146,16 @@ class PanelSpec extends AnyWordSpec with Matchers {
 
   "Per-subtype JSON config decode" should {
     "be tolerant of missing fields" in {
-      MetricPanelConfig.decode(JsObject.empty)   shouldBe MetricPanelConfig.Empty
-      ChartPanelConfig.decode(JsObject.empty)    shouldBe ChartPanelConfig.Empty
-      TablePanelConfig.decode(JsObject.empty)    shouldBe TablePanelConfig.Empty
       TextPanelConfig.decode(JsObject.empty)     shouldBe TextPanelConfig.Empty
       MarkdownPanelConfig.decode(JsObject.empty) shouldBe MarkdownPanelConfig.Empty
       ImagePanelConfig.decode(JsObject.empty)    shouldBe ImagePanelConfig.Empty
       DividerPanelConfig.decode(JsObject.empty)  shouldBe DividerPanelConfig.Empty
+      OutputPanelConfig.decode(JsObject.empty)   shouldBe OutputPanelConfig.Empty
     }
 
     "round-trip via the per-subtype format" in {
-      val cfg     = MetricPanelConfig(DataTypeId("dt1"), JsObject("a" -> JsString("b")))
-      val decoded = MetricPanelConfig.decode(cfg.toJson)
+      val cfg     = OutputPanelConfig(OutputId("out-1"))
+      val decoded = OutputPanelConfig.decode(cfg.toJson)
       decoded shouldBe cfg
     }
 
@@ -195,472 +168,6 @@ class PanelSpec extends AnyWordSpec with Matchers {
       cfg shouldBe DividerPanelConfig("vertical", Some(2), Some("#abcdef"))
     }
   }
-
-  // ── HEL-292: MetricPanelConfig / ChartPanelConfig aggregation wiring ───────
-
-  "MetricPanelConfig.aggregation" should {
-    val agg = JsObject("value" -> JsString("rating"), "agg" -> JsString("avg"))
-
-    "default to None when absent" in {
-      MetricPanelConfig.decode(JsObject.empty).aggregation shouldBe None
-    }
-
-    "decode a present aggregation object" in {
-      val decoded = MetricPanelConfig.decode(JsObject(
-        "dataTypeId" -> JsString("dt1"),
-        "aggregation" -> agg
-      ))
-      decoded.aggregation shouldBe Some(agg)
-    }
-
-    "round-trip via the per-subtype format (jsonFormat3)" in {
-      val cfg     = MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg))
-      val decoded = MetricPanelConfig.decode(cfg.toJson)
-      decoded shouldBe cfg
-    }
-
-    "Patch.decode: absent key leaves aggregation untouched (outer None)" in {
-      MetricPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).aggregation shouldBe None
-    }
-
-    "Patch.decode: explicit null clears aggregation (Some(None))" in {
-      MetricPanelConfig.Patch.decode(JsObject("aggregation" -> JsNull)).aggregation shouldBe Some(None)
-    }
-
-    "Patch.decode: present object sets aggregation (Some(Some(v)))" in {
-      MetricPanelConfig.Patch.decode(JsObject("aggregation" -> agg)).aggregation shouldBe Some(Some(agg))
-    }
-
-    "applyPatch: absent key preserves the existing aggregation" in {
-      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg)))
-      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None))
-      patched.config.aggregation shouldBe Some(agg)
-    }
-
-    "applyPatch: explicit null clears a previously-set aggregation" in {
-      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg)))
-      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, Some(None)))
-      patched.config.aggregation shouldBe None
-    }
-
-    "applyPatch: present object sets aggregation" in {
-      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None))
-      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, Some(Some(agg))))
-      patched.config.aggregation shouldBe Some(agg)
-    }
-  }
-
-  // ── HEL-293: MetricPanelConfig literal label/unit override ─────────────────
-
-  "MetricPanelConfig.label/unit" should {
-    "default to None when absent" in {
-      val decoded = MetricPanelConfig.decode(JsObject.empty)
-      decoded.label shouldBe None
-      decoded.unit shouldBe None
-    }
-
-    "decode present label/unit strings" in {
-      val decoded = MetricPanelConfig.decode(JsObject(
-        "dataTypeId" -> JsString("dt1"),
-        "label"      -> JsString("Total Revenue"),
-        "unit"       -> JsString("USD")
-      ))
-      decoded.label shouldBe Some("Total Revenue")
-      decoded.unit shouldBe Some("USD")
-    }
-
-    "round-trip via the per-subtype format (jsonFormat5)" in {
-      val cfg     = MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some("Total Revenue"), Some("USD"))
-      val decoded = MetricPanelConfig.decode(cfg.toJson)
-      decoded shouldBe cfg
-    }
-
-    "Patch.decode: absent key leaves label/unit untouched (outer None)" in {
-      val patch = MetricPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1")))
-      patch.label shouldBe None
-      patch.unit shouldBe None
-    }
-
-    "Patch.decode: explicit null clears label/unit (Some(None))" in {
-      val patch = MetricPanelConfig.Patch.decode(JsObject("label" -> JsNull, "unit" -> JsNull))
-      patch.label shouldBe Some(None)
-      patch.unit shouldBe Some(None)
-    }
-
-    "Patch.decode: present string sets label/unit (Some(Some(v)))" in {
-      val patch = MetricPanelConfig.Patch.decode(JsObject(
-        "label" -> JsString("Total Revenue"),
-        "unit"  -> JsString("USD")
-      ))
-      patch.label shouldBe Some(Some("Total Revenue"))
-      patch.unit shouldBe Some(Some("USD"))
-    }
-
-    "applyPatch: absent key preserves the existing label/unit" in {
-      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some("Total Revenue"), Some("USD")))
-      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, None, None))
-      patched.config.label shouldBe Some("Total Revenue")
-      patched.config.unit shouldBe Some("USD")
-    }
-
-    "applyPatch: explicit null clears a previously-set label/unit" in {
-      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some("Total Revenue"), Some("USD")))
-      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, Some(None), Some(None)))
-      patched.config.label shouldBe None
-      patched.config.unit shouldBe None
-    }
-
-    "applyPatch: present string sets label/unit" in {
-      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None))
-      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, Some(Some("Total Revenue")), Some(Some("USD"))))
-      patched.config.label shouldBe Some("Total Revenue")
-      patched.config.unit shouldBe Some("USD")
-    }
-  }
-
-  // ── HEL-500: metricId decode/decodeCreate/Patch/applyPatch round-trips ─────
-  // (T.1) — absent/null/set for Metric/Chart/Table bound-trio configs.
-
-  "MetricPanelConfig.metricId" should {
-    "default to None when absent" in {
-      MetricPanelConfig.decode(JsObject.empty).metricId shouldBe None
-      MetricPanelConfig.decodeCreate(JsObject.empty).metricId shouldBe None
-    }
-
-    "decode a present metricId string" in {
-      val decoded = MetricPanelConfig.decode(JsObject("metricId" -> JsString("m-1")))
-      decoded.metricId shouldBe Some(MetricId("m-1"))
-    }
-
-    "round-trip via the per-subtype format (jsonFormat6)" in {
-      val cfg     = MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None, Some(MetricId("m-1")))
-      val decoded = MetricPanelConfig.decode(cfg.toJson)
-      decoded shouldBe cfg
-    }
-
-    "Patch.decode: absent key leaves metricId untouched (outer None)" in {
-      MetricPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).metricId shouldBe None
-    }
-
-    "Patch.decode: explicit null clears metricId (Some(None))" in {
-      MetricPanelConfig.Patch.decode(JsObject("metricId" -> JsNull)).metricId shouldBe Some(None)
-    }
-
-    "Patch.decode: present string sets metricId (Some(Some(v)))" in {
-      MetricPanelConfig.Patch.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(Some(MetricId("m-1")))
-    }
-
-    "applyPatch: absent key preserves the existing metricId" in {
-      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None, Some(MetricId("m-1"))))
-      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, None, None, None))
-      patched.config.metricId shouldBe Some(MetricId("m-1"))
-    }
-
-    "applyPatch: explicit null clears a previously-set metricId" in {
-      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None, Some(MetricId("m-1"))))
-      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, None, None, Some(None)))
-      patched.config.metricId shouldBe None
-    }
-
-    "applyPatch: present string sets metricId" in {
-      val existing = metric(MetricPanelConfig(DataTypeId("dt1"), JsObject.empty))
-      val patched   = existing.applyPatch(MetricPanelConfig.Patch(None, None, None, None, None, Some(Some(MetricId("m-1")))))
-      patched.config.metricId shouldBe Some(MetricId("m-1"))
-    }
-  }
-
-  "ChartPanelConfig.metricId" should {
-    "default to None when absent" in {
-      ChartPanelConfig.decode(JsObject.empty).metricId shouldBe None
-    }
-
-    "decode a present metricId string" in {
-      ChartPanelConfig.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(MetricId("m-1"))
-    }
-
-    "round-trip via the per-subtype format (jsonFormat6)" in {
-      val cfg     = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, None, Some(MetricId("m-1")))
-      val decoded = ChartPanelConfig.decode(cfg.toJson)
-      decoded shouldBe cfg
-    }
-
-    "Patch.decode: absent/null/present metricId" in {
-      ChartPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).metricId shouldBe None
-      ChartPanelConfig.Patch.decode(JsObject("metricId" -> JsNull)).metricId shouldBe Some(None)
-      ChartPanelConfig.Patch.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(Some(MetricId("m-1")))
-    }
-
-    "applyPatch: fold metricId patch into the rebuilt config" in {
-      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty))
-      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, None, Some(Some(MetricId("m-1")))))
-      patched.config.metricId shouldBe Some(MetricId("m-1"))
-
-      val cleared = patched.applyPatch(ChartPanelConfig.Patch(None, None, None, None, None, Some(None)))
-      cleared.config.metricId shouldBe None
-    }
-  }
-
-  "TablePanelConfig.metricId" should {
-    "default to None when absent" in {
-      TablePanelConfig.decode(JsObject.empty).metricId shouldBe None
-    }
-
-    "decode a present metricId string" in {
-      TablePanelConfig.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(MetricId("m-1"))
-    }
-
-    "round-trip via the per-subtype format (jsonFormat6)" in {
-      val cfg     = TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty, None, None, Some(MetricId("m-1")))
-      val decoded = TablePanelConfig.decode(cfg.toJson)
-      decoded shouldBe cfg
-    }
-
-    "Patch.decode: absent/null/present metricId" in {
-      TablePanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).metricId shouldBe None
-      TablePanelConfig.Patch.decode(JsObject("metricId" -> JsNull)).metricId shouldBe Some(None)
-      TablePanelConfig.Patch.decode(JsObject("metricId" -> JsString("m-1"))).metricId shouldBe Some(Some(MetricId("m-1")))
-    }
-
-    "applyPatch: fold metricId patch into the rebuilt config" in {
-      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, None, None, None, Some(Some(MetricId("m-1")))))
-      patched.config.metricId shouldBe Some(MetricId("m-1"))
-
-      val cleared = patched.applyPatch(TablePanelConfig.Patch(None, None, None, None, None, Some(None)))
-      cleared.config.metricId shouldBe None
-    }
-  }
-
-  // ── HEL-624: ChartPanel.rejectsAggregation / validateConfig ─────────────────
-
-  "ChartPanel.rejectsAggregation" should {
-    "reject scatter + a present aggregation" in {
-      ChartPanel.rejectsAggregation(Some("scatter"), aggregationPresent = true) shouldBe defined
-    }
-
-    "allow scatter + no aggregation" in {
-      ChartPanel.rejectsAggregation(Some("scatter"), aggregationPresent = false) shouldBe None
-    }
-
-    "allow pie + a present aggregation" in {
-      ChartPanel.rejectsAggregation(Some("pie"), aggregationPresent = true) shouldBe None
-    }
-
-    "allow bar + a present aggregation" in {
-      ChartPanel.rejectsAggregation(Some("bar"), aggregationPresent = true) shouldBe None
-    }
-
-    "allow line + a present aggregation" in {
-      ChartPanel.rejectsAggregation(Some("line"), aggregationPresent = true) shouldBe None
-    }
-
-    "allow an absent chartType + a present aggregation" in {
-      ChartPanel.rejectsAggregation(None, aggregationPresent = true) shouldBe None
-    }
-  }
-
-  "ChartPanel.validateConfig" should {
-    val agg = JsObject("groupBy" -> JsString("year"), "agg" -> JsString("avg"), "yField" -> JsString("rating"))
-
-    def chartWithType(chartType: Option[String], aggregation: Option[JsObject]): ChartPanel =
-      ChartPanel(
-        id, dashboardId, "t", meta,
-        appearance = PanelAppearance.Default.copy(chart = Some(ChartAppearance.Default.copy(chartType = chartType))),
-        owner,
-        ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, aggregation)
-      )
-
-    "reject a scatter chart with a present aggregation" in {
-      chartWithType(Some("scatter"), Some(agg)).validateConfig.isLeft shouldBe true
-    }
-
-    "accept a scatter chart with no aggregation" in {
-      chartWithType(Some("scatter"), None).validateConfig shouldBe Right(())
-    }
-
-    "accept a pie chart with a present aggregation" in {
-      chartWithType(Some("pie"), Some(agg)).validateConfig shouldBe Right(())
-    }
-
-    "accept a bar chart with a present aggregation" in {
-      chartWithType(Some("bar"), Some(agg)).validateConfig shouldBe Right(())
-    }
-
-    "accept a line chart with a present aggregation" in {
-      chartWithType(Some("line"), Some(agg)).validateConfig shouldBe Right(())
-    }
-  }
-
-  "ChartPanelConfig.aggregation" should {
-    val agg = JsObject(
-      "groupBy" -> JsString("year"),
-      "agg"     -> JsString("avg"),
-      "yField"  -> JsString("rating")
-    )
-
-    "default to None when absent" in {
-      ChartPanelConfig.decode(JsObject.empty).aggregation shouldBe None
-    }
-
-    "decode a present aggregation object" in {
-      val decoded = ChartPanelConfig.decode(JsObject(
-        "dataTypeId" -> JsString("dt1"),
-        "aggregation" -> agg
-      ))
-      decoded.aggregation shouldBe Some(agg)
-    }
-
-    "round-trip via the per-subtype format (jsonFormat4)" in {
-      val cfg     = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg))
-      val decoded = ChartPanelConfig.decode(cfg.toJson)
-      decoded shouldBe cfg
-    }
-
-    "Patch.decode: absent key leaves aggregation untouched (outer None)" in {
-      ChartPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).aggregation shouldBe None
-    }
-
-    "Patch.decode: explicit null clears aggregation (Some(None))" in {
-      ChartPanelConfig.Patch.decode(JsObject("aggregation" -> JsNull)).aggregation shouldBe Some(None)
-    }
-
-    "Patch.decode: present object sets aggregation (Some(Some(v)))" in {
-      ChartPanelConfig.Patch.decode(JsObject("aggregation" -> agg)).aggregation shouldBe Some(Some(agg))
-    }
-
-    "applyPatch: explicit null clears a previously-set aggregation" in {
-      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, Some(agg)))
-      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(None), None, None))
-      patched.config.aggregation shouldBe None
-    }
-
-    "applyPatch: present object sets aggregation" in {
-      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None))
-      val patched   = existing.applyPatch(ChartPanelConfig.Patch(None, None, Some(Some(agg)), None, None))
-      patched.config.aggregation shouldBe Some(agg)
-    }
-  }
-
-  // ── HEL-248: ChartPanelConfig.chartOptions per-chart-type display config ────
-
-  "ChartPanelConfig.chartOptions" should {
-    val opts = ChartOptions(
-      line    = Some(LineChartOptions(smooth = Some(true), showPoints = Some(false), areaFill = Some(true))),
-      bar     = Some(BarChartOptions(orientation = Some("horizontal"), stacking = Some("stacked"), barGapPct = Some(20))),
-      pie     = Some(PieChartOptions(donutHolePct = Some(50), showPercentLabels = Some(true))),
-      scatter = Some(ScatterChartOptions(sizeField = Some("population"), colorField = Some("region")))
-    )
-
-    "default to None when the field is ABSENT (spray-json None-omission)" in {
-      ChartPanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1"))).chartOptions shouldBe None
-    }
-
-    "decode a present per-type-keyed chartOptions object" in {
-      val decoded = ChartPanelConfig.decode(JsObject(
-        "dataTypeId"   -> JsString("dt1"),
-        "chartOptions" -> opts.toJson
-      ))
-      decoded.chartOptions shouldBe Some(opts)
-    }
-
-    "normalize an empty chartOptions object to None" in {
-      ChartPanelConfig.decode(JsObject("chartOptions" -> JsObject.empty)).chartOptions shouldBe None
-    }
-
-    "lenient decode: an unknown stacking is dropped to None (stored-row tolerance)" in {
-      val decoded = ChartPanelConfig.decode(JsObject(
-        "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("sideways")))
-      ))
-      decoded.chartOptions shouldBe None
-    }
-
-    "lenient decode: an out-of-range donutHolePct is dropped to None" in {
-      val decoded = ChartPanelConfig.decode(JsObject(
-        "chartOptions" -> JsObject("pie" -> JsObject("donutHolePct" -> JsNumber(150)))
-      ))
-      decoded.chartOptions shouldBe None
-    }
-
-    "round-trip via the per-subtype format (jsonFormat4)" in {
-      val cfg     = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts))
-      val decoded = ChartPanelConfig.decode(cfg.toJson)
-      decoded shouldBe cfg
-    }
-
-    "omit absent chartOptions from the wire (spray-json None-omission)" in {
-      val json = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty).toJson.asJsObject
-      json.fields.keySet should not contain "chartOptions"
-    }
-
-    "decodeCreate: an invalid enum is rejected (deserializationError → 400)" in {
-      a[DeserializationException] should be thrownBy
-        ChartPanelConfig.decodeCreate(JsObject(
-          "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("sideways")))
-        ))
-    }
-
-    "decodeCreate: an out-of-range barGapPct is rejected" in {
-      a[DeserializationException] should be thrownBy
-        ChartPanelConfig.decodeCreate(JsObject(
-          "chartOptions" -> JsObject("bar" -> JsObject("barGapPct" -> JsNumber(200)))
-        ))
-    }
-
-    "Patch.decode: absent key leaves chartOptions untouched (outer None)" in {
-      ChartPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).chartOptions shouldBe None
-    }
-
-    "Patch.decode: explicit null clears chartOptions (Some(None))" in {
-      ChartPanelConfig.Patch.decode(JsObject("chartOptions" -> JsNull)).chartOptions shouldBe Some(None)
-    }
-
-    "Patch.decode: present object sets chartOptions (Some(Some(v)))" in {
-      ChartPanelConfig.Patch.decode(JsObject("chartOptions" -> opts.toJson)).chartOptions shouldBe Some(Some(opts))
-    }
-
-    "Patch.decode: an invalid stacking is rejected (deserializationError → 400)" in {
-      a[DeserializationException] should be thrownBy
-        ChartPanelConfig.Patch.decode(JsObject(
-          "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("sideways")))
-        ))
-    }
-
-    "applyPatch: absent key preserves existing chartOptions" in {
-      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts)))
-      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, None))
-      patched.config.chartOptions shouldBe Some(opts)
-    }
-
-    "applyPatch: explicit null clears a previously-set chartOptions" in {
-      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts)))
-      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, Some(None), None))
-      patched.config.chartOptions shouldBe None
-    }
-
-    "applyPatch: a chartOptions-only patch leaves dataTypeId/fieldMapping/aggregation untouched" in {
-      val mapping  = JsObject("xAxis" -> JsString("colA"))
-      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), mapping, None, None))
-      val patched  = existing.applyPatch(ChartPanelConfig.Patch(None, None, None, Some(Some(opts)), None))
-      patched.config.dataTypeId shouldBe DataTypeId("dt1")
-      patched.config.fieldMapping shouldBe mapping
-      patched.config.chartOptions shouldBe Some(opts)
-    }
-
-    "switching type preserves other types' options (keyed map is untouched on partial edit)" in {
-      // Only the bar entry changes; line/pie/scatter pass through unchanged.
-      val barOnly = ChartOptions(bar = Some(BarChartOptions(stacking = Some("normalized"))))
-      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, Some(opts)))
-      val patched  = existing.applyPatch(
-        ChartPanelConfig.Patch(None, None, None, Some(Some(opts.copy(bar = barOnly.bar))), None)
-      )
-      patched.config.chartOptions.flatMap(_.line) shouldBe opts.line
-      patched.config.chartOptions.flatMap(_.pie) shouldBe opts.pie
-      patched.config.chartOptions.flatMap(_.scatter) shouldBe opts.scatter
-      patched.config.chartOptions.flatMap(_.bar).flatMap(_.stacking) shouldBe Some("normalized")
-    }
-  }
-
-  // ── HEL-318: ImagePanelConfig.caption / ChartPanelConfig.annotation ────────
 
   "ImagePanelConfig.caption" should {
     "default to None when absent" in {
@@ -713,277 +220,6 @@ class PanelSpec extends AnyWordSpec with Matchers {
       existing.applyPatch(ImagePanelConfig.Patch(None, None, Some(Some("New")))).config.caption shouldBe Some("New")
     }
   }
-
-  "ChartPanelConfig.annotation" should {
-    "default to None when absent" in {
-      ChartPanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1"))).annotation shouldBe None
-    }
-
-    "normalize null/empty/whitespace to None at decode" in {
-      ChartPanelConfig.decode(JsObject("annotation" -> JsNull)).annotation shouldBe None
-      ChartPanelConfig.decode(JsObject("annotation" -> JsString(""))).annotation shouldBe None
-      ChartPanelConfig.decode(JsObject("annotation" -> JsString("  "))).annotation shouldBe None
-    }
-
-    "decode a non-blank annotation" in {
-      ChartPanelConfig.decode(JsObject("annotation" -> JsString("Source: BLS"))).annotation shouldBe Some("Source: BLS")
-    }
-
-    "omit annotation from the wire when None" in {
-      val fields = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty).toJson.asJsObject.fields
-      fields.contains("annotation") shouldBe false
-    }
-
-    "include annotation on the wire when set" in {
-      val fields = ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, Some("Fig. 2")).toJson.asJsObject.fields
-      fields.get("annotation") shouldBe Some(JsString("Fig. 2"))
-    }
-
-    "Patch.decode: absent key leaves annotation untouched (outer None)" in {
-      ChartPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).annotation shouldBe None
-    }
-
-    "Patch.decode: null/empty/whitespace clears annotation (Some(None))" in {
-      ChartPanelConfig.Patch.decode(JsObject("annotation" -> JsNull)).annotation shouldBe Some(None)
-      ChartPanelConfig.Patch.decode(JsObject("annotation" -> JsString(""))).annotation shouldBe Some(None)
-      ChartPanelConfig.Patch.decode(JsObject("annotation" -> JsString(" "))).annotation shouldBe Some(None)
-    }
-
-    "Patch.decode: non-blank string sets annotation (Some(Some(v)))" in {
-      ChartPanelConfig.Patch.decode(JsObject("annotation" -> JsString("Note"))).annotation shouldBe Some(Some("Note"))
-    }
-
-    "applyPatch: absent leaves the existing annotation, null clears it, value sets it" in {
-      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject.empty, None, None, Some("Old")))
-      existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, None)).config.annotation shouldBe Some("Old")
-      existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, Some(None))).config.annotation shouldBe None
-      existing.applyPatch(ChartPanelConfig.Patch(None, None, None, None, Some(Some("New")))).config.annotation shouldBe Some("New")
-    }
-  }
-
-  // ── HEL-323: bound annotation via the reserved fieldMapping.annotation slot ─
-  //
-  // No new column or domain field — the bound annotation lives in the existing
-  // free-form `fieldMapping` JsObject. These specs pin that the reserved slot
-  // is accepted on decode/patch, round-trips (and so duplicates) verbatim, and
-  // is picked up by the panel query's selected fields.
-
-  "ChartPanelConfig fieldMapping.annotation (HEL-323)" should {
-    "decode a fieldMapping carrying the reserved annotation slot" in {
-      val decoded = ChartPanelConfig.decode(JsObject(
-        "dataTypeId"   -> JsString("dt1"),
-        "fieldMapping" -> JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note"))
-      ))
-      decoded.fieldMapping.fields.get("annotation") shouldBe Some(JsString("note"))
-    }
-
-    "round-trip a bound annotation through the per-subtype format (and so duplication)" in {
-      val cfg = ChartPanelConfig(
-        DataTypeId("dt1"),
-        JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note"))
-      )
-      ChartPanelConfig.decode(cfg.toJson).fieldMapping shouldBe cfg.fieldMapping
-    }
-
-    "Patch.decode: fieldMapping including annotation replaces the mapping wholesale" in {
-      val patch = ChartPanelConfig.Patch.decode(JsObject(
-        "fieldMapping" -> JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note"))
-      ))
-      patch.fieldMapping shouldBe Some(Some(JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note"))))
-    }
-
-    "applyPatch: a fieldMapping patch persists the annotation slot" in {
-      val existing = chart(ChartPanelConfig(DataTypeId("dt1"), JsObject("xAxis" -> JsString("date"))))
-      val patched  = existing.applyPatch(
-        ChartPanelConfig.Patch(
-          None,
-          Some(Some(JsObject("xAxis" -> JsString("date"), "annotation" -> JsString("note")))),
-          None,
-          None,
-          None
-        )
-      )
-      patched.config.fieldMapping.fields.get("annotation") shouldBe Some(JsString("note"))
-    }
-
-    "include the bound annotation column in the query's selected fields" in {
-      val cfg = ChartPanelConfig(
-        DataTypeId("dt1"),
-        JsObject("xAxis" -> JsString("date"), "yAxis" -> JsString("price"), "annotation" -> JsString("note"))
-      )
-      val q = chart(cfg).buildQuery.get
-      q.selectedFields should contain("note")
-      q.selectedFields should contain theSameElementsAs List("date", "price", "note")
-    }
-  }
-
-  // ── HEL-253: TablePanelConfig.columnWidths persistence ─────────────────────
-
-  "TablePanelConfig.columnWidths" should {
-    val widths = Map("col-a" -> 120, "col-b" -> 200)
-
-    "default to empty map when absent" in {
-      TablePanelConfig.decode(JsObject.empty).columnWidths shouldBe Map.empty
-      table().config.columnWidths shouldBe Map.empty
-    }
-
-    "decode a present columnWidths object" in {
-      val decoded = TablePanelConfig.decode(JsObject(
-        "dataTypeId"   -> JsString("dt1"),
-        "columnWidths" -> JsObject("col-a" -> JsNumber(120), "col-b" -> JsNumber(200))
-      ))
-      decoded.columnWidths shouldBe widths
-    }
-
-    "round-trip via the per-subtype format (jsonFormat3)" in {
-      val cfg     = TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths)
-      val decoded = TablePanelConfig.decode(cfg.toJson)
-      decoded shouldBe cfg
-    }
-
-    "Patch.decode: absent key leaves columnWidths untouched (outer None)" in {
-      TablePanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).columnWidths shouldBe None
-    }
-
-    "Patch.decode: explicit null clears columnWidths (Some(None))" in {
-      TablePanelConfig.Patch.decode(JsObject("columnWidths" -> JsNull)).columnWidths shouldBe Some(None)
-    }
-
-    "Patch.decode: present object sets columnWidths (Some(Some(v)))" in {
-      val patch = TablePanelConfig.Patch.decode(JsObject(
-        "columnWidths" -> JsObject("col-a" -> JsNumber(120), "col-b" -> JsNumber(200))
-      ))
-      patch.columnWidths shouldBe Some(Some(widths))
-    }
-
-    "applyPatch: absent key preserves the existing columnWidths" in {
-      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, None, None, None))
-      patched.config.columnWidths shouldBe widths
-    }
-
-    "applyPatch: explicit null clears previously-set columnWidths" in {
-      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(None), None, None))
-      patched.config.columnWidths shouldBe Map.empty
-    }
-
-    "applyPatch: present object sets columnWidths" in {
-      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(Some(widths)), None, None))
-      patched.config.columnWidths shouldBe widths
-    }
-
-    "applyPatch: a columnWidths-only patch leaves dataTypeId/fieldMapping untouched" in {
-      val mapping  = JsObject("slot1" -> JsString("colA"))
-      val existing = table(TablePanelConfig(DataTypeId("dt1"), mapping, Map.empty))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(None, None, Some(Some(widths)), None, None))
-      patched.config.dataTypeId shouldBe DataTypeId("dt1")
-      patched.config.fieldMapping shouldBe mapping
-    }
-
-    "applyPatch: a binding-only patch leaves columnWidths untouched" in {
-      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, widths))
-      val patched   = existing.applyPatch(TablePanelConfig.Patch(Some(Some(DataTypeId("dt2"))), None, None, None, None))
-      patched.config.dataTypeId shouldBe DataTypeId("dt2")
-      patched.config.columnWidths shouldBe widths
-    }
-  }
-
-  // ── HEL-255: TablePanelConfig density + columnOrder display config ──────────
-
-  "TablePanelConfig.density/columnOrder" should {
-    val order = List("b", "a")
-
-    "default to None when the fields are ABSENT (spray-json None-omission)" in {
-      val decoded = TablePanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1")))
-      decoded.density shouldBe None
-      decoded.columnOrder shouldBe None
-    }
-
-    "decode valid density and columnOrder" in {
-      val decoded = TablePanelConfig.decode(JsObject(
-        "dataTypeId"  -> JsString("dt1"),
-        "density"     -> JsString("spacious"),
-        "columnOrder" -> JsArray(JsString("b"), JsString("a"))
-      ))
-      decoded.density shouldBe Some("spacious")
-      decoded.columnOrder shouldBe Some(order)
-    }
-
-    "lenient decode: an unknown density is treated as absent" in {
-      TablePanelConfig.decode(JsObject("density" -> JsString("cozy"))).density shouldBe None
-    }
-
-    "lenient decode: a wrong-typed density is treated as absent" in {
-      TablePanelConfig.decode(JsObject("density" -> JsNumber(3))).density shouldBe None
-    }
-
-    "round-trip valid values through the per-subtype format" in {
-      val cfg     = TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty, Some("condensed"), Some(order))
-      val decoded = TablePanelConfig.decode(cfg.toJson)
-      decoded shouldBe cfg
-    }
-
-    "omit absent density/columnOrder from the wire (spray-json None-omission)" in {
-      val json = TablePanelConfig(DataTypeId("dt1"), JsObject.empty).toJson.asJsObject
-      json.fields.keySet should not contain "density"
-      json.fields.keySet should not contain "columnOrder"
-    }
-
-    "Patch.decode: absent keys leave both fields untouched (outer None)" in {
-      val patch = TablePanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1")))
-      patch.density shouldBe None
-      patch.columnOrder shouldBe None
-    }
-
-    "Patch.decode: explicit null clears each field (Some(None))" in {
-      val patch = TablePanelConfig.Patch.decode(JsObject("density" -> JsNull, "columnOrder" -> JsNull))
-      patch.density shouldBe Some(None)
-      patch.columnOrder shouldBe Some(None)
-    }
-
-    "Patch.decode: present values set each field (Some(Some(v)))" in {
-      val patch = TablePanelConfig.Patch.decode(JsObject(
-        "density"     -> JsString("condensed"),
-        "columnOrder" -> JsArray(JsString("b"), JsString("a"))
-      ))
-      patch.density shouldBe Some(Some("condensed"))
-      patch.columnOrder shouldBe Some(Some(order))
-    }
-
-    "Patch.decode: an invalid density is rejected (deserializationError → 400)" in {
-      a[DeserializationException] should be thrownBy
-        TablePanelConfig.Patch.decode(JsObject("density" -> JsString("cozy")))
-    }
-
-    "applyPatch: absent keys preserve existing density/columnOrder" in {
-      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty, Some("spacious"), Some(order)))
-      val patched  = existing.applyPatch(TablePanelConfig.Patch(None, None, None, None, None))
-      patched.config.density shouldBe Some("spacious")
-      patched.config.columnOrder shouldBe Some(order)
-    }
-
-    "applyPatch: explicit null clears previously-set density/columnOrder" in {
-      val existing = table(TablePanelConfig(DataTypeId("dt1"), JsObject.empty, Map.empty, Some("spacious"), Some(order)))
-      val patched  = existing.applyPatch(TablePanelConfig.Patch(None, None, None, Some(None), Some(None)))
-      patched.config.density shouldBe None
-      patched.config.columnOrder shouldBe None
-    }
-
-    "applyPatch: a display-only patch leaves dataTypeId/fieldMapping untouched" in {
-      val mapping  = JsObject("slot1" -> JsString("colA"))
-      val existing = table(TablePanelConfig(DataTypeId("dt1"), mapping, Map.empty))
-      val patched  = existing.applyPatch(
-        TablePanelConfig.Patch(None, None, None, Some(Some("condensed")), Some(Some(order)))
-      )
-      patched.config.dataTypeId shouldBe DataTypeId("dt1")
-      patched.config.fieldMapping shouldBe mapping
-      patched.config.density shouldBe Some("condensed")
-    }
-  }
-
-  // ── HEL-244: TextPanelConfig dataTypeId/fieldMapping binding wiring ────────
 
   "TextPanelConfig.dataTypeId/fieldMapping" should {
     "default to empty when absent" in {
@@ -1169,257 +405,16 @@ class PanelSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // Exhaustiveness pattern-match — adding an 8th subtype without updating this
-  // block fails compilation (non-exhaustive match warning is fatal under the
-  // build's `-Xfatal-warnings` if enabled, else a runtime MatchError surfaces
-  // in the test). Mirrors the CS2c-3a `PipelineStepSpec` exhaustiveness check.
   "Exhaustiveness over Panel subtypes" should {
-    "cover all 9 kinds in a closed match" in {
-      val all: Seq[Panel] = Seq(metric(), chart(), table(), text(), md(), img(), divider(), collection(), timeline())
+    "cover all 5 kinds in a closed match" in {
+      val all: Seq[Panel] = Seq(text(), md(), img(), divider(), output())
       all.foreach {
-        case _: MetricPanel     => succeed
-        case _: ChartPanel      => succeed
-        case _: TablePanel      => succeed
         case _: TextPanel       => succeed
         case _: MarkdownPanel   => succeed
         case _: ImagePanel      => succeed
         case _: DividerPanel    => succeed
-        case _: CollectionPanel => succeed
-        case _: TimelinePanel   => succeed
+        case _: OutputPanel     => succeed
       }
-    }
-  }
-
-  // ── HEL-247: CollectionPanelConfig — tolerant decode, absent-vs-null patch,
-  //    base-type extensibility, and codec dispatch ────────────────────────────
-  "CollectionPanelConfig.decode" should {
-    "default baseType=metric, layout=grid, no itemOptions when fields are absent" in {
-      // spray-json omits None on the wire — these fields are ABSENT, not null.
-      val cfg = CollectionPanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1")))
-      cfg.baseType shouldBe "metric"
-      cfg.layout shouldBe "grid"
-      cfg.itemOptions shouldBe None
-      cfg.dataTypeId shouldBe DataTypeId("dt1")
-    }
-
-    "decode an empty object to Empty (all defaults)" in {
-      CollectionPanelConfig.decode(JsObject.empty) shouldBe CollectionPanelConfig.Empty
-    }
-
-    "decode present baseType/layout/itemOptions" in {
-      val items = JsObject("metric" -> JsObject("unit" -> JsString("$")))
-      val cfg = CollectionPanelConfig.decode(JsObject(
-        "dataTypeId"  -> JsString("dt1"),
-        "fieldMapping" -> JsObject("value" -> JsString("amount")),
-        "baseType"    -> JsString("metric"),
-        "layout"      -> JsString("list"),
-        "itemOptions" -> items
-      ))
-      cfg.layout shouldBe "list"
-      cfg.itemOptions shouldBe Some(items)
-    }
-
-    "tolerate a malformed/unknown layout on the read path (defaults to grid, never throws)" in {
-      val cfg = CollectionPanelConfig.decode(JsObject("layout" -> JsString("spiral")))
-      cfg.layout shouldBe "grid"
-    }
-
-    "round-trip via the per-subtype format" in {
-      val cfg = CollectionPanelConfig(
-        DataTypeId("dt1"),
-        JsObject("value" -> JsString("amount")),
-        "metric",
-        "list",
-        Some(JsObject("metric" -> JsObject("label" -> JsString("Region"))))
-      )
-      CollectionPanelConfig.decode(cfg.toJson) shouldBe cfg
-    }
-  }
-
-  "CollectionPanelConfig.decodeCreate" should {
-    "reject an invalid layout enum with a deserialization error (400)" in {
-      an[DeserializationException] should be thrownBy
-        CollectionPanelConfig.decodeCreate(JsObject("layout" -> JsString("spiral")))
-    }
-  }
-
-  "CollectionPanelConfig.Patch" should {
-    "leave layout untouched when absent (outer None)" in {
-      CollectionPanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).layout shouldBe None
-    }
-
-    "carry a layout-only patch without clearing other concerns" in {
-      val patch = CollectionPanelConfig.Patch.decode(JsObject("layout" -> JsString("list")))
-      patch.layout shouldBe Some(Some("list"))
-      patch.dataTypeId shouldBe None
-      patch.fieldMapping shouldBe None
-      patch.itemOptions shouldBe None
-    }
-
-    "treat explicit null itemOptions as clear (Some(None))" in {
-      CollectionPanelConfig.Patch.decode(JsObject("itemOptions" -> JsNull)).itemOptions shouldBe Some(None)
-    }
-
-    "reject an invalid layout enum in a patch (400)" in {
-      an[DeserializationException] should be thrownBy
-        CollectionPanelConfig.Patch.decode(JsObject("layout" -> JsString("spiral")))
-    }
-
-    "applyPatch: a layout-only patch leaves the binding and itemOptions intact" in {
-      val existing = collection(CollectionPanelConfig(
-        DataTypeId("dt1"),
-        JsObject("value" -> JsString("amount")),
-        "metric",
-        "grid",
-        Some(JsObject("metric" -> JsObject("unit" -> JsString("$"))))
-      ))
-      val patched = existing.applyPatch(CollectionPanelConfig.Patch.decode(JsObject("layout" -> JsString("list"))))
-      patched.config.layout shouldBe "list"
-      patched.config.dataTypeId shouldBe DataTypeId("dt1")
-      patched.config.fieldMapping shouldBe JsObject("value" -> JsString("amount"))
-      patched.config.itemOptions shouldBe Some(JsObject("metric" -> JsObject("unit" -> JsString("$"))))
-    }
-
-    "applyPatch: explicit null clears itemOptions" in {
-      val existing = collection(CollectionPanelConfig(
-        DataTypeId("dt1"), JsObject.empty, "metric", "grid",
-        Some(JsObject("metric" -> JsObject("unit" -> JsString("$"))))
-      ))
-      val patched = existing.applyPatch(CollectionPanelConfig.Patch.decode(JsObject("itemOptions" -> JsNull)))
-      patched.config.itemOptions shouldBe None
-    }
-  }
-
-  "PanelConfigCodec (collection dispatch)" should {
-    "decode a create-side collection config" in {
-      val created = PanelConfigCodec.decodeCreateConfig(
-        CollectionPanel.Kind,
-        Some(JsObject("dataTypeId" -> JsString("dt1")))
-      )
-      created shouldBe Right(PanelConfigCodec.CollectionCreate(
-        CollectionPanelConfig(DataTypeId("dt1"), JsObject.empty, "metric", "grid", None)
-      ))
-    }
-
-    "reject an unknown panel type on create with a Left" in {
-      PanelConfigCodec.decodeCreateConfig("unknown", Some(JsObject.empty)).isLeft shouldBe true
-    }
-
-    "encode a collection panel's config" in {
-      val panel = collection(CollectionPanelConfig(DataTypeId("dt1"), JsObject.empty, "metric", "list", None))
-      val json = PanelConfigCodec.encodeConfig(panel).asJsObject
-      json.fields("layout") shouldBe JsString("list")
-      json.fields("baseType") shouldBe JsString("metric")
-    }
-  }
-
-  // ── HEL-317: TimelinePanelConfig — tolerant decode, absent-vs-null patch,
-  //    and codec dispatch (mirrors the HEL-247 CollectionPanelConfig block) ──
-  "TimelinePanelConfig.decode" should {
-    "default sort=asc when timelineOptions is absent" in {
-      // spray-json omits None on the wire — the field is ABSENT, not null.
-      val cfg = TimelinePanelConfig.decode(JsObject("dataTypeId" -> JsString("dt1")))
-      cfg.timelineOptions.sort shouldBe "asc"
-      cfg.dataTypeId shouldBe DataTypeId("dt1")
-    }
-
-    "decode an empty object to Empty (all defaults)" in {
-      TimelinePanelConfig.decode(JsObject.empty) shouldBe TimelinePanelConfig.Empty
-    }
-
-    "decode present dataTypeId/fieldMapping/timelineOptions" in {
-      val cfg = TimelinePanelConfig.decode(JsObject(
-        "dataTypeId"      -> JsString("dt1"),
-        "fieldMapping"    -> JsObject("time" -> JsString("when"), "event" -> JsString("what")),
-        "timelineOptions" -> JsObject("sort" -> JsString("desc"))
-      ))
-      cfg.timelineOptions.sort shouldBe "desc"
-      cfg.fieldMapping shouldBe JsObject("time" -> JsString("when"), "event" -> JsString("what"))
-    }
-
-    "tolerate a malformed/unknown sort on the read path (defaults to asc, never throws)" in {
-      val cfg = TimelinePanelConfig.decode(JsObject(
-        "timelineOptions" -> JsObject("sort" -> JsString("sideways"))
-      ))
-      cfg.timelineOptions.sort shouldBe "asc"
-    }
-
-    "round-trip via the per-subtype format" in {
-      val cfg = TimelinePanelConfig(
-        DataTypeId("dt1"),
-        JsObject("time" -> JsString("when"), "event" -> JsString("what")),
-        TimelineOptions("desc")
-      )
-      TimelinePanelConfig.decode(cfg.toJson) shouldBe cfg
-    }
-  }
-
-  "TimelinePanelConfig.decodeCreate" should {
-    "reject an invalid sort enum with a deserialization error (400)" in {
-      an[DeserializationException] should be thrownBy
-        TimelinePanelConfig.decodeCreate(JsObject("timelineOptions" -> JsObject("sort" -> JsString("sideways"))))
-    }
-  }
-
-  "TimelinePanelConfig.Patch" should {
-    "leave timelineOptions untouched when absent (outer None)" in {
-      TimelinePanelConfig.Patch.decode(JsObject("dataTypeId" -> JsString("dt1"))).timelineOptions shouldBe None
-    }
-
-    "carry a timelineOptions-only patch without clearing other concerns" in {
-      val patch = TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsObject("sort" -> JsString("desc"))))
-      patch.timelineOptions shouldBe Some(Some(TimelineOptions("desc")))
-      patch.dataTypeId shouldBe None
-      patch.fieldMapping shouldBe None
-    }
-
-    "treat explicit null timelineOptions as clear (Some(None))" in {
-      TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsNull)).timelineOptions shouldBe Some(None)
-    }
-
-    "reject an invalid sort enum in a patch (400)" in {
-      an[DeserializationException] should be thrownBy
-        TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsObject("sort" -> JsString("sideways"))))
-    }
-
-    "applyPatch: a timelineOptions-only patch leaves the binding intact" in {
-      val existing = timeline(TimelinePanelConfig(
-        DataTypeId("dt1"),
-        JsObject("time" -> JsString("when"), "event" -> JsString("what")),
-        TimelineOptions("asc")
-      ))
-      val patched = existing.applyPatch(
-        TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsObject("sort" -> JsString("desc"))))
-      )
-      patched.config.timelineOptions.sort shouldBe "desc"
-      patched.config.dataTypeId shouldBe DataTypeId("dt1")
-      patched.config.fieldMapping shouldBe JsObject("time" -> JsString("when"), "event" -> JsString("what"))
-    }
-
-    "applyPatch: explicit null clears timelineOptions to defaults" in {
-      val existing = timeline(TimelinePanelConfig(
-        DataTypeId("dt1"), JsObject.empty, TimelineOptions("desc")
-      ))
-      val patched = existing.applyPatch(TimelinePanelConfig.Patch.decode(JsObject("timelineOptions" -> JsNull)))
-      patched.config.timelineOptions.sort shouldBe "asc"
-    }
-  }
-
-  "PanelConfigCodec (timeline dispatch)" should {
-    "decode a create-side timeline config" in {
-      val created = PanelConfigCodec.decodeCreateConfig(
-        TimelinePanel.Kind,
-        Some(JsObject("dataTypeId" -> JsString("dt1")))
-      )
-      created shouldBe Right(PanelConfigCodec.TimelineCreate(
-        TimelinePanelConfig(DataTypeId("dt1"), JsObject.empty, TimelineOptions("asc"))
-      ))
-    }
-
-    "encode a timeline panel's config" in {
-      val panel = timeline(TimelinePanelConfig(DataTypeId("dt1"), JsObject.empty, TimelineOptions("desc")))
-      val json = PanelConfigCodec.encodeConfig(panel).asJsObject
-      json.fields("timelineOptions").asJsObject.fields("sort") shouldBe JsString("desc")
     }
   }
 }

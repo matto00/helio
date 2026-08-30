@@ -4,6 +4,9 @@ import com.helio.domain.model.PanelType
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+/** HEL-904 task 3.6: trimmed to the collapsed 5-value set
+ *  (output|text|markdown|image|divider) -- Metric/Chart/Table/Collection/
+ *  Timeline no longer exist as `PanelType` values. */
 class PanelTypeSpec extends AnyWordSpec with Matchers {
 
   "PanelType.fromString" should {
@@ -12,10 +15,8 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
     }
 
     "parse all existing types without regression" in {
-      PanelType.fromString("metric")   shouldBe Right(PanelType.Metric)
-      PanelType.fromString("chart")    shouldBe Right(PanelType.Chart)
-      PanelType.fromString("text")     shouldBe Right(PanelType.Text)
-      PanelType.fromString("table")    shouldBe Right(PanelType.Table)
+      PanelType.fromString("text")   shouldBe Right(PanelType.Text)
+      PanelType.fromString("output") shouldBe Right(PanelType.Output)
     }
 
     "parse \"image\" as Image" in {
@@ -30,15 +31,7 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
       PanelType.fromString("divider") shouldBe Right(PanelType.Divider)
     }
 
-    "parse \"collection\" as Collection" in {
-      PanelType.fromString("collection") shouldBe Right(PanelType.Collection)
-    }
-
-    "parse \"timeline\" as Timeline" in {
-      PanelType.fromString("timeline") shouldBe Right(PanelType.Timeline)
-    }
-
-    "parse \"output\" as Output (HEL-904 task 3.6 write-path increment)" in {
+    "parse \"output\" as Output" in {
       PanelType.fromString("output") shouldBe Right(PanelType.Output)
     }
   }
@@ -56,20 +49,12 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
       PanelType.asString(PanelType.Divider) shouldBe "divider"
     }
 
-    "serialise Collection as \"collection\"" in {
-      PanelType.asString(PanelType.Collection) shouldBe "collection"
-    }
-
-    "serialise Timeline as \"timeline\"" in {
-      PanelType.asString(PanelType.Timeline) shouldBe "timeline"
-    }
-
-    "serialise Output as \"output\" (HEL-904 task 3.6 write-path increment)" in {
+    "serialise Output as \"output\"" in {
       PanelType.asString(PanelType.Output) shouldBe "output"
     }
 
     "round-trip all types" in {
-      val all = Seq(PanelType.Metric, PanelType.Chart, PanelType.Text, PanelType.Table, PanelType.Markdown, PanelType.Image, PanelType.Divider, PanelType.Collection, PanelType.Timeline, PanelType.Output)
+      val all = Seq(PanelType.Text, PanelType.Markdown, PanelType.Image, PanelType.Divider, PanelType.Output)
       all.foreach { t =>
         PanelType.fromString(PanelType.asString(t)) shouldBe Right(t)
       }

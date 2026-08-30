@@ -1,6 +1,5 @@
 package com.helio.api.http
 
-import com.helio.domain.panels.TimelineOptions
 import com.helio.api.protocols.auth.{CreateApiTokenRequest, LoginRequest, RedeemInviteCodeRequest, RegisterRequest}
 
 object RequestValidation {
@@ -99,13 +98,10 @@ object RequestValidation {
       case Some(d) => Left(s"Invalid density value: '$d'. Valid values: condensed, normal, spacious")
     }
 
-  def validateTimelineSort(sort: Option[String]): Either[String, Option[String]] =
-    sort match {
-      case None                                                    => Right(None)
-      case Some(s) if TimelineOptions.ValidSorts.contains(s)       => Right(Some(s))
-      case Some(s) =>
-        Left(s"Invalid sort value: '$s'. Valid values: ${TimelineOptions.ValidSorts.toSeq.sorted.mkString(", ")}")
-    }
+  // HEL-904 task 3.6/3.10a: `validateTimelineSort` removed — `TimelinePanel`/
+  // `TimelineOptions` no longer exist and no caller remains (the
+  // `ProposalPanelSupport.validatePanel` gate that called this was deleted
+  // alongside the other retired kind-valued predicates).
 
   /** HEL-366: max length of the free-form `tag` field on data sources,
    *  pipelines, and DataTypes — mirrors the DB `CHECK (length(tag) <= 200)`

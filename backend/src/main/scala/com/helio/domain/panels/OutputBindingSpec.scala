@@ -3,6 +3,31 @@ package com.helio.domain.panels
 import com.helio.domain.model.{DataFieldType, OutputKind}
 import com.helio.domain.engine.SchemaField
 
+/** Column-type eligibility rule for one `fieldMapping` slot (design.md D2).
+ *  Moved here from the retired `PanelBindingSpec` (HEL-904 task 3.6 collapse)
+ *  — same three-value contract, unchanged semantics.
+ *
+ *  `Numeric` accepts `integer`/`float` (a metric `value` / chart `yAxis`
+ *  needs a summable column); `Orderable` accepts `timestamp`/`integer`/
+ *  `float` (a timeline `time` needs something sortable); `Any` accepts
+ *  every column (`label`/`unit`/`xAxis`/`series`/`annotation`/`event`). */
+sealed trait SlotEligibility
+object SlotEligibility {
+  case object Numeric   extends SlotEligibility
+  case object Orderable extends SlotEligibility
+  case object Any        extends SlotEligibility
+
+  def accepts(eligibility: SlotEligibility, fieldType: DataFieldType): Boolean = eligibility match {
+    case Numeric =>
+      fieldType == DataFieldType.IntegerType || fieldType == DataFieldType.FloatType
+    case Orderable =>
+      fieldType == DataFieldType.TimestampType ||
+        fieldType == DataFieldType.IntegerType ||
+        fieldType == DataFieldType.FloatType
+    case Any => true
+  }
+}
+
 /** HEL-904 (Outputs remodel) task 3.6 — `PanelBindingSpec` becomes
  *  `OutputBindingSpec`, keyed by [[OutputKind]] instead of `PanelType`
  *  (design.md's "Output kinds" decision / ticket.md task 3.6). Same

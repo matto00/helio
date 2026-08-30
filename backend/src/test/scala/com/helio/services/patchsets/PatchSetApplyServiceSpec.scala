@@ -157,7 +157,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     await(dashboardService.create(DashboardService.CreateDashboardInput(Some(name)), owner))._1
 
   private def seedPanel(dashboardId: DashboardId, owner: AuthenticatedUser, title: String = "Panel"): Panel =
-    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("metric"), None), owner)) match {
+    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("divider"), None), owner)) match {
       case Right(p) => p
       case Left(e)  => fail(s"seedPanel failed: $e")
     }
@@ -311,16 +311,17 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // would silently fail to restore an unset->set transition, even though
     // `status` still reports "rolledBack".
     "genuinely clear a config Option field that transitioned None->Some, when the update rolling it back is itself rolled back (skeptic-final-1.md CR1)" in {
+      // HEL-904: rewired from the retired MetricPanel's `aggregation` field
+      // onto DividerPanel's `weight` -- same D5 None->Some->rollback contract,
+      // a still-live optional-field kind.
       val dashboard = seedDashboard(userA)
-      val panel     = seedPanel(dashboard.id, userA, "Aggregation panel")
-      // Seeded via config = None -> decodeCreateConfig defaults to Empty ->
-      // aggregation is unset before any edit in this patch set runs.
-      await(panelRepo.findByIdInternal(panel.id)).collect { case mp: MetricPanel => mp.config.aggregation } shouldBe Some(None)
+      val panel     = seedPanel(dashboard.id, userA, "Weighted divider panel")
+      await(panelRepo.findByIdInternal(panel.id)).collect { case dp: DividerPanel => dp.config.weight } shouldBe Some(None)
 
-      val setAggregation = JsObject("aggregation" -> JsObject("op" -> JsString("sum")))
+      val setWeight = JsObject("weight" -> JsNumber(3))
       val edits = Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "update",
-          Some(UpdatePanelRequest(None, None, None, Some(setAggregation))), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(None, None, None, Some(setWeight))), None, None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
           None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
       )
@@ -334,9 +335,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       panelOutcome.status shouldBe "rolledBack"
 
       // The actual assertion this regression test exists for: not just
-      // `status == "rolledBack"`, but the DB row's aggregation is genuinely
-      // back to unset -- not left at the forward edit's Some(...) value.
-      await(panelRepo.findByIdInternal(panel.id)).collect { case mp: MetricPanel => mp.config.aggregation } shouldBe Some(None)
+      // `status == "rolledBack"`, but the DB row's weight is genuinely back
+      // to unset -- not left at the forward edit's Some(...) value.
+      await(panelRepo.findByIdInternal(panel.id)).collect { case dp: DividerPanel => dp.config.weight } shouldBe Some(None)
     }
 
 
@@ -444,7 +445,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val createPatch = JsObject(
         "dashboardId" -> JsString(foreignDashboard.id.value),
         "title"       -> JsString("Sneaky"),
-        "type"        -> JsString("metric")
+        "type"        -> JsString("divider")
       )
       val edits = Vector(
         Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None, None),
@@ -486,20 +487,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
-    "reject a panel-update edit referencing a foreign-owned metricId (7.9c)" in {
-      val dashboard          = seedDashboard(userA)
-      val panel                = seedPanel(dashboard.id, userA)
-      val foreignOutputType    = seedPipelineOutputType(userB, "ForeignOutput")
-      val foreignMetricId      = seedMetric(userB, foreignOutputType.id)
-
-      val configPatch = JsObject("metricId" -> JsString(foreignMetricId.value))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(configPatch))), None, None, None, None, None, None)
-      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
-        case Left(ServiceError.BadRequest(_)) => succeed
-        case other                              => fail(s"expected BadRequest, got $other")
-      }
-    }
+    // HEL-904: `metricId` cross-owner rejection (7.9c) removed -- metrics no longer exist.
 
     "reject a pipelineStep-update edit referencing a foreign-owned JoinConfig rightDataSourceId (7.9d)" in {
       val (sourceId, _)       = seedStaticSource(userA, "Pipeline source")
@@ -545,7 +533,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val createPatch = JsObject(
         "dashboardId" -> JsString(dashboard.id.value),
         "title"       -> JsString("New panel"),
-        "type"        -> JsString("metric")
+        "type"        -> JsString("divider")
       )
       val edit = Edit(EditTarget("panel", None), "create", None, None, None, None, None, None, Some(createPatch))
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
@@ -594,7 +582,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val createPatch = JsObject(
         "dashboardId" -> JsString(dashboard.id.value),
         "title"       -> JsString("Created panel"),
-        "type"        -> JsString("metric")
+        "type"        -> JsString("divider")
       )
       val edit = Edit(EditTarget("panel", None), "create", None, None, None, None, None, None, Some(createPatch))
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
@@ -704,31 +692,8 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       await(applicationRepo.findById(PatchSetApplicationId(applicationIds.last), userA)) shouldBe defined
     }
 
-    "journal a bound MetricPanel update's rawResultingConfig as the RAW (unmaterialized) config, distinct from resultingState's materialized effective dataTypeId (HEL-413 5.1d)" in {
-      val dashboard  = seedDashboard(userA)
-      val outputType = seedPipelineOutputType(userA, "Raw config source")
-      val metricId   = seedMetric(userA, outputType.id, "Raw config metric")
-      val panel      = seedPanel(dashboard.id, userA, "Bound panel")
-      val dataTypeId = outputType.id
-
-      val bindPatch = JsObject("metricId" -> JsString(metricId.value))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(bindPatch))), None, None, None, None, None, None)
-      val response = await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
-        case Right(r)  => r
-        case Left(err) => fail(s"expected success, got $err")
-      }
-      val applicationId = response.applicationId.getOrElse(fail("expected applicationId"))
-
-      // The materialized `/apply` response shows the metric's EFFECTIVE dataTypeId...
-      val materializedConfig = response.edits.head.resultingState.getOrElse(fail("expected resultingState")).asJsObject.fields("config").asJsObject
-      materializedConfig.fields("dataTypeId") shouldBe JsString(dataTypeId.value)
-
-      // ...but the journal's rawResultingConfig is the genuinely RAW, unmaterialized config -- the
-      // raw dataTypeId is still unset, since no raw override was ever patched in (design.md D2a).
-      val record    = await(applicationRepo.findById(PatchSetApplicationId(applicationId), userA)).getOrElse(fail("journal row missing"))
-      val rawConfig = record.edits.head.rawResultingConfig.getOrElse(fail("expected rawResultingConfig")).asJsObject
-      rawConfig.fields("dataTypeId") shouldBe JsString("")
-    }
+    // HEL-904: the metricId-binding materialization regression this test
+    // covered (HEL-413 5.1d) was removed outright -- metrics, and the
+    // dataTypeId materialization they drove, no longer exist.
   }
 }

@@ -56,7 +56,7 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private def sentinelMetricPanel(): ProposalPanel =
     ProposalPanel(
       title        = "Total",
-      `type`       = "metric",
+      `type`       = "output",
       dataTypeId   = Some(CombinedProposalService.OutputRefSentinel),
       metricId     = None,
       fieldMapping = Some(JsObject("value" -> JsString("region"))),
