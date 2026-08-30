@@ -1274,3 +1274,79 @@ cycle's brief called out. Committing this small checkpoint now per that same ins
    (`panel.type=="chart"`/`TimelineKind`/`MetricKind`/`MetricIdSupportedKinds`).
 5. `Pipeline.outputDataTypeId` (§3.5) and `WorkspaceContextService` (§3.12, do NOT touch
    `asNumeric`'s structure/rounding per HEL-631) remain independently schedulable once 1-4 land.
+
+## Cycle 14 — investigated the write-path rewire (step 2 of cycle 13's plan); deliberately made
+## NO code changes after sizing a materially larger blast radius than previously assessed
+
+Resumed fresh, verified: HEAD = `81d09b37`, tree clean, `sbt -batch compile` clean.
+
+**Attempted to start cycle 13's step 1 ("rewire `PanelService.create`/`update` to construct/patch
+an `OutputPanel` when `outputId` is supplied").** Read `PanelService.scala` (576 lines),
+`PanelServiceHelpers.scala` (359 lines), `PanelConfigCodec.scala`, `PanelRowMapper.scala` (already
+fully wired for the Output round-trip per cycle 12/13 — no gap there) before touching anything, to
+size the real edit before writing any code (systematic-debugging discipline: understand before
+changing).
+
+**Found a materially new fact that changes this task's risk profile: there are TWO parallel panel-
+kind discriminator systems, not one.**
+- `Panel.Registry`/`PanelKind` (domain/model/Panel.scala) — the one `OutputPanel` is already
+  registered in (cycle 13). This is what `PanelRowMapper`/`PanelConfigCodec.encodeConfig` dispatch
+  on.
+- **A SEPARATE, older `PanelType` sealed trait** (`domain/model/model.scala:102-140`) with its own
+  9-value `fromString`/`asString`, used specifically by
+  `PanelServiceHelpers.validatePanelType`/`resolveCreateConfig` (the actual `POST /api/panels`
+  create-time dispatch) — this is the ADT `PanelConfigCodec.decodeCreateConfig` is keyed on, NOT
+  `Panel.Registry`'s kind string directly. `OutputPanel`/`"output"` is NOT a member of `PanelType`.
+- `PanelType.fromString`'s exact source text is a scraping target for
+  `scripts/check-schema-drift.mjs`'s canonical panel-type-enum check (its own comment: "Declared
+  AFTER `PanelType` deliberately: `scripts/check-schema-drift.mjs`'s panel-type-enum ... parser
+  ... assumed to be `PanelType.fromString`'s"). That script cross-checks the canonical set derived
+  from this exact enum against MULTIPLE surfaces: frontend panel-type unions, JSON Schema enum
+  values, and the OpenAPI spec's panel-type enum (`panelTypeSurfaces`/`dataPanelTypeSurfaces` in
+  the script, `DataPanelKinds` is one of the surfaces — the exact thing task 3.10 changes).
+
+**Why this stops the write-path rewire from being safely landable as a backend-only, same-cycle
+change:** adding `"output"` to `PanelType` (required for `resolveCreateConfig`/`validatePanelType`
+to accept `type: "output"` on create — the actual entry point of the write path this cycle's
+directive targets) is exactly the kind of edit `check-schema-drift.mjs` is built to catch as
+drift — it would fail closed the moment `PanelType` lists "output" but the frontend
+enum/JSON-Schema/OpenAPI enum surfaces don't. Landing it correctly requires touching those
+surfaces in the SAME commit, which is real, unavoidable additional scope this cycle's own sizing
+(and cycle 12/13's) did not previously account for — both prior cycles' file-count estimates
+(31 main + 17 test files for the "panel-kind collapse") were scoped to backend Scala files only.
+This is not a design question (design.md already settles that Outputs collapse the panel-kind
+set) — it is a real, previously-unmeasured piece of implementation surface area.
+
+**Explicitly decided against a partial edit this cycle:** editing `PanelType` alone (to unblock
+just the Scala compile) while leaving the schema-drift gate failing, or leaving `PanelType` alone
+and finding some other way to route `type: "output"` around `resolveCreateConfig`'s
+`validatePanelType` call, would each be a real correctness/consistency risk introduced under time
+pressure — exactly the "non-compiling or gate-failing tree at end of cycle" failure mode the
+resume brief explicitly rules out as worse than not starting. No source file was edited this
+cycle; `git status` confirmed clean before and after this investigation.
+
+**Verification this cycle (fresh, exit code read directly):**
+- `sbt -batch compile` — clean (re-confirms baseline; no edits made, so no regression risk).
+- Full `sbt test` was NOT re-run this cycle (no code changes to verify) — HEAD's last confirmed
+  fresh full-suite result remains cycle 13's 3899/3899, unchanged.
+
+**Next cycle should, before writing any code:**
+1. Decide (and document, since this is closer to a real scope decision than a pure implementation
+   detail — flag for evaluator/skeptic attention) whether `type: "output"` should be added as a
+   TENTH `PanelType` value (requiring the coordinated frontend/JSON-Schema/OpenAPI surface update
+   `check-schema-drift.mjs` will enforce in the same commit — the more consistent, more expensive
+   option) or whether `PanelConfigCodec`/`PanelServiceHelpers.resolveCreateConfig` should special-
+   case `"output"` OUTSIDE the `PanelType` ADT entirely (bypassing `validatePanelType`, keeping
+   `PanelType`'s 9-value canonical set and the schema-drift-checked surfaces untouched — cheaper,
+   but leaves two panel-kind discriminator systems permanently divergent, which is itself a code-
+   quality smell CONTRIBUTING.md would flag). This is exactly a "genuine non-environmental
+   decision" candidate per the executor's escalation criteria if the next cycle's own re-reading
+   of design.md doesn't settle it outright — re-read design.md's exact wording on the wire
+   `type` field before deciding either way, don't guess.
+2. Grep `scripts/check-schema-drift.mjs`'s `panelTypeSurfaces`/`dataPanelTypeSurfaces` definitions
+   concretely (file paths + exact extraction regexes) so the true surface count (frontend +
+   schema + openspec files that must gain `"output"` in the same commit as `PanelType`, if that's
+   the chosen path) is measured, not estimated, before starting.
+3. Only once 1-2 are resolved does `PanelServiceHelpers.buildNewPanel`/`PanelConfigCodec.
+   decodeCreateConfig`/`encodeConfig`/`applyConfigPatchUnsafe`'s mechanical `OutputPanel` cases
+   (small, ~5-10 lines total, already sketched by this cycle's reading) become safe to land.
