@@ -2,14 +2,15 @@ package com.helio.services.workspace
 
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentPreferencesResponse}
 import com.helio.api.protocols.pipelines.{AnalyzeStepResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.sources.ConnectorSummary
 import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextDashboard, WorkspaceContextDataSource, WorkspaceContextDataType, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextPipelineStep, WorkspaceContextResponse}
-import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, DataType, Dashboard, FieldTypeCategory, Page, PipelineId}
+import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, Dashboard, FieldTypeCategory, Output, Page, PagedResult, PipelineId}
 import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 
@@ -55,7 +56,12 @@ import scala.math.BigDecimal.RoundingMode
 final class WorkspaceContextService(
     dashboardService: DashboardService,
     dataSourceService: DataSourceService,
-    dataTypeService: DataTypeService,
+    // HEL-904 task 3.12: replaces `dataTypeService: DataTypeService` in the SAME positional
+    // slot -- every existing test call site passing a literal `null` here (the majority of this
+    // file's fixtures, which never exercise `toDataTypeEntry`/`assemble`'s Output-fetch path)
+    // keeps compiling unchanged; only call sites passing a real `dataTypeService` instance need
+    // updating to pass a real `outputRepo` instead.
+    outputRepo: OutputRepository,
     pipelineService: PipelineService,
     agentPreferencesServiceOpt: Option[AgentPreferencesService] = None,
     agentMemoryServiceOpt: Option[AgentMemoryService] = None,
@@ -63,7 +69,13 @@ final class WorkspaceContextService(
     // HEL-828 design.md Decision 5: same Option-guarded, trailing, default-None precedent as
     // panelRepoOpt above -- every existing construction site keeps compiling unchanged. When
     // `None`, `connectors` degrades to an empty Vector rather than failing `assemble`.
-    connectorRepoOpt: Option[ConnectorRepository] = None
+    connectorRepoOpt: Option[ConnectorRepository] = None,
+    // HEL-904 task 3.12: NEW trailing, Option-guarded, default-None param -- same precedent as
+    // panelRepoOpt/connectorRepoOpt above, so every existing construction site (which predates
+    // node_snapshots) keeps compiling unchanged. When `None`, `toDataTypeEntry`'s sample-row/
+    // column-stats fetch degrades to empty (mirrors `toDataTypeEntry`'s existing
+    // `dt.sourceId.isDefined` skip-the-query behavior for a resource with nothing to sample).
+    nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None
 )(implicit ec: ExecutionContext) {
 
   /** Bounded sample-row count per pipeline-output DataType (design.md D1/D3)
@@ -164,7 +176,17 @@ final class WorkspaceContextService(
       budgetBytes: Int = WorkspaceContextBudget.DefaultBudgetBytes
   ): Future[WorkspaceContextResponse] = {
     val sourcesF      = dataSourceService.findAll(user, Page.Default)
-    val typesF        = dataTypeService.findAll(user, Page.Default)
+    // HEL-904 task 3.12: `outputRepo` is `null` in any environment where `ApiRoutes`' own
+    // `outputRepoOpt` degrades to `None` (no `DbContext` passed -- a pre-existing, task-3.1
+    // convention this class did not introduce, see `ApiRoutes.outputRepoOpt`'s own doc). A real
+    // caller in that shape (confirmed live: `ApiTokenAuthSpec`'s `ApiRoutes` fixture predates
+    // `dbContext` and constructs `WorkspaceContextService` transitively via `ApiRoutes` with
+    // `outputRepo = null`) must degrade `dataTypes`/`counts.dataTypes` to empty, not NPE the
+    // whole `GET /api/workspace/context` route -- mirrors `DataTypeService.listRows`'s identical
+    // null-repo-degrades-to-empty precedent.
+    val typesF        =
+      if (outputRepo == null) Future.successful(PagedResult(Vector.empty[Output], 0, 0, Page.Default.limit))
+      else outputRepo.findAllByOwner(user.id, Page.Default)
     val dashboardsF   = dashboardService.findAll(user, Page.Default)
     val summariesF    = pipelineService.listSummaries(user)
     val agentContextF = buildAgentContext(user)
@@ -286,15 +308,32 @@ final class WorkspaceContextService(
   private[services] def buildPipeline(
       summary: PipelineSummaryResponse,
       user: AuthenticatedUser
-  ): Future[WorkspaceContextPipeline] =
-    pipelineService.analyze(PipelineId(summary.id), user)
+  ): Future[WorkspaceContextPipeline] = {
+    // HEL-904 task 3.12: a pipeline no longer mints exactly one DataType (task 3.5) -- it can
+    // carry zero-to-many Outputs, potentially on different nodes. `outputDataTypeId`/
+    // `outputDataTypeName` are legacy wire field NAMES this ticket does not rename (that's
+    // section 5's schema-surface job); populated here with the pipeline's first Output by
+    // `position` (an ACL-bypassing internal read -- `summary` itself already came from an
+    // owner-scoped `listSummaries` call, so the pipeline's ownership is already established)
+    // as the best-effort "representative" Output, matching the field's old one-per-pipeline
+    // semantics as closely as the new many-Outputs-per-pipeline model allows. Empty strings
+    // when the pipeline has no Output yet (unchanged from the prior placeholder).
+    val outputsF =
+      if (outputRepo == null) Future.successful(Vector.empty[Output])
+      else outputRepo.listByPipelineInternal(PipelineId(summary.id))
+    val analyzeF = pipelineService.analyze(PipelineId(summary.id), user)
       .map {
-        case Right(analyzed) => toPipelineEntry(summary, analyzed.steps.map(toStepEntry), stepsError = None)
-        case Left(err)       => toPipelineEntry(summary, Vector.empty, stepsError = Some(err.message))
+        case Right(analyzed) => (analyzed.steps.map(toStepEntry), Option.empty[String])
+        case Left(err)       => (Vector.empty[WorkspaceContextPipelineStep], Some(err.message))
       }
       .recover { case ex =>
-        toPipelineEntry(summary, Vector.empty, stepsError = Some(Option(ex.getMessage).getOrElse(ex.getClass.getName)))
+        (Vector.empty[WorkspaceContextPipelineStep], Some(Option(ex.getMessage).getOrElse(ex.getClass.getName)))
       }
+    for {
+      outputs                    <- outputsF
+      (steps, stepsError)        <- analyzeF
+    } yield toPipelineEntry(summary, steps, stepsError, outputs.headOption)
+  }
 
   private def toStepEntry(s: AnalyzeStepResponse): WorkspaceContextPipelineStep =
     WorkspaceContextPipelineStep(
@@ -307,19 +346,16 @@ final class WorkspaceContextService(
   private def toPipelineEntry(
       summary: PipelineSummaryResponse,
       steps: Vector[WorkspaceContextPipelineStep],
-      stepsError: Option[String]
+      stepsError: Option[String],
+      representativeOutput: Option[Output]
   ): WorkspaceContextPipeline =
     WorkspaceContextPipeline(
       id                   = summary.id,
       name                 = summary.name,
       sourceDataSourceId   = summary.sourceDataSourceId,
       sourceDataSourceName = summary.sourceDataSourceName,
-      // HEL-904 task 3.5: `PipelineSummaryResponse` no longer carries the
-      // legacy `outputDataTypeId`/`outputDataTypeName` fields (retired with
-      // the DataType-minting create-path). Left empty here as a placeholder
-      // until task 3.12 rewires this whole assembler onto Outputs.
-      outputDataTypeId     = "",
-      outputDataTypeName   = "",
+      outputDataTypeId     = representativeOutput.map(_.id.value).getOrElse(""),
+      outputDataTypeName   = representativeOutput.map(_.name).getOrElse(""),
       lastRunStatus        = summary.lastRunStatus,
       lastRunAt            = summary.lastRunAt,
       lastRunRowCount      = summary.lastRunRowCount,
@@ -352,37 +388,66 @@ final class WorkspaceContextService(
    *  per-id call) degrades to `sampleRows = Vector.empty` rather than failing
    *  the whole assembly — mirrors `buildPipeline`'s per-entry degrade
    *  discipline (design.md D5 of the parent HEL-371 change). */
-  private[services] def toDataTypeEntry(dt: DataType, user: AuthenticatedUser): Future[WorkspaceContextDataType] = {
+  private[services] def toDataTypeEntry(output: Output, user: AuthenticatedUser): Future[WorkspaceContextDataType] = {
+    // HEL-904 task 3.12: `output.schema` (`Vector[SchemaField]`, `{name, type}` only — no
+    // `nullable`/`displayName`) is adapted into the existing `Vector[DataField]`-shaped
+    // classification/stats machinery below (`classifySemanticRole`/`computeColumnStats`/
+    // `sanitizeSampleRows`) via a synthetic, non-persisted `DataField` per field
+    // (`nullable = false` — inferredSchema carries no nullability signal at all, so this is a
+    // deliberate, documented default, not a lossy guess about a real value) — reuses every
+    // already-tested field-category/semantic-role/stats function UNCHANGED rather than forking a
+    // second parallel implementation over a different input shape.
+    val fields: Vector[DataField] = output.schema.map(sf => DataField(sf.name, sf.name, sf.`type`, nullable = false))
+
     // HEL-373 design.md D1: ONE shared fetch (limit = StatsRowLimit, 500)
     // serves both sampleRows and columnStats — no second query path.
     // excludeKeys is the union of Content-category field names (unchanged
     // from HEL-372) and the Structured-category column-count overflow beyond
     // SampleColumnLimit (design.md D1 round-1 fix) — Postgres itself never
     // returns more than 40 Structured columns per row.
+    //
+    // HEL-904 task 3.12: rows now come from `node_snapshots` (`NodeSnapshotRepository`, keyed by
+    // the Output's own `NodeRef`) rather than `data_type_rows` keyed by DataType id — degrades to
+    // empty when `nodeSnapshotRepoOpt` is `None` (not currently wired), same "not wired ->
+    // empty" precedent as `panelRepoOpt`/`connectorRepoOpt` elsewhere in this file. Ownership of
+    // `output` was already established by the caller (`assemble`'s `outputRepo.findAllByOwner`),
+    // so this read needs no separate ACL check of its own — mirrors `toDataTypeEntry`'s prior
+    // `dataTypeService.listRows`'s post-`findByIdOwned` internal read.
     val statsF: Future[(Vector[JsObject], Map[String, WorkspaceContextColumnStats])] =
-      if (dt.sourceId.isDefined) Future.successful((Vector.empty, Map.empty))
-      else {
-        val excludeKeys = contentFieldNames(dt.fields) ++
-          DataTypeService.overflowStructuredFieldNames(dt.fields, SampleColumnLimit)
-        dataTypeService.listRows(dt.id, user, limit = Some(StatsRowLimit), excludeKeys = excludeKeys).map {
-          // Both outputs derived from `rawRows` in this SAME step, so `rawRows`
-          // goes out of scope here — never retained beyond this map (design.md
-          // D1a's binding memory-retention requirement).
-          case Right(rawRows) => (sanitizeSampleRows(dt.fields, rawRows), computeColumnStats(dt.fields, rawRows))
-          case Left(_)        => (Vector.empty, Map.empty)
-        }
+      nodeSnapshotRepoOpt match {
+        case None => Future.successful((Vector.empty, Map.empty))
+        case Some(nodeSnapshotRepo) =>
+          val excludeKeys = contentFieldNames(fields) ++ overflowStructuredFieldNames(fields, SampleColumnLimit)
+          nodeSnapshotRepo
+            .listRows(output.node.pipelineId.value, output.node.stepId.map(_.value), limit = Some(StatsRowLimit), excludeKeys = excludeKeys)
+            .map { rawRows =>
+              // Both outputs derived from `rawRows` in this SAME step, so `rawRows`
+              // goes out of scope here — never retained beyond this map (design.md
+              // D1a's binding memory-retention requirement).
+              (sanitizeSampleRows(fields, rawRows), computeColumnStats(fields, rawRows))
+            }
       }
 
     statsF.map { case (sampleRows, columnStats) =>
       WorkspaceContextDataType(
-        id             = dt.id.value,
-        name           = dt.name,
-        sourceId       = dt.sourceId.map(_.value),
-        pipelineOutput = dt.sourceId.isEmpty,
-        columns        = dt.fields.map(f => WorkspaceContextColumn(f.name, f.dataType, f.nullable, classifySemanticRole(f, columnStats.get(f.name)))),
-        computedColumns = dt.computedFields.map(cf => WorkspaceContextComputedColumn(cf.name, cf.dataType, cf.expression)),
-        version        = dt.version,
-        tag            = dt.tag,
+        id             = output.id.value,
+        name           = output.name,
+        // HEL-904 task 3.12: an Output has no source-companion concept (that distinction was
+        // retired with the DataType/Metric split) -- always `None`/`pipelineOutput = true`, since
+        // every Output is, by construction, a projection of a pipeline node.
+        sourceId       = None,
+        pipelineOutput = true,
+        columns        = fields.map(f => WorkspaceContextColumn(f.name, f.dataType, f.nullable, classifySemanticRole(f, columnStats.get(f.name)))),
+        // An Output has no computed-field concept of its own (that lived on the old DataType);
+        // always empty.
+        computedColumns = Vector.empty,
+        // An Output has no versioning concept (that lived on the old DataType); a fixed `1`
+        // preserves the wire field's presence without fabricating a meaningful version history.
+        version        = 1,
+        // Not yet exposed on the domain `Output` case class (the DB column exists but nothing
+        // reads it out yet) -- `None` until a later cycle adds it, same "not yet wired" precedent
+        // used throughout this file.
+        tag            = None,
         sampleRows     = sampleRows,
         columnStats    = columnStats
       )
@@ -391,6 +456,16 @@ final class WorkspaceContextService(
 
   private def contentFieldNames(fields: Vector[DataField]): Set[String] =
     fields.filter(f => fieldCategory(f) == FieldTypeCategory.Content).map(_.name).toSet
+
+  /** HEL-904 task 3.12: inlined verbatim from the now-decoupled
+   *  `DataTypeService.overflowStructuredFieldNames` (a pure function, no DataType-repository
+   *  dependency) so this file no longer needs a `DataTypeService` collaborator at all. */
+  private def overflowStructuredFieldNames(fields: Vector[DataField], limit: Int): Set[String] =
+    fields
+      .filter(f => fieldCategory(f).contains(FieldTypeCategory.Structured))
+      .drop(limit)
+      .map(_.name)
+      .toSet
 
   /** A field whose `dataType` string doesn't parse via `DataFieldType.fromString`
    *  is conservatively excluded from both categories (never Structured, so

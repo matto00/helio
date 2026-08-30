@@ -2032,3 +2032,151 @@ interconnected remaining chunk (not a short tail).
 3. 3.3 (`PatchSetApplyService` dataType-target retirement) and 3.15 (its dependent route deletion)
    remain independently schedulable whenever there's a clean slot — not blocked on the
    3.2/3.11/3.12 cluster.
+
+## Cycle 21 (this cycle) — task 3.12 landed in full, task 3.2 partially (forced by 3.12)
+
+Starting state verified fresh: HEAD = `390355d5` (cycle 20's commit), tree clean, full `sbt test`
+3629/3629 confirmed by cycle 20's own fresh run (re-confirmed, not re-run, since nothing changed
+to invalidate it).
+
+**Scope landed this cycle: task 3.12 (`WorkspaceContextService`) in full**, per the resume brief's
+own priority order (root of the 3.2/3.11/3.12 cluster).
+
+- `dataTypeService: DataTypeService` constructor param replaced with `outputRepo: OutputRepository`
+  in the SAME positional slot — every existing unit-test call site passing a literal `null` there
+  (the majority of this file's ~17 test-file blast radius) kept compiling unchanged; only call
+  sites passing a real `dataTypeService` instance needed updating.
+- New trailing `nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None` param (same
+  Option-guarded precedent as `panelRepoOpt`/`connectorRepoOpt`).
+- `assemble`'s `typesF` now calls `outputRepo.findAllByOwner(user.id, Page.Default)` (new
+  `OutputRepository` method, mirrors `DataTypeRepository.findAll`'s owner-scoped/paged shape — no
+  `tag` filter, since domain `Output` doesn't yet surface a `tag` field).
+- `toDataTypeEntry` rewritten to take an `Output` instead of `DataType`: `output.schema`
+  (`Vector[SchemaField]`, `{name,type}` only) is adapted into a synthetic, non-persisted
+  `Vector[DataField]` (`nullable = false`, `displayName = name`) so every already-tested
+  classification/stats function (`classifySemanticRole`/`computeColumnStats`/`sanitizeSampleRows`/
+  `asNumeric`) is reused UNCHANGED rather than forked over a second parallel implementation —
+  `asNumeric`'s single-exit-filter structure and `computeColumnStatsForField`'s `BigDecimal.setScale`
+  rounding are untouched, satisfying the HEL-631 caution explicitly. Sample rows/columnStats now
+  read `NodeSnapshotRepository.listRows(output.node.pipelineId.value, output.node.stepId.map(_.value), ...)`
+  instead of `DataTypeService.listRows`, degrading to empty when `nodeSnapshotRepoOpt` is `None`
+  (same "not wired -> empty" precedent as `panelRepoOpt`/`connectorRepoOpt`). `pipelineOutput` is
+  now unconditionally `true` and `sourceId` unconditionally `None` (Outputs have no
+  source-companion concept at all — that distinction was retired with the DataType/Metric split).
+  `tag` is `None` (not yet surfaced on the domain `Output` case class — a documented, tracked gap,
+  not a regression) and `version` is a fixed `1` (Outputs have no versioning concept).
+- `buildPipeline` resolves the pipeline's first Output by `position`
+  (`outputRepo.listByPipelineInternal`) as a best-effort "representative" Output for the legacy
+  `outputDataTypeId`/`outputDataTypeName` wire field NAMES (task 3.5 left these as empty-string
+  placeholders pending this task) — a pipeline can now carry zero-to-many Outputs across different
+  nodes, so this is a deliberate, documented simplification, not a data-fidelity claim; renaming
+  the fields themselves is section 5's schema-surface job, not this task's.
+- Domain model: `Output` gained `schema: Vector[SchemaField] = Vector.empty` (additive default,
+  zero blast radius on the 2 existing direct-constructor test call sites) — `OutputRepository`'s
+  `rowToDomain`/`insertInternal` now populate it from the persisted `outputs.schema` column.
+  `OutputRepository` also gained `findAllByOwner` and `updateSchemaInternal` (test/internal schema
+  update, mirroring `DataTypeRepository`'s post-creation `update`).
+
+**A real regression found and fixed via the full `sbt test` run** (not skipped): `outputRepo`
+being a REQUIRED, unconditionally-dereferenced constructor param broke `ApiTokenAuthSpec`'s
+`GET /api/workspace/context` test with a 500 — `ApiRoutes.outputRepoOpt` is ALREADY gated on the
+optional `dbContext` param (a pre-existing task-3.1 convention this cycle did not introduce; several
+other services — `panelService`/`proposalService`/`dashboardContentsService` — already tolerate
+`outputRepo == null`), but `ApiTokenAuthSpec`'s fixture (which predates `dbContext` becoming
+relevant) never passes one, so `outputRepoOpt.orNull` reached `WorkspaceContextService` as `null`.
+Previously `dataTypeService` was ALWAYS real regardless of `dbContext` (built directly from
+always-present repos), so this null-dereference risk didn't exist before this cycle's swap.
+**Root cause (probe-confirmed via the isolated single-test rerun, not guessed):** `assemble`'s
+`typesF`/`buildPipeline`'s `outputsF` unconditionally called `outputRepo.findAllByOwner`/
+`listByPipelineInternal` with no null-guard, unlike every other nullable-optional collaborator in
+this file. **Fix:** both call sites now check `outputRepo == null` and degrade to an empty
+`PagedResult`/`Vector` respectively (mirrors `DataTypeService.listRows`'s identical
+null-repo-degrades-to-empty precedent) — same fix mirrored in `WorkspaceSearchService.find`'s
+DataType branch (task 3.2, same root cause, same fix).
+
+**Task 3.2 landed partially, forced by 3.12's own signature change** (NOT independently
+scheduled this cycle): `WorkspaceSearchService` also depended on `WorkspaceContextService.toDataTypeEntry`'s
+old `DataType`-shaped signature, so it HAD to be updated in the same commit to keep compiling.
+Only `WorkspaceSearchService`'s DataType branch (`find`'s `toDataTypeSummary`, `getResource`'s
+`WorkspaceResourceType.DataType` case) is rewired — the wire `resourceType` string stays
+`"dataType"` (renaming that enum value is section 5's schema-surface job). Explicitly NOT touched
+this cycle: `WorkspaceSearchService`'s Metric branch, `WorkspaceTeardownRepository` (still fully
+`DataTypeRepository`-keyed teardown-conflict logic), `DashboardContentsService` (still takes
+`dataTypeRepo`/`metricRepo` directly), `AssistantToolExecutor`'s `withCapabilities` (still
+constructs `DataTypeId` for `PanelCapabilityService` — part of the 3.11 cluster, not 3.2's own
+scope).
+
+**Test fallout (large, mechanical + two substantive fixture rewrites):**
+- ~13 test files needed only a mechanical `dataTypeService` → `outputRepo` constructor-call swap
+  (`ResourceTaggingSpec`, `RefinementRoutesSpec`, `DashboardAuthoringRoutesSpec`,
+  `AssistantConversationRoutesSpec`, `AuthoringTelemetrySpec`, `RefinementServiceSpec`,
+  `WorkspaceContextServiceAgentContextSpec`, `WorkspaceContextServiceSpec`,
+  `WorkspaceSearchServiceSpec`, `DashboardAuthoringServiceSpec`, `AssistantServiceSpec`,
+  `AssistantToolExecutorSpec`).
+- `WorkspaceContextServiceSpec`/`WorkspaceSearchServiceSpec` needed a genuine fixture rewrite (not
+  just a constructor swap): `createPipeline`'s helper now ALSO creates a real Output
+  (`nodeStepId = None`) alongside its existing legacy-companion-DataType back door, and every
+  `setDataTypeFields`/`dataTypeRowRepo.overwriteRows` call site was retargeted onto
+  `OutputRepository.updateSchemaInternal`/`NodeSnapshotRepository.overwriteRows`. Several
+  assertions tested a "source-companion DataType surfaces in `dataTypes`" behavior that no longer
+  exists on the Output model at all (every Output is unconditionally pipeline-derived) — these were
+  REWRITTEN to assert the new, correct behavior (a companion type never appears in `dataTypes`),
+  not silently deleted; each site carries an inline comment explaining the retirement.
+- `DashboardAuthoringRoutesSpec`/`AuthoringTelemetrySpec`'s shared "pipeline-output DataType"
+  grounding fixture (`pipelineOutputType`/`userWithWorkspace`) needed a real pipeline + Output
+  created alongside the vestigial `DataType` (the DataType's id is deliberately set equal to the
+  Output's id so every existing `.id.value` call site — used to bind an "output"-kind proposal
+  panel — keeps resolving); `dashboardProposalService` also needed the real `outputRepo` passed
+  (was `null` in both fixtures, causing a latent NPE risk for the SAME "output"-kind binding path
+  once the Output actually existed to be resolved).
+- `AssistantServiceSpec` used a different, lower-risk technique for its ~15 `dtRepo`-stubbing test
+  blocks: rather than editing each one, a new `dataTypeBackedOutputRepo` helper subclasses
+  `OutputRepository` (a plain, non-final class) and forwards `findAllByOwner`/`findByIdOwned` to
+  the SAME already-stubbed `DataTypeRepository` mock, translating `DataType` → `Output` on the fly
+  — every existing test block's `dtRepo.findByIdOwned`/`findAll` stub keeps driving `find`/
+  `get_resource` exactly as before, with zero per-test-block changes.
+
+**Verification this cycle (confirmed, fresh, exit codes/counts read directly):**
+- `sbt -batch compile` — clean.
+- `sbt -batch Test/compile` — clean.
+- `sbt -batch "testOnly com.helio.services.workspace.*"` — 179/179 green (after the fixture
+  rewrites).
+- `sbt -batch "testOnly com.helio.services.assistant.* com.helio.api.routes.assistant.*
+  com.helio.api.routes.ResourceTaggingSpec com.helio.api.routes.patchsets.RefinementRoutesSpec
+  com.helio.api.routes.proposals.DashboardAuthoringRoutesSpec
+  com.helio.services.patchsets.RefinementServiceSpec com.helio.services.proposals.*"` — 187/187
+  green (after the grounding-fixture fixes).
+- Full `sbt -batch test` (first run): **3629 tests, 1 failed** —
+  `ApiTokenAuthSpec` ("leave an unscoped PAT fully authorized on GET /api/workspace/context").
+  Re-ran in isolation per HEL-924's classification protocol
+  (`sbt -batch "testOnly com.helio.api.ApiTokenAuthSpec"`) — **still failed in isolation**,
+  confirming a real regression, not flakiness. Root-caused and fixed as described above; the
+  isolated re-run then went 25/25 green.
+- Full `sbt -batch test` run TWICE after the fix — **3629/3629 passing both times**, exit code 0,
+  238 suites, 0 aborted, 0 failed — genuinely stable.
+- `node scripts/check-scala-quality.mjs` — clean (140 pre-existing soft file-size warnings, +1 vs.
+  cycle 20's 139 for `WorkspaceContextServiceSpec.scala`'s growth from this cycle's fixture
+  rewrite — no new inline FQNs).
+- `node scripts/check-schema-drift.mjs` — clean (no schema-surface changes this cycle).
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+
+**Section 3 status after this cycle:** 3.1/3.4/3.5/3.6/3.7/3.8/3.9/3.10/3.10a/3.12/3.13/3.14
+confirmed `[x]`. Remaining: 3.2 (partial — only `WorkspaceSearchService`'s DataType branch),
+3.3, 3.11, 3.11a, 3.15. Section 3 is CLOSE to done (11 of 15 numbered items fully `[x]`, one more
+partially) but not finished — 3.11/3.11a's `PanelCapabilityService` cluster and 3.3's
+`PatchSetApplyService` dataType-target retirement remain the two largest standalone remaining
+pieces, plus finishing 3.2's other three files.
+
+**Next cycle should:**
+1. Take 3.11 (`PanelCapabilityService`) + 3.11a (its 12-file test blast radius) next — the
+   resource shape it's fed (`WorkspaceResourceDetail.DataTypeDetail`, now Output-backed per this
+   cycle) is now settled, so this is unblocked. Rewire its capability computation to resolve
+   against a pipeline node's Outputs/`NodeSnapshotRepository` instead of `DataTypeRepository`/
+   `DataTypeRowRepository`.
+2. Then finish 3.2's remaining three files (`WorkspaceTeardownRepository`,
+   `DashboardContentsService`, `AssistantToolExecutor`'s `withCapabilities` — the last of which is
+   itself part of the 3.11 cluster, so may fall out naturally from 3.11's own rewire) and
+   `WorkspaceSearchService`'s still-untouched Metric branch.
+3. Task 3.3 (`PatchSetApplyService` dataType-target retirement) and 3.15 (its dependent
+   `ApiRoutes.scala` route-deletion) remain independently schedulable whenever there's a clean
+   slot — not blocked on the 3.2/3.11/3.12 cluster.

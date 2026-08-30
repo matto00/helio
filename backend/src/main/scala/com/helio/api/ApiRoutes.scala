@@ -477,14 +477,18 @@ final class ApiRoutes(
   private val workspaceContextService = new WorkspaceContextService(
     dashboardService,
     dataSourceService,
-    dataTypeService,
+    // HEL-904 task 3.12: `outputRepoOpt` (constructed above, alongside `nodeSnapshotRepoOpt`) —
+    // both are only `None` when `dbContext` itself is null (fixture-only), matching the same
+    // unconditional-in-production convention `dataTypeService` had.
+    outputRepoOpt.orNull,
     pipelineService,
     agentPreferencesServiceOpt,
     agentMemoryServiceOpt,
     Some(panelRepo),
     // HEL-828 design.md Decision 5: reuses the EXISTING connectorRepoOpt (constructed above,
     // alongside sourceService/connectorEntityServiceOpt) — no new ConnectorRepository here.
-    connectorRepoOpt
+    connectorRepoOpt,
+    nodeSnapshotRepoOpt
   )
   // HEL-397: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
   // fixtures that don't pass a DbContext simply don't get the authoring routes' persistence
@@ -553,7 +557,7 @@ final class ApiRoutes(
         None
       case (Right(claudeConfig), Some(metricService)) =>
         val claudeClient           = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
-        val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, dataTypeService, pipelineService, metricService, workspaceContextService)
+        val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepoOpt.orNull, pipelineService, metricService, workspaceContextService)
         Some(new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, proposalService, pipelineProposalService, combinedProposalService, patchSetPreviewService, sourceService))
     }
 

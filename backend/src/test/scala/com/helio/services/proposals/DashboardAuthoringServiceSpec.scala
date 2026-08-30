@@ -118,7 +118,7 @@ class DashboardAuthoringServiceSpec
     val accessChecker   = new AccessCheckerImpl(permissionRepo, registry)
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
 
-    workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
+    workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     panelCapabilityService  = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
     // dashboardService/panelService are never touched by `.validate` (the only method
     // DashboardAuthoringService calls) — null, same rationale as

@@ -140,7 +140,15 @@
       1.4) now that every caller reads `targetOutputId` instead — round-2 finding 4 flagged this
       removal as dangling; it belongs here, not left implicit.
 - [ ] 3.2 `WorkspaceSearchService`, `WorkspaceTeardownRepository`, `DashboardContentsService`,
-      `AssistantToolExecutor`: DataType/Metric branches → Outputs.
+      `AssistantToolExecutor`: DataType/Metric branches → Outputs. **Partial (this cycle, landed
+      alongside 3.12):** `WorkspaceSearchService`'s `find`/`getResource` DataType branches only
+      (`toDataTypeSummary`/the `WorkspaceResourceType.DataType` `getResource` case) are rewired
+      onto `OutputRepository` — this was forced by 3.12's own signature change to
+      `WorkspaceContextService.toDataTypeEntry`, not independently scheduled. `WorkspaceSearchService`'s
+      Metric branch, `WorkspaceTeardownRepository` (still fully `DataTypeRepository`-keyed
+      teardown-conflict logic), `DashboardContentsService` (still takes `dataTypeRepo`/`metricRepo`
+      directly), and `AssistantToolExecutor`'s `withCapabilities` (still constructs `DataTypeId`
+      for `PanelCapabilityService`, part of the 3.11 cluster) remain untouched.
 - [ ] 3.3 `PatchSetApplyService` + other patch-set files: `dataType` targets → node/Output
       targets; persisted enum loses `dataType`/`metric`.
 - [x] 3.4 `BinaryRefRepository` re-keyed to `(pipeline_id, node_step_id)` (per
@@ -241,9 +249,32 @@
       in §4.5, not rewired here). Also update the stale doc comments at
       `PanelBindingSpec.scala:32,103-119` and `PanelCapabilityProtocol.scala:8` that still
       reference the retired introspection endpoint.
-- [ ] 3.12 `WorkspaceContextService` (34 refs, `:5` imports `DataTypeService`): rewire every
+- [x] 3.12 `WorkspaceContextService` (34 refs, `:5` imports `DataTypeService`): rewire every
       DataType/Metric reference to Outputs/pipelines/inferredSchema; do NOT touch `asNumeric`'s
       single-exit-filter structure or its `BigDecimal.setScale` rounding (HEL-631 caution).
+      **Completed this cycle**: `dataTypeService: DataTypeService` constructor param replaced with
+      `outputRepo: OutputRepository` (same positional slot); `assemble`'s `typesF` now sources from
+      `outputRepo.findAllByOwner`; `toDataTypeEntry` rewritten to take an `Output` (schema adapted
+      via a synthetic `DataField` per `SchemaField`, reusing every existing classification/stats
+      function unchanged — `asNumeric`/`computeColumnStats`/`sanitizeSampleRows` untouched per the
+      HEL-631 caution); sample rows/columnStats now read `NodeSnapshotRepository` (new
+      `nodeSnapshotRepoOpt` trailing param) instead of `DataTypeRowRepository`; `buildPipeline`
+      resolves a representative Output per pipeline for the legacy `outputDataTypeId`/
+      `outputDataTypeName` wire fields. Domain `Output` gained a `schema: Vector[SchemaField] =
+      Vector.empty` field (additive default) so `OutputRepository` can round-trip it.
+      `OutputRepository` gained `findAllByOwner` (owner-scoped paged listing, mirrors
+      `DataTypeRepository.findAll`) and `updateSchemaInternal` (test/internal use). Both
+      `WorkspaceContextService`/`WorkspaceSearchService` degrade `outputRepo == null` to empty
+      results rather than NPE (a real regression caught by `ApiTokenAuthSpec`'s
+      dbContext-less `ApiRoutes` fixture — fixed, see files-modified.md). `WorkspaceContextServiceSpec`/
+      `WorkspaceSearchServiceSpec` fixtures rewritten to seed real Outputs/`node_snapshots` instead
+      of DataType rows; the "source-companion vs pipeline-output" distinction those specs used to
+      assert no longer exists on the Output model (every Output is pipeline-derived by
+      construction) — those specific assertions were retired, not silently dropped (see inline
+      comments at each site). `output.tag` is NOT yet surfaced (domain `Output` has no `tag` field
+      yet, though the DB column exists) — `WorkspaceContextDataType.tag` is `None` for every Output
+      today, a documented, tracked gap, not a regression (see `toDataTypeEntry`'s own doc and the
+      4.6b schema-validity test's inline comment).
 - [x] 3.13 `AlertRuleRepository`: add `listEnabledByOutputInternal` (privileged internal read,
       mirrors today's `listEnabledByDataTypeInternal`) backing task 3.1's `evaluateForOutput`.
       Landed in cycle 9 (task 3.1's own commit); re-verified this cycle.

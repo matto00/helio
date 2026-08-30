@@ -1,6 +1,7 @@
 package com.helio.domain.model
 
 import com.helio.api.http.RequestValidation
+import com.helio.domain.engine.SchemaField
 import java.time.Instant
 import org.apache.pekko.http.scaladsl.model.{ContentType, ContentTypes}
 import org.slf4j.LoggerFactory
@@ -781,7 +782,13 @@ final case class Output(
     node: NodeRef,
     kind: OutputKind,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    // HEL-904 task 3.12: the Output's derived `{name, type}` schema (persisted on the `outputs`
+    // row, `OutputRepository.OutputRow.schema`) -- added here, defaulted to `Vector.empty`, so
+    // every pre-existing direct `Output(...)` constructor call (tests, `OutputRepository`'s own
+    // `rowToDomain`/`insertInternal`) keeps compiling unchanged; only `OutputRepository` needs to
+    // actually populate it.
+    schema: Vector[SchemaField] = Vector.empty
 )
 
 // `PipelineStep` ADT lives in `Pipeline.scala` (sealed trait + 10 typed

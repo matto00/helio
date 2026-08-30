@@ -37,7 +37,8 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         throw new IllegalStateException(s"OutputRepository: unknown output kind '${row.kind}' on row ${row.id}")
       ),
       createdAt = row.createdAt,
-      updatedAt = row.updatedAt
+      updatedAt = row.updatedAt,
+      schema    = row.schema
     )
 
   private def domainToRow(output: Output, config: JsObject, schema: Vector[SchemaField], position: Int, tag: Option[String]): OutputRow =
@@ -73,6 +74,28 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       table.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
     ).map(_.toVector.map(rowToDomain))
+
+  /** Owner-scoped, paged listing of every Output the caller owns, across all
+   *  their pipelines — the Output-model replacement for
+   *  `DataTypeRepository.findAll` (HEL-904 task 3.12), used by
+   *  `WorkspaceContextService.assemble`'s top-level `dataTypes` fan-out.
+   *  Mirrors `DataTypeRepository.findAll`'s exact owner-scoping/paging shape
+   *  (`withUserContext`, `sortBy(_.createdAt.desc)`, `PagedResult`) — no
+   *  `tag` filter param, since the domain `Output` case class does not
+   *  surface a `tag` field (the DB column exists but is not yet read out;
+   *  left for a later cycle if tag-scoped Output listing is ever needed). */
+  def findAllByOwner(ownerId: UserId, page: Page): Future[PagedResult[Output]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    val baseQuery = table.filter(_.ownerId === ownerUuid)
+    val countAction = baseQuery.length.result
+    val sliceAction = baseQuery.sortBy(_.createdAt.desc).drop(page.offset).take(page.limit).result
+    ctx.withUserContext(ownerId.value)(
+      for {
+        total <- countAction
+        rows  <- sliceAction
+      } yield PagedResult(rows.map(rowToDomain).toVector, total, page.offset, page.limit)
+    )
+  }
 
   def findByIdInternal(id: OutputId): Future[Option[Output]] =
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption).map(_.map(rowToDomain))
@@ -115,12 +138,18 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val action = for {
       maxPos <- table.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
       position = maxPos.map(_ + 1).getOrElse(0)
-      output   = Output(id, name, ownerId, NodeRef(pipelineId, nodeStepId), kind, now, now)
+      output   = Output(id, name, ownerId, NodeRef(pipelineId, nodeStepId), kind, now, now, schema)
       row      = domainToRow(output, config, schema, position, tag)
       _       <- table += row
     } yield output
     ctx.withSystemContext(action.transactionally)
   }
+
+  /** ACL-bypassing schema update -- used by tests (and any future re-analyze path) to update an
+   *  Output's derived `{name, type}` schema after creation, mirroring `DataTypeRepository`'s
+   *  `update`'s ability to replace `fields` post-creation. */
+  def updateSchemaInternal(id: OutputId, schema: Vector[SchemaField]): Future[Unit] =
+    ctx.withSystemContext(table.filter(_.id === id.value).map(_.schema).update(schema)).map(_ => ())
 
   /** ACL-bypassing delete. Safe to call only after the caller's pipeline
    *  access has been confirmed by the service layer. */

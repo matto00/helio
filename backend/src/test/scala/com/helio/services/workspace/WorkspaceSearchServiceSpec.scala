@@ -11,7 +11,8 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.metrics.MetricRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.domain.engine.SchemaField
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
@@ -64,6 +65,8 @@ class WorkspaceSearchServiceSpec
   private var dashboardService: DashboardService             = _
   private var dataSourceService: DataSourceService           = _
   private var dataTypeService: DataTypeService               = _
+  private var outputRepo: OutputRepository                   = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository        = _
   private var pipelineService: PipelineService               = _
   private var metricService: MetricService                   = _
   private var workspaceContextService: WorkspaceContextService = _
@@ -99,6 +102,8 @@ class WorkspaceSearchServiceSpec
     val fs     = new LocalFileSystem(tmpDir)
     dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
     dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
+    outputRepo        = new OutputRepository(ctx)
+    nodeSnapshotRepo  = new NodeSnapshotRepository(ctx)
     pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
     metricService     = new MetricService(metricRepo, dataTypeRepo)
 
@@ -108,8 +113,11 @@ class WorkspaceSearchServiceSpec
     val accessChecker = new AccessCheckerImpl(permissionRepo, registry)
     dashboardService  = new DashboardService(dashboardRepo, accessChecker)
 
-    workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
-    service = new WorkspaceSearchService(dashboardService, dataSourceService, dataTypeService, pipelineService, metricService, workspaceContextService)
+    workspaceContextService = new WorkspaceContextService(
+      dashboardService, dataSourceService, outputRepo, pipelineService,
+      nodeSnapshotRepoOpt = Some(nodeSnapshotRepo)
+    )
+    service = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepo, pipelineService, metricService, workspaceContextService)
 
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userAId::uuid, ${s"a-$userAId@test.local"}, now())""",
@@ -176,10 +184,14 @@ class WorkspaceSearchServiceSpec
     )
     val createdDataType = await(dataTypeRepo.insert(dataType, user))
     await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), createdDataType.id))
+    // HEL-904 task 3.12: also create a real Output on the pipeline's raw source (`nodeStepId =
+    // None`) -- `outputDataTypeId` (name kept for this file's own diff-minimization) now holds
+    // THIS Output's id, not the legacy companion DataType's.
+    val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table))
     SeededPipeline(
       id                   = summary.id,
       sourceDataSourceName = summary.sourceDataSourceName,
-      outputDataTypeId     = createdDataType.id.value
+      outputDataTypeId     = createdOutput.id.value
     )
   }
 
@@ -238,10 +250,11 @@ class WorkspaceSearchServiceSpec
     }
   }
 
-  private def setDataTypeFields(id: DataTypeId, user: AuthenticatedUser, fields: Vector[DataField]): Unit = {
-    val existing = await(dataTypeRepo.findByIdOwned(id, user)).getOrElse(fail("DataType not found"))
-    await(dataTypeRepo.update(existing.copy(fields = fields), user)).getOrElse(fail("DataType update failed"))
-  }
+  // HEL-904 task 3.12: `id` is now an Output id (see `createPipeline`'s own doc) -- updates
+  // `outputs.schema` instead of `data_types.fields`, mirroring
+  // `WorkspaceContextServiceSpec`'s identical rewire.
+  private def setDataTypeFields(outputIdStr: String, fields: Vector[DataField]): Unit =
+    await(outputRepo.updateSchemaInternal(OutputId(outputIdStr), fields.map(f => SchemaField(f.name, f.dataType))))
 
   private def grantPipelineRole(pipelineId: String, granteeId: UserId, role: Role): Unit =
     await(permissionRepo.insert(ResourcePermission(
@@ -263,12 +276,17 @@ class WorkspaceSearchServiceSpec
       hit.description should not be empty
     }
 
-    "return a summary for a query matching an owned DataType's name (the source-companion type)" in {
-      val ds = createSource(userA, "find-51-datatype-alpha")
-      val results = await(service.find(userA, "find-51-datatype-alpha", Some(Set(WorkspaceResourceType.DataType))))
-      val hit = results.find(_.name == ds.name).getOrElse(fail("DataType summary missing"))
+    // HEL-904 task 3.12: `dataType` resourceType results now come from `OutputRepository`, not
+    // the legacy source-companion DataType (which no longer surfaces here at all -- see
+    // `WorkspaceContextServiceSpec`'s identical 4.2/4.3 rewire). Renamed to exercise a real Output
+    // instead.
+    "return a summary for a query matching an owned Output's name" in {
+      val source   = createSource(userA, "find-51-datatype-source")
+      val pipeline = createPipeline(userA, source.id, "find-51-datatype-pipeline", "find-51-datatype-alpha")
+      val results  = await(service.find(userA, "find-51-datatype-alpha", Some(Set(WorkspaceResourceType.DataType))))
+      val hit = results.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("Output summary missing"))
       hit.resourceType shouldBe "dataType"
-      hit.description shouldBe "source-companion type"
+      hit.description shouldBe "pipeline output"
     }
 
     "return a summary for a query matching an owned pipeline's name" in {
@@ -367,13 +385,12 @@ class WorkspaceSearchServiceSpec
     "return the same columns/sampleRows/columnStats assemble would produce for that DataType" in {
       val source   = createSource(userA, "getresource-54-source")
       val pipeline = createPipeline(userA, source.id, "getresource-54-pipeline", "getresource-54-output")
-      val outputId = DataTypeId(pipeline.outputDataTypeId)
 
-      setDataTypeFields(outputId, userA, Vector(
+      setDataTypeFields(pipeline.outputDataTypeId, Vector(
         DataField("status", "Status", "string", nullable = false),
         DataField("amount", "Amount", "float", nullable = false)
       ))
-      await(dataTypeRowRepo.overwriteRows(pipeline.outputDataTypeId, Seq(
+      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("status" -> JsString("active"), "amount" -> JsNumber(10)),
         JsObject("status" -> JsString("inactive"), "amount" -> JsNumber(20))
       )))

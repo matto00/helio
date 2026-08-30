@@ -9,7 +9,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
@@ -100,6 +100,8 @@ class WorkspaceContextServiceAgentContextSpec
     val fs     = new LocalFileSystem(tmpDir)
     val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
+    // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
+    val outputRepo     = new OutputRepository(ctx)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 
     val registry       = new ResourceTypeRegistry(
@@ -115,12 +117,12 @@ class WorkspaceContextServiceAgentContextSpec
     agentMemoryService      = new AgentMemoryService(agentMemoryRepo, agentPreferencesService)
 
     serviceWithAgent = new WorkspaceContextService(
-      dashboardService, dataSourceService, dataTypeService, pipelineService,
+      dashboardService, dataSourceService, outputRepo, pipelineService,
       Some(agentPreferencesService), Some(agentMemoryService)
     )
     // Deliberately omits the two agent-service params (defaults to None, None) — the
     // "underlying services aren't wired" degrade path (design.md Decision 2).
-    serviceWithoutAgent = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
+    serviceWithoutAgent = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
 
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($theUserId::uuid, ${s"$theUserId@test.local"}, now())"""))
   }

@@ -3,11 +3,12 @@ package com.helio.services.workspace
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.metrics.MetricService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.pipelines.PipelineSummaryResponse
 import com.helio.api.protocols.workspace.{WorkspaceResourceDetail, WorkspaceResourceMetric, WorkspaceResourceSummary}
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSource, DataSourceId, DataType, DataTypeId, MetricDefinition, MetricId, Page, PipelineId, WorkspaceResourceType}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSource, DataSourceId, MetricDefinition, MetricId, Output, OutputId, Page, PipelineId, WorkspaceResourceType}
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,7 +28,11 @@ import scala.concurrent.{ExecutionContext, Future}
 final class WorkspaceSearchService(
     dashboardService: DashboardService,
     dataSourceService: DataSourceService,
-    dataTypeService: DataTypeService,
+    // HEL-904 task 3.2: replaces `dataTypeService: DataTypeService` in the SAME positional slot
+    // (mirrors `WorkspaceContextService`'s own task-3.12 param swap) -- every existing test call
+    // site passing a literal `null` here keeps compiling unchanged; only call sites passing a
+    // real `dataTypeService` instance need updating to pass a real `outputRepo`.
+    outputRepo: OutputRepository,
     pipelineService: PipelineService,
     metricService: MetricService,
     workspaceContextService: WorkspaceContextService
@@ -63,8 +68,11 @@ final class WorkspaceSearchService(
       else Future.successful(Vector.empty)
 
     val dataTypeSummariesF: Future[Vector[WorkspaceResourceSummary]] =
-      if (requested(WorkspaceResourceType.DataType))
-        dataTypeService.findAll(user, Page.Default).map(_.items.map(toDataTypeSummary))
+      // HEL-904 task 3.2: `outputRepo` is `null` when `ApiRoutes`' `outputRepoOpt` degrades to
+      // `None` (no `DbContext` -- pre-existing task-3.1 convention) -- degrade to empty rather
+      // than NPE the whole `find`, mirroring `WorkspaceContextService.assemble`'s identical fix.
+      if (requested(WorkspaceResourceType.DataType) && outputRepo != null)
+        outputRepo.findAllByOwner(user.id, Page.Default).map(_.items.map(toDataTypeSummary))
       else Future.successful(Vector.empty)
 
     val pipelineSummariesF: Future[Vector[WorkspaceResourceSummary]] =
@@ -121,12 +129,17 @@ final class WorkspaceSearchService(
       description  = s"${ds.kind} data source"
     )
 
-  private def toDataTypeSummary(dt: DataType): WorkspaceResourceSummary =
+  // HEL-904 task 3.2: renamed from `toDataTypeSummary` -- the wire `resourceType` string stays
+  // `"dataType"` (`WorkspaceResourceType.DataType`'s own `asString`, unchanged -- renaming that
+  // wire value is section 5's schema-surface job, not this task's), only the source domain object
+  // changed from `DataType` to `Output`. `sourceId`/source-companion distinction no longer exists
+  // (that split was retired with DataType/Metric) -- every Output is a pipeline-output projection.
+  private def toDataTypeSummary(output: Output): WorkspaceResourceSummary =
     WorkspaceResourceSummary(
-      id           = dt.id.value,
+      id           = output.id.value,
       resourceType = WorkspaceResourceType.asString(WorkspaceResourceType.DataType),
-      name         = dt.name,
-      description  = if (dt.sourceId.isEmpty) "pipeline output type" else "source-companion type"
+      name         = output.name,
+      description  = "pipeline output"
     )
 
   private def toPipelineSummary(p: PipelineSummaryResponse): WorkspaceResourceSummary =
@@ -179,9 +192,13 @@ final class WorkspaceSearchService(
       dataSourceService.findById(DataSourceId(id), user).map(_.map(ds => WorkspaceResourceDetail.DataSourceDetail(workspaceContextService.toDataSourceEntry(ds))))
 
     case WorkspaceResourceType.DataType =>
-      dataTypeService.findById(DataTypeId(id), user).flatMap {
-        case Left(err) => Future.successful(Left(err))
-        case Right(dt) => workspaceContextService.toDataTypeEntry(dt, user).map(entry => Right(WorkspaceResourceDetail.DataTypeDetail(entry)))
+      // HEL-904 task 3.2: `outputRepo.findByIdOwned` returns `Future[Option[Output]]`, not the
+      // `Either[ServiceError, _]` `dataTypeService.findById` used to -- `None` maps to the same
+      // `NotFound` `getResource` already returns for every other unowned/nonexistent resource
+      // (existence-not-leaked, unchanged contract).
+      outputRepo.findByIdOwned(OutputId(id), user).flatMap {
+        case None         => Future.successful(Left(ServiceError.NotFound(s"Output not found: $id")))
+        case Some(output) => workspaceContextService.toDataTypeEntry(output, user).map(entry => Right(WorkspaceResourceDetail.DataTypeDetail(entry)))
       }
 
     case WorkspaceResourceType.Pipeline =>

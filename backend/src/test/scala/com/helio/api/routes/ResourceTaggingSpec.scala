@@ -11,7 +11,7 @@ import com.helio.services.workspace.{WorkspaceContextService, WorkspaceTeardownS
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -153,8 +153,10 @@ class ResourceTaggingSpec
     val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
-    // HEL-372 design.md D7: WorkspaceContextService takes dataTypeService now.
-    val contextSvc = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
+    // HEL-904 task 3.12: WorkspaceContextService takes an OutputRepository now (dataTypeService
+    // dropped).
+    val outputRepo = new OutputRepository(ctx)(routeEc)
+    val contextSvc = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     new WorkspaceRoutes(Some(teardownSvc), contextSvc, user)(routeEc).routes
   }
 

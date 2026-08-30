@@ -11,12 +11,12 @@ import com.helio.services.panels.PanelCapabilityService
 import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.proposals.DashboardProposalService
 import com.helio.services.assistant.AssistantService
-import com.helio.services.pipelines.DataTypeService
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import com.helio.ai._
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.ArgumentMatchers.any
@@ -130,12 +130,34 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
 
   // ── Fixture wiring — mirrors AssistantToolExecutorSpec's "mocked repos, real service" style ──
 
+  // HEL-904 task 3.12/3.2: `WorkspaceContextService`/`WorkspaceSearchService`'s "dataType"
+  // resourceType now resolves against `OutputRepository`, not `dataTypeService` -- rather than
+  // touch every one of this file's many `dtRepo`-stubbing test blocks individually, this ADAPTER
+  // subclasses `OutputRepository` (a plain, non-final class -- overriding two methods, no Mockito
+  // involved) and forwards to the SAME already-stubbed `dtRepo`/`user` this file's tests already
+  // configure, translating `DataType` -> `Output` on the fly. Every existing test block's
+  // `dtRepo.findByIdOwned`/`findAll` stub therefore keeps driving `find`/`get_resource` exactly as
+  // before, with zero per-test changes required.
+  private def dataTypeBackedOutputRepo(dtRepo: DataTypeRepository): OutputRepository =
+    new OutputRepository(null) {
+      override def findAllByOwner(ownerId: UserId, page: Page): Future[PagedResult[Output]] =
+        dtRepo.findAll(ownerId, page, None).map(paged => paged.copy(items = paged.items.map(toOutput)))
+      override def findByIdOwned(id: OutputId, user: AuthenticatedUser): Future[Option[Output]] =
+        dtRepo.findByIdOwned(DataTypeId(id.value), user).map(_.map(toOutput))
+    }
+
+  private def toOutput(dt: DataType): Output =
+    Output(
+      OutputId(dt.id.value), dt.name, dt.ownerId, NodeRef(PipelineId("adapter"), None), OutputKind.Table, now, now,
+      schema = dt.fields.map(f => SchemaField(f.name, f.dataType))
+    )
+
   private def newService(dtRepo: DataTypeRepository, dsRepo: DataSourceRepository, transport: ClaudeTransport): AssistantService = {
     val rowRepo                  = mock(classOf[DataTypeRowRepository])
     when(rowRepo.listRows(any[String](), any[Option[Int]](), any[Set[String]]())).thenReturn(Future.successful(Vector.empty[JsObject]))
-    val dataTypeService          = new DataTypeService(dtRepo, rowRepo, dsRepo)
-    val workspaceContextService  = new WorkspaceContextService(null, null, dataTypeService, null)
-    val workspaceSearchService   = new WorkspaceSearchService(null, null, dataTypeService, null, null, workspaceContextService)
+    val outputRepo                = dataTypeBackedOutputRepo(dtRepo)
+    val workspaceContextService  = new WorkspaceContextService(null, null, outputRepo, null)
+    val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, null, workspaceContextService)
     val panelCapabilityService   = new PanelCapabilityService(dtRepo, rowRepo)
     val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null)
     val pipelineProposalService  = new PipelineProposalService(null, null, null, null, null, dsRepo, null, null)

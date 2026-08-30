@@ -7,14 +7,12 @@ import com.helio.api.protocols.assistant.TierErrorResponse
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository._
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.UserRepository
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
 import com.helio.services.auth.{ChatAccessService, UserTierConfig}
-import com.helio.services.pipelines.DataTypeService
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.pekko.NotUsed
@@ -220,12 +218,9 @@ class AssistantConversationRoutesSpec
   // `AssistantServiceSpec`'s own `newService` wiring; every collaborator `find` never reaches
   // (dashboard/dataSource/pipeline/metric summaries -- `findInput` below only requests `dataType`)
   // stays null.
-  private def assistantServiceWithSearch(transport: ClaudeTransport, dtRepo: DataTypeRepository): AssistantService = {
-    val rowRepo = mock(classOf[DataTypeRowRepository])
-    when(rowRepo.listRows(any[String](), any[Option[Int]](), any[Set[String]]())).thenReturn(Future.successful(Vector.empty[JsObject]))
-    val dataTypeService         = new DataTypeService(dtRepo, rowRepo, mock(classOf[DataSourceRepository]))(routeEc)
-    val workspaceContextService = new WorkspaceContextService(null, null, dataTypeService, null)(routeEc)
-    val workspaceSearchService  = new WorkspaceSearchService(null, null, dataTypeService, null, null, workspaceContextService)(routeEc)
+  private def assistantServiceWithSearch(transport: ClaudeTransport, outputRepo: OutputRepository): AssistantService = {
+    val workspaceContextService = new WorkspaceContextService(null, null, outputRepo, null)(routeEc)
+    val workspaceSearchService  = new WorkspaceSearchService(null, null, outputRepo, null, null, workspaceContextService)(routeEc)
     new AssistantService(new ClaudeClient(claudeConfig(), transport)(routeEc), workspaceSearchService, null, null, null, null, null, null)(routeEc)
   }
 
@@ -459,13 +454,13 @@ class AssistantConversationRoutesSpec
     "surfaces searchedWithNoResults = true when the turn's find call comes back empty" in {
       cleanDb()
       val detail = await(conversationService.create(userA, None, title = None))
-      val dtRepo = mock(classOf[DataTypeRepository])
-      when(dtRepo.findAll(userA.id, Page.Default, None)).thenReturn(Future.successful(PagedResult(Vector.empty[DataType], 0, 0, 200)))
+      val outputRepo = mock(classOf[OutputRepository])
+      when(outputRepo.findAllByOwner(userA.id, Page.Default)).thenReturn(Future.successful(PagedResult(Vector.empty[Output], 0, 0, 200)))
       val findInput = JsObject("query" -> JsString("orders"), "resourceTypes" -> JsArray(JsString("dataType")))
       val transport = new SequencedTransport(
         Vector(toolUseResponse("t1", "find", findInput), finalTextResponse("I couldn't find anything -- can you narrow it down?"))
       )
-      val assistantService = assistantServiceWithSearch(transport, dtRepo)
+      val assistantService = assistantServiceWithSearch(transport, outputRepo)
 
       Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"Track weekly revenue"}""")) ~> routesFor(userA, Some(assistantService)) ~> check {
         status shouldBe StatusCodes.OK

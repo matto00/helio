@@ -11,6 +11,7 @@ import com.helio.api.protocols.assistant.AssistantProposal
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal, ProposalPanel}
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, RestApiConfigPayload, SqlInferRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload, TestConnectionResponse}
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository}
@@ -49,7 +50,12 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
   // HEL-904 task 3.8/3.9: a real Output, for tests exercising an "output"-kind proposal
   // panel's binding validation (now against OutputRepository, not DataTypeRepository).
   private def pipelineOutput(id: OutputId): Output =
-    Output(id, "Orders", ownerId, NodeRef(PipelineId(UUID.randomUUID().toString), None), OutputKind.Table, now, now)
+    Output(
+      id, "Orders", ownerId, NodeRef(PipelineId(UUID.randomUUID().toString), None), OutputKind.Table, now, now,
+      // HEL-904 task 3.12: matches `pipelineOutputDataType`'s own single "amount" field, so tests
+      // asserting on the "detail" half's `columns` see the same shape as before the Output rewire.
+      schema = Vector(SchemaField("amount", "float"))
+    )
 
   /** Builds a real `AssistantToolExecutor` over mocked `dtRepo`/`rowRepo`. `combinedProposalService`/
    *  `patchSetPreviewService` default to `null` — only the decode-before-dispatch tests below (which
@@ -66,9 +72,11 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       pipelineProposalServiceOverride: PipelineProposalService = null,
       outputRepo: OutputRepository = null
   ): AssistantToolExecutor = {
-    val dataTypeService          = new DataTypeService(dtRepo, rowRepo, null)
-    val workspaceContextService  = new WorkspaceContextService(null, null, dataTypeService, null)
-    val workspaceSearchService   = new WorkspaceSearchService(null, null, dataTypeService, null, null, workspaceContextService)
+    // HEL-904 task 3.12/3.2: WorkspaceContextService/WorkspaceSearchService take the SAME
+    // `outputRepo` param this helper already threads through to `dashboardProposalService` --
+    // `dataTypeService` is no longer a collaborator of either.
+    val workspaceContextService  = new WorkspaceContextService(null, null, outputRepo, null)
+    val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, null, workspaceContextService)
     val panelCapabilityService   = new PanelCapabilityService(dtRepo, rowRepo)
     val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null, outputRepo)
     // HEL-756 tasks.md 2.4/2.5/2.7 — the default is a REAL instance whose own collaborators are all
@@ -173,15 +181,20 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     "nest detail and panelCapabilities as distinct keys for a DataType, both columns arrays intact" in {
       val dtRepo  = mock(classOf[DataTypeRepository])
       val rowRepo = mock(classOf[DataTypeRowRepository])
-      val dt       = pipelineOutputDataType(outputId)
-      // Plain values (no eq()/any() matcher) for the DataTypeId/AuthenticatedUser args — Mockito's
-      // eq() matcher interacts badly with Scala AnyVal-derived case classes (NPE unboxing a null
-      // DataTypeId); Mockito auto-equals-matches every arg when NONE of them uses an explicit
-      // matcher, which is the same style DashboardProposalServiceValidateSpec already establishes.
+      val dt      = pipelineOutputDataType(outputId)
+      // HEL-904 task 3.12/3.2: `get_resource(type = "dataType")`'s "detail" half now resolves
+      // through `WorkspaceSearchService`'s Output branch (`OutputRepository`) -- but its
+      // "panelCapabilities" half still resolves through `PanelCapabilityService`'s pre-existing
+      // `DataTypeRepository`/`DataTypeRowRepository` collaborators (task 3.11, NOT yet rewired
+      // this cycle) -- so BOTH `dtRepo` and a new `outRepo` need matching same-`id`,
+      // same-`"amount"`-field stubs for this one test to keep exercising both halves.
       when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(dt)))
       when(rowRepo.listRows(meq(outputId.value), any[Option[Int]](), any[Set[String]]())).thenReturn(Future.successful(Vector.empty[JsObject]))
+      val outRepo = mock(classOf[OutputRepository])
+      when(outRepo.findByIdOwned(OutputId(outputId.value), user))
+        .thenReturn(Future.successful(Some(pipelineOutput(OutputId(outputId.value)))))
 
-      val executor = newExecutor(dtRepo, rowRepo)
+      val executor = newExecutor(dtRepo, rowRepo, outputRepo = outRepo)
       val input     = JsObject("id" -> JsString(outputId.value), "type" -> JsString("dataType"))
 
       val result = await(executor.execute("get_resource", input))
@@ -534,8 +547,13 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val rowRepo = mock(classOf[DataTypeRowRepository])
       when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputId))))
       when(rowRepo.listRows(meq(outputId.value), any[Option[Int]](), any[Set[String]]())).thenReturn(Future.successful(Vector.empty[JsObject]))
-      val executor = newExecutor(dtRepo, rowRepo)
-      when(dtRepo.findAll(ownerId, Page.Default, None)).thenReturn(Future.successful(PagedResult(Vector.empty, 0, 0, 200)))
+      // HEL-904 task 3.12/3.2: `find`/`get_resource`'s "dataType" resourceType now resolves
+      // through `OutputRepository`, not `dataTypeService`.
+      val outRepo = mock(classOf[OutputRepository])
+      when(outRepo.findByIdOwned(OutputId(outputId.value), user))
+        .thenReturn(Future.successful(Some(pipelineOutput(OutputId(outputId.value)))))
+      when(outRepo.findAllByOwner(ownerId, Page.Default)).thenReturn(Future.successful(PagedResult(Vector.empty, 0, 0, 200)))
+      val executor = newExecutor(dtRepo, rowRepo, outputRepo = outRepo)
 
       // resourceTypes restricted to "dataType" only — this executor's other 4 WorkspaceSearchService
       // collaborators (dashboard/dataSource/pipeline/metric) are null (mirrors this file's own
