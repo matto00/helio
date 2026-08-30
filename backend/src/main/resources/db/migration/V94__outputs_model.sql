@@ -569,6 +569,32 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ── 9a. Data migration: binary_refs backfill (task 2.9 remediation) ────────
+--
+-- Section 7 above added `binary_refs.pipeline_id`/`node_step_id` nullable
+-- but never backfilled them for pre-existing rows -- a gap surfaced by
+-- cycle 10's own task 3.4 work (BinaryRefRepository re-keyed to read/write
+-- exclusively by these new columns) and flagged there rather than fixed,
+-- since it needs `hel904_original_trunk_last` (built just above, in section
+-- 9) to resolve each ref's node. Fixed here, now that dependency exists.
+--
+-- Every existing `binary_refs` row is keyed by `data_type_id`, which (per
+-- section 7's own dev-DB inspection) always resolves to a pipeline's
+-- `output_data_type_id` -- i.e. the pipeline's produced type, which lived on
+-- the pipeline's last trunk step at the time this migration ran. Re-key:
+-- `pipeline_id` = the owning pipeline, `node_step_id` = that pipeline's
+-- ORIGINAL last-trunk-step (NULL for a zero-step pipeline), from the SAME
+-- one-time snapshot section 9 uses -- not re-walked here, for the identical
+-- reason section 9's own comment gives (a later section may have appended
+-- tail steps by the time this runs, which must not affect this resolution).
+UPDATE binary_refs br
+SET pipeline_id = pl.id,
+    node_step_id = htl.step_id
+FROM pipelines pl
+JOIN hel904_original_trunk_last htl ON htl.pipeline_id = pl.id
+WHERE pl.output_data_type_id = br.data_type_id
+  AND br.pipeline_id IS NULL;
+
 -- ── 10. Data migration step 2.9(c): unbound data panels deleted ────────────
 --
 -- A "bound" panel of a visualization kind (metric/chart/table/collection/

@@ -163,7 +163,14 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
                      '[{"index":0,"targetKind":"panel","op":"update"},{"index":1,"targetKind":"dataType","op":"update"}]'::jsonb)""",
       sqlu"""INSERT INTO patch_set_applications (id, owner_id, applied_at, edits)
              VALUES ('pset-all-datatype', $ownerId::uuid, now(),
-                     '[{"index":0,"targetKind":"dataType","op":"update"},{"index":1,"targetKind":"metric","op":"update"}]'::jsonb)"""
+                     '[{"index":0,"targetKind":"dataType","op":"update"},{"index":1,"targetKind":"metric","op":"update"}]'::jsonb)""",
+      // Task 2.9 remediation fixture: a pre-existing `binary_refs` row keyed
+      // only by the legacy `data_type_id` (as every real row is today,
+      // before this migration's `pipeline_id`/`node_step_id` columns even
+      // exist) -- must be backfilled to (pipelineId, trunk-last-step) by the
+      // migration's own DML, not left null.
+      sqlu"""INSERT INTO binary_refs (id, data_type_id, row_index, field_name, storage_key, mime_type, filename, size_bytes)
+             VALUES ('ref-pre-existing', 'dt-1', 99, 'preexisting', 's2', 'application/octet-stream', 'g.bin', 1)"""
     )))
 
     // Sanity: the pre-migration schema genuinely lacks the new columns --
@@ -210,6 +217,12 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         .as[Int]
     ))
     preMigrationPatchSetEditCounts shouldBe Vector(2, 2)
+
+    // Red-first (task 2.9 remediation): pre-migration, `binary_refs` has no
+    // `pipeline_id`/`node_step_id` columns at all yet -- proves the
+    // post-migration backfill assertion below is not vacuous.
+    a[java.sql.SQLException] should be thrownBy
+      await(superDb.run(sql"SELECT pipeline_id FROM binary_refs LIMIT 1".as[Option[String]]))
 
     // ── Now migrate to latest (applies V94) ─────────────────────────────────
     Flyway
@@ -364,6 +377,15 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         sql"SELECT pipeline_id FROM binary_refs WHERE id = 'ref-1'".as[Option[String]].head
       ))
       populated shouldBe Some(pipelineId)
+    }
+
+    "backfill pipeline_id/node_step_id for a pre-existing row from its data_type_id (task 2.9 remediation)" in {
+      val (backfilledPipelineId, backfilledNodeStepId) = await(superDb.run(
+        sql"SELECT pipeline_id, node_step_id FROM binary_refs WHERE id = 'ref-pre-existing'"
+          .as[(Option[String], Option[String])].head
+      ))
+      backfilledPipelineId shouldBe Some(pipelineId)
+      backfilledNodeStepId shouldBe Some(stepIds.last)
     }
   }
 
