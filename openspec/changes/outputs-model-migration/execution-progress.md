@@ -1550,3 +1550,111 @@ this commit's already-large scope further under time pressure.
 
 Re-verified fresh, in order, after the schema-drift fix: `sbt -batch compile` (backend, clean),
 `npm --prefix helio-mcp run typecheck` (clean), `npm --prefix frontend run typecheck` (clean).
+
+## Cycle 16 continuation — reduced backend test failures 158 -> 81, precisely diagnosed the two
+## remaining root causes; both are real, well-scoped follow-on work, not compile/checkpoint blockers
+
+Continued past the mid-cycle checkpoint commit to fix the mass test fallout the collapse caused
+(anticipated in this ticket's own directive: "this collapse touches essentially every panel-related
+spec"). Root-caused every failure via isolated `testOnly` re-runs (never trusted the raw full-suite
+count, per HEL-924) before touching anything.
+
+**First full-suite run after the checkpoint commit: 158 failed / 1 aborted suite, ALL traced to
+one mechanical cause**: dozens of test fixtures across ~30 files still construct panels with
+`type: "metric"/"chart"/"table"/"collection"/"timeline"` — now-invalid `PanelType` values — 400ing
+before the test's actual subject ever runs. Fixed by:
+- Deleting whole spec files whose ENTIRE subject is retired functionality (not just a fixture
+  string): `DashboardApplyProposalAggregationSpec`, `DashboardContentsReplaceAggregationSpec`,
+  `DashboardApplyProposalTimelineSpec` (chart-scatter-aggregation-conflict / timeline-sort proposal
+  validation), `DashboardApplyProposalMetricBindingSpec` (metricId proposal-binding validation).
+- Deleting individual retired-feature test CASES (not whole files) inside otherwise-still-valid
+  specs: `DashboardSnapshotValidationSpec`'s 3 scatter+aggregation import-validation cases,
+  `DashboardApplyProposalConfigSpec`'s 2 collection-baseType/chart-chartOptions/table-density config-
+  passthrough cases, `PatchSetUndoServiceSpec`'s metric-bound raw-override-conflict case,
+  `CombinedApplyProposalRollbackSpec`'s chart-scatter-chartType rejection case (retargeted to an
+  output-panel-missing-dataTypeId trigger instead, preserving the rollback assertion).
+- Retargeting hundreds of individual fixture-only `type: "metric"` (and a few `"chart"`) literals
+  across ~25 files to `"output"` (the new `DataPanelKinds` member) or, for fixtures that create a
+  panel with NO config at all (a real forcing distinction discovered mid-fix: an `output`-kind
+  panel's `validateConfig` now REQUIRES a non-empty `outputId`, unlike the old always-valid-empty
+  `metric` panel), to `"divider"` instead — `PatchSetApplyServiceSpec`'s CR1 regression test and
+  `PatchSetUndoInverseSpec`'s two D5 tests were similarly rewired from Metric's `aggregation` field
+  onto Divider's `weight`/`color` field in the earlier checkpoint commit, for the same reason.
+- `MetricRoutesSpec`/`MetricRepositorySpec`'s `seedBoundPanel` fixtures rewritten as direct raw-SQL
+  inserts (bypassing the domain `Panel` mapper entirely, matching this file's own existing raw-SQL
+  fixture pattern) since NO surviving `Panel` domain subtype writes `metric_id` anymore — the
+  `GET /metrics/:id/usage`/`X-Unbound-Panel-Count` features these tests exercise still read the raw
+  `panels.metric_id` column directly, so the tests remain a genuine (if now write-path-orphaned)
+  regression guard on that read path.
+
+**Second full-suite run: 105 failed / 1 aborted.** Fixed the aborted suite
+(`RefinementRoutesSpec`) and further fixture retargeting misses
+(`AuditMutationInstrumentationSpec`'s `ProposalPanel` literals, `AssistantToolExecutorSpec`/
+`AssistantServiceSpec`'s `` `type` = "metric" `` object literals, `DashboardProposalServiceValidateSpec`/
+`DashboardSnapshotValidationSpec`'s default-param `"metric"` values, `ApiRoutesSpec`'s two
+`snapshotPanel.\`type\`` / `panel.\`type\`` assertions).
+
+**Third full-suite run: 85 failed, 0 aborted.** Found and fixed the `Some("output"), None`
+forcing-distinction described above (`RefinementServiceSpec`, `RefinementRoutesSpec`,
+`PatchSetPreviewRoutesSpec`, `PatchSetUndoServiceSpec`, and 10 occurrences in `ApiRoutesSpec`
+retargeted to `"divider"`) — EXCEPT one `ApiRoutesSpec` test (`"return a metric config (no divider
+fields) for a metric panel"`) that specifically asserts the created panel's `type` IS `"output"`
+and carries no divider fields; that one test was given a real `outputId` in its create config
+instead of being retargeted to `"divider"`. Also fixed `PatchSetUndoServiceSpec`'s remaining
+metric-bound conflict-detection test and `AutoLayoutRouteSpec`'s `"chart"`-typed fixtures
+(retargeted to `"divider"` — `PanelPacker` behavior is kind-agnostic beyond its `Bounds` lookup,
+already covered by `PanelPackerSpec`).
+
+**Fourth (current) full-suite run: 81 failed, 0 aborted, across exactly 6 suites — both remaining
+root causes are now precisely diagnosed, not vague:**
+
+1. **`ApiRoutesSpec.scala` (the large majority of the 81)**: dozens of individual test cases
+   still exercise now-fully-retired per-kind behavior that has no Output-kind equivalent yet —
+   `type: "collection"`/`"timeline"` create-and-echo contract tests (HEL-310/HEL-317), a large
+   block of `ChartPanel`-specific appearance/`chartType` PATCH-and-validate tests (lines
+   ~2400-3100+), and `TablePanel`-specific tests. This is a genuinely large, single-file cleanup
+   task (the file is 4700+ lines, one of the oldest/largest integration specs in the repo) —
+   sized but explicitly NOT attempted this cycle given remaining capacity; next cycle should
+   budget real time for it specifically, deleting the now-dead per-kind test blocks the same way
+   this cycle deleted `DashboardApplyProposalAggregationSpec` et al.
+2. **`DashboardApplyProposalSpec`/`PanelBatchCreateSpec`/`DashboardContentsReplaceSpec`/
+   `CombinedApplyProposalSpec`/`DashboardApplyProposalConfigSpec`'s remaining failures**: ALL
+   trace to one precise, single root cause — `ProposalPanelSupport.buildDataConfig` (this cycle's
+   own interim implementation, explicitly flagged in files-modified.md as "NOT the real Output
+   `outputId` composition") still emits a `{dataTypeId, fieldMapping}`-shaped config for an
+   `"output"`-typed proposal panel. `OutputPanelConfig.decodeCreate` ignores those fields
+   entirely and requires a non-empty `outputId`, so EVERY proposal/batch-create test that
+   exercises a data-bound panel via `type: "output"` (having been mechanically retargeted from
+   `"metric"`/`"chart"`/etc. earlier this cycle) now fails uniformly with `"outputId is
+   required"` — confirmed by direct inspection of the failure messages, not inferred. This is
+   exactly task 3.8's real scope ("rewire to create/roll back an Output on the pipeline's last
+   trunk step instead of a DataType") — the fix belongs there, not as a further test-fixture
+   patch. Next cycle should land task 3.8 first, then these 5 files' tests should mostly go green
+   without further per-test editing (the fixtures themselves are already correctly shaped for the
+   OLD dataTypeId-binding semantic; only `ProposalPanelSupport`'s config-building needs to change
+   to emit a real `outputId`).
+
+**Explicitly NOT attempted this cycle** (both real, bounded, already-diagnosed, not vague):
+`ApiRoutesSpec.scala`'s per-kind test cleanup (item 1 above); task 3.8's real Output composition
+(item 2 above, which task 3.9/3.10's interim `buildDataConfig` shape was always going to need
+revisiting for).
+
+**Final verification this cycle (fresh, exit codes/counts read directly):**
+- `sbt -batch compile` (main) — clean.
+- `sbt -batch Test/compile` — clean.
+- `sbt -batch test` (full suite) — 3660 tests, 3579 succeeded, 81 failed, 0 aborted, across
+  exactly 6 suites, both root causes diagnosed above (not a raw unclassified count — HEL-924).
+- Frontend (`npm test`) — 2963/2963 passed (verified earlier this cycle, unaffected by this
+  continuation's backend-only changes).
+- `node scripts/check-schema-drift.mjs` — clean (verified earlier this cycle; unaffected by this
+  continuation's test-only changes).
+
+**Next cycle should, before writing any new code:**
+1. Land task 3.8 (`ProposalPanelSupport`/`DashboardProposalService` real Output `outputId`
+   composition) — this alone should clear most/all of `DashboardApplyProposalSpec`/
+   `PanelBatchCreateSpec`/`DashboardContentsReplaceSpec`/`CombinedApplyProposalSpec`/
+   `DashboardApplyProposalConfigSpec`'s remaining failures without further per-test editing.
+2. Then do `ApiRoutesSpec.scala`'s per-kind test cleanup (delete the collection/timeline/chart/
+   table-specific test blocks the same way this cycle deleted the standalone Aggregation/Timeline/
+   MetricBinding spec files) — budget real time, it's a large single file.
+3. Once `sbt test` is fully green, continue into 3.11 (real)/3.5/3.12 per the task list.

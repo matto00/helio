@@ -492,3 +492,46 @@ entirely) is deferred to land with tasks 3.9/3.10/3.10a/4.1 per cycle 14's sizin
 - Verified fresh after this fix: `node scripts/check-schema-drift.mjs` clean (7 panel-type
   surfaces checked), `sbt -batch compile` clean, `npm --prefix helio-mcp run typecheck` clean,
   `npm --prefix frontend run typecheck` clean.
+
+### Cycle 16 continuation — test-fixture retargeting fallout from the PanelType collapse (158 -> 81 failures)
+
+- Deleted (subject entirely retired): `DashboardApplyProposalAggregationSpec.scala`,
+  `DashboardContentsReplaceAggregationSpec.scala`, `DashboardApplyProposalTimelineSpec.scala`,
+  `DashboardApplyProposalMetricBindingSpec.scala`.
+- `DashboardSnapshotValidationSpec.scala`, `DashboardApplyProposalConfigSpec.scala`,
+  `PatchSetUndoServiceSpec.scala`, `CombinedApplyProposalRollbackSpec.scala` — individual retired-
+  feature test cases removed (scatter+aggregation import validation, collection/chart/table
+  config-passthrough, metric-bound raw-override conflict, chart-scatter-chartType rejection
+  retargeted to an output-missing-dataTypeId trigger).
+- `MetricRoutesSpec.scala`, `MetricRepositorySpec.scala` — `seedBoundPanel` rewritten as a direct
+  raw-SQL insert (no surviving `Panel` subtype writes `metric_id` anymore); the still-live
+  `GET /metrics/:id/usage`/`X-Unbound-Panel-Count` read paths remain covered.
+- `RefinementRoutesSpec.scala`, `RefinementServiceSpec.scala`, `PatchSetPreviewRoutesSpec.scala`,
+  `PatchSetUndoServiceSpec.scala` (again), `ApiRoutesSpec.scala` (10 sites) — `Some("output"),
+  None` panel-creation fixtures retargeted to `Some("divider"), None` (an empty-config `output`
+  panel is now invalid — `validateConfig` requires a non-empty `outputId`, a real forcing
+  distinction from the old always-valid-empty `metric` default); `ApiRoutesSpec.scala`'s one test
+  that specifically asserts `type == "output"` was instead given a real `outputId` in its config.
+- `CombinedApplyProposalDanglingRefSpec.scala` — a `DataPanelKinds` example retargeted `"chart"` →
+  `"output"`.
+- `AuditMutationInstrumentationSpec.scala`, `AssistantToolExecutorSpec.scala`,
+  `AssistantServiceSpec.scala`, `DashboardProposalServiceValidateSpec.scala`,
+  `DashboardSnapshotValidationSpec.scala`, `ApiRoutesSpec.scala`, plus 8 further proposal/
+  batch-create spec files (`DashboardApplyProposalMetricBindingSpec` before its deletion,
+  `CombinedApplyProposalRegressionSpec`, `DashboardApplyProposalSpec`,
+  `DashboardApplyProposalBindingSpec`, `CombinedApplyProposalSpec`, `DashboardAuthoringRoutesSpec`,
+  `DashboardContentsReplaceSpec`, `PanelBatchCreateSpec`, `DashboardApplyProposalConfigSpec`,
+  `DashboardAuthoringServiceSpec`, `AuthoringTelemetrySpec`) — mechanical `"type":"metric"` /
+  `` `type` = "metric" `` fixture retargeting to `"output"`.
+- `AutoLayoutRouteSpec.scala` — `"chart"`-typed fixture panels retargeted to `"divider"`
+  (`PanelPacker` behavior beyond its `Bounds` lookup is kind-agnostic; already covered by
+  `PanelPackerSpec`).
+- **Two root causes remain, both precisely diagnosed (not vague), affecting 81 tests across 6
+  suites — see execution-progress.md's cycle-16-continuation section for the full detail**:
+  (1) `ApiRoutesSpec.scala` still carries dozens of test cases exercising fully-retired
+  ChartPanel/CollectionPanel/TimelinePanel/TablePanel-specific behavior with no Output-kind
+  equivalent yet (a large single-file cleanup, explicitly deferred); (2) `ProposalPanelSupport.
+  buildDataConfig`'s interim `{dataTypeId, fieldMapping}` config shape (this cycle's own
+  documented placeholder) doesn't satisfy `OutputPanelConfig.decodeCreate`'s `outputId`
+  requirement, so every proposal/batch-create test path exercising a data-bound `"output"` panel
+  fails with `"outputId is required"` — this is task 3.8's real scope, not a further test patch.

@@ -14,6 +14,11 @@ class CombinedApplyProposalRollbackSpec extends CombinedApplyProposalSpecBase {
 
   "POST /api/proposals/apply rollback" should {
 
+    // HEL-904: this test's original failure trigger (a chart panel combining
+    // an invalid `chartType` -- ChartPanel-specific validation, task 3.10a)
+    // no longer exists; retargeted to an output panel missing its required
+    // `dataTypeId` (`DataPanelKinds`, still a live rejection), preserving the
+    // same rollback-on-dashboard-phase-failure assertion.
     "roll back the already-created pipeline and source when the dashboard phase fails" in {
       val before = allCounts()
       val body =
@@ -28,14 +33,13 @@ class CombinedApplyProposalRollbackSpec extends CombinedApplyProposalSpecBase {
           |  "dashboard": {
           |    "dashboardName": "Rollback Dashboard",
           |    "panels": [
-          |      {"title":"Bad Chart","type":"chart","dataTypeId":"$pipelineOutput","fieldMapping":{},
-          |       "chartType":"bogus"}
+          |      {"title":"Bad Output","type":"output"}
           |    ]
           |  }
           |}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[String].toLowerCase should include("charttype")
+        responseAs[String].toLowerCase should include("datatypeid")
       }
       allCounts() shouldBe before
     }

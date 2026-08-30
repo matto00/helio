@@ -52,7 +52,7 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
         s"""{"dashboardId":"$dashboardId","panels":[
            |  {"title":"Photo","type":"image","config":{"imageUrl":"https://example.com/x.png"}},
            |  {"title":"Notes","type":"markdown","config":{"content":"hello"}},
-           |  {"title":"Revenue","type":"metric","config":{"dataTypeId":"$pipelineOutputTypeId","fieldMapping":{"value":"region"}}}
+           |  {"title":"Revenue","type":"output","config":{"dataTypeId":"$pipelineOutputTypeId","fieldMapping":{"value":"region"}}}
            |]}""".stripMargin
       batchCreate(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -90,7 +90,7 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
       val body =
         s"""{"dashboardId":"$dashboardId","panels":[
            |  {"title":"Good","type":"text"},
-           |  {"title":"Bad","type":"metric","config":{"dataTypeId":"$companionTypeId","fieldMapping":{"value":"region"}}}
+           |  {"title":"Bad","type":"output","config":{"dataTypeId":"$companionTypeId","fieldMapping":{"value":"region"}}}
            |]}""".stripMargin
       batchCreate(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest

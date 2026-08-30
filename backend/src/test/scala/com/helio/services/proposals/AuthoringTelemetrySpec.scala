@@ -315,7 +315,7 @@ class AuthoringTelemetrySpec
       val (user, dt) = userWithWorkspace()
       val modelId = s"model-${UUID.randomUUID()}"
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)), modelId)
 
       var responseAuthoringRequestId: String = ""
@@ -415,7 +415,7 @@ class AuthoringTelemetrySpec
       val (user, dt) = userWithWorkspace()
       val modelId = s"model-${UUID.randomUUID()}"
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(""), Seq(ClaudeStreamEvent.TextDelta(validJson), ClaudeStreamEvent.MessageStop)), modelId)
 
       var resultAuthoringRequestId: String = ""

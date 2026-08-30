@@ -18,74 +18,7 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
     // derived config, decoded by the same PanelConfigCodec path as any other
     // panel create (design.md D1-D3).
 
-    "create a collection panel with baseType/layout from proposal config (HEL-316)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{
-           |  "dashboardName": "Collection Config",
-           |  "panels": [
-           |    {"title":"Top movers","type":"collection","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{"value":"region"},
-           |     "config":{"baseType":"metric","layout":"list"}}
-           |  ]
-           |}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.Created
-        val obj    = responseAs[String].parseJson.asJsObject
-        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
-        val panel  = panels.find(_.fields("title").convertTo[String] == "Top movers").get
-        val config = panel.fields("config").asJsObject
-        config.fields("baseType").convertTo[String] shouldBe "metric"
-        config.fields("layout").convertTo[String] shouldBe "list"
-        config.fields("dataTypeId").convertTo[String] shouldBe pipelineOutputTypeId
-      }
-      dashboardCount() shouldBe (before + 1)
-    }
-
-    "persist chart chartOptions from proposal config (HEL-316)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{
-           |  "dashboardName": "Chart Options",
-           |  "panels": [
-           |    {"title":"Smooth line","type":"chart","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{},
-           |     "config":{"chartOptions":{"line":{"smooth":true}}}}
-           |  ]
-           |}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.Created
-        val obj    = responseAs[String].parseJson.asJsObject
-        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
-        val panel  = panels.find(_.fields("title").convertTo[String] == "Smooth line").get
-        val config = panel.fields("config").asJsObject
-        config.fields("chartOptions").asJsObject.fields("line").asJsObject.fields("smooth") shouldBe JsBoolean(true)
-      }
-      dashboardCount() shouldBe (before + 1)
-    }
-
-    "persist table density/columnOrder from proposal config (HEL-316)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{
-           |  "dashboardName": "Table Config",
-           |  "panels": [
-           |    {"title":"Sales table","type":"table","dataTypeId":"$pipelineOutputTypeId",
-           |     "fieldMapping":{},
-           |     "config":{"density":"condensed","columnOrder":["region"]}}
-           |  ]
-           |}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.Created
-        val obj    = responseAs[String].parseJson.asJsObject
-        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
-        val panel  = panels.find(_.fields("title").convertTo[String] == "Sales table").get
-        val config = panel.fields("config").asJsObject
-        config.fields("density").convertTo[String] shouldBe "condensed"
-        config.fields("columnOrder").convertTo[Vector[String]] shouldBe Vector("region")
-      }
-      dashboardCount() shouldBe (before + 1)
-    }
+    // HEL-904: collection/chart/table config-passthrough tests removed -- those panel kinds no longer exist.
 
     // D2: config must NOT be able to clobber the flat-field dataTypeId — the
     // pipeline-only binding rule (V41) is enforced against the FLAT field
@@ -97,7 +30,7 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "Bypass Attempt",
            |  "panels": [
-           |    {"title":"Total","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
            |     "fieldMapping":{"value":"region"},
            |     "config":{"dataTypeId":"$companionTypeId"}}
            |  ]
@@ -121,7 +54,7 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "Flat Only",
            |  "panels": [
-           |    {"title":"Total","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
            |     "fieldMapping":{"value":"region"}}
            |  ]
            |}""".stripMargin

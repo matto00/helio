@@ -164,7 +164,7 @@ class DashboardAuthoringRoutesSpec
 
     "return 200 with a proposal for a well-wired buffered call" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
@@ -200,7 +200,7 @@ class DashboardAuthoringRoutesSpec
 
     "the response body carries an additive conversationId alongside proposal/warnings" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
@@ -216,7 +216,7 @@ class DashboardAuthoringRoutesSpec
 
     "return 200 with the display-only view for a conversation the caller owns" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       var conversationId: String = ""

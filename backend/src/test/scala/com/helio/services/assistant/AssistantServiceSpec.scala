@@ -67,7 +67,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
 
   private def dashboardProposal(dataTypeId: String): DashboardProposal = {
     val panel = ProposalPanel(
-      title = "Total", `type` = "metric", dataTypeId = Some(dataTypeId), metricId = None,
+      title = "Total", `type` = "output", dataTypeId = Some(dataTypeId), metricId = None,
       fieldMapping = Some(JsObject("value" -> JsString("amount"))), aggregation = None, content = None,
       url = None, orientation = None, chartType = None, xAxisLabel = None, yAxisLabel = None,
       seriesColors = None, label = None, unit = None, sort = None, layout = None, config = None

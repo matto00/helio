@@ -786,8 +786,8 @@ class AuditMutationInstrumentationSpec
       val proposal = DashboardProposal(
         dashboardName = "RollbackTarget",
         panels = Vector(
-          ProposalPanel("OK Panel", "metric", Some(typeA.id.value), None, None, None, None, None, None, None, None, None, None, None, None, None, None, None),
-          ProposalPanel("Metric Panel", "metric", Some(typeA.id.value), Some(metricId.value), None, None, None, None, None, None, None, None, None, None, None, None, None, None)
+          ProposalPanel("OK Panel", "output", Some(typeA.id.value), None, None, None, None, None, None, None, None, None, None, None, None, None, None, None),
+          ProposalPanel("Metric Panel", "output", Some(typeA.id.value), Some(metricId.value), None, None, None, None, None, None, None, None, None, None, None, None, None, None)
         )
       )
       Post("/api/dashboards/apply-proposal", proposal) ~> routesFor() ~> check {

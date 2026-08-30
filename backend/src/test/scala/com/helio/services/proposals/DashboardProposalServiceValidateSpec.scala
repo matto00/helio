@@ -51,7 +51,7 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private def newService(dtRepo: DataTypeRepository, metricRepo: MetricRepository = mock(classOf[MetricRepository])): DashboardProposalService =
     new DashboardProposalService(null, null, dtRepo, metricRepo)
 
-  private def metricPanel(dataTypeId: DataTypeId, `type`: String = "metric"): ProposalPanel =
+  private def metricPanel(dataTypeId: DataTypeId, `type`: String = "output"): ProposalPanel =
     ProposalPanel(
       title        = "Total",
       `type`       = `type`,

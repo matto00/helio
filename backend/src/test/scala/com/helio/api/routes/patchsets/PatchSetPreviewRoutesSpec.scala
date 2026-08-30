@@ -150,7 +150,7 @@ class PatchSetPreviewRoutesSpec
     "return the computed diff, and a subsequent read of every named resource shows it unchanged (6.6)" in {
       val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Preview dashboard")), userA))._1
       val panel = await(panelService.create(
-        CreatePanelRequest(Some(dashboard.id.value), Some("Preview panel"), Some("metric"), None), userA
+        CreatePanelRequest(Some(dashboard.id.value), Some("Preview panel"), Some("divider"), None), userA
       )) match {
         case Right(p) => p
         case Left(e)  => fail(s"panel seed failed: $e")

@@ -8,7 +8,6 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{CreateMetricRequest, ErrorResponse, JsonProtocols, MetricResponse, MetricUsageResponse}
 import com.helio.domain.model._
-import com.helio.domain.panels.{MetricPanel, MetricPanelConfig}
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.metrics.MetricRepository
@@ -141,9 +140,11 @@ class MetricRoutesSpec
   }
 
   /** HEL-560 tasks.md 8.2 fixtures — a dashboard owned by `owner`, and a
-   *  `MetricPanel` on it bound to `metricId` via the repository directly
-   *  (bypassing `POST /panels`, mirroring `PanelMetricBindingRoutesSpec`'s
-   *  own fixture shape). */
+   *  panel row bound to `metricId` via a direct raw-SQL insert (HEL-904:
+   *  `MetricPanel`/`MetricPanelConfig` no longer exist — no surviving Panel
+   *  domain subtype writes `metric_id` anymore, so the ONLY way left to
+   *  seed a `metric_id`-bound row is a raw insert bypassing the domain
+   *  mapper entirely, exactly like this file's other raw-SQL fixtures). */
   private def seedDashboard(owner: UserId): DashboardId = {
     import PostgresProfile.api._
     val id = UUID.randomUUID().toString
@@ -162,18 +163,16 @@ class MetricRoutesSpec
       owner: UserId,
       title: String = "Bound Panel"
   ): PanelId = {
-    val panelId = PanelId(UUID.randomUUID().toString)
-    val panel = MetricPanel(
-      panelId,
-      dashboardId,
-      title,
-      ResourceMeta(owner.value, Instant.now(), Instant.now()),
-      PanelAppearance.Default,
-      owner,
-      MetricPanelConfig(dataTypeId = DataTypeId(""), fieldMapping = JsObject.empty, metricId = Some(metricId))
-    )
-    await(panelRepo.insert(panel))
-    panelId
+    import PostgresProfile.api._
+    val panelId = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated,
+                                  appearance, type, owner_id, metric_id)
+             VALUES ($panelId, ${dashboardId.value}, $title, ${owner.value}, now(), now(),
+                     '{"background":"transparent","gridBackground":"transparent","transparency":1}',
+                     'output', ${owner.value}::uuid, ${metricId.value})"""
+    ))
+    PanelId(panelId)
   }
 
   private def routesFor(user: AuthenticatedUser): Route = {

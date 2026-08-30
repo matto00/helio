@@ -18,7 +18,7 @@ class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
       val before = dashboardCount()
       val body =
         s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"X","type":"metric","dataTypeId":"$companionTypeId","fieldMapping":{"value":"region"}}
+           |  {"title":"X","type":"output","dataTypeId":"$companionTypeId","fieldMapping":{"value":"region"}}
            |]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -43,7 +43,7 @@ class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
       val before = dashboardCount()
       val body =
         s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"X","type":"metric","dataTypeId":"$otherUserTypeId","fieldMapping":{}}
+           |  {"title":"X","type":"output","dataTypeId":"$otherUserTypeId","fieldMapping":{}}
            |]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest

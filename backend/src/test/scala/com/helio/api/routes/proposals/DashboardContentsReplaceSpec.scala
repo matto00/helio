@@ -45,7 +45,7 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
 
       val body =
         s"""{"panels":[
-           |  {"title":"New Metric","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |  {"title":"New Metric","type":"output","dataTypeId":"$pipelineOutputTypeId",
            |   "fieldMapping":{"value":"region"},"layout":{"x":0,"y":0,"w":4,"h":3}},
            |  {"title":"New Text","type":"text"}
            |]}""".stripMargin
@@ -76,7 +76,7 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
       val body =
         """{"panels":[
           |  {"title":"Good","type":"text"},
-          |  {"title":"Bad","type":"metric"}
+          |  {"title":"Bad","type":"output"}
           |]}""".stripMargin
       putContents(dashboardId, body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -95,7 +95,7 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
 
       val body =
         s"""{"panels":[
-           |  {"title":"Bad","type":"metric","dataTypeId":"$companionTypeId","fieldMapping":{"value":"region"}}
+           |  {"title":"Bad","type":"output","dataTypeId":"$companionTypeId","fieldMapping":{"value":"region"}}
            |]}""".stripMargin
       putContents(dashboardId, body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest

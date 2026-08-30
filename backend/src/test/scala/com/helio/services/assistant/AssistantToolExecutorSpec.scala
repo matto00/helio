@@ -224,7 +224,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val executor = newExecutor(dtRepo)
 
       val panel    = ProposalPanel(
-        title = "Total", `type` = "metric", dataTypeId = Some(outputId.value), metricId = None,
+        title = "Total", `type` = "output", dataTypeId = Some(outputId.value), metricId = None,
         fieldMapping = Some(JsObject("value" -> JsString("amount"))), aggregation = None, content = None,
         url = None, orientation = None, chartType = None, xAxisLabel = None, yAxisLabel = None,
         seriesColors = None, label = None, unit = None, sort = None, layout = None, config = None
@@ -252,7 +252,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val executor = newExecutor(dtRepo)
 
       val panel    = ProposalPanel(
-        title = "Total", `type` = "metric", dataTypeId = Some(outputId.value), metricId = None,
+        title = "Total", `type` = "output", dataTypeId = Some(outputId.value), metricId = None,
         fieldMapping = Some(JsObject("value" -> JsString("amount"))), aggregation = None, content = None,
         url = None, orientation = None, chartType = None, xAxisLabel = None, yAxisLabel = None,
         seriesColors = None, label = None, unit = None, sort = None, layout = None, config = None

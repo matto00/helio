@@ -6,7 +6,6 @@ import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.domain.model._
-import com.helio.domain.panels.{MetricPanel, MetricPanelConfig}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -81,24 +80,26 @@ class MetricRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfter
     DashboardId(id)
   }
 
+  // HEL-904: `MetricPanel`/`MetricPanelConfig` no longer exist — no
+  // surviving Panel domain subtype writes `metric_id` anymore, so this seeds
+  // a `metric_id`-bound row via a direct raw-SQL insert, bypassing the
+  // domain mapper entirely (mirrors this file's other raw-SQL fixtures).
   private def seedBoundPanel(
       metricId: MetricId,
       dashboardId: DashboardId,
       ownerId: UserId,
       title: String = "Bound Panel"
   ): PanelId = {
-    val panelId = PanelId(UUID.randomUUID().toString)
-    val panel = MetricPanel(
-      panelId,
-      dashboardId,
-      title,
-      ResourceMeta(ownerId.value, Instant.now(), Instant.now()),
-      PanelAppearance.Default,
-      ownerId,
-      MetricPanelConfig(dataTypeId = DataTypeId(""), fieldMapping = JsObject.empty, metricId = Some(metricId))
-    )
-    await(panelRepo.insert(panel))
-    panelId
+    import PostgresProfile.api._
+    val panelId = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated,
+                                  appearance, type, owner_id, metric_id)
+             VALUES ($panelId, ${dashboardId.value}, $title, ${ownerId.value}, now(), now(),
+                     '{"background":"transparent","gridBackground":"transparent","transparency":1}',
+                     'output', ${ownerId.value}::uuid, ${metricId.value})"""
+    ))
+    PanelId(panelId)
   }
 
   private val owner1Id = UUID.randomUUID().toString

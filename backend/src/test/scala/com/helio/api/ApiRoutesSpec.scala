@@ -1357,7 +1357,7 @@ class ApiRoutesSpec
       var panelId = ""
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("divider"), None)
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -1421,7 +1421,7 @@ class ApiRoutesSpec
       var panelId = ""
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("divider"), None)
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -1760,7 +1760,7 @@ class ApiRoutesSpec
       var panelId = ""
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Total"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("Total"), Some("divider"), None)
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -1795,7 +1795,7 @@ class ApiRoutesSpec
       var panelId = ""
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Total"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("Total"), Some("divider"), None)
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -2118,7 +2118,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Export Test"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), Some("metric"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
       Patch(
@@ -2144,7 +2144,7 @@ class ApiRoutesSpec
         val snapshotPanel = snapshot.panels.head
         snapshotPanel.snapshotId shouldBe panelId
         snapshotPanel.title shouldBe "My Panel"
-        snapshotPanel.`type` shouldBe "metric"
+        snapshotPanel.`type` shouldBe "output"
         snapshot.dashboard.layout.lg.head.panelId shouldBe snapshotPanel.snapshotId
         // HEL-368: the additive `id` field equals both `snapshotId` and the panel's real id
         snapshotPanel.id shouldBe Some(panelId)
@@ -2165,7 +2165,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Legacy Export"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Legacy Panel"), Some("metric"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Legacy Panel"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -2224,7 +2224,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Original"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU"), Some("metric"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
       Patch(
@@ -3066,7 +3066,7 @@ class ApiRoutesSpec
       var panelId = ""
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("divider"), None)
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -3139,7 +3139,7 @@ class ApiRoutesSpec
       var panelId = ""
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Revenue"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("Revenue"), Some("divider"), None)
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -4617,7 +4617,7 @@ class ApiRoutesSpec
 
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("KPI"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("KPI"), Some("output"), Some(JsObject("outputId" -> JsString("out-1"))))
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -4627,7 +4627,7 @@ class ApiRoutesSpec
         val panels = responseAs[PagedResult[PanelResponse]].items
         val panel  = panels.find(_.id == panelId).get
         val config = panel.config.asJsObject.fields
-        panel.`type` shouldBe "metric"
+        panel.`type` shouldBe "output"
         config.contains("orientation") shouldBe false
         config.contains("weight")      shouldBe false
         config.contains("color")       shouldBe false
@@ -4665,11 +4665,14 @@ class ApiRoutesSpec
                  VALUES ($pidId, 'pipe', $dsId, $dtId, 'succeeded', now(), $testUserId::uuid, now(), now())"""
       )))
 
-      // Create a metric panel bound to the data type
+      // HEL-904: retargeted from a bound MetricPanel (retired) to a bound
+      // TextPanel -- Text is now the only panel kind carrying a real
+      // dataTypeId binding, preserving this test's "dataAsOf resolves for a
+      // bound panel" intent.
       val metricConfig = JsObject("dataTypeId" -> JsString(dtId), "fieldMapping" -> JsObject())
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), Some("metric"), Some(metricConfig))
+        CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), Some("text"), Some(metricConfig))
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         panelId = responseAs[PanelResponse].id

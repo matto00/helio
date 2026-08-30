@@ -153,7 +153,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     await(dashboardService.create(DashboardService.CreateDashboardInput(Some(name)), owner))._1
 
   private def seedPanel(dashboardId: DashboardId, owner: AuthenticatedUser, title: String = "Panel"): Panel =
-    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("metric"), None), owner)) match {
+    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("divider"), None), owner)) match {
       case Right(p) => p
       case Left(e)  => fail(s"seedPanel failed: $e")
     }
@@ -277,7 +277,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       val createPatch = JsObject(
         "dashboardId" -> JsString(dashboard.id.value),
         "title"       -> JsString("Created by patch set"),
-        "type"        -> JsString("metric")
+        "type"        -> JsString("divider")
       )
       val edits = Vector(
         Edit(EditTarget("panel", None), "create", None, None, None, None, None, None, Some(createPatch)),
@@ -477,29 +477,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     }
 
 
-    "catch a raw override on a metric-bound panel's dataTypeId/fieldMapping/aggregation/unit, changed independently since apply with metricId unchanged, as a conflict (5.3h, round-3 regression)" in {
-      val dashboard  = seedDashboard(userA)
-      val outputType = seedPipelineOutputType(userA, "Metric raw-conflict type")
-      val metricId   = seedMetric(userA, outputType.id, "Metric raw-conflict metric")
-      val panel      = seedPanel(dashboard.id, userA, "Bound panel")
-
-      val bindPatch = JsObject("metricId" -> JsString(metricId.value))
-      val bindEdit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(bindPatch))), None, None, None, None, None, None)
-      val applicationId = applySuccessfully(Vector(bindEdit))
-
-      // Independent raw override on `unit` since the apply -- metricId itself is unchanged.
-      val overridePatch = JsObject("unit" -> JsString("USD"))
-      await(panelService.update(panel.id, UpdatePanelRequest(None, None, None, Some(overridePatch)), userA)) match {
-        case Right(_)  => ()
-        case Left(err) => fail(s"setup failed: $err")
-      }
-
-      await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
-        case Left(ServiceError.Conflict(_)) => succeed
-        case other                            => fail(s"expected Conflict, got $other")
-      }
-    }
+    // HEL-904: metric-bound raw-override conflict detection (5.3h) removed -- metrics no longer exist.
 
     "NOT treat an unrelated metric deprecation (no raw-field change) as a conflict (5.3h negative)" in {
       val dashboard  = seedDashboard(userA)

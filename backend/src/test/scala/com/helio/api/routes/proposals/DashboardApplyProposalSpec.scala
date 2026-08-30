@@ -21,7 +21,7 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "Regional Sales",
            |  "panels": [
-           |    {"title":"Total","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
            |     "fieldMapping":{"value":"region"},"layout":{"x":0,"y":0,"w":4,"h":3}},
            |    {"title":"Notes","type":"text"}
            |  ]
@@ -58,7 +58,7 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "Aggregated Sales",
            |  "panels": [
-           |    {"title":"Avg","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |    {"title":"Avg","type":"output","dataTypeId":"$pipelineOutputTypeId",
            |     "fieldMapping":{},"aggregation":{"value":"region","agg":"count"}}
            |  ]
            |}""".stripMargin
@@ -78,7 +78,7 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "No Aggregation",
            |  "panels": [
-           |    {"title":"Total","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
            |     "fieldMapping":{"value":"region"}}
            |  ]
            |}""".stripMargin
@@ -157,7 +157,7 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "Metric Literal",
            |  "panels": [
-           |    {"title":"Total","type":"metric","dataTypeId":"$pipelineOutputTypeId",
+           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputTypeId",
            |     "fieldMapping":{},"label":"Total Revenue","unit":"USD"}
            |  ]
            |}""".stripMargin
@@ -211,7 +211,7 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
 
     "reject a metric panel with no dataTypeId and create nothing" in {
       val before = dashboardCount()
-      apply("""{"dashboardName":"Bad","panels":[{"title":"X","type":"metric"}]}""") ~> routes ~> check {
+      apply("""{"dashboardName":"Bad","panels":[{"title":"X","type":"output"}]}""") ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[String].toLowerCase should include("datatypeid")
       }

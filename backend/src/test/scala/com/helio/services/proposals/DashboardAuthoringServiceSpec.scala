@@ -235,7 +235,7 @@ class DashboardAuthoringServiceSpec
   private val goal = "Show total revenue"
 
   private def validProposalJson(dataTypeId: String): String =
-    s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"$dataTypeId","fieldMapping":{"value":"revenue"}}]}"""
+    s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"$dataTypeId","fieldMapping":{"value":"revenue"}}]}"""
 
   // Well-formed JSON, but fails DashboardProposalService.validate's structural check (blank
   // dashboardName) — exercises the "parses fine, fails validate" repair trigger, not just a parse
@@ -540,7 +540,7 @@ class DashboardAuthoringServiceSpec
     "a second turn with conversationId edits the first turn's proposal, re-validated, and the persisted turn count increases" in {
       val user = newUser()
       val dt   = insertPipelineOutputType(user)
-      val turn2Json = s"""{"dashboardName":"Sales v2","panels":[{"title":"Total","type":"metric","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+      val turn2Json = s"""{"dashboardName":"Sales v2","panels":[{"title":"Total","type":"output","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
       val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value)), cannedResponse(turn2Json)))
       val service   = newAuthoringService(transport)
 
