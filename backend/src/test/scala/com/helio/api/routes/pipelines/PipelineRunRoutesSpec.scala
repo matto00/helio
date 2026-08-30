@@ -624,7 +624,11 @@ class PipelineRunRoutesSpec
       await(dataTypeRowRepo.listRows(dtId)) should have size 2
     }
 
-    "POST /pipelines/:id/run infers integer type for whole-number column and double for fractional" in {
+    // HEL-891 design D4: pipeline-output inference now emits only canonical DataFieldType wire
+    // values -- "double" (never one of the 7 canonical values, silently dropped by
+    // PanelCapabilityService.wireType) is fixed to "float". Was "... and double for fractional"
+    // before this change; updated, not weakened -- this is the exact defect HEL-891 fixes.
+    "POST /pipelines/:id/run infers integer type for whole-number column and float for fractional" in {
       val cache              = new PipelineRunCache()
       val dtRepo             = new DataTypeRepository(ctx)(routeEc)
       val dsId               = seedDsWithMixedTypes()
@@ -637,7 +641,7 @@ class PipelineRunRoutesSpec
       val dt = await(dtRepo.findByIdInternal(DataTypeId(dtId))).get
       val fieldMap = dt.fields.map(f => f.name -> f.dataType).toMap
       fieldMap("count") shouldBe "integer"
-      fieldMap("rate")  shouldBe "double"
+      fieldMap("rate")  shouldBe "float"
     }
 
     // HEL-859 (design.md Decision 3): the response body now names the

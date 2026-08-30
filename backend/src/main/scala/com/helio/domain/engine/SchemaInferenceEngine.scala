@@ -124,6 +124,44 @@ object SchemaInferenceEngine {
     }
   }
 
+  // HEL-891 design D2/D8: a SHALLOW union across the TOP-LEVEL keys of each `JsObject` in
+  // `objects`, sharing `inferFromObjects`'s type lattice (`inferJsonType`/`widenJson`) but
+  // deliberately NOT calling `JsonFlattener.leaves` -- pipeline-output rows are already-projected
+  // columns stored un-flattened (design D2), so flattening here would describe a schema whose
+  // dotted keys the stored rows do not have. Also does not compute nullability (design D3) --
+  // the pipeline-output caller pins its own `nullable = true` policy, unrelated to this engine's
+  // absence-never-contributes rule.
+  def inferShallowFromJsObjects(objects: Vector[JsObject]): Seq[InferredField] = {
+    val accByKey = objects.foldLeft(Map.empty[String, Option[DataFieldType]]) { (acc, obj) =>
+      obj.fields.foldLeft(acc) { case (m, (key, value)) =>
+        val prior = m.getOrElse(key, None)
+        value match {
+          case JsNull =>
+            // design D8: an explicit JsNull MUST be branched on FIRST and contributes NOTHING
+            // to the type join. inferJsonType(JsNull) returns StringType, and folding that
+            // through widenJson against a numeric accumulator would hit the catch-all and
+            // widen the WHOLE column to string -- one null cell anywhere would poison it.
+            // Leave the accumulator exactly as it was.
+            m.updated(key, prior)
+          case other =>
+            val (valueType, _) = inferJsonType(other)
+            val widened = prior match {
+              case None       => valueType
+              case Some(seen) => widenJson(seen, valueType)
+            }
+            m.updated(key, Some(widened))
+        }
+      }
+    }
+    // Sort the merged key set globally for order-independence, matching inferFromObjects.
+    accByKey.toSeq.sortBy(_._1).map { case (key, dataTypeOpt) =>
+      // design D6: every key in the union MUST appear, including one that was JsNull (or absent
+      // from every object it appeared with a non-null value) -- falls back to StringType,
+      // matching inferJsonType(JsNull) and today's inferFieldType(null) => "string".
+      InferredField(key, displayName(key), dataTypeOpt.getOrElse(DataFieldType.StringType), nullable = false)
+    }
+  }
+
   // HEL-858 design D3: the JSON widening join -- a true lattice (commutative, associative,
   // idempotent, StringType at top), deliberately DIVERGING from the CSV path's `widenType`
   // below, which widens a running type against a raw string cell and is order-sensitive (e.g.

@@ -1,0 +1,101 @@
+[info] welcome to sbt 1.10.10 (Arch Linux Java 21.0.12)
+[info] loading settings for project backend-build from plugins.sbt...
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/pipeline-output-schema-union/HEL-891/backend/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/pipeline-output-schema-union/HEL-891/backend/)
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+20:12:15,730 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+20:12:15,731 |-INFO in ch.qos.logback.classic.util.ContextInitializer@79d53e8b - No custom configurators were discovered as a service.
+20:12:15,731 |-INFO in ch.qos.logback.classic.util.ContextInitializer@79d53e8b - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:12:15,731 |-INFO in ch.qos.logback.classic.util.ContextInitializer@79d53e8b - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:12:15,732 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+20:12:15,733 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [file:/home/matt/Development/helio/.claude/worktrees/bug/pipeline-output-schema-union/HEL-891/backend/target/scala-2.13/classes/logback.xml]
+20:12:15,772 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+20:12:15,774 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@2fa347f - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+20:12:15,774 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - The 'condition' attribute in <if> element is deprecated and slated for removal. Use <condition> element instead.
+20:12:15,774 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - See also https://logback.qos.ch/codes.html#conditionAttributeDeprecation
+20:12:15,774 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@7b0d67e4 - End of configuration.
+20:12:15,774 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@446e3c64 - Registering current configuration as safe fallback point
+20:12:15,779 |-INFO in ch.qos.logback.classic.util.ContextInitializer@79d53e8b - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 44 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+SLF4J(W): A number (1) of logging calls during the initialization phase have been intercepted and are
+SLF4J(W): now being replayed. These are subject to the filtering rules of the underlying logging system.
+SLF4J(W): See also https://www.slf4j.org/codes.html#replay
+[info] PipelineRunServiceSpec:
+[info] PipelineRunService.executeRun (HEL-509 / 419-B assertion persistence)
+[info] - should persists assertion results on a successful real run
+[info] - should persists partial assertion results after a failed real run
+[info] - should persists assertion results on a successful dry run
+[info] - should a failed dry run does not attempt to persist assertion results and resolves with the same error as before
+[info] - should an editor-grantee-triggered real run resolves normally despite no persisted run row
+[info] - should an editor-grantee-triggered dry run resolves normally despite no persisted run row
+[info] PipelineRunService.onRunSuccess (HEL-570 assert fail-policy)
+[info] - should does not update the DataType schema or rows when blocked by an error-severity assertion, preserving the prior snapshot
+[info] - should completes normally and updates the DataType when only a warn-severity assertion fails
+[info] - should marks a blocked run's terminal status failed with an errorLog naming the failing rule, not the generic exception placeholder
+[info] - should persists ALL evaluated assertion results for a blocked run — passing, warn, and the blocking error alike
+[info] - should a dry run with a failing error-severity assertion still completes with status dry_run, unaffected by the fail policy
+[info] PipelineRunService (HEL-412 disable/enable)
+[info] - should skips a disabled step during a real run
+[info] - should applies an enabled step during a real run (control)
+[info] - should skips a disabled step during a dry run
+[info] - should an all-disabled pipeline behaves as a zero-step source passthrough
+[info] - should re-enabling a disabled step restores it, config intact
+[info] PipelineRunService onRunSuccess (HEL-462 schema-drift baseline capture)
+[info] - should persists last_source_schema (matching the source DataType's declared fields) on a successful real run
+[info] - should does not persist a schema-drift baseline on a successful dry run
+[info] - should does not persist a schema-drift baseline when the run is blocked by an error-severity assertion
+[info] - should overwrites a stale baseline with the latest source schema on a subsequent successful run
+[info] PipelineRunService.history (HEL-576 assertion summary)
+[info] - should reports accurate passed/warnFailed/errorFailed counts and only the FAILED results' details
+[info] - should reports a zero-valued summary for a run with no assert steps
+[info] PipelineRunService.recordUnrunnable (HEL-755 design.md D3)
+[info] - should persists a failed pipeline_runs row and updates the pipeline's lastRunStatus to failed
+[info] PipelineRunService.submit (HEL-758 rest_api/sql base-source execution)
+[info] - should completes a real run for a healthy rest_api base source, populating the output DataType
+[info] - should completes a real run for a healthy sql base source, populating the output DataType
+[info] - should fails an ordinary run for an unreachable rest_api source (422, last_run_status failed), not the old categorical-rejection message
+[info] - should fails an ordinary run for an unreachable sql source (422, last_run_status failed), not the old categorical-rejection message
+[info] PipelineRunService (HEL-862 URL-backed CSV, no ActorSystem threaded)
+[info] - should a URL-backed CSV run under a service constructed with no ActorSystem fails as a normal handled run failure, not an unhandled exception
+[info] PipelineRunService.previewStep (HEL-758 rest_api/sql base-source execution)
+[info] - should previews a step for a healthy rest_api base source instead of rejecting the source type
+[info] - should previews a step for a healthy sql base source instead of rejecting the source type
+[info] PipelineRunService truncation reporting (HEL-861)
+[info] - should a real run over a REST source with more rows than the cap reports truncation, naming both 1000 and 3303
+[info] - should a real run over a source under the cap reports no truncation
+[info] - should previewStep over a union step reading a truncated secondary source reports sourceTruncated: true
+[info] - should a real run with the primary AND two distinct secondary sources truncated reports them in a stable order — primary first, then step-execution order
+[info] PipelineRunService.composeTruncationNotice (HEL-861)
+[info] - should the unknown-total branch says the total is not known and names no total figure
+[info] - should the known-total branch names both the read count and the available total
+[info] - should returns None when nothing was truncated
+[info] PipelineRunService.onUnblockedRunSuccess (HEL-891 schema union)
+[info] - should includes a column absent from row 0 but present on a later row in the persisted fields *** FAILED ***
+[info]   Vector("mixed_col", "null_num", "all_null", "frac_col", "rec_yd", "date_col", "id") did not contain element "rec" (PipelineRunServiceSpec.scala:1015)
+[info] - should reports a column absent from row 0 but present on a later row in the capability report *** FAILED ***
+[info]   Vector("mixed_col", "null_num", "all_null", "rec_yd", "date_col", "id") did not contain element "rec" (PipelineRunServiceSpec.scala:1021)
+[info] - should types a fractional row-0 column as float and includes it in the capability report *** FAILED ***
+[info]   Some("double") was not equal to Some("float") (PipelineRunServiceSpec.scala:1028)
+[info] - should types a column integral in row 0 but fractional later as float, not integer *** FAILED ***
+[info]   Some("integer") was not equal to Some("float") (PipelineRunServiceSpec.scala:1036)
+[info] - should derives the same field names and types regardless of row order *** FAILED ***
+[info]   Vector(("all_null", "string"), ("date_col", "string"), ("frac_col", "double"), ("id", "integer"), ("mixed_col", "string"), ("null_num", "string"), ("rec", "integer"), ("rec_yd", "double")) was not equal to Vector(("all_null", "string"), ("date_col", "string"), ("frac_col", "double"), ("id", "integer"), ("mixed_col", "integer"), ("null_num", "integer"), ("rec_yd", "integer")) (PipelineRunServiceSpec.scala:1046)
+[info] - should marks every derived field nullable, including a column present and non-null on every row
+[info] - should types a column numeric in row 0 but non-numeric later as string and excludes it from a Numeric slot *** FAILED ***
+[info]   Some("integer") was not equal to Some("string") (PipelineRunServiceSpec.scala:1063)
+[info] - should keeps displayName equal to the raw column name
+[info] - should types an ISO-date-like string column as timestamp and offers it for an Orderable slot *** FAILED ***
+[info]   Some("string") was not equal to Some("timestamp") (PipelineRunServiceSpec.scala:1079)
+[info] - should keeps a numeric column with an explicit null on a later row typed integer and Numeric-eligible
+[info] - should includes an all-null column in the persisted fields, typed string, and in the capability report
+[info] - should types the image loader's nested content value as a single string field, not flattened, matching the persisted row key
+[info] Run completed in 6 seconds, 427 milliseconds.
+[info] Total number of tests run: 49
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 42, failed 7, canceled 0, ignored 0, pending 0
+[info] *** 7 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.PipelineRunServiceSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 7 s, completed Aug 29, 2026, 8:12:21 PM

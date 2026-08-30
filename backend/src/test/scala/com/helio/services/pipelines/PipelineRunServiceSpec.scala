@@ -15,6 +15,8 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.services.panels.PanelCapabilityService
+import com.helio.api.protocols.panels.PanelCapabilitiesResponse
 import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -55,12 +57,43 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   // exercising the real REST-truncation path end to end through PipelineRunService.
   private val RestBigUrl        = "https://pipeline-run-service.test/big"
   private val RestBigTotalRows  = 3303
+  // HEL-891 (task 1.1, fixture (i)): a heterogeneous JSON source exercising every shape the
+  // pipeline-output schema-union fix must handle in one run. Row 0 deliberately lacks `rec`
+  // (shape a). See design.md D2a: a `static` source can't express sparseness, so this is a
+  // `rest_api` URL, keyed like the others.
+  private val RestHeterogeneousUrl = "https://pipeline-run-service.test/heterogeneous"
+  private val heterogeneousRow0 = JsObject(
+    "id"          -> JsNumber(1),
+    "rec_yd"      -> JsNumber(5),          // (c) integral in row 0, fractional later
+    "frac_col"    -> JsNumber(BigDecimal("12.5")), // (b) fractional in row 0 -- the "double" defect
+    "mixed_col"   -> JsNumber(10),          // (e) numeric in row 0, non-numeric later
+    "date_col"    -> JsString("2024-01-01"), // (f) ISO date on every row
+    "null_num"    -> JsNumber(1),           // (g) integral, null lands on a LATER row
+    "all_null"    -> JsNull                 // (h) null on every row
+  )
+  private val heterogeneousRow1 = JsObject(
+    "id"          -> JsNumber(2),
+    "rec"         -> JsNumber(166),         // (a) absent from row 0, present here
+    "rec_yd"      -> JsNumber(BigDecimal("5.5")),
+    "frac_col"    -> JsNumber(BigDecimal("7.5")),
+    "mixed_col"   -> JsString("N/A"),
+    "date_col"    -> JsString("2024-02-01"),
+    "null_num"    -> JsNull,
+    "all_null"    -> JsNull
+  )
+  // HEL-891 (task 1.6): a second keyed URL returning the SAME rows in reverse order, to prove
+  // the derived schema is order-independent.
+  private val RestHeterogeneousReversedUrl = "https://pipeline-run-service.test/heterogeneous-reversed"
   private val stubConnector = new RestApiConnectorDriver(Some { config =>
     if (config.connectorId == RestFailureUrl) Future.successful(Left("connector: endpoint unreachable"))
     else if (config.connectorId == RestBigUrl)
       Future.successful(Right(JsArray(
         (1 to RestBigTotalRows).map(i => JsObject("id" -> JsNumber(i))).toVector
       )))
+    else if (config.connectorId == RestHeterogeneousUrl)
+      Future.successful(Right(JsArray(Vector(heterogeneousRow0, heterogeneousRow1))))
+    else if (config.connectorId == RestHeterogeneousReversedUrl)
+      Future.successful(Right(JsArray(Vector(heterogeneousRow1, heterogeneousRow0))))
     else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
   })
 
@@ -216,6 +249,26 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
                VALUES ('pipeline', ${pipelineId.value}, $granteeId::uuid, $role, now())"""
     )))
     AuthenticatedUser(UserId(granteeId))
+  }
+
+  /** HEL-891 (task 1.1, fixture (ii)): an `ImageSource` data source backed by a real on-disk PNG
+   *  -- `InProcessPipelineEngine.loadImageRowFromBytes` is the sole producer of a nested
+   *  `Map[String, Any]` row value (design D2a), and this is the only source kind that reaches
+   *  it. Mirrors `PipelineRunRoutesSpec.seedDsImage`. */
+  private def seedDsImage(): String = {
+    import PostgresProfile.api._
+    val tmp = java.io.File.createTempFile("helio-pipeline-run-service-image-", ".png")
+    tmp.deleteOnExit()
+    val image = new java.awt.image.BufferedImage(3, 2, java.awt.image.BufferedImage.TYPE_INT_RGB)
+    javax.imageio.ImageIO.write(image, "png", tmp)
+
+    val dsId     = UUID.randomUUID().toString
+    val dsConfig = s"""{"path":"${tmp.getAbsolutePath}"}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-image', 'image', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
   }
 
   private def countAssertionRows(): Int = {
@@ -933,6 +986,138 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
     "returns None when nothing was truncated" in {
       PipelineRunService.composeTruncationNotice(Vector.empty, cap = 1000) shouldBe None
+    }
+  }
+
+  // HEL-891: pipeline-output DataType schema union across all output rows, not row 0 alone.
+  // Fixture (i) (`RestHeterogeneousUrl`) carries all seven shapes task 1.1 enumerates.
+  "PipelineRunService.onUnblockedRunSuccess (HEL-891 schema union)" should {
+
+    def capabilitySvc = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+
+    def runHeterogeneous(url: String = RestHeterogeneousUrl): (DataType, PanelCapabilitiesResponse) = {
+      val dsId = seedRestDsNamed(url, "ds-heterogeneous-" + UUID.randomUUID())
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.blocked shouldBe false
+
+      val dt = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
+      val caps = await(capabilitySvc.getCapabilities(outputDataTypeId, dummyUser)).toOption.get
+      (dt, caps)
+    }
+
+    // 1.2 -- genuinely RED before the change: row 0 lacks `rec`.
+    "includes a column absent from row 0 but present on a later row in the persisted fields" in {
+      val (dt, _) = runHeterogeneous()
+      dt.fields.map(_.name) should contain("rec")
+    }
+
+    // 1.3 -- genuinely RED before the change: the criterion that matters.
+    "reports a column absent from row 0 but present on a later row in the capability report" in {
+      val (_, caps) = runHeterogeneous()
+      caps.columns.map(_.name) should contain("rec")
+    }
+
+    // 1.4 -- genuinely RED before the change: "double" fails DataFieldType.fromString and is
+    // dropped by wireType.
+    "types a fractional row-0 column as float and includes it in the capability report" in {
+      val (dt, caps) = runHeterogeneous()
+      dt.fields.find(_.name == "frac_col").map(_.dataType) shouldBe Some("float")
+      caps.columns.map(_.name) should contain("frac_col")
+    }
+
+    // 1.5 -- genuinely RED before the change: row 0 is integral, so today's row-0-only inference
+    // types this "integer".
+    "types a column integral in row 0 but fractional later as float, not integer" in {
+      val (dt, _) = runHeterogeneous()
+      dt.fields.find(_.name == "rec_yd").map(_.dataType) shouldBe Some("float")
+    }
+
+    // 1.6 -- genuinely RED before the change: row-0-only inference is order-dependent by
+    // construction (whichever row lands first determines both key set and types).
+    "derives the same field names and types regardless of row order" in {
+      val (forward, _)  = runHeterogeneous(RestHeterogeneousUrl)
+      val (reversed, _) = runHeterogeneous(RestHeterogeneousReversedUrl)
+      val forwardSorted  = forward.fields.map(f => f.name -> f.dataType).sortBy(_._1)
+      val reversedSorted = reversed.fields.map(f => f.name -> f.dataType).sortBy(_._1)
+      reversedSorted shouldBe forwardSorted
+    }
+
+    // 1.7 (D3) -- GREEN before AND after: regression guard against adopting the shared engine's
+    // absence-never-contributes nullability.
+    "marks every derived field nullable, including a column present and non-null on every row" in {
+      val (dt, _) = runHeterogeneous()
+      dt.fields.find(_.name == "id").map(_.nullable) shouldBe Some(true)
+      dt.fields should not be empty
+      all(dt.fields.map(_.nullable)) shouldBe true
+    }
+
+    // 1.9 (D6/CR2) -- genuinely RED before the change: row 0's numeric value pre-change types
+    // this column "integer", so pre-change it WOULD be offered for the metric `value` slot;
+    // post-change it must be "string" and excluded.
+    "types a column numeric in row 0 but non-numeric later as string and excludes it from a Numeric slot" in {
+      val (dt, caps) = runHeterogeneous()
+      dt.fields.find(_.name == "mixed_col").map(_.dataType) shouldBe Some("string")
+      val metricEligibleForValue = caps.capabilities("metric").eligibleColumns.getOrElse("value", Vector.empty)
+      metricEligibleForValue should not contain "mixed_col"
+    }
+
+    // 1.10 (D7/CR4) -- GREEN before AND after: regression guard against adopting the shared
+    // engine's title-cased displayName.
+    "keeps displayName equal to the raw column name" in {
+      val (dt, _) = runHeterogeneous()
+      dt.fields.find(_.name == "rec_yd").map(_.displayName) shouldBe Some("rec_yd")
+    }
+
+    // 1.11 (D5 transition C) -- genuinely RED before the change: `inferFieldType` never emitted
+    // "timestamp".
+    "types an ISO-date-like string column as timestamp and offers it for an Orderable slot" in {
+      val (dt, caps) = runHeterogeneous()
+      dt.fields.find(_.name == "date_col").map(_.dataType) shouldBe Some("timestamp")
+      val timelineEligibleForTime = caps.capabilities("timeline").eligibleColumns.getOrElse("time", Vector.empty)
+      timelineEligibleForTime should contain("date_col")
+    }
+
+    // 1.11a (D8) -- GREEN before AND after: regression guard against a null poisoning the type
+    // join. Uses integral values with the null off row 0 (see task 1.1(g)).
+    "keeps a numeric column with an explicit null on a later row typed integer and Numeric-eligible" in {
+      val (dt, caps) = runHeterogeneous()
+      dt.fields.find(_.name == "null_num").map(_.dataType) shouldBe Some("integer")
+      val metricEligibleForValue = caps.capabilities("metric").eligibleColumns.getOrElse("value", Vector.empty)
+      metricEligibleForValue should contain("null_num")
+    }
+
+    // 1.11b (D8 fallback) -- GREEN before AND after: regression guard against an all-null key
+    // being dropped or crashing the fold.
+    "includes an all-null column in the persisted fields, typed string, and in the capability report" in {
+      val (dt, caps) = runHeterogeneous()
+      dt.fields.map(_.name) should contain("all_null")
+      dt.fields.find(_.name == "all_null").map(_.dataType) shouldBe Some("string")
+      caps.columns.map(_.name) should contain("all_null")
+    }
+
+    // 1.8 (D2/CR1) -- GREEN before AND after: regression guard against adopting flattening.
+    // Fixture (ii): the image loader is the sole producer of a nested row value.
+    "types the image loader's nested content value as a single string field, not flattened, matching the persisted row key" in {
+      val dsId = seedDsImage()
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.blocked shouldBe false
+
+      val dt = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
+      dt.fields.map(_.name) should contain("content")
+      dt.fields.find(_.name == "content").map(_.dataType) shouldBe Some("string")
+      dt.fields.map(_.name) should not contain "content.storageKey"
+
+      val storedRows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      storedRows should have size 1
+      storedRows.head.fields.keySet should contain("content")
     }
   }
 }

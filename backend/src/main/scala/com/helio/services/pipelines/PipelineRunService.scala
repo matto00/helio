@@ -5,8 +5,8 @@ import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
-import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField, SourceReadStats, StepExecutionException}
+import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataFieldType, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
+import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -618,8 +618,11 @@ final class PipelineRunService(
   ): Future[Option[String]] = {
     publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
     val now = Instant.now()
+    // HEL-891 design D1: derive the schema from `jsRows` -- the SAME value `rowsUpsert` below
+    // hands to `overwriteRows` -- so the schema can never describe rows other than the ones
+    // actually persisted.
     val schemaUpsert =
-      if (dataTypeRepo != null) upsertFieldsFromRows(outputDataTypeId, resultRows)
+      if (dataTypeRepo != null) upsertFieldsFromRows(outputDataTypeId, jsRows)
       else Future.successful(())
     val rowsUpsert =
       if (dataTypeRowRepo != null) dataTypeRowRepo.overwriteRows(outputDataTypeId.value, jsRows).map(_ => ())
@@ -736,25 +739,32 @@ final class PipelineRunService(
       m.get("filename").exists(_.isInstanceOf[String]) &&
       m.get("sizeBytes").exists(_.isInstanceOf[Long])
 
-  // Infer field type strings from row values. Whole-number Doubles → "integer",
-  // fractional Doubles → "double" (jsValueToAny always produces Double).
-  private def inferFieldType(value: Any): String = value match {
-    case _: Boolean => "boolean"
-    case _: Int | _: Long => "integer"
-    case d: Double if !d.isNaN && !d.isInfinite && d % 1.0 == 0.0 => "integer"
-    case _: Float | _: Double => "double"
-    case _ => "string"
-  }
-
   private def upsertFieldsFromRows(
       dataTypeId: DataTypeId,
-      rows:       Seq[Map[String, Any]]
+      jsRows:     Vector[JsObject]
   ): Future[Unit] = {
     if (dataTypeRepo == null) return Future.successful(())
-    val firstRow = rows.headOption.getOrElse(Map.empty)
-    val fields = firstRow.keys.toVector.map { name =>
-      DataField(name, name, inferFieldType(firstRow.get(name).orNull), nullable = true)
-    }
+    // HEL-891 design D2: union top-level keys and widen types across ALL rows via the shared
+    // shallow entry point -- NOT `inferSchemaFromRows`/`inferFromObjects`, which flatten each
+    // object through `JsonFlattener.leaves` first. Flattening would describe dotted keys the
+    // stored rows (written un-flattened by `overwriteRows`) do not have.
+    val inferred = SchemaInferenceEngine.inferShallowFromJsObjects(jsRows)
+    val fields = inferred.map { f =>
+      DataField(
+        name        = f.name,
+        // HEL-891 design D7: displayName stays the RAW column name, discarding the engine's
+        // title-cased `displayName` -- pipeline-output columns are user-chosen (rename/select
+        // step), so echo them verbatim rather than adopting third-party-API-style prettification.
+        displayName = f.name,
+        dataType    = DataFieldType.asString(f.dataType),
+        // HEL-891 design D3: nullable is pinned `true` here, discarding the engine's
+        // absence-never-contributes nullable. Rows are sparse maps and any column may be absent
+        // from any given row -- adopting the shared engine's rule would land HEL-868's bug
+        // ("a column present on 166/200 rows advertised non-nullable") on a path that does not
+        // have it today. Revisit this pin once HEL-868 lands.
+        nullable    = true
+      )
+    }.toVector
     // Privileged: this is a background post-run schema sync. The pipeline ACL
     // was the gate at submission time; no user context is available here.
     // Uses updateInternal (withSystemContext) to bypass the V35 RLS policy on
