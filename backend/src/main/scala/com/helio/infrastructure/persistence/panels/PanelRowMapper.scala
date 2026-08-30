@@ -25,7 +25,16 @@ object PanelRowMapper extends PanelProtocol {
     val appearance  = row.appearance
     val ownerId     = UserId(row.ownerId.toString)
 
-    row.panelType match {
+    // HEL-904 task 3.6: an `output`-kind row (post-cutover panels, once
+    // `PanelService`/`PanelRowMapper.domainToRow` below actually write one —
+    // no write path does yet) decodes on `row.kind`, not the legacy
+    // `row.panelType`/`type` column the five bound kinds below still use.
+    // `row.kind` is nullable/unbacked-filled on rows written before V94, so
+    // this check is additive: it only ever fires for a genuinely new
+    // output-kind row.
+    if (row.kind.contains(OutputPanel.Kind))
+      OutputPanel(id, dashboardId, row.title, meta, appearance, ownerId, outputConfig(row))
+    else row.panelType match {
       case MetricPanel.Kind =>
         MetricPanel(id, dashboardId, row.title, meta, appearance, ownerId, metricConfig(row))
       case ChartPanel.Kind =>
@@ -82,7 +91,9 @@ object PanelRowMapper extends PanelProtocol {
       timelineOptions    = None,
       imageCaption       = None,
       chartAnnotation    = None,
-      metricId           = None
+      metricId           = None,
+      outputId           = None,
+      kind               = None
     )
 
     p match {
@@ -95,10 +106,19 @@ object PanelRowMapper extends PanelProtocol {
       case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
       case c: CollectionPanel => base.copy(typeId = optString(c.config.dataTypeId.value), fieldMapping = jsObjectColumn(c.config.fieldMapping), collectionOptions = collectionOptionsColumn(c.config))
       case tl: TimelinePanel  => base.copy(typeId = optString(tl.config.dataTypeId.value), fieldMapping = jsObjectColumn(tl.config.fieldMapping), timelineOptions = timelineOptionsColumn(tl.config))
+      case op: OutputPanel    => base.copy(outputId = optString(op.config.outputId.value), kind = Some(OutputPanel.Kind))
       case _                  => base
     }
   }
 
+
+  // HEL-904 task 3.6: rebuild an OutputPanelConfig from `output_id` — the
+  // sole field an OutputPanel placement carries. Tolerant read path
+  // (matches this mapper's philosophy elsewhere): a row with `kind =
+  // 'output'` but a NULL `output_id` decodes to `OutputPanelConfig.Empty`
+  // rather than throwing.
+  private def outputConfig(row: PanelRepository.PanelRow): OutputPanelConfig =
+    OutputPanelConfig(outputId = row.outputId.fold(OutputId(""))(OutputId(_)))
 
   private def metricConfig(row: PanelRepository.PanelRow): MetricPanelConfig =
     MetricPanelConfig(

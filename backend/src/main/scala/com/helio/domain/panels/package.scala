@@ -31,4 +31,15 @@ package object panels {
       case x           => deserializationError(s"Expected string for MetricId, got $x")
     }
   }
+
+  /** JSON format for the `OutputId` value class (HEL-904) — mirrors
+   *  `dataTypeIdFormat`/`metricIdFormat` above. Needed by
+   *  `OutputPanelConfig`'s macro-derived `jsonFormat1` format. */
+  implicit val outputIdFormat: JsonFormat[OutputId] = new JsonFormat[OutputId] {
+    def write(id: OutputId): JsValue = JsString(id.value)
+    def read(json: JsValue): OutputId = json match {
+      case JsString(s) => OutputId(s)
+      case x           => deserializationError(s"Expected string for OutputId, got $x")
+    }
+  }
 }

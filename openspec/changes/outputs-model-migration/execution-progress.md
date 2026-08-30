@@ -1108,3 +1108,117 @@ list. `sbt compile`/`sbt test` are both clean at HEAD (`b7fa97b1`) — no partia
    `Pipeline.outputDataTypeId` directly) — re-verify that independence claim by grep before
    relying on it, since this cycle did not itself attempt the rewire.
 3. Do NOT bring 2.10 forward — unchanged standing instruction from every prior cycle.
+
+## Cycle 12 — task 3.6 started (additive-only increment), real progress after two prior
+## cycles that investigated the same cluster without starting
+
+Starting state verified fresh: HEAD = `891ee40f` (cycle 11's own commit), tree clean, full
+`sbt test` re-confirmed at 3899/3899 before starting.
+
+**This cycle's directive was explicit and non-negotiable: begin actual implementation of the
+3.5/3.6/3.8/3.9/3.10/3.10a/3.11/3.11a/3.12 cluster, not another investigation-only pass.**
+Measured the true scope concretely (grep, not estimate) before touching code: the panel-kind
+collapse (`Panel.scala` + `domain/panels/*Panel.scala` → `OutputPanel`) alone touches 31 main +
+17 test files; `PanelRepository`'s `panels` table is a 29-(now-31-)column Slick HList mapping;
+`ProposalPanelSupport`/`DashboardProposalService`/`PipelineProposalService` depend on the same
+ADT collapse via `CreatePanelRequest`. This is genuinely the largest single unit in the ticket,
+confirmed rather than assumed — both prior cycles' qualitative assessment was directionally
+right, but "large and coupled" doesn't excuse not starting.
+
+**Strategy chosen: extend the SAME additive-scaffolding pattern already used successfully for
+`Output`/`OutputRepository` (tasks 1.1/1.5) to task 3.6.** Land the new Output-side pieces one at
+a time, each verified compiling + green before the next, without deleting or cutting over any
+existing consumer yet — mirrors exactly how `Output`/`OutputRepository`/the `outputs` table were
+built additively across three earlier cycles before anything wired them in. This keeps the tree
+compiling and green at every single step (verified fresh after each file), which is the only way
+to make real progress on a task this size without the "non-compiling tree at end of cycle" risk
+the resume brief explicitly ruled out.
+
+**Real, concrete progress landed this cycle (see files-modified.md for the full list):**
+
+1. **Found and fixed a real, blocking defect in already-committed work first:** `OutputKind`
+   (task 1.1, several cycles ago) shipped with only 3 values (`table`/`metric`/`time_series`),
+   but ticket.md:42 and design.md:76 both specify the real 6-value Phase-1 set (`metric, chart,
+   table, collection, timeline, markdown`) — caught while sizing `OutputBindingSpec`, which must
+   be keyed by the actual kind set to carry `PanelBindingSpec`'s five slot specs plus the new
+   `markdown` kind. This is an ordinary implementation bug (the design docs were never
+   ambiguous — only the Scala enum was wrong), fixed inline per this cycle's own escalation
+   criteria, not treated as a design question. Verified backward-compatible: grepped every
+   `OutputKind.*` usage in the tree (2 main files, 7 spec files) — all of them only ever
+   construct `OutputKind.Table`, so widening the enum broke nothing.
+2. **`OutputBindingSpec.scala`** (new file) — `PanelBindingSpec` → `OutputBindingSpec`, keyed by
+   `OutputKind`. Carries the five existing slot/eligibility specs over verbatim, adds a sixth
+   (`Markdown`, vacuously bindable — no fieldMapping slots, binds via a row-interpolated
+   template instead).
+3. **`OutputPanel.scala`** (new file) — the collapsed placement type per design.md: `outputId`
+   is the ENTIRE config (verified by reading `OutputRepository`, already landed in task 1.5:
+   `outputs.config` — a JSONB blob — already owns everything the five old bound configs used to
+   carry: `fieldMapping`, `aggregation`, `chartOptions`, table display state, `timelineOptions`,
+   `metricId`, `label`/`unit`). This one finding materially shrinks the true remaining scope of
+   3.6 — the Panel-side collapse is NOT "move five kinds' worth of business logic," it's "delete
+   five kinds' worth of business logic," since none of it belongs on the placement anymore.
+4. **`PanelRepository`/`PanelRowMapper`** — added the `output_id`/`kind` columns (both already
+   exist in the DB per V94, added nullable in tasks 1.1/2.9, never previously read by any Scala
+   code) to `PanelRow`/`PanelTable`, and wired `PanelRowMapper.rowToDomain`/`domainToRow` to
+   round-trip `OutputPanel` on them. Currently dead-but-correct: nothing constructs an
+   `OutputPanel` via any real write path yet (that's `PanelService`, next), so this exercises
+   only the read-side of the round-trip in isolation — verified by full `sbt test` staying at
+   3899/3899 (no regression, and no new green coverage yet either, since no fixture constructs
+   one — the honest state to report).
+
+**NOT done this cycle (concrete remainder, unchanged in kind from cycle 11's own list, but now
+informed by real measurement instead of estimate):**
+
+- `Panel.Registry`/`PanelKind` still list only the original 9 kinds — `OutputPanel` is not
+  registered. Registering it means deciding how `CreatePanelRequest`'s wire `type` field accepts
+  `"output"`, which is a `PanelService`/protocol decision, not a domain-model one — left for the
+  next increment rather than guessed at here.
+- The five old bound `*Panel.scala` files (`MetricPanel`/`ChartPanel`/`TablePanel`/
+  `CollectionPanel`/`TimelinePanel`) are NOT deleted — still the only kinds any real write path
+  produces.
+- `PanelCapabilityService` (§3.11) is NOT rewired onto `OutputBindingSpec`/Outputs — still reads
+  `PanelBindingSpec`/`DataTypeRepository` unchanged.
+- `PanelService`, `ProposalPanelSupport`, `DashboardProposalService`, `PipelineProposalService`,
+  `WorkspaceContextService` (§3.8/3.9/3.10/3.10a/3.12) — untouched.
+- `Pipeline.outputDataTypeId` (§3.5) — untouched; still read/written by `PipelineRepository`/
+  `PipelineService` exactly as before.
+- `panels.kind`'s `SET NOT NULL` (called out in the V94 migration's own comment as belonging
+  "in the SAME commit as task 3.6's Panel-model rewire") is deliberately NOT added yet — no
+  write path populates `kind` on every insert yet, so this remains correctly deferred to the
+  increment that adds that write path (verified by re-reading the migration file's own comment,
+  not by memory).
+
+**Verification this cycle (fresh, exit codes read directly):**
+- `sbt -batch compile` — clean after each of the four edit steps above (OutputKind fix →
+  OutputBindingSpec+OutputPanel+package.scala → PanelRepository/PanelRowMapper), never left
+  broken between edits.
+- `sbt -batch test` (full suite, run twice — once after the additive Output-side files, once
+  after the PanelRepository/PanelRowMapper wiring): **3899/3899 both times**, exit code 0, 247
+  suites, matching cycle 11's own closing number exactly (no regressions, no net-new tests this
+  cycle — an honest, intentional trade-off: this increment is infrastructure with no new
+  behavior yet exercised by any fixture, not a claim that new coverage was added).
+- Targeted re-runs in isolation (not relied on as the sole evidence, but as fast local
+  feedback before each full-suite run): `PanelRepository`/`PanelRoutes`/`PanelCapabilityService`/
+  `PanelService*` specs (105/105), `V94OutputsMigrationSpec`/`PanelType`/`PanelBindingSpec`
+  specs (298/298) — all green.
+- Root pre-commit gate chain (lint, typecheck, format:check, schema-drift, openspec hygiene,
+  scala-quality, jest, etc.) — run before commit, see the commit's own record for the result.
+
+**Next cycle should continue task 3.6 in the same additive style, then start cutting over:**
+1. Register `OutputPanel` in `Panel.Registry`, deciding (and documenting) how `CreatePanelRequest`
+   accepts `type: "output"` alongside the nine existing values.
+2. Rewire `PanelService.create`/`update`/`resolveBindingsForRead` to actually construct/patch an
+   `OutputPanel` when `outputId` is supplied — this is the first REAL write path, and the point
+   at which `panels.kind`'s `SET NOT NULL` migration addendum becomes safe to land in the same
+   commit (per the V94 file's own comment).
+3. Once a real write path exists, delete the five old bound `*Panel.scala` files and cut
+   `Panel.Registry` over fully — do this in the SAME commit as step 2, not left dangling, since a
+   half-registered Registry (old kinds AND new kind both live) is a real footgun for any code
+   that pattern-matches on `Panel` subtypes expecting the old five.
+4. Rewire `PanelCapabilityService` (§3.11) onto `OutputBindingSpec` in the same pass — it already
+   has a live successor spec to point at (this cycle's `OutputBindingSpec`).
+5. Only after 2-4 land does `ProposalPanelSupport`/`DashboardProposalService`/
+   `PipelineProposalService` (§3.8/3.9/3.10/3.10a) become tractable — they build `CreatePanelRequest`
+   payloads that must resolve through the same `Panel.Registry` entry.
+6. `Pipeline.outputDataTypeId` (§3.5) and `WorkspaceContextService` (§3.12) remain independently
+   schedulable once 2-5 land, per the original ordering guess in this cycle's own resume brief.

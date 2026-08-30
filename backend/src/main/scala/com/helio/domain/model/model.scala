@@ -730,21 +730,40 @@ final case class NodeRef(pipelineId: PipelineId, stepId: Option[PipelineStepId])
  *  `Comparator` enum pattern used elsewhere in this file. */
 sealed trait OutputKind
 object OutputKind {
-  case object Table    extends OutputKind
-  case object Metric   extends OutputKind
-  case object TimeSeries extends OutputKind
+  case object Table      extends OutputKind
+  case object Metric     extends OutputKind
+  case object Chart      extends OutputKind
+  case object Collection extends OutputKind
+  case object Timeline   extends OutputKind
+  case object Markdown   extends OutputKind
 
+  /** HEL-904 task 3.6 correction: ticket.md line 42 / design.md line 76 both
+   *  specify the six Phase-1 Output kinds as `metric, chart, table,
+   *  collection, timeline, markdown` — the additive task-1.1 version of this
+   *  enum shipped with only three (`table`/`metric`/`time_series`), a
+   *  mismatch caught while implementing `OutputBindingSpec` (which must be
+   *  keyed by the real kind set to carry over `PanelBindingSpec`'s five
+   *  data-bindable slot specs + the new markdown kind). Fixed inline here
+   *  (ordinary implementation bug, not a design question) rather than left
+   *  for a later cycle to trip over again. */
   def fromString(s: String): Either[String, OutputKind] = s match {
-    case "table"       => Right(Table)
-    case "metric"      => Right(Metric)
-    case "time_series" => Right(TimeSeries)
-    case other         => Left(s"Unknown output kind: '$other'. Valid values: table, metric, time_series")
+    case "table"      => Right(Table)
+    case "metric"     => Right(Metric)
+    case "chart"      => Right(Chart)
+    case "collection" => Right(Collection)
+    case "timeline"   => Right(Timeline)
+    case "markdown"   => Right(Markdown)
+    case other        =>
+      Left(s"Unknown output kind: '$other'. Valid values: table, metric, chart, collection, timeline, markdown")
   }
 
   def asString(k: OutputKind): String = k match {
     case Table      => "table"
     case Metric     => "metric"
-    case TimeSeries => "time_series"
+    case Chart      => "chart"
+    case Collection => "collection"
+    case Timeline   => "timeline"
+    case Markdown   => "markdown"
   }
 }
 

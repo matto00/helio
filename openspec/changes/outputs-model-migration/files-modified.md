@@ -213,3 +213,54 @@ the full reasoning on why no DML was landed this cycle.
   assertion that it backfills to `(pipelineId, stepIds.last)` — proven red before the fix (failed
   with a duplicate-key error until the fixture's `row_index`/`field_name` were made unique from
   the existing `ref-1` fixture, then genuinely red against pre-fix SQL, then green).
+
+## Cycle 12 — begin task 3.6 (additive-only increment; cluster continues)
+
+- `backend/src/main/scala/com/helio/domain/model/model.scala` — fixed `OutputKind`: the
+  task-1.1 version shipped with only 3 values (`table`/`metric`/`time_series`), but
+  ticket.md:42 and design.md:76 both specify the real Phase-1 set of 6 (`metric, chart, table,
+  collection, timeline, markdown`) — caught while sizing `OutputBindingSpec`, which must be
+  keyed by the real kind set. Fixed inline as an ordinary implementation bug (not a design
+  question — the design docs were already unambiguous and consistent with each other; only the
+  already-committed Scala enum was wrong). Verified safe: every existing usage of `OutputKind.*`
+  in the tree (main + 8 spec files) only ever constructs `OutputKind.Table`, so this is a
+  backward-compatible correction, not a breaking rename.
+- `backend/src/main/scala/com/helio/domain/panels/OutputBindingSpec.scala` (new) — task 3.6's
+  `PanelBindingSpec` → `OutputBindingSpec` successor, keyed by `OutputKind` instead of
+  `PanelType`. Carries over all five of `PanelBindingSpec`'s slot/eligibility specs verbatim
+  (Metric/Chart/Table/Collection/Timeline), plus a new `Markdown` entry (vacuously bindable, no
+  slots — a markdown Output binds via a row-interpolated template, not a fieldMapping slot).
+  Added additively alongside `PanelBindingSpec` (not yet deleted) — `PanelCapabilityService`
+  (§3.11) is not rewired onto it yet; that is the next increment.
+- `backend/src/main/scala/com/helio/domain/panels/OutputPanel.scala` (new) — task 3.6's
+  collapsed replacement for the five bound `*Panel.scala` subtypes (`MetricPanel`/`ChartPanel`/
+  `TablePanel`/`CollectionPanel`/`TimelinePanel`): `OutputPanelConfig(outputId: OutputId)` is the
+  placement's entire config — everything those five configs used to carry (`fieldMapping`,
+  `aggregation`, `chartOptions`, `columnWidths`/`density`/`columnOrder`, `timelineOptions`,
+  `metricId`, `label`/`unit`) now lives on the Output itself (`outputs.config`, confirmed by
+  reading `OutputRepository`, already landed additively in task 1.5). Not yet registered in
+  `Panel.Registry`/`PanelKind` — that requires `CreatePanelRequest`/`PanelProtocol`'s wire
+  dispatch to accept `type: "output"`, which belongs to the `PanelService`/proposal-layer
+  (§3.8/3.9/3.10) increment, not this one.
+- `backend/src/main/scala/com/helio/domain/panels/package.scala` — added `outputIdFormat`
+  (mirrors `dataTypeIdFormat`/`metricIdFormat`), needed by `OutputPanelConfig`'s
+  macro-derived `jsonFormat1`.
+- `backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelRepository.scala` —
+  added `outputId`/`kind` columns to `PanelRow`/`PanelTable` (both map to real, already-existing
+  V94 columns `panels.output_id`/`panels.kind` — task 1.1/2.9's additive schema, never
+  previously read by application code). Both default to `None` on the case class so the sole
+  existing construction site (`PanelRowMapper.domainToRow`'s `base`) needed only an explicit
+  `None` for clarity, not a forced signature break elsewhere (verified no other call site exists
+  via grep).
+- `backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelRowMapper.scala` —
+  `rowToDomain` now checks `row.kind.contains("output")` FIRST and decodes to `OutputPanel` on
+  that branch (falling through to the existing `row.panelType` dispatch otherwise) — additive
+  and currently dead in practice, since no write path sets `kind = "output"` yet (confirmed:
+  `domainToRow`'s `OutputPanel` branch is the only writer, and nothing in `PanelService`/
+  `PanelRepository.insert` constructs an `OutputPanel` yet). `domainToRow` gained the
+  symmetric `case op: OutputPanel => ...` branch and a new private `outputConfig` reader,
+  completing the round-trip for when the next increment wires a real writer.
+- Full `sbt -batch test`: **3899/3899 passing** (unchanged count — no new spec files landed this
+  increment; existing suite re-confirms zero regressions from the `OutputKind` fix and the
+  additive `PanelRow`/`PanelRowMapper` changes), exit code 0, 247 suites.
+- `openspec/changes/outputs-model-migration/execution-progress.md` — cycle 12 section added.

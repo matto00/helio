@@ -342,7 +342,20 @@ object PanelRepository {
       timelineOptions: Option[String],
       imageCaption: Option[String],
       chartAnnotation: Option[String],
-      metricId: Option[String]
+      metricId: Option[String],
+      // HEL-904 task 3.6: the placement's Output binding. Additive-only
+      // for now — no write path populates it yet (that lands with the
+      // rest of this task's `PanelService`/`PanelRowMapper.domainToRow`
+      // cutover); `PanelRowMapper.rowToDomain` already reads it, decoding
+      // to `OutputPanel` whenever `kind = 'output'` and `outputId` is set.
+      outputId: Option[String] = None,
+      // HEL-904 task 3.6: `panels.kind` (`output | text | markdown | image |
+      // divider`), added by V94 alongside `output_id`, currently nullable and
+      // populated by that migration's backfill for pre-existing rows. No
+      // write path sets it on a NEW panel yet (that lands with the rest of
+      // this task) -- read-only for now, consumed by
+      // `PanelRowMapper.rowToDomain`'s output-kind dispatch.
+      kind: Option[String] = None
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -375,14 +388,19 @@ object PanelRepository {
     def imageCaption        = column[Option[String]]("image_caption")
     def chartAnnotation     = column[Option[String]]("chart_annotation")
     def metricId            = column[Option[String]]("metric_id")
+    // HEL-904 task 3.6: the placement's Output binding (`panels.output_id`,
+    // added by V94 §4 — nullable FK, not yet written by any code path).
+    def outputId            = column[Option[String]]("output_id")
+    def kind                = column[Option[String]]("kind")
 
-    // 29 columns exceeds Scala's 22-tuple ceiling, so the projection is built as
+    // 31 columns exceeds Scala's 22-tuple ceiling, so the projection is built as
     // a Slick HList (see `slick.collection.heterogeneous`) rather than a tuple.
     def * =
       (id :: dashboardId :: title :: createdBy :: createdAt :: lastUpdated :: appearance ::
         panelType :: typeId :: fieldMapping :: ownerId :: content :: imageUrl :: imageFit ::
         dividerOrientation :: dividerWeight :: dividerColor :: aggregation :: metricLabel ::
         metricUnit :: columnWidths :: tableDensity :: columnOrder :: chartOptions ::
-        collectionOptions :: timelineOptions :: imageCaption :: chartAnnotation :: metricId :: HNil).mapTo[PanelRow]
+        collectionOptions :: timelineOptions :: imageCaption :: chartAnnotation :: metricId ::
+        outputId :: kind :: HNil).mapTo[PanelRow]
   }
 }
