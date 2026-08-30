@@ -20,6 +20,8 @@
     "check:spec-structure": "node scripts/check-spec-structure.mjs",
     "check:scala-quality": "node scripts/check-scala-quality.mjs",
     "check:no-credential-leak": "node scripts/check-no-credential-in-agent-surface.mjs",
+    "check:e2e-types": "tsc --noEmit -p e2e/tsconfig.json",
+    "check:helio-mcp-types": "npm --prefix helio-mcp run typecheck",
     "selftest:concertino-git-env": "bash scripts/concertino/lib/git-child-env.selftest.sh",
     "test": "jest --passWithNoTests && npm --prefix frontend test",
     "e2e": "playwright test"

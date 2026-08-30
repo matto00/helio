@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 // HEL-773 — live verification (design.md Risks/Trade-offs; tasks.md 6.1-6.7).
 //
@@ -16,11 +16,7 @@ function uniqueEmail(label: string): string {
   return `hel773-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
 }
 
-async function registerAndLogin(
-  page: Page,
-  request: Parameters<Parameters<typeof test>[1]>[0]["request"],
-  label: string,
-) {
+async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {

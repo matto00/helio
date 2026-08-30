@@ -19,15 +19,29 @@ import { dirname, resolve } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 const serverEntry = resolve(here, "../dist/index.js");
 
+/** The actual (structural) resolved type of `Client#callTool` — covers both
+ * the plain-content shape and the legacy `toolResult` compatibility shape. */
+type ToolCallResult = Awaited<ReturnType<Client["callTool"]>>;
+
+/** Narrows `ToolCallResult` to the plain-content shape — the legacy
+ * `toolResult` compatibility shape carries neither `content` nor `isError`. */
+function hasContent(
+  result: ToolCallResult,
+): result is Extract<ToolCallResult, { content: unknown }> {
+  return Array.isArray((result as { content?: unknown }).content);
+}
+
 function log(msg: string): void {
   process.stdout.write(msg + "\n");
 }
 
-function textOf(r: {
-  content?: Array<{ type: string; text?: string }>;
-  isError?: boolean;
-}): string {
-  return (r.content ?? []).find((c) => c.type === "text")?.text ?? "";
+function textOf(r: ToolCallResult): string {
+  if (!hasContent(r)) return "";
+  return r.content.find((c) => c.type === "text")?.text ?? "";
+}
+
+function isErrorOf(r: ToolCallResult): boolean {
+  return hasContent(r) ? Boolean(r.isError) : false;
 }
 
 async function main(): Promise<void> {
@@ -46,7 +60,7 @@ async function main(): Promise<void> {
   const call = async <T>(name: string, args: Record<string, unknown>): Promise<T> => {
     const res = await client.callTool({ name, arguments: args });
     const text = textOf(res);
-    if (res.isError) throw new Error(`${name} failed: ${text}`);
+    if (isErrorOf(res)) throw new Error(`${name} failed: ${text}`);
     log(`✓ ${name}`);
     return JSON.parse(text) as T;
   };

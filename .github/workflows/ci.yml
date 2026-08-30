@@ -21,10 +21,14 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             frontend/package-lock.json
+            helio-mcp/package-lock.json
       - run: npm ci
       - run: npm --prefix frontend ci
+      - run: npm --prefix helio-mcp ci
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run check:e2e-types
+      - run: npm run check:helio-mcp-types
       - run: npm run format:check
       - run: npm run check:dependabot
       - run: npm run check:dependabot:selftest

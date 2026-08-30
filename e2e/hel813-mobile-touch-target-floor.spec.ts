@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 import {
   assertHiddenAtWidth,
@@ -27,11 +27,7 @@ function uniqueEmail(label: string): string {
   return `hel813-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
 }
 
-async function registerAndLogin(
-  page: Page,
-  request: Parameters<Parameters<typeof test>[1]>[0]["request"],
-  label: string,
-) {
+async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
