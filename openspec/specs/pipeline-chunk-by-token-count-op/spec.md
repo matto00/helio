@@ -4,22 +4,24 @@
 Defines the `chunkbytokencount` pipeline op, which splits a `string-body` content field into one
 output row per fixed-size chunk of real BPE tokens (via a per-step selectable `jtokkit` encoding),
 plus its schema-inference and step-card-UI behavior.
+
 ## Requirements
+
 ### Requirement: Chunk-by-token-count op splits a string-body field into one row per real-BPE-token chunk
 
 The execution engine SHALL support the `chunkbytokencount` op. The step config SHALL contain:
 `field` (string, the source column name), `targetTokenCount` (integer, defaults to `500`),
-`encoding` (string, `"o200k_base"` or `"cl100k_base"`, defaults to `"o200k_base"` and falls back to
-`"o200k_base"` for any other value), `indexField` (string, defaults to `"chunkIndex"`), and
-`tokenCountField` (string, defaults to `"tokenCount"`). For each input row: if the value of `field`
-is `null` or the field is absent, the row SHALL be dropped (zero output rows for that input row).
-Otherwise the field's string value SHALL be tokenized using the selected encoding, and the resulting
-token sequence SHALL be split into consecutive chunks of at most `targetTokenCount` tokens each (the
-final chunk holds the remainder; a `targetTokenCount` less than `1` SHALL be treated as `1`). One
-output row SHALL be emitted per chunk: every field from the input row other than `field` passes
-through unchanged, `field` is replaced by the chunk's decoded text, `indexField` is set to the
-chunk's 0-based position, and `tokenCountField` is set to that chunk's exact token count. An empty
-string value SHALL yield zero output rows (zero tokens produce zero chunks).
+`encoding` (string, `"o200k_base"` or `"cl100k_base"`, defaults to `"o200k_base"` when omitted, matched
+case-insensitively when supplied, and reported as a validation failure at analyze time and failed at run
+time when it matches neither member — never silently replaced by `"o200k_base"`), `indexField` (string,
+defaults to `"chunkIndex"`), and `tokenCountField` (string, defaults to `"tokenCount"`). For each input
+row: if the value of `field` is `null` or the field is absent, the row SHALL be dropped (zero output rows
+for that input row). Otherwise the field's string value SHALL be tokenized using the selected encoding,
+and the resulting token ids SHALL be split into consecutive chunks of at most `targetTokenCount` tokens.
+
+This replaces the previous fallback to `"o200k_base"` for any unrecognised value. Tokenizing with an
+encoding other than the one the caller asked for produces chunk boundaries that are wrong in a way no
+downstream consumer can detect, while reporting success.
 
 #### Scenario: A long field is split into fixed-size token chunks
 
@@ -45,10 +47,16 @@ string value SHALL yield zero output rows (zero tokens produce zero chunks).
 - **WHEN** a `chunkbytokencount` step is applied to a row where `field` is `""`
 - **THEN** zero output rows are produced for that input row
 
-#### Scenario: Unrecognized encoding value falls back to o200k_base
+<!-- The scenario name below is retained verbatim because openspec requires a MODIFIED requirement to keep every
+     existing scenario name. Its BODY now asserts the opposite of what the name says: there is no longer a
+     fallback. Trust the body, not the heading. -->
 
+#### Scenario: Unrecognized encoding value falls back to o200k_base
 - **WHEN** a `chunkbytokencount` step's stored config has `"encoding":"not-a-real-encoding"`
-- **THEN** the step decodes with `encoding` treated as `"o200k_base"` rather than failing
+- **THEN** the stored config still decodes, retaining the supplied value rather than being rewritten to
+  `"o200k_base"`, so an existing row remains readable
+- **AND** analyze reports a validation error naming `not-a-real-encoding` and listing the supported encodings
+- **AND** running the pipeline fails rather than tokenizing with an encoding the caller did not request
 
 ### Requirement: Chunk-by-token-count op schema inference validates the field is a string-body field
 
@@ -114,4 +122,3 @@ dropdown SHALL render empty (no fields offered) rather than falling back to all 
 - **WHEN** a `chunkbytokencount` step card is expanded and the analyze response's `inputSchema`
   contains no `string-body` fields
 - **THEN** the field dropdown renders with no options
-

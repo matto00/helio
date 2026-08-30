@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change pipeline-op-compute-field. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Compute op appends a derived field to each row using a unified config shape
 `InProcessPipelineEngine.applyCompute` SHALL accept config shape
 `{"column":"<name>","expression":"<expr>","type":"<type>"}` and append a new field named `column`
@@ -19,6 +21,17 @@ their pre-existing output without modification, with no data rewrite. This legac
 only to row-execution (`evaluate`) — schema-inference and live validation use the strict grammar
 only (see the next requirement), so bare-identifier expressions are flagged (not silently accepted)
 even while they continue to execute correctly.
+
+A `column` that is missing or empty SHALL NOT produce an output field named with the empty string.
+Such a configuration SHALL be reported as a validation failure at analyze time and SHALL fail the run,
+naming the step and the missing value. Storing it remains permitted, so a compute step may be added and
+its column supplied later; this governs only what happens when it is analyzed or run. The same applies
+to a missing or empty `expression`.
+
+This narrows the unconditional "SHALL append a new field named `column` to every row" above. With an
+empty `column` that clause silently writes a field named `""` into the output DataType and into every
+downstream consumer, which is indistinguishable from success — the defect class this change closes, and
+the one measured on real production rows (a `compute` step with both `column` and `expression` empty).
 
 #### Scenario: Simple arithmetic expression produces new column
 - **WHEN** a compute step with `{"column":"revenue","expression":"$price * $qty","type":"number"}`
@@ -58,6 +71,10 @@ even while they continue to execute correctly.
   even though the same step's analyze response flags a `validationError` (see the ADDED
   requirement "Compute op schema inference validates the expression and infers its output type"
   below)
+#### Scenario: An empty column is reported rather than producing an empty-named field
+- **WHEN** a compute step with `{"column":"","expression":"$a + $b"}` is analyzed
+- **THEN** `validationError` names `column` as a missing required value
+- **AND** running the pipeline fails naming that step, rather than appending a field named `""`
 
 ### Requirement: Frontend compute op renders an output-field and expression editor in the step-card
 When a pipeline step has `op: "compute"` and the step card is expanded, the frontend SHALL render
@@ -128,4 +145,3 @@ still executes correctly at run time.
 - **WHEN** a compute step with `{"column":"x","expression":"$missing * 2","type":"number"}` is
   analyzed against an `inputSchema` that does not contain `missing`
 - **THEN** `AnalyzedStep.validationError` is set to a message indicating the unknown field
-
