@@ -72,6 +72,7 @@ final case class ChunkByTokenCountStep(
     config: ChunkByTokenCountConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = ChunkByTokenCountStep.Kind

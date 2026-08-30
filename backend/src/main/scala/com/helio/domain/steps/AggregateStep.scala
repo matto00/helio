@@ -52,6 +52,7 @@ final case class AggregateStep(
     config: AggregateConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = AggregateStep.Kind

@@ -75,6 +75,7 @@ final case class WindowStep(
     config: WindowConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = WindowStep.Kind

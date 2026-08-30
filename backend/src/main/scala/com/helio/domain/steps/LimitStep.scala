@@ -37,6 +37,7 @@ final case class LimitStep(
     config: LimitConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = LimitStep.Kind

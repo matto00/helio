@@ -713,6 +713,51 @@ final case class Pipeline(
 final case class PipelineStepId(value: String) extends AnyVal
 final case class PipelineRunId(value: String) extends AnyVal
 
+/** HEL-904 (Outputs remodel) — an Output is a panel-bindable projection of a
+ *  single pipeline node, replacing the DataType/Metric split (design.md
+ *  "Output model"). Additive-only at this task (1.1): repositories,
+ *  rewiring, and the retirement of `Pipeline.outputDataTypeId` land in later
+ *  tasks (§1.5, §3.5). */
+final case class OutputId(value: String) extends AnyVal
+
+/** A reference to the pipeline node (a step, or the pipeline's own source)
+ *  this Output/NodeSnapshot projects. `stepId = None` means "the pipeline's
+ *  raw source rows, before any step" — mirrors `PipelineStep.parentStepId`'s
+ *  `None` = "trunk root" convention. */
+final case class NodeRef(pipelineId: PipelineId, stepId: Option[PipelineStepId])
+
+/** The shape an Output's bound data takes — mirrors the `Severity`/
+ *  `Comparator` enum pattern used elsewhere in this file. */
+sealed trait OutputKind
+object OutputKind {
+  case object Table    extends OutputKind
+  case object Metric   extends OutputKind
+  case object TimeSeries extends OutputKind
+
+  def fromString(s: String): Either[String, OutputKind] = s match {
+    case "table"       => Right(Table)
+    case "metric"      => Right(Metric)
+    case "time_series" => Right(TimeSeries)
+    case other         => Left(s"Unknown output kind: '$other'. Valid values: table, metric, time_series")
+  }
+
+  def asString(k: OutputKind): String = k match {
+    case Table      => "table"
+    case Metric     => "metric"
+    case TimeSeries => "time_series"
+  }
+}
+
+final case class Output(
+    id: OutputId,
+    name: String,
+    ownerId: UserId,
+    node: NodeRef,
+    kind: OutputKind,
+    createdAt: Instant,
+    updatedAt: Instant
+)
+
 // `PipelineStep` ADT lives in `Pipeline.scala` (sealed trait + 10 typed
 // subtypes). The pre-CS2c-3a flat case class is removed.
 
@@ -820,7 +865,13 @@ final case class AlertRule(
     enabled: Boolean,
     severity: Severity,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    // HEL-904 (Outputs remodel, additive step 1.4): the Output this rule
+    // evaluates against. Additive alongside `targetDataTypeId` at this task;
+    // `targetDataTypeId` is removed in task 3.1 once
+    // `AlertRuleService`/`AlertEvaluationService` are rewired to
+    // `evaluateForOutput`. `None` until the V94 migration backfills it.
+    targetOutputId: Option[OutputId] = None
 )
 
 /** HEL-414 — scheduled-runs data model foundation (no runtime firing here;

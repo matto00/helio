@@ -57,6 +57,7 @@ final case class PivotStep(
     config: PivotConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = PivotStep.Kind

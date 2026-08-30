@@ -52,6 +52,15 @@ trait PipelineStep {
    *  `pipeline-step-lifecycle` spec. */
   def enabled: Boolean
 
+  /** HEL-904 (Outputs remodel, additive step 1.2): the sibling-scoped parent
+   *  this step branches from. `None` means "trunk step, parented off the
+   *  pipeline's source" — mirrors today's flat `position`-ordered trunk until
+   *  the V94 migration backfills this from `position` (tasks.md §2.2) and
+   *  `PipelineStepRepository` starts reading tree order instead of flat
+   *  position (§1.6). Defaults `None` so every pre-existing positional call
+   *  site keeps compiling. */
+  def parentStepId: Option[PipelineStepId]
+
   /** Apply this step to the input rows.
    *
    *  Polymorphic per kind — pure-sync steps wrap their result in
