@@ -85,34 +85,15 @@ object PipelineStepConfigCodec {
     decode(kind, configJson.compactPrint).map(_ => configJson.compactPrint)
 
 
-  /** Pull the typed config out of a `PipelineStep` subtype. Each subtype
-   *  exposes its config under the same accessor name (`config`); the match
-   *  here keeps the lookup explicit and exhaustive at the compiler level
-   *  rather than relying on reflection. */
-  private def extractConfig(step: PipelineStep): Any = step match {
-    case s: RenameStep    => s.config
-    case s: FilterStep    => s.config
-    case s: JoinStep      => s.config
-    case s: ComputeStep   => s.config
-    case s: GroupByStep   => s.config
-    case s: CastStep      => s.config
-    case s: SelectStep    => s.config
-    case s: LimitStep     => s.config
-    case s: SortStep      => s.config
-    case s: AggregateStep => s.config
-    case s: SplitTextStep => s.config
-    case s: ExtractHeadingsStep => s.config
-    case s: ChunkByTokenCountStep => s.config
-    case s: DateBucketStep => s.config
-    case s: PivotStep      => s.config
-    case s: WindowStep     => s.config
-    case s: UnpivotStep    => s.config
-    case s: DedupeStep     => s.config
-    case s: FillNullStep   => s.config
-    case s: StringOpsStep  => s.config
-    case s: UnionStep      => s.config
-    case s: LookupStep     => s.config
-    case s: AssertStep     => s.config
-  }
+  /** Pull the typed config out of a `PipelineStep` subtype.
+   *
+   *  HEL-814: this is now `PipelineStep.configValue`, an abstract member every
+   *  subtype implements as `= config`. The previous 24-arm match here was a
+   *  second, drift-prone copy of the same mapping; the run path needs the
+   *  same lookup from inside `com.helio.domain`, and two copies of it could
+   *  disagree. The compiler still enforces exhaustiveness — a new subtype
+   *  cannot compile without implementing the member. */
+  private def extractConfig(step: PipelineStep): Any = step.configValue
+
 
 }

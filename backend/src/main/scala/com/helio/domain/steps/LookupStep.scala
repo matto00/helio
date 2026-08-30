@@ -23,14 +23,11 @@ object LookupConfig {
    *  enrichment, not an error, mirroring `select`'s empty-`fields`
    *  precedent). */
   def decode(raw: String): LookupConfig = {
-    val obj  = StepCodecUtil.asObject(raw)
-    val refId = StepCodecUtil.stringOr(obj, "referenceDataSourceId", "")
-    val srcKey = StepCodecUtil.stringOr(obj, "sourceKey", "")
-    val lookupKey = StepCodecUtil.stringOr(obj, "lookupKey", "")
-    val columns = obj.fields.get("columns") match {
-      case Some(JsArray(items)) => items.collect { case JsString(s) => s }
-      case _                    => Vector.empty[String]
-    }
+    val obj       = StepCodecUtil.asObject(raw)
+    val refId     = StepCodecUtil.str(obj, "referenceDataSourceId", "")
+    val srcKey    = StepCodecUtil.str(obj, "sourceKey", "")
+    val lookupKey = StepCodecUtil.str(obj, "lookupKey", "")
+    val columns   = StepCodecUtil.stringArray(obj, "columns")
     LookupConfig(refId, srcKey, lookupKey, columns)
   }
 }
@@ -66,6 +63,8 @@ final case class LookupStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = LookupStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
@@ -114,5 +113,19 @@ object LookupStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[LookupConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[LookupConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[LookupConfig].toJson
+
+    /** HEL-814 D3. `sourceKey`/`lookupKey` are required: an empty key indexes
+     *  every row on `getOrElse("", null)`, so every row either matches one
+     *  arbitrary reference row or is null-filled — corruption presented as a
+     *  successful enrichment. `referenceDataSourceId` is NOT re-declared:
+     *  `pipeline-lookup-op:63` already requires (and the step already
+     *  performs) a run failure for its empty-string default, and `:130`/`:152`
+     *  explicitly bless that same empty value on the WRITE path.
+     *  `columns` stays optional — an empty `columns` is a specified
+     *  pass-through (`:17-19`). */
+    override def requiredConfigProblems(raw: String): Vector[String] = {
+      val cfg = LookupConfig.decode(raw)
+      StepCodecUtil.missingRequired(Kind, "sourceKey" -> cfg.sourceKey, "lookupKey" -> cfg.lookupKey)
+    }
   }
 }

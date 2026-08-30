@@ -33,22 +33,13 @@ object WindowConfig {
   implicit val format: RootJsonFormat[WindowConfig] = jsonFormat6(WindowConfig.apply)
 
   def decode(raw: String): WindowConfig = {
-    val obj         = StepCodecUtil.asObject(raw)
-    val partitionBy = obj.fields.get("partitionBy") match {
-      case Some(JsArray(items)) => items.collect { case JsString(s) => s }
-      case _                    => Vector.empty[String]
-    }
-    val orderBy = obj.fields.get("orderBy") match {
-      case Some(JsArray(items)) => items.flatMap(it => Try(it.convertTo[SortKey]).toOption)
-      case _                    => Vector.empty[SortKey]
-    }
-    val function     = StepCodecUtil.stringOr(obj, "function", "")
-    val field        = obj.fields.get("field").collect { case JsString(s) => s }
-    val outputColumn = StepCodecUtil.stringOr(obj, "outputColumn", "")
-    val offset = obj.fields.get("offset") match {
-      case Some(JsNumber(n)) => Try(n.toIntExact).toOption
-      case _                 => None
-    }
+    val obj          = StepCodecUtil.asObject(raw)
+    val partitionBy  = StepCodecUtil.stringArray(obj, "partitionBy")
+    val orderBy      = StepCodecUtil.typedArray[SortKey](obj, "orderBy", "an array of {field, direction} objects")
+    val function     = StepCodecUtil.str(obj, "function", "")
+    val field        = StepCodecUtil.strOpt(obj, "field")
+    val outputColumn = StepCodecUtil.str(obj, "outputColumn", "")
+    val offset       = StepCodecUtil.intOpt(obj, "offset")
     WindowConfig(partitionBy, orderBy, function, field, outputColumn, offset)
   }
 }
@@ -87,6 +78,8 @@ final case class WindowStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = WindowStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
@@ -262,5 +255,14 @@ object WindowStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[WindowConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[WindowConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[WindowConfig].toJson
+
+    /** HEL-814 D3. An empty `outputColumn` appends a field named `""` to
+     *  every row — `pipeline-window-op:14-15` declares it as a plain
+     *  `string` with no default, unlike the `Option[...]` keys on either side
+     *  of it. `function` and its per-function `field`/`offset` requirements
+     *  are NOT re-declared: `pipeline-step-config-validation:12-13` already
+     *  covers them and both run and analyze already enforce them. */
+    override def requiredConfigProblems(raw: String): Vector[String] =
+      StepCodecUtil.missingRequired(Kind, "outputColumn" -> WindowConfig.decode(raw).outputColumn)
   }
 }

@@ -4,7 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.services.sources.{DataSourceService, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, StaticDataSourceRequest}
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, DataTypeId, PipelineId, PipelineStepKind}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, DataTypeId, PipelineId, PipelineStep, PipelineStepKind}
 import com.helio.domain.connectors.SqlConnectorDriver
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
@@ -176,9 +176,21 @@ final class PipelineProposalService(
         s"step ${idx + 1}: invalid type '${step.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
       ))
     else
-      PipelineStepConfigCodec.decode(step.`type`, step.config.compactPrint) match {
-        case Success(_) => Right(())
-        case Failure(_) => Left(ServiceError.BadRequest(s"step ${idx + 1}: invalid '${step.`type`}' config"))
+      // HEL-814 D0/D2: the second surface that had no `validateRawConfig`
+      // wiring. Checking only decode Success/Failure lets a wrong-shape
+      // config through here, because the decoder is contractually tolerant —
+      // so an MCP proposal could apply a `window` step whose `partitionBy` is
+      // a string and silently get an empty partition list. 422 matches
+      // `pipeline-step-config-rejection`'s status for a rejected config;
+      // the 400 below is kept for the distinct "did not parse" case.
+      PipelineStep.companionFor(step.`type`).toOption
+        .flatMap(_.validateRawConfig(step.config.compactPrint)) match {
+        case Some(msg) => Left(ServiceError.UnprocessableEntity(s"step ${idx + 1}: $msg"))
+        case None =>
+          PipelineStepConfigCodec.decode(step.`type`, step.config.compactPrint) match {
+            case Success(_) => Right(())
+            case Failure(_) => Left(ServiceError.BadRequest(s"step ${idx + 1}: invalid '${step.`type`}' config"))
+          }
       }
 
 

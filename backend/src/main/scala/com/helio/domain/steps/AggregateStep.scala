@@ -34,16 +34,8 @@ object AggregateConfig {
 
   def decode(raw: String): AggregateConfig = {
     val obj          = StepCodecUtil.asObject(raw)
-    val groupBy      = obj.fields.get("groupBy") match {
-      case Some(JsArray(items)) =>
-        items.flatMap(it => Try(it.convertTo[AggregateField]).toOption)
-      case _ => Vector.empty[AggregateField]
-    }
-    val aggregations = obj.fields.get("aggregations") match {
-      case Some(JsArray(items)) =>
-        items.flatMap(it => Try(it.convertTo[Aggregation]).toOption)
-      case _ => Vector.empty[Aggregation]
-    }
+    val groupBy      = StepCodecUtil.typedArray[AggregateField](obj, "groupBy", "an array of {name, type} objects")
+    val aggregations = StepCodecUtil.typedArray[Aggregation](obj, "aggregations", "an array of {alias, fn, field} objects")
     AggregateConfig(groupBy, aggregations)
   }
 }
@@ -63,6 +55,8 @@ final case class AggregateStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = AggregateStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext

@@ -25,17 +25,11 @@ object UnpivotConfig {
   implicit val format: RootJsonFormat[UnpivotConfig] = jsonFormat4(UnpivotConfig.apply)
 
   def decode(raw: String): UnpivotConfig = {
-    val obj = StepCodecUtil.asObject(raw)
-    val idVars = obj.fields.get("idVars") match {
-      case Some(JsArray(items)) => items.collect { case JsString(s) => s }
-      case _                    => Vector.empty[String]
-    }
-    val valueVars = obj.fields.get("valueVars") match {
-      case Some(JsArray(items)) => items.collect { case JsString(s) => s }
-      case _                    => Vector.empty[String]
-    }
-    val varName   = StepCodecUtil.stringOr(obj, "varName", "variable")
-    val valueName = StepCodecUtil.stringOr(obj, "valueName", "value")
+    val obj       = StepCodecUtil.asObject(raw)
+    val idVars    = StepCodecUtil.stringArray(obj, "idVars")
+    val valueVars = StepCodecUtil.stringArray(obj, "valueVars")
+    val varName   = StepCodecUtil.str(obj, "varName", "variable")
+    val valueName = StepCodecUtil.str(obj, "valueName", "value")
     UnpivotConfig(idVars, valueVars, varName, valueName)
   }
 }
@@ -66,6 +60,8 @@ final case class UnpivotStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = UnpivotStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext

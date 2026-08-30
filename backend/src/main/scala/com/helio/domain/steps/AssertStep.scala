@@ -48,28 +48,40 @@ object AssertConfig {
    *  all-defaults rule rather than throwing. */
   def decode(raw: String): AssertConfig = {
     val obj   = StepCodecUtil.asObject(raw)
-    val rules = obj.fields.get("rules") match {
+    val rules = obj.fields.get("rules").filterNot(_ == JsNull) match {
+      case None                 => Vector.empty[AssertRule]
       case Some(JsArray(items)) => items.map(decodeRule)
-      case _                    => Vector.empty[AssertRule]
+      case Some(other) =>
+        throw new StepConfigTypeMismatch(
+          "'rules' must be an array of {kind, field, params, severity} objects, got " +
+            (other match {
+              case _: JsString  => "a string."
+              case _: JsNumber  => "a number."
+              case _: JsObject  => "an object."
+              case JsBoolean(_) => "a boolean."
+              case _            => "an unexpected shape."
+            })
+        )
     }
     AssertConfig(rules)
   }
 
   private def decodeRule(item: JsValue): AssertRule = item match {
     case o: JsObject =>
-      val kind = StepCodecUtil.stringOr(o, "kind", "")
-      val field = o.fields.get("field") match {
-        case Some(JsString(s)) => Some(s)
-        case _                 => None
-      }
-      val params = o.fields.get("params") match {
-        case Some(p: JsObject) => p
-        case _                 => JsObject.empty
-      }
-      val severity = StepCodecUtil.stringOr(o, "severity", "warn")
+      val kind     = StepCodecUtil.str(o, "kind", "")
+      val field    = StepCodecUtil.strOpt(o, "field")
+      val params   = StepCodecUtil.objectOpt(o, "params").getOrElse(JsObject.empty)
+      val severity = StepCodecUtil.str(o, "severity", "warn")
       AssertRule(kind, field, params, severity)
     case _ =>
-      AssertRule(kind = "", field = None, params = JsObject.empty, severity = "warn")
+      // HEL-814 D1: a non-object rules ELEMENT is a value the caller
+      // affirmatively supplied whose JSON type cannot represent a rule, so it
+      // fails the whole config rather than degrading to an all-default rule
+      // that reports success while checking something else. Absence of the
+      // `rules` key, and open `params` CONTENTS, both stay tolerant.
+      throw new StepConfigTypeMismatch(
+        "'rules' must be an array of {kind, field, params, severity} objects, but one element is not an object."
+      )
   }
 }
 
@@ -88,6 +100,8 @@ final case class AssertStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = AssertStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext

@@ -11,7 +11,7 @@ import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineAna
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
-import com.helio.domain.{CastConfig, SelectConfig}
+import com.helio.domain.{CastConfig, SelectConfig, StepConfigTypeMismatch}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -429,9 +429,25 @@ class PipelineAnalyzeProposalRoutesSpec
     "surface a validationError for a proposal cast step with a list-shaped casts config that CastConfig.decode reduces to Map.empty (AC7)" in {
       cleanAll()
       val rawCasts = """[{"field":"amount","to":"double"}]"""
-      // Confirms the premise: the typed tolerant decoder really does silently
-      // drop this shape (this is the bug HEL-860 exists to catch elsewhere).
-      CastConfig.decode(s"""{"casts":$rawCasts}""").casts shouldBe empty
+      // HEL-814 task 2.7 — PROOF that D1 took effect. This assertion used to
+      // read `CastConfig.decode(...).casts shouldBe empty`, confirming the
+      // premise that the typed decoder silently DROPS this shape. Under D1 a
+      // present key of the wrong JSON type no longer drops — it raises, and
+      // the message names the offending key and the shape it expected, so
+      // this now confirms the opposite premise: the decoder can no longer
+      // produce the degraded empty map at all.
+      //
+      // The surrounding assertions below are unchanged and still hold: the
+      // PROPOSAL analyze surface is driven from the caller-supplied RAW
+      // config text, never a decoded typed config, so it still reports the
+      // offending key as a validationError rather than failing opaquely.
+      // That contrast — decoder raises, proposal analyze still reports — is
+      // exactly the "reports a key the typed decoder would discard" property
+      // the shipped spec requires of this surface.
+      val decodeFailure = intercept[StepConfigTypeMismatch] {
+        CastConfig.decode(s"""{"casts":$rawCasts}""")
+      }
+      decodeFailure.getMessage should include("casts")
 
       val proposal = PipelineProposal(
         pipelineName       = "Cast pipeline",
@@ -451,7 +467,15 @@ class PipelineAnalyzeProposalRoutesSpec
         val resp = responseAs[PipelineAnalyzeProposalResponse]
         resp.steps should have size 1
         resp.steps.head.validationError shouldBe defined
-        resp.steps.head.validationError.get should include("cast config error")
+        // HEL-814: the message is now the SPECIFIC one — it names the
+        // offending key and describes the shape that key expects — where it
+        // used to be the generic "cast config error" the downstream
+        // `parseConfig` catch produced. The shipped requirement asks this
+        // surface to report "the offending key"; it now literally does.
+        // Asserted on content, not merely on `defined`, so a future change
+        // that reports SOME error for a different reason cannot pass this.
+        resp.steps.head.validationError.get should include("casts")
+        resp.steps.head.validationError.get should include("must be an object mapping field name to type name")
       }
     }
   }

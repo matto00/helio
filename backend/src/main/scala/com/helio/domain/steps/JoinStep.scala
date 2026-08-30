@@ -17,9 +17,9 @@ object JoinConfig {
   /** Tolerant decoder — missing keys default to empty ids + inner. */
   def decode(raw: String): JoinConfig = {
     val obj  = StepCodecUtil.asObject(raw)
-    val rId  = StepCodecUtil.stringOr(obj, "rightDataSourceId", "")
-    val key  = StepCodecUtil.stringOr(obj, "joinKey", "")
-    val jt   = StepCodecUtil.stringOr(obj, "joinType", "inner")
+    val rId  = StepCodecUtil.str(obj, "rightDataSourceId", "")
+    val key  = StepCodecUtil.str(obj, "joinKey", "")
+    val jt   = StepCodecUtil.str(obj, "joinType", "inner")
     JoinConfig(rId, key, jt)
   }
 }
@@ -39,6 +39,8 @@ final case class JoinStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = JoinStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
@@ -95,5 +97,13 @@ object JoinStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[JoinConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[JoinConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[JoinConfig].toJson
+
+    /** HEL-814 D3. An empty `joinKey` makes both sides index on
+     *  `getOrElse("", null)`, so every row keys to `null`: an inner join
+     *  becomes a cross-product-by-null and a left join silently mis-matches.
+     *  `rightDataSourceId` is NOT re-declared — `JoinStep.evaluate` already
+     *  fails the run with "DataSource not found for join: " for an empty id. */
+    override def requiredConfigProblems(raw: String): Vector[String] =
+      StepCodecUtil.missingRequired(Kind, "joinKey" -> JoinConfig.decode(raw).joinKey)
   }
 }

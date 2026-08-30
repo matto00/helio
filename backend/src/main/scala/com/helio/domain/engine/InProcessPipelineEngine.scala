@@ -129,8 +129,25 @@ class InProcessPipelineEngine(
         // Catching here guarantees every step failure — sync or async — is
         // observed and attributed.
         val stepResult: Future[Seq[Row]] =
-          try step.evaluate(currentRows, ctx)
-          catch { case ex: Throwable => Future.failed(ex) }
+          try {
+            // HEL-814 D3: "legitimate to save" is not "legitimate to run".
+            // A draft whose required configuration is still empty is savable
+            // (D2 deliberately accepts it — that is the editor's
+            // add-then-configure flow, running in production today), but it
+            // must not silently produce degraded output: a `compute` with an
+            // empty `column` writes a field named "" into the output DataType.
+            // The predicate is the step kind's own `requiredConfigProblems`,
+            // evaluated against the RAW config text — the same method, over
+            // the same representation, that the analyze surface evaluates, so
+            // the two cannot disagree. Thrown as an IllegalArgumentException
+            // so HEL-859's `StepExecutionException.from` allowlist surfaces
+            // the reason verbatim, attributed to this step's id and kind.
+            requiredConfigProblems(step) match {
+              case problems if problems.nonEmpty =>
+                Future.failed(new IllegalArgumentException(problems.mkString("; ")))
+              case _ => step.evaluate(currentRows, ctx)
+            }
+          } catch { case ex: Throwable => Future.failed(ex) }
         stepResult.map { nextRows =>
           (nextRows, counts.updated(step.id.value, nextRows.size.toLong))
         }.recoverWith { case ex =>
@@ -142,6 +159,20 @@ class InProcessPipelineEngine(
       }
     }
   }
+
+  /** HEL-814 D3: the step kind's required-config problems, derived from the
+   *  step's own typed config re-encoded to raw text via its companion. Going
+   *  through `encodeConfig(step.configValue)` rather than reaching for the
+   *  protocol layer's codec keeps the check inside `com.helio.domain`, and
+   *  guarantees the run path evaluates the predicate against exactly the
+   *  representation `validateStepConfig(kind, rawConfig)` uses on the analyze
+   *  side. An unknown kind yields no problems — that case is already reported
+   *  as "Unknown op" by analyze and cannot be persisted. */
+  private def requiredConfigProblems(step: PipelineStep): Vector[String] =
+    PipelineStep.companionFor(step.kind) match {
+      case Right(c) => c.requiredConfigProblems(c.encodeConfig(step.configValue))
+      case Left(_)  => Vector.empty
+    }
 
   /** Load the initial rows for a pipeline's source data source, discarding the read stats.
    *  Kept with an unchanged signature (design D5) — ~20 test call sites and one internal

@@ -18,13 +18,10 @@ object GroupByConfig {
   implicit val format: RootJsonFormat[GroupByConfig] = jsonFormat3(GroupByConfig.apply)
 
   def decode(raw: String): GroupByConfig = {
-    val obj     = StepCodecUtil.asObject(raw)
-    val groupBy = obj.fields.get("groupBy") match {
-      case Some(JsArray(items)) => items.collect { case JsString(s) => s }
-      case _                    => Vector.empty[String]
-    }
-    val aggColumn   = StepCodecUtil.stringOr(obj, "aggColumn", "")
-    val aggFunction = StepCodecUtil.stringOr(obj, "aggFunction", "sum")
+    val obj         = StepCodecUtil.asObject(raw)
+    val groupBy     = StepCodecUtil.stringArray(obj, "groupBy")
+    val aggColumn   = StepCodecUtil.str(obj, "aggColumn", "")
+    val aggFunction = StepCodecUtil.str(obj, "aggFunction", "sum")
     GroupByConfig(groupBy, aggColumn, aggFunction)
   }
 }
@@ -43,6 +40,8 @@ final case class GroupByStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = GroupByStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext

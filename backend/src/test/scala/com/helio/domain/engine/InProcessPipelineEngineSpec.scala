@@ -2452,6 +2452,10 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         val createdAt: Instant = now
         val updatedAt: Instant = now
         val enabled: Boolean = true
+        // HEL-814: this fake step's kind is not in `PipelineStep.Registry`, so
+        // the engine's required-config check finds no companion and skips it,
+        // leaving this test exercising exactly what it did before.
+        def configValue: Any = ()
         def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
             ec: ExecutionContext
         ): Future[Seq[Map[String, Any]]] =

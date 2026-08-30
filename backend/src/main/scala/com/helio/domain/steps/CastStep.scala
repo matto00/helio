@@ -19,10 +19,7 @@ object CastConfig {
 
   def decode(raw: String): CastConfig = {
     val obj   = StepCodecUtil.asObject(raw)
-    val casts = obj.fields.get("casts") match {
-      case Some(o: JsObject) => Try(o.convertTo[Map[String, String]]).getOrElse(Map.empty)
-      case _                 => Map.empty[String, String]
-    }
+    val casts = StepCodecUtil.stringMap(obj, "casts", CastStep.CastsShape)
     CastConfig(casts)
   }
 }
@@ -43,6 +40,8 @@ final case class CastStep(
 ) extends PipelineStep {
   val kind: String = CastStep.Kind
 
+  def configValue: Any = config
+
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
@@ -51,6 +50,10 @@ final case class CastStep(
 
 object CastStep {
   val Kind: String = "cast"
+
+  /** HEL-860's per-key shape wording for `casts`, shared by the write-path
+   *  validator and the strict decoder so one edit changes both. */
+  val CastsShape: String = "field name to type name"
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: CastConfig): Seq[PipelineRowJson.Row] = {
     val casts = cfg.casts
@@ -86,11 +89,18 @@ object CastStep {
     // HEL-860: a mistyped `casts` (e.g. a list, or an object with non-string
     // values) must be rejected on write rather than silently decoded to
     // Map.empty (CastConfig.decode's read-path tolerance is unchanged).
+    // HEL-814: `asObject` now raises for a non-object top-level config, so
+    // the HEL-860 wording is attempted first and the generic strict-decode
+    // message is the fallback for the cases it cannot describe.
     override def validateRawConfig(raw: String): Option[String] =
-      StepCodecUtil.requireStringMap(
-        StepCodecUtil.asObject(raw), "casts", Kind,
-        shapeDescription = "field name to type name",
-        example          = "{\"casts\": {\"amount\": \"double\"}}"
-      )
+      scala.util.Try(StepCodecUtil.asObject(raw)).toOption
+        .flatMap(obj =>
+          StepCodecUtil.requireStringMap(
+            obj, "casts", Kind,
+            shapeDescription = CastsShape,
+            example          = "{\"casts\": {\"amount\": \"double\"}}"
+          )
+        )
+        .orElse(strictDecodeProblem(raw))
   }
 }

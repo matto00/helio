@@ -24,13 +24,16 @@ object DedupeConfig {
    *  `UnpivotConfig`'s decode pattern. */
   def decode(raw: String): DedupeConfig = {
     val obj  = StepCodecUtil.asObject(raw)
-    val keys = obj.fields.get("keys") match {
-      case Some(JsArray(items)) => items.collect { case JsString(s) => s }
-      case _                    => Vector.empty[String]
-    }
-    // Only the literal "last" selects last-occurrence; anything else
-    // (including missing or malformed values) normalizes to "first".
-    val keep = if (StepCodecUtil.stringOr(obj, "keep", "first") == "last") "last" else "first"
+    val keys = StepCodecUtil.stringArray(obj, "keys")
+    // HEL-814 D4/5.1b: an omitted `keep` still means "first", and a
+    // case-variant ("LAST") normalizes to its canonical member — but an
+    // UNKNOWN value is passed through unchanged instead of being rewritten to
+    // "first", which would INVERT which row wins while reporting success.
+    // Analyze and run reject the unknown value; decode keeps the row readable.
+    val keep = StepCodecUtil.normalizeEnum(
+      StepCodecUtil.str(obj, "keep", "first"),
+      DedupeStep.SupportedKeep
+    )
     DedupeConfig(keys, keep)
   }
 }
@@ -66,6 +69,8 @@ final case class DedupeStep(
 ) extends PipelineStep {
   val kind: String = DedupeStep.Kind
 
+  def configValue: Any = config
+
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
@@ -74,6 +79,10 @@ final case class DedupeStep(
 
 object DedupeStep {
   val Kind: String = "dedupe"
+
+  /** HEL-814 D4: the engine's own `keep` set, matched case-insensitively at
+   *  decode and validated against here at analyze and run. */
+  val SupportedKeep: Vector[String] = Vector("first", "last")
 
   /** Build the dedup key for a row. Non-empty `keys`: the tuple of those
    *  fields' values (in `keys` order). Empty `keys`: the whole row, as a
@@ -115,5 +124,12 @@ object DedupeStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[DedupeConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[DedupeConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[DedupeConfig].toJson
+
+    /** HEL-814 D4. `keys` stays optional — an empty `keys` is whole-row
+     *  distinct, a fully specified algorithm (`pipeline-dedupe-op:9`, UI
+     *  requirement `:52`). Only an unknown `keep` is rejected: silently
+     *  resolving it to `"first"` INVERTS which row survives. */
+    override def requiredConfigProblems(raw: String): Vector[String] =
+      StepCodecUtil.unsupportedEnum(Kind, "keep", DedupeConfig.decode(raw).keep, SupportedKeep)
   }
 }

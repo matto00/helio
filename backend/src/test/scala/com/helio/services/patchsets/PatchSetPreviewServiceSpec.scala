@@ -561,26 +561,49 @@ class PatchSetPreviewServiceSpec
       }
     }
 
+    // ══ HEL-814 task 6.2 / 7.2 — the GUARD and its replacement PROOF, sited
+    //    together so the pair is legible in one place. ═══════════════════════
+    //
+    // GUARD (6.2). This test keeps its `Right` expectation, and that is NOT a
+    // reverted hardening. Its fixture OMITS `joinKey` entirely (its own
+    // comment below says so) — it is an ABSENCE case, not a wrong-type one.
+    //
+    // HEL-814 deliberately preserves preview acceptance of an absence-only
+    // draft:
+    //   * D1 keeps the READ path tolerant of an absent key, because every read
+    //     of a stored step decodes its config and a decode failure there is a
+    //     500 — making absence raise would 500 the pipeline editor for any
+    //     step a user has added but not finished configuring (20 such rows
+    //     measured live across dev and prod).
+    //   * D2 rejects wrong-TYPE values only on the write path, and the
+    //     `pipeline-step-config-rejection` spec states in terms that absence
+    //     SHALL NOT be rejected. This edit is indistinguishable from a draft.
+    //   * Completeness is enforced instead at RUN and ANALYZE time (D3) — see
+    //     `PipelineStepRequiredConfigSpec`, which proves a `join` step with an
+    //     empty `joinKey` now fails the run naming the step and the field.
+    //
+    // What actually closes the gap this test was written to expose is the
+    // wrong-TYPE proof immediately below. Inverting THIS test instead would
+    // contradict the approved D2 and the rejection spec, and faking the flip
+    // would be worse than not having it.
+    //
+    // Failable by mutation, not by reverting the fix: make `StepCodecUtil.str`
+    // raise on an absent key, or make `validateRawConfig` reject absence, and
+    // this goes red while the proof below stays green.
+    //
+    // ── Original HEL-671 note, kept verbatim for provenance ────────────────
     // HEL-671 skeptic-final-1.md CR-2: proves the ticket's CENTRAL claim as a tested fact, not a
     // code-read inference — a wrong-shape `join` edit (missing `joinKey`, decodes silently to
     // `joinKey = ""` per `JoinConfig.decode`/`RefinementEditShapeSpec`'s negative-control test)
     // passes `preview` (i.e. `PatchSetApplyResolvers.validateEmbeddedStepReferences`'s
     // `case Success(jc: JoinConfig) => ... findByIdOwned check ...`) because that check only
     // validates `rightDataSourceId` referentially — it never inspects `joinKey`/`joinType` at all.
-    // `preview` returning `Right` here, despite the degraded decode, is exactly what makes "a
-    // wrong-shape edit passes preview and would silently corrupt the pipeline" demonstrated rather
-    // than merely plausible from reading the decoder's doc comment.
     // CHARACTERIZATION-TEST WARNING (added post skeptic-final-2.md CONFIRM): this test
-    // deliberately asserts that preview ACCEPTS (`Right`) a wrong-shape edit today — that is
-    // HEL-671's scope (decoder hardening is explicitly deferred, see design.md D3). HEL-814
-    // (filed, High priority) will make `JoinConfig.decode` RAISE on shape mismatch instead of
-    // silently defaulting, which will make `validateEmbeddedStepReferences` return a `Left`
-    // (`BadRequest`) for this same wrong-shape config instead. When HEL-814 lands, THIS TEST
-    // SHOULD FAIL — that failure is the correct signal the hardening fix worked, NOT a
-    // regression in HEL-814's own change. The correct response is to INVERT the assertion
-    // (expect `Left`/rejection instead of `Right`), never to weaken it or revert the hardening
-    // just to turn this test green again.
-    "PASS preview for a wrong-shape join edit missing joinKey — decodes silently, and the referential check on rightDataSourceId does not catch it (skeptic-final-1.md CR-2)" in {
+    // deliberately asserts that preview ACCEPTS (`Right`) a wrong-shape edit today. HEL-814
+    // predicted THIS TEST SHOULD FAIL when the hardening landed. It did not, for the reason
+    // recorded above — the prediction assumed absence would be made to raise, and the caller
+    // analysis HEL-814 ran (which the ticket itself demanded) showed that is not safe to do.
+    "GUARD: preview still ACCEPTS a join edit that OMITS joinKey — absence is a draft, and HEL-814 deliberately keeps it savable (completeness is enforced at run/analyze instead)" in {
       val (leftSourceId, _)  = seedStaticSource(userA, "JoinLeftSrc")
       val (rightSourceId, _) = seedStaticSource(userA, "JoinRightSrc")
       val pipeline = seedPipeline(userA, leftSourceId, "Join pipeline")
@@ -589,16 +612,162 @@ class PatchSetPreviewServiceSpec
         JsObject("rightDataSourceId" -> JsString(rightSourceId.value), "joinKey" -> JsString("id"), "joinType" -> JsString("inner"))
       )
 
-      // Hand-constructed wrong-shape config: joinKey is OMITTED entirely (never "" explicitly) —
-      // JoinConfig.decode silently defaults it to "" rather than raising, and nothing downstream
-      // of the decode inspects joinKey's value at all.
+      // Hand-constructed config: joinKey is OMITTED entirely (never "" explicitly) — this is the
+      // ABSENCE case, which stays tolerant on both the read and the write path by design.
       val wrongShapeConfig = JsObject("rightDataSourceId" -> JsString(rightSourceId.value), "joinType" -> JsString("inner"))
       val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
         None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(wrongShapeConfig), None)), None)
 
       preview(Vector(updateEdit), userA) match {
-        case Right(_)   => succeed // preview accepted the degraded edit — the tolerance is real AND unguarded
-        case Left(err) => fail(s"expected preview to PASS (demonstrating the silent-tolerance gap), but it rejected the edit: $err")
+        case Right(_)  => succeed
+        case Left(err) => fail(s"expected preview to ACCEPT an absence-only draft edit, but it rejected it: $err")
+      }
+    }
+
+    // PROOF (7.2), shown red before the fix. THIS is the test that closes the
+    // gap the guard above was written to expose.
+    //
+    // The assertion is deliberately on a SPECIFIC ServiceError and a message
+    // naming `joinKey`, never merely on `Left`. The same config is ALSO caught
+    // by D1's decode raise, which this function reports as a `BadRequest`
+    // (400) — so an assertion that accepted any `Left` would still pass with
+    // the `validateRawConfig` wiring omitted entirely, making it vacuous as
+    // proof of this ticket's actual defect. Asserting the 422 from D2's
+    // `validateRawConfig` is what binds this test to the wiring.
+    "PROOF: preview REJECTS a join edit whose joinKey is PRESENT but of the wrong JSON type, with a 422 naming the key" in {
+      val (leftSourceId, _)  = seedStaticSource(userA, "JoinLeftTypeSrc")
+      val (rightSourceId, _) = seedStaticSource(userA, "JoinRightTypeSrc")
+      val pipeline = seedPipeline(userA, leftSourceId, "Join type pipeline")
+      val step = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "join",
+        JsObject("rightDataSourceId" -> JsString(rightSourceId.value), "joinKey" -> JsString("id"), "joinType" -> JsString("inner"))
+      )
+
+      val mistypedConfig = JsObject(
+        "rightDataSourceId" -> JsString(rightSourceId.value),
+        "joinKey"           -> JsNumber(123),
+        "joinType"          -> JsString("inner")
+      )
+      val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
+        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(mistypedConfig), None)), None)
+
+      preview(Vector(updateEdit), userA) match {
+        case Right(_) =>
+          fail("expected preview to REJECT a join edit whose joinKey is present but of the wrong JSON type")
+        case Left(err: ServiceError.UnprocessableEntity) =>
+          err.message should include("joinKey")
+          err.message should include("must be a string")
+          err.message should include("got a number")
+        case Left(other) =>
+          fail(s"expected a 422 UnprocessableEntity from validateRawConfig, got $other — a BadRequest here would mean the D1 decode raise caught it and the D2 write-path wiring is absent")
+      }
+    }
+
+    // PROOF (7.1): the same rejection reaches preview for a step kind other
+    // than `join`, so this is the shared `validateRawConfig` wiring rather
+    // than a join-specific special case. `pivot`'s `index` is the shipped
+    // rejection spec's own named example.
+    "PROOF: preview REJECTS a pivot edit whose index holds a string rather than an array, with a 422 naming the key" in {
+      val (sourceId, _) = seedStaticSource(userA, "PivotTypeSrc")
+      val pipeline = seedPipeline(userA, sourceId, "Pivot type pipeline")
+      val step = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "pivot",
+        JsObject(
+          "index"  -> JsArray(JsString("region")),
+          "column" -> JsString("quarter"),
+          "values" -> JsString("revenue"),
+          "agg"    -> JsString("sum")
+        )
+      )
+
+      val mistypedConfig = JsObject(
+        "index"  -> JsString("region"),
+        "column" -> JsString("quarter"),
+        "values" -> JsString("revenue"),
+        "agg"    -> JsString("sum")
+      )
+      val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
+        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(mistypedConfig), None)), None)
+
+      preview(Vector(updateEdit), userA) match {
+        case Left(err: ServiceError.UnprocessableEntity) =>
+          err.message should include("index")
+          err.message should include("an array of strings")
+        case other => fail(s"expected a 422 naming 'index', got $other")
+      }
+    }
+
+    // PROOF (7.1): and for `window`, whose `orderBy` exercises the ELEMENT
+    // half of the strictness — the old `flatMap(...).toOption` dropped a bad
+    // element and kept its siblings, producing a partially-decoded collection
+    // that preview happily accepted.
+    "PROOF: preview REJECTS a window edit whose orderBy holds a bare string element, rather than silently dropping that element" in {
+      val (sourceId, _) = seedStaticSource(userA, "WindowTypeSrc")
+      val pipeline = seedPipeline(userA, sourceId, "Window type pipeline")
+      val step = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "window",
+        JsObject(
+          "partitionBy"  -> JsArray(JsString("region")),
+          "orderBy"      -> JsArray(JsObject("field" -> JsString("amount"), "direction" -> JsString("desc"))),
+          "function"     -> JsString("row_number"),
+          "outputColumn" -> JsString("rn")
+        )
+      )
+
+      val mistypedConfig = JsObject(
+        "partitionBy"  -> JsArray(JsString("region")),
+        "orderBy"      -> JsArray(JsString("amount")),
+        "function"     -> JsString("row_number"),
+        "outputColumn" -> JsString("rn")
+      )
+      val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
+        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(mistypedConfig), None)), None)
+
+      preview(Vector(updateEdit), userA) match {
+        case Left(err: ServiceError.UnprocessableEntity) =>
+          err.message should include("orderBy")
+          err.message should include("{field, direction}")
+        case other => fail(s"expected a 422 naming 'orderBy', got $other")
+      }
+    }
+
+    // GUARD (7.5 / 3.5): the drafts D2 deliberately keeps savable really do
+    // still pass preview. These are the shapes the live measurement found in
+    // dev and prod — a step added and not yet configured. Failable by
+    // mutation: make `validateRawConfig` reject an empty string and this goes
+    // red while every proof above stays green.
+    "GUARD: preview still ACCEPTS the real draft shapes measured in dev and prod (empty compute column/expression, empty lookup reference id)" in {
+      val (sourceId, _) = seedStaticSource(userA, "DraftSrc")
+      val pipeline = seedPipeline(userA, sourceId, "Draft pipeline")
+
+      val computeStep = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "compute",
+        JsObject("column" -> JsString("x"), "expression" -> JsString("$a + $b"), "type" -> JsString("number"))
+      )
+      // The untouched freshly-added compute step found in production: BOTH
+      // `column` and `expression` empty.
+      val emptyDraft = JsObject("column" -> JsString(""), "expression" -> JsString(""), "type" -> JsString("number"))
+      val computeEdit = Edit(EditTarget("pipelineStep", Some(computeStep.id)), "update",
+        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(emptyDraft), None)), None)
+
+      preview(Vector(computeEdit), userA) match {
+        case Right(_)  => succeed
+        case Left(err) => fail(s"expected preview to ACCEPT an unconfigured compute draft, but it rejected it: $err")
+      }
+
+      // And the picker's own empty-default seed for `lookup`, which
+      // `pipeline-lookup-op` explicitly blesses on the write path.
+      val lookupStep = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "lookup",
+        JsObject("referenceDataSourceId" -> JsString(""), "sourceKey" -> JsString(""), "lookupKey" -> JsString(""), "columns" -> JsArray())
+      )
+      val lookupEdit = Edit(EditTarget("pipelineStep", Some(lookupStep.id)), "update",
+        None, None, None, None, None,
+        Some(UpdatePipelineStepRequest(None, Some(JsObject("referenceDataSourceId" -> JsString(""), "sourceKey" -> JsString(""), "lookupKey" -> JsString(""), "columns" -> JsArray())), None)), None)
+
+      preview(Vector(lookupEdit), userA) match {
+        case Right(_)  => succeed
+        case Left(err) => fail(s"expected preview to ACCEPT the lookup picker's empty-default seed, but it rejected it: $err")
       }
     }
 

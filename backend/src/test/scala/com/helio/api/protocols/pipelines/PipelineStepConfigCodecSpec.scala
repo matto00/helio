@@ -259,9 +259,26 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         DedupeConfig(Vector.empty, "first")
     }
 
-    "dedupe — malformed keep value falls back to first (only the literal 'last' selects last-occurrence)" in {
+    // HEL-814 task 5.1b — GUARD on the read path (green before, green after
+    // for the CASE-VARIANT half; the unknown-value half changes what decode
+    // returns). Decode no longer COERCES an unknown `keep` to "first":
+    // resolving "bogus" to "first" would be indistinguishable from the caller
+    // having asked for "first", and if decode kept coercing, the wrong value
+    // would already be gone before analyze or run could report it, making the
+    // rejection unimplementable. Decode preserves the value verbatim; the
+    // REJECTION is proven separately at analyze and run (see
+    // PipelineStepRequiredConfigSpec and PipelineAnalyzeRoutesSpec).
+    "dedupe — an unknown keep value is preserved verbatim rather than coerced to first" in {
       PipelineStepConfigCodec.decode("dedupe", """{"keys":["id"],"keep":"bogus"}""").get shouldBe
-        DedupeConfig(Vector("id"), "first")
+        DedupeConfig(Vector("id"), "bogus")
+    }
+
+    // GUARD: a case-variant IS normalized to its canonical member — "LAST" is
+    // unambiguous intent on an agent-authored surface where case drift is
+    // routine, and DedupeStep.apply matches the literal "last".
+    "dedupe — a case-variant keep value normalizes to its canonical member" in {
+      PipelineStepConfigCodec.decode("dedupe", """{"keys":["id"],"keep":"LAST"}""").get shouldBe
+        DedupeConfig(Vector("id"), "last")
     }
 
     "fillnull — decode({}) yields empty columns, empty strategy, and no value default" in {

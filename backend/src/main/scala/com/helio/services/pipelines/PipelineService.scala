@@ -435,6 +435,34 @@ final class PipelineService(
         throw new IllegalStateException(
           s"PipelineService.toAnalyzeStepResponse: codec returned unexpected config type ${other.getClass.getName} for op '${s.op}'"
         )
+      // HEL-814: under D1 a caller-supplied config whose key is present but of
+      // the wrong JSON type no longer decodes. On the PROPOSAL analyze
+      // surface that config is right there in the request, and the shipped
+      // `pipeline-step-config-validation` requirement is explicit that this
+      // surface must REPORT the offending key rather than fail opaquely — the
+      // whole point of driving it from the raw config text.
+      //
+      // `validateStepConfig` has already put that message in
+      // `s.validationError` (it reads the raw config and returns the problem
+      // instead of throwing, precisely so it survives the decode failure), so
+      // the response is built from the kind's DEFAULT config with the real
+      // information carried in `validationError`. Nothing is degraded
+      // silently: the config shown is the type-correct empty one, the error
+      // names the key, and nothing is executed or stored.
+      //
+      // A decode failure with NO validationError to explain it — malformed
+      // JSON, an unknown op — still throws, exactly as before. Falling back
+      // there would be the silent degradation this ticket exists to close.
+      case Failure(ex) if s.validationError.nonEmpty =>
+        PipelineStepConfigCodec.decode(s.op, "{}") match {
+          case Success(_) =>
+            toAnalyzeStepResponse(s.copy(config = "{}"))
+          case Failure(_) =>
+            throw new IllegalStateException(
+              s"PipelineService.toAnalyzeStepResponse: failed to decode config for analyze step ${s.id}: ${ex.getMessage}",
+              ex
+            )
+        }
       case Failure(ex) =>
         throw new IllegalStateException(
           s"PipelineService.toAnalyzeStepResponse: failed to decode persisted config for analyze step ${s.id}: ${ex.getMessage}",

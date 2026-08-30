@@ -25,11 +25,7 @@ object SortConfig {
 
   def decode(raw: String): SortConfig = {
     val obj    = StepCodecUtil.asObject(raw)
-    val sortBy = obj.fields.get("sortBy") match {
-      case Some(JsArray(items)) =>
-        items.flatMap(it => Try(it.convertTo[SortKey]).toOption)
-      case _ => Vector.empty[SortKey]
-    }
+    val sortBy = StepCodecUtil.typedArray[SortKey](obj, "sortBy", "an array of {field, direction} objects")
     SortConfig(sortBy)
   }
 }
@@ -48,6 +44,8 @@ final case class SortStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = SortStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext

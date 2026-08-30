@@ -21,14 +21,11 @@ object PivotConfig {
   implicit val format: RootJsonFormat[PivotConfig] = jsonFormat4(PivotConfig.apply)
 
   def decode(raw: String): PivotConfig = {
-    val obj   = StepCodecUtil.asObject(raw)
-    val index = obj.fields.get("index") match {
-      case Some(JsArray(items)) => items.collect { case JsString(s) => s }
-      case _                    => Vector.empty[String]
-    }
-    val column = StepCodecUtil.stringOr(obj, "column", "")
-    val values = StepCodecUtil.stringOr(obj, "values", "")
-    val agg    = StepCodecUtil.stringOr(obj, "agg", "")
+    val obj    = StepCodecUtil.asObject(raw)
+    val index  = StepCodecUtil.stringArray(obj, "index")
+    val column = StepCodecUtil.str(obj, "column", "")
+    val values = StepCodecUtil.str(obj, "values", "")
+    val agg    = StepCodecUtil.str(obj, "agg", "")
     PivotConfig(index, column, values, agg)
   }
 }
@@ -63,6 +60,8 @@ final case class PivotStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = PivotStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
@@ -136,5 +135,17 @@ object PivotStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[PivotConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[PivotConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[PivotConfig].toJson
+
+    /** HEL-814 D3. An empty `values` makes the `<values>_<v>` output-column
+     *  template fabricate columns named `_<v>`; an empty `column` makes every
+     *  row's pivot value `null`, so `:21-22` excludes every row and the step
+     *  emits index groups carrying NONE of the value columns it was
+     *  configured to produce. `index` stays optional (empty = one group,
+     *  mirroring `aggregate.groupBy`, which `pipeline-aggregate-op:7` blesses
+     *  as "zero or more"); `agg` is already rejected at run by `:28-30`. */
+    override def requiredConfigProblems(raw: String): Vector[String] = {
+      val cfg = PivotConfig.decode(raw)
+      StepCodecUtil.missingRequired(Kind, "column" -> cfg.column, "values" -> cfg.values)
+    }
   }
 }

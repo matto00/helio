@@ -36,19 +36,15 @@ object StringOpsConfig {
 
   def decode(raw: String): StringOpsConfig = {
     val obj          = StepCodecUtil.asObject(raw)
-    val operation     = StepCodecUtil.stringOr(obj, "operation", "")
-    val field         = StepCodecUtil.stringOr(obj, "field", "")
-    val outputColumn  = StepCodecUtil.stringOr(obj, "outputColumn", "")
-    val pattern       = obj.fields.get("pattern").collect { case JsString(s) => s }
-    val separator     = obj.fields.get("separator").collect { case JsString(s) => s }
-    val index = obj.fields.get("index") match {
-      case Some(JsNumber(n)) => Try(n.toIntExact).toOption
-      case _                 => None
-    }
-    val fields = obj.fields.get("fields") match {
-      case Some(JsArray(items)) => Some(items.collect { case JsString(s) => s })
-      case _                    => None
-    }
+    val operation    = StepCodecUtil.str(obj, "operation", "")
+    val field        = StepCodecUtil.str(obj, "field", "")
+    val outputColumn = StepCodecUtil.str(obj, "outputColumn", "")
+    val pattern      = StepCodecUtil.strOpt(obj, "pattern")
+    val separator    = StepCodecUtil.strOpt(obj, "separator")
+    val index        = StepCodecUtil.intOpt(obj, "index")
+    val fields       =
+      if (obj.fields.get("fields").exists(_ != JsNull)) Some(StepCodecUtil.stringArray(obj, "fields"))
+      else None
     StringOpsConfig(operation, field, outputColumn, pattern, separator, index, fields)
   }
 }
@@ -81,6 +77,8 @@ final case class StringOpsStep(
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = StringOpsStep.Kind
+
+  def configValue: Any = config
 
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
@@ -198,5 +196,28 @@ object StringOpsStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[StringOpsConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[StringOpsConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[StringOpsConfig].toJson
+
+    /** HEL-814 D3 — the CONDITIONAL case.
+     *
+     *  `outputColumn` is required for all six operations: an empty one writes
+     *  a field named `""` onto every row (`compute.column`'s bug). `field` is
+     *  required by the five single-field operations and genuinely UNUSED by
+     *  `concat`, which reads `fields` instead (this file's own contract at
+     *  the top, and `pipeline-string-ops-op:10-11`) — so an unconditional
+     *  declaration would fail every valid `concat` step. This is why the
+     *  declaration is a predicate over the raw config rather than a flat
+     *  required-field list.
+     *
+     *  `operation`, and the per-operation `pattern`/`separator`/`index`
+     *  requirements of `:13-15`, are NOT re-declared: the step already
+     *  rejects them at run with specced messages, and analyze already
+     *  reports `operation` via `validateStringOps`. */
+    override def requiredConfigProblems(raw: String): Vector[String] = {
+      val cfg = StringOpsConfig.decode(raw)
+      val fieldProblems =
+        if (cfg.operation == "concat") Vector.empty
+        else StepCodecUtil.missingRequired(Kind, "field" -> cfg.field)
+      fieldProblems ++ StepCodecUtil.missingRequired(Kind, "outputColumn" -> cfg.outputColumn)
+    }
   }
 }

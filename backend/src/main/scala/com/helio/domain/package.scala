@@ -76,6 +76,10 @@ package object domain {
   val  SortKey         = steps.SortKey
   type SortConfig      = steps.SortConfig
   val  SortConfig      = steps.SortConfig
+  // HEL-814: raised by the strict read-path extractors when a config key is
+  // present but of a JSON type that cannot represent the field's type.
+  type StepConfigTypeMismatch = steps.StepConfigTypeMismatch
+
   type AggregateField  = steps.AggregateField
   val  AggregateField  = steps.AggregateField
   type Aggregation     = steps.Aggregation
