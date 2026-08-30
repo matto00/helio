@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "2.13.15"
+ThisBuild / scalaVersion := "3.9.0"
 
 def loadDotEnv(baseDir: File): Map[String, String] = {
   val envFile = baseDir / ".env"
@@ -137,63 +137,63 @@ lazy val root = (project in file("."))
       "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED"
     ),
     libraryDependencies ++= Seq(
-      "org.apache.pekko" %% "pekko-actor-typed" % "1.1.3",
-      "org.apache.pekko" %% "pekko-http" % "1.1.0",
-      "org.apache.pekko" %% "pekko-http-spray-json" % "1.1.0",
-      "org.apache.pekko" %% "pekko-slf4j" % "1.1.3",
-      "org.apache.pekko" %% "pekko-stream" % "1.1.3",
+      "org.apache.pekko" %% "pekko-actor-typed" % "1.7.0",
+      "org.apache.pekko" %% "pekko-http" % "1.4.0",
+      "org.apache.pekko" %% "pekko-http-spray-json" % "1.4.0",
+      "org.apache.pekko" %% "pekko-slf4j" % "1.7.0",
+      "org.apache.pekko" %% "pekko-stream" % "1.7.0",
       // HEL-452: 1.5.38 clears the logback-core advisories (GHSA-25qh-j22f-pwp8,
       // GHSA-jhq6-gfmj-v8fx, GHSA-p47f-322f-whfh, GHSA-qqpg-mvqg-649v).
-      "ch.qos.logback" % "logback-classic" % "1.5.38",
+      "ch.qos.logback" % "logback-classic" % "1.6.3",
       // Structured JSON log encoder for Cloud Logging (HEL-115). 7.4 declares
       // Jackson 2.15.2; the Jackson dependencyOverrides pin below forces 2.18.9.
-      "net.logstash.logback" % "logstash-logback-encoder" % "7.4",
+      "net.logstash.logback" % "logstash-logback-encoder" % "9.0",
       // Enables logback <if>/<then>/<else> conditional config in logback.xml
       // (self-contained, no transitive deps).
       "org.codehaus.janino" % "janino" % "3.1.12",
-      "com.typesafe.slick" %% "slick" % "3.5.2",
-      "com.typesafe.slick" %% "slick-hikaricp" % "3.5.2",
+      "com.typesafe.slick" %% "slick" % "3.6.1",
+      "com.typesafe.slick" %% "slick-hikaricp" % "3.6.1",
       // HEL-452: 42.7.13 clears GHSA-98qh-xjc8-98pq, GHSA-hq9p-pm7w-8p54, GHSA-j92g-9f8w-j867.
       "org.postgresql" % "postgresql" % "42.7.13",
-      "org.flywaydb" % "flyway-core" % "10.20.1",
-      "org.flywaydb" % "flyway-database-postgresql" % "10.20.1",
-      "org.apache.pekko" %% "pekko-testkit" % "1.1.3" % Test,
-      "org.apache.pekko" %% "pekko-http-testkit" % "1.1.0" % Test,
-      "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-      "org.mockito" % "mockito-core" % "5.12.0" % Test,
-      "io.zonky.test" % "embedded-postgres" % "2.0.7" % Test,
+      "org.flywaydb" % "flyway-core" % "13.4.0",
+      "org.flywaydb" % "flyway-database-postgresql" % "13.4.0",
+      "org.apache.pekko" %% "pekko-testkit" % "1.7.0" % Test,
+      "org.apache.pekko" %% "pekko-http-testkit" % "1.4.0" % Test,
+      "org.scalatest" %% "scalatest" % "3.2.20" % Test,
+      "org.mockito" % "mockito-core" % "5.23.0" % Test,
+      "io.zonky.test" % "embedded-postgres" % "2.2.2" % Test,
       // HEL-371 cycle-2: real JSON Schema (2020-12) validation of a live
       // GET /api/workspace/context response body against
       // schemas/workspace/workspace-context.schema.json — Jackson is already on the
       // classpath (pinned below), this adds only the schema-validation
       // engine itself.
-      "com.networknt" % "json-schema-validator" % "1.0.87" % Test,
-      "org.apache.pekko" %% "pekko-http-cors" % "1.1.0",
+      "com.networknt" % "json-schema-validator" % "3.0.7" % Test,
+      "org.apache.pekko" %% "pekko-http-cors" % "1.4.0",
       "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0",
       // HEL-702: RFC 6238 TOTP MFA. java-otp does the one crypto-sensitive
       // piece (HMAC-based code generation) with zero transitive deps;
       // commons-codec supplies RFC 4648 Base32 (the JDK only ships Base64).
-      "com.eatthepath" % "java-otp" % "0.4.0",
-      "commons-codec" % "commons-codec" % "1.17.1",
-      "com.mysql" % "mysql-connector-j" % "8.3.0",
-      "com.google.cloud.sql" % "postgres-socket-factory" % "1.21.0",
+      "com.eatthepath" % "java-otp" % "1.0.0",
+      "commons-codec" % "commons-codec" % "1.22.1",
+      "com.mysql" % "mysql-connector-j" % "26.7.0",
+      "com.google.cloud.sql" % "postgres-socket-factory" % "1.30.0",
       // HEL-452: deliberately left at 2.40.1 -- no GCS release in a safe range was
       // established to pull grpc-netty-shaded >= 1.75.0, so those advisories (and
       // protobuf-java's) are cleared by the dependencyOverrides pins below instead
       // (design D2.4a fallback).
-      "com.google.cloud" % "google-cloud-storage" % "2.40.1",
-      "org.apache.pdfbox" % "pdfbox" % "3.0.3",
+      "com.google.cloud" % "google-cloud-storage" % "2.72.0",
+      "org.apache.pdfbox" % "pdfbox" % "3.0.8",
       "com.knuddels" % "jtokkit" % "1.1.0",
       // Spark -- compile scope (driver runs in this JVM); exclude Akka/Pekko and logging conflicts
       // HEL-452: 3.5.9 clears GHSA-jwp6-cvj8-fw65 (Spark History Server RCE)
-      "org.apache.spark" %% "spark-core" % "3.5.9"
+      "org.apache.spark" %% "spark-core" % "4.2.0"
         exclude("org.apache.pekko", "*")
         exclude("com.typesafe.akka", "akka-actor_2.13")
         exclude("com.typesafe.akka", "akka-stream_2.13")
         exclude("com.typesafe.akka", "akka-slf4j_2.13")
         exclude("org.slf4j", "slf4j-log4j12")
         exclude("org.apache.logging.log4j", "log4j-slf4j2-impl"),
-      "org.apache.spark" %% "spark-sql" % "3.5.9"
+      "org.apache.spark" %% "spark-sql" % "4.2.0"
         exclude("org.apache.pekko", "*")
         exclude("com.typesafe.akka", "akka-actor_2.13")
         exclude("com.typesafe.akka", "akka-stream_2.13")
@@ -209,43 +209,43 @@ lazy val root = (project in file("."))
     // are fixed by 2.18.8. jackson-datatype-jsr310 (pulled in transitively at 2.15.2 via
     // flyway-core) is included here so no Jackson artifact is left outside the pin.
     dependencyOverrides ++= Seq(
-      "com.fasterxml.jackson.core"     % "jackson-core"           % "2.18.9",
-      "com.fasterxml.jackson.core"     % "jackson-databind"       % "2.18.9",
-      "com.fasterxml.jackson.core"     % "jackson-annotations"    % "2.18.9",
-      "com.fasterxml.jackson.module"   %% "jackson-module-scala"  % "2.18.9",
-      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.9",
-      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-toml" % "2.18.9",
+      "com.fasterxml.jackson.core"     % "jackson-core"           % "2.22.2",
+      "com.fasterxml.jackson.core"     % "jackson-databind"       % "2.22.2",
+      "com.fasterxml.jackson.core"     % "jackson-annotations"    % "2.22",
+      "com.fasterxml.jackson.module"   %% "jackson-module-scala"  % "2.22.2",
+      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.22.2",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-toml" % "2.22.2",
       // HEL-452: netty family pinned to one consistent version (design D2 worked
       // example — 4.1.137.Final is required by GHSA-8c42-7qj2-3j46 on
       // netty-codec-http; it also clears every other netty advisory in the set).
-      "io.netty" % "netty-codec"                  % "4.1.137.Final",
-      "io.netty" % "netty-codec-http"              % "4.1.137.Final",
-      "io.netty" % "netty-codec-http2"             % "4.1.137.Final",
-      "io.netty" % "netty-common"                  % "4.1.137.Final",
-      "io.netty" % "netty-handler"                 % "4.1.137.Final",
-      "io.netty" % "netty-handler-proxy"           % "4.1.137.Final",
-      "io.netty" % "netty-transport"               % "4.1.137.Final",
-      "io.netty" % "netty-transport-native-epoll"  % "4.1.137.Final",
-      "io.netty" % "netty-transport-native-kqueue" % "4.1.137.Final",
-      "io.netty" % "netty-transport-native-unix-common" % "4.1.137.Final",
-      "io.netty" % "netty-buffer"                  % "4.1.137.Final",
-      "io.netty" % "netty-resolver"                % "4.1.137.Final",
+      "io.netty" % "netty-codec"                  % "4.2.17.Final",
+      "io.netty" % "netty-codec-http"              % "4.2.17.Final",
+      "io.netty" % "netty-codec-http2"             % "4.2.17.Final",
+      "io.netty" % "netty-common"                  % "4.2.17.Final",
+      "io.netty" % "netty-handler"                 % "4.2.17.Final",
+      "io.netty" % "netty-handler-proxy"           % "4.2.17.Final",
+      "io.netty" % "netty-transport"               % "4.2.17.Final",
+      "io.netty" % "netty-transport-native-epoll"  % "4.2.17.Final",
+      "io.netty" % "netty-transport-native-kqueue" % "4.2.17.Final",
+      "io.netty" % "netty-transport-native-unix-common" % "4.2.17.Final",
+      "io.netty" % "netty-buffer"                  % "4.2.17.Final",
+      "io.netty" % "netty-resolver"                % "4.2.17.Final",
       // HEL-452: clears GHSA-prj3-ccx8-p6x4 (MadeYouReset HTTP/2 DDoS) on grpc-netty-shaded's
       // shaded Netty; grpc-netty-shaded itself has no separate advisory once its Netty is
       // patched, so no direct override on the artifact itself is needed.
-      "io.grpc" % "grpc-netty-shaded" % "1.75.0",
+      "io.grpc" % "grpc-netty-shaded" % "1.83.1",
       // HEL-452: clears GHSA-735f-pc8j-v9w8 (DoS)
-      "com.google.protobuf" % "protobuf-java" % "3.25.5",
+      "com.google.protobuf" % "protobuf-java" % "4.36.0",
       // HEL-452: clears GHSA-2jc4-r94c-rp7h (External Entity Reference)
-      "org.apache.ivy" % "ivy" % "2.5.2",
+      "org.apache.ivy" % "ivy" % "2.6.0",
       // HEL-452: clears GHSA-j288-q9x7-2f5v (Uncontrolled Recursion)
-      "org.apache.commons" % "commons-lang3" % "3.18.0",
+      "org.apache.commons" % "commons-lang3" % "3.20.0",
       // HEL-452: log4j 2.x pinned to one consistent version. 2.25.5 is required by
       // log4j-api's GHSA-qv9r-c865-cp47; log4j-core and log4j-1.2-api's own advisories
       // are already cleared at 2.25.4, so the family target is the max, 2.25.5.
-      "org.apache.logging.log4j" % "log4j-api"      % "2.25.5",
-      "org.apache.logging.log4j" % "log4j-core"     % "2.25.5",
-      "org.apache.logging.log4j" % "log4j-1.2-api"  % "2.25.5",
+      "org.apache.logging.log4j" % "log4j-api"      % "2.26.1",
+      "org.apache.logging.log4j" % "log4j-core"     % "2.26.1",
+      "org.apache.logging.log4j" % "log4j-1.2-api"  % "2.26.1",
       // HEL-452: clears GHSA-vqf4-7m7x-wgfc (out-of-bounds memory / DoS). The other two
       // lz4-java advisories on this artifact (GHSA-cmp6-m4wj-q63q, GHSA-xx22-p4ch-683r) have
       // no published fix anywhere and are deferred — see design.md D5.
