@@ -298,3 +298,68 @@ the full reasoning on why no DML was landed this cycle.
   `PanelRoutes.scala`, and the `patchsets` package), this cycle stopped at a real, small,
   fully-compiling-and-green Registry-cutover checkpoint rather than attempting the write-path
   rewire and risking an uncommitted stop mid-way through a much larger, more coupled change.
+
+## Cycle 15 — task 3.6 write-path increment (additive `PanelType.Output`, not the full collapse)
+
+- `backend/src/main/scala/com/helio/domain/model/model.scala` — `PanelType` gains `Output`/
+  `"output"` as a 10th valid value (additive; see the file's own new doc comment for why the
+  full 5-value collapse was sized and deferred this cycle).
+- `backend/src/main/scala/com/helio/domain/panels/PanelConfigCodec.scala` — `OutputCreate`
+  added to the `CreateConfig` ADT; `decodeCreateConfig`/`encodeConfig`/`applyConfigPatchUnsafe`
+  all gained an `"output"`/`OutputPanel` case. `encodeConfig` in particular was a real,
+  previously-latent gap: any panel row already backfilled to `kind = 'output'` by the V94
+  migration (task 2.5) would `deserializationError` on GET without this case, once
+  `PanelRowMapper` (already wired cycle 12/13) decoded it into a real `OutputPanel`.
+- `backend/src/main/scala/com/helio/services/panels/PanelServiceHelpers.scala` —
+  `buildNewPanel` gained the `OutputCreate` case, constructing a real `OutputPanel`.
+  `dataTypeIdFromCreateConfig`/`metricIdFromCreateConfig` already fell through to `None` for
+  unmatched kinds, so no change needed there — `rejectCompanionBinding`/
+  `rejectUnresolvableMetric` correctly no-op for Output panels.
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/
+  DashboardSnapshotRepository.scala` — the dashboard-duplicate/import snapshot path's own
+  `CreateConfig` match (separate from `PanelServiceHelpers.buildNewPanel`, same ADT) gained the
+  `OutputCreate` case; the compiler's own non-exhaustive-match warning caught this second call
+  site.
+- `backend/src/test/scala/com/helio/domain/model/PanelTypeSpec.scala` — added `"output"`
+  parse/serialize/round-trip coverage (mirrors the existing per-value test shape for every other
+  `PanelType` member).
+- `backend/src/test/scala/com/helio/services/panels/PanelServiceBuildAllForCreateSpec.scala` —
+  added a real create-path test asserting `type: "output"` actually builds an `OutputPanel`
+  (not just that `PanelType.fromString` accepts the string) — exercises the specific new
+  scenario (`PanelServiceHelpers.buildNewPanel`'s new `OutputCreate` arm) per the reviewer
+  scenario-coverage checklist.
+- `schemas/panels/create-panel-request.schema.json`, `schemas/panels/panel.schema.json`,
+  `schemas/panels/update-panels-batch-request.schema.json` — added `"output"` to the `type`
+  enum (additive; no new `oneOf` branch for the Output config shape — not runtime-validated
+  against real requests today, confirmed by grep: no test/route wires AJV validation against
+  these files, they exist for `check-schema-drift.mjs`'s cross-surface parity and as
+  documentation).
+- `schemas/dashboards/dashboard-proposal.schema.json` — added `"output"` to
+  `$defs.ProposalPanel.properties.type.enum` (the `agentFacingPanelTypes` surface,
+  divider-excluded set).
+- `helio-mcp/src/tools/proposal.ts` — added `"output"` to `PANEL_TYPES` (same agent-facing
+  surface, kept in parity with the schema above per `check-schema-drift.mjs`'s
+  `panelTypeSurfaces` check).
+
+**Deliberately NOT done this cycle** (documented in tasks.md 3.6's own note): the five old
+bound `*Panel.scala` files (`MetricPanel`/`ChartPanel`/`TablePanel`/`CollectionPanel`/
+`TimelinePanel`) are not deleted; `PanelType`'s eventual 5-value collapse (dropping those five
+entirely) is deferred to land with tasks 3.9/3.10/3.10a/4.1 per cycle 14's sizing; `DataPanelKinds`
+(task 3.10) untouched; `ProposalPanelSupport`/`DashboardProposalService`/
+`PipelineProposalService`/`PanelCapabilityService` untouched; `panels.kind` `SET NOT NULL`
+(task 2.5's deferred piece) still deferred — only the new `OutputPanel` write path populates
+`kind` on insert, the other 9 kinds still leave it `NULL`.
+
+**Verification (fresh, exit codes read directly):**
+- `sbt -batch compile` — clean (one pre-existing-shape non-exhaustive-match warning surfaced and
+  fixed at `DashboardSnapshotRepository.scala`, not a new defect — the compiler caught the
+  second `CreateConfig` match site this cycle's `OutputCreate` addition needed).
+- `sbt -batch Test/compile` — clean.
+- `sbt -batch test` (full suite) — **3902/3902**, exit code 0, 247 suites (3899 baseline + 3 new
+  assertions across `PanelTypeSpec`/`PanelServiceBuildAllForCreateSpec`).
+- `node scripts/check-scala-quality.mjs` — clean (2 inline-FQN violations in the new test file
+  found and fixed with top-of-file imports before this was clean).
+- `node scripts/check-schema-drift.mjs` — clean ("panel-type enums in sync ... 7 surfaces
+  checked").
+- `npm run check:helio-mcp-types` — clean.
+- `node scripts/check-openspec-hygiene.mjs` — clean ("openspec/ is clean").

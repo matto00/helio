@@ -150,8 +150,29 @@
       `outputDataTypeName`. In the SAME task, remove `Pipeline.outputDataTypeId` from the domain
       model (added additively in 1.1) now that no code path sets or reads it — round-2 finding 4
       flagged this removal as dangling; it belongs here, not left implicit.
-- [ ] 3.6 `Panel.scala` + `domain/panels/*Panel.scala` + `package.scala`: bound kinds collapse to
-      `OutputPanel`; `PanelBindingSpec` → `OutputBindingSpec` keyed by `OutputKind`.
+- [ ] 3.6 (partial) `Panel.scala` + `domain/panels/*Panel.scala` + `package.scala`: bound kinds
+      collapse to `OutputPanel`; `PanelBindingSpec` → `OutputBindingSpec` keyed by `OutputKind`.
+      **Write-path increment landed this cycle** (cycle 15): `PanelType` (model.scala) gains
+      `Output`/`"output"` as a 10th valid value (additive, NOT the eventual 5-value collapse —
+      see model.scala's own doc comment on `PanelType` for the full rationale/deferral), wired
+      through `PanelConfigCodec` (`OutputCreate`, `decodeCreateConfig`/`encodeConfig`/
+      `applyConfigPatchUnsafe` cases) and `PanelServiceHelpers.buildNewPanel` /
+      `DashboardSnapshotRepository`'s create-config match so `POST /api/panels` with
+      `type: "output"` now actually constructs, persists (`PanelRowMapper` was already wired,
+      cycle 12/13), and round-trips a real `OutputPanel`. `check-schema-drift.mjs`'s
+      `panelTypeSurfaces`/`agentFacingPanelTypes` are kept green by additively including
+      `"output"` in `schemas/panels/{create-panel-request,panel,update-panels-batch-request}.
+      schema.json`, `schemas/dashboards/dashboard-proposal.schema.json`'s `ProposalPanel` enum,
+      and `helio-mcp/src/tools/proposal.ts`'s `PANEL_TYPES` — in the SAME commit. **Still NOT
+      done**: the five old bound `*Panel.scala` files (`MetricPanel`/`ChartPanel`/`TablePanel`/
+      `CollectionPanel`/`TimelinePanel`) are NOT yet deleted (still live constructor targets for
+      the other 9 `PanelType` values), `PanelBindingSpec` → `OutputBindingSpec` is NOT yet cut
+      over, and `PanelType`'s eventual 5-value collapse (dropping the five old bound values
+      entirely) is deferred to land together with tasks 3.9/3.10/3.10a/4.1 — see
+      execution-progress.md cycle 14's sizing (15+ real-source-file blast radius: `BoundPanelService`,
+      `PanelCapabilityService`, `ProposalPanelSupport`, `DashboardProposalService`, `PatchSet*`,
+      `DemoData`) and cycle 15's own note on why option (b) (additive, not full collapse) was
+      chosen for this increment.
 - [ ] 3.7 `DemoData` reseeded: one source → one pipeline → three Outputs, no unbound panels.
 - [ ] 3.8 `PipelineProposalService` (35 refs, `:48` takes `DataTypeService`, `:23` rollback path
       through `DataTypeService.delete`): rewire to create/roll back an Output on the pipeline's

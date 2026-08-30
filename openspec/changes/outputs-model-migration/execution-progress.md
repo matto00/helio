@@ -1350,3 +1350,73 @@ cycle; `git status` confirmed clean before and after this investigation.
 3. Only once 1-2 are resolved does `PanelServiceHelpers.buildNewPanel`/`PanelConfigCodec.
    decodeCreateConfig`/`encodeConfig`/`applyConfigPatchUnsafe`'s mechanical `OutputPanel` cases
    (small, ~5-10 lines total, already sketched by this cycle's reading) become safe to land.
+
+## Cycle 15 — resolved cycle 14's PanelType/schema-drift finding; landed task 3.6's write-path
+## increment additively (NOT the full 5-value collapse)
+
+Resumed with an explicit resolution from the orchestrator for cycle 14's stop: design.md
+confirms `PanelType` is eventually REPLACED by the 5-value `output | text | markdown | image |
+divider` set. Re-verified this against design.md's own text and tasks.md 3.6/5.4/5.7 before
+writing any code.
+
+**Sizing decision made explicitly this cycle (documented per the resume brief's own
+option-(a)/(b) framing):** landing the FULL 5-value collapse in this cycle — deleting the five
+old bound `*Panel.scala` files and rewiring every one of their downstream consumers
+(`BoundPanelService`, `PanelCapabilityService`, `ProposalPanelSupport`,
+`DashboardProposalService`, `PatchSet*` (5 files), `DemoData`) in the same commit to avoid a
+half-collapsed tree — was re-confirmed as genuinely too large for one cycle (15+ real-source-file
+blast radius, grepped fresh this cycle: `grep -rln "MetricPanel\|ChartPanel\|TablePanel\|
+CollectionPanel\|TimelinePanel\|PanelBindingSpec"` under `backend/src/main/scala/com/helio`
+returns 24 main-source files). Chose option (b): land `PanelType.Output` as an ADDITIVE 10th
+value (not a collapse) this cycle, unblocking the one real, previously-unimplemented write path
+(`POST /api/panels` with `type: "output"`) without touching `DataPanelKinds`/
+`ProposalPanelSupport`/the five old bound classes at all. This is a real, if partial, dent in
+task 3.6 — not a design deviation on the eventual target shape, which stays exactly what
+design.md says (the model.scala `PanelType` object's own new doc comment documents this
+explicitly for the next cycle/reviewer).
+
+**What actually shipped this cycle** (see files-modified.md's cycle-15 section for the full
+per-file list): `PanelType.Output`, `PanelConfigCodec.OutputCreate` +
+`decodeCreateConfig`/`encodeConfig`/`applyConfigPatchUnsafe` cases, `PanelServiceHelpers.
+buildNewPanel`'s `OutputCreate` case, `DashboardSnapshotRepository`'s matching `CreateConfig`
+match (compiler-caught second call site), plus the schema-drift-required additive `"output"`
+entries in 3 panel schemas + `dashboard-proposal.schema.json` + `helio-mcp/proposal.ts`.
+
+**A real, previously-latent gap found and fixed along the way (not scope creep — a
+correctness prerequisite for this cycle's own write path):** `PanelConfigCodec.encodeConfig`
+had NO `OutputPanel` case before this cycle. Since `PanelRowMapper.rowToDomain` (wired cycle
+12/13) already decodes any row with `kind = 'output'` into a real `OutputPanel` — and the V94
+migration's task 2.5 backfill already set `kind = 'output'` on every pre-existing bound
+(metric/chart/table/collection/timeline) panel row in the dev DB — a `GET`/list on any such
+already-migrated panel would have hit `encodeConfig`'s `deserializationError("Unknown panel kind
+for encode")` fallback arm. This was not yet exercised by the test suite (no test round-trips a
+migrated bound panel through the live route today), so it wasn't caught as a regression by the
+green 3899/3899 baseline — it would have surfaced the first time a real client GET'd a
+post-migration dashboard. Fixed as part of this cycle's `encodeConfig` edit, not filed as a
+separate spinoff, since it's the same line of code this cycle needed to touch anyway.
+
+**Verification (fresh, exit codes read directly):**
+- `sbt -batch compile` — clean (surfaced + fixed one non-exhaustive-match warning at
+  `DashboardSnapshotRepository.scala:178`).
+- `sbt -batch Test/compile` — clean.
+- `sbt -batch test` (full suite, backgrounded + polled to completion) — **3902/3902**, exit code
+  0, 247 suites, "All tests passed."
+- `node scripts/check-scala-quality.mjs` — clean after fixing 2 inline-FQN violations this
+  cycle's own new test introduced (top-of-file imports added, per CONTRIBUTING.md).
+- `node scripts/check-schema-drift.mjs` — clean, "panel-type enums in sync with backend
+  canonical sets (7 surfaces checked)".
+- `npm run check:helio-mcp-types` — clean (tsc --noEmit).
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+- No `frontend/**` files touched this cycle, so the frontend gate set (lint/format:check/test/
+  build) was not required per the executor's own gate-selection rule; not run.
+
+**Next cycle should, before writing any code:**
+1. Re-grep the 24-file blast radius fresh (do not trust this cycle's count without re-verifying —
+   it may have shifted) and decide whether to tackle the full `PanelType`/`Panel.Registry`
+   5-value collapse as one large coordinated commit (3.6 completion + 3.9/3.10/3.10a together,
+   per tasks.md's own "SAME commit" framing for 5.4/5.7) or continue slicing it further.
+2. `DataPanelKinds` (task 3.10) retarget to `Set("output")`, plus 3.10a's predicate deletions,
+   become tractable once a decision is made on (1) — they're the next natural slice regardless.
+3. `Pipeline.outputDataTypeId` (§3.5) and `WorkspaceContextService` (§3.12, do NOT touch
+   `asNumeric`'s structure/rounding per HEL-631) remain independently schedulable in parallel,
+   as noted by every prior cycle.

@@ -39,7 +39,8 @@
               "image",
               "divider",
               "collection",
-              "timeline"
+              "timeline",
+              "output"
             ]
           },
           "appearance": {

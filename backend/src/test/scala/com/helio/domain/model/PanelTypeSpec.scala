@@ -37,6 +37,10 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
     "parse \"timeline\" as Timeline" in {
       PanelType.fromString("timeline") shouldBe Right(PanelType.Timeline)
     }
+
+    "parse \"output\" as Output (HEL-904 task 3.6 write-path increment)" in {
+      PanelType.fromString("output") shouldBe Right(PanelType.Output)
+    }
   }
 
   "PanelType.asString" should {
@@ -60,8 +64,12 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
       PanelType.asString(PanelType.Timeline) shouldBe "timeline"
     }
 
+    "serialise Output as \"output\" (HEL-904 task 3.6 write-path increment)" in {
+      PanelType.asString(PanelType.Output) shouldBe "output"
+    }
+
     "round-trip all types" in {
-      val all = Seq(PanelType.Metric, PanelType.Chart, PanelType.Text, PanelType.Table, PanelType.Markdown, PanelType.Image, PanelType.Divider, PanelType.Collection, PanelType.Timeline)
+      val all = Seq(PanelType.Metric, PanelType.Chart, PanelType.Text, PanelType.Table, PanelType.Markdown, PanelType.Image, PanelType.Divider, PanelType.Collection, PanelType.Timeline, PanelType.Output)
       all.foreach { t =>
         PanelType.fromString(PanelType.asString(t)) shouldBe Right(t)
       }

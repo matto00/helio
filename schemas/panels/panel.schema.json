@@ -30,7 +30,8 @@
         "image",
         "divider",
         "collection",
-        "timeline"
+        "timeline",
+        "output"
       ]
     },
     "meta": {

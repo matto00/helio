@@ -25,7 +25,8 @@
         "image",
         "divider",
         "collection",
-        "timeline"
+        "timeline",
+        "output"
       ]
     },
     "config": {

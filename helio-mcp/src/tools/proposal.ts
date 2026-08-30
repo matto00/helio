@@ -34,6 +34,7 @@ export const PANEL_TYPES = [
   "image",
   "collection",
   "timeline",
+  "output",
 ] as const;
 
 const layoutSchema = z.object({
