@@ -8,7 +8,7 @@ The remodel is phased: Phase 1 ships a linear trunk with **leaf tails** (short c
 
 ## Motivation / evidence
 
-The original intent for DataTypes — "define `User` once, use it in multiple panels across dashboards" (`notes/future-features.md`) — was never buildable. `PipelineRepository.create` (`backend/src/main/scala/com/helio/repositories/PipelineRepository.scala:208-264`) always mints a brand-new empty DataType; there is no path to attach a pipeline to an existing type, and the type's schema is re-derived from run rows on every success (`PipelineRunService.upsertFieldsFromRows`). A type is therefore a pipeline output wearing a second name and a second nav page.
+The original intent for DataTypes — "define `User` once, use it in multiple panels across dashboards" (`notes/future-features.md`) — was never buildable. `PipelineRepository.create` (`backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRepository.scala:208-238`) always mints a brand-new empty DataType; there is no path to attach a pipeline to an existing type, and the type's schema is re-derived from run rows on every success (`PipelineRunService.upsertFieldsFromRows`). A type is therefore a pipeline output wearing a second name and a second nav page.
 
 Measured on 2026-08-30:
 
