@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { faCodeBranch } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../../shared/ui/EmptyState";
+import { PageShell } from "../../../../shared/ui/PageShell";
+import { PageStatus } from "../../../../shared/ui/PageStatus";
 import { IS_DEV } from "../../../../config/env";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { fetchConnectors } from "../../../connectors/state/connectorsSlice";
@@ -96,12 +98,14 @@ export function PipelineProposalReviewPage() {
   // — there is nothing to review and no reasonable proposal to synthesize.
   if (!stateProposal && !useDemoFixture) {
     return (
-      <EmptyState
-        icon={faCodeBranch}
-        title="Nothing to review"
-        description="This page reviews a pipeline proposal handed off from another flow. Start from the dashboards list instead."
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
-      />
+      <PageShell>
+        <EmptyState
+          icon={faCodeBranch}
+          title="Nothing to review"
+          description="This page reviews a pipeline proposal handed off from another flow. Start from the dashboards list instead."
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
     );
   }
 
@@ -112,24 +116,24 @@ export function PipelineProposalReviewPage() {
     // is truthy (the only way past the guard above), `proposal` is already
     // populated by the time of this render. Kept as a type-narrowing guard.
     return (
-      <div
-        className="pipeline-proposal-review__loading"
-        aria-busy="true"
-        aria-label="Loading proposal"
-      />
+      <PageShell>
+        <PageStatus status="loading" loadingLabel="Loading proposal" />
+      </PageShell>
     );
   }
 
   return (
-    <PipelineProposalReview
-      proposal={proposal}
-      applying={applying}
-      error={applyError}
-      unresolvedConnectorRefs={unresolvedConnectorRefs}
-      onConnectorResolved={handleConnectorResolved}
-      onAccept={handleAccept}
-      onReject={handleReject}
-    />
+    <PageShell>
+      <PipelineProposalReview
+        proposal={proposal}
+        applying={applying}
+        error={applyError}
+        unresolvedConnectorRefs={unresolvedConnectorRefs}
+        onConnectorResolved={handleConnectorResolved}
+        onAccept={handleAccept}
+        onReject={handleReject}
+      />
+    </PageShell>
   );
 }
 

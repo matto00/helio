@@ -1,0 +1,48 @@
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.page-header__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border-radius: var(--app-radius-sm);
+  color: var(--app-text-muted);
+  text-decoration: none;
+  flex-shrink: 0;
+  /* Reset for the `<button>` case (`onBack`, HEL-725 CR6) — the `<Link>`
+   * (`backTo`) case doesn't need these, but they're harmless no-ops on an
+   * anchor. */
+  border: none;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.page-header__back:hover {
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.page-header__titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.page-header__eyebrow {
+  color: var(--app-text-muted);
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}

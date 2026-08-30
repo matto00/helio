@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { PageShell } from "../../../shared/ui/PageShell";
+import { PageStatus } from "../../../shared/ui/PageStatus";
 import { IS_DEV } from "../../../config/env";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { fetchDashboards } from "../../dashboards/services/dashboardService";
@@ -135,66 +137,74 @@ export function PatchSetReviewPage() {
   // reasonable patch set to synthesize.
   if (!statePatchSet && !useDemoFixture) {
     return (
-      <EmptyState
-        icon={faTableColumns}
-        title="Nothing to review"
-        description="This page reviews a patch set handed off from another flow. Start from the dashboards list instead."
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
-      />
+      <PageShell>
+        <EmptyState
+          icon={faTableColumns}
+          title="Nothing to review"
+          description="This page reviews a patch set handed off from another flow. Start from the dashboards list instead."
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
     );
   }
 
   if (loadError) {
     return (
-      <EmptyState
-        icon={faTableColumns}
-        title="Couldn't build a patch set"
-        description={loadError}
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
-      />
+      <PageShell>
+        <PageStatus
+          status="failed"
+          title="Couldn't build a patch set"
+          message={loadError}
+          secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
     );
   }
 
   if (previewError) {
     return (
-      <EmptyState
-        icon={faTableColumns}
-        title="Couldn't preview this patch set"
-        description={previewError}
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
-      />
+      <PageShell>
+        <PageStatus
+          status="failed"
+          title="Couldn't preview this patch set"
+          message={previewError}
+          secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
     );
   }
 
   if (!patchSet || !preview) {
     return (
-      <div
-        className="patch-set-review__loading"
-        aria-busy="true"
-        aria-label="Loading patch set preview"
-      />
+      <PageShell>
+        <PageStatus status="loading" loadingLabel="Loading patch set preview" />
+      </PageShell>
     );
   }
 
   if (patchSet.edits.length === 0) {
     return (
-      <EmptyState
-        icon={faTableColumns}
-        title="No patch set to review"
-        description="Create a dashboard with at least one panel so a patch set can be built over it, then try again."
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
-      />
+      <PageShell>
+        <EmptyState
+          icon={faTableColumns}
+          title="No patch set to review"
+          description="Create a dashboard with at least one panel so a patch set can be built over it, then try again."
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
     );
   }
 
   return (
-    <PatchSetReview
-      preview={preview}
-      applying={applying}
-      error={applyError}
-      onAccept={handleAccept}
-      onReject={handleReject}
-    />
+    <PageShell>
+      <PatchSetReview
+        preview={preview}
+        applying={applying}
+        error={applyError}
+        onAccept={handleAccept}
+        onReject={handleReject}
+      />
+    </PageShell>
   );
 }
 

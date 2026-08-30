@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { PageShell } from "../../../shared/ui/PageShell";
+import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 import { IS_DEV } from "../../../config/env";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -157,12 +159,14 @@ export function ProposalReviewPage() {
   // reasonable proposal to synthesize.
   if (!stateProposal && !useDemoFixture) {
     return (
-      <EmptyState
-        icon={faTableColumns}
-        title="Nothing to review"
-        description="This page reviews a dashboard proposal handed off from another flow. Start from the dashboards list instead."
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
-      />
+      <PageShell>
+        <EmptyState
+          icon={faTableColumns}
+          title="Nothing to review"
+          description="This page reviews a dashboard proposal handed off from another flow. Start from the dashboards list instead."
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
     );
   }
 
@@ -176,55 +180,55 @@ export function ProposalReviewPage() {
           ? "You don't have access to this workspace."
           : loadError;
     return (
-      <EmptyState
-        intent="error"
-        icon={<Icon />}
-        title="Couldn't load the workspace"
-        description={description}
-        // D5/D7 — this fetch is DEV-only demo-fixture data; Retry only for
-        // a generic "error" kind, and "Back to dashboards" stays available
-        // in every case (kept as secondaryCta so it renders alongside Retry
-        // rather than replacing it).
-        cta={
-          kind === "error"
-            ? {
-                label: retrying ? "Retrying…" : "Retry",
-                onClick: handleRetryLoad,
-                disabled: retrying,
-              }
-            : undefined
-        }
-        secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
-      />
+      <PageShell>
+        {/* D5/D7 — this fetch is DEV-only demo-fixture data; Retry only for a generic "error" kind,
+            and "Back to dashboards" stays available in every case (secondaryCta renders it alongside
+            Retry rather than replacing it). */}
+        <PageStatus
+          status="failed"
+          icon={<Icon />}
+          title="Couldn't load the workspace"
+          message={description}
+          onRetry={kind === "error" ? handleRetryLoad : undefined}
+          retrying={retrying}
+          secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
     );
   }
 
   if (!proposal) {
     return (
-      <div className="proposal-review__loading" aria-busy="true" aria-label="Loading proposal" />
+      <PageShell>
+        <PageStatus status="loading" loadingLabel="Loading proposal" />
+      </PageShell>
     );
   }
 
   if (proposal.panels.length === 0) {
     return (
-      <EmptyState
-        icon={faTableColumns}
-        title={EMPTY_WORKSPACE_COPY.title}
-        description={EMPTY_WORKSPACE_COPY.description}
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
-      />
+      <PageShell>
+        <EmptyState
+          icon={faTableColumns}
+          title={EMPTY_WORKSPACE_COPY.title}
+          description={EMPTY_WORKSPACE_COPY.description}
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
     );
   }
 
   return (
-    <ProposalReview
-      proposal={proposal}
-      dataTypesById={dataTypesById}
-      applying={applying}
-      error={applyError}
-      onAccept={handleAccept}
-      onReject={handleReject}
-    />
+    <PageShell>
+      <ProposalReview
+        proposal={proposal}
+        dataTypesById={dataTypesById}
+        applying={applying}
+        error={applyError}
+        onAccept={handleAccept}
+        onReject={handleReject}
+      />
+    </PageShell>
   );
 }
 

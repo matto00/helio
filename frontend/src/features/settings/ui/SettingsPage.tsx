@@ -21,6 +21,9 @@ import { ApiTokensSection } from "./ApiTokensSection";
 import { BetaAccessSection } from "./BetaAccessSection";
 import { MfaSecuritySection } from "./MfaSecuritySection";
 import { PreferencesEditor } from "./PreferencesEditor";
+import { PageHeader } from "../../../shared/ui/PageHeader";
+import { PageShell } from "../../../shared/ui/PageShell";
+import { PageStatus } from "../../../shared/ui/PageStatus";
 import "./SettingsPage.css";
 
 export function SettingsPage() {
@@ -41,8 +44,8 @@ export function SettingsPage() {
   const apiTokensLoading = apiTokens.status === "idle" || apiTokens.status === "loading";
 
   return (
-    <div className="settings-page">
-      <h1 className="settings-page__title">Settings</h1>
+    <PageShell className="settings-page">
+      <PageHeader title="Settings" />
 
       <div className="settings-page__sections">
         {/* HEL-728: accent moves here from the UserMenu popover -- a persisted,
@@ -72,14 +75,10 @@ export function SettingsPage() {
         <section className="settings-page__section">
           <h2 className="settings-page__section-heading">Preferences</h2>
           {preferencesLoading && (
-            <p className="settings-page__loading" aria-label="Loading preferences">
-              Loading preferences…
-            </p>
+            <PageStatus status="loading" size="section" loadingLabel="Loading preferences" />
           )}
           {!preferencesLoading && preferences.error && (
-            <p className="settings-page__error" role="alert">
-              {preferences.error}
-            </p>
+            <PageStatus status="failed" size="section" message={preferences.error} />
           )}
           {!preferencesLoading && !preferences.error && preferences.data !== null && (
             <PreferencesEditor preferences={preferences.data} />
@@ -89,14 +88,10 @@ export function SettingsPage() {
         <section className="settings-page__section">
           <h2 className="settings-page__section-heading">Agent memory</h2>
           {agentMemoryLoading && (
-            <p className="settings-page__loading" aria-label="Loading agent memory">
-              Loading agent memory…
-            </p>
+            <PageStatus status="loading" size="section" loadingLabel="Loading agent memory" />
           )}
           {!agentMemoryLoading && agentMemory.error && (
-            <p className="settings-page__error" role="alert">
-              {agentMemory.error}
-            </p>
+            <PageStatus status="failed" size="section" message={agentMemory.error} />
           )}
           {!agentMemoryLoading && !agentMemory.error && (
             <AgentMemoryList entries={agentMemory.items} />
@@ -119,14 +114,14 @@ export function SettingsPage() {
         <section className="settings-page__section">
           <h2 className="settings-page__section-heading">Personal access tokens</h2>
           {apiTokensLoading && (
-            <p className="settings-page__loading" aria-label="Loading personal access tokens">
-              Loading personal access tokens…
-            </p>
+            <PageStatus
+              status="loading"
+              size="section"
+              loadingLabel="Loading personal access tokens"
+            />
           )}
           {!apiTokensLoading && apiTokens.error && (
-            <p className="settings-page__error" role="alert">
-              {apiTokens.error}
-            </p>
+            <PageStatus status="failed" size="section" message={apiTokens.error} />
           )}
           {!apiTokensLoading && !apiTokens.error && <ApiTokensSection tokens={apiTokens.items} />}
         </section>
@@ -143,6 +138,6 @@ export function SettingsPage() {
           <AuditHistorySection />
         </section>
       </div>
-    </div>
+    </PageShell>
   );
 }

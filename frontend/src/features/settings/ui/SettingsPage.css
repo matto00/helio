@@ -1,28 +1,10 @@
+/* `.page-shell` (PageShell.tsx) already provides display/flex-direction/
+ * padding; only override the deliberate settings-specific properties here
+ * (a tighter gap than the default, and a max column width) so the primitive
+ * stays the single source of the container's own geometry (HEL-725). */
 .settings-page {
-  display: flex;
-  flex-direction: column;
   gap: var(--space-5);
-  padding: var(--space-5) var(--space-6);
   max-width: 720px;
-}
-
-.settings-page__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-semibold);
-  color: var(--app-text);
-}
-
-.settings-page__loading,
-.settings-page__error {
-  font-size: var(--text-sm);
-  color: var(--app-text-muted);
-  margin: 0;
-}
-
-.settings-page__error {
-  color: var(--app-error);
 }
 
 .settings-page__sections {

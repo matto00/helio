@@ -9,7 +9,8 @@ import { PipelineDetailHeader } from "./PipelineDetailHeader";
 import { PipelineScheduleDialog } from "./schedule/PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
 import { PipelineDetailSkeleton } from "./PipelineDetailSkeleton";
-import { EmptyState } from "../../../shared/ui/EmptyState";
+import { PageShell } from "../../../shared/ui/PageShell";
+import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
@@ -621,32 +622,29 @@ export function PipelineDetailPage() {
           ? "You don't have access to this pipeline."
           : currentPipelineError;
     return (
-      <div className="pipeline-detail-page">
-        <EmptyState
-          intent="error"
+      <PageShell className="pipeline-detail-page">
+        <PageStatus
+          status="failed"
           icon={<Icon />}
           title="Couldn't load this pipeline"
-          description={description}
-          cta={
-            kind === "error" && id !== undefined
-              ? {
-                  label: currentPipelineStatus === "loading" ? "Retrying…" : "Retry",
-                  onClick: () => dispatch(fetchPipelineById(id)),
-                  disabled: currentPipelineStatus === "loading",
-                }
-              : undefined
+          message={description}
+          onRetry={
+            kind === "error" && id !== undefined ? () => dispatch(fetchPipelineById(id)) : undefined
           }
+          retrying={currentPipelineStatus === "loading"}
         />
-      </div>
+      </PageShell>
     );
   }
 
   // Show loading when we have no pipeline data yet
   if (currentPipeline === null) {
     return (
-      <div className="pipeline-detail-page" aria-label="Loading pipeline">
-        <PipelineDetailSkeleton />
-      </div>
+      <PageShell className="pipeline-detail-page">
+        <PageStatus status="loading" variant="skeleton" loadingLabel="Loading pipeline">
+          <PipelineDetailSkeleton />
+        </PageStatus>
+      </PageShell>
     );
   }
 
