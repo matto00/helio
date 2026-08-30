@@ -10,6 +10,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
+import spray.json._
 
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -72,7 +73,16 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       sqlu"""INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
              VALUES ('dt-1', $sourceId, 'dt', '[]', '[]', 1, now(), now(), $ownerId::uuid)""",
       sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, created_at, updated_at, owner_id)
-             VALUES ($pipelineId, 'p', $sourceId, 'dt-1', now(), now(), $ownerId::uuid)"""
+             VALUES ($pipelineId, 'p', $sourceId, 'dt-1', now(), now(), $ownerId::uuid)""",
+      // Task 2.9(a) fixture: a genuine companion type -- bound to its own
+      // source, NOT any pipeline's output_data_type_id -- whose `fields`
+      // must fold into `data_sources.inferred_schema` and then be deleted.
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ('companion-src', 'compsrc', 'static', '{}', $ownerId::uuid, now(), now())""",
+      sqlu"""INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
+             VALUES ('dt-companion', 'companion-src', 'companion',
+                     '[{"name":"foo","displayName":"Foo","dataType":"string","nullable":true},{"name":"bar","displayName":"Bar","dataType":"number","nullable":false}]',
+                     '[]', 1, now(), now(), $ownerId::uuid)"""
     ) >> DBIO.sequence(
       stepIds.zipWithIndex.map { case (id, pos) =>
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at)
@@ -100,6 +110,13 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     preMigrationColumns shouldBe empty
     a[java.sql.SQLException] should be thrownBy
       await(superDb.run(sql"SELECT 1 FROM outputs LIMIT 1".as[Int]))
+
+    // Red-first (task 2.9(a)): pre-migration, the companion type still
+    // exists and the source's inferred_schema column doesn't exist at all.
+    val preMigrationCompanionCount = await(superDb.run(
+      sql"SELECT count(*) FROM data_types WHERE id = 'dt-companion'".as[Int].head
+    ))
+    preMigrationCompanionCount shouldBe 1
 
     // ── Now migrate to latest (applies V94) ─────────────────────────────────
     Flyway
@@ -304,6 +321,38 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         sql"SELECT id FROM outputs WHERE id = 'output-1'".as[String]
       ))
       asOwnerRestored shouldBe Vector("output-1")
+    }
+  }
+
+  "V94 data migration step 2.9(a) (companion types -> inferred_schema)" should {
+    "fold the companion type's fields into data_sources.inferred_schema, in {name, type} shape" in {
+      val schema = await(superDb.run(
+        sql"SELECT inferred_schema::text FROM data_sources WHERE id = 'companion-src'".as[String].head
+      ))
+      schema.parseJson shouldBe
+        """[{"name":"foo","type":"string"},{"name":"bar","type":"number"}]""".parseJson
+    }
+
+    "delete the companion data_types row" in {
+      val count = await(superDb.run(
+        sql"SELECT count(*) FROM data_types WHERE id = 'dt-companion'".as[Int].head
+      ))
+      count shouldBe 0
+    }
+
+    "leave a pipeline-output type's own data_types row and source untouched" in {
+      // dt-1 is sourceId's own type AND pipeline p's output_data_type_id --
+      // it must survive 2.9(a) (only step 2.9(b)-(d) touches output types).
+      val count = await(superDb.run(
+        sql"SELECT count(*) FROM data_types WHERE id = 'dt-1'".as[Int].head
+      ))
+      count shouldBe 1
+      val schema = await(superDb.run(
+        sql"SELECT inferred_schema::text FROM data_sources WHERE id = $sourceId".as[String].head
+      ))
+      // sourceId owns BOTH dt-1 (pipeline-output, excluded) and no other
+      // companion type -- inferred_schema must stay the untouched default.
+      schema.parseJson shouldBe "[]".parseJson
     }
   }
 }

@@ -253,3 +253,41 @@ CREATE INDEX idx_alert_events_target_output_id ON alert_events(target_output_id)
 ALTER TABLE binary_refs ADD COLUMN pipeline_id TEXT NULL REFERENCES pipelines(id) ON DELETE CASCADE;
 ALTER TABLE binary_refs ADD COLUMN node_step_id TEXT NULL REFERENCES pipeline_steps(id) ON DELETE CASCADE;
 CREATE INDEX idx_binary_refs_pipeline_node ON binary_refs(pipeline_id, node_step_id);
+
+-- ── 8. Data migration step 2.9(a): companion types -> inferred_schema ──────
+--
+-- A "companion type" is a `data_types` row that is bound directly to a
+-- `data_sources` row (`source_id IS NOT NULL`) and is NOT any pipeline's
+-- `output_data_type_id` -- i.e. it exists purely to describe that source's
+-- schema, never to carry pipeline-run rows. Ticket.md 2.9(a): fold each
+-- companion type's `fields` (`DataField {name, displayName, dataType,
+-- nullable}`, JSON-encoded TEXT) into its owning `data_sources` row's new
+-- `inferred_schema` column, in the domain's `SchemaField {name, type}`
+-- shape (`PipelineAnalyzeService.SchemaField`, NOT `DataField` -- these are
+-- different wire shapes, `type` <- `DataField.dataType`), then delete the
+-- companion row. A `data_types` row that IS a pipeline's output type is
+-- left completely untouched here -- that is step 2.9(b)-(d)'s job.
+--
+-- `jsonb_array_elements(...) WITH ORDINALITY` + `jsonb_agg(... ORDER BY
+-- ord)` preserves the original field order (no reason to assume `fields`
+-- is already order-stable through a bare `jsonb_agg`).
+
+UPDATE data_sources ds
+SET inferred_schema = agg.schema
+FROM (
+  SELECT dt.source_id AS source_id,
+         jsonb_agg(
+           jsonb_build_object('name', elem.value ->> 'name', 'type', elem.value ->> 'dataType')
+           ORDER BY elem.ord
+         ) AS schema
+  FROM data_types dt,
+       LATERAL jsonb_array_elements(dt.fields::jsonb) WITH ORDINALITY AS elem(value, ord)
+  WHERE dt.source_id IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM pipelines p WHERE p.output_data_type_id = dt.id)
+  GROUP BY dt.source_id
+) agg
+WHERE agg.source_id = ds.id;
+
+DELETE FROM data_types dt
+WHERE dt.source_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM pipelines p WHERE p.output_data_type_id = dt.id);

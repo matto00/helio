@@ -99,12 +99,13 @@
       key those by (pipeline_id, node_step_id) instead and say so in the PR"), keyed by node
       instead of `data_source_id`. RLS rewrite (currently selects from `data_types`) deferred
       to land with 2.9/2.10, same as `target_data_type_id`'s drop. Same V94 file.
-- [ ] 2.9 Data migration steps, in ticket order: companion types → inferred_schema; computed
+- [ ] 2.9 (partial — step (a) only) Data migration steps, in ticket order: companion types →
+      inferred_schema (DONE, red-first tested in `V94OutputsMigrationSpec`); computed
       fields → compute steps (count first, skip+log if zero); bound panels → Outputs (+ tail
       steps for aggregation/metric panels, invalid fieldMapping slots dropped+logged); unbound
       panels deleted (count logged); orphan types → table Outputs; `data_type_rows` →
       `node_snapshots`; alert rules retargeted; patch-set journal entries for `dataType`/`metric`
-      deleted.
+      deleted. Steps (b)-(h) NOT done this cycle — see execution-progress.md cycle 5.
 - [ ] 2.10 Drop `panels`' retired columns; drop `metrics`, `data_types`, `data_type_rows`,
       `pipelines.output_data_type_id`.
 - [x] 2.11 (partial) Red-first migration test for the additive slice landed so far —

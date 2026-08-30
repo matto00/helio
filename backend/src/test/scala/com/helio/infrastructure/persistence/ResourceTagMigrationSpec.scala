@@ -72,10 +72,18 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     seedPreV73Fixture()
 
-    // Stage 2: apply V73 (and any later migrations) against the seeded fixture.
+    // Stage 2: apply V73 (and later migrations up to, but excluding, V94)
+    // against the seeded fixture. HEL-904 task 2.9(a) makes V94 unconditionally
+    // delete any companion DataType with no pipeline binding -- this spec's
+    // fixture's `companionId` row is exactly that shape, so running to latest
+    // would delete it out from under the "read pre-existing row" assertions
+    // below via a LATER migration's deliberate, unrelated behavior, not a V73
+    // regression. Pinning to V93 keeps this spec testing V73's own effect in
+    // isolation.
     Flyway.configure()
       .dataSource(jdbcUrl, "postgres", "postgres")
       .locations("classpath:db/migration")
+      .target("93")
       .load()
       .migrate()
 
