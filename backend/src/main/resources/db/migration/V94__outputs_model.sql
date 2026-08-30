@@ -254,6 +254,17 @@ ALTER TABLE binary_refs ADD COLUMN pipeline_id TEXT NULL REFERENCES pipelines(id
 ALTER TABLE binary_refs ADD COLUMN node_step_id TEXT NULL REFERENCES pipeline_steps(id) ON DELETE CASCADE;
 CREATE INDEX idx_binary_refs_pipeline_node ON binary_refs(pipeline_id, node_step_id);
 
+-- Task 3.4 (`BinaryRefRepository` rewire): the moment its writer
+-- (`PipelineRunService.onUnblockedRunSuccess`) stopped populating the
+-- legacy `data_type_id` column, every new write started failing outright
+-- against V46's original `NOT NULL` constraint on that column -- caught by
+-- a full `sbt test` run, same class of gap as `panels.kind`/
+-- `target_data_type_id` above. Relaxed here, same additive-relaxation-
+-- ahead-of-the-real-drop pattern; the legacy column stays in place,
+-- unpopulated by new writes, until task 2.10 drops it alongside the rest of
+-- the DataType infrastructure.
+ALTER TABLE binary_refs ALTER COLUMN data_type_id DROP NOT NULL;
+
 -- ── 8. Data migration step 2.9(a): companion types -> inferred_schema ──────
 --
 -- A "companion type" is a `data_types` row that is bound directly to a

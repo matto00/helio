@@ -763,11 +763,19 @@ final case class Output(
 
 /** Row-correlated metadata for a `binary-ref` field value (HEL-217). A
  *  derived secondary index over the same metadata already present in the
- *  field's inline JSONB value in `data_type_rows.data` — never an
- *  independent read path for row data. See `BinaryRefRepository`. */
+ *  field's inline JSONB value in `node_snapshots.data` — never an
+ *  independent read path for row data. See `BinaryRefRepository`.
+ *
+ *  HEL-904 (task 3.4): re-keyed from `dataTypeId` to `(pipelineId,
+ *  nodeStepId)` — the dev DB showed the only live row keys to a
+ *  pipeline-output type, and there is no companion-type writer to key
+ *  against a `dataSourceId` instead (see design.md's `binary_refs` row and
+ *  cycle 8's own `2.8` finding). `nodeStepId = None` means the pipeline's
+ *  trunk root (mirrors `NodeSnapshotRepository`'s same convention). */
 final case class BinaryRef(
     id: String,
-    dataTypeId: String,
+    pipelineId: String,
+    nodeStepId: Option[String],
     rowIndex: Int,
     fieldName: String,
     storageKey: String,

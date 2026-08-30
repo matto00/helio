@@ -143,7 +143,9 @@
       `AssistantToolExecutor`: DataType/Metric branches → Outputs.
 - [ ] 3.3 `PatchSetApplyService` + other patch-set files: `dataType` targets → node/Output
       targets; persisted enum loses `dataType`/`metric`.
-- [ ] 3.4 `BinaryRefRepository` re-keyed to `data_source_id`.
+- [x] 3.4 `BinaryRefRepository` re-keyed to `(pipeline_id, node_step_id)` (per
+      design.md's documented dev-DB fallback, not `data_source_id` — see
+      cycle 8's finding).
 - [ ] 3.5 `PipelineRepository.create` stops minting a type; `PipelineService.create` drops
       `outputDataTypeName`. In the SAME task, remove `Pipeline.outputDataTypeId` from the domain
       model (added additively in 1.1) now that no code path sets or reads it — round-2 finding 4
@@ -203,11 +205,19 @@
 - [ ] 3.12 `WorkspaceContextService` (34 refs, `:5` imports `DataTypeService`): rewire every
       DataType/Metric reference to Outputs/pipelines/inferredSchema; do NOT touch `asNumeric`'s
       single-exit-filter structure or its `BigDecimal.setScale` rounding (HEL-631 caution).
-- [ ] 3.13 `AlertRuleRepository`: add `listEnabledByOutputInternal` (privileged internal read,
+- [x] 3.13 `AlertRuleRepository`: add `listEnabledByOutputInternal` (privileged internal read,
       mirrors today's `listEnabledByDataTypeInternal`) backing task 3.1's `evaluateForOutput`.
-- [ ] 3.14 `PanelRepository`/`PipelineRunService`: verify snapshot-writing call sites (not just
+      Landed in cycle 9 (task 3.1's own commit); re-verified this cycle.
+- [x] 3.14 `PanelRepository`/`PipelineRunService`: verify snapshot-writing call sites (not just
       the `:649` alert hook) are rewired to write `node_snapshots` keyed by node, not
-      `data_type_rows` keyed by DataType.
+      `data_type_rows` keyed by DataType. Verified this cycle by grepping every
+      `overwriteRows`/`DataTypeRowRepository` call site in `backend/src/main/scala`:
+      `PipelineRunService.scala:650` (the sole real writer) already dual-writes
+      `node_snapshots` (cycle 9); `BoundPanelService.scala:322`'s clear-on-cleanup call
+      belongs to a service task 4.1 deletes outright, not a live write path needing a
+      `node_snapshots` counterpart. No `PanelRepository` write call site exists at all — it
+      never wrote `data_type_rows` to begin with (`PanelRepository` only reads `panel`
+      config, `PipelineRunService` is the sole row-materialization writer).
 - [ ] 3.15 `ApiRoutes.scala`: remove the `"data-type"` `ResourceType` registration (see
       `acl-resource-type-registry` delta) alongside the route deletions in §4.2.
 

@@ -654,22 +654,33 @@ final class PipelineRunService(
     // ever materializes — see P1.2/HEL-905 for the real per-node write).
     // Additive alongside `dataTypeRowRepo` above; both stay live until
     // section 4 deletes `data_type_rows`/`GET /api/types/:id/rows`.
+    //
+    // The resolved `trunkLastStepId` is shared with `binaryRefsUpsert`
+    // below (task 3.4's re-key) — both need "this run's target node", so
+    // it's derived once rather than twice.
+    val trunkLastStepIdFut: Future[Option[String]] =
+      if (nodeSnapshotRepo != null || binaryRefRepo != null)
+        pipelineStepRepo.listByPipelineInternal(pipelineId).map { steps =>
+          pipelineStepRepo.trunkOf(steps).lastOption.map(_.id.value)
+        }
+      else Future.successful(None)
     val nodeSnapshotUpsert =
       if (nodeSnapshotRepo != null)
-        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { steps =>
-          val trunkLastStepId = pipelineStepRepo.trunkOf(steps).lastOption.map(_.id)
-          nodeSnapshotRepo.overwriteRows(pipelineId.value, trunkLastStepId.map(_.value), jsRows)
-        }
+        trunkLastStepIdFut.flatMap(trunkLastStepId => nodeSnapshotRepo.overwriteRows(pipelineId.value, trunkLastStepId, jsRows))
       else Future.successful(())
-    // HEL-216: wire BinaryRefRepository.overwriteForDataType into the one
-    // real row-write call site, generically over row shape (not gated on
-    // source kind) — see design.md Decision "BinaryRefRepository...wired
-    // into PipelineRunService.onRunSuccess". Extracted from resultRows (the
+    // HEL-216: wire BinaryRefRepository.overwriteForNode into the one real
+    // row-write call site, generically over row shape (not gated on source
+    // kind) — see design.md Decision "BinaryRefRepository...wired into
+    // PipelineRunService.onRunSuccess". Extracted from resultRows (the
     // post-step, final row values — not the pre-step source rows) so the
-    // refs match exactly what jsRows/rowsUpsert just wrote.
+    // refs match exactly what jsRows/rowsUpsert just wrote. HEL-904 (task
+    // 3.4): re-keyed to `(pipelineId, trunkLastStepId)` instead of the
+    // retired `dataTypeId`.
     val binaryRefsUpsert =
       if (binaryRefRepo != null)
-        binaryRefRepo.overwriteForDataType(outputDataTypeId.value, extractBinaryRefs(outputDataTypeId, resultRows))
+        trunkLastStepIdFut.flatMap { trunkLastStepId =>
+          binaryRefRepo.overwriteForNode(pipelineId.value, trunkLastStepId, extractBinaryRefs(pipelineId, trunkLastStepId, resultRows))
+        }
       else Future.successful(())
     // HEL-466: fire alert-rule evaluation against the rows just written.
     // Wrapped in recoverWith (matching the file's existing discipline at
@@ -760,14 +771,15 @@ final class PipelineRunService(
    *  design.md's Risks/Trade-offs section); a false negative only means a
    *  missing secondary-index entry, non-fatal since `binary_refs` is
    *  explicitly a derived index, never the row read path. */
-  private def extractBinaryRefs(dataTypeId: DataTypeId, rows: Seq[Map[String, Any]]): Vector[BinaryRef] = {
+  private def extractBinaryRefs(pipelineId: PipelineId, nodeStepId: Option[String], rows: Seq[Map[String, Any]]): Vector[BinaryRef] = {
     val now = Instant.now()
     rows.zipWithIndex.flatMap { case (row, rowIndex) =>
       row.collect {
         case (fieldName, value: Map[String, Any] @unchecked) if isBinaryRefShape(value) =>
           BinaryRef(
             id         = UUID.randomUUID().toString,
-            dataTypeId = dataTypeId.value,
+            pipelineId = pipelineId.value,
+            nodeStepId = nodeStepId,
             rowIndex   = rowIndex,
             fieldName  = fieldName,
             storageKey = value("storageKey").asInstanceOf[String],

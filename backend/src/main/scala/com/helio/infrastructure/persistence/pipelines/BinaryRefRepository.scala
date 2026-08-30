@@ -8,34 +8,46 @@ import java.sql.Timestamp
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
- * Stores row-correlated `binary-ref` field metadata for a DataType (HEL-217).
+ * Stores row-correlated `binary-ref` field metadata for a pipeline node
+ * (HEL-217, re-keyed by HEL-904 task 3.4).
  *
  * `binary_refs` is a derived secondary index over the same metadata already
- * present in the field's inline JSONB value in `data_type_rows.data` — never
+ * present in the field's inline JSONB value in `node_snapshots.data` — never
  * an independent read path for row data (see design.md Decision 4). The
- * overwrite semantics mirror `DataTypeRowRepository.overwriteRows` exactly:
- * every write atomically replaces the entire snapshot for a given DataType
- * via a transactional DELETE + bulk INSERT. There is no singular
- * insert/delete(id) — `overwriteForDataType` is the only writer.
+ * overwrite semantics mirror `NodeSnapshotRepository.overwriteRows` exactly:
+ * every write atomically replaces the entire snapshot for a given node via a
+ * transactional DELETE + bulk INSERT. There is no singular insert/delete(id)
+ * — `overwriteForNode` is the only writer.
+ *
+ * HEL-904 (task 3.4): re-keyed from `data_type_id` to `(pipeline_id,
+ * node_step_id)` — the legacy `data_type_id` column stays in place,
+ * unpopulated by new writes, until task 2.10 drops it alongside the rest of
+ * the DataType infrastructure (same additive-first pattern as
+ * `AlertRuleRepository`/`AlertEventRepository`'s `target_output_id`
+ * migration in task 3.1). `nodeStepId = None` means the pipeline's trunk
+ * root, mirroring `NodeSnapshotRepository`'s own convention.
  */
 class BinaryRefRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   /**
-   * Atomically replace the `binary_refs` snapshot for `dataTypeId` with
-   * `refs`. Deletes all existing rows first, then bulk-inserts the new
-   * ones — both operations run inside a single transaction so the old
-   * snapshot survives any INSERT failure.
+   * Atomically replace the `binary_refs` snapshot for `(pipelineId,
+   * nodeStepId)` with `refs`. Deletes all existing rows first, then
+   * bulk-inserts the new ones — both operations run inside a single
+   * transaction so the old snapshot survives any INSERT failure.
    *
    * Calling with an empty `refs` sequence clears the snapshot (DELETE only).
    */
-  def overwriteForDataType(dataTypeId: String, refs: Vector[BinaryRef]): Future[Unit] = {
-    val deleteAction = sqlu"DELETE FROM binary_refs WHERE data_type_id = $dataTypeId"
+  def overwriteForNode(pipelineId: String, nodeStepId: Option[String], refs: Vector[BinaryRef]): Future[Unit] = {
+    val deleteAction = nodeStepId match {
+      case Some(stepId) => sqlu"DELETE FROM binary_refs WHERE pipeline_id = $pipelineId AND node_step_id = $stepId"
+      case None         => sqlu"DELETE FROM binary_refs WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"
+    }
     val insertActions = refs.map { ref =>
       val createdAt = Timestamp.from(ref.createdAt)
       sqlu"""INSERT INTO binary_refs
-               (id, data_type_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at)
+               (id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at)
              VALUES
-               (${ref.id}, ${ref.dataTypeId}, ${ref.rowIndex}, ${ref.fieldName}, ${ref.storageKey},
+               (${ref.id}, ${ref.pipelineId}, ${ref.nodeStepId}, ${ref.rowIndex}, ${ref.fieldName}, ${ref.storageKey},
                 ${ref.mimeType}, ${ref.filename}, ${ref.sizeBytes}, $createdAt)"""
     }
     val allActions = deleteAction +: insertActions
@@ -43,39 +55,53 @@ class BinaryRefRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   }
 
   /**
-   * Return all `BinaryRef` records for `dataTypeId`. Returns an empty
-   * Vector if no snapshot has been written yet.
+   * Return all `BinaryRef` records for `(pipelineId, nodeStepId)`. Returns
+   * an empty Vector if no snapshot has been written yet.
    */
-  def findByDataTypeId(dataTypeId: String): Future[Vector[BinaryRef]] =
-    ctx.withSystemContext(selectQuery(dataTypeId)).map(_.map(rowToBinaryRef))
+  def findByNode(pipelineId: String, nodeStepId: Option[String]): Future[Vector[BinaryRef]] =
+    ctx.withSystemContext(selectQuery(pipelineId, nodeStepId)).map(_.map(rowToBinaryRef))
 
   /**
-   * Return the `BinaryRef` records for `dataTypeId` scoped to a single
-   * `rowIndex`.
+   * Return the `BinaryRef` records for `(pipelineId, nodeStepId)` scoped to
+   * a single `rowIndex`.
    */
-  def findByDataTypeIdAndRow(dataTypeId: String, rowIndex: Int): Future[Vector[BinaryRef]] =
-    ctx
-      .withSystemContext(
-        sql"""SELECT id, data_type_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
+  def findByNodeAndRow(pipelineId: String, nodeStepId: Option[String], rowIndex: Int): Future[Vector[BinaryRef]] = {
+    val query = nodeStepId match {
+      case Some(stepId) =>
+        sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
               FROM binary_refs
-              WHERE data_type_id = $dataTypeId AND row_index = $rowIndex"""
-          .as[(String, String, Int, String, String, String, String, Long, Timestamp)]
-      )
-      .map(_.map(rowToBinaryRef))
+              WHERE pipeline_id = $pipelineId AND node_step_id = $stepId AND row_index = $rowIndex"""
+          .as[(String, String, Option[String], Int, String, String, String, String, Long, Timestamp)]
+      case None =>
+        sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
+              FROM binary_refs
+              WHERE pipeline_id = $pipelineId AND node_step_id IS NULL AND row_index = $rowIndex"""
+          .as[(String, String, Option[String], Int, String, String, String, String, Long, Timestamp)]
+    }
+    ctx.withSystemContext(query).map(_.map(rowToBinaryRef))
+  }
 
-  private def selectQuery(dataTypeId: String) =
-    sql"""SELECT id, data_type_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
-          FROM binary_refs
-          WHERE data_type_id = $dataTypeId"""
-      .as[(String, String, Int, String, String, String, String, Long, Timestamp)]
+  private def selectQuery(pipelineId: String, nodeStepId: Option[String]) = nodeStepId match {
+    case Some(stepId) =>
+      sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
+            FROM binary_refs
+            WHERE pipeline_id = $pipelineId AND node_step_id = $stepId"""
+        .as[(String, String, Option[String], Int, String, String, String, String, Long, Timestamp)]
+    case None =>
+      sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
+            FROM binary_refs
+            WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"""
+        .as[(String, String, Option[String], Int, String, String, String, String, Long, Timestamp)]
+  }
 
   private def rowToBinaryRef(
-      row: (String, String, Int, String, String, String, String, Long, Timestamp)
+      row: (String, String, Option[String], Int, String, String, String, String, Long, Timestamp)
   ): BinaryRef = row match {
-    case (id, dataTypeId, rowIndex, fieldName, storageKey, mimeType, filename, sizeBytes, createdAt) =>
+    case (id, pipelineId, nodeStepId, rowIndex, fieldName, storageKey, mimeType, filename, sizeBytes, createdAt) =>
       BinaryRef(
         id = id,
-        dataTypeId = dataTypeId,
+        pipelineId = pipelineId,
+        nodeStepId = nodeStepId,
         rowIndex = rowIndex,
         fieldName = fieldName,
         storageKey = storageKey,

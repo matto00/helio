@@ -167,3 +167,36 @@ the full reasoning on why no DML was landed this cycle.
   `listEnabledByOutputInternal` override in its `failingRuleRepo` fixture).
 - `openspec/changes/outputs-model-migration/tasks.md` — task 3.1 marked done.
 - `openspec/changes/outputs-model-migration/execution-progress.md`, this file — updated for cycle 9.
+
+## Cycle 10 additions (this cycle — task 3.4: BinaryRefRepository re-key; 3.13/3.14 verified)
+
+- `backend/src/main/scala/com/helio/domain/model/model.scala` — `BinaryRef` re-keyed:
+  `dataTypeId: String` → `pipelineId: String, nodeStepId: Option[String]`.
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala`
+  — `overwriteForDataType`/`findByDataTypeId`/`findByDataTypeIdAndRow` renamed to
+  `overwriteForNode`/`findByNode`/`findByNodeAndRow`, all keyed by `(pipelineId, nodeStepId)`
+  against the `pipeline_id`/`node_step_id` columns V94 already added (task 2.8); the legacy
+  `data_type_id` column is left in place, unpopulated, per decision 1e.
+- `backend/src/main/resources/db/migration/V94__outputs_model.sql` — added
+  `ALTER TABLE binary_refs ALTER COLUMN data_type_id DROP NOT NULL` (real regression found via
+  `sbt test`: the legacy column was still `NOT NULL` from V46, so the moment the rewired writer
+  stopped populating it, every new write failed outright — same additive-relaxation-ahead-of-
+  the-real-drop pattern as `panels.kind`/`target_data_type_id` in earlier cycles).
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` —
+  `extractBinaryRefs` re-keyed to `(pipelineId, nodeStepId)`; the trunk-last-step resolution
+  previously private to the `node_snapshots` dual-write (task 3.14, cycle 9) is now shared
+  (computed once as `trunkLastStepIdFut`) between the `node_snapshots` write and the re-keyed
+  `binaryRefsUpsert`.
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepositorySpec.scala`
+  — rewritten: seeds a real `users`/`data_sources`/`data_types`/`pipelines`/`pipeline_steps`
+  fixture (both new columns are FK-backed, not opaque strings, unlike the old free-standing
+  `dtId` literals) and exercises `overwriteForNode`/`findByNode`/`findByNodeAndRow`, including a
+  new case distinguishing `nodeStepId = None` (trunk root) from a real step id.
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRunRoutesSpec.scala` — the three
+  `findByDataTypeId(dtId)` binary-ref assertions updated to `findByNode(pid.value, None)` (these
+  fixtures never seed `pipeline_steps`, so the trunk resolves to `None`/root).
+- `openspec/changes/outputs-model-migration/tasks.md` — task 3.4 marked done; 3.13/3.14 marked
+  done (already landed in cycle 9, re-verified this cycle by grep — no code change needed for
+  either).
+- `openspec/changes/outputs-model-migration/execution-progress.md`, this file — updated for
+  cycle 10.

@@ -905,3 +905,132 @@ drop.
    not just the Scala field" checks worth doing proactively for 3.2-3.15's own DataType/Metric
    column references before assuming a rename is complete.
 4. Do NOT bring 2.10 forward — unchanged standing instruction from every prior cycle.
+
+## Cycle 10 (this cycle) — task 3.4 (BinaryRefRepository re-key); 3.13/3.14 verified-complete
+
+Starting state verified fresh: HEAD = `825ab97c` (cycle 9's task-3.1 commit), tree clean, full
+`sbt test` 3897/3897 confirmed by cycle 9's own fresh run (re-confirmed, not re-run, since nothing
+changed to invalidate it).
+
+**Scope this cycle: task 3.4 only**, plus verifying 3.13/3.14 (which cycle 9's own task-3.1 work
+already landed as a byproduct — confirmed by grep this cycle, no new code needed for either).
+Given the size of 3.5-3.12 (each requires touching many interdependent files that all reference
+`Pipeline.outputDataTypeId`/`outputDataTypeName` and cannot land independently without leaving an
+intermediate broken compile — see below), and this cycle's own effort budget, only one net-new
+task was taken to a clean, fully-tested, committed boundary this cycle, per the resume brief's own
+"treat each numbered task as its own checkpoint... fine and expected to not finish all of 3.2-3.15
+in one cycle" instruction.
+
+**Task 3.4**: `BinaryRefRepository` re-keyed from `dataTypeId` to `(pipelineId, nodeStepId)` — per
+design.md's own documented dev-DB fallback (NOT the ticket's literal `data_source_id` default;
+cycle 8 already established, from a real dev-DB inspection, that the one live `binary_refs` row
+keys to a pipeline-output type with no companion-type writer to key against a `dataSourceId`
+instead). Domain model (`BinaryRef`), repository (`overwriteForDataType`/`findByDataTypeId`/
+`findByDataTypeIdAndRow` → `overwriteForNode`/`findByNode`/`findByNodeAndRow`), and the sole live
+writer (`PipelineRunService.onUnblockedRunSuccess`/`extractBinaryRefs`) all rewired together.
+`PipelineRunService`'s trunk-last-step resolution (previously private to task 3.14's own
+`node_snapshots` dual-write) is now computed once (`trunkLastStepIdFut`) and shared between the
+`node_snapshots` write and the newly-re-keyed `binaryRefsUpsert` — both need "this run's target
+node."
+
+**Real regression found and fixed via a full `sbt test` run (again — the discipline keeps paying
+for itself):** the legacy `binary_refs.data_type_id` column was still `NOT NULL` (V46's original
+constraint) — cycle 4 only ever added `pipeline_id`/`node_step_id` as ADDITIVE nullable columns
+alongside it, never relaxing the old one. The moment this cycle's rewired writer stopped
+populating `data_type_id` on INSERT, every new write failed outright against the live constraint
+— confirmed by the exact `PSQLException: null value in column "data_type_id" ... violates
+not-null constraint` from the first `BinaryRefRepositorySpec` run (not guessed, not caught before
+running). **Fix:** one `ALTER TABLE binary_refs ALTER COLUMN data_type_id DROP NOT NULL` appended
+to `V94__outputs_model.sql`, same additive-relaxation-ahead-of-the-real-drop pattern cycle 3
+established for `panels.kind`, cycle 4 for `node_snapshots`' FK, and cycle 9 for
+`alert_rules`/`alert_events.target_data_type_id` — the legacy column stays in place, now nullable
+and unpopulated by new writes, until task 2.10 drops it.
+
+**`BinaryRefRepositorySpec` rewritten**, not just renamed — the old fixture used bare, unconstrained
+`dtId` string literals as the join key; the new `(pipeline_id, node_step_id)` columns are real FKs
+to `pipelines(id)`/`pipeline_steps(id)` (V94), so the spec now seeds a minimal real
+`users`/`data_sources`/`data_types`/`pipelines`/`pipeline_steps` fixture (mirrors
+`V94OutputsMigrationSpec`'s own fixture pattern) before exercising the repository. Added one new
+case beyond a straight rename: `nodeStepId = None` (trunk root) vs. a real step id are asserted as
+genuinely distinct keys, not just "the Option wrapper round-trips." `PipelineRunRoutesSpec`'s three
+binary-ref assertions were mechanically updated to `findByNode(pid.value, None)` (those fixtures
+never seed `pipeline_steps`, so `trunkOf` returns empty → `None`).
+
+**A real, undone piece of work found but deliberately NOT fixed this cycle, flagged for a later
+cycle (not an escalation — a scoping call within my own authority, not a spec contradiction):**
+V94's section-7 `binary_refs` re-key prep (cycle 8) added the new `pipeline_id`/`node_step_id`
+columns nullable, but **no DML anywhere in V94 backfills them for the one live existing
+`binary_refs` row** (unlike every other 2.9 sub-step, which does backfill its own legacy data).
+Cycle 8's own investigation resolved WHICH columns to key by, but the actual backfill UPDATE was
+never written. This is arguably a 2.9 gap, not a 3.4 gap — but 2.9 was declared complete in cycle
+8's own boundary note. Not fixed here because: (a) it would require reading from
+`hel904_original_trunk_last`, a snapshot table created later in the file (section 9, cycle 7) than
+where the `binary_refs` re-key prep lives (section 7) — moving/duplicating that resolution risks
+the already-33/33-tested migration file for a single dev-DB row; (b) this repository/domain-layer
+rewire (3.4's actual scope) is correct and complete regardless — a stale un-backfilled row simply
+won't resolve under the new columns until backfilled, which is a data-completeness gap, not a
+code-correctness one. **Next cycle (or a 2.9-remediation pass) should add this backfill,
+positioned after the `hel904_original_trunk_last` snapshot exists.**
+
+**Verification this cycle (confirmed, fresh, exit codes read directly):**
+- `sbt compile` — clean.
+- `sbt Test/compile` — clean, after fixing the ~25 initial compile errors the
+  rename/field-shape change surfaced across `BinaryRefRepositorySpec.scala`/`PipelineRunRoutesSpec.scala`.
+- `sbt "testOnly com.helio.infrastructure.persistence.pipelines.BinaryRefRepositorySpec
+  com.helio.api.routes.pipelines.PipelineRunRoutesSpec com.helio.services.pipelines.*"` —
+  **49/49 + 161/161 green on the second run** (BinaryRefRepositorySpec's first run: 6/7 failed on
+  the `NOT NULL` regression above, root-caused and fixed before re-running, not worked around).
+- Full `sbt test` (fresh run, read directly, not summarized): **3898/3898 passing**, exit code 0,
+  247 suites completed, 0 aborted, 0 failed, confirmed complete (3 min 29 sec run). +1 net vs.
+  cycle 9's 3897 (this cycle's one new `BinaryRefRepositorySpec` test case, the `None`-vs-real-step
+  distinction; every other spec was a pure rename with no test-count change). No regressions.
+- HEL-924 classification: the 6 `BinaryRefRepositorySpec` failures on the first run were
+  root-caused immediately from the exact Postgres constraint-violation message (not ambiguous,
+  no isolation re-run needed for classification purposes) — a genuine defect in this cycle's own
+  migration edit, not HEL-924 flakiness. The full-suite run that followed the fix was clean on its
+  first pass.
+
+**3.13/3.14 verified complete (no code change needed):** grepped every live `overwriteRows`/
+`DataTypeRowRepository`/`listEnabledByDataTypeInternal` call site in `backend/src/main/scala` this
+cycle — `AlertRuleRepository.listEnabledByOutputInternal` and `PipelineRunService`'s
+`node_snapshots` dual-write were both already landed in cycle 9's task-3.1 commit as necessary
+byproducts of that rewire. `BoundPanelService.scala:322`'s `dataTypeRowRepo.overwriteRows(...,
+Vector.empty)` cleanup call is the only OTHER `data_type_rows` writer in the codebase — it belongs
+to a service task 4.1 deletes outright, not a live path needing a `node_snapshots` counterpart.
+`PanelRepository` never wrote `data_type_rows` at all (it only persists panel config; row
+materialization is exclusively `PipelineRunService`'s job). Marked both `[x]` in `tasks.md` with an
+inline note explaining why no diff was needed.
+
+**Honest boundary this cycle stops at:** task 3.4 (+ 3.13/3.14 verification) only. Tasks 3.2, 3.3,
+3.5-3.12, 3.15 remain **NOT started**. In particular, 3.5 (removing `Pipeline.outputDataTypeId`
+from the domain model, `PipelineRepository.create` no longer minting a type) is tightly coupled to
+3.8 (`PipelineProposalService`, 35 refs), 3.9 (`ProposalPanelSupport`, 26 refs), 3.10/3.10a
+(`DashboardProposalService`'s `DataPanelKinds`), 3.11/3.11a (`PanelCapabilityService`'s 10-file test
+blast radius), and 3.12 (`WorkspaceContextService`, 34 refs) — investigated this cycle just enough
+to confirm every one of these files references `outputDataTypeName`/`outputDataTypeId` directly
+(via `grep`, not assumed), meaning 3.5 cannot land alone without leaving an intermediate broken
+compile across all of them. This cluster is the single largest remaining unit of work in the
+ticket and needs a cycle with enough budget to land it as one coherent, fully-tested slice (per
+the resume brief's own suggestion for 3.6/3.9/3.10/3.10a), not partial slices that leave the tree
+non-compiling between commits. Task 2.10 (the drops) remains explicitly, deliberately untouched —
+still blocked on this same cluster per design.md decision 1e.
+
+**Next cycle should:**
+1. Tackle the 3.5/3.8/3.9/3.10/3.10a/3.11/3.11a/3.12 cluster as its own dedicated pass — re-read
+   each file's current `outputDataTypeName`/`outputDataTypeId`/`DataTypeService`/`MetricRepository`
+   reference count fresh (they may have shifted since design.md's round-4 citations), and land the
+   Pipeline-domain-model change (3.5) together with enough of its consumers in the SAME commit (or
+   a tight sequence of commits within one session) that the tree never sits non-compiling.
+2. 3.2 (`WorkspaceSearchService`/`WorkspaceTeardownRepository`/`DashboardContentsService`/
+   `AssistantToolExecutor`) and 3.3 (`PatchSetApplyService`) can likely land independently of the
+   3.5 cluster (verified this cycle: `WorkspaceSearchService` depends on `DataTypeService`/
+   `MetricService`, which still exist and compile unchanged until 3.5/4.1 retire them) — worth
+   attempting FIRST in the next cycle if that cluster proves too large for one session, so at least
+   incremental progress keeps landing.
+3. 3.6/3.7 (Panel-model collapse + DemoData reseed) and 3.15 (`ApiRoutes.scala`'s `data-type`
+   `ResourceType` removal) remain, per the resume brief's own note that 3.6/3.9/3.10/3.10a may be
+   cheaper to land together.
+4. The un-backfilled `binary_refs.pipeline_id`/`node_step_id` gap noted above (a real, if narrow,
+   2.9 gap) should be picked up whenever 2.9/2.10 gets a remediation pass — not urgent for section
+   3's own consumer-rewire goal.
+5. Do NOT bring 2.10 forward — unchanged standing instruction from every prior cycle.

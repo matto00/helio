@@ -815,7 +815,7 @@ class PipelineRunRoutesSpec
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 1
       }
-      val refs = await(binaryRefRepo.findByDataTypeId(dtId))
+      val refs = await(binaryRefRepo.findByNode(pid.value, None))
       refs should have size 1
       refs.head.fieldName shouldBe "content"
       refs.head.rowIndex   shouldBe 0
@@ -837,12 +837,12 @@ class PipelineRunRoutesSpec
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(binaryRefRepo.findByDataTypeId(dtId)) should have size 1
+      await(binaryRefRepo.findByNode(pid.value, None)) should have size 1
 
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(binaryRefRepo.findByDataTypeId(dtId)) should have size 1
+      await(binaryRefRepo.findByNode(pid.value, None)) should have size 1
     }
 
     "POST /pipelines/:id/run over a StaticSource (no binary-ref fields) writes no binary_refs rows" in {
@@ -853,7 +853,7 @@ class PipelineRunRoutesSpec
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(binaryRefRepo.findByDataTypeId(dtId)) shouldBe empty
+      await(binaryRefRepo.findByNode(pid.value, None)) shouldBe empty
     }
 
 
