@@ -138,8 +138,7 @@ per the ticket's own instruction rather than silently widening scope.
   environment-inheritance risk.
 - **Does it write anything outside its own sandbox?** No. `tsc --noEmit` writes
   nothing to disk; it only prints diagnostics and sets an exit code.
-- **Does it behave differently from a linked worktree than from a main
-  checkout?** No — both new checks resolve relative to the repo they run in
+- **Does it behave differently from a linked worktree than from a main checkout?** No — both new checks resolve relative to the repo they run in
   (`e2e/tsconfig.json` and `helio-mcp/tsconfig.json` are committed, relative
   paths only), identically whether that repo root is a worktree or a primary
   checkout. Neither depends on `.git` internals the way `scripts/concertino/`'s
