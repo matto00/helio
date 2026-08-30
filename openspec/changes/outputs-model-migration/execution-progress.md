@@ -506,3 +506,150 @@ start and end of this cycle.
 3. Then implement (b) per the resume brief's original ordering, with the slot-validation-drop
    test (HEL-892 AC 6) written first as instructed.
 4. (c)-(h) unchanged from every prior cycle's note. 2.10 still explicitly out of scope.
+
+## Cycle 7 (this cycle) — task 2.9, step (b): bound panels → Outputs
+
+Starting state verified fresh: HEAD = `b745867d` (cycle 6's investigation-only, zero-diff
+commit), tree clean, full `sbt test` 3878/3878 confirmed by cycle 5's own fresh run (re-confirmed,
+not re-run, since cycle 6 changed nothing that would invalidate it).
+
+**Step 1: resolved `panels.aggregation` (HEL-292) empirically**, per cycle 6's own explicit
+instruction — queried the shared dev DB directly:
+`SELECT id, type, aggregation, field_mapping, metric_id FROM panels WHERE aggregation IS NOT NULL
+OR metric_id IS NOT NULL` — 14 live rows. Finding: the blob is consistently one of exactly two
+shapes, keyed by panel `type`:
+- `metric`/`collection`: `{"agg": <fn>, "value": <fieldName>}`
+- `chart`: `{"agg": <fn>, "yField": <fieldName>, "groupBy": <fieldName>}`
+
+One live row also had BOTH a `metric_id` AND its own `aggregation` blob, with DIFFERENT measure
+fields (`metrics.measure_field = "ratinglevel"` vs. the panel's own `yField = "user_rating_score"`)
+— confirming `metric_id` is the authoritative, newer source when both are present, not a
+redundant duplicate. Also read `AggregateStep.scala`/`AggregateConfig` directly: the engine only
+ever compares `groupBy` keys by raw value (`AggregateField.type` is documented "informational
+only", never read at runtime) — so a migration-generated tail's `groupBy[].type` can safely be a
+fixed `"string"` placeholder without any behavioral risk. Translation used: the aggregated
+column's `alias` is the SAME NAME as the source field (`value`/`yField`, or `metrics.measure_field`
+when `metric_id` wins) — not a synthesized name — so a panel's already-recorded `field_mapping`
+(which names that exact field) continues to resolve correctly against the tail's output rows
+without any field_mapping rewrite. Documented at length inline in the migration file (not just
+here) so a future reader has the full chain of evidence, not just the conclusion.
+
+**DML added to `V94__outputs_model.sql` (new section 9):** for every panel bound to a
+pipeline-output type (`type IN (metric,chart,table,collection,timeline)` or `type='text' AND
+type_id IS NOT NULL`):
+1. Resolves the owning pipeline via `pipelines.output_data_type_id = panel.type_id` (1:1).
+2. Looks up that pipeline's last-trunk-step from a **one-time pre-loop snapshot**
+   (`hel904_original_trunk_last`, `TEMPORARY ... ON COMMIT DROP`) computed via a
+   `WITH RECURSIVE` position-0-descent walk from the root, BEFORE any panel in the loop has
+   appended a tail step. **This ordering is load-bearing, not cosmetic** — see the real bug found
+   and fixed below.
+3. Filters `field_mapping` to the valid slot set per kind (`PanelBindingSpec.allSlots`, HEL-892
+   AC 6): `metric`/`collection` → `{value,label,unit}`; `chart` → `{xAxis,yAxis,series,annotation}`;
+   `timeline` → `{time,event}`; `table`/data-bound `text` have no fixed slot list (kept unfiltered).
+   Dropped keys are logged to a new **genuinely persistent** `hel904_dropped_field_mapping_slots`
+   table (deliberately NOT `TEMPORARY` — see the file's own inline comment on why a session-scoped
+   temp table would be unobservable by this same file's test suite, which inspects it on a
+   separate connection after Flyway's migration connection has already closed).
+4. For a panel carrying `aggregation` and/or `metric_id`: builds an `AggregateConfig`-shaped
+   `{"groupBy":[...],"aggregations":[...]}` tail-step config (`metric_id` wins for the
+   alias/fn/field when both are present; `metrics.format` is carried into the new Output's
+   `config.format`), inserts a sibling-scoped `aggregate` pipeline_steps row (reusing this
+   ticket's own 1.6 sibling-scoping semantics: `position` = next free index among steps sharing
+   the same `parent_step_id`) with deterministic id `'hel904-tail-' || panel.id`, and attaches the
+   Output to that new step instead of the trunk.
+5. Inserts one `outputs` row (`config` built from the per-kind dropped columns + filtered
+   `fieldMapping` + `config.format` when applicable; `kind` = panel's `type`, mapped `text` →
+   `markdown`; deterministic id `'hel904-output-' || panel.id`; `owner_id` = the PIPELINE's owner,
+   not the panel's — an Output belongs to its pipeline, matching the `outputs_insert` RLS policy's
+   owner-scoped `WITH CHECK`).
+6. Updates `panels.output_id`/`kind = 'output'`.
+
+**Real regression found and fixed via this cycle's own multi-panel-per-pipeline test fixture**
+(not caught by any earlier, single-panel fixture, since it structurally cannot expose this bug):
+the FIRST version of this DML re-derived each panel's "last trunk step" with a fresh recursive
+walk INSIDE the loop, per panel. Once the FIRST aggregation/metric panel on a pipeline appended
+its tail step, that tail became the new deepest node reachable from the root — so a LATER panel
+on the SAME pipeline, re-walking the trunk from scratch, would (incorrectly) treat the EARLIER
+panel's own private aggregate tail as "the trunk" and attach itself downstream of it, corrupting
+which node's rows it actually binds to (a `table` panel ended up attached to a `metric` panel's
+private aggregate tail instead of the pipeline's real last data-producing step). **Root cause
+(probe-confirmed, not guessed):** confirmed via a failing assertion
+(`Some("hel904-tail-panel-metric-with-metricid") was not equal to Some(<expected trunk step
+id>)`) that pinpointed exactly which node the table panel had wrongly attached to, then traced it
+to the per-panel re-walk picking up the newly-inserted tail as the "deepest" node. **Fix:**
+precompute every pipeline's original trunk-last ONCE, in a snapshot table populated before the
+per-panel loop begins, and have every panel (including ones processed later in the same loop)
+look up that FIXED value rather than re-deriving it — this is exactly the same class of "read
+committed intermediate state as if it were fixed input" bug this project's standards warn about
+in migration DML, just newly encountered in this specific shape.
+
+**Test fixtures added to `V94OutputsMigrationSpec`** (shapes derived directly from the dev-DB
+query above, not invented): a `metrics` row (`measure_field='ratinglevel'`, `aggregation='avg'`,
+`format='{"style":"percent"}'`), and four panels — `panel-metric-agg` (plain HEL-292 aggregation,
+valid fieldMapping), `panel-chart-agg-invalid-fm` (chart with an invalid `{x,y}` fieldMapping —
+the exact HEL-892 AC 6 prod shape — plus a valid `groupBy` aggregation), `panel-metric-with-
+metricid` (both a `metric_id` AND its own, DIFFERENT `aggregation` blob, to prove priority),
+`panel-table-plain` (no aggregation, arbitrary fieldMapping keys, proving the no-slot-list kind
+keeps everything). Also widened the pre-existing `panel-bound` fixture to carry a real `type_id`
+(previously unset — it was only ever used for the kind-backfill assertion, never actually
+resolvable to a pipeline; 2.9(b) needed a genuinely bound fixture to test resolution against).
+
+**Red-first proof:** added a pre-migration assertion that `pipeline_steps` has exactly the 5
+seeded rows for the fixture pipeline (proving the post-migration tail-step-count assertions are
+not vacuous). Also had to fix the pre-existing cycle-3 "position order preserved" test, which
+queried ALL `pipeline_steps` for the fixture pipeline without excluding the new
+`hel904-tail-*` rows this cycle's migration now adds to it — scoped it to exclude that prefix
+(the test's *intent*, preserving the original 5-step trunk's positions, is unchanged; only its
+query needed updating for the new tail rows that legitimately now exist).
+
+**Post-migration assertions (6 new tests, all green):**
+- `panel-bound`'s Output resolves to the correct pipeline/node (the trunk's actual last step, no
+  tail — it carries no aggregation/metric_id).
+- `panel-metric-agg` gets exactly one `aggregate` tail step, `parent_step_id` = the trunk's last
+  step, `config` = `{"groupBy":[],"aggregations":[{"alias":"profit","fn":"avg","field":"profit"}]}`,
+  and its Output's `config.fieldMapping` is the untouched `{"value":"profit","label":"date"}`
+  (both are valid `metric` slots).
+- `panel-chart-agg-invalid-fm`'s Output `config.fieldMapping` is `{}` (both `x`/`y` are invalid
+  chart slots, dropped), the tail's `config` correctly carries the VALID `groupBy` aggregation
+  (`{"groupBy":[{"name":"month","type":"string"}],"aggregations":[{"alias":"profit","fn":"sum",
+  "field":"profit"}]}`), and both dropped keys are present in
+  `hel904_dropped_field_mapping_slots`, ordered and value-checked.
+- `panel-metric-with-metricid`'s tail uses `metrics.measure_field`/`aggregation`
+  (`"ratinglevel"`/`"avg"`) — NOT the panel's own conflicting `aggregation.value` — and
+  `config.format` equals `metrics.format` (`{"style":"percent"}`).
+- `panel-table-plain`'s Output `config.fieldMapping` is the fully unfiltered
+  `{"anyCol":"colName"}` (table has no fixed slot list), attached directly to the trunk (no tail,
+  since it has neither `aggregation` nor `metric_id`), and logs zero dropped slots.
+- The pre-existing 5 trunk steps' `position` values are still exactly `{0,1,2,3,4}` after the
+  migration adds 3 new tail steps to the same pipeline — proving `position` is never reset,
+  scoped correctly to exclude the new tails (which get their OWN independent sibling-scoped
+  positions under the trunk's last step, unaffected by this assertion).
+
+**Verification this cycle (confirmed, fresh, exit codes read directly):**
+- `sbt compile` — clean.
+- `sbt "testOnly com.helio.infrastructure.persistence.pipelines.V94OutputsMigrationSpec"` —
+  20/20 green (14 pre-existing + 6 new for 2.9(b)), after finding and fixing both the trunk-walk
+  ordering bug above and the `panel-bound` fixture gap.
+- Full `sbt test` (fresh run, read directly, not summarized): **3884/3884 passing**, exit code 0,
+  247 suites completed, 0 aborted, 0 failed, confirmed complete (3 min 27 sec run). +6 net vs.
+  cycle 5's 3878 (this cycle's 6 new `V94OutputsMigrationSpec` assertions; no other suite's test
+  count changed). No regressions from this cycle's migration DML or test-file edits.
+
+**Honest boundary this cycle stops at:** 2.9 steps (c)-(h) — unbound-panel deletion (count
+logged), orphan pipeline-output types → table Outputs, `data_type_rows` → `node_snapshots`,
+alert-rule retarget DML, computed-fields → compute steps, patch-set journal cleanup — are **NOT
+done**. 2.10 (the drops) remains untouched and still blocked on sections 3/4's consumer rewires
+per decision 1e, unchanged from every prior cycle's note.
+
+**Next cycle should:**
+1. Continue 2.9 with step (c) (unbound data panels — no `type_id`; DemoData seeds four,
+   `PanelRowMapper.scala:15-18` — deleted, count logged) and step (d) (every remaining
+   pipeline-output type with no panel → one `table` Output named after the type on the last
+   trunk step, decision 9) — both naturally follow from (b)'s now-established Output-creation
+   machinery and the `hel904_original_trunk_last` snapshot pattern.
+2. Step (e) (`data_type_rows` → `node_snapshots`) should land once (b)-(d) establish which node
+   each row's DataType maps to.
+3. Steps (f)/(g)/(h) (alert-rule retarget, computed-fields → compute steps, patch-set journal
+   cleanup) remain, in ticket order, before 2.10 can even be considered.
+4. **Do NOT let 2.10's drops land before section 3/4's consumer rewires are complete** (decision
+   1e) — unchanged guidance from every prior cycle.

@@ -291,3 +291,261 @@ WHERE agg.source_id = ds.id;
 DELETE FROM data_types dt
 WHERE dt.source_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM pipelines p WHERE p.output_data_type_id = dt.id);
+
+-- ── 9. Data migration step 2.9(b): bound panels -> Outputs ──────────────────
+--
+-- Every panel bound to a pipeline-output type (`type IN (metric, chart,
+-- table, collection, timeline)`, or `type = 'text' AND type_id IS NOT NULL`)
+-- becomes an `outputs` row on its pipeline's LAST TRUNK STEP (root, i.e.
+-- `node_step_id IS NULL`, if the pipeline has zero steps). A `text` panel's
+-- Output kind is `markdown` (`outputs.kind` has no `text` value); every
+-- other kind maps straight through.
+--
+-- **`panels.aggregation` (HEL-292) shape, resolved empirically this cycle**
+-- (not guessed) by querying every non-null value in the shared dev DB
+-- (`SELECT id, type, aggregation FROM panels WHERE aggregation IS NOT NULL
+-- OR metric_id IS NOT NULL`, 14 live rows, 2026-08-30): the blob is
+-- consistently one of exactly two shapes, keyed by panel `type`:
+--   - `metric`/`collection`: `{"agg": <fn>, "value": <fieldName>}`
+--   - `chart`: `{"agg": <fn>, "yField": <fieldName>, "groupBy": <fieldName>}`
+-- (`timeline` never carries `aggregation` in the live data -- not handled
+-- here; would fall through to the no-aggregation path if it ever did).
+-- This is a DIFFERENT shape from the pipeline engine's `AggregateStep.
+-- AggregateConfig` (`backend/.../domain/steps/AggregateStep.scala`):
+-- `{"groupBy":[{"name","type"}],"aggregations":[{"alias","fn","field"}]}`.
+-- Translation used here: the aggregated column's `alias` is the SAME NAME
+-- as the source field (`value`/`yField`) -- not a synthesized name -- so
+-- that the panel's already-recorded `field_mapping` (which names that exact
+-- field, e.g. `{"value":"profit"}`) continues to resolve correctly against
+-- the tail step's OUTPUT rows without any field_mapping rewrite. `groupBy`
+-- entries' `type` hint is set to `'string'` unconditionally: confirmed by
+-- reading `AggregateStep.apply` that the engine only ever compares group
+-- keys by raw value (`groupByFields.map(name => row.getOrElse(name, null))`)
+-- -- `AggregateField.type` is documented in its own scaladoc as "informational
+-- only", never read by the engine, so a fixed placeholder cannot cause a
+-- behavioral difference.
+--
+-- **`metric_id` (HEL-292 `metrics` table) takes priority over the panel's
+-- own `aggregation` blob when both are present** -- confirmed against a
+-- real dev-DB row (a chart panel with both a `metric_id` AND its own
+-- `aggregation`, whose `metrics.measure_field` differs from the panel's own
+-- `yField`) that `metrics` is the newer, authoritative source once set: the
+-- tail's `aggregations[0]` is built from `metrics.measure_field` (alias AND
+-- field) + `metrics.aggregation` (fn), and `metrics.format` is carried into
+-- the new Output's `config.format`. The panel's own `aggregation.groupBy`
+-- (chart's x-axis grouping -- `metrics` has no groupBy concept of its own)
+-- is still honored for the tail's `groupBy` array in this case, since it is
+-- an orthogonal axis-binding concern, not part of "which measure to
+-- aggregate".
+--
+-- Tail step: appended as a new sibling-scoped child of the last trunk step
+-- (or of the root if the pipeline has zero steps) -- reusing this ticket's
+-- own 1.6 sibling-scoping semantics (`position` = next free index among
+-- steps sharing that `parent_step_id`, scoped by `pipeline_id`). Migration-
+-- generated ids are deterministic (`'hel904-tail-' || panel.id` / '
+-- 'hel904-output-' || panel.id`) so this DML is idempotent/debuggable and
+-- collision-free (`panels.id` is already unique).
+--
+-- `config` is built from the panel's per-kind dropped columns (ticket.md
+-- scope item 4's drop list), plus `fieldMapping` -- filtered to the valid
+-- slot set for the panel's kind (`PanelBindingSpec.allSlots`, HEL-892 AC 6):
+-- `metric`/`collection` -> {value, label, unit}; `chart` -> {xAxis, yAxis,
+-- series, annotation}; `timeline` -> {time, event}; `table`/data-bound
+-- `text` have no fixed slot list (`PanelBindingSpec.Table`'s empty
+-- `allSlots`, and data-bound text/markdown is not in `PanelBindingSpec.
+-- DataBindable` at all) -- every key is kept unfiltered for those two
+-- kinds. Any dropped key is appended to a genuine (non-temporary)
+-- `hel904_dropped_field_mapping_slots` audit table -- a session-scoped
+-- `TEMPORARY` table would vanish the instant Flyway's own migration
+-- connection closes, making it unobservable by anything that runs
+-- afterward (including this file's own test suite, which inspects it on a
+-- separate connection) -- so a real table is the only shape that actually
+-- satisfies HEL-892 AC 6's "log it" requirement. One-time migration
+-- artifact; safe to drop once its contents have been reviewed (left for a
+-- human/task-2.10 cleanup step, not this migration).
+
+CREATE TABLE hel904_dropped_field_mapping_slots (
+  panel_id   TEXT NOT NULL,
+  panel_kind TEXT NOT NULL,
+  slot_key   TEXT NOT NULL,
+  slot_value TEXT NOT NULL,
+  logged_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Snapshot every pipeline's last-trunk-step BEFORE any tail steps are
+-- inserted below. This must be computed ONCE, up front, not re-derived
+-- per-panel inside the loop: once the FIRST aggregation/metric panel on a
+-- pipeline appends a tail, that tail becomes the deepest node reachable
+-- from the root -- a per-panel recursive walk would then (incorrectly)
+-- treat a PRIOR panel's own private aggregate tail as "the trunk" and
+-- chain every subsequent panel on that same pipeline behind it, corrupting
+-- which node's rows they actually bind to. A real regression, caught by
+-- this cycle's own multi-panel-per-pipeline test fixture (not by any
+-- single-panel-per-pipeline fixture, which cannot expose this ordering
+-- bug at all).
+CREATE TEMPORARY TABLE hel904_original_trunk_last (
+  pipeline_id  TEXT PRIMARY KEY,
+  step_id      TEXT NULL -- NULL = pipeline has zero steps (root)
+) ON COMMIT DROP;
+
+INSERT INTO hel904_original_trunk_last (pipeline_id, step_id)
+SELECT pl.id, (
+  SELECT t.id
+  FROM (
+    WITH RECURSIVE trunk AS (
+      SELECT id, 0 AS depth FROM pipeline_steps
+      WHERE pipeline_id = pl.id AND parent_step_id IS NULL
+      UNION ALL
+      SELECT c.id, tr.depth + 1
+      FROM pipeline_steps c
+      JOIN trunk tr ON c.parent_step_id = tr.id
+    )
+    SELECT id, depth FROM trunk ORDER BY depth DESC LIMIT 1
+  ) t
+)
+FROM pipelines pl;
+
+DO $$
+DECLARE
+  panel_row       RECORD;
+  metric_row      RECORD;
+  pipeline_row    RECORD;
+  trunk_last_id   TEXT;
+  target_node_id  TEXT;
+  new_step_id     TEXT;
+  new_output_id   TEXT;
+  next_position   INT;
+  out_kind        TEXT;
+  valid_slots     TEXT[];
+  raw_fm          JSONB;
+  filtered_fm     JSONB;
+  agg_blob        JSONB;
+  agg_fn          TEXT;
+  agg_alias       TEXT;
+  agg_field       TEXT;
+  group_by_field  TEXT;
+  step_config     JSONB;
+  out_config      JSONB;
+  fm_key          TEXT;
+  fm_val          JSONB;
+BEGIN
+  FOR panel_row IN
+    SELECT p.id, p.title, p.type, p.type_id, p.owner_id, p.field_mapping, p.aggregation,
+           p.metric_id, p.metric_label, p.metric_unit, p.chart_options, p.chart_annotation,
+           p.column_widths, p.table_density, p.column_order, p.collection_options,
+           p.timeline_options
+    FROM panels p
+    WHERE p.type IN ('metric', 'chart', 'table', 'collection', 'timeline')
+       OR (p.type = 'text' AND p.type_id IS NOT NULL)
+  LOOP
+    -- Resolve the owning pipeline (1:1: each pipeline mints exactly one
+    -- output type today, `PipelineRepository.create`).
+    SELECT id, owner_id INTO pipeline_row FROM pipelines WHERE output_data_type_id = panel_row.type_id;
+    CONTINUE WHEN NOT FOUND;
+
+    -- Last-trunk-step resolution: looked up from the ONE-TIME pre-loop
+    -- snapshot above (`hel904_original_trunk_last`), NOT re-walked here --
+    -- see that snapshot's own comment for why a per-panel walk would be
+    -- wrong once any earlier panel in this same loop has appended a tail.
+    SELECT step_id INTO trunk_last_id FROM hel904_original_trunk_last WHERE pipeline_id = pipeline_row.id;
+
+    -- Valid fieldMapping slots per kind (HEL-892 AC 6) -- table/data-bound
+    -- text have no fixed slot list, so NULL here means "keep everything".
+    valid_slots := CASE panel_row.type
+      WHEN 'metric'     THEN ARRAY['value', 'label', 'unit']
+      WHEN 'collection' THEN ARRAY['value', 'label', 'unit']
+      WHEN 'chart'      THEN ARRAY['xAxis', 'yAxis', 'series', 'annotation']
+      WHEN 'timeline'   THEN ARRAY['time', 'event']
+      ELSE NULL
+    END;
+
+    raw_fm := CASE WHEN panel_row.field_mapping IS NOT NULL THEN panel_row.field_mapping::jsonb ELSE '{}'::jsonb END;
+    IF valid_slots IS NULL THEN
+      filtered_fm := raw_fm;
+    ELSE
+      filtered_fm := '{}'::jsonb;
+      FOR fm_key, fm_val IN SELECT * FROM jsonb_each(raw_fm) LOOP
+        IF fm_key = ANY(valid_slots) THEN
+          filtered_fm := filtered_fm || jsonb_build_object(fm_key, fm_val);
+        ELSE
+          INSERT INTO hel904_dropped_field_mapping_slots(panel_id, panel_kind, slot_key, slot_value)
+          VALUES (panel_row.id, panel_row.type, fm_key, fm_val::text);
+        END IF;
+      END LOOP;
+    END IF;
+
+    -- Aggregation/metric tail step (ticket.md 10(b)): only for panels
+    -- carrying HEL-292 `aggregation` and/or a `metric_id`. `metric_id`
+    -- wins for the measure/fn (see file-header note above); the panel's
+    -- own `aggregation.groupBy` (chart axis binding) is honored regardless.
+    target_node_id := trunk_last_id;
+    out_config := '{}'::jsonb;
+
+    IF panel_row.aggregation IS NOT NULL OR panel_row.metric_id IS NOT NULL THEN
+      agg_blob := CASE WHEN panel_row.aggregation IS NOT NULL THEN panel_row.aggregation::jsonb ELSE NULL END;
+      group_by_field := NULLIF(agg_blob ->> 'groupBy', '');
+
+      IF panel_row.metric_id IS NOT NULL THEN
+        SELECT measure_field, aggregation, format INTO metric_row FROM metrics WHERE id = panel_row.metric_id;
+        agg_alias := metric_row.measure_field;
+        agg_field := metric_row.measure_field;
+        agg_fn    := metric_row.aggregation;
+        out_config := out_config || jsonb_build_object('format', metric_row.format);
+      ELSE
+        agg_fn    := agg_blob ->> 'agg';
+        agg_alias := COALESCE(agg_blob ->> 'value', agg_blob ->> 'yField');
+        agg_field := agg_alias;
+      END IF;
+
+      step_config := jsonb_build_object(
+        'groupBy',
+          CASE WHEN group_by_field IS NOT NULL
+               THEN jsonb_build_array(jsonb_build_object('name', group_by_field, 'type', 'string'))
+               ELSE '[]'::jsonb
+          END,
+        'aggregations', jsonb_build_array(jsonb_build_object('alias', agg_alias, 'fn', agg_fn, 'field', agg_field))
+      );
+
+      new_step_id := 'hel904-tail-' || panel_row.id;
+
+      SELECT COALESCE(MAX(position) + 1, 0) INTO next_position
+      FROM pipeline_steps
+      WHERE pipeline_id = pipeline_row.id
+        AND ((parent_step_id IS NULL AND trunk_last_id IS NULL) OR parent_step_id = trunk_last_id);
+
+      INSERT INTO pipeline_steps (id, pipeline_id, parent_step_id, position, op, config, enabled, created_at, updated_at)
+      VALUES (new_step_id, pipeline_row.id, trunk_last_id, next_position, 'aggregate', step_config::text, true, now(), now());
+
+      target_node_id := new_step_id;
+    END IF;
+
+    -- Per-kind config, lifted from the dropped columns (ticket.md scope
+    -- item 4's drop list), merged with the (possibly slot-filtered)
+    -- fieldMapping and (for aggregation/metric panels) `config.format`.
+    out_config := out_config || jsonb_strip_nulls(jsonb_build_object(
+      'fieldMapping',       filtered_fm,
+      'metricLabel',        panel_row.metric_label,
+      'metricUnit',         panel_row.metric_unit,
+      'columnWidths',       CASE WHEN panel_row.column_widths IS NOT NULL THEN panel_row.column_widths::jsonb END,
+      'tableDensity',       panel_row.table_density,
+      'columnOrder',        CASE WHEN panel_row.column_order IS NOT NULL THEN panel_row.column_order::jsonb END,
+      'chartOptions',       CASE WHEN panel_row.chart_options IS NOT NULL THEN panel_row.chart_options::jsonb END,
+      'collectionOptions',  CASE WHEN panel_row.collection_options IS NOT NULL THEN panel_row.collection_options::jsonb END,
+      'timelineOptions',    CASE WHEN panel_row.timeline_options IS NOT NULL THEN panel_row.timeline_options::jsonb END,
+      'chartAnnotation',    panel_row.chart_annotation
+    ));
+
+    out_kind := CASE WHEN panel_row.type = 'text' THEN 'markdown' ELSE panel_row.type END;
+    new_output_id := 'hel904-output-' || panel_row.id;
+
+    SELECT COALESCE(MAX(position) + 1, 0) INTO next_position
+    FROM outputs
+    WHERE pipeline_id = pipeline_row.id
+      AND ((node_step_id IS NULL AND target_node_id IS NULL) OR node_step_id = target_node_id);
+
+    INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, position, created_at, updated_at)
+    VALUES (new_output_id, pipeline_row.id, target_node_id, pipeline_row.owner_id, panel_row.title, out_kind, out_config, next_position, now(), now());
+
+    UPDATE panels SET output_id = new_output_id, kind = 'output' WHERE id = panel_row.id;
+  END LOOP;
+END $$;

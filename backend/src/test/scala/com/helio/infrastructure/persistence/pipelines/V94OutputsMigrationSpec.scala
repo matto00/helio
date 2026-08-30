@@ -91,14 +91,35 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     ) >> DBIO.seq(
       sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
              VALUES ($dashboardId, 'dash', $ownerId, now(), now(), '{}', '[]', $ownerId::uuid)""",
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
-             VALUES ('panel-bound', $dashboardId, 'bound', $ownerId::uuid, now(), now(), '{}', 'metric', $ownerId::uuid)""",
+      // `type_id = 'dt-1'` (previously unset -- unused for anything but the
+      // kind-backfill assertion prior to 2.9(b)) so this fixture is a
+      // genuinely bound panel: it must resolve to a real pipeline via
+      // `pipelines.output_data_type_id`, per 2.9(b)'s own test group below.
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id)
+             VALUES ('panel-bound', $dashboardId, 'bound', $ownerId::uuid, now(), now(), '{}', 'metric', 'dt-1', $ownerId::uuid)""",
       sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id)
              VALUES ('panel-bound-text', $dashboardId, 'bound-text', $ownerId::uuid, now(), now(), '{}', 'text', 'dt-1', $ownerId::uuid)""",
       sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
              VALUES ('panel-literal-text', $dashboardId, 'literal-text', $ownerId::uuid, now(), now(), '{}', 'text', $ownerId::uuid)""",
       sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
-             VALUES ('panel-divider', $dashboardId, 'divider', $ownerId::uuid, now(), now(), '{}', 'divider', $ownerId::uuid)"""
+             VALUES ('panel-divider', $dashboardId, 'divider', $ownerId::uuid, now(), now(), '{}', 'divider', $ownerId::uuid)""",
+      // Task 2.9(b) fixtures. Shapes below match the real dev-DB shapes
+      // resolved empirically this cycle (`SELECT id, type, aggregation FROM
+      // panels WHERE aggregation IS NOT NULL OR metric_id IS NOT NULL`).
+      sqlu"""INSERT INTO metrics (id, owner_id, data_type_id, name, measure_field, aggregation, allowed_dimensions, format)
+             VALUES ('metric-1', $ownerId::uuid, 'dt-1', 'Rating', 'ratinglevel', 'avg', '[]', '{"style":"percent"}')""",
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id, field_mapping, aggregation)
+             VALUES ('panel-metric-agg', $dashboardId, 'metric-agg', $ownerId::uuid, now(), now(), '{}', 'metric', 'dt-1', $ownerId::uuid,
+                     '{"value":"profit","label":"date"}', '{"agg":"avg","value":"profit"}')""",
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id, field_mapping, aggregation)
+             VALUES ('panel-chart-agg-invalid-fm', $dashboardId, 'chart-agg', $ownerId::uuid, now(), now(), '{}', 'chart', 'dt-1', $ownerId::uuid,
+                     '{"x":"month","y":"profit"}', '{"agg":"sum","yField":"profit","groupBy":"month"}')""",
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id, field_mapping, aggregation, metric_id)
+             VALUES ('panel-metric-with-metricid', $dashboardId, 'metric-with-id', $ownerId::uuid, now(), now(), '{}', 'metric', 'dt-1', $ownerId::uuid,
+                     '{"value":"ratinglevel"}', '{"agg":"avg","value":"someOtherField"}', 'metric-1')""",
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id, field_mapping)
+             VALUES ('panel-table-plain', $dashboardId, 'table-plain', $ownerId::uuid, now(), now(), '{}', 'table', 'dt-1', $ownerId::uuid,
+                     '{"anyCol":"colName"}')"""
     )))
 
     // Sanity: the pre-migration schema genuinely lacks the new columns --
@@ -117,6 +138,14 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       sql"SELECT count(*) FROM data_types WHERE id = 'dt-companion'".as[Int].head
     ))
     preMigrationCompanionCount shouldBe 1
+
+    // Red-first (task 2.9(b)): pre-migration, `pipeline_steps` has exactly
+    // the 5 seeded rows -- no migration-generated tail step exists yet
+    // (proves the tail-step-count assertions below are not vacuous).
+    val preMigrationStepCount = await(superDb.run(
+      sql"SELECT count(*) FROM pipeline_steps WHERE pipeline_id = $pipelineId".as[Int].head
+    ))
+    preMigrationStepCount shouldBe 5
 
     // ── Now migrate to latest (applies V94) ─────────────────────────────────
     Flyway
@@ -164,8 +193,13 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
 
   "V94 pipeline_steps.parent_step_id backfill" should {
     "preserve the pre-existing position order (not reset it), building a pure trunk from it" in {
+      // Excludes 2.9(b)'s migration-generated `hel904-tail-*` steps (this
+      // pipeline gains three once V94 runs in full) -- this test is about
+      // the ORIGINAL 5-step trunk's own positions, not the tails appended
+      // to it, which are covered by the 2.9(b) test group below.
       val rows = await(superDb.run(
-        sql"""SELECT id, position, parent_step_id FROM pipeline_steps WHERE pipeline_id = $pipelineId ORDER BY position"""
+        sql"""SELECT id, position, parent_step_id FROM pipeline_steps
+              WHERE pipeline_id = $pipelineId AND id NOT LIKE 'hel904-tail-%' ORDER BY position"""
           .as[(String, Int, Option[String])]
       ))
       rows.map(_._2) shouldBe Vector(0, 1, 2, 3, 4) // position untouched
@@ -353,6 +387,117 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       // sourceId owns BOTH dt-1 (pipeline-output, excluded) and no other
       // companion type -- inferred_schema must stay the untouched default.
       schema.parseJson shouldBe "[]".parseJson
+    }
+  }
+
+  "V94 data migration step 2.9(b) (bound panels -> Outputs)" should {
+    val trunkLastId = () => stepIds.last // last of the 5 pre-existing trunk steps
+
+    "resolve a plain bound panel's Output -> node -> pipeline correctly, with no tail step" in {
+      val (outputId, kind) = await(superDb.run(
+        sql"SELECT output_id, kind FROM panels WHERE id = 'panel-bound'".as[(Option[String], String)].head
+      ))
+      kind shouldBe "output"
+      outputId shouldBe defined
+
+      val (pipelineIdCol, nodeStepId, outKind) = await(superDb.run(
+        sql"SELECT pipeline_id, node_step_id, kind FROM outputs WHERE id = ${outputId.get}"
+          .as[(String, Option[String], String)].head
+      ))
+      pipelineIdCol shouldBe pipelineId
+      nodeStepId shouldBe Some(trunkLastId())
+      outKind shouldBe "metric"
+    }
+
+    "create exactly one aggregate tail step for a metric panel with its own HEL-292 aggregation, alias == field name" in {
+      val outputId = await(superDb.run(
+        sql"SELECT output_id FROM panels WHERE id = 'panel-metric-agg'".as[Option[String]].head
+      )).get
+
+      val (nodeStepId, config) = await(superDb.run(
+        sql"SELECT node_step_id, config::text FROM outputs WHERE id = $outputId".as[(Option[String], String)].head
+      ))
+      nodeStepId should not be Some(trunkLastId()) // it's the new tail, not the trunk itself
+      nodeStepId shouldBe defined
+
+      val (parentStepId, op, stepConfig) = await(superDb.run(
+        sql"SELECT parent_step_id, op, config::text FROM pipeline_steps WHERE id = ${nodeStepId.get}"
+          .as[(Option[String], String, String)].head
+      ))
+      parentStepId shouldBe Some(trunkLastId())
+      op shouldBe "aggregate"
+      stepConfig.parseJson shouldBe
+        """{"groupBy":[],"aggregations":[{"alias":"profit","fn":"avg","field":"profit"}]}""".parseJson
+
+      config.parseJson.asJsObject.fields("fieldMapping") shouldBe
+        """{"value":"profit","label":"date"}""".parseJson
+    }
+
+    "drop and log an invalid fieldMapping slot for a chart panel (HEL-892 AC 6), keep the valid groupBy tail" in {
+      val outputId = await(superDb.run(
+        sql"SELECT output_id FROM panels WHERE id = 'panel-chart-agg-invalid-fm'".as[Option[String]].head
+      )).get
+      val (nodeStepId, config) = await(superDb.run(
+        sql"SELECT node_step_id, config::text FROM outputs WHERE id = $outputId".as[(Option[String], String)].head
+      ))
+      config.parseJson.asJsObject.fields("fieldMapping") shouldBe "{}".parseJson
+
+      val stepConfig = await(superDb.run(
+        sql"SELECT config::text FROM pipeline_steps WHERE id = ${nodeStepId.get}".as[String].head
+      ))
+      stepConfig.parseJson shouldBe
+        """{"groupBy":[{"name":"month","type":"string"}],"aggregations":[{"alias":"profit","fn":"sum","field":"profit"}]}""".parseJson
+
+      val dropped = await(superDb.run(
+        sql"SELECT slot_key, slot_value FROM hel904_dropped_field_mapping_slots WHERE panel_id = 'panel-chart-agg-invalid-fm' ORDER BY slot_key"
+          .as[(String, String)]
+      ))
+      dropped shouldBe Vector(("x", "\"month\""), ("y", "\"profit\""))
+    }
+
+    "prefer metrics.measure_field/aggregation over the panel's own aggregation blob when metric_id is set, and carry metrics.format into config.format" in {
+      val outputId = await(superDb.run(
+        sql"SELECT output_id FROM panels WHERE id = 'panel-metric-with-metricid'".as[Option[String]].head
+      )).get
+      val (nodeStepId, config) = await(superDb.run(
+        sql"SELECT node_step_id, config::text FROM outputs WHERE id = $outputId".as[(Option[String], String)].head
+      ))
+      val stepConfig = await(superDb.run(
+        sql"SELECT config::text FROM pipeline_steps WHERE id = ${nodeStepId.get}".as[String].head
+      ))
+      stepConfig.parseJson shouldBe
+        """{"groupBy":[],"aggregations":[{"alias":"ratinglevel","fn":"avg","field":"ratinglevel"}]}""".parseJson
+      config.parseJson.asJsObject.fields("format") shouldBe """{"style":"percent"}""".parseJson
+    }
+
+    "leave a table panel's fieldMapping entirely unfiltered (no fixed slot list) and attach it directly to the trunk (no tail)" in {
+      val (outputId, _) = await(superDb.run(
+        sql"SELECT output_id, kind FROM panels WHERE id = 'panel-table-plain'".as[(Option[String], String)].head
+      ))
+      val (nodeStepId, config, outKind) = await(superDb.run(
+        sql"SELECT node_step_id, config::text, kind FROM outputs WHERE id = ${outputId.get}"
+          .as[(Option[String], String, String)].head
+      ))
+      outKind shouldBe "table"
+      nodeStepId shouldBe Some(trunkLastId())
+      config.parseJson.asJsObject.fields("fieldMapping") shouldBe """{"anyCol":"colName"}""".parseJson
+
+      val dropped = await(superDb.run(
+        sql"SELECT count(*) FROM hel904_dropped_field_mapping_slots WHERE panel_id = 'panel-table-plain'".as[Int].head
+      ))
+      dropped shouldBe 0
+    }
+
+    "never reset the pre-existing trunk steps' position values" in {
+      // Migration-generated tails use deterministic `hel904-tail-*` ids,
+      // never colliding with the 5 pre-existing (randomUUID) trunk step ids
+      // -- excluding that prefix isolates exactly the pre-existing rows.
+      val positions = await(superDb.run(
+        sql"""SELECT position FROM pipeline_steps
+              WHERE pipeline_id = $pipelineId AND id NOT LIKE 'hel904-tail-%'"""
+          .as[Int]
+      ))
+      positions.sorted shouldBe Vector(0, 1, 2, 3, 4)
     }
   }
 }

@@ -53,3 +53,37 @@ next cycle to resolve empirically before writing DML: `panels.aggregation` (HEL-
 opaque, undocumented-shape `JsObject` at the domain layer with no established translation to
 the pipeline engine's `AggregateConfig` shape. See execution-progress.md's "Cycle 6" section for
 the full reasoning on why no DML was landed this cycle.
+
+## Cycle 7 (this cycle — task 2.9 step (b): bound panels → Outputs)
+
+- `backend/src/main/resources/db/migration/V94__outputs_model.sql` — added section 9: for every
+  panel bound to a pipeline-output type, inserts an `outputs` row on that pipeline's last trunk
+  step (root if zero steps), mapping `text`→`markdown` kind; lifts `config` from the dropped
+  per-kind columns plus `fieldMapping` filtered to the valid slot set per kind (HEL-892 AC 6),
+  logging dropped keys to a new, genuinely persistent `hel904_dropped_field_mapping_slots` audit
+  table (a session-scoped `TEMPORARY` table would vanish before any later connection — including
+  this file's own test suite — could inspect it); for panels carrying HEL-292 `aggregation` or a
+  `metric_id`, appends an `aggregate` tail step (sibling-scoped per this ticket's own 1.6 fix) and
+  attaches the Output there instead, with `metric_id` taking priority over the panel's own
+  `aggregation` blob for the measure/fn (empirically confirmed against a real dev-DB row carrying
+  both, with differing measure fields) and `metrics.format` carried into `config.format`. Also adds
+  a one-time pre-loop snapshot table (`hel904_original_trunk_last`, `ON COMMIT DROP`) capturing
+  every pipeline's last-trunk-step BEFORE any tail steps are inserted — a real ordering bug (caught
+  by this cycle's own multi-panel-per-pipeline fixture) where a per-panel recursive re-walk would
+  otherwise treat an EARLIER panel's own private aggregate tail as "the trunk" once it existed,
+  chaining every subsequent panel on that pipeline behind it.
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/V94OutputsMigrationSpec.scala`
+  — `panel-bound` fixture given a real `type_id` (previously unset, only used for the kind-backfill
+  assertion — 2.9(b) needed a genuinely resolvable bound panel); added 4 new fixtures (`panel-metric-agg`,
+  `panel-chart-agg-invalid-fm`, `panel-metric-with-metricid`, `panel-table-plain`) plus a `metrics`
+  row, all shapes derived from the real dev-DB `panels.aggregation`/`metrics` values queried this
+  cycle (`SELECT id, type, aggregation FROM panels WHERE aggregation IS NOT NULL OR metric_id IS NOT
+  NULL`); added a red-first pre-migration step-count assertion and 6 new post-migration tests
+  (Output→node→pipeline resolution, tail-step creation + `AggregateConfig` shape for a plain
+  aggregation panel, invalid-slot drop+log for a chart panel, `metric_id`-over-`aggregation` priority
+  + `config.format` carry-through, table panel's fully-unfiltered `fieldMapping`, and the pre-existing
+  trunk steps' `position` values staying untouched). Also fixed the pre-existing cycle-3
+  "position order preserved" test to exclude the new `hel904-tail-*` rows it wasn't scoped for.
+- `openspec/changes/outputs-model-migration/tasks.md` — 2.9 step (b) marked done (steps (c)-(h) still
+  not started).
+- `openspec/changes/outputs-model-migration/execution-progress.md`, this file — updated for cycle 7.
