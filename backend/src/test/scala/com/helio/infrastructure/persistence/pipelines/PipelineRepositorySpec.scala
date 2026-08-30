@@ -168,7 +168,6 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(pipelineRepo.create(
         name               = "owned-pipeline",
         sourceDataSourceId = DataSourceId(dsId),
-        outputDataTypeName = "owned-dt",
         user               = AuthenticatedUser(UserId(customOwner))
       ))
       result.isRight shouldBe true
@@ -311,7 +310,6 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(pipelineRepo.create(
         name               = "hijack-attempt",
         sourceDataSourceId = DataSourceId(dsId),
-        outputDataTypeName = "dt",
         user               = AuthenticatedUser(UserId(ownerB))
       ))
       result shouldBe Left("Data source not found")

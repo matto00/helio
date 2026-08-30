@@ -254,4 +254,14 @@ abstract class PipelineApplyProposalSpecBase
             WHERE pipeline_id = $pipelineId
             ORDER BY started_at DESC LIMIT 1""".as[(String, Option[String])].headOption
     ))
+
+  /** HEL-904 task 3.5: `pipelineRepo.create` no longer mints a legacy
+   *  DataType, so a proposal-created pipeline's row output is verifiable
+   *  only via `node_snapshots` now (no `GET /api/outputs/:id/rows` route
+   *  yet — P1.3/HEL-906's job) — a direct, privileged-pool row count,
+   *  mirroring `countRows`'s existing convention. */
+  protected def nodeSnapshotRowCount(pipelineId: String): Int =
+    await(ctx.withSystemContext(
+      sql"SELECT COUNT(*) FROM node_snapshots WHERE pipeline_id = $pipelineId".as[Int].head
+    ))
 }

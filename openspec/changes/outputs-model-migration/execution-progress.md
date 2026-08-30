@@ -1852,3 +1852,84 @@ point once time/budget allows starting cold on it.
    half of section 3's numbered items are done; the largest remaining chunks are the 3.11/3.12
    cluster and 3.5's wide-but-shallow blast radius. Section 3 is NOT close to fully done — do not
    treat it as near-complete going into the next cycle.
+
+## Cycle 19 — task 3.5 landed (`Pipeline.outputDataTypeId` retirement)
+
+Starting state verified fresh: HEAD = `87df770a` (cycle 18's commit), tree clean, full `sbt test`
+re-confirmed 3629/3629 green before starting.
+
+**Scope landed this cycle:** task 3.5 in full — `PipelineRepository.create` no longer mints a
+`DataType`; `Pipeline.outputDataTypeId` removed from the domain model; `PipelineService.create`
+drops `outputDataTypeName`. New migration `V95__pipelines_output_data_type_id_nullable.sql` relaxes
+the column's NOT NULL constraint (column itself stays — task 2.10/section 4 still owns the eventual
+drop). See `files-modified.md` for the full file list; summary:
+
+- `CreatePipelineRequest`/`PipelineSummaryResponse`/`PipelineAnalyzeResponse` all drop
+  `outputDataTypeName`/`outputDataTypeId` (the schema at `pipeline-analyze-response.schema.json`
+  updated to match — `additionalProperties: false` would otherwise fail).
+- `PipelineRepository` gained two new methods for the still-live legacy DataType read/write paths
+  that pre-date this ticket and are NOT part of its scope to remove yet:
+  `findOutputDataTypeIdInternal` (privileged read, backs `PipelineRunService`'s legacy
+  schema/row-upsert gate, and `PipelineProposalService.rollback`'s docstring update) and
+  `setOutputDataTypeIdInternalForTest` (a test-only back door letting specs still wire a
+  pipeline↔DataType association directly, now that no production path does).
+- `PipelineRunService.onRunSuccess`/`onUnblockedRunSuccess` take `Option[DataTypeId]` (was
+  required) — the legacy `dataTypeRepo`/`dataTypeRowRepo` writes are now additionally gated on
+  `isDefined`, not just on the repo being non-null.
+- `PipelineProposalService`: the `rollbackAll`/`rollback`/`createPipeline` legacy-DataType cleanup
+  paths are gone (nothing left to clean up) — mechanical simplification, no behavior change to the
+  real Output rollback path task 3.8 already built.
+- `WorkspaceContextService`/`WorkspaceSearchService`: minimal mechanical fallout ONLY (empty-string
+  placeholder / source-only description), explicitly commented as pending task 3.12's real rewire —
+  did NOT expand scope into 3.12's actual work this cycle.
+
+**Test fallout (large, all mechanical):** ~30 spec files across pipelines/patchsets/alerts/
+workspace touched the removed fields or the old 5-arg `create` signature. Three specs
+(`WorkspaceContextServiceSpec`, `WorkspaceSearchServiceSpec`, `WorkspaceTeardownServiceSpec`) relied
+on `pipelineRepo.create`'s DataType-minting to test still-live legacy DataType behavior (pre-3.12) —
+fixed by a local `createPipeline` test helper that now creates the pipeline and a companion
+`DataType` SEPARATELY, then wires them via the new `setOutputDataTypeIdInternalForTest` back door
+(keeps testing real legacy behavior, doesn't fake it). `PipelineApplyProposalRollbackSpec`/
+`PipelineApplyProposalSpec`/`CombinedApplyProposalSpec` needed their `dataTypeCount()` delta
+assertions corrected (one fewer DataType now minted per pipeline create) and a new
+`nodeSnapshotRowCount` helper on `PipelineApplyProposalSpecBase` replacing the now-dead
+`GET /api/types/:id/rows` row-population checks (no `GET /api/outputs/:id/rows` route exists yet —
+P1.3/HEL-906's job) — caught a genuine bug in my own first pass at this fix (a python find/replace
+over-matched and silently zeroed the sql-inline-source case's `dataTypeCount()` expectation to 0
+instead of +1; caught by the SECOND full-suite run, not by review — a reminder that "compiles" and
+"correct assertion" are different bars).
+
+**Verification this cycle (fresh, exit codes/counts read directly):**
+- `sbt -batch compile` — clean.
+- `sbt -batch Test/compile` — clean.
+- Full `sbt -batch test` run TWICE after the last code change — **3629/3629 passing both times**,
+  exit code 0, 238 suites, 0 aborted, 0 failed — genuinely stable, not a partial/isolated claim.
+- `node scripts/check-scala-quality.mjs` — clean (139 pre-existing soft file-size warnings,
+  unchanged from cycle 18 — no new violations).
+- `node scripts/check-schema-drift.mjs` — clean (schema updated in-step with the protocol change).
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+
+**Deliberately NOT started this cycle:** 3.2, 3.3, 3.7, 3.11, 3.11a, 3.12, 3.15 — this cycle's
+entire budget went to landing 3.5 correctly (larger blast radius than the ~44-file estimate implied,
+once the test-side legacy-DataType-linking gap surfaced) and re-verifying stability twice. Task 3.15
+was investigated and confirmed still premature: `ApiRoutes.scala`'s `"data-type"` `ResourceType`
+registration is still a live ACL dependency for `/api/types/:id` (not yet deleted) AND for
+`PatchSetApplyService`'s still-live `dataType`-kind patch-set targets (task 3.3, not yet done) —
+removing it now would break both live paths; it belongs with §4.2's route deletions as tasks.md
+already says.
+
+**Section 3 status after this cycle:** 3.1/3.4/3.5/3.8/3.9?/3.10?/3.10a?/3.13/3.14 — NOTE: re-verify
+3.9/3.10/3.10a against `tasks.md`'s own checkboxes before trusting any prior cycle's prose summary
+of them; this cycle's own read of `tasks.md` at start found 3.9/3.10/3.10a still UNCHECKED
+(`[ ]`), contradicting language in an earlier orchestrator resume message that described them as
+already complete. Only 3.1/3.4/3.5/3.8/3.13/3.14 are confirmed `[x]` in `tasks.md` as of this
+cycle's end. Remaining: 3.2, 3.3, 3.6 (partial — write-path increment landed cycle 15, full
+collapse still pending), 3.7, 3.9, 3.10, 3.10a, 3.11, 3.11a, 3.12, 3.15.
+
+**Next cycle should:**
+1. Re-confirm the actual `tasks.md` checkbox state for 3.9/3.10/3.10a with fresh eyes before
+   planning around them — do not trust a resume message's prose summary over the file itself.
+2. Take 3.12 (`WorkspaceContextService`) as the root of the 3.11/3.12 cluster per cycle 18's own
+   analysis (still valid — nothing this cycle changed that finding).
+3. 3.2/3.3/3.7/3.15 remain as scoped in the ticket; 3.15 specifically blocked on 3.3 (dataType
+   patch-set targets) and §4.2 (route deletion), not schedulable standalone.

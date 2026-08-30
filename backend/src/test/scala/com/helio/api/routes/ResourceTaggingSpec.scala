@@ -238,8 +238,8 @@ class ResourceTaggingSpec
           Instant.now(), Instant.now()),
         userA
       ))
-      await(pipelineRepo.create("Tagged", src.id, "Out1", userA, Some(tag)))
-      await(pipelineRepo.create("Untagged", src.id, "Out2", userA, None))
+      await(pipelineRepo.create("Tagged", src.id, userA, Some(tag)))
+      await(pipelineRepo.create("Untagged", src.id, userA, None))
 
       Get(s"/pipelines?tag=$tag") ~> pipelineRoutesFor(userA) ~> check {
         val summaries = responseAs[Vector[PipelineSummaryResponse]]

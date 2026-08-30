@@ -138,16 +138,50 @@ class WorkspaceSearchServiceSpec
     }
   }
 
+  /** Test-only shape mirroring the pre-3.5 `PipelineSummary` plus a real
+   *  `outputDataTypeId` -- HEL-904 task 3.5: `pipelineRepo.create` no longer
+   *  mints a DataType at all, so this helper creates the pipeline and a
+   *  companion DataType separately, then wires the two together via
+   *  `setOutputDataTypeIdInternalForTest` (a test-only back door), so this
+   *  spec can keep exercising the still-live legacy DataType read paths
+   *  (task 3.2/3.12 have not yet rewired them onto Outputs). */
+  private final case class SeededPipeline(
+      id: String,
+      sourceDataSourceName: String,
+      outputDataTypeId: String
+  )
+
   private def createPipeline(
       user: AuthenticatedUser,
       sourceId: DataSourceId,
       name: String = s"pipe-${UUID.randomUUID()}",
       outputName: String = s"out-${UUID.randomUUID()}"
-  ): PipelineRepository.PipelineSummary =
-    await(pipelineRepo.create(name, sourceId, outputName, user)) match {
-      case Right(summary) => summary
-      case Left(err)       => fail(s"pipeline create failed: $err")
+  ): SeededPipeline = {
+    val summary = await(pipelineRepo.create(name, sourceId, user)) match {
+      case Right(s)  => s
+      case Left(err) => fail(s"pipeline create failed: $err")
     }
+    val now = Instant.now()
+    val dataType = DataType(
+      id             = DataTypeId(UUID.randomUUID().toString),
+      sourceId       = None,
+      name           = outputName,
+      fields         = Vector.empty,
+      computedFields = Vector.empty,
+      version        = 1,
+      createdAt      = now,
+      updatedAt      = now,
+      ownerId        = user.id,
+      tag            = None
+    )
+    val createdDataType = await(dataTypeRepo.insert(dataType, user))
+    await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), createdDataType.id))
+    SeededPipeline(
+      id                   = summary.id,
+      sourceDataSourceName = summary.sourceDataSourceName,
+      outputDataTypeId     = createdDataType.id.value
+    )
+  }
 
   private def createDashboard(user: AuthenticatedUser, name: String = s"dash-${UUID.randomUUID()}"): Dashboard = {
     val now = Instant.now()
@@ -243,8 +277,10 @@ class WorkspaceSearchServiceSpec
       val results  = await(service.find(userA, "find-51-pipeline-alpha"))
       val hit = results.find(_.id == pipeline.id).getOrElse(fail("pipeline summary missing"))
       hit.resourceType shouldBe "pipeline"
+      // HEL-904 task 3.5/3.2: the pipeline summary description no longer
+      // includes a legacy DataType name (`PipelineSummaryResponse` dropped
+      // `outputDataTypeName`; task 3.2 will rewire this onto Outputs).
       hit.description should include(pipeline.sourceDataSourceName)
-      hit.description should include(pipeline.outputDataTypeName)
     }
 
     "return a summary for a query matching an owned dashboard's name" in {

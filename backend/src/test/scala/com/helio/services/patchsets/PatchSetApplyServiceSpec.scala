@@ -181,7 +181,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
   }
 
   private def seedPipeline(owner: AuthenticatedUser, sourceId: DataSourceId, name: String = "Pipeline"): PipelineSummaryResponse =
-    await(pipelineService.create(CreatePipelineRequest(name, sourceId.value, "Output"), owner)) match {
+    await(pipelineService.create(CreatePipelineRequest(name, sourceId.value), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"seedPipeline failed: $e")
     }
@@ -570,7 +570,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
           val priorJson = response.edits.head.priorState.getOrElse(fail("expected priorState"))
           val prior     = priorJson.convertTo[PipelineSummaryResponse]
           prior.sourceDataSourceName shouldBe "PipelineSrcForPriorState"
-          prior.outputDataTypeName shouldBe "Output"
           prior.name shouldBe "MyPipeline"
         case Left(err) => fail(s"expected success, got $err")
       }

@@ -102,7 +102,7 @@ class AlertEventRoutesSpec
     val now    = Instant.now()
     val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
     val createdSource = await(dataSourceRepo.insert(source, user))
-    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, "pipe-output", user)).getOrElse(
+    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, user)).getOrElse(
       throw new IllegalStateException("newOutput fixture: pipeline create failed")
     )
     await(outputRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table)).id

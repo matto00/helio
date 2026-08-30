@@ -699,7 +699,7 @@ class AuditMutationInstrumentationSpec
         dataSourceId = responseAs[DataSourceResponse].id
       }
       var pipelineId = ""
-      Post("/api/pipelines", CreatePipelineRequest("DupStepPipeline", dataSourceId, "DupStepOutput")) ~> routesFor() ~> check {
+      Post("/api/pipelines", CreatePipelineRequest("DupStepPipeline", dataSourceId)) ~> routesFor() ~> check {
         status shouldBe StatusCodes.Created
         pipelineId = responseAs[PipelineSummaryResponse].id
       }
@@ -730,7 +730,7 @@ class AuditMutationInstrumentationSpec
         dataSourceId = responseAs[DataSourceResponse].id
       }
       var pipelineId = ""
-      Post("/api/pipelines", CreatePipelineRequest("ReorderStepPipeline", dataSourceId, "ReorderStepOutput")) ~> routesFor() ~> check {
+      Post("/api/pipelines", CreatePipelineRequest("ReorderStepPipeline", dataSourceId)) ~> routesFor() ~> check {
         status shouldBe StatusCodes.Created
         pipelineId = responseAs[PipelineSummaryResponse].id
       }
@@ -992,7 +992,7 @@ class AuditMutationInstrumentationSpec
       val srcId       = createTaggedSource("TeardownBlockedSource", blockedTag)
       // An untagged dependent pipeline over the tagged source blocks the
       // whole call (mirrors WorkspaceTeardownServiceSpec 6.4).
-      Post("/api/pipelines", CreatePipelineRequest("TeardownBlockedPipeline", srcId, "TeardownBlockedOutput")) ~> routesFor() ~> check {
+      Post("/api/pipelines", CreatePipelineRequest("TeardownBlockedPipeline", srcId)) ~> routesFor() ~> check {
         status shouldBe StatusCodes.Created
       }
 

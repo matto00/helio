@@ -408,7 +408,7 @@ class PipelineRunRoutesSpec
       val cache  = new PipelineRunCache()
       val dtRepo = new DataTypeRepository(ctx)(routeEc)
       val dsId   = seedDsWithData()
-      val pid    = seedPipeline(dsId)
+      val (pid, dtId) = seedPipelineWithDtId(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -418,8 +418,7 @@ class PipelineRunRoutesSpec
         sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
       ))
       statusOpt shouldBe Some("succeeded")
-      val pipeline = await(pipelineRepo.findById(pid, dummyUser)).get
-      val dt = await(dtRepo.findByIdInternal(pipeline.outputDataTypeId)).get
+      val dt = await(dtRepo.findByIdInternal(DataTypeId(dtId))).get
       dt.fields.map(_.name) should contain allOf ("name", "score")
     }
 

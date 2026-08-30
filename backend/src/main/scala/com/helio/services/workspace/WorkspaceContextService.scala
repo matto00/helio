@@ -314,8 +314,12 @@ final class WorkspaceContextService(
       name                 = summary.name,
       sourceDataSourceId   = summary.sourceDataSourceId,
       sourceDataSourceName = summary.sourceDataSourceName,
-      outputDataTypeId     = summary.outputDataTypeId,
-      outputDataTypeName   = summary.outputDataTypeName,
+      // HEL-904 task 3.5: `PipelineSummaryResponse` no longer carries the
+      // legacy `outputDataTypeId`/`outputDataTypeName` fields (retired with
+      // the DataType-minting create-path). Left empty here as a placeholder
+      // until task 3.12 rewires this whole assembler onto Outputs.
+      outputDataTypeId     = "",
+      outputDataTypeName   = "",
       lastRunStatus        = summary.lastRunStatus,
       lastRunAt            = summary.lastRunAt,
       lastRunRowCount      = summary.lastRunRowCount,

@@ -134,7 +134,10 @@ final class WorkspaceSearchService(
       id           = p.id,
       resourceType = WorkspaceResourceType.asString(WorkspaceResourceType.Pipeline),
       name         = p.name,
-      description  = s"${p.sourceDataSourceName} → ${p.outputDataTypeName}"
+      // HEL-904 task 3.5: `outputDataTypeName` no longer exists on
+      // `PipelineSummaryResponse` (task 3.2 rewires this description onto
+      // Outputs). Left source-only until then.
+      description  = p.sourceDataSourceName
     )
 
   /** Reuses `workspaceContextService.toDashboardEntry` (widened `private[services]`, design.md D2)

@@ -197,18 +197,47 @@ class WorkspaceContextServiceSpec
     }
   }
 
+  /** Test-only shape mirroring the pre-3.5 `PipelineSummary` -- `id` and
+   *  `outputDataTypeId` are the only fields this spec's own assertions
+   *  read. */
+  private final case class SeededPipeline(id: String, outputDataTypeId: String)
+
   /** A Pipeline over `sourceId` (+ its freshly-inserted output DataType,
-   *  `sourceId` absent — the pipeline-output / panel-bindable case). */
+   *  `sourceId` absent — the pipeline-output / panel-bindable case).
+   *
+   *  HEL-904 task 3.5: `pipelineRepo.create` no longer mints a DataType at
+   *  all — this helper creates the pipeline and a companion DataType
+   *  separately, then wires the two together via
+   *  `setOutputDataTypeIdInternalForTest` (a test-only back door), so this
+   *  spec can keep exercising the still-live legacy DataType read/write
+   *  paths (task 3.12 has not yet rewired them onto Outputs). */
   private def createPipeline(
       user: AuthenticatedUser,
       sourceId: DataSourceId,
       name: String = s"pipe-${UUID.randomUUID()}",
       outputName: String = s"out-${UUID.randomUUID()}"
-  ): PipelineRepository.PipelineSummary =
-    await(pipelineRepo.create(name, sourceId, outputName, user)) match {
-      case Right(summary) => summary
-      case Left(err)       => fail(s"pipeline create failed: $err")
+  ): SeededPipeline = {
+    val summary = await(pipelineRepo.create(name, sourceId, user)) match {
+      case Right(s)   => s
+      case Left(err)  => fail(s"pipeline create failed: $err")
     }
+    val now = Instant.now()
+    val dataType = DataType(
+      id             = DataTypeId(UUID.randomUUID().toString),
+      sourceId       = None,
+      name           = outputName,
+      fields         = Vector.empty,
+      computedFields = Vector.empty,
+      version        = 1,
+      createdAt      = now,
+      updatedAt      = now,
+      ownerId        = user.id,
+      tag            = None
+    )
+    val createdDataType = await(dataTypeRepo.insert(dataType, user))
+    await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), createdDataType.id))
+    SeededPipeline(id = summary.id, outputDataTypeId = createdDataType.id.value)
+  }
 
   private def createDashboard(user: AuthenticatedUser, name: String = s"dash-${UUID.randomUUID()}"): Dashboard = {
     val now = Instant.now()

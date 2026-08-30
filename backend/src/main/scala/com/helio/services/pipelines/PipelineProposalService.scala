@@ -313,7 +313,7 @@ final class PipelineProposalService(
    *  for "this already succeeded, undo it now."
    *
    *  Same delete order as `rollbackAll`: pipeline (cascades steps/runs) →
-   *  output DataType → (if `response.source` is defined, meaning this
+   *  output Output → (if `response.source` is defined, meaning this
    *  proposal's own `apply` created it inline) the source → its companion
    *  DataType(s). Since `rollback` runs BEFORE any of ITS OWN deletes have
    *  happened yet, a fresh `dataTypeRepo.findBySourceId` read here is safe —
@@ -321,18 +321,15 @@ final class PipelineProposalService(
    *  once issued after the source delete (design.md D5). Composed entirely
    *  through `pipelineService.delete`/`dataTypeService.delete`/
    *  `dataSourceService.delete` — never a raw repository call. No existing
-   *  method in this file is modified. */
+   *  method in this file is modified.
+   *
+   *  HEL-904 task 3.5: `pipelineService.create` no longer mints a legacy
+   *  DataType at all, so this rollback no longer has one to delete — only
+   *  the real Output (`response.outputDataTypeId`, the client-facing field —
+   *  task 3.8) needs cleanup on the pipeline side. */
   def rollback(response: PipelineProposalApplyResponse, user: AuthenticatedUser): Future[Unit] =
     pipelineService.delete(PipelineId(response.pipeline.id), user).flatMap { _ =>
-      // Deletes BOTH the real Output (`response.outputDataTypeId`, the
-      // client-facing field — HEL-904 task 3.8/3.5) AND the legacy pipeline-
-      // minted DataType (`response.pipeline.outputDataTypeId`, still real
-      // and orphan-prone until task 3.5 stops `PipelineService.create` from
-      // minting one at all) — the pipeline row itself never cascade-deletes
-      // it (the FK points the other way: `pipelines.output_data_type_id`
-      // REFERENCES `data_types(id)`, not the reverse).
       outputRepo.deleteInternal(OutputId(response.outputDataTypeId)).flatMap { _ =>
-      dataTypeService.delete(DataTypeId(response.pipeline.outputDataTypeId), user).flatMap { _ =>
         response.source match {
           case None => Future.successful(())
           case Some(source) =>
@@ -344,7 +341,6 @@ final class PipelineProposalService(
             }
         }
       }
-      }
     }
 
   // ── Pipeline + steps + run, then rollback on any failure (design.md D5/D6) ─
@@ -355,7 +351,7 @@ final class PipelineProposalService(
       user: AuthenticatedUser
   ): Future[Either[ServiceError, PipelineProposalApplyResponse]] =
     pipelineService
-      .create(CreatePipelineRequest(proposal.pipelineName.trim, resolved.id.value, proposal.outputDataTypeName.trim), user)
+      .create(CreatePipelineRequest(proposal.pipelineName.trim, resolved.id.value), user)
       .flatMap {
         case Left(err) =>
           // Nothing pipeline-side to roll back yet; the source (if this call
@@ -366,11 +362,10 @@ final class PipelineProposalService(
           addSteps(pipelineId, proposal.steps, user).flatMap {
             case Left(err) =>
               // The real Output doesn't exist yet (created only after steps
-              // succeed, below), but `pipelineService.create` above already
-              // minted the legacy output DataType (`summary.outputDataTypeId`)
-              // — still needs cleanup, same as `rollbackAll`.
+              // succeed, below); `pipelineService.create` (task 3.5) no
+              // longer mints a legacy DataType to clean up here either — the
+              // pipeline row itself is the only thing to roll back.
               pipelineService.delete(pipelineId, user)
-                .flatMap(_ => dataTypeService.delete(DataTypeId(summary.outputDataTypeId), user))
                 .flatMap(_ => rollbackSourceOnly(resolved, user))
                 .map(_ => Left(err))
             case Right(createdSteps) =>
@@ -447,14 +442,14 @@ final class PipelineProposalService(
         case Left(err) =>
           // D6: run failure is "a failure at any step" — full
           // rollback, not a partial success with run: null.
-          rollbackAll(pipelineId, outputIdStr, summary.outputDataTypeId, resolved, user).map(_ => Left(err))
+          rollbackAll(pipelineId, outputIdStr, resolved, user).map(_ => Left(err))
         // HEL-570 (design.md Decision 8): a blocked run returns `Right`
         // with the Output never populated — treated identically to a run
         // failure for rollback purposes, since a "success" response here
         // would point the caller at an empty Output. Must be checked
         // BEFORE the unguarded `Right(runResult)` case.
         case Right(runResult) if runResult.blocked =>
-          rollbackAll(pipelineId, outputIdStr, summary.outputDataTypeId, resolved, user).map(_ => Left(
+          rollbackAll(pipelineId, outputIdStr, resolved, user).map(_ => Left(
             ServiceError.UnprocessableEntity(runResult.blockedReason.getOrElse("Run blocked by an assertion failure"))
           ))
         case Right(runResult) =>
@@ -496,15 +491,12 @@ final class PipelineProposalService(
   private def rollbackAll(
       pipelineId: PipelineId,
       outputId: String,
-      legacyOutputDataTypeId: String,
       resolved: ResolvedSource,
       user: AuthenticatedUser
   ): Future[Unit] =
     pipelineService.delete(pipelineId, user).flatMap { _ =>
       outputRepo.deleteInternal(OutputId(outputId)).flatMap { _ =>
-        dataTypeService.delete(DataTypeId(legacyOutputDataTypeId), user).flatMap { _ =>
-          rollbackSourceOnly(resolved, user)
-        }
+        rollbackSourceOnly(resolved, user)
       }
     }
 

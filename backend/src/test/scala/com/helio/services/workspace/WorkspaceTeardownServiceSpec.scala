@@ -183,17 +183,45 @@ class WorkspaceTeardownServiceSpec
 
   /** Create a Pipeline (+ its freshly-inserted, same-tagged output DataType —
    *  the only insertion site, tasks.md 2.3(b)) over `sourceId`, owned by `user`. */
+  /** Test-only shape mirroring the pre-3.5 `PipelineSummary` -- `id` and
+   *  `outputDataTypeId` are the only fields this spec's own assertions
+   *  read. */
+  private final case class SeededPipeline(id: String, outputDataTypeId: String)
+
+  /** HEL-904 task 3.5: `pipelineRepo.create` no longer mints a DataType at
+   *  all -- this helper creates the pipeline and a companion DataType
+   *  (carrying the SAME `tag`, mirroring the retired create-path's own
+   *  tag-parity behavior this spec's tag-based teardown conflicts depend
+   *  on) separately, then wires the two together via
+   *  `setOutputDataTypeIdInternalForTest` (a test-only back door). */
   private def createPipeline(
       user: AuthenticatedUser,
       sourceId: DataSourceId,
       tag: Option[String],
       name: String = s"pipe-${UUID.randomUUID()}",
       outputName: String = s"out-${UUID.randomUUID()}"
-  ): PipelineSummary =
-    await(pipelineRepo.create(name, sourceId, outputName, user, tag)) match {
-      case Right(summary) => summary
-      case Left(err)       => fail(s"pipeline create failed: $err")
+  ): SeededPipeline = {
+    val summary = await(pipelineRepo.create(name, sourceId, user, tag)) match {
+      case Right(s)  => s
+      case Left(err) => fail(s"pipeline create failed: $err")
     }
+    val now = Instant.now()
+    val dataType = DataType(
+      id             = DataTypeId(UUID.randomUUID().toString),
+      sourceId       = None,
+      name           = outputName,
+      fields         = Vector.empty,
+      computedFields = Vector.empty,
+      version        = 1,
+      createdAt      = now,
+      updatedAt      = now,
+      ownerId        = user.id,
+      tag            = tag
+    )
+    val createdDataType = await(dataTypeRepo.insert(dataType, user))
+    await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), createdDataType.id))
+    SeededPipeline(id = summary.id, outputDataTypeId = createdDataType.id.value)
+  }
 
   /** Directly rewrite a pipeline's/data type's/data source's `tag` column via
    *  the privileged pool — the only way to construct an out-of-batch-tagged

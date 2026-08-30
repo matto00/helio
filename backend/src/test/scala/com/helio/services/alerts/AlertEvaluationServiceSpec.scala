@@ -107,7 +107,7 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     val now    = Instant.now()
     val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner, now, now)
     val createdSource = await(dsRepo.insert(source, user))
-    val pipeline = await(pipeRepo.create("pipe", createdSource.id, "pipe-output", user)).getOrElse(
+    val pipeline = await(pipeRepo.create("pipe", createdSource.id, user)).getOrElse(
       throw new IllegalStateException("seedOutput fixture: pipeline create failed")
     )
     await(outRepo.insertInternal(PipelineId(pipeline.id), None, owner, "out", OutputKind.Table)).id

@@ -2618,7 +2618,6 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         id                 = PipelineId("pipeline-parity"),
         name               = "pipe",
         sourceDataSourceId = ds.id,
-        outputDataTypeId   = DataTypeId("dt"),
         lastRunStatus      = None,
         lastRunAt          = None,
         createdAt          = Instant.now(),

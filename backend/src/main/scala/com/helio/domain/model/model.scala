@@ -708,7 +708,6 @@ final case class Pipeline(
     id: PipelineId,
     name: String,
     sourceDataSourceId: DataSourceId,
-    outputDataTypeId: DataTypeId,
     lastRunStatus: Option[String],
     lastRunAt: Option[Instant],
     createdAt: Instant,

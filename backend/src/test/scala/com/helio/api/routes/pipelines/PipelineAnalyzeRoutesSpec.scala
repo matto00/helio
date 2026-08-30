@@ -518,8 +518,6 @@ class PipelineAnalyzeRoutesSpec
         id                   = "pipeline-1",
         name                 = "Orders",
         sourceDataSourceName = "orders-source",
-        outputDataTypeName   = "Orders Output",
-        outputDataTypeId     = "dt-1",
         sourceSchema         = Vector(SchemaFieldResponse("order_id", "string")),
         steps                = Vector.empty,
         sourceSchemaDrift    = Some(SourceSchemaDriftResponse(
@@ -539,8 +537,6 @@ class PipelineAnalyzeRoutesSpec
         id                   = "pipeline-1",
         name                 = "Orders",
         sourceDataSourceName = "orders-source",
-        outputDataTypeName   = "Orders Output",
-        outputDataTypeId     = "dt-1",
         sourceSchema         = Vector.empty,
         steps                = Vector.empty,
         sourceSchemaDrift    = None

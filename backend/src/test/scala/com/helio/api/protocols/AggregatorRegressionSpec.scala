@@ -107,8 +107,6 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
         name                 = "Pipeline 1",
         sourceDataSourceId   = "ds-1",
         sourceDataSourceName = "Source 1",
-        outputDataTypeName   = "Type 1",
-        outputDataTypeId     = "dt-1",
         lastRunStatus        = Some("succeeded"),
         lastRunAt            = Some("2026-01-02T00:00:00Z"),
         lastRunRowCount      = Some(42L)

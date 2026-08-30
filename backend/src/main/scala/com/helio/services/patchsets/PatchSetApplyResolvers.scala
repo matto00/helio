@@ -134,8 +134,6 @@ private[services] object PatchSetApplyResolvers {
       name                 = s.name,
       sourceDataSourceId   = s.sourceDataSourceId,
       sourceDataSourceName = s.sourceDataSourceName,
-      outputDataTypeName   = s.outputDataTypeName,
-      outputDataTypeId     = s.outputDataTypeId,
       lastRunStatus        = s.lastRunStatus,
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,

@@ -146,10 +146,16 @@
 - [x] 3.4 `BinaryRefRepository` re-keyed to `(pipeline_id, node_step_id)` (per
       design.md's documented dev-DB fallback, not `data_source_id` — see
       cycle 8's finding).
-- [ ] 3.5 `PipelineRepository.create` stops minting a type; `PipelineService.create` drops
+- [x] 3.5 `PipelineRepository.create` stops minting a type; `PipelineService.create` drops
       `outputDataTypeName`. In the SAME task, remove `Pipeline.outputDataTypeId` from the domain
       model (added additively in 1.1) now that no code path sets or reads it — round-2 finding 4
-      flagged this removal as dangling; it belongs here, not left implicit.
+      flagged this removal as dangling; it belongs here, not left implicit. Landed cycle 19: V95
+      relaxes `pipelines.output_data_type_id` to nullable (column stays, task 2.10/section 4 still
+      owns the eventual drop); `CreatePipelineRequest`/`PipelineSummaryResponse`/
+      `PipelineAnalyzeResponse` drop `outputDataTypeName`/`outputDataTypeId`; `PipelineRepository`
+      gained `findOutputDataTypeIdInternal`/`setOutputDataTypeIdInternalForTest` for the still-live
+      legacy DataType read/write paths (`PipelineRunService.onUnblockedRunSuccess`, and tests
+      exercising pre-3.12 DataType behavior).
 - [ ] 3.6 (partial) `Panel.scala` + `domain/panels/*Panel.scala` + `package.scala`: bound kinds
       collapse to `OutputPanel`; `PanelBindingSpec` → `OutputBindingSpec` keyed by `OutputKind`.
       **Write-path increment landed this cycle** (cycle 15): `PanelType` (model.scala) gains

@@ -178,8 +178,6 @@ final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
     sourceDataSourceName: String,
-    outputDataTypeName:   String,
-    outputDataTypeId:     String,
     sourceSchema:         Vector[SchemaFieldResponse],
     steps:                Vector[AnalyzeStepResponse],
     sourceSchemaDrift:    Option[SourceSchemaDriftResponse] = None
@@ -282,5 +280,5 @@ trait PipelineAnalyzeProtocol
   implicit val typeChangedColumnResponseFormat: RootJsonFormat[TypeChangedColumnResponse] = jsonFormat3(TypeChangedColumnResponse.apply)
   implicit val sourceSchemaDriftResponseFormat: RootJsonFormat[SourceSchemaDriftResponse] = jsonFormat3(SourceSchemaDriftResponse.apply)
 
-  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat8(PipelineAnalyzeResponse.apply)
+  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat6(PipelineAnalyzeResponse.apply)
 }

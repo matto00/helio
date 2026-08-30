@@ -514,7 +514,13 @@ final class PipelineRunService(
         // is never blocked (design.md Decision 5), hence the `.map(_ => None)`.
         val followUp: Future[Option[String]] =
           if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results).map(_ => None)
-          else onRunSuccess(pipeline.outputDataTypeId, pipeline.sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
+          else
+            // HEL-904 (task 3.5): `Pipeline` no longer carries the legacy
+            // `outputDataTypeId` field -- read it (if any) via the
+            // dedicated privileged repository lookup instead.
+            pipelineRepo.findOutputDataTypeIdInternal(pipelineId).flatMap { legacyOutputDataTypeId =>
+              onRunSuccess(legacyOutputDataTypeId, pipeline.sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
+            }
         val (truncated, availableRowCount, notice, truncatedReads) =
           truncationFields(dataSource.name, sourceCount, primaryStats, truncationSink)
         followUp.map { blockedSummary =>
@@ -579,7 +585,7 @@ final class PipelineRunService(
    *  for `errorLog`, surfaced to `executeRun` so `RunResultResponse` can
    *  report `blocked`/`blockedReason` without recomputing it (Decision 8). */
   private def onRunSuccess(
-      outputDataTypeId:   DataTypeId,
+      outputDataTypeId:   Option[DataTypeId],
       sourceDataSourceId: DataSourceId,
       pipelineId:         PipelineId,
       runId:              PipelineRunId,
@@ -628,7 +634,7 @@ final class PipelineRunService(
   /** The pre-existing succeeded path (all-passing or warn-only), unchanged in
    *  behavior — a pure insertion point above this method, not a rewrite. */
   private def onUnblockedRunSuccess(
-      outputDataTypeId:   DataTypeId,
+      outputDataTypeId:   Option[DataTypeId],
       sourceDataSourceId: DataSourceId,
       pipelineId:         PipelineId,
       runId:              PipelineRunId,
@@ -644,11 +650,15 @@ final class PipelineRunService(
     // hands to `overwriteRows` -- so the schema can never describe rows other than the ones
     // actually persisted.
     val schemaUpsert =
-      if (dataTypeRepo != null) upsertFieldsFromRows(outputDataTypeId, jsRows)
-      else Future.successful(())
+      (dataTypeRepo, outputDataTypeId) match {
+        case (repo, Some(dtId)) if repo != null => upsertFieldsFromRows(dtId, jsRows)
+        case _                                  => Future.successful(())
+      }
     val rowsUpsert =
-      if (dataTypeRowRepo != null) dataTypeRowRepo.overwriteRows(outputDataTypeId.value, jsRows).map(_ => ())
-      else Future.successful(())
+      (dataTypeRowRepo, outputDataTypeId) match {
+        case (repo, Some(dtId)) if repo != null => dataTypeRowRepo.overwriteRows(dtId.value, jsRows).map(_ => ())
+        case _                                  => Future.successful(())
+      }
     // HEL-904 (task 3.14): dual-write `node_snapshots`, keyed by this
     // pipeline's trunk-last step (the sole node the pre-tree-walk engine
     // ever materializes — see P1.2/HEL-905 for the real per-node write).

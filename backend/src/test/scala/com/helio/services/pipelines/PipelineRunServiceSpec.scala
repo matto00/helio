@@ -409,7 +409,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "does not update the DataType schema or rows when blocked by an error-severity assertion, preserving the prior snapshot" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
 
       // Establish a prior-good snapshot with no assert step at all.
       val firstRun = await(service.submit(pid, isDry = false, dummyUser))
@@ -437,7 +437,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "completes normally and updates the DataType when only a warn-severity assertion fails" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
       await(stepRepo.insert(pid, "assert", AssertConfig(Vector(nonBlockingWarnRule)), dummyUser))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
@@ -525,7 +525,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "skips a disabled step during a real run" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
       await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
@@ -542,7 +542,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "applies an enabled step during a real run (control)" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
       await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = true))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
@@ -572,7 +572,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "an all-disabled pipeline behaves as a zero-step source passthrough" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
       await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
       await(stepRepo.insert(pid, "select", SelectConfig(Vector("name")), dummyUser, enabled = false))
 
@@ -592,7 +592,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "re-enabling a disabled step restores it, config intact" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
       val step = await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
 
       await(stepRepo.updateInternal(step.id, config = None, position = None, enabled = Some(true)))
@@ -746,7 +746,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "completes a real run for a healthy rest_api base source, populating the output DataType" in {
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -763,7 +763,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "completes a real run for a healthy sql base source, populating the output DataType" in {
       val dsId = seedSqlDs(embeddedPostgres.getPort)
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -899,7 +899,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "fails the real run naming the step id, kind, and parse error, and writes no output rows with a null-filled compute column" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
       val step = await(stepRepo.insert(
         pid, "compute", ComputeConfig("value_vs_adp", "stats.adp_ppr - stats.pts_ppr", None), dummyUser
       ))
@@ -951,7 +951,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "GUARD: a parseable expression over divide-by-zero and null-operand rows persists null for those rows only, and the run succeeds" in {
       val dsId = seedDsWithDataIncludingNullScore()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
       await(stepRepo.insert(
         pid, "compute", ComputeConfig("ratio", "$score / ($score - 42)", None), dummyUser
       ))
@@ -1094,7 +1094,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     def runHeterogeneous(url: String = RestHeterogeneousUrl): (DataType, PanelCapabilitiesResponse) = {
       val dsId = seedRestDsNamed(url, "ds-heterogeneous-" + UUID.randomUUID())
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1200,7 +1200,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "types the image loader's nested content value as a single string field, not flattened, matching the persisted row key" in {
       val dsId = seedDsImage()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val outputDataTypeId = await(pipelineRepo.findOutputDataTypeIdInternal(pid)).get
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]

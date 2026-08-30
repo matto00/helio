@@ -164,7 +164,7 @@ class RefinementServiceSpec
       case Right(d) => d
       case Left(e)  => fail(s"createStatic failed: $e")
     }
-    val summary = await(pipelineService.create(CreatePipelineRequest(s"pipe-${UUID.randomUUID()}", ds.id.value, "Output"), owner)) match {
+    val summary = await(pipelineService.create(CreatePipelineRequest(s"pipe-${UUID.randomUUID()}", ds.id.value), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"pipeline create failed: $e")
     }

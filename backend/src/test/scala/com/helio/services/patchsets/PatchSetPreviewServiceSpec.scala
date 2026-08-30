@@ -259,7 +259,7 @@ class PatchSetPreviewServiceSpec
   }
 
   private def seedPipeline(owner: AuthenticatedUser, sourceId: DataSourceId, name: String = "Pipeline"): PipelineSummaryResponse =
-    await(pipelineService.create(CreatePipelineRequest(name, sourceId.value, "Output"), owner)) match {
+    await(pipelineService.create(CreatePipelineRequest(name, sourceId.value), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"seedPipeline failed: $e")
     }

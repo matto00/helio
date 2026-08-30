@@ -90,7 +90,7 @@ object RefinementPrompt extends PipelineStepProtocol {
             s"""  - step id="${s.id}" position=${s.position} type=${s.`type`} config=${configJson.compactPrint}"""
           }
           .mkString("\n")
-    s"""Target: pipeline id="${summary.id}" name="${summary.name}" outputDataTypeId="${summary.outputDataTypeId}"
+    s"""Target: pipeline id="${summary.id}" name="${summary.name}"
        |Current steps:
        |$stepLines""".stripMargin
   }

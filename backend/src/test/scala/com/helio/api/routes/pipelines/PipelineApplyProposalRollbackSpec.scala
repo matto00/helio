@@ -42,7 +42,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSteps     = pipelineStepCount()
       val beforeTypes     = dataTypeCount()
       var outputTypeId    = ""
-      var legacyDataTypeId = ""
       val body =
         s"""{"pipelineName":"Rest Run Success","source":{"type":"rest_api","name":"Inline Rest",
            |"config":{"url":"$RestSuccessUrl"}},"outputDataTypeName":"O",
@@ -55,7 +54,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
         resp.run.rowCount should be > 0
         pipelineId = resp.pipeline.id
         outputTypeId = resp.outputDataTypeId
-        legacyDataTypeId = resp.pipeline.outputDataTypeId
       }
       // Source + its companion DataType + the pipeline + its output DataType
       // + the one "limit" step — same resource counts as the old blocked
@@ -63,22 +61,18 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe (beforeSteps + 1)
-      dataTypeCount() shouldBe (beforeTypes + 2)
+      dataTypeCount() shouldBe (beforeTypes + 1)
 
       val (runStatus, _) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "succeeded"
 
       // Output DataType is actually populated with the run's rows, not just
       // a transient response field.
-      // HEL-904 task 3.8: `resp.outputDataTypeId` is now a real Output id
-      // (no `GET /api/outputs/:id/rows` route yet — P1.3/HEL-906's job);
-      // `resp.pipeline.outputDataTypeId` is still the legacy pipeline-minted
-      // DataType id (task 3.5 not yet done), still the row-population target
-      // `GET /api/types/:id/rows` reads.
-      Get(s"/api/types/$legacyDataTypeId/rows").addHeader(sessionCookie) ~> routes ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[String].parseJson.asJsObject.fields("rowCount").convertTo[Int] should be > 0
-      }
+      // HEL-904 task 3.5: `pipelineRepo.create` no longer mints a legacy
+      // DataType at all -- verify the run's rows landed in `node_snapshots`
+      // instead (no `GET /api/outputs/:id/rows` route yet -- P1.3/HEL-906's
+      // job).
+      nodeSnapshotRowCount(pipelineId) should be > 0
     }
 
     // HEL-758 task 4.4: sql sibling of the rest_api success case above.
@@ -88,7 +82,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSteps     = pipelineStepCount()
       val beforeTypes     = dataTypeCount()
       var outputTypeId    = ""
-      var legacyDataTypeId = ""
       val body =
         s"""{"pipelineName":"Sql Run Success","source":{"type":"sql","name":"Inline Sql",
            |"config":{"dialect":"postgresql","host":"localhost","port":$sqlPort,"database":"postgres",
@@ -102,25 +95,20 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
         resp.run.rowCount should be > 0
         pipelineId = resp.pipeline.id
         outputTypeId = resp.outputDataTypeId
-        legacyDataTypeId = resp.pipeline.outputDataTypeId
       }
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe (beforeSteps + 1)
-      dataTypeCount() shouldBe (beforeTypes + 2)
+      dataTypeCount() shouldBe (beforeTypes + 1)
 
       val (runStatus, _) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "succeeded"
 
-      // HEL-904 task 3.8: `resp.outputDataTypeId` is now a real Output id
-      // (no `GET /api/outputs/:id/rows` route yet — P1.3/HEL-906's job);
-      // `resp.pipeline.outputDataTypeId` is still the legacy pipeline-minted
-      // DataType id (task 3.5 not yet done), still the row-population target
-      // `GET /api/types/:id/rows` reads.
-      Get(s"/api/types/$legacyDataTypeId/rows").addHeader(sessionCookie) ~> routes ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[String].parseJson.asJsObject.fields("rowCount").convertTo[Int] should be > 0
-      }
+      // HEL-904 task 3.5: `pipelineRepo.create` no longer mints a legacy
+      // DataType at all -- verify the run's rows landed in `node_snapshots`
+      // instead (no `GET /api/outputs/:id/rows` route yet -- P1.3/HEL-906's
+      // job).
+      nodeSnapshotRowCount(pipelineId) should be > 0
     }
 
     // HEL-758 task 4.4: distinct from the schema-fetch-failure case below — here
@@ -157,12 +145,12 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
         pipelineId = resp.pipeline.id
       }
       // Source is KEPT despite the fetch failure — no companion DataType,
-      // since schema inference never ran — plus the pipeline and its output
-      // DataType.
+      // since schema inference never ran, and no legacy pipeline-output
+      // DataType either (HEL-904 task 3.5 retired that minting).
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe beforeSteps
-      dataTypeCount() shouldBe (beforeTypes + 1)
+      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, runErrorLog) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "failed"
@@ -192,7 +180,7 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe beforeSteps
-      dataTypeCount() shouldBe (beforeTypes + 1)
+      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, runErrorLog) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "failed"
@@ -210,7 +198,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSteps     = pipelineStepCount()
       val beforeTypes     = dataTypeCount()
       var outputTypeId    = ""
-      var legacyDataTypeId = ""
       val body =
         s"""{"pipelineName":"Existing Rest","source":{"sourceId":"$preExistingId"},
            |"outputDataTypeName":"O","steps":[]}""".stripMargin
@@ -222,26 +209,21 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
         resp.run.rowCount should be > 0
         pipelineId = resp.pipeline.id
         outputTypeId = resp.outputDataTypeId
-        legacyDataTypeId = resp.pipeline.outputDataTypeId
       }
       // No NEW source/companion DataType — only the pipeline + its output DataType.
       dataSourceCount() shouldBe beforeSources
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe beforeSteps
-      dataTypeCount() shouldBe (beforeTypes + 1)
+      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, _) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "succeeded"
 
-      // HEL-904 task 3.8: `resp.outputDataTypeId` is now a real Output id
-      // (no `GET /api/outputs/:id/rows` route yet — P1.3/HEL-906's job);
-      // `resp.pipeline.outputDataTypeId` is still the legacy pipeline-minted
-      // DataType id (task 3.5 not yet done), still the row-population target
-      // `GET /api/types/:id/rows` reads.
-      Get(s"/api/types/$legacyDataTypeId/rows").addHeader(sessionCookie) ~> routes ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[String].parseJson.asJsObject.fields("rowCount").convertTo[Int] should be > 0
-      }
+      // HEL-904 task 3.5: `pipelineRepo.create` no longer mints a legacy
+      // DataType at all -- verify the run's rows landed in `node_snapshots`
+      // instead (no `GET /api/outputs/:id/rows` route yet -- P1.3/HEL-906's
+      // job).
+      nodeSnapshotRowCount(pipelineId) should be > 0
     }
 
     "roll back the pipeline, its output type, and an inline source when the run is blocked by an error-severity assertion" in {

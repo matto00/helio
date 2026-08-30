@@ -54,8 +54,9 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
       }
       dataSourceCount()    shouldBe (beforeSources + 1)
       pipelineCount()      shouldBe (beforePipelines + 1)
-      // Static source's companion DataType + the pipeline's own output DataType.
-      dataTypeCount()      shouldBe (beforeTypes + 2)
+      // Static source's companion DataType only -- HEL-904 task 3.5:
+      // `pipelineRepo.create` no longer mints its own output DataType.
+      dataTypeCount()      shouldBe (beforeTypes + 1)
       dashboardCount()     shouldBe (beforeDashboards + 1)
       panelCount()         shouldBe (beforePanels + 1)
     }

@@ -3,15 +3,7 @@
   "$id": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json",
   "title": "PipelineAnalyzeResponse",
   "type": "object",
-  "required": [
-    "id",
-    "name",
-    "sourceDataSourceName",
-    "outputDataTypeName",
-    "outputDataTypeId",
-    "sourceSchema",
-    "steps"
-  ],
+  "required": ["id", "name", "sourceDataSourceName", "sourceSchema", "steps"],
   "properties": {
     "id": {
       "type": "string",
@@ -23,13 +15,6 @@
     },
     "sourceDataSourceName": {
       "type": "string"
-    },
-    "outputDataTypeName": {
-      "type": "string"
-    },
-    "outputDataTypeId": {
-      "type": "string",
-      "minLength": 1
     },
     "sourceSchema": {
       "type": "array",

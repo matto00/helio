@@ -7,7 +7,6 @@ import spray.json._
 final case class CreatePipelineRequest(
     name: String,
     sourceDataSourceId: String,
-    outputDataTypeName: String,
     tag: Option[String] = None
 )
 final case class UpdatePipelineRequest(name: String)
@@ -16,8 +15,6 @@ final case class PipelineSummaryResponse(
     name: String,
     sourceDataSourceId: String,
     sourceDataSourceName: String,
-    outputDataTypeName: String,
-    outputDataTypeId: String,
     lastRunStatus: Option[String],
     lastRunAt: Option[String],
     lastRunRowCount: Option[Long],
@@ -136,9 +133,9 @@ trait PipelineProtocol
     with PipelineStepProtocol
     with PipelineAnalyzeProtocol {
 
-  implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat4(CreatePipelineRequest.apply)
+  implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat3(CreatePipelineRequest.apply)
   implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest]     = jsonFormat1(UpdatePipelineRequest.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat11(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat9(PipelineSummaryResponse.apply)
 
   implicit val assertionFailureDetailFormat: RootJsonFormat[AssertionFailureDetail] =
     jsonFormat4(AssertionFailureDetail.apply)

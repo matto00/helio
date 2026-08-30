@@ -83,12 +83,10 @@ final class PipelineService(
       Future.successful(Left(ServiceError.BadRequest("name is required")))
     else if (req.sourceDataSourceId.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("sourceDataSourceId is required")))
-    else if (req.outputDataTypeName.trim.isEmpty)
-      Future.successful(Left(ServiceError.BadRequest("outputDataTypeName is required")))
     else RequestValidation.validateTag(req.tag) match {
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(tag) =>
-        pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), req.outputDataTypeName.trim, user, tag).map {
+        pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), user, tag).map {
           case Right(summary)                       =>
             audit("pipeline.create", "pipeline", Some(summary.id), user)
             Right(toSummaryResponse(summary))
@@ -179,8 +177,6 @@ final class PipelineService(
                 id                   = summary.id,
                 name                 = summary.name,
                 sourceDataSourceName = summary.sourceDataSourceName,
-                outputDataTypeName   = summary.outputDataTypeName,
-                outputDataTypeId     = summary.outputDataTypeId,
                 sourceSchema         = sourceSchema.map(toFieldResponse),
                 steps                = analyzed.map(toAnalyzeStepResponse),
                 sourceSchemaDrift    = drift.map(toDriftResponse)
@@ -901,8 +897,6 @@ final class PipelineService(
       name                 = s.name,
       sourceDataSourceId   = s.sourceDataSourceId,
       sourceDataSourceName = s.sourceDataSourceName,
-      outputDataTypeName   = s.outputDataTypeName,
-      outputDataTypeId     = s.outputDataTypeId,
       lastRunStatus        = s.lastRunStatus,
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,
