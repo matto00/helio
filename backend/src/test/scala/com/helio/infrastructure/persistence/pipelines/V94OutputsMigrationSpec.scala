@@ -196,6 +196,62 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     }
   }
 
+  "V94 alert_rules/alert_events target_output_id (task 2.7)" should {
+    "add a nullable target_output_id column alongside the untouched target_data_type_id" in {
+      await(superDb.run(
+        sqlu"""INSERT INTO alert_rules (id, owner_id, target_data_type_id, metric, condition, name, severity)
+               VALUES ('rule-1', $ownerId::uuid, 'dt-1', 'value', '{}', 'r', 'info')"""
+      ))
+      val (targetDataTypeId, targetOutputId) = await(superDb.run(
+        sql"SELECT target_data_type_id, target_output_id FROM alert_rules WHERE id = 'rule-1'"
+          .as[(String, Option[String])].head
+      ))
+      targetDataTypeId shouldBe "dt-1"
+      targetOutputId shouldBe None
+
+      await(superDb.run(
+        sqlu"""INSERT INTO alert_events (id, alert_rule_id, owner_id, target_data_type_id, value, severity, state, first_fired_at, last_evaluated_at)
+               VALUES ('event-1', 'rule-1', $ownerId::uuid, 'dt-1', '{}', 'info', 'firing', now(), now())"""
+      ))
+      val eventTargetOutputId = await(superDb.run(
+        sql"SELECT target_output_id FROM alert_events WHERE id = 'event-1'".as[Option[String]].head
+      ))
+      eventTargetOutputId shouldBe None
+    }
+
+    "populate target_output_id via a real Output FK once one exists" in {
+      await(privilegedDb.run(
+        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind)
+               VALUES ('output-for-rule', $pipelineId, NULL, $ownerId::uuid, 'Table', 'table')"""
+      ))
+      await(superDb.run(sqlu"UPDATE alert_rules SET target_output_id = 'output-for-rule' WHERE id = 'rule-1'"))
+      val targetOutputId = await(superDb.run(
+        sql"SELECT target_output_id FROM alert_rules WHERE id = 'rule-1'".as[Option[String]].head
+      ))
+      targetOutputId shouldBe Some("output-for-rule")
+    }
+  }
+
+  "V94 binary_refs pipeline_id/node_step_id (task 2.8)" should {
+    "add nullable pipeline_id/node_step_id columns keyed by node, per the ticket's dev-DB-inspection fallback" in {
+      await(superDb.run(
+        sqlu"""INSERT INTO binary_refs (id, data_type_id, row_index, field_name, storage_key, mime_type, filename, size_bytes)
+               VALUES ('ref-1', 'dt-1', 0, 'f', 's', 'application/octet-stream', 'f.bin', 1)"""
+      ))
+      val (pipelineIdCol, nodeStepIdCol) = await(superDb.run(
+        sql"SELECT pipeline_id, node_step_id FROM binary_refs WHERE id = 'ref-1'".as[(Option[String], Option[String])].head
+      ))
+      pipelineIdCol shouldBe None
+      nodeStepIdCol shouldBe None
+
+      await(superDb.run(sqlu"UPDATE binary_refs SET pipeline_id = $pipelineId WHERE id = 'ref-1'"))
+      val populated = await(superDb.run(
+        sql"SELECT pipeline_id FROM binary_refs WHERE id = 'ref-1'".as[Option[String]].head
+      ))
+      populated shouldBe Some(pipelineId)
+    }
+  }
+
   "V94 outputs/node_snapshots RLS (task 2.13)" should {
     def liveCtx: DbContext = new DbContext(appDb, privilegedDb)
 

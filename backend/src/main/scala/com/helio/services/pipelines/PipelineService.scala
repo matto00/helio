@@ -757,11 +757,16 @@ final class PipelineService(
               case Left(err) => Future.successful(Left(err))
               case Right(_)  =>
                 // Safe: editor/owner access confirmed. Use internal delete.
+                // HEL-904 task 1.6: deleteInternal now returns
+                // Option[Int] (Some(removedTailStepCount) on success, None
+                // if the step didn't exist) rather than Boolean, to carry
+                // splice-on-delete's removed-placement count for a future
+                // caller (P1.3) to surface as a warning. Not consumed here yet.
                 pipelineStepRepo.deleteInternal(stepId).map {
-                  case true  =>
+                  case Some(_) =>
                     audit("pipeline.step.delete", "pipeline_step", Some(stepId.value), user)
                     Right(())
-                  case false => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+                  case None => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
                 }
             }
         }

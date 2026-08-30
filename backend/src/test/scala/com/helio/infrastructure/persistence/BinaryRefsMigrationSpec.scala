@@ -51,6 +51,11 @@ class BinaryRefsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         )
       ).toSet
 
+      // HEL-904 task 2.8 additively added `pipeline_id`/`node_step_id` (V94)
+      // alongside the still-live `data_type_id` -- see V94's own comment for
+      // the dev-DB-inspection finding that motivated keying by node instead
+      // of `data_source_id`. `data_type_id` itself is dropped only in task
+      // 2.10, once the data migration (2.9) has re-keyed every row.
       columns shouldBe Set(
         "id",
         "data_type_id",
@@ -60,7 +65,9 @@ class BinaryRefsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         "mime_type",
         "filename",
         "size_bytes",
-        "created_at"
+        "created_at",
+        "pipeline_id",
+        "node_step_id"
       )
     }
 

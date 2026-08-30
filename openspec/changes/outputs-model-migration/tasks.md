@@ -24,18 +24,36 @@
       the planned `outputs`/`node_snapshots` schema; both tables land in the V94 migration
       (task 2.3/2.4), so no runtime DB test exists for these yet (deferred to land alongside
       2.3/2.4).
-- [x] 1.6 (partial) `PipelineStepRepository`: tree-ordered reads (`trunkOf`, `childrenOf`,
-      `tailsOf`) added as pure functions over an already-fetched `Vector[PipelineStep]`,
-      walking `parentStepId` (task 1.2) — safe to call today since every real row currently
-      decodes `parentStepId = None` (degrades to today's flat list). Sibling-scoped
-      `insert`/`insertAtInternal`/`reorderInternal` and splice-on-delete are DB-backed and
-      require the real `parent_step_id` column — **deferred to task 2.2** (the migration that
-      adds the column); see execution-progress.md for the scoping rationale.
-- [x] 1.7 (partial) Unit tests for `trunkOf`/`childrenOf`/`tailsOf` (pure-function coverage:
-      empty pipeline, pure trunk, branch-point tail-ignoring, pre-backfill degrade-to-root-list,
+- [x] 1.6 `PipelineStepRepository`: tree-ordered reads (`trunkOf`, `childrenOf`, `tailsOf`)
+      added as pure functions over an already-fetched `Vector[PipelineStep]`, walking
+      `parentStepId` (task 1.2). **DB-backed remainder landed this cycle** (2.2's
+      `parent_step_id` column has been stable a cycle): `rowToDomain` now reads/decodes the
+      real `parent_step_id` column into every step's `parentStepId` (previously always
+      `None` regardless of the DB value — the column existed since 2.2 but nothing read it
+      yet). `insertInternal`/`insertAtInternal` gained an optional `parentStepId` param and
+      are now genuinely sibling-scoped (`position` computed/renumbered only among steps
+      sharing the same `parentStepId`, not the whole pipeline) via a new `siblingsQuery`
+      helper. `deleteInternal` now performs splice-on-delete per ticket.md's repository
+      semantics (`parent_step_id` has no `ON DELETE CASCADE`): the deleted step's position-0
+      child is re-parented into its slot; every other child (a tail) and its full descendant
+      subtree is deleted outright. **Signature change:** `deleteInternal` now returns
+      `Future[Option[Int]]` (`None` = step didn't exist, `Some(removedTailStepCount)` on
+      success) instead of `Future[Boolean]`, to carry the "returns the placement count
+      removed so P1.3 can warn" requirement from ticket.md's repository-semantics section —
+      its sole live caller (`PipelineService.deleteStep`) was updated to match (does not
+      consume the count yet; only presence/absence). `reorderInternal`/`insert`/`delete`
+      (owner-scoped, unused by any live caller today) left as-is — `reorderInternal` is
+      already implicitly sibling-scoped by construction (it only ever touches the ids named
+      in `orderedIds`).
+- [x] 1.7 Unit tests for `trunkOf`/`childrenOf`/`tailsOf` (pure-function coverage: empty
+      pipeline, pure trunk, branch-point tail-ignoring, pre-backfill degrade-to-root-list,
       sibling ordering, multi-tail depth-first expansion) —
-      `PipelineStepRepositoryTreeOrderingSpec` (8 tests, all green). Splice-on-delete /
-      sibling-scoped insert-reorder tests deferred alongside task 2.2 (same reason as 1.6).
+      `PipelineStepRepositoryTreeOrderingSpec` (8 tests, all green). **DB-backed remainder
+      landed this cycle**: `PipelineStepRepositorySpliceSpec` (5 tests, all green) — sibling-
+      scoped `insertInternal` position isolation across sibling groups, sibling-scoped
+      `insertAtInternal` splice leaving other groups untouched, splice-on-delete re-parenting
+      the head child (trunk stays connected, proved via `trunkOf`), splice-on-delete deleting
+      a tail's full subtree with the correct removed count, and the not-found `None` case.
 
 ## 2. Flyway migration V94 (additive schema, full data migration)
 
@@ -66,9 +84,21 @@
 - [x] 2.6 `data_sources.inferred_schema` added (`JSONB NOT NULL DEFAULT '[]'`) — every
       pre-existing row reads back as `Vector.empty`, matching task 1.3's domain default, with no
       backfill pass needed. Same V94 file.
-- [ ] 2.7 `alert_rules`/`alert_events` retarget to `target_output_id`.
-- [ ] 2.8 `binary_refs` re-key to `data_source_id`; inspect dev DB first for any ref pointing
-      at a pipeline-output type and record the finding in the PR.
+- [x] 2.7 (partial) `alert_rules`/`alert_events` gained a nullable `target_output_id` (FK to
+      `outputs`, indexed) alongside the untouched `target_data_type_id` — same additive-first
+      pattern as 2.2-2.6. Actual retarget (populating `target_output_id` from each rule's
+      current target) is task 2.9's DML; dropping `target_data_type_id` is task 2.10's job,
+      deferred until section 3.1's consumer rewire lands (decision 1e). Same V94 file.
+- [x] 2.8 (partial) `binary_refs` gained nullable `pipeline_id`/`node_step_id` columns
+      alongside the untouched `data_type_id`. **Dev DB inspection finding (recorded per the
+      ticket's own fallback instruction):** the shared dev DB's one live `binary_refs` row
+      points at a pipeline-output type, not a companion type — and `PipelineRunService.scala:650`
+      is the SOLE writer of `BinaryRefRepository.overwriteForDataType` in the codebase today,
+      always keyed by a pipeline's `outputDataTypeId`. There is no companion-type writer to
+      re-key against `data_source_id` at all. Per ticket.md's explicit fallback ("if any do,
+      key those by (pipeline_id, node_step_id) instead and say so in the PR"), keyed by node
+      instead of `data_source_id`. RLS rewrite (currently selects from `data_types`) deferred
+      to land with 2.9/2.10, same as `target_data_type_id`'s drop. Same V94 file.
 - [ ] 2.9 Data migration steps, in ticket order: companion types → inferred_schema; computed
       fields → compute steps (count first, skip+log if zero); bound panels → Outputs (+ tail
       steps for aggregation/metric panels, invalid fieldMapping slots dropped+logged); unbound

@@ -2,9 +2,9 @@
 -- remodel, HEL-903). See design.md decisions 1-2 for the sequencing/
 -- single-file rationale: this migration file is grown across the ticket's
 -- execution and is NOT yet complete -- it currently contains only the
--- additive schema steps (ticket.md scope items 1-6). The destructive
--- pieces (binary_refs re-key, alert_rules/alert_events retarget to
--- target_output_id NOT NULL, the full data-migration DML, and the DROP of
+-- additive schema steps (ticket.md scope items 1-7). The destructive
+-- pieces (binary_refs/alert_rules/alert_events data retarget + old-column
+-- drops, the full 9-step data-migration DML, and the DROP of
 -- metrics/data_types/data_type_rows/pipelines.output_data_type_id) land in
 -- a later cycle's edit to this SAME file, per decision 2 ("migration is one
 -- Flyway file, not split across several" -- data-migration step order is a
@@ -202,3 +202,54 @@ CREATE INDEX idx_panels_output_id ON panels(output_id);
 -- population is task 2.9's job (deferred), not a mechanical default.
 
 ALTER TABLE data_sources ADD COLUMN inferred_schema JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- ── 6. alert_rules / alert_events target_output_id (ticket.md scope item 6,
+--       task 2.7) ────────────────────────────────────────────────────────────
+--
+-- Added nullable alongside the existing `target_data_type_id` -- same
+-- additive-first shape as every other column in this file so far. The
+-- actual retarget (populating `target_output_id` from each rule's current
+-- `target_data_type_id`'s Outputs) is task 2.9's DML; dropping
+-- `target_data_type_id` and its NOT NULL/FK-to-data_types shape is task
+-- 2.10's job, which per design.md decision 1e cannot land before section
+-- 3/4's consumer rewires (`AlertRuleService`/`AlertEvaluationService`,
+-- task 3.1) are complete. `AlertEvaluationService.evaluateForDataType`
+-- still reads `target_data_type_id` today -- unchanged by this file.
+
+ALTER TABLE alert_rules ADD COLUMN target_output_id TEXT NULL REFERENCES outputs(id) ON DELETE CASCADE;
+CREATE INDEX idx_alert_rules_target_output_id ON alert_rules(target_output_id);
+
+ALTER TABLE alert_events ADD COLUMN target_output_id TEXT NULL REFERENCES outputs(id) ON DELETE CASCADE;
+CREATE INDEX idx_alert_events_target_output_id ON alert_events(target_output_id);
+
+-- ── 7. binary_refs re-key prep (ticket.md scope item 7, task 2.8) ───────────
+--
+-- ticket.md's default target shape is `data_type_id` -> `data_source_id`
+-- ("binary refs belong to uploaded source content"), with an explicit
+-- fallback instruction: "confirm by inspecting the dev DB that no ref
+-- points at a pipeline-output type -- if any do, key those by
+-- (pipeline_id, node_step_id) instead and say so in the PR."
+--
+-- Inspected the shared dev DB (2026-08-30, one live `binary_refs` row):
+-- the row's `data_type_id` resolves to a `data_types` row that IS a
+-- pipeline's `output_data_type_id` (a pipeline-output type), not a
+-- companion type reachable only via `data_sources`. This is also the only
+-- write path in the codebase today -- `PipelineRunService.scala:650` is the
+-- SOLE caller of `BinaryRefRepository.overwriteForDataType`, and it always
+-- writes keyed by `outputDataTypeId` (a pipeline's produced type).
+-- `DataSourceService`/`ContentSourceSupport` construct `BinaryRefType`
+-- *field values* for companion-type rows but never call
+-- `overwriteForDataType` themselves -- there is no companion-type writer
+-- to re-key against `data_source_id` at all.
+--
+-- Per the ticket's own fallback: key by (pipeline_id, node_step_id)
+-- instead of data_source_id. Both columns added nullable alongside the
+-- existing `data_type_id` (additive-first, same as scope item 6 above);
+-- populating them and dropping `data_type_id` + its RLS policy (which
+-- selects from `data_types` and would otherwise block `DROP TABLE
+-- data_types`) are deferred to tasks 2.9/2.10 respectively, alongside
+-- `BinaryRefRepository`'s rewire (task 3.4).
+
+ALTER TABLE binary_refs ADD COLUMN pipeline_id TEXT NULL REFERENCES pipelines(id) ON DELETE CASCADE;
+ALTER TABLE binary_refs ADD COLUMN node_step_id TEXT NULL REFERENCES pipeline_steps(id) ON DELETE CASCADE;
+CREATE INDEX idx_binary_refs_pipeline_node ON binary_refs(pipeline_id, node_step_id);

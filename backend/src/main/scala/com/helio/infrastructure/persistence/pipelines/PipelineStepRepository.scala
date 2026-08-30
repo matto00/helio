@@ -158,15 +158,28 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ).map(_.map(rowToDomain))
 
   /** ACL-bypassing insert. Safe to call only after the caller's editor or
-    * owner access has been confirmed by PipelineService via findByIdShared. */
-  def insertInternal(pipelineId: PipelineId, kind: String, config: Any, enabled: Boolean = true): Future[PipelineStep] = {
+    * owner access has been confirmed by PipelineService via findByIdShared.
+    *
+    * HEL-904 task 1.6 (DB-backed remainder): `position` is scoped to
+    * siblings sharing `parentStepId` (`None` = root), not the whole
+    * pipeline -- appends after the highest-positioned existing sibling in
+    * that same group. No live caller passes a non-`None` `parentStepId`
+    * yet (P1.2 wires branch creation); the default preserves today's
+    * flat/root-appended behavior exactly. */
+  def insertInternal(
+      pipelineId: PipelineId,
+      kind: String,
+      config: Any,
+      enabled: Boolean = true,
+      parentStepId: Option[PipelineStepId] = None
+  ): Future[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     val action = for {
-      maxPos   <- stepsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
+      maxPos   <- siblingsQuery(pipelineId, parentStepId).map(_.position).max.result
       position  = maxPos.map(_ + 1).getOrElse(0)
       id        = UUID.randomUUID().toString
-      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now)
+      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now, parentStepId.map(_.value))
       _        <- stepsTable += row
     } yield rowToDomain(row)
     ctx.withSystemContext(action.transactionally)
@@ -205,19 +218,29 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** ACL-bypassing insert-at-index (HEL-410). Safe to call only after the
     * caller's editor or owner access has been confirmed by PipelineService via
     * findByIdShared, and after the service has validated `0 <= index <= count`
-    * against a freshly-read step count. Builds the full target order — the
-    * pipeline's existing steps sorted by position, with the new row spliced
-    * in at `index` — and renumbers every step's position 0..n within a single
-    * transaction (the `reorderInternal` idiom above). This also heals any
-    * pre-existing position gaps left by deleteStep (HEL-407 finding) as a
-    * side effect. Returns the created step, whose final position is `index`. */
-  def insertAtInternal(pipelineId: PipelineId, kind: String, config: Any, index: Int, enabled: Boolean = true): Future[PipelineStep] = {
+    * against a freshly-read sibling count. Builds the full target order — the
+    * SIBLING group's existing steps sorted by position (HEL-904 task 1.6:
+    * scoped to `parentStepId`, not the whole pipeline), with the new row
+    * spliced in at `index` — and renumbers every sibling's position 0..n
+    * within a single transaction (the `reorderInternal` idiom above). Other
+    * sibling groups (other branches) are untouched. This also heals any
+    * pre-existing position gaps left by deleteStep (HEL-407 finding) within
+    * that same sibling group as a side effect. Returns the created step,
+    * whose final position is `index`. */
+  def insertAtInternal(
+      pipelineId: PipelineId,
+      kind: String,
+      config: Any,
+      index: Int,
+      enabled: Boolean = true,
+      parentStepId: Option[PipelineStepId] = None
+  ): Future[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     val newId      = UUID.randomUUID().toString
-    val newRow     = PipelineStepRow(newId, pipelineId.value, index, kind, configJson, enabled, now, now)
+    val newRow     = PipelineStepRow(newId, pipelineId.value, index, kind, configJson, enabled, now, now, parentStepId.map(_.value))
     val action = for {
-      existing <- stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
+      existing <- siblingsQuery(pipelineId, parentStepId).sortBy(_.position).result
       ordered   = existing.toVector.patch(index, Vector(newRow), 0)
       updates   = ordered.zipWithIndex.map {
         case (row, i) if row.id == newId => stepsTable += row.copy(position = i)
@@ -231,10 +254,14 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** ACL-bypassing atomic reorder (HEL-407). Safe to call only after the
     * caller's editor or owner access has been confirmed by PipelineService
     * via findByIdShared, and after the service has confirmed `orderedIds` is
-    * exactly a permutation of the pipeline's current step ids. Sets
-    * `position = index` for every id in `orderedIds` within a single
-    * transaction, then re-reads the pipeline's steps in the new position
-    * order. */
+    * exactly a permutation of one SIBLING group's current step ids (HEL-904
+    * task 1.6: `orderedIds` implicitly scopes this to whichever
+    * `parentStepId` group they belong to -- the update only ever touches the
+    * rows named in `orderedIds`, so other sibling groups are never
+    * renumbered). Sets `position = index` for every id in `orderedIds`
+    * within a single transaction, then re-reads the pipeline's steps in
+    * position order (legacy flat shape -- callers needing a single sibling
+    * group's post-reorder view should re-derive it from `childrenOf`). */
   def reorderInternal(pipelineId: PipelineId, orderedIds: Seq[PipelineStepId]): Future[Vector[PipelineStep]] = {
     val now = Instant.now()
     val updates = orderedIds.zipWithIndex.map { case (id, index) =>
@@ -247,12 +274,74 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(action.transactionally)
   }
 
-  /** ACL-bypassing delete. Safe to call only after the caller's editor or
-    * owner access has been confirmed by PipelineService via findByIdShared. */
-  def deleteInternal(id: PipelineStepId): Future[Boolean] =
-    ctx.withSystemContext(
-      stepsTable.filter(_.id === id.value).delete
-    ).map(_ > 0)
+  /** ACL-bypassing delete, with splice-on-delete (HEL-904 task 1.6/1.7): safe
+    * to call only after the caller's editor or owner access has been
+    * confirmed by PipelineService via findByIdShared.
+    *
+    * Per ticket.md's repository semantics (`parent_step_id` has NO `ON
+    * DELETE CASCADE` -- deletion splices instead): deleting a step
+    * re-parents its position-0 child (if any) into the deleted step's own
+    * `parentStepId`/`position` slot, so the trunk stays connected. Every
+    * OTHER child is the root of a "tail" -- both it and its full descendant
+    * subtree are deleted outright (a tail has no splice target of its own).
+    * Any Outputs attached to a removed tail node are cascade-deleted by
+    * `outputs.node_step_id ON DELETE CASCADE` once the step row itself is
+    * gone.
+    *
+    * Returns `None` if the step does not exist, otherwise
+    * `Some(removedPlacementCount)` -- the count of steps deleted from tail
+    * subtrees (NOT counting the target step itself), so a future caller
+    * (P1.3) can warn the user how much was removed. The sole current live
+    * caller (`PipelineService.deleteStep`) only needs the `Option`'s
+    * presence to know whether the step existed; it does not consume the
+    * count yet. */
+  def deleteInternal(id: PipelineStepId): Future[Option[Int]] = {
+    val action = for {
+      existing <- stepsTable.filter(_.id === id.value).result.headOption
+      result   <- existing match {
+        case None => DBIO.successful(None)
+        case Some(deletedRow) =>
+          for {
+            allRows        <- stepsTable.filter(_.pipelineId === deletedRow.pipelineId).map(s => (s.id, s.parentStepId)).result
+            childrenSorted <- stepsTable.filter(_.parentStepId === deletedRow.id).sortBy(_.position).map(_.id).result
+            headChildOpt    = childrenSorted.headOption
+            tailRootIds     = childrenSorted.drop(1)
+            parentByChild   = allRows.toMap
+            tailDescendantIds = tailRootIds.flatMap(rootId => descendantIdsOf(rootId, parentByChild)).toSet
+            _ <- headChildOpt match {
+              case Some(headChildId) =>
+                stepsTable
+                  .filter(_.id === headChildId)
+                  .map(s => (s.parentStepId, s.position))
+                  .update((deletedRow.parentStepId, deletedRow.position))
+              case None => DBIO.successful(0)
+            }
+            _ <- if (tailDescendantIds.nonEmpty) stepsTable.filter(_.id.inSet(tailDescendantIds)).delete
+                 else DBIO.successful(0)
+            _ <- stepsTable.filter(_.id === deletedRow.id).delete
+          } yield Some(tailDescendantIds.size)
+      }
+    } yield result
+    ctx.withSystemContext(action.transactionally)
+  }
+
+  /** Every id in the subtree rooted at `rootId` (inclusive), walked via the
+    * `(id -> parentStepId)` map of a pipeline's full step set. Pure — no DB
+    * access. Used by `deleteInternal`'s splice-on-delete to find every step
+    * a removed tail must take with it. */
+  private def descendantIdsOf(rootId: String, parentById: Map[String, Option[String]]): Vector[String] = {
+    val childrenOf = parentById.toVector.collect { case (childId, Some(p)) if p == rootId => childId }
+    rootId +: childrenOf.flatMap(c => descendantIdsOf(c, parentById))
+  }
+
+  /** Query for the sibling group sharing `parentStepId` (`None` = root)
+    * within `pipelineId`. HEL-904 task 1.6: `position` is scoped to this
+    * group, not the whole pipeline. */
+  private def siblingsQuery(pipelineId: PipelineId, parentStepId: Option[PipelineStepId]) =
+    parentStepId match {
+      case Some(pid) => stepsTable.filter(s => s.pipelineId === pipelineId.value && s.parentStepId === pid.value)
+      case None      => stepsTable.filter(s => s.pipelineId === pipelineId.value && s.parentStepId.isEmpty)
+    }
 
 
   // ── Tree-ordered reads (HEL-904 task 1.6) ─────────────────────────────────
@@ -311,29 +400,29 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val stepId = PipelineStepId(row.id)
     val pid    = PipelineId(row.pipelineId)
     PipelineStepConfigCodec.decode(row.op, row.config) match {
-      case Success(cfg: RenameConfig)    => RenameStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: FilterConfig)    => FilterStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: JoinConfig)      => JoinStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: ComputeConfig)   => ComputeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: GroupByConfig)   => GroupByStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: CastConfig)      => CastStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: SelectConfig)    => SelectStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: LimitConfig)     => LimitStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: SortConfig)      => SortStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: AggregateConfig) => AggregateStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: SplitTextConfig) => SplitTextStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: ExtractHeadingsConfig) => ExtractHeadingsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: ChunkByTokenCountConfig) => ChunkByTokenCountStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: DateBucketConfig) => DateBucketStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: PivotConfig) => PivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: WindowConfig) => WindowStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: UnpivotConfig) => UnpivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: DedupeConfig) => DedupeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: FillNullConfig) => FillNullStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: StringOpsConfig) => StringOpsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: UnionConfig) => UnionStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: LookupConfig) => LookupStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
-      case Success(cfg: AssertConfig) => AssertStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, enabled = row.enabled)
+      case Success(cfg: RenameConfig)    => RenameStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: FilterConfig)    => FilterStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: JoinConfig)      => JoinStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: ComputeConfig)   => ComputeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: GroupByConfig)   => GroupByStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: CastConfig)      => CastStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: SelectConfig)    => SelectStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: LimitConfig)     => LimitStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: SortConfig)      => SortStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: AggregateConfig) => AggregateStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: SplitTextConfig) => SplitTextStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: ExtractHeadingsConfig) => ExtractHeadingsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: ChunkByTokenCountConfig) => ChunkByTokenCountStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: DateBucketConfig) => DateBucketStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: PivotConfig) => PivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: WindowConfig) => WindowStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: UnpivotConfig) => UnpivotStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: DedupeConfig) => DedupeStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: FillNullConfig) => FillNullStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: StringOpsConfig) => StringOpsStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: UnionConfig) => UnionStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: LookupConfig) => LookupStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: AssertConfig) => AssertStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineStepRepository: codec returned unexpected config type ${other.getClass.getName} for op '${row.op}'"
@@ -363,19 +452,21 @@ object PipelineStepRepository {
       config: String,
       enabled: Boolean,
       createdAt: Instant,
-      updatedAt: Instant
+      updatedAt: Instant,
+      parentStepId: Option[String] = None
   )
 
   class PipelineStepTable(tag: Tag) extends Table[PipelineStepRow](tag, "pipeline_steps") {
-    def id         = column[String]("id", O.PrimaryKey)
-    def pipelineId = column[String]("pipeline_id")
-    def position   = column[Int]("position")
-    def op         = column[String]("op")
-    def config     = column[String]("config")
-    def enabled    = column[Boolean]("enabled")
-    def createdAt  = column[Instant]("created_at")
-    def updatedAt  = column[Instant]("updated_at")
+    def id           = column[String]("id", O.PrimaryKey)
+    def pipelineId   = column[String]("pipeline_id")
+    def position     = column[Int]("position")
+    def op           = column[String]("op")
+    def config       = column[String]("config")
+    def enabled      = column[Boolean]("enabled")
+    def createdAt    = column[Instant]("created_at")
+    def updatedAt    = column[Instant]("updated_at")
+    def parentStepId = column[Option[String]]("parent_step_id")
 
-    def * = (id, pipelineId, position, op, config, enabled, createdAt, updatedAt).mapTo[PipelineStepRow]
+    def * = (id, pipelineId, position, op, config, enabled, createdAt, updatedAt, parentStepId).mapTo[PipelineStepRow]
   }
 }

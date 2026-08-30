@@ -152,24 +152,132 @@ green.
 confirmed by reading the actual completed run output — no regressions from
 the two fixes above.
 
+## Cycle 4 (this cycle, fresh cold spawn after a killed prior instance) — tasks 2.7, 2.8, then the deferred DB-backed remainder of 1.6/1.7
+
+Starting state verified fresh (not trusted blindly): `git log`/`git status` confirmed
+HEAD = `ca85b888` (V94 additive slice, cycle 3's work), tree clean, matches the
+resume brief exactly.
+
+**Task 2.7** (`alert_rules`/`alert_events` retarget to `target_output_id`): added
+nullable `target_output_id` (FK to `outputs`, indexed) to both tables in V94,
+alongside the untouched `target_data_type_id` — same additive-first pattern as
+2.2-2.6. The actual retarget DML and dropping `target_data_type_id` are 2.9/2.10's
+job (deferred per decision 1e, until section 3.1's consumer rewire lands).
+
+**Task 2.8** (`binary_refs` re-key): inspected the shared dev DB per the ticket's
+own instruction. Finding: the one live `binary_refs` row's `data_type_id` resolves
+to a `data_types` row that IS a pipeline's `output_data_type_id` (confirmed via
+`EXISTS(SELECT 1 FROM pipelines WHERE output_data_type_id = br.data_type_id)` —
+true for that row). Code-level cross-check: `PipelineRunService.scala:650` is the
+SOLE caller of `BinaryRefRepository.overwriteForDataType` in the whole codebase,
+and it always writes keyed by `outputDataTypeId`. `DataSourceService`/
+`ContentSourceSupport` construct `BinaryRefType` field *values* for companion-type
+rows but never call `overwriteForDataType` — there is no companion-type writer to
+re-key against `data_source_id` at all. Per ticket.md's explicit documented
+fallback ("if any do, key those by (pipeline_id, node_step_id) instead and say so
+in the PR"), added nullable `pipeline_id`/`node_step_id` columns instead of
+`data_source_id`, alongside the untouched `data_type_id`. RLS rewrite (currently
+selects from `data_types`, would block `DROP TABLE data_types`) deferred to land
+with 2.9/2.10.
+
+Both landed as V94 additions with red-first test coverage in
+`V94OutputsMigrationSpec` (nullable-by-default, then populatable via a real FK).
+
+**Real regression found and fixed via a full `sbt test` run** (again — this is
+exactly why the discipline matters): `BinaryRefsMigrationSpec` hard-coded the
+`binary_refs` table's expected column set as a literal `Set(...)`, so adding the
+two new columns broke it. Fixed by updating the test's own literal set (not the
+migration) — this was a genuine, correct assertion about V46's original shape,
+now extended for V94's additive columns, with an inline comment pointing at the
+`data_type_id`-drop deferral so a future reader isn't surprised when it eventually
+does drop out in task 2.10.
+
+**Deferred DB-backed remainder of 1.6/1.7** (picked up this cycle per the ticket's
+resume brief, since 2.2's `parent_step_id` column has been stable for a cycle):
+
+- Found a real gap while doing this: `PipelineStepRepository`'s `PipelineStepRow`/
+  table mapping never read or wrote the `parent_step_id` column at all, even
+  though it's existed on disk since 2.2 (cycle 3) — every domain `PipelineStep`
+  decoded `parentStepId = None` regardless of the actual DB value. Fixed:
+  `PipelineStepRow` gained a `parentStepId: Option[String]` field (Slick
+  `Tuple9`/`mapTo`), and all 23 `rowToDomain` constructor calls now pass it
+  through.
+- `insertInternal`/`insertAtInternal` gained an optional `parentStepId` parameter
+  (default `None`, preserving today's behavior exactly for every existing/live
+  call site) and are now genuinely sibling-scoped via a new `siblingsQuery`
+  helper: position is computed/renumbered only among steps sharing the same
+  `parentStepId`, not the whole pipeline. Previously `insertAtInternal` in
+  particular renumbered the ENTIRE pipeline's steps by global position on every
+  splice — now confirmed to be a live latent bug once any branch exists (it would
+  have silently corrupted a sibling branch's positions the moment one existed);
+  caught and fixed proactively here, before any caller creates a branch (P1.2's
+  job), rather than after.
+- `deleteInternal` now implements splice-on-delete per ticket.md's repository
+  semantics (`parent_step_id` has no `ON DELETE CASCADE` by design — confirmed in
+  V94; deletion must splice or the FK blocks the delete outright once a step has
+  children): the deleted step's position-0 child is re-parented into its
+  `parentStepId`/`position` slot; every OTHER child (a tail) and its full
+  descendant subtree is deleted outright. Descendant-set computation
+  (`descendantIdsOf`) is a pure function over the pipeline's full
+  `(id -> parentStepId)` map, no extra DB round-trips.
+- **Signature change, deliberate and scoped:** `deleteInternal` changed from
+  `Future[Boolean]` to `Future[Option[Int]]` (`None` = step didn't exist,
+  `Some(removedTailStepCount)` on success, NOT counting the step itself or the
+  re-parented head child) — this is exactly the "returns the placement count
+  removed so P1.3 can warn" requirement from ticket.md's repository-semantics
+  list. Verified there is exactly ONE live call site
+  (`PipelineService.deleteStep`, confirmed by grep — `insert`/`delete`,
+  the non-`Internal` owner-scoped variants, are unused by any production code
+  path today) and updated it to match (`Some(_) => ... Right(())`,
+  `None => Left(NotFound)`) — behavior-preserving for that caller, which only
+  consumes presence/absence today, not the count.
+- `reorderInternal`/`insert`/`delete` (owner-scoped) left untouched:
+  `reorderInternal` is already implicitly sibling-scoped by construction (it only
+  ever mutates the ids named in `orderedIds`, never infers a sibling set from
+  `pipelineId` alone); `insert`/`delete` have zero live callers, so extending them
+  now would be speculative work for a caller that doesn't exist yet.
+- New `PipelineStepRepositorySpliceSpec` (5 tests, all green): sibling-scoped
+  `insertInternal` position isolation across two different sibling groups,
+  sibling-scoped `insertAtInternal` splicing that leaves an UNRELATED sibling
+  group's positions untouched, splice-on-delete's head-child re-parent (asserted
+  via `trunkOf` that the trunk stays connected end-to-end, not just that the DB
+  row looks right), splice-on-delete's tail-subtree deletion with the correct
+  removed count, and the not-found `None` case.
+
+**Verification this cycle:**
+- `sbt compile` — clean.
+- `sbt "testOnly com.helio.infrastructure.persistence.pipelines.V94OutputsMigrationSpec"`
+  — 11/11 green (8 pre-existing + 3 new for 2.7/2.8).
+- `sbt "testOnly com.helio.infrastructure.persistence.BinaryRefsMigrationSpec"` — 3/3
+  green after the fix (was 2/3 red before, caught by a full run).
+- `sbt "testOnly com.helio.infrastructure.persistence.pipelines.PipelineStepRepositorySpliceSpec"`
+  — 5/5 green.
+- `sbt "testOnly com.helio.infrastructure.persistence.pipelines.* com.helio.services.pipelines.*"`
+  — 250/250 green (full pipelines-package sweep after the `deleteInternal`
+  signature change, to catch any other caller the initial grep might have missed
+  — none found).
+- Full `sbt test` re-run (confirmed complete, fresh, read directly): **3875/3875
+  passing**, exit code 0, 247 suites completed, 0 aborted, 0 failed (up from
+  3870 tests before this cycle's additions: +3 V94 assertions for 2.7/2.8, +5
+  from the new `PipelineStepRepositorySpliceSpec`, +2 from filling in the
+  `BinaryRefsMigrationSpec` column-set fix's own test count change -- net +5
+  suites-visible delta accounted for by these additions). No regressions from
+  this cycle's `deleteInternal` signature change or the `parent_step_id`
+  read-path fix.
+
 **Next cycle should:**
-1. Confirm the full `sbt test` re-run above is green (or fix whatever it
-   surfaces) before committing this cycle's work.
-2. Commit section 2's additive slice (2.1-2.6, 2.11-2.13 partial) as its own
-   commit.
-3. Continue with 2.7 (alert_rules/alert_events retarget to
-   `target_output_id`) and 2.8 (binary_refs re-key to `data_source_id` --
-   inspect the dev DB first for any ref pointing at a pipeline-output type,
-   per the ticket) — both are destructive/NOT-NULL-shaped changes, so apply
-   the same "full `sbt test` before declaring done" discipline, and expect
-   they may also need a deferred-NOT-NULL or FK-shape workaround if a
-   pre-existing consumer isn't ready yet.
-4. Then 2.9 (the 9-step data migration DML) and 2.10 (drops) — these are the
-   ticket's most load-bearing, least-reversible pieces; do not rush them.
-   2.10's drops in particular must not land before section 3/4's consumer
-   rewires are complete (decision 1e) -- almost certainly a later cycle's
-   work, not this migration file's next edit.
-5. Deferred DB-backed remainder of 1.6/1.7 (sibling-scoped insert/reorder,
-   splice-on-delete, and their tests) can land once 2.2's `parent_step_id`
-   column is stable (it is, as of this cycle) -- worth picking up alongside
-   or shortly after finishing section 2's DDL, per the earlier cycle's note.
+1. Move to 2.9 (the 9-step data-migration DML) — write red-first tests for the
+   known preservation paths (alert-rule retarget, binary_refs re-key,
+   computed-fields → compute steps, patch-set journal cleanup, DemoData reseed,
+   unbound-panel deletion count, data-bound text → markdown Outputs, `position`
+   never reset) BEFORE or alongside the DML.
+2. **Do NOT let 2.10's drops land in the same cycle as 2.9, or before section
+   3/4's consumer rewires are complete** (decision 1e) — this is the ticket's
+   most load-bearing, least-reversible boundary; stop cleanly after 2.9 if that's
+   as far as a cycle gets.
+3. `alert_rules`/`alert_events.target_data_type_id` and `binary_refs.data_type_id`
+   (the legacy columns this cycle left untouched) get their data copied forward
+   as part of 2.9, then dropped in 2.10 alongside `target_output_id`
+   `SET NOT NULL` and the `binary_refs` RLS rewrite — all three deferred from
+   this cycle for the same decision-1e reason as `panels.kind SET NOT NULL`
+   (cycle 3) and `metrics`/`data_types` themselves.
