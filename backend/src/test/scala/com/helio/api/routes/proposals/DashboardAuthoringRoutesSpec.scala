@@ -4,7 +4,7 @@ import com.helio.api.routes.proposals.DashboardAuthoringRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -65,6 +65,7 @@ class DashboardAuthoringRoutesSpec
   private var db: JdbcBackend.Database           = _
   private var dataTypeRepo: DataTypeRepository   = _
   private var outputRepo: OutputRepository       = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
   private var pipelineRepo: PipelineRepository   = _
   private var dataSourceRepo: DataSourceRepository = _
 
@@ -106,6 +107,7 @@ class DashboardAuthoringRoutesSpec
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
     outputRepo            = new OutputRepository(ctx)
+    nodeSnapshotRepo      = new NodeSnapshotRepository(ctx)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 
     val registry        = new ResourceTypeRegistry(
@@ -116,7 +118,7 @@ class DashboardAuthoringRoutesSpec
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
 
     workspaceContextService  = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
-    panelCapabilityService   = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    panelCapabilityService   = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null, outputRepo)
     conversationRepo         = new AuthoringConversationRepository(ctx)
 

@@ -62,3 +62,49 @@
   completion note; 3.2 annotated as partial (only `WorkspaceSearchService`'s DataType branch
   landed, forced by 3.12; `WorkspaceTeardownRepository`/`DashboardContentsService`/
   `AssistantToolExecutor`'s remaining DataType/Metric branches are NOT done).
+
+## Cycle 22 additions (task 3.11/3.11a: PanelCapabilityService rewire)
+
+- `backend/src/main/scala/com/helio/services/panels/PanelCapabilityService.scala` — constructor
+  rewired from `(dataTypeRepo, dataTypeRowRepo)` to `(outputRepo: OutputRepository,
+  nodeSnapshotRepo: NodeSnapshotRepository)`; `getCapabilities`'s public parameter type
+  deliberately kept as `DataTypeId` (reinterpreted internally as an `OutputId`) so zero call sites
+  need a signature change; `isPipelineOutput` now unconditionally `true` (an Output has no
+  source-companion concept); columns now derived from `output.schema`.
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — `panelCapabilityService` construction
+  site updated to `outputRepoOpt.orNull`/`nodeSnapshotRepoOpt.orNull`.
+- `backend/src/test/scala/com/helio/api/routes/DataTypeDataSourceAclSpec.scala` — added
+  `outputRepo`/`nodeSnapshotRepo` fields; new `seedOwnedOutput` helper (real
+  data_sources→pipelines→outputs chain) for the two `panel-capabilities` route tests, which
+  previously seeded only a bare DataType with no matching Output.
+- `backend/src/test/scala/com/helio/api/routes/ResourceTaggingSpec.scala`,
+  `backend/src/test/scala/com/helio/api/routes/patchsets/RefinementRoutesSpec.scala`,
+  `backend/src/test/scala/com/helio/api/routes/proposals/DashboardAuthoringRoutesSpec.scala`,
+  `backend/src/test/scala/com/helio/services/patchsets/RefinementServiceSpec.scala`,
+  `backend/src/test/scala/com/helio/services/proposals/AuthoringTelemetrySpec.scala`,
+  `backend/src/test/scala/com/helio/services/proposals/DashboardAuthoringServiceSpec.scala`,
+  `backend/src/test/scala/com/helio/api/routes/pipelines/DataTypeRoutesSpec.scala` — mechanical
+  constructor-call updates onto `(outputRepo, nodeSnapshotRepo)` (adding those fields/imports
+  where not already present).
+- `backend/src/test/scala/com/helio/services/assistant/AssistantServiceSpec.scala` — reuses the
+  existing `dataTypeBackedOutputRepo` adapter for `panelCapabilityService` too; removed the
+  now-unused `rowRepo` mock.
+- `backend/src/test/scala/com/helio/services/assistant/AssistantToolExecutorSpec.scala` —
+  `panelCapabilityService` now built from the same `outputRepo` param `newExecutor` already
+  threads to the other workspace services.
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceSpec.scala` — added an
+  `outputRepo` field; `runHeterogeneous` now seeds a companion Output (schema copied from the
+  DataType `upsertFieldsFromRows` just wrote) since this suite's `service` never wires an
+  `OutputRepository` on the run path (that's P1.2/HEL-905's job), then resolves capabilities
+  against the Output's own generated id.
+- `backend/src/test/scala/com/helio/services/panels/PanelCapabilityServiceSpec.scala` — REWRITTEN
+  in full onto `OutputRepository`/`NodeSnapshotRepository` (real Output/pipeline/data-source
+  fixtures via `insertPipeline`/`insertOutput`/`writeRows`); the prior 5.3 "source-companion
+  DataType reports no bindable panels" case is RETIRED with an inline comment (an Output has no
+  source-companion concept, so that state can no longer occur) — not carried over as dead-code
+  coverage. This file's subject was NOT deleted alongside a route deletion this cycle (contrary to
+  tasks.md's original 3.11a plan) because section 4 hasn't started yet and the route it backs is
+  still live; rewriting preserves real coverage instead.
+- `openspec/changes/outputs-model-migration/tasks.md` — 3.11/3.11a marked `[x]` with detailed
+  completion notes, including the deliberate correction to 3.11a's "delete, don't rewire" plan for
+  `PanelCapabilityServiceSpec`/`DataTypeRoutesSpec`.

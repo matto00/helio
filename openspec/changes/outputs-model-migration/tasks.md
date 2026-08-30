@@ -227,7 +227,7 @@
       at commit `fb7593d9`** (cycle 16) — verified this cycle: `MetricKind`/`TimelineKind`/
       `MetricIdSupportedKinds`/`ChartPanel` are all absent from both files (only historical
       code-comments mentioning their removal remain).
-- [ ] 3.11 `PanelCapabilityService` (16 refs, `:8` takes `DataTypeRepository` +
+- [x] 3.11 `PanelCapabilityService` (16 refs, `:8` takes `DataTypeRepository` +
       `DataTypeRowRepository`): **KEEP and rewire** — verified directly against the live tree
       (round 3), this is NOT dead code with only the two deleted-route callers a round-2 skeptic
       finding claimed: it is a live constructor dependency of `RefinementGrounding`,
@@ -237,8 +237,19 @@
       capability computation to resolve against a pipeline node's Outputs instead of a DataType;
       only the public route it used to back (`GET /api/types/:id/panel-capabilities`, deleted in
       §4.1) and `PanelCapabilityProtocol`'s route-facing wire shape go away — the service and its
-      four internal callers stay and must keep compiling.
-- [ ] 3.11a `PanelCapabilityService`'s test-side blast radius (round-4 finding — task 4.5 only
+      four internal callers stay and must keep compiling. **Completed this cycle**: constructor
+      rewired to `(outputRepo: OutputRepository, nodeSnapshotRepo: NodeSnapshotRepository)` (same
+      positional slot); `getCapabilities`'s public parameter type is DELIBERATELY left as
+      `DataTypeId` (not `OutputId`) — see the class's own doc comment — since every caller
+      (the still-live route, `RefinementGrounding`, `DashboardAuthoringService`,
+      `AssistantToolExecutor`) already threads a bare id string sourced from
+      `WorkspaceContextDataType.id` (itself an Output id since task 3.12) through a
+      `DataTypeId(...)` wrapper; `id.value` is reinterpreted as an `OutputId` internally (safe,
+      both are opaque `String` wrappers over the same id space post-3.12). `isPipelineOutput` is
+      now unconditionally `true` (an Output has no source-companion concept) — the V41-mirroring
+      "not-pipeline-output" branch is dead-but-harmless, never reached. Zero call-site signature
+      changes needed at any of the four internal callers or `ApiRoutes.scala`'s route wiring.
+- [x] 3.11a `PanelCapabilityService`'s test-side blast radius (round-4 finding — task 4.5 only
       covers specs of DELETED files; these belong to KEPT services): rewire the 12 backend spec
       files constructing `new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)` with the two
       repositories §4.1 deletes — `AssistantToolExecutorSpec`, `AssistantServiceSpec`,
@@ -249,6 +260,28 @@
       in §4.5, not rewired here). Also update the stale doc comments at
       `PanelBindingSpec.scala:32,103-119` and `PanelCapabilityProtocol.scala:8` that still
       reference the retired introspection endpoint.
+
+      **Completed this cycle, with one deliberate correction to the plan above**: all 12 listed
+      spec files rewired onto `(outputRepo, nodeSnapshotRepo)`, each seeding/stubbing a real
+      Output (or, for `AssistantServiceSpec`/`AssistantToolExecutorSpec`, reusing the
+      already-existing `dataTypeBackedOutputRepo`/`outRepo` adapters those files built for task
+      3.12's own rewire) rather than a DataType. **`PanelCapabilityServiceSpec` and
+      `DataTypeRoutesSpec` were REWIRED, not deleted**, contrary to this task's original plan —
+      by the time 3.11 landed, section 4 (which the plan assumed would already have deleted
+      their subjects/routes) had NOT started, and leaving them both un-rewired would have left
+      the tree non-compiling. `PanelCapabilityServiceSpec` was rewritten in full onto
+      `OutputRepository`/`NodeSnapshotRepository` (real coverage preserved for 5.1/5.2/5.4/
+      cross-tenant-404/nonexistent-404; the 5.3 "source-companion" case was RETIRED with an
+      inline comment, not silently dropped — an Output has no source-companion concept at all,
+      so that assertion tested a state that can no longer occur). `DataTypeRoutesSpec` needed
+      only the same mechanical constructor-argument swap as the other 10 files (it has no test
+      case actually exercising the `panel-capabilities` route). `PanelBindingSpec.scala` no
+      longer exists (already retired in an earlier task-3.6 cycle, confirmed by a fresh
+      `find` — nothing to update there); `PanelCapabilityProtocol.scala:7-8`'s doc comment is
+      still accurate as written (the route it describes is still live pending §4.1) and needed
+      no change. `DataTypeDataSourceAclSpec` additionally gained a `seedOwnedOutput` helper (a
+      real `data_sources` → `pipelines` → `outputs` chain) since its two `panel-capabilities`
+      route tests previously seeded only a bare `DataType` row with no corresponding Output.
 - [x] 3.12 `WorkspaceContextService` (34 refs, `:5` imports `DataTypeService`): rewire every
       DataType/Metric reference to Outputs/pipelines/inferredSchema; do NOT touch `asNumeric`'s
       single-exit-filter structure or its `BigDecimal.setScale` rounding (HEL-631 caution).

@@ -15,7 +15,7 @@ import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -123,10 +123,11 @@ class RefinementServiceSpec
     val dataTypeService = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
     val outputRepo     = new OutputRepository(ctx)
+    val nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 
     val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
-    val panelCapabilityService  = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    val panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     patchSetPreviewService = new PatchSetPreviewService(
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo, metricRepo, accessChecker
     )

@@ -153,12 +153,15 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     )
 
   private def newService(dtRepo: DataTypeRepository, dsRepo: DataSourceRepository, transport: ClaudeTransport): AssistantService = {
-    val rowRepo                  = mock(classOf[DataTypeRowRepository])
-    when(rowRepo.listRows(any[String](), any[Option[Int]](), any[Set[String]]())).thenReturn(Future.successful(Vector.empty[JsObject]))
     val outputRepo                = dataTypeBackedOutputRepo(dtRepo)
     val workspaceContextService  = new WorkspaceContextService(null, null, outputRepo, null)
     val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, null, workspaceContextService)
-    val panelCapabilityService   = new PanelCapabilityService(dtRepo, rowRepo)
+    // HEL-904 task 3.11: rewired onto OutputRepository/NodeSnapshotRepository -- reuses the SAME
+    // dataTypeBackedOutputRepo adapter constructed above for workspaceContextService/
+    // workspaceSearchService (no test in this file exercises panel-capability row counts, so a
+    // `null` NodeSnapshotRepository degrades to `rowCount = 0`, mirroring `rowRepo`'s own
+    // always-empty stub above).
+    val panelCapabilityService   = new PanelCapabilityService(outputRepo, null)
     val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null)
     val pipelineProposalService  = new PipelineProposalService(null, null, null, null, null, dsRepo, null, null)
     val claudeClient             = new ClaudeClient(config(), transport)

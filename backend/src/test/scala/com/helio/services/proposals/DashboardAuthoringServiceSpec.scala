@@ -11,7 +11,7 @@ import com.helio.services.workspace.WorkspaceContextService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -73,6 +73,7 @@ class DashboardAuthoringServiceSpec
   private var dataTypeRepo: DataTypeRepository     = _
   private var dataTypeRowRepo: DataTypeRowRepository = _
   private var outputRepo: OutputRepository = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
 
   private var workspaceContextService: WorkspaceContextService     = _
   private var panelCapabilityService: PanelCapabilityService       = _
@@ -101,6 +102,7 @@ class DashboardAuthoringServiceSpec
     dataTypeRepo     = new DataTypeRepository(ctx)
     dataTypeRowRepo  = new DataTypeRowRepository(ctx)
     outputRepo       = new OutputRepository(ctx)
+    nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
     val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
@@ -119,7 +121,7 @@ class DashboardAuthoringServiceSpec
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
 
     workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
-    panelCapabilityService  = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     // dashboardService/panelService are never touched by `.validate` (the only method
     // DashboardAuthoringService calls) — null, same rationale as
     // DashboardProposalServiceValidateSpec. metricRepo: null mirrors PanelService's

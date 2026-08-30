@@ -13,7 +13,7 @@ import com.helio.api.{DataSourceResponse, JsonProtocols}
 import com.helio.domain.model.PagedResult
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.sources.{DataSourceService, SourceService}
@@ -57,6 +57,8 @@ class DataTypeDataSourceAclSpec
   private var pipelineRepo: PipelineRepository       = _
   private var pipelineStepRepo: PipelineStepRepository = _
   private var pipelineRunRepo: PipelineRunRepository = _
+  private var outputRepo: OutputRepository           = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
 
   // Two distinct authenticated users — `userA` owns the resources under test;
   // `userB` is the cross-user probe. Both must exist in the `users` table so
@@ -80,6 +82,8 @@ class DataTypeDataSourceAclSpec
     pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
     pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
+    outputRepo       = new OutputRepository(ctx)(routeEc)
+    nodeSnapshotRepo = new NodeSnapshotRepository(ctx)(routeEc)
     seedUsers()
   }
 
@@ -121,11 +125,33 @@ class DataTypeDataSourceAclSpec
     DataSourceId(dsId)
   }
 
+  // HEL-904 task 3.11: `GET /types/:id/panel-capabilities` now resolves an Output, not a
+  // DataType -- the `PanelCapabilityService` rewire's own `DataTypeId`-wrapper-around-an-
+  // Output-id convention (see that class's own doc comment) means the id path param must
+  // actually BE a real Output's id, not a bare DataType's. Seeds a full pipeline_id -> outputs
+  // chain (via `outputRepo.insertInternal`, which mints its own id) rather than a
+  // `seedOwnedDataType` companion, since the two id spaces are otherwise unrelated post-3.12.
+  private def seedOwnedOutput(ownerId: String): DataTypeId = {
+    import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
+    val pid  = UUID.randomUUID().toString
+    val cfg  = """{"columns":[],"rows":[]}"""
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+               VALUES ($dsId, 'TestSource', 'static', $cfg, $ownerId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pid, 'TestPipeline', $dsId, $ownerId::uuid, now(), now())"""
+    )))
+    val output = await(outputRepo.insertInternal(
+      PipelineId(pid), nodeStepId = None, ownerId = UserId(ownerId), name = "TestOutput", kind = OutputKind.Table
+    ))
+    DataTypeId(output.id.value)
+  }
 
   private def dataTypeRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
     val svc = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val capabilitySvc = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    val capabilitySvc = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     // HEL-576: assertion-status route needs a PipelineRunService — none of
     // this file's tests exercise a real run/dry-run/SSE path, so registry
     // and fileSystem are safely null (mirrors PipelineRunServiceSpec's own
@@ -221,16 +247,16 @@ class DataTypeDataSourceAclSpec
 
   "GET /types/:id/panel-capabilities" should {
     "return 200 for the owner" in {
-      val dtId = seedOwnedDataType(userAId)
+      val dtId = seedOwnedOutput(userAId)
       Get(s"/types/${dtId.value}/panel-capabilities") ~> dataTypeRoutesFor(userA) ~> check {
         status shouldBe StatusCodes.OK
       }
     }
     // design.md D5 (task 5.5): cross-tenant existence must never leak as a
-    // 403 — the DataType lookup is owner-scoped (findByIdOwned), so a
+    // 403 — the Output lookup is owner-scoped (findByIdOwned), so a
     // cross-user request looks identical to a nonexistent id.
     "return 404 for a cross-user caller, not 403" in {
-      val dtId = seedOwnedDataType(userAId)
+      val dtId = seedOwnedOutput(userAId)
       Get(s"/types/${dtId.value}/panel-capabilities") ~> dataTypeRoutesFor(userB) ~> check {
         status shouldBe StatusCodes.NotFound
       }

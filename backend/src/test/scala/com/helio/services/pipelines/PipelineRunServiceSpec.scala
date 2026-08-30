@@ -12,7 +12,7 @@ import com.helio.domain.model._
 import com.helio.domain.steps.{LookupConfig, UnionConfig}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.panels.PanelCapabilityService
@@ -106,6 +106,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private var pipelineRunRepo: PipelineRunRepository = _
   private var dataTypeRepo: DataTypeRepository       = _
   private var dataTypeRowRepo: DataTypeRowRepository = _
+  private var outputRepo: OutputRepository           = _
   private var service: PipelineRunService            = _
 
   override def beforeAll(): Unit = {
@@ -122,6 +123,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     pipelineRepo    = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
     pipelineRunRepo = new PipelineRunRepository(ctx)
     dataTypeRowRepo = new DataTypeRowRepository(ctx)
+    outputRepo      = new OutputRepository(ctx)
     val cache       = new PipelineRunCache()
     val fileSystem  = new LocalFileSystem(Paths.get("/"))
     // HEL-758: threads stubConnector so rest_api base-source tests below can
@@ -1089,7 +1091,11 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   // Fixture (i) (`RestHeterogeneousUrl`) carries all seven shapes task 1.1 enumerates.
   "PipelineRunService.onUnblockedRunSuccess (HEL-891 schema union)" should {
 
-    def capabilitySvc = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    // HEL-904 task 3.11: PanelCapabilityService is rewired onto OutputRepository/
+    // NodeSnapshotRepository (`null` here mirrors `service`'s own null-registry/null-connector
+    // fixture discipline above -- this suite's `service` never wires a NodeSnapshotRepository
+    // either, so no node has snapshot rows to count regardless of which repo backs the report).
+    def capabilitySvc = new PanelCapabilityService(outputRepo, null)
 
     def runHeterogeneous(url: String = RestHeterogeneousUrl): (DataType, PanelCapabilitiesResponse) = {
       val dsId = seedRestDsNamed(url, "ds-heterogeneous-" + UUID.randomUUID())
@@ -1101,7 +1107,18 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       result.toOption.get.blocked shouldBe false
 
       val dt = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
-      val caps = await(capabilitySvc.getCapabilities(outputDataTypeId, dummyUser)).toOption.get
+      // HEL-904 task 3.11: this suite's production `service` (unlike the real ApiRoutes wiring)
+      // never inserts an Output row for a pipeline run -- Output materialization on the run path
+      // is P1.2/HEL-905's job (see PipelineRunService's own `alertEvaluation` comment). Seed a
+      // companion Output here, schema copied verbatim from the just-upserted DataType's fields,
+      // so `capabilitySvc.getCapabilities` (now Output-backed) has something real to resolve --
+      // same "companion" fixture technique `DashboardAuthoringRoutesSpec`'s task-3.12 rewrite
+      // used for an identical need.
+      val output = await(outputRepo.insertInternal(
+        pid, nodeStepId = None, ownerId = dummyUser.id, name = dt.name, kind = OutputKind.Table,
+        schema = dt.fields.map(f => SchemaField(f.name, f.dataType))
+      ))
+      val caps = await(capabilitySvc.getCapabilities(DataTypeId(output.id.value), dummyUser)).toOption.get
       (dt, caps)
     }
 

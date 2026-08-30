@@ -77,7 +77,11 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     // `dataTypeService` is no longer a collaborator of either.
     val workspaceContextService  = new WorkspaceContextService(null, null, outputRepo, null)
     val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, null, workspaceContextService)
-    val panelCapabilityService   = new PanelCapabilityService(dtRepo, rowRepo)
+    // HEL-904 task 3.11: rewired onto OutputRepository/NodeSnapshotRepository -- reuses the SAME
+    // `outputRepo` this helper already threads to workspaceContextService/workspaceSearchService/
+    // dashboardProposalService above. `null` NodeSnapshotRepository degrades to `rowCount = 0`; no
+    // test in this file asserts on panel-capability row counts.
+    val panelCapabilityService   = new PanelCapabilityService(outputRepo, null)
     val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null, outputRepo)
     // HEL-756 tasks.md 2.4/2.5/2.7 — the default is a REAL instance whose own collaborators are all
     // null, safe because `PipelineProposalService.validate`'s `validateSourceReference` never

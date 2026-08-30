@@ -2180,3 +2180,139 @@ pieces, plus finishing 3.2's other three files.
 3. Task 3.3 (`PatchSetApplyService` dataType-target retirement) and 3.15 (its dependent
    `ApiRoutes.scala` route-deletion) remain independently schedulable whenever there's a clean
    slot — not blocked on the 3.2/3.11/3.12 cluster.
+
+## Cycle 22 (this cycle) — task 3.11/3.11a landed in full
+
+Starting state verified fresh: HEAD = `5072a6e4` (cycle 21's commit), tree clean, full
+`sbt test` 3629/3629 confirmed twice by cycle 21's own runs.
+
+**Scope landed this cycle: task 3.11 (`PanelCapabilityService`) + 3.11a (its ~13-file test blast
+radius, 3 more than the originally-listed 12 — `PipelineRunServiceSpec` was on the list;
+`PanelCapabilityServiceSpec`/`DataTypeRoutesSpec` were NOT, but needed fixing too, see below) in
+full.**
+
+- `PanelCapabilityService`'s constructor swapped from `(dataTypeRepo: DataTypeRepository,
+  dataTypeRowRepo: DataTypeRowRepository)` to `(outputRepo: OutputRepository, nodeSnapshotRepo:
+  NodeSnapshotRepository)`. The public `getCapabilities(id: DataTypeId, user)` signature is
+  DELIBERATELY unchanged — every one of its 4 real callers (the still-live `GET
+  /api/types/:id/panel-capabilities` route, `RefinementGrounding`, `DashboardAuthoringService`,
+  `AssistantToolExecutor`) already threads a bare id STRING sourced from
+  `WorkspaceContextDataType.id` (itself an Output's id since task 3.12) through a `DataTypeId(...)`
+  wrapper — `id.value` is reinterpreted as an `OutputId` internally (safe: both are opaque `String`
+  wrappers over the identical id space post-3.12). Result: **zero call-site signature changes
+  needed** at any of the 4 internal callers or `ApiRoutes.scala`'s route/service wiring beyond the
+  constructor-argument swap itself.
+- `isPipelineOutput` is now unconditionally `true` (an Output has no source-companion concept at
+  all — that distinction was retired with the DataType/Metric split) — the V41-mirroring
+  "not-pipeline-output" 400 branch is now dead-but-harmless code, never reachable through this
+  service. `columnsOf` now derives from `output.schema` (`Vector[SchemaField]`, no nullability
+  signal — `nullable = false` default, same precedent as `WorkspaceContextService.toDataTypeEntry`).
+  `rowCountOf` reads `NodeSnapshotRepository.listRows(output.node.pipelineId.value,
+  output.node.stepId.map(_.value))`, null-checked exactly like the prior
+  `dataTypeRowRepo`-null-check precedent.
+
+**A genuine ordering conflict found and resolved (not guessed at) — flagged here per
+systematic-debugging.md, not silently absorbed:** task 3.11a's own text says
+`PanelCapabilityServiceSpec` and `DataTypeRoutesSpec` are "deleted alongside their subjects in
+§4.5, not rewired here" — but section 4 has NOT started (confirmed: `git log`/`tasks.md` section 4
+is still all `[ ]`), so both files' subjects (the DataType CRUD route family, `GET
+/api/types/:id/panel-capabilities`) are still live and still compiling against the OLD
+`PanelCapabilityService` signature. Deleting either file now would have been a real section-4
+action taken out of order and, for `DataTypeRoutesSpec`, would have silently dropped real,
+still-relevant coverage of `GET /types/:id`, `/rows`, `/validate-expression`,
+`/assertion-status`, PATCH/DELETE — none of which this cycle's change touches. Resolved
+conservatively: `DataTypeRoutesSpec` needed only the same mechanical constructor swap as the
+other 10 files (grep confirmed it has no test case actually exercising `panel-capabilities` at
+all); `PanelCapabilityServiceSpec` was REWRITTEN in full onto `OutputRepository`/
+`NodeSnapshotRepository` fixtures (real Output/pipeline/data-source rows), preserving every
+still-meaningful assertion (5.1/5.2/5.4/cross-tenant-404/nonexistent-404) and explicitly RETIRING
+(with an inline comment, not a silent drop) the one assertion (5.3, "source-companion DataType
+reports no bindable panels") that tests a state which literally cannot occur on an Output. This is
+a documented, in-scope correction to 3.11a's plan, not a section-4 start — no route, repository, or
+production file was deleted.
+
+**Test fallout (13 files, all mechanical except the two above):**
+- Mechanical constructor-argument swap (`(dataTypeRepo, dataTypeRowRepo)` →
+  `(outputRepo, nodeSnapshotRepo)`, adding the two fields/imports where not already present from
+  earlier cycles' task-3.12 work): `DataTypeDataSourceAclSpec` (new fields, no `outputRepo` existed
+  yet), `ResourceTaggingSpec` (new fields), `RefinementRoutesSpec`, `DashboardAuthoringRoutesSpec`,
+  `RefinementServiceSpec`, `AuthoringTelemetrySpec`, `DashboardAuthoringServiceSpec`,
+  `DataTypeRoutesSpec` (new fields).
+- `AssistantServiceSpec`/`AssistantToolExecutorSpec`: reused the `dataTypeBackedOutputRepo`
+  adapter / existing `outputRepo` param each file already built for task 3.12's own rewire — zero
+  new fixture machinery needed, just pointed `panelCapabilityService` at the same collaborator.
+  `AssistantServiceSpec`'s now-dead `rowRepo` mock (only ever fed the old
+  `PanelCapabilityService` arg) was removed.
+- `PipelineRunServiceSpec`: this suite's own `service` (unlike the real `ApiRoutes` wiring) never
+  wires an `OutputRepository`/`NodeSnapshotRepository` on the run-success path at all — Output
+  materialization on that path is explicitly P1.2/HEL-905's job, not this ticket's (per
+  `PipelineRunService`'s own `alertEvaluation` comment). `runHeterogeneous` now seeds a companion
+  Output (schema copied verbatim from the DataType `upsertFieldsFromRows` already wrote) after each
+  run, then resolves capabilities against the Output's own generated id rather than the legacy
+  `outputDataTypeId` — same "companion" fixture technique cycle 21's `DashboardAuthoringRoutesSpec`
+  rewrite used for an identical need. `capabilitySvc` passes `null` for `NodeSnapshotRepository`
+  (this suite never wires one for the production `service` either, so no test asserts on row
+  counts here).
+- `DataTypeDataSourceAclSpec`: new `seedOwnedOutput` helper (a real
+  `data_sources → pipelines → outputs` chain via `outputRepo.insertInternal`) replaces
+  `seedOwnedDataType` for the file's two `GET /types/:id/panel-capabilities` tests specifically —
+  every other route family in this file (rows/validate-expression/assertion-status/PATCH/DELETE)
+  is untouched and still uses `seedOwnedDataType` as before.
+- `PanelCapabilityServiceSpec`: full rewrite (see above).
+
+**A real regression found and fixed via targeted isolation runs (not the full suite alone — see
+HEL-924 classification protocol):** the initial `PanelCapabilityService.scala` edit left one
+inline FQN (`com.helio.domain.model.OutputKind.asString`) that `node scripts/check-scala-quality.mjs`
+caught (CONTRIBUTING.md "Imports & Qualifiers") — fixed by adding `OutputKind` to the existing
+top-of-file import and using the bare name; re-ran `check-scala-quality.mjs` clean afterward (139
+pre-existing soft warnings, unchanged).
+
+**Verification this cycle (fresh, exit codes/counts read directly):**
+- `sbt -batch compile` — clean (both before and after the inline-FQN fix).
+- `sbt -batch Test/compile` — clean after all 13 spec-file edits.
+- `sbt -batch "testOnly com.helio.services.panels.PanelCapabilityServiceSpec"` (isolated) — 5/5
+  green (down from the prior file's 6 — the retired 5.3 case accounts for the -1).
+- `sbt -batch "testOnly com.helio.api.routes.DataTypeDataSourceAclSpec"` (isolated) — 28/28 green.
+- `sbt -batch "testOnly ...12 files..."` (the full 3.11a set in one batch, before the above two
+  isolated re-runs pinned down their individual failures) — 210/215 green, 5 failed, ALL 5
+  isolated to the two files above (4 in `PanelCapabilityServiceSpec` from a missing `seedUsers`
+  FK-violation root cause, 1 in `DataTypeDataSourceAclSpec` from the stale `seedOwnedDataType`
+  fixture) — root-caused and fixed per systematic-debugging.md (see above), not guessed at.
+- Full `sbt -batch test` run TWICE (once right after the fixture fixes, once again after the
+  inline-FQN fix) — **3628/3628 passing both times**, exit code 0, 238 suites, 0 aborted, 0
+  failed. The count is 3628, not cycle 21's 3629 — expected and explained: `PanelCapabilityServiceSpec`
+  net -1 test (6 → 5, the retired 5.3 case), no other file's test count changed.
+- `node scripts/check-scala-quality.mjs` — clean (139 pre-existing soft warnings, unchanged, 0 new
+  — the one real violation this cycle introduced was fixed before this final run).
+- `node scripts/check-schema-drift.mjs` — clean (no schema-surface changes this cycle).
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+
+**Section 3 status after this cycle:** 3.1/3.4/3.5/3.6/3.7/3.8/3.9/3.10/3.10a/3.11/3.11a/3.12/
+3.13/3.14 confirmed `[x]`. Remaining: **3.2 (still partial — `WorkspaceTeardownRepository`,
+`DashboardContentsService`, and `WorkspaceSearchService`'s Metric branch are still untouched;
+`AssistantToolExecutor`'s `withCapabilities` needs NO further change now that 3.11 is done — it
+already threads a `DataTypeId` wrapper, which `PanelCapabilityService` now correctly reinterprets
+as an Output id, so that specific sub-item from 3.2's own text is resolved as a side effect of
+3.11 landing), 3.3, 3.15**. Section 3 is 13 of 15 items fully `[x]`, one partial, one not started.
+
+**Deliberately NOT attempted this cycle** (per the resume brief's own explicit allowance to stop
+after 3.11/3.11a with 3.2's remainder/3.3/3.15 deferred): `WorkspaceSearchService`'s Metric branch
+removal (would require removing the `metricService` constructor param entirely, per the
+`workspace-resource-search` OpenSpec delta's "no longer include dataType or metric" scenario —
+this is a larger, ~10-call-site blast radius that deserved a full cycle's own budget rather than a
+rushed tail-end change), `WorkspaceTeardownRepository`'s `data_type` teardown branch, and
+`DashboardContentsService`'s DataType/Metric composition — none started, all still fully
+`DataTypeRepository`/`MetricRepository`-keyed exactly as before this cycle.
+
+**Next cycle should:**
+1. Finish task 3.2: `WorkspaceSearchService`'s Metric branch (remove the `metricService`
+   constructor param and its `find`/`getResource` cases entirely, per the
+   `workspace-resource-search` delta's "Metrics are retired, not retargeted" scenario — NOT a
+   rewire onto Outputs, an outright removal; this touches every one of `WorkspaceSearchService`'s
+   ~10 construction call sites, so budget a full pass for it), `WorkspaceTeardownRepository`
+   (verify against the `workspace-tag-teardown` delta whether a `data_type`-branch rewire is even
+   needed, or whether teardown covers Outputs transitively via their pipeline and the branch is
+   simply removable), `DashboardContentsService` (DataType/Metric composition → Outputs).
+2. Task 3.3 (`PatchSetApplyService` dataType-target retirement) and 3.15 (its dependent
+   `ApiRoutes.scala` route-deletion, confirmed still blocked on 3.3) remain independently
+   schedulable whenever there's a clean slot.

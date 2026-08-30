@@ -11,7 +11,7 @@ import com.helio.services.workspace.{WorkspaceContextService, WorkspaceTeardownS
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -66,6 +66,8 @@ class ResourceTaggingSpec
   private var pipelineRepo: PipelineRepository     = _
   private var pipelineStepRepo: PipelineStepRepository = _
   private var pipelineRunRepo: PipelineRunRepository = _
+  private var outputRepo: OutputRepository = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
 
   private val userAId = UUID.randomUUID().toString
   private val userBId = UUID.randomUUID().toString
@@ -86,6 +88,8 @@ class ResourceTaggingSpec
     pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
     pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
+    outputRepo       = new OutputRepository(ctx)(routeEc)
+    nodeSnapshotRepo = new NodeSnapshotRepository(ctx)(routeEc)
     seedUsers()
   }
 
@@ -122,7 +126,7 @@ class ResourceTaggingSpec
   private def dataTypeRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
     val svc           = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val capabilitySvc = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    val capabilitySvc = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     // HEL-576: assertion-status route needs a PipelineRunService — none of
     // this file's tests exercise a real run/dry-run/SSE path, so registry
     // and fileSystem are safely null (mirrors PipelineRunServiceSpec's own

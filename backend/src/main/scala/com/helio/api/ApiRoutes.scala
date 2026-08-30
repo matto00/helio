@@ -272,7 +272,7 @@ final class ApiRoutes(
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, auditService)
   // HEL-365: separate from dataTypeService (CRUD-only, design.md D6) — reads
   // the same dataTypeRepo/dataTypeRowRepo to build the panel-capabilities report.
-  private val panelCapabilityService = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+  private val panelCapabilityService = new PanelCapabilityService(outputRepoOpt.orNull, nodeSnapshotRepoOpt.orNull)
   // HEL-381: threads the same RestApiConnectorDriver instance sourceService already
   // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo/
   // dataTypeRepo above cover every other analyzeProposal branch).

@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AssertionStatusResponse, DataTypeRowsResponse, ErrorResponse, JsonProtocols}
 import com.helio.domain.model.{AssertionResult, AuthenticatedUser, DataField, DataType, DataTypeId, PipelineId, PipelineRunId, UserId}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.pipelines.{DataTypeService, PipelineRunService}
 import com.helio.services.panels.PanelCapabilityService
@@ -45,6 +45,8 @@ class DataTypeRoutesSpec
   private var pipelineRepo: PipelineRepository     = _
   private var pipelineStepRepo: PipelineStepRepository = _
   private var pipelineRunRepo: PipelineRunRepository = _
+  private var outputRepo: OutputRepository = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
@@ -64,6 +66,8 @@ class DataTypeRoutesSpec
     pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
     pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
+    outputRepo       = new OutputRepository(ctx)(routeEc)
+    nodeSnapshotRepo = new NodeSnapshotRepository(ctx)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -75,7 +79,7 @@ class DataTypeRoutesSpec
   private def makeRoutes: Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val capabilityService = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    val capabilityService = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     // HEL-576: registry/fileSystem are safely null — this spec never exercises
     // a real run/dry-run/SSE path, only the assertion-status read (mirrors
     // PipelineRunServiceSpec's own `registry = null` fixture pattern).
