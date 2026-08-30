@@ -8,8 +8,10 @@ import { CreatePipelineModal } from "./CreatePipelineModal";
 import { PipelineEmptyState } from "./PipelineEmptyState";
 import { PipelineListTable } from "./PipelineListTable";
 import { PipelineShareDialog } from "./PipelineShareDialog";
-import { EmptyState } from "../../../shared/ui/EmptyState";
 import { PageContentSkeleton } from "../../../shared/ui/PageContentSkeleton";
+import { PageHeader } from "../../../shared/ui/PageHeader";
+import { PageShell } from "../../../shared/ui/PageShell";
+import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 import type { PipelineSummary } from "../types/pipelineStep";
 
@@ -37,35 +39,34 @@ export function PipelinesPage() {
   const showPipelinesSkeleton = (status === "idle" || status === "loading") && items.length === 0;
 
   return (
-    <div className="pipelines-page">
-      <header className="pipelines-page__header">
-        <h1 className="page-title">Data Pipelines</h1>
-      </header>
+    <PageShell className="pipelines-page">
+      <PageHeader title="Data Pipelines" />
 
       <div className="pipelines-page__section">
-        {showPipelinesSkeleton && <PageContentSkeleton />}
+        {showPipelinesSkeleton && (
+          <PageStatus status="loading" variant="skeleton">
+            <PageContentSkeleton />
+          </PageStatus>
+        )}
 
         {status === "failed" && error && (
-          <EmptyState
-            intent="error"
+          <PageStatus
+            status="failed"
             icon={<PipelinesErrorIcon />}
             title="Couldn't load pipelines"
-            description={
+            message={
               errorKind === "not-found"
                 ? "We couldn't find these pipelines. They may have been deleted, or you may not have access to them."
                 : errorKind === "forbidden"
                   ? "You don't have access to these pipelines."
                   : error
             }
-            cta={
+            onRetry={
               errorKind === "forbidden" || errorKind === "not-found"
                 ? undefined
-                : {
-                    label: isRetryingPipelines ? "Retrying…" : "Retry",
-                    onClick: () => dispatch(fetchPipelines()),
-                    disabled: isRetryingPipelines,
-                  }
+                : () => dispatch(fetchPipelines())
             }
+            retrying={isRetryingPipelines}
           />
         )}
 
@@ -120,6 +121,6 @@ export function PipelinesPage() {
           onClose={() => setSharingPipeline(null)}
         />
       )}
-    </div>
+    </PageShell>
   );
 }

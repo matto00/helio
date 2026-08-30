@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { PageShell } from "../../../shared/ui/PageShell";
+import { PageStatus } from "../../../shared/ui/PageStatus";
 import { IS_DEV } from "../../../config/env";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { fetchConnectors } from "../../connectors/state/connectorsSlice";
@@ -96,12 +98,14 @@ export function CombinedProposalReviewPage() {
   // — there is nothing to review and no reasonable proposal to synthesize.
   if (!stateProposal && !useDemoFixture) {
     return (
-      <EmptyState
-        icon={faTableColumns}
-        title="Nothing to review"
-        description="This page reviews a combined proposal handed off from another flow. Start from the dashboards list instead."
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
-      />
+      <PageShell>
+        <EmptyState
+          icon={faTableColumns}
+          title="Nothing to review"
+          description="This page reviews a combined proposal handed off from another flow. Start from the dashboards list instead."
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
     );
   }
 
@@ -110,24 +114,24 @@ export function CombinedProposalReviewPage() {
     // guard for why the demo fixture is always synchronously populated by
     // the time of this render. Kept as a type-narrowing guard.
     return (
-      <div
-        className="combined-proposal-review__loading"
-        aria-busy="true"
-        aria-label="Loading proposal"
-      />
+      <PageShell>
+        <PageStatus status="loading" loadingLabel="Loading proposal" />
+      </PageShell>
     );
   }
 
   return (
-    <CombinedProposalReview
-      proposal={proposal}
-      applying={applying}
-      error={applyError}
-      unresolvedConnectorRefs={unresolvedConnectorRefs}
-      onConnectorResolved={handleConnectorResolved}
-      onAccept={handleAccept}
-      onReject={handleReject}
-    />
+    <PageShell>
+      <CombinedProposalReview
+        proposal={proposal}
+        applying={applying}
+        error={applyError}
+        unresolvedConnectorRefs={unresolvedConnectorRefs}
+        onConnectorResolved={handleConnectorResolved}
+        onAccept={handleAccept}
+        onReject={handleReject}
+      />
+    </PageShell>
   );
 }
 

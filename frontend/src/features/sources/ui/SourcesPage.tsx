@@ -12,6 +12,9 @@ import { AddSourceModal } from "./AddSourceModal";
 import { SourceListTable } from "./SourceListTable";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { PageContentSkeleton } from "../../../shared/ui/PageContentSkeleton";
+import { PageHeader } from "../../../shared/ui/PageHeader";
+import { PageShell } from "../../../shared/ui/PageShell";
+import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 
 export function SourcesPage() {
@@ -79,34 +82,33 @@ export function SourcesPage() {
     (sourcesStatus === "idle" || sourcesStatus === "loading") && sources.length === 0;
 
   return (
-    <div className="sources-page">
-      <header className="sources-page__header">
-        <h1 className="page-title">Data Sources</h1>
-      </header>
+    <PageShell className="sources-page">
+      <PageHeader title="Data Sources" />
 
       <div className="sources-page__section">
-        {showSourcesSkeleton && <PageContentSkeleton />}
+        {showSourcesSkeleton && (
+          <PageStatus status="loading" variant="skeleton">
+            <PageContentSkeleton />
+          </PageStatus>
+        )}
         {sourcesStatus === "failed" && sourcesError && (
-          <EmptyState
-            intent="error"
+          <PageStatus
+            status="failed"
             icon={<SourcesErrorIcon />}
             title="Couldn't load sources"
-            description={
+            message={
               sourcesErrorKind === "not-found"
                 ? "We couldn't find these sources. They may have been deleted, or you may not have access to them."
                 : sourcesErrorKind === "forbidden"
                   ? "You don't have access to these sources."
                   : sourcesError
             }
-            cta={
+            onRetry={
               sourcesErrorKind === "forbidden" || sourcesErrorKind === "not-found"
                 ? undefined
-                : {
-                    label: isRetryingSources ? "Retrying…" : "Retry",
-                    onClick: () => dispatch(fetchSources()),
-                    disabled: isRetryingSources,
-                  }
+                : () => dispatch(fetchSources())
             }
+            retrying={isRetryingSources}
           />
         )}
         {
@@ -156,6 +158,6 @@ export function SourcesPage() {
       </div>
 
       {addModalOpen && <AddSourceModal onClose={() => dispatch(setAddSourceModalOpen(false))} />}
-    </div>
+    </PageShell>
   );
 }

@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 
-import "./ChatPage.css";
 import { fetchConversations } from "../state/assistantConversationsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { ActiveConversationPanel } from "./ActiveConversationPanel";
+import { PageShell } from "../../../shared/ui/PageShell";
+import { PageStatus } from "../../../shared/ui/PageStatus";
 
 /** `/chat`'s routed page. Mirrors `TypeRegistryPage.tsx`/`SourcesPage.tsx`'s
  * pattern: fetches the section's list on mount and renders the main-content
@@ -32,14 +33,10 @@ export function ChatPage() {
   }, [dispatch, isFreeTier, status]);
 
   return (
-    <div className="chat-page">
-      {status === "loading" && <p className="chat-page__loading">Loading conversations…</p>}
-      {status === "failed" && error && (
-        <p className="chat-page__error" role="alert">
-          {error}
-        </p>
-      )}
+    <PageShell className="chat-page">
+      {status === "loading" && <PageStatus status="loading" loadingLabel="Loading conversations" />}
+      {status === "failed" && error && <PageStatus status="failed" message={error} />}
       {(status === "succeeded" || status === "idle") && <ActiveConversationPanel />}
-    </div>
+    </PageShell>
   );
 }

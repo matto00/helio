@@ -1,0 +1,7 @@
+.page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  padding: var(--space-5) var(--space-6);
+  min-height: 100%;
+}
