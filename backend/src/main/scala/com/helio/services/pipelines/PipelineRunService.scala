@@ -6,7 +6,7 @@ import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataFieldType, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
-import com.helio.domain.engine.{InProcessPipelineEngine, PipelineAnalyzeService, PipelineRowJson, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException}
+import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, PipelineAnalyzeService, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -60,7 +60,13 @@ final class PipelineRunService(
     // resolves `system` LAZILY, at call time, inside the closure body.
     system: ActorSystem[_] = null,
     resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
-    isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+    isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
+    // HEL-330 (design.md Decision 3): nullable-default convention mirrors binaryRefRepo/
+    // alertEvaluationService/connector/auditService above. A default of
+    // `new InProcessExecutionBackend(engine)` cannot compile as a constructor default (`engine`
+    // is an instance field, out of scope in a synthesized static default-argument method) --
+    // resolved to the `backend` field below instead.
+    executionBackend: PipelineExecutionBackend = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -78,6 +84,11 @@ final class PipelineRunService(
         .map(_.left.map(_.message))
 
   private val engine = new InProcessPipelineEngine(fileSystem, connector, csvUrlFetchSeam)
+
+  // HEL-330 (design.md Decision 3): the two execution call sites (`executeRun`, `previewStep`)
+  // depend on this trait reference, not `engine` directly.
+  private val backend: PipelineExecutionBackend =
+    if (executionBackend != null) executionBackend else new InProcessExecutionBackend(engine)
 
   /** HEL-861 (design D4): the run-wide truncation fields, computed once from the primary
    *  source's own [[SourceReadStats]] plus any secondary-source truncated reads recorded in
@@ -263,24 +274,27 @@ final class PipelineRunService(
                   // union/join/lookup reads a truncated secondary source would silently report
                   // sourceTruncated: false. Verified by test 7.6c.
                   val truncationSink = new TruncationSink
-                  engine.loadRowsWithStats(dataSource, dataSourceRepo).flatMap { case (sourceRows, primaryStats) =>
-                    engine
-                      .executeWithStepCounts(sourceRows, slicedSteps, dataSourceRepo, truncationSink = truncationSink)
-                      .map { case (out, counts) =>
-                        val allJsRows = out.map { rowMap =>
-                          JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
-                        }.toVector
-                        val totalCount  = allJsRows.size
-                        val previewRows = allJsRows.take(10)
-                        val (truncated, availableRowCount, notice, truncatedReads) =
-                          truncationFields(dataSource.name, sourceRows.size.toLong, primaryStats, truncationSink)
-                        Right(RunResultResponse(
-                          previewRows, totalCount, counts, sourceRows.size.toLong,
-                          sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
-                          truncationNotice = notice, truncatedReads = truncatedReads
-                        ))
-                      }
-                  }.recover { case ex =>
+                  // HEL-330 (design.md Decision 3): `previewStep` previously relied on
+                  // `executeWithStepCounts`'s own defaulted `assertionSink`, which the trait's
+                  // non-optional parameter no longer supplies for free -- a fresh, discarded
+                  // sink here preserves that behavior exactly, without sharing state with the
+                  // run path's sink.
+                  backend
+                    .execute(pipeline, dataSource, slicedSteps.toVector, dataSourceRepo, new AssertionSink, truncationSink)
+                    .map { outcome =>
+                      val allJsRows = outcome.rows.map { rowMap =>
+                        JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
+                      }.toVector
+                      val totalCount  = allJsRows.size
+                      val previewRows = allJsRows.take(10)
+                      val (truncated, availableRowCount, notice, truncatedReads) =
+                        truncationFields(dataSource.name, outcome.sourceRowCount, outcome.primaryStats, truncationSink)
+                      Right(RunResultResponse(
+                        previewRows, totalCount, outcome.stepCounts, outcome.sourceRowCount,
+                        sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
+                        truncationNotice = notice, truncatedReads = truncatedReads
+                      ))
+                    }.recover { case ex =>
                     // HEL-311: keep the "Pipeline execution failed" prefix, drop
                     // the raw exception tail; log the detail server-side.
                     // HEL-859 (design.md Decision 3): forward the attributed
@@ -434,11 +448,9 @@ final class PipelineRunService(
     publish(pidStr, RunStatusEvent("running"))
 
     val runFuture = preExec.flatMap { _ =>
-      engine.loadRowsWithStats(dataSource, dataSourceRepo).flatMap { case (sourceRows, primaryStats) =>
-        engine
-          .executeWithStepCounts(sourceRows, steps, dataSourceRepo, assertionSink, truncationSink)
-          .map { case (out, counts) => (out, counts, sourceRows.size.toLong, primaryStats) }
-      }
+      backend
+        .execute(pipeline, dataSource, steps, dataSourceRepo, assertionSink, truncationSink)
+        .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats))
     }
 
     runFuture.transformWith {

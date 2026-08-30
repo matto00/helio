@@ -5,7 +5,7 @@ import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, Sq
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.domain.steps._
-import com.helio.domain.model.{DataSource, DataSourceId, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
+import com.helio.domain.model.{DataSource, DataSourceId, DataTypeId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
@@ -2590,6 +2590,60 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       truncationSink.reads.head.dataSourceName shouldBe "union-secondary-truncated"
       truncationSink.reads.head.rowsRead shouldBe 1000L
       truncationSink.reads.head.availableRowCount shouldBe Some(1500L)
+    }
+  }
+
+  // HEL-330 (design.md task 4.3): parity check — InProcessExecutionBackend.execute must
+  // produce the exact same outcome as calling loadRowsWithStats + executeWithStepCounts
+  // directly on the same inputs, since it's a verbatim wrapper (no logic change).
+  "InProcessExecutionBackend" should {
+    "produce the same rows/stepCounts/sourceRowCount/primaryStats as the direct engine calls (task 4.3)" in {
+      val ds = StaticSource(
+        id        = DataSourceId("ds-backend-parity"),
+        name      = "static-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now()
+      )
+      val staticConfigJson =
+        buildStaticConfig(Seq("name"), Seq(Map[String, Any]("name" -> "alice"), Map[String, Any]("name" -> "bob"))).compactPrint
+      val mockRepo = new DataSourceRepository(null)(ec) {
+        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+          Future.successful(Some(staticConfigJson))
+      }
+      val step = makeStep("rename", """{ "renames": { "name": "renamed" } }""")
+
+      val pipeline = Pipeline(
+        id                 = PipelineId("pipeline-parity"),
+        name               = "pipe",
+        sourceDataSourceId = ds.id,
+        outputDataTypeId   = DataTypeId("dt"),
+        lastRunStatus      = None,
+        lastRunAt          = None,
+        createdAt          = Instant.now(),
+        updatedAt          = Instant.now(),
+        ownerId            = UserId("00000000-0000-0000-0000-000000000001")
+      )
+      val backend = new InProcessExecutionBackend(engine)
+      val backendOutcome = Await.result(
+        backend.execute(pipeline, ds, Vector(step), mockRepo, new AssertionSink, new TruncationSink),
+        5.seconds
+      )
+
+      val (directRows, directCounts) = Await.result(
+        engine.loadRowsWithStats(ds, mockRepo).flatMap { case (sourceRows, primaryStats) =>
+          engine.executeWithStepCounts(sourceRows, Seq(step), mockRepo).map { case (out, counts) =>
+            (out, counts, sourceRows.size.toLong, primaryStats)
+          }
+        }.map { case (out, counts, _, _) => (out, counts) },
+        5.seconds
+      )
+      val (_, directPrimaryStats) = Await.result(engine.loadRowsWithStats(ds, mockRepo), 5.seconds)
+
+      backendOutcome.rows shouldBe directRows
+      backendOutcome.stepCounts shouldBe directCounts
+      backendOutcome.sourceRowCount shouldBe 2L
+      backendOutcome.primaryStats shouldBe directPrimaryStats
     }
   }
   // ── Helpers ─────────────────────────────────────────────────────────────────

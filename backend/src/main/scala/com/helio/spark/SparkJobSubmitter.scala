@@ -1,7 +1,8 @@
 package com.helio.spark
 
 import com.helio.domain.{AggregateStep, CastStep, ComputeStep, FilterStep, GroupByStep, JoinStep, LimitStep, RenameStep, SelectStep, SortStep}
-import com.helio.domain.model.{CsvSource, DataSource, DataSourceId, Pipeline, PipelineRunId, PipelineStep, StaticSource}
+import com.helio.domain.engine.{PipelineExecutionBackend, PipelineExecutionOutcome, SourceReadStats}
+import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, Pipeline, PipelineRunId, PipelineStep, StaticSource, TruncationSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository.parseStaticPayload
@@ -23,7 +24,8 @@ class SparkJobSubmitter(
     dataSourceRepo: DataSourceRepository,
     pipelineRepo: PipelineRepository,
     pipelineRunRepo: PipelineRunRepository = null
-)(implicit ec: ExecutionContext) {
+)(implicit ec: ExecutionContext)
+    extends PipelineExecutionBackend {
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -103,6 +105,36 @@ class SparkJobSubmitter(
 
     Future.successful(runIdStr)
   }
+
+  /** HEL-330 (design.md Decision 2): an additive `execute`, bypassing `submit`/`PipelineRunCache`
+   *  entirely -- a direct synchronous composition of `loadDataFrame`/`applyStep`/`collectRows`,
+   *  mirroring `submit`'s own body but returning the outcome instead of writing it to a cache.
+   *  This performs no `pipelineRunRepo`/`pipelineRepo` writes and does not touch `cache` -- it
+   *  does not reproduce `submit`'s side-effecting persistence, which remains `submit`'s job,
+   *  unchanged, for its own dormant callers. `assertionSink`/`truncationSink` are accepted per
+   *  the trait contract and silently ignored -- the Spark path supports neither `assert` steps
+   *  nor truncation tracking. `stepCounts`/`sourceRowCount` (pre-step)/`primaryStats` (always
+   *  untruncated) are documented approximations (design.md Risks/Trade-offs): this path has zero
+   *  production callers today and exists solely to demonstrate the trait admits a second impl. */
+  def execute(
+      pipeline: Pipeline,
+      dataSource: DataSource,
+      steps: Vector[PipelineStep],
+      dataSourceRepo: DataSourceRepository,
+      assertionSink: AssertionSink,
+      truncationSink: TruncationSink
+  )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] =
+    Future {
+      val df       = loadDataFrame(dataSource)
+      val resultDf = steps.foldLeft(df)((cur, step) => applyStep(cur, step))
+      val rows     = collectRows(resultDf)
+      PipelineExecutionOutcome(
+        rows = rows,
+        stepCounts = Map.empty,
+        sourceRowCount = df.count(),
+        primaryStats = SourceReadStats(truncated = false, availableRowCount = None)
+      )
+    }(sparkEc)
 
   private[spark] def loadDataFrame(ds: DataSource): DataFrame = ds match {
     case s: StaticSource =>

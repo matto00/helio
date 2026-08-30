@@ -1,7 +1,7 @@
 package com.helio.spark
 
 import com.helio.domain._
-import com.helio.domain.engine.SchemaInferenceEngine
+import com.helio.domain.engine.{SchemaInferenceEngine, SourceReadStats}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineRunRepository}
@@ -127,6 +127,45 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
 
       declaredColumnType shouldBe "float"
       values should contain(2.5f)
+    }
+  }
+
+  "execute" should {
+    // HEL-330 (design.md Decision 2 / tasks.md 4.2): evidences "admits a second impl" with a
+    // real call, not merely an assertion -- exercises SparkJobSubmitter.execute directly
+    // against a trivial static-source pipeline, asserting both the row content and the
+    // documented approximations (Map.empty stepCounts, pre-step sourceRowCount, untruncated
+    // primaryStats).
+    "produce a PipelineExecutionOutcome matching the source data and documented approximations" in {
+      val ds = staticDs(
+        Seq("name" -> "string", "age" -> "integer"),
+        Seq(Seq(JsString("Alice"), JsNumber(30)), Seq(JsString("Bob"), JsNumber(25)))
+      )
+      val pip = Pipeline(
+        id                 = pipeId,
+        name               = "pipe",
+        sourceDataSourceId = ds.id,
+        outputDataTypeId   = DataTypeId("dt"),
+        lastRunStatus      = None,
+        lastRunAt          = None,
+        createdAt          = Instant.now(),
+        updatedAt          = Instant.now(),
+        ownerId            = UserId("00000000-0000-0000-0000-000000000001")
+      )
+      // Task 4.2: construct with a non-null (fake) pipelineRepo — `execute` never calls it,
+      // but the constructor signature still requires a value, so this exercises the real
+      // signature rather than the `submitter` fixture's `pipelineRepo = null`.
+      val fakePipelineRepo = new PipelineRepository(null, null, null)
+      val submitterForExecute = new SparkJobSubmitter("local[*]", mockDsRepo, fakePipelineRepo)
+      val outcome = Await.result(
+        submitterForExecute.execute(pip, ds, Vector.empty, mockDsRepo, new AssertionSink, new TruncationSink),
+        30.seconds
+      )
+      outcome.rows should have size 2
+      outcome.rows.map(_("name")) should contain allOf ("Alice", "Bob")
+      outcome.stepCounts shouldBe Map.empty
+      outcome.sourceRowCount shouldBe 2L
+      outcome.primaryStats shouldBe SourceReadStats(truncated = false, availableRowCount = None)
     }
   }
 
