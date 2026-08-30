@@ -64,4 +64,23 @@ describe("PdfSourceForm", () => {
     render(<PdfSourceForm onSubmit={noop} isLoading={true} error={null} onCancel={noop} />);
     expect(screen.getByRole("button", { name: /creating/i })).toBeDisabled();
   });
+
+  // HEL-720: pins this form's config-driven surface (accept filter, group
+  // aria-label, ids, url placeholder) so a config transposition/omission in
+  // UnstructuredSourceForm's callers is caught. Verified failable by
+  // mutation: temporarily swapping in another form's literal here turns
+  // this test red.
+  it("renders this form's config-specific surface (HEL-720)", () => {
+    render(<PdfSourceForm onSubmit={noop} isLoading={false} error={null} onCancel={noop} />);
+    expect(screen.getByLabelText(/pdf file/i)).toHaveAttribute("accept", ".pdf,application/pdf");
+    expect(screen.getByRole("group", { name: "PDF ingestion method" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/pdf file/i)).toHaveAttribute("id", "source-pdf-file");
+
+    fireEvent.click(screen.getByRole("button", { name: /from url/i }));
+    expect(screen.getByLabelText("URL")).toHaveAttribute("id", "source-pdf-url");
+    expect(screen.getByLabelText("URL")).toHaveAttribute(
+      "placeholder",
+      "https://example.com/report.pdf",
+    );
+  });
 });
