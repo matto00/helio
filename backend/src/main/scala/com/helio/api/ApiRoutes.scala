@@ -245,7 +245,7 @@ final class ApiRoutes(
   // nullable-optional wiring convention as the constructor param above) —
   // safe because PanelService only touches it when a panel actually carries
   // a `metricId`.
-  private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo, auditService)
+  private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo, auditService, outputRepoOpt.orNull)
   // HEL-549: metricRepo threaded in the same nullable-optional way as panelService
   // above — only touched when a proposal panel actually carries a metricId.
   private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo, metricRepo, outputRepoOpt.orNull)

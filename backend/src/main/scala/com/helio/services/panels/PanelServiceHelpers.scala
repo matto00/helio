@@ -186,6 +186,30 @@ object PanelServiceHelpers {
       case _                                    => None
     }
 
+  /** Extract the `outputId` an `"output"`-kind create-side config targets, if
+   *  any. HEL-904 follow-up (flagged in cycle 17): `buildForCreate`/
+   *  `batchCreate` previously never resolved an `"output"`-kind panel's
+   *  `outputId` at all — a nonexistent/cross-user id reached `panelRepo.insert`
+   *  unchecked and hit the raw `panels.output_id` FK violation as a 500
+   *  instead of a clean 400/404. Mirrors `dataTypeIdFromCreateConfig`'s
+   *  empty-string-is-unset convention (`OutputPanelConfig.decodeCreate`'s own
+   *  default). */
+  private[services] def outputIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[OutputId] =
+    config match {
+      case PanelConfigCodec.OutputCreate(c) => Option(c.outputId).filter(_.value.nonEmpty)
+      case _                                => None
+    }
+
+  /** Extract the `outputId` an incoming PATCH `config` payload explicitly
+   *  sets to a non-null value, if any — same absent-vs-null convention as
+   *  `dataTypeIdFromConfigPatch`. */
+  private[services] def outputIdFromConfigPatch(json: JsValue): Option[OutputId] =
+    json match {
+      case JsObject(fields) =>
+        fields.get("outputId").collect { case JsString(s) if s.nonEmpty => OutputId(s) }
+      case _ => None
+    }
+
   /** Extract the `dataTypeId` an incoming PATCH `config` payload explicitly
    *  sets to a non-null value, if any. Absent fields and explicit `null`
    *  (unbind) both yield `None` — the guard only fires on an actual

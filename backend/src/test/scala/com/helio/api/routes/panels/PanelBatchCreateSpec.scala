@@ -86,14 +86,10 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
 
     // HEL-904 task 3.8/3.9: `PanelService.batchCreate`'s V41
     // `rejectCompanionBinding` check is DataType-specific (keyed on
-    // `sourceId.isDefined`) and does not yet resolve an "output"-kind
-    // panel's `outputId` at all — `OutputPanelConfig` only structurally
-    // requires it to be NON-EMPTY, so this regression guard covers that
-    // structural rejection (never reaches the DB). Full existence/ownership
-    // validation parity for `POST /api/panels`(`/batch`) — mirroring
-    // `ProposalPanelSupport`'s `OutputRepository`-backed check on the
-    // apply-proposal path — is real, separate follow-on work (not part of
-    // this task's scope; flagged in execution-progress.md).
+    // `sourceId.isDefined`) and does not resolve an "output"-kind panel's
+    // `outputId` at all — `OutputPanelConfig` only structurally requires it
+    // to be NON-EMPTY, so this regression guard covers that structural
+    // rejection (never reaches the DB).
     "reject an \"output\" panel with an empty outputId — 400, nothing created" in {
       val dashboardId = createDashboard("V41 Target")
 
@@ -104,6 +100,26 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
            |]}""".stripMargin
       batchCreate(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
+      }
+
+      panelTitles(dashboardId) shouldBe empty
+    }
+
+    // HEL-904 follow-up (flagged cycle 17, fixed this cycle):
+    // `PanelService.rejectMissingOutput` now resolves a non-empty
+    // `outputId` (via `OutputRepository.findByIdOwned`) BEFORE any write —
+    // a nonexistent id cleanly 404s instead of hitting the raw
+    // `panels.output_id REFERENCES outputs(id)` FK violation as a 500.
+    "reject an \"output\" panel whose outputId does not exist — 404, nothing created" in {
+      val dashboardId = createDashboard("Nonexistent Output Target")
+
+      val body =
+        s"""{"dashboardId":"$dashboardId","panels":[
+           |  {"title":"Good","type":"text"},
+           |  {"title":"Bad","type":"output","config":{"outputId":"${java.util.UUID.randomUUID()}"}}
+           |]}""".stripMargin
+      batchCreate(body) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
       }
 
       panelTitles(dashboardId) shouldBe empty

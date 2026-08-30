@@ -1776,3 +1776,79 @@ run):**
 2. Consider whether `PanelService`'s Output-existence-validation gap (flagged above) belongs in this
    ticket's remaining scope or as a spinoff — it's a real defect, but wiring `OutputRepository`
    through 13 constructor call sites is its own sizable chunk of work.
+
+## Cycle 18 — fixed the flagged `PanelService` outputId existence-validation gap
+
+Starting state verified fresh: HEAD = `91202617` (cycle 17's commit), tree clean, full `sbt test`
+re-confirmed 3628/3628 green before starting.
+
+**Scope landed this cycle:** the gap flagged at the end of cycle 17 — `PanelService.buildForCreate`
+(covers `create`, `batchCreate`, and `DashboardContentsService`'s panel-build reuse) and `update`
+never resolved an `"output"`-kind panel's `outputId` against a real Output before writing; a
+nonexistent or cross-owner id reached `panelRepo.insert`/`patchApplier.apply` unchecked and hit the
+raw `panels.output_id REFERENCES outputs(id)` FK violation as a 500 instead of a clean 400/404.
+
+- `OutputRepository` wired through `PanelService`'s constructor as a new, LAST, nullable-optional
+  param (default `null`) — purely additive for every existing positional caller (mirrors the
+  `auditService`/`metricRepo` nullable-optional convention already established in this file).
+  `ApiRoutes.scala`'s single production call site passes `outputRepoOpt.orNull` (the same
+  `Option[OutputRepository]` task 3.1 already built).
+- New `PanelServiceHelpers.outputIdFromCreateConfig`/`outputIdFromConfigPatch` — same
+  empty-string-is-unset / absent-vs-null conventions as the existing
+  `dataTypeIdFromCreateConfig`/`dataTypeIdFromConfigPatch`.
+- New `PanelService.rejectMissingOutput`: `None` (no outputId in this request) or a `null`
+  `outputRepo` (unwired fixture) both pass through unchanged; a non-empty `outputId` is resolved
+  via `outputRepo.findByIdOwned` (existence + ownership, matching the same method
+  `ProposalPanelSupport`'s apply-proposal path already uses per cycle 17) — `None` → 404
+  (`ServiceError.NotFound("Output not found")`), before any DB write. Wired into `buildForCreate`
+  (chained after the existing `rejectCompanionBinding` check, still short-circuiting on the first
+  failure) and `update` (same chain, after the incoming-patch's `dataTypeId` check).
+- New regression test in `PanelBatchCreateSpec`: a batch-create item with a nonexistent
+  `outputId` now 404s with nothing created (both items) — verifies the whole-batch-rejected,
+  zero-write guarantee extends to this new check exactly like the existing 400 checks. Also
+  trimmed the now-stale "separate follow-on work" comment on the adjacent empty-`outputId` test
+  (that gap is what this cycle closes).
+
+**Verification this cycle (fresh, exit codes read directly):**
+- `sbt -batch compile` — clean (same 2 pre-existing unrelated warnings as cycle 17).
+- `sbt -batch Test/compile` — clean.
+- `sbt -batch "testOnly com.helio.api.routes.panels.PanelBatchCreateSpec"` — 10/10 green (was
+  9, +1 new).
+- Full `sbt -batch test` — **3629/3629 passing**, exit code 0, 238 suites completed, 0 aborted,
+  0 failed (up from cycle 17's 3628 by exactly the +1 new test; no regressions).
+- `node scripts/check-scala-quality.mjs` — clean (139 pre-existing soft file-size warnings,
+  unchanged from cycle 17 — no new inline FQNs, no new oversized files).
+- `node scripts/check-schema-drift.mjs` — clean (no schema-surface changes this cycle).
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+
+**Investigated but NOT started this cycle (honest boundary):** tasks 3.5, 3.11/3.11a, 3.12 —
+read `Pipeline.outputDataTypeId`'s 44-file blast radius (task 3.5) and `PanelCapabilityService`'s
+4-internal-caller / 12-test-file cluster (task 3.11/3.11a), and confirmed (via
+`PanelCapabilityService`'s 4 real callers — `RefinementGrounding`, `AssistantToolExecutor`,
+`DashboardAuthoringService`, `AssistantService` — all still call `getCapabilities(DataTypeId(...), user)`
+against a `WorkspaceResourceDetail.DataTypeDetail`-shaped resource) that 3.11 is NOT independently
+schedulable ahead of 3.12: `PanelCapabilityService`'s rewire target (an Output's derived schema,
+per design.md's `outputs.schema` column) and its callers' resource shape (`WorkspaceContextService`'s
+DataType/Metric → Output rewire, task 3.12) are the same cluster — attempting 3.11 first would mean
+guessing at 3.12's still-undecided `WorkspaceResourceDetail` reshape. Given this cycle's remaining
+budget, chose NOT to guess at that reshape (a genuine design-adjacent decision, not an ordinary
+implementation bug) rather than land a half-consistent rewire; left both untouched for a cycle that
+can take 3.12 (the actual root of the cluster) first, then 3.11/3.11a as its natural follow-on.
+Task 3.5 (`Pipeline.outputDataTypeId` retirement, 44 files) was similarly sized-but-not-attempted —
+large but more mechanical/isolated than the 3.11/3.12 cluster; a reasonable next-cycle starting
+point once time/budget allows starting cold on it.
+
+**Next cycle should:**
+1. Take task 3.12 (`WorkspaceContextService`) first, as the root of the 3.11/3.12 cluster —
+   rewire DataType/Metric references to Outputs/pipelines/inferredSchema (do NOT touch
+   `asNumeric`'s structure/rounding, HEL-631 caution), which will settle the
+   `WorkspaceResourceDetail` shape `PanelCapabilityService`'s 4 callers consume.
+2. Then 3.11 (`PanelCapabilityService` itself) + 3.11a (its 12-file test blast radius) as the
+   natural follow-on, now that the resource shape it's fed is settled.
+3. Task 3.5 (`Pipeline.outputDataTypeId` retirement across ~44 files) remains independently
+   schedulable whenever there's a clean cold-start slot — not blocked on 3.11/3.12.
+4. Section 3 status: 3.1/3.4/3.8/3.9/3.10/3.10a/3.13/3.14 done; 3.2/3.3/3.5/3.6(partial - PanelType
+   collapse landed, DemoData reseed is 3.7 not 3.6)/3.7/3.11/3.11a/3.12/3.15 remain. Roughly
+   half of section 3's numbered items are done; the largest remaining chunks are the 3.11/3.12
+   cluster and 3.5's wide-but-shallow blast radius. Section 3 is NOT close to fully done — do not
+   treat it as near-complete going into the next cycle.

@@ -11,6 +11,7 @@ import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.services.panels.PanelServiceHelpers._
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -67,7 +68,14 @@ final class PanelService(
     metricRepo: MetricRepository,
     // HEL-477: nullable-optional wiring mirrors metricRepo above — a fixture
     // that doesn't pass one simply never audits (see `audit` below).
-    auditService: AuditService = null
+    auditService: AuditService = null,
+    // HEL-904 follow-up (flagged cycle 17): appended last, nullable-optional
+    // (default `null`) so every existing positional caller stays unmodified.
+    // A `null` outputRepo skips the outputId-existence check entirely (same
+    // convention as a fixture that never wires `auditService`) — only
+    // exercised once a caller actually creates/patches an `"output"`-kind
+    // panel with a non-empty `outputId`.
+    outputRepo: OutputRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -189,24 +197,31 @@ final class PanelService(
       case Left(err) =>
         Future.successful(Left(ServiceError.BadRequest(err)))
       case Right((createConfig, appearance)) =>
-        rejectCompanionBinding(dataTypeIdFromCreateConfig(createConfig), user).map {
-          case Left(err) => Left(err)
-          case Right(_) =>
-            val now = Instant.now()
-            val panel = buildNewPanel(
-              id           = PanelId(UUID.randomUUID().toString),
-              dashboardId  = dashboardId,
-              title        = RequestValidation.normalizePanelTitle(request.title),
-              meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-              appearance   = appearance,
-              ownerId      = user.id,
-              createConfig = createConfig
-            )
-            panel.validateConfig match {
-              case Left(msg) => Left(ServiceError.BadRequest(msg))
-              case Right(_)  => Right(panel)
-            }
-        }
+        for {
+          companionResult <- rejectCompanionBinding(dataTypeIdFromCreateConfig(createConfig), user)
+          result <- companionResult match {
+            case Left(err) => Future.successful(Left(err))
+            case Right(_) =>
+              rejectMissingOutput(outputIdFromCreateConfig(createConfig), user).map {
+                case Left(err) => Left(err)
+                case Right(_) =>
+                  val now = Instant.now()
+                  val panel = buildNewPanel(
+                    id           = PanelId(UUID.randomUUID().toString),
+                    dashboardId  = dashboardId,
+                    title        = RequestValidation.normalizePanelTitle(request.title),
+                    meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
+                    appearance   = appearance,
+                    ownerId      = user.id,
+                    createConfig = createConfig
+                  )
+                  panel.validateConfig match {
+                    case Left(msg) => Left(ServiceError.BadRequest(msg))
+                    case Right(_)  => Right(panel)
+                  }
+              }
+          }
+        } yield result
     }
   }
 
@@ -444,17 +459,22 @@ final class PanelService(
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(spec) =>
                 val incomingDataTypeId = spec.configPatch.flatMap(dataTypeIdFromConfigPatch)
+                val incomingOutputId = spec.configPatch.flatMap(outputIdFromConfigPatch)
                 rejectCompanionBinding(incomingDataTypeId, user).flatMap {
                   case Left(err) => Future.successful(Left(err))
                   case Right(_) =>
-                    patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user))
-                      .map {
-                        case Some(panel) =>
-                          audit("panel.update", Some(panel.id.value), user)
-                          Right(panel)
-                        case None        => Left(ServiceError.NotFound("Panel not found"))
-                      }
-                      .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
+                    rejectMissingOutput(incomingOutputId, user).flatMap {
+                      case Left(err) => Future.successful(Left(err))
+                      case Right(_) =>
+                        patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user))
+                          .map {
+                            case Some(panel) =>
+                              audit("panel.update", Some(panel.id.value), user)
+                              Right(panel)
+                            case None        => Left(ServiceError.NotFound("Panel not found"))
+                          }
+                          .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
+                    }
                 }
             }
         }
@@ -479,6 +499,28 @@ final class PanelService(
           case Some(dt) if dt.sourceId.isDefined =>
             Left(ServiceError.BadRequest("Panels can only bind to pipeline-output data types"))
           case _ => Right(())
+        }
+    }
+
+  /** 404 when `outputIdOpt` is provided but does not resolve to a real,
+   *  owned Output. HEL-904 follow-up (flagged cycle 17): closes the gap where
+   *  an `"output"`-kind panel's `outputId` reached `panelRepo.insert`/
+   *  `patchApplier.apply` unchecked and hit the raw `panels.output_id` FK
+   *  violation as a 500 instead of a clean, explicit rejection. A `None`
+   *  input (no outputId in this create/patch) or a `null` `outputRepo`
+   *  (unwired caller — mirrors this file's other nullable-optional
+   *  dependencies) both pass through unchanged. */
+  private def rejectMissingOutput(
+      outputIdOpt: Option[OutputId],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    outputIdOpt match {
+      case None => Future.successful(Right(()))
+      case Some(_) if outputRepo == null => Future.successful(Right(()))
+      case Some(outputId) =>
+        outputRepo.findByIdOwned(outputId, user).map {
+          case Some(_) => Right(())
+          case None    => Left(ServiceError.NotFound("Output not found"))
         }
     }
 
