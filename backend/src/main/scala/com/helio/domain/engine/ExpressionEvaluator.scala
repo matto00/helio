@@ -353,6 +353,35 @@ object ExpressionEvaluator {
 
   private def isDollarPrefixError(msg: String): Boolean = msg == DollarPrefixRequiredMsg
 
+  /** HEL-888 design.md Decision 1. The write/run-path static predicate:
+   *  is `expr` parseable at all — under the same strict-then-legacy grammar
+   *  `evaluate` falls back through — regardless of what row it will later be
+   *  evaluated against? This is `evaluate`'s parse arm with the evaluation
+   *  step removed, so it cannot diverge from run-time parseability by
+   *  construction (also see the comment on `evaluate` below, and the
+   *  cross-check in `ExpressionEvaluatorSpec`'s agreement test).
+   *
+   *  Deliberately NOT `validate`: `validate` additionally requires a `$`
+   *  prefix on every column reference (no legacy fallback), so a bare
+   *  identifier expression that still evaluates correctly today (e.g.
+   *  `price * qty`) would 422 on its next edit. Only unparseability — which
+   *  cannot vary by row and cannot be true under one grammar but not the
+   *  other's *result* (only tried in a different order) — is promoted here.
+   *
+   *  @return `None` if `expr` parses under either grammar; `Some(message)`
+   *          with the parser's own description otherwise. An empty/blank
+   *          `expr` is intentionally treated as a parse problem by `parse`
+   *          ("Expression is empty") — callers that must treat blank as a
+   *          savable draft (write-path `validateRawConfig`) check
+   *          `expr.trim.isEmpty` themselves before calling this.
+   */
+  def parseProblem(expr: String): Option[String] =
+    parse(expr) match {
+      case Right(_)                              => None
+      case Left(msg) if isDollarPrefixError(msg) => parseLegacy(expr).left.toOption
+      case Left(msg)                             => Some(msg)
+    }
+
   /** Design D4: an unresolved dotted reference must lead the caller to the right
    *  fix rather than suggest path traversal was attempted. A dotted reference is
    *  matched as ONE literal column name produced by nested-JSON flattening — never
@@ -460,26 +489,56 @@ object ExpressionEvaluator {
   private final case class VStr(s: String) extends Val
   private case object VNull extends Val
 
+  /** An expression parsed once (HEL-888 design.md Decision 6), ready to be
+   *  evaluated against any number of rows without re-parsing. The AST type
+   *  is intentionally not exposed — callers get a compiled unit of behavior,
+   *  not the grammar's internals. */
+  final class CompiledExpression private[engine] (private val ast: Expr) {
+    def eval(row: Map[String, JsValue]): Either[EvaluationError, JsValue] =
+      evalExpr(ast, row).map(valToJs)
+  }
+
+  /**
+   * Parse `expr` once, legacy-tolerant exactly like `evaluate` (retries via
+   * `parseLegacy` when strict parsing fails only on a missing `$` prefix),
+   * and return a [[CompiledExpression]] that can be evaluated against many
+   * rows without re-parsing. `ComputeStep.apply` (HEL-888 D6) uses this to
+   * pay the parse cost once per step rather than once per row — the parse
+   * result cannot vary across rows of the same step.
+   *
+   * @param expr Raw expression string
+   * @return `Right(CompiledExpression)` if `expr` parses; `Left(ParseError)` otherwise
+   */
+  def compile(expr: String): Either[EvaluationError, CompiledExpression] =
+    parse(expr) match {
+      case Right(ast) => Right(new CompiledExpression(ast))
+      case Left(msg) if isDollarPrefixError(msg) =>
+        parseLegacy(expr) match {
+          case Right(ast)      => Right(new CompiledExpression(ast))
+          case Left(legacyMsg) => Left(EvaluationError.ParseError(legacyMsg))
+        }
+      case Left(msg) => Left(EvaluationError.ParseError(msg))
+    }
+
   /**
    * Evaluate an expression against a row. Legacy-tolerant: if strict parsing fails
    * specifically because a column reference lacks its `$` prefix, retries via the
    * frozen `parseLegacy` grammar so pre-existing persisted expressions keep
    * producing their pre-change output (design.md Decision 4).
    *
+   * Implemented as `compile` + `eval` (HEL-888 D6); kept as a one-shot
+   * convenience entry point for callers (`SourceService.applyComputedFields`,
+   * tests) that evaluate an expression against a single row and have no
+   * reason to hold onto a `CompiledExpression`. `parseProblem` above is this
+   * same parse arm with evaluation removed — a change to one's parse
+   * behavior belongs in both.
+   *
    * @param expr  Raw expression string
    * @param row   Map of field name → JSON value for the current row
    * @return `Right(JsValue)` on success; `Left(EvaluationError)` on failure
    */
   def evaluate(expr: String, row: Map[String, JsValue]): Either[EvaluationError, JsValue] =
-    parse(expr) match {
-      case Right(ast) => evalExpr(ast, row).map(valToJs)
-      case Left(msg) if isDollarPrefixError(msg) =>
-        parseLegacy(expr) match {
-          case Right(ast)     => evalExpr(ast, row).map(valToJs)
-          case Left(legacyMsg) => Left(EvaluationError.ParseError(legacyMsg))
-        }
-      case Left(msg) => Left(EvaluationError.ParseError(msg))
-    }
+    compile(expr).flatMap(_.eval(row))
 
   private def evalExpr(expr: Expr, row: Map[String, JsValue]): Either[EvaluationError, Val] =
     expr match {

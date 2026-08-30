@@ -153,6 +153,21 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     dsId
   }
 
+  // HEL-888 (task 4.1's materialised-rows half): a third row with a NULL `score`,
+  // covering the null-operand case AC3 names alongside divide-by-zero.
+  // `seedDsWithData` above is used by dozens of tests expecting exactly 2 rows
+  // (`alice`/`bob`), so this is a separate seed rather than a mutation of it.
+  private def seedDsWithDataIncludingNullScore(): String = {
+    import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
+    val dsConfig = """{"columns":[{"name":"name","type":"string"},{"name":"score","type":"double"}],"rows":[["alice",42.0],["bob",37.0],["carol",null]]}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-with-null-score', 'static', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
+  }
+
   /** HEL-758: seeds a `rest_api` DataSource whose config's `url` is one of
    *  `stubConnector`'s two keyed outcomes (`RestSuccessUrl`/`RestFailureUrl`). */
   private def seedRestDs(url: String): String = seedRestDsNamed(url, "ds-rest")
@@ -868,6 +883,87 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(service.previewStep(pid, step.id.value, dummyUser))
       result shouldBe a[Right[_, _]]
       result.toOption.get.rows should not be empty
+    }
+  }
+
+  "PipelineRunService and a compute step with a statically unparseable expression (HEL-888)" should {
+
+    // PROOF (tasks 3.1/3.2), on MATERIALISED ROWS — the ticket's own
+    // measurement requirement. `stepRepo.insert` bypasses the new write-path
+    // gate (design.md Decision 3), exactly as a step stored before this
+    // change would already be sitting in the database. Run on unmodified
+    // `main`: the run SUCCEEDED and `dataTypeRowRepo.listRows` held 2 rows
+    // each carrying `value_vs_adp: null` — the production defect, measured
+    // through the real Postgres-backed row snapshot, not a function return
+    // or the stored step config.
+    "fails the real run naming the step id, kind, and parse error, and writes no output rows with a null-filled compute column" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      val step = await(stepRepo.insert(
+        pid, "compute", ComputeConfig("value_vs_adp", "stats.adp_ppr - stats.pts_ppr", None), dummyUser
+      ))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Left[_, _]]
+      val err = result.swap.toOption.get
+      err.message should include(step.id.value)
+      err.message should include("compute")
+      err.message should include("Invalid number literal")
+
+      // The materialised-row assertion: no output row was ever persisted
+      // carrying `value_vs_adp` at all — let alone one set to `null` for
+      // every row, which is exactly what `main` does today.
+      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      rows.foreach { row =>
+        row.fields.get("value_vs_adp") should not be Some(JsNull)
+      }
+      rows.exists(_.fields.contains("value_vs_adp")) shouldBe false
+    }
+
+    // PROOF, on MATERIALISED ROWS. Run on unmodified `main`: 200ed with rows
+    // carrying `value_vs_adp: null` — the same defect as run, reached through
+    // design.md Decision 4's preview path (`previewStep` -> the same engine
+    // fold `submit` uses).
+    "preview fails with the attributed parse error rather than returning rows with a null-filled compute column" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      val step = await(stepRepo.insert(
+        pid, "compute", ComputeConfig("value_vs_adp", "stats.adp_ppr - stats.pts_ppr", None), dummyUser
+      ))
+
+      val result = await(service.previewStep(pid, step.id.value, dummyUser))
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get.message should include("Invalid number literal")
+    }
+
+    // GUARD (task 4.1), on MATERIALISED ROWS, addressing evaluation-1.md
+    // Change Request 1: a PARSEABLE compute expression run through the real
+    // `service.submit` -> `dataTypeRowRepo.listRows`, not an in-memory
+    // `engine.execute` return value. Covers AC3's own two named cases in one
+    // real run: divide-by-zero (`alice`'s score of 42 makes the denominator
+    // `$score - 42` zero) and a null operand (`carol`'s `score` is stored
+    // NULL). Confirmed GREEN on unmodified `main` (the per-row `null`
+    // behaviour this asserts was never broken — only the STATIC parse case
+    // above was), so this is a guard against Decision 6's row-loop hoist
+    // accidentally collapsing the row-dependent case into the
+    // row-independent one, not proof of this ticket's defect.
+    "GUARD: a parseable expression over divide-by-zero and null-operand rows persists null for those rows only, and the run succeeds" in {
+      val dsId = seedDsWithDataIncludingNullScore()
+      val pid  = seedPipeline(dsId)
+      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
+      await(stepRepo.insert(
+        pid, "compute", ComputeConfig("ratio", "$score / ($score - 42)", None), dummyUser
+      ))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      val byName = rows.map(r => r.fields("name").convertTo[String] -> r.fields("ratio")).toMap
+      byName("alice") shouldBe JsNull   // divide-by-zero: 42 / (42 - 42)
+      byName("carol") shouldBe JsNull   // null operand: score is NULL
+      byName("bob")   shouldBe JsNumber(-7.4)   // 37 / (37 - 42)
     }
   }
 
