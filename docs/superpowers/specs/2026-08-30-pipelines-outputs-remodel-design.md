@@ -25,22 +25,29 @@ Prior art supports the direction: Metabase's _Question_ (query + visualization) 
 
 ## Decisions made in the 2026-08-30 design session
 
-| #   | Decision                                                                                                                                                                 |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **Output owns the visualization; Panel is a placement.** One Output may be placed on many dashboards; editing it updates every placement.                                |
-| 2   | **Aggregation lives only in pipeline steps.** Outputs are render-only. Metrics registry and panel-level aggregation are retired.                                         |
-| 3   | **Phase 1 = trunk + leaf tails on a node-graph model; Phase 2 = branching.** No second migration.                                                                        |
-| 4   | **Sources stay the pipeline root** and can be created inline from "New pipeline". Companion types retire; the inferred schema lives on the source.                       |
-| 5   | **Name: Outputs** (plural by design — a pipeline has steps and many outputs).                                                                                            |
-| 6   | **Panel** remains the name for a placement. Nav: **Dashboards · Pipelines · Sources · Connectors · Assistant** (Connectors stays because source kinds keep expanding).   |
-| 7   | Pipeline page = river with inline tails + Output chips **and** an Outputs gallery tab. Phase 2 branches render as parallel lanes in the river that can rejoin.           |
-| 8   | Dashboard "Add panel" = **Output picker modal**, one click places at the next free slot. A library drawer with drag-to-place is a later authoring-feel ticket if earned. |
-| 9   | Orphan pipeline-output types migrate to a `table` Output rather than being dropped. Deleting an Output cascades to its panels, with a placement-count warning first.     |
-| 10  | `create_pipeline` over MCP is a **single call** that can build source → steps → outputs.                                                                                 |
+| #   | Decision                                                                                                                                                                                                                                                                                      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Output owns the visualization; Panel is a placement.** One Output may be placed on many dashboards; editing it updates every placement.                                                                                                                                                     |
+| 2   | **Aggregation lives only in pipeline steps.** Outputs are render-only. Metrics registry and panel-level aggregation are retired.                                                                                                                                                              |
+| 3   | **Phase 1 = trunk + leaf tails on a node-graph model; Phase 2 = branching.** No second migration.                                                                                                                                                                                             |
+| 4   | **Sources stay the pipeline root** and can be created inline from "New pipeline". Companion types retire; the inferred schema lives on the source.                                                                                                                                            |
+| 5   | **Name: Outputs** (plural by design — a pipeline has steps and many outputs).                                                                                                                                                                                                                 |
+| 6   | **Panel** remains the name for a placement. Nav: **Dashboards · Pipelines · Sources · Connectors · Assistant** (Connectors stays because source kinds keep expanding).                                                                                                                        |
+| 7   | Pipeline page = river with inline tails + Output chips **and** an Outputs gallery tab. Phase 2 branches render as parallel lanes in the river that can rejoin.                                                                                                                                |
+| 8   | Dashboard "Add panel" = **Output picker modal**, one click places at the next free slot. A library drawer with drag-to-place is a later authoring-feel ticket if earned.                                                                                                                      |
+| 9   | Orphan pipeline-output types migrate to a `table` Output rather than being dropped. Deleting an Output cascades to its panels, with a placement-count warning first.                                                                                                                          |
+| 10  | `create_pipeline` over MCP is a **single call** that can build source → steps → outputs.                                                                                                                                                                                                      |
+| 11  | **No deprecation.** Retired structures (tables, routes, MCP tools, pages, services) are deleted wholesale in the ticket that replaces them — no shims, aliases, dual-read paths, or `@deprecated` tails. The user is the only user of this free product; deprecation would only be tech debt. |
+| 12  | **Phase 1 and Phase 2 both land in v0.7 — Beta readiness**, at the front of its queue, Phase 2 immediately after Phase 1. Phase 2 tickets are filed now, fully specified from this spec, blocked on Phase 1. HEL-338/HEL-361 are cancelled; there is no separate DAG design session.          |
+| 13  | Migration-created tails carry **no snapshot** until their pipeline next runs; their panels render "run to preview" after the deploy.                                                                                                                                                          |
+| 14  | Row-interpolated **`markdown` Outputs ship in Phase 1** as an Output kind (helio-news depends on data-bound markdown).                                                                                                                                                                        |
+| 15  | Picker **grid defaults** (12-col desktop, react-grid-layout units): metric 3×2 · chart 6×4 · table 6×6 · collection 6×4 · timeline 4×6 · markdown 4×4. One constants file; mobile uses the existing `mobilePanelHeights` model.                                                               |
+| 16  | **The epic + ordered tickets in Linear are the implementation plan.** No separate plan document. Ticket bodies carry scope, acceptance criteria, and blocking relations in Concertino's input format; the next batch agent starts at row 0a of the delivery order.                            |
 
 ## Non-goals / explicitly deferred
 
-- **Branching, rejoin, multi-root pipelines** — Phase 2. The data model supports them from day one; the Phase-1 editor and engine walk restrict tails to non-branching leaf chains.
+- **Branching, rejoin, multi-root pipelines in Phase 1** — they are Phase 2 (same milestone, immediately after). The data model supports them from day one; the Phase-1 editor and engine walk restrict tails to non-branching leaf chains.
+- **Backward compatibility of any kind** (decision 11). Old routes, tools, tables, and pages are removed in the ticket that replaces them.
 - **Per-panel visualization overrides** (a placement forking the Output's config). Rejected in favour of the "edit once, updates everywhere" guarantee. If a user wants a different chart of the same rows, that is a second Output.
 - **Cross-filtering (HEL-588)** and **interactive panels (HEL-643)** — design inputs for later epics: filtering operates over materialized snapshots (client-side filter or re-run); actions attach to Outputs.
 - **Spark / Dataproc execution parity (HEL-238)** — the engine tree-walk lands behind the `PipelineExecutionBackend` abstraction (HEL-330) so the Dataproc backend inherits the node model; implementing the walk on Spark is that epic's work.
@@ -88,7 +95,7 @@ The first-run story becomes: _connect a source, shape it into outputs, place the
 2. Each pipeline's steps get `parent_step_id` from their `position` order (pure trunk; `position` reset to 0 for trunk steps).
 3. Each bound panel → an Output on its pipeline's last trunk step (root if zero steps), `kind = panel.type`, `config` lifted from the panel's columns, `name = panel.title`. If the panel carried HEL-292 panel-level `aggregation` or a `metric_id`, that becomes a **tail**: an `aggregate` (or `groupBy` + `aggregate`) step under the last trunk step, with the Output on the tail. The metric's `format` becomes the Output's `format`. Panel → `output_id`, `kind = output`.
 4. Every remaining pipeline-output type with no panel becomes one `table` Output named after the type on the last trunk step, so no pipeline loses its preview (decision 9).
-5. `data_type_rows` copied to `node_snapshots` under the last trunk step (the tails created in step 3 have no snapshot until the next run; their Outputs render "run to preview" until then). Then drop `metrics`, `data_types`, `data_type_rows`, `pipelines.output_data_type_id`.
+5. `data_type_rows` copied to `node_snapshots` under the last trunk step. The tails created in step 3 have no snapshot until their pipeline next runs; their Outputs render "run to preview" until then (decision 13 — no in-migration synthesis). Then drop `metrics`, `data_types`, `data_type_rows`, `pipelines.output_data_type_id`.
 
 The migration is proved by a red-first test against a prod-shaped snapshot (see Testing).
 
@@ -142,7 +149,7 @@ Phase 2 adds parallel lanes: a trunk step may have multiple step children render
 
 ## Dashboard UX
 
-**Add panel** (decision 8) opens the **Output picker**: searchable, grouped by pipeline, each Output rendered live with its placement count and an "already on this board" state; one click places it at the next free grid slot with a kind-appropriate default size. Content panels (text, markdown, image, divider) are a row at the bottom. "No output fits?" links to New pipeline and the Assistant. The picker is keyboard- and mobile-safe and has the same semantics as an agent's `place_outputs` call.
+**Add panel** (decision 8) opens the **Output picker**: searchable, grouped by pipeline, each Output rendered live with its placement count and an "already on this board" state; one click places it at the next free grid slot with the kind's default size (decision 15: metric 3×2 · chart 6×4 · table 6×6 · collection 6×4 · timeline 4×6 · markdown 4×4). Content panels (text, markdown, image, divider) are a row at the bottom. "No output fits?" links to New pipeline and the Assistant. The picker is keyboard- and mobile-safe and has the same semantics as an agent's `place_outputs` call.
 
 **Panel edit sheet** is deliberately small: title override, size (drag on grid), appearance, a link to the Output on its pipeline, and **Swap output**. Any request to change chart type or fields links out to the Output with an "updates N dashboards" note.
 
@@ -175,23 +182,50 @@ Outputs inherit the pipeline's ACL (like steps). Panels inherit the dashboard's.
 
 Removed outright: Data Types page + `/registry` routes + `DataTypeRoutes`; Metrics page + `metrics` table + `MetricRoutes`/`MetricService`/`MetricRepository` + 5 MCP tools; companion types; HEL-292 panel-level aggregation; the four-screen `PanelCreationModal`; `BindingEditor` (its logic becomes the Output editor); `pipelines.output_data_type_id`; `BoundPanelService`'s zero-step-pipeline synthesis.
 
-## Phasing & delivery order
+## Delivery order (locked 2026-08-30)
 
-### Phase 1
+Everything below lands in **v0.7 — Beta readiness** at the front of its queue unless a milestone column says otherwise (decision 12). Rows are a strict sequence except where "parallel" is stated. **The next Concertino batch starts at row 0a and proceeds top to bottom.** "Absorbs" tickets are cancelled in Linear with a pointer to the absorbing row, and their substance becomes acceptance criteria of that row (decision 11 — fold, don't deprecate). "Retargets" keep their ID with a rewritten description and a blocking relation on the named row. Each P-row is one Concertino ticket; the epic is filed alongside them (decision 16).
 
-Each item is one Concertino ticket unless noted. 1 → 2 → 3 are strictly sequential; 4, 5, 6 can proceed in parallel once 3 lands; 7 last.
+### Prerequisites (existing tickets, behaviour-preserving)
 
-1. **Model + migration** — `outputs`, `parent_step_id`, `node_snapshots`, `data_sources.inferred_schema`; the five migration steps; drop types/metrics; RLS policies + `RlsPolicyGuardSpec`; repositories and domain models. Absorbs HEL-689 (pipeline service split) and HEL-615.
-2. **Engine** — tree walk behind `PipelineExecutionBackend` (HEL-330 first), materialized-node snapshots, per-node schema derivation, per-Output dry-run previews, SSE row counts per node. Lands HEL-744 (empty aggregate → one zero-value row) with it.
-3. **API + contracts** — Output routes, panel reshape, single-call `create_pipeline`, capabilities-at-node, `schemas/` + OpenSpec; remove type/metric routes. Absorbs HEL-895/HEL-638/HEL-644/HEL-892 as Output-at-node validation.
-4. **helio-mcp + proposals** — tool retarget, `get_workspace_context` slimming, proposal grounding per node, review pages. Absorbs HEL-882/HEL-658/HEL-648/HEL-631 file splits and HEL-766.
-5. **Pipeline page** — river tails + Output chips + gallery tab + Output sheet with live previews; new-pipeline inline source; shapes as "add Outputs". Absorbs HEL-682/HEL-676/HEL-878/HEL-681/HEL-334 as acceptance criteria. HEL-725 (PageShell) and HEL-720 (shared source-form base) should land first.
-6. **Dashboard** — Output picker, panel sheet, nav (Dashboards · Pipelines · Sources · Connectors · Assistant), onboarding copy, remove wizard / Types / Metrics pages. Absorbs HEL-467, HEL-743, HEL-653, HEL-794/HEL-792, HEL-490 verification.
-7. **Public dashboards, export/import, docs** — public read path, snapshot schema bump, `README.md` "How data flows", `docs/agent-native.md`, `CLAUDE.md` endpoint list, helio-news rebuild script.
+| Row | Ticket                                                                      | Blocked by | Notes                                                                                  |
+| --- | --------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------- |
+| 0a  | HEL-330 Extract `PipelineExecutionBackend`                                  | —          | The engine tree-walk lands behind it; Dataproc (HEL-238) inherits the node model.      |
+| 0b  | HEL-842 `RlsPolicyGuardSpec` gains `audit_events` + `connector_credentials` | —          | Parallel with 0a. Lands before P1.1 adds `outputs`/`node_snapshots` to the same guard. |
+| 0c  | HEL-725 PageShell / PageHeader / PageStatus primitives                      | —          | Parallel with 0a–P1.3. Rebuilt pages in P1.5/P1.6 use them.                            |
+| 0d  | HEL-720 Shared base form for text/pdf/image sources                         | —          | Parallel with 0a–P1.3. Inline source creation in P1.5 reuses it.                       |
 
-### Phase 2 — branching
+### Phase 1 — Outputs on a trunk with leaf tails
 
-A trunk node may have multiple step children rendered as parallel lanes; `join` / `union` / `lookup` gain "other lane" as an input alongside "other source"; multi-root pipelines. No migration. HEL-361's design session becomes this phase's kickoff, with its "every leaf yields a DataType" constraint dropped.
+| Row  | Ticket                                                                                                                                                                                                                                                                                                                                                       | Blocked by                              | Absorbs (cancel → fold as AC)                                                                                          |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| P1.1 | **Model + migration** — `outputs`, `parent_step_id` (splice-on-delete), `node_snapshots`, `data_sources.inferred_schema`; the five migration steps; drop `metrics`/`data_types`/`data_type_rows`/`output_data_type_id`; delete the Metric and DataType repositories/services/domain models; RLS policies + guard spec; red-first prod-shaped migration test. | 0a, 0b                                  | HEL-689, HEL-615, HEL-864, HEL-642                                                                                     |
+| P1.2 | **Engine tree-walk** — behind `PipelineExecutionBackend`; materialized-node snapshots; per-node schema derivation; per-Output dry-run previews; SSE row counts per node; parity test against the old `foldLeft`.                                                                                                                                             | P1.1                                    | HEL-744 (raised to High), HEL-334                                                                                      |
+| P1.3 | **API + contracts** — Output routes, panel reshape, single-call `create_pipeline`, capabilities-at-node, `schemas/` + OpenSpec; delete type/metric/binding/capabilities routes and `BoundPanelService`.                                                                                                                                                      | P1.2                                    | HEL-722, HEL-895, HEL-638, HEL-644, HEL-892, HEL-877, HEL-876                                                          |
+| P1.4 | **helio-mcp + proposals** — tool retarget (add/remove list in the MCP section), `get_workspace_context` slimming, proposal grounding per node, patch-set inverse builders for nodes/outputs, review pages; the Sleeper rebuild as the acceptance test.                                                                                                       | P1.3 (parallel with P1.5, P1.6)         | HEL-882, HEL-658, HEL-648, HEL-631, HEL-766, HEL-848, HEL-670, HEL-641, HEL-640. HEL-865 stays open, partly delivered. |
+| P1.5 | **Pipeline page** — river with tails + Output chips + Outputs gallery tab + Output sheet with live previews; "New pipeline" with inline source; shapes as "add Outputs from a shape"; `markdown` Output kind (decision 14).                                                                                                                                  | P1.3, 0c, 0d (parallel with P1.4, P1.6) | HEL-682, HEL-676, HEL-878, HEL-681, HEL-629, HEL-621, HEL-622, HEL-731                                                 |
+| P1.6 | **Dashboard + nav + onboarding** — Output picker with grid defaults (decision 15), panel sheet, nav = Dashboards · Pipelines · Sources · Connectors · Assistant, three-step onboarding copy; delete `PanelCreationModal`, `BindingEditor`, Metric* and Type* pages/components.                                                                               | P1.3, 0c (parallel with P1.4, P1.5)     | HEL-467, HEL-743, HEL-653, HEL-654, HEL-810, HEL-784, HEL-789, HEL-793, HEL-794, HEL-792, HEL-490                      |
+| P1.7 | **Public dashboards, export/import, docs** — public read path via `panel → output → node_snapshot`, snapshot schema bump, `README.md` "How data flows", `docs/agent-native.md`, `CLAUDE.md` endpoint list, helio-news + delivery-analytics rebuild scripts, Playwright E2E with interaction counts.                                                          | P1.4, P1.5, P1.6                        | HEL-626, HEL-628                                                                                                       |
+
+### Phase 2 — branching (same milestone, immediately after)
+
+| Row  | Ticket                                                                                                                                                                                                 | Blocked by | Absorbs                                                                     |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------- |
+| P2.1 | **Engine: multi-child walk** — a trunk node may have several step children; `join` / `union` / `lookup` accept "other lane" as an input alongside "other source"; rejoin semantics; per-lane previews. | P1.7       | HEL-338, HEL-361 (cancelled — no design session; the model is decided here) |
+| P2.2 | **Editor: parallel lanes** — lanes rendered side by side in the river, lane-aware Output rail, add-lane / rejoin affordances, per-lane SSE row counts.                                                 | P2.1       | —                                                                           |
+| P2.3 | **Multi-root pipelines** — several source roots per pipeline (model + API + inline source per root), lanes originating at any root.                                                                    | P2.1       | —                                                                           |
+| P2.4 | **MCP + proposals for branching** — multi-child `parentStepId`, lanes in `get_workspace_context`, grounding per lane, `create_pipeline` accepting a full graph.                                        | P2.2, P2.3 | —                                                                           |
+
+### After Phase 2 (retargets, in order)
+
+| Row | Ticket(s)                                                         | Milestone | Blocked by | Retarget                                                                              |
+| --- | ----------------------------------------------------------------- | --------- | ---------- | ------------------------------------------------------------------------------------- |
+| R1  | HEL-551 → HEL-558, HEL-563, HEL-571, HEL-577, HEL-586 (templates) | v0.7      | P2.4       | Template = pipeline (steps + outputs) + dashboard layout, parameterized by source.    |
+| R2  | HEL-503 global search                                             | v0.7      | P1.7       | Entities = dashboards / pipelines / outputs / sources.                                |
+| R3  | HEL-489, HEL-501, HEL-508, HEL-582 (freshness / alerts)           | v0.9      | P1.7       | Per pipeline / per Output.                                                            |
+| R4  | HEL-583 glob multi-file read                                      | v0.9      | P1.7       | "→ single source", not "single DataType (union)".                                     |
+| —   | HEL-831, HEL-832, HEL-833, HEL-835 design-system sweeps           | any       | —          | Scope excludes files retired by P1.5/P1.6.                                            |
+| —   | HEL-643 interactive panels, HEL-588 cross-filtering               | later     | —          | Design inputs only: actions attach to Outputs; filtering over materialized snapshots. |
 
 ## Testing strategy
 
@@ -202,26 +236,26 @@ Tests that prove the remodel, not just pass:
 - **RLS smoke:** non-superuser role against `outputs`/`node_snapshots`, including the public-dashboard read path.
 - **E2E (Playwright):** source → pipeline → three Outputs → placed on a dashboard, with the interaction count documented against today's path (today: ≥ 4 screens / ~5 clicks per panel after the pipeline exists).
 - **MCP E2E:** the four Sleeper dashboards rebuilt through the single-call surface from a clean workspace — HEL-857's exit criterion reused as this epic's acceptance test.
-- **Contract:** `schemas/` + OpenSpec drift checks already in the pre-commit gate; helio-mcp typecheck (HEL-797) should be gated before ticket 4.
+- **Contract:** `schemas/` + OpenSpec drift checks already in the pre-commit gate; helio-mcp typecheck (HEL-797) should be gated before P1.4.
 
 ## Release / compatibility
 
-Breaking API and MCP change. Pre-beta, so a 0.x minor bump with a migration guide for helio-mcp callers (tool rename table above) is sufficient. The helio-news and delivery-analytics rebuild scripts are updated in ticket 7. No data is dropped by the migration: every bound panel keeps its data, every orphan output type becomes a table Output, and companion schemas move onto sources.
+Breaking API and MCP change with **no deprecation period** (decision 11): retired routes, tools, tables, pages, and services are deleted in the ticket that replaces them, and helio-mcp ships the new tool set only. The only compatibility artifact is the tool rename table in the MCP section, kept in `docs/agent-native.md` for the user's own scripts. The helio-news and delivery-analytics rebuild scripts are updated in P1.7. The single-user, free, pre-beta status is what makes this safe; the spec should be revisited if a second user appears before P1.7 lands.
+
+No data is dropped by the migration: every bound panel keeps its data, every orphan output type becomes a table Output, and companion schemas move onto sources. Migration-created tails render "run to preview" until their pipeline next runs (decision 13).
 
 ## Appendix A — Linear triage (from the 2026-08-30 pass over 340 open tickets)
 
-To be applied once the epic exists, so cancellations and retargets can reference real ticket IDs.
+Applied in Linear when the epic and P-tickets are filed (decision 16), so every cancellation carries a pointer to the row that absorbs it. The row assignments are authoritative in the Delivery order section; this is the flat view.
 
-**Superseded — cancel, or fold into the epic's tickets (19):** HEL-467, HEL-743, HEL-653, HEL-654, HEL-810, HEL-784, HEL-789, HEL-793, HEL-864, HEL-615, HEL-642, HEL-682, HEL-676, HEL-878, HEL-681, HEL-334, HEL-794, HEL-792, HEL-848.
+**Cancelled → folded as acceptance criteria of a P-row (38):** HEL-467, HEL-743, HEL-653, HEL-654, HEL-810, HEL-784, HEL-789, HEL-793, HEL-864, HEL-615, HEL-642, HEL-682, HEL-676, HEL-878, HEL-681, HEL-334, HEL-794, HEL-792, HEL-848, HEL-338, HEL-361, HEL-895, HEL-638, HEL-644, HEL-892, HEL-877, HEL-876, HEL-722, HEL-641, HEL-640, HEL-626, HEL-628, HEL-490, HEL-670, HEL-621, HEL-622, HEL-731, HEL-689. Also folded: HEL-882, HEL-658, HEL-648, HEL-631, HEL-766, HEL-744 (these six are the file-split / rollback / empty-aggregate tickets that P1.1–P1.4 rewrite through).
 
-**Retarget — the problem stays, the object changes (33):** HEL-338/HEL-361 (→ Phase 2); HEL-551/558/563/571/577/586 (templates = pipeline + outputs + layout, blocked on Phase 1); HEL-895/HEL-638/HEL-644/HEL-892 (→ Output-at-node validation); HEL-876/HEL-877/HEL-629 (→ Output format / `update_output` / Output editor); HEL-722 (→ `/dashboards` + `/outputs`); HEL-641/HEL-640 (→ keyed by pipeline/output); HEL-489/HEL-501/HEL-508/HEL-582 (→ per pipeline / per Output); HEL-503/HEL-626/HEL-628/HEL-583 (→ Outputs, new export shape); HEL-490 (→ verify the picker is the mobile flow); HEL-670 (→ re-verify after ticket 4); HEL-621/HEL-622/HEL-731 (→ "add Outputs from a shape"); HEL-643/HEL-588 (design inputs).
+**Retargeted — ID kept, description rewritten, blocked on a P-row (14):** HEL-551, HEL-558, HEL-563, HEL-571, HEL-577, HEL-586 (R1); HEL-503 (R2); HEL-489, HEL-501, HEL-508, HEL-582 (R3); HEL-583 (R4); HEL-643, HEL-588 (design inputs, no blocking relation).
 
-**Sequencing dependencies — do before or with (7 groups):** HEL-330 before ticket 2; HEL-744 raised to High, with ticket 2; HEL-882/HEL-658/HEL-648/HEL-631/HEL-689 folded into tickets 1–4; HEL-725 and HEL-720 before tickets 5/6; HEL-831/832/833/835 exclude retired files; HEL-857's exit criterion becomes the MCP acceptance test (HEL-865 partly delivered by context slimming); HEL-766 fixed in ticket 4's inverse-builder rewrite.
+**Sequenced, unchanged in substance:** HEL-330 (0a), HEL-842 (0b), HEL-725 (0c), HEL-720 (0d); HEL-831/832/833/835 scope excludes retired files; HEL-857's exit criterion is P1.4's acceptance test and HEL-865 stays open, partly delivered by context slimming.
 
 **Unaffected (~290):** connectors/ingestion (v0.9), mobile (v0.8), security/retention, alerting, observability, theming, in-panel data grid (HEL-351 — table Outputs render the same), dashboard authoring feel minus HEL-467, dev-tooling/readiness tail. HEL-730 and HEL-883 stay dashboard-level.
 
-## Open questions (none blocking — for the implementation plan)
+## Resolved follow-ups (2026-08-30)
 
-- Whether `node_snapshots` for a tail created by migration step 3 should be synthesized at migration time (by running the tail over the copied trunk snapshot) or left empty until the next run. Synthesis keeps every dashboard rendering through the deploy; the migration ticket should attempt it and fall back to "run to preview" only if the in-migration evaluation proves impractical.
-- Default grid size per Output kind in the picker (metric 1×1, chart 2×1, table 2×2 as a starting point) — tune during ticket 6.
-- Whether `markdown` Outputs (row-interpolated templates) ship in Phase 1 or the existing data-bound text/markdown panels migrate as content panels with a follow-up. Lean: ship in Phase 1, since helio-news depends on data-bound markdown.
+All open questions were resolved in the design session and recorded as decisions 11–16 above: no deprecation (11); Phase 1 and Phase 2 in v0.7 with Phase 2 tickets filed now (12); migration-created tails carry no snapshot until the next run (13); `markdown` Outputs ship in Phase 1 (14); picker grid defaults fixed (15); the epic + ordered tickets are the plan (16). Nothing remains open before ticket filing.
