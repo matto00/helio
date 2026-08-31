@@ -189,3 +189,8 @@ corruption path (nothing is persisted from a preview call). Flagged for a future
   propagated into binding surfaces).
 
 Reword-only; no behavior change, no new tests (existing fixtures are tail-free and stay green).
+
+## Delivery close-out (orchestrator, this commit)
+
+- `openspec/changes/outputs-model-migration/tasks.md` — marked task 6.5 complete: filed follow-up
+  pointer comments on HEL-907/HEL-908/HEL-909 at PR-prep time, per the task's own instruction.
