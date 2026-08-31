@@ -159,8 +159,10 @@ CREATE POLICY node_snapshots_delete ON node_snapshots
 -- ambiguous case (HEL-... data-bound vs. literal text panel): a `text` row
 -- with `type_id` set is data-bound and becomes an 'output' kind; a `text`
 -- row with `type_id` NULL is a literal content panel and keeps kind='text'.
--- markdown/image/divider map straight through (content panels, never
--- data-bound).
+-- `markdown` follows the identical text/type_id rule (a data-bound markdown
+-- row also collapses to 'output'; a literal one keeps kind='markdown') --
+-- only `image`/`divider` map straight through unconditionally (content
+-- panels, never data-bound).
 --
 -- `output_id` is added now (nullable FK, CASCADE) but is NOT populated here
 -- -- that only happens once real Output rows exist for bound panels, which

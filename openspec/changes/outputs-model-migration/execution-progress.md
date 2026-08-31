@@ -3572,3 +3572,149 @@ class, and both were fixed inline per the same probe-confirmed-root-cause discip
 earlier stranded-panel/markdown fixes. Change request 6 / task 6.5 (HEL-689 re-open) remains
 correctly parked for the orchestrator at Delivery, per this cycle's own instructions — not
 attempted, not silently dropped.
+
+## Cycle 3 — fixture credential scrub (URGENT, same-turn security fix)
+
+**Trigger:** immediately after the real `pg_dump` fixture above landed, the human coordinator
+confirmed directly that `hel904-real-dump.sql` committed 594 real `users` rows carrying live bcrypt
+password hashes and real email addresses from the shared dev DB — including the repo owner's own
+personal address (`mattheworr018@gmail.com`) and three other real-looking addresses
+(`mo@gmail.com`, `matt@helio.com`, `admin@helio.com`). Verified independently before touching
+anything:
+
+```
+$ grep -c "INSERT INTO public.users" backend/src/test/resources/db/fixtures/hel904-real-dump.sql
+594
+$ python3 -c "... distinct hashes/emails ..."
+distinct hashes 592   distinct emails 594
+$ grep -c "mattheworr018@gmail.com\|mo@gmail.com\|matt@helio.com\|admin@helio.com" ...
+4
+```
+
+Branch confirmed NOT pushed (`git ls-remote --heads origin feature/outputs-model-migration/HEL-904`
+returns nothing) before any further work — recoverable, never allowed to reach the remote.
+
+**Wider re-scan (all 11 dumped tables) before scrubbing anything:** grepped the whole file for
+`password|api_key|apikey|secret|token|bearer|authorization|\$2[aby]\$`. Found exactly two
+credential-adjacent hits beyond `users`: (1) a `data_sources` name literally containing the word
+"Bearer" (`'Smoke Bearer'`, a REST source's display name, not a credential value — its config uses
+`connectorId` delegation, no embedded key); (2) one `data_sources` row (id
+`367a4124-790a-47d1-b0de-c519ffee2962`, "HEL-758 Eval SQL Source") embedding a real local Postgres
+connection shape: `{"host": "localhost", "port": 5432, "user": "matt", "database": "helio",
+"password": ""}` — password empty, but host/user/database are real local dev-environment detail.
+Confirmed clean, no further action: no `connector_credentials`, `api_tokens`, or session-token
+table exists among the 11 dumped tables (`grep -oP '(?<=INSERT INTO public\.)\w+' ... | sort -u` →
+`binary_refs, dashboards, data_sources, data_type_rows, data_types, metrics, panels,
+patch_set_applications, pipelines, pipeline_steps, users` — no connector-credential or token table
+present); all 14 `rest_api` data_sources rows delegate auth via a `connectorId` reference, never an
+embedded key.
+
+**Scrub scope actually applied** (narrower than the orchestrator's original broader instruction —
+adopted the coordinator/evaluator's independently-verified tighter scope once corroborated, since
+it achieves the same security outcome with strictly less risk to the fixture's FK/row-count
+integrity): scrub ONLY `users.email`, `users.password_hash`, `users.display_name`, plus the one
+`data_sources` row's `host`/`user`/`database` JSON fields. Every `users.id` (the FK target for
+every `owner_id` column across all 11 tables) and every other column/table byte-identical.
+
+**Exact transformation (Python, operating on the `INSERT INTO public.users VALUES (...)` lines in
+insertion order):**
+- `email` → `user-<n>@example.invalid`, `<n>` = 1-based row order (not derived from any real value).
+- `password_hash` → a single fixed dummy bcrypt-shaped string,
+  `$2a$12$0000000000000000000000000000000000000000000000000000` (kept `NULL` where the real row
+  was already `NULL` — a handful of Google-OAuth users have no local password).
+- `display_name` → the fixed literal `'Scrubbed User'`.
+- All other columns (`id`, `created_at`, `google_id`, `avatar_url`, `auth_provider`, `updated_at`,
+  `preferences`, `tier`) left untouched byte-for-byte.
+- The one `data_sources` row: `"host": "localhost"` → `"scrubbed.invalid"`, `"user": "matt"` →
+  `"scrubbed"`, `"database": "helio"` → `"scrubbed"` (string replacement inside the JSONB literal,
+  same shape, `password` already `""`).
+
+First attempt at this script had a bug (Python's `.*` doesn't match `\n` in non-DOTALL mode, so the
+captured "rest of line" group silently dropped each line's trailing newline) that concatenated all
+594 rewritten `users` INSERT statements onto single mega-lines — caught immediately by re-reading
+the output before proceeding further (`wc -l` still showed 10253 but the diff was garbage), fixed
+by re-checking out the pristine file from git and re-running a corrected version that explicitly
+re-appends `\n`. Named here per systematic-debugging.md — this was a real, probe-caught bug, not
+hand-waved past.
+
+**Post-scrub verification (fresh, this turn, pasted evidence):**
+
+```
+$ grep -c "INSERT INTO public.users VALUES" .../hel904-real-dump.sql
+594                                                          # row count preserved
+$ python3 -c "... distinct emails/hashes ..."
+emails 594   hashes 1                                        # every hash now the single dummy value
+$ grep -Ec "mattheworr018|mo@gmail.com|matt@helio.com|admin@helio.com" .../hel904-real-dump.sql
+0                                                              # zero residual real addresses
+$ grep "'367a4124-790a-47d1-b0de-c519ffee2962'" ... | grep -o '"host":[^,]*|"user":[^,]*|"database":[^,]*'
+"host": "scrubbed.invalid"   "user": "scrubbed"   "database": "scrubbed"
+$ grep -c "'9532cfcf-9882-45ba-8247-23706bc00113'" .../hel904-real-dump.sql
+464                                                            # spot-checked a real owner_id FK, unchanged
+$ git diff --stat -- .../hel904-real-dump.sql
+1 file changed, 595 insertions(+), 595 deletions(-)            # exactly 594 users rows + 1 data_sources row
+$ npm run check:no-credential-leak
+check-no-credential-in-agent-surface: OK (12 files scanned, 0 violations)
+```
+
+**Mutation-testing proof that the scrub did not weaken the fixture's two defect-catching
+assertions** (per systematic-debugging.md / the orchestrator's explicit requirement — revert each
+fix, confirm red, restore, confirm green):
+
+1. Markdown-binding fix (`V94__outputs_model.sql`'s `panels.kind` backfill, the `WHEN type IN
+   ('text', 'markdown') AND type_id IS NOT NULL THEN 'output'` line): reverted to the pre-fix
+   `WHEN type = 'text' AND type_id IS NOT NULL THEN 'output'` (dropping `markdown` from the
+   predicate). Re-ran `V94OutputsMigrationSpec` against the SCRUBBED fixture:
+   **1 test failed** — `"should delete exactly the panels this migration's own broadened predicate
+   identifies as stranded, and log that exact count"`: `86 was not equal to 88`. Confirms the
+   scrubbed fixture still contains real markdown-bound panels whose loss the test catches. Restored
+   the fix, re-ran: **23/23 green** again.
+2. Section-10 stranded-panel predicate (the broadened `kind = 'output' AND output_id IS NULL`
+   check, replacing the narrower pre-fix `type_id IS NULL`): reverted both the count-logging query
+   and the `DELETE` statement back to `WHERE type_id IS NULL`. Re-ran the same spec against the
+   SCRUBBED fixture: the migration itself now **aborts with a Postgres error** before any test can
+   even run — `ERROR: check constraint "panels_output_kind_requires_output_id" of relation
+   "panels" is violated by some row` (the very safety net section 10's own comment describes: "if
+   any future write path... produces a `kind = 'output'` panel with no Output attached"). This is
+   an even stronger red than a failing assertion — the scrubbed fixture still contains a real
+   `kind = 'output'`-with-no-`type_id`-but-real-orphan-`type_id` panel that the narrower predicate
+   misses, and the migration's own defense-in-depth constraint catches it. Restored the fix, re-ran:
+   **23/23 green** again, migration completes cleanly.
+
+Both mutation probes confirm the scrub is fully "keep shape, replace value" for `users` — the rows'
+SHAPES (the 60 stranded-panel-eligible rows, the data-bound markdown panels, etc.) that make this
+fixture valuable are entirely intact; only the credential-bearing byte content changed.
+
+**Fixture size (item 5, judgment call):** left the fixture at its current size (~9.3MB, 10253
+lines, 11 tables) — did NOT shrink it. Verified none of the 11 dumped tables is provably unread by
+the migration (every one of `users`, `data_sources`, `data_types`, `pipelines`, `pipeline_steps`,
+`panels`, `dashboards`, `metrics`, `binary_refs`, `data_type_rows`, `patch_set_applications` is
+either directly referenced by a `V94` migration statement or is a load-bearing FK target for a
+table that is — e.g. `dashboards` is never directly touched by `V94` but every `panels` row FKs to
+one). Per the coordinator's explicit instruction, row-level curation was ruled out as the exact
+selection-bias failure mode the last two evaluation cycles already proved dangerous on this ticket;
+a larger-but-complete fixture stays strictly safer than a smaller-but-curated one.
+
+**Also fixed in this same commit (stale-comment finding, coordinator/evaluator-confirmed, zero SQL
+behavior change):** `V94__outputs_model.sql` section 4's comment said "markdown/image/divider map
+straight through (content panels, never data-bound)" — stale since the very next lines special-case
+`markdown` exactly like `text` for a data-bound row (this is the second stale-comment-vs-code defect
+of this exact class caught on this ticket; see `OutputPanel.scala`'s scaladoc from evaluation-1).
+Comment corrected to describe the actual `markdown`-follows-`text` rule; also independently
+re-verified all five `type IN ('text', 'markdown')` call sites (lines 179, 453, 560, 820, 838, plus
+the `panels_kind_check` constraint at 193) are already symmetric — no sixth call site exists, no
+further code change needed.
+
+**Full verification, fresh this turn:**
+- `npm run check:no-credential-leak`: `check-no-credential-in-agent-surface: OK (12 files scanned,
+  0 violations)`.
+- `sbt 'testOnly ...V94OutputsMigrationSpec'` against the scrubbed fixture (baseline, post-restore):
+  **23/23 green**.
+- Full `sbt -Dslick.dbcp.maxThreads=1 'set Test/parallelExecution := false' test` (HEL-924
+  single-threaded protocol): **3342 tests, 225 suites, 0 aborted, 0 failed, all green**, single run,
+  186s.
+
+**Status for the next look:** scrub complete and verified (grep evidence above shows zero residual
+credential material); mutation-testing proof confirms both defect-catching assertions still fire
+against the scrubbed fixture; fixture was NOT shrunk (justification above); `sbt compile`/`sbt test`
+both green, single-threaded, fresh this turn. No escalations raised. Branch still not pushed to any
+remote.

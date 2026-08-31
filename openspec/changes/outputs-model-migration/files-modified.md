@@ -36,3 +36,19 @@ binding fix, tasks.md bookkeeping). For prior cycles' file lists (cycles 1-31), 
 - `openspec/changes/outputs-model-migration/tasks.md` — task 2.11 marked genuinely complete (was
   `(partial)` while checked `[x]`, the fourth instance of that bookkeeping defect on this ticket);
   text rewritten to describe the real-fixture replacement and the defects it surfaced.
+
+Cycle 3 delta, second pass (URGENT security fix — same turn):
+
+- `backend/src/test/resources/db/fixtures/hel904-real-dump.sql` — **scrubbed** the real `pg_dump`
+  fixture landed above: the coordinator/evaluator confirmed 594 `users` rows carrying live bcrypt
+  password hashes and real email addresses (including the repo owner's own personal address),
+  plus one `data_sources` row embedding a real local Postgres host/user/database triple. See
+  `execution-progress.md`'s "Cycle 3 — fixture credential scrub" section for the exact scrub
+  transformation, verification commands, and mutation-testing proof that the scrub did not weaken
+  either of `V94OutputsMigrationSpec`'s two defect-catching assertions.
+- `backend/src/main/resources/db/migration/V94__outputs_model.sql` — fixed a stale comment
+  (section 4, `panels.kind` backfill) that said "markdown/image/divider map straight through
+  (content panels, never data-bound)" even though the very next lines special-case `markdown`
+  exactly like `text` for a data-bound row. No SQL/behavior change — comment only. (Also confirmed,
+  not changed: all five `type IN ('text', 'markdown')` call sites, including line 560's `out_kind`
+  derivation, are already symmetric — no further code fix needed there.)
