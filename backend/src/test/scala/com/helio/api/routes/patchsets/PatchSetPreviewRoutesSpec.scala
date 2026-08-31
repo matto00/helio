@@ -109,7 +109,7 @@ class PatchSetPreviewRoutesSpec
     val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-preview-routes-spec"))
 
     dashboardService = new DashboardService(dashboardRepo, accessChecker)
-    panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
+    panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
     val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)

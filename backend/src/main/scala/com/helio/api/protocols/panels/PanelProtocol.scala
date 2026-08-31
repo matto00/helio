@@ -26,9 +26,10 @@ final case class PanelAppearanceResponse(
  *  the discriminator. Per-subtype flat nullable fields at the response root
  *  are gone — readers narrow on `type` and read fields from `config`.
  *
- *  `dataAsOf` (HEL-234): ISO-8601 timestamp of the most recent successful
- *  pipeline run that writes to this panel's bound DataType; `None` (→ JSON
- *  `null`) when the panel has no bound DataType or no pipeline has run. */
+ *  `dataAsOf` (HEL-234): retained on the wire shape for backward
+ *  compatibility, but HEL-904 task 4.1 removed its only producer
+ *  (`PipelineRepository.findLastRunAtByOutputDataTypeId`'s caller) — every
+ *  caller of `fromDomain` now passes `None` (→ JSON `null`). */
 final case class PanelResponse(
     id: String,
     dashboardId: String,
@@ -107,9 +108,8 @@ object PanelResponse {
    *  carries a `RootJsonFormat`; this dispatcher selects it and emits the
    *  config payload as the `config` field.
    *
-   *  `dataAsOf` (HEL-234): pass the ISO timestamp from
-   *  `PipelineRepository.findLastRunAtByOutputDataTypeId` for panels with a
-   *  bound DataType; pass `None` for all other call sites. */
+   *  `dataAsOf` (HEL-234): every call site now passes `None` (see the class
+   *  doc comment above). */
   def fromDomain(panel: Panel, dataAsOf: Option[String] = None): PanelResponse =
     PanelResponse(
       id          = panel.id.value,
@@ -234,23 +234,4 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   implicit val createPanelBatchItemFormat: RootJsonFormat[CreatePanelBatchItem] = jsonFormat4(CreatePanelBatchItem.apply)
   implicit val createPanelsBatchRequestFormat: RootJsonFormat[CreatePanelsBatchRequest] = jsonFormat2(CreatePanelsBatchRequest.apply)
   implicit val createPanelsBatchResponseFormat: RootJsonFormat[CreatePanelsBatchResponse] = jsonFormat1(CreatePanelsBatchResponse.apply)
-
-  // PanelQuery format (domain type sent to clients as a derived response)
-  implicit val panelQueryFormat: RootJsonFormat[PanelQuery] = new RootJsonFormat[PanelQuery] {
-    def write(q: PanelQuery): JsValue = JsObject(
-      "selectedFields" -> JsArray(q.selectedFields.map(JsString(_)).toVector),
-      "filters"        -> JsArray(q.filters.toVector),
-      "sort"           -> q.sort.fold[JsValue](JsNull)(JsString(_)),
-      "limit"          -> q.limit.fold[JsValue](JsNull)(JsNumber(_))
-    )
-    def read(json: JsValue): PanelQuery = {
-      val obj = json.asJsObject
-      PanelQuery(
-        selectedFields = obj.fields.get("selectedFields").map(_.convertTo[List[String]]).getOrElse(Nil),
-        filters        = obj.fields.get("filters").map(_.convertTo[List[JsValue]]).getOrElse(Nil),
-        sort           = obj.fields.get("sort").flatMap { case JsNull => None; case JsString(s) => Some(s); case _ => None },
-        limit          = obj.fields.get("limit").flatMap { case JsNull => None; case JsNumber(n) => Some(n.toInt); case _ => None }
-      )
-    }
-  }
 }

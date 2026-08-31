@@ -7,20 +7,17 @@ import com.helio.api._
 import com.helio.api.http._
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.PipelineRepository
-import com.helio.services.panels.PanelService
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContextExecutor
 
 /** Public (unauthenticated-friendly) read access to a dashboard's panels.
- *  Sharing-aware ACL is enforced via `AclDirective.authorizeResourceWithSharing`;
- *  cross-user `typeId` bindings are resolved through
- *  [[PanelService.resolveBindingsForRead]] — the same helper PanelService.update
- *  uses, closing the CS2a "unify resolvePanels" spinoff. */
+ *  Sharing-aware ACL is enforced via `AclDirective.authorizeResourceWithSharing`.
+ *  HEL-904 task 4.1: the `dataTypeId`-keyed binding-resolution + `dataAsOf`
+ *  lookup (`PanelService.resolveBindingsForRead` /
+ *  `PipelineRepository.findLastRunAtByOutputDataTypeId`) were removed
+ *  outright — no panel carries a `dataTypeId` binding anymore. */
 final class PublicDashboardRoutes(
     panelRepo: PanelRepository,
-    panelService: PanelService,
-    pipelineRepo: PipelineRepository,
     aclDirective: AclDirective,
     userOpt: Option[AuthenticatedUser]
 )(implicit system: ActorSystem[_])
@@ -45,21 +42,9 @@ final class PublicDashboardRoutes(
                 "Dashboard not found"
               ) { _ =>
                 val resultF = panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, page)
-                  .flatMap { paged =>
-                    panelService.resolveBindingsForRead(paged.items, userOpt).flatMap { panels =>
-                      // HEL-234: look up dataAsOf for each bound panel concurrently.
-                      // Panels with no DataType binding skip the repo call (dataAsOf = None).
-                      Future.sequence(panels.map { panel =>
-                        panel.dataTypeId match {
-                          case Some(dtId) =>
-                            pipelineRepo
-                              .findLastRunAtByOutputDataTypeId(dtId)
-                              .map(instantOpt => PanelResponse.fromDomain(panel, instantOpt.map(_.toString)))
-                          case None =>
-                            Future.successful(PanelResponse.fromDomain(panel))
-                        }
-                      }).map(responses => PagedResult(responses, paged.total, paged.offset, paged.limit))
-                    }
+                  .map { paged =>
+                    val responses = paged.items.map(panel => PanelResponse.fromDomain(panel))
+                    PagedResult(responses, paged.total, paged.offset, paged.limit)
                   }
                 onSuccess(resultF) { result =>
                   complete(result)

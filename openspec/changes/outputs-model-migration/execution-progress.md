@@ -2460,3 +2460,116 @@ AND 4 are both complete" rule.
    needs NOTHING" pass, not a blind grep-and-delete).
 2. Tasks 4.2 (ApiRoutes.scala/Main.scala wiring removal) and 3.15's own deferred route-deletion
    half naturally fall out of 4.1 landing.
+
+## Cycle 24 — section 4.1 partial: PanelService binding-resolution code removed
+
+Starting state verified fresh: HEAD = `d520e508` (cycle 23's commit), tree clean, section 3
+15/15 `[x]`.
+
+**Scope landed this cycle**: the "PanelService binding-resolution code" clause of task 4.1 — the
+one piece of 4.1 that was genuinely self-contained and did not require deleting
+`DataTypeRepository`/`DataTypeService`/`MetricRepository`/`MetricService` themselves (those still
+have other live callers — `PipelineRunService`'s legacy DataType writes, `PipelineProposalService`,
+`WorkspaceContextService`'s pre-3.12 fallback, `DataSourceService`/`SourceService`'s companion-type
+upserts — that 4.1's remaining file-deletion list and 4.3 have not yet severed).
+
+- **Root cause found before touching anything**: `TextPanel`/`MarkdownPanel` still carried a real
+  `dataTypeId`/`fieldMapping` "Source mode" binding, backed by `PanelService.dataTypeRepo`/
+  `resolveBindingsForRead`/`rejectCompanionBinding`. Cross-checked against design.md line 76/103:
+  the V94 migration (already landed, section 2) converts EVERY data-bound text/markdown panel into
+  a `markdown`-kind Output + `OutputPanel` placement at migration time — so after V94 runs on real
+  data, no live `text`/`markdown`-kind panel row ever has `type_id` set again. The binding
+  machinery in `TextPanel`/`MarkdownPanel`/`PanelService` was therefore provably dead weight
+  post-migration, not a still-needed feature — confirmed via `OutputPanel.scala`'s own cycle-17
+  comment explicitly flagging this exact removal as "the remainder of this task."
+- Removed outright: `Panel` trait's `dataTypeId`/`buildQuery`/`withBindingCleared`/`fieldMapping`
+  members; `TextPanelConfig`/`MarkdownPanelConfig` collapsed to `content`-only (mirrors
+  `ImagePanelConfig`/`DividerPanelConfig`); `PanelQuery` domain type + `panelQueryFormat` + `GET
+  /api/panels/:id/query` route (design.md line 195: this route is explicitly retired, not carried
+  over to Outputs); `PanelService.resolveBindingsForRead`/`resolveOne`/`resolveBinding`/
+  `resolveSingleBinding`/`rejectCompanionBinding` + its `dataTypeRepo`/`metricRepo` constructor
+  params; `PanelServiceHelpers.dataTypeIdFromCreateConfig`/`dataTypeIdFromConfigPatch`;
+  `PanelPatchApplier.apply`'s now-always-identity `resolveBinding` callback param;
+  `PublicDashboardRoutes`'s `dataTypeId`-keyed `dataAsOf` lookup (its only producer,
+  `PipelineRepository.findLastRunAtByOutputDataTypeId`, removed too — zero remaining callers);
+  `PanelRepository.existsBoundToType` (zero remaining callers); patch-set-side mirrors
+  (`PatchSetApplyResolvers.validatePanelBindingRefs`/`rejectCompanionBinding`,
+  `PatchSetPreviewImpact`'s rebind hint, `RefinementPrompt`'s `dataTypeId=` prompt suffix,
+  `ProposalPanelSupport.nonFlatConfigDataTypeId`).
+- **Genuinely correcting, not merely deleting**: `ProposalPanelSupport`'s stale doc comment claimed
+  "Text/Markdown carries dataTypeId ... still meaningful" — this was already wrong before this
+  cycle (a leftover from an earlier increment); `bindingCandidate` no longer falls back to a
+  non-output kind's `config.dataTypeId`, since that field is now permanently inert.
+- **Test fallout** (compile-error-driven, ~15 files): two whole spec files
+  (`PanelServiceResolveBindingsSpec`, `PanelServiceCompanionBindingGuardSpec`) deleted outright —
+  100% retired-feature coverage, no salvageable assertion. `PanelSpec.scala` rewritten (the
+  `dataTypeId`/`buildQuery`/`withBindingCleared` sections removed, Text/Markdown decode/Patch
+  coverage rewritten for the `content`-only shape). Constructor-signature mechanical fixes across
+  8 patch-set spec files (positional arg count dropped from 5/7 to 3/5). A SEPARATE class of
+  failure was genuine retired-scenario removal, found by running the full suite fresh (not
+  assumed): `PatchSetPreviewServiceSpec` 6.5f (rebind hint) + the whole `existsBoundToType`
+  6.5k/l/m block; `PatchSetApplyServiceSpec` 7.9b (reject) + its negative;
+  `DashboardApplyProposalBindingSpec`'s 4 HEL-316 text/markdown-binding scenarios (2 reject + 2
+  apply-valid + 1 reject-unknown, collapsed to one "inert field is ignored" test);
+  `ApiRoutesSpec`'s "Cross-user panel type binding" (Task 7.5), "409 when deleting a bound
+  DataType", "bind/unbound a data type to a panel", and the bound-panel half of the `dataAsOf`
+  pair — each removed with an inline note explaining exactly why the underlying scenario can no
+  longer occur (not silently dropped).
+
+**Verification this cycle (fresh, exit codes read directly):**
+- `sbt -batch compile` — clean after every file group.
+- `sbt -batch Test/compile` — clean after all spec-file edits, iterated to zero errors from an
+  initial ~100 compile errors (mechanical constructor-arg fixes first, then genuine
+  retired-scenario removals found by running the suite).
+- Targeted `testOnly` reruns after each fix batch (panels/patchsets/dashboards packages,
+  `PipelineRepositorySpec`) — each batch confirmed green before moving to the next.
+- Full `sbt -batch "set Test / parallelExecution := false" test` run **TWICE** (single-threaded,
+  per this cycle's HEL-924 concurrency-reduction instruction) — **3571/3571 passing both times**,
+  exit code 0, 236 suites, 0 aborted, 0 failed. Count is 3571, down from cycle 23's 3613: net -42
+  from the deletions above (2 whole spec files + ~15 individual retired-scenario removals), no
+  unexplained loss.
+- `node scripts/check-scala-quality.mjs` — clean (139 soft warnings, same as cycle 23's post-fix
+  count — no new violations).
+- `node scripts/check-schema-drift.mjs` — clean (65 protocol classes checked, 7 panel-type-enum
+  surfaces checked) — `TextPanelConfig`/`MarkdownPanelConfig` are internal per-kind configs, not
+  independently schema-tracked classes (only the flat `PanelResponse`/`CreatePanelRequest` wire
+  shapes are), so the field removal did not require a schema file change this cycle.
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+
+**Section 4 status after this cycle: task 4.1 is PARTIALLY complete** (the binding-resolution
+clause only) — left `[ ]` in tasks.md since the bulk of 4.1 (deleting `DataTypeRepository`/
+`DataTypeRowRepository`/`DataTypeService`/`MetricRepository`/`MetricService`/`DataTypeProtocol`/
+`api/protocols/metrics/*`/`DataTypeRoutes`/`MetricRoutes`/`BoundPanelService`/
+`PanelServiceHelpers.withMaterializedMetric` — the last one already removed in an earlier cycle,
+confirmed by grep) has NOT been attempted. Those repositories/services still have other live
+callers this cycle deliberately did not touch: `PipelineRunService`'s legacy DataType schema/row
+writes, `PipelineProposalService`, `WorkspaceContextService`'s pre-3.12 DataType-listing fallback,
+`DataSourceService`/`SourceService`'s companion-type upserts (4.3's own target), and
+`ApiRoutes.scala`'s `DataTypeRoutes`/`MetricRoutes`/`dataTypeService`/`metricServiceOpt` wiring —
+severing ANY of those without first re-verifying every consumer (per the resume brief's own
+warning that 4.1 "needs its own careful 'what still needs SOMETHING vs. what needs NOTHING' pass,
+not a blind grep-and-delete") was out of this cycle's safe scope.
+
+**Task 2.10 (dropping `metrics`/`data_types`/`data_type_rows`/`output_data_type_id`/retired
+`panels` columns) remains NOT started** — it is still blocked on 4.1 (the bulk) and 4.5 both
+landing, per its own standing rule; this cycle did not reach it.
+
+**Next cycle should:**
+1. Continue task 4.1: work through `DataSourceService`/`SourceService` (this doubles as 4.3),
+   `PipelineRunService`, `PipelineProposalService`, `WorkspaceContextService`'s remaining
+   `DataTypeRepository`/`DataTypeService` dependencies one at a time, re-verifying each one's
+   actual live callers before cutting — NOT a blind grep-and-delete, per the resume brief's own
+   caution.
+2. Once every consumer is severed: delete `DataTypeRepository`/`DataTypeRowRepository`/
+   `DataTypeService`/`MetricRepository`/`MetricService`/`DataTypeProtocol`/
+   `api/protocols/metrics/*`/`DataTypeRoutes`/`MetricRoutes`/`BoundPanelService` (confirm this
+   last one is already gone — cycle 17's comment says so, but re-verify with a fresh grep) and
+   their backing test specs (4.5), then task 4.2's `ApiRoutes.scala`/`Main.scala` wiring cleanup
+   falls out naturally.
+3. Task 4.4 (`RlsPolicyGuardSpec` table swap) is independently schedulable once 4.1 lands (no
+   dependency on 4.2/4.3/4.5).
+4. Task 2.10 (the drops) unlocks once 4.1 (in full) and 4.5 both land — still the single most
+   irreversible step in the ticket; triple-confirm via grep before executing, per the standing
+   instruction.
+5. Task 4.6 (splitting oversized pipeline service files) stays lowest priority, explicitly
+   deferrable per the resume brief.

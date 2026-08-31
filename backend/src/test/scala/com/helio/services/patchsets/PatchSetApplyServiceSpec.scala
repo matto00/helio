@@ -112,7 +112,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-apply-service-spec"))
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
-    panelService        = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
+    panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 
@@ -455,38 +455,11 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       await(panelRepo.findByIdInternal(panelToDelete.id)) shouldBe defined
     }
 
-    "reject a panel-update edit binding to an owned companion DataType (7.9b)" in {
-      val dashboard              = seedDashboard(userA)
-      val panel                   = seedPanel(dashboard.id, userA)
-      val (_, companionTypeId)    = seedStaticSource(userA, "Companion source")
-
-      val configPatch = JsObject("dataTypeId" -> JsString(companionTypeId.value))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(configPatch))), None, None, None, None, None)
-      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
-        case Left(ServiceError.BadRequest(_)) => succeed
-        case other                              => fail(s"expected BadRequest, got $other")
-      }
-    }
-
-    "accept (not reject) a panel-update edit whose dataTypeId is foreign-owned (7.9b negative)" in {
-      val dashboard = seedDashboard(userA)
-      val panel     = seedPanel(dashboard.id, userA)
-      // Foreign-OWNED but genuinely existing (satisfies the panels_type_id_fkey
-      // constraint) -- distinct from a truly nonexistent id, which the FK
-      // itself would reject regardless of this check's own pass-through rule.
-      val foreignType = seedPipelineOutputType(userB, "ForeignOutputForNegativeCase")
-
-      val configPatch = JsObject("dataTypeId" -> JsString(foreignType.id.value))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(configPatch))), None, None, None, None, None)
-      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
-        case Right(response) => response.edits.head.status shouldBe "applied"
-        case Left(err)         => fail(s"expected the foreign dataTypeId to pass through unchanged, got $err")
-      }
-    }
-
-    // HEL-904: `metricId` cross-owner rejection (7.9c) removed -- metrics no longer exist.
+    // HEL-904 task 4.1: 7.9b (companion-DataType rejection) and its negative
+    // removed outright, alongside `metricId` cross-owner rejection (7.9c) --
+    // no panel can carry a `dataTypeId`/`metricId` binding anymore
+    // (Text/Markdown's data-bound "Source mode" and metrics are both
+    // removed).
 
     "reject a pipelineStep-update edit referencing a foreign-owned JoinConfig rightDataSourceId (7.9d)" in {
       val (sourceId, _)       = seedStaticSource(userA, "Pipeline source")

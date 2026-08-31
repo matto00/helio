@@ -161,31 +161,6 @@ object PanelServiceHelpers {
       case Some(t) => PanelType.fromString(t).map(Some(_))
     }
 
-  /** Extract the bound `dataTypeId` a create-side config targets, if any.
-   *  The "bound trio" (Metric / Chart / Table), Collection, Timeline, and —
-   *  since HEL-244 gave them their own optional `dataTypeId` binding field —
-   *  Text / Markdown all carry a binding; the empty-string sentinel
-   *  (`decodeCreate` default) means "not set" and is treated as unbound,
-   *  mirroring `Panel.dataTypeId`'s own convention.
-   *
-   *  HEL-316: Text/Markdown were originally omitted here (falling through to
-   *  `case _ => None`), which meant `PanelService.create`'s
-   *  `rejectCompanionBinding` never checked their `dataTypeId` — a
-   *  source-companion (non-pipeline-output) DataType could be bound to a
-   *  text/markdown panel's `config.dataTypeId` on ANY create path (direct
-   *  `POST /api/panels`, `create_panel`, or — newly reachable with
-   *  attacker-supplied content via this ticket's `config` passthrough —
-   *  `apply_proposal`), bypassing the V41 pipeline-only-binding rule. Adding
-   *  them here closes the gap at its root for every caller of `create`.
-   *  HEL-317: Timeline is added here at creation time (not omitted) for the
-   *  same reason — every new bound kind must be covered on day one. */
-  private[services] def dataTypeIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[DataTypeId] =
-    config match {
-      case PanelConfigCodec.TextCreate(c)       => Option(c.dataTypeId).filter(_.value.nonEmpty)
-      case PanelConfigCodec.MarkdownCreate(c)   => Option(c.dataTypeId).filter(_.value.nonEmpty)
-      case _                                    => None
-    }
-
   /** Extract the `outputId` an `"output"`-kind create-side config targets, if
    *  any. HEL-904 follow-up (flagged in cycle 17): `buildForCreate`/
    *  `batchCreate` previously never resolved an `"output"`-kind panel's
@@ -210,27 +185,16 @@ object PanelServiceHelpers {
       case _ => None
     }
 
-  /** Extract the `dataTypeId` an incoming PATCH `config` payload explicitly
-   *  sets to a non-null value, if any. Absent fields and explicit `null`
-   *  (unbind) both yield `None` — the guard only fires on an actual
-   *  re-bind attempt, never on unrelated field edits or unbinding. The wire
-   *  field name (`dataTypeId`) is shared verbatim across the bound trio's
-   *  `*Config.Patch` shapes, so this reads the raw JSON directly rather than
-   *  dispatching per subtype. */
-  private[services] def dataTypeIdFromConfigPatch(json: JsValue): Option[DataTypeId] =
-    json match {
-      case JsObject(fields) =>
-        fields.get("dataTypeId").collect { case JsString(s) if s.nonEmpty => DataTypeId(s) }
-      case _ => None
-    }
-
   // HEL-904 task 3.9/4.1: metric-binding resolution (metricIdFromCreateConfig/
-  // metricIdFromConfigPatch/metricIdOf/withMetricCleared/withMaterializedMetric)
-  // and the ChartPanel-scatter-aggregation-conflict validators
+  // metricIdFromConfigPatch/metricIdOf/withMetricCleared/withMaterializedMetric),
+  // the ChartPanel-scatter-aggregation-conflict validators
   // (validateScatterAggregationConflict/validateBatchAggregationConflict/
-  // aggregationPresenceFromConfigPatch) were removed here — both were scoped
-  // exclusively to the now-deleted bound trio (MetricPanel/ChartPanel/
-  // TablePanel); metrics no longer exist and Outputs carry no `aggregation`
-  // field on the panel placement side (design.md: everything those configs
-  // carried now lives on the Output itself).
+  // aggregationPresenceFromConfigPatch), and the DataType-binding resolvers
+  // (dataTypeIdFromCreateConfig/dataTypeIdFromConfigPatch/
+  // rejectCompanionBinding) were removed here — all were scoped exclusively
+  // to the now-deleted bound trio (MetricPanel/ChartPanel/TablePanel) or to
+  // Text/Markdown's now-removed data-bound "Source mode" (task 4.1); metrics
+  // no longer exist and Outputs carry no `aggregation` field on the panel
+  // placement side (design.md: everything those configs carried now lives
+  // on the Output itself).
 }

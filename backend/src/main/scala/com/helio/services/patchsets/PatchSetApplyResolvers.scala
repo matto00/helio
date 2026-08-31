@@ -139,39 +139,11 @@ private[services] object PatchSetApplyResolvers {
     )
 
 
-  /** panel update/create: `rejectCompanionBinding`/`rejectUnresolvableMetric`'s
-   *  SAME checks (`PanelService.scala:483-524`), mirrored — not reimplemented
-   *  by calling the private methods (inaccessible outside `PanelService`),
-   *  but the same repo lookups + same rejection conditions. */
-  private def validatePanelBindingRefs(
-      dataTypeIdOpt: Option[DataTypeId],
-      user: AuthenticatedUser,
-      index: Int,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    rejectCompanionBinding(dataTypeIdOpt, user, index, ctx)
-
-  /** A foreign-owned or nonexistent `dataTypeId` passes through unchanged
-   *  (matches `PanelService.update`'s own documented pass-through behavior) —
-   *  only an OWNED companion (non-pipeline-output) type is rejected. */
-  private def rejectCompanionBinding(
-      dataTypeIdOpt: Option[DataTypeId],
-      user: AuthenticatedUser,
-      index: Int,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    dataTypeIdOpt match {
-      case None => Future.successful(Right(()))
-      case Some(dataTypeId) =>
-        ctx.dataTypeRepo.findByIdOwned(dataTypeId, user).map {
-          case Some(dt) if dt.sourceId.isDefined =>
-            Left(ServiceError.BadRequest(s"edit $index: panels can only bind to pipeline-output data types"))
-          case _ => Right(())
-        }
-    }
-
-  // HEL-904 task 3.9: `rejectUnresolvableMetric` removed — metrics no longer
-  // exist.
+  // HEL-904 task 3.9/4.1: `rejectUnresolvableMetric` and
+  // `validatePanelBindingRefs`/`rejectCompanionBinding` removed — metrics no
+  // longer exist, and Text/Markdown's data-bound "Source mode" (the only
+  // panel kinds that ever carried a rejectable `dataTypeId`) was removed
+  // outright in the same task.
 
   /** pipelineStep update: when the decoded config patch is a
    *  `JoinConfig`/`UnionConfig`/`LookupConfig`, the SAME "Pre-flight ACL"
@@ -251,16 +223,11 @@ private[services] object PatchSetApplyResolvers {
                 edit.panelPatch match {
                   case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: patch is required for a panel update")))
                   case Some(request) =>
-                    val dataTypeIdOpt = request.config.flatMap(PanelServiceHelpers.dataTypeIdFromConfigPatch)
-                    validatePanelBindingRefs(dataTypeIdOpt, user, index, ctx).map {
-                      case Left(err) => Left(err)
-                      case Right(_) =>
-                        Right(ResolvedEdit(
-                          index, "panel", "update",
-                          Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))),
-                          ResolvedAction.PanelUpdate(panelId, request, panel)
-                        ))
-                    }
+                    Future.successful(Right(ResolvedEdit(
+                      index, "panel", "update",
+                      Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))),
+                      ResolvedAction.PanelUpdate(panelId, request, panel)
+                    )))
                 }
             }
         }
@@ -308,12 +275,8 @@ private[services] object PatchSetApplyResolvers {
               case Right(_) =>
                 PanelServiceHelpers.resolveCreateConfig(request) match {
                   case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"edit $index: $msg")))
-                  case Right(createConfig) =>
-                    val dataTypeIdOpt = PanelServiceHelpers.dataTypeIdFromCreateConfig(createConfig)
-                    validatePanelBindingRefs(dataTypeIdOpt, user, index, ctx).map {
-                      case Left(err) => Left(err)
-                      case Right(_)  => Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request)))
-                    }
+                  case Right(_) =>
+                    Future.successful(Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request))))
                 }
             }
         }

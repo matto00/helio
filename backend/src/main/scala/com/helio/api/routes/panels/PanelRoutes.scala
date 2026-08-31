@@ -10,7 +10,7 @@ import com.helio.api.protocols.IdParsing.PanelIdSegment
 import com.helio.domain.model._
 import com.helio.services.panels.PanelService
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContextExecutor
 
 /** Thin HTTP shell for `/api/panels`. All validation, ACL, and patch
  *  composition lives in [[com.helio.services.PanelService]] (which absorbed
@@ -69,28 +69,9 @@ final class PanelRoutes(
             }
           )
         },
-        path(PanelIdSegment / "query") { panelId =>
-          get {
-            // HEL-500: resolve bindings (cross-user dataTypeId/metricId
-            // clearing + MetricPanel effective-binding materialization,
-            // design.md D3/D4) before building the query — this was
-            // previously the one panel-read path that skipped resolution
-            // entirely.
-            val resolved = panelService.findById(panelId, Some(user)).flatMap {
-              case None        => Future.successful(None)
-              case Some(panel) => panelService.resolveBinding(panel, user).map(Some(_))
-            }
-            onSuccess(resolved) {
-              case None =>
-                complete(StatusCodes.NotFound, ErrorResponse("Panel not found"))
-              case Some(panel) =>
-                panel.buildQuery match {
-                  case None        => complete(StatusCodes.NotFound, ErrorResponse("Panel is not bound to a data type"))
-                  case Some(query) => complete(query)
-                }
-            }
-          }
-        },
+        // `GET /api/panels/:id/query` removed outright (HEL-904 task 4.1) —
+        // HEL-292 panel-level aggregation and this route are retired, not
+        // carried over to Outputs (design.md line 195).
         path(PanelIdSegment / "duplicate") { panelId =>
           post {
             ServiceResponse.run(panelService.duplicate(panelId, user)) { panel =>

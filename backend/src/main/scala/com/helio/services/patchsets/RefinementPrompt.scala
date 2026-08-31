@@ -61,8 +61,7 @@ object RefinementPrompt extends PipelineStepProtocol {
       else
         panels
           .map { p =>
-            val dtSuffix = p.dataTypeId.map(dt => s" dataTypeId=${dt.value}").getOrElse("")
-            s"""  - panel id="${p.id.value}" title="${p.title}" type=${p.kind}$dtSuffix"""
+            s"""  - panel id="${p.id.value}" title="${p.title}" type=${p.kind}"""
           }
           .mkString("\n")
     s"""Target: dashboard id="${dashboard.id.value}" name="${dashboard.name}"

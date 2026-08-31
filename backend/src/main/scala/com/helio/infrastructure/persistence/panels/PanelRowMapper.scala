@@ -85,8 +85,8 @@ object PanelRowMapper extends PanelProtocol {
     )
 
     p match {
-      case t: TextPanel       => base.copy(content = optString(t.config.content), typeId = optString(t.config.dataTypeId.value), fieldMapping = jsObjectColumn(t.config.fieldMapping))
-      case m: MarkdownPanel   => base.copy(content = optString(m.config.content), typeId = optString(m.config.dataTypeId.value), fieldMapping = jsObjectColumn(m.config.fieldMapping))
+      case t: TextPanel       => base.copy(content = optString(t.config.content))
+      case m: MarkdownPanel   => base.copy(content = optString(m.config.content))
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit), imageCaption = i.config.caption)
       case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
       case op: OutputPanel    => base.copy(outputId = optString(op.config.outputId.value), kind = Some(OutputPanel.Kind))
@@ -104,18 +104,10 @@ object PanelRowMapper extends PanelProtocol {
     OutputPanelConfig(outputId = row.outputId.fold(OutputId(""))(OutputId(_)))
 
   private def textConfig(row: PanelRepository.PanelRow): TextPanelConfig =
-    TextPanelConfig(
-      content      = row.content.getOrElse(""),
-      dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
-      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
-    )
+    TextPanelConfig(content = row.content.getOrElse(""))
 
   private def markdownConfig(row: PanelRepository.PanelRow): MarkdownPanelConfig =
-    MarkdownPanelConfig(
-      content      = row.content.getOrElse(""),
-      dataTypeId   = row.typeId.fold(DataTypeId(""))(DataTypeId(_)),
-      fieldMapping = row.fieldMapping.flatMap(parseJsObject).getOrElse(JsObject.empty)
-    )
+    MarkdownPanelConfig(content = row.content.getOrElse(""))
 
   private def imageConfig(row: PanelRepository.PanelRow): ImagePanelConfig =
     ImagePanelConfig(
@@ -139,11 +131,5 @@ object PanelRowMapper extends PanelProtocol {
    *  from the wire config rather than surfacing as a blank strip. */
   private def normalizeText(s: String): Option[String] =
     if (s.trim.isEmpty) None else Some(s)
-
-  private def jsObjectColumn(o: JsObject): Option[String] =
-    if (o.fields.isEmpty) None else Some(o.compactPrint)
-
-  private def parseJsObject(raw: String): Option[JsObject] =
-    scala.util.Try(raw.parseJson).toOption.collect { case o: JsObject => o }
 
 }

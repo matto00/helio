@@ -171,7 +171,7 @@ class PatchSetPreviewServiceSpec
     val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-preview-service-spec"))
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
-    panelService        = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
+    panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
     dataTypeService     = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
@@ -222,21 +222,9 @@ class PatchSetPreviewServiceSpec
       case Left(e)  => fail(s"seedPanel failed: $e")
     }
 
-  // HEL-904: renamed conceptually from "MetricPanelBoundTo" -- Text is now
-  // the only remaining panel kind with a real `dataTypeId` binding.
-  private def seedMetricPanelBoundTo(
-      dashboardId: DashboardId,
-      owner: AuthenticatedUser,
-      dataTypeId: DataTypeId,
-      title: String = "Bound panel"
-  ): Panel = {
-    val config = JsObject("dataTypeId" -> JsString(dataTypeId.value))
-    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("text"), Some(config)), owner)) match {
-      case Right(p) => p
-      case Left(e)  => fail(s"seedMetricPanelBoundTo failed: $e")
-    }
-  }
-  // HEL-904: `seedChartPanel` removed -- ChartPanel no longer exists.
+  // HEL-904 task 4.1: `seedMetricPanelBoundTo`/`seedChartPanel` removed --
+  // Text/Markdown's data-bound "Source mode" no longer exists, so no panel
+  // kind can be seeded with a real `dataTypeId` binding anymore.
 
   private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): (DataSourceId, DataTypeId) = {
     val ds = await(dataSourceService.createStatic(
@@ -722,21 +710,9 @@ class PatchSetPreviewServiceSpec
       }
     }
 
-    "hint a rebind when a panel-update edit changes config.dataTypeId (6.5f)" in {
-      val typeA = seedPipelineOutputType(userA, "RebindTypeA")
-      val typeB = seedPipelineOutputType(userA, "RebindTypeB")
-      val dashboard = seedDashboard(userA)
-      val panel = seedMetricPanelBoundTo(dashboard.id, userA, typeA.id)
-
-      val patch = JsObject("dataTypeId" -> JsString(typeB.id.value))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(patch))), None, None, None, None, None)
-
-      preview(Vector(edit), userA) match {
-        case Right(response) => response.edits.head.impact should contain("Panel will be bound to a different DataType.")
-        case Left(err)         => fail(s"expected success, got $err")
-      }
-    }
+    // HEL-904 task 4.1: 6.5f ("hint a rebind when a panel-update edit changes
+    // config.dataTypeId") removed outright -- no panel carries a `dataTypeId`
+    // binding anymore, so this scenario can no longer occur.
 
     "surface no impact hint for an ordinary rename (6.5g)" in {
       val (sourceId, _) = seedStaticSource(userA, "PlainRenameSrc")
@@ -753,28 +729,8 @@ class PatchSetPreviewServiceSpec
   }
 
 
-  "PanelRepository.existsBoundToType (2.3a)" should {
-
-    "return true for a panel bound to the type on a dashboard the caller can access (owner or shared) (6.5k)" in {
-      val dt = seedPipelineOutputType(userA, "DirectVisibleType")
-      val bDashboard = seedDashboard(userB, "B's shared dashboard")
-      grantRole("dashboard", bDashboard.id.value, userAId, "editor")
-      seedMetricPanelBoundTo(bDashboard.id, userB, dt.id)
-
-      await(panelRepo.existsBoundToType(dt.id, userA)) shouldBe true
-    }
-
-    "return false when no panel is bound to the type at all (6.5l)" in {
-      val dt = seedPipelineOutputType(userA, "DirectUnboundType")
-      await(panelRepo.existsBoundToType(dt.id, userA)) shouldBe false
-    }
-
-    "return false when the only bound panel's dashboard is NOT visible to the caller, proving RLS actually narrows results (6.5m)" in {
-      val dt = seedPipelineOutputType(userA, "DirectInvisibleType")
-      val bDashboard = seedDashboard(userB, "B's unshared dashboard")
-      seedMetricPanelBoundTo(bDashboard.id, userB, dt.id)
-
-      await(panelRepo.existsBoundToType(dt.id, userA)) shouldBe false
-    }
-  }
+  // HEL-904 task 4.1: the `PanelRepository.existsBoundToType (2.3a)` block
+  // (6.5k/6.5l/6.5m) removed outright, alongside `existsBoundToType` itself
+  // -- no panel can carry a `dataTypeId` binding anymore, so the method had
+  // zero remaining callers.
 }

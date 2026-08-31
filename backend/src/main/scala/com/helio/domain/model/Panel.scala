@@ -1,7 +1,7 @@
 package com.helio.domain.model
 
 import com.helio.domain.panels._
-import spray.json.{JsObject, JsString, JsValue}
+import spray.json.JsValue
 
 /** Panel ADT (CS2c-3b cycle 1).
  *
@@ -51,11 +51,6 @@ trait Panel {
   /** Stable discriminator string. Always equals the subtype's `Kind` constant. */
   def kind: String
 
-  /** Bound subtypes (Metric / Chart / Table) return `Some`; unbound subtypes
-   *  (Text / Markdown / Image / Divider) return `None`. Replaces the nullable
-   *  `typeId: Option[DataTypeId]` field on the pre-CS2c-3b flat case class. */
-  def dataTypeId: Option[DataTypeId]
-
   /** Per-subtype config-shape validation. Returns `Left(message)` for invalid
    *  combinations (e.g. `ImagePanel` with empty `imageUrl`, `DividerPanel` with
    *  `weight <= 0`); subtypes without invariants return `Right(())`.
@@ -65,25 +60,6 @@ trait Panel {
    *  pre-CS2c-3b behaviour). CS2c-3c may tighten this once clients send
    *  typed `config` payloads. */
   def validateConfig: Either[String, Unit]
-
-  /** Build a `PanelQuery` for the row-fetch path. Bound subtypes return
-   *  `Some(query)` derived from `(dataTypeId, fieldMapping)`; unbound return
-   *  `None` (the /query endpoint returns 404 "Panel is not bound to a data
-   *  type"). Replaces the `Panel.buildQuery(panel)` free function from the
-   *  pre-CS2c-3b shape. */
-  def buildQuery: Option[PanelQuery]
-
-  /** Return a fresh `Panel` subtype with its binding cleared (the data-type
-   *  reference + field mapping wiped). For bound subtypes this clears
-   *  `dataTypeId` and `fieldMapping`; for unbound subtypes it's a no-op
-   *  (returns `this`). Used by `PanelService.resolveBindingsForRead` to
-   *  surface cross-user binding scrubs without leaking subtype enumeration
-   *  into the service. */
-  def withBindingCleared: Panel
-
-  /** Subtype-specific field mapping accessor (cycle 1 helper for the
-   *  protocol / snapshot wire-flatteners). `None` for unbound subtypes. */
-  def fieldMapping: Option[JsValue]
 }
 
 object Panel {
@@ -124,14 +100,6 @@ object Panel {
         Left(s"Unknown panel type: '$kind'. Valid values: ${Registry.keySet.toSeq.sorted.mkString(", ")}")
     }
 
-  /** Helper: extract a `List[String]` of selected fields from a field-mapping
-   *  `JsObject`, ignoring non-string values. Shared by Metric / Chart / Table
-   *  `buildQuery` implementations. */
-  private[domain] def selectedFieldsFromMapping(mapping: Option[JsValue]): List[String] =
-    mapping match {
-      case Some(JsObject(fields)) => fields.values.collect { case JsString(s) => s }.toList
-      case _                      => List.empty
-    }
 }
 
 /** Source of truth for the panel-type discriminator string. Constants here

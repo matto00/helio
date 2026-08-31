@@ -106,17 +106,14 @@ object ProposalPanelSupport {
   // metrics no longer exist.
 
   /** The dataTypeId that will ACTUALLY end up bound on the created panel, for
-   *  pre-validation purposes: the flat field when present; otherwise, for a
-   *  panel type OUTSIDE `DataPanelKinds` only, a `config.dataTypeId`. */
+   *  pre-validation purposes: the flat field. HEL-904 task 4.1: the
+   *  non-`DataPanelKinds` (Text/Markdown) `config.dataTypeId` fallback is
+   *  removed outright — those kinds' data-bound "Source mode" no longer
+   *  exists, so a `config.dataTypeId` on a text/markdown proposal panel is
+   *  inert (silently ignored by `TextPanelConfig.decodeCreate`/
+   *  `MarkdownPanelConfig.decodeCreate`), never a real binding to validate. */
   private def bindingCandidate(panel: ProposalPanel): Option[String] =
-    panel.dataTypeId.orElse(nonFlatConfigDataTypeId(panel))
-
-  private def nonFlatConfigDataTypeId(panel: ProposalPanel): Option[String] =
-    if (DashboardProposalService.DataPanelKinds.contains(panel.`type`)) None
-    else
-      panel.config.flatMap(_.fields.get("dataTypeId")).collect {
-        case JsString(s) if s.nonEmpty => s
-      }
+    panel.dataTypeId
 
   /** Build the create-side typed `config` JSON from the proposal panel's
    *  fields and merge the generic `config` passthrough over it (HEL-316) —

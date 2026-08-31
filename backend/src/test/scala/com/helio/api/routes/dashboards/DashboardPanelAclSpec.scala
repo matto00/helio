@@ -48,7 +48,8 @@ import scala.concurrent.duration.DurationInt
  *  - Viewer trying to mutate → 403 (resource visible, mutation blocked)
  *
  *  Holes closed:
- *  - /api/panels/:id/query: any authenticated user could query any panel (now: 404 for non-grantee)
+ *  - /api/panels/:id/query: any authenticated user could query any panel (HEL-904 task 4.1: the
+ *    route itself is now removed outright, so this returns 404 for everyone)
  *  - /api/dashboards/:id cross-user GET/PATCH/DELETE: leaks before service guard (now: 404)
  *  - POST /api/dashboards/:id/duplicate: cross-user 404
  */
@@ -444,8 +445,8 @@ class DashboardPanelAclSpec
     }
   }
 
-  "GET /api/panels/:id/query (cross-user, no grant)" should {
-    "return 404 (was: open hole — any authenticated user could query any panel)" in {
+  "GET /api/panels/:id/query" should {
+    "return 404 -- the route itself was removed outright (HEL-904 task 4.1), not merely ACL-gated" in {
       val dashId  = seedDashboard(userAId)
       val panelId = seedPanel(dashId, userAId)
       Get(s"/api/panels/$panelId/query") ~> routesB() ~> check {

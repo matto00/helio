@@ -23,8 +23,7 @@ private[services] final class PanelPatchApplier(panelRepo: PanelRepository)(impl
 
   def apply(
       panelId: PanelId,
-      spec: ResolvedPanelPatch,
-      resolveBinding: Panel => Future[Panel]
+      spec: ResolvedPanelPatch
   ): Future[Option[Panel]] = {
     val now = Instant.now()
 
@@ -66,10 +65,6 @@ private[services] final class PanelPatchApplier(panelRepo: PanelRepository)(impl
           applyTitle(existing)
             .flatMap(applyAppearance)
             .flatMap(applyConfig)
-            .flatMap {
-              case None        => Future.successful(None)
-              case Some(panel) => resolveBinding(panel).map(Some(_))
-            }
     }
   }
 }

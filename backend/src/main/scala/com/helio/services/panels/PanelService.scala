@@ -8,8 +8,6 @@ import com.helio.api.protocols.panels.{CreatePanelRequest, CreatePanelsBatchRequ
 import com.helio.domain.model._
 import com.helio.domain.panels._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.services.panels.PanelServiceHelpers._
@@ -56,18 +54,10 @@ final case class ResolvedPanelPatch(
  *    reopen). Mirrors `DashboardContentsService.authorizeEditor` exactly. */
 final class PanelService(
     panelRepo:     PanelRepository,
-    dataTypeRepo:  DataTypeRepository,
     accessChecker: AccessChecker,
     dashboardRepo: DashboardRepository,
-    // HEL-500: appended last (rather than beside the other constructor
-    // params) so it stays purely additive for every existing positional
-    // caller of this constructor. Nullable-optional wiring is NOT used here
-    // (unlike ApiRoutes's Option-guarded repos) — `metricRepo` is only ever
-    // touched when a panel actually carries a `metricId`, so a test fixture
-    // that never sets one never exercises it.
-    metricRepo: MetricRepository,
-    // HEL-477: nullable-optional wiring mirrors metricRepo above — a fixture
-    // that doesn't pass one simply never audits (see `audit` below).
+    // HEL-477: nullable-optional wiring — a fixture that doesn't pass one
+    // simply never audits (see `audit` below).
     auditService: AuditService = null,
     // HEL-904 follow-up (flagged cycle 17): appended last, nullable-optional
     // (default `null`) so every existing positional caller stays unmodified.
@@ -95,60 +85,6 @@ final class PanelService(
    *  `callerOpt = None`). Closes the `/api/panels/:id/query` ACL hole. */
   def findById(panelId: PanelId, callerOpt: Option[AuthenticatedUser]): Future[Option[Panel]] =
     panelRepo.findById(panelId, callerOpt)
-
-  /** Resolve cross-user `dataTypeId` bindings for a list of panels (Text/
-   *  Markdown are the only remaining kinds carrying one). If a panel's
-   *  `dataTypeId` belongs to a different user (or no longer exists), its
-   *  whole binding is cleared (treated as unbound, pre-existing behavior).
-   *  HEL-904: the `metricId`-specific clear-or-materialize half of this
-   *  method (HEL-500 D3/D4) was removed — metrics, and the bound trio that
-   *  carried them, no longer exist.
-   *
-   *  Used by both `PanelService.update` (single panel, single user) and
-   *  `PublicDashboardRoutes` (vector of panels, optional viewer) — closes the
-   *  CS2a spinoff that asked for a unified resolver. */
-  def resolveBindingsForRead(
-      panels: Vector[Panel],
-      userOpt: Option[AuthenticatedUser]
-  ): Future[Vector[Panel]] = userOpt match {
-    case None =>
-      Future.successful(panels.map(_.withBindingCleared))
-    case Some(user) =>
-      val typedIds = panels.flatMap(_.dataTypeId).distinct
-      for {
-        ownedTypes <-
-          if (typedIds.isEmpty) Future.successful(Map.empty[DataTypeId, DataType])
-          else dataTypeRepo.findByIdsOwned(typedIds, user)
-      } yield panels.map(resolveOne(_, ownedTypes))
-  }
-
-  /** Per-panel resolution shared by `resolveBindingsForRead`'s batch path:
-   *  clear the whole binding when `dataTypeId` doesn't resolve. */
-  private def resolveOne(panel: Panel, ownedTypes: Map[DataTypeId, DataType]): Panel =
-    panel.dataTypeId match {
-      case Some(typeId) if !ownedTypes.contains(typeId) => panel.withBindingCleared
-      case _                                            => panel
-    }
-
-  /** Public method used by routes that already have a Panel + a user. */
-  def resolveBinding(panel: Panel, user: AuthenticatedUser): Future[Panel] =
-    resolveSingleBinding(panel, user)
-
-  /** Single-panel counterpart of `resolveOne`/`resolveBindingsForRead` — same
-   *  clear-whole-binding-on-unresolved-dataTypeId rule, for the single-panel
-   *  read paths (`update`'s post-patch resolve, the `/query` route's
-   *  `findById`-then-`buildQuery` flow via `resolveBinding`). */
-  private def resolveSingleBinding(panel: Panel, user: AuthenticatedUser): Future[Panel] = {
-    val dataTypeIdOpt = panel.dataTypeId
-    dataTypeIdOpt match {
-      case None     => Future.successful(panel)
-      case Some(id) => dataTypeRepo.findByIdOwned(id, user).map {
-        case Some(_) => panel
-        case None    => panel.withBindingCleared
-      }
-    }
-  }
-
 
   def create(
       request: CreatePanelRequest,
@@ -197,31 +133,24 @@ final class PanelService(
       case Left(err) =>
         Future.successful(Left(ServiceError.BadRequest(err)))
       case Right((createConfig, appearance)) =>
-        for {
-          companionResult <- rejectCompanionBinding(dataTypeIdFromCreateConfig(createConfig), user)
-          result <- companionResult match {
-            case Left(err) => Future.successful(Left(err))
-            case Right(_) =>
-              rejectMissingOutput(outputIdFromCreateConfig(createConfig), user).map {
-                case Left(err) => Left(err)
-                case Right(_) =>
-                  val now = Instant.now()
-                  val panel = buildNewPanel(
-                    id           = PanelId(UUID.randomUUID().toString),
-                    dashboardId  = dashboardId,
-                    title        = RequestValidation.normalizePanelTitle(request.title),
-                    meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-                    appearance   = appearance,
-                    ownerId      = user.id,
-                    createConfig = createConfig
-                  )
-                  panel.validateConfig match {
-                    case Left(msg) => Left(ServiceError.BadRequest(msg))
-                    case Right(_)  => Right(panel)
-                  }
-              }
-          }
-        } yield result
+        rejectMissingOutput(outputIdFromCreateConfig(createConfig), user).map {
+          case Left(err) => Left(err)
+          case Right(_) =>
+            val now = Instant.now()
+            val panel = buildNewPanel(
+              id           = PanelId(UUID.randomUUID().toString),
+              dashboardId  = dashboardId,
+              title        = RequestValidation.normalizePanelTitle(request.title),
+              meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
+              appearance   = appearance,
+              ownerId      = user.id,
+              createConfig = createConfig
+            )
+            panel.validateConfig match {
+              case Left(msg) => Left(ServiceError.BadRequest(msg))
+              case Right(_)  => Right(panel)
+            }
+        }
     }
   }
 
@@ -458,49 +387,27 @@ final class PanelService(
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(spec) =>
-                val incomingDataTypeId = spec.configPatch.flatMap(dataTypeIdFromConfigPatch)
                 val incomingOutputId = spec.configPatch.flatMap(outputIdFromConfigPatch)
-                rejectCompanionBinding(incomingDataTypeId, user).flatMap {
+                rejectMissingOutput(incomingOutputId, user).flatMap {
                   case Left(err) => Future.successful(Left(err))
                   case Right(_) =>
-                    rejectMissingOutput(incomingOutputId, user).flatMap {
-                      case Left(err) => Future.successful(Left(err))
-                      case Right(_) =>
-                        patchApplier.apply(panelId, spec, p => resolveSingleBinding(p, user))
-                          .map {
-                            case Some(panel) =>
-                              audit("panel.update", Some(panel.id.value), user)
-                              Right(panel)
-                            case None        => Left(ServiceError.NotFound("Panel not found"))
-                          }
-                          .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
-                    }
+                    patchApplier.apply(panelId, spec)
+                      .map {
+                        case Some(panel) =>
+                          audit("panel.update", Some(panel.id.value), user)
+                          Right(panel)
+                        case None        => Left(ServiceError.NotFound("Panel not found"))
+                      }
+                      .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
                 }
             }
         }
     }
 
-  // ── Internal: reject companion-DataType bindings (enforce-pipeline-only-bindings) ──
-
-  /** 400 when `dataTypeIdOpt` resolves to a companion DataType (`sourceId`
-   *  defined) — panels may only bind to pipeline-output types. A `None`
-   *  input (no binding attempted) or a type that doesn't resolve for this
-   *  owner (nonexistent / cross-user) both pass through unchanged: the
-   *  latter preserves the existing silent-unbind-on-read behavior instead
-   *  of turning it into a 400. */
-  private def rejectCompanionBinding(
-      dataTypeIdOpt: Option[DataTypeId],
-      user: AuthenticatedUser
-  ): Future[Either[ServiceError, Unit]] =
-    dataTypeIdOpt match {
-      case None => Future.successful(Right(()))
-      case Some(dataTypeId) =>
-        dataTypeRepo.findByIdOwned(dataTypeId, user).map {
-          case Some(dt) if dt.sourceId.isDefined =>
-            Left(ServiceError.BadRequest("Panels can only bind to pipeline-output data types"))
-          case _ => Right(())
-        }
-    }
+  // HEL-904 task 4.1: `rejectCompanionBinding` (enforce-pipeline-only-bindings,
+  // V41) removed outright — Text/Markdown's data-bound "Source mode" no
+  // longer exists, so no panel-create/patch path can carry a `dataTypeId`
+  // binding to reject in the first place.
 
   /** 404 when `outputIdOpt` is provided but does not resolve to a real,
    *  owned Output. HEL-904 follow-up (flagged cycle 17): closes the gap where
@@ -524,10 +431,9 @@ final class PanelService(
         }
     }
 
-  // HEL-904 task 3.9/4.1: `rejectUnresolvableMetric` (HEL-500) removed —
-  // metrics no longer exist, `metricRepo` is retained on the constructor only
-  // as an unused legacy parameter until §4.1's repository deletion.
-
+  // HEL-904 task 3.9/4.1: `rejectUnresolvableMetric` (HEL-500) and
+  // `metricRepo` (the constructor's legacy unused parameter) both removed —
+  // metrics no longer exist.
 
   private def authorizeEditorOnDashboard(
       dashboardId: DashboardId,

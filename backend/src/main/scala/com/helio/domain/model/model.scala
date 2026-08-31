@@ -471,12 +471,9 @@ final case class Dashboard(
     layout: DashboardLayout,
     ownerId: UserId
 )
-final case class PanelQuery(
-    selectedFields: List[String],
-    filters: List[JsValue],
-    sort: Option[String],
-    limit: Option[Int]
-)
+// `PanelQuery`/`GET /api/panels/:id/query` removed outright (HEL-904 task
+// 4.1) — HEL-292 panel-level aggregation and this route are retired, not
+// carried over to Outputs (design.md line 195).
 
 // `Panel` ADT lives in `Panel.scala` (trait + 7 typed subtypes under
 // `panels/`). The pre-CS2c-3b flat case class is removed.

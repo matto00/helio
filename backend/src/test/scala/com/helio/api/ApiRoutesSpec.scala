@@ -910,48 +910,12 @@ class ApiRoutesSpec
       }
     }
 
-    "return 409 when deleting a data type bound to a panel" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      // HEL-904: explicit "text" type — the default panel type (now
-      // `Divider`, a content-only kind) never accepts a `dataTypeId` binding.
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), Some("text"), None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "BoundType",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsString(dt.id.value))))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Delete(s"/api/types/${dt.id.value}") ~> routes() ~> check {
-        status shouldBe StatusCodes.Conflict
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Cannot delete DataType: one or more panels are bound to it")
-      }
-    }
+    // HEL-904 task 4.1: "return 409 when deleting a data type bound to a
+    // panel" removed outright -- Text/Markdown's data-bound "Source mode"
+    // no longer exists, so no panel kind can ever be bound to a DataType
+    // anymore, and `DataTypeService.delete`'s `existsBoundToAnyOwnedPanel`
+    // guard can never fire (queries a `panels.type_id` column no live panel
+    // kind ever populates).
 
     // ── DataType computed fields ───────────────────────────────────────────────
 
@@ -1185,101 +1149,10 @@ class ApiRoutesSpec
       }
     }
 
-    // ── Panel type binding ─────────────────────────────────────────────────────
-
-    "bind a data type to a panel and return it in the response" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-      import spray.json._
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      // HEL-904: explicit "text" type — the default panel type (now
-      // `Divider`, a content-only kind) never accepts a `dataTypeId` binding.
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Metric"), Some("text"), None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "MyType",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      val mapping = """{"value":"col1"}""".parseJson.asJsObject
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsString(dt.id.value), "fieldMapping" -> mapping)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[PanelResponse]
-        val config = response.config.asJsObject.fields
-        config("dataTypeId")   shouldBe JsString(dt.id.value)
-        config("fieldMapping") shouldBe mapping
-      }
-    }
-
-    "unbind a data type from a panel by setting typeId to null" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      // HEL-904: explicit "text" type — the default panel type (now
-      // `Divider`, a content-only kind) never accepts a `dataTypeId` binding.
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Metric"), Some("text"), None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "MyType",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsString(dt.id.value))))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      // unbind via explicit null
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsNull, "fieldMapping" -> JsNull)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[PanelResponse]
-        val config = response.config.asJsObject.fields
-        config("dataTypeId")   shouldBe JsString("")
-        config("fieldMapping") shouldBe JsObject.empty
-      }
-    }
+    // HEL-904 task 4.1: "bind a data type to a panel and return it in the
+    // response" / "unbind a data type from a panel by setting typeId to
+    // null" removed outright -- Text/Markdown's data-bound "Source mode"
+    // no longer exists, so a panel can never carry a `dataTypeId` binding.
 
     // ── HEL-292: panel-level aggregation persistence (evaluation-1.md CR #1/#2) ──
     //
@@ -3065,53 +2938,10 @@ class ApiRoutesSpec
     }
   }
 
-  // ── Cross-user panel type binding test (Task 7.5) ────────────────────────────
-
-  "Cross-user panel type binding" should {
-
-    "panel with typeId owned by a different user reads as typeId=null" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("My Dashboard"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-      // HEL-904: explicit "text" type — the default panel type (now
-      // `Divider`, a content-only kind) has no `dataTypeId` config field at all.
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), Some("text"), None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      // Insert a DataType owned by otherUser directly into the DB
-      val foreignType = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "Foreign Type",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(otherUserId)
-      )
-      await(dataTypeRepo.insert(foreignType, otherUser))
-
-      // Bind the foreign type to the panel directly via the DB (bypassing auth)
-      import slick.jdbc.PostgresProfile.api._
-      await(db.run(sqlu"UPDATE panels SET type_id = ${foreignType.id.value} WHERE id = $panelId"))
-
-      // Now testUser reads panels for their dashboard — config.dataTypeId should be empty
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PagedResult[PanelResponse]].items
-        panels should have size 1
-        panels.head.config.asJsObject.fields("dataTypeId") shouldBe JsString("")
-      }
-    }
-  }
+  // HEL-904 task 4.1: the "Cross-user panel type binding" test (Task 7.5) is
+  // removed outright -- Text/Markdown's data-bound "Source mode" no longer
+  // exists, so a panel can no longer carry a `type_id` binding to leak
+  // cross-user in the first place.
 
   "GET /api/auth/me" should {
 
@@ -3850,61 +3680,16 @@ class ApiRoutesSpec
       }
     }
 
-    // ── HEL-234: dataAsOf in GET /api/dashboards/:id/panels ────────────────
+    // HEL-904 task 4.1: `dataAsOf`'s only producer (the `dataTypeId`-keyed
+    // `PipelineRepository.findLastRunAtByOutputDataTypeId` lookup) was
+    // removed outright -- no panel can carry a `dataTypeId` binding anymore,
+    // so `dataAsOf` is now unconditionally `None` for every panel, regardless
+    // of kind. The prior "bound panel resolves an ISO timestamp" scenario is
+    // therefore removed; the remaining scenario below is renamed to reflect
+    // that `dataAsOf` is dead-but-not-yet-deleted wire shape, not a live
+    // per-panel computation.
 
-    "return dataAsOf ISO string for a bound panel whose pipeline has run" in {
-      import slick.jdbc.PostgresProfile.api._
-      import java.time.Instant
-      import java.util.UUID
-      cleanDb()
-
-      var dashboardId = ""
-      var panelId     = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Freshness Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      // Seed a data type and pipeline for the panel binding.
-      // owner_id must reference the test user seeded by cleanDb().
-      val dtId  = UUID.randomUUID().toString
-      val dsId  = UUID.randomUUID().toString
-      val pidId = UUID.randomUUID().toString
-      await(db.run(DBIO.seq(
-        sqlu"""INSERT INTO data_sources
-                 (id, name, source_type, config, owner_id, created_at, updated_at)
-                 VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $testUserId::uuid, now(), now())""",
-        sqlu"""INSERT INTO data_types
-                 (id, name, fields, version, owner_id, created_at, updated_at)
-                 VALUES ($dtId, 'mytype', '[]', 1, $testUserId::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines
-                 (id, name, source_data_source_id, output_data_type_id, last_run_status, last_run_at, owner_id, created_at, updated_at)
-                 VALUES ($pidId, 'pipe', $dsId, $dtId, 'succeeded', now(), $testUserId::uuid, now(), now())"""
-      )))
-
-      // HEL-904: retargeted from a bound MetricPanel (retired) to a bound
-      // TextPanel -- Text is now the only panel kind carrying a real
-      // dataTypeId binding, preserving this test's "dataAsOf resolves for a
-      // bound panel" intent.
-      val metricConfig = JsObject("dataTypeId" -> JsString(dtId), "fieldMapping" -> JsObject())
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), Some("text"), Some(metricConfig))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-        panelId = responseAs[PanelResponse].id
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels   = responseAs[PanelsResponse].items
-        val panel    = panels.find(_.id == panelId).get
-        panel.dataAsOf shouldBe defined
-        panel.dataAsOf.get should not be empty
-        noException should be thrownBy Instant.parse(panel.dataAsOf.get)
-      }
-    }
-
-    "return dataAsOf null for an unbound panel" in {
+    "return dataAsOf null for every panel (the feature is retired, task 4.1)" in {
       cleanDb()
 
       var dashboardId = ""

@@ -1,6 +1,5 @@
 package com.helio.services.patchsets
 
-import com.helio.services.panels.PanelServiceHelpers
 import com.helio.domain.model.{AuthenticatedUser, Page}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -22,9 +21,6 @@ private[services] object PatchSetPreviewImpact {
 
   private val DataSourceDeleteCascadeHint =
     "Cascades to any pipeline built on this source."
-
-  private val RebindHint =
-    "Panel will be bound to a different DataType."
 
   private def dashboardDeleteHint(panelCount: Int): String =
     s"Cascades to $panelCount panel(s)."
@@ -60,11 +56,9 @@ private[services] object PatchSetPreviewImpact {
           Vector(dashboardDeleteHint(page.total))
         }
 
-      case ResolvedAction.PanelUpdate(_, request, prior) =>
-        val rebinds = request.config
-          .flatMap(PanelServiceHelpers.dataTypeIdFromConfigPatch)
-          .exists(newId => !prior.dataTypeId.contains(newId))
-        Future.successful(if (rebinds) Vector(RebindHint) else Vector.empty)
+      // HEL-904 task 4.1: the panel-update "rebind to a different DataType"
+      // hint is REMOVED outright -- no panel carries a `dataTypeId` binding
+      // anymore.
 
       // Every other (kind, op): an ordinary rename/content edit has no
       // cascade/staleness consequence beyond the diff itself.

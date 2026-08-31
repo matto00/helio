@@ -8,8 +8,6 @@ import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.domain.model._
 import com.helio.domain.panels.OutputPanel
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import org.mockito.Mockito.mock
 import spray.json.{JsObject, JsString}
@@ -48,10 +46,8 @@ class PanelServiceBuildAllForCreateSpec extends AnyWordSpec with Matchers {
   private def newService(): PanelService =
     new PanelService(
       mock(classOf[PanelRepository]),
-      mock(classOf[DataTypeRepository]),
       stubAccess,
-      mock(classOf[DashboardRepository]),
-      mock(classOf[MetricRepository])
+      mock(classOf[DashboardRepository])
     )
 
   private def validTextRequest(title: String): CreatePanelRequest =

@@ -113,7 +113,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-undo-service-spec"))
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
-    panelService        = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
+    panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
     dataTypeService     = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)

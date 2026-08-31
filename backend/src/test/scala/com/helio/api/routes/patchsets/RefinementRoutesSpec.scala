@@ -105,7 +105,7 @@ class RefinementRoutesSpec
     val fs     = new LocalFileSystem(tmpDir)
 
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
-    val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
+    val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
     val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).

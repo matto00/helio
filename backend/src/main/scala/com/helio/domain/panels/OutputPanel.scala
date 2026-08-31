@@ -1,6 +1,6 @@
 package com.helio.domain.panels
 
-import com.helio.domain.model.{DashboardId, DataTypeId, OutputId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
+import com.helio.domain.model.{DashboardId, OutputId, Panel, PanelAppearance, PanelId, ResourceMeta, UserId}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -74,31 +74,11 @@ final case class OutputPanel(
 ) extends Panel {
   val kind: String = OutputPanel.Kind
 
-  // The `Panel` trait's `dataTypeId: Option[DataTypeId]` accessor predates
-  // the Output model and has no OutputPanel-side meaning — always `None`
-  // here. The trait method itself is retargeted to `outputId` in the
-  // remainder of this task, once every other subtype (the content kinds)
-  // and every consumer of this accessor is rewired in the same pass; kept
-  // as a real, if vestigial, override for now so this file alone compiles
-  // against the trait unchanged.
-  def dataTypeId: Option[DataTypeId] = None
-
   def outputId: Option[OutputId] =
     if (config.outputId.value.isEmpty) None else Some(config.outputId)
 
-  def fieldMapping: Option[JsValue] = None
-
   def validateConfig: Either[String, Unit] =
     if (config.outputId.value.isEmpty) Left("outputId is required") else Right(())
-
-  // No query-building path: an OutputPanel's data comes from
-  // `NodeSnapshotRepository`/`OutputRepository` keyed by `outputId`, not
-  // the old `DataTypeId`-keyed `PanelQuery`/`GET /api/panels/:id/query`
-  // path (removed outright per design.md — HEL-292 panel-level aggregation
-  // and the `/query` endpoint are retired, not carried over to Outputs).
-  def buildQuery: Option[PanelQuery] = None
-
-  def withBindingCleared: Panel = copy(config = OutputPanelConfig.Empty)
 
   def applyPatch(patch: OutputPanelConfig.Patch): OutputPanel =
     copy(config = OutputPanelConfig(outputId = patch.outputId.getOrElse(config.outputId)))

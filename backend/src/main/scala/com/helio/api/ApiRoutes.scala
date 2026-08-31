@@ -240,11 +240,10 @@ final class ApiRoutes(
   private val mfaServiceOpt: Option[MfaService] = Option(mfaRepo).map(new MfaService(_, userRepo, auditService))
   private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService)
-  // HEL-500: metricRepo may be null for fixtures that don't pass one (same
-  // nullable-optional wiring convention as the constructor param above) —
-  // safe because PanelService only touches it when a panel actually carries
-  // a `metricId`.
-  private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo, auditService, outputRepoOpt.orNull)
+  // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
+  // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
+  // both removed outright.
+  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepoOpt.orNull)
   // HEL-549: metricRepo threaded in the same nullable-optional way as panelService
   // above — only touched when a proposal panel actually carries a metricId.
   private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo, metricRepo, outputRepoOpt.orNull)
@@ -627,7 +626,7 @@ final class ApiRoutes(
               pathPrefix("auth") { concat(auth.routes, oauth.routes, mfaRoutesOpt.fold(reject: Route)(_.verifyRoute)) },
               authDirectives.optionalAuthenticate { userOpt =>
                 concat(
-                  new PublicDashboardRoutes(panelRepo, panelService, pipelineRepo, aclDirective, userOpt).routes,
+                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt).routes,
                   imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes)
                 )
               },

@@ -7,9 +7,12 @@ import java.util.UUID
 
 /** DataType-binding coverage for `POST /api/dashboards/apply-proposal`:
  *  companion-binding (V41) / unknown / cross-user rejections on the flat
- *  proposal path, plus the HEL-316 text/markdown `config.dataTypeId` binding
- *  (which has no flat `dataTypeId` field). Every rejection is atomic — nothing
- *  is created. Shares the fixture via ApplyProposalSpecBase. */
+ *  proposal path. Every rejection is atomic — nothing is created. Shares the
+ *  fixture via ApplyProposalSpecBase.
+ *
+ *  HEL-904 task 4.1: the HEL-316 text/markdown `config.dataTypeId` binding
+ *  scenarios are removed — Text/Markdown's data-bound "Source mode" no
+ *  longer exists. */
 class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
 
   "POST /api/dashboards/apply-proposal" should {
@@ -58,98 +61,32 @@ class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
       dashboardCount() shouldBe before
     }
 
-    // ── HEL-316 round-2 (skeptic-refuted V41 gap) ──────────────────────────
-    // text/markdown panels have no flat `dataTypeId` field (unlike
-    // metric/chart/table/collection) — their binding, if any, lives ONLY in
-    // `config.dataTypeId` (HEL-244). `mergeConfig` therefore never re-applies
-    // anything for them, so this must be validated by a DIFFERENT mechanism:
-    // `preValidateBindings`' `bindingCandidate`/`nonFlatConfigDataTypeId`
-    // (up front, atomic) and `PanelService.create`'s `rejectCompanionBinding`
-    // (via the now-fixed `PanelServiceHelpers.dataTypeIdFromCreateConfig`).
-    // These mirror the metric companion-binding test above (line ~252) and
-    // the "keep the flat dataTypeId authoritative" test above, but for
-    // text/markdown's config-only binding.
+    // HEL-904 task 4.1: the HEL-316 `config.dataTypeId` text/markdown binding
+    // scenarios (reject-companion x2, apply-valid x2, reject-unknown) are
+    // removed outright — Text/Markdown's data-bound "Source mode" no longer
+    // exists, so `config.dataTypeId` on a text/markdown proposal panel is
+    // now inert (silently ignored, never validated or echoed back).
 
-    "reject a TEXT panel binding a source-companion DataType via config.dataTypeId and create nothing (HEL-316, V41)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"Rogue Text","type":"text","config":{"dataTypeId":"$companionTypeId"}}
-           |]}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[String].toLowerCase should include("pipeline-output")
-      }
-      dashboardCount() shouldBe before
-    }
-
-    "reject a MARKDOWN panel binding a source-companion DataType via config.dataTypeId and create nothing (HEL-316, V41)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"Rogue Markdown","type":"markdown","config":{"dataTypeId":"$companionTypeId"}}
-           |]}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[String].toLowerCase should include("pipeline-output")
-      }
-      dashboardCount() shouldBe before
-    }
-
-    "apply a TEXT panel bound to a valid pipeline-output DataType via config.dataTypeId (HEL-316)" in {
+    "create a literal TEXT panel, silently ignoring an inert config.dataTypeId (no longer a binding)" in {
       val before = dashboardCount()
       val body =
         s"""{
            |  "dashboardName": "Text Binding",
            |  "panels": [
-           |    {"title":"Bound Text","type":"text",
-           |     "config":{"dataTypeId":"$pipelineOutputTypeId","fieldMapping":{"content":"region"}}}
+           |    {"title":"Literal Text","type":"text",
+           |     "config":{"dataTypeId":"$pipelineOutputTypeId","content":"Hello"}}
            |  ]
            |}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val obj    = responseAs[String].parseJson.asJsObject
         val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
-        val panel  = panels.find(_.fields("title").convertTo[String] == "Bound Text").get
+        val panel  = panels.find(_.fields("title").convertTo[String] == "Literal Text").get
         val config = panel.fields("config").asJsObject
-        config.fields("dataTypeId").convertTo[String] shouldBe pipelineOutputTypeId
-        config.fields("fieldMapping").asJsObject.fields("content").convertTo[String] shouldBe "region"
+        config.fields.contains("dataTypeId") shouldBe false
+        config.fields("content").convertTo[String] shouldBe "Hello"
       }
       dashboardCount() shouldBe (before + 1)
-    }
-
-    "apply a MARKDOWN panel bound to a valid pipeline-output DataType via config.dataTypeId (HEL-316)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{
-           |  "dashboardName": "Markdown Binding",
-           |  "panels": [
-           |    {"title":"Bound Markdown","type":"markdown",
-           |     "config":{"dataTypeId":"$pipelineOutputTypeId","fieldMapping":{"content":"region"}}}
-           |  ]
-           |}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.Created
-        val obj    = responseAs[String].parseJson.asJsObject
-        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
-        val panel  = panels.find(_.fields("title").convertTo[String] == "Bound Markdown").get
-        val config = panel.fields("config").asJsObject
-        config.fields("dataTypeId").convertTo[String] shouldBe pipelineOutputTypeId
-        config.fields("fieldMapping").asJsObject.fields("content").convertTo[String] shouldBe "region"
-      }
-      dashboardCount() shouldBe (before + 1)
-    }
-
-    "reject a TEXT panel binding an unknown DataType via config.dataTypeId and create nothing (HEL-316)" in {
-      val before = dashboardCount()
-      val body =
-        s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"X","type":"text","config":{"dataTypeId":"${UUID.randomUUID()}"}}
-           |]}""".stripMargin
-      apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-      dashboardCount() shouldBe before
     }
   }
 }
