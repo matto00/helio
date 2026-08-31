@@ -4431,3 +4431,35 @@ behavior/test change — existing fixtures are tail-free and remain green.
 
 **No escalations raised.** Purely mechanical prose correction with an unambiguous target already
 fully determined by `executionOrder`'s documented trunk-then-tails emission order.
+
+## Cycle 11 (delivery-time archive drift fix, orchestrator-detected)
+
+`openspec archive outputs-model-migration --yes` failed at delivery time: the live spec
+(`openspec/specs/acl-resource-type-registry/spec.md`) had drifted since this delta was written —
+a sibling batch ticket independently renamed its requirement header to "Four built-in resource
+types are registered at startup". The orchestrator applied the trivial header-text rename itself,
+then handed off the deeper failure: `openspec validate --strict` reported the delta's MODIFIED
+block for that requirement omitted the live spec's `#### Scenario: DataType type is registered`
+by exact name (this delta had replaced it with a differently-named scenario asserting the same
+new truth — `registry.lookup("data-type")` returns `None` — that the `"data-type"` resource type
+no longer exists).
+
+Fix: renamed the delta's scenario back to the live spec's exact original name (`DataType type is
+registered`), keeping the new negative assertion (`returns None`) and adding a one-line note
+pointing back to the requirement body's explanation that the type was retired by this migration,
+so the merged post-archive spec reads as accurate rather than self-contradictory.
+
+Then ran a full pass: `openspec validate outputs-model-migration --type change --strict` performs
+this exact header/scenario-name check across every one of this change's ~70 spec deltas, not just
+`acl-resource-type-registry` — a clean exit 0 after the fix confirms no other delta file has the
+same live-spec-drift problem, so no further deltas needed touching.
+
+**Gates run fresh this cycle:**
+- `openspec validate outputs-model-migration --type change --strict` — `Change
+  'outputs-model-migration' is valid` (exit 0).
+- `node scripts/check-openspec-hygiene.mjs` — `openspec/ is clean` (exit 0).
+- No backend/frontend code touched, so no sbt/npm gates apply.
+
+**No escalations raised.** Per the orchestrator's explicit framing, the naming/wording resolution
+was a discretionary call with full latitude on approach, not a spec-authoring judgment requiring
+escalation.

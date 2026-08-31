@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Built-in resource types are registered at startup
+### Requirement: Four built-in resource types are registered at startup
 The system SHALL register the following resource types in `ApiRoutes` when constructing the
 `ResourceTypeRegistry`:
 - `"dashboard"` — resolved via `DashboardRepository.findById`
@@ -27,6 +27,7 @@ resolvers used by the directive.
 - **WHEN** the server starts
 - **THEN** `registry.lookup("data-source")` returns a `Some` containing the data-source resolver
 
-#### Scenario: data-type is no longer a registered resource type
-- **WHEN** the server starts after this migration
-- **THEN** `registry.lookup("data-type")` returns `None`
+#### Scenario: DataType type is registered
+- **WHEN** the server starts
+- **THEN** `registry.lookup("data-type")` returns `None` — the `"data-type"` resource type was
+  retired by this migration and is no longer registered (see the requirement body above)
