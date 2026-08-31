@@ -335,7 +335,7 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
         sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
                VALUES ($panelId, $dashId, 'panel-a', ${ownerA.value}, now(), now(),
                        '{"background":"transparent","color":"inherit","transparency":0.0}'::jsonb,
-                       'output', ${ownerA.value}::uuid)"""
+                       'text', ${ownerA.value}::uuid)"""
       ))
     }
   }

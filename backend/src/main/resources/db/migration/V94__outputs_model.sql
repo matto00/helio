@@ -595,18 +595,34 @@ JOIN hel904_original_trunk_last htl ON htl.pipeline_id = pl.id
 WHERE pl.output_data_type_id = br.data_type_id
   AND br.pipeline_id IS NULL;
 
--- ── 10. Data migration step 2.9(c): unbound data panels deleted ────────────
+-- ── 10. Data migration step 2.9(c): unbound / stranded data panels deleted ──
 --
--- A "bound" panel of a visualization kind (metric/chart/table/collection/
--- timeline) is one with `type_id` set (resolved to an Output by section 9
--- above). Any row of those kinds with `type_id IS NULL` was never actually
--- bound to data -- ticket.md's own reference: DemoData seeds four such rows
--- (`PanelRowMapper.scala:15-18`'s comment documents this exact shape as an
--- intentionally-tolerated read-path case, not a real binding). These have
--- no Output to attach to and are deleted outright; the count is logged to
--- a genuine (non-temporary) audit table for the same observability reason
--- as `hel904_dropped_field_mapping_slots` above -- a session-scoped TEMP
--- table would vanish before this file's own test suite could inspect it.
+-- Originally scoped as "a visualization-kind panel with `type_id IS NULL`
+-- was never actually bound to data" (DemoData seeds four such rows --
+-- `PanelRowMapper.scala:15-18`'s comment documents this exact shape as an
+-- intentionally-tolerated read-path case, not a real binding). Broadened
+-- this cycle (evaluation-1.md Critical Path item 1, a real data-loss defect
+-- caught on the dev DB) to cover the STRICT SUPERSET this ticket actually
+-- needs: any panel section 4 marked `kind = 'output'` that section 9/9a
+-- above did NOT resolve to an Output. `type_id IS NULL` is one way that can
+-- happen; a NON-NULL `type_id` pointing at a `data_types` row that no
+-- pipeline claims (measured: 58 real panels across ~30 dashboards on the
+-- shared dev DB -- 77 `data_types` rows have no owning pipeline, see
+-- section 13's mirror note below) is the other, and the original predicate
+-- silently missed it: those panels kept `kind = 'output'` from section 4
+-- forever with `output_id` NULL, a state `OutputPanelConfig` has no
+-- representation for. `kind = 'output' AND output_id IS NULL`, evaluated
+-- immediately after section 9/9a have had their one chance to populate
+-- `output_id`, is the exact predicate for "reached section 4's backfill but
+-- was never actually given an Output" -- it is a superset of, and replaces,
+-- the original `type_id IS NULL` check (every `type_id IS NULL` visual-kind
+-- panel already has `kind = 'output'` from section 4 and `output_id IS
+-- NULL` since section 9's loop finds no pipeline for a NULL `type_id`).
+-- These have no Output to attach to and are deleted outright; the count is
+-- logged to a genuine (non-temporary) audit table for the same
+-- observability reason as `hel904_dropped_field_mapping_slots` above -- a
+-- session-scoped TEMP table would vanish before this file's own test suite
+-- could inspect it.
 
 CREATE TABLE hel904_migration_counts (
   step  TEXT PRIMARY KEY,
@@ -614,12 +630,20 @@ CREATE TABLE hel904_migration_counts (
 );
 
 INSERT INTO hel904_migration_counts (step, count)
-SELECT 'unbound_panels_deleted', count(*)
+SELECT 'stranded_output_panels_deleted', count(*)
 FROM panels
-WHERE type IN ('metric', 'chart', 'table', 'collection', 'timeline') AND type_id IS NULL;
+WHERE kind = 'output' AND output_id IS NULL;
 
 DELETE FROM panels
-WHERE type IN ('metric', 'chart', 'table', 'collection', 'timeline') AND type_id IS NULL;
+WHERE kind = 'output' AND output_id IS NULL;
+
+-- Fails the migration loudly, instead of silently corrupting a row, if any
+-- future write path (or a bug in a later section of this same file) ever
+-- again produces a `kind = 'output'` panel with no Output attached --
+-- exactly the class of gap this section exists to close.
+ALTER TABLE panels
+  ADD CONSTRAINT panels_output_kind_requires_output_id
+  CHECK (kind IS DISTINCT FROM 'output' OR output_id IS NOT NULL);
 
 -- ── 11. Data migration step 2.9(e): data_type_rows -> node_snapshots ───────
 --
@@ -766,6 +790,21 @@ WHERE dt.source_id IS NOT NULL
 -- other Output-creating section in this file, so alert-rule resolution
 -- (section 14) finds it on the same node as any panel-derived Output for
 -- that pipeline would have been.
+--
+-- Mirror of section 10's fix (evaluation-1.md Critical Path item 1): this
+-- INSERT joins `data_types` to `pipelines` on `output_data_type_id`, so a
+-- `data_types` row with NO owning pipeline (77 such rows on the dev DB --
+-- the same root cause as the 58 stranded panels section 10 now deletes:
+-- `source_id IS NULL` companion-shaped rows or pipeline-output types whose
+-- owning pipeline was itself deleted) correctly gets no `table` Output
+-- here, same as it correctly gets no panel-derived Output in section 9.
+-- Logged below (not silently skipped) for the same observability reason as
+-- every other count in this file.
+
+INSERT INTO hel904_migration_counts (step, count)
+SELECT 'orphan_data_types_no_pipeline_skipped', count(*)
+FROM data_types dt
+WHERE NOT EXISTS (SELECT 1 FROM pipelines p WHERE p.output_data_type_id = dt.id);
 
 INSERT INTO hel904_migration_counts (step, count)
 SELECT 'orphan_output_types_backfilled', count(*)

@@ -41,6 +41,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
 
   private val ownerId    = UUID.randomUUID().toString
   private val otherOwner = UUID.randomUUID().toString
+  private val granteeId  = UUID.randomUUID().toString
   private val sourceId   = UUID.randomUUID().toString
   private val pipelineId = UUID.randomUUID().toString
   private val stepIds    = Vector.fill(5)(UUID.randomUUID().toString)
@@ -66,6 +67,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     await(superDb.run(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, 'owner@test.local', now())""",
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherOwner::uuid, 'other@test.local', now())""",
+      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($granteeId::uuid, 'grantee@test.local', now())""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($sourceId, 'src', 'static', '{}', $ownerId::uuid, now(), now())""",
       sqlu"""INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
@@ -122,6 +124,30 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       // `type`, but `type_id` NULL) -- must be deleted, count logged.
       sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
              VALUES ('panel-unbound-metric', $dashboardId, 'unbound', $ownerId::uuid, now(), now(), '{}', 'metric', $ownerId::uuid)""",
+      // evaluation-1.md Critical Path item 1 fixture: a bound panel whose
+      // `type_id` resolves to a `data_types` row that NO pipeline claims
+      // (58 real rows on the shared dev DB, ~30 dashboards -- section 4
+      // marks these `kind = 'output'` but section 9 cannot resolve an
+      // Output for them; the original section 10 predicate, `type_id IS
+      // NULL`, silently missed this shape entirely). `dt-stranded`'s id,
+      // name, and `fields` payload, and `panel-stranded`'s `type`/
+      // `field_mapping`, are the LITERAL `pg_dump --data-only --inserts`
+      // output for `data_types.id = 'e262207b-8f11-4d91-8cdd-90bf1d57caca'`
+      // ("Netflix Data") and one of its real bound panels, taken from the
+      // shared dev DB on 2026-08-30 -- not a hand-invented shape. Owner/
+      // dashboard ids are remapped onto this fixture's own owner/dashboard
+      // so the row satisfies this embedded Postgres's FKs; every other
+      // column is verbatim. `source_id` is genuinely NULL on the real row
+      // (this pipeline-output type was never a companion type either) --
+      // confirming these 58 panels have no rescue path via section 8's
+      // companion-type handling.
+      sqlu"""INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
+             VALUES ('dt-stranded', NULL, 'Netflix Data',
+                     '[{"name": "title", "dataType": "string", "nullable": false, "displayName": "Title"}, {"name": "rating", "dataType": "string", "nullable": false, "displayName": "Rating"}, {"name": "ratinglevel", "dataType": "string", "nullable": true, "displayName": "Ratinglevel"}]',
+                     '[]', 3, now(), now(), $ownerId::uuid)""",
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, field_mapping, owner_id)
+             VALUES ('panel-stranded', $dashboardId, 'Panel One', $ownerId::uuid, now(), now(), '{}', 'metric', 'dt-stranded',
+                     '{"unit": "rating", "label": "rating", "value": "title"}', $ownerId::uuid)""",
       // Task 2.9(d)/(e)/(f)/(g) fixture: a second pipeline whose output type
       // has NO bound panel (qualifies for (d)'s orphan table Output) and
       // DOES carry a computed field (qualifies for (g)'s pipeline-output
@@ -449,6 +475,80 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       ))
       asOwnerRestored shouldBe Vector("output-1")
     }
+
+    // evaluation-1.md Critical Path item 3(a): node_snapshots was previously
+    // untested by this RLS block entirely (only `outputs` was covered).
+    // Real rows exist here from section 11's `data_type_rows -> node_snapshots`
+    // migration for $pipelineId (seeded via `panel-bound`'s pipeline, 2 rows:
+    // {"profit":10}/{"profit":20}) -- the same rows the 2.9(e) test group
+    // below asserts row-for-row equality on, from a superuser connection.
+    // This test proves the SAME rows are subject to real, non-superuser RLS.
+    "deny a non-owner from seeing another owner's node_snapshots rows, and allow the owner" in {
+      val asOwner = await(liveCtx.withUserContext(ownerId)(
+        sql"SELECT data::text FROM node_snapshots WHERE pipeline_id = $pipelineId ORDER BY row_index".as[String]
+      ))
+      asOwner shouldBe Vector("""{"profit": 10}""", """{"profit": 20}""")
+
+      val asOther = await(liveCtx.withUserContext(otherOwner)(
+        sql"SELECT data::text FROM node_snapshots WHERE pipeline_id = $pipelineId".as[String]
+      ))
+      asOther shouldBe empty
+    }
+
+    "prove itself red on node_snapshots: dropping node_snapshots_select exposes rows, restoring it closes them off again" in {
+      await(superDb.run(sqlu"DROP POLICY node_snapshots_select ON node_snapshots"))
+      val asOwnerNoPolicy = await(liveCtx.withUserContext(ownerId)(
+        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $pipelineId".as[Int]
+      ))
+      asOwnerNoPolicy shouldBe empty // FORCE RLS + zero SELECT policies = zero visible rows, even for the owner
+
+      await(superDb.run(sqlu"""
+        CREATE POLICY node_snapshots_select ON node_snapshots
+          FOR SELECT
+          USING (helio_can_access_pipeline(pipeline_id))
+      """))
+      val asOwnerRestored = await(liveCtx.withUserContext(ownerId)(
+        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $pipelineId".as[Int]
+      ))
+      asOwnerRestored should not be empty
+    }
+
+    // evaluation-1.md Critical Path item 3(b): the sharing branch of
+    // `helio_can_access_pipeline` (the specific reason V39-style sharing-aware
+    // RLS was chosen over V35 owner-only RLS for these two tables) was
+    // entirely unproven -- every prior assertion only exercised the owner
+    // and other-tenant-denial branches. Seed a REAL `resource_permissions`
+    // grant (mirrors `RlsPrivilegedDmlSpec`'s own INSERT shape) for a
+    // grantee who is neither the owner nor `otherOwner`, and prove that
+    // grant -- not ownership -- is what lets them read both tables.
+    "allow a granted (non-owner) user to read both outputs and node_snapshots via the sharing branch" in {
+      // Before the grant exists: the grantee is a stranger, denied exactly
+      // like `otherOwner` above -- proves the grant below is load-bearing,
+      // not vacuous (e.g. some other implicit access path).
+      val beforeGrantOutputs = await(liveCtx.withUserContext(granteeId)(
+        sql"SELECT id FROM outputs WHERE id = 'output-1'".as[String]
+      ))
+      beforeGrantOutputs shouldBe empty
+      val beforeGrantSnapshots = await(liveCtx.withUserContext(granteeId)(
+        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $pipelineId".as[Int]
+      ))
+      beforeGrantSnapshots shouldBe empty
+
+      await(privilegedDb.run(
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+               VALUES ('pipeline', $pipelineId, $granteeId::uuid, 'viewer', now())"""
+      ))
+
+      val afterGrantOutputs = await(liveCtx.withUserContext(granteeId)(
+        sql"SELECT id FROM outputs WHERE id = 'output-1'".as[String]
+      ))
+      afterGrantOutputs shouldBe Vector("output-1")
+
+      val afterGrantSnapshots = await(liveCtx.withUserContext(granteeId)(
+        sql"SELECT data::text FROM node_snapshots WHERE pipeline_id = $pipelineId ORDER BY row_index".as[String]
+      ))
+      afterGrantSnapshots shouldBe Vector("""{"profit": 10}""", """{"profit": 20}""")
+    }
   }
 
   "V94 data migration step 2.9(a) (companion types -> inferred_schema)" should {
@@ -653,17 +753,45 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     }
   }
 
-  "V94 data migration step 2.9(c) (unbound data panels deleted)" should {
-    "delete the unbound panel and log the exact count" in {
+  "V94 data migration step 2.9(c) (unbound / stranded data panels deleted)" should {
+    "delete the unbound panel (type_id IS NULL) and log the exact broadened count" in {
       val count = await(superDb.run(
         sql"SELECT count(*) FROM panels WHERE id = 'panel-unbound-metric'".as[Int].head
       ))
       count shouldBe 0
 
       val logged = await(superDb.run(
-        sql"SELECT count FROM hel904_migration_counts WHERE step = 'unbound_panels_deleted'".as[Int].head
+        sql"SELECT count FROM hel904_migration_counts WHERE step = 'stranded_output_panels_deleted'".as[Int].head
       ))
-      logged shouldBe 1 // exactly the one seeded unbound panel
+      logged shouldBe 2 // panel-unbound-metric (type_id NULL) + panel-stranded (type_id resolves to no pipeline)
+    }
+
+    // evaluation-1.md Critical Path item 1: the regression proof. Before
+    // this cycle's fix, `panel-stranded` (type_id = 'dt-stranded', a
+    // data_types row NO pipeline claims -- the real-dev-DB shape seeded
+    // above) survived section 4's `kind = 'output'` backfill, was never
+    // given an `output_id` by section 9 (no pipeline joins to
+    // 'dt-stranded'), and was NOT caught by the old `type_id IS NULL`
+    // predicate here (its type_id is non-NULL, just unresolvable) -- it
+    // would have reached section 17/18 as a `kind = 'output'`,
+    // `output_id = NULL` row with no surviving evidence of what it was
+    // ever bound to, a state `OutputPanelConfig` cannot represent.
+    "delete the stranded panel specifically (type_id non-NULL but unresolvable to any pipeline)" in {
+      val strandedCount = await(superDb.run(
+        sql"SELECT count(*) FROM panels WHERE id = 'panel-stranded'".as[Int].head
+      ))
+      strandedCount shouldBe 0
+    }
+
+    "leave no panel in the post-migration schema with kind = 'output' and output_id NULL" in {
+      // The CHECK constraint added alongside this fix (`panels_output_kind_
+      // requires_output_id`) already makes this state unreachable at the
+      // schema level; this assertion additionally proves no row of that
+      // shape exists post-migration, independent of the constraint.
+      val orphanedOutputKindCount = await(superDb.run(
+        sql"SELECT count(*) FROM panels WHERE kind = 'output' AND output_id IS NULL".as[Int].head
+      ))
+      orphanedOutputKindCount shouldBe 0
     }
   }
 

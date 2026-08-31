@@ -3362,3 +3362,92 @@ freshly closed this cycle with pasted evidence above; 6.5 is a tooling-access ha
 orchestrator, not an open implementation gap. No escalations raised this cycle. No design-gate
 reopening was needed — the rename was a mechanical identifier change per the coordinator's own
 explicit instruction, not a new design decision.
+
+## Cycle 31 — evaluation-1.md FAIL response
+
+The evaluator ran an independent fresh review after cycle 30 and returned FAIL with one genuine
+Critical Path (BLOCKING) finding plus two real AC gaps. Addressed in priority order per the
+evaluation's own Critical Path:
+
+**Critical Path item 1 (BLOCKING — silent data corruption of 58 live panels): FIXED.**
+`V94__outputs_model.sql` section 4 marked every bound-visualization panel `kind = 'output'`
+unconditionally, but section 9 could only populate `output_id` for panels whose `type_id` resolved
+to a live pipeline, and section 10's old predicate (`type_id IS NULL`) only caught panels that were
+never bound at all — missing the 58 real panels (measured on the shared dev DB, ~30 dashboards)
+whose `type_id` points at a `data_types` row no pipeline claims. Fix: broadened section 10's
+predicate to `kind = 'output' AND output_id IS NULL` (a strict superset — every `type_id IS NULL`
+case is already covered, since section 9's loop finds no pipeline for a NULL type_id either), which
+now deletes and logs all 58 stranded panels under a renamed `stranded_output_panels_deleted` count.
+Added `panels_output_kind_requires_output_id` CHECK constraint so this class of gap can never again
+silently corrupt a row — it would fail the migration outright instead. Verified the mirror case in
+section 13 (orphan pipeline-output types): the join already correctly excludes `data_types` rows
+with no owning pipeline from getting a spurious `table` Output; added an observability count
+(`orphan_data_types_no_pipeline_skipped`, 77 on the dev DB) for the same root cause, no functional
+change needed there.
+
+**Critical Path item 2 (pg_dump fixture): PARTIAL, honestly flagged.** Confirmed `pg_dump`/`psql`
+ARE operationally available in this environment and the shared dev DB is reachable — per the
+evaluator's own instruction, this is therefore NOT a case for escalation (escalation is only for
+"operationally out of reach"). Given the scope of fully replacing an ~800-line hand-built fixture
+in this cycle, took the priority-appropriate middle path: added a new fixture row-pair
+(`dt-stranded`/`panel-stranded`) whose id, name, `fields`, `type`, and `field_mapping` are the
+LITERAL `pg_dump --data-only --inserts --column-inserts` output for a real `data_types` row
+("Netflix Data", `data_types.id = e262207b-8f11-4d91-8cdd-90bf1d57caca`) and one of its real bound
+panels on the shared dev DB (queried 2026-08-30) — genuinely dev-DB-derived, not hand-invented. This
+is exactly the shape design.md decision 3 exists to catch, and it is now a real regression proof:
+removing the section 10 fix makes this specific test fail. Full fixture replacement (every other
+hand-built row) remains outstanding — un-skipped in tasks.md's own 2.11 status, not silently closed.
+
+**Critical Path item 3 (RLS smoke test AC gap): FIXED, complete.** Added 3 new test cases to
+`V94OutputsMigrationSpec`'s RLS block: (a) owner-read/other-tenant-denial on `node_snapshots` with
+its own drop-policy red proof (previously `outputs` only); (b) a genuine grantee-read proof on BOTH
+`outputs` and `node_snapshots` — seeded a real `resource_permissions` row
+(`resource_type = 'pipeline'`) for a third user who is neither owner nor the denied other-tenant,
+proving the SHARING branch of `helio_can_access_pipeline` (the specific reason this migration chose
+V39-mirroring RLS over V35 owner-only) actually works — confirmed denied before the grant exists,
+allowed after. tasks.md's 2.13 is now marked complete (no more "(partial)"), its expired deferral
+note deleted.
+
+**Regression found and fixed while verifying (systematic-debugging: root-caused via the constraint
+violation's own error message naming the exact row before touching anything):** the new
+`panels_output_kind_requires_output_id` CHECK constraint broke 27 pre-existing tests across 5 suites
+(`RlsSharingAwareTablesSpec`, `DashboardPanelAclSpec`, `PaginationSpec`, `ApiRoutesSpec`,
+`RlsPrivilegedDmlSpec`) — each raw-INSERTs a panel with `kind = 'output'` and no `output_id` purely
+to exercise generic ownership/RLS/pagination behavior unrelated to output-binding semantics. Fixed
+by changing those 5 fixtures' `kind` from `'output'` to `'text'` (content-only, no `output_id`
+required) — behaviorally identical for what each test actually asserts, confirmed by re-running all
+5 suites green (240/240) before re-running the full suite.
+
+**Hygiene items 4-5 also done this cycle** (time permitted): deleted the 3 orphaned
+`metrics`-only-README directories and updated the 2 live `pipelines` READMEs to describe
+Output/NodeSnapshot instead of DataType/Metric; deleted `OutputPanel.scala`'s stale, now-false
+scaladoc paragraph.
+
+**HEL-689 (hygiene item 6):** task 4.6 in tasks.md is already correctly unchecked (never falsely
+marked done) — no fix needed there. This executor session has no Linear MCP tool available; per the
+contract's fallback, re-opening/re-filing HEL-689 (or confirming its successor) is left to the
+orchestrator at Delivery, same handoff pattern already used for task 6.5 in cycle 30.
+
+**Verification (fresh, this cycle, pasted evidence):**
+- `sbt compile`: `[success]`, exit 0.
+- `sbt 'set Test/parallelExecution := false' testOnly ...V94OutputsMigrationSpec`: 46/46 green
+  (was 43 before this cycle's 3 new fixture/RLS test additions).
+- The 5 regression suites in isolation after the fixture fix: 240/240 green.
+- Full `sbt 'set Test/parallelExecution := false' test`: **3365/3365 green, 225 suites completed, 0
+  aborted, 0 failed** — up from 3360 (5 new tests: the 3 RLS additions minus... actually net +5:
+  3 stranded-panel assertions + 3 node_snapshots/grantee RLS tests − 1 net from renamed/consolidated
+  assertions). No HEL-924 flakiness observed — single run, no reds to reclassify.
+- `check-scala-quality.mjs`: clean (130 soft warnings, same as evaluation-1.md's baseline — no new
+  hard violations introduced).
+- `check-schema-drift.mjs`: clean, 84 entries, 60 checked.
+- `check-openspec-hygiene.mjs`: clean.
+- `openspec validate outputs-model-migration --type change --strict`: valid.
+
+**Status for the evaluator's next look: Critical Path items 1 and 3 are fully resolved with fresh
+green evidence. Item 2 (pg_dump fixture) is genuinely partial** — the exact defect class evaluation-1
+found is now covered by real dev-DB-derived data, but the remaining ~800 lines of hand-built fixture
+rows have not been replaced. If the evaluator's bar for item 2 requires full replacement (not just
+the specific gap it was cited for), that work remains and should be scoped explicitly for cycle 32
+rather than assumed done. Hygiene items 4-5 done; item 6 (HEL-689) needs orchestrator action at
+Delivery. No escalations raised this cycle — no genuine design-gate reopening was needed; every fix
+was inline per the coordinator's own framing of this as "an ordinary implementation-fix cycle."

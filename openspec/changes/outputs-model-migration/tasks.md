@@ -156,22 +156,29 @@
       coverage: `V94OutputsMigrationSpec`'s own "V94 task 2.10" describe-block asserts every
       dropped table/column via `information_schema` + `pg_policies` (8 assertions). Full
       `sbt test` (single-threaded, HEL-924 protocol) confirmed 3360/3360 green, run twice.
-- [x] 2.11 (partial) Red-first migration test for the additive slice landed so far —
-      `V94OutputsMigrationSpec`: hand-built fixture (not yet a real `pg_dump --data-only` of the
-      shared dev DB — that operational step is outside this cycle's reach; a genuine `pg_dump`
-      fixture should replace/augment this once 2.9's full data migration exists to test against),
-      migrates to V93, asserts the pre-migration schema genuinely lacks the new columns/tables
-      (proves non-vacuousness), migrates to V94, asserts the backfills. Will grow alongside the
-      migration file as 2.7-2.10 land.
+- [x] 2.11 (partial, cycle 31 fix) Red-first migration test: `V94OutputsMigrationSpec` migrates to
+      V93, asserts the pre-migration schema genuinely lacks the new columns/tables (proves
+      non-vacuousness), migrates to V94, asserts the backfills. The fixture is still primarily
+      hand-built (a full `pg_dump --data-only` replacement per design.md decision 3 remains
+      outstanding), BUT the exact gap that decision exists to catch (evaluation-1.md Critical Path
+      item 1 — a bound panel whose `type_id` resolves to no pipeline) is now covered by a
+      genuinely `pg_dump`-derived addition: `dt-stranded`/`panel-stranded`'s id, name, `fields`,
+      `type`, and `field_mapping` are the literal `pg_dump --data-only --inserts` output for a real
+      `data_types` row + one of its real bound panels on the shared dev DB (2026-08-30), not a
+      hand-invented shape. Full fixture replacement (every remaining hand-built row) is still owed
+      to the next cycle — flagged, not silently dropped.
 - [x] 2.12 Step-order-preservation test: 5-step pipeline seeded pre-migration, migrated, walks
       `parent_step_id` from the root and confirms it exactly reproduces the original `position`
       order — same spec, `"V94 pipeline_steps.parent_step_id backfill"`.
-- [x] 2.13 (partial) RLS smoke test for `outputs`: a real non-superuser, non-BYPASSRLS role
-      (`helio_app_test_v94`, created by the test itself via `SET ROLE`) proves owner read works
-      and cross-tenant read is denied; then proves itself red by dropping `outputs_select` and
-      confirming access disappears, then restoring it and confirming access returns. Same spec.
-      **`node_snapshots`' RLS is not yet covered by an equivalent smoke test** — deferred to when
-      real snapshot data exists post-2.9 (currently no writer path populates it).
+- [x] 2.13 RLS smoke test, complete as of cycle 31: a real non-superuser, non-BYPASSRLS role
+      (`helio_app_test_v94`, created by the test itself via `SET ROLE`) proves, on BOTH `outputs`
+      and `node_snapshots`: owner read works, cross-tenant read is denied, and each policy proves
+      itself red (drop the SELECT policy, confirm access disappears, restore it, confirm access
+      returns). A third, previously-unproven branch is now covered on both tables: a real
+      `resource_permissions` grant (`resource_type = 'pipeline'`) seeded for a user who is neither
+      the owner nor the denied other-tenant proves the SHARING branch of `helio_can_access_pipeline`
+      — the specific reason this migration chose V39-mirroring sharing-aware RLS over V35 owner-only
+      — actually works, confirming the grantee is denied before the grant exists and allowed after.
 
 ## 3. Rewire live consumers (alerts, search, teardown, dashboard contents, assistant, patch sets)
 

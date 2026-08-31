@@ -14,16 +14,7 @@ import spray.json.DefaultJsonProtocol._
  *  `OutputRepository`), not on the placement. A Panel placement owns only
  *  `outputId` plus the common identity/appearance fields every [[Panel]]
  *  subtype already carries (design.md "Panel remains the name for a
- *  placement").
- *
- *  Added additively in this task, alongside [[OutputBindingSpec]]: not yet
- *  registered in [[Panel.Registry]], and the five bound subtypes it replaces
- *  are not yet deleted. The full cutover (Registry swap, deleting
- *  `MetricPanel`/`ChartPanel`/`TablePanel`/`CollectionPanel`/`TimelinePanel`,
- *  rewriting `PanelRepository`/`PanelRowMapper`/`PanelProtocol`/
- *  `PanelService` onto `output_id` instead of the 20 typed-config columns)
- *  is the remainder of task 3.6, left for the next increment of this same
- *  task so the tree keeps compiling at every step. */
+ *  placement"). */
 final case class OutputPanelConfig(outputId: OutputId)
 
 object OutputPanelConfig {

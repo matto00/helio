@@ -145,7 +145,7 @@ class DashboardPanelAclSpec
       sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
                VALUES ($id, $dashId, 'Test Panel', $ownerId, now(), now(),
                        '{"background":"transparent","color":"inherit","transparency":0.0}',
-                       'output', ${ownerId}::uuid)"""
+                       'text', ${ownerId}::uuid)"""
     ))
     id
   }

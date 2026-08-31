@@ -160,7 +160,7 @@ class RlsSharingAwareTablesSpec extends AnyWordSpec with Matchers with BeforeAnd
       sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
              VALUES ($id, $dashId, 'panel', ${ownerId.value}, now(), now(),
                     '{"background":"transparent","color":"inherit","transparency":0.0}'::jsonb,
-                    'output', ${ownerId.value}::uuid)"""
+                    'text', ${ownerId.value}::uuid)"""
     ))
     id
   }

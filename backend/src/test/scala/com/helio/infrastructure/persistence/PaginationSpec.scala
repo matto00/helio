@@ -201,7 +201,7 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
         await(db.run(sqlu"""
           INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
           VALUES (${UUID.randomUUID().toString}, ${dashId.value}, ${"Panel " + i}, ${ownerId.value}, now(), now(),
-                  '{"background":"transparent","color":"inherit","transparency":0.0}', 'output',
+                  '{"background":"transparent","color":"inherit","transparency":0.0}', 'text',
                   ${UUID.fromString(ownerId.value).toString}::uuid)
         """))
       }
