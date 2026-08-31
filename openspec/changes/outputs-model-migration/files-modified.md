@@ -143,3 +143,32 @@ corruption path (nothing is persisted from a preview call). Flagged for a future
 - `openspec/changes/outputs-model-migration/final-skeptic-migration-correctness-6.md`
 - `openspec/changes/outputs-model-migration/final-skeptic-wire-contract-diff-6.md`
 - `openspec/changes/outputs-model-migration/final-skeptic-deletion-sweep-6.md`
+
+## Round-7 fix cycle (this commit)
+
+- `backend/src/main/scala/com/helio/services/assistant/AssistantSystemPrompt.scala` — round-7
+  deletion-sweep CR1: retargeted the worked `propose_dashboard` mini-transcript from the deleted
+  `"metric"` panel kind to `"output"` (dropping the inert `fieldMapping`/`aggregation` keys);
+  dropped "and metrics" from the `find` tool description (metrics were already removed from
+  `WorkspaceAssistantTools.ResourceTypeEnum`); dropped `metricId` from the "never fabricate a
+  resource id" rule; dropped "DataType" from the `propose_patch_set` editable-target list
+  (`PatchSetProtocol.recognizedKinds` no longer accepts `"dataType"`, task 3.3).
+- `backend/src/test/scala/com/helio/services/assistant/AssistantSystemPromptSpec.scala` — added
+  regression tests pinning: no deleted panel kind / retired Metrics-DataType id literals anywhere
+  in the rendered prompt; the worked example uses `"type": "output"`; the `propose_patch_set`
+  target list no longer offers DataType.
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineStepProtocol.scala` — round-7
+  migration-correctness CR1: updated `CreatePipelineStepRequest` scaladoc to describe the shipped
+  trunk/tail splice semantics (position-absent = trunk continuation with sibling-scoped
+  `position = 0`, not the old whole-pipeline `MAX(position)+1`), replacing the now-false
+  "pre-existing behavior, unchanged" claim.
+- `schemas/pipelines/create-pipeline-step-request.schema.json` — same correction to the wire
+  contract's `description` (source of truth per CLAUDE.md).
+- `openspec/changes/outputs-model-migration/specs/pipeline-steps-persistence/spec.md` — new spec
+  delta (previously missing) reconciling the sibling `pipeline-steps-persistence` capability's
+  `POST /api/pipelines/:id/steps` requirement with the `pipeline-step-tree` delta's trunk/tail
+  model: position-absent trunk continuation, position-present splice-anchor translation, and
+  `position` as a sibling-scoped tiebreaker rather than a whole-pipeline ordering key.
+- `openspec/changes/outputs-model-migration/final-skeptic-deletion-sweep-7.md`,
+  `final-skeptic-migration-correctness-7.md` — round-7 final-gate skeptic reports (committed, not
+  authored this cycle).

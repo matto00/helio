@@ -142,12 +142,14 @@ final case class AssertStepResponse(
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.Assert }
 
 /** Create request — the `type` discriminator selects which subtype's config
- *  shape `config` must conform to. `position` is an OPTIONAL list index
- *  (HEL-410) into the pipeline's current position-sorted step list: absent
- *  means append (the pre-existing behavior); present means insert-at,
- *  validated at the service layer as `0 <= position <= count`. `enabled`
- *  (HEL-412) is OPTIONAL and defaults to `true` (created enabled) when
- *  absent. */
+ *  shape `config` must conform to. `position` is an OPTIONAL whole-pipeline
+ *  execution-order index (HEL-410; semantics updated HEL-904 for the trunk/tail
+ *  step-tree model): absent means trunk continuation (spliced onto the current
+ *  trunk-last step as its sole new child, persisted `position = 0` — not the
+ *  old MAX(position)+1 whole-pipeline append value); present means the index
+ *  is translated to a splice anchor, validated at the service layer as
+ *  `0 <= position <= count`. `enabled` (HEL-412) is OPTIONAL and defaults to
+ *  `true` (created enabled) when absent. */
 final case class CreatePipelineStepRequest(`type`: String, config: JsObject, position: Option[Int] = None, enabled: Option[Boolean] = None)
 
 /** PATCH request — `type` is optional. If present and different from the

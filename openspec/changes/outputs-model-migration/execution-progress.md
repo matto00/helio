@@ -4358,3 +4358,54 @@ round-6 skeptic reports (`final-skeptic-migration-correctness-6.md`,
 `final-skeptic-deletion-sweep-6.md`, `final-skeptic-wire-contract-diff-6.md`) committed alongside
 this cycle's fixes. No known residuals introduced this cycle beyond the pre-existing
 `PatchSetPreviewProjection` note carried over from cycle 8 (unchanged, still out of scope).
+
+## Cycle 12 (round-7 final-gate fixes, resumed after prior process died mid-fix)
+
+Picked up live uncommitted work from a prior executor process that addressed most of round-7's two
+REFUTE reports, and completed the remainder:
+
+1. **Deletion-sweep CR1 (`AssistantSystemPrompt.scala`)** — prior process had already fixed the
+   worked `propose_dashboard` example (`"metric"` → `"output"`), the `find` tool's "and metrics"
+   claim, and the `metricId` reference in the "never fabricate an id" rule, plus added three
+   `AssistantSystemPromptSpec` regression pins. This cycle finished the remaining lower-severity
+   item the orchestrator flagged: dropped "DataType" from the `propose_patch_set` tool
+   description's editable-target list (`PatchSetProtocol.recognizedKinds` no longer accepts
+   `"dataType"` — task 3.3 removed it outright, so the prompt was offering a hard-rejected target).
+   Added a fourth regression test pinning that the propose_patch_set line no longer mentions
+   DataType. Left the report's other three lower-severity items (`get_resource` DataType wording,
+   `propose_dashboard`'s "pipeline-output DataTypes" phrasing, and round-6 non-blocking notes)
+   untouched — explicitly flagged as non-blocking / not required this cycle by the orchestrator.
+2. **Migration-correctness CR1 (stale `position` semantics docs)** — prior process had already
+   updated `PipelineStepProtocol.scala`'s scaladoc, `create-pipeline-step-request.schema.json`'s
+   description, and authored the previously-missing `pipeline-steps-persistence` spec delta
+   describing the shipped trunk-continuation/splice-anchor/sibling-scoped-tiebreaker contract.
+   Verified this delta doesn't collide with the `pipeline-step-tree` delta's own ADDED
+   requirements (disjoint requirement titles, same capability referenced only in the delta's
+   header prose) — `openspec validate outputs-model-migration --type change --strict` passes.
+   Re-read the report in full; no further action needed on CR1.
+3. Re-audited both round-7 reports end-to-end for anything else concrete and required beyond the
+   orchestrator's summary — found nothing new; the reports' remaining items are explicitly
+   classified non-blocking (comment-overclaim softening, undo/rollback follow-up-ticket material,
+   round-6 carryover notes) and are left for the orchestrator to file as follow-ups.
+
+**Gates run fresh this cycle:**
+- `sbt -batch compile` — success.
+- `sbt -batch Test/compile` — success.
+- `sbt -batch "testOnly com.helio.services.assistant.AssistantSystemPromptSpec com.helio.api.routes.pipelines.PipelineStepRoutesSpec"` — 76 tests, 2 suites, 0 failed.
+- `sbt -batch 'set Test/parallelExecution := false' test` (HEL-924 single-threaded protocol) —
+  **3370 tests, 225 suites, 0 aborted, 0 failed, all green** (+3 vs round 7's 3367 — the new
+  `AssistantSystemPromptSpec` DataType-target regression test only net-adds 1 relative to the
+  4 total new assertions the prior process's diff already staged as 3 tests + this cycle's 1).
+- `openspec validate outputs-model-migration --type change --strict` — `Change
+  'outputs-model-migration' is valid`.
+- `node scripts/check-schema-drift.mjs` — green (60 protocols / 46 files, 7 panel-type surfaces).
+- `node scripts/check-openspec-hygiene.mjs` — green (`openspec/ is clean`).
+- `npm run check:scala-quality` — green (131 pre-existing soft warnings, unchanged, no hard
+  failures).
+- Frontend gates: N/A, no `frontend/**` files touched.
+
+**No escalations raised.** Both fixes were purely mechanical documentation/prose corrections with
+an unambiguous target shape already fully determined by existing code (`PatchSetProtocol
+.recognizedKinds`, the already-settled trunk/splice model). Committed as
+`HEL-904 Fix round-7 final-gate findings: stale position-semantics docs (protocol/schema/spec
+delta), stale assistant-prompt worked example and patch-set target list`.
