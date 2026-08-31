@@ -5,7 +5,7 @@ _Retargeted from DataTypes/Metrics to the outputs-model (Output, node_snapshot, 
 ### Requirement: Successful runs persist a source-schema baseline
 
 On each successful (non-dry) pipeline run, the system SHALL persist the pipeline's current source schema — the
-same `[{name, type}]` derivation the analyze path uses (source Output/node declared fields) — to
+same `[{name, type}]` derivation the analyze path uses (source Output declared fields) — to
 `pipelines.last_source_schema` (nullable JSONB), alongside the existing last-run metadata update. Baseline
 persistence SHALL be best-effort: a persistence failure SHALL NOT fail or block the run. Dry runs SHALL NOT
 update the baseline. Failed runs SHALL NOT update the baseline.

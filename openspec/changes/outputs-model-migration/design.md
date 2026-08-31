@@ -490,3 +490,62 @@ original constraint's intent (which was about not silently reordering
 pipelines the still-linear engine reads — an intent renumbering-to-0 for a
 single-child sibling group cannot violate, since there is no second sibling
 to reorder against).
+
+### Follow-on: whole-pipeline execution/list order must ALSO derive from `parent_step_id`, not `position` (2026-08-31, human user, binding, same ruling extended)
+
+**Source:** round 3's final-gate skeptic (`final-skeptic-migration-correctness-3.md`) found that the
+ruling above's own stated rationale — "ordering is carried by `parent_step_id`, not by the raw
+`position` value" — was not yet true everywhere: `PipelineStepRepository.listByPipelineInternal`
+still did a whole-pipeline `.sortBy(_.position)`, which the migration now sets to a CONSTANT `0` for
+every trunk step in a multi-step pipeline, leaving live pipeline RUN ORDER undefined for all 15 real
+migrated multi-step pipelines (`PipelineRunService` and `PipelineService` both consume this ordering
+for run execution, step listing, and reorder). The human ruled directly on this, extending the same
+binding decision above rather than opening a new design question:
+
+1. **`PipelineStepRepository.executionOrder`** (new): a whole-pipeline order derived purely from the
+   `parent_step_id` chain — the trunk in order, with each node's own tail branches (its
+   `position != 0` children, fully expanded depth-first) emitted immediately after that node and
+   before the trunk continues past it. `listByPipelineInternal` and the owner-scoped `listByPipeline`
+   both return this order instead of a `.sortBy(_.position)`.
+2. **`reorderInternal`** now renumbers `position` WITHIN each existing sibling group only (grouped by
+   each id's EXISTING `parentStepId`, read fresh from the DB, never trusted from the caller) — never
+   across the whole pipeline. This never touches `parentStepId` itself, so the position-0 =
+   trunk-continuation invariant is preserved BY CONSTRUCTION: a reorder call can only ever renumber a
+   step relative to its own siblings, never promote/demote it across a different parent's group. The
+   old `orderedIds.zipWithIndex` set a single global `0..N-1` index regardless of sibling grouping,
+   which would have silently re-broken the trunk/tail invariant the first time any user reordered
+   steps (proven by mutation: reverting to the global renumber reproduces exactly this regression on
+   a seeded multi-sibling-group tree, confirmed red, then restored to green).
+3. **Every other call site that read `listByPipelineInternal`'s order and re-derived its own sort**
+   was audited and fixed to rely on the (now-correct) returned order instead of re-sorting by
+   `position`: `PipelineRunService.previewStep` (was `allSteps.sortBy(_.position)`),
+   `PipelineService.duplicateStep` (was `current.sortBy(_.position)` to find the clone's insert
+   index), and `RefinementPrompt.pipelineStateText` (was `steps.sortBy(_.position)` when rendering
+   the pipeline's current step list into a patch-set refinement prompt). Each of these would have
+   silently re-broken run/insert/prompt order the same way the repository method itself did, since
+   they all operate on data that is now `position`-tied at `0` for every trunk step.
+
+**HEL-905 (P1.2) boundary — no deferral needed.** HEL-905 replaces the engine's `foldLeft` with a
+full tree walk; this rewire does NOT touch or duplicate that work. `executionOrder` fixes the
+STRUCTURAL ordering of the step LIST the (still-linear, pre-905) engine consumes — it is what makes
+"sequential order" mean the right thing today, given the engine has no tree-branch awareness yet. A
+tail step consequently still executes inline as part of a flat sequential fold when it precedes the
+target step in `executionOrder` (verified directly: `PipelineRunServiceSpec`'s new
+`previewStep`/executionOrder test seeds a trunk-plus-tail tree and confirms the tail's limit step
+composes into the previewed prefix's row count) — that flat-fold behavior is the accepted,
+already-documented pre-905 gap this ticket does not touch; HEL-905's tree-walk is what will make a
+tail's execution conditional on the target step actually descending from it.
+
+**Proof required** (see `V94OutputsMigrationSpec`'s new "executionOrder" test group,
+`PipelineStepRoutesSpec`'s new sibling-scoped reorder route test, and
+`PipelineRunServiceSpec`'s new previewStep/executionOrder test): for all 15 real multi-step
+pipelines, `listByPipelineInternal`'s (`executionOrder`-derived) output, filtered to each pipeline's
+ORIGINAL pre-migration steps, equals the pre-migration linear order; all 5 real aggregate tails
+execute after their parent trunk step (or, for the one tail whose pipeline had zero pre-existing
+steps, that pipeline has no real trunk at all) and are confirmed NOT trunk members; the real
+`PUT /pipelines/:id/steps/order` route, exercised against a raw-SQL-seeded multi-sibling-group tree
+whose request deliberately interleaves ids across groups, leaves each sibling group's own positions
+independently valid and `trunkOf` still walks a coherent, non-empty trunk afterward; and every fix
+(the `executionOrder`-based `listByPipelineInternal`, the sibling-scoped `reorderInternal`, and the
+`previewStep` re-sort removal) is proven failable by mutation — each reverted in turn, its guarding
+test confirmed red, then restored to green.

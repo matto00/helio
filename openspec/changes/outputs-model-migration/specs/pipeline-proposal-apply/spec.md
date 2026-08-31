@@ -7,14 +7,14 @@ _Retargeted from DataTypes/Metrics to the outputs-model (Output, node_snapshot, 
 existing `SourceService`/`DataSourceService`, `PipelineService`, and `PipelineRunService`, atomically
 create the resolved source (if the proposal's `source` is inline), the pipeline, its ordered steps,
 and a run of that pipeline — returning the created source (if any), the pipeline summary, the output
-Output/node id, and the run result. No route or service in this requirement SHALL write to the database
+Output id, and the run result. No route or service in this requirement SHALL write to the database
 directly; every write runs under the caller's RLS context via the composed services.
 
 #### Scenario: A valid inline-static proposal creates and runs everything
 - **WHEN** a caller POSTs a `PipelineProposal` whose `source` is an inline `static` spec, with one or
   more steps
 - **THEN** the response is `201 Created` with the created source, the pipeline summary, the output
-  Output/node id, and a run result whose status reflects a completed run
+  Output id, and a run result whose status reflects a completed run
 
 #### Scenario: A valid existing-sourceId proposal creates and runs everything
 - **WHEN** a caller POSTs a `PipelineProposal` whose `source` supplies only `sourceId` for a source the
@@ -28,12 +28,12 @@ inline `type`; a `source` that sets neither; an inline `type` outside `csv`/`res
 an inline source whose `name` is absent or blank; an inline source whose type-matched `config` field is
 absent; an inline `sql` source whose query is not read-only; and any step whose `type` is not a
 recognized pipeline step kind or whose `config` does not decode for that kind. Every rejection SHALL
-create no source, pipeline, step, or Output/node row.
+create no source, pipeline, step, or Output row.
 
 #### Scenario: Non-SELECT SQL is rejected creating nothing
 - **WHEN** a caller POSTs a proposal with an inline `sql` source whose query contains a DDL/DML keyword
 - **THEN** the response is a `4xx` error, the SQL guardrail message is surfaced verbatim, and no source,
-  pipeline, or Output/node exists that did not exist before the call
+  pipeline, or Output exists that did not exist before the call
 
 #### Scenario: Both sourceId and inline type set is rejected
 - **WHEN** a caller POSTs a proposal whose `source` sets both `sourceId` and `type`
@@ -58,7 +58,7 @@ create no source, pipeline, step, or Output/node row.
 ### Requirement: Full rollback on any mid-apply failure
 The service SHALL delete every resource this call created — the pipeline (and its steps/runs via
 cascade), the pipeline node's Output, and, if this call created it, the inline source and its
-companion Output/node — if any step after source/pipeline creation begins fails, including step creation
+companion Output — if any step after source/pipeline creation begins fails, including step creation
 and the run itself, OR if the run completes execution but is blocked by an error-severity assertion
 failure (see `pipeline-assert-fail-policy`) — a blocked run is treated identically to a run failure for
 rollback purposes, since the proposal's Output was never actually populated either way.
@@ -84,19 +84,19 @@ time) is an ordinary run failure and rolls back exactly as any other execution f
   whose connector fetch fails at run time (e.g. the endpoint becomes unreachable between schema
   inference and the run), and steps that create successfully
 - **THEN** the response is an error, and every resource this call created — the pipeline, its output
-  Output/node, and (if created by this call) the source and its companion Output/node — is rolled back, the
+  Output, and (if created by this call) the source and its companion Output — is rolled back, the
   same as any other mid-apply run failure
 
 #### Scenario: A run blocked by an error-severity assertion rolls back the same as a run failure
 - **WHEN** a caller POSTs a proposal whose steps include an `assert` step, and the resulting run
   completes execution without exception but the assert step's error-severity rule fails
 - **THEN** the response is an error carrying a message describing the assertion failure (not a success
-  response with a `run` field pointing at an empty Output/node), and counts of sources, pipelines, pipeline
+  response with a `run` field pointing at an empty Output), and counts of sources, pipelines, pipeline
   steps, and data types are all unchanged from before the call
 
 ### Requirement: Output DataType is pipeline-bindable
 The Output created for the pipeline SHALL have `sourceId` unset (`null`), matching the
-existing pipeline-output convention (V41) that makes an Output/node eligible for panel binding.
+existing pipeline-output convention (V41) that makes an Output eligible for panel binding.
 
 #### Scenario: The output DataType has no sourceId
 - **WHEN** a proposal is applied successfully

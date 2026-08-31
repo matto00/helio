@@ -5,7 +5,7 @@ _Retargeted from DataTypes/Metrics to the outputs-model (Output, node_snapshot, 
 ### Requirement: The NL authoring prompt includes the caller's agentContext
 `DashboardAuthoringPrompt.userMessage`'s rendered prompt text SHALL include a compact rendering
 of the grounded `agentContext` (preferences summary and memory entries) in addition to the
-existing Output/node grounding section.
+existing Output grounding section.
 
 #### Scenario: Prompt includes preferences and memory
 - **WHEN** `DashboardAuthoringService` assembles grounded context for a first-turn authoring

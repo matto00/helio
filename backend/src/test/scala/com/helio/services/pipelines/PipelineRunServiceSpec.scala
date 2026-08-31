@@ -887,6 +887,71 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       result shouldBe a[Right[_, _]]
       result.toOption.get.rows should not be empty
     }
+
+    // HEL-904 follow-on ruling (2026-08-31): previewStep resolves the target
+    // step's index against `listByPipelineInternal`'s ALREADY-CORRECT
+    // executionOrder result -- it must NOT re-sort by `.position` (a
+    // regression that would re-break trunk order, since every trunk step's
+    // `position` is now constantly `0`).
+    //
+    // Seeds a -> b -> c (a 3-level pure trunk chain, all `position = 0`)
+    // plus a's tail `t` (`position = 1`), but INSERTS the rows in the order
+    // a, t, c, b -- deliberately NOT trunk order. A naive `.sortBy(_.position)`
+    // ties every `position = 0` row (a, b, c) together and Postgres breaks
+    // that tie by row/insertion order (a, c, b, since c was inserted before
+    // b), landing `c` BEFORE its own parent `b` -- a materially wrong
+    // ordering, not merely coincidentally-still-correct. The true
+    // `executionOrder` is `[a, t, b, c]` regardless of insertion order.
+    // Preview `c` (real index 3) and confirm its actual prefix execution
+    // (limit values compose to the deepest cap, 2) proves the CORRECT
+    // 4-step prefix ran, not the naive sort's corrupted 2-step ([a, c])
+    // prefix that would also (wrongly) succeed but with different rows.
+    "resolves the target step's index from executionOrder, not a raw position sort, when insertion order does not match trunk order" in {
+      import PostgresProfile.api._
+      val dsId = seedRestDs(RestBigUrl) // RestBigTotalRows rows, well above every limit below
+      val pid  = seedPipeline(dsId)
+      val aId = UUID.randomUUID().toString
+      val bId = UUID.randomUUID().toString
+      val cId = UUID.randomUUID().toString
+      val tId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($aId, ${pid.value}, 0, 'limit', '{"count":10}', true, now(), now(), NULL)""",
+        // `t` inserted BEFORE `b`/`c` -- deliberately out of executionOrder,
+        // though still satisfying the parent_step_id FK (which requires
+        // each row's parent to already exist).
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($tId, ${pid.value}, 1, 'limit', '{"count":1}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($bId, ${pid.value}, 0, 'limit', '{"count":5}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($cId, ${pid.value}, 0, 'limit', '{"count":2}', true, now(), now(), $bId)"""
+      )))
+
+      // Sanity: the real executionOrder is [a, t, b, c] -- c at index 3.
+      val steps = await(stepRepo.listByPipelineInternal(pid))
+      steps.map(_.id.value) shouldBe Vector(aId, tId, bId, cId)
+
+      // `previewStep` resolves `c`'s index against the (correct) executionOrder
+      // vector and slices its `take(k+1)` prefix from THAT vector -- so
+      // previewing `c` (index 3) executes the full 4-step prefix
+      // [a(limit 10), t(limit 1), b(limit 5), c(limit 2)] IN THAT ORDER
+      // (today's engine is still a flat sequential fold pre-HEL-905/P1.2 --
+      // it has no tree-branch awareness yet, so `t` genuinely executes
+      // inline here; that's an accepted, already-documented gap this
+      // ticket does not touch). Composing those limits sequentially caps
+      // the result to exactly 1 row (10 -> 1 -> 1 -> 1).
+      //
+      // Under the OLD `.sortBy(_.position)` mutation, ties at `position = 0`
+      // (a, b, c) break by insertion/physical order (a, b, c -- `t`,
+      // position 1, sorts last) -- `c` would resolve to index 2 and the
+      // slice would wrongly execute [a(limit 10), b(limit 5), c(limit 2)]
+      // (skipping `t` entirely) = 2 rows. This assertion (1, not 2) is what
+      // actually discriminates the bug.
+      val result = await(service.previewStep(pid, cId, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.rows.size shouldBe 1
+    }
   }
 
   "PipelineRunService and a compute step with a statically unparseable expression (HEL-888)" should {

@@ -5,7 +5,7 @@ _Retargeted from DataTypes/Metrics to the outputs-model (Output, node_snapshot, 
 ### Requirement: An error-severity assertion failure blocks the DataType update
 The system SHALL skip the materialized node's schema upsert, row overwrite, and binary-ref overwrite for a
 real (non-dry) run when at least one evaluated assertion result has `severity = "error"` and
-`passed = false`. The Output/node's previously-persisted schema and rows SHALL remain exactly as they were
+`passed = false`. The Output's previously-persisted schema and rows SHALL remain exactly as they were
 before the run.
 
 #### Scenario: A failing error-severity assertion preserves the prior DataType snapshot
@@ -18,7 +18,7 @@ before the run.
 
 ### Requirement: Alert-rule evaluation is skipped for a blocked run
 The system SHALL NOT evaluate alert rules against a run's computed rows when that run is blocked by an
-error-severity assertion failure, since those rows are never written to the Output/node.
+error-severity assertion failure, since those rows are never written to the Output.
 
 #### Scenario: Alert evaluation does not fire for a blocked run
 - **WHEN** a pipeline run is blocked by a failing error-severity assertion
@@ -26,7 +26,7 @@ error-severity assertion failure, since those rows are never written to the Outp
 
 ### Requirement: Dry runs are exempt from the fail policy
 A dry run SHALL NOT be blocked by an error-severity assertion failure, since a dry run never writes
-Output/node schema or rows in the first place; its terminal status remains `"dry_run"` regardless of
+Output schema or rows in the first place; its terminal status remains `"dry_run"` regardless of
 assertion outcome.
 
 #### Scenario: A dry run with a failing error-severity assertion still completes as a dry run

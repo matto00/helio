@@ -11,7 +11,7 @@ stringified JSON blob). Step 0's `inputSchema` SHALL equal `sourceSchema`. Step 
 step N-1's `outputSchema`. If the pipeline is not found, the response SHALL be 404.
 
 #### Scenario: Empty step list returns pipeline with empty steps and populated sourceSchema
-- **WHEN** `GET /api/pipelines/:id/analyze` is called for a pipeline with no steps and a source Output/node
+- **WHEN** `GET /api/pipelines/:id/analyze` is called for a pipeline with no steps and a source Output
   with fields `[{name: "a", type: "string"}]`
 - **THEN** the response is 200 with `sourceSchema: [{name: "a", type: "string"}]` and `steps: []`
 
@@ -71,15 +71,15 @@ step N-1's `outputSchema`. If the pipeline is not found, the response SHALL be 4
 - **THEN** the response is 404
 
 ### Requirement: Source schema derived from bound DataSource's registered DataType fields
-The analyze endpoint SHALL derive `sourceSchema` from the `Output/node` that is linked to the pipeline's
-`sourceDataSourceId` via `Output/node.sourceId`. Each `DataField` SHALL be represented as `{name, type}` in
-`sourceSchema`, where `type` is the `DataField.dataType` string value. If no source Output/node is found,
+The analyze endpoint SHALL derive `sourceSchema` from the `Output` that is linked to the pipeline's
+`sourceDataSourceId` via `Output.sourceId`. Each `DataField` SHALL be represented as `{name, type}` in
+`sourceSchema`, where `type` is the `DataField.dataType` string value. If no source Output is found,
 `sourceSchema` SHALL be an empty array.
 
 #### Scenario: Source DataType fields populate sourceSchema
-- **WHEN** the source DataSource has a registered Output/node with fields `[{name: "col1", dataType: "string"}]`
+- **WHEN** the source DataSource has a registered Output with fields `[{name: "col1", dataType: "string"}]`
 - **THEN** `sourceSchema` in the analyze response is `[{name: "col1", type: "string"}]`
 
 #### Scenario: Missing source DataType produces empty sourceSchema
-- **WHEN** the source DataSource has no registered Output/node (no Output/node with matching sourceId)
+- **WHEN** the source DataSource has no registered Output (no Output with matching sourceId)
 - **THEN** `sourceSchema` is `[]` and the response is still 200

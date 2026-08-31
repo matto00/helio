@@ -8,7 +8,7 @@ over any `ConnectorDriver[Config]` implementation, that given a connector instan
 `DataSource`, and a `OutputRepository/PipelineStepRepository` produces a `Future[CreateSourceResponse]`: calling
 `connector.inferSchema(config)` and, on `Left(err)`, returning `CreateSourceResponse(source, dataType
 = None, fetchError = Some(err))`; on `Right(schema)`, projecting fields via
-`SchemaInferenceFacade.toDataFields`, persisting a new `Output/node`, and returning
+`SchemaInferenceFacade.toDataFields`, persisting a new `Output`, and returning
 `CreateSourceResponse(source, dataType = Some(...), fetchError = None)`.
 
 #### Scenario: Helper compiles against any Connector[Config] implementation
@@ -23,7 +23,7 @@ over any `ConnectorDriver[Config]` implementation, that given a connector instan
 
 #### Scenario: Success produces a persisted DataType with no fetchError
 - **WHEN** `connector.inferSchema(config)` resolves to `Right(schema)`
-- **THEN** the helper persists a `Output/node` via `SchemaInferenceFacade.toDataFields(schema,
+- **THEN** the helper persists a `Output` via `SchemaInferenceFacade.toDataFields(schema,
   overrides)` and returns a `CreateSourceResponse` with `dataType = Some(...)` and `fetchError = None`
 
 ### Requirement: A new connector gets the envelope by construction
@@ -43,4 +43,4 @@ produce a correct `CreateSourceResponse` (success and failure cases) when driven
   `InferredSchema`
 - **WHEN** `CreateSourceEnvelope.build` is called with that connector and config
 - **THEN** the result is `CreateSourceResponse(source, dataType = Some(...), fetchError = None)` with
-  the persisted `Output/node`'s fields matching `SchemaInferenceFacade.toDataFields(schema)`
+  the persisted `Output`'s fields matching `SchemaInferenceFacade.toDataFields(schema)`

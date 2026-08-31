@@ -15,4 +15,4 @@ on was removed outright alongside `PipelineRepository.findLastRunAtByOutputDataT
 call site now passes `None` — the field is always `null` in the shipped response, not conditionally
 populated as this requirement described.
 **Migration**: None. Callers must not rely on `dataAsOf` ever being non-null until a future P-ticket
-reintroduces a freshness lookup against the Output/node_snapshots model.
+reintroduces a freshness lookup against the `outputs`/`node_snapshots` model.

@@ -261,7 +261,11 @@ final class PipelineRunService(
             // HEL-758: every source kind (including rest_api/sql) now reaches
             // this preview path uniformly (design.md D3).
             pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
-              val sortedSteps = allSteps.sortBy(_.position)
+              // HEL-904 follow-on ruling: listByPipelineInternal already returns
+              // executionOrder (the trunk/tail structural order) -- a global
+              // `.sortBy(_.position)` here would re-break run order, since every
+              // trunk step's `position` is now constantly `0`.
+              val sortedSteps = allSteps
               sortedSteps.indexWhere(_.id.value == stepId) match {
                 case -1 =>
                   Future.successful(Left(ServiceError.NotFound("Step not found: " + stepId)))

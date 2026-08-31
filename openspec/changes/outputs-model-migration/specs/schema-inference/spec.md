@@ -3,7 +3,7 @@
 _Retargeted from DataTypes/Metrics to the outputs-model (Output, node_snapshot, pipeline-step-tree) per HEL-903 decisions 1/2/4/11. Scenario titles are preserved verbatim from the live spec even where they still name "DataType"/"Metric" (they describe the same test case); only the body text is retargeted to the new mechanism._
 
 ### Requirement: POST /api/sources/infer — preview REST API schema without persisting
-The API SHALL expose `POST /api/sources/infer` that accepts a `RestApiConfigPayload` JSON body, fetches the remote endpoint, infers the schema via `SchemaInferenceEngine.fromJson`, and returns an `InferredSchemaResponse` with inferred fields. No `DataSource` or `Output/node` is written to the database. If the remote fetch fails, the API returns `502 Bad Gateway` with an error message.
+The API SHALL expose `POST /api/sources/infer` that accepts a `RestApiConfigPayload` JSON body, fetches the remote endpoint, infers the schema via `SchemaInferenceEngine.fromJson`, and returns an `InferredSchemaResponse` with inferred fields. No `DataSource` or `Output` is written to the database. If the remote fetch fails, the API returns `502 Bad Gateway` with an error message.
 
 #### Scenario: Successful REST infer returns fields
 - **WHEN** `POST /api/sources/infer` is called with a valid REST config pointing to a live endpoint
@@ -18,7 +18,7 @@ The API SHALL expose `POST /api/sources/infer` that accepts a `RestApiConfigPayl
 - **THEN** the response is 400 with an error message
 
 ### Requirement: POST /api/data-sources/infer — preview CSV schema without persisting
-The API SHALL expose `POST /api/data-sources/infer` that accepts a multipart form upload with a `file` field (CSV content), infers the schema via `SchemaInferenceEngine.fromCsv`, and returns an `InferredSchemaResponse`. No `DataSource` or `Output/node` is written to the database. If the file is missing or not UTF-8, the API returns `400 Bad Request`.
+The API SHALL expose `POST /api/data-sources/infer` that accepts a multipart form upload with a `file` field (CSV content), infers the schema via `SchemaInferenceEngine.fromCsv`, and returns an `InferredSchemaResponse`. No `DataSource` or `Output` is written to the database. If the file is missing or not UTF-8, the API returns `400 Bad Request`.
 
 #### Scenario: Valid CSV returns inferred fields
 - **WHEN** `POST /api/data-sources/infer` is called with a valid UTF-8 CSV file
@@ -33,11 +33,11 @@ For static data sources, the system SHALL construct `DataField` entries directly
 
 #### Scenario: Declared integer type is preserved
 - **WHEN** a static source is created with a column declared as `{ "name": "count", "type": "integer" }`
-- **THEN** the registered `Output/node` contains a field `count` with `dataType = "integer"`
+- **THEN** the registered `Output` contains a field `count` with `dataType = "integer"`
 
 #### Scenario: Declared boolean type is preserved
 - **WHEN** a static source is created with a column declared as `{ "name": "active", "type": "boolean" }`
-- **THEN** the registered `Output/node` contains a field `active` with `dataType = "boolean"`
+- **THEN** the registered `Output` contains a field `active` with `dataType = "boolean"`
 
 #### Scenario: Unrecognised type defaults to string
 - **WHEN** a static source column is declared with an unrecognised type string

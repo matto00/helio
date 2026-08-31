@@ -41,13 +41,20 @@ private[protocols] trait AssistantProposalToolSchemas {
     "type" -> JsString("object"),
     "properties" -> JsObject(
       "title" -> JsObject("type" -> JsString("string")),
-      "type" -> enumSchema("metric", "chart", "table", "text", "markdown", "image", "collection", "timeline"),
+      // HEL-904 follow-on ruling (final-skeptic-wire-contract-diff-3.md item 5): the retired
+      // metric/chart/table/collection/timeline visualization types are gone (Types/Metrics/Panel
+      // visualization kinds deleted wholesale, no deprecation -- see the pipelines/outputs remodel
+      // design doc); "output" is the sole data-bindable placement kind now. Matches
+      // schemas/dashboards/dashboard-proposal.schema.json's own `type` enum exactly (no `divider`
+      // here either -- dropped from the proposal flow's agent-facing type set for parity with
+      // create_panel, per that schema file's own description).
+      "type" -> enumSchema("text", "markdown", "image", "output"),
       "dataTypeId" -> JsObject(
         "type" -> JsString("string"),
         "description" -> JsString(
-          "Required for metric/chart/table/collection/timeline panels; must be an existing " +
-            "pipeline-output DataType id returned by find/get_resource (or, inside propose_combined " +
-            "only, the literal sentinel \"$pipelineOutput\")."
+          "Required for output panels; must be an existing pipeline-output DataType id returned by " +
+            "find/get_resource (or, inside propose_combined only, the literal sentinel " +
+            "\"$pipelineOutput\"). Omitted for text/markdown/image."
         )
       ),
       "metricId"     -> JsObject("type" -> JsString("string")),

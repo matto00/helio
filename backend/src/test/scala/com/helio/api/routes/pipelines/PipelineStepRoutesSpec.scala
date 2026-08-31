@@ -5,7 +5,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.model.{AuthenticatedUser, UserId}
+import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
 import com.helio.domain.{CastConfig, StepConfigTypeMismatch}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
@@ -656,6 +656,97 @@ class PipelineStepRoutesSpec
         steps.find(_.id == idA).map(_.position) shouldBe Some(0)
         steps.find(_.id == idB).map(_.position) shouldBe Some(1)
       }
+    }
+
+    // ── HEL-904 follow-on ruling (2026-08-31): reorderInternal is sibling-scoped ──
+    //
+    // Seeds a real multi-level, multi-sibling-group tree directly via raw SQL
+    // (the shape a V94-migrated pipeline with an aggregate tail has):
+    //   a (root, pos 0)
+    //     -> b (pos 0, trunk continuation)  -> c (pos 0, further trunk)
+    //     -> t (pos 1, tail sibling of b)
+    // Exercises the REAL reorder route/reorderInternal (not a
+    // reimplementation) with a request that deliberately INTERLEAVES ids
+    // from every sibling group in one permutation ([t, a, c, b]) -- exactly
+    // the shape that broke under the old global `orderedIds.zipWithIndex`
+    // renumbering (which would have set `a`'s position to 1, destroying the
+    // root trunk-continuation invariant entirely). Confirms each sibling
+    // group is renumbered independently: `a` (the sole root-group member)
+    // keeps position 0 regardless of where it appears in the request, and
+    // `trunkOf` still finds a coherent, non-empty trunk starting at `a`
+    // afterward.
+    "PUT /pipelines/:id/steps/order renumbers each sibling group independently, even when the request interleaves ids across groups" in {
+      import PostgresProfile.api._
+      cleanSteps(); val pid = seedPipeline()
+      val aId = UUID.randomUUID().toString
+      val bId = UUID.randomUUID().toString
+      val tId = UUID.randomUUID().toString
+      val cId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($tId, $pid, 1, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($cId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $bId)"""
+      )))
+
+      // Full permutation of the pipeline's current step ids (required by
+      // reorderSteps' 422 check), deliberately out of trunk order and
+      // interleaving all 3 sibling groups (root={a}, a's children={b,t},
+      // b's children={c}).
+      val body = JsObject("stepIds" -> JsArray(JsString(tId), JsString(aId), JsString(cId), JsString(bId)))
+      Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      val rows = await(db.run(
+        sql"SELECT id, position, parent_step_id FROM pipeline_steps WHERE pipeline_id = $pid".as[(String, Int, Option[String])]
+      )).map { case (id, pos, parent) => id -> (pos, parent) }.toMap
+
+      // `a` is the sole member of the root sibling group -- must stay
+      // position 0 regardless of its index in the shuffled request. Under
+      // the OLD global `zipWithIndex` renumbering, `a` (2nd in the request)
+      // would have landed at position 1, silently breaking the root trunk.
+      rows(aId)._1 shouldBe 0
+      rows(aId)._2 shouldBe None
+
+      // b and t (a's sibling group) occupy exactly {0, 1} between them --
+      // never leaking into or colliding with c's group.
+      Set(rows(bId)._1, rows(tId)._1) shouldBe Set(0, 1)
+      rows(bId)._2 shouldBe Some(aId)
+      rows(tId)._2 shouldBe Some(aId)
+
+      // c is the sole member of b's sibling group -- stays position 0.
+      rows(cId)._1 shouldBe 0
+      rows(cId)._2 shouldBe Some(bId)
+
+      // trunkOf, called on the post-reorder rows, walks a coherent,
+      // non-empty trunk starting at `a` (not empty/corrupted).
+      val steps = await(stepRepo.listByPipelineInternal(PipelineId(pid)))
+      val trunk = stepRepo.trunkOf(steps).map(_.id.value)
+      trunk should not be empty
+      trunk.head shouldBe aId
+
+      // The REAL listByPipelineInternal's returned VECTOR ORDER (not just
+      // the set of rows) must be the tree-derived executionOrder, not a raw
+      // position sort -- a, c/b (whichever branch is now the tail, in
+      // parent-before-child order), then the other branch. Deliberately NOT
+      // hand-computed from `rows` above -- re-derives from the request's
+      // own within-group ordering so this stays correct regardless of which
+      // of {b, t} the caller's shuffled request happened to promote to
+      // position 0 within their sibling group.
+      val expectedExecuted =
+        if (rows(bId)._1 == 0)
+          // b stayed the trunk continuation: a -> b -> c, with t as a's tail.
+          Vector(aId, tId, bId, cId)
+        else
+          // t became the trunk continuation: a -> t, with b (and its own
+          // child c) as a's tail branch, executed right after a.
+          Vector(aId, bId, cId, tId)
+      steps.map(_.id.value) shouldBe expectedExecuted
     }
 
     // ── HEL-410: POST /pipelines/:id/steps with optional `position` (insert-at) ──

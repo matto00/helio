@@ -20,10 +20,10 @@ the source data but SHALL NOT write results to the Type Registry and SHALL NOT u
 After a successful non-dry run the backend SHALL update the node snapshot / Output
 (`pipelines.output_data_type_id`) with the inferred field schema derived from the result row keys,
 UNLESS the run is blocked by an error-severity assertion failure (see `pipeline-assert-fail-policy`), in
-which case the Output/node record SHALL NOT be updated and its previously-persisted schema SHALL remain
+which case the Output record SHALL NOT be updated and its previously-persisted schema SHALL remain
 unchanged. When the update does occur, field types SHALL be inferred from the actual runtime values in
 the first result row: `Boolean` values → `"boolean"`, integer/long values → `"integer"`, float/double
-values → `"double"`, all other values → `"string"`. The Output/node's `version` SHALL be incremented.
+values → `"double"`, all other values → `"string"`. The Output's `version` SHALL be incremented.
 
 #### Scenario: Output DataType fields reflect run result schema
 - **WHEN** `POST /api/pipelines/:id/run` succeeds and the result has columns `["name", "total"]`
@@ -78,7 +78,7 @@ source-kind read failure already produces.
 When a pipeline's base source is a `rest_api` or `sql` source whose fetched rows contain nested JSON objects,
 row materialisation SHALL expand those objects into dot-separated columns using the shared traversal defined
 by the `nested-json-flattening` capability, so the executed rows carry the columns the source's registered
-`Output/node` advertises. A nested object SHALL NOT be materialised as a raw JSON string under its top-level key.
+`Output` advertises. A nested object SHALL NOT be materialised as a raw JSON string under its top-level key.
 Rows containing no nested object SHALL be materialised exactly as before.
 
 #### Scenario: Nested response row carries dotted columns

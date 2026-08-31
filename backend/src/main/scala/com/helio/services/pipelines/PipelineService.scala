@@ -849,7 +849,11 @@ final class PipelineService(
                     // so editor grantees are not blocked by the V35 pipeline_steps
                     // RLS owner-JOIN policy. Read close to the insert below.
                     pipelineStepRepo.listByPipelineInternal(pipeline.id).flatMap { current =>
-                      current.sortBy(_.position).indexWhere(_.id.value == stepId.value) match {
+                      // HEL-904 follow-on ruling: `current` is already in
+                      // executionOrder (trunk/tail structural order) -- a
+                      // `.sortBy(_.position)` here would re-break the index,
+                      // since every trunk step's `position` is now constantly `0`.
+                      current.indexWhere(_.id.value == stepId.value) match {
                         case -1 =>
                           Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
                         case originalListIndex =>

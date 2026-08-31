@@ -451,6 +451,110 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     }
   }
 
+  // ── HEL-904 follow-on ruling (2026-08-31): executionOrder proof ───────────
+  //
+  // The trunk/tail position-0 ruling above (verified by trunkOf/tailsOf) is
+  // necessary but not sufficient: PipelineStepRepository.listByPipelineInternal
+  // -- the method PipelineRunService/PipelineService actually call to decide
+  // RUN order -- must ALSO derive its whole-pipeline order from the same
+  // parent_step_id chain (executionOrder), not from a `.sortBy(_.position)`
+  // (which is now meaningless whole-pipeline since every trunk step's
+  // position is a constant 0). These tests call the REAL
+  // `PipelineStepRepository.executionOrder` against the real fixture data.
+  "PipelineStepRepository.executionOrder against every real multi-step pipeline (HEL-904 follow-on ruling proof)" should {
+    // A real DbContext-backed repository (see "V94 outputs/node_snapshots RLS"
+    // below for the `liveCtx` pattern) -- these assertions call the REAL
+    // `listByPipelineInternal` DB method end-to-end (SQL fetch + ordering),
+    // not just the pure `executionOrder` function over an in-memory Vector.
+    // This is deliberate: `executionOrder`'s result does not depend on the
+    // INPUT vector's order (it re-derives order purely from parentStepId/
+    // position fields), so a bug that regresses `listByPipelineInternal`'s
+    // own `.result` query (e.g. reverting to a raw `.sortBy(_.position)`
+    // that never calls `executionOrder` at all) would NOT be caught by
+    // calling `executionOrder` directly on a fetched Vector -- only by
+    // calling `listByPipelineInternal` itself and checking its OUTPUT order.
+    def dbStepRepo: PipelineStepRepository = new PipelineStepRepository(new DbContext(appDb, privilegedDb)(ec))(ec)
+
+    "yield the pre-migration linear order for the pipeline's ORIGINAL steps, for every one of the 15 real multi-step pipelines" in {
+      val multiStepPipelineIds = stepsBeforeCapture.groupBy(_._2).collect { case (pid, steps) if steps.size > 1 => pid }.toSet
+      multiStepPipelineIds.size shouldBe 15 // re-asserted here so this test alone still proves the "all 15" scope if run in isolation
+      val repo = dbStepRepo
+
+      multiStepPipelineIds.foreach { pipelineId =>
+        withClue(s"pipeline $pipelineId: ") {
+          val expectedOrder = stepsBeforeCapture.filter(_._2 == pipelineId).sortBy(_._3).map(_._1)
+          val originalIds    = expectedOrder.toSet
+          val steps    = stepsForPipeline(pipelineId)
+          // Pure-function cross-check (executionOrder over an already-fetched Vector).
+          val executedPure = repo.executionOrder(steps).map(_.id.value)
+          // The REAL end-to-end DB call -- listByPipelineInternal must itself
+          // return this same order, not merely be consistent with a
+          // downstream call to executionOrder.
+          val executedLive = await(repo.listByPipelineInternal(PipelineId(pipelineId))).map(_.id.value)
+          executedLive shouldBe executedPure
+
+          // Filter down to the pipeline's ORIGINAL (pre-migration) steps only --
+          // a pipeline that also received a migration-created aggregate tail
+          // (proven separately below) legitimately has one extra step in its
+          // post-migration executed order; the ORIGINAL steps among them must
+          // still appear in their exact original relative order.
+          executedLive.filter(originalIds.contains) shouldBe expectedOrder
+          // Every real step actually shows up exactly once -- executionOrder
+          // must not drop or duplicate any step.
+          executedLive.toSet shouldBe steps.map(_.id.value).toSet
+          executedLive.size shouldBe steps.size
+        }
+      }
+    }
+
+    "place every real migration-created aggregate tail immediately after its parent step's index, never before it or as a trunk member" in {
+      val strandedIds: Set[String] = {
+        val visualKinds = Set("metric", "chart", "table", "collection", "timeline")
+        panelsBefore.filter { p =>
+          (visualKinds.contains(p.typ) || ((p.typ == "text" || p.typ == "markdown") && p.typeId.isDefined)) &&
+            (p.typeId.isEmpty || !pipelineOutputTypeIdsCapture.contains(p.typeId.get))
+        }.map(_.id).toSet
+      }
+      val aggOrMetricPanels = panelsBefore.filter(p => (p.aggregation.isDefined || p.metricId.isDefined) && !strandedIds.contains(p.id))
+      aggOrMetricPanels.size shouldBe 5 // the ruling's proof requirement: "all 5 real aggregate tails"
+
+      aggOrMetricPanels.foreach { p =>
+        withClue(s"panel ${p.id}: ") {
+          val tailStepId = s"hel904-tail-${p.id}"
+          val pipelineId = await(superDb.run(
+            sql"SELECT pipeline_id FROM pipeline_steps WHERE id = $tailStepId".as[String].head
+          ))
+          val parentStepId = await(superDb.run(
+            sql"SELECT parent_step_id FROM pipeline_steps WHERE id = $tailStepId".as[Option[String]].head
+          ))
+
+          val steps    = stepsForPipeline(pipelineId)
+          val executed = stepRepo.executionOrder(steps).map(_.id.value)
+          val tailIndex = executed.indexOf(tailStepId)
+          tailIndex should be >= 0
+
+          parentStepId match {
+            case Some(parent) =>
+              val parentIndex = executed.indexOf(parent)
+              parentIndex should be >= 0
+              tailIndex should be > parentIndex // executes AFTER its parent trunk step
+            case None =>
+              // The pipeline had NO pre-existing steps (trunk_last_id was
+              // NULL going into the migration DML) -- this aggregate tail
+              // is a root-LEVEL tail with no parent step to compare against
+              // (forced to position >= 1 by the migration DML regardless,
+              // so it's still never mistaken for the trunk). Such a
+              // pipeline has no real trunk at all.
+              stepRepo.trunkOf(steps) shouldBe empty
+          }
+
+          val trunkIds = stepRepo.trunkOf(steps).map(_.id.value).toSet
+          trunkIds should not contain tailStepId // confirmed NOT a trunk member (re-proves the ruling above via executionOrder's own input)
+        }
+      }
+    }
+  }
+
   "V94 panels.kind backfill" should {
     "collapse the real markdown-bound panel (type_id set) to 'output' -- the evaluation-2.md fix" in {
       val kind = await(superDb.run(sql"SELECT kind FROM panels WHERE id = $markdownBoundPanelId".as[String].head))

@@ -40,7 +40,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       step     <- stepsTable if step.pipelineId === pipelineId.value
       pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
     } yield step
-    ctx.withUserContext(user.id.value)(query.sortBy(_.position).result).map(_.toVector.map(rowToDomain))
+    ctx.withUserContext(user.id.value)(query.result).map(rows => executionOrder(rows.toVector.map(rowToDomain)))
   }
 
   /** Owner-scoped findById via the parent-pipeline JOIN. */
@@ -144,11 +144,21 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   // Every callsite MUST have a comment explaining why ACL bypass is safe.
 
   /** ACL-bypassing list. Safe to call only after the caller's pipeline access
-    * has been confirmed by PipelineService via findByIdShared. */
+    * has been confirmed by PipelineService via findByIdShared.
+    *
+    * HEL-904 follow-on ruling (2026-08-31): ordering is derived from the
+    * `parent_step_id` chain via [[executionOrder]] -- the trunk in order,
+    * with each node's tail branches emitted immediately after it -- NOT
+    * from a global `position` sort. `position` is a sibling-scoped
+    * tiebreaker only (see `reorderInternal`); after the trunk/tail
+    * position-renumbering fix, every trunk step's `position` is
+    * constantly `0`, so a naive `.sortBy(_.position)` here would leave run
+    * order undefined for every multi-step pipeline with more than one
+    * trunk step. See design.md's trunk/tail decision. */
   def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[PipelineStep]] =
     ctx.withSystemContext(
-      stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
-    ).map(_.toVector.map(rowToDomain))
+      stepsTable.filter(_.pipelineId === pipelineId.value).result
+    ).map(rows => executionOrder(rows.toVector.map(rowToDomain)))
 
   /** ACL-bypassing step lookup. Safe to call only after pipeline access
     * has been confirmed by PipelineService via findByIdShared. */
@@ -254,23 +264,38 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** ACL-bypassing atomic reorder (HEL-407). Safe to call only after the
     * caller's editor or owner access has been confirmed by PipelineService
     * via findByIdShared, and after the service has confirmed `orderedIds` is
-    * exactly a permutation of one SIBLING group's current step ids (HEL-904
-    * task 1.6: `orderedIds` implicitly scopes this to whichever
-    * `parentStepId` group they belong to -- the update only ever touches the
-    * rows named in `orderedIds`, so other sibling groups are never
-    * renumbered). Sets `position = index` for every id in `orderedIds`
-    * within a single transaction, then re-reads the pipeline's steps in
-    * position order (legacy flat shape -- callers needing a single sibling
-    * group's post-reorder view should re-derive it from `childrenOf`). */
+    * exactly a permutation of the pipeline's current step ids.
+    *
+    * HEL-904 follow-on ruling (2026-08-31): renumbers `position` WITHIN
+    * each existing SIBLING group only, never across the whole pipeline --
+    * `orderedIds` is grouped by each id's EXISTING `parentStepId` (read
+    * fresh from the DB, never trusted from the caller), and within each
+    * group the ids are renumbered `0..k-1` in the relative order they
+    * appear in `orderedIds`. This never touches `parentStepId` itself, so
+    * the position-0 = trunk-continuation invariant is preserved BY
+    * CONSTRUCTION: a step can only ever be renumbered relative to its own
+    * siblings, never promoted/demoted across a different parent's group.
+    * (Before this fix, `orderedIds.zipWithIndex` set a single global
+    * `0..N-1` index across the WHOLE pipeline regardless of sibling
+    * grouping, which would silently re-break the trunk/tail invariant the
+    * first time any user reordered steps.) Returns the pipeline's full step
+    * set in [[executionOrder]] (trunk/tail structural order), not a
+    * position sort. */
   def reorderInternal(pipelineId: PipelineId, orderedIds: Seq[PipelineStepId]): Future[Vector[PipelineStep]] = {
     val now = Instant.now()
-    val updates = orderedIds.zipWithIndex.map { case (id, index) =>
-      stepsTable.filter(_.id === id.value).map(s => (s.position, s.updatedAt)).update((index, now))
-    }
+    val idValues = orderedIds.map(_.value)
     val action = for {
-      _    <- DBIO.sequence(updates)
-      rows <- stepsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
-    } yield rows.toVector.map(rowToDomain)
+      existingRows <- stepsTable.filter(_.id.inSet(idValues)).map(s => (s.id, s.parentStepId)).result
+      parentById    = existingRows.toMap
+      groups        = orderedIds.groupBy(id => parentById.getOrElse(id.value, None: Option[String]))
+      updates       = groups.values.flatMap { group =>
+                         group.zipWithIndex.map { case (id, index) =>
+                           stepsTable.filter(_.id === id.value).map(s => (s.position, s.updatedAt)).update((index, now))
+                         }
+                       }
+      _    <- DBIO.sequence(updates.toSeq)
+      rows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
+    } yield executionOrder(rows.toVector.map(rowToDomain))
     ctx.withSystemContext(action.transactionally)
   }
 
@@ -414,6 +439,40 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     allParents.flatMap { parent =>
       childrenOf(steps, parent).filter(_.position != 0).map(expand)
     }
+  }
+
+  /** Whole-pipeline execution order (HEL-904 follow-on binding ruling,
+    * 2026-08-31): derived from the `parent_step_id` chain, NOT from a
+    * global `position` sort. The trunk's steps appear in order; each
+    * node's own tail branches (its `position != 0` children, each fully
+    * expanded depth-first) are emitted immediately after that node and
+    * before the trunk continues past it. `position` is a sibling-scoped
+    * tiebreaker only -- meaningful among children of the same parent, never
+    * as a whole-pipeline ordering key (see `reorderInternal`).
+    *
+    * `PipelineStepRepository.listByPipelineInternal` (consumed by
+    * `PipelineRunService` and `PipelineService` for both run execution and
+    * step listing/reordering) and the owner-scoped `listByPipeline` both
+    * return this order. Any root-level tail branches (children of the
+    * virtual root, i.e. `parentStepId = None`, other than the single
+    * trunk-starting step) are appended at the very end -- real migrated
+    * data never produces these (every pipeline has exactly one root child),
+    * but the case is handled defensively rather than silently dropped. */
+  def executionOrder(steps: Vector[PipelineStep]): Vector[PipelineStep] = {
+    def expandBranch(root: PipelineStep): Vector[PipelineStep] =
+      root +: childrenOf(steps, Some(root.id)).flatMap(expandBranch)
+
+    def walk(node: PipelineStep): Vector[PipelineStep] = {
+      val children    = childrenOf(steps, Some(node.id))
+      val tails       = children.filter(_.position != 0).flatMap(expandBranch)
+      val trunkChild  = children.find(_.position == 0)
+      node +: (tails ++ trunkChild.toVector.flatMap(walk))
+    }
+
+    val rootChildren = childrenOf(steps, None)
+    val rootTrunk     = rootChildren.find(_.position == 0)
+    val rootTails      = rootChildren.filter(_.position != 0).flatMap(expandBranch)
+    rootTrunk.toVector.flatMap(walk) ++ rootTails
   }
 
   private def rowToDomain(row: PipelineStepRow): PipelineStep = {

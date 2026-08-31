@@ -9,7 +9,7 @@ String)`, or `Unbounded`. `OutputContract` carries no statically-declared field 
 `OutputFieldContract`/`fields: Vector[OutputFieldContract]` member was removed as YAGNI (zero producers,
 zero consumers across the entire shipped shape epic; `outputContract` is a static `val` with no access to
 `params`, so it structurally could never express param-derived field sets). Any surface needing a shape's
-actual output columns SHALL bind via the runtime `Output/node` schema produced after instantiate → run
+actual output columns SHALL bind via the runtime `Output` schema produced after instantiate → run
 (HEL-399), not a static field declaration.
 
 #### Scenario: OutputContract carries no fields member

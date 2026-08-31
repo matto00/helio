@@ -82,8 +82,12 @@ object RefinementPrompt extends PipelineStepProtocol {
     val stepLines =
       if (steps.isEmpty) "  (no steps yet)"
       else
+        // HEL-904 follow-on ruling: `steps` arrives already in executionOrder
+        // (trunk/tail structural order, via PipelineService.listSteps ->
+        // listByPipelineInternal) -- a `.sortBy(_.position)` here would
+        // re-break the order, since every trunk step's `position` is now
+        // constantly `0`.
         steps
-          .sortBy(_.position)
           .map { s =>
             val configJson = pipelineStepResponseFormat.write(s).asJsObject.fields.getOrElse("config", JsObject.empty)
             s"""  - step id="${s.id}" position=${s.position} type=${s.`type`} config=${configJson.compactPrint}"""

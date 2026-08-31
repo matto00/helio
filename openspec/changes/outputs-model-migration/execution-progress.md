@@ -3899,3 +3899,117 @@ corruption-reversal fix within already-confirmed scope. Branch still not pushed 
 **Status for the next (final) skeptic pass:** trunk/tail ruling implemented, proven via full-fixture
 assertion + mutation testing; both smaller findings closed; `sbt compile`/`sbt test` green,
 single-threaded, fresh this turn.
+
+## Cycle 6 (executor, 2026-08-31) — execution-order follow-on ruling + 2 smaller round-3 findings
+
+**Follow-on ruling implemented** (design.md's trunk/tail decision, extended per the human's direct
+ruling this cycle; see design.md's new "Follow-on: whole-pipeline execution/list order..." section
+for the full writeup): round 3's final-gate skeptic found the trunk/tail fix from cycle 5 correctly
+satisfies `trunkOf`/`tailsOf`, but `PipelineStepRepository.listByPipelineInternal` (consumed by
+`PipelineRunService`/`PipelineService` for run execution, step listing, and reorder) still did a
+whole-pipeline `.sortBy(_.position)` — meaningless now that every trunk step's `position` is a
+constant `0`, leaving live pipeline RUN ORDER undefined for all 15 real migrated multi-step
+pipelines.
+
+1. **New `PipelineStepRepository.executionOrder`** (pure function): trunk in order, each node's own
+   tail branches emitted immediately after it, derived purely from `parent_step_id`.
+   `listByPipeline`/`listByPipelineInternal` now return this instead of a raw position sort.
+2. **`reorderInternal` rewritten**: renumbers `position` WITHIN each existing sibling group only
+   (grouped by each id's EXISTING `parentStepId`, read fresh from the DB) — never across the whole
+   pipeline, never touches `parentStepId` itself, so the position-0 = trunk-continuation invariant
+   is preserved BY CONSTRUCTION.
+3. **Every other call site relying on `listByPipelineInternal`'s order was audited and fixed**, not
+   assumed correct: `PipelineRunService.previewStep` and `PipelineService.duplicateStep` both
+   independently re-sorted the already-correct result by `.position` (their own latent copy of the
+   exact same bug) — both fixed. `RefinementPrompt.pipelineStateText` had the same defect rendering
+   a pipeline's step list into a patch-set refinement prompt — fixed.
+
+**HEL-905 (P1.2) boundary determination: fully this ticket's job, no deferral.** This rewire fixes
+the STRUCTURAL ordering of the step list the still-linear (pre-905) engine consumes — it does not
+touch or duplicate HEL-905's job (replacing the engine's `foldLeft` with a real tree walk). Verified
+directly: the new `previewStep` test confirms a tail step still executes INLINE as part of the flat
+sequential fold when it precedes the target step in `executionOrder` — that's the accepted,
+already-documented pre-905 gap, unchanged by this fix.
+
+**Proof, all fresh this turn:**
+- `V94OutputsMigrationSpec`'s new "executionOrder" test group: the REAL, DB-backed
+  `listByPipelineInternal` (not just the pure `executionOrder` function over an already-fetched
+  Vector — deliberately, since a regression to the repository's own `.result` query wouldn't be
+  caught by calling `executionOrder` directly) yields the pre-migration linear order for each of
+  the 15 real multi-step pipelines' ORIGINAL steps; all 5 real aggregate tails execute after their
+  parent trunk step (or, for the one tail whose pipeline had zero pre-existing steps, that
+  pipeline's `trunkOf` is empty — a real, previously-unconsidered edge case this test surfaced and
+  handles correctly).
+- `PipelineStepRoutesSpec`'s new reorder route test: seeds a 4-node, 3-sibling-group tree via raw
+  SQL, calls the REAL `PUT /pipelines/:id/steps/order` with a request that deliberately interleaves
+  ids across all 3 groups, confirms each group renumbers independently (the root group's sole
+  member keeps position 0 regardless of its shuffled-request index) and `listByPipelineInternal`'s
+  vector order matches the tree-derived `executionOrder` exactly.
+- `PipelineRunServiceSpec`'s new `previewStep` test: seeds a trunk-plus-tail tree via raw SQL,
+  inserted deliberately OUT of trunk order (to defeat any accidental insertion-order/position-tie
+  coincidence a naive test could hide behind — confirmed this mattered: an earlier draft of this
+  test passed even under the reverted mutation, because Postgres happened to tie-break `position=0`
+  rows in insertion order, which coincided with the correct order; the final version inserts the
+  tail row BEFORE the trunk-continuation rows it's a sibling of, which breaks that coincidence).
+  Confirms previewing a deep trunk step resolves the correct 4-step prefix (composing to 1 row via
+  sequential limit steps) rather than the 3-step prefix a reverted `.sortBy(_.position)` mutation
+  wrongly resolves (2 rows).
+- **Mutation-testing proof, run by hand this cycle for all 4 independent fixes (not left in the
+  diff):** (1) `listByPipelineInternal` reverted to `.sortBy(_.position)` → the new
+  `PipelineStepRoutesSpec` reorder test's assertion on `listByPipelineInternal`'s returned order
+  went red (wrong vector); restored, green. (2) `reorderInternal` reverted to the old global
+  `orderedIds.zipWithIndex` → the same test's assertion that the root group's sole member (`a`)
+  keeps position 0 went red (`a` landed at position 1); restored, green. (3) `previewStep`'s re-sort
+  removal reverted (re-added `.sortBy(_.position)`) → the new `PipelineRunServiceSpec` test's row
+  count went red (2 instead of 1); restored, green.
+- Full `sbt -batch 'set Test/parallelExecution := false' clean compile Test/compile test` (HEL-924
+  single-threaded protocol): **3352 tests, 225 suites, 0 aborted, 0 failed, all green**, 189s. (Up
+  from round 3's 3348 — +4 new tests this cycle: 2 in `V94OutputsMigrationSpec`, 1 in
+  `PipelineStepRoutesSpec`, 1 in `PipelineRunServiceSpec`.) A separate earlier full run in this same
+  cycle hit `SparkJobSubmitterSpec`'s known HEL-924 flaky-infra failure (forked-test-harness broken
+  pipe / missing test-reports dir); re-run in isolation (`testOnly
+  com.helio.spark.SparkJobSubmitterSpec`) passed 15/15 clean, confirming it as the known
+  pre-existing flakiness, not a real regression — the tee'd re-run above is the one that counts, and
+  it was clean end to end with no isolation-reclassification needed.
+
+**Two smaller round-3 findings, both closed this cycle:**
+- **`AssistantProposalToolSchemas.scala`'s `ProposalPanelSchema.type` enum** updated from the
+  retired `metric/chart/table/text/markdown/image/collection/timeline` set to the current
+  `text/markdown/image/output` set, matching `schemas/dashboards/dashboard-proposal.schema.json`'s
+  own `type` enum exactly (that JSON schema's enum has 4 values, not 5 — no `divider`, per its own
+  documented reason; the ticket instruction's "5-value" phrasing was imprecise, the JSON schema file
+  is ground truth). Grepped repo-wide for a sibling tool-schema file with the same drift
+  (`enumSchema("metric", "chart"...)`) — one hit, this file.
+- **The 3 documentation-only OpenSpec spec-delta corrections** from
+  `final-skeptic-deletion-sweep-3.md`:
+  1. The remaining 116 `Output/node` sed-artifact hits across 16 spec-delta files, replaced with the
+     canonical noun `Output` (round 2's fix only matched instances followed by a capital letter).
+     One collateral corruption from this cycle's OWN bulk replace was caught before commit
+     (`panel-data-freshness`'s literal `node_snapshots` table-name reference, briefly mangled to
+     `Output_snapshots`) and restored correctly. `assistant-conversation-loop/spec.md`'s
+     `resourceType == Output` was further corrected to `resourceType == "dataType"` (the
+     wire-exempted literal value design.md's own value-exemption decision already blessed) — a
+     plain noun swap would have fixed the grammar but left the wire-value contradiction round 3
+     also flagged.
+  2. `patch-set-preview/spec.md`'s `dataType`-update/`dataType`-delete content checks and impact
+     hint moved to `## REMOVED Requirements` with a Reason citing task 3.3 (`dataType` is not a
+     recognized patch-set target kind; `DataTypeService` no longer exists); the panel/pipeline/
+     dataSource/dashboard checks and hints those same base requirements also covered restated under
+     new `## ADDED Requirements` entries. (openspec's MODIFIED-delta model requires either the full
+     base scenario set or an explicit remove+add pair under a changed title — a partial scenario
+     drop under an unchanged title fails `openspec validate --strict`; discovered by running it.)
+  3. `resource-tagging/spec.md`'s "Tag persists and is returned on reads" scenario scoped to data
+     sources/pipelines only, with an explicit note that an Output's `tag` is write-only in the
+     shipped build (persisted by `OutputRepository.insertInternal` but never read back onto the
+     domain `Output`) — no invented ticket reference, as instructed.
+- `openspec validate outputs-model-migration --type change --strict`: `Change 'outputs-model-migration' is valid`.
+
+**No escalations raised** — every item was implementation of the binding ruling (directly extended
+by the human this cycle) or an ordinary documentation-correctness fix within already-confirmed
+scope. Branch still not pushed to any remote.
+
+**Status for the next (final) verification round:** execution-order follow-on ruling implemented and
+proven (all 4 independent fixes mutation-tested, confirmed red then green); HEL-905 overlap
+determined to be zero (fully this ticket's job, verified directly); both smaller findings closed;
+`openspec validate --strict` clean; `sbt compile`/`sbt test` green, single-threaded, fresh this turn
+(3352/3352, 0 failures).

@@ -13,7 +13,7 @@ A pipeline run SHALL derive its materialized node's schema from the complete set
 - **AND** at least one later output row does contain `rec`
 - **WHEN** the run succeeds and the materialized node's schema is written
 - **THEN** the schema's fields SHALL include `rec`
-- **AND** `rec` SHALL be reported as a column by the panel-capabilities report for that Output/node
+- **AND** `rec` SHALL be reported as a column by the panel-capabilities report for that Output
 
 #### Scenario: The schema does not depend on row order
 
