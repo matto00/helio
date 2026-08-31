@@ -566,7 +566,7 @@
       enums in sync with backend canonical sets (7 surfaces checked)"); `npm run check:openspec`
       ("openspec/ is clean"); `npm run check:openspec:selftest` (17/17 passed). `sbt compile` also
       re-confirmed clean (no backend source touched this cycle, schemas-only diff).
-- [ ] 5.7 Mechanical constant/enum edit for the OTHER cross-surface arrays (NOT a feature
+- [x] 5.7 Mechanical constant/enum edit for the OTHER cross-surface arrays (NOT a feature
       rewrite — see design.md's Gate-Chain decision; `DataPanelKinds` itself is task 3.10's job,
       not this one, since it is a live predicate, not a passive list): update
       `helio-mcp/src/tools/proposal.ts:28`'s `PANEL_TYPES` to the new `agentFacingKinds` (new

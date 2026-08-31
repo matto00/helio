@@ -10,3 +10,8 @@
 - `openspec/changes/outputs-model-migration/execution-progress.md` — appended this cycle's log entry.
 
 No backend (Scala) files touched this cycle — schemas-only diff, confirmed via `git diff --name-only main...HEAD`.
+
+# Files modified — cycle 28 (this cycle: 5.7 verification, section 6 sweep, escalation)
+
+- `openspec/changes/outputs-model-migration/tasks.md` — marked 5.7 `[x]` (verified already-complete: `helio-mcp/src/tools/proposal.ts:28`'s `PANEL_TYPES` and `dashboard-proposal.schema.json`'s `ProposalPanel.properties.type.enum` already both read `["text","markdown","image","output"]`, matching `agentFacingKinds`; `check-schema-drift.mjs` confirms both surfaces green — no edit needed).
+- No other source files modified this cycle. Task 6.1's grep surfaced a substantial, real gap (see execution-progress.md and this cycle's escalation) that requires an orchestrator/design decision before further code changes — no blind edits made pending that answer.

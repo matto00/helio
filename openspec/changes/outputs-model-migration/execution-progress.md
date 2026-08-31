@@ -3054,3 +3054,102 @@ follow-ups) has not been started.
 4. Section 6 (final verification sweep) is the last remaining section — its own acceptance-
    criteria grep, `check:scala-quality`, and the deferred-capability PR-comment follow-ups should
    land only once 5.5/5.7 are both closed out.
+
+## Cycle 28 (2026-08-30) — task 5.7 verification, section 6 sweep, ESCALATION raised
+
+**5.7 verified already complete, no edit needed:** `helio-mcp/src/tools/proposal.ts:28`'s
+`PANEL_TYPES` already reads `["text", "markdown", "image", "output"] as const`, and
+`dashboard-proposal.schema.json`'s `$defs.ProposalPanel.properties.type.enum` already reads the
+same 4-value `agentFacingKinds` set (with an explanatory `description` noting `divider` is
+dropped for proposal-flow parity). `node scripts/check-schema-drift.mjs` re-run fresh: "schemas in
+sync with JsonProtocols (60 checked across 46 protocol files)", "panel-type enums in sync with
+backend canonical sets (7 surfaces checked)", exit 0. Marked `[x]` in tasks.md.
+
+**Task 4.6 (split oversized pipeline service files, HEL-689):** deliberately deferred again this
+cycle — pure refactor, no functional dependency, explicitly deferrable per the resume brief;
+section 6's verification sweep took priority and surfaced a blocking finding (below) before time
+allowed picking this up.
+
+**Section 6 sweep — ran 6.1/6.2/6.3/6.4, found a real, substantial gap at 6.1:**
+
+- **6.1 (`grep -rn "com\.helio\..*DataType\|DataTypeId\|DataTypeRepository\|DataTypeService\|
+  MetricDefinition\|MetricId\|MetricRepository\|MetricService\|output_data_type_id\|
+  data_type_rows\|computed_fields" backend/src`) does NOT return "nothing but migration files"** —
+  it returns 368 lines across ~70 files, and a meaningful fraction are NOT comments/migrations/
+  test-only artifacts but live, compiled main-source declarations and call sites that directly
+  contradict the ticket's own explicit removal list ("remove `DataType`, ... `MetricDefinition`,
+  `MetricUsage*`, `MetricFormat`, `DataTypeId`, `MetricId`"):
+  - `domain/model/model.scala` still DEFINES (not just historically mentions) `DataTypeId` (line
+    13), `MetricId` (1018), `MetricFormat` (1036-1041), `MetricAggregation` (1045-1055),
+    `MetricDefinition` (1065-1077, itself typed with `id: MetricId`, `dataTypeId: DataTypeId`),
+    `MetricUsagePanel` (1080-1085), `MetricUsage` (1091-1094) — none of these six types have been
+    removed.
+  - `MetricDefinition`/`MetricAggregation` are still live, non-dead imports/references in
+    `AuthoringConversationRepository.scala`, `WorkspaceSearchService.scala` (not just comments —
+    confirmed via a second, narrower grep excluding test files).
+  - `PanelCapabilityService.getCapabilities`'s public parameter is still typed `DataTypeId` (not
+    `OutputId`), and `IdParsing.scala` still exports both `DataTypeIdSegment`/`MetricIdSegment`,
+    and four real internal callers (`RefinementGrounding`, `DashboardAuthoringService`,
+    `AssistantToolExecutor`, plus the still-live `GET /api/types/:id/panel-capabilities` route)
+    all thread a live `DataTypeId(...)` wrapper construction, not merely a name in a comment.
+  - `WorkspaceContextProtocol.scala` still has real wire fields `leftDataTypeId`/`rightDataTypeId`/
+    `outputDataTypeId` (workspace join-hints response), not comments.
+  - **Root cause of how this happened:** task 3.11's own tasks.md entry (and `PanelCapabilityService`'s
+    own doc comment) explicitly says the `DataTypeId`→`OutputId` call-site retargeting is deferred
+    to "section 4/5's wire-shape-renaming job" — but **no task anywhere in section 4 or 5 of
+    tasks.md actually performs this retargeting**, and no `design.md` decision documents this as an
+    intentionally-scoped-out deferral (searched `design.md` for `DataTypeId` — zero matches). This
+    reads as an un-gated, self-invented deferral from an earlier cycle that pointed at a future task
+    that was never actually written, not a reviewed design decision.
+  - **Separately, and more defensibly:** `PipelineProposalProtocol.scala`'s
+    `PipelineProposalApplyResponse.outputDataTypeId: String` and `PipelineProposal.outputDataTypeName:
+    String` wire field NAMES are unchanged by design (multiple test-file comments cite "task 3.8:
+    `outputDataTypeId` (field name unchanged — see design.md)" — though design.md does not actually
+    contain the string "outputDataTypeId" anywhere; the closest documented rationale is design.md's
+    "scope of the backend proposal services this ticket must touch" decision, which frames the
+    agent-facing proposal wire contract as P1.4's territory, "not this task's" — the wire field name
+    match is real but the "see design.md" pointer in the code comments is imprecise). This piece is
+    much more defensible as an intentional wire-compat/out-of-scope decision than the
+    `DataTypeId`-as-a-type survival above, since renaming an agent-facing proposal wire field that
+    `helio-mcp`/frontend already depend on genuinely IS P1.4's stated job per design.md's own words —
+    whereas the internal `DataTypeId` TYPE (not just a field name) surviving in `model.scala` and four
+    internal-only service call sites has no such documented cover.
+  - Full grep output (368 lines) captured and cross-checked line-by-line this cycle; not pasted in
+    full here for length but available by re-running the exact command above.
+
+- **6.2** (`grep -rn "DataType\|Metric" openspec/specs`) returns 109 files, not the 50 named in
+  `openspec-coverage-checklist.md` — **this is EXPECTED, not a gap**: per the orchestrator's
+  explicit clarification at the top of this cycle's resume brief, the 71 capability-spec deltas
+  already authored in `openspec/changes/outputs-model-migration/specs/` are applied only by
+  `openspec archive` at Delivery time, which has not run yet this cycle. Re-running 6.2 after
+  archival is the correct verification point, not now.
+- **6.3** `npm run check:scala-quality` — exit 0, "Scala code-quality check: clean (130 soft
+  warning(s))" — all warnings are the pre-existing soft file-size budget notices on test files
+  (not new this cycle, not hard failures, no inline-FQN violations reported).
+- **6.4** Full `sbt -batch "set Test / parallelExecution := false" test`, run fresh this cycle
+  (not inherited): **3360/3360 passing, exit code 0, 225 suites, 0 aborted, 0 failed**, "Run
+  completed in 3 minutes, 6 seconds" — confirmed via direct fresh output, not a summary. `sbt
+  compile` implied clean by the successful test compile step.
+
+**6.5/6.6 NOT attempted this cycle** — correctly gated behind resolving the 6.1 finding first (no
+point filing "deferred capability" follow-up comments or writing the PR-prep summary while a
+live acceptance-criteria failure is still open and its remediation path undecided).
+
+**ESCALATION raised** (see the accompanying `Verdict: ESCALATION` report returned to the
+orchestrator this turn): whether to (a) close this gap now by removing `DataTypeId`/`MetricId`/
+`MetricDefinition`/`MetricFormat`/`MetricAggregation`/`MetricUsage*` from `model.scala` and
+retargeting every live call site (`PanelCapabilityService`, `IdParsing`, `RefinementGrounding`,
+`DashboardAuthoringService`, `AssistantToolExecutor`, `WorkspaceContextProtocol`,
+`AuthoringConversationRepository`, `WorkspaceSearchService`, plus their specs) onto `OutputId`/
+real Output-shaped equivalents in a dedicated cycle, given the size and lateness of this ticket, or
+(b) treat this as a documented, blessed scope-narrowing (an actual design.md addendum, not a
+tasks.md comment pointing at a task that doesn't exist) and adjust the ticket's own acceptance
+criterion accordingly. This is a real requirements contradiction (ticket.md's literal, unambiguous
+removal list vs. an un-gated prior-cycle deferral to a nonexistent future task) that a single
+executor cycle should not resolve by guessing, given this is explicitly "the largest, least-
+reversible ticket in the whole remodel."
+
+**State left at end of this cycle:** working tree has only `tasks.md`/`files-modified.md`/
+`execution-progress.md` doc changes (5.7 checkbox + this cycle's notes) — no source-code edits.
+`sbt test` confirmed green (3360/3360) immediately before these doc-only changes, so the doc
+commit is safe to make with tests green, per the "never commit with sbt test red" rule.
