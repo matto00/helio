@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{JsonProtocols, PipelineScheduleResponse}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineScheduleRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineScheduleRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.pipelines.PipelineScheduleService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -58,8 +58,7 @@ class PipelineScheduleRoutesSpec
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx            = new DbContext(db, db)(routeEc)
     val dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
-    val dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)
-    pipelineRepo = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     scheduleRepo = new PipelineScheduleRepository(ctx)(routeEc)
     seedUsers()
   }

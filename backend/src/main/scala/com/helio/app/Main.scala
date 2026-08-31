@@ -12,7 +12,7 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository}
@@ -20,7 +20,6 @@ import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sources.RestSourceConnectorMigration
 import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.services.pipelines.PipelineSchedulerService
 import com.typesafe.config.ConfigFactory
@@ -64,16 +63,14 @@ object Main {
       val dashboardRepo      = new DashboardRepository(ctx)
       val panelRepo          = new PanelRepository(ctx)
       val dataSourceRepo     = new DataSourceRepository(ctx)
-      val dataTypeRepo       = new DataTypeRepository(ctx)
       val userRepo           = new UserRepository(db)
       val userSessionRepo    = new SlickUserSessionRepository(db)
       val userPreferenceRepo = new UserPreferenceRepository(db)
       val permissionRepo     = new ResourcePermissionRepository(ctx)
-      val pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+      val pipelineRepo       = new PipelineRepository(ctx, dataSourceRepo)
       val pipelineStepRepo   = new PipelineStepRepository(ctx)
       val outputRepo         = new OutputRepository(ctx)
       val pipelineRunRepo    = new PipelineRunRepository(ctx)
-      val dataTypeRowRepo    = new DataTypeRowRepository(ctx)
       val apiTokenRepo       = new ApiTokenRepository(ctx)
       val binaryRefRepo      = new BinaryRefRepository(ctx)
       val imageUploadRepo    = new ImageUploadRepository(ctx)
@@ -83,8 +80,8 @@ object Main {
       // pre-existing gap (see proposal.md "Gap found during planning").
       val alertEventRepo     = new AlertEventRepository(ctx)
       val pipelineScheduleRepo = new PipelineScheduleRepository(ctx)
-      // HEL-493: /api/metrics REST layer on top of HEL-446's MetricRepository.
-      val metricRepo         = new MetricRepository(ctx)
+      // HEL-904 task 4.1: `MetricRepository`/`/api/metrics` deleted outright —
+      // metrics no longer exist.
       // HEL-472 (420-A): /api/preferences persistence for the in-app agent's authoring defaults.
       val agentPreferencesRepo = new AgentPreferencesRepository(ctx)
       // HEL-478 (420-B): /api/agent/memory persistence for the in-app agent's free-form memory.
@@ -157,7 +154,6 @@ object Main {
         dashboardRepo,
         panelRepo,
         dataSourceRepo,
-        dataTypeRepo,
         permissionRepo,
         fileSystem,
         connector,
@@ -169,7 +165,6 @@ object Main {
         pipelineRunCache,
         sparkJobSubmitter,
         pipelineRunRepo,
-        dataTypeRowRepo,
         apiTokenRepo,
         binaryRefRepo,
         imageUploadRepo,
@@ -182,7 +177,6 @@ object Main {
         alertEventRepo = alertEventRepo,
         pipelineScheduleRepo = pipelineScheduleRepo,
         dbContext = ctx,
-        metricRepo = metricRepo,
         agentPreferencesRepo = agentPreferencesRepo,
         agentMemoryRepo = agentMemoryRepo,
         mfaRepo = mfaRepo,

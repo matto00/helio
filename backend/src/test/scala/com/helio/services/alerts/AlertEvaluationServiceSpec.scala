@@ -3,7 +3,7 @@ package com.helio.services.alerts
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -33,7 +33,6 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
   private var db: JdbcBackend.Database           = _
   private var arRepo: AlertRuleRepository        = _
   private var aeRepo: AlertEventRepository       = _
-  private var dtRepo: DataTypeRepository         = _
   private var dsRepo: DataSourceRepository       = _
   private var pipeRepo: PipelineRepository       = _
   private var outRepo: OutputRepository          = _
@@ -53,9 +52,8 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     val ctx = new DbContext(db, db)
     arRepo = new AlertRuleRepository(ctx)
     aeRepo = new AlertEventRepository(ctx)
-    dtRepo = new DataTypeRepository(ctx)
     dsRepo = new DataSourceRepository(ctx)
-    pipeRepo = new PipelineRepository(ctx, dtRepo, dsRepo)
+    pipeRepo = new PipelineRepository(ctx, dsRepo)
     outRepo = new OutputRepository(ctx)
     svc    = new AlertEvaluationService(arRepo, aeRepo)
   }

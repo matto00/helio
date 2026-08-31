@@ -1,6 +1,6 @@
 package com.helio.infrastructure.persistence.pipelines
 
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.api.http.{ResourceType, ResourceTypeRegistry}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataTypeId, PipelineId, UserId}
@@ -34,9 +34,8 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       .migrate()
     db           = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)
-    val dataTypeRepo  = new DataTypeRepository(ctx)
     val dataSourceRepo = new DataSourceRepository(ctx)
-    pipelineRepo = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo = new PipelineRepository(ctx, dataSourceRepo)
   }
 
   override def afterAll(): Unit = {

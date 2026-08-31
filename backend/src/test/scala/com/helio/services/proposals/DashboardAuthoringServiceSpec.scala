@@ -4,14 +4,14 @@ package com.helio.services.proposals
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelCapabilityService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.proposals.{AuthoringHistoryBudget, DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.WorkspaceContextService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -70,8 +70,6 @@ class DashboardAuthoringServiceSpec
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
-  private var dataTypeRowRepo: DataTypeRowRepository = _
   private var outputRepo: OutputRepository = _
   private var nodeSnapshotRepo: NodeSnapshotRepository = _
 
@@ -99,19 +97,16 @@ class DashboardAuthoringServiceSpec
     val ctx = new DbContext(db, db)
 
     dataSourceRepo   = new DataSourceRepository(ctx)
-    dataTypeRepo     = new DataTypeRepository(ctx)
-    dataTypeRowRepo  = new DataTypeRowRepository(ctx)
     outputRepo       = new OutputRepository(ctx)
     nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
-    val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    val pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
     val tmpDir = Files.createTempDirectory("helio-authoring-spec")
     val fs     = new LocalFileSystem(tmpDir)
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val registry       = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
@@ -126,7 +121,7 @@ class DashboardAuthoringServiceSpec
     // DashboardAuthoringService calls) — null, same rationale as
     // DashboardProposalServiceValidateSpec. metricRepo: null mirrors PanelService's
     // nullable-optional wiring convention (no proposal panel here ever carries a metricId).
-    dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null, outputRepo)
+    dashboardProposalService = new DashboardProposalService(null, null, outputRepo)
     conversationRepo         = new AuthoringConversationRepository(ctx)
   }
 
@@ -164,7 +159,14 @@ class DashboardAuthoringServiceSpec
       updatedAt = now,
       ownerId   = owner.id
     )
-    await(dataTypeRepo.insert(dt, owner))
+    // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- insert the companion
+    // `data_types` row directly (raw SQL), matching `dataTypeRepo.insert`'s exact fields shape.
+    await(db.run(sqlu"""
+      INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
+      VALUES (${dt.id.value}, NULL, $name,
+        '[{"name":"revenue","displayName":"Revenue","dataType":"float","nullable":false}]'::jsonb,
+        '[]'::jsonb, 1, now(), now(), ${owner.id.value}::uuid)
+    """))
 
     val srcId = UUID.randomUUID().toString
     val pipelineId = UUID.randomUUID().toString
@@ -201,7 +203,13 @@ class DashboardAuthoringServiceSpec
       updatedAt = now,
       ownerId   = owner.id
     )
-    await(dataTypeRepo.insert(dt, owner))
+    // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- insert directly (raw SQL).
+    await(db.run(sqlu"""
+      INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
+      VALUES (${dt.id.value}, ${source.id.value}, 'Companion',
+        '[{"name":"revenue","displayName":"Revenue","dataType":"float","nullable":false}]'::jsonb,
+        '[]'::jsonb, 1, now(), now(), ${owner.id.value}::uuid)
+    """))
     dt
   }
 

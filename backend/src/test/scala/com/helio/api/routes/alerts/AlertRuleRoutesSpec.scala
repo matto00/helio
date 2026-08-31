@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AlertRuleResponse, AlertRulesResponse, JsonProtocols}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.alerts.AlertRuleService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -40,7 +40,6 @@ class AlertRuleRoutesSpec
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var alertRuleRepo: AlertRuleRepository = _
-  private var dataTypeRepo: DataTypeRepository   = _
   private var outputRepo: OutputRepository       = _
 
   private val ownerAId = UUID.randomUUID().toString
@@ -59,7 +58,6 @@ class AlertRuleRoutesSpec
     db            = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx       = new DbContext(db, db)(routeEc)
     alertRuleRepo = new AlertRuleRepository(ctx)(routeEc)
-    dataTypeRepo  = new DataTypeRepository(ctx)(routeEc)
     outputRepo    = new OutputRepository(ctx)(routeEc)
     seedUsers()
   }

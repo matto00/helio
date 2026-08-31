@@ -64,17 +64,19 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V35 — owner-only tables
     "pipelines" -> None,
     "data_sources" -> None,
-    "data_types" -> None,
     "pipeline_steps" -> None,
     "pipeline_runs" -> None,
-    "data_type_rows" -> None,
+    // V94 — outputs, node_snapshots, sharing-aware (mirrors pipelines) (HEL-904)
+    "outputs" -> None,
+    "node_snapshots" -> None,
     // V36 — sharing-aware tables
     "dashboards" -> None,
     "panels" -> None,
     "resource_permissions" -> None,
     // V42 — owner-only Personal Access Tokens (HEL-148 Phase 1)
     "api_tokens" -> None,
-    // V46 — binary_refs, indirect owner via data_type_id -> data_types (HEL-217)
+    // V46 — binary_refs, indirect owner via pipeline_id -> pipelines (HEL-217; re-keyed off the
+    // retired data_type_id by HEL-904 task 2.8)
     "binary_refs" -> None,
     // V54 — image_uploads, direct owner (HEL-246)
     "image_uploads" -> None,
@@ -84,8 +86,6 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     "alert_events" -> None,
     // V62 — pipeline_schedules, indirect owner via pipeline_id -> pipelines (HEL-414)
     "pipeline_schedules" -> None,
-    // V75 — metrics, direct owner (HEL-446)
-    "metrics" -> None,
     // V77 — authoring_conversations, direct owner (HEL-397)
     "authoring_conversations" -> None,
     // V79 — patch_set_applications, direct owner (HEL-413)

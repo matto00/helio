@@ -1,17 +1,16 @@
 package com.helio.api.routes
 
-import com.helio.api.routes.pipelines.{DataTypeRoutes, PipelineRoutes}
+import com.helio.api.routes.pipelines.PipelineRoutes
 import com.helio.api.routes.sources.DataSourceRoutes
 import com.helio.api.routes.workspace.WorkspaceRoutes
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.panels.PanelCapabilityService
-import com.helio.services.pipelines.{DataTypeService, PipelineRunService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -61,8 +60,6 @@ class ResourceTaggingSpec
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
-  private var dataTypeRowRepo: DataTypeRowRepository = _
   private var pipelineRepo: PipelineRepository     = _
   private var pipelineStepRepo: PipelineStepRepository = _
   private var pipelineRunRepo: PipelineRunRepository = _
@@ -83,9 +80,7 @@ class ResourceTaggingSpec
     db               = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx          = new DbContext(db, db)(routeEc)
     dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
-    dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
-    dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
-    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
     pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
     outputRepo       = new OutputRepository(ctx)(routeEc)
@@ -119,23 +114,8 @@ class ResourceTaggingSpec
 
   private def pipelineRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val svc = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val svc = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
     new PipelineRoutes(svc, user)(routeEc).routes
-  }
-
-  private def dataTypeRoutesFor(user: AuthenticatedUser): Route = {
-    implicit val ec: ExecutionContext = routeEc
-    val svc           = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val capabilitySvc = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
-    // HEL-576: assertion-status route needs a PipelineRunService — none of
-    // this file's tests exercise a real run/dry-run/SSE path, so registry
-    // and fileSystem are safely null (mirrors PipelineRunServiceSpec's own
-    // `registry = null` fixture pattern).
-    val pipelineRunService = new PipelineRunService(
-      pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
-      dataTypeRowRepo, new PipelineRunCache(), registry = null, fileSystem = null
-    )
-    new DataTypeRoutes(svc, capabilitySvc, pipelineRunService, user)(typedSystem).routes
   }
 
   private def workspaceRoutesFor(user: AuthenticatedUser): Route = {
@@ -155,10 +135,8 @@ class ResourceTaggingSpec
     val accessChecker    = new AccessCheckerImpl(new ResourcePermissionRepository(ctx)(routeEc), registry)
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
-    // HEL-904 task 3.12: WorkspaceContextService takes an OutputRepository now (dataTypeService
-    // dropped).
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    // HEL-904 task 3.12: WorkspaceContextService takes an OutputRepository now.
     val outputRepo = new OutputRepository(ctx)(routeEc)
     val contextSvc = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     new WorkspaceRoutes(Some(teardownSvc), contextSvc, user)(routeEc).routes

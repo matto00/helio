@@ -2666,3 +2666,144 @@ standing rule; this cycle did not reach it (nor was it expected to, given 4.1's 
    instruction.
 5. Task 4.6 (splitting oversized pipeline service files) stays lowest priority, explicitly
    deferrable per the resume brief — not attempted this cycle.
+
+## Cycle 26 — task 4.1 finished in full; 4.2/4.4/4.5 all landed
+
+Starting state verified fresh: HEAD = `e3063558` (cycle 25's commit), tree clean.
+
+**Scope landed this cycle**: tasks 4.1 (in full), 4.2, 4.4, 4.5 — the entire "delete retired
+DataType/Metric repositories, services, protocols, routes, wiring" section, per the resume brief's
+own priority order. Task 4.3 was already `[x]` from cycle 25.
+
+**4.1's last live consumer, severed first (per the resume brief's own instruction)**:
+`PipelineRunService.onUnblockedRunSuccess`'s `schemaUpsert`/`rowsUpsert` (the HEL-891
+DataType-schema-union write via `upsertFieldsFromRows`) and `assertionStatusForDataType` (the
+`DataTypeRoutes` ACL-checked assertion-status read). Deleted both outright, removed the
+`dataTypeRepo`/`dataTypeRowRepo` constructor params and the now-pointless `outputDataTypeId`
+threading through `onRunSuccess`/`onUnblockedRunSuccess`/the `executeRun` call site (nothing
+downstream of those methods used it anymore once the DataType writes were gone). The HEL-462
+schema-drift baseline capture (a third, independent `dataTypeRepo` read — `findBySourceId` →
+`deriveSourceSchema`) was rewired onto `dataSourceRepo.findByIdOwned(...).inferredSchema`,
+mirroring cycle 25's own task-4.3 pattern (the source's schema lives on the source itself now, no
+companion DataType).
+
+**Then the bulk deletion**: `DataTypeRepository`, `DataTypeRowRepository`, `DataTypeService`,
+`MetricRepository`, `MetricService`, `DataTypeProtocol`, `api/protocols/metrics/*` (including its
+own `README.md`), `DataTypeRoutes`, `MetricRoutes` — all confirmed dead via fresh grep before
+deletion, all deleted in the same pass as their `ApiRoutes.scala`/`Main.scala` wiring (task 4.2),
+matching design.md's "P1.1 ... routes and Main.scala wiring" line item. `BoundPanelService`/
+`PanelServiceHelpers.withMaterializedMetric`/`PanelService` binding-resolution code were already
+gone (cycles 17/24), re-verified via fresh grep.
+
+**Unplanned but bounded fallout, mechanically resolved (not a live-consumer surprise this time —
+every one of these was a downstream constructor-arg cascade from deleting the 9 files/classes
+above, not a functional behavior this cycle had to newly understand)**: every constructor across
+main and test sources that took a `dataTypeRepo`/`dataTypeRowRepo`/`metricRepo` param had to drop
+it, since the PARAM TYPES themselves no longer exist (not merely "unused" — a genuinely
+uncompilable reference). This touched `PipelineRepository` (dead `dataTypesTable` field too),
+`PipelineService` (a dead param cycle 25 flagged but didn't remove), `ProposalPanelSupport`
+(`preValidateBindings`'s non-`"output"`-kind DataType-binding branch removed outright — confirmed
+via `TextPanelConfig`/`MarkdownPanelConfig` that neither carries a `dataTypeId` field anymore, so
+the branch was already dead code, not merely a param to drop), `DashboardProposalService`,
+`DashboardContentsService`, `PatchSetApplyService`/`PatchSetPreviewService`/
+`PatchSetApplyContext`, and ~40 test files across `api/routes/*`, `services/patchsets/*`,
+`services/workspace/*`, `services/proposals/*`, `services/assistant/*`, and `services/sources/*`.
+
+**Genuine (not merely mechanical) fixture rewrites, where a test needed real data, not just a
+compiling constructor call**:
+- Several fixtures seeded a real `data_types` row purely to satisfy `pipelines.
+  output_data_type_id`'s still-live FK (that column isn't dropped until task 2.10) via
+  `dataTypeRepo.insert` — rewired onto raw SQL inserts against `data_types` directly, since
+  `DataTypeRepository` no longer exists to do it for them (`WorkspaceContextServiceSpec`,
+  `WorkspaceSearchServiceSpec`, `WorkspaceTeardownServiceSpec`, `DashboardAuthoringServiceSpec`,
+  `SourceSchemaHealthCheckSpec`, `ResourceTagMigrationSpec`).
+- `DataSourceServiceRestartPersistenceSpec`'s SQL-source test wrote a companion DataType directly
+  — rewired onto `dataSourceRepo.upsertInferredSchema`, consistent with the other two tests in the
+  same file (already rewired in an earlier cycle) and with `PipelineRunService`'s own rewired read
+  path.
+- `PipelineRunServiceSpec`/`PipelineRunRoutesSpec`'s entire "HEL-891 schema union"
+  describe-block/test — genuinely retired functionality (the schema-union write itself is gone,
+  not relocated — design.md's "DataType.fields relocated to Outputs.schema" is a FUTURE caller,
+  not wired by this ticket), deleted outright rather than adapted.
+- The same two files' surviving row-content assertions (`dataTypeRowRepo.listRows`/
+  `.findByIdInternal`) rewired onto a new `snapshotRows(pid)` helper (`PipelineRunServiceSpec`) /
+  direct `nodeSnapshotRepo` calls (`PipelineRunRoutesSpec`) reading `node_snapshots` — the
+  surviving row-materialization write. One test ("does not update ... preserving the prior
+  snapshot") needed its trunk-last-step key captured BEFORE a later `stepRepo.insert` call changed
+  it, to keep testing the SAME snapshot row across both assertions — a genuine behavioral subtlety,
+  not a blind find/replace.
+- `AssistantServiceSpec`/`AssistantToolExecutorSpec`'s `DataTypeRepository`-mocking adapter
+  (`dataTypeBackedOutputRepo`/`toOutput`, from an earlier cycle) removed outright — `OutputRepository`
+  is directly mockable now that there's no `DataTypeRepository` stand-in to keep wiring around.
+- `ApiRoutesSpec`'s "DataType CRUD"/computed-fields test block and "DataType ownership
+  enforcement" describe block deleted outright (`/api/types` surface, entirely gone).
+- `PatchSetUndoServiceSpec`'s metric-deprecation-conflict test and its negative counterpart deleted
+  outright (metrics no longer exist).
+- `DataTypeServiceOverflowStructuredFieldNamesSpec` deleted outright — its pure function
+  (`overflowStructuredFieldNames`) is already independently inlined into
+  `WorkspaceContextService` (a prior cycle's rewire), so this spec's own coverage is now dead
+  weight testing a deleted companion object, not a coverage loss.
+
+**A live schema-drift gate consequence pulled forward from section 5, not deferred**:
+`schemas/metrics/` (4 files) deleted outright this cycle, ahead of task 5.1's own scheduled slot —
+`check-schema-drift.mjs` failed on them immediately after `MetricProtocol` (their backing case
+classes) was deleted, and design.md's own delivery-strategy line is explicit that the pre-commit
+gate must stay green on every commit, not just at section 5's. `schemas/data-types/
+data-type-assertion-status.schema.json` is untouched: its backing case class
+(`AssertionStatusResponse`, in `PipelineProtocol.scala`) was never DataType-specific — only its
+ACL-checked caller (`assertionStatusForDataType`/`DataTypeRoutes`) was deleted — so the drift
+check doesn't flag it, and the schema's move to `schemas/outputs/` stays task 5.1's own job.
+
+**Verification this cycle (fresh, exit codes read directly)**:
+- `sbt -batch compile` — clean after every file group.
+- `sbt -batch Test/compile` — iterated from ~100 initial errors (across roughly a dozen full
+  compile-error-triage rounds) to zero, using the compiler's own error list as the work queue
+  rather than pre-enumerating every affected file up front — the only reliable way to find every
+  downstream constructor-arg cascade this deletion touched.
+- `sbt -batch "testOnly com.helio.services.pipelines.PipelineRunServiceSpec"` — iterated on this
+  file specifically after the first full-suite run caught a `SchemaField` field-name bug
+  (`type`, not `dataType` — a genuinely wrong assumption in my own rewrite, not a pre-existing
+  defect) in the new raw-SQL `data_sources.inferred_schema` seeding, confirmed green (40/40)
+  before re-running the full suite.
+- `sbt -batch "testOnly com.helio.infrastructure.persistence.RlsPolicyGuardSpec"` — confirmed
+  green (82/82) after the task-4.4 table-list edit, including the HEL-842 non-vacuousness probe.
+- Full `sbt -batch "set Test / parallelExecution := false" test` run **TWICE** (single-threaded,
+  per HEL-924) — **3367/3367 passing both times**, exit code 0, 226 suites, 0 aborted, 0 failed.
+  Count is 3367, down from cycle 25's 3567: net -200 (8 whole spec files deleted outright, several
+  more individual test-block/describe-group deletions inside otherwise-kept files — see
+  `files-modified.md` for the full accounting), no unexplained loss.
+- `node scripts/check-scala-quality.mjs` — clean (131 soft warnings, down from cycle 25's 139 —
+  fewer/smaller files after the deletions, no new violations).
+- `node scripts/check-schema-drift.mjs` — clean after deleting `schemas/metrics/` (61 protocol
+  classes checked, 7 panel-type-enum surfaces checked).
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+
+**Section 4 status after this cycle: COMPLETE.** 4.1/4.2/4.3/4.4/4.5 all `[x]`. Only 4.6
+(splitting oversized pipeline service files, HEL-689) remains open in section 4 — explicitly
+lowest priority and deferrable per every prior resume brief; not attempted this cycle either (time
+went to 4.1's full-depth investigation instead, which is what the resume brief itself prioritized).
+
+**Task 2.10 (dropping `metrics`/`data_types`/`data_type_rows`/`output_data_type_id`/retired
+`panels` columns) remains NOT started** — its own standing rule requires 4.1 (now fully `[x]`) AND
+4.5 (now `[x]`) both landed before it unlocks. Both conditions are now met. This cycle did NOT
+reach it — section 4's own depth (the ~40-file constructor cascade, plus the genuine fixture
+rewrites above) consumed the full cycle. This is the single most irreversible step in the entire
+ticket; the next cycle should triple-confirm via grep (per the standing instruction) that NOTHING
+in `backend/src/main` or `backend/src/test` still references `data_types`, `data_type_rows`,
+`metrics`, or the retired `pipelines`/`panels` columns before executing it.
+
+**Next cycle should:**
+1. Task 2.10: triple-confirm via grep (`data_types`, `data_type_rows`, `metrics`, the retired
+   `pipelines.output_data_type_id`/`panels` columns) across all of `backend/src/main` and
+   `backend/src/test`, then add the four `DROP TABLE`/`DROP COLUMN` statements to the tail of the
+   already-landed V94 migration (per design.md decision 1e — this is the last step of the same
+   9-step data migration, not a new migration file), and re-run `V94OutputsMigrationSpec` fresh to
+   confirm every existing red-first assertion still passes with the drops now present.
+2. Task 4.6 (splitting oversized pipeline service files, HEL-689) — lowest priority, explicitly
+   deferrable; behavior-preserving only, do NOT touch `WorkspaceContextService.asNumeric`'s
+   structure/rounding (HEL-631 caution) — pick up only if 2.10 lands with time remaining.
+3. Section 5 (schemas + drift script + OpenSpec) is next after 2.10/4.6 in the row's own task
+   order — `schemas/metrics/` is already done (pulled forward this cycle); the remaining 5.1 work
+   is moving `data-type-assertion-status.schema.json` to `schemas/outputs/
+   output-assertion-status.schema.json`, plus 5.2-5.7's panel/alert-schema reshapes and the
+   `check-schema-drift.mjs` update those require.

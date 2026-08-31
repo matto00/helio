@@ -13,7 +13,6 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.testsupport.PdfFixtures
@@ -51,7 +50,6 @@ class DataSourceServiceSpec
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
-  private var dataTypeRepo: DataTypeRepository   = _
   private var dataSourceRepo: DataSourceRepository = _
   private var fileSystem: LocalFileSystem        = _
   private var service: DataSourceService         = _
@@ -102,7 +100,6 @@ class DataSourceServiceSpec
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx        = new DbContext(db, db)
-    dataTypeRepo   = new DataTypeRepository(ctx)
     dataSourceRepo = new DataSourceRepository(ctx)
     val tmpDir     = Files.createTempDirectory("helio-data-source-service-spec")
     fileSystem     = new LocalFileSystem(tmpDir)

@@ -18,7 +18,7 @@ import com.helio.api.protocols.auth.RedeemInviteCodeRequest
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.auth.{ConnectorCredentialRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
@@ -52,7 +52,6 @@ class ApiRoutesSpec
   private var panelRepo: PanelRepository                    = _
   private var dataSourceRepo: DataSourceRepository          = _
   private var connectorRepo: ConnectorRepository            = _
-  private var dataTypeRepo: DataTypeRepository              = _
   private var userRepo: UserRepository                      = _
   private var userPreferenceRepo: UserPreferenceRepository  = _
   private var permissionRepo: ResourcePermissionRepository  = _
@@ -83,11 +82,10 @@ class ApiRoutesSpec
     dashboardRepo      = new DashboardRepository(ctx)(typedSystem.executionContext)
     panelRepo          = new PanelRepository(ctx)(typedSystem.executionContext)
     dataSourceRepo     = new DataSourceRepository(ctx)(typedSystem.executionContext)
-    dataTypeRepo       = new DataTypeRepository(ctx)(typedSystem.executionContext)
     userRepo           = new UserRepository(db)(typedSystem.executionContext)
     userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
     permissionRepo     = new ResourcePermissionRepository(ctx)(typedSystem.executionContext)
-    pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
+    pipelineRepo       = new PipelineRepository(ctx, dataSourceRepo)(typedSystem.executionContext)
     pipelineStepRepo   = new PipelineStepRepository(ctx)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
     connectorRepo      = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(typedSystem.executionContext))(typedSystem.executionContext)
@@ -140,7 +138,7 @@ class ApiRoutesSpec
 
   /** Builds the raw routes (no automatic auth header). */
   private def rawRoutes(connector: RestApiConnectorDriver = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       // HEL-822: dbContext wired so SourceService.createRest's bare-url dual-support path has a
       // real ConnectorRepository to synthesize an implicit Connector through.
       dbContext = ctx
@@ -148,7 +146,7 @@ class ApiRoutesSpec
 
   /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
   private def realSessionRoutes(): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
 
   import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 
@@ -816,328 +814,8 @@ class ApiRoutesSpec
       }
     }
 
-    // ── DataType CRUD ──────────────────────────────────────────────────────────
+    // HEL-904 task 4.5: DataType CRUD/computed-fields test block removed outright -- /api/types no longer exists.
 
-    "return an empty data type collection by default" in {
-      cleanDb()
-      Get("/api/types") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[PagedResult[DataTypeResponse]].items shouldBe Vector.empty
-      }
-    }
-
-    "return 404 for a non-existent data type" in {
-      Get("/api/types/does-not-exist") ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-        responseAs[ErrorResponse] shouldBe ErrorResponse("DataType not found")
-      }
-    }
-
-    "update a data type name and fields and increment version" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "Original",
-        fields    = Vector(DataField("col1", "Column 1", "string", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/types/${dt.id.value}",
-        UpdateDataTypeRequest(
-          name   = Some("Renamed"),
-          fields = Some(Vector(DataFieldPayload("col1", "Column 1", "string", nullable = false), DataFieldPayload("col2", "Column 2", "integer", nullable = true)))
-        )
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[DataTypeResponse]
-        response.name shouldBe "Renamed"
-        response.fields should have size 2
-        response.version shouldBe 2
-      }
-    }
-
-    "return 404 when patching a non-existent data type" in {
-      Patch(
-        "/api/types/does-not-exist",
-        UpdateDataTypeRequest(name = Some("X"), fields = None)
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-        responseAs[ErrorResponse] shouldBe ErrorResponse("DataType not found")
-      }
-    }
-
-    "delete a data type and return 204" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ToDelete",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Delete(s"/api/types/${dt.id.value}") ~> routes() ~> check {
-        status shouldBe StatusCodes.NoContent
-      }
-
-      Get(s"/api/types/${dt.id.value}") ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-      }
-    }
-
-    "return 404 when deleting a non-existent data type" in {
-      Delete("/api/types/does-not-exist") ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-        responseAs[ErrorResponse] shouldBe ErrorResponse("DataType not found")
-      }
-    }
-
-    // HEL-904 task 4.1: "return 409 when deleting a data type bound to a
-    // panel" removed outright -- Text/Markdown's data-bound "Source mode"
-    // no longer exists, so no panel kind can ever be bound to a DataType
-    // anymore, and `DataTypeService.delete`'s `existsBoundToAnyOwnedPanel`
-    // guard can never fire (queries a `panels.type_id` column no live panel
-    // kind ever populates).
-
-    // ── DataType computed fields ───────────────────────────────────────────────
-
-    "PATCH /api/types/:id includes computedFields and returns updated DataType" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "PriceType",
-        fields    = Vector(
-          DataField("price", "Price", "float", nullable = false),
-          DataField("quantity", "Quantity", "integer", nullable = false)
-        ),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/types/${dt.id.value}",
-        UpdateDataTypeRequest(
-          name   = None,
-          fields = None,
-          computedFields = Some(Vector(
-            ComputedFieldPayload("total", "Total", "price * quantity", "float")
-          ))
-        )
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[DataTypeResponse]
-        response.computedFields should have size 1
-        response.computedFields.head.name shouldBe "total"
-        response.computedFields.head.expression shouldBe "price * quantity"
-        response.version shouldBe 2
-      }
-    }
-
-    "GET /api/types/:id includes computedFields array" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id             = DataTypeId(UUID.randomUUID().toString),
-        sourceId       = None,
-        name           = "WithComputed",
-        fields         = Vector(DataField("x", "X", "float", nullable = false)),
-        computedFields = Vector(ComputedField("doubled", "Doubled", "x * 2", "float")),
-        version        = 1,
-        createdAt      = Instant.now(),
-        updatedAt      = Instant.now(),
-        ownerId        = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get(s"/api/types/${dt.id.value}") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[DataTypeResponse]
-        response.computedFields should have size 1
-        response.computedFields.head.name shouldBe "doubled"
-      }
-    }
-
-    "PATCH /api/types/:id with invalid computed field expression returns 400" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ErrorType",
-        fields    = Vector(DataField("price", "Price", "float", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/types/${dt.id.value}",
-        UpdateDataTypeRequest(
-          name   = None,
-          fields = None,
-          computedFields = Some(Vector(
-            ComputedFieldPayload("bad", "Bad", "price **", "float")
-          ))
-        )
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-    }
-
-    "PATCH /api/types/:id with expression exceeding 500 chars returns 400" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "LongExprType",
-        fields    = Vector(DataField("x", "X", "float", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      val longExpr = "x + " * 200 // > 500 chars
-
-      Patch(
-        s"/api/types/${dt.id.value}",
-        UpdateDataTypeRequest(
-          name   = None,
-          fields = None,
-          computedFields = Some(Vector(
-            ComputedFieldPayload("toolong", "Too Long", longExpr, "float")
-          ))
-        )
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-    }
-
-    "GET /api/types/:id/validate-expression returns valid=true for a valid expression" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ValidateType",
-        fields    = Vector(
-          DataField("price", "Price", "float", nullable = false),
-          DataField("quantity", "Qty", "integer", nullable = false)
-        ),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get(s"/api/types/${dt.id.value}/validate-expression?expr=price+*+quantity") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[ValidateExpressionResponse]
-        response.valid shouldBe true
-        response.message shouldBe None
-      }
-    }
-
-    "GET /api/types/:id/validate-expression returns valid=false for syntax error" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ValidateSyntaxType",
-        fields    = Vector(DataField("price", "Price", "float", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get(s"/api/types/${dt.id.value}/validate-expression?expr=price+**") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[ValidateExpressionResponse]
-        response.valid shouldBe false
-        response.message shouldBe defined
-      }
-    }
-
-    "GET /api/types/:id/validate-expression returns valid=false for unknown field" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ValidateFieldType",
-        fields    = Vector(DataField("price", "Price", "float", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get(s"/api/types/${dt.id.value}/validate-expression?expr=nonexistent+*+2") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[ValidateExpressionResponse]
-        response.valid shouldBe false
-        response.message shouldBe Some("Unknown field: nonexistent")
-      }
-    }
-
-    "GET /api/types/:id/validate-expression returns 404 for unknown DataType" in {
-      Get(s"/api/types/no-such-id/validate-expression?expr=x+*+2") ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-      }
-    }
 
     // ── DataSources ────────────────────────────────────────────────────────────
 
@@ -1284,7 +962,7 @@ class ApiRoutesSpec
 
     // ── REST connector routes ──────────────────────────────────────────────────
 
-    "POST /api/sources creates DataSource and registers DataType on successful fetch" in {
+    "POST /api/sources creates DataSource with inferredSchema on successful fetch" in {
       cleanDb()
       import spray.json._
 
@@ -2843,105 +2521,8 @@ class ApiRoutesSpec
     }
   }
 
-  // ── DataType ACL tests (Task 7.4) ────────────────────────────────────────────
+  // HEL-904 task 4.5: "DataType ownership enforcement" ACL test block removed outright -- /api/types no longer exists.
 
-  "DataType ownership enforcement" should {
-
-    "GET /api/types returns only types owned by the authenticated user" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      // HEL-904: `POST /api/data-sources` no longer auto-creates a companion DataType — insert
-      // testUser's type directly to exercise the still-live DataTypeRoutes ACL surface.
-      val userDt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "User Type",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = testUser.id
-      )
-      await(dataTypeRepo.insert(userDt, testUser))
-
-      // Insert a type owned by another user directly
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "Other Type",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(otherUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get("/api/types") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val types = responseAs[PagedResult[DataTypeResponse]]
-        types.items.map(_.name) should contain ("User Type")
-        types.items.map(_.name) should not contain "Other Type"
-      }
-    }
-
-    "PATCH /api/types/:id returns 404 when caller does not own the type (HEL-265 CS3)" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      // HEL-904: `POST /api/data-sources` no longer auto-creates a companion DataType.
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "My Type",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = testUser.id
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-      val typeId = dt.id.value
-
-      // otherUser tries to PATCH it — returns 404, not 403 (existence is not leaked)
-      Patch(s"/api/types/$typeId",
-        UpdateDataTypeRequest(name = Some("Hacked"), fields = None)
-      ) ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.NotFound
-      }
-    }
-
-    "DELETE /api/types/:id returns 404 when caller does not own the type (HEL-265 CS3)" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      // HEL-904: `POST /api/data-sources` no longer auto-creates a companion DataType.
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "My Type2",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = testUser.id
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-      val typeId = dt.id.value
-
-      // otherUser tries to DELETE it — returns 404, not 403 (existence is not leaked)
-      Delete(s"/api/types/$typeId") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.NotFound
-      }
-    }
-  }
 
   // HEL-904 task 4.1: the "Cross-user panel type binding" test (Task 7.5) is
   // removed outright -- Text/Markdown's data-bound "Source mode" no longer
@@ -3003,7 +2584,7 @@ class ApiRoutesSpec
           Future.failed(new RuntimeException(secret))
       }
       val failingRoutes: Route = new ApiRoutes(
-        dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem,
+        dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem,
         stubConnector(Left("no real HTTP in tests")), failingUserRepo, realSessionRepo, userPreferenceRepo,
         pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
         new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)

@@ -5,9 +5,8 @@ import com.helio.services.ServiceError
 import com.helio.services.proposals.DashboardProposalService
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository}
-import com.helio.infrastructure.persistence.metrics.MetricRepository
-import org.mockito.Mockito.{mock, verifyNoInteractions, when}
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import org.mockito.Mockito.{mock, when}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json.{JsObject, JsString}
@@ -22,9 +21,10 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  `DashboardProposalService` existed before this ticket; `apply`'s own route-level regression net
  *  (`DashboardApplyProposal*Spec`, real Postgres/RLS) is left untouched and unmodified.
  *
- *  Mocked repos only (`DataTypeRepository`/`MetricRepository` are plain, non-final classes —
- *  mockable, mirroring `PanelServiceMetricBindingSpec`'s precedent) — no embedded-Postgres harness,
- *  per the ticket brief.
+ *  Mocked repo only (`OutputRepository` is a plain, non-final class -- mockable, mirroring
+ *  `PanelServiceMetricBindingSpec`'s precedent) — no embedded-Postgres harness, per the ticket
+ *  brief. HEL-904 task 4.1: `DataTypeRepository`/`MetricRepository` removed outright -- DataTypes/
+ *  metrics no longer exist, and `DashboardProposalService`'s constructor no longer takes either.
  *
  *  `dashboardService`/`panelService` are passed `null`: `validate` never calls either (by
  *  construction — a NullPointerException would fail these tests loudly if that ever changed), so a
@@ -42,23 +42,13 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private val outputTypeId    = DataTypeId(UUID.randomUUID().toString)
   private val companionTypeId = DataTypeId(UUID.randomUUID().toString)
 
-  private def pipelineOutputDataType(id: DataTypeId): DataType =
-    DataType(id, None, "Output", Vector.empty, Vector.empty, 1, now, now, ownerId)
-
-  private def companionDataType(id: DataTypeId): DataType =
-    DataType(id, Some(DataSourceId(UUID.randomUUID().toString)), "Companion", Vector.empty, Vector.empty, 1, now, now, ownerId)
-
   // HEL-904 task 3.8/3.9: an "output"-kind panel's binding now validates
   // against a real Output, not a DataType.
   private def realOutput(id: OutputId): Output =
     Output(id, "Output", ownerId, NodeRef(PipelineId(UUID.randomUUID().toString), None), OutputKind.Table, now, now)
 
-  private def newService(
-      dtRepo: DataTypeRepository,
-      metricRepo: MetricRepository = mock(classOf[MetricRepository]),
-      outputRepo: OutputRepository = mock(classOf[OutputRepository])
-  ): DashboardProposalService =
-    new DashboardProposalService(null, null, dtRepo, metricRepo, outputRepo)
+  private def newService(outputRepo: OutputRepository = mock(classOf[OutputRepository])): DashboardProposalService =
+    new DashboardProposalService(null, null, outputRepo)
 
   private def metricPanel(dataTypeId: DataTypeId, `type`: String = "output"): ProposalPanel =
     ProposalPanel(
@@ -85,12 +75,11 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   "DashboardProposalService.validate" should {
 
     "accept a structurally valid proposal bound to a pipeline-output DataType" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
       val outputRepo = mock(classOf[OutputRepository])
       when(outputRepo.findByIdOwned(OutputId(outputTypeId.value), user)).thenReturn(Future.successful(Some(realOutput(OutputId(outputTypeId.value)))))
 
       val proposal = DashboardProposal("Sales", Vector(metricPanel(outputTypeId)))
-      val result   = await(newService(dtRepo, outputRepo = outputRepo).validate(proposal, user))
+      val result   = await(newService(outputRepo).validate(proposal, user))
 
       result shouldBe Right(())
     }
@@ -101,12 +90,11 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     // concept for Outputs (that distinction was DataType-only), so the rejection is an ordinary
     // not-found.
     "reject a binding to a nonexistent Output, identically to apply" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
       val outputRepo = mock(classOf[OutputRepository])
       when(outputRepo.findByIdOwned(OutputId(companionTypeId.value), user)).thenReturn(Future.successful(None))
 
       val proposal = DashboardProposal("Sales", Vector(metricPanel(companionTypeId)))
-      val result   = await(newService(dtRepo, outputRepo = outputRepo).validate(proposal, user))
+      val result   = await(newService(outputRepo).validate(proposal, user))
 
       result shouldBe a[Left[_, _]]
       val err = result.swap.toOption.get
@@ -115,23 +103,19 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     }
 
     "reject a blank dashboardName before any repository lookup" in {
-      val dtRepo   = mock(classOf[DataTypeRepository])
       val proposal = DashboardProposal("   ", Vector.empty)
 
-      val result = await(newService(dtRepo).validate(proposal, user))
+      val result = await(newService().validate(proposal, user))
 
       result shouldBe a[Left[_, _]]
-      verifyNoInteractions(dtRepo)
     }
 
     "reject an unknown panel type before any repository lookup" in {
-      val dtRepo   = mock(classOf[DataTypeRepository])
       val proposal = DashboardProposal("Sales", Vector(metricPanel(outputTypeId, `type` = "bogus")))
 
-      val result = await(newService(dtRepo).validate(proposal, user))
+      val result = await(newService().validate(proposal, user))
 
       result shouldBe a[Left[_, _]]
-      verifyNoInteractions(dtRepo)
     }
   }
 }

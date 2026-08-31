@@ -12,10 +12,9 @@ import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
@@ -59,7 +58,6 @@ abstract class ApplyProposalSpecBase
   private var appDb: JdbcBackend.Database        = _
   private var privilegedDb: JdbcBackend.Database = _
   private var ctx: DbContext                     = _
-  private var metricRepo: MetricRepository       = _
   protected var routes: Route                    = _
 
   protected val userId = "00000000-0000-0000-0000-0000000000a1"
@@ -131,23 +129,20 @@ abstract class ApplyProposalSpecBase
     val dashboardRepo    = new DashboardRepository(ctx)(routeEc)
     val panelRepo        = new PanelRepository(ctx)(routeEc)
     val dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
-    val dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
     val userRepo         = new UserRepository(appDb)(routeEc)
     val userPrefRepo     = new UserPreferenceRepository(appDb)(routeEc)
     val permissionRepo   = new ResourcePermissionRepository(ctx)(routeEc)
-    val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    val pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     val pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
-    metricRepo           = new MetricRepository(ctx)(routeEc)
 
     routes = new ApiRoutes(
-      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
+      dashboardRepo, panelRepo, dataSourceRepo, permissionRepo,
       stubFileSystem, new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP")))),
       userRepo, stubSessionRepo, userPrefRepo, pipelineRepo, pipelineStepRepo,
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc),
       // HEL-549: wires a real MetricRepository so apply-proposal specs can
       // exercise the metricId validation path (nullable-optional default
       // otherwise, mirroring ApiRoutes's own convention).
-      metricRepo = metricRepo,
       // HEL-904 task 3.9: wires a real OutputRepository (via `dbContext`) so
       // `DashboardProposalService`/`DashboardContentsService` can validate an
       // "output"-kind panel's binding.

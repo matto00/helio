@@ -2,7 +2,6 @@ package com.helio.app
 
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -11,6 +10,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend
+import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
 import java.util.UUID
@@ -27,7 +27,6 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
   private var db: JdbcBackend.Database              = _
   private var ctx: DbContext                        = _
   private var dataSourceRepo: DataSourceRepository  = _
-  private var dataTypeRepo: DataTypeRepository      = _
 
   private val owner = UserId(UUID.randomUUID().toString)
   private lazy val user = AuthenticatedUser(owner)
@@ -43,7 +42,6 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     ctx            = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
-    dataTypeRepo   = new DataTypeRepository(ctx)
   }
 
   override def afterAll(): Unit = {
@@ -52,10 +50,8 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
 
   private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
-  private def cleanDb(): Unit = {
-    import slick.jdbc.PostgresProfile.api._
+  private def cleanDb(): Unit =
     await(db.run(sqlu"TRUNCATE TABLE data_types, data_sources RESTART IDENTITY CASCADE"))
-  }
 
   private def insertSource(name: String): DataSource = {
     val now    = Instant.now()
@@ -71,6 +67,8 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
     source
   }
 
+  // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- insert the linked `data_types`
+  // row directly (raw SQL), matching its exact old empty-computedFields shape.
   private def insertLinkedDataType(source: DataSource): DataType = {
     val now = Instant.now()
     val dt = DataType(
@@ -83,7 +81,12 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
       updatedAt = now,
       ownerId   = owner
     )
-    await(dataTypeRepo.insert(dt, user))
+    await(db.run(sqlu"""
+      INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
+      VALUES (${dt.id.value}, ${source.id.value}, ${source.name},
+        '[{"name":"a","displayName":"A","dataType":"string","nullable":true}]'::jsonb,
+        '[]'::jsonb, 1, now(), now(), ${owner.value}::uuid)
+    """))
     dt
   }
 
@@ -128,7 +131,10 @@ class SourceSchemaHealthCheckSpec extends AnyWordSpec with Matchers with BeforeA
         updatedAt = now,
         ownerId   = owner
       )
-      await(dataTypeRepo.insert(pipeDt, user))
+      await(db.run(sqlu"""
+        INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
+        VALUES (${pipeDt.id.value}, NULL, 'PipelineOutput', '[]'::jsonb, '[]'::jsonb, 1, now(), now(), ${owner.value}::uuid)
+      """))
 
       val orphans = await(SourceSchemaHealthCheck.findOrphans(ctx))
       orphans shouldBe empty

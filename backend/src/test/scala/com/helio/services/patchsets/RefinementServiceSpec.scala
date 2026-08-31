@@ -5,7 +5,7 @@ import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
 import com.helio.services.panels.PanelCapabilityService
 import com.helio.services.patchsets.{PatchSetPreviewService, RefinementGrounding, RefinementService}
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.workspace.WorkspaceContextService
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
@@ -13,9 +13,8 @@ import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -70,7 +69,6 @@ class RefinementServiceSpec
   private var dashboardRepo: DashboardRepository       = _
   private var panelRepo: PanelRepository               = _
   private var dataSourceRepo: DataSourceRepository     = _
-  private var dataTypeRepo: DataTypeRepository         = _
   private var pipelineRepo: PipelineRepository         = _
   private var pipelineStepRepo: PipelineStepRepository = _
 
@@ -99,11 +97,8 @@ class RefinementServiceSpec
     dashboardRepo    = new DashboardRepository(ctx)
     panelRepo         = new PanelRepository(ctx)
     dataSourceRepo    = new DataSourceRepository(ctx)
-    dataTypeRepo      = new DataTypeRepository(ctx)
-    val dataTypeRowRepo = new DataTypeRowRepository(ctx)
-    pipelineRepo      = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)
     pipelineStepRepo  = new PipelineStepRepository(ctx)
-    val metricRepo      = new MetricRepository(ctx)
 
     val registry = new ResourceTypeRegistry(
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
@@ -119,16 +114,16 @@ class RefinementServiceSpec
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, fs)
-    val dataTypeService = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
+    // HEL-904 task 3.12/4.1: WorkspaceContextService takes OutputRepository now (dataTypeService
+    // no longer exists).
     val outputRepo     = new OutputRepository(ctx)
     val nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
-    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     val panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     patchSetPreviewService = new PatchSetPreviewService(
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo, metricRepo, accessChecker
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker
     )
     refinementGrounding = new RefinementGrounding(dashboardRepo, panelRepo, pipelineService, workspaceContextService, panelCapabilityService)
     conversationRepo = new AuthoringConversationRepository(ctx)

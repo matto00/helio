@@ -12,7 +12,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class PipelineRepository(
     ctx: DbContext,
-    dataTypeRepo: DataTypeRepository,
     dataSourceRepo: DataSourceRepository
 )(implicit ec: ExecutionContext) {
 
@@ -20,7 +19,6 @@ class PipelineRepository(
 
   private val pipelinesTable   = TableQuery[PipelineTable]
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
-  private val dataTypesTable   = TableQuery[DataTypeRepository.DataTypeTable]
   private val permTable        = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
 
   /** Owner-scoped existence check. Used to gate `addStep` / `listSteps`. */

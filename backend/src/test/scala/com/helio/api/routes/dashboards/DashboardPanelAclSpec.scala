@@ -13,7 +13,7 @@ import com.helio.api.{ApiRoutes, JsonProtocols}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -68,7 +68,6 @@ class DashboardPanelAclSpec
   private var ctx: DbContext                               = _
   private var dashboardRepo: DashboardRepository           = _
   private var panelRepo: PanelRepository                   = _
-  private var dataTypeRepo: DataTypeRepository             = _
   private var dataSourceRepo: DataSourceRepository         = _
   private var permissionRepo: ResourcePermissionRepository = _
   private var userRepo: UserRepository                     = _
@@ -102,7 +101,6 @@ class DashboardPanelAclSpec
     ctx            = new DbContext(db, db)(routeEc)
     dashboardRepo  = new DashboardRepository(ctx)(routeEc)
     panelRepo      = new PanelRepository(ctx)(routeEc)
-    dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)
     dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
     permissionRepo = new ResourcePermissionRepository(ctx)(routeEc)
     userRepo       = new UserRepository(db)(routeEc)
@@ -190,7 +188,7 @@ class DashboardPanelAclSpec
 
 
   private def mkPipelineRepo =
-    new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    new PipelineRepository(ctx, dataSourceRepo)(routeEc)
   private def mkPipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
 
   private def stubFileSystem = {
@@ -200,7 +198,7 @@ class DashboardPanelAclSpec
 
   private def buildRoutes(): ApiRoutes =
     new ApiRoutes(
-      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
+      dashboardRepo, panelRepo, dataSourceRepo, permissionRepo,
       stubFileSystem,
       new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP in tests")))),
       userRepo, stubSessionRepo, userPrefRepo,

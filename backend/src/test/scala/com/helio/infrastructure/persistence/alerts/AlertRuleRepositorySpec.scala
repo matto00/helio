@@ -2,7 +2,7 @@ package com.helio.infrastructure.persistence.alerts
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -27,7 +27,6 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var arRepo: AlertRuleRepository        = _
-  private var dtRepo: DataTypeRepository         = _
   private var dsRepo: DataSourceRepository       = _
   private var pipeRepo: PipelineRepository       = _
   private var outRepo: OutputRepository          = _
@@ -45,9 +44,8 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)
     arRepo = new AlertRuleRepository(ctx)
-    dtRepo = new DataTypeRepository(ctx)
     dsRepo = new DataSourceRepository(ctx)
-    pipeRepo = new PipelineRepository(ctx, dtRepo, dsRepo)
+    pipeRepo = new PipelineRepository(ctx, dsRepo)
     outRepo = new OutputRepository(ctx)
   }
 

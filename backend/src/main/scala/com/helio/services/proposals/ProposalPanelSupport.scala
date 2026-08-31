@@ -4,8 +4,8 @@ import com.helio.services.ServiceError
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.api.protocols.proposals.ProposalPanel
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataTypeId, OutputId, PanelType}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository}
+import com.helio.domain.model.{AuthenticatedUser, DashboardId, OutputId, PanelType}
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import spray.json.{JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -55,30 +55,32 @@ object ProposalPanelSupport {
   def preValidateBindings(
       panels: Vector[ProposalPanel],
       user: AuthenticatedUser,
-      dataTypeRepo: DataTypeRepository,
       outputRepo: OutputRepository = null
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
     panels.foldLeft[Future[Either[ServiceError, Unit]]](Future.successful(Right(()))) {
       (accF, panel) =>
         accF.flatMap {
           case Left(err) => Future.successful(Left(err))
-          case Right(_)  => validateDataTypeBinding(panel, user, dataTypeRepo, outputRepo)
+          case Right(_)  => validateDataTypeBinding(panel, user, outputRepo)
         }
     }
 
   /** HEL-904 task 3.8/3.9: an `"output"`-kind panel's binding candidate is a
-   *  real Output id, not a DataType id — validated against
-   *  [[OutputRepository.findByIdOwned]] instead. Every other data-bound kind
-   *  (Text/Markdown) is unchanged, still validated against `dataTypeRepo`.
-   *  `outputRepo` is nullable, mirroring this file's other legacy-optional
-   *  constructor params (`metricRepo` et al.) — a caller that never wires it
-   *  (many test doubles, and any call site that doesn't yet construct
-   *  output-kind panels) gets existence-check skipped rather than an NPE,
-   *  exactly like this codebase's other nullable-optional dependencies. */
+   *  real Output id, validated against [[OutputRepository.findByIdOwned]].
+   *  Task 4.1: the non-`"output"` (Text/Markdown) branch, which used to
+   *  validate against the now-deleted `DataTypeRepository`, is removed
+   *  outright — `TextPanelConfig`/`MarkdownPanelConfig` no longer carry a
+   *  `dataTypeId` at all (the V94 migration converted every data-bound
+   *  text/markdown panel into a `markdown`-kind Output + `OutputPanel`
+   *  placement, design.md line 76/103), so a non-output panel's
+   *  `panel.dataTypeId` is never a real binding to validate. `outputRepo`
+   *  is nullable, mirroring this file's other legacy-optional constructor
+   *  params — a caller that never wires it (many test doubles, and any call
+   *  site that doesn't yet construct output-kind panels) gets
+   *  existence-check skipped rather than an NPE. */
   private def validateDataTypeBinding(
       panel: ProposalPanel,
       user: AuthenticatedUser,
-      dataTypeRepo: DataTypeRepository,
       outputRepo: OutputRepository
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
     bindingCandidate(panel) match {
@@ -90,16 +92,7 @@ object ProposalPanelSupport {
           case None    => Left(ServiceError.BadRequest(s"panel '${panel.title}': output $id not found"))
           case Some(_) => Right(())
         }
-      case Some(id) =>
-        dataTypeRepo.findByIdOwned(DataTypeId(id), user).map {
-          case None =>
-            Left(ServiceError.BadRequest(s"panel '${panel.title}': dataType $id not found"))
-          case Some(dt) if dt.sourceId.isDefined =>
-            Left(ServiceError.BadRequest(
-              s"panel '${panel.title}': panels can only bind to pipeline-output data types"
-            ))
-          case Some(_) => Right(())
-        }
+      case Some(_) => Future.successful(Right(()))
     }
 
   // HEL-904 task 3.9: `validateMetricBinding` (HEL-549) removed outright —

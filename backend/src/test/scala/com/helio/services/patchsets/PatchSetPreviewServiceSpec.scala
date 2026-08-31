@@ -13,15 +13,14 @@ import com.helio.services.auth.AccessChecker
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService}
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import org.apache.pekko.actor.typed.ActorSystem
@@ -83,9 +82,6 @@ class PatchSetPreviewServiceSpec
   private var dashboardRepo: DashboardRepository             = _
   private var panelRepo: PanelRepository                     = _
   private var dataSourceRepo: DataSourceRepository           = _
-  private var dataTypeRepo: DataTypeRepository               = _
-  private var dataTypeRowRepo: DataTypeRowRepository         = _
-  private var metricRepo: MetricRepository                   = _
   private var permissionRepo: ResourcePermissionRepository   = _
   private var pipelineRepo: PipelineRepository               = _
   private var pipelineStepRepo: PipelineStepRepository       = _
@@ -93,7 +89,6 @@ class PatchSetPreviewServiceSpec
   private var dashboardService: DashboardService     = _
   private var panelService: PanelService             = _
   private var dataSourceService: DataSourceService   = _
-  private var dataTypeService: DataTypeService        = _
   private var pipelineService: PipelineService        = _
   private var service: PatchSetPreviewService         = _
   private var applyService: PatchSetApplyService      = _
@@ -154,11 +149,8 @@ class PatchSetPreviewServiceSpec
     dashboardRepo    = new DashboardRepository(ctx)(routeEc)
     panelRepo         = new PanelRepository(ctx)(routeEc)
     dataSourceRepo    = new DataSourceRepository(ctx)(routeEc)
-    dataTypeRepo      = new DataTypeRepository(ctx)(routeEc)
-    dataTypeRowRepo   = new DataTypeRowRepository(ctx)(routeEc)
-    metricRepo        = new MetricRepository(ctx)(routeEc)
     permissionRepo    = new ResourcePermissionRepository(ctx)(routeEc)
-    pipelineRepo      = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo  = new PipelineStepRepository(ctx)(routeEc)
 
     val registry = new ResourceTypeRegistry(
@@ -173,18 +165,17 @@ class PatchSetPreviewServiceSpec
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
-    dataTypeService     = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     service = new PatchSetPreviewService(
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-      metricRepo, accessChecker
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+      accessChecker
     )
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     applyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-      metricRepo, accessChecker, applicationRepo
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+      accessChecker, applicationRepo
     )
 
     seedUsers()
@@ -237,12 +228,6 @@ class PatchSetPreviewServiceSpec
       case Left(e)  => fail(s"seedStaticSource failed: $e")
     }
     ds.id
-  }
-
-  private def seedPipelineOutputType(owner: AuthenticatedUser, name: String): DataType = {
-    val now = Instant.now()
-    val dt = DataType(DataTypeId(UUID.randomUUID().toString), None, name, Vector(DataField("value", "value", "integer", nullable = true)), Vector.empty, 1, now, now, owner.id)
-    await(dataTypeRepo.insert(dt, owner))
   }
 
   private def seedPipeline(owner: AuthenticatedUser, sourceId: DataSourceId, name: String = "Pipeline"): PipelineSummaryResponse =

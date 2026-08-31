@@ -11,8 +11,7 @@ import com.helio.domain.panels.PanelConfigCodec
 import com.helio.domain.model.{AuthenticatedUser, PatchSetApplicationId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
-import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import PatchSetApplicationRepository.{JournaledEdit, PatchSetApplicationRecord}
@@ -54,13 +53,8 @@ final class PatchSetApplyService(
     panelRepo: PanelRepository,
     dashboardRepo: DashboardRepository,
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo: DataTypeRepository,
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
-    // Nullable-optional wiring mirrors `PanelService`'s own convention for
-    // `metricRepo` — only touched when an edit's config patch actually
-    // carries a `metricId` (design.md D2a).
-    metricRepo: MetricRepository,
     accessChecker: AccessChecker,
     // HEL-413 design.md D2: journals a successful (no `failure`) apply so a
     // later `PatchSetUndoService.undo` can restore it. Written synchronously,
@@ -70,7 +64,7 @@ final class PatchSetApplyService(
 )(implicit ec: ExecutionContext) {
 
   private val context: PatchSetApplyContext =
-    PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo, metricRepo, accessChecker)
+    PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker)
 
   private val services: PatchSetApplyServices =
     PatchSetApplyServices(panelService, dashboardService, dataSourceService, pipelineService)

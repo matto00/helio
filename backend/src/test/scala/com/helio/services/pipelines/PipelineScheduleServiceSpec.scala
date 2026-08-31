@@ -6,7 +6,7 @@ import com.helio.services.pipelines.PipelineScheduleService
 import com.helio.api.protocols.pipelines.PutPipelineScheduleRequest
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineScheduleRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineScheduleRepository}
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -53,8 +53,7 @@ class PipelineScheduleServiceSpec extends AnyWordSpec with Matchers with BeforeA
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx           = new DbContext(db, db)
     val dataSourceRepo = new DataSourceRepository(ctx)
-    val dataTypeRepo   = new DataTypeRepository(ctx)
-    val pipelineRepo   = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    val pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)
     scheduleRepo = new PipelineScheduleRepository(ctx)
     service = new PipelineScheduleService(scheduleRepo, pipelineRepo)
   }

@@ -11,7 +11,7 @@ import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDri
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
@@ -40,7 +40,6 @@ final class PipelineService(
     pipelineRepo:     PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     dataSourceRepo:   DataSourceRepository,
-    dataTypeRepo:     DataTypeRepository,
     // HEL-381: nullable-optional wiring mirrors the many other optional
     // collaborators ApiRoutes.scala threads (e.g. binaryRefRepo/imageUploadRepo) —
     // fixtures that don't pass a RestApiConnectorDriver simply can't dry-analyze an

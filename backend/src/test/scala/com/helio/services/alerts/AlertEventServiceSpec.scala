@@ -5,7 +5,7 @@ import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEventService
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -33,7 +33,6 @@ class AlertEventServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfte
   private var db: JdbcBackend.Database           = _
   private var alertEventRepo: AlertEventRepository = _
   private var alertRuleRepo: AlertRuleRepository    = _
-  private var dataTypeRepo: DataTypeRepository      = _
   private var dataSourceRepo: DataSourceRepository  = _
   private var pipelineRepo: PipelineRepository      = _
   private var outputRepo: OutputRepository          = _
@@ -58,9 +57,8 @@ class AlertEventServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfte
     val ctx         = new DbContext(db, db)
     alertEventRepo  = new AlertEventRepository(ctx)
     alertRuleRepo   = new AlertRuleRepository(ctx)
-    dataTypeRepo    = new DataTypeRepository(ctx)
     dataSourceRepo  = new DataSourceRepository(ctx)
-    pipelineRepo    = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo    = new PipelineRepository(ctx, dataSourceRepo)
     outputRepo      = new OutputRepository(ctx)
     service         = new AlertEventService(alertEventRepo)
   }

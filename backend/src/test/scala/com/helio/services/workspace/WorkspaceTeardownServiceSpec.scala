@@ -3,7 +3,7 @@ package com.helio.services.workspace
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.WorkspaceTeardownService
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -73,7 +73,6 @@ class WorkspaceTeardownServiceSpec
   private var ctx: DbContext                     = _
 
   private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
   private var pipelineRepo: PipelineRepository     = _
   private var dataSourceService: DataSourceService = _
   private var teardownService: WorkspaceTeardownService = _
@@ -129,8 +128,7 @@ class WorkspaceTeardownServiceSpec
 
     ctx            = new DbContext(appDb, privilegedDb)(routeEc)
     dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
-    dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)
-    pipelineRepo   = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
 
     val tmpDir = Files.createTempDirectory("helio-teardown-spec")
     val fs     = new LocalFileSystem(tmpDir)
@@ -204,22 +202,17 @@ class WorkspaceTeardownServiceSpec
       case Right(s)  => s
       case Left(err) => fail(s"pipeline create failed: $err")
     }
-    val now = Instant.now()
-    val dataType = DataType(
-      id             = DataTypeId(UUID.randomUUID().toString),
-      sourceId       = None,
-      name           = outputName,
-      fields         = Vector.empty,
-      computedFields = Vector.empty,
-      version        = 1,
-      createdAt      = now,
-      updatedAt      = now,
-      ownerId        = user.id,
-      tag            = tag
-    )
-    val createdDataType = await(dataTypeRepo.insert(dataType, user))
-    await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), createdDataType.id))
-    SeededPipeline(id = summary.id, outputDataTypeId = createdDataType.id.value)
+    // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- insert the companion
+    // `data_types` row directly (raw SQL, privileged pool) purely to satisfy
+    // `pipelines.output_data_type_id`'s FK, matching `dataTypeRepo.insert`'s old
+    // empty-fields/empty-computedFields shape exactly.
+    val dataTypeId = DataTypeId(UUID.randomUUID().toString)
+    await(ctx.withSystemContext(sqlu"""
+      INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id, tag)
+      VALUES (${dataTypeId.value}, NULL, $outputName, '[]'::jsonb, '[]'::jsonb, 1, now(), now(), ${user.id.value}::uuid, $tag)
+    """))
+    await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), dataTypeId))
+    SeededPipeline(id = summary.id, outputDataTypeId = dataTypeId.value)
   }
 
   /** Directly rewrite a pipeline's/data type's/data source's `tag` column via
@@ -238,8 +231,8 @@ class WorkspaceTeardownServiceSpec
 
   private def sourceExists(id: DataSourceId, user: AuthenticatedUser): Boolean =
     await(dataSourceRepo.findByIdOwned(id, user)).isDefined
-  private def typeExists(id: DataTypeId, user: AuthenticatedUser): Boolean =
-    await(dataTypeRepo.findByIdOwned(id, user)).isDefined
+  // HEL-904 task 4.1: `typeExists` (DataTypeRepository-backed) removed outright -- unused
+  // (no test in this file ever called it) and DataTypeRepository no longer exists.
   private def pipelineExists(id: String, user: AuthenticatedUser): Boolean =
     await(pipelineRepo.findByIdOwned(PipelineId(id), user)).isDefined
 

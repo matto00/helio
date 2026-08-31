@@ -4,7 +4,7 @@ import com.helio.services.pipelines.{PipelineRunService, PipelineSchedulerServic
 import com.helio.domain.util.{Clock, CronSchedule}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.services.audit.AuditService
@@ -89,10 +89,8 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx            = new DbContext(db, db)
     val dataSourceRepo = new DataSourceRepository(ctx)
-    val dataTypeRepo   = new DataTypeRepository(ctx)
-    val dataTypeRowRepo = new DataTypeRowRepository(ctx)
     val pipelineStepRepo = new PipelineStepRepository(ctx)
-    pipelineRepo  = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo  = new PipelineRepository(ctx, dataSourceRepo)
     scheduleRepo  = new PipelineScheduleRepository(ctx)
     runRepo       = new PipelineRunRepository(ctx)
     auditEventRepo = new AuditEventRepository(ctx)
@@ -102,8 +100,6 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       pipelineStepRepo,
       dataSourceRepo,
       runRepo,
-      dataTypeRepo,
-      dataTypeRowRepo,
       new PipelineRunCache(),
       registry = null,
       fakeFileSystem,

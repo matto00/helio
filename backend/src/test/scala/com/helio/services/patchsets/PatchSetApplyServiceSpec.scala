@@ -6,7 +6,7 @@ import com.helio.api.protocols.pipelines.{UpdatePipelineRequest, UpdatePipelineS
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, DataTypeResponse, PipelineStepResponse, PipelineSummaryResponse}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
@@ -20,9 +20,7 @@ import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, Pipel
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -65,8 +63,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
   private var dashboardRepo: DashboardRepository         = _
   private var panelRepo: PanelRepository                 = _
   private var dataSourceRepo: DataSourceRepository       = _
-  private var dataTypeRepo: DataTypeRepository           = _
-  private var metricRepo: MetricRepository               = _
   private var permissionRepo: ResourcePermissionRepository = _
   private var pipelineRepo: PipelineRepository           = _
   private var pipelineStepRepo: PipelineStepRepository   = _
@@ -95,10 +91,8 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     dashboardRepo    = new DashboardRepository(ctx)
     panelRepo         = new PanelRepository(ctx)
     dataSourceRepo    = new DataSourceRepository(ctx)
-    dataTypeRepo      = new DataTypeRepository(ctx)
-    metricRepo        = new MetricRepository(ctx)
     permissionRepo    = new ResourcePermissionRepository(ctx)
-    pipelineRepo      = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)
     pipelineStepRepo  = new PipelineStepRepository(ctx)
     applicationRepo   = new PatchSetApplicationRepository(ctx)
 
@@ -114,12 +108,12 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
-    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     service = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-      metricRepo, accessChecker, applicationRepo
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+      accessChecker, applicationRepo
     )
 
     seedUsers()
@@ -170,12 +164,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     ds.id
   }
 
-  private def seedPipelineOutputType(owner: AuthenticatedUser, name: String): DataType = {
-    val now = Instant.now()
-    val dt = DataType(DataTypeId(UUID.randomUUID().toString), None, name, Vector(DataField("value", "value", "integer", nullable = true)), Vector.empty, 1, now, now, owner.id)
-    await(dataTypeRepo.insert(dt, owner))
-  }
-
   private def seedPipeline(owner: AuthenticatedUser, sourceId: DataSourceId, name: String = "Pipeline"): PipelineSummaryResponse =
     await(pipelineService.create(CreatePipelineRequest(name, sourceId.value), owner)) match {
       case Right(s) => s
@@ -187,27 +175,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       case Right(s) => s
       case Left(e)  => fail(s"seedPipelineStep failed: $e")
     }
-
-  private def seedMetric(owner: AuthenticatedUser, dataTypeId: DataTypeId, name: String = "Metric"): MetricId = {
-    val now = Instant.now()
-    val m = MetricDefinition(
-      id                = MetricId(UUID.randomUUID().toString),
-      ownerId           = owner.id,
-      dataTypeId        = dataTypeId,
-      name              = name,
-      description       = None,
-      measureField      = "value",
-      aggregation       = "sum",
-      allowedDimensions = Vector.empty,
-      format            = MetricFormat(None, None, None, None),
-      createdAt         = now,
-      updatedAt         = now
-    )
-    await(metricRepo.insert(m, owner)) match {
-      case Right(inserted) => inserted.id
-      case Left(err)       => fail(s"seedMetric failed: $err")
-    }
-  }
 
   // Postgres TIMESTAMPTZ rounds to microsecond precision on write; a JVM
   // `Instant.now()` can carry nanosecond precision, and Java's own
@@ -223,12 +190,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     val r = json.convertTo[PanelResponse]
     r.copy(meta = r.meta.copy(createdAt = "", lastUpdated = ""))
   }
-
-  private def dataTypeResponseNormalized(json: JsValue): DataTypeResponse = {
-    val r = json.convertTo[DataTypeResponse]
-    r.copy(createdAt = "", updatedAt = "")
-  }
-
 
   "PatchSetApplyService.apply" should {
 

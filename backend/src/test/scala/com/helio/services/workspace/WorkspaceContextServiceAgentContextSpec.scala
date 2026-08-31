@@ -2,14 +2,14 @@ package com.helio.services.workspace
 
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.WorkspaceContextService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
@@ -90,19 +90,16 @@ class WorkspaceContextServiceAgentContextSpec
     val ctx = new DbContext(db, db)
 
     val dataSourceRepo   = new DataSourceRepository(ctx)
-    val dataTypeRepo     = new DataTypeRepository(ctx)
-    val dataTypeRowRepo  = new DataTypeRowRepository(ctx)
-    val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    val pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
     val tmpDir = Files.createTempDirectory("helio-workspace-context-agent-spec")
     val fs     = new LocalFileSystem(tmpDir)
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
     val outputRepo     = new OutputRepository(ctx)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val registry       = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))

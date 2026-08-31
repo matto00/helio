@@ -11,7 +11,7 @@ import com.helio.api.protocols.pipelines.{SchemaFieldResponse, SourceSchemaDrift
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
 import com.helio.domain.{AggregateConfig, AggregateField, Aggregation, CastConfig, ChunkByTokenCountConfig, ExtractHeadingsConfig, GroupByConfig, JoinConfig, PivotConfig, RenameConfig, SelectConfig, SplitTextConfig, StepConfigTypeMismatch, UnionConfig, WindowConfig}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.pipelines.PipelineService
 import com.helio.testsupport.JsonSchemaValidation
@@ -42,7 +42,6 @@ class PipelineAnalyzeRoutesSpec
   private var db: JdbcBackend.Database              = _
   private var pipelineRepo: PipelineRepository      = _
   private var pipelineStepRepo: PipelineStepRepository = _
-  private var dataTypeRepo: DataTypeRepository      = _
   private var dataSourceRepo: DataSourceRepository  = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
@@ -55,9 +54,8 @@ class PipelineAnalyzeRoutesSpec
       .load().migrate()
     db               = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx          = new DbContext(db, db)(routeEc)
-    dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
     dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
-    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
   }
 
@@ -114,7 +112,7 @@ class PipelineAnalyzeRoutesSpec
 
   private def routes: Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
     new PipelineRoutes(service, dummyUser).routes
   }
 

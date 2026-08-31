@@ -4,9 +4,8 @@ import com.helio.api.routes.patchsets.RefinementRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -17,7 +16,7 @@ import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.domain.model._
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.sources.DataSourceService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.panels.{PanelCapabilityService, PanelService}
 import com.helio.services.patchsets.{PatchSetPreviewService, RefinementGrounding, RefinementService}
 import com.helio.services.workspace.WorkspaceContextService
@@ -89,11 +88,8 @@ class RefinementRoutesSpec
     val dashboardRepo    = new DashboardRepository(ctx)
     val panelRepo         = new PanelRepository(ctx)
     val dataSourceRepo    = new DataSourceRepository(ctx)
-    val dataTypeRepo      = new DataTypeRepository(ctx)
-    val dataTypeRowRepo   = new DataTypeRowRepository(ctx)
-    val pipelineRepo      = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    val pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)
     val pipelineStepRepo  = new PipelineStepRepository(ctx)
-    val metricRepo        = new MetricRepository(ctx)
 
     val registry = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
@@ -107,16 +103,15 @@ class RefinementRoutesSpec
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
     val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
     val outputRepo     = new OutputRepository(ctx)
     val nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
-    val pipelineService    = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val pipelineService    = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     val panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     patchSetPreviewService = new PatchSetPreviewService(
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo, metricRepo, accessChecker
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker
     )
     refinementGrounding = new RefinementGrounding(dashboardRepo, panelRepo, pipelineService, workspaceContextService, panelCapabilityService)
     conversationRepo    = new AuthoringConversationRepository(ctx)

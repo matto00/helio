@@ -4,7 +4,7 @@ import com.helio.domain._
 import com.helio.domain.engine.{SchemaInferenceEngine, SourceReadStats}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineRunRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -154,7 +154,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       // Task 4.2: construct with a non-null (fake) pipelineRepo — `execute` never calls it,
       // but the constructor signature still requires a value, so this exercises the real
       // signature rather than the `submitter` fixture's `pipelineRepo = null`.
-      val fakePipelineRepo = new PipelineRepository(null, null, null)
+      val fakePipelineRepo = new PipelineRepository(null, null)
       val submitterForExecute = new SparkJobSubmitter("local[*]", mockDsRepo, fakePipelineRepo)
       val outcome = Await.result(
         submitterForExecute.execute(pip, ds, Vector.empty, mockDsRepo, new AssertionSink, new TruncationSink),
@@ -295,9 +295,8 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         .migrate()
       db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
       val ctx                  = new DbContext(db, db)
-      val dtRepo               = new DataTypeRepository(ctx)
       dsRepoForSubmit          = new DataSourceRepository(ctx)
-      pipelineRepoForSubmit    = new PipelineRepository(ctx, dtRepo, dsRepoForSubmit)
+      pipelineRepoForSubmit    = new PipelineRepository(ctx, dsRepoForSubmit)
       pipelineRunRepoForSubmit = new PipelineRunRepository(ctx)
     }
 

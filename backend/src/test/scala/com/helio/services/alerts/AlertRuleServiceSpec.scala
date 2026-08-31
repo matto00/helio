@@ -6,7 +6,7 @@ import com.helio.services.alerts.AlertRuleService
 import com.helio.api.protocols.alerts.{CreateAlertRuleRequest, UpdateAlertRuleRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -32,7 +32,6 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var alertRuleRepo: AlertRuleRepository = _
-  private var dataTypeRepo: DataTypeRepository   = _
   private var dataSourceRepo: DataSourceRepository = _
   private var pipelineRepo: PipelineRepository   = _
   private var outputRepo: OutputRepository       = _
@@ -56,9 +55,8 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx        = new DbContext(db, db)
     alertRuleRepo  = new AlertRuleRepository(ctx)
-    dataTypeRepo   = new DataTypeRepository(ctx)
     dataSourceRepo = new DataSourceRepository(ctx)
-    pipelineRepo   = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)
     outputRepo     = new OutputRepository(ctx)
     service        = new AlertRuleService(alertRuleRepo, outputRepo)
   }

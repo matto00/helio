@@ -4,7 +4,7 @@ import com.helio.api.routes.proposals.DashboardAuthoringRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -16,7 +16,7 @@ import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.services.proposals.{DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.DataSourceService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelCapabilityService
 import com.helio.services.workspace.WorkspaceContextService
@@ -68,7 +68,6 @@ class AuthoringTelemetrySpec
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
-  private var dataTypeRepo: DataTypeRepository   = _
   private var outputRepo: OutputRepository       = _
   private var nodeSnapshotRepo: NodeSnapshotRepository = _
   private var pipelineRepo: PipelineRepository   = _
@@ -100,20 +99,18 @@ class AuthoringTelemetrySpec
     val ctx = new DbContext(db, db)
 
     dataSourceRepo       = new DataSourceRepository(ctx)
-    dataTypeRepo         = new DataTypeRepository(ctx)
-    val dataTypeRowRepo  = new DataTypeRowRepository(ctx)
-    pipelineRepo         = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo         = new PipelineRepository(ctx, dataSourceRepo)
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
     val tmpDir = Files.createTempDirectory("helio-authoring-telemetry-spec")
     val fs     = new LocalFileSystem(tmpDir)
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
+    // HEL-904 task 3.12/4.1: WorkspaceContextService takes OutputRepository now (dataTypeService
+    // no longer exists).
     outputRepo            = new OutputRepository(ctx)
     nodeSnapshotRepo      = new NodeSnapshotRepository(ctx)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val registry        = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
@@ -124,7 +121,7 @@ class AuthoringTelemetrySpec
 
     workspaceContextService  = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     panelCapabilityService   = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
-    dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null, outputRepo)
+    dashboardProposalService = new DashboardProposalService(null, null, outputRepo)
     conversationRepo         = new AuthoringConversationRepository(ctx)
   }
 

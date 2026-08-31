@@ -13,8 +13,7 @@ import com.helio.api.protocols.sources.{StaticDataSourceRequest, UpdateDataSourc
 import com.helio.domain.model.{Dashboard, DashboardId, DataSource, DataSourceId, Panel, PanelId, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
-import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import spray.json.JsValue
@@ -81,17 +80,15 @@ private[services] final case class ResolvedEdit(
 
 /** Read-side collaborators [[PatchSetApplyResolvers]]'s pre-validation pass
  *  needs (design.md D2/D2a) — bundled so every resolver function takes one
- *  parameter instead of an eight-repo positional list. `metricRepo` mirrors
- *  `PanelService`'s own nullable-optional convention (constructed `null` by
- *  a fixture that never exercises a `metricId`-carrying edit). */
+ *  parameter instead of a positional repo list. HEL-904 task 4.1:
+ *  `dataTypeRepo`/`metricRepo` removed outright — neither field was ever
+ *  read after construction (DataTypes/metrics no longer exist). */
 private[services] final case class PatchSetApplyContext(
     panelRepo: PanelRepository,
     dashboardRepo: DashboardRepository,
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo: DataTypeRepository,
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
-    metricRepo: MetricRepository,
     accessChecker: AccessChecker
 )
 

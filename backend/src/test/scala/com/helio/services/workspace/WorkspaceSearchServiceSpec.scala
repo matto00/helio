@@ -3,14 +3,14 @@ package com.helio.services.workspace
 
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.domain.engine.SchemaField
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
@@ -52,8 +52,6 @@ class WorkspaceSearchServiceSpec
   private var db: JdbcBackend.Database           = _
 
   private var dataSourceRepo: DataSourceRepository         = _
-  private var dataTypeRepo: DataTypeRepository             = _
-  private var dataTypeRowRepo: DataTypeRowRepository       = _
   private var pipelineRepo: PipelineRepository             = _
   private var pipelineStepRepo: PipelineStepRepository     = _
   private var dashboardRepo: DashboardRepository           = _
@@ -61,7 +59,6 @@ class WorkspaceSearchServiceSpec
 
   private var dashboardService: DashboardService             = _
   private var dataSourceService: DataSourceService           = _
-  private var dataTypeService: DataTypeService               = _
   private var outputRepo: OutputRepository                   = _
   private var nodeSnapshotRepo: NodeSnapshotRepository        = _
   private var pipelineService: PipelineService               = _
@@ -86,9 +83,7 @@ class WorkspaceSearchServiceSpec
     val ctx = new DbContext(db, db)
 
     dataSourceRepo   = new DataSourceRepository(ctx)
-    dataTypeRepo     = new DataTypeRepository(ctx)
-    dataTypeRowRepo  = new DataTypeRowRepository(ctx)
-    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)
     pipelineStepRepo = new PipelineStepRepository(ctx)
     dashboardRepo    = new DashboardRepository(ctx)
     permissionRepo   = new ResourcePermissionRepository(ctx)
@@ -96,10 +91,9 @@ class WorkspaceSearchServiceSpec
     val tmpDir = java.nio.file.Files.createTempDirectory("helio-workspace-search-spec")
     val fs     = new LocalFileSystem(tmpDir)
     dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     outputRepo        = new OutputRepository(ctx)
     nodeSnapshotRepo  = new NodeSnapshotRepository(ctx)
-    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val registry = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
@@ -163,21 +157,15 @@ class WorkspaceSearchServiceSpec
       case Right(s)  => s
       case Left(err) => fail(s"pipeline create failed: $err")
     }
-    val now = Instant.now()
-    val dataType = DataType(
-      id             = DataTypeId(UUID.randomUUID().toString),
-      sourceId       = None,
-      name           = outputName,
-      fields         = Vector.empty,
-      computedFields = Vector.empty,
-      version        = 1,
-      createdAt      = now,
-      updatedAt      = now,
-      ownerId        = user.id,
-      tag            = None
-    )
-    val createdDataType = await(dataTypeRepo.insert(dataType, user))
-    await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), createdDataType.id))
+    // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- insert the companion
+    // `data_types` row directly (raw SQL) purely to satisfy `pipelines.output_data_type_id`'s
+    // FK, matching `dataTypeRepo.insert`'s old empty-fields/empty-computedFields shape exactly.
+    val dataTypeId = DataTypeId(UUID.randomUUID().toString)
+    await(db.run(sqlu"""
+      INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
+      VALUES (${dataTypeId.value}, NULL, $outputName, '[]'::jsonb, '[]'::jsonb, 1, now(), now(), ${user.id.value}::uuid)
+    """))
+    await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), dataTypeId))
     // HEL-904 task 3.12: also create a real Output on the pipeline's raw source (`nodeStepId =
     // None`) -- `outputDataTypeId` (name kept for this file's own diff-minimization) now holds
     // THIS Output's id, not the legacy companion DataType's.

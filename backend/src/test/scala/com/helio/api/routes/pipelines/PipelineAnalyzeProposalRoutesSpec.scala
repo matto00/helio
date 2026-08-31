@@ -13,7 +13,7 @@ import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.{CastConfig, SelectConfig, StepConfigTypeMismatch}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.pipelines.PipelineService
 import com.helio.testsupport.JsonSchemaValidation
@@ -48,7 +48,6 @@ class PipelineAnalyzeProposalRoutesSpec
   private var db: JdbcBackend.Database                 = _
   private var pipelineRepo: PipelineRepository         = _
   private var pipelineStepRepo: PipelineStepRepository = _
-  private var dataTypeRepo: DataTypeRepository         = _
   private var dataSourceRepo: DataSourceRepository     = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
@@ -61,9 +60,8 @@ class PipelineAnalyzeProposalRoutesSpec
       .load().migrate()
     db               = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx          = new DbContext(db, db)(routeEc)
-    dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
     dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
-    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
   }
 
@@ -138,7 +136,7 @@ class PipelineAnalyzeProposalRoutesSpec
 
   private def routesWith(connector: RestApiConnectorDriver): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo, connector)
+    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, connector)
     new PipelineRoutes(service, dummyUser).routes
   }
 

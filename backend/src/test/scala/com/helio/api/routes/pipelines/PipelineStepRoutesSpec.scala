@@ -8,7 +8,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.{CastConfig, StepConfigTypeMismatch}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.api._
 import com.helio.api.protocols.pipelines.{CastStepResponse, ComputeStepResponse, LookupStepResponse, PipelineStepResponse, RenameStepResponse, SelectStepResponse, UnionStepResponse}
@@ -39,7 +39,6 @@ class PipelineStepRoutesSpec
   private var db: JdbcBackend.Database           = _
   private var stepRepo: PipelineStepRepository   = _
   private var pipelineRepo: PipelineRepository   = _
-  private var dataTypeRepo: DataTypeRepository   = _
   private var dataSourceRepo: DataSourceRepository = _
 
   override def beforeAll(): Unit = {
@@ -50,10 +49,9 @@ class PipelineStepRoutesSpec
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx        = new DbContext(db, db)(typedSystem.executionContext)
-    dataTypeRepo   = new DataTypeRepository(ctx)(typedSystem.executionContext)
     dataSourceRepo = new DataSourceRepository(ctx)(typedSystem.executionContext)
     stepRepo     = new PipelineStepRepository(ctx)(typedSystem.executionContext)
-    pipelineRepo = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
+    pipelineRepo = new PipelineRepository(ctx, dataSourceRepo)(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -87,7 +85,7 @@ class PipelineStepRoutesSpec
 
   private def routesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = typedSystem.executionContext
-    val service = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo, dataTypeRepo)
+    val service = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo)
     new PipelineStepRoutes(service, user).routes
   }
 

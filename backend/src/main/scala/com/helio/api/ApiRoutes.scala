@@ -17,7 +17,6 @@ import com.helio.api.routes.audit._
 import com.helio.api.routes.auth._
 import com.helio.api.routes.dashboards._
 import com.helio.api.routes.hooks._
-import com.helio.api.routes.metrics._
 import com.helio.api.routes.panels._
 import com.helio.api.routes.patchsets._
 import com.helio.api.routes.pipelines._
@@ -37,9 +36,8 @@ import com.helio.services.sources.{ConnectorEntityService, ContentSourceSupport,
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
-import com.helio.services.pipelines.{DataTypeService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
+import com.helio.services.pipelines.{PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
 import com.helio.services.hooks.HookTriggerService
-import com.helio.services.metrics.MetricService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
 import com.helio.services.ratelimit.{InMemoryRateLimiter, RateLimitConfig}
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
@@ -51,12 +49,11 @@ import com.helio.services.audit.AuditService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.FileSystem
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
@@ -71,7 +68,6 @@ final class ApiRoutes(
     dashboardRepo: DashboardRepository,
     panelRepo: PanelRepository,
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo: DataTypeRepository,
     permissionRepo: ResourcePermissionRepository,
     fileSystem: FileSystem,
     connector: RestApiConnectorDriver,
@@ -83,11 +79,10 @@ final class ApiRoutes(
     pipelineRunCache: PipelineRunCache,
     sparkJobSubmitter: SparkJobSubmitter,
     pipelineRunRepo: PipelineRunRepository = null,
-    dataTypeRowRepo: DataTypeRowRepository = null,
     apiTokenRepo: ApiTokenRepository = null,
     // HEL-216: first real caller of BinaryRefRepository.overwriteForDataType
     // (HEL-217 shipped the class with no wired caller). Nullable default
-    // mirrors pipelineRunRepo/dataTypeRowRepo — fixtures that don't pass one
+    // mirrors pipelineRunRepo — fixtures that don't pass one
     // simply skip the binary_refs write (PipelineRunService's null-checked
     // pattern).
     binaryRefRepo: BinaryRefRepository = null,
@@ -141,11 +136,7 @@ final class ApiRoutes(
     // entire teardown transaction must run via `ctx.withUserContext` (design.md
     // Decision 3's hard constraint), which no existing repository exposes.
     dbContext: DbContext = null,
-    // HEL-493: same nullable-optional wiring pattern as the repos above —
-    // fixtures that don't pass a MetricRepository simply don't get the
-    // /api/metrics routes mounted (metricServiceOpt.fold(reject)). Appended
-    // last for the same purely-additive reason.
-    metricRepo: MetricRepository = null,
+    // HEL-904 task 4.1: `metricRepo` removed outright — metrics no longer exist.
     // HEL-472 (420-A): same nullable-optional wiring pattern as the repos
     // above — fixtures that don't pass an AgentPreferencesRepository simply
     // don't get the /api/preferences routes mounted
@@ -246,10 +237,10 @@ final class ApiRoutes(
   private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepoOpt.orNull)
   // HEL-549: metricRepo threaded in the same nullable-optional way as panelService
   // above — only touched when a proposal panel actually carries a metricId.
-  private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo, metricRepo, outputRepoOpt.orNull)
+  private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepoOpt.orNull)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
-  // dataTypeRepo/accessChecker instances the other dashboard/panel services use.
-  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker, auditService, outputRepoOpt.orNull)
+  // accessChecker instances the other dashboard/panel services use.
+  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, accessChecker, auditService, outputRepoOpt.orNull)
   // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
@@ -267,14 +258,15 @@ final class ApiRoutes(
       new ConnectorRepository(ctx, connectorCredentialRepo)
     }
   private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepoOpt.orNull)
-  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, auditService)
-  // HEL-365: separate from dataTypeService (CRUD-only, design.md D6) — reads
-  // the same dataTypeRepo/dataTypeRowRepo to build the panel-capabilities report.
+  // HEL-904 task 4.1: `DataTypeService`/`DataTypeRoutes` deleted outright —
+  // DataTypes no longer exist.
+  // HEL-365: builds the panel-capabilities report from Outputs/node
+  // snapshots (design.md D6).
   private val panelCapabilityService = new PanelCapabilityService(outputRepoOpt.orNull, nodeSnapshotRepoOpt.orNull)
   // HEL-381: threads the same RestApiConnectorDriver instance sourceService already
-  // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo/
-  // dataTypeRepo above cover every other analyzeProposal branch).
-  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo, connector, auditService)
+  // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo
+  // above covers every other analyzeProposal branch).
+  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, auditService)
   // HEL-466: only build the evaluation engine when both privileged repos it
   // needs are present — mirrors alertRuleServiceOpt/alertEventServiceOpt's
   // nullable-optional pattern below. `.orNull` feeds PipelineRunService's
@@ -292,8 +284,8 @@ final class ApiRoutes(
   // pipelineService already receive — runPipeline/previewStep now execute
   // rest_api sources in-process via InProcessPipelineEngine (design.md D3).
   val pipelineRunService = new PipelineRunService(
-    pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
-    dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
+    pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
+    pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
     alertEvaluationServiceOpt.orNull, connector, auditService,
     // HEL-862: threads the same implicit ActorSystem this class already has,
     // so a scheduled/manual run over a URL-backed CSV source can re-fetch it.
@@ -331,16 +323,16 @@ final class ApiRoutes(
   // journal a successful (no `failure`) apply (design.md D2).
   private val patchSetApplyService = new PatchSetApplyService(
     panelService, dashboardService, dataSourceService, pipelineService,
-    panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-    metricRepo, accessChecker, patchSetApplicationRepo
+    panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+    accessChecker, patchSetApplicationRepo
   )
   // HEL-408: read-only diff/impact preview -- reuses PatchSetApplyResolvers
   // (same package) for pre-validation; needs only the repos/accessChecker
   // its projection reads directly (design.md D1a/D4), never the per-resource
   // *Service instances apply's forward path writes through.
   private val patchSetPreviewService = new PatchSetPreviewService(
-    panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-    metricRepo, accessChecker
+    panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+    accessChecker
   )
   // HEL-413: restores a successfully-journaled apply's edits (design.md D4/D5) -- composes the
   // same per-resource services/repos patchSetApplyService does (minus metricRepo/accessChecker,
@@ -386,9 +378,8 @@ final class ApiRoutes(
   // PipelineScheduleRepository simply don't get the
   // /api/pipelines/:id/schedule routes.
   private val pipelineScheduleServiceOpt  = Option(pipelineScheduleRepo).map(new PipelineScheduleService(_, pipelineRepo, auditService))
-  // HEL-493: same optional-wiring pattern — fixtures that don't pass a
-  // MetricRepository simply don't get the /api/metrics routes.
-  private val metricServiceOpt            = Option(metricRepo).map(new MetricService(_, dataTypeRepo))
+  // HEL-904 task 4.1: `MetricService`/`MetricRoutes` deleted outright —
+  // metrics no longer exist.
   // HEL-472 (420-A): same optional-wiring pattern — fixtures that don't pass
   // an AgentPreferencesRepository simply don't get the /api/preferences
   // routes.
@@ -708,7 +699,6 @@ final class ApiRoutes(
                   // alongside `BoundPanelService` (see its deletion note above).
                   new PanelRoutes(panelService, authenticatedUser).routes,
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
-                  new DataTypeRoutes(dataTypeService, panelCapabilityService, pipelineRunService, authenticatedUser).routes,
                   new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
                   new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
                   new SourceRoutes(sourceService, authenticatedUser).routes,
@@ -753,7 +743,6 @@ final class ApiRoutes(
                   alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes),
                   alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes),
                   pipelineScheduleServiceOpt.fold(reject: Route)(svc => new PipelineScheduleRoutes(svc, authenticatedUser).routes),
-                  metricServiceOpt.fold(reject: Route)(svc => new MetricRoutes(svc, authenticatedUser).routes),
                   // HEL-663: same `.fold(reject)`-gated optional-wiring pattern as metricServiceOpt
                   // above — fixtures that don't pass a DbContext simply don't get the
                   // /api/assistant-conversations routes mounted. HEL-665 (reopened composer ticket)

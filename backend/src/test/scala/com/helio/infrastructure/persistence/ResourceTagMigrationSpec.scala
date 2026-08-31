@@ -1,7 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -44,7 +44,6 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
   private var pipelineRepo: PipelineRepository     = _
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
@@ -97,8 +96,7 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
 
     val ctx        = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
-    dataTypeRepo   = new DataTypeRepository(ctx)
-    pipelineRepo   = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)
   }
 
   override def afterAll(): Unit = {
@@ -155,10 +153,14 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
       source.get.name shouldBe "pre-existing source"
       source.get.tag shouldBe None
 
-      val companion = await(dataTypeRepo.findByIdOwned(DataTypeId(companionId), owner))
-      companion shouldBe defined
-      companion.get.sourceId shouldBe Some(DataSourceId(srcId))
-      companion.get.tag shouldBe None
+      // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- read the companion row
+      // directly (raw SQL), mirroring this test's own tag-only check above.
+      val companionRow = await(db.run(
+        sql"SELECT source_id, tag FROM data_types WHERE id = $companionId".as[(Option[String], Option[String])].headOption
+      ))
+      companionRow shouldBe defined
+      companionRow.get._1 shouldBe Some(srcId)
+      companionRow.get._2 shouldBe None
 
       val pipeline = await(pipelineRepo.findByIdOwned(PipelineId(pipelineId), owner))
       pipeline shouldBe defined

@@ -6,8 +6,7 @@ import com.helio.api.protocols.patchsets.{EditPreview, PatchSet, PatchSetPreview
 import com.helio.domain.model.AuthenticatedUser
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
-import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -32,15 +31,13 @@ final class PatchSetPreviewService(
     panelRepo: PanelRepository,
     dashboardRepo: DashboardRepository,
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo: DataTypeRepository,
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
-    metricRepo: MetricRepository,
     accessChecker: AccessChecker
 )(implicit ec: ExecutionContext) {
 
   private val context: PatchSetApplyContext =
-    PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo, metricRepo, accessChecker)
+    PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker)
 
   def preview(patchSet: PatchSet, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetPreviewResponse]] =
     PatchSetApplyResolvers.resolveAll(patchSet.edits, user, context).flatMap {

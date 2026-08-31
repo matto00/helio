@@ -17,7 +17,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
@@ -83,11 +83,10 @@ class ApiRoutesCorsErrorHandlingSpec
     val dashboardRepo       = new DashboardRepository(ctx)(typedSystem.executionContext)
     val panelRepo           = new PanelRepository(ctx)(typedSystem.executionContext)
     val dataSourceRepo      = new DataSourceRepository(ctx)(typedSystem.executionContext)
-    val dataTypeRepo        = new DataTypeRepository(ctx)(typedSystem.executionContext)
     val userRepo            = new UserRepository(db)(typedSystem.executionContext)
     val userPreferenceRepo  = new UserPreferenceRepository(db)(typedSystem.executionContext)
     val permissionRepo      = new ResourcePermissionRepository(ctx)(typedSystem.executionContext)
-    val pipelineRepo        = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
+    val pipelineRepo        = new PipelineRepository(ctx, dataSourceRepo)(typedSystem.executionContext)
     val pipelineStepRepo    = new PipelineStepRepository(ctx)(typedSystem.executionContext)
 
     val stubFileSystem: FileSystem = new FileSystem {
@@ -117,7 +116,6 @@ class ApiRoutesCorsErrorHandlingSpec
       dashboardRepo,
       panelRepo,
       dataSourceRepo,
-      dataTypeRepo,
       permissionRepo,
       stubFileSystem,
       connector,

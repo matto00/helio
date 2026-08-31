@@ -15,7 +15,7 @@ import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -159,23 +159,20 @@ abstract class PipelineApplyProposalSpecBase
     val dashboardRepo    = new DashboardRepository(ctx)(routeEc)
     val panelRepo        = new PanelRepository(ctx)(routeEc)
     val dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
-    val dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
     val userRepo         = new UserRepository(appDb)(routeEc)
     val userPrefRepo     = new UserPreferenceRepository(appDb)(routeEc)
     val permissionRepo   = new ResourcePermissionRepository(ctx)(routeEc)
-    val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    val pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     val pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
     val pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
-    val dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
     connectorRepo        = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(routeEc))(routeEc)
 
     routes = new ApiRoutes(
-      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
+      dashboardRepo, panelRepo, dataSourceRepo, permissionRepo,
       stubFileSystem, stubConnector,
       userRepo, stubSessionRepo, userPrefRepo, pipelineRepo, pipelineStepRepo,
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc),
       pipelineRunRepo = pipelineRunRepo,
-      dataTypeRowRepo = dataTypeRowRepo,
       // HEL-822: SourceService.createRest's bare-url dual-support path needs a real
       // ConnectorRepository (constructed by ApiRoutes when dbContext is present) to
       // synthesize an implicit Connector for this fixture's inline `{"url": ...}` sources.

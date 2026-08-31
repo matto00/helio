@@ -119,17 +119,16 @@ final case class RunResultResponse(
     truncatedReads: Vector[TruncatedReadResponse] = Vector.empty
 )
 
-/** `PipelineProtocol extends DataTypeProtocol with PipelineStepProtocol with
- *  PipelineAnalyzeProtocol` because the analyze response references
- *  `SchemaFieldResponse` (lives in `DataTypeProtocol`) and the typed per-step
- *  `*Config` formatters (live in `PipelineStepProtocol`); the analyze API
- *  types/formats themselves live in `PipelineAnalyzeProtocol` (extracted per
- *  HEL-221 design.md decision 8 — behavior-preserving file split to keep both
- *  files under the 250-line soft budget). */
+/** `PipelineProtocol extends PipelineStepProtocol with PipelineAnalyzeProtocol`
+ *  because the typed per-step `*Config` formatters live in
+ *  `PipelineStepProtocol`; the analyze API types/formats themselves live in
+ *  `PipelineAnalyzeProtocol` (extracted per HEL-221 design.md decision 8 —
+ *  behavior-preserving file split to keep both files under the 250-line soft
+ *  budget). HEL-904 task 4.1: `DataTypeProtocol` mixin removed outright —
+ *  DataTypes no longer exist. */
 trait PipelineProtocol
     extends SprayJsonSupport
     with DefaultJsonProtocol
-    with DataTypeProtocol
     with PipelineStepProtocol
     with PipelineAnalyzeProtocol {
 

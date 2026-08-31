@@ -3,25 +3,22 @@ package com.helio.services.patchsets
 
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
-import com.helio.api.protocols.metrics.UpdateMetricRequest
 import com.helio.api.protocols.panels.{CreatePanelRequest, UpdatePanelRequest}
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, UpdateDataTypeRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.metrics.MetricService
 import com.helio.services.panels.PanelService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetUndoService}
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import org.apache.pekko.actor.typed.ActorSystem
@@ -61,9 +58,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
   private var dashboardRepo: DashboardRepository         = _
   private var panelRepo: PanelRepository                 = _
   private var dataSourceRepo: DataSourceRepository       = _
-  private var dataTypeRepo: DataTypeRepository           = _
-  private var dataTypeRowRepo: DataTypeRowRepository     = _
-  private var metricRepo: MetricRepository               = _
   private var permissionRepo: ResourcePermissionRepository = _
   private var pipelineRepo: PipelineRepository           = _
   private var pipelineStepRepo: PipelineStepRepository   = _
@@ -72,9 +66,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
   private var dashboardService: DashboardService   = _
   private var panelService: PanelService           = _
   private var dataSourceService: DataSourceService = _
-  private var dataTypeService: DataTypeService     = _
   private var pipelineService: PipelineService     = _
-  private var metricService: MetricService         = _
   private var applyService: PatchSetApplyService   = _
   private var undoService: PatchSetUndoService      = _
 
@@ -95,11 +87,8 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     dashboardRepo    = new DashboardRepository(ctx)
     panelRepo         = new PanelRepository(ctx)
     dataSourceRepo    = new DataSourceRepository(ctx)
-    dataTypeRepo      = new DataTypeRepository(ctx)
-    dataTypeRowRepo   = new DataTypeRowRepository(ctx)
-    metricRepo        = new MetricRepository(ctx)
     permissionRepo    = new ResourcePermissionRepository(ctx)
-    pipelineRepo      = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)
     pipelineStepRepo  = new PipelineStepRepository(ctx)
     applicationRepo   = new PatchSetApplicationRepository(ctx)
 
@@ -115,14 +104,12 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
-    dataTypeService     = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
-    metricService        = new MetricService(metricRepo, dataTypeRepo)
+    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     applyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-      metricRepo, accessChecker, applicationRepo
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+      accessChecker, applicationRepo
     )
     undoService = new PatchSetUndoService(
       panelService, dashboardService, dataSourceService, pipelineService,
@@ -170,12 +157,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     ds.id
   }
 
-  private def seedPipelineOutputType(owner: AuthenticatedUser, name: String): DataType = {
-    val now = Instant.now()
-    val dt = DataType(DataTypeId(UUID.randomUUID().toString), None, name, Vector(DataField("value", "value", "integer", nullable = true)), Vector.empty, 1, now, now, owner.id)
-    await(dataTypeRepo.insert(dt, owner))
-  }
-
   private def seedPipeline(owner: AuthenticatedUser, sourceId: DataSourceId, name: String = "Pipeline"): PipelineSummaryResponse =
     await(pipelineService.create(CreatePipelineRequest(name, sourceId.value), owner)) match {
       case Right(s) => s
@@ -193,27 +174,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       case Right(s) => s
       case Left(e)  => fail(s"seedPipelineStep failed: $e")
     }
-
-  private def seedMetric(owner: AuthenticatedUser, dataTypeId: DataTypeId, name: String = "Metric"): MetricId = {
-    val now = Instant.now()
-    val m = MetricDefinition(
-      id                = MetricId(UUID.randomUUID().toString),
-      ownerId           = owner.id,
-      dataTypeId        = dataTypeId,
-      name              = name,
-      description       = None,
-      measureField      = "value",
-      aggregation       = "sum",
-      allowedDimensions = Vector.empty,
-      format            = MetricFormat(None, None, None, None),
-      createdAt         = now,
-      updatedAt         = now
-    )
-    await(metricRepo.insert(m, owner)) match {
-      case Right(inserted) => inserted.id
-      case Left(err)       => fail(s"seedMetric failed: $err")
-    }
-  }
 
   private def applySuccessfully(edits: Vector[Edit], user: AuthenticatedUser = userA): String =
     await(applyService.apply(PatchSet(None, edits), user)) match {
@@ -475,29 +435,8 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     }
 
 
-    // HEL-904: metric-bound raw-override conflict detection (5.3h) removed -- metrics no longer exist.
-
-    "NOT treat an unrelated metric deprecation (no raw-field change) as a conflict (5.3h negative)" in {
-      val dashboard  = seedDashboard(userA)
-      val outputType = seedPipelineOutputType(userA, "Metric deprecation type")
-      val metricId   = seedMetric(userA, outputType.id, "Metric to deprecate")
-      val panel      = seedPanel(dashboard.id, userA, "Bound panel for deprecation")
-
-      val bindPatch = JsObject("metricId" -> JsString(metricId.value))
-      val bindEdit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(bindPatch))), None, None, None, None, None)
-      val applicationId = applySuccessfully(Vector(bindEdit))
-
-      // Deprecate the metric -- no raw config field on the panel itself changes.
-      await(metricService.update(metricId, UpdateMetricRequest.Empty.copy(deprecated = Some(true)), userA)) match {
-        case Right(_)  => ()
-        case Left(err) => fail(s"setup failed: $err")
-      }
-
-      await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
-        case Right(response) => response.edits.head.status shouldBe "restored"
-        case Left(err)         => fail(s"expected success (no conflict), got $err")
-      }
-    }
+    // HEL-904 task 4.5: metric-bound raw-override conflict detection (5.3h) AND its negative
+    // counterpart ("NOT treat an unrelated metric deprecation...") both removed -- metrics no
+    // longer exist.
   }
 }

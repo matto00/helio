@@ -16,7 +16,7 @@ import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.{ConnectorCredentialRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
@@ -52,7 +52,6 @@ class DataSourceRoutesSpec
   private var embeddedPostgres: EmbeddedPostgres            = _
   private var db: JdbcBackend.Database                      = _
   private var dataSourceRepo: DataSourceRepository          = _
-  private var dataTypeRepo: DataTypeRepository              = _
   private var permissionRepo: ResourcePermissionRepository  = _
   private var fileSystem: LocalFileSystem                   = _
   private var connectorRepo: ConnectorRepository            = _
@@ -100,7 +99,6 @@ class DataSourceRoutesSpec
     val ec  = typedSystem.executionContext
     val ctx = new DbContext(db, db)(ec)
     dataSourceRepo  = new DataSourceRepository(ctx)(ec)
-    dataTypeRepo    = new DataTypeRepository(ctx)(ec)
     permissionRepo  = new ResourcePermissionRepository(ctx)(ec)
     connectorRepo   = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(ec))(ec)
 
@@ -197,7 +195,7 @@ class DataSourceRoutesSpec
     val panelRepo          = new PanelRepository(ctx)(ec)
     val userRepo           = new UserRepository(db)(ec)
     val userPreferenceRepo = new UserPreferenceRepository(db)(ec)
-    val pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(ec)
+    val pipelineRepo       = new PipelineRepository(ctx, dataSourceRepo)(ec)
     val pipelineStepRepo   = new PipelineStepRepository(ctx)(ec)
     // HEL-287: session auth moved from an `Authorization` bearer header to a
     // `helio_session` cookie; the CSRF header is required on non-GET
@@ -210,7 +208,7 @@ class DataSourceRoutesSpec
       else withCookie.withHeaders(withCookie.headers :+ RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue))
     } {
       new ApiRoutes(
-        dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo,
+        dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, fileSystem, c, userRepo,
         stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
         new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
         dataSourceUrlIsBlocked = testIsBlocked,

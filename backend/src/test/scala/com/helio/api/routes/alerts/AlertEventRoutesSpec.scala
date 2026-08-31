@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AlertEventResponse, AlertEventsResponse, JsonProtocols}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.alerts.AlertEventService
@@ -44,7 +44,6 @@ class AlertEventRoutesSpec
   private var db: JdbcBackend.Database                = _
   private var alertEventRepo: AlertEventRepository    = _
   private var alertRuleRepo: AlertRuleRepository       = _
-  private var dataTypeRepo: DataTypeRepository         = _
   private var dataSourceRepo: DataSourceRepository     = _
   private var pipelineRepo: PipelineRepository         = _
   private var outputRepo: OutputRepository             = _
@@ -66,9 +65,8 @@ class AlertEventRoutesSpec
     val ctx        = new DbContext(db, db)(routeEc)
     alertEventRepo = new AlertEventRepository(ctx)(routeEc)
     alertRuleRepo  = new AlertRuleRepository(ctx)(routeEc)
-    dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)
     dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
-    pipelineRepo   = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     outputRepo     = new OutputRepository(ctx)(routeEc)
     seedUsers()
   }

@@ -8,7 +8,6 @@ import com.helio.api.protocols.audit._
 import com.helio.api.protocols.auth._
 import com.helio.api.protocols.dashboards._
 import com.helio.api.protocols.hooks._
-import com.helio.api.protocols.metrics._
 import com.helio.api.protocols.panels._
 import com.helio.api.protocols.patchsets._
 import com.helio.api.protocols.pipelines._
@@ -99,7 +98,6 @@ trait JsonProtocols
     with PatchSetApplyProtocol
     with PatchSetPreviewProtocol
     with PatchSetUndoProtocol
-    with DataTypeProtocol
     with DataSourceProtocol
     with PipelineProtocol
     with PermissionProtocol
@@ -107,7 +105,6 @@ trait JsonProtocols
     with ImageUploadProtocol
     with AlertRuleProtocol
     with AlertEventProtocol
-    with MetricProtocol
     with PipelineScheduleProtocol
     with ConnectorProtocol
     with PipelineShapeProtocol

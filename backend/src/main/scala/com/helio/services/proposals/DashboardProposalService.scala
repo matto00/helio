@@ -6,8 +6,7 @@ import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
 import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, Panel}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository}
-import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -37,15 +36,9 @@ import scala.concurrent.{ExecutionContext, Future}
 final class DashboardProposalService(
     dashboardService: DashboardService,
     panelService: PanelService,
-    dataTypeRepo: DataTypeRepository,
-    // HEL-904 task 3.9: retained as an unused legacy constructor parameter
-    // (mirrors `PanelService.metricRepo`) rather than touching this class's
-    // 8 constructor call sites — metrics no longer exist, and
-    // `ProposalPanelSupport.preValidateBindings` no longer takes one.
-    metricRepo: MetricRepository,
     // HEL-904 task 3.8/3.9: validates an "output"-kind panel's binding
-    // against a real Output. Nullable-optional, mirroring metricRepo above,
-    // for the many test call sites that never construct an output-kind panel.
+    // against a real Output. Nullable-optional for the many test call sites
+    // that never construct an output-kind panel.
     outputRepo: OutputRepository = null
 )(implicit ec: ExecutionContext) {
 
@@ -59,7 +52,7 @@ final class DashboardProposalService(
   def validate(proposal: DashboardProposal, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     validateStructure(proposal) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(_)  => ProposalPanelSupport.preValidateBindings(proposal.panels, user, dataTypeRepo, outputRepo)
+      case Right(_)  => ProposalPanelSupport.preValidateBindings(proposal.panels, user, outputRepo)
     }
 
   def apply(

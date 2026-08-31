@@ -16,7 +16,7 @@ import com.helio.ai._
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, OutputRepository}
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.ArgumentMatchers.any
@@ -59,10 +59,17 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
   private val now      = Instant.parse("2026-01-01T00:00:00Z")
   private val ownerId  = UserId(UUID.randomUUID().toString)
   private val user     = AuthenticatedUser(ownerId)
-  private val outputId = DataTypeId(UUID.randomUUID().toString)
+  private val outputId = OutputId(UUID.randomUUID().toString)
 
-  private def pipelineOutputDataType(id: DataTypeId): DataType =
-    DataType(id, None, "Orders", Vector(DataField("amount", "amount", "float", nullable = false)), Vector.empty, 1, now, now, ownerId)
+  // HEL-904 task 4.1: returns a real `Output` directly -- the `DataType`-backed adapter
+  // (`dataTypeBackedOutputRepo`/`toOutput`) this used to feed is removed outright now that
+  // `OutputRepository` itself is mockable (DataTypeRepository, its former stand-in, no longer
+  // exists).
+  private def pipelineOutput(id: OutputId): Output =
+    Output(
+      id, "Orders", ownerId, NodeRef(PipelineId("adapter"), None), OutputKind.Table, now, now,
+      schema = Vector(SchemaField("amount", "float"))
+    )
 
 
   private def dashboardProposal(dataTypeId: String): DashboardProposal = {
@@ -130,39 +137,18 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
 
   // ── Fixture wiring — mirrors AssistantToolExecutorSpec's "mocked repos, real service" style ──
 
-  // HEL-904 task 3.12/3.2: `WorkspaceContextService`/`WorkspaceSearchService`'s "dataType"
-  // resourceType now resolves against `OutputRepository`, not `dataTypeService` -- rather than
-  // touch every one of this file's many `dtRepo`-stubbing test blocks individually, this ADAPTER
-  // subclasses `OutputRepository` (a plain, non-final class -- overriding two methods, no Mockito
-  // involved) and forwards to the SAME already-stubbed `dtRepo`/`user` this file's tests already
-  // configure, translating `DataType` -> `Output` on the fly. Every existing test block's
-  // `dtRepo.findByIdOwned`/`findAll` stub therefore keeps driving `find`/`get_resource` exactly as
-  // before, with zero per-test changes required.
-  private def dataTypeBackedOutputRepo(dtRepo: DataTypeRepository): OutputRepository =
-    new OutputRepository(null) {
-      override def findAllByOwner(ownerId: UserId, page: Page): Future[PagedResult[Output]] =
-        dtRepo.findAll(ownerId, page, None).map(paged => paged.copy(items = paged.items.map(toOutput)))
-      override def findByIdOwned(id: OutputId, user: AuthenticatedUser): Future[Option[Output]] =
-        dtRepo.findByIdOwned(DataTypeId(id.value), user).map(_.map(toOutput))
-    }
-
-  private def toOutput(dt: DataType): Output =
-    Output(
-      OutputId(dt.id.value), dt.name, dt.ownerId, NodeRef(PipelineId("adapter"), None), OutputKind.Table, now, now,
-      schema = dt.fields.map(f => SchemaField(f.name, f.dataType))
-    )
-
-  private def newService(dtRepo: DataTypeRepository, dsRepo: DataSourceRepository, transport: ClaudeTransport): AssistantService = {
-    val outputRepo                = dataTypeBackedOutputRepo(dtRepo)
+  // HEL-904 task 4.1: mocks `OutputRepository` directly -- the `DataTypeRepository`-backed
+  // adapter (`dataTypeBackedOutputRepo`/`toOutput`) this used to require is removed outright now
+  // that DataTypes no longer exist.
+  private def newService(outputRepo: OutputRepository, dsRepo: DataSourceRepository, transport: ClaudeTransport): AssistantService = {
     val workspaceContextService  = new WorkspaceContextService(null, null, outputRepo, null)
     val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, workspaceContextService)
     // HEL-904 task 3.11: rewired onto OutputRepository/NodeSnapshotRepository -- reuses the SAME
-    // dataTypeBackedOutputRepo adapter constructed above for workspaceContextService/
-    // workspaceSearchService (no test in this file exercises panel-capability row counts, so a
-    // `null` NodeSnapshotRepository degrades to `rowCount = 0`, mirroring `rowRepo`'s own
-    // always-empty stub above).
+    // mocked outputRepo constructed above for workspaceContextService/workspaceSearchService (no
+    // test in this file exercises panel-capability row counts, so a `null` NodeSnapshotRepository
+    // degrades to `rowCount = 0`).
     val panelCapabilityService   = new PanelCapabilityService(outputRepo, null)
-    val dashboardProposalService = new DashboardProposalService(null, null, dtRepo, null)
+    val dashboardProposalService = new DashboardProposalService(null, null, outputRepo)
     val pipelineProposalService  = new PipelineProposalService(null, null, null, null, dsRepo, null)
     val claudeClient             = new ClaudeClient(config(), transport)
     // combinedProposalService/patchSetPreviewService/sourceService: null — no scripted sequence
@@ -172,14 +158,14 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, dashboardProposalService, pipelineProposalService, null, null, null)
   }
 
-  private def stubEmptyFind(dtRepo: DataTypeRepository): Unit =
-    when(dtRepo.findAll(ownerId, Page.Default, None)).thenReturn(Future.successful(PagedResult(Vector.empty, 0, 0, 200)))
+  private def stubEmptyFind(outputRepo: OutputRepository): Unit =
+    when(outputRepo.findAllByOwner(ownerId, Page.Default)).thenReturn(Future.successful(PagedResult(Vector.empty, 0, 0, 200)))
 
   // HEL-667 design.md D2/tasks.md 7.2 — a real, non-empty find result (matched against the "orders"
   // query the findInput fixture already sends).
-  private def stubFindWithResults(dtRepo: DataTypeRepository): Unit =
-    when(dtRepo.findAll(ownerId, Page.Default, None))
-      .thenReturn(Future.successful(PagedResult(Vector(pipelineOutputDataType(outputId)), 1, 0, 200)))
+  private def stubFindWithResults(outputRepo: OutputRepository): Unit =
+    when(outputRepo.findAllByOwner(ownerId, Page.Default))
+      .thenReturn(Future.successful(PagedResult(Vector(pipelineOutput(outputId)), 1, 0, 200)))
 
   "converse" should {
 
@@ -188,10 +174,10 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // Future.traverse), so only 2 transport invocations happen: hop 1 (both tool calls), hop 2
     // (final text) — matching the task's own "fake transport invoked exactly twice".
     "produce a dashboard proposal from a scripted find + propose_dashboard sequence" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      stubEmptyFind(dtRepo)
-      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputId))))
+      stubEmptyFind(outputRepo)
+      when(outputRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutput(outputId))))
 
       val expected  = dashboardProposal(outputId.value)
       val transport = new FakeToolTransport(Vector(
@@ -199,7 +185,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("Here's your dashboard proposal."))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.proposal shouldBe Some(AssistantProposal.Dashboard(expected))
       transport.toolInvocations shouldBe 2
@@ -216,9 +202,9 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // transport only — AssistantService.converse/AssistantToolExecutor.execute never branch on
     // find's result at all, confirmed by code review of both files).
     "produce a pipeline proposal from a scripted empty find + propose_pipeline sequence" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      stubEmptyFind(dtRepo)
+      stubEmptyFind(outputRepo)
 
       val expected  = inlinePipelineProposal()
       val transport = new FakeToolTransport(Vector(
@@ -227,7 +213,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("No existing data — proposing a new pipeline."))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
 
       result.proposal shouldBe Some(AssistantProposal.Pipeline(expected))
       transport.toolInvocations shouldBe 3
@@ -236,10 +222,10 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // Task 6.5 — find + get_resource only, ending in a text-only final response: no propose_* call
     // ever happens, so proposal stays None.
     "produce proposal = None for a find/get_resource-only sequence with a final text-only response" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      stubEmptyFind(dtRepo)
-      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputId))))
+      stubEmptyFind(outputRepo)
+      when(outputRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutput(outputId))))
 
       val transport = new FakeToolTransport(Vector(
         Future.successful(toolUseResponse("t1", "find", findInput)),
@@ -247,7 +233,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("Here's what I found; let me know what you'd like to build."))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "What data do we have?", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "What data do we have?", user))
 
       result.proposal shouldBe None
       result.text should include("what you'd like to build")
@@ -257,11 +243,11 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // continues to a LATER successful propose_pipeline; the side channel only records the eventual
     // success, never the earlier rejected attempt.
     "record only the eventual success when an earlier propose_dashboard attempt is rejected" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
       // The rejected attempt's dataTypeId resolves to nothing -> DashboardProposalService.validate
       // rejects it (BadRequest), never touching the side channel.
-      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(None))
+      when(outputRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(None))
 
       val rejected = dashboardProposal(outputId.value)
       val accepted = inlinePipelineProposal("Recovered Pipeline")
@@ -271,7 +257,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("Proposing a new pipeline instead."))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.proposal shouldBe Some(AssistantProposal.Pipeline(accepted))
     }
@@ -281,14 +267,14 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // test-configurable) — a 5th tool_use attempt terminates gracefully via HopBudgetExhausted, not
     // a 6th transport call.
     "resolve a hop-budget-exhausted result for a 5-tool_use-attempt sequence" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      stubEmptyFind(dtRepo)
+      stubEmptyFind(outputRepo)
 
       val findAttempt = Future.successful(toolUseResponse("t", "find", findInput))
       val transport   = new FakeToolTransport(Vector.fill(5)(findAttempt))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.hopBudgetExhausted shouldBe true
       result.proposal shouldBe None
@@ -302,13 +288,13 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // ClaudeClient.sendWithTools's own "thisHop > maxHops" guard) only the first 4 (maxHops,
     // HEL-756) are ever actually dispatched to the executor — the 5th arrives but is never executed.
     "carry the executor's propose-call counters on a hop-budget-exhausted outcome" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
 
       val badProposeAttempt = Future.successful(toolUseResponse("t", "propose_dashboard", JsObject("dashboardName" -> JsNumber(1))))
       val transport          = new FakeToolTransport(Vector.fill(5)(badProposeAttempt))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.hopBudgetExhausted shouldBe true
       result.proposeAttempts shouldBe 4
@@ -319,16 +305,16 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // HEL-667 design.md D2/tasks.md 7.2, spec Scenario 1 — a zero-result find immediately followed
     // by a plain final answer (no propose_* call) sets searchedWithNoResults.
     "set searchedWithNoResults for a zero-result find followed by a plain final answer" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      stubEmptyFind(dtRepo)
+      stubEmptyFind(outputRepo)
 
       val transport = new FakeToolTransport(Vector(
         Future.successful(toolUseResponse("t1", "find", findInput)),
         Future.successful(finalTextResponse("I couldn't find anything matching that — can you narrow it down?"))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
 
       result.searchedWithNoResults shouldBe true
       result.hopBudgetExhausted shouldBe false
@@ -338,16 +324,16 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // HEL-667 design.md D2/tasks.md 7.2, spec Scenario 2 — a find call that DOES return results
     // never sets the flag, even with no proposal.
     "not set searchedWithNoResults for a find call with results" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      stubFindWithResults(dtRepo)
+      stubFindWithResults(outputRepo)
 
       val transport = new FakeToolTransport(Vector(
         Future.successful(toolUseResponse("t1", "find", findInput)),
         Future.successful(finalTextResponse("Here's what I found; let me know what you'd like to build."))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Track weekly revenue", user))
 
       result.searchedWithNoResults shouldBe false
     }
@@ -355,16 +341,16 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // HEL-667 design.md D2/tasks.md 7.2, spec Scenario 3 — a turn whose tool calls never include
     // find (only get_resource) never sets the flag.
     "not set searchedWithNoResults for a turn with no find call at all" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputId))))
+      when(outputRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutput(outputId))))
 
       val transport = new FakeToolTransport(Vector(
         Future.successful(toolUseResponse("t1", "get_resource", getResourceInput(outputId.value))),
         Future.successful(finalTextResponse("Here's the detail you asked for."))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "What is this DataType?", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "What is this DataType?", user))
 
       result.searchedWithNoResults shouldBe false
     }
@@ -373,14 +359,14 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // when the last (never-executed) tool_use requested was find. HEL-756: 5 scripted attempts
     // (maxHops raised to 4).
     "not set searchedWithNoResults for a hop-budget-exhausted outcome" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      stubEmptyFind(dtRepo)
+      stubEmptyFind(outputRepo)
 
       val findAttempt = Future.successful(toolUseResponse("t", "find", findInput))
       val transport   = new FakeToolTransport(Vector.fill(5)(findAttempt))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.hopBudgetExhausted shouldBe true
       result.searchedWithNoResults shouldBe false
@@ -401,7 +387,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // "always append a separate resolving turn" fix would break, since `seedHistory` would then
     // append its own new user turn right after an already-user-role synthetic repair turn).
     "repair a dangling tool_use left by a prior hop-cap-exhausted turn before continuing the conversation" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
 
       val danglingHistory = Seq(
@@ -410,7 +396,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       )
       val transport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("Sure, let's narrow it down."))))
 
-      awaitRight(newService(dtRepo, dsRepo, transport).converse(danglingHistory, "Just show total revenue", user))
+      awaitRight(newService(outputRepo, dsRepo, transport).converse(danglingHistory, "Just show total revenue", user))
 
       val outboundMessages = transport.firstReceivedRequest.messages
       outboundMessages.zipWithIndex.foreach {
@@ -435,7 +421,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // multiToolUseResponse fixture scripts one) — locks in that every dangling block gets its own
     // paired synthetic isError tool_result, not just the first.
     "repair MULTIPLE dangling tool_use blocks left by a prior hop-cap-exhausted turn before continuing the conversation" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
 
       val danglingHistory = Seq(
@@ -451,7 +437,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       )
       val transport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("Sure, let's narrow it down."))))
 
-      awaitRight(newService(dtRepo, dsRepo, transport).converse(danglingHistory, "Just show total revenue", user))
+      awaitRight(newService(outputRepo, dsRepo, transport).converse(danglingHistory, "Just show total revenue", user))
 
       val outboundMessages = transport.firstReceivedRequest.messages
       val danglingTurnIdx  = outboundMessages.indexWhere(_.content.exists(_.id.contains("toolu_dangling_1")))
@@ -488,14 +474,14 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // order. Also locks in evaluation-1.md CR1 (cycle 2): the first turn's content is EXACTLY the
     // caller-supplied message, never AssistantSystemPrompt.text folded in.
     "populate fullHistory with the new user turn and Claude's final response, in order" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
 
       val transport = new FakeToolTransport(Vector(
         Future.successful(finalTextResponse("Here you go."))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Hello", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Hello", user))
 
       result.fullHistory should have size 2
       result.fullHistory.head.role shouldBe ClaudeRole.User
@@ -514,14 +500,14 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // persisted value never leaks the system prompt, AND the OUTBOUND request Claude actually
     // receives still carries it unchanged (no regression to response quality).
     "never leak AssistantSystemPrompt.text into fullHistory's first turn for an empty-history call, while the outbound request to Claude is unaffected" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
 
       val transport = new FakeToolTransport(Vector(
         Future.successful(finalTextResponse("Hi there!"))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "What's our revenue?", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "What's our revenue?", user))
 
       // RETURNED/persisted/rendered value: exactly the typed message, nothing else.
       result.fullHistory.head.content shouldBe Seq(ClaudeContentBlock.Text("What's our revenue?"))
@@ -537,14 +523,14 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // hop budget is exhausted, mirroring task 6.7's own 5-tool_use-attempt scripted sequence
     // (HEL-756: maxHops raised to 4).
     "populate fullHistory even when the hop budget is exhausted" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      stubEmptyFind(dtRepo)
+      stubEmptyFind(outputRepo)
 
       val findAttempt = Future.successful(toolUseResponse("t", "find", findInput))
       val transport   = new FakeToolTransport(Vector.fill(5)(findAttempt))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Build me a sales dashboard", user))
 
       result.hopBudgetExhausted shouldBe true
       result.fullHistory should not be empty
@@ -555,14 +541,14 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // outcome (here: a transport-level API failure) yields Left(claudeError), never a value-less
     // or fabricated Right(AssistantTurnResult).
     "yield Left(claudeError) for a real transport/API failure, never a fabricated result" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
 
       val transport = new FakeToolTransport(Vector(
         Future.failed(ClaudeApiException(500, "internal server error"))
       ))
 
-      val result = await(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Hello", user))
+      val result = await(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Hello", user))
 
       result shouldBe Left(ClaudeError.ApiError(500, "internal server error"))
     }
@@ -572,9 +558,9 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // proposals wins, non-deterministically" — this test asserts *some* proposal is present, not
     // which one.
     "capture exactly one proposal when a single hop contains two successful propose_* calls" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      when(dtRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutputDataType(outputId))))
+      when(outputRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(Some(pipelineOutput(outputId))))
 
       val dashboard = dashboardProposal(outputId.value)
       val pipeline  = inlinePipelineProposal()
@@ -583,7 +569,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("Done."))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Help me out", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Help me out", user))
 
       result.proposal shouldBe defined
       transport.toolInvocations shouldBe 2
@@ -593,16 +579,16 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // never gated on message content/intent -- even for a goal with nothing to do with an external
     // API (find/get_resource only, no propose_* call).
     "set webSearch = true on every outbound request, regardless of message content" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      stubEmptyFind(dtRepo)
+      stubEmptyFind(outputRepo)
 
       val transport = new FakeToolTransport(Vector(
         Future.successful(toolUseResponse("t1", "find", findInput)),
         Future.successful(finalTextResponse("Here's what I found."))
       ))
 
-      awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "What data do we have?", user))
+      awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "What data do we have?", user))
 
       val outboundTools = transport.firstReceivedRequest.tools
       outboundTools.collect { case ws: ClaudeApiToolSpec.WebSearch => ws } should have size 1
@@ -615,7 +601,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // search at all (AssistantToolExecutorSpec's own "reject propose_pipeline for an untested
     // inline rest_api source" coverage, replayed here with a web_search call ahead of it in history).
     "still enforce the existing test_connection requirement for a REST-source proposal after a preceding web_search call" in {
-      val dtRepo = mock(classOf[DataTypeRepository])
+      val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
 
       val restSource = PipelineProposalSource(
@@ -651,7 +637,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         Future.successful(finalTextResponse("Please verify this source with test_connection first."))
       ))
 
-      val result = awaitRight(newService(dtRepo, dsRepo, transport).converse(Seq.empty, "Build a pipeline from this REST API", user))
+      val result = awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Build a pipeline from this REST API", user))
 
       result.proposal shouldBe None
       result.proposeAttempts shouldBe 1

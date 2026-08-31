@@ -406,17 +406,44 @@
 
 ## 4. Delete retired repositories, services, protocols, routes, wiring
 
-- [ ] 4.1 Delete `DataTypeRepository`, `DataTypeRowRepository`, `DataTypeService`,
+- [x] 4.1 Delete `DataTypeRepository`, `DataTypeRowRepository`, `DataTypeService`,
       `MetricRepository`, `MetricService`, `DataTypeProtocol`, `api/protocols/metrics/*`,
       `DataTypeRoutes`, `MetricRoutes`, `BoundPanelService`,
       `PanelServiceHelpers.withMaterializedMetric`, `PanelService` binding-resolution code.
-- [ ] 4.2 Remove wiring in `ApiRoutes.scala` and `Main.scala`.
+      Completed this cycle: severed `PipelineRunService`'s legacy DataType schema/row writes
+      (`upsertFieldsFromRows` deleted outright, `dataTypeRepo`/`dataTypeRowRepo` params removed;
+      HEL-462 schema-drift baseline capture rewired onto `dataSourceRepo`'s own `inferredSchema`,
+      mirroring task 4.3's pattern) — this was the last known live production consumer per the
+      resume brief. Then deleted all 8 named files/classes plus their `ApiRoutes.scala`/
+      `Main.scala` wiring, and mechanically removed the now-dead `dataTypeRepo`/`dataTypeRowRepo`/
+      `metricRepo` constructor params from every downstream service/test fixture (`PipelineService`,
+      `PipelineRepository`, `DashboardProposalService`, `DashboardContentsService`,
+      `PatchSetApplyService`/`PatchSetPreviewService`/`PatchSetApplyContext`,
+      `ProposalPanelSupport` — its non-`"output"`-kind DataType-binding branch removed outright,
+      Text/Markdown panels no longer carry a binding at all) across ~40 test files. A handful of
+      test fixtures that seeded a real `data_types` row purely to satisfy `pipelines.
+      output_data_type_id`'s FK (still a live column pending task 2.10) were rewired onto raw SQL
+      inserts against the same table, since `DataTypeRepository` no longer exists to do it for
+      them.
+- [x] 4.2 Remove wiring in `ApiRoutes.scala` and `Main.scala`. Completed this cycle alongside 4.1.
 - [x] 4.3 Delete `DataSourceService.upsertSourceDataType` / `SourceService`'s second upsert /
       `CreateSourceEnvelope`; replace with `upsertInferredSchema`.
-- [ ] 4.4 `RlsPolicyGuardSpec`: add `outputs`/`node_snapshots`, remove `data_types`/
-      `data_type_rows`/`metrics`.
-- [ ] 4.5 Delete the backend specs for every deleted file above (`MetricRoutesSpec`,
-      `PanelMetricBindingRoutesSpec`, `MetricRepositorySpec`, etc. — absorbs HEL-654).
+- [x] 4.4 `RlsPolicyGuardSpec`: add `outputs`/`node_snapshots`, remove `data_types`/
+      `data_type_rows`/`metrics`. Completed this cycle; also corrected a stale `binary_refs`
+      comment (re-keyed off `pipeline_id`, not the retired `data_type_id`, by task 2.8).
+- [x] 4.5 Delete the backend specs for every deleted file above (`MetricRoutesSpec`,
+      `PanelMetricBindingRoutesSpec`, `MetricRepositorySpec`, etc. — absorbs HEL-654). Completed
+      this cycle: `DataTypeDataSourceAclSpec`, `DataTypeServiceSpec`, `DataTypeRoutesSpec`,
+      `MetricRoutesSpec`, `DataTypeRepositorySpec`, `DataTypeRowRepositorySpec`,
+      `MetricRepositorySpec`, `ComputedFieldsRoutesSpec` (computed-fields API surface, ticket item
+      8), `MetricProtocolSpec`, `DataTypeServiceOverflowStructuredFieldNamesSpec` (its pure
+      function already has its own inlined copy + coverage inside `WorkspaceContextService`) all
+      deleted outright; several other spec files had individual now-dead test blocks/describe
+      groups removed (the HEL-891 DataType-schema-union describe block in
+      `PipelineRunServiceSpec`/`PipelineRunRoutesSpec`, the "DataType CRUD"/"DataType ownership
+      enforcement" blocks in `ApiRoutesSpec`, the metric-deprecation-conflict tests in
+      `PatchSetUndoServiceSpec`) rather than the whole file, where the file's remaining tests cover
+      unrelated, still-live surface.
 - [ ] 4.6 Split the oversized pipeline service files while open (HEL-689) —
       behavior-preserving; do not touch `WorkspaceContextService.asNumeric`'s structure/rounding.
 
@@ -424,6 +451,14 @@
 
 - [ ] 5.1 Delete `schemas/metrics/`, `schemas/data-types/` (moving
       `data-type-assertion-status` → `schemas/outputs/output-assertion-status.schema.json`).
+      Partially done ahead of schedule this cycle: `schemas/metrics/` (4 files) deleted outright
+      because 4.1's `MetricProtocol` deletion left it failing `check-schema-drift.mjs` on its own
+      (no case class backs it anymore) — the gate has to be green on every commit, not just at
+      section 5. `schemas/data-types/data-type-assertion-status.schema.json` is untouched: its
+      backing case class (`AssertionStatusResponse`, in `PipelineProtocol.scala`) was never
+      DataType-specific — only `assertionStatusForDataType`/`DataTypeRoutes`, its ACL-checked
+      caller, were deleted — so the drift check doesn't flag it, and the schema move to
+      `schemas/outputs/` stays this task's own job.
 - [ ] 5.2 Reshape `schemas/panels/panel.schema.json` + `create-panel-request` + batch
       request/response to the placement model (`kind`/`outputId`); delete
       `bound-panel-request/response`, `panel-capabilities-response`, `panel-query`.

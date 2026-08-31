@@ -2,7 +2,7 @@ package com.helio.infrastructure.persistence.alerts
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model._
 import com.helio.services.ServiceError
@@ -30,7 +30,6 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
   private var db: JdbcBackend.Database           = _
   private var aeRepo: AlertEventRepository       = _
   private var arRepo: AlertRuleRepository        = _
-  private var dtRepo: DataTypeRepository         = _
   private var dsRepo: DataSourceRepository       = _
   private var pipeRepo: PipelineRepository       = _
   private var outRepo: OutputRepository          = _
@@ -49,9 +48,8 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     val ctx = new DbContext(db, db)
     aeRepo = new AlertEventRepository(ctx)
     arRepo = new AlertRuleRepository(ctx)
-    dtRepo = new DataTypeRepository(ctx)
     dsRepo = new DataSourceRepository(ctx)
-    pipeRepo = new PipelineRepository(ctx, dtRepo, dsRepo)
+    pipeRepo = new PipelineRepository(ctx, dsRepo)
     outRepo = new OutputRepository(ctx)
   }
 

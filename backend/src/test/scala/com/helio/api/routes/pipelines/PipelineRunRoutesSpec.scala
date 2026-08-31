@@ -14,7 +14,7 @@ import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResult
 import com.helio.domain._
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -56,11 +56,11 @@ class PipelineRunRoutesSpec
   private var stepRepo: PipelineStepRepository          = _
   private var dataSourceRepo: DataSourceRepository      = _
   private var pipelineRunRepo: PipelineRunRepository    = _
-  private var dataTypeRowRepo: DataTypeRowRepository    = _
   private var binaryRefRepo: BinaryRefRepository        = _
   private var alertRuleRepo: AlertRuleRepository        = _
   private var alertEventRepo: AlertEventRepository      = _
   private var outputRepo: OutputRepository              = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository  = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -70,16 +70,15 @@ class PipelineRunRoutesSpec
       .load().migrate()
     db               = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     ctx              = new DbContext(db, db)(routeEc)
-    val dataTypeRepo = new DataTypeRepository(ctx)(routeEc)
     dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
     stepRepo         = new PipelineStepRepository(ctx)(routeEc)
-    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
-    dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
     binaryRefRepo    = new BinaryRefRepository(ctx)(routeEc)
     alertRuleRepo    = new AlertRuleRepository(ctx)(routeEc)
     alertEventRepo   = new AlertEventRepository(ctx)(routeEc)
     outputRepo       = new OutputRepository(ctx)(routeEc)
+    nodeSnapshotRepo = new NodeSnapshotRepository(ctx)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -138,17 +137,8 @@ class PipelineRunRoutesSpec
     (PipelineId(pid), dtId)
   }
 
-  private def seedDsWithMixedTypes(): String = {
-    import PostgresProfile.api._
-    val dsId = UUID.randomUUID().toString
-    val dsConfig =
-      """{"columns":[{"name":"count","type":"integer"},{"name":"rate","type":"double"}],"rows":[[5,3.14]]}"""
-    await(db.run(sqlu"""INSERT INTO data_sources
-      (id, name, source_type, config, owner_id, created_at, updated_at)
-      VALUES ($dsId, 'ds-mixed', 'static', $dsConfig,
-        '00000000-0000-0000-0000-000000000001', now(), now())"""))
-    dsId
-  }
+  // HEL-904 task 4.5: `seedDsWithMixedTypes` removed outright -- its sole
+  // caller (the HEL-891 schema-union test) is deleted above.
 
   /** HEL-216: seed an `ImageSource` data source backed by a real on-disk PNG
    *  (via `ImageIO`, JDK-standard) so `InProcessPipelineEngine.loadRows`'s
@@ -217,8 +207,6 @@ class PipelineRunRoutesSpec
   private def makeRoutes(
       cache: PipelineRunCache,
       runRepo: PipelineRunRepository = null,
-      dtRepo: DataTypeRepository = null,
-      rowRepo: DataTypeRowRepository = null,
       registry: PipelineRunRegistry = null,
       user: AuthenticatedUser = dummyUser,
       binRefRepo: BinaryRefRepository = null,
@@ -229,12 +217,18 @@ class PipelineRunRoutesSpec
       // nullable-default `null` like the other repos above) so every
       // existing `makeRoutes(...)` call site that never mentions Outputs
       // still exercises the real per-Output evaluation hook unchanged.
-      outRepo: OutputRepository = outputRepo
+      outRepo: OutputRepository = outputRepo,
+      // HEL-904 task 4.1: replaces the retired `dtRepo`/`rowRepo` params —
+      // defaults to this spec's real `nodeSnapshotRepo` (same non-nullable-
+      // default convention as `outRepo` above) so every existing
+      // `makeRoutes(...)` call site keeps exercising the real
+      // node_snapshots write unchanged.
+      nodeSnapRepo: NodeSnapshotRepository = nodeSnapshotRepo
   ): Route = {
     implicit val ec: ExecutionContext = routeEc
     val service = new PipelineRunService(
-      pipelineRepo, stepRepo, dataSourceRepo, runRepo, dtRepo, rowRepo, cache, registry, fileSystem, binRefRepo, alertEvalSvc, connector,
-      outputRepo = outRepo
+      pipelineRepo, stepRepo, dataSourceRepo, runRepo, cache, registry, fileSystem, binRefRepo, alertEvalSvc, connector,
+      outputRepo = outRepo, nodeSnapshotRepo = nodeSnapRepo
     )
     concat(
       new PipelineRunSubmitRoutes(service, user).routes,
@@ -403,13 +397,12 @@ class PipelineRunRoutesSpec
       statusOpt shouldBe None
     }
 
-    "POST /pipelines/:id/run updates last_run_status to succeeded and writes Type Registry fields" in {
+    "POST /pipelines/:id/run updates last_run_status to succeeded and writes node_snapshots rows" in {
       import PostgresProfile.api._
       val cache  = new PipelineRunCache()
-      val dtRepo = new DataTypeRepository(ctx)(routeEc)
       val dsId   = seedDsWithData()
-      val (pid, dtId) = seedPipelineWithDtId(dsId)
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo) ~> check {
+      val pid    = seedPipeline(dsId)
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
@@ -418,8 +411,8 @@ class PipelineRunRoutesSpec
         sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
       ))
       statusOpt shouldBe Some("succeeded")
-      val dt = await(dtRepo.findByIdInternal(DataTypeId(dtId))).get
-      dt.fields.map(_.name) should contain allOf ("name", "score")
+      val rows = await(nodeSnapshotRepo.listRows(pid.value, None))
+      rows.flatMap(_.fields.keySet) should contain allOf ("name", "score")
     }
 
 
@@ -594,72 +587,55 @@ class PipelineRunRoutesSpec
       runs.head.triggerSource shouldBe "manual"
     }
 
-    "POST /pipelines/:id/run (non-dry) stores rows in data_type_rows after success" in {
+    "POST /pipelines/:id/run (non-dry) stores rows in node_snapshots after success" in {
       val cache              = new PipelineRunCache()
-      val dtRepo             = new DataTypeRepository(ctx)(routeEc)
       val dsId               = seedDsWithData()
-      val (pid, dtId)        = seedPipelineWithDtId(dsId)
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+      val pid                = seedPipeline(dsId)
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
-      val storedRows = await(dataTypeRowRepo.listRows(dtId))
+      val storedRows = await(nodeSnapshotRepo.listRows(pid.value, None))
       storedRows should have size 2
       storedRows.head.fields.keys should contain allOf ("name", "score")
     }
 
-    "POST /pipelines/:id/run?dry=true does NOT write to data_type_rows" in {
+    "POST /pipelines/:id/run?dry=true does NOT write to node_snapshots" in {
       val cache              = new PipelineRunCache()
       val dsId               = seedDsWithData()
-      val (pid, dtId)        = seedPipelineWithDtId(dsId)
-      await(dataTypeRowRepo.overwriteRows(dtId, Seq.empty))
+      val pid                = seedPipeline(dsId)
+      await(nodeSnapshotRepo.overwriteRows(pid.value, None, Seq.empty))
 
-      Post(s"/pipelines/${pid.value}/run?dry=true") ~> makeRoutes(cache, rowRepo = dataTypeRowRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run?dry=true") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
-      val storedRows = await(dataTypeRowRepo.listRows(dtId))
+      val storedRows = await(nodeSnapshotRepo.listRows(pid.value, None))
       storedRows shouldBe empty
     }
 
     "POST /pipelines/:id/run (non-dry, second run) overwrites previous snapshot" in {
       val cache              = new PipelineRunCache()
-      val dtRepo             = new DataTypeRepository(ctx)(routeEc)
       val dsId               = seedDsWithData()
-      val (pid, dtId)        = seedPipelineWithDtId(dsId)
+      val pid                = seedPipeline(dsId)
 
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(dataTypeRowRepo.listRows(dtId)) should have size 2
+      await(nodeSnapshotRepo.listRows(pid.value, None)) should have size 2
 
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(dataTypeRowRepo.listRows(dtId)) should have size 2
+      await(nodeSnapshotRepo.listRows(pid.value, None)) should have size 2
     }
 
-    // HEL-891 design D4: pipeline-output inference now emits only canonical DataFieldType wire
-    // values -- "double" (never one of the 7 canonical values, silently dropped by
-    // PanelCapabilityService.wireType) is fixed to "float". Was "... and double for fractional"
-    // before this change; updated, not weakened -- this is the exact defect HEL-891 fixes.
-    "POST /pipelines/:id/run infers integer type for whole-number column and float for fractional" in {
-      val cache              = new PipelineRunCache()
-      val dtRepo             = new DataTypeRepository(ctx)(routeEc)
-      val dsId               = seedDsWithMixedTypes()
-      val (pid, dtId)        = seedPipelineWithDtId(dsId)
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo) ~> check {
-        status shouldBe StatusCodes.OK
-        val resp = responseAs[RunResultResponse]
-        resp.rowCount shouldBe 1
-      }
-      val dt = await(dtRepo.findByIdInternal(DataTypeId(dtId))).get
-      val fieldMap = dt.fields.map(f => f.name -> f.dataType).toMap
-      fieldMap("count") shouldBe "integer"
-      fieldMap("rate")  shouldBe "float"
-    }
+    // HEL-904 task 4.5: "POST /pipelines/:id/run infers integer type for whole-number column and
+    // float for fractional" removed outright -- it exercised the retired
+    // `upsertFieldsFromRows`/`DataType.fields` schema-union write; `node_snapshots` stores rows
+    // only, never a derived per-column schema.
 
     // HEL-859 (design.md Decision 3): the response body now names the
     // failing step's id, kind, and reason — "DataSource not found for join"
@@ -739,13 +715,13 @@ class PipelineRunRoutesSpec
     "GET /pipelines/:id/run-events returns a generic 500 without leaking the exception message on guard failure" in {
       implicit val ec: ExecutionContext = routeEc
       val secret       = "leaky-internal-detail-should-not-surface"
-      val failingRepo  = new PipelineRepository(ctx, new DataTypeRepository(ctx)(routeEc), dataSourceRepo)(routeEc) {
+      val failingRepo  = new PipelineRepository(ctx, dataSourceRepo)(routeEc) {
         override def findByIdShared(id: PipelineId, callerOpt: Option[AuthenticatedUser]): Future[Option[Pipeline]] =
           Future.failed(new RuntimeException(secret))
       }
       val reg          = new PipelineRunRegistry()(typedSystem)
       val service      = new PipelineRunService(
-        failingRepo, stepRepo, dataSourceRepo, null, null, null, new PipelineRunCache(), reg, fileSystem, null
+        failingRepo, stepRepo, dataSourceRepo, null, new PipelineRunCache(), reg, fileSystem, null
       )
       val routes: Route = new PipelineRunStreamRoutes(service, dummyUser).routes
       Get("/pipelines/00000000-0000-0000-0000-0000000000aa/run-events") ~> routes ~> check {
@@ -806,10 +782,9 @@ class PipelineRunRoutesSpec
 
     "POST /pipelines/:id/run over an ImageSource populates binary_refs" in {
       val cache       = new PipelineRunCache()
-      val dtRepo      = new DataTypeRepository(ctx)(routeEc)
       val dsId        = seedDsImage()
-      val (pid, dtId) = seedPipelineWithDtId(dsId)
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
+      val pid         = seedPipeline(dsId)
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 1
@@ -819,8 +794,8 @@ class PipelineRunRoutesSpec
       refs.head.fieldName shouldBe "content"
       refs.head.rowIndex   shouldBe 0
 
-      // Matches what actually landed in data_type_rows.data.content.
-      val storedRows = await(dataTypeRowRepo.listRows(dtId))
+      // Matches what actually landed in node_snapshots.data.content.
+      val storedRows = await(nodeSnapshotRepo.listRows(pid.value, None))
       storedRows should have size 1
       val contentJs = storedRows.head.fields("content").asJsObject
       contentJs.fields("storageKey").convertTo[String] shouldBe refs.head.storageKey
@@ -829,16 +804,15 @@ class PipelineRunRoutesSpec
 
     "POST /pipelines/:id/run (second run over an ImageSource) replaces the prior binary_refs snapshot" in {
       val cache       = new PipelineRunCache()
-      val dtRepo      = new DataTypeRepository(ctx)(routeEc)
       val dsId        = seedDsImage()
-      val (pid, dtId) = seedPipelineWithDtId(dsId)
+      val pid         = seedPipeline(dsId)
 
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
       await(binaryRefRepo.findByNode(pid.value, None)) should have size 1
 
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
       await(binaryRefRepo.findByNode(pid.value, None)) should have size 1
@@ -846,10 +820,9 @@ class PipelineRunRoutesSpec
 
     "POST /pipelines/:id/run over a StaticSource (no binary-ref fields) writes no binary_refs rows" in {
       val cache       = new PipelineRunCache()
-      val dtRepo      = new DataTypeRepository(ctx)(routeEc)
       val dsId        = seedDsWithData()
-      val (pid, dtId) = seedPipelineWithDtId(dsId)
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, dtRepo = dtRepo, rowRepo = dataTypeRowRepo, binRefRepo = binaryRefRepo) ~> check {
+      val pid         = seedPipeline(dsId)
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
       await(binaryRefRepo.findByNode(pid.value, None)) shouldBe empty
@@ -859,7 +832,7 @@ class PipelineRunRoutesSpec
     "POST /pipelines/:id/run (non-dry, failure) invokes no alert evaluation and creates no events" in {
       val cache            = new PipelineRunCache()
       val dsId             = seedDsWithData()
-      val (pid, dtId)      = seedPipelineWithDtId(dsId)
+      val pid              = seedPipeline(dsId)
       val ruleId           = seedAlertRule(pid, "score", "gt", 0)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
       await(stepRepo.insert(pid, "join", JoinConfig(missingSourceId, "name", "inner"), dummyUser))
@@ -875,11 +848,11 @@ class PipelineRunRoutesSpec
     "POST /pipelines/:id/run (non-dry, success) invokes evaluation and fires a breaching rule" in {
       val cache        = new PipelineRunCache()
       val dsId         = seedDsWithData()
-      val (pid, dtId)  = seedPipelineWithDtId(dsId)
+      val pid          = seedPipeline(dsId)
       val ruleId       = seedAlertRule(pid, "score", "gt", 50) // sum(42.0, 37.0) = 79 > 50
       val alertEvalSvc = new AlertEvaluationService(alertRuleRepo, alertEventRepo)(routeEc)
 
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, rowRepo = dataTypeRowRepo, alertEvalSvc = alertEvalSvc) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, alertEvalSvc = alertEvalSvc) ~> check {
         status shouldBe StatusCodes.OK
       }
 
@@ -896,14 +869,14 @@ class PipelineRunRoutesSpec
       import PostgresProfile.api._
       val cache       = new PipelineRunCache()
       val dsId        = seedDsWithData()
-      val (pid, dtId) = seedPipelineWithDtId(dsId)
+      val pid         = seedPipeline(dsId)
       val failingRuleRepo = new AlertRuleRepository(ctx)(routeEc) {
         override def listEnabledByOutputInternal(outputId: OutputId): Future[Vector[AlertRule]] =
           Future.failed(new RuntimeException("boom: evaluation should never fail the run"))
       }
       val alertEvalSvc = new AlertEvaluationService(failingRuleRepo, alertEventRepo)(routeEc)
 
-      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo, rowRepo = dataTypeRowRepo, alertEvalSvc = alertEvalSvc) ~> check {
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo, alertEvalSvc = alertEvalSvc) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
