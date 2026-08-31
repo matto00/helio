@@ -6,7 +6,9 @@ The always-present `agentContext` section of `WorkspaceContextResponse` (assembl
 most-recently-useful memory entries into the NL authoring flow (HEL-341), conversational
 refinement (HEL-343), and `GET /api/workspace/context`, with surfaced memory entries touched so
 420-B's eviction order reflects real usage.
+
 ## Requirements
+
 ### Requirement: WorkspaceContextResponse includes an always-present agentContext section
 `WorkspaceContextResponse` (assembled by `WorkspaceContextService.assemble`) SHALL include an
 `agentContext` field carrying the caller's `AgentPreferences` and up to 20 of their
@@ -51,7 +53,7 @@ ordering reflects real usage.
 ### Requirement: The NL authoring prompt includes the caller's agentContext
 `DashboardAuthoringPrompt.userMessage`'s rendered prompt text SHALL include a compact rendering
 of the grounded `agentContext` (preferences summary and memory entries) in addition to the
-existing DataType grounding section.
+existing Output grounding section.
 
 #### Scenario: Prompt includes preferences and memory
 - **WHEN** `DashboardAuthoringService` assembles grounded context for a first-turn authoring
@@ -63,4 +65,3 @@ existing DataType grounding section.
 - **WHEN** the caller has no stored preferences and no stored memory entries
 - **THEN** the rendered prompt text does not include a misleading or empty-looking
   preferences/memory section (e.g. no bare headers with nothing under them)
-

@@ -2,7 +2,9 @@
 
 ## Purpose
 Defines the ACL directive that enforces resource ownership and sharing grants on all mutating and sensitive API routes. Covers ownership checks, shared access levels (Owner/Editor/Viewer), and decoupled resolver injection via the ResourceTypeRegistry.
+
 ## Requirements
+
 ### Requirement: ACL directive enforces resource ownership before handler execution
 The system SHALL provide an Akka HTTP directive `authorizeResource(resourceType, resourceId, user)` that resolves
 the resource owner from the appropriate repository and compares it with `user.id`. If the resource is not found
@@ -192,24 +194,15 @@ resolver functions so tests can supply stubs.
 - **WHEN** the test injects a resolver returning `None`
 - **THEN** the directive completes with `404 Not Found`
 
-### Requirement: ACL directive covers DataSource and DataType resource types
-The `authorizeResource` directive resolver registry SHALL include resolvers for `DataSource` and
-`DataType` resource types. Registering these resolvers in `ApiRoutes` SHALL require no changes to the
-`AclDirective` class itself.
+### Requirement: ACL directive covers the DataSource resource type
+The `authorizeResource` directive resolver registry SHALL include a resolver for the `DataSource`
+resource type. Registering this resolver in `ApiRoutes` SHALL require no changes to the
+`AclDirective` class itself. The `"data-type"` resource type no longer exists.
 
 #### Scenario: DataSource resolver returns owner id
 - **WHEN** `DataSourceRepository.findByIdInternal` returns `Some(source)` and `authorizeResource` is called
 - **THEN** the resolver returns `Some(source.ownerId.value)`
 
-#### Scenario: DataType resolver returns owner id
-- **WHEN** `DataTypeRepository.findByIdInternal` returns `Some(dt)` and `authorizeResource` is called
-- **THEN** the resolver returns `Some(dt.ownerId.value)`
-
 #### Scenario: Non-owner is denied DataSource access with 404
 - **WHEN** a user calls a per-id data-source route (`PATCH`, `DELETE`, preview, refresh) for a source they do not own
 - **THEN** the response is `404 Not Found` (existence-not-leaked semantics; no `403`)
-
-#### Scenario: Non-owner is denied DataType access with 404
-- **WHEN** a user calls `PATCH /api/types/:id` or `DELETE /api/types/:id` for a type they do not own
-- **THEN** the response is `404 Not Found` (existence-not-leaked semantics; no `403`)
-

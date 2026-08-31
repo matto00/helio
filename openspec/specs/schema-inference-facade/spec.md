@@ -52,7 +52,7 @@ rather than each defining an inline mapping.
 
 #### Scenario: SourceService reuses the shared projection
 - **WHEN** `SourceService.createSql`, `.createRest`, `.refreshSql`, or `.refreshRest` builds a
-  `DataType`'s fields from an `InferredSchema`
+  `Output`'s fields from an `InferredSchema`
 - **THEN** it does so by calling the shared projection function, not an inline field-by-field map
 
 ### Requirement: New connectors document their inference contract

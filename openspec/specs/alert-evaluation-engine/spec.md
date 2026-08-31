@@ -5,30 +5,20 @@ Evaluate enabled alert rules against a DataType's freshly-written rows — resol
 metric, applying its threshold comparator, and driving the alert-event state machine (fire on
 breach, auto-resolve on clear) from a single entry point shared by pipeline-run completion and
 future scheduled runs.
+
 ## Requirements
+
 ### Requirement: Single evaluation entry point
-The system SHALL expose `AlertEvaluationService.evaluateForDataType(dataTypeId: DataTypeId,
+The system SHALL expose `AlertEvaluationService.evaluateForOutput(outputId: OutputId,
 rows: Seq[PipelineRowJson.Row], triggeringRunId: Option[String]): Future[Unit]` as the sole
-entry point for evaluating alert rules against freshly-produced rows for a `DataTypeId`, callable
-identically from a pipeline-run-completion hook and a future scheduled-run trigger.
+entry point for evaluating alert rules against freshly-produced rows for an `OutputId`, callable
+identically from a pipeline-run-completion hook (invoked for every Output of every materialized
+node) and a future scheduled-run trigger.
 
 #### Scenario: Entry point requires no pipeline-run context
-- **WHEN** `evaluateForDataType` is called with `triggeringRunId = None`
+- **WHEN** `evaluateForOutput` is called with `triggeringRunId = None`
 - **THEN** evaluation proceeds normally, and any `AlertEvent` created or updated has
   `pipelineRunId = None`
-
-### Requirement: Load enabled rules for the target DataType
-`evaluateForDataType` SHALL load every enabled `AlertRule` targeting `dataTypeId` via
-`AlertRuleRepository.listEnabledByDataTypeInternal`, evaluating none if no enabled rule targets
-that `DataTypeId`.
-
-#### Scenario: No enabled rules
-- **WHEN** `evaluateForDataType` is called for a `DataTypeId` with no enabled `AlertRule`
-- **THEN** no `AlertEvent` is created, updated, or resolved, and the returned `Future` succeeds
-
-#### Scenario: Disabled rule is skipped
-- **WHEN** an `AlertRule` targeting `dataTypeId` exists with `enabled = false`
-- **THEN** that rule is not evaluated, regardless of whether its condition would breach
 
 ### Requirement: Metric extraction — scalar, aggregate, and count sentinel
 Given a rule's `metric` and the row set passed to `evaluateForDataType`, the system SHALL resolve
@@ -157,3 +147,15 @@ triggering run (if any).
 - **WHEN** an active `AlertEvent` is auto-resolved
 - **THEN** a log line identifying that rule/event/resolved-state is emitted
 
+### Requirement: Load enabled rules for the target Output
+`evaluateForOutput` SHALL load every enabled `AlertRule` targeting `outputId` via
+`AlertRuleRepository.listEnabledByOutputInternal`, evaluating none if no enabled rule targets
+that `OutputId`.
+
+#### Scenario: No enabled rules
+- **WHEN** `evaluateForOutput` is called for an `OutputId` with no enabled `AlertRule`
+- **THEN** no `AlertEvent` is created, updated, or resolved, and the returned `Future` succeeds
+
+#### Scenario: Disabled rule is skipped
+- **WHEN** an `AlertRule` targeting `outputId` exists with `enabled = false`
+- **THEN** that rule is not evaluated, regardless of whether its condition would breach

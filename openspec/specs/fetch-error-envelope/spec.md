@@ -10,10 +10,10 @@ construction.
 ### Requirement: Shared create-time envelope helper
 The backend SHALL define a helper (`CreateSourceEnvelope.build`) in `com.helio.services`, generic
 over any `ConnectorDriver[Config]` implementation, that given a connector instance, its config, an inserted
-`DataSource`, and a `DataTypeRepository` produces a `Future[CreateSourceResponse]`: calling
+`DataSource`, and a `OutputRepository/PipelineStepRepository` produces a `Future[CreateSourceResponse]`: calling
 `connector.inferSchema(config)` and, on `Left(err)`, returning `CreateSourceResponse(source, dataType
 = None, fetchError = Some(err))`; on `Right(schema)`, projecting fields via
-`SchemaInferenceFacade.toDataFields`, persisting a new `DataType`, and returning
+`SchemaInferenceFacade.toDataFields`, persisting a new `Output`, and returning
 `CreateSourceResponse(source, dataType = Some(...), fetchError = None)`.
 
 #### Scenario: Helper compiles against any Connector[Config] implementation
@@ -28,7 +28,7 @@ over any `ConnectorDriver[Config]` implementation, that given a connector instan
 
 #### Scenario: Success produces a persisted DataType with no fetchError
 - **WHEN** `connector.inferSchema(config)` resolves to `Right(schema)`
-- **THEN** the helper persists a `DataType` via `SchemaInferenceFacade.toDataFields(schema,
+- **THEN** the helper persists a `Output` via `SchemaInferenceFacade.toDataFields(schema,
   overrides)` and returns a `CreateSourceResponse` with `dataType = Some(...)` and `fetchError = None`
 
 ### Requirement: No raw exception text in fetchError
@@ -77,7 +77,7 @@ produce a correct `CreateSourceResponse` (success and failure cases) when driven
   `InferredSchema`
 - **WHEN** `CreateSourceEnvelope.build` is called with that connector and config
 - **THEN** the result is `CreateSourceResponse(source, dataType = Some(...), fetchError = None)` with
-  the persisted `DataType`'s fields matching `SchemaInferenceFacade.toDataFields(schema)`
+  the persisted `Output`'s fields matching `SchemaInferenceFacade.toDataFields(schema)`
 
 ### Requirement: Envelope contract documented on ConnectorDriver
 `ConnectorDriver.scala`'s trait-level doc comment SHALL include a `'''Fetch-error envelope'''` block

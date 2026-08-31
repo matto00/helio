@@ -1,7 +1,9 @@
 ## Purpose
 
 Defines requirements for the backend's PostgreSQL persistence layer: schema migrations via Flyway, demo data seeding, repository isolation, and database credential configuration.
+
 ## Requirements
+
 ### Requirement: Dashboard and panel data persists across restarts
 The backend SHALL store dashboard and panel data in PostgreSQL so that all data survives a backend restart.
 
@@ -37,18 +39,6 @@ The backend SHALL route all dashboard and panel reads and writes through reposit
 #### Scenario: Panel created via repository
 - **WHEN** a POST /api/panels request is handled
 - **THEN** the new panel is written to PostgreSQL via PanelRepository and the persisted record is returned
-
-### Requirement: Panels table stores DataType binding
-The `panels` table SHALL have two nullable columns: `type_id` (text, FK → data_types ON DELETE
-SET NULL) and `field_mapping` (jsonb, stores JSON). Both default to NULL for unbound panels.
-
-#### Scenario: Panel without binding has null type_id
-- **WHEN** a panel is created without a typeId
-- **THEN** the `type_id` and `field_mapping` columns are NULL in the database
-
-#### Scenario: Panel binding persists across restarts
-- **WHEN** a panel's typeId and fieldMapping are set via PATCH
-- **THEN** the values survive a backend restart and are returned in subsequent GET responses
 
 ### Requirement: Database credentials are configurable via environment variables
 The backend SHALL support configuring the database username and password via `DB_USER` and `DB_PASSWORD` environment variables, passed to both Flyway and Slick. When absent, the
@@ -174,3 +164,15 @@ implicit `BaseColumnType[String]` (same as other JSONB string columns) rather th
 - **WHEN** the `PanelTable` column definition for `field_mapping` is inspected
 - **THEN** it uses the `jsonbStringType` implicit rather than `O.SqlType("jsonb")`
 
+### Requirement: Panels table stores an Output placement
+The `panels` table SHALL have a nullable `output_id` (text, FK → `outputs` `ON DELETE CASCADE`)
+column, populated only for panels with `kind = output`. The previously-required `type_id`
+(FK → `data_types`) and `field_mapping` columns no longer exist.
+
+#### Scenario: Panel without binding has null type_id
+- **WHEN** a content panel (text, markdown, image, divider) is created
+- **THEN** the `output_id` column is NULL in the database
+
+#### Scenario: Panel binding persists across restarts
+- **WHEN** a panel's `output_id` is set via `POST /api/panels`
+- **THEN** the value survives a backend restart and is returned in subsequent GET responses

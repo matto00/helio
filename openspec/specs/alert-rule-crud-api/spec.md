@@ -3,7 +3,9 @@
 ## Purpose
 REST CRUD contract for alert rule definitions (`/api/alert-rules`), including request/response
 shapes, owner-scoping and authorization behavior, and validation of the target DataType.
+
 ## Requirements
+
 ### Requirement: List alert rules
 The backend SHALL expose `GET /api/alert-rules` returning the authenticated user's alert rules as
 `{ "items": [...] }`.
@@ -17,14 +19,15 @@ The backend SHALL expose `GET /api/alert-rules` returning the authenticated user
 - **THEN** the response includes only rules owned by the calling user
 
 ### Requirement: Create alert rule
-The backend SHALL expose `POST /api/alert-rules` accepting `{ targetDataTypeId, metric, condition,
+The backend SHALL expose `POST /api/alert-rules` accepting `{ targetOutputId, metric, condition,
 severity, enabled, name }`. The created rule SHALL round-trip through a subsequent fetch unchanged,
 including arbitrary/unknown keys inside `condition`.
 
 #### Scenario: Successful create
-- **WHEN** `POST /api/alert-rules` is called with a valid body targeting a DataType the caller owns
+- **WHEN** `POST /api/alert-rules` is called with a valid body targeting an Output the caller
+  can access (owner or pipeline grantee)
 - **THEN** the response is 201 with the created rule, and a subsequent `GET` of that rule returns
-  the same `targetDataTypeId`, `metric`, `condition` (including any extra keys), `severity`,
+  the same `targetOutputId`, `metric`, `condition` (including any extra keys), `severity`,
   `enabled`, and `name`
 
 #### Scenario: Absent optional fields normalize at the boundary
@@ -33,11 +36,12 @@ including arbitrary/unknown keys inside `condition`.
   spray-json omits `None` options on the wire
 
 #### Scenario: Non-existent target DataType is rejected
-- **WHEN** `POST /api/alert-rules` is called with a `targetDataTypeId` that does not exist
+- **WHEN** `POST /api/alert-rules` is called with a `targetOutputId` that does not exist
 - **THEN** the response is 404 or 422
 
 #### Scenario: Non-owned target DataType is rejected
-- **WHEN** `POST /api/alert-rules` is called with a `targetDataTypeId` owned by a different user
+- **WHEN** `POST /api/alert-rules` is called with a `targetOutputId` the caller has no
+  ownership or grant on
 - **THEN** the response is 404 or 422
 
 ### Requirement: Get single alert rule
@@ -85,4 +89,3 @@ The backend SHALL expose `DELETE /api/alert-rules/:id`, owner-scoped.
 #### Scenario: Not found
 - **WHEN** `DELETE /api/alert-rules/:id` is called with an unknown id
 - **THEN** the response is 404
-

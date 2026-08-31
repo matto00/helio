@@ -5,7 +5,9 @@ Defines the `PipelineShape` abstraction, registry, and `GET /api/pipeline-shapes
 named, parameterized templates that expand into ordinary pipeline steps and declare a guaranteed
 output contract, so panels and agents can discover and bind to pre-configured shapes (single value /
 top-N / time series / pivot) instead of hand-building raw step lists.
+
 ## Requirements
+
 ### Requirement: PipelineShape trait defines the shape contract
 The backend SHALL define a `PipelineShape` trait in `com.helio.domain.shapes` exposing: `id: String`,
 `label: String`, `description: String`, `paramsSchema: Vector[ShapeParamDescriptor]`,
@@ -42,7 +44,7 @@ String)`, or `Unbounded`. `OutputContract` carries no statically-declared field 
 `OutputFieldContract`/`fields: Vector[OutputFieldContract]` member was removed as YAGNI (zero producers,
 zero consumers across the entire shipped shape epic; `outputContract` is a static `val` with no access to
 `params`, so it structurally could never express param-derived field sets). Any surface needing a shape's
-actual output columns SHALL bind via the runtime `DataType` schema produced after instantiate → run
+actual output columns SHALL bind via the runtime `Output` schema produced after instantiate → run
 (HEL-399), not a static field declaration.
 
 #### Scenario: OutputContract carries no fields member
@@ -618,4 +620,3 @@ touch the database (mirrors the existing catalog GET's "purely additive, no pers
 - **WHEN** the backend test suite runs after this change
 - **THEN** every pre-existing `PipelineShape`/`PipelineShapeService`/`PipelineShapeRoutes` test continues
   to pass unmodified, and no new Flyway migration file is added
-

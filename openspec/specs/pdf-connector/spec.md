@@ -4,13 +4,15 @@
 Data Source connector for `.pdf` files (file upload and URL-based ingestion), extracting text per page
 via Apache PDFBox and storing it as a `string-body` field with `filename`/`sizeBytes`/`pageCount`
 document metadata and `pageNumber`/`characterCount` per-row metadata.
+
 ## Requirements
+
 ### Requirement: POST /api/data-sources accepts a .pdf file upload
 The endpoint SHALL accept `multipart/form-data` with a `type` part equal to `"pdf"`, a `file` part (the
 `.pdf` file), and a `name` part. It SHALL validate the file's extension, validate that the bytes are a
 well-formed, non-encrypted PDF, store the raw bytes via the `FileSystem` abstraction, create a
 `DataSource` record with discriminator `type = "pdf"` and `config = {"path": "<relative-path>"}`, register
-a linked `DataType` with fields `content` (`string-body`), `filename` (`string`), `sizeBytes` (`integer`),
+the source's inferred schema with fields `content` (`string-body`), `filename` (`string`), `sizeBytes` (`integer`),
 `pageNumber` (`integer`), `pageCount` (`integer`), and `characterCount` (`integer`), and return 201 with
 the created `DataSource`.
 
@@ -18,7 +20,7 @@ the created `DataSource`.
 - **WHEN** `POST /api/data-sources` is called with `type=pdf`, a valid multi-page `.pdf` file, and a name
 - **THEN** the response is 201 with the created DataSource including `id`, `name`, `type: "pdf"`, and
   `config.path`
-- **AND** a `DataType` linked to the new source is registered with fields `content` (`string-body`),
+- **AND** an inferred schema record linked to the new source is registered with fields `content` (`string-body`),
   `filename` (`string`), `sizeBytes` (`integer`), `pageNumber` (`integer`), `pageCount` (`integer`), and
   `characterCount` (`integer`)
 
@@ -44,14 +46,14 @@ The endpoint SHALL accept a JSON body `{"name": string, "type": "pdf", "config":
 SHALL fetch the URL's content via `ContentSourceSupport.fetchUrl`, validate the resolved filename's
 extension and that the fetched bytes are a well-formed, non-encrypted PDF, store the fetched bytes via
 `FileSystem`, create a `DataSource` with `config = {"path": "<relative-path>", "sourceUrl": "<url>"}`,
-register the linked `DataType`, and return 201.
+register the source's inferred schema, and return 201.
 
 #### Scenario: Valid URL ingestion creates DataSource and DataType
 - **WHEN** `POST /api/data-sources` is called with `type: "pdf"` and `config.url` pointing to a reachable
   `.pdf` resource
 - **THEN** the response is 201 with the created DataSource, `type: "pdf"`, and `config.sourceUrl` set to
   the given URL
-- **AND** a `DataType` linked to the source is registered with the full PDF field set
+- **AND** an inferred schema record linked to the source is registered with the full PDF field set
 
 #### Scenario: Unreachable URL returns 502
 - **WHEN** `POST /api/data-sources` is called with `type: "pdf"` and `config.url` that cannot be fetched
@@ -131,13 +133,12 @@ with the path from `config.path` in addition to removing the database record.
 - **THEN** the data source record is removed and the stored file is deleted from the FileSystem
 
 ### Requirement: PDF metadata fields build on the shared content-connector helper
-The PDF connector's `DataType` field list SHALL be built by calling
+The PDF connector's inferred schema field list SHALL be built by calling
 `ContentSourceSupport.metadataFields(StringBodyType, filename, sizeBytes)` for the `{content, filename,
 sizeBytes}` triple and appending `pageNumber`, `pageCount`, and `characterCount` fields at the connector
 layer, without modifying `ContentSourceSupport.metadataFields`'s signature.
 
 #### Scenario: PDF connector's content field uses StringBodyType
-- **WHEN** a PDF source's `DataType` is registered
+- **WHEN** a PDF source's inferred schema is registered
 - **THEN** its `content` field's type is `string-body`, `filename` is `string`, `sizeBytes` is `integer`,
   and `pageNumber`/`pageCount`/`characterCount` are each `integer`
-

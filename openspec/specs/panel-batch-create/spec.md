@@ -4,7 +4,9 @@
 Lets a caller create many new panels on one existing dashboard in a single atomic call, so an agentic
 board build (e.g. `helio-news`'s per-story image/markdown/data-panel fan-out) collapses to one request
 instead of one `POST /api/panels` per panel.
+
 ## Requirements
+
 ### Requirement: POST /api/panels/batch endpoint exists
 
 The backend SHALL expose a `POST /api/panels/batch` endpoint that accepts `{ dashboardId, panels:
@@ -49,16 +51,21 @@ rule).
 
 ### Requirement: Batch create does not build a pipeline chain
 
-A batch item's `config.dataTypeId` (when present) SHALL only bind to an existing, caller-owned,
-pipeline-output DataType — identical to `POST /api/panels`'s binding rule. Batch create SHALL NOT
-accept inline source/pipeline/step definitions; building a new source→pipeline→run chain remains
-`POST /api/panels/bound`'s (HEL-364) responsibility, one panel at a time.
+A batch item's `config.outputId` (when present) SHALL only bind to an existing, accessible Output
+— identical to `POST /api/panels`'s placement rule. Batch create SHALL NOT accept inline
+source/pipeline/step/output definitions; building a new pipeline or Output remains out of scope
+for this endpoint.
+
+#### Scenario: Batch item places an existing Output
+- **WHEN** a batch item's `config.outputId` names an existing, accessible Output
+- **THEN** the created panel is placed against that Output, exactly as a single `POST /api/panels`
+  call with the same `config` would produce
 
 #### Scenario: Batch item binds to an existing pipeline-output DataType
-- **WHEN** a batch item's `config.dataTypeId` names an existing DataType owned by the caller with no
-  `sourceId` (a pipeline output)
-- **THEN** the created panel is bound to that DataType, exactly as a single `POST /api/panels` call
-  with the same `config` would produce
+- **WHEN** a batch item's `config.outputId` names an existing, accessible Output (a pipeline
+  output — the DataType concept it previously referenced no longer exists)
+- **THEN** the created panel is placed against that Output, exactly as a single `POST /api/panels`
+  call with the same `config` would produce
 
 ### Requirement: Batch create is owner-scoped
 
@@ -90,4 +97,3 @@ delete, modify, or otherwise touch any panel that already exists on `dashboardId
 - **WHEN** the owner sends `POST /api/panels/batch` with one new panel spec
 - **THEN** the response contains only the one newly created panel, and the dashboard's two
   pre-existing panels are unchanged in every field
-

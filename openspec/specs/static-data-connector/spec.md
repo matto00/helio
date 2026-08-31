@@ -2,9 +2,11 @@
 
 ## Purpose
 Manual data entry connector that stores tabular column/row data directly in the DataSource config JSONB. Supports create, refresh (replace rows), and preview without any external connection.
+
 ## Requirements
+
 ### Requirement: POST /api/data-sources accepts static source payload
-The backend SHALL accept `POST /api/data-sources` with `Content-Type: application/json` when the discriminator `type` is `"static"`. The body SHALL be `{ "name": string, "type": "static", "columns": [{ "name": string, "type": string }], "rows": [[...]] }`. The handler SHALL store the columns and rows in the `data_sources.config` JSONB column and register a `DataType` using the declared column types.
+The backend SHALL accept `POST /api/data-sources` with `Content-Type: application/json` when the discriminator `type` is `"static"`. The body SHALL be `{ "name": string, "type": "static", "columns": [{ "name": string, "type": string }], "rows": [[...]] }`. The handler SHALL store the columns and rows in the `data_sources.config` JSONB column and register an inferred schema record using the declared column types.
 
 #### Scenario: Valid static source is created
 - **WHEN** `POST /api/data-sources` is called with a valid static payload containing 2 columns and 3 rows
@@ -12,7 +14,7 @@ The backend SHALL accept `POST /api/data-sources` with `Content-Type: applicatio
 
 #### Scenario: Static DataType is registered on creation
 - **WHEN** a static source is created with columns `[{ name: "id", type: "integer" }, { name: "label", type: "string" }]`
-- **THEN** a `DataType` is created linked to the source with `fields` matching the declared column names and types
+- **THEN** an inferred schema record is created linked to the source with `fields` matching the declared column names and types
 
 #### Scenario: Row count exceeding 500 is rejected
 - **WHEN** `POST /api/data-sources` is called with a static payload containing 501 rows
@@ -23,11 +25,11 @@ The backend SHALL accept `POST /api/data-sources` with `Content-Type: applicatio
 - **THEN** the response is 400 with an error message
 
 ### Requirement: POST /api/data-sources/:id/refresh replaces static rows
-`POST /api/data-sources/:id/refresh` SHALL accept a JSON body with the same `{ columns, rows }` shape for static sources, replace the stored `config`, and update the linked `DataType` fields to reflect the new columns.
+`POST /api/data-sources/:id/refresh` SHALL accept a JSON body with the same `{ columns, rows }` shape for static sources, replace the stored `config`, and update the source's inferred schema fields to reflect the new columns.
 
 #### Scenario: Refresh replaces rows and updates DataType
 - **WHEN** `POST /api/data-sources/:id/refresh` is called for a static source with a new columns/rows payload
-- **THEN** `GET /api/data-sources/:id/preview` returns the new rows and the linked `DataType` reflects the new column types
+- **THEN** `GET /api/data-sources/:id/preview` returns the new rows and the source's inferred schema reflects the new column types
 
 #### Scenario: Refresh with over-limit rows is rejected
 - **WHEN** `POST /api/data-sources/:id/refresh` is called with 501 rows
@@ -47,4 +49,3 @@ The backend SHALL accept `POST /api/data-sources` with `Content-Type: applicatio
 #### Scenario: Preview on unknown source returns 404
 - **WHEN** `GET /api/data-sources/:id/preview` is called with an unknown id
 - **THEN** the response is 404
-
