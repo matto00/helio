@@ -195,16 +195,9 @@ abstract class PipelineApplyProposalSpecBase
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'c2@helio.test', now())""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($srcId::uuid, 'existing-static', 'static', $staticPayload::jsonb, $userId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($srcTypeId::uuid, $srcId::uuid, 'existing-static',
-                     '[{"name":"name","displayName":"name","dataType":"string","nullable":true}]'::jsonb,
-                     1, $userId::uuid, now(), now())""",
+      
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($otherSrcId::uuid, 'other-static', 'static', $staticPayload::jsonb, $otherId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($otherTypeId::uuid, $otherSrcId::uuid, 'other-static',
-                     '[{"name":"name","displayName":"name","dataType":"string","nullable":true}]'::jsonb,
-                     1, $otherId::uuid, now(), now())"""
+             VALUES ($otherSrcId::uuid, 'other-static', 'static', $staticPayload::jsonb, $otherId::uuid, now(), now())"""
     )))
   }
 
@@ -230,13 +223,14 @@ abstract class PipelineApplyProposalSpecBase
   protected def dataSourceCount(): Int  = countRows("data_sources")
   protected def pipelineCount(): Int    = countRows("pipelines")
   protected def pipelineStepCount(): Int = countRows("pipeline_steps")
-  protected def dataTypeCount(): Int    = countRows("data_types")
 
+  // HEL-904 task 2.10: `dataTypeCount()` removed outright -- `data_types` is
+  // dropped, and no proposal apply path has created a DataType since task
+  // 3.5/3.8 retired the DataType-minting create-path.
   private def countRows(table: String): Int = table match {
     case "data_sources"   => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM data_sources".as[Int].head))
     case "pipelines"      => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM pipelines".as[Int].head))
     case "pipeline_steps" => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM pipeline_steps".as[Int].head))
-    case "data_types"     => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM data_types".as[Int].head))
   }
 
   /** HEL-755 design.md D3: reads the most recent `pipeline_runs` row for

@@ -159,22 +159,13 @@ class DashboardAuthoringServiceSpec
       updatedAt = now,
       ownerId   = owner.id
     )
-    // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- insert the companion
-    // `data_types` row directly (raw SQL), matching `dataTypeRepo.insert`'s exact fields shape.
-    await(db.run(sqlu"""
-      INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
-      VALUES (${dt.id.value}, NULL, $name,
-        '[{"name":"revenue","displayName":"Revenue","dataType":"float","nullable":false}]'::jsonb,
-        '[]'::jsonb, 1, now(), now(), ${owner.id.value}::uuid)
-    """))
-
     val srcId = UUID.randomUUID().toString
     val pipelineId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($srcId::uuid, 'authoring-spec-src', 'static', '{}'::jsonb, ${owner.id.value}::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-             VALUES ($pipelineId, $name, $srcId::uuid, ${dt.id.value}::uuid, ${owner.id.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pipelineId, $name, $srcId::uuid, ${owner.id.value}::uuid, now(), now())""",
       sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
              VALUES (${dt.id.value}, $pipelineId, NULL, ${owner.id.value}::uuid, $name, 'table', '{}'::jsonb, '[]'::jsonb, 0, now(), now())"""
     )))
@@ -203,13 +194,10 @@ class DashboardAuthoringServiceSpec
       updatedAt = now,
       ownerId   = owner.id
     )
-    // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- insert directly (raw SQL).
-    await(db.run(sqlu"""
-      INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
-      VALUES (${dt.id.value}, ${source.id.value}, 'Companion',
-        '[{"name":"revenue","displayName":"Revenue","dataType":"float","nullable":false}]'::jsonb,
-        '[]'::jsonb, 1, now(), now(), ${owner.id.value}::uuid)
-    """))
+    // HEL-904 task 2.10: no insert at all -- this fixture only needs `dt.id`
+    // to be a syntactically valid, genuinely nonexistent id (the test's own
+    // point, per the describe-block comment above); nothing downstream ever
+    // reads a persisted row for it.
     dt
   }
 

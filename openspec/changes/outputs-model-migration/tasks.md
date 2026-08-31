@@ -113,8 +113,49 @@
       synthetic fixture). All red-first tested in `V94OutputsMigrationSpec` — see
       execution-progress.md cycle 8. **2.10 (the drops) remains explicitly NOT started** — blocked
       on sections 3/4's consumer rewires (decision 1e).
-- [ ] 2.10 Drop `panels`' retired columns; drop `metrics`, `data_types`, `data_type_rows`,
-      `pipelines.output_data_type_id`.
+- [x] 2.10 Drop `panels`' retired columns (`type, type_id, field_mapping, aggregation,
+      metric_id, metric_label, metric_unit, chart_options, collection_options,
+      timeline_options, column_widths, table_density, column_order, chart_annotation`); drop
+      `metrics`, `data_type_rows`, `data_types`; drop `pipelines.output_data_type_id`. Landed
+      as the tail of the same V94 migration file (sections 17-21), immediately after a
+      prerequisite `panels.kind SET NOT NULL` (section 17) that closed a gap task 3.6 had
+      deferred but never actually landed: `PanelRowMapper.domainToRow` was still writing
+      `kind = None` for every non-Output panel (text/markdown/image/divider), with
+      `rowToDomain` still falling back to the (about-to-be-dropped) `type` column for those
+      kinds' dispatch. Fixed inline (not a design-reopen — same shape as 3.6's own intent,
+      just completing it) by making `domainToRow` always set `kind = p.kind` and
+      `rowToDomain` dispatch purely on `row.kind`, before adding the `NOT NULL` constraint.
+      Also required, discovered via grep-before-drop (not anticipated by the ticket's own
+      column list): `alert_rules.target_data_type_id` FK-references `data_types(id) ON
+      DELETE CASCADE` (V60) — design.md decision 2 already flags "alert rules retarget must
+      precede dropping the target_data_type_id FK" — dropped both `alert_rules`/
+      `alert_events.target_data_type_id` alongside it (zero application-code readers
+      survived task 3.1); `binary_refs.data_type_id`'s RLS policy (`binary_refs_owner`, V46)
+      selected from `data_types` directly and had to be replaced with a
+      `pipeline_id`/`helio_can_access_pipeline`-keyed policy before the column/table could
+      drop (Postgres refuses to drop a table a policy still references).
+      `SourceSchemaHealthCheck` (HEL-256, `backend/src/main/scala/com/helio/app/
+      SourceSchemaHealthCheck.scala`) was deleted outright (+ its Main.scala call site + its
+      spec) — its entire purpose (flagging a `data_sources` row with no linked `data_types`
+      companion) is meaningless once the companion-DataType concept is gone.
+      `PanelRepository`'s Slick `PanelTable`/`PanelRow`/`configColumnsOf`/
+      `configColumnValuesOf` were slimmed to the 6 surviving config columns (all 14 retired
+      columns were already always `None` in every write — confirmed via
+      `PanelRowMapper.domainToRow` before touching the schema).
+      `PipelineRepository.setOutputDataTypeIdInternalForTest`/`findOutputDataTypeIdInternal`
+      and `PipelineRunRepository.findLatestRunIdByOutputDataTypeIdInternal` deleted outright
+      (dead: zero production callers survived task 4.1). ~50 test files' raw-SQL fixtures
+      (`INSERT INTO data_types`/`pipelines.output_data_type_id`/panels' `type`/`type_id`
+      literal-value inserts, `DELETE`/`TRUNCATE` cleanup lists) updated to drop references to
+      the now-gone tables/columns — three specs pinned to an OLDER Flyway `.target(...)`
+      version (`ResourceTagMigrationSpec` V72/V93, `TriggerSourceMigrationSpec` V62,
+      `PipelineOnlyPanelBindingMigrationSpec` V93) were correctly left untouched after an
+      automated first-pass script wrongly stripped their (legitimately still-live-at-that-
+      schema-version) `data_types` fixtures — caught via a second `.target(` sweep before
+      running the suite, and `git checkout`-reverted rather than hand-repaired. New red-first
+      coverage: `V94OutputsMigrationSpec`'s own "V94 task 2.10" describe-block asserts every
+      dropped table/column via `information_schema` + `pg_policies` (8 assertions). Full
+      `sbt test` (single-threaded, HEL-924 protocol) confirmed 3360/3360 green, run twice.
 - [x] 2.11 (partial) Red-first migration test for the additive slice landed so far —
       `V94OutputsMigrationSpec`: hand-built fixture (not yet a real `pg_dump --data-only` of the
       shared dev DB — that operational step is outside this cycle's reach; a genuine `pg_dump`

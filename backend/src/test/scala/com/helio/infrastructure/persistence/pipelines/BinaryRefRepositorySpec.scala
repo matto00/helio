@@ -60,9 +60,7 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
   private def seedFixture: DBIO[Unit] = {
     def sourceAndType(sourceId: String, typeId: String) = DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($sourceId, 'binref-spec-source', 'csv', '{}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, name, source_id, fields, computed_fields, owner_id, created_at, updated_at)
-             VALUES ($typeId, 'binref-spec-type', $sourceId, '[]', '[]', $ownerId::uuid, now(), now())"""
+             VALUES ($sourceId, 'binref-spec-source', 'csv', '{}', $ownerId::uuid, now(), now())"""
     )
     val srcA = "source-binref-spec-a-" + java.util.UUID.randomUUID().toString
     val dtA  = "dt-binref-spec-a-" + java.util.UUID.randomUUID().toString
@@ -71,13 +69,13 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, 'binref-spec@test.local', now())""",
       sourceAndType(srcA, dtA),
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, created_at, updated_at, owner_id)
-             VALUES ($pipelineId, 'binref-spec-pipeline', $srcA, $dtA, now(), now(), $ownerId::uuid)""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, created_at, updated_at, owner_id)
+             VALUES ($pipelineId, 'binref-spec-pipeline', $srcA, now(), now(), $ownerId::uuid)""",
       sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at)
              VALUES ($stepId, $pipelineId, 0, 'rename', '{}', true, now(), now())""",
       sourceAndType(srcB, dtB),
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, created_at, updated_at, owner_id)
-             VALUES ($pipelineId2, 'binref-spec-pipeline-2', $srcB, $dtB, now(), now(), $ownerId::uuid)"""
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, created_at, updated_at, owner_id)
+             VALUES ($pipelineId2, 'binref-spec-pipeline-2', $srcB, now(), now(), $ownerId::uuid)"""
     )
   }
 

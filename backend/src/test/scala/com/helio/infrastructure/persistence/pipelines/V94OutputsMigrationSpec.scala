@@ -16,15 +16,13 @@ import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
-/** HEL-904 task 2.11/2.12/2.13 (partial) -- red-first proof for the additive
- *  slice of the V94 migration landed so far (pipeline_steps.parent_step_id
- *  backfill, outputs/node_snapshots tables + RLS, panels.kind backfill,
- *  data_sources.inferred_schema default). The full 9-step data migration
- *  (task 2.9), the destructive alert_rules/binary_refs retargets, and the
- *  final table drops (task 2.10) are NOT part of V94 yet (see the migration
- *  file's own header note) -- this spec only proves what actually exists
- *  today, and will grow alongside the migration file across future cycles.
+/** HEL-904 task 2.11/2.12/2.13 -- red-first proof for the FULL V94 migration
+ *  (pipeline_steps.parent_step_id backfill, outputs/node_snapshots tables +
+ *  RLS, panels.kind backfill, data_sources.inferred_schema default, the full
+ *  9-step data migration (task 2.9), the destructive alert_rules/binary_refs
+ *  retargets, and the final table/column drops (task 2.10) -- now complete).
  *
+
  *  Strategy: migrate to V93 (pre-V94), hand-seed a fixture via raw SQL
  *  (mirrors design.md decision 3's "derived from a real shape" intent, done
  *  here as a hand-built fixture rather than a `pg_dump` of the actual shared
@@ -325,21 +323,26 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
   }
 
   "V94 alert_rules/alert_events target_output_id (task 2.7)" should {
-    "add a nullable target_output_id column alongside the untouched target_data_type_id" in {
+    // HEL-904 task 2.10: `target_data_type_id` is dropped by this same
+    // migration file's tail (section 20), so a NEW alert_rule/alert_event
+    // row can no longer set it -- this test now only proves
+    // `target_output_id` itself is a genuine, independently-settable
+    // nullable column (the "untouched target_data_type_id" half of the
+    // original task 2.7 test is covered instead by the drop assertions in
+    // the "task 2.10" describe-block below).
+    "add a nullable target_output_id column" in {
       await(superDb.run(
-        sqlu"""INSERT INTO alert_rules (id, owner_id, target_data_type_id, metric, condition, name, severity)
-               VALUES ('rule-1', $ownerId::uuid, 'dt-1', 'value', '{}', 'r', 'info')"""
+        sqlu"""INSERT INTO alert_rules (id, owner_id, metric, condition, name, severity)
+               VALUES ('rule-1', $ownerId::uuid, 'value', '{}', 'r', 'info')"""
       ))
-      val (targetDataTypeId, targetOutputId) = await(superDb.run(
-        sql"SELECT target_data_type_id, target_output_id FROM alert_rules WHERE id = 'rule-1'"
-          .as[(String, Option[String])].head
+      val targetOutputId = await(superDb.run(
+        sql"SELECT target_output_id FROM alert_rules WHERE id = 'rule-1'".as[Option[String]].head
       ))
-      targetDataTypeId shouldBe "dt-1"
       targetOutputId shouldBe None
 
       await(superDb.run(
-        sqlu"""INSERT INTO alert_events (id, alert_rule_id, owner_id, target_data_type_id, value, severity, state, first_fired_at, last_evaluated_at)
-               VALUES ('event-1', 'rule-1', $ownerId::uuid, 'dt-1', '{}', 'info', 'firing', now(), now())"""
+        sqlu"""INSERT INTO alert_events (id, alert_rule_id, owner_id, value, severity, state, first_fired_at, last_evaluated_at)
+               VALUES ('event-1', 'rule-1', $ownerId::uuid, '{}', 'info', 'firing', now(), now())"""
       ))
       val eventTargetOutputId = await(superDb.run(
         sql"SELECT target_output_id FROM alert_events WHERE id = 'event-1'".as[Option[String]].head
@@ -361,10 +364,14 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
   }
 
   "V94 binary_refs pipeline_id/node_step_id (task 2.8)" should {
+    // HEL-904 task 2.10: `data_type_id` is dropped by this same migration
+    // file's tail (section 21), so a NEW row can no longer set it -- this
+    // test now only proves `pipeline_id`/`node_step_id` are genuine,
+    // independently-settable nullable columns.
     "add nullable pipeline_id/node_step_id columns keyed by node, per the ticket's dev-DB-inspection fallback" in {
       await(superDb.run(
-        sqlu"""INSERT INTO binary_refs (id, data_type_id, row_index, field_name, storage_key, mime_type, filename, size_bytes)
-               VALUES ('ref-1', 'dt-1', 0, 'f', 's', 'application/octet-stream', 'f.bin', 1)"""
+        sqlu"""INSERT INTO binary_refs (id, row_index, field_name, storage_key, mime_type, filename, size_bytes)
+               VALUES ('ref-1', 0, 'f', 's', 'application/octet-stream', 'f.bin', 1)"""
       ))
       val (pipelineIdCol, nodeStepIdCol) = await(superDb.run(
         sql"SELECT pipeline_id, node_step_id FROM binary_refs WHERE id = 'ref-1'".as[(Option[String], Option[String])].head
@@ -453,26 +460,85 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         """[{"name":"foo","type":"string"},{"name":"bar","type":"number"}]""".parseJson
     }
 
-    "delete the companion data_types row" in {
-      val count = await(superDb.run(
-        sql"SELECT count(*) FROM data_types WHERE id = 'dt-companion'".as[Int].head
-      ))
-      count shouldBe 0
-    }
-
-    "leave a pipeline-output type's own data_types row and source untouched" in {
-      // dt-1 is sourceId's own type AND pipeline p's output_data_type_id --
-      // it must survive 2.9(a) (only step 2.9(b)-(d) touches output types).
-      val count = await(superDb.run(
-        sql"SELECT count(*) FROM data_types WHERE id = 'dt-1'".as[Int].head
-      ))
-      count shouldBe 1
+    // HEL-904 task 2.10: "delete the companion data_types row" and "leave a
+    // pipeline-output type's own data_types row ... untouched" no longer make
+    // sense as written -- `data_types` itself is now dropped by this same
+    // migration file's own tail (section 21), so a `SELECT ... FROM
+    // data_types` here would itself throw rather than assert a meaningful
+    // count. Task 2.10's own new assertions below (`information_schema`
+    // table-existence checks) are what actually proves both rows -- and the
+    // table itself -- are gone; the surviving half of the second test (the
+    // `inferred_schema` untouched-default check) is kept, re-homed under
+    // task 2.10's own describe-block since it no longer depends on querying
+    // `data_types` at all.
+    "leave sourceId's inferred_schema at the untouched default (no companion type folded into it)" in {
       val schema = await(superDb.run(
         sql"SELECT inferred_schema::text FROM data_sources WHERE id = $sourceId".as[String].head
       ))
       // sourceId owns BOTH dt-1 (pipeline-output, excluded) and no other
       // companion type -- inferred_schema must stay the untouched default.
       schema.parseJson shouldBe "[]".parseJson
+    }
+  }
+
+  "V94 task 2.10 (drop panels' retired columns; drop metrics/data_types/data_type_rows/output_data_type_id)" should {
+    def tableExists(name: String): Boolean = await(superDb.run(
+      sql"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $name)".as[Boolean].head
+    ))
+    def columnExists(table: String, column: String): Boolean = await(superDb.run(
+      sql"""SELECT EXISTS (SELECT 1 FROM information_schema.columns
+            WHERE table_name = $table AND column_name = $column)""".as[Boolean].head
+    ))
+
+    "drop the metrics table entirely" in {
+      tableExists("metrics") shouldBe false
+    }
+
+    "drop the data_type_rows table entirely" in {
+      tableExists("data_type_rows") shouldBe false
+    }
+
+    "drop the data_types table entirely" in {
+      tableExists("data_types") shouldBe false
+    }
+
+    "drop pipelines.output_data_type_id" in {
+      columnExists("pipelines", "output_data_type_id") shouldBe false
+    }
+
+    "drop every one of panels' retired columns (task 2.1's own cited list)" in {
+      val retired = Vector(
+        "type", "type_id", "field_mapping", "aggregation", "metric_id", "metric_label",
+        "metric_unit", "chart_options", "collection_options", "timeline_options",
+        "column_widths", "table_density", "column_order", "chart_annotation"
+      )
+      retired.foreach { col =>
+        withClue(s"panels.$col should be dropped: ") {
+          columnExists("panels", col) shouldBe false
+        }
+      }
+    }
+
+    "leave panels.kind NOT NULL, now the sole subtype discriminator" in {
+      val isNullable = await(superDb.run(
+        sql"""SELECT is_nullable FROM information_schema.columns
+              WHERE table_name = 'panels' AND column_name = 'kind'""".as[String].head
+      ))
+      isNullable shouldBe "NO"
+    }
+
+    "drop alert_rules.target_data_type_id and alert_events.target_data_type_id" in {
+      columnExists("alert_rules", "target_data_type_id") shouldBe false
+      columnExists("alert_events", "target_data_type_id") shouldBe false
+    }
+
+    "drop binary_refs.data_type_id, replacing its RLS policy with a pipeline-keyed one" in {
+      columnExists("binary_refs", "data_type_id") shouldBe false
+      val policyExists = await(superDb.run(
+        sql"""SELECT EXISTS (SELECT 1 FROM pg_policies
+              WHERE tablename = 'binary_refs' AND policyname = 'binary_refs_owner')""".as[Boolean].head
+      ))
+      policyExists shouldBe true
     }
   }
 

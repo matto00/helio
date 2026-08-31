@@ -210,7 +210,6 @@ class PipelineRepository(
           id                 = pipelineId,
           name               = name,
           sourceDataSourceId = sourceDataSourceId.value,
-          outputDataTypeId   = None,
           lastRunStatus      = None,
           lastRunAt          = None,
           createdAt          = now,
@@ -264,29 +263,12 @@ class PipelineRepository(
     ).map(_ => ())
   }
 
-  /** Privileged read of the raw (legacy, nullable) `output_data_type_id`
-    * column — `None` for every pipeline created after V94 (task 3.5's
-    * DataType-minting create-path retirement), `Some` for a pre-existing
-    * pipeline's still-live legacy DataType binding. The `Pipeline` domain
-    * model itself no longer carries this field (task 3.5); this is the one
-    * remaining reader, backing `PipelineRunService`'s legacy DataType
-    * schema/row writes. */
-  /** Privileged write of the raw (legacy, nullable) `output_data_type_id`
-    * column — no production caller sets this anymore since V94/task 3.5
-    * retired the DataType-minting create-path; exists so tests exercising
-    * the still-live legacy DataType read/write paths
-    * (`onUnblockedRunSuccess`'s `dataTypeRepo`/`dataTypeRowRepo` writes,
-    * `WorkspaceContextService`'s pre-3.12 DataType listing) can wire a real
-    * pipeline ↔ DataType association without a production API for it. */
-  def setOutputDataTypeIdInternalForTest(id: PipelineId, dataTypeId: DataTypeId): Future[Unit] =
-    ctx.withSystemContext(
-      pipelinesTable.filter(_.id === id.value).map(_.outputDataTypeId).update(Some(dataTypeId.value))
-    ).map(_ => ())
-
-  def findOutputDataTypeIdInternal(id: PipelineId): Future[Option[DataTypeId]] =
-    ctx.withSystemContext(
-      pipelinesTable.filter(_.id === id.value).map(_.outputDataTypeId).result.headOption
-    ).map(_.flatten.map(DataTypeId.apply))
+  // HEL-904 task 2.10: `setOutputDataTypeIdInternalForTest`/
+  // `findOutputDataTypeIdInternal` removed outright -- `pipelines.
+  // output_data_type_id` is dropped (V94), and both methods had zero
+  // production callers (dead since section 4.1) plus only vestigial test
+  // callers that never actually depended on their effect (see
+  // execution-progress.md cycle 26).
 
   // HEL-904 task 4.1: `findLastRunAtByOutputDataTypeId` removed outright —
   // its only caller (`PublicDashboardRoutes`'s per-panel `dataAsOf` lookup)
@@ -393,15 +375,10 @@ object PipelineRepository {
       tag: Option[String] = None
   )
 
-  /** `outputDataTypeId` (HEL-904 task 3.5): `None` for every pipeline
-    * created after V94 (the DataType-minting create-path is retired); still
-    * `Some` for pre-existing pipelines' legacy DataType binding, which
-    * `findLastRunAtByOutputDataTypeId` alone still reads. */
   case class PipelineRow(
       id: String,
       name: String,
       sourceDataSourceId: String,
-      outputDataTypeId: Option[String],
       lastRunStatus: Option[String],
       lastRunAt: Option[Instant],
       createdAt: Instant,
@@ -418,7 +395,6 @@ object PipelineRepository {
     def id                 = column[String]("id", O.PrimaryKey)
     def name               = column[String]("name")
     def sourceDataSourceId = column[String]("source_data_source_id")
-    def outputDataTypeId   = column[Option[String]]("output_data_type_id")
     def lastRunStatus      = column[Option[String]]("last_run_status")
     def lastRunAt          = column[Option[Instant]]("last_run_at")
     def createdAt          = column[Instant]("created_at")
@@ -435,7 +411,7 @@ object PipelineRepository {
     def lastSourceSchema   = column[Option[String]]("last_source_schema")
 
     def * =
-      (id, name, sourceDataSourceId, outputDataTypeId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)
+      (id, name, sourceDataSourceId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)
         .mapTo[PipelineRow]
   }
 }

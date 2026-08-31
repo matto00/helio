@@ -66,7 +66,6 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     await(db.run(sqlu"DELETE FROM alert_rules"))
     await(db.run(sqlu"DELETE FROM outputs"))
     await(db.run(sqlu"DELETE FROM pipelines"))
-    await(db.run(sqlu"DELETE FROM data_types"))
     await(db.run(sqlu"DELETE FROM data_sources"))
     await(db.run(sqlu"DELETE FROM users"))
   }

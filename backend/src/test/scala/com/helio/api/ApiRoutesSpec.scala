@@ -101,7 +101,7 @@ class ApiRoutesSpec
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE resource_permissions, user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE resource_permissions, user_sessions, users, panels, dashboards, data_sources RESTART IDENTITY CASCADE"))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000099'::uuid, 'test@helio.test', now())"""))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000098'::uuid, 'other@helio.test', now())"""))
   }
@@ -2392,7 +2392,7 @@ class ApiRoutesSpec
       import slick.jdbc.PostgresProfile.api._
 
       await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-5', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
-      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id) VALUES ('other-panel-1', 'other-dash-5', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric', '00000000-0000-0000-0000-000000000098')"""))
+      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id) VALUES ('other-panel-1', 'other-dash-5', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'output', '00000000-0000-0000-0000-000000000098')"""))
 
       Patch("/api/panels/other-panel-1", UpdatePanelRequest(title = Some("Hacked"), appearance = None, `type` = None, config = None)) ~> routes() ~> check {
         status shouldBe StatusCodes.Forbidden
@@ -2405,7 +2405,7 @@ class ApiRoutesSpec
       import slick.jdbc.PostgresProfile.api._
 
       await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-6', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
-      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id) VALUES ('other-panel-2', 'other-dash-6', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric', '00000000-0000-0000-0000-000000000098')"""))
+      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id) VALUES ('other-panel-2', 'other-dash-6', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'output', '00000000-0000-0000-0000-000000000098')"""))
 
       Delete("/api/panels/other-panel-2") ~> routes() ~> check {
         status shouldBe StatusCodes.Forbidden
@@ -2441,7 +2441,7 @@ class ApiRoutesSpec
       import slick.jdbc.PostgresProfile.api._
 
       await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-7', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
-      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id) VALUES ('other-panel-3', 'other-dash-7', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric', '00000000-0000-0000-0000-000000000098')"""))
+      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id) VALUES ('other-panel-3', 'other-dash-7', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'output', '00000000-0000-0000-0000-000000000098')"""))
 
       Post("/api/panels/other-panel-3/duplicate") ~> routes() ~> check {
         status shouldBe StatusCodes.Forbidden
@@ -3239,10 +3239,9 @@ class ApiRoutesSpec
       await(db.run(DBIO.seq(
         sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $testUserId::uuid, now(), now())""",
-        sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId, 'mytype', '[]', 1, $testUserId::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pidId, 'pipe', $dsId, $dtId, $testUserId::uuid, now(), now())""",
+        
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pidId, 'pipe', $dsId, $testUserId::uuid, now(), now())""",
         sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
                VALUES ($outputId, $pidId, NULL, $testUserId::uuid, 'KPI', 'table', '{}'::jsonb, '[]'::jsonb, 0, now(), now())"""
       )))

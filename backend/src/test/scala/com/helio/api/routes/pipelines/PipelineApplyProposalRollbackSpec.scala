@@ -40,7 +40,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSources   = dataSourceCount()
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
-      val beforeTypes     = dataTypeCount()
       var outputTypeId    = ""
       val body =
         s"""{"pipelineName":"Rest Run Success","source":{"type":"rest_api","name":"Inline Rest",
@@ -61,7 +60,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe (beforeSteps + 1)
-      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, _) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "succeeded"
@@ -80,7 +78,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSources   = dataSourceCount()
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
-      val beforeTypes     = dataTypeCount()
       var outputTypeId    = ""
       val body =
         s"""{"pipelineName":"Sql Run Success","source":{"type":"sql","name":"Inline Sql",
@@ -100,7 +97,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe (beforeSteps + 1)
-      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, _) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "succeeded"
@@ -133,7 +129,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSources   = dataSourceCount()
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
-      val beforeTypes     = dataTypeCount()
       val body =
         s"""{"pipelineName":"Rest Fetch Fail","source":{"type":"rest_api","name":"Inline Rest Fail",
            |"config":{"url":"$RestFailureUrl"}},"outputDataTypeName":"O","steps":[]}""".stripMargin
@@ -151,7 +146,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe beforeSteps
-      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, runErrorLog) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "failed"
@@ -162,7 +156,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSources   = dataSourceCount()
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
-      val beforeTypes     = dataTypeCount()
       // localhost:1 fails fast and deterministically (connection refused, no
       // DNS delay) — the same pattern SqlConnectorSpec's "SQL connection
       // failed" test uses.
@@ -181,7 +174,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe beforeSteps
-      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, runErrorLog) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "failed"
@@ -197,7 +189,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSources   = dataSourceCount()
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
-      val beforeTypes     = dataTypeCount()
       var outputTypeId    = ""
       val body =
         s"""{"pipelineName":"Existing Rest","source":{"sourceId":"$preExistingId"},
@@ -215,7 +206,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       dataSourceCount() shouldBe beforeSources
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe beforeSteps
-      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, _) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "succeeded"
@@ -269,7 +259,7 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
     }
   }
 
-  private def allCounts(): Int = dataSourceCount() + pipelineCount() + pipelineStepCount() + dataTypeCount()
+  private def allCounts(): Int = dataSourceCount() + pipelineCount() + pipelineStepCount()
 
   /** Creates a pre-existing `rest_api` source directly via `POST /api/sources`
    *  (not through apply-proposal), for the existing-`sourceId` coverage

@@ -183,14 +183,13 @@ class WorkspaceTeardownServiceSpec
   /** Test-only shape mirroring the pre-3.5 `PipelineSummary` -- `id` and
    *  `outputDataTypeId` are the only fields this spec's own assertions
    *  read. */
-  private final case class SeededPipeline(id: String, outputDataTypeId: String)
+  private final case class SeededPipeline(id: String)
 
-  /** HEL-904 task 3.5: `pipelineRepo.create` no longer mints a DataType at
-   *  all -- this helper creates the pipeline and a companion DataType
-   *  (carrying the SAME `tag`, mirroring the retired create-path's own
-   *  tag-parity behavior this spec's tag-based teardown conflicts depend
-   *  on) separately, then wires the two together via
-   *  `setOutputDataTypeIdInternalForTest` (a test-only back door). */
+  /** HEL-904 task 2.10: the companion-DataType fixture step (a `data_types`
+   *  row wired in solely to satisfy `pipelines.output_data_type_id`'s FK)
+   *  is removed outright -- that column is dropped by this task, and
+   *  `outputDataTypeId` was never actually read by any assertion in this
+   *  file. */
   private def createPipeline(
       user: AuthenticatedUser,
       sourceId: DataSourceId,
@@ -202,17 +201,7 @@ class WorkspaceTeardownServiceSpec
       case Right(s)  => s
       case Left(err) => fail(s"pipeline create failed: $err")
     }
-    // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- insert the companion
-    // `data_types` row directly (raw SQL, privileged pool) purely to satisfy
-    // `pipelines.output_data_type_id`'s FK, matching `dataTypeRepo.insert`'s old
-    // empty-fields/empty-computedFields shape exactly.
-    val dataTypeId = DataTypeId(UUID.randomUUID().toString)
-    await(ctx.withSystemContext(sqlu"""
-      INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id, tag)
-      VALUES (${dataTypeId.value}, NULL, $outputName, '[]'::jsonb, '[]'::jsonb, 1, now(), now(), ${user.id.value}::uuid, $tag)
-    """))
-    await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), dataTypeId))
-    SeededPipeline(id = summary.id, outputDataTypeId = dataTypeId.value)
+    SeededPipeline(id = summary.id)
   }
 
   /** Directly rewrite a pipeline's/data type's/data source's `tag` column via

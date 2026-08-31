@@ -141,7 +141,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
    *  privileged pool so RLS does not interfere with the cleanup. */
   private def cleanDb(): Unit =
     await(ctx.withSystemContext(
-      sqlu"TRUNCATE TABLE data_type_rows, data_types, data_sources, pipeline_steps, pipeline_runs, pipelines, image_uploads, agent_preferences, agent_memory CASCADE"
+      sqlu"TRUNCATE TABLE data_sources, pipeline_steps, pipeline_runs, pipelines, image_uploads, agent_preferences, agent_memory CASCADE"
     ))
 
   // ── Helper: seed via withSystemContext (BYPASSRLS) so setup is never ──────
@@ -158,18 +158,6 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     ))
     id
   }
-
-  /** Seed a data_types row via the privileged pool and return its UUID string. */
-  private def seedDataType(ownerId: UserId): String = {
-    val id   = UUID.randomUUID().toString
-    val name = s"type-${ownerId.value.take(8)}"
-    await(ctx.withSystemContext(
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($id::uuid, $name, '[]'::jsonb, 1, ${ownerId.value}::uuid, now(), now())"""
-    ))
-    id
-  }
-
 
   "RLS on data_sources" should {
 
@@ -212,62 +200,24 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
   }
 
 
-  "RLS on data_types" should {
-
-    "withUserContext(ownerA) returns only ownerA's types" in {
-      cleanDb()
-      val dtA = seedDataType(ownerA)
-      val dtB = seedDataType(ownerB)
-
-      val rows = await(ctx.withUserContext(ownerA.value)(
-        sql"SELECT id::text FROM data_types".as[String]
-      ))
-
-      rows.toSet shouldBe Set(dtA)
-      rows should not contain dtB
-    }
-
-    "withUserContext(ownerB) cannot see ownerA's types" in {
-      cleanDb()
-      val dtA = seedDataType(ownerA)
-      seedDataType(ownerB)
-
-      val rows = await(ctx.withUserContext(ownerB.value)(
-        sql"SELECT id::text FROM data_types".as[String]
-      ))
-
-      rows should not contain dtA
-    }
-
-    "withSystemContext sees all types (BYPASSRLS)" in {
-      cleanDb()
-      val dtA = seedDataType(ownerA)
-      val dtB = seedDataType(ownerB)
-
-      val rows = await(ctx.withSystemContext(
-        sql"SELECT id::text FROM data_types".as[String]
-      ))
-
-      rows.toSet should contain allOf (dtA, dtB)
-    }
-  }
-
+  // HEL-904 task 2.10: the "RLS on data_types" describe-block is deleted
+  // outright, not adapted -- `data_types` is dropped; `outputs`
+  // (its RLS replacement) doesn't yet have dedicated coverage in this spec
+  // (a tracked gap, not this task's job to close).
 
   "RLS on pipelines" should {
 
     "withUserContext(ownerA) returns only ownerA's pipelines" in {
       cleanDb()
       val srcA = seedSource(ownerA)
-      val dtA  = seedDataType(ownerA)
       val srcB = seedSource(ownerB)
-      val dtB  = seedDataType(ownerB)
       val pidA = UUID.randomUUID().toString
       val pidB = UUID.randomUUID().toString
       await(ctx.withSystemContext(DBIO.seq(
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pidA::uuid, 'pipe-a', $srcA::uuid, $dtA::uuid, ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pidB::uuid, 'pipe-b', $srcB::uuid, $dtB::uuid, ${ownerB.value}::uuid, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pidA::uuid, 'pipe-a', $srcA::uuid, ${ownerA.value}::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pidB::uuid, 'pipe-b', $srcB::uuid, ${ownerB.value}::uuid, now(), now())"""
       )))
 
       val rows = await(ctx.withUserContext(ownerA.value)(
@@ -281,16 +231,14 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     "withSystemContext sees all pipelines (BYPASSRLS)" in {
       cleanDb()
       val srcA = seedSource(ownerA)
-      val dtA  = seedDataType(ownerA)
       val srcB = seedSource(ownerB)
-      val dtB  = seedDataType(ownerB)
       val pidA = UUID.randomUUID().toString
       val pidB = UUID.randomUUID().toString
       await(ctx.withSystemContext(DBIO.seq(
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pidA::uuid, 'pipe-a', $srcA::uuid, $dtA::uuid, ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pidB::uuid, 'pipe-b', $srcB::uuid, $dtB::uuid, ${ownerB.value}::uuid, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pidA::uuid, 'pipe-a', $srcA::uuid, ${ownerA.value}::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pidB::uuid, 'pipe-b', $srcB::uuid, ${ownerB.value}::uuid, now(), now())"""
       )))
 
       val rows = await(ctx.withSystemContext(

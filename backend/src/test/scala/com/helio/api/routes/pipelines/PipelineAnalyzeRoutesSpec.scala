@@ -102,10 +102,9 @@ class PipelineAnalyzeRoutesSpec
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, inferred_schema, created_at, updated_at)
              VALUES ($dsId, 'test-ds', 'rest_api', '{}', $ownerId::uuid, $schemaFieldsJson::jsonb, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($outId, 'output-dt', '[]', 1, $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
-             VALUES ($pid, 'test-pipeline', $dsId, $outId, now(), now())"""
+      
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, created_at, updated_at)
+             VALUES ($pid, 'test-pipeline', $dsId, now(), now())"""
     )))
     (pid, dsId)
   }

@@ -110,10 +110,12 @@ object Main {
 
       DemoData.seedIfEmpty(dashboardRepo, panelRepo, dataSourceRepo, pipelineRepo, outputRepo)
 
-      // HEL-256: surface any data_sources rows that lack a linked DataType
-      // (orphans render empty schemas on the Sources page). Defense-in-depth
-      // beside DataTypeService.delete guard and refresh upsert primitive.
-      SourceSchemaHealthCheck.run(ctx, logger)
+      // HEL-904 task 2.10: `SourceSchemaHealthCheck` (HEL-256) is retired
+      // outright, not rewired -- its entire purpose was flagging a
+      // `data_sources` row with no linked `data_types` companion row, and
+      // the DataType/companion-row concept it was built to police no
+      // longer exists (`data_sources.inferred_schema` holds the schema
+      // directly now).
 
       // HEL-822 task 8.3: injected ConnectorRepository/ConnectorCredentialRepository, wired
       // as optional/defaulted constructor params so the 20 fetchOverride-based test

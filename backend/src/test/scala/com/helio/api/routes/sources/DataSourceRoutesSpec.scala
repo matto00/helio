@@ -163,7 +163,7 @@ class DataSourceRoutesSpec
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE data_sources RESTART IDENTITY CASCADE"))
   }
 
   private val stubConnector: RestApiConnectorDriver =

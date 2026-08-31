@@ -20,7 +20,6 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       val beforeSources  = dataSourceCount()
       val beforePipelines = pipelineCount()
       val beforeSteps    = pipelineStepCount()
-      val beforeTypes    = dataTypeCount()
       val body =
         """{
           |  "pipelineName": "Static Pipeline",
@@ -42,11 +41,6 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe (beforeSteps + 1)
-      // HEL-904 task 3.5/4.3: `pipelineRepo.create` no longer mints its own output DataType,
-      // and `DataSourceService.createStatic` no longer mints a companion DataType either — the
-      // static source's inferred schema lives inline on `data_sources.inferred_schema`.
-      dataTypeCount() shouldBe beforeTypes
-
       // HEL-904 task 3.8: `outputDataTypeId` (field name unchanged — see
       // design.md) is now a real Output id, not a DataType id — there is no
       // `GET /api/outputs/:id` route yet (P1.3/HEL-906's job), so the old
@@ -150,5 +144,5 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
    *  scalar delta is enough to prove "nothing created" for the guardrail
    *  cases above (none of them reach a partial-creation state to roll back;
    *  see `PipelineApplyProposalRollbackSpec` for cases that do). */
-  private def allCounts(): Int = dataSourceCount() + pipelineCount() + pipelineStepCount() + dataTypeCount()
+  private def allCounts(): Int = dataSourceCount() + pipelineCount() + pipelineStepCount()
 }

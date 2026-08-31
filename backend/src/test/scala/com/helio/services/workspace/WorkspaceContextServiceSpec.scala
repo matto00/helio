@@ -225,20 +225,13 @@ class WorkspaceContextServiceSpec
       case Right(s)   => s
       case Left(err)  => fail(s"pipeline create failed: $err")
     }
-    // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- insert the companion
-    // `data_types` row directly (raw SQL) purely to satisfy `pipelines.output_data_type_id`'s
-    // FK, matching `dataTypeRepo.insert`'s old empty-fields/empty-computedFields shape exactly.
-    val dataTypeId = DataTypeId(UUID.randomUUID().toString)
-    await(db.run(sqlu"""
-      INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
-      VALUES (${dataTypeId.value}, NULL, $outputName, '[]'::jsonb, '[]'::jsonb, 1, now(), now(), ${user.id.value}::uuid)
-    """))
-    await(pipelineRepo.setOutputDataTypeIdInternalForTest(PipelineId(summary.id), dataTypeId))
-    // HEL-904 task 3.12: also create a real Output on the pipeline's raw source (`nodeStepId =
-    // None`) -- this is what `WorkspaceContextService.assemble` actually surfaces now.
-    // `SeededPipeline.outputDataTypeId` (name kept for this file's own diff-minimization) holds
-    // this Output's id, NOT the legacy companion DataType's -- every call site below that reads
-    // `pipeline.outputDataTypeId` is exercising the NEW Output-backed path.
+    // HEL-904 task 2.10: the vestigial companion `data_types` row +
+    // `setOutputDataTypeIdInternalForTest` wiring (kept alive since task 4.1
+    // purely to satisfy `pipelines.output_data_type_id`'s FK) is removed
+    // outright -- that column is dropped by this task, and this fixture step
+    // had zero effect on anything `WorkspaceContextService.assemble` reads.
+    // Only the real Output created below (`SeededPipeline.outputDataTypeId`)
+    // is ever exercised by this file's call sites.
     val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table))
     SeededPipeline(id = summary.id, outputDataTypeId = createdOutput.id.value)
   }

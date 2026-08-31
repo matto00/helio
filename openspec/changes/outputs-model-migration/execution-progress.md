@@ -2807,3 +2807,126 @@ in `backend/src/main` or `backend/src/test` still references `data_types`, `data
    is moving `data-type-assertion-status.schema.json` to `schemas/outputs/
    output-assertion-status.schema.json`, plus 5.2-5.7's panel/alert-schema reshapes and the
    `check-schema-drift.mjs` update those require.
+
+## Cycle 26 (2026-08-30)
+
+**Task 2.10 — the single most irreversible step in the entire migration (drop `metrics`,
+`data_types`, `data_type_rows`, `pipelines.output_data_type_id`, and `panels`' 14 retired
+columns) — LANDED and FULLY VERIFIED this cycle.**
+
+**Pre-drop verification (per the resume brief's explicit checklist):**
+- Grepped `backend/src/main` and `backend/src/test` (case-insensitive, multiple casing variants)
+  for every retired table/column before writing a single DROP statement. Found and fixed THREE
+  genuine live main-code dependencies the resume brief's own checklist anticipated might exist:
+  1. `SourceSchemaHealthCheck.scala` — a real boot-time `LEFT JOIN data_types` query. Deleted
+     outright (its entire purpose no longer applies) rather than rewired, along with its
+     `Main.scala` call site and its spec.
+  2. `PipelineRepository`'s Slick `PipelineTable.outputDataTypeId` column mapping +
+     `setOutputDataTypeIdInternalForTest`/`findOutputDataTypeIdInternal` — both dead (zero
+     production callers survived task 4.1) but still compiling against the live column.
+  3. **`PanelRepository`'s Slick `PanelTable`/`PanelRow` still mapped ALL 14 of panels' retired
+     columns** (`type, type_id, field_mapping, aggregation, metric_id, metric_label,
+     metric_unit, chart_options, collection_options, timeline_options, column_widths,
+     table_density, column_order, chart_annotation`) via a `*` HList projection — Slick
+     generates a SELECT/INSERT touching every mapped column on every panel read/write, so
+     dropping these columns while the mapping still existed would have failed every single
+     panels query at runtime, not just a targeted one. Fixing this surfaced a genuine,
+     previously-undiscovered gap: task 3.6's own comment claimed "collapse complete" onto
+     `panels.kind` as the sole discriminator, but `PanelRowMapper.domainToRow` was still
+     writing `kind = None` for every non-Output panel (text/markdown/image/divider), and
+     `rowToDomain` was still falling back to the (about-to-be-dropped) `type` column's switch
+     for those four kinds. `panels.kind SET NOT NULL` (deferred since section 2.5, per the
+     migration's own comment, and never actually applied) was also still outstanding. Fixed
+     inline, not escalated — this was completing 3.6's own already-stated intent with a
+     mechanical, non-design-affecting change (make `domainToRow` always set `kind = p.kind`;
+     make `rowToDomain` dispatch purely on `row.kind`), not reopening any design decision.
+- Also discovered (not anticipated by the resume brief, found via dependency-order reasoning
+  before writing the DROP): `alert_rules.target_data_type_id` (V60) carries a REAL
+  `REFERENCES data_types(id) ON DELETE CASCADE` FK — design.md decision 2 already names this
+  exact prerequisite ("alert rules retarget must precede dropping the target_data_type_id FK"),
+  but the actual column drop wasn't in ticket.md's own item-2.10 list. Since section 3.1 already
+  fully retired every application-code reader of `target_data_type_id` (confirmed via grep: zero
+  Slick-mapped references in `AlertRuleRepository`/`AlertEventRepository`), dropped both
+  `alert_rules`/`alert_events.target_data_type_id` columns outright, mirroring
+  `pipelines.output_data_type_id`'s identical treatment.
+- Also discovered: `binary_refs_owner`'s RLS policy (V46) `SELECT`s from `data_types` directly
+  in its `USING` clause — Postgres refuses to `DROP TABLE`/`DROP COLUMN` while a policy still
+  references them. Replaced the policy with a `pipeline_id`/`helio_can_access_pipeline`-keyed
+  one (mirroring `outputs`/`node_snapshots`' own RLS shape) before dropping
+  `binary_refs.data_type_id`. Functionally inert either way — `BinaryRefRepository` is
+  exclusively accessed via `withSystemContext` (privileged bypass), never through this policy.
+
+**Migration file (`V94__outputs_model.sql`) additions — sections 17-21, appended to the tail
+of the SAME already-landed file (design.md decision 2: one migration file for this whole
+ticket, never a new V9x file):**
+17. `panels.kind SET NOT NULL` (the closed gap above).
+18. Drop panels' 14 retired columns.
+19. Drop `pipelines.output_data_type_id`.
+20. Drop `alert_rules`/`alert_events.target_data_type_id`; replace + then use the new
+    `binary_refs_owner` policy; drop `binary_refs.data_type_id`.
+21. Drop `metrics`, `data_type_rows`, `data_types`, in that FK-dependency order.
+
+**A near-miss caught before it shipped, not after:** an automated first-pass Python script
+(used to mechanically strip `output_data_type_id`/`INSERT INTO data_types` from ~30 files'
+raw-SQL fixtures — too many files to hand-edit safely at this cycle's pace) blindly touched
+EVERY file matching those strings, including three specs that pin an OLDER Flyway
+`.target(...)` version specifically to test an EARLIER migration's behavior against the
+pre-drop schema (`ResourceTagMigrationSpec` @ V72→V93, `TriggerSourceMigrationSpec` @ V62,
+`PipelineOnlyPanelBindingMigrationSpec` @ V93) — including `V94OutputsMigrationSpec` itself,
+whose own pre-migration fixture (seeded at V93, before its own `migrate()` to latest) is
+supposed to use the OLD schema. Caught via a `grep -rln '\.target('` sweep across every file
+the script touched, run BEFORE the first full-suite verification pass — all four files
+`git checkout`-reverted to their pristine pre-script state, then the ONE deliberate edit each
+of them actually needed (only `V94OutputsMigrationSpec`, for its post-migration assertions
+section) was hand-reapplied on the clean file. This is exactly the class of damage
+`systematic-debugging.md`'s "probe before fixing" discipline is meant to catch — the mechanical
+script was the fast path for the ~90% of files where it was correct, but "did it touch a
+version-pinned fixture" needed its own explicit verification pass, not blind trust.
+
+**Verification this cycle (fresh, exit codes read directly):**
+- `sbt -batch compile` — clean.
+- `sbt -batch Test/compile` — iterated from 14 initial errors (the compiler's own error list,
+  same "use the compiler as the work queue" approach prior cycles used) down to zero across
+  ~4 rounds, each round fixing the class of failure the compiler surfaced.
+- `sbt -batch "testOnly com.helio.infrastructure.persistence.pipelines.V94OutputsMigrationSpec"`
+  — iterated specifically on this file (the one test that would catch a drop landing before its
+  data had actually been migrated, per the resume brief's own instruction) until all 41 tests
+  passed, including the new 8-assertion "V94 task 2.10" describe-block
+  (`information_schema`/`pg_policies` checks proving every dropped table/column/FK and the
+  replacement RLS policy).
+- Full `sbt -batch "set Test / parallelExecution := false" test` — iterated across 5 full runs
+  as the SQL-level (not compile-level) fixture breakage was discovered and fixed in batches:
+  757 failures → 466 → 213 → 3 → **0**. The final two runs (both single-threaded, HEL-924
+  protocol) were **run TWICE consecutively and BOTH came back 3360/3360 passing**, exit code 0,
+  225 suites, 0 aborted, 0 failed. Count is 3360, down from cycle 25's 3367: net -7 (4 whole
+  spec files' worth of describe-blocks deleted outright — `SourceSchemaHealthCheckSpec` (5
+  tests) plus the "DML/RLS on data_types(_rows)" blocks in `RlsPrivilegedDmlSpec`/
+  `RlsOwnerTablesSpec` plus `PipelineRunRepositorySpec`'s dead-method block — offset by the 8
+  new task-2.10 drop-assertion tests added to `V94OutputsMigrationSpec`), no unexplained loss.
+- `node scripts/check-scala-quality.mjs` — clean (130 soft warnings, down from cycle 25's 131).
+- `node scripts/check-schema-drift.mjs` — clean (61 protocol classes checked, 7 panel-type-enum
+  surfaces checked) — no schema-level shape changed this cycle (panels'/pipelines' retired
+  columns were never wire-level fields to begin with, only internal DB columns).
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+
+**Task 2.10 status: [x] COMPLETE, fully verified.** This is NOT a "mostly done" status — every
+one of the ticket's named drops landed (verified by dedicated red-first assertions), every
+discovered prerequisite (panels.kind backfill completion, alert_rules/alert_events FK,
+binary_refs RLS policy) landed alongside it, and the full test suite is green twice in a row
+single-threaded.
+
+**Time did not permit reaching task 4.6 or section 5 this cycle** — 2.10's own depth (three
+undiscovered live main-code dependencies, a genuine task-3.6 completion gap, ~50 test files'
+fixture rewrites, and a caught near-miss requiring a revert-and-redo) consumed the full cycle,
+exactly as the resume brief anticipated ("this cycle's primary task... treat it accordingly").
+
+**Next cycle should:**
+1. Task 4.6 (splitting oversized pipeline service files, HEL-689) — lowest priority, explicitly
+   deferrable; behavior-preserving only, do NOT touch `WorkspaceContextService.asNumeric`'s
+   structure/rounding (HEL-631 caution).
+2. Section 5 (schemas + drift script + OpenSpec): `schemas/metrics/` already done (cycle 25);
+   remaining 5.1 work is moving `data-type-assertion-status.schema.json` to `schemas/outputs/
+   output-assertion-status.schema.json`, plus 5.2-5.7's panel/alert-schema reshapes and the
+   `check-schema-drift.mjs` update those require. Do NOT attempt 5.5 (the 71-file OpenSpec
+   capability-spec pass) — that is being fanned out to multiple parallel agents in a dedicated
+   future cycle.

@@ -160,20 +160,14 @@ abstract class CombinedApplyProposalSpecBase
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'd2@helio.test', now())""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($otherSrcId::uuid, 'other-static', 'static', $staticPayload::jsonb, $otherId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($otherTypeId::uuid, $otherSrcId::uuid, 'other-static',
-                     '[{"name":"name","displayName":"name","dataType":"string","nullable":true}]'::jsonb,
-                     1, $otherId::uuid, now(), now())""",
+      
       // Pre-existing pipeline-output type (source_id NULL), owned by userId —
       // bindable, for the mixed-binding scenario (task 7.3).
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($pipelineOutputTypeId::uuid, 'Existing Output',
-                     '[{"name":"region","displayName":"region","dataType":"string","nullable":true}]'::jsonb,
-                     1, $userId::uuid, now(), now())""",
+      
       // HEL-904 task 3.9: a real pipeline + Output, owned by userId — the
       // "output"-kind panel binding target every test below now uses.
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-             VALUES ($pipelineForOutputId, 'Existing Pipeline', $otherSrcId::uuid, $pipelineOutputTypeId::uuid, $userId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pipelineForOutputId, 'Existing Pipeline', $otherSrcId::uuid, $userId::uuid, now(), now())""",
       sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
              VALUES ($pipelineOutputId, $pipelineForOutputId, NULL, $userId::uuid, 'Existing Output', 'table', '{}'::jsonb,
                      '[{"name":"region","type":"string"}]'::jsonb, 0, now(), now())"""
@@ -196,21 +190,22 @@ abstract class CombinedApplyProposalSpecBase
   protected def dataSourceCount(): Int  = countRows("data_sources")
   protected def pipelineCount(): Int    = countRows("pipelines")
   protected def pipelineStepCount(): Int = countRows("pipeline_steps")
-  protected def dataTypeCount(): Int    = countRows("data_types")
   protected def dashboardCount(): Int   = countRows("dashboards")
   protected def panelCount(): Int       = countRows("panels")
 
-  /** Sum of the six resource counts the combined-proposal atomicity contract
+  // HEL-904 task 2.10: `dataTypeCount()` removed outright -- `data_types` is
+  // dropped, and no proposal apply path has created a DataType since task
+  // 3.5/3.8 retired the DataType-minting create-path.
+  /** Sum of the five resource counts the combined-proposal atomicity contract
    *  covers — a single scalar delta is enough to prove "nothing created" for
    *  a rejected/rolled-back call. */
   protected def allCounts(): Int =
-    dataSourceCount() + pipelineCount() + pipelineStepCount() + dataTypeCount() + dashboardCount() + panelCount()
+    dataSourceCount() + pipelineCount() + pipelineStepCount() + dashboardCount() + panelCount()
 
   private def countRows(table: String): Int = table match {
     case "data_sources"   => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM data_sources".as[Int].head))
     case "pipelines"      => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM pipelines".as[Int].head))
     case "pipeline_steps" => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM pipeline_steps".as[Int].head))
-    case "data_types"     => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM data_types".as[Int].head))
     case "dashboards"     => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM dashboards".as[Int].head))
     case "panels"         => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM panels".as[Int].head))
   }

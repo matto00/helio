@@ -70,7 +70,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
   private def cleanDb(): Unit = {
     await(db.run(sqlu"DELETE FROM panels"))
     await(db.run(sqlu"DELETE FROM dashboards"))
-    await(db.run(sqlu"DELETE FROM data_types"))
     await(db.run(sqlu"DELETE FROM data_sources"))
   }
 
@@ -200,9 +199,9 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
       (1 to 5).foreach { i =>
         await(db.run(sqlu"""
-          INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
+          INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
           VALUES (${UUID.randomUUID().toString}, ${dashId.value}, ${"Panel " + i}, ${ownerId.value}, now(), now(),
-                  '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric',
+                  '{"background":"transparent","color":"inherit","transparency":0.0}', 'output',
                   ${UUID.fromString(ownerId.value).toString}::uuid)
         """))
       }

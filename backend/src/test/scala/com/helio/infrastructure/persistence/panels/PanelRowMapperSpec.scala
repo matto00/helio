@@ -28,9 +28,7 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       val panel = TextPanel(id, dashboardId, "t", meta, appearance, owner, TextPanelConfig("Just literal"))
 
       val row = PanelRowMapper.domainToRow(panel)
-      row.panelType shouldBe TextPanel.Kind
-      row.typeId shouldBe None
-      row.fieldMapping shouldBe None
+      row.kind shouldBe TextPanel.Kind
       row.content shouldBe Some("Just literal")
 
       val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[TextPanel]
@@ -41,9 +39,7 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       val panel = MarkdownPanel(id, dashboardId, "t", meta, appearance, owner, MarkdownPanelConfig("Just literal"))
 
       val row = PanelRowMapper.domainToRow(panel)
-      row.panelType shouldBe MarkdownPanel.Kind
-      row.typeId shouldBe None
-      row.fieldMapping shouldBe None
+      row.kind shouldBe MarkdownPanel.Kind
       row.content shouldBe Some("Just literal")
 
       val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[MarkdownPanel]
@@ -60,7 +56,7 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       )
 
       val row = PanelRowMapper.domainToRow(panel)
-      row.panelType shouldBe ImagePanel.Kind
+      row.kind shouldBe ImagePanel.Kind
       row.imageCaption shouldBe Some("Hero photo — Reuters")
 
       val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[ImagePanel]

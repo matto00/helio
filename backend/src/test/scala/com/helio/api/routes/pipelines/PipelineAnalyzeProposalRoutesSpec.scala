@@ -77,7 +77,6 @@ class PipelineAnalyzeProposalRoutesSpec
     import PostgresProfile.api._
     await(db.run(sqlu"DELETE FROM pipeline_steps"))
     await(db.run(sqlu"DELETE FROM pipelines"))
-    await(db.run(sqlu"DELETE FROM data_types"))
     await(db.run(sqlu"DELETE FROM data_sources"))
   }
 

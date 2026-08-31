@@ -120,7 +120,6 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
     await(db.run(sqlu"DELETE FROM pipeline_schedules"))
     await(db.run(sqlu"DELETE FROM pipelines"))
     await(db.run(sqlu"DELETE FROM data_sources"))
-    await(db.run(sqlu"DELETE FROM data_types"))
     await(db.run(sqlu"DELETE FROM users"))
     hangingReads.clear()
     readCount.set(0)
@@ -145,10 +144,9 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-             VALUES ($pid, 'pipe', $dsId, $dtId, $ownerId::uuid, now(), now())"""
+      
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pid, 'pipe', $dsId, $ownerId::uuid, now(), now())"""
     )))
     PipelineId(pid)
   }
@@ -166,10 +164,9 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($dsId, 'ds', 'csv', $configJson, $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-             VALUES ($pid, 'pipe', $dsId, $dtId, $ownerId::uuid, now(), now())"""
+      
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pid, 'pipe', $dsId, $ownerId::uuid, now(), now())"""
     )))
     PipelineId(pid)
   }

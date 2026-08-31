@@ -2,7 +2,7 @@ package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository
-import com.helio.domain.model.{AssertionResult, AuthenticatedUser, DataTypeId, PipelineId, PipelineRunId, UserId}
+import com.helio.domain.model.{AssertionResult, AuthenticatedUser, PipelineId, PipelineRunId, UserId}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -46,43 +46,16 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     import PostgresProfile.api._
     val ownerId = "00000000-0000-0000-0000-000000000001"
     val dsId    = UUID.randomUUID().toString
-    val dtId    = UUID.randomUUID().toString
     val pid     = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources
                (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types
-               (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
+               (id, name, source_data_source_id, created_at, updated_at)
+               VALUES ($pid, 'pipe', $dsId, now(), now())"""
     )))
     PipelineId(pid)
-  }
-
-  /** HEL-576: like `seedPipeline`, but also returns the pipeline's
-   *  `output_data_type_id` — `findLatestRunIdByOutputDataTypeIdInternal`
-   *  looks up runs by that DataType, not by pipeline id directly. */
-  private def seedPipelineWithDataType(): (PipelineId, DataTypeId) = {
-    import PostgresProfile.api._
-    val ownerId = "00000000-0000-0000-0000-000000000001"
-    val dsId    = UUID.randomUUID().toString
-    val dtId    = UUID.randomUUID().toString
-    val pid     = UUID.randomUUID().toString
-    await(db.run(DBIO.seq(
-      sqlu"""INSERT INTO data_sources
-               (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types
-               (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
-    )))
-    (PipelineId(pid), DataTypeId(dtId))
   }
 
   "PipelineRunRepository" should {
@@ -424,43 +397,10 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       await(pipelineRunRepo.listAssertionsByRunInternal(runId)) shouldBe empty
     }
 
-
-    "findLatestRunIdByOutputDataTypeIdInternal returns None when the pipeline has never had a non-dry run" in {
-      val (_, dtId) = seedPipelineWithDataType()
-      await(pipelineRunRepo.findLatestRunIdByOutputDataTypeIdInternal(dtId)) shouldBe None
-    }
-
-    "findLatestRunIdByOutputDataTypeIdInternal returns the most recent NON-DRY run id" in {
-      val (pid, dtId) = seedPipelineWithDataType()
-      val base    = Instant.now()
-      val earlier = PipelineRunId(UUID.randomUUID().toString)
-      val latest  = PipelineRunId(UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertRunInternal(earlier, pid, base))
-      await(pipelineRunRepo.insertRunInternal(latest, pid, base.plusSeconds(10)))
-
-      await(pipelineRunRepo.findLatestRunIdByOutputDataTypeIdInternal(dtId)) shouldBe Some(latest)
-    }
-
-    // Dedicated case (design gate round 1): a dry run more recent than the
-    // last real run must never be mistaken for the "latest run".
-    "findLatestRunIdByOutputDataTypeIdInternal excludes a dry run more recent than the last real run" in {
-      val (pid, dtId) = seedPipelineWithDataType()
-      val base    = Instant.now()
-      val realRun = PipelineRunId(UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertRunInternal(realRun, pid, base))
-
-      val dryRun = PipelineRunId(UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertDryRunInternal(dryRun, pid, base.plusSeconds(60), rowCount = 3))
-
-      await(pipelineRunRepo.findLatestRunIdByOutputDataTypeIdInternal(dtId)) shouldBe Some(realRun)
-    }
-
-    "findLatestRunIdByOutputDataTypeIdInternal returns None when the pipeline has only dry runs" in {
-      val (pid, dtId) = seedPipelineWithDataType()
-      val dryRun = PipelineRunId(UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertDryRunInternal(dryRun, pid, Instant.now(), rowCount = 3))
-
-      await(pipelineRunRepo.findLatestRunIdByOutputDataTypeIdInternal(dtId)) shouldBe None
-    }
+    // HEL-904 task 2.10: the `findLatestRunIdByOutputDataTypeIdInternal`
+    // describe-block (4 tests) is deleted outright, not adapted -- the
+    // method itself was removed (dead: zero production callers survived
+    // task 4.1's DataType-service deletion, and its backing
+    // `pipelines.output_data_type_id` column is dropped by this same task).
   }
 }

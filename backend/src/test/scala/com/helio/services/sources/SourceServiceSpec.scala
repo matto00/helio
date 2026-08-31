@@ -75,7 +75,7 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE data_sources RESTART IDENTITY CASCADE"))
   }
 
   /** A SQL config that queries the embedded Postgres instance itself — same pattern

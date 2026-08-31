@@ -72,8 +72,8 @@ class PipelineStepRoutesSpec
     val dtId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at) VALUES ($dsId, 'ds', 'rest_api', '{}', '00000000-0000-0000-0000-000000000001', now(), now())""",
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at) VALUES ($dtId, 'dt', '[]', 1, '00000000-0000-0000-0000-000000000001', now(), now())""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, created_at, updated_at) VALUES ($pid, 'p', $dsId, $dtId, now(), now())"""
+      
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, created_at, updated_at) VALUES ($pid, 'p', $dsId, now(), now())"""
     )))
     pid
   }

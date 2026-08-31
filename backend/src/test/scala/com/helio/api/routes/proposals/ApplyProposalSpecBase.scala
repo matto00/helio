@@ -162,25 +162,17 @@ abstract class ApplyProposalSpecBase
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($srcId::uuid, 'src', 'static', '{}'::jsonb, $userId::uuid, now(), now())""",
       // Pipeline-output type: source_id NULL, owned by userId → bindable.
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($pipelineOutputTypeId::uuid, 'Sales Output',
-                     '[{"name":"region","displayName":"region","dataType":"string","nullable":true}]'::jsonb,
-                     1, $userId::uuid, now(), now())""",
+      
       // Companion type: source_id set → NOT bindable.
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($companionTypeId::uuid, $srcId::uuid, 'src companion',
-                     '[{"name":"region","displayName":"region","dataType":"string","nullable":true}]'::jsonb,
-                     1, $userId::uuid, now(), now())""",
+      
       // Pipeline-output type owned by the OTHER user → invisible under RLS.
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($otherUserTypeId::uuid, 'other output',
-                     '[]'::jsonb, 1, $otherId::uuid, now(), now())""",
+      
       // HEL-904 task 3.9: a real pipeline + Output, owned by userId — the
       // "output"-kind panel binding target every test below now uses
       // (`pipelineOutputId`, NOT `pipelineOutputTypeId`, which stays only for
       // the legacy DataType-shaped fixtures/tests still exercising other kinds).
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-             VALUES ($pipelineForOutputId, 'Sales Pipeline', $srcId::uuid, $pipelineOutputTypeId::uuid, $userId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pipelineForOutputId, 'Sales Pipeline', $srcId::uuid, $userId::uuid, now(), now())""",
       sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
              VALUES ($pipelineOutputId, $pipelineForOutputId, NULL, $userId::uuid, 'Sales Output', 'table', '{}'::jsonb,
                      '[{"name":"region","type":"string"}]'::jsonb, 0, now(), now())"""
@@ -233,29 +225,9 @@ abstract class ApplyProposalSpecBase
              ON CONFLICT (resource_type, resource_id, grantee_id) DO UPDATE SET role = EXCLUDED.role"""
     ))
 
-  /** Seed a metric row directly (bypassing the HTTP layer, via the privileged
-   *  pool) owned by an arbitrary user id — used by HEL-549's metricId
-   *  validation specs to seed a caller-owned, foreign, and/or deprecated
-   *  metric without a second stubbed session. Mirrors
-   *  `seedDashboardForOwner`'s raw-SQL insert. */
-  protected def seedMetric(
-      ownerId: String,
-      dataTypeId: String,
-      deprecated: Boolean = false,
-      name: String = "Test Metric",
-      measureField: String = "region"
-  ): String = {
-    val id = UUID.randomUUID().toString
-    await(ctx.withSystemContext(
-      sqlu"""INSERT INTO metrics
-               (id, owner_id, data_type_id, name, measure_field, aggregation,
-                allowed_dimensions, format, deprecated, created_at, updated_at)
-             VALUES
-               ($id, $ownerId::uuid, $dataTypeId, $name, $measureField, 'sum',
-                '[]'::jsonb, '{}'::jsonb, $deprecated, now(), now())"""
-    ))
-    id
-  }
+  // HEL-904 task 2.10: `seedMetric` removed outright -- `metrics` is
+  // dropped, and its only caller was already retired in task 4.1 (see
+  // `AuditMutationInstrumentationSpec`'s own comment).
 
   /** ACL-free read of a dashboard's panel titles, via the privileged pool —
    *  used by HEL-370 cross-tenant/no-grant specs to prove "nothing created"

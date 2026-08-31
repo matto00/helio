@@ -56,12 +56,10 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       sqlu"""INSERT INTO data_sources
                (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types
-               (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
+      
       sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
+               (id, name, source_data_source_id, created_at, updated_at)
+               VALUES ($pid, 'pipe', $dsId, now(), now())"""
     )))
     PipelineId(pid)
   }

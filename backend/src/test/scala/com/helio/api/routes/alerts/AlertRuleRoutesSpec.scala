@@ -89,10 +89,9 @@ class AlertRuleRoutesSpec
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($dsId, 'src', 'static', '{}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, 'TestType', '[]', 1, $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-             VALUES ($pId, 'pipe', $dsId, $dtId, $ownerId::uuid, now(), now())""",
+      
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pId, 'pipe', $dsId, $ownerId::uuid, now(), now())""",
       sqlu"""INSERT INTO outputs (id, pipeline_id, owner_id, name, kind, created_at, updated_at)
              VALUES ($outId, $pId, $ownerId::uuid, 'out', 'table', now(), now())"""
     )))

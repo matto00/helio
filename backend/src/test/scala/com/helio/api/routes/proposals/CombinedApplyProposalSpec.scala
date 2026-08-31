@@ -17,7 +17,6 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
     "atomically create source+pipeline+run+dashboard+panels, binding the panel to the new output type" in {
       val beforeSources    = dataSourceCount()
       val beforePipelines  = pipelineCount()
-      val beforeTypes      = dataTypeCount()
       val beforeDashboards = dashboardCount()
       val beforePanels     = panelCount()
       val body =
@@ -54,9 +53,6 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
       }
       dataSourceCount()    shouldBe (beforeSources + 1)
       pipelineCount()      shouldBe (beforePipelines + 1)
-      // HEL-904 task 3.5/4.3: `pipelineRepo.create` no longer mints its own output DataType,
-      // and the static source no longer mints a companion DataType either.
-      dataTypeCount()      shouldBe beforeTypes
       dashboardCount()     shouldBe (beforeDashboards + 1)
       panelCount()         shouldBe (beforePanels + 1)
     }

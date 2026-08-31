@@ -25,17 +25,13 @@ object PanelRowMapper extends PanelProtocol {
     val appearance  = row.appearance
     val ownerId     = UserId(row.ownerId.toString)
 
-    // HEL-904 task 3.6 (collapse complete): an `output`-kind row decodes on
-    // `row.kind`; every pre-existing bound (metric/chart/table/collection/
-    // timeline) row was backfilled to `kind = 'output'` by the V94 migration
-    // (task 2.5) before this collapse landed, so `row.panelType`'s legacy
-    // bound-kind values are no longer live decode targets — only
-    // text/markdown/image/divider still use `row.panelType`. A row matching
-    // neither falls back to `PanelType.Default` (Output) per the
-    // pre-CS2c-3b unknown-kind behaviour.
-    if (row.kind.contains(OutputPanel.Kind))
-      OutputPanel(id, dashboardId, row.title, meta, appearance, ownerId, outputConfig(row))
-    else row.panelType match {
+    // HEL-904 task 2.10: full cutover onto `row.kind` as the sole
+    // discriminator now that `domainToRow` sets it on every write and the
+    // DB column is NOT NULL — the retired `type`/`type_id` columns (and
+    // this mapper's old fallback dispatch on `row.panelType`) are gone.
+    // A row whose `kind` is unrecognized falls back to `OutputPanel` per
+    // the pre-CS2c-3b unknown-kind behaviour.
+    row.kind match {
       case TextPanel.Kind =>
         TextPanel(id, dashboardId, row.title, meta, appearance, ownerId, textConfig(row))
       case MarkdownPanel.Kind =>
@@ -58,9 +54,6 @@ object PanelRowMapper extends PanelProtocol {
       createdAt    = p.meta.createdAt,
       lastUpdated  = p.meta.lastUpdated,
       appearance   = p.appearance,
-      panelType    = p.kind,
-      typeId       = None,
-      fieldMapping = None,
       ownerId      = UUID.fromString(p.ownerId.value),
       content      = None,
       imageUrl     = None,
@@ -68,20 +61,13 @@ object PanelRowMapper extends PanelProtocol {
       dividerOrientation = None,
       dividerWeight      = None,
       dividerColor       = None,
-      aggregation        = None,
-      metricLabel        = None,
-      metricUnit         = None,
-      columnWidths       = None,
-      tableDensity       = None,
-      columnOrder        = None,
-      chartOptions       = None,
-      collectionOptions  = None,
-      timelineOptions    = None,
       imageCaption       = None,
-      chartAnnotation    = None,
-      metricId           = None,
       outputId           = None,
-      kind               = None
+      // HEL-904 task 2.10: `kind` is now the sole discriminator (`type`/
+      // `type_id` dropped) and NOT NULL — every write sets it from the
+      // panel's own `kind` string, matching the DB CHECK constraint's
+      // allow-list exactly.
+      kind               = p.kind
     )
 
     p match {
@@ -89,7 +75,7 @@ object PanelRowMapper extends PanelProtocol {
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content))
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit), imageCaption = i.config.caption)
       case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
-      case op: OutputPanel    => base.copy(outputId = optString(op.config.outputId.value), kind = Some(OutputPanel.Kind))
+      case op: OutputPanel    => base.copy(outputId = optString(op.config.outputId.value))
       case _                  => base
     }
   }

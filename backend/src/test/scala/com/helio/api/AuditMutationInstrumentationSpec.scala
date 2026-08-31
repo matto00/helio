@@ -132,7 +132,7 @@ class AuditMutationInstrumentationSpec
     // is also rejected by the same trigger, so each test's fixture data is
     // cleared, and audit rows are read (never wiped) per test via the
     // per-test filtering `allAuditRows()` already does on `action`.
-    await(db.run(sqlu"TRUNCATE TABLE api_tokens, resource_permissions, user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE api_tokens, resource_permissions, user_sessions, users, panels, dashboards, data_sources RESTART IDENTITY CASCADE"))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000099'::uuid, 'test@helio.test', now())"""))
   }
 

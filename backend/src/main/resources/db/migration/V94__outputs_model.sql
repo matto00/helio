@@ -913,3 +913,104 @@ ALTER TABLE alert_events ALTER COLUMN target_data_type_id DROP NOT NULL;
 -- section 15's `alert_rules`/`alert_events` NOT-NULL deferral above.
 
 ALTER TABLE pipelines ALTER COLUMN output_data_type_id DROP NOT NULL;
+
+-- ── 17. panels.kind SET NOT NULL (task 2.10 prerequisite) ───────────────────
+--
+-- Section 4's `type_id` retirement (task 4.1) already removed every write
+-- path that could leave `kind` unset: `PanelRowMapper.domainToRow` now sets
+-- `kind` from the panel's own discriminator (`output | text | markdown |
+-- image | divider`) on EVERY insert, matching the CHECK constraint added in
+-- section 4 above verbatim. Every pre-existing row was already backfilled
+-- by that same section. This closes the gap section 4's own comment flagged
+-- ("SET NOT NULL deferred to land in the same commit as task 3.6") -- it
+-- never actually landed with 3.6, so it lands here, immediately before the
+-- `type`/`type_id` columns it fully supersedes are dropped below.
+
+ALTER TABLE panels ALTER COLUMN kind SET NOT NULL;
+
+-- ── 18. Drop `panels`' retired columns (task 2.10) ──────────────────────────
+--
+-- `type`/`type_id` are the last two of task 2.1's cited column list still
+-- read/written by application code (`PanelRowMapper.rowToDomain`'s
+-- text/markdown/image/divider dispatch) -- both are now fully superseded by
+-- `kind` (section 17 above) and dropped here alongside the twelve columns
+-- section 9's per-kind `config` JSON already absorbed the values of
+-- (`field_mapping`, `aggregation`, `metric_id`, `metric_label`,
+-- `metric_unit`, `chart_options`, `collection_options`, `timeline_options`,
+-- `column_widths`, `table_density`, `column_order`, `chart_annotation`) --
+-- none of these twelve have been read OR written by any application code
+-- since task 3.6/4.1 landed (`PanelRowMapper.domainToRow` always wrote
+-- `None`); `hel904_dropped_field_mapping_slots` (section 9) already
+-- preserves anything section 9's per-kind config extraction couldn't place.
+
+ALTER TABLE panels
+  DROP COLUMN type,
+  DROP COLUMN type_id,
+  DROP COLUMN field_mapping,
+  DROP COLUMN aggregation,
+  DROP COLUMN metric_id,
+  DROP COLUMN metric_label,
+  DROP COLUMN metric_unit,
+  DROP COLUMN chart_options,
+  DROP COLUMN collection_options,
+  DROP COLUMN timeline_options,
+  DROP COLUMN column_widths,
+  DROP COLUMN table_density,
+  DROP COLUMN column_order,
+  DROP COLUMN chart_annotation;
+
+-- ── 19. Drop `pipelines.output_data_type_id` (task 2.10) ────────────────────
+--
+-- Every reader/writer of this column was removed in section 4
+-- (`PipelineRepository`/`PipelineRunRepository`'s legacy accessor methods,
+-- both dead -- zero production callers survived task 4.1's DataType-service
+-- deletion). Section 16 above already relaxed it to NULLable so no new
+-- pipeline needed to populate it; this drops it outright.
+
+ALTER TABLE pipelines DROP COLUMN output_data_type_id;
+
+-- ── 20. Drop `alert_rules`/`alert_events.target_data_type_id` (task 2.10) ───
+--
+-- `alert_rules.target_data_type_id` (V60) FK-references `data_types(id) ON
+-- DELETE CASCADE` -- design.md decision 2 is explicit that "alert rules
+-- retarget must precede dropping the target_data_type_id FK", and that
+-- retarget (section 14's DML onto `target_output_id`) is long done. Dropping
+-- the table below would otherwise fail outright ("cannot drop table
+-- data_types because other objects depend on it"). Section 3.1 already
+-- removed every application-code reader/writer of both columns
+-- (`AlertRule`/`AlertRuleRepository`/`AlertEventRepository` are fully
+-- `target_output_id`-only) -- dropping the columns outright, not just the
+-- FK, mirrors `pipelines.output_data_type_id`'s identical treatment two
+-- sections above; `alert_events.target_data_type_id` has no FK but is
+-- equally dead, dropped alongside it for the same reason.
+
+ALTER TABLE alert_rules DROP COLUMN target_data_type_id;
+ALTER TABLE alert_events DROP COLUMN target_data_type_id;
+
+-- ── 21. Drop `metrics`, `data_type_rows`, `data_types` (task 2.10) ──────────
+--
+-- Drop order matters: `data_type_rows.data_type_id` and `metrics.data_type_id`
+-- both FK-reference `data_types.id`, so the referencing tables must go
+-- first. `binary_refs.data_type_id` (V46) is the one other FK into
+-- `data_types` -- section 8 already added the replacement
+-- `pipeline_id`/`node_step_id` columns and every production write path
+-- was re-keyed onto them (task 2.8); the legacy `data_type_id` column
+-- itself is dropped here alongside its target table (it was never read by
+-- any surviving code path once `data_types` itself is gone).
+
+-- `binary_refs_owner` (V46) is a USING clause keyed on `data_type_id ->
+-- data_types.owner_id` -- Postgres refuses to DROP COLUMN/TABLE while a
+-- policy still references them, so the policy must be replaced FIRST, with
+-- one keyed on the same `pipeline_id`/`helio_can_access_pipeline` pattern
+-- as `outputs`/`node_snapshots` above (section 2.3/2.4). Functionally inert
+-- either way -- `BinaryRefRepository` is exclusively accessed via
+-- `withSystemContext` (privileged bypass, this file's own header note on
+-- V46) -- but must stay valid SQL referencing only surviving columns.
+DROP POLICY binary_refs_owner ON binary_refs;
+CREATE POLICY binary_refs_owner ON binary_refs
+  USING (pipeline_id IS NOT NULL AND helio_can_access_pipeline(pipeline_id));
+
+ALTER TABLE binary_refs DROP COLUMN data_type_id;
+DROP TABLE metrics;
+DROP TABLE data_type_rows;
+DROP TABLE data_types;
