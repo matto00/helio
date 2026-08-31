@@ -174,7 +174,7 @@ ALTER TABLE panels ADD COLUMN output_id TEXT NULL REFERENCES outputs(id) ON DELE
 UPDATE panels
 SET kind = CASE
   WHEN type IN ('metric', 'chart', 'table', 'collection', 'timeline') THEN 'output'
-  WHEN type = 'text' AND type_id IS NOT NULL THEN 'output'
+  WHEN type IN ('text', 'markdown') AND type_id IS NOT NULL THEN 'output'
   ELSE type
 END;
 
@@ -306,11 +306,14 @@ WHERE dt.source_id IS NOT NULL
 -- ── 9. Data migration step 2.9(b): bound panels -> Outputs ──────────────────
 --
 -- Every panel bound to a pipeline-output type (`type IN (metric, chart,
--- table, collection, timeline)`, or `type = 'text' AND type_id IS NOT NULL`)
+-- table, collection, timeline)`, or `type IN ('text', 'markdown') AND type_id IS NOT NULL`)
 -- becomes an `outputs` row on its pipeline's LAST TRUNK STEP (root, i.e.
--- `node_step_id IS NULL`, if the pipeline has zero steps). A `text` panel's
--- Output kind is `markdown` (`outputs.kind` has no `text` value); every
--- other kind maps straight through.
+-- `node_step_id IS NULL`, if the pipeline has zero steps). A data-bound
+-- `text` OR `markdown` panel's Output kind is `markdown` (`outputs.kind`
+-- has no `text` value, and design.md explicitly folds both into the
+-- `markdown` Output kind -- "today's data-bound text AND markdown panels",
+-- `TextPanel` carries dataTypeId/fieldMapping "exactly like" MarkdownPanel);
+-- every other kind maps straight through.
 --
 -- **`panels.aggregation` (HEL-292) shape, resolved empirically this cycle**
 -- (not guessed) by querying every non-null value in the shared dev DB
@@ -447,7 +450,7 @@ BEGIN
            p.timeline_options
     FROM panels p
     WHERE p.type IN ('metric', 'chart', 'table', 'collection', 'timeline')
-       OR (p.type = 'text' AND p.type_id IS NOT NULL)
+       OR (p.type IN ('text', 'markdown') AND p.type_id IS NOT NULL)
     -- ORDER BY added this cycle (task 2.9 c-h): makes per-node Output
     -- `position` assignment deterministic across runs for panels that share
     -- a target node -- required so step (f) below ("lowest-position Output
@@ -554,7 +557,7 @@ BEGIN
       'chartAnnotation',    panel_row.chart_annotation
     ));
 
-    out_kind := CASE WHEN panel_row.type = 'text' THEN 'markdown' ELSE panel_row.type END;
+    out_kind := CASE WHEN panel_row.type IN ('text', 'markdown') THEN 'markdown' ELSE panel_row.type END;
     new_output_id := 'hel904-output-' || panel_row.id;
 
     SELECT COALESCE(MAX(position) + 1, 0) INTO next_position
@@ -814,7 +817,7 @@ WHERE NOT EXISTS (
   SELECT 1 FROM panels pnl
   WHERE pnl.type_id = dt.id
     AND (pnl.type IN ('metric', 'chart', 'table', 'collection', 'timeline')
-         OR (pnl.type = 'text' AND pnl.type_id IS NOT NULL))
+         OR (pnl.type IN ('text', 'markdown') AND pnl.type_id IS NOT NULL))
 );
 
 DO $$
@@ -832,7 +835,7 @@ BEGIN
       SELECT 1 FROM panels pnl
       WHERE pnl.type_id = dt.id
         AND (pnl.type IN ('metric', 'chart', 'table', 'collection', 'timeline')
-             OR (pnl.type = 'text' AND pnl.type_id IS NOT NULL))
+             OR (pnl.type IN ('text', 'markdown') AND pnl.type_id IS NOT NULL))
     )
     ORDER BY dt.id
   LOOP

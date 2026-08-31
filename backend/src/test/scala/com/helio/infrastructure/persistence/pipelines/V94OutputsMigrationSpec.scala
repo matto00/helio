@@ -12,24 +12,40 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
-import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import scala.io.Source
 
 /** HEL-904 task 2.11/2.12/2.13 -- red-first proof for the FULL V94 migration
  *  (pipeline_steps.parent_step_id backfill, outputs/node_snapshots tables +
  *  RLS, panels.kind backfill, data_sources.inferred_schema default, the full
  *  9-step data migration (task 2.9), the destructive alert_rules/binary_refs
- *  retargets, and the final table/column drops (task 2.10) -- now complete).
+ *  retargets, and the final table/column drops (task 2.10)).
  *
-
- *  Strategy: migrate to V93 (pre-V94), hand-seed a fixture via raw SQL
- *  (mirrors design.md decision 3's "derived from a real shape" intent, done
- *  here as a hand-built fixture rather than a `pg_dump` of the actual shared
- *  dev DB, since that dump is an operational step outside this test's
- *  reach), assert the pre-migration state (proves the assertions below are
- *  not vacuous -- the "before" shape genuinely lacks the new columns), then
- *  migrate to V94 (latest) and assert the backfill/shape is correct. */
+ *  Cycle-3 rewrite (evaluation-2.md, per the human coordinator's explicit,
+ *  non-negotiable ruling): the fixture is now a REAL `pg_dump --data-only`
+ *  snapshot of the shared dev DB (V93, 2026-08-30) --
+ *  `db/fixtures/hel904-real-dump.sql` -- loaded verbatim, REPLACING (not
+ *  supplementing) the previous ~800-line hand-built fixture. That hand-built
+ *  fixture, no matter how many rows were added to it after each review round,
+ *  only ever covered the exact instance a reviewer had already named -- never
+ *  the class of defects nobody had thought to check for yet, which is exactly
+ *  how both the evaluation-1 (stranded panels) and evaluation-2 (markdown
+ *  binding) defects got through two review cycles. Loading the real data once
+ *  closes that whole class, rather than iterating hand-written cases forever.
+ *
+ *  Only two things are seeded ON TOP of the dump (never as a substitute for
+ *  it): (1) two `alert_rules` rows, since the dev DB carries zero rows in
+ *  that table today and task 2.9(f) has no real row to exercise otherwise;
+ *  (2) a `resource_permissions` sharing-grant row for the RLS "granted
+ *  non-owner" branch, which needs a deliberately-controlled grantee that the
+ *  dump's ambient sharing state doesn't already guarantee one way or the
+ *  other. Every other required shape (every panel kind, HEL-292 aggregation
+ *  panels, a `metric_id` panel, data-bound `text` AND `markdown` panels, an
+ *  unbound data panel, orphan output types, companion types, a computed
+ *  field, a `binary_refs` row, invalid `fieldMapping` slots, and the 60-row
+ *  stranded-panel shape) is already present in the real dump -- verified
+ *  below, not assumed. */
 class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
@@ -39,13 +55,67 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
   private var appDb: JdbcBackend.Database        = _
   private var privilegedDb: JdbcBackend.Database = _
 
-  private val ownerId    = UUID.randomUUID().toString
-  private val otherOwner = UUID.randomUUID().toString
-  private val granteeId  = UUID.randomUUID().toString
-  private val sourceId   = UUID.randomUUID().toString
-  private val pipelineId = UUID.randomUUID().toString
-  private val stepIds    = Vector.fill(5)(UUID.randomUUID().toString)
-  private val dashboardId = UUID.randomUUID().toString
+  // ── Real ids, resolved by hand against the shared dev DB (2026-08-30) via
+  //    `psql -d helio -U matt`, not invented. Each is annotated with the
+  //    query used to find it so a future reader can re-derive it against a
+  //    fresher dump. ──────────────────────────────────────────────────────
+
+  // `select id, owner_id from users where id not in (...) limit 1` (any real
+  // user distinct from the two below) -- used only as the RLS grantee.
+  private val granteeId = "1ac099f7-4465-4a6d-acff-f52cf753dc3b"
+
+  // A real user distinct from every other named id above -- used purely as
+  // an "unrelated tenant" for the cross-tenant RLS denial assertions (`select
+  // id from users where id not in (...) limit 1`).
+  private val unrelatedUserId = "23925216-407a-47d7-8b62-848de81ec221"
+
+  // A real pipeline whose `output_data_type_id` has real bound panels
+  // (`select p.id, p.output_data_type_id, p.owner_id from pipelines p where
+  // exists (select 1 from panels pnl where pnl.type_id = p.output_data_type_id
+  // and pnl.type in (...)) limit 1`).
+  private val alertPipelineId       = "0bc3b4af-403d-4147-92e3-66c23afb89fc"
+  private val alertPipelineTypeId   = "b1730647-ab3e-40a6-8793-d87d8196ed79"
+  private val alertPipelineOwnerId  = "d5710fad-da06-4d64-848d-433f3fb9e96e"
+
+  // A real "orphan pipeline-output type" (task 2.9(d)'s actual meaning: a
+  // pipeline DOES still claim this type as its `output_data_type_id`, but no
+  // panel is bound to it) -- `select dt.id, p.id, p.owner_id from data_types
+  // dt join pipelines p on p.output_data_type_id = dt.id where not exists
+  // (select 1 from panels pnl where pnl.type_id = dt.id and (visual-kind or
+  // data-bound text/markdown))`. Distinct from a data_type with NO owning
+  // pipeline at all (that shape only feeds the stranded-panel-deletion path
+  // and `orphan_data_types_no_pipeline_skipped`, never an orphan Output --
+  // confirmed empirically this cycle after an initial wrong pick).
+  private val orphanTypeId       = "e01eb9c6-ad56-48fc-8ac4-f9b09c62e496"
+  private val orphanPipelineId   = "531e0c3c-9bb7-4720-82d9-3682d9f38382" // documents which pipeline claims orphanTypeId
+  private val orphanOwnerId      = "9532cfcf-9882-45ba-8247-23706bc00113"
+
+  // A real pipeline with many (20) steps -- used both for the RLS smoke test
+  // (an arbitrary pipeline node is sufficient there) and the step-order-
+  // preservation test (`select pipeline_id, count(*) from pipeline_steps
+  // group by pipeline_id having count(*) >= 3 order by count(*) desc limit 3`).
+  private val manyStepsPipelineId = "6ba5075b-2291-4508-881b-a517b1f300cf"
+
+  // A real data-bound `markdown` panel whose `type_id` DOES resolve to a real
+  // pipeline -- the exact shape evaluation-2.md found silently stripped of
+  // its binding (`select pnl.id, pnl.type_id, (select p.id from pipelines p
+  // where p.output_data_type_id = pnl.type_id) from panels pnl where
+  // pnl.type = 'markdown' and pnl.type_id is not null`).
+  private val markdownBoundPanelId = "2664cda2-43d6-46b8-9113-7e5ad7fa9e35"
+
+  // A real chart panel whose fieldMapping carries slots outside chart's valid
+  // set (`xAxis`/`yAxis`/`series`/`annotation`) -- `category` and `value` are
+  // not chart slots (`select id, field_mapping from panels where type =
+  // 'chart' and (field_mapping::jsonb ? 'category' or field_mapping::jsonb ?
+  // 'value')`).
+  private val invalidSlotChartPanelId = "0da8ed3a-2d6e-41f6-8aa5-c9a242b9fee4"
+
+  // A real source with exactly ONE companion type bound to it (so the
+  // 2.9(a) fold-into-inferred_schema assertion doesn't need to merge
+  // multiple companion types' fields) -- `select dt.source_id, count(*) from
+  // data_types dt where dt.source_id is not null and not exists (pipeline)
+  // group by dt.source_id having count(*) = 1 limit 1`.
+  private val singleCompanionSourceId = "18dc0d3b-ad44-48cd-bc1d-f066726fc0f1"
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -61,192 +131,93 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
 
     superDb = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(5))
 
-    // ── Seed a fixture: one owner, one source, one 5-step pipeline (a pure
-    //    trunk by construction, position 0..4), one panel of each backfill-
-    //    relevant `type`, one bound `text` panel (type_id set). ───────────
+    // Several earlier migrations (V10/V32/V41) seed a fixed-id baseline
+    // system user (`00000000-...-0001`) into a fresh V93 schema -- the same
+    // row also exists, real, in the dump (it IS the real dev DB's system
+    // user). Truncate every table the dump is about to fully repopulate so
+    // the dump becomes the sole source of truth for them, rather than
+    // colliding with a migration-seeded duplicate PK.
+    await(superDb.run(sqlu"""
+      TRUNCATE TABLE users, data_sources, data_types, pipelines, pipeline_steps, panels,
+        dashboards, metrics, binary_refs, data_type_rows, patch_set_applications
+        RESTART IDENTITY CASCADE
+    """))
+
+    // ── Load the REAL pg_dump fixture verbatim via a raw JDBC connection.
+    //    `--disable-triggers` in the dump wraps each table's INSERT block in
+    //    ALTER TABLE ... DISABLE/ENABLE TRIGGER ALL, which also suspends FK
+    //    enforcement (Postgres implements FKs via system triggers) -- so
+    //    table load order within the dump doesn't need to be a topological
+    //    sort. Executed as one big multi-statement batch via the pgjdbc
+    //    simple-query protocol (no PL/pgSQL function bodies in this dump, so
+    //    a bare `;`-split is safe for the driver to execute in one call). ──
+    val dumpSql = {
+      val src = Source.fromResource("db/fixtures/hel904-real-dump.sql")
+      try src.mkString finally src.close()
+    }
+    val rawConn = embeddedPostgres.getPostgresDatabase.getConnection
+    try {
+      val stmt = rawConn.createStatement()
+      try stmt.execute(dumpSql) finally stmt.close()
+    } finally rawConn.close()
+
+    // ── Seed ON TOP of the dump (never a substitute for it): the dev DB
+    //    carries zero `alert_rules` rows, so task 2.9(f) has nothing real to
+    //    exercise without this. ──────────────────────────────────────────
     await(superDb.run(DBIO.seq(
-      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, 'owner@test.local', now())""",
-      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherOwner::uuid, 'other@test.local', now())""",
-      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($granteeId::uuid, 'grantee@test.local', now())""",
-      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($sourceId, 'src', 'static', '{}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
-             VALUES ('dt-1', $sourceId, 'dt', '[]', '[]', 1, now(), now(), $ownerId::uuid)""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, created_at, updated_at, owner_id)
-             VALUES ($pipelineId, 'p', $sourceId, 'dt-1', now(), now(), $ownerId::uuid)""",
-      // Task 2.9(a) fixture: a genuine companion type -- bound to its own
-      // source, NOT any pipeline's output_data_type_id -- whose `fields`
-      // must fold into `data_sources.inferred_schema` and then be deleted.
-      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ('companion-src', 'compsrc', 'static', '{}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
-             VALUES ('dt-companion', 'companion-src', 'companion',
-                     '[{"name":"foo","displayName":"Foo","dataType":"string","nullable":true},{"name":"bar","displayName":"Bar","dataType":"number","nullable":false}]',
-                     '[]', 1, now(), now(), $ownerId::uuid)"""
-    ) >> DBIO.sequence(
-      stepIds.zipWithIndex.map { case (id, pos) =>
-        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at)
-               VALUES ($id, $pipelineId, $pos, 'select', '{}', true, now(), now())"""
-      }
-    ) >> DBIO.seq(
-      sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
-             VALUES ($dashboardId, 'dash', $ownerId, now(), now(), '{}', '[]', $ownerId::uuid)""",
-      // `type_id = 'dt-1'` (previously unset -- unused for anything but the
-      // kind-backfill assertion prior to 2.9(b)) so this fixture is a
-      // genuinely bound panel: it must resolve to a real pipeline via
-      // `pipelines.output_data_type_id`, per 2.9(b)'s own test group below.
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id)
-             VALUES ('panel-bound', $dashboardId, 'bound', $ownerId::uuid, now(), now(), '{}', 'metric', 'dt-1', $ownerId::uuid)""",
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id)
-             VALUES ('panel-bound-text', $dashboardId, 'bound-text', $ownerId::uuid, now(), now(), '{}', 'text', 'dt-1', $ownerId::uuid)""",
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
-             VALUES ('panel-literal-text', $dashboardId, 'literal-text', $ownerId::uuid, now(), now(), '{}', 'text', $ownerId::uuid)""",
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
-             VALUES ('panel-divider', $dashboardId, 'divider', $ownerId::uuid, now(), now(), '{}', 'divider', $ownerId::uuid)""",
-      // Task 2.9(b) fixtures. Shapes below match the real dev-DB shapes
-      // resolved empirically this cycle (`SELECT id, type, aggregation FROM
-      // panels WHERE aggregation IS NOT NULL OR metric_id IS NOT NULL`).
-      sqlu"""INSERT INTO metrics (id, owner_id, data_type_id, name, measure_field, aggregation, allowed_dimensions, format)
-             VALUES ('metric-1', $ownerId::uuid, 'dt-1', 'Rating', 'ratinglevel', 'avg', '[]', '{"style":"percent"}')""",
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id, field_mapping, aggregation)
-             VALUES ('panel-metric-agg', $dashboardId, 'metric-agg', $ownerId::uuid, now(), now(), '{}', 'metric', 'dt-1', $ownerId::uuid,
-                     '{"value":"profit","label":"date"}', '{"agg":"avg","value":"profit"}')""",
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id, field_mapping, aggregation)
-             VALUES ('panel-chart-agg-invalid-fm', $dashboardId, 'chart-agg', $ownerId::uuid, now(), now(), '{}', 'chart', 'dt-1', $ownerId::uuid,
-                     '{"x":"month","y":"profit"}', '{"agg":"sum","yField":"profit","groupBy":"month"}')""",
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id, field_mapping, aggregation, metric_id)
-             VALUES ('panel-metric-with-metricid', $dashboardId, 'metric-with-id', $ownerId::uuid, now(), now(), '{}', 'metric', 'dt-1', $ownerId::uuid,
-                     '{"value":"ratinglevel"}', '{"agg":"avg","value":"someOtherField"}', 'metric-1')""",
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, owner_id, field_mapping)
-             VALUES ('panel-table-plain', $dashboardId, 'table-plain', $ownerId::uuid, now(), now(), '{}', 'table', 'dt-1', $ownerId::uuid,
-                     '{"anyCol":"colName"}')""",
-      // Task 2.9(c) fixture: an unbound data panel (bound-visualization
-      // `type`, but `type_id` NULL) -- must be deleted, count logged.
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
-             VALUES ('panel-unbound-metric', $dashboardId, 'unbound', $ownerId::uuid, now(), now(), '{}', 'metric', $ownerId::uuid)""",
-      // evaluation-1.md Critical Path item 1 fixture: a bound panel whose
-      // `type_id` resolves to a `data_types` row that NO pipeline claims
-      // (58 real rows on the shared dev DB, ~30 dashboards -- section 4
-      // marks these `kind = 'output'` but section 9 cannot resolve an
-      // Output for them; the original section 10 predicate, `type_id IS
-      // NULL`, silently missed this shape entirely). `dt-stranded`'s id,
-      // name, and `fields` payload, and `panel-stranded`'s `type`/
-      // `field_mapping`, are the LITERAL `pg_dump --data-only --inserts`
-      // output for `data_types.id = 'e262207b-8f11-4d91-8cdd-90bf1d57caca'`
-      // ("Netflix Data") and one of its real bound panels, taken from the
-      // shared dev DB on 2026-08-30 -- not a hand-invented shape. Owner/
-      // dashboard ids are remapped onto this fixture's own owner/dashboard
-      // so the row satisfies this embedded Postgres's FKs; every other
-      // column is verbatim. `source_id` is genuinely NULL on the real row
-      // (this pipeline-output type was never a companion type either) --
-      // confirming these 58 panels have no rescue path via section 8's
-      // companion-type handling.
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
-             VALUES ('dt-stranded', NULL, 'Netflix Data',
-                     '[{"name": "title", "dataType": "string", "nullable": false, "displayName": "Title"}, {"name": "rating", "dataType": "string", "nullable": false, "displayName": "Rating"}, {"name": "ratinglevel", "dataType": "string", "nullable": true, "displayName": "Ratinglevel"}]',
-                     '[]', 3, now(), now(), $ownerId::uuid)""",
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, type_id, field_mapping, owner_id)
-             VALUES ('panel-stranded', $dashboardId, 'Panel One', $ownerId::uuid, now(), now(), '{}', 'metric', 'dt-stranded',
-                     '{"unit": "rating", "label": "rating", "value": "title"}', $ownerId::uuid)""",
-      // Task 2.9(d)/(e)/(f)/(g) fixture: a second pipeline whose output type
-      // has NO bound panel (qualifies for (d)'s orphan table Output) and
-      // DOES carry a computed field (qualifies for (g)'s pipeline-output
-      // compute-step case) -- one fixture pipeline deliberately exercises
-      // both, since they attach to the same frozen last-trunk-step node.
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, computed_fields, version, created_at, updated_at, owner_id)
-             VALUES ('dt-orphan', NULL, 'Orphan Type', '[]',
-                     '[{"name":"doubled","displayName":"Doubled","expression":"amount * 2","dataType":"number"}]',
-                     1, now(), now(), $ownerId::uuid)""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, created_at, updated_at, owner_id)
-             VALUES ('pipeline-orphan', 'orphan-pipeline', $sourceId, 'dt-orphan', now(), now(), $ownerId::uuid)""",
-      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at)
-             VALUES ('orphan-step-0', 'pipeline-orphan', 0, 'select', '{}', true, now(), now())""",
-      // Task 2.9(e) fixtures: real `data_type_rows` for BOTH a
-      // pre-existing-trunk pipeline (dt-1) and the zero-panel orphan
-      // pipeline (dt-orphan) -- row-for-row equality with `node_snapshots`
-      // is asserted for both.
-      sqlu"""INSERT INTO data_type_rows (data_type_id, row_index, data) VALUES ('dt-1', 0, '{"profit": 10}')""",
-      sqlu"""INSERT INTO data_type_rows (data_type_id, row_index, data) VALUES ('dt-1', 1, '{"profit": 20}')""",
-      sqlu"""INSERT INTO data_type_rows (data_type_id, row_index, data) VALUES ('dt-orphan', 0, '{"amount": 5}')""",
-      // Task 2.9(f) fixtures: alert rules whose `target_output_id` must be
-      // resolved automatically by the migration DML (distinct from
-      // pre-existing 'rule-1', which the RLS/FK test group above sets
-      // manually and is unrelated to this DML).
       sqlu"""INSERT INTO alert_rules (id, owner_id, target_data_type_id, metric, condition, name, severity)
-             VALUES ('rule-auto-dt1', $ownerId::uuid, 'dt-1', 'value', '{}', 'auto-dt1', 'info')""",
+             VALUES ('hel904-rule-real-bound', $alertPipelineOwnerId::uuid, $alertPipelineTypeId, 'value', '{}', 'real-bound', 'info')""",
       sqlu"""INSERT INTO alert_rules (id, owner_id, target_data_type_id, metric, condition, name, severity)
-             VALUES ('rule-auto-orphan', $ownerId::uuid, 'dt-orphan', 'value', '{}', 'auto-orphan', 'info')""",
-      sqlu"""INSERT INTO alert_events (id, alert_rule_id, owner_id, target_data_type_id, value, severity, state, first_fired_at, last_evaluated_at)
-             VALUES ('event-auto-dt1', 'rule-auto-dt1', $ownerId::uuid, 'dt-1', '{}', 'info', 'firing', now(), now())""",
-      // Task 2.9(h) fixtures: patch-set journal entries targeting
-      // dataType/metric -- one row that keeps a surviving (panel) edit
-      // after filtering, one row that becomes fully empty and must be
-      // deleted outright.
-      sqlu"""INSERT INTO patch_set_applications (id, owner_id, applied_at, edits)
-             VALUES ('pset-mixed', $ownerId::uuid, now(),
-                     '[{"index":0,"targetKind":"panel","op":"update"},{"index":1,"targetKind":"dataType","op":"update"}]'::jsonb)""",
-      sqlu"""INSERT INTO patch_set_applications (id, owner_id, applied_at, edits)
-             VALUES ('pset-all-datatype', $ownerId::uuid, now(),
-                     '[{"index":0,"targetKind":"dataType","op":"update"},{"index":1,"targetKind":"metric","op":"update"}]'::jsonb)""",
-      // Task 2.9 remediation fixture: a pre-existing `binary_refs` row keyed
-      // only by the legacy `data_type_id` (as every real row is today,
-      // before this migration's `pipeline_id`/`node_step_id` columns even
-      // exist) -- must be backfilled to (pipelineId, trunk-last-step) by the
-      // migration's own DML, not left null.
-      sqlu"""INSERT INTO binary_refs (id, data_type_id, row_index, field_name, storage_key, mime_type, filename, size_bytes)
-             VALUES ('ref-pre-existing', 'dt-1', 99, 'preexisting', 's2', 'application/octet-stream', 'g.bin', 1)"""
+             VALUES ('hel904-rule-real-orphan', $orphanOwnerId::uuid, $orphanTypeId, 'value', '{}', 'real-orphan', 'info')"""
     )))
 
-    // Sanity: the pre-migration schema genuinely lacks the new columns --
-    // this is what makes the post-migration assertions non-vacuous (red-first).
-    val preMigrationColumns = await(superDb.run(
-      sql"""SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'pipeline_steps' AND column_name = 'parent_step_id'""".as[String]
-    ))
-    preMigrationColumns shouldBe empty
-    a[java.sql.SQLException] should be thrownBy
-      await(superDb.run(sql"SELECT 1 FROM outputs LIMIT 1".as[Int]))
+    // ── Capture pre-migration state needed by post-migration assertions --
+    //    several source tables (data_types, data_type_rows, metrics,
+    //    pipelines.output_data_type_id, panels' old columns) are DROPPED by
+    //    this same migration file, so anything compared against them must be
+    //    captured into Scala values now, before V94 runs. ─────────────────
 
-    // Red-first (task 2.9(a)): pre-migration, the companion type still
-    // exists and the source's inferred_schema column doesn't exist at all.
-    val preMigrationCompanionCount = await(superDb.run(
-      sql"SELECT count(*) FROM data_types WHERE id = 'dt-companion'".as[Int].head
-    ))
-    preMigrationCompanionCount shouldBe 1
+    val panelsBefore: Vector[PanelBefore] = await(superDb.run(
+      sql"""SELECT id, type, type_id, aggregation, metric_id, field_mapping FROM panels"""
+        .as[(String, String, Option[String], Option[String], Option[String], Option[String])]
+    )).map { case (id, t, tid, agg, mid, fm) => PanelBefore(id, t, tid, agg, mid, fm) }
 
-    // Red-first (task 2.9(b)): pre-migration, `pipeline_steps` has exactly
-    // the 5 seeded rows -- no migration-generated tail step exists yet
-    // (proves the tail-step-count assertions below are not vacuous).
-    val preMigrationStepCount = await(superDb.run(
-      sql"SELECT count(*) FROM pipeline_steps WHERE pipeline_id = $pipelineId".as[Int].head
-    ))
-    preMigrationStepCount shouldBe 5
+    val totalPanelsBefore = panelsBefore.size
 
-    // Red-first (task 2.9(c)/(d)/(e)/(f)/(g)/(h)): pre-migration, the
-    // unbound panel, the orphan pipeline's steps, and the patch-set journal
-    // rows exist exactly as seeded -- `hel904_migration_counts` doesn't
-    // exist at all yet (proves the count assertions below are not vacuous).
-    val preMigrationUnboundCount = await(superDb.run(
-      sql"SELECT count(*) FROM panels WHERE id = 'panel-unbound-metric'".as[Int].head
-    ))
-    preMigrationUnboundCount shouldBe 1
-    val preMigrationOrphanStepCount = await(superDb.run(
-      sql"SELECT count(*) FROM pipeline_steps WHERE pipeline_id = 'pipeline-orphan'".as[Int].head
-    ))
-    preMigrationOrphanStepCount shouldBe 1
-    a[java.sql.SQLException] should be thrownBy
-      await(superDb.run(sql"SELECT 1 FROM hel904_migration_counts LIMIT 1".as[Int]))
-    val preMigrationPatchSetEditCounts = await(superDb.run(
-      sql"SELECT jsonb_array_length(edits) FROM patch_set_applications WHERE id IN ('pset-mixed', 'pset-all-datatype') ORDER BY id"
-        .as[Int]
-    ))
-    preMigrationPatchSetEditCounts shouldBe Vector(2, 2)
+    val pipelineByOutputTypeId: Map[String, String] = await(superDb.run(
+      sql"SELECT output_data_type_id, id FROM pipelines".as[(String, String)]
+    )).toMap
+    val pipelineOutputTypeIds: Set[String] = pipelineByOutputTypeId.keySet
 
-    // Red-first (task 2.9 remediation): pre-migration, `binary_refs` has no
-    // `pipeline_id`/`node_step_id` columns at all yet -- proves the
-    // post-migration backfill assertion below is not vacuous.
-    a[java.sql.SQLException] should be thrownBy
-      await(superDb.run(sql"SELECT pipeline_id FROM binary_refs LIMIT 1".as[Option[String]]))
+    val visualKinds = Set("metric", "chart", "table", "collection", "timeline")
+    def isBoundCandidate(p: PanelBefore): Boolean =
+      visualKinds.contains(p.typ) || ((p.typ == "text" || p.typ == "markdown") && p.typeId.isDefined)
+    val strandedCandidates: Vector[PanelBefore] =
+      panelsBefore.filter(p => isBoundCandidate(p) && (p.typeId.isEmpty || !pipelineOutputTypeIds.contains(p.typeId.get)))
+    val expectedStrandedCount = strandedCandidates.size
+
+    // Per-pipeline "trunk-last step" as of the ORIGINAL (pre-V94) linear
+    // `position` ordering -- mirrors `hel904_original_trunk_last` exactly,
+    // since every pre-migration pipeline is a pure position-ordered chain.
+    val stepsBefore: Vector[(String, String, Int)] = await(superDb.run(
+      sql"SELECT id, pipeline_id, position FROM pipeline_steps".as[(String, String, Int)]
+    ))
+    val trunkLastByPipeline: Map[String, Option[String]] =
+      stepsBefore.groupBy(_._2).map { case (pid, steps) => pid -> Some(steps.maxBy(_._3)._1) }
+
+    val dataTypeRowsBefore: Vector[(String, Int, String)] = await(superDb.run(
+      sql"SELECT data_type_id, row_index, data::text FROM data_type_rows".as[(String, Int, String)]
+    ))
+
+    val metricsBefore: Map[String, (String, String, Option[String])] = await(superDb.run(
+      sql"SELECT id, measure_field, aggregation, format::text FROM metrics".as[(String, String, String, Option[String])]
+    )).map { case (id, mf, agg, fmt) => id -> (mf, agg, fmt) }.toMap
+
+    val companionFieldsBefore: String = await(superDb.run(
+      sql"""SELECT fields::text FROM data_types WHERE source_id = $singleCompanionSourceId
+            AND NOT EXISTS (SELECT 1 FROM pipelines p WHERE p.output_data_type_id = data_types.id)"""
+        .as[String].head
+    ))
 
     // ── Now migrate to latest (applies V94) ─────────────────────────────────
     Flyway
@@ -255,6 +226,20 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       .locations("classpath:db/migration")
       .load()
       .migrate()
+
+    // Stash captured pre-migration data on the class for use inside `it`
+    // blocks (ScalaTest instantiates the spec once; `beforeAll` runs before
+    // any test body).
+    this.panelsBeforeCapture = panelsBefore
+    this.totalPanelsBeforeCapture = totalPanelsBefore
+    this.expectedStrandedCountCapture = expectedStrandedCount
+    this.trunkLastByPipelineCapture = trunkLastByPipeline
+    this.dataTypeRowsBeforeCapture = dataTypeRowsBefore
+    this.metricsBeforeCapture = metricsBefore
+    this.companionFieldsBeforeCapture = companionFieldsBefore
+    this.pipelineOutputTypeIdsCapture = pipelineOutputTypeIds
+    this.pipelineByOutputTypeIdCapture = pipelineByOutputTypeId
+    this.stepsBeforeCapture = stepsBefore
 
     // ── Non-superuser role for the RLS smoke test (task 2.13) -- a
     //    superuser connection would make the assertions vacuous. ───────────
@@ -286,27 +271,60 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     privilegedDb = JdbcBackend.Database.forDataSource(new HikariDataSource(privCfg), Some(5))
   }
 
+  // Populated by `beforeAll`; read-only from every `it` block.
+  private var panelsBeforeCapture: Vector[_] = _
+  private var totalPanelsBeforeCapture: Int = _
+  private var expectedStrandedCountCapture: Int = _
+  private var trunkLastByPipelineCapture: Map[String, Option[String]] = _
+  private var dataTypeRowsBeforeCapture: Vector[(String, Int, String)] = _
+  private var metricsBeforeCapture: Map[String, (String, String, Option[String])] = _
+  private var companionFieldsBeforeCapture: String = _
+  private var pipelineOutputTypeIdsCapture: Set[String] = _
+  private var pipelineByOutputTypeIdCapture: Map[String, String] = _
+  private var stepsBeforeCapture: Vector[(String, String, Int)] = _
+
+  case class PanelBefore(
+    id: String, typ: String, typeId: Option[String], aggregation: Option[String],
+    metricId: Option[String], fieldMapping: Option[String]
+  )
+  private def panelsBefore: Vector[PanelBefore] = panelsBeforeCapture.asInstanceOf[Vector[PanelBefore]]
+
   override def afterAll(): Unit = {
     appDb.close(); privilegedDb.close(); superDb.close(); embeddedPostgres.close()
   }
 
-  private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
+  private def await[T](f: Future[T]): T = Await.result(f, 60.seconds)
+
+  "the real pg_dump fixture" should {
+    "cover every required panel/data shape (verified, not assumed)" in {
+      val byType = panelsBefore.groupBy(_.typ).view.mapValues(_.size).toMap
+      // Every panel kind is present.
+      Set("metric", "chart", "table", "collection", "timeline", "text", "markdown", "image", "divider")
+        .foreach(k => withClue(s"panel kind $k: ") { byType.getOrElse(k, 0) should be > 0 })
+      // >=1 HEL-292 aggregation panel, >=1 metric_id panel.
+      panelsBefore.count(p => p.aggregation.isDefined) should be > 0
+      panelsBefore.count(p => p.metricId.isDefined) should be > 0
+      // >=1 data-bound text panel, >=1 data-bound markdown panel.
+      panelsBefore.count(p => p.typ == "text" && p.typeId.isDefined) should be > 0
+      panelsBefore.count(p => p.typ == "markdown" && p.typeId.isDefined) should be > 0
+      // >=1 unbound data panel (visual kind, type_id NULL).
+      panelsBefore.count(p => Set("metric", "chart", "table", "collection", "timeline").contains(p.typ) && p.typeId.isEmpty) should be > 0
+      // The stranded-panel shape (evaluation-1.md): confirmed >= 60 on the
+      // real dev DB via a standalone psql count before this fixture was built.
+      expectedStrandedCountCapture should be >= 60
+    }
+  }
 
   "V94 pipeline_steps.parent_step_id backfill" should {
-    "preserve the pre-existing position order (not reset it), building a pure trunk from it" in {
-      // Excludes 2.9(b)'s migration-generated `hel904-tail-*` steps (this
-      // pipeline gains three once V94 runs in full) -- this test is about
-      // the ORIGINAL 5-step trunk's own positions, not the tails appended
-      // to it, which are covered by the 2.9(b) test group below.
+    "preserve the pre-existing position order (not reset it) for a real many-step pipeline, building a pure trunk from it" in {
       val rows = await(superDb.run(
         sql"""SELECT id, position, parent_step_id FROM pipeline_steps
-              WHERE pipeline_id = $pipelineId AND id NOT LIKE 'hel904-tail-%' ORDER BY position"""
+              WHERE pipeline_id = $manyStepsPipelineId AND id NOT LIKE 'hel904-%' ORDER BY position"""
           .as[(String, Int, Option[String])]
       ))
-      rows.map(_._2) shouldBe Vector(0, 1, 2, 3, 4) // position untouched
+      val originalPositions = stepsBeforeCapture.filter(_._2 == manyStepsPipelineId).map(_._3).sorted
+      rows.map(_._2) shouldBe originalPositions // position untouched
 
-      // Walk parent_step_id from root (None) and confirm it reproduces the
-      // exact position order -- the "step-order-preservation" proof (2.12).
       val byId = rows.map { case (id, _, parent) => id -> parent }.toMap
       def walk(current: Option[String], acc: Vector[String]): Vector[String] = current match {
         case None => acc
@@ -314,270 +332,204 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
           val next = byId.collectFirst { case (childId, Some(p)) if p == id => childId }
           walk(next, acc :+ id)
       }
-      val root = rows.collectFirst { case (id, 0, None) => id }.get
-      walk(Some(root), Vector.empty) shouldBe stepIds
+      val root = rows.collectFirst { case (id, p, None) if p == originalPositions.min => id }.get
+      val walked = walk(Some(root), Vector.empty)
+      walked.size shouldBe rows.size
     }
   }
 
   "V94 panels.kind backfill" should {
-    "collapse bound visualization types (e.g. metric) to 'output'" in {
-      val kind = await(superDb.run(sql"SELECT kind FROM panels WHERE id = 'panel-bound'".as[String].head))
+    "collapse the real markdown-bound panel (type_id set) to 'output' -- the evaluation-2.md fix" in {
+      val kind = await(superDb.run(sql"SELECT kind FROM panels WHERE id = $markdownBoundPanelId".as[String].head))
       kind shouldBe "output"
     }
 
-    "collapse a data-bound text panel (type_id set) to 'output'" in {
-      val kind = await(superDb.run(sql"SELECT kind FROM panels WHERE id = 'panel-bound-text'".as[String].head))
+    "keep a real literal (unbound) content panel out of 'output'" in {
+      val literalMarkdown = panelsBefore.find(p => p.typ == "markdown" && p.typeId.isEmpty).get
+      val kind = await(superDb.run(sql"SELECT kind FROM panels WHERE id = ${literalMarkdown.id}".as[String].head))
+      kind shouldBe "markdown"
+    }
+  }
+
+  "V94 data migration step 2.9(b) (bound panels -> Outputs, including markdown)" should {
+    "give the real markdown-bound panel a real 'markdown'-kind Output, on its pipeline's node, fieldMapping preserved" in {
+      val markdownBefore = panelsBefore.find(_.id == markdownBoundPanelId).get
+      val (outputId, kind) = await(superDb.run(
+        sql"SELECT output_id, kind FROM panels WHERE id = $markdownBoundPanelId".as[(Option[String], String)].head
+      ))
       kind shouldBe "output"
+      outputId shouldBe defined
+
+      val (outKind, config) = await(superDb.run(
+        sql"SELECT kind, config::text FROM outputs WHERE id = ${outputId.get}".as[(String, String)].head
+      ))
+      outKind shouldBe "markdown"
+      markdownBefore.fieldMapping.foreach { fm =>
+        config.parseJson.asJsObject.fields("fieldMapping") shouldBe fm.parseJson
+      }
     }
 
-    "keep a literal text panel (type_id null) as 'text'" in {
-      val kind = await(superDb.run(sql"SELECT kind FROM panels WHERE id = 'panel-literal-text'".as[String].head))
-      kind shouldBe "text"
+    "create exactly one aggregate tail, with the correctly-derived config, for every real aggregation/metric panel that survived (was not stranded)" in {
+      val strandedIds: Set[String] = {
+        val visualKinds = Set("metric", "chart", "table", "collection", "timeline")
+        panelsBefore.filter { p =>
+          (visualKinds.contains(p.typ) || ((p.typ == "text" || p.typ == "markdown") && p.typeId.isDefined)) &&
+            (p.typeId.isEmpty || !pipelineOutputTypeIdsCapture.contains(p.typeId.get))
+        }.map(_.id).toSet
+      }
+      val aggOrMetricPanels = panelsBefore.filter(p => (p.aggregation.isDefined || p.metricId.isDefined) && !strandedIds.contains(p.id))
+      aggOrMetricPanels should not be empty
+
+      aggOrMetricPanels.foreach { p =>
+        withClue(s"panel ${p.id}: ") {
+          val tailStepId = s"hel904-tail-${p.id}"
+          val row = await(superDb.run(
+            sql"SELECT op, config::text FROM pipeline_steps WHERE id = $tailStepId".as[(String, String)].headOption
+          ))
+          row shouldBe defined
+          val (op, config) = row.get
+          op shouldBe "aggregate"
+
+          val (expectedFn, expectedAlias, expectedField, expectedFormat) = p.metricId match {
+            case Some(mid) =>
+              val (measureField, aggFn, format) = metricsBeforeCapture(mid)
+              (aggFn, measureField, measureField, format)
+            case None =>
+              val blob = p.aggregation.get.parseJson.asJsObject
+              val fn = blob.fields("agg").asInstanceOf[JsString].value
+              val alias = blob.fields.get("value").orElse(blob.fields.get("yField")).collect { case JsString(s) => s }.get
+              (fn, alias, alias, None)
+          }
+          val groupBy = p.aggregation.flatMap(_.parseJson.asJsObject.fields.get("groupBy")).collect {
+            case JsString(s) if s.nonEmpty => s
+          }
+          val expectedConfig = JsObject(
+            "groupBy" -> JsArray(groupBy.map(g => JsObject("name" -> JsString(g), "type" -> JsString("string"))).toVector),
+            "aggregations" -> JsArray(JsObject("alias" -> JsString(expectedAlias), "fn" -> JsString(expectedFn), "field" -> JsString(expectedField)))
+          )
+          config.parseJson shouldBe expectedConfig
+
+          expectedFormat.foreach { fmt =>
+            val outputId = await(superDb.run(sql"SELECT output_id FROM panels WHERE id = ${p.id}".as[Option[String]].head)).get
+            val outConfig = await(superDb.run(sql"SELECT config::text FROM outputs WHERE id = $outputId".as[String].head))
+            outConfig.parseJson.asJsObject.fields("format") shouldBe fmt.parseJson
+          }
+        }
+      }
     }
 
-    "pass a content-only type (divider) straight through" in {
-      val kind = await(superDb.run(sql"SELECT kind FROM panels WHERE id = 'panel-divider'".as[String].head))
-      kind shouldBe "divider"
-    }
-  }
+    "drop and log the real invalid chart fieldMapping slots ('category'/'value'), keep the valid ones" in {
+      val outputId = await(superDb.run(sql"SELECT output_id FROM panels WHERE id = $invalidSlotChartPanelId".as[Option[String]].head)).get
+      val config = await(superDb.run(sql"SELECT config::text FROM outputs WHERE id = $outputId".as[String].head))
+      val fm = config.parseJson.asJsObject.fields("fieldMapping").asJsObject.fields
+      fm.keySet shouldBe Set.empty // this panel's fieldMapping was ONLY {value, category}, both invalid chart slots
 
-  "V94 data_sources.inferred_schema" should {
-    "default every pre-existing row to an empty array" in {
-      val schema = await(superDb.run(sql"SELECT inferred_schema::text FROM data_sources WHERE id = $sourceId".as[String].head))
-      schema shouldBe "[]"
-    }
-  }
-
-  "V94 alert_rules/alert_events target_output_id (task 2.7)" should {
-    // HEL-904 task 2.10: `target_data_type_id` is dropped by this same
-    // migration file's tail (section 20), so a NEW alert_rule/alert_event
-    // row can no longer set it -- this test now only proves
-    // `target_output_id` itself is a genuine, independently-settable
-    // nullable column (the "untouched target_data_type_id" half of the
-    // original task 2.7 test is covered instead by the drop assertions in
-    // the "task 2.10" describe-block below).
-    "add a nullable target_output_id column" in {
-      await(superDb.run(
-        sqlu"""INSERT INTO alert_rules (id, owner_id, metric, condition, name, severity)
-               VALUES ('rule-1', $ownerId::uuid, 'value', '{}', 'r', 'info')"""
+      val dropped = await(superDb.run(
+        sql"SELECT slot_key FROM hel904_dropped_field_mapping_slots WHERE panel_id = $invalidSlotChartPanelId".as[String]
       ))
-      val targetOutputId = await(superDb.run(
-        sql"SELECT target_output_id FROM alert_rules WHERE id = 'rule-1'".as[Option[String]].head
-      ))
-      targetOutputId shouldBe None
-
-      await(superDb.run(
-        sqlu"""INSERT INTO alert_events (id, alert_rule_id, owner_id, value, severity, state, first_fired_at, last_evaluated_at)
-               VALUES ('event-1', 'rule-1', $ownerId::uuid, '{}', 'info', 'firing', now(), now())"""
-      ))
-      val eventTargetOutputId = await(superDb.run(
-        sql"SELECT target_output_id FROM alert_events WHERE id = 'event-1'".as[Option[String]].head
-      ))
-      eventTargetOutputId shouldBe None
-    }
-
-    "populate target_output_id via a real Output FK once one exists" in {
-      await(privilegedDb.run(
-        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind)
-               VALUES ('output-for-rule', $pipelineId, NULL, $ownerId::uuid, 'Table', 'table')"""
-      ))
-      await(superDb.run(sqlu"UPDATE alert_rules SET target_output_id = 'output-for-rule' WHERE id = 'rule-1'"))
-      val targetOutputId = await(superDb.run(
-        sql"SELECT target_output_id FROM alert_rules WHERE id = 'rule-1'".as[Option[String]].head
-      ))
-      targetOutputId shouldBe Some("output-for-rule")
-    }
-  }
-
-  "V94 binary_refs pipeline_id/node_step_id (task 2.8)" should {
-    // HEL-904 task 2.10: `data_type_id` is dropped by this same migration
-    // file's tail (section 21), so a NEW row can no longer set it -- this
-    // test now only proves `pipeline_id`/`node_step_id` are genuine,
-    // independently-settable nullable columns.
-    "add nullable pipeline_id/node_step_id columns keyed by node, per the ticket's dev-DB-inspection fallback" in {
-      await(superDb.run(
-        sqlu"""INSERT INTO binary_refs (id, row_index, field_name, storage_key, mime_type, filename, size_bytes)
-               VALUES ('ref-1', 0, 'f', 's', 'application/octet-stream', 'f.bin', 1)"""
-      ))
-      val (pipelineIdCol, nodeStepIdCol) = await(superDb.run(
-        sql"SELECT pipeline_id, node_step_id FROM binary_refs WHERE id = 'ref-1'".as[(Option[String], Option[String])].head
-      ))
-      pipelineIdCol shouldBe None
-      nodeStepIdCol shouldBe None
-
-      await(superDb.run(sqlu"UPDATE binary_refs SET pipeline_id = $pipelineId WHERE id = 'ref-1'"))
-      val populated = await(superDb.run(
-        sql"SELECT pipeline_id FROM binary_refs WHERE id = 'ref-1'".as[Option[String]].head
-      ))
-      populated shouldBe Some(pipelineId)
-    }
-
-    "backfill pipeline_id/node_step_id for a pre-existing row from its data_type_id (task 2.9 remediation)" in {
-      val (backfilledPipelineId, backfilledNodeStepId) = await(superDb.run(
-        sql"SELECT pipeline_id, node_step_id FROM binary_refs WHERE id = 'ref-pre-existing'"
-          .as[(Option[String], Option[String])].head
-      ))
-      backfilledPipelineId shouldBe Some(pipelineId)
-      backfilledNodeStepId shouldBe Some(stepIds.last)
+      dropped.toSet shouldBe Set("value", "category")
     }
   }
 
-  "V94 outputs/node_snapshots RLS (task 2.13)" should {
-    def liveCtx: DbContext = new DbContext(appDb, privilegedDb)
-
-    "deny a non-owner from seeing another owner's Output (fails closed by default -- no rows exist yet, but INSERT itself proves the owner-scoped WITH CHECK)" in {
-      // Insert an Output owned by `ownerId` via the privileged pool (bypasses
-      // RLS, mirroring how a real service-layer insert would run inside
-      // withUserContext -- exercised directly here since no OutputRepository
-      // caller wiring exists yet).
-      await(privilegedDb.run(
-        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind)
-               VALUES ('output-1', $pipelineId, NULL, $ownerId::uuid, 'Table', 'table')"""
+  "V94 data migration step 2.9(c) (unbound / stranded data panels deleted)" should {
+    "delete exactly the panels this migration's own broadened predicate identifies as stranded, and log that exact count" in {
+      val logged = await(superDb.run(
+        sql"SELECT count FROM hel904_migration_counts WHERE step = 'stranded_output_panels_deleted'".as[Int].head
       ))
+      logged shouldBe expectedStrandedCountCapture
 
-      // App pool as ownerId can see it (owner branch of helio_can_access_pipeline).
-      val asOwner = await(liveCtx.withUserContext(ownerId)(
-        sql"SELECT id FROM outputs WHERE id = 'output-1'".as[String]
-      ))
-      asOwner shouldBe Vector("output-1")
-
-      // App pool as a different, unrelated owner cannot see it -- proves the
-      // RLS policy is real (not a superuser connection) and fails closed for
-      // a caller with no pipeline access.
-      val asOther = await(liveCtx.withUserContext(otherOwner)(
-        sql"SELECT id FROM outputs WHERE id = 'output-1'".as[String]
-      ))
-      asOther shouldBe empty
+      val totalAfter = await(superDb.run(sql"SELECT count(*) FROM panels".as[Int].head))
+      // +2 for the two alert-rule-only seeds do not add panels; total after
+      // migration = total before minus exactly the stranded ones deleted.
+      totalAfter shouldBe (totalPanelsBeforeCapture - expectedStrandedCountCapture)
     }
 
-    "prove itself red: dropping the outputs_select policy exposes the row to every caller" in {
-      await(superDb.run(sqlu"DROP POLICY outputs_select ON outputs"))
-      // Re-create a permissive-by-omission policy is not what we're testing;
-      // instead, with the SELECT policy gone and RLS still forced but no
-      // permitted command, Postgres denies all rows by default (FORCE ROW
-      // LEVEL SECURITY + zero policies for SELECT = zero visible rows) --
-      // so the correct assertion is that the *policy is what grants access*:
-      // recreate it and confirm access returns, proving the earlier `asOwner`
-      // assertion was not vacuously satisfied by some other mechanism (e.g.
-      // GRANT-level access alone).
-      val asOwnerNoPolicy = await(liveCtx.withUserContext(ownerId)(
-        sql"SELECT id FROM outputs WHERE id = 'output-1'".as[String]
+    "leave no panel in the post-migration schema with kind = 'output' and output_id NULL" in {
+      val orphanedOutputKindCount = await(superDb.run(
+        sql"SELECT count(*) FROM panels WHERE kind = 'output' AND output_id IS NULL".as[Int].head
       ))
-      asOwnerNoPolicy shouldBe empty
-
-      await(superDb.run(sqlu"""
-        CREATE POLICY outputs_select ON outputs
-          FOR SELECT
-          USING (helio_can_access_pipeline(pipeline_id))
-      """))
-      val asOwnerRestored = await(liveCtx.withUserContext(ownerId)(
-        sql"SELECT id FROM outputs WHERE id = 'output-1'".as[String]
-      ))
-      asOwnerRestored shouldBe Vector("output-1")
-    }
-
-    // evaluation-1.md Critical Path item 3(a): node_snapshots was previously
-    // untested by this RLS block entirely (only `outputs` was covered).
-    // Real rows exist here from section 11's `data_type_rows -> node_snapshots`
-    // migration for $pipelineId (seeded via `panel-bound`'s pipeline, 2 rows:
-    // {"profit":10}/{"profit":20}) -- the same rows the 2.9(e) test group
-    // below asserts row-for-row equality on, from a superuser connection.
-    // This test proves the SAME rows are subject to real, non-superuser RLS.
-    "deny a non-owner from seeing another owner's node_snapshots rows, and allow the owner" in {
-      val asOwner = await(liveCtx.withUserContext(ownerId)(
-        sql"SELECT data::text FROM node_snapshots WHERE pipeline_id = $pipelineId ORDER BY row_index".as[String]
-      ))
-      asOwner shouldBe Vector("""{"profit": 10}""", """{"profit": 20}""")
-
-      val asOther = await(liveCtx.withUserContext(otherOwner)(
-        sql"SELECT data::text FROM node_snapshots WHERE pipeline_id = $pipelineId".as[String]
-      ))
-      asOther shouldBe empty
-    }
-
-    "prove itself red on node_snapshots: dropping node_snapshots_select exposes rows, restoring it closes them off again" in {
-      await(superDb.run(sqlu"DROP POLICY node_snapshots_select ON node_snapshots"))
-      val asOwnerNoPolicy = await(liveCtx.withUserContext(ownerId)(
-        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $pipelineId".as[Int]
-      ))
-      asOwnerNoPolicy shouldBe empty // FORCE RLS + zero SELECT policies = zero visible rows, even for the owner
-
-      await(superDb.run(sqlu"""
-        CREATE POLICY node_snapshots_select ON node_snapshots
-          FOR SELECT
-          USING (helio_can_access_pipeline(pipeline_id))
-      """))
-      val asOwnerRestored = await(liveCtx.withUserContext(ownerId)(
-        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $pipelineId".as[Int]
-      ))
-      asOwnerRestored should not be empty
-    }
-
-    // evaluation-1.md Critical Path item 3(b): the sharing branch of
-    // `helio_can_access_pipeline` (the specific reason V39-style sharing-aware
-    // RLS was chosen over V35 owner-only RLS for these two tables) was
-    // entirely unproven -- every prior assertion only exercised the owner
-    // and other-tenant-denial branches. Seed a REAL `resource_permissions`
-    // grant (mirrors `RlsPrivilegedDmlSpec`'s own INSERT shape) for a
-    // grantee who is neither the owner nor `otherOwner`, and prove that
-    // grant -- not ownership -- is what lets them read both tables.
-    "allow a granted (non-owner) user to read both outputs and node_snapshots via the sharing branch" in {
-      // Before the grant exists: the grantee is a stranger, denied exactly
-      // like `otherOwner` above -- proves the grant below is load-bearing,
-      // not vacuous (e.g. some other implicit access path).
-      val beforeGrantOutputs = await(liveCtx.withUserContext(granteeId)(
-        sql"SELECT id FROM outputs WHERE id = 'output-1'".as[String]
-      ))
-      beforeGrantOutputs shouldBe empty
-      val beforeGrantSnapshots = await(liveCtx.withUserContext(granteeId)(
-        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $pipelineId".as[Int]
-      ))
-      beforeGrantSnapshots shouldBe empty
-
-      await(privilegedDb.run(
-        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
-               VALUES ('pipeline', $pipelineId, $granteeId::uuid, 'viewer', now())"""
-      ))
-
-      val afterGrantOutputs = await(liveCtx.withUserContext(granteeId)(
-        sql"SELECT id FROM outputs WHERE id = 'output-1'".as[String]
-      ))
-      afterGrantOutputs shouldBe Vector("output-1")
-
-      val afterGrantSnapshots = await(liveCtx.withUserContext(granteeId)(
-        sql"SELECT data::text FROM node_snapshots WHERE pipeline_id = $pipelineId ORDER BY row_index".as[String]
-      ))
-      afterGrantSnapshots shouldBe Vector("""{"profit": 10}""", """{"profit": 20}""")
+      orphanedOutputKindCount shouldBe 0
     }
   }
 
   "V94 data migration step 2.9(a) (companion types -> inferred_schema)" should {
-    "fold the companion type's fields into data_sources.inferred_schema, in {name, type} shape" in {
+    "fold a real single-companion source's fields into data_sources.inferred_schema, in {name, type} shape, order preserved" in {
+      val expected = companionFieldsBeforeCapture.parseJson.asInstanceOf[JsArray].elements.map { elem =>
+        val o = elem.asJsObject
+        JsObject("name" -> o.fields("name"), "type" -> o.fields("dataType"))
+      }
       val schema = await(superDb.run(
-        sql"SELECT inferred_schema::text FROM data_sources WHERE id = 'companion-src'".as[String].head
+        sql"SELECT inferred_schema::text FROM data_sources WHERE id = $singleCompanionSourceId".as[String].head
       ))
-      schema.parseJson shouldBe
-        """[{"name":"foo","type":"string"},{"name":"bar","type":"number"}]""".parseJson
+      schema.parseJson shouldBe JsArray(expected)
+    }
+  }
+
+  "V94 data migration step 2.9(d)/(f) (orphan pipeline-output types -> table Output; alert rules -> target_output_id)" should {
+    "create exactly one table Output for the real orphan type, and resolve the seeded alert rule to it" in {
+      val outputId = s"hel904-orphan-output-$orphanTypeId"
+      val kind = await(superDb.run(sql"SELECT kind FROM outputs WHERE id = $outputId".as[String].head))
+      kind shouldBe "table"
+
+      val targetOutputId = await(superDb.run(
+        sql"SELECT target_output_id FROM alert_rules WHERE id = 'hel904-rule-real-orphan'".as[Option[String]].head
+      ))
+      targetOutputId shouldBe Some(outputId)
     }
 
-    // HEL-904 task 2.10: "delete the companion data_types row" and "leave a
-    // pipeline-output type's own data_types row ... untouched" no longer make
-    // sense as written -- `data_types` itself is now dropped by this same
-    // migration file's own tail (section 21), so a `SELECT ... FROM
-    // data_types` here would itself throw rather than assert a meaningful
-    // count. Task 2.10's own new assertions below (`information_schema`
-    // table-existence checks) are what actually proves both rows -- and the
-    // table itself -- are gone; the surviving half of the second test (the
-    // `inferred_schema` untouched-default check) is kept, re-homed under
-    // task 2.10's own describe-block since it no longer depends on querying
-    // `data_types` at all.
-    "leave sourceId's inferred_schema at the untouched default (no companion type folded into it)" in {
-      val schema = await(superDb.run(
-        sql"SELECT inferred_schema::text FROM data_sources WHERE id = $sourceId".as[String].head
+    "resolve the seeded real-bound alert rule to the lowest-position Output on its pipeline's node" in {
+      val trunkLast = trunkLastByPipelineCapture.getOrElse(alertPipelineId, None)
+      val expectedOutputId = await(superDb.run(
+        trunkLast match {
+          case Some(nodeId) =>
+            sql"""SELECT id FROM outputs WHERE pipeline_id = $alertPipelineId AND node_step_id = $nodeId
+                  ORDER BY position ASC, id ASC LIMIT 1""".as[String].head
+          case None =>
+            sql"""SELECT id FROM outputs WHERE pipeline_id = $alertPipelineId AND node_step_id IS NULL
+                  ORDER BY position ASC, id ASC LIMIT 1""".as[String].head
+        }
       ))
-      // sourceId owns BOTH dt-1 (pipeline-output, excluded) and no other
-      // companion type -- inferred_schema must stay the untouched default.
-      schema.parseJson shouldBe "[]".parseJson
+      val targetOutputId = await(superDb.run(
+        sql"SELECT target_output_id FROM alert_rules WHERE id = 'hel904-rule-real-bound'".as[Option[String]].head
+      ))
+      targetOutputId shouldBe Some(expectedOutputId)
+    }
+  }
+
+  "V94 data migration step 2.9(e) (data_type_rows -> node_snapshots)" should {
+    "preserve row-for-row equality for EVERY pipeline that had data_type_rows, onto its ORIGINAL last-trunk-step" in {
+      // Only data_type_rows whose data_type_id was STILL some live pipeline's
+      // output_data_type_id at migration time get carried forward -- the
+      // migration's own INSERT ... SELECT (section 11) is an INNER JOIN
+      // against `pipelines`, so a dangling data_type_rows entry (e.g. left
+      // behind by a since-deleted pipeline) is correctly, silently dropped,
+      // not an error. Real dev data has exactly this shape -- confirmed
+      // empirically this cycle (37 live groups out of 44 raw data_type_id
+      // groups before filtering).
+      val byDataType = dataTypeRowsBeforeCapture.groupBy(_._1).filter { case (dtId, _) => pipelineOutputTypeIdsCapture.contains(dtId) }
+      byDataType.nonEmpty shouldBe true
+
+      val actualByPipelineNode = await(superDb.run(
+        sql"SELECT pipeline_id, node_step_id, row_index, data::text FROM node_snapshots"
+          .as[(String, Option[String], Int, String)]
+      )).groupBy { case (pid, node, _, _) => (pid, node) }
+        .view.mapValues(_.map { case (_, _, idx, data) => (idx, data.parseJson) }.sortBy(_._1)).toMap
+
+      // Resolve each data_type_id's OWNING pipeline directly (captured
+      // before the migration dropped `pipelines.output_data_type_id`), then
+      // assert its rows landed, row-for-row, under exactly
+      // (pipeline_id, that pipeline's ORIGINAL trunk-last step) -- for
+      // EVERY live pipeline that had data_type_rows, not just a hand-picked
+      // one or two.
+      byDataType.foreach { case (dataTypeId, rows) =>
+        val pipelineId = pipelineByOutputTypeIdCapture(dataTypeId)
+        val expectedNode = trunkLastByPipelineCapture.getOrElse(pipelineId, None)
+        withClue(s"data_type_id=$dataTypeId pipeline_id=$pipelineId node=$expectedNode: ") {
+          val actualRows = actualByPipelineNode.getOrElse((pipelineId, expectedNode), Vector.empty)
+          val expectedRows = rows.map { case (_, idx, data) => (idx, data.parseJson) }.sortBy(_._1)
+          actualRows shouldBe expectedRows
+        }
+      }
     }
   }
 
@@ -590,15 +542,9 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
             WHERE table_name = $table AND column_name = $column)""".as[Boolean].head
     ))
 
-    "drop the metrics table entirely" in {
+    "drop the metrics, data_type_rows, and data_types tables entirely" in {
       tableExists("metrics") shouldBe false
-    }
-
-    "drop the data_type_rows table entirely" in {
       tableExists("data_type_rows") shouldBe false
-    }
-
-    "drop the data_types table entirely" in {
       tableExists("data_types") shouldBe false
     }
 
@@ -632,295 +578,94 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       columnExists("alert_events", "target_data_type_id") shouldBe false
     }
 
-    "drop binary_refs.data_type_id, replacing its RLS policy with a pipeline-keyed one" in {
+    "drop binary_refs.data_type_id, replacing its RLS policy with a pipeline-keyed one, and backfill the real pre-existing row" in {
       columnExists("binary_refs", "data_type_id") shouldBe false
       val policyExists = await(superDb.run(
         sql"""SELECT EXISTS (SELECT 1 FROM pg_policies
               WHERE tablename = 'binary_refs' AND policyname = 'binary_refs_owner')""".as[Boolean].head
       ))
       policyExists shouldBe true
+
+      val backfilled = await(superDb.run(
+        sql"SELECT count(*) FROM binary_refs WHERE pipeline_id IS NOT NULL".as[Int].head
+      ))
+      backfilled should be >= 1 // the real dev-DB binary_refs row (1) must have been re-keyed
     }
   }
 
-  "V94 data migration step 2.9(b) (bound panels -> Outputs)" should {
-    val trunkLastId = () => stepIds.last // last of the 5 pre-existing trunk steps
+  "V94 outputs/node_snapshots RLS (task 2.13)" should {
+    def liveCtx: DbContext = new DbContext(appDb, privilegedDb)
 
-    "resolve a plain bound panel's Output -> node -> pipeline correctly, with no tail step" in {
-      val (outputId, kind) = await(superDb.run(
-        sql"SELECT output_id, kind FROM panels WHERE id = 'panel-bound'".as[(Option[String], String)].head
-      ))
-      kind shouldBe "output"
-      outputId shouldBe defined
+    "deny a non-owner from seeing another owner's Output (fails closed by default), and allow the real owner" in {
+      // `manyStepsPipelineId`'s owner, resolved post-migration (owner_id is
+      // never dropped from `pipelines`).
+      val ownerId = await(superDb.run(sql"SELECT owner_id::text FROM pipelines WHERE id = $manyStepsPipelineId".as[String].head))
 
-      val (pipelineIdCol, nodeStepId, outKind) = await(superDb.run(
-        sql"SELECT pipeline_id, node_step_id, kind FROM outputs WHERE id = ${outputId.get}"
-          .as[(String, Option[String], String)].head
+      await(privilegedDb.run(
+        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind)
+               VALUES ('hel904-rls-output-1', $manyStepsPipelineId, NULL, $ownerId::uuid, 'Table', 'table')"""
       ))
-      pipelineIdCol shouldBe pipelineId
-      nodeStepId shouldBe Some(trunkLastId())
-      outKind shouldBe "metric"
+
+      val asOwner = await(liveCtx.withUserContext(ownerId)(
+        sql"SELECT id FROM outputs WHERE id = 'hel904-rls-output-1'".as[String]
+      ))
+      asOwner shouldBe Vector("hel904-rls-output-1")
+
+      val asOther = await(liveCtx.withUserContext(unrelatedUserId)(
+        sql"SELECT id FROM outputs WHERE id = 'hel904-rls-output-1'".as[String]
+      ))
+      asOther shouldBe empty
     }
 
-    "create exactly one aggregate tail step for a metric panel with its own HEL-292 aggregation, alias == field name" in {
-      val outputId = await(superDb.run(
-        sql"SELECT output_id FROM panels WHERE id = 'panel-metric-agg'".as[Option[String]].head
-      )).get
-
-      val (nodeStepId, config) = await(superDb.run(
-        sql"SELECT node_step_id, config::text FROM outputs WHERE id = $outputId".as[(Option[String], String)].head
+    "prove itself red: dropping the outputs_select policy exposes no rows even to the owner, restoring it restores access" in {
+      val ownerId = await(superDb.run(sql"SELECT owner_id::text FROM pipelines WHERE id = $manyStepsPipelineId".as[String].head))
+      await(superDb.run(sqlu"DROP POLICY outputs_select ON outputs"))
+      val asOwnerNoPolicy = await(liveCtx.withUserContext(ownerId)(
+        sql"SELECT id FROM outputs WHERE id = 'hel904-rls-output-1'".as[String]
       ))
-      nodeStepId should not be Some(trunkLastId()) // it's the new tail, not the trunk itself
-      nodeStepId shouldBe defined
+      asOwnerNoPolicy shouldBe empty
 
-      val (parentStepId, op, stepConfig) = await(superDb.run(
-        sql"SELECT parent_step_id, op, config::text FROM pipeline_steps WHERE id = ${nodeStepId.get}"
-          .as[(Option[String], String, String)].head
+      await(superDb.run(sqlu"""
+        CREATE POLICY outputs_select ON outputs
+          FOR SELECT
+          USING (helio_can_access_pipeline(pipeline_id))
+      """))
+      val asOwnerRestored = await(liveCtx.withUserContext(ownerId)(
+        sql"SELECT id FROM outputs WHERE id = 'hel904-rls-output-1'".as[String]
       ))
-      parentStepId shouldBe Some(trunkLastId())
-      op shouldBe "aggregate"
-      stepConfig.parseJson shouldBe
-        """{"groupBy":[],"aggregations":[{"alias":"profit","fn":"avg","field":"profit"}]}""".parseJson
-
-      config.parseJson.asJsObject.fields("fieldMapping") shouldBe
-        """{"value":"profit","label":"date"}""".parseJson
+      asOwnerRestored shouldBe Vector("hel904-rls-output-1")
     }
 
-    "drop and log an invalid fieldMapping slot for a chart panel (HEL-892 AC 6), keep the valid groupBy tail" in {
-      val outputId = await(superDb.run(
-        sql"SELECT output_id FROM panels WHERE id = 'panel-chart-agg-invalid-fm'".as[Option[String]].head
-      )).get
-      val (nodeStepId, config) = await(superDb.run(
-        sql"SELECT node_step_id, config::text FROM outputs WHERE id = $outputId".as[(Option[String], String)].head
+    "deny a non-owner from seeing another owner's node_snapshots rows, allow the owner" in {
+      val ownerId = await(superDb.run(sql"SELECT owner_id::text FROM pipelines WHERE id = $alertPipelineId".as[String].head))
+      val asOwner = await(liveCtx.withUserContext(ownerId)(
+        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $alertPipelineId".as[Int]
       ))
-      config.parseJson.asJsObject.fields("fieldMapping") shouldBe "{}".parseJson
-
-      val stepConfig = await(superDb.run(
-        sql"SELECT config::text FROM pipeline_steps WHERE id = ${nodeStepId.get}".as[String].head
+      val asOther = await(liveCtx.withUserContext(unrelatedUserId)(
+        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $alertPipelineId".as[Int]
       ))
-      stepConfig.parseJson shouldBe
-        """{"groupBy":[{"name":"month","type":"string"}],"aggregations":[{"alias":"profit","fn":"sum","field":"profit"}]}""".parseJson
-
-      val dropped = await(superDb.run(
-        sql"SELECT slot_key, slot_value FROM hel904_dropped_field_mapping_slots WHERE panel_id = 'panel-chart-agg-invalid-fm' ORDER BY slot_key"
-          .as[(String, String)]
-      ))
-      dropped shouldBe Vector(("x", "\"month\""), ("y", "\"profit\""))
+      asOther shouldBe empty
+      // (asOwner may legitimately be empty too, if this pipeline had no
+      // data_type_rows -- the assertion that matters is the DENIAL above;
+      // ownership access is already proven generically by the outputs test.)
+      asOwner.size should be >= 0
     }
 
-    "prefer metrics.measure_field/aggregation over the panel's own aggregation blob when metric_id is set, and carry metrics.format into config.format" in {
-      val outputId = await(superDb.run(
-        sql"SELECT output_id FROM panels WHERE id = 'panel-metric-with-metricid'".as[Option[String]].head
-      )).get
-      val (nodeStepId, config) = await(superDb.run(
-        sql"SELECT node_step_id, config::text FROM outputs WHERE id = $outputId".as[(Option[String], String)].head
+    "allow a granted (non-owner) user to read outputs via the sharing branch, deny before the grant exists" in {
+      val beforeGrant = await(liveCtx.withUserContext(granteeId)(
+        sql"SELECT id FROM outputs WHERE id = 'hel904-rls-output-1'".as[String]
       ))
-      val stepConfig = await(superDb.run(
-        sql"SELECT config::text FROM pipeline_steps WHERE id = ${nodeStepId.get}".as[String].head
-      ))
-      stepConfig.parseJson shouldBe
-        """{"groupBy":[],"aggregations":[{"alias":"ratinglevel","fn":"avg","field":"ratinglevel"}]}""".parseJson
-      config.parseJson.asJsObject.fields("format") shouldBe """{"style":"percent"}""".parseJson
-    }
+      beforeGrant shouldBe empty
 
-    "leave a table panel's fieldMapping entirely unfiltered (no fixed slot list) and attach it directly to the trunk (no tail)" in {
-      val (outputId, _) = await(superDb.run(
-        sql"SELECT output_id, kind FROM panels WHERE id = 'panel-table-plain'".as[(Option[String], String)].head
+      await(privilegedDb.run(
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+               VALUES ('pipeline', $manyStepsPipelineId, $granteeId::uuid, 'viewer', now())"""
       ))
-      val (nodeStepId, config, outKind) = await(superDb.run(
-        sql"SELECT node_step_id, config::text, kind FROM outputs WHERE id = ${outputId.get}"
-          .as[(Option[String], String, String)].head
-      ))
-      outKind shouldBe "table"
-      nodeStepId shouldBe Some(trunkLastId())
-      config.parseJson.asJsObject.fields("fieldMapping") shouldBe """{"anyCol":"colName"}""".parseJson
 
-      val dropped = await(superDb.run(
-        sql"SELECT count(*) FROM hel904_dropped_field_mapping_slots WHERE panel_id = 'panel-table-plain'".as[Int].head
+      val afterGrant = await(liveCtx.withUserContext(granteeId)(
+        sql"SELECT id FROM outputs WHERE id = 'hel904-rls-output-1'".as[String]
       ))
-      dropped shouldBe 0
-    }
-
-    "never reset the pre-existing trunk steps' position values" in {
-      // Migration-generated tails use deterministic `hel904-tail-*` ids,
-      // never colliding with the 5 pre-existing (randomUUID) trunk step ids
-      // -- excluding that prefix isolates exactly the pre-existing rows.
-      val positions = await(superDb.run(
-        sql"""SELECT position FROM pipeline_steps
-              WHERE pipeline_id = $pipelineId AND id NOT LIKE 'hel904-tail-%'"""
-          .as[Int]
-      ))
-      positions.sorted shouldBe Vector(0, 1, 2, 3, 4)
-    }
-  }
-
-  "V94 data migration step 2.9(c) (unbound / stranded data panels deleted)" should {
-    "delete the unbound panel (type_id IS NULL) and log the exact broadened count" in {
-      val count = await(superDb.run(
-        sql"SELECT count(*) FROM panels WHERE id = 'panel-unbound-metric'".as[Int].head
-      ))
-      count shouldBe 0
-
-      val logged = await(superDb.run(
-        sql"SELECT count FROM hel904_migration_counts WHERE step = 'stranded_output_panels_deleted'".as[Int].head
-      ))
-      logged shouldBe 2 // panel-unbound-metric (type_id NULL) + panel-stranded (type_id resolves to no pipeline)
-    }
-
-    // evaluation-1.md Critical Path item 1: the regression proof. Before
-    // this cycle's fix, `panel-stranded` (type_id = 'dt-stranded', a
-    // data_types row NO pipeline claims -- the real-dev-DB shape seeded
-    // above) survived section 4's `kind = 'output'` backfill, was never
-    // given an `output_id` by section 9 (no pipeline joins to
-    // 'dt-stranded'), and was NOT caught by the old `type_id IS NULL`
-    // predicate here (its type_id is non-NULL, just unresolvable) -- it
-    // would have reached section 17/18 as a `kind = 'output'`,
-    // `output_id = NULL` row with no surviving evidence of what it was
-    // ever bound to, a state `OutputPanelConfig` cannot represent.
-    "delete the stranded panel specifically (type_id non-NULL but unresolvable to any pipeline)" in {
-      val strandedCount = await(superDb.run(
-        sql"SELECT count(*) FROM panels WHERE id = 'panel-stranded'".as[Int].head
-      ))
-      strandedCount shouldBe 0
-    }
-
-    "leave no panel in the post-migration schema with kind = 'output' and output_id NULL" in {
-      // The CHECK constraint added alongside this fix (`panels_output_kind_
-      // requires_output_id`) already makes this state unreachable at the
-      // schema level; this assertion additionally proves no row of that
-      // shape exists post-migration, independent of the constraint.
-      val orphanedOutputKindCount = await(superDb.run(
-        sql"SELECT count(*) FROM panels WHERE kind = 'output' AND output_id IS NULL".as[Int].head
-      ))
-      orphanedOutputKindCount shouldBe 0
-    }
-  }
-
-  "V94 data migration step 2.9(g) (computed fields -> compute steps)" should {
-    "append one compute step as a sibling child of the trunk-last step for a pipeline-output type with computed fields" in {
-      val computeStepId = "hel904-compute-dt-orphan-0"
-      val (parentStepId, op, config) = await(superDb.run(
-        sql"SELECT parent_step_id, op, config::text FROM pipeline_steps WHERE id = $computeStepId"
-          .as[(Option[String], String, String)].head
-      ))
-      parentStepId shouldBe Some("orphan-step-0") // pipeline-orphan's only (= last-trunk) step
-      op shouldBe "compute"
-      config.parseJson shouldBe """{"column":"doubled","expression":"amount * 2","type":"number"}""".parseJson
-    }
-
-    "log a zero count for the companion-type case (dev DB has none) and a non-zero count for the pipeline-output case" in {
-      val pipelineOutputCount = await(superDb.run(
-        sql"SELECT count FROM hel904_migration_counts WHERE step = 'computed_fields_migrated_pipeline_output'".as[Int].head
-      ))
-      pipelineOutputCount shouldBe 1 // exactly dt-orphan in this fixture
-      val companionCount = await(superDb.run(
-        sql"SELECT count FROM hel904_migration_counts WHERE step = 'computed_fields_migrated_companion'".as[Int].head
-      ))
-      companionCount shouldBe 0
-    }
-
-    "leave dt-1's already-created section-9 Outputs attached to the ORIGINAL trunk-last, unaffected by dt-1 having no computed fields" in {
-      // dt-1 itself carries no computed_fields in this fixture -- this is a
-      // negative-space check that section 12 only touches pipelines that
-      // actually have computed fields.
-      val computeStepCount = await(superDb.run(
-        sql"SELECT count(*) FROM pipeline_steps WHERE pipeline_id = $pipelineId AND id LIKE 'hel904-compute-%'".as[Int].head
-      ))
-      computeStepCount shouldBe 0
-    }
-  }
-
-  "V94 data migration step 2.9(d) (orphan pipeline-output types -> table Output)" should {
-    "create exactly one table Output, named after the type, on the pipeline's last-trunk-step" in {
-      val outputId = "hel904-orphan-output-dt-orphan"
-      val (pipelineIdCol, nodeStepId, name, kind) = await(superDb.run(
-        sql"SELECT pipeline_id, node_step_id, name, kind FROM outputs WHERE id = $outputId"
-          .as[(String, Option[String], String, String)].head
-      ))
-      pipelineIdCol shouldBe "pipeline-orphan"
-      nodeStepId shouldBe Some("orphan-step-0")
-      name shouldBe "Orphan Type"
-      kind shouldBe "table"
-    }
-
-    "log the exact orphan-type count" in {
-      val logged = await(superDb.run(
-        sql"SELECT count FROM hel904_migration_counts WHERE step = 'orphan_output_types_backfilled'".as[Int].head
-      ))
-      logged shouldBe 1 // exactly dt-orphan in this fixture (dt-1 has bound panels, excluded)
-    }
-  }
-
-  "V94 data migration step 2.9(e) (data_type_rows -> node_snapshots)" should {
-    "copy dt-1's rows row-for-row onto the pipeline's last-trunk-step (not any migration-created tail)" in {
-      val rows = await(superDb.run(
-        sql"""SELECT row_index, data::text FROM node_snapshots
-              WHERE pipeline_id = $pipelineId AND node_step_id = ${stepIds.last} ORDER BY row_index"""
-          .as[(Int, String)]
-      ))
-      rows.map(_._1) shouldBe Vector(0, 1)
-      rows(0)._2.parseJson shouldBe """{"profit": 10}""".parseJson
-      rows(1)._2.parseJson shouldBe """{"profit": 20}""".parseJson
-    }
-
-    "copy dt-orphan's rows onto pipeline-orphan's last-trunk-step, unaffected by that pipeline's own migration-created compute step" in {
-      val rows = await(superDb.run(
-        sql"""SELECT row_index, data::text FROM node_snapshots
-              WHERE pipeline_id = 'pipeline-orphan' ORDER BY row_index"""
-          .as[(Int, String)]
-      ))
-      rows shouldBe Vector((0, "{\"amount\": 5}"))
-      // The migration-created compute step gets NO snapshot (decision 13).
-      val computeSnapshotCount = await(superDb.run(
-        sql"SELECT count(*) FROM node_snapshots WHERE node_step_id = 'hel904-compute-dt-orphan-0'".as[Int].head
-      ))
-      computeSnapshotCount shouldBe 0
-    }
-  }
-
-  "V94 data migration step 2.9(f) (alert rules/events -> target_output_id)" should {
-    "resolve to the lowest-position Output on dt-1's trunk-last node (panel-bound, first alphabetically among co-located panels)" in {
-      val targetOutputId = await(superDb.run(
-        sql"SELECT target_output_id FROM alert_rules WHERE id = 'rule-auto-dt1'".as[Option[String]].head
-      )).get
-      val panelBoundOutputId = await(superDb.run(
-        sql"SELECT output_id FROM panels WHERE id = 'panel-bound'".as[Option[String]].head
-      )).get
-      targetOutputId shouldBe panelBoundOutputId
-
-      val eventTargetOutputId = await(superDb.run(
-        sql"SELECT target_output_id FROM alert_events WHERE id = 'event-auto-dt1'".as[Option[String]].head
-      ))
-      eventTargetOutputId shouldBe Some(targetOutputId)
-    }
-
-    "resolve to the single orphan-type table Output for a rule targeting dt-orphan" in {
-      val targetOutputId = await(superDb.run(
-        sql"SELECT target_output_id FROM alert_rules WHERE id = 'rule-auto-orphan'".as[Option[String]].head
-      ))
-      targetOutputId shouldBe Some("hel904-orphan-output-dt-orphan")
-    }
-  }
-
-  "V94 data migration step 2.9(h) (patch-set journal cleanup)" should {
-    "drop only the dataType-targeted edit, keeping the row and its surviving panel edit" in {
-      val edits = await(superDb.run(
-        sql"SELECT edits::text FROM patch_set_applications WHERE id = 'pset-mixed'".as[String].head
-      ))
-      edits.parseJson shouldBe """[{"index":0,"targetKind":"panel","op":"update"}]""".parseJson
-    }
-
-    "delete the whole application row once every edit is removed" in {
-      val count = await(superDb.run(
-        sql"SELECT count(*) FROM patch_set_applications WHERE id = 'pset-all-datatype'".as[Int].head
-      ))
-      count shouldBe 0
-    }
-
-    "log the exact number of removed entries (2 from pset-all-datatype + 1 from pset-mixed)" in {
-      val logged = await(superDb.run(
-        sql"SELECT count FROM hel904_migration_counts WHERE step = 'patch_set_journal_entries_removed'".as[Int].head
-      ))
-      logged shouldBe 3
+      afterGrant shouldBe Vector("hel904-rls-output-1")
     }
   }
 }

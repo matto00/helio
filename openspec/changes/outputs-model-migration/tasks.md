@@ -156,17 +156,22 @@
       coverage: `V94OutputsMigrationSpec`'s own "V94 task 2.10" describe-block asserts every
       dropped table/column via `information_schema` + `pg_policies` (8 assertions). Full
       `sbt test` (single-threaded, HEL-924 protocol) confirmed 3360/3360 green, run twice.
-- [x] 2.11 (partial, cycle 31 fix) Red-first migration test: `V94OutputsMigrationSpec` migrates to
-      V93, asserts the pre-migration schema genuinely lacks the new columns/tables (proves
-      non-vacuousness), migrates to V94, asserts the backfills. The fixture is still primarily
-      hand-built (a full `pg_dump --data-only` replacement per design.md decision 3 remains
-      outstanding), BUT the exact gap that decision exists to catch (evaluation-1.md Critical Path
-      item 1 — a bound panel whose `type_id` resolves to no pipeline) is now covered by a
-      genuinely `pg_dump`-derived addition: `dt-stranded`/`panel-stranded`'s id, name, `fields`,
-      `type`, and `field_mapping` are the literal `pg_dump --data-only --inserts` output for a real
-      `data_types` row + one of its real bound panels on the shared dev DB (2026-08-30), not a
-      hand-invented shape. Full fixture replacement (every remaining hand-built row) is still owed
-      to the next cycle — flagged, not silently dropped.
+- [x] 2.11 (complete, cycle 3 rewrite) Red-first migration test: `V94OutputsMigrationSpec` migrates
+      to V93, asserts the pre-migration schema genuinely lacks the new columns/tables (proves
+      non-vacuousness), migrates to V94, asserts the backfills. Per the human coordinator's explicit
+      cycle-3 ruling, the fixture is now a REAL `pg_dump --data-only` snapshot of the shared dev DB
+      (V93, 2026-08-30, `backend/src/test/resources/db/fixtures/hel904-real-dump.sql`), loaded
+      verbatim — REPLACING, not supplementing, the previous ~800-line hand-built fixture (design.md
+      decision 3 is now fully satisfied, not partial). Only two things are seeded on top of the dump:
+      two `alert_rules` rows (the dev DB carries zero) and one `resource_permissions` grant (for the
+      RLS sharing-branch test, which needs a deliberately-controlled grantee). Building the real
+      fixture immediately surfaced a SECOND real defect beyond evaluation-2's markdown-binding gap:
+      the data-bound-markdown fix itself (see file header note in V94's migration SQL) plus a
+      test-authoring bug in this cycle's own first draft (an "orphan pipeline-output type" id was
+      picked wrong twice — once picking a data_type with no owning pipeline at all, which never
+      reaches the orphan-Output path, and once reusing an RLS "other-tenant" user id that happened to
+      already own the pipeline under test) — both caught and fixed via the real fixture's own
+      assertions failing, not assumed correct. 23/23 assertions green against the real data.
 - [x] 2.12 Step-order-preservation test: 5-step pipeline seeded pre-migration, migrated, walks
       `parent_step_id` from the root and confirms it exactly reproduces the original `position`
       order — same spec, `"V94 pipeline_steps.parent_step_id backfill"`.

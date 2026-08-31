@@ -3451,3 +3451,124 @@ the specific gap it was cited for), that work remains and should be scoped expli
 rather than assumed done. Hygiene items 4-5 done; item 6 (HEL-689) needs orchestrator action at
 Delivery. No escalations raised this cycle — no genuine design-gate reopening was needed; every fix
 was inline per the coordinator's own framing of this as "an ordinary implementation-fix cycle."
+
+---
+
+## Cycle 3 (evaluation-2.md follow-up: real pg_dump fixture, markdown-binding fix, tasks.md bookkeeping)
+
+Per the human coordinator's explicit, non-negotiable ruling relayed at the top of this cycle's
+instructions: build the real `pg_dump --data-only` fixture FIRST, then fix the markdown-binding
+defect, then re-evaluate against the real fixture — never fix-then-rerun-against-the-hand-built-
+fixture (that reproduces the exact non-terminating loop two prior cycles were stuck in).
+
+**Step 1: built the real fixture.** Confirmed the counterexample first (`select count(*) from
+panels p where p.type_id is not null and not exists (select 1 from pipelines pl where
+pl.output_data_type_id = p.type_id)` → 60, matching the instructions). Ran:
+
+```
+pg_dump -d helio -U matt --data-only --inserts --disable-triggers --no-owner --no-privileges \
+  -t users -t data_sources -t data_types -t pipelines -t pipeline_steps -t panels -t dashboards \
+  -t metrics -t binary_refs -t data_type_rows -t patch_set_applications
+```
+
+into `backend/src/test/resources/db/fixtures/hel904-real-dump.sql` (9.3MB, 9085 INSERT
+statements). Two mechanical fixes were needed to make the dump executable via a raw JDBC
+`Statement.execute` call against the embedded-Postgres test dependency: stripped the psql-only
+`\restrict`/`\unrestrict` meta-commands (not valid SQL — pgjdbc's simple-query protocol rejects
+them outright), and stripped `SET transaction_timeout = 0;` (the embedded dependency's bundled
+Postgres server predates that GUC, added in real Postgres 17). `--disable-triggers` (wraps each
+table's data load in `ALTER TABLE ... DISABLE/ENABLE TRIGGER ALL`, which also suspends FK
+enforcement since Postgres implements FKs via system triggers) means table load order within the
+dump doesn't need to be topologically sorted.
+
+Verified every required shape from the ticket's checklist is ALREADY present in the real dev data,
+not seeded: every panel kind, HEL-292 aggregation panels (14), a `metric_id` panel, data-bound
+`text` (2) AND data-bound `markdown` (4) panels, unbound data panels (28), orphan output types,
+companion types (139), computed fields (6), a `binary_refs` row (1), invalid `fieldMapping` slots
+(a real chart panel with `category`/`value` keys, neither a valid chart slot), and the 60-row
+stranded-panel shape. Only two things were seeded ON TOP of the dump, never as a substitute: two
+`alert_rules` rows (the dev DB carries zero, and task 2.9(f) has nothing real to exercise
+otherwise) and one `resource_permissions` grant (the RLS sharing-branch proof needs a
+deliberately-controlled grantee the dump's ambient state doesn't guarantee one way or the other).
+
+A migration-seeded baseline system user (`00000000-...-0001`, from V10/V32/V41) collided with the
+same real row in the dump on first load (duplicate PK) — fixed by `TRUNCATE`-ing every table the
+dump fully repopulates immediately before loading it, so the dump is the sole source of truth for
+those tables rather than colliding with a migration-time seed.
+
+**Step 2: the markdown-binding fix**, once the real fixture was in place. Every place in
+`V94__outputs_model.sql` that special-cased `type = 'text' AND type_id IS NOT NULL` to mean
+"data-bound, migrate to an Output" now also matches `type = 'markdown' AND type_id IS NOT NULL` —
+confirmed by grep there were exactly four such spots (not just the one evaluation-2.md pointed at):
+the `panels.kind` backfill (section 4), the task 2.9(b) panel-selection loop's `WHERE` clause
+(section 9), and BOTH of the orphan-type "remaining bound panel" checks in section 13 (the
+count-logging query and the loop query) — this last pair is exactly the kind of second/third
+occurrence the stranded-panel fix (cycle 2) also had (three separate sections), confirming the "a
+gap like this rarely touches only the one place a reviewer names" pattern is real, not
+coincidental. The Output-kind derivation (`out_kind`) now maps BOTH `text` and `markdown` panel
+types to the `markdown` Output kind, matching design.md:76 exactly ("today's data-bound text AND
+markdown panels").
+
+**Building the real fixture immediately surfaced defects beyond the known markdown gap** — exactly
+the point of doing this, per the ticket's own framing:
+1. My own first-draft test picked the wrong "orphan pipeline-output type" id twice: once picking a
+   `data_types` row with NO owning pipeline at all (which never reaches the orphan-Output path —
+   it only feeds the stranded-panel-deletion path and gets logged as
+   `orphan_data_types_no_pipeline_skipped`, a DIFFERENT, deliberately-distinct migration outcome),
+   and once reusing an "other-tenant" user id for an RLS denial assertion that turned out to
+   already own the pipeline under test (both users happened to be the same real dev-DB user),
+   producing a false-pass-shaped-as-a-failure (the RLS test failed, correctly, revealing my own
+   fixture-authoring bug, not a migration defect). Both caught by the test itself failing
+   immediately, not assumed correct going in — re-queried the real DB by hand to find a genuinely
+   distinct id for each role.
+2. The `node_snapshots` row-for-row equality test's first draft used a `Set`-based multiset
+   comparison that silently collapsed groups with coincidentally-identical row content into the
+   same `Set` entry, producing a false size mismatch (37 actual vs 22 after dedup) that had nothing
+   to do with the migration itself — a genuine test-authoring bug, fixed by keying the comparison
+   directly by (data_type_id → its owning pipeline → that pipeline's original trunk-last step)
+   instead of by content-set membership, which is also a STRONGER assertion (row-for-row equality
+   per pipeline, not just "some group matches some other group").
+
+Neither of the two issues above was a migration-SQL defect — both were bugs in this cycle's own
+first-draft *test* code, caught and fixed via the real fixture's own assertions failing loudly
+rather than silently passing on a coincidence. No third-class migration-SQL defect (beyond the
+already-known markdown gap) was found by the real fixture in this pass.
+
+**Step 3: tasks.md bookkeeping.** Task 2.11 was `[x]` while its own text said "(partial)" — the
+fourth instance of this exact defect class on this ticket. Now genuinely complete: text rewritten
+to describe the real-fixture replacement, the two test-authoring defects it surfaced (see above),
+and the 23/23 green result.
+
+**`V94OutputsMigrationSpec` rewritten in full** (not incrementally patched) to be data-driven
+against the real fixture instead of asserting fixed hand-picked values: real-id constants are
+documented inline with the exact `psql` query used to derive each one (so a future reader can
+re-derive them against a fresher dump); assertions are computed generically wherever possible
+(e.g., the stranded-panel count is derived in Scala from the same predicate the migration itself
+uses, not hardcoded; the aggregation/metric tail-step config is re-derived per real panel from its
+captured pre-migration `aggregation`/`metric_id` values, not asserted against one hand-picked
+panel). 23 test cases, all green.
+
+**Verification (fresh, this cycle, pasted evidence):**
+- `sbt compile`: `[success]`.
+- `sbt Test/compile`: `[success]`.
+- `sbt 'testOnly ...V94OutputsMigrationSpec'`: **23/23 green** (down in count from cycle 2's 46 —
+  this is a full-file rewrite consolidating many hand-built-fixture-specific assertions into fewer,
+  stronger, data-driven ones covering the SAME behaviors across ALL real matching rows rather than
+  1-2 hand-picked examples each; not a coverage regression).
+- Full `sbt -Dsbt.task.parallelism=1 'set Test/parallelExecution := false' test` (HEL-924
+  single-threaded protocol): **3342 tests, 225 suites completed, 0 aborted, 0 failed, all green**,
+  single run, 188s. (Total count differs from cycle 2's reported 3365 because this cycle's spec
+  rewrite has a different, smaller number of `it` blocks — 23 vs 46 — not because other suites
+  changed; every other suite's count is unaffected.)
+
+**Status for the evaluator's next look:** the real `pg_dump` fixture is in place, REPLACING (not
+supplementing) the hand-built one — confirmed by `git status` showing the fixture file as new and
+the spec file's fixture-construction code fully replaced, not appended to. The markdown-binding
+fix is in, in all four locations found via grep, not just the one evaluation-2.md named. tasks.md
+2.11's bookkeeping is honest. `sbt compile`/`sbt test` are both green, single-threaded, confirmed
+fresh this turn. No escalations raised — no genuine design-gate reopening was needed; the real
+fixture surfaced two test-authoring bugs in my own first draft, not a new migration-SQL defect
+class, and both were fixed inline per the same probe-confirmed-root-cause discipline used for the
+earlier stranded-panel/markdown fixes. Change request 6 / task 6.5 (HEL-689 re-open) remains
+correctly parked for the orchestrator at Delivery, per this cycle's own instructions — not
+attempted, not silently dropped.
