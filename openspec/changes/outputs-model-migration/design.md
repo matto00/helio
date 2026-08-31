@@ -314,7 +314,7 @@ endpoint should be updated in the same pass, not left dangling.
   must not flag "frontend doesn't compile against the new API" as a
   defect; the UI gate is explicitly N/A for this row (decision 17).
 
-## Decision: two named wire-field-NAME exemptions from the 6.1 grep, both P1.4/P1.5-owned surfaces
+## Decision: four named wire-field-NAME exemptions from the 6.1 grep (plus one wire-VALUE exemption), all P1.4/P1.5-owned surfaces
 
 Cycle 28's execution-cycle audit found `model.scala` still DEFINING (not just historically
 mentioning) `DataTypeId`/`MetricId`/`DataType`/`ComputedField`/`MetricDefinition`/`MetricFormat`/
@@ -323,8 +323,13 @@ mentioning) `DataTypeId`/`MetricId`/`DataType`/`ComputedField`/`MetricDefinition
 `AssistantToolExecutor`) still threading `DataTypeId(...)` wrappers — traced to task 3.11's own
 tasks.md entry deferring the retarget to "section 4/5's wire-shape-renaming job," a task that was
 never actually written anywhere in tasks.md. The coordinator ruled (cycle 28→29 handoff): close
-this gap now, IN THIS TICKET, with exactly two named exemptions for wire FIELD NAMES (not types) —
+this gap now, IN THIS TICKET, with named exemptions for wire FIELD NAMES (not types) —
 everything else in that list is retargeted onto `OutputId`/deleted outright in cycle 29.
+
+(Final-gate wire-contract-diff skeptic, round 1: the original "exactly two" framing was
+incomplete — two more field-name sites of the identical shape, plus one wire VALUE, were found
+still standing at HEAD and are added below as Exemptions 3-4 and a fifth value-exemption. Nothing
+here required a code change; this closes a documentation gap only.)
 
 **Exemption 1 — `PipelineProposalProtocol.PipelineProposalApplyResponse.outputDataTypeId` /
 `PipelineProposal.outputDataTypeName`.** These are wire FIELD NAMES on the agent-facing pipeline-
@@ -349,6 +354,35 @@ pages). Renaming these field names now would require touching dozens of P1.4/P1.
 in the SAME commit to keep the tree compiling/passing, which is a scope violation this ticket must
 not make unilaterally. Exempt for the same reason as Exemption 1 — the owning ticket renames it
 when it touches that surface, if it chooses to.
+
+**Exemption 3 — `PipelineAnalyzeProposalProtocol.PipelineAnalyzeProposalResponse.outputDataTypeName`.**
+Live response field on `POST /api/pipelines/analyze-proposal` (`PipelineAnalyzeProposalProtocol.scala:16`,
+`jsonFormat4`). Same class as Exemption 1 — a `String`-typed wire field name on an agent-facing
+pipeline-analyze surface, not a `DataTypeId`-typed value. This response feeds the same
+proposal-apply flow Exemption 1 already covers; renaming it here without also renaming
+Exemption 1's sibling field in the same commit would leave the two inconsistent for no reason.
+Exempt for the same reason and under the same P1.4 ownership as Exemption 1.
+
+**Exemption 4 — `AssistantProposalToolSchemas`'s `"outputDataTypeName"` property/`required` entry.**
+`AssistantProposalToolSchemas.scala:160,171,174,192` mirrors Exemption 3's field name into the
+Claude-facing tool-call JSON schema (an agent-facing wire surface in its own right, not a code
+comment). It exists specifically so the tool-call shape stays consistent with the HTTP response it
+describes (Exemption 3) — renaming one without the other would break that consistency, and this
+mirror is generated from/kept in lockstep with the same P1.4-owned surface. Exempt for the same
+reason.
+
+**Value-exemption — the `"dataType"` `WorkspaceResourceType`/`resourceType` wire value.** Distinct
+from the four field-NAME exemptions above: this is a wire VALUE (`WorkspaceResourceType.DataType`,
+`WorkspaceResourceSearchProtocol`'s `"dataType"` discriminator), not a field name, so it falls
+outside the literal scope this decision's title originally described. `WorkspaceSearchService`
+still emits `resourceType = "dataType"` search results — now sourced from `OutputRepository`
+rather than the deleted `DataTypeRepository` — as a deliberate transitional label (see the
+`workspace-resource-search` spec delta, corrected alongside this decision in the same skeptic
+round). Renaming this value has the identical 30+-file frontend/MCP blast radius as Exemption 2
+(`grep -rln resourceType.*dataType\|'"'"'dataType'"'"' helio-mcp/src frontend/src` overlaps heavily
+with Exemption 2's file set) and the identical P1.4/P1.5 ownership boundary. Exempt for the same
+reason as Exemption 2 — the owning ticket renames it when it touches that surface, if it chooses
+to.
 
 **What IS retargeted in cycle 29 (not exempt):** `PanelCapabilityService.getCapabilities`'s public
 parameter (now `OutputId`, was `DataTypeId`) and its three internal call sites

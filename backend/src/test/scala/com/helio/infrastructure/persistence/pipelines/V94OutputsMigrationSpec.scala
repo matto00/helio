@@ -219,6 +219,18 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         .as[String].head
     ))
 
+    // Migration-correctness CR 5: captured so the compute-step migration
+    // (section 12, `computed_fields` -> `compute` pipeline steps) has real
+    // pre-migration data to assert against -- this path previously had zero
+    // direct test coverage.
+    val computedFieldsBefore: Vector[(String, String, String)] = await(superDb.run(
+      sql"""SELECT dt.id, p.id, dt.computed_fields::text
+            FROM data_types dt
+            JOIN pipelines p ON p.output_data_type_id = dt.id
+            WHERE dt.computed_fields <> '[]'"""
+        .as[(String, String, String)]
+    ))
+
     // ── Now migrate to latest (applies V94) ─────────────────────────────────
     Flyway
       .configure()
@@ -240,6 +252,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     this.pipelineOutputTypeIdsCapture = pipelineOutputTypeIds
     this.pipelineByOutputTypeIdCapture = pipelineByOutputTypeId
     this.stepsBeforeCapture = stepsBefore
+    this.computedFieldsBeforeCapture = computedFieldsBefore
 
     // ── Non-superuser role for the RLS smoke test (task 2.13) -- a
     //    superuser connection would make the assertions vacuous. ───────────
@@ -282,6 +295,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
   private var pipelineOutputTypeIdsCapture: Set[String] = _
   private var pipelineByOutputTypeIdCapture: Map[String, String] = _
   private var stepsBeforeCapture: Vector[(String, String, Int)] = _
+  private var computedFieldsBeforeCapture: Vector[(String, String, String)] = _
 
   case class PanelBefore(
     id: String, typ: String, typeId: Option[String], aggregation: Option[String],
@@ -390,6 +404,18 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
           val (op, config) = row.get
           op shouldBe "aggregate"
 
+          // Migration-correctness CR 1: this step must land on a TAIL, never
+          // the trunk. `position` must be >= 1 (a genuine tail per the
+          // trunk/tail invariant -- at most one position-0 child per node is
+          // the trunk continuation; `PipelineStepRepository.trunkOf` follows
+          // exactly and only that position-0 child, so `position >= 1` is
+          // both necessary and sufficient for exclusion from `trunkOf`'s walk
+          // and inclusion in `tailsOf` (`childrenOf(...).drop(1)`)).
+          val position = await(superDb.run(
+            sql"SELECT position FROM pipeline_steps WHERE id = $tailStepId".as[Int].head
+          ))
+          position should be >= 1
+
           val (expectedFn, expectedAlias, expectedField, expectedFormat) = p.metricId match {
             case Some(mid) =>
               val (measureField, aggFn, format) = metricsBeforeCapture(mid)
@@ -462,6 +488,50 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         sql"SELECT inferred_schema::text FROM data_sources WHERE id = $singleCompanionSourceId".as[String].head
       ))
       schema.parseJson shouldBe JsArray(expected)
+    }
+  }
+
+  "V94 data migration step 2.9(g) (computed_fields -> compute pipeline steps)" should {
+    "create exactly one compute step per computed field, in order, config-mapped, attached as a trunk-extending sibling chain off the original trunk-last step" in {
+      computedFieldsBeforeCapture should not be empty
+
+      computedFieldsBeforeCapture.foreach { case (dataTypeId, pipelineId, fieldsJson) =>
+        withClue(s"data type $dataTypeId (pipeline $pipelineId): ") {
+          val fields = fieldsJson.parseJson.asInstanceOf[JsArray].elements
+          val originalTrunkLast = trunkLastByPipelineCapture.getOrElse(pipelineId, None)
+
+          var expectedParent = originalTrunkLast
+          fields.zipWithIndex.foreach { case (elem, seq) =>
+            val o = elem.asJsObject
+            val stepId = s"hel904-compute-$dataTypeId-$seq"
+            val row = await(superDb.run(
+              sql"SELECT op, config::text, parent_step_id, position FROM pipeline_steps WHERE id = $stepId"
+                .as[(String, String, Option[String], Int)].headOption
+            ))
+            row shouldBe defined
+            val (op, config, parentStepId, position) = row.get
+            op shouldBe "compute"
+            parentStepId shouldBe expectedParent
+            // Trunk-extending sibling chain: each compute step is the FIRST
+            // (position-0) child of its own dedicated parent (either the
+            // pipeline's original trunk-last step, or the previous compute
+            // step in the chain), never a second-or-later sibling -- there is
+            // no pre-existing child of a compute step's parent for it to
+            // collide with, since each compute step in the chain becomes the
+            // sole parent of the next.
+            position shouldBe 0
+
+            val expectedConfig = JsObject(
+              "column" -> o.fields("name"),
+              "expression" -> o.fields("expression"),
+              "type" -> o.fields("dataType")
+            )
+            config.parseJson shouldBe expectedConfig
+
+            expectedParent = Some(stepId)
+          }
+        }
+      }
     }
   }
 
@@ -645,10 +715,46 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $alertPipelineId".as[Int]
       ))
       asOther shouldBe empty
-      // (asOwner may legitimately be empty too, if this pipeline had no
-      // data_type_rows -- the assertion that matters is the DENIAL above;
-      // ownership access is already proven generically by the outputs test.)
-      asOwner.size should be >= 0
+      // `alertPipelineId` genuinely has >= 1 node_snapshots row post-migration
+      // (verified against the real fixture) -- assert the owner-read side is
+      // non-vacuous too, not just "denial happened".
+      asOwner should not be empty
+    }
+
+    "prove itself red for node_snapshots too: dropping the node_snapshots_select policy exposes no rows even to the owner, restoring it restores access" in {
+      val ownerId = await(superDb.run(sql"SELECT owner_id::text FROM pipelines WHERE id = $alertPipelineId".as[String].head))
+      await(superDb.run(sqlu"DROP POLICY node_snapshots_select ON node_snapshots"))
+      val asOwnerNoPolicy = await(liveCtx.withUserContext(ownerId)(
+        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $alertPipelineId".as[Int]
+      ))
+      asOwnerNoPolicy shouldBe empty
+
+      await(superDb.run(sqlu"""
+        CREATE POLICY node_snapshots_select ON node_snapshots
+          FOR SELECT
+          USING (helio_can_access_pipeline(pipeline_id))
+      """))
+      val asOwnerRestored = await(liveCtx.withUserContext(ownerId)(
+        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $alertPipelineId".as[Int]
+      ))
+      asOwnerRestored should not be empty
+    }
+
+    "allow a granted (non-owner) user to read node_snapshots via the sharing branch, deny before the grant exists" in {
+      val beforeGrant = await(liveCtx.withUserContext(granteeId)(
+        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $alertPipelineId".as[Int]
+      ))
+      beforeGrant shouldBe empty
+
+      await(privilegedDb.run(
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+               VALUES ('pipeline', $alertPipelineId, $granteeId::uuid, 'viewer', now())"""
+      ))
+
+      val afterGrant = await(liveCtx.withUserContext(granteeId)(
+        sql"SELECT 1 FROM node_snapshots WHERE pipeline_id = $alertPipelineId".as[Int]
+      ))
+      afterGrant should not be empty
     }
 
     "allow a granted (non-owner) user to read outputs via the sharing branch, deny before the grant exists" in {

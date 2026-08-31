@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/patch-sets/patch-set.schema.json",
   "title": "PatchSet",
-  "description": "An ordered list of targeted edits across one or more existing resources (panel/dashboard/dataSource/dataType/pipeline/pipelineStep), produced by conversational refinement so a diff can be previewed and applied atomically. Carries NO create/apply semantics of its own — this schema/protocol is the foundation only; a future apply path (HEL-406 and siblings) consumes it. Mirrors schemas/pipelines/pipeline-proposal.schema.json's scope (schema+protocol only, no apply route in this ticket).",
+  "description": "An ordered list of targeted edits across one or more existing resources (panel/dashboard/dataSource/pipeline/pipelineStep), produced by conversational refinement so a diff can be previewed and applied atomically. Carries NO create/apply semantics of its own — this schema/protocol is the foundation only; a future apply path (HEL-406 and siblings) consumes it. Mirrors schemas/pipelines/pipeline-proposal.schema.json's scope (schema+protocol only, no apply route in this ticket). HEL-904 removed the `dataType`/`metric` target kinds outright (DataType/Metric no longer exist); an `output` target kind is P1.4's (HEL-907) job to add, not this schema's.",
   "type": "object",
   "required": ["edits"],
   "properties": {
@@ -22,7 +22,7 @@
   "$defs": {
     "Edit": {
       "type": "object",
-      "description": "One targeted edit against a single resource. `patch`'s real shape reuses the existing per-resource PATCH/create request shapes rather than inventing new ones, documented here by name (none of the six has its own standalone schema file to $ref against): for op=update, the existing UpdatePanelRequest/UpdateDashboardRequest/UpdateDataSourceRequest/UpdateDataTypeRequest/UpdatePipelineRequest/UpdatePipelineStepRequest shape matching target.kind (the same type the matching PATCH endpoint already decodes); for op=create, the matching CreatePanelRequest/CreateDashboardRequest/CreateDataSourceRequest/CreateDataTypeRequest/CreatePipelineRequest/CreatePipelineStepRequest shape, decoded by a future apply path (HEL-406), not this contract; for op=delete, `patch` is unused.",
+      "description": "One targeted edit against a single resource. `patch`'s real shape reuses the existing per-resource PATCH/create request shapes rather than inventing new ones, documented here by name (none of the five has its own standalone schema file to $ref against): for op=update, the existing UpdatePanelRequest/UpdateDashboardRequest/UpdateDataSourceRequest/UpdatePipelineRequest/UpdatePipelineStepRequest shape matching target.kind (the same type the matching PATCH endpoint already decodes); for op=create, the matching CreatePanelRequest/CreateDashboardRequest/CreateDataSourceRequest/CreatePipelineRequest/CreatePipelineStepRequest shape, decoded by a future apply path (HEL-406), not this contract; for op=delete, `patch` is unused.",
       "required": ["target", "op"],
       "properties": {
         "target": {
@@ -65,7 +65,7 @@
       "properties": {
         "kind": {
           "type": "string",
-          "enum": ["panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep"]
+          "enum": ["panel", "dashboard", "dataSource", "pipeline", "pipelineStep"]
         },
         "id": {
           "type": "string",

@@ -52,3 +52,58 @@ Cycle 3 delta, second pass (URGENT security fix — same turn):
   exactly like `text` for a data-bound row. No SQL/behavior change — comment only. (Also confirmed,
   not changed: all five `type IN ('text', 'markdown')` call sites, including line 560's `out_kind`
   derivation, are already symmetric — no further code fix needed there.)
+
+Cycle 4 delta (final-gate round 1, three of four skeptics REFUTEd — see
+`final-skeptic-migration-correctness.md`, `final-skeptic-deletion-sweep.md`,
+`final-skeptic-wire-contract-diff.md`):
+
+- `backend/src/main/resources/db/migration/V94__outputs_model.sql`:
+  - Section 9's aggregate-tail `next_position` computation changed from
+    `COALESCE(MAX(position)+1, 0)` to `GREATEST(COALESCE(MAX(position)+1, 0), 1)` — the trunk-last
+    step has no pre-existing children, so the bare `COALESCE` fell through to position 0 and put
+    the aggregate step ON THE TRUNK (4 of 5 real cases on the dev DB), not on a tail
+    (migration-correctness CR 1).
+  - `hel904_migration_counts`'s `CREATE TABLE` moved from section 10 to section 8, and a new
+    `alert_rules_cascade_deleted_companion_type` count logged there, since section 8's
+    `DELETE FROM data_types` cascade-deletes any alert rule/event targeting a companion type via
+    the pre-existing `ON DELETE CASCADE` FK — previously silent, unlike every other destructive
+    step in this file (migration-correctness CR 3).
+  - New section 14a: quarantines (deletes, with a logged count) any `alert_rules`/`alert_events`
+    row left with `target_output_id IS NULL` after section 14's retarget (a rule whose type had no
+    owning pipeline), then applies the `SET NOT NULL` that ticket scope item 6 requires and that
+    was previously never applied — such a row was otherwise unrecoverable once
+    `target_data_type_id` is dropped, and both repositories throw reading it
+    (migration-correctness CR 2).
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/V94OutputsMigrationSpec.scala`:
+  - Aggregate-tail test now asserts `position >= 1` for every migration-created tail step
+    (migration-correctness CR 4 — the test's own name promised this and never checked it).
+  - New test group "V94 data migration step 2.9(g) (computed_fields -> compute pipeline steps)":
+    the `computed_fields` -> `compute`-step path had zero direct test coverage before this cycle
+    (migration-correctness CR 5); asserts count, op, config keys/values, and parent chain against
+    real captured pre-migration data.
+  - `node_snapshots` RLS assertion strengthened from a vacuous `size should be >= 0` to
+    `should not be empty`, plus a new red-proof (drop/restore `node_snapshots_select`) and a new
+    grantee-read test, mirroring the `outputs` table's existing three-part RLS proof
+    (migration-correctness CR 6).
+- Six package `README.md` manifests updated to describe post-deletion contents instead of the
+  deleted DataType/Metric/bound-panel classes (deletion-sweep CR 1):
+  `backend/src/main/scala/com/helio/domain/panels/README.md`,
+  `backend/src/main/scala/com/helio/api/protocols/pipelines/README.md`,
+  `backend/src/main/scala/com/helio/api/routes/pipelines/README.md`,
+  `backend/src/main/scala/com/helio/api/protocols/panels/README.md`,
+  `backend/src/main/scala/com/helio/api/routes/panels/README.md`,
+  `backend/src/main/scala/com/helio/services/panels/README.md`.
+- `schemas/patch-sets/patch-set.schema.json` — removed the deleted `dataType` (and non-existent
+  `metric`, never present) target kind from `EditTarget.kind`'s enum and the schema's/Edit's
+  description strings; the app-level `recognizedKinds` (`PatchSetProtocol.scala`) already rejects
+  it — this closed the phantom-deferral gap where `execution-progress.md` had pointed at a
+  non-existent section-3/4 task (deletion-sweep CR 2).
+- `openspec/changes/outputs-model-migration/specs/workspace-resource-search/spec.md` — corrected
+  the "DataTypes and Metrics are no longer a searchable kind" scenario, which asserted the
+  opposite of shipped behavior (`WorkspaceResourceType.DataType` and the `"dataType"` wire value
+  are retained, only `metric` was removed) — now documents the `dataType` kind as a deliberate,
+  named transitional label (wire-contract-diff CR 1).
+- `openspec/changes/outputs-model-migration/design.md` — extended the "exactly two" wire-naming
+  exemption list to the actual four field-name exemptions plus one wire-value exemption:
+  `PipelineAnalyzeProposalResponse.outputDataTypeName`, its `AssistantProposalToolSchemas` mirror,
+  and the `"dataType"` `WorkspaceResourceType`/`resourceType` wire value (wire-contract-diff CR 2).

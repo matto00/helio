@@ -285,6 +285,26 @@ ALTER TABLE binary_refs ALTER COLUMN data_type_id DROP NOT NULL;
 -- ord)` preserves the original field order (no reason to assume `fields`
 -- is already order-stable through a bare `jsonb_agg`).
 
+-- `hel904_migration_counts` is created here (rather than at section 10,
+-- where it originally first appeared) because this section is now also a
+-- destructive step that needs to log a count: the pre-existing
+-- `alert_rules.target_data_type_id`/`alert_events` FK to `data_types` is
+-- `ON DELETE CASCADE` (verified against the live V93 schema), so the
+-- `DELETE FROM data_types` below silently cascade-deletes any alert
+-- rule/event pointing at a companion type. Every other destructive step in
+-- this file logs a count here; this one previously didn't.
+CREATE TABLE hel904_migration_counts (
+  step  TEXT PRIMARY KEY,
+  count INT NOT NULL
+);
+
+INSERT INTO hel904_migration_counts (step, count)
+SELECT 'alert_rules_cascade_deleted_companion_type', count(*)
+FROM alert_rules ar
+JOIN data_types dt ON dt.id = ar.target_data_type_id
+WHERE dt.source_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM pipelines p WHERE p.output_data_type_id = dt.id);
+
 UPDATE data_sources ds
 SET inferred_schema = agg.schema
 FROM (
@@ -532,7 +552,14 @@ BEGIN
 
       new_step_id := 'hel904-tail-' || panel_row.id;
 
-      SELECT COALESCE(MAX(position) + 1, 0) INTO next_position
+      -- This step must land on a TAIL, never the trunk: the trunk/tail
+      -- invariant (design spec `pipeline_steps` row; PipelineStepRepository
+      -- .trunkOf/.tailsOf) says at most one position-0 child per node is the
+      -- trunk continuation, all others (position >= 1) are tails. The
+      -- trunk-last step has no existing children, so a bare
+      -- `COALESCE(MAX(position)+1, 0)` falls through to 0 and would silently
+      -- put this per-panel aggregation on the trunk itself. Force >= 1.
+      SELECT GREATEST(COALESCE(MAX(position) + 1, 0), 1) INTO next_position
       FROM pipeline_steps
       WHERE pipeline_id = pipeline_row.id
         AND ((parent_step_id IS NULL AND trunk_last_id IS NULL) OR parent_step_id = trunk_last_id);
@@ -629,10 +656,8 @@ WHERE pl.output_data_type_id = br.data_type_id
 -- session-scoped TEMP table would vanish before this file's own test suite
 -- could inspect it.
 
-CREATE TABLE hel904_migration_counts (
-  step  TEXT PRIMARY KEY,
-  count INT NOT NULL
-);
+-- `hel904_migration_counts` was already created back in section 8, since
+-- that section also became a destructive step this cycle (see its comment).
 
 INSERT INTO hel904_migration_counts (step, count)
 SELECT 'stranded_output_panels_deleted', count(*)
@@ -892,6 +917,39 @@ UPDATE alert_events ae
 SET target_output_id = ar.target_output_id
 FROM alert_rules ar
 WHERE ae.alert_rule_id = ar.id AND ar.target_output_id IS NOT NULL;
+
+-- ── 14a. Data migration: quarantine alert rules/events left with no
+--        target_output_id (task 2.9(f) completion) ─────────────────────────
+--
+-- The retarget above only resolves rules whose `target_data_type_id`
+-- both (a) is some pipeline's `output_data_type_id` AND (b) has a
+-- resolvable Output on that pipeline's original-trunk-last node. A rule
+-- targeting a type with NO owning pipeline (companion type already
+-- deleted by section 8's cascade, or -- pre-that-delete -- a type nobody
+-- ever wired to a pipeline) falls through with `target_output_id` still
+-- NULL. Ticket scope item 6 and the design spec both require
+-- `target_output_id NOT NULL`; leaving such a row in place would make it
+-- permanently unrepresentable once `target_data_type_id` is dropped
+-- (section 20) -- `AlertRuleRepository`/`AlertEventRepository` both throw
+-- `IllegalStateException` reading a NULL `target_output_id`. Same
+-- destructive-with-a-logged-count pattern as every other DELETE in this
+-- file (e.g. section 10's `stranded_output_panels_deleted`).
+
+INSERT INTO hel904_migration_counts (step, count)
+SELECT 'alert_rules_deleted_unresolvable_target', count(*)
+FROM alert_rules
+WHERE target_output_id IS NULL;
+
+INSERT INTO hel904_migration_counts (step, count)
+SELECT 'alert_events_deleted_unresolvable_target', count(*)
+FROM alert_events
+WHERE target_output_id IS NULL;
+
+DELETE FROM alert_events WHERE target_output_id IS NULL;
+DELETE FROM alert_rules WHERE target_output_id IS NULL;
+
+ALTER TABLE alert_rules ALTER COLUMN target_output_id SET NOT NULL;
+ALTER TABLE alert_events ALTER COLUMN target_output_id SET NOT NULL;
 
 -- ── 15. Patch-set journal cleanup (ticket.md scope item 9) ─────────────────
 --

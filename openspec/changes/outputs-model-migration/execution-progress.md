@@ -3718,3 +3718,92 @@ credential material); mutation-testing proof confirms both defect-catching asser
 against the scrubbed fixture; fixture was NOT shrunk (justification above); `sbt compile`/`sbt test`
 both green, single-threaded, fresh this turn. No escalations raised. Branch still not pushed to any
 remote.
+
+---
+
+## Cycle 4 — final gate, round 1: three of four parallel skeptics REFUTEd
+
+Four independent opus skeptics ran in parallel against HEAD `dc95ccc4`, each covering a different
+axis. Results: `final-skeptic-migration-correctness.md` REFUTE, `final-skeptic-deletion-sweep.md`
+REFUTE, `final-skeptic-wire-contract-diff.md` REFUTE, `final-skeptic-schema-openspec-consistency.md`
+CONFIRM (no action required on that axis).
+
+**All 8 numbered change requests resolved this cycle** (migration-correctness 1-4 prioritized
+first per the orchestrator's instruction, deletion-sweep 5-6 and wire-contract-diff 7-8 next):
+
+1. **(Critical) Aggregate-tail trunk-placement bug fixed.** `V94__outputs_model.sql` section 9's
+   `next_position` computation was `COALESCE(MAX(position)+1, 0)`, which fell through to `0` (the
+   trunk's own sibling position) whenever the trunk-last step had zero pre-existing children —
+   4 of 5 real aggregate tails on the dev DB landed on the trunk itself, silently changing the
+   pipeline's actual execution semantics. Fixed to
+   `GREATEST(COALESCE(MAX(position)+1, 0), 1)`. New assertion in `V94OutputsMigrationSpec` checks
+   `position >= 1` for every migration-created tail, which the old "create exactly one aggregate
+   tail" test's name promised but never verified.
+2. **(Critical) Orphaned alert rules fixed.** New migration section 14a deletes (with a logged
+   count) any `alert_rules`/`alert_events` row left with `target_output_id IS NULL` after
+   section 14's retarget, then applies `ALTER ... SET NOT NULL` on both tables — ticket scope item
+   6's requirement, previously never applied. No such row exists on the real dev DB today
+   (confirmed by the unchanged green suite), but the column is no longer silently nullable for
+   prod.
+3. **(Major) Cascade-deleted alert rules now logged.** Section 8's `DELETE FROM data_types` (for
+   companion types) cascade-deletes any `alert_rules`/`alert_events` row via the pre-existing
+   `ON DELETE CASCADE` FK. Moved `hel904_migration_counts`'s `CREATE TABLE` earlier (was section
+   10) and added an `alert_rules_cascade_deleted_companion_type` count logged immediately before
+   the `DELETE`, matching every other destructive step's discipline in this file.
+4. **(Major) Aggregate-tail test now asserts tail-ness**, not just op/config (see item 1).
+5. **(Major) `computed_fields` -> `compute`-step migration now has direct test coverage** — a new
+   test group captures real pre-migration `computed_fields` data and asserts count, op,
+   config keys/values (`column`/`expression`/`type`), and the parent chain for every real compute
+   step this migration creates.
+6. **(Minor) `node_snapshots` RLS assertion de-vacuated** — `asOwner should not be empty`
+   (was `size should be >= 0`, unconditionally true), plus a new red-proof
+   (drop/recreate `node_snapshots_select`) and a new grantee-read test, matching the existing
+   three-part `outputs`-table RLS proof.
+7. **Six stale package READMEs updated** to describe post-deletion contents (`OutputPanel`/
+   `OutputBindingSpec` instead of the deleted `ChartPanel`/`MetricPanel`/`TablePanel`/
+   `TimelinePanel`/`CollectionPanel`/`PanelBindingSpec`; no more `DataTypeProtocol`/`DataTypeRoutes`
+   mentions; `BoundPanelProtocol`/`BoundPanelRoutes`/`BoundPanelService` all removed from their
+   respective "Holds" lists).
+8. **`schemas/patch-sets/patch-set.schema.json`'s `dataType` target kind removed**, matching
+   `PatchSetProtocol.scala`'s `recognizedKinds` (which never included it). This closes the exact
+   phantom-deferral pattern flagged four times now on this ticket:
+   `execution-progress.md`'s prior note pointed at "section 3/4's consumer-rewire job" for this
+   exact narrowing, and no such task exists anywhere in `tasks.md` — grepped and confirmed absent
+   before writing this note, per this cycle's explicit instruction.
+9. **`workspace-resource-search` spec delta corrected** — it asserted `dataType` was removed as a
+   `find` result kind; the shipped code (verified: `WorkspaceResourceType.scala`,
+   `WorkspaceSearchService.scala`, a passing `WorkspaceSearchServiceSpec` assertion) retains it as
+   a transitional label now sourced from `OutputRepository`. Rewrote the scenario to match shipped
+   behavior instead of changing code to match an unexecuted plan (the `metric` kind removal, which
+   the shipped code also does, was already correct and is unchanged).
+10. **`design.md`'s wire-naming exemption list extended** from two to four field-name exemptions
+    (added `PipelineAnalyzeProposalResponse.outputDataTypeName` and its
+    `AssistantProposalToolSchemas` JSON-schema mirror) plus a fifth, distinct wire-VALUE exemption
+    for the `"dataType"` `resourceType` discriminator (see item 9) — no code change, documentation
+    only, so a future reader/P1.4 does not have to rediscover these by grep.
+
+**Not fixed this cycle, explicitly out of scope for the 8 numbered items:** the frontend
+`patchSet.ts` TypeScript union type (`frontend/src/features/patchSets/types/patchSet.ts:9`) still
+lists `"dataType"` as a valid `EditTarget.kind`, mirroring the backend schema's pre-fix shape —
+same defect class as CR 6 above but on the frontend, and this ticket's own "Out of scope" section
+excludes frontend/MCP consumer rewiring except the six drift-checked files task 5.7 already names.
+Flagging for whoever next touches `patchSet.ts` (likely HEL-907/P1.4, per the same ownership
+pattern as the other wire-naming exemptions above) rather than fixing unilaterally.
+
+**Verification, fresh this turn:**
+- `sbt clean compile` / `sbt Test/compile`: clean, 0 errors (11 pre-existing warnings, unrelated to
+  this cycle's changes).
+- `sbt testOnly ...V94OutputsMigrationSpec`: **26/26 green** (was 24; +2 new node_snapshots RLS
+  tests), including the new `position >= 1` tail assertion and the new compute-fields test group,
+  both passing on the first run against the real fixture — no fixture changes were needed.
+- Full `sbt -batch "set Test/parallelExecution := false" test` (HEL-924 single-threaded protocol,
+  fresh clean-compiled run): **3345 tests, 225 suites, 0 aborted, 0 failed, all green**, 188s.
+- `node scripts/check-schema-drift.mjs`: exit 0, "60 checked across 46 protocol files", "panel-type
+  enums in sync ... 7 surfaces" — unaffected by this cycle's schema edit (patch-set schema is not
+  one of the drift-checked surfaces).
+- `patch-set.schema.json` re-validated as well-formed JSON after editing.
+
+**Status for the next look:** all 8 numbered change requests from this round resolved; compile and
+full single-threaded test suite green, fresh this turn. No escalations raised — every finding was
+an ordinary implementation fix within the confirmed design, as the skeptics themselves
+characterized them. Branch still not pushed to any remote.

@@ -6,10 +6,14 @@ already assembles for `get_workspace_context`, now sourced from pipelines' Outpu
 `inferredSchema` instead of DataTypes/Metrics; pre-existing dashboard/pipeline/source search
 behavior SHALL otherwise remain unchanged.
 
-#### Scenario: DataTypes and Metrics are no longer a searchable kind
+#### Scenario: Metrics are no longer a searchable kind; the `dataType` kind is retained as a transitional label now carrying Outputs
 - **WHEN** `find` is called after the outputs-model migration
-- **THEN** its result kinds no longer include `dataType` or `metric`; Outputs are reachable via
-  their owning pipeline until a dedicated Output search kind lands (P1.3/P1.4)
+- **THEN** its result kinds no longer include `metric` (Metrics were deleted outright); the
+  `dataType` result kind is RETAINED as a transitional wire label — its results are now sourced
+  from `OutputRepository` rather than the deleted `DataTypeRepository`. Renaming this wire value
+  is deferred to whichever P1.4-adjacent ticket rewires the 30+ frontend/MCP consumers of
+  `dataType`-kind search results (see design.md's wire-naming exemption list); it is not part of
+  this migration's scope
 
 #### Scenario: Dashboard/pipeline/source search is unaffected
 - **WHEN** `find` searches for a dashboard, pipeline, or source name
