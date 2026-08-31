@@ -103,7 +103,6 @@ class PatchSetPreviewRoutesSpec
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-      AclResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
@@ -117,7 +116,7 @@ class PatchSetPreviewRoutesSpec
 
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     patchSetApplyService = new PatchSetApplyService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
+      panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
       metricRepo, accessChecker, applicationRepo
     )
@@ -158,9 +157,9 @@ class PatchSetPreviewRoutesSpec
 
       val body = PatchSet(None, Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Previewed title"), None, None, None)), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Previewed title"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some("Previewed dashboard"), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some("Previewed dashboard"), None, None)), None, None, None, None)
       ))
 
       Post("/patch-sets/preview", body) ~> routesFor(userA) ~> check {
@@ -187,7 +186,7 @@ class PatchSetPreviewRoutesSpec
       val body = PatchSet(None, Vector(Edit(
         EditTarget("dashboard", Some(dashboard.id.value)), "update",
         None, Some(UpdateDashboardRequest(Some("Hijacked"), None, None)),
-        None, None, None, None, None
+        None, None, None, None
       )))
 
       Post("/patch-sets/preview", body) ~> routesFor(otherUser) ~> check {

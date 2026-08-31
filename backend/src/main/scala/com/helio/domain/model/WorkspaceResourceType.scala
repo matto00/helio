@@ -1,6 +1,6 @@
 package com.helio.domain.model
 
-/** Closed, parseable identity for the 5 resource kinds `WorkspaceSearchService.find`/`getResource`
+/** Closed, parseable identity for the 4 resource kinds `WorkspaceSearchService.find`/`getResource`
  *  (HEL-661) operate over — mirrors `DataFieldType`'s `fromString`/`asString` pairing (design.md D4),
  *  the codebase's established convention for this exact pattern (also `Role`, `PanelType`,
  *  `Severity`, `Comparator`, `ScheduleKind`, `AlertEventState`), never a bare `String` threaded
@@ -16,17 +16,15 @@ object WorkspaceResourceType {
   case object DataType   extends WorkspaceResourceType
   case object Pipeline   extends WorkspaceResourceType
   case object Dashboard  extends WorkspaceResourceType
-  case object Metric     extends WorkspaceResourceType
 
   def asString(t: WorkspaceResourceType): String = t match {
     case DataSource => "dataSource"
     case DataType   => "dataType"
     case Pipeline   => "pipeline"
     case Dashboard  => "dashboard"
-    case Metric     => "metric"
   }
 
-  /** Reverse of `asString`. Returns `None` for any string that isn't one of the 5 canonical wire
+  /** Reverse of `asString`. Returns `None` for any string that isn't one of the 4 canonical wire
    *  values — parsing Claude's raw tool-call `type`/`resourceTypes` arguments through this and
    *  surfacing an unparseable value as a tool-execution error is HEL-662's responsibility, not this
    *  ticket's (design.md D4). */
@@ -35,7 +33,6 @@ object WorkspaceResourceType {
     case "dataType"   => Some(DataType)
     case "pipeline"   => Some(Pipeline)
     case "dashboard"  => Some(Dashboard)
-    case "metric"     => Some(Metric)
     case _            => None
   }
 }

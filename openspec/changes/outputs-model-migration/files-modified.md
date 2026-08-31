@@ -1,110 +1,103 @@
-# Files modified (this cycle, cycle 21) — task 3.12 + partial 3.2
+# Files modified — cycle 23 (this cycle)
 
-- `backend/src/main/scala/com/helio/domain/model/model.scala` — `Output` gains a
-  `schema: Vector[SchemaField] = Vector.empty` field (additive default) so it can round-trip its
-  derived `{name, type}` schema.
-- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputRepository.scala`
-  — `rowToDomain`/`insertInternal` populate the new `schema` field; new `findAllByOwner`
-  (owner-scoped paged listing, the `WorkspaceContextService.assemble` replacement for
-  `DataTypeRepository.findAll`) and `updateSchemaInternal` (test/internal schema update) methods.
-- `backend/src/main/scala/com/helio/services/workspace/WorkspaceContextService.scala` — task
-  3.12: `dataTypeService: DataTypeService` constructor param replaced with
-  `outputRepo: OutputRepository` (same slot); new trailing `nodeSnapshotRepoOpt` param;
-  `assemble`'s `typesF`, `toDataTypeEntry`, and `buildPipeline`'s representative-Output resolution
-  all rewired onto Outputs/`NodeSnapshotRepository`; both new `outputRepo`-consuming call sites
-  degrade `outputRepo == null` to empty rather than NPE (real regression caught by
-  `ApiTokenAuthSpec`, fixed). `asNumeric`/`computeColumnStats`/`sanitizeSampleRows` untouched
-  (HEL-631 caution).
-- `backend/src/main/scala/com/helio/services/workspace/WorkspaceSearchService.scala` — task 3.2
-  (partial, forced by 3.12's signature change): `dataTypeService` constructor param replaced with
-  `outputRepo: OutputRepository`; `find`'s DataType branch and `getResource`'s DataType case
-  rewired onto `OutputRepository`, with the same null-degrades-to-empty guard on `find`.
-- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — `workspaceContextService`/
-  `workspaceSearchService` construction sites updated to pass `outputRepoOpt.orNull`/
-  `nodeSnapshotRepoOpt` instead of `dataTypeService`.
-- `backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceSpec.scala` — full
-  fixture rewrite: `createPipeline` now creates a real Output (`nodeStepId = None`) alongside its
-  legacy companion-DataType back door; `setDataTypeFields`/row-writing helpers retargeted onto
-  `OutputRepository.updateSchemaInternal`/`NodeSnapshotRepository.overwriteRows`; the
-  now-nonexistent "source-companion DataType surfaces in `dataTypes`" assertions (4.2, 4.3, HEL-372
-  4.3, 4.6b) rewritten to assert the new, correct behavior (a companion type is never surfaced;
-  every Output is unconditionally `pipelineOutput = true`).
-- `backend/src/test/scala/com/helio/services/workspace/WorkspaceSearchServiceSpec.scala` — same
-  class of fixture rewrite as above; the "source-companion type" find/getResource-parity tests
-  retargeted onto a real Output.
-- `backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceAgentContextSpec.scala`,
-  `.../api/routes/ResourceTaggingSpec.scala`, `.../api/routes/patchsets/RefinementRoutesSpec.scala`,
-  `.../services/patchsets/RefinementServiceSpec.scala` — mechanical constructor-call updates
-  (`dataTypeService` → `outputRepo`).
-- `backend/src/test/scala/com/helio/api/routes/proposals/DashboardAuthoringRoutesSpec.scala`,
-  `.../services/proposals/AuthoringTelemetrySpec.scala` — beyond the mechanical constructor swap,
-  both fixtures' shared "pipeline-output DataType" grounding fixture now also creates a real
-  pipeline + Output (the vestigial `DataType`'s id is set equal to the Output's id so existing
-  `.id.value` call sites keep resolving); `dashboardProposalService` now also passes the real
-  `outputRepo` (was `null`), needed for "output"-kind panel binding validation.
-- `backend/src/test/scala/com/helio/services/proposals/DashboardAuthoringServiceSpec.scala` —
-  mechanical constructor-call update only (doesn't exercise real grounding via DB).
-- `backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesSpec.scala` —
-  `assistantServiceWithSearch` rewired to take/mock an `OutputRepository` instead of
-  `DataTypeRepository`/`DataTypeService` for its scripted `find`/`get_resource` scenario.
-- `backend/src/test/scala/com/helio/services/assistant/AssistantServiceSpec.scala` — new
-  `dataTypeBackedOutputRepo` adapter (an `OutputRepository` subclass forwarding to the file's
-  already-stubbed `DataTypeRepository` mocks, translating `DataType` → `Output`) lets every
-  existing `dtRepo`-stubbing test block keep driving `find`/`get_resource` unchanged, with zero
-  per-test-block edits.
-- `backend/src/test/scala/com/helio/services/assistant/AssistantToolExecutorSpec.scala` —
-  `newExecutor` now wires its existing `outputRepo` param into `WorkspaceContextService`/
-  `WorkspaceSearchService` (previously only used for `DashboardProposalService`); the two tests
-  exercising `get_resource("dataType")`/`find` directly now stub a real `OutputRepository` mock
-  alongside their existing `DataTypeRepository` stub (`PanelCapabilityService`'s still-DataType-keyed
-  capability half is unaffected, task 3.11 not yet done).
-- `openspec/changes/outputs-model-migration/tasks.md` — 3.12 marked `[x]` with a detailed
-  completion note; 3.2 annotated as partial (only `WorkspaceSearchService`'s DataType branch
-  landed, forced by 3.12; `WorkspaceTeardownRepository`/`DashboardContentsService`/
-  `AssistantToolExecutor`'s remaining DataType/Metric branches are NOT done).
+Section 3 finish: 3.2's remainder (WorkspaceSearchService Metric branch, WorkspaceTeardownRepository
+data_type branch, DashboardContentsService dead metricRepo param), 3.3 (PatchSetApplyService +
+patch-set file family: dataType removed outright as a target.kind), 3.15 (ApiRoutes.scala
+"data-type" ResourceType registration removal).
 
-## Cycle 22 additions (task 3.11/3.11a: PanelCapabilityService rewire)
+## Main sources
 
-- `backend/src/main/scala/com/helio/services/panels/PanelCapabilityService.scala` — constructor
-  rewired from `(dataTypeRepo, dataTypeRowRepo)` to `(outputRepo: OutputRepository,
-  nodeSnapshotRepo: NodeSnapshotRepository)`; `getCapabilities`'s public parameter type
-  deliberately kept as `DataTypeId` (reinterpreted internally as an `OutputId`) so zero call sites
-  need a signature change; `isPipelineOutput` now unconditionally `true` (an Output has no
-  source-companion concept); columns now derived from `output.schema`.
-- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — `panelCapabilityService` construction
-  site updated to `outputRepoOpt.orNull`/`nodeSnapshotRepoOpt.orNull`.
-- `backend/src/test/scala/com/helio/api/routes/DataTypeDataSourceAclSpec.scala` — added
-  `outputRepo`/`nodeSnapshotRepo` fields; new `seedOwnedOutput` helper (real
-  data_sources→pipelines→outputs chain) for the two `panel-capabilities` route tests, which
-  previously seeded only a bare DataType with no matching Output.
-- `backend/src/test/scala/com/helio/api/routes/ResourceTaggingSpec.scala`,
-  `backend/src/test/scala/com/helio/api/routes/patchsets/RefinementRoutesSpec.scala`,
-  `backend/src/test/scala/com/helio/api/routes/proposals/DashboardAuthoringRoutesSpec.scala`,
-  `backend/src/test/scala/com/helio/services/patchsets/RefinementServiceSpec.scala`,
-  `backend/src/test/scala/com/helio/services/proposals/AuthoringTelemetrySpec.scala`,
-  `backend/src/test/scala/com/helio/services/proposals/DashboardAuthoringServiceSpec.scala`,
-  `backend/src/test/scala/com/helio/api/routes/pipelines/DataTypeRoutesSpec.scala` — mechanical
-  constructor-call updates onto `(outputRepo, nodeSnapshotRepo)` (adding those fields/imports
-  where not already present).
-- `backend/src/test/scala/com/helio/services/assistant/AssistantServiceSpec.scala` — reuses the
-  existing `dataTypeBackedOutputRepo` adapter for `panelCapabilityService` too; removed the
-  now-unused `rowRepo` mock.
-- `backend/src/test/scala/com/helio/services/assistant/AssistantToolExecutorSpec.scala` —
-  `panelCapabilityService` now built from the same `outputRepo` param `newExecutor` already
-  threads to the other workspace services.
-- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceSpec.scala` — added an
-  `outputRepo` field; `runHeterogeneous` now seeds a companion Output (schema copied from the
-  DataType `upsertFieldsFromRows` just wrote) since this suite's `service` never wires an
-  `OutputRepository` on the run path (that's P1.2/HEL-905's job), then resolves capabilities
-  against the Output's own generated id.
-- `backend/src/test/scala/com/helio/services/panels/PanelCapabilityServiceSpec.scala` — REWRITTEN
-  in full onto `OutputRepository`/`NodeSnapshotRepository` (real Output/pipeline/data-source
-  fixtures via `insertPipeline`/`insertOutput`/`writeRows`); the prior 5.3 "source-companion
-  DataType reports no bindable panels" case is RETIRED with an inline comment (an Output has no
-  source-companion concept, so that state can no longer occur) — not carried over as dead-code
-  coverage. This file's subject was NOT deleted alongside a route deletion this cycle (contrary to
-  tasks.md's original 3.11a plan) because section 4 hasn't started yet and the route it backs is
-  still live; rewriting preserves real coverage instead.
-- `openspec/changes/outputs-model-migration/tasks.md` — 3.11/3.11a marked `[x]` with detailed
-  completion notes, including the deliberate correction to 3.11a's "delete, don't rewire" plan for
-  `PanelCapabilityServiceSpec`/`DataTypeRoutesSpec`.
+- `backend/src/main/scala/com/helio/services/workspace/WorkspaceSearchService.scala` — Metric
+  branch (constructor param, find/getResource cases, toMetricSummary/toMetricDetail) removed
+  outright, not retargeted.
+- `backend/src/main/scala/com/helio/services/workspace/WorkspaceAssistantTools.scala` — `"metric"`
+  dropped from the `find`/`get_resource` `ResourceTypeEnum` and tool descriptions.
+- `backend/src/main/scala/com/helio/domain/model/WorkspaceResourceType.scala` — `Metric` case
+  object removed (asString/fromString).
+- `backend/src/main/scala/com/helio/api/protocols/workspace/WorkspaceResourceSearchProtocol.scala`
+  — `WorkspaceResourceMetric`/`WorkspaceResourceDetail.MetricDetail` wire shapes removed;
+  `MetricProtocol` mixin dropped.
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — `assistantServiceOpt` no longer gated on
+  `metricServiceOpt` (WorkspaceSearchService no longer needs a `metricService` arg);
+  `patchSetApplyService`/`patchSetUndoService` constructor calls drop `dataTypeService`;
+  `"data-type"` `ResourceType` registration removed (task 3.15).
+- `backend/src/main/scala/com/helio/infrastructure/persistence/workspace/WorkspaceTeardownRepository.scala`
+  — `resourceKind = "data_type"` branch (and its 3 guards: output-DataType-dependent-pipeline,
+  source-link, panel-bound) removed outright; `dataTypeRepo` dropped from the constructor;
+  `typesDeleted` removed from `TeardownOutcome`.
+- `backend/src/main/scala/com/helio/services/workspace/WorkspaceTeardownService.scala` —
+  `typesDeleted` removed from the audit-metadata object and `TeardownResponse` mapping.
+- `backend/src/main/scala/com/helio/api/protocols/workspace/WorkspaceProtocol.scala` —
+  `TeardownResponse.typesDeleted` removed (jsonFormat8 → jsonFormat7).
+- `schemas/workspace/workspace-teardown-response.schema.json` — `typesDeleted` property/required
+  entry removed; `TeardownConflict.resourceKind` enum narrowed to `["data_source"]`.
+- `backend/src/main/scala/com/helio/services/dashboards/DashboardContentsService.scala` — dead
+  `metricRepo: MetricRepository` constructor param removed (unused since task 3.9); `dataTypeRepo`
+  kept (still backs non-`"output"`-kind panel-binding validation).
+- `backend/src/main/scala/com/helio/api/protocols/patchsets/PatchSetProtocol.scala` — `"dataType"`
+  removed from `recognizedKinds`; `Edit.dataTypePatch`/`UpdateDataTypeRequest` removed from the
+  wire case class and its reader/writer.
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala` —
+  `resolveDataTypeUpdate`/`resolveDataTypeDelete` and their `("dataType", ...)` dispatch cases
+  removed (falls through to the existing generic "unsupported target.kind" rejection).
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyTypes.scala` —
+  `ResolvedAction.DataTypeUpdate`/`DataTypeDelete` and `PatchSetApplyServices.dataTypeService`
+  removed; `PatchSetApplyContext.dataTypeRepo`/`dataTypeService` (on `PatchSetApplyService` itself)
+  KEPT (still used by panel-binding validation, unrelated to target.kind).
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyForward.scala` /
+  `PatchSetApplyRollback.scala` — `dataType` ResolvedAction cases removed;
+  `fullDataTypeInverse` removed from Rollback.
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyService.scala` —
+  `dataTypeService` constructor param removed.
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyServiceJson.scala` —
+  `DataTypeProtocol` mixin removed (unused after the above).
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewProjection.scala` /
+  `PatchSetPreviewImpact.scala` — `dataType`-update/-delete content checks and the
+  `DataTypeDelete` unbind-hint case removed.
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoTypes.scala` /
+  `PatchSetUndoConflictCheck.scala` / `PatchSetUndoService.scala` / `PatchSetUndoInverse.scala` —
+  `dataType` undo-restore/conflict-check paths, `PatchSetUndoContext.dataTypeRepo`,
+  `PatchSetUndoService`'s `dataTypeService`/`dataTypeRepo` constructor params, and
+  `fullDataTypeInverse` all removed.
+- `backend/src/main/scala/com/helio/services/patchsets/RefinementEditShape.scala` — Claude-facing
+  prompt text no longer documents `"dataType"` as a valid target.kind/update-patch example.
+
+## Tests
+
+- `backend/src/test/scala/com/helio/services/workspace/WorkspaceSearchServiceSpec.scala` — metric
+  fixtures/tests removed; constructor call updated.
+- `backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesSpec.scala`,
+  `backend/src/test/scala/com/helio/services/assistant/AssistantToolExecutorSpec.scala`,
+  `backend/src/test/scala/com/helio/services/assistant/AssistantServiceSpec.scala` —
+  `WorkspaceSearchService` constructor calls drop the `metricService` arg.
+- `backend/src/test/scala/com/helio/services/workspace/WorkspaceTeardownServiceSpec.scala` —
+  sections 6.5/6.6/6.12 (data_type-guard scenarios) removed; 6.3/6.4/6.6a/6.7/6.8/6.9 updated to
+  drop `typesDeleted` assertions and companion-DataType-deletion expectations (a companion now
+  survives its source's deletion, orphaned but present); dead `panelRepo`/`dashboardRepo`/
+  `TextPanel` fixtures removed.
+- `backend/src/test/scala/com/helio/api/routes/ResourceTaggingSpec.scala` — `WorkspaceTeardownRepository`
+  constructor call drops `dataTypeRepo`.
+- `backend/src/test/scala/com/helio/api/AuditMutationInstrumentationSpec.scala` — `typesDeleted`
+  assertions removed from the two teardown-audit tests.
+- `backend/src/test/scala/com/helio/api/protocols/patchsets/PatchSetProtocolSpec.scala` —
+  `dataTypePatch` field/assertions removed; 2 new tests assert `"dataType"`/`"metric"` are rejected
+  as target kinds.
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetApplyServiceSpec.scala` — mechanical
+  `Edit(...)` 9→8-arg fix throughout; tests 7.7/7.10c rewritten onto a `dataSource`-delete scenario
+  (same "unrecoverable, not silently hidden" intent, `dataType` no longer usable for it);
+  `dataTypeService`/`dataTypeRowRepo` fixtures removed (dead after the constructor change).
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewServiceSpec.scala` — 6
+  dataType-content-check/hint test scenarios (6.4d/e/f/g, 6.5h/i/j) removed outright (the checks
+  they exercised no longer exist); `dataTypeResponseNormalized` helper and now-unused imports
+  removed.
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoServiceSpec.scala` — 5.3a's
+  edit set drops its `dataType` update edit (5 restored edits, not 6); constructor calls updated.
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetPreviewRoutesSpec.scala`,
+  `PatchSetRoutesSpec.scala`, `PatchSetUndoRoutesSpec.scala`,
+  `backend/src/test/scala/com/helio/services/patchsets/RefinementServiceSpec.scala` — mechanical
+  `Edit(...)` fix + constructor-arg drops + `"data-type"` `AclResourceType` registration removed.
+
+## OpenSpec / schema
+
+- `openspec/changes/outputs-model-migration/tasks.md` — 3.2/3.3/3.15 marked `[x]` with detailed
+  completion notes; section 3 is now 15/15 `[x]`.

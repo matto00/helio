@@ -15,16 +15,17 @@ import spray.json.{JsArray, JsObject, JsString}
  *  `WorkspaceSearchService` invocation is HEL-662's responsibility (design.md D4), not this ticket's. */
 object WorkspaceAssistantTools {
 
-  /** The 5 canonical `WorkspaceResourceType` wire values (`WorkspaceResourceType.asString`), spelled
+  /** The 4 canonical `WorkspaceResourceType` wire values (`WorkspaceResourceType.asString`), spelled
    *  out here as a JSON Schema `enum` so Claude only ever proposes a parseable `type`/`resourceTypes`
-   *  value. */
-  private val ResourceTypeEnum: Vector[String] = Vector("dataSource", "dataType", "pipeline", "dashboard", "metric")
+   *  value. HEL-904 task 3.2: `"metric"` is removed outright (not retargeted) -- metrics are
+   *  retired, not a searchable kind anymore. */
+  private val ResourceTypeEnum: Vector[String] = Vector("dataSource", "dataType", "pipeline", "dashboard")
 
   val findTool: ClaudeTool = ClaudeTool(
     name = "find",
     description =
       "Keyword/substring search across the workspace's data sources, DataTypes, pipelines, " +
-      "dashboards, and metrics. Returns compact summaries (id, resourceType, name, description) " +
+      "and dashboards. Returns compact summaries (id, resourceType, name, description) " +
       "for the top matches. Use this to locate a resource before fetching its full detail with " +
       "get_resource.",
     inputSchema = JsObject(
@@ -51,8 +52,8 @@ object WorkspaceAssistantTools {
     name = "get_resource",
     description =
       "Fetch full detail for one specific workspace resource by id and type: a pipeline's steps, " +
-      "a DataType's columns/sample rows/column stats, a dashboard's panel count, a data source's " +
-      "metadata, or a metric's full definition.",
+      "a DataType's columns/sample rows/column stats, a dashboard's panel count, or a data source's " +
+      "metadata.",
     inputSchema = JsObject(
       "type" -> JsString("object"),
       "properties" -> JsObject(

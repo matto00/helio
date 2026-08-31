@@ -4,7 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.patchsets.{EditOutcome, PatchSet, PatchSetApplyResponse}
 import com.helio.domain.panels.PanelConfigCodec
@@ -44,11 +44,12 @@ import scala.concurrent.{ExecutionContext, Future}
  *      D3/D3a) and the response reports each edit's outcome honestly —
  *      never silently overclaiming a rollback that couldn't fully restore
  *      the resource (design.md D1's "unrecoverable"/"recreated" tiers). */
+// HEL-904 task 3.3: `dataTypeService` REMOVED outright -- `dataType` is no
+// longer a valid target.kind, so forward-apply/rollback never invoke it.
 final class PatchSetApplyService(
     panelService: PanelService,
     dashboardService: DashboardService,
     dataSourceService: DataSourceService,
-    dataTypeService: DataTypeService,
     pipelineService: PipelineService,
     panelRepo: PanelRepository,
     dashboardRepo: DashboardRepository,
@@ -72,7 +73,7 @@ final class PatchSetApplyService(
     PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo, metricRepo, accessChecker)
 
   private val services: PatchSetApplyServices =
-    PatchSetApplyServices(panelService, dashboardService, dataSourceService, dataTypeService, pipelineService)
+    PatchSetApplyServices(panelService, dashboardService, dataSourceService, pipelineService)
 
   def apply(patchSet: PatchSet, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetApplyResponse]] =
     PatchSetApplyResolvers.resolveAll(patchSet.edits, user, context).flatMap {

@@ -1,6 +1,6 @@
 package com.helio.services.patchsets
 
-import com.helio.api.protocols.pipelines.{ComputedFieldPayload, CreatePipelineStepRequest, DataFieldPayload, DataTypeResponse, PipelineStepConfigCodec, UpdateDataTypeRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
@@ -126,15 +126,8 @@ private[services] object PatchSetApplyRollback {
         // design.md D1: cascades to pipelines; ten heterogeneous create paths.
         Future.successful(edit.toOutcome("unrecoverable"))
 
-      // ── dataType (no create — design.md D1) ───────────────────────────
-      case ResolvedAction.DataTypeUpdate(id, _, prior) =>
-        services.dataTypeService.update(id, fullDataTypeInverse(prior), user).map {
-          case Right(dt) => edit.toOutcome("rolledBack", resultingState = Some(dataTypeResponseFormat.write(DataTypeResponse.fromDomain(dt))))
-          case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
-        }
-      case ResolvedAction.DataTypeDelete(_, _) =>
-        // design.md D1: no create API to restore via — hard constraint.
-        Future.successful(edit.toOutcome("unrecoverable"))
+      // HEL-904 task 3.3: the `dataType` ResolvedAction cases (update/delete)
+      // are REMOVED outright -- see `PatchSetApplyForward`'s identical note.
 
       case ResolvedAction.PipelineCreate(_) =>
         forwardOutcome.newId match {
@@ -284,13 +277,6 @@ private[services] object PatchSetApplyRollback {
       ))
     )
   }
-
-  private def fullDataTypeInverse(prior: DataType): UpdateDataTypeRequest =
-    UpdateDataTypeRequest(
-      name           = Some(prior.name),
-      fields         = Some(prior.fields.map(f => DataFieldPayload(f.name, f.displayName, f.dataType, f.nullable))),
-      computedFields = Some(prior.computedFields.map(cf => ComputedFieldPayload(cf.name, cf.displayName, cf.expression, cf.dataType)))
-    )
 
   private def fullPipelineStepInverse(prior: PipelineStep): UpdatePipelineStepRequest =
     UpdatePipelineStepRequest(

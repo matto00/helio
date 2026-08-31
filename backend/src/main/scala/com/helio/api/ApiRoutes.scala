@@ -205,7 +205,6 @@ final class ApiRoutes(
     ResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
     ResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
     ResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-    ResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
     ResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
   )
 
@@ -251,7 +250,7 @@ final class ApiRoutes(
   private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo, metricRepo, outputRepoOpt.orNull)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // dataTypeRepo/accessChecker instances the other dashboard/panel services use.
-  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker, metricRepo, auditService, outputRepoOpt.orNull)
+  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker, auditService, outputRepoOpt.orNull)
   // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
@@ -332,7 +331,7 @@ final class ApiRoutes(
   // writes of its own. HEL-413: also takes patchSetApplicationRepo, to
   // journal a successful (no `failure`) apply (design.md D2).
   private val patchSetApplyService = new PatchSetApplyService(
-    panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
+    panelService, dashboardService, dataSourceService, pipelineService,
     panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
     metricRepo, accessChecker, patchSetApplicationRepo
   )
@@ -349,8 +348,8 @@ final class ApiRoutes(
   // which undo's own Phase-1/Phase-2 passes never need -- design.md D4/D4a), plus
   // patchSetApplicationRepo to load the journal row.
   private val patchSetUndoService = new PatchSetUndoService(
-    panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
-    panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
+    panelService, dashboardService, dataSourceService, pipelineService,
+    panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
     patchSetApplicationRepo
   )
   // HEL-904 task 3.6/4.1: `BoundPanelService` (`POST /api/panels/bound`) is
@@ -451,7 +450,7 @@ final class ApiRoutes(
   // /api/workspace/teardown route mounted.
   private val workspaceTeardownServiceOpt: Option[WorkspaceTeardownService] =
     Option(dbContext).map(ctx =>
-      new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx, dataTypeRepo), fileSystem, auditService)
+      new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx), fileSystem, auditService)
     )
   // HEL-821: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
   // fixtures that don't pass a DbContext simply don't get the /api/connectors routes
@@ -540,24 +539,22 @@ final class ApiRoutes(
     }
 
   // HEL-665 (reopened composer ticket) design.md D2: SAME nullable-optional wiring pattern as
-  // dashboardAuthoringServiceOpt/refinementServiceOpt above, gated on ClaudeConfig.fromEnv() AND
-  // metricServiceOpt (metricServiceOpt is a genuinely NEW gating dimension neither of those two
-  // needs — WorkspaceSearchService's 5th dependency, metricService, only exists behind that
-  // nullable-metricRepo gate, independent of dbContext). Constructs WorkspaceSearchService (HEL-661)
-  // for the first time anywhere in this file. A fresh ClaudeClient/HttpClaudeTransport pair is
-  // constructed here (never shared), mirroring both sibling *ServiceOpt vals' own "fresh client per
-  // service" convention exactly.
+  // dashboardAuthoringServiceOpt/refinementServiceOpt above, gated on ClaudeConfig.fromEnv() alone.
+  // Constructs WorkspaceSearchService (HEL-661) for the first time anywhere in this file. A fresh
+  // ClaudeClient/HttpClaudeTransport pair is constructed here (never shared), mirroring both
+  // sibling *ServiceOpt vals' own "fresh client per service" convention exactly.
+  //
+  // HEL-904 task 3.2: no longer additionally gated on metricServiceOpt — WorkspaceSearchService's
+  // Metric branch is removed outright (not retargeted), so metricService is no longer one of its
+  // constructor dependencies.
   private val assistantServiceOpt: Option[AssistantService] =
-    (ClaudeConfig.fromEnv(), metricServiceOpt) match {
-      case (Left(reason), _) =>
+    ClaudeConfig.fromEnv() match {
+      case Left(reason) =>
         log.warn(s"POST /api/assistant-conversations/:id/converse disabled: $reason")
         None
-      case (Right(_), None) =>
-        log.warn("POST /api/assistant-conversations/:id/converse disabled: no MetricRepository configured")
-        None
-      case (Right(claudeConfig), Some(metricService)) =>
+      case Right(claudeConfig) =>
         val claudeClient           = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
-        val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepoOpt.orNull, pipelineService, metricService, workspaceContextService)
+        val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepoOpt.orNull, pipelineService, workspaceContextService)
         Some(new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, proposalService, pipelineProposalService, combinedProposalService, patchSetPreviewService, sourceService))
     }
 

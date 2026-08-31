@@ -10,8 +10,8 @@ import scala.concurrent.{ExecutionContext, Future}
  *  engine. One rule per (kind, op), each backed by a real, already-confirmed
  *  cascade/staleness fact. Every hint here is a READ (never a write), and
  *  this object is only ever reached for an edit `PatchSetPreviewProjection`
- *  did NOT already reject (design.md D4's dataType-delete hint is ONLY
- *  computed when the owned-panel content check already returned `false`). */
+ *  did NOT already reject. HEL-904 task 3.3: the `dataType`-delete hint is
+ *  REMOVED outright -- `dataType` is no longer a valid target.kind. */
 private[services] object PatchSetPreviewImpact {
 
   private val StaleRowsHint =
@@ -22,14 +22,6 @@ private[services] object PatchSetPreviewImpact {
 
   private val DataSourceDeleteCascadeHint =
     "Cascades to any pipeline built on this source."
-
-  /** design.md D4: the app-level owned-panel check (already run by
-   *  `PatchSetPreviewProjection.dataTypeDeleteAfter`) cannot see cross-owner
-   *  bindings -- this is the one case `apply` does not reject, so preview
-   *  surfaces it as a hint instead. */
-  private val DataTypeDeleteUnbindHint =
-    "Panels shared by other users may be unbound (panels.type_id ON DELETE SET NULL, " +
-      "V5__panel_type_binding.sql:1) — not visible to this preview's ownership-scoped check."
 
   private val RebindHint =
     "Panel will be bound to a different DataType."
@@ -57,14 +49,9 @@ private[services] object PatchSetPreviewImpact {
       case ResolvedAction.DataSourceDelete(_, _) =>
         Future.successful(Vector(DataSourceDeleteCascadeHint))
 
-      // design.md D4's detection mechanism (round-2 REFUTE fix):
-      // `existsBoundToType` is RLS-scoped, never privileged -- see that
-      // method's own doc for why (no cross-tenant existence leak).
-      case ResolvedAction.DataTypeDelete(id, _) =>
-        ctx.panelRepo.existsBoundToType(id, user).map {
-          case true  => Vector(DataTypeDeleteUnbindHint)
-          case false => Vector.empty
-        }
+      // HEL-904 task 3.3: the `dataType`-delete hint (`DataTypeDelete`) is
+      // REMOVED outright -- `PatchSetProtocol.recognizedKinds` no longer
+      // accepts "dataType" as a valid target.kind.
 
       // `page.limit = 1` still returns the accurate total via the SAME
       // query's own COUNT alongside the slice -- no over-fetch.

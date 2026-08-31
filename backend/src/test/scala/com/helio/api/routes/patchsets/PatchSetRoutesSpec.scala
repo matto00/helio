@@ -99,7 +99,6 @@ class PatchSetRoutesSpec
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-      AclResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
@@ -113,7 +112,7 @@ class PatchSetRoutesSpec
 
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     patchSetApplyService = new PatchSetApplyService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
+      panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
       metricRepo, accessChecker, applicationRepo
     )
@@ -157,7 +156,7 @@ class PatchSetRoutesSpec
       val body = PatchSet(None, Vector(Edit(
         EditTarget("dashboard", Some(dashboard.id.value)), "update",
         None, Some(UpdateDashboardRequest(Some("Hijacked"), None, None)),
-        None, None, None, None, None
+        None, None, None, None
       )))
 
       Post("/patch-sets/apply", body) ~> routesFor(userB) ~> check {

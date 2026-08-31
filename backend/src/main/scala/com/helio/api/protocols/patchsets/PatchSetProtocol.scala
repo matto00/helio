@@ -2,7 +2,7 @@ package com.helio.api.protocols.patchsets
 
 import com.helio.api.protocols.dashboards.{DashboardProtocol, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{PanelProtocol, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{DataTypeProtocol, PipelineProtocol, PipelineStepProtocol, UpdateDataTypeRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{PipelineProtocol, PipelineStepProtocol, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceProtocol, UpdateDataSourceRequest}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
@@ -28,13 +28,19 @@ final case class EditTarget(kind: String, id: Option[String])
  *  (`Option[JsValue]`) for `op: create` — typed decoding against the
  *  matching `Create*Request` is an apply-time concern (design.md D2,
  *  HEL-406). All seven patch-carrier fields are `None` for `op: delete`. */
+// HEL-904 task 3.3: `dataTypePatch`/`UpdateDataTypeRequest` REMOVED outright
+// (not retargeted to an `output` field) -- per design.md's delivery-strategy
+// table, `schemas/patch-sets/*` and this wire contract's eventual `output`
+// target kind are P1.4's job (HEL-907), not this ticket's; this ticket only
+// removes `dataType`/`metric` as valid target kinds (design.md's removal
+// list groups `PatchSetApplyService` under "branches deleted", not
+// "retargeted to Outputs", unlike its four sibling services in task 3.2).
 final case class Edit(
     target: EditTarget,
     op: String,
     panelPatch: Option[UpdatePanelRequest],
     dashboardPatch: Option[UpdateDashboardRequest],
     dataSourcePatch: Option[UpdateDataSourceRequest],
-    dataTypePatch: Option[UpdateDataTypeRequest],
     pipelinePatch: Option[UpdatePipelineRequest],
     pipelineStepPatch: Option[UpdatePipelineStepRequest],
     createPatch: Option[JsValue]
@@ -48,7 +54,6 @@ trait PatchSetProtocol
     with PanelProtocol
     with DashboardProtocol
     with DataSourceProtocol
-    with DataTypeProtocol
     with PipelineProtocol
     with PipelineStepProtocol {
 
@@ -56,8 +61,11 @@ trait PatchSetProtocol
 
   // Recognized `target.kind`/`op` values — mirrors
   // schemas/patch-sets/patch-set.schema.json's EditTarget.kind and Edit.op enums.
+  // HEL-904 task 3.3: `dataType` is REMOVED outright (metric was never a
+  // recognized kind here to begin with) -- an `output` target kind is P1.4's
+  // job (HEL-907), not added in this ticket.
   private val recognizedKinds =
-    Set("panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep")
+    Set("panel", "dashboard", "dataSource", "pipeline", "pipelineStep")
   private val recognizedOps = Set("update", "delete", "create")
 
   /** Hand-written (not `jsonFormatN`) so the reader can validate `op`/
@@ -75,7 +83,6 @@ trait PatchSetProtocol
       e.panelPatch.foreach(v => fields("patch") = v.toJson)
       e.dashboardPatch.foreach(v => fields("patch") = v.toJson)
       e.dataSourcePatch.foreach(v => fields("patch") = v.toJson)
-      e.dataTypePatch.foreach(v => fields("patch") = v.toJson)
       e.pipelinePatch.foreach(v => fields("patch") = v.toJson)
       e.pipelineStepPatch.foreach(v => fields("patch") = v.toJson)
       e.createPatch.foreach(v => fields("patch") = v)
@@ -115,21 +122,20 @@ trait PatchSetProtocol
 
       val patch = obj.fields.get("patch")
 
-      val (panelPatch, dashboardPatch, dataSourcePatch, dataTypePatch, pipelinePatch, pipelineStepPatch, createPatch) =
+      val (panelPatch, dashboardPatch, dataSourcePatch, pipelinePatch, pipelineStepPatch, createPatch) =
         op match {
           case "update" =>
             target.kind match {
-              case "panel"        => (patch.map(_.convertTo[UpdatePanelRequest]), None, None, None, None, None, None)
-              case "dashboard"    => (None, patch.map(_.convertTo[UpdateDashboardRequest]), None, None, None, None, None)
-              case "dataSource"   => (None, None, patch.map(_.convertTo[UpdateDataSourceRequest]), None, None, None, None)
-              case "dataType"     => (None, None, None, patch.map(_.convertTo[UpdateDataTypeRequest]), None, None, None)
-              case "pipeline"     => (None, None, None, None, patch.map(_.convertTo[UpdatePipelineRequest]), None, None)
+              case "panel"        => (patch.map(_.convertTo[UpdatePanelRequest]), None, None, None, None, None)
+              case "dashboard"    => (None, patch.map(_.convertTo[UpdateDashboardRequest]), None, None, None, None)
+              case "dataSource"   => (None, None, patch.map(_.convertTo[UpdateDataSourceRequest]), None, None, None)
+              case "pipeline"     => (None, None, None, patch.map(_.convertTo[UpdatePipelineRequest]), None, None)
               case "pipelineStep" =>
-                (None, None, None, None, None, patch.map(_.convertTo[UpdatePipelineStepRequest]), None)
-              case _ => (None, None, None, None, None, None, None)
+                (None, None, None, None, patch.map(_.convertTo[UpdatePipelineStepRequest]), None)
+              case _ => (None, None, None, None, None, None)
             }
-          case "create" => (None, None, None, None, None, None, patch)
-          case _        => (None, None, None, None, None, None, None)
+          case "create" => (None, None, None, None, None, patch)
+          case _        => (None, None, None, None, None, None)
         }
 
       Edit(
@@ -138,7 +144,6 @@ trait PatchSetProtocol
         panelPatch        = panelPatch,
         dashboardPatch    = dashboardPatch,
         dataSourcePatch   = dataSourcePatch,
-        dataTypePatch     = dataTypePatch,
         pipelinePatch     = pipelinePatch,
         pipelineStepPatch = pipelineStepPatch,
         createPatch       = createPatch

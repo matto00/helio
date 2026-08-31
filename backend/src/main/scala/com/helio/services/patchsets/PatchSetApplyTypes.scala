@@ -3,14 +3,14 @@ package com.helio.services.patchsets
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, UpdateDataTypeRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.patchsets.EditOutcome
 import com.helio.api.protocols.sources.{StaticDataSourceRequest, UpdateDataSourceRequest}
-import com.helio.domain.model.{Dashboard, DashboardId, DataSource, DataSourceId, DataType, DataTypeId, Panel, PanelId, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{Dashboard, DashboardId, DataSource, DataSourceId, Panel, PanelId, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
@@ -47,8 +47,9 @@ private[services] object ResolvedAction {
   final case class DataSourceDelete(id: DataSourceId, prior: DataSource) extends ResolvedAction
   final case class DataSourceCreate(request: StaticDataSourceRequest) extends ResolvedAction
 
-  final case class DataTypeUpdate(id: DataTypeId, request: UpdateDataTypeRequest, prior: DataType) extends ResolvedAction
-  final case class DataTypeDelete(id: DataTypeId, prior: DataType) extends ResolvedAction
+  // HEL-904 task 3.3: `DataTypeUpdate`/`DataTypeDelete` REMOVED outright --
+  // `PatchSetProtocol.recognizedKinds` no longer accepts "dataType" as a
+  // valid target.kind, so no resolver can ever produce one of these.
 
   final case class PipelineUpdate(id: PipelineId, request: UpdatePipelineRequest, prior: PipelineSummary) extends ResolvedAction
   final case class PipelineDelete(id: PipelineId, prior: PipelineSummary) extends ResolvedAction
@@ -98,10 +99,11 @@ private[services] final case class PatchSetApplyContext(
  *  apply (design.md D1) and [[PatchSetApplyRollback]]'s compensation
  *  (design.md D3/D3a) exclusively mutate through — no direct repository
  *  writes anywhere in this ticket. */
+// HEL-904 task 3.3: `dataTypeService` REMOVED outright -- `dataType` is no
+// longer a valid target.kind, so forward-apply/rollback never invoke it.
 private[services] final case class PatchSetApplyServices(
     panelService: PanelService,
     dashboardService: DashboardService,
     dataSourceService: DataSourceService,
-    dataTypeService: DataTypeService,
     pipelineService: PipelineService
 )

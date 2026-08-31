@@ -2,7 +2,7 @@ package com.helio.services.patchsets
 
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 
 /** Read-side collaborators [[PatchSetUndoConflictCheck]]'s Phase-1 pass and [[PatchSetUndoService]]'s
@@ -14,11 +14,12 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
  *  resolve), and the caller's own ownership of the WHOLE application is already established by
  *  `PatchSetApplicationRepository.findById`'s RLS + owner check before either of these ever
  *  runs. */
+// HEL-904 task 3.3: `dataTypeRepo` REMOVED outright -- `dataType` is no
+// longer a valid target.kind, so nothing here ever reads it.
 private[services] final case class PatchSetUndoContext(
     panelRepo: PanelRepository,
     dashboardRepo: DashboardRepository,
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo: DataTypeRepository,
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository
 )

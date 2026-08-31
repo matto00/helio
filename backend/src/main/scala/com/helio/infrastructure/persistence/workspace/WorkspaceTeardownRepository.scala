@@ -1,9 +1,9 @@
 package com.helio.infrastructure.persistence.workspace
 
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.domain.model.{AuthenticatedUser, DataTypeId}
+import com.helio.domain.model.AuthenticatedUser
 import slick.jdbc.PostgresProfile.api._
 
 import java.util.UUID
@@ -14,29 +14,29 @@ import scala.concurrent.{ExecutionContext, Future}
  *
  *  **Every read and write in [[teardown]]'s composed `DBIO` runs via
  *  `ctx.withUserContext` — never `ctx.withSystemContext`.** RLS is the
- *  owner-scoping backbone this whole feature leans on; a sub-check that
- *  silently used the privileged pool would defeat that guarantee for exactly
- *  the sub-check protecting the most dangerous part of the operation. This
- *  rules out `DataSourceRepository.findByIdInternal` / `DataTypeService.
- *  checkSourceLink` (both privileged-pool) — the source-link guard below is
- *  a narrow, deliberately-duplicated re-implementation scoped to the app
- *  pool instead (design.md Decision 6 / tasks.md 3.2).
+ *  owner-scoping backbone this whole feature leans on.
  *
- *  Delete order is Pipelines → DataTypes → DataSources so the *reported*
- *  counts are precise (a pipeline deleted first means its later output-
- *  DataType / source-DataSource deletes are not double-counted as cascades),
- *  even though PostgreSQL's FK cascades would enforce correctness regardless
- *  of order (design.md Decision 3). */
+ *  Delete order is Pipelines → DataSources so the *reported* counts are
+ *  precise (a pipeline deleted first means its later source-DataSource
+ *  deletes are not double-counted as cascades), even though PostgreSQL's FK
+ *  cascades would enforce correctness regardless of order (design.md
+ *  Decision 3).
+ *
+ *  HEL-904 task 3.2: the `resourceKind = "data_type"` branch (and its three
+ *  guards -- output-DataType-dependent-pipeline, source-link, panel-bound)
+ *  is REMOVED outright, per the `workspace-tag-teardown` OpenSpec delta.
+ *  Outputs are torn down transitively via `ON DELETE CASCADE` from their
+ *  owning pipeline (see the `outputs` table's FK) -- they are no longer an
+ *  independently tagged/guarded resource kind. `DataTypeRepository` is no
+ *  longer a constructor dependency of this class. */
 class WorkspaceTeardownRepository(
-    ctx: DbContext,
-    dataTypeRepo: DataTypeRepository
+    ctx: DbContext
 )(implicit ec: ExecutionContext) {
 
   import WorkspaceTeardownRepository._
 
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
   private val pipelinesTable   = TableQuery[PipelineRepository.PipelineTable]
-  private val dataTypesTable   = TableQuery[DataTypeRepository.DataTypeTable]
 
   /** Compute the teardown plan for `tag` under `user`'s ownership and — when
    *  it is clean (no conflicts) and `dryRun` is false — execute the deletes,
@@ -51,14 +51,10 @@ class WorkspaceTeardownRepository(
     val action: DBIO[TeardownOutcome] = for {
       taggedSources   <- dataSourcesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
       taggedPipelines <- pipelinesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
-      taggedTypes     <- dataTypesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
 
       sourceDependentConflicts <- DBIO.sequence(taggedSources.map(s => sourceDependentPipelineConflict(s, tag)))
-      typeDependentConflicts   <- DBIO.sequence(taggedTypes.map(t => outputTypeDependentPipelineConflict(t, tag)))
-      sourceLinkConflicts      <- DBIO.sequence(taggedTypes.map(t => sourceLinkConflict(t, tag)))
-      panelBoundConflicts      <- DBIO.sequence(taggedTypes.map(t => panelBoundConflict(t, user)))
 
-      conflicts = (sourceDependentConflicts ++ typeDependentConflicts ++ sourceLinkConflicts ++ panelBoundConflicts).flatten.toVector
+      conflicts = sourceDependentConflicts.flatten.toVector
       // design.md Decision 4: a dry run's counts mean "would be affected",
       // not "were affected" — gate them on the set being CLEAN (no
       // conflicts), not on `committed` (which is also false for a clean dry
@@ -70,12 +66,10 @@ class WorkspaceTeardownRepository(
         if (!clean || dryRun) DBIO.successful(false)
         else {
           val pipelineIds = taggedPipelines.map(_.id).toSet
-          val typeIds     = taggedTypes.map(_.id).toSet
           val sourceIds   = taggedSources.map(_.id).toSet
           val deletePipelines = pipelinesTable.filter(_.id.inSet(pipelineIds)).delete
-          val deleteTypes     = dataTypesTable.filter(_.id.inSet(typeIds)).delete
           val deleteSources   = dataSourcesTable.filter(_.id.inSet(sourceIds)).delete
-          (deletePipelines andThen deleteTypes andThen deleteSources).map(_ => true)
+          (deletePipelines andThen deleteSources).map(_ => true)
         }
     } yield TeardownOutcome(
       blocked = conflicts.nonEmpty,
@@ -83,7 +77,6 @@ class WorkspaceTeardownRepository(
       committed = committed,
       sourcesDeleted = if (clean) taggedSources.size else 0,
       pipelinesDeleted = if (clean) taggedPipelines.size else 0,
-      typesDeleted = if (clean) taggedTypes.size else 0,
       // Post-commit file cleanup (design.md Decision 3 addendum, tasks.md
       // 3.5) needs the raw (sourceType, config) of every deleted source —
       // decoded by the service layer via DataSourceConfigCodec, kept out of
@@ -117,81 +110,16 @@ class WorkspaceTeardownRepository(
           reason       = s"has a dependent pipeline '$pipelineName' ($pipelineId) that is not in this tag batch"
         )
       })
-
-  /** design.md Decision 2 / tasks.md 3.3, output DataType→Pipeline direction:
-   *  blocks when the Pipeline producing this tagged DataType (as its
-   *  `output_data_type_id`) exists AND that Pipeline's `tag IS DISTINCT
-   *  FROM` the tag being torn down. A source-companion DataType (never any
-   *  pipeline's `output_data_type_id`) always yields no match here — the
-   *  same query is safe to run uniformly over every tagged DataType rather
-   *  than pre-filtering to pipeline outputs. */
-  private def outputTypeDependentPipelineConflict(
-      dt: DataTypeRepository.DataTypeRow,
-      tag: String
-  ): DBIO[Option[TeardownConflict]] =
-    sql"""SELECT id, name FROM pipelines
-          WHERE output_data_type_id = ${dt.id} AND tag IS DISTINCT FROM $tag
-          LIMIT 1"""
-      .as[(String, String)].headOption.map(_.map { case (pipelineId, pipelineName) =>
-        TeardownConflict(
-          resourceKind = "data_type",
-          resourceId   = dt.id,
-          resourceName = dt.name,
-          reason       = s"is the output of pipeline '$pipelineName' ($pipelineId) that is not in this tag batch"
-        )
-      })
-
-  /** design.md Decision 6 / tasks.md 3.2: the source-link guard, reimplemented
-   *  as a narrow, app-pool, tag-scoped existence check — NOT a call to
-   *  `DataTypeService.checkSourceLink` (privileged pool via
-   *  `findByIdInternal`; not composable into this transaction, and its bare-
-   *  existence semantics would wrongly block the common tagged-source +
-   *  tagged-companion case). Blocks ONLY when a DataSource with
-   *  `id = dt.sourceId` exists AND its `tag IS DISTINCT FROM` the tag being
-   *  torn down — a source tagged into the SAME batch is not a blocker since
-   *  it is deleted in the same call. See the cross-reference comment on
-   *  `DataTypeService.checkSourceLink`. */
-  private def sourceLinkConflict(dt: DataTypeRepository.DataTypeRow, tag: String): DBIO[Option[TeardownConflict]] =
-    dt.sourceId match {
-      case None => DBIO.successful(None)
-      case Some(srcId) =>
-        sql"""SELECT id, name FROM data_sources
-              WHERE id = $srcId AND tag IS DISTINCT FROM $tag
-              LIMIT 1"""
-          .as[(String, String)].headOption.map(_.map { case (sourceId, sourceName) =>
-            TeardownConflict(
-              resourceKind = "data_type",
-              resourceId   = dt.id,
-              resourceName = dt.name,
-              reason       = s"is the auto-inferred schema of data source '$sourceName' ($sourceId) that is not in this tag batch"
-            )
-          })
-    }
-
-  /** Reuses `DataTypeRepository.existsBoundToAnyOwnedPanelAction` (tasks.md
-   *  3.1) — the exact same app-pool query `DELETE /api/types/:id` already
-   *  runs, composed as a bare `DBIO` inside this transaction rather than
-   *  duplicated. */
-  private def panelBoundConflict(dt: DataTypeRepository.DataTypeRow, user: AuthenticatedUser): DBIO[Option[TeardownConflict]] =
-    dataTypeRepo.existsBoundToAnyOwnedPanelAction(DataTypeId(dt.id), user).map { count =>
-      if (count > 0)
-        Some(TeardownConflict(
-          resourceKind = "data_type",
-          resourceId   = dt.id,
-          resourceName = dt.name,
-          reason       = "is bound to one or more panels"
-        ))
-      else None
-    }
 }
 
 object WorkspaceTeardownRepository {
 
   /** One blocking conflict — the tagged resource that would be blocked, and
-   *  why. `resourceKind` is `"data_source"` or `"data_type"` (only these two
-   *  kinds carry a guard per design.md Decision 2/6 — a tagged Pipeline has
-   *  no analogous "someone else depends on me" guard: nothing else has a
-   *  hard FK dependency on a Pipeline row). */
+   *  why. `resourceKind` is `"data_source"` (the only kind carrying a guard
+   *  per design.md Decision 2 — a tagged Pipeline has no analogous "someone
+   *  else depends on me" guard: nothing else has a hard FK dependency on a
+   *  Pipeline row; Outputs cascade with their owning pipeline, per HEL-904
+   *  task 3.2, and no longer carry a guard of their own). */
   final case class TeardownConflict(
       resourceKind: String,
       resourceId: String,
@@ -211,7 +139,6 @@ object WorkspaceTeardownRepository {
       committed: Boolean,
       sourcesDeleted: Int,
       pipelinesDeleted: Int,
-      typesDeleted: Int,
       deletedSources: Vector[DeletedSource]
   )
 }

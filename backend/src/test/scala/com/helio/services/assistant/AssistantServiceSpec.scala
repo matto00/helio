@@ -155,7 +155,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
   private def newService(dtRepo: DataTypeRepository, dsRepo: DataSourceRepository, transport: ClaudeTransport): AssistantService = {
     val outputRepo                = dataTypeBackedOutputRepo(dtRepo)
     val workspaceContextService  = new WorkspaceContextService(null, null, outputRepo, null)
-    val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, null, workspaceContextService)
+    val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, workspaceContextService)
     // HEL-904 task 3.11: rewired onto OutputRepository/NodeSnapshotRepository -- reuses the SAME
     // dataTypeBackedOutputRepo adapter constructed above for workspaceContextService/
     // workspaceSearchService (no test in this file exercises panel-capability row counts, so a

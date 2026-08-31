@@ -7,7 +7,7 @@ import com.helio.domain.engine.ExpressionEvaluator
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, DataTypeResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdateDataTypeRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.api.protocols.patchsets.EditPreview
 import com.helio.domain.model._
@@ -32,10 +32,10 @@ import scala.util.{Failure, Success}
  *
  *  A handful of genuinely-extra content checks (design.md D1/D1a) run here
  *  too -- panel-update's blank-title/cross-type-PATCH + scatter+aggregation
- *  conflict (both free, via the reused functions above), pipeline-rename's
- *  blank-name check, dataType-update's computed-field expression validation,
- *  and dataType-delete's two conflict checks (genuine extra READs, not
- *  writes). A `Left` from ANY of these fails the WHOLE `preview` call
+ *  conflict (both free, via the reused functions above) and pipeline-rename's
+ *  blank-name check (HEL-904 task 3.3: the dataType-update/-delete content
+ *  checks that used to live here are REMOVED outright -- dataType is no
+ *  longer a valid target.kind). A `Left` from ANY of these fails the WHOLE `preview` call
  *  (design.md D1a), never silently dropped or per-edit-only.
  *
  *  Extracted to its own file from the start (design.md Impact -- learning
@@ -87,11 +87,8 @@ private[services] object PatchSetPreviewProjection {
       case ResolvedAction.DataSourceCreate(request) =>
         Future.successful(Right(Some(dataSourceCreateAfter(request, user))))
 
-      // ── dataType (no create -- design.md D1) ──────────────────────────
-      case ResolvedAction.DataTypeUpdate(_, request, prior) =>
-        Future.successful(dataTypeUpdateAfter(request, prior))
-      case ResolvedAction.DataTypeDelete(id, prior) =>
-        dataTypeDeleteAfter(id, prior, user, ctx)
+      // HEL-904 task 3.3: the `dataType` update/delete content checks are
+      // REMOVED outright -- `dataType` is no longer a valid target.kind.
 
       case ResolvedAction.PipelineUpdate(_, request, prior) =>
         Future.successful(pipelineRenameAfter(request, prior))
@@ -227,87 +224,6 @@ private[services] object PatchSetPreviewProjection {
   }
 
 
-  /** Mirrors `DataTypeService.applyUpdate`'s content-level checks exactly
-   *  (design.md D1/D1a): `RequestValidation.MaxExpressionLength` per
-   *  computed field, then `ExpressionEvaluator.validateTolerant` per
-   *  computed field (both public, pure, reused directly). `updatedAt` is
-   *  deliberately left at `prior`'s value (design.md D3). */
-  private def dataTypeUpdateAfter(request: UpdateDataTypeRequest, prior: DataType): Either[ServiceError, Option[JsValue]] = {
-    val incomingComputedFields = request.computedFields.getOrElse(Vector.empty)
-    val tooLong = incomingComputedFields.find(_.expression.length > RequestValidation.MaxExpressionLength)
-    tooLong match {
-      case Some(cf) =>
-        Left(ServiceError.BadRequest(
-          s"Expression for field '${cf.name}' exceeds maximum length of ${RequestValidation.MaxExpressionLength} characters"
-        ))
-      case None =>
-        val updatedRegularFields = request.fields
-          .map(_.map(p => DataField(p.name, p.displayName, p.dataType, p.nullable)))
-          .getOrElse(prior.fields)
-        val fieldNames = updatedRegularFields.map(_.name).toSet
-
-        val exprError = incomingComputedFields.foldLeft(Option.empty[String]) {
-          case (Some(err), _) => Some(err)
-          case (None, cf) =>
-            ExpressionEvaluator.validateTolerant(cf.expression, fieldNames) match {
-              case Left(msg) => Some(s"Invalid expression for computed field '${cf.name}': $msg")
-              case Right(_)  => None
-            }
-        }
-
-        exprError match {
-          case Some(msg) => Left(ServiceError.BadRequest(msg))
-          case None =>
-            val updatedComputedFields = request.computedFields
-              .map(_.map(p => ComputedField(p.name, p.displayName, p.expression, p.dataType)))
-              .getOrElse(prior.computedFields)
-            val updated = prior.copy(
-              name           = request.name.getOrElse(prior.name),
-              fields         = updatedRegularFields,
-              computedFields = updatedComputedFields
-            )
-            Right(Some(dataTypeResponseFormat.write(DataTypeResponse.fromDomain(updated))))
-        }
-    }
-  }
-
-  /** Mirrors `DataTypeService.delete`'s two content-level conflict checks
-   *  (design.md D1/D1a/D4), in the SAME order the real path evaluates them
-   *  (`checkSourceLink` first, `existsBoundToAnyOwnedPanel` second --
-   *  design.md's own note that the two conditions are mutually exclusive,
-   *  so preview's check order cannot produce a different verdict). Both a
-   *  genuine extra READ, never a write. */
-  private def dataTypeDeleteAfter(
-      id: DataTypeId,
-      prior: DataType,
-      user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Option[JsValue]]] =
-    checkSourceLink(prior, ctx).flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_) =>
-        ctx.dataTypeRepo.existsBoundToAnyOwnedPanel(id, user).map {
-          case true  => Left(ServiceError.Conflict("Cannot delete DataType: one or more panels are bound to it"))
-          case false => Right(None)
-        }
-    }
-
-  /** Replicates `DataTypeService.checkSourceLink` (`private`, not directly
-   *  reusable) -- the same two-line shape: if `prior.sourceId` is defined,
-   *  `dataSourceRepo.findByIdInternal` existence. */
-  private def checkSourceLink(dt: DataType, ctx: PatchSetApplyContext)(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    dt.sourceId match {
-      case None => Future.successful(Right(()))
-      case Some(srcId) =>
-        ctx.dataSourceRepo.findByIdInternal(srcId).map {
-          case None => Right(())
-          case Some(source) =>
-            Left(ServiceError.Conflict(
-              s"Cannot delete this DataType: it is the auto-inferred schema of data source '${source.name}'. " +
-                s"Refresh the source to re-infer its schema, or delete the source first."
-            ))
-        }
-    }
 
 
   /** Mirrors `PipelineService.updateName`'s blank-name check

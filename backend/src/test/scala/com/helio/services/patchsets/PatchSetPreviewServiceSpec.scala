@@ -7,7 +7,7 @@ import com.helio.api.protocols.sources.UpdateDataSourceRequest
 import com.helio.api.protocols.dashboards.{DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet, PatchSetPreviewResponse}
-import com.helio.api.protocols.pipelines.{ComputedFieldPayload, CreatePipelineRequest, CreatePipelineStepRequest, DataTypeResponse, PipelineStepResponse, PipelineSummaryResponse, UpdateDataTypeRequest, UpdatePipelineRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService}
@@ -29,7 +29,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.JsonProtocols
-import com.helio.api.http.RequestValidation
 import com.helio.api.http.{ResourceType => AclResourceType}
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry}
 import com.helio.domain.model._
@@ -166,7 +165,6 @@ class PatchSetPreviewServiceSpec
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-      AclResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
@@ -184,7 +182,7 @@ class PatchSetPreviewServiceSpec
     )
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     applyService = new PatchSetApplyService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
+      panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
       metricRepo, accessChecker, applicationRepo
     )
@@ -284,11 +282,6 @@ class PatchSetPreviewServiceSpec
     r.copy(meta = r.meta.copy(createdAt = "", lastUpdated = ""))
   }
 
-  private def dataTypeResponseNormalized(json: JsValue): DataTypeResponse = {
-    val r = json.convertTo[DataTypeResponse]
-    r.copy(createdAt = "", updatedAt = "")
-  }
-
   private def preview(edits: Vector[Edit], user: AuthenticatedUser): Either[ServiceError, PatchSetPreviewResponse] =
     await(service.preview(PatchSet(None, edits), user))
 
@@ -303,11 +296,11 @@ class PatchSetPreviewServiceSpec
 
       val edits = Vector(
         Edit(EditTarget("panel", Some(panelToUpdate.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Updated title"), None, None, None)), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Updated title"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete",
-          None, None, None, None, None, None, None),
+          None, None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some("Renamed dashboard"), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some("Renamed dashboard"), None, None)), None, None, None, None)
       )
 
       preview(edits, userA) match {
@@ -342,7 +335,7 @@ class PatchSetPreviewServiceSpec
       val dashboard = seedDashboard(userA)
       val panel     = seedPanel(dashboard.id, userA, "Timestamp check")
       val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(Some("Changed"), None, None, None)), None, None, None, None, None, None)
+        Some(UpdatePanelRequest(Some("Changed"), None, None, None)), None, None, None, None, None)
 
       preview(Vector(edit), userA) match {
         case Right(response) =>
@@ -364,8 +357,8 @@ class PatchSetPreviewServiceSpec
         "type"        -> JsString("divider")
       )
       val edits = Vector(
-        Edit(EditTarget("panel", None), "create", None, None, None, None, None, None, Some(createPatch)),
-        Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None, None)
+        Edit(EditTarget("panel", None), "create", None, None, None, None, None, Some(createPatch)),
+        Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None)
       )
 
       preview(edits, userA) match {
@@ -387,9 +380,9 @@ class PatchSetPreviewServiceSpec
 
       val edits = Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Should never preview"), None, None, None)), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Should never preview"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(UUID.randomUUID().toString)), "update",
-          None, Some(UpdateDashboardRequest(Some("Nonexistent"), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some("Nonexistent"), None, None)), None, None, None, None)
       )
 
       val previewResult = preview(edits, userA)
@@ -411,7 +404,7 @@ class PatchSetPreviewServiceSpec
       grantRole("dashboard", dashboard.id.value, userBId, "editor")
 
       val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "delete",
-        None, None, None, None, None, None, None)
+        None, None, None, None, None, None)
 
       preview(Vector(edit), userB) match {
         case Left(ServiceError.Forbidden(_)) => succeed
@@ -425,7 +418,7 @@ class PatchSetPreviewServiceSpec
       val dashboard = seedDashboard(userA)
       val panel     = seedPanel(dashboard.id, userA)
       val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(Some("  "), None, None, None)), None, None, None, None, None, None)
+        Some(UpdatePanelRequest(Some("  "), None, None, None)), None, None, None, None, None)
 
       preview(Vector(edit), userA) match {
         case Left(ServiceError.BadRequest(msg)) => msg should include("title must not be blank")
@@ -439,7 +432,7 @@ class PatchSetPreviewServiceSpec
       val (sourceId, _) = seedStaticSource(userA, "Pipeline source")
       val pipeline        = seedPipeline(userA, sourceId, "My pipeline")
       val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "update",
-        None, None, None, None, Some(UpdatePipelineRequest(name = "  ")), None, None)
+        None, None, None, Some(UpdatePipelineRequest(name = "  ")), None, None)
 
       preview(Vector(edit), userA) match {
         case Left(ServiceError.BadRequest(msg)) => msg should include("name must not be empty")
@@ -447,58 +440,16 @@ class PatchSetPreviewServiceSpec
       }
     }
 
-    "reject a dataType-update edit with a computed-field expression exceeding MaxExpressionLength (6.4d)" in {
-      val dt = seedPipelineOutputType(userA, "ExprTooLong")
-      val tooLong = "1" * (RequestValidation.MaxExpressionLength + 1)
-      val patch = UpdateDataTypeRequest(None, None, Some(Vector(ComputedFieldPayload("computed", "Computed", tooLong, "number"))))
-      val edit = Edit(EditTarget("dataType", Some(dt.id.value)), "update",
-        None, None, None, Some(patch), None, None, None)
 
-      preview(Vector(edit), userA) match {
-        case Left(ServiceError.BadRequest(msg)) => msg should include("exceeds maximum length")
-        case other                                => fail(s"expected BadRequest, got $other")
-      }
-    }
 
-    "reject a dataType-update edit with an invalid computed-field expression, matching ExpressionEvaluator.validateTolerant (6.4e)" in {
-      val dt = seedPipelineOutputType(userA, "ExprInvalid")
-      val patch = UpdateDataTypeRequest(None, None, Some(Vector(ComputedFieldPayload("computed", "Computed", "$unknownField + 1", "number"))))
-      val edit = Edit(EditTarget("dataType", Some(dt.id.value)), "update",
-        None, None, None, Some(patch), None, None, None)
 
-      preview(Vector(edit), userA) match {
-        case Left(ServiceError.BadRequest(msg)) => msg should include("Invalid expression for computed field")
-        case other                                => fail(s"expected BadRequest, got $other")
-      }
-    }
-
-    "reject a dataType-delete edit targeting a DataType with a panel OWNED by the deleting user bound to it, matching DataTypeService.delete's Conflict (6.4f)" in {
-      val dt = seedPipelineOutputType(userA, "OwnedBoundType")
-      seedMetricPanelBoundTo(seedDashboard(userA).id, userA, dt.id)
-      val edit = Edit(EditTarget("dataType", Some(dt.id.value)), "delete", None, None, None, None, None, None, None)
-
-      preview(Vector(edit), userA) match {
-        case Left(ServiceError.Conflict(msg)) => msg should include("one or more panels are bound to it")
-        case other                              => fail(s"expected Conflict, got $other")
-      }
-    }
-
-    "reject a dataType-delete edit targeting a source-companion DataType, matching DataTypeService.checkSourceLink's Conflict (6.4g)" in {
-      val (_, companionTypeId) = seedStaticSource(userA, "CompanionSource")
-      val edit = Edit(EditTarget("dataType", Some(companionTypeId.value)), "delete", None, None, None, None, None, None, None)
-
-      preview(Vector(edit), userA) match {
-        case Left(ServiceError.Conflict(msg)) => msg should include("auto-inferred schema")
-        case other                              => fail(s"expected Conflict, got $other")
-      }
-    }
 
 
     "hint that pipeline output rows will be stale on a pipeline-update edit (6.5a)" in {
       val (sourceId, _) = seedStaticSource(userA, "PipelineUpdateSrc")
       val pipeline        = seedPipeline(userA, sourceId, "Original name")
       val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "update",
-        None, None, None, None, Some(UpdatePipelineRequest(name = "Renamed")), None, None)
+        None, None, None, Some(UpdatePipelineRequest(name = "Renamed")), None, None)
 
       preview(Vector(edit), userA) match {
         case Right(response) => response.edits.head.impact should contain("Pipeline output rows will be stale until re-run.")
@@ -509,7 +460,7 @@ class PatchSetPreviewServiceSpec
     "hint stale rows + cascade on a pipeline-delete edit (6.5b)" in {
       val (sourceId, _) = seedStaticSource(userA, "PipelineDeleteSrc")
       val pipeline        = seedPipeline(userA, sourceId, "To delete")
-      val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "delete", None, None, None, None, None, None, None)
+      val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "delete", None, None, None, None, None, None)
 
       preview(Vector(edit), userA) match {
         case Right(response) =>
@@ -525,13 +476,13 @@ class PatchSetPreviewServiceSpec
       val step = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(5)))
 
       val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
-        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(JsObject("count" -> JsNumber(10))), None)), None)
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(JsObject("count" -> JsNumber(10))), None)), None)
       preview(Vector(updateEdit), userA) match {
         case Right(response) => response.edits.head.impact should contain("Pipeline output rows will be stale until re-run.")
         case Left(err)         => fail(s"expected success, got $err")
       }
 
-      val deleteEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "delete", None, None, None, None, None, None, None)
+      val deleteEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "delete", None, None, None, None, None, None)
       preview(Vector(deleteEdit), userA) match {
         case Right(response) => response.edits.head.impact should contain("Pipeline output rows will be stale until re-run.")
         case Left(err)         => fail(s"expected success, got $err")
@@ -593,7 +544,7 @@ class PatchSetPreviewServiceSpec
       // ABSENCE case, which stays tolerant on both the read and the write path by design.
       val wrongShapeConfig = JsObject("rightDataSourceId" -> JsString(rightSourceId.value), "joinType" -> JsString("inner"))
       val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
-        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(wrongShapeConfig), None)), None)
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(wrongShapeConfig), None)), None)
 
       preview(Vector(updateEdit), userA) match {
         case Right(_)  => succeed
@@ -626,7 +577,7 @@ class PatchSetPreviewServiceSpec
         "joinType"          -> JsString("inner")
       )
       val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
-        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(mistypedConfig), None)), None)
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(mistypedConfig), None)), None)
 
       preview(Vector(updateEdit), userA) match {
         case Right(_) =>
@@ -664,7 +615,7 @@ class PatchSetPreviewServiceSpec
         "agg"    -> JsString("sum")
       )
       val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
-        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(mistypedConfig), None)), None)
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(mistypedConfig), None)), None)
 
       preview(Vector(updateEdit), userA) match {
         case Left(err: ServiceError.UnprocessableEntity) =>
@@ -698,7 +649,7 @@ class PatchSetPreviewServiceSpec
         "outputColumn" -> JsString("rn")
       )
       val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
-        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(mistypedConfig), None)), None)
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(mistypedConfig), None)), None)
 
       preview(Vector(updateEdit), userA) match {
         case Left(err: ServiceError.UnprocessableEntity) =>
@@ -725,7 +676,7 @@ class PatchSetPreviewServiceSpec
       // `column` and `expression` empty.
       val emptyDraft = JsObject("column" -> JsString(""), "expression" -> JsString(""), "type" -> JsString("number"))
       val computeEdit = Edit(EditTarget("pipelineStep", Some(computeStep.id)), "update",
-        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(emptyDraft), None)), None)
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(emptyDraft), None)), None)
 
       preview(Vector(computeEdit), userA) match {
         case Right(_)  => succeed
@@ -739,7 +690,7 @@ class PatchSetPreviewServiceSpec
         JsObject("referenceDataSourceId" -> JsString(""), "sourceKey" -> JsString(""), "lookupKey" -> JsString(""), "columns" -> JsArray())
       )
       val lookupEdit = Edit(EditTarget("pipelineStep", Some(lookupStep.id)), "update",
-        None, None, None, None, None,
+        None, None, None, None,
         Some(UpdatePipelineStepRequest(None, Some(JsObject("referenceDataSourceId" -> JsString(""), "sourceKey" -> JsString(""), "lookupKey" -> JsString(""), "columns" -> JsArray())), None)), None)
 
       preview(Vector(lookupEdit), userA) match {
@@ -750,7 +701,7 @@ class PatchSetPreviewServiceSpec
 
     "hint that a dataSource delete cascades to dependent pipelines (6.5d)" in {
       val (sourceId, _) = seedStaticSource(userA, "CascadeSrc")
-      val edit = Edit(EditTarget("dataSource", Some(sourceId.value)), "delete", None, None, None, None, None, None, None)
+      val edit = Edit(EditTarget("dataSource", Some(sourceId.value)), "delete", None, None, None, None, None, None)
 
       preview(Vector(edit), userA) match {
         case Right(response) => response.edits.head.impact should contain("Cascades to any pipeline built on this source.")
@@ -763,7 +714,7 @@ class PatchSetPreviewServiceSpec
       seedPanel(dashboard.id, userA, "P1")
       seedPanel(dashboard.id, userA, "P2")
       seedPanel(dashboard.id, userA, "P3")
-      val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "delete", None, None, None, None, None, None, None)
+      val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "delete", None, None, None, None, None, None)
 
       preview(Vector(edit), userA) match {
         case Right(response) => response.edits.head.impact should contain("Cascades to 3 panel(s).")
@@ -779,7 +730,7 @@ class PatchSetPreviewServiceSpec
 
       val patch = JsObject("dataTypeId" -> JsString(typeB.id.value))
       val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(patch))), None, None, None, None, None, None)
+        Some(UpdatePanelRequest(None, None, None, Some(patch))), None, None, None, None, None)
 
       preview(Vector(edit), userA) match {
         case Right(response) => response.edits.head.impact should contain("Panel will be bound to a different DataType.")
@@ -790,7 +741,7 @@ class PatchSetPreviewServiceSpec
     "surface no impact hint for an ordinary rename (6.5g)" in {
       val (sourceId, _) = seedStaticSource(userA, "PlainRenameSrc")
       val edit = Edit(EditTarget("dataSource", Some(sourceId.value)), "update",
-        None, None, Some(UpdateDataSourceRequest(Some("Renamed source"))), None, None, None, None)
+        None, None, Some(UpdateDataSourceRequest(Some("Renamed source"))), None, None, None)
 
       preview(Vector(edit), userA) match {
         case Right(response) => response.edits.head.impact shouldBe empty
@@ -798,52 +749,7 @@ class PatchSetPreviewServiceSpec
       }
     }
 
-    "surface no dataType-delete unbind hint when no panel is bound at all (6.5h)" in {
-      val dt = seedPipelineOutputType(userA, "UnboundType")
-      val edit = Edit(EditTarget("dataType", Some(dt.id.value)), "delete", None, None, None, None, None, None, None)
 
-      preview(Vector(edit), userA) match {
-        case Right(response) => response.edits.head.impact shouldBe empty
-        case Left(err)         => fail(s"expected success, got $err")
-      }
-    }
-
-    // ── 6.5 (RLS-dependent): the corrected dataType-delete cross-owner hint ─
-    //
-    // design.md D4's detection mechanism: userA owns the DataType being
-    // deleted; userB owns a panel bound to it, on userB's OWN dashboard.
-    // userA can see that panel ONLY when userB has granted userA access to
-    // that dashboard — the RLS policy `existsBoundToType` relies on is the
-    // ONLY thing that can distinguish these two fixtures, so both cases
-    // MUST run under the real (non-superuser) `helio_app_test` role this
-    // whole spec already uses (tasks.md 6.5 / round-3 REFUTE finding).
-
-    "surface the cross-owner-shared-panel unbind hint when the bound panel's dashboard IS visible to the deleting user via a sharing grant (6.5i)" in {
-      val dt = seedPipelineOutputType(userA, "SharedVisibleType")
-      val bDashboard = seedDashboard(userB, "B's dashboard")
-      grantRole("dashboard", bDashboard.id.value, userAId, "viewer")
-      seedMetricPanelBoundTo(bDashboard.id, userB, dt.id)
-
-      val edit = Edit(EditTarget("dataType", Some(dt.id.value)), "delete", None, None, None, None, None, None, None)
-      preview(Vector(edit), userA) match {
-        case Right(response) =>
-          response.edits.head.impact.exists(_.contains("may be unbound")) shouldBe true
-        case Left(err) => fail(s"expected success (not a rejection -- the bound panel is NOT owned by the deleter), got $err")
-      }
-    }
-
-    "surface NO unbind hint when the bound panel's dashboard is NOT visible to the deleting user at all (6.5j)" in {
-      val dt = seedPipelineOutputType(userA, "SharedInvisibleType")
-      val bDashboard = seedDashboard(userB, "B's private dashboard")
-      // No grant from userB to userA this time.
-      seedMetricPanelBoundTo(bDashboard.id, userB, dt.id)
-
-      val edit = Edit(EditTarget("dataType", Some(dt.id.value)), "delete", None, None, None, None, None, None, None)
-      preview(Vector(edit), userA) match {
-        case Right(response) => response.edits.head.impact shouldBe empty
-        case Left(err)         => fail(s"expected success, got $err")
-      }
-    }
   }
 
 

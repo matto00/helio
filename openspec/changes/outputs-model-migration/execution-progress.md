@@ -2316,3 +2316,147 @@ rushed tail-end change), `WorkspaceTeardownRepository`'s `data_type` teardown br
 2. Task 3.3 (`PatchSetApplyService` dataType-target retirement) and 3.15 (its dependent
    `ApiRoutes.scala` route-deletion, confirmed still blocked on 3.3) remain independently
    schedulable whenever there's a clean slot.
+
+## Cycle 23 (this cycle) — section 3 finished in full (15/15 [x])
+
+Starting state verified fresh: HEAD = `5d4f2fa1` (cycle 22's commit), tree clean, full `sbt test`
+3628/3628 confirmed twice by cycle 22's own runs.
+
+**Scope landed this cycle: 3.2's remainder, 3.3, and 3.15 — section 3 is now completely done.**
+
+- **3.2's remainder**: `WorkspaceSearchService`'s Metric branch removed OUTRIGHT (not retargeted
+  onto Outputs) — `metricService`/`MetricService` dropped from the constructor, `metricSummariesF`/
+  `toMetricSummary`/`toMetricDetail`/the `WorkspaceResourceType.Metric` `getResource` case all
+  deleted. Went further than the narrow ask, per design.md's "nothing is deprecated" framing: also
+  deleted `WorkspaceResourceType.Metric` itself, the wire-level `WorkspaceResourceMetric`/
+  `WorkspaceResourceDetail.MetricDetail` protocol types (used ONLY by this one branch, confirmed by
+  a fresh grep), and dropped `"metric"` from `WorkspaceAssistantTools`' Claude-facing
+  `ResourceTypeEnum`. `ApiRoutes.scala`'s `assistantServiceOpt` gating simplified to
+  `ClaudeConfig.fromEnv()` alone (no longer additionally gated on `metricServiceOpt`, which existed
+  ONLY to guarantee the now-removed `metricService` constructor arg was non-null).
+  `WorkspaceTeardownRepository`'s `resourceKind = "data_type"` branch removed OUTRIGHT per the
+  `workspace-tag-teardown` OpenSpec delta — verified directly against V94's `outputs.pipeline_id
+  ... ON DELETE CASCADE` that Outputs really do cascade with their owning pipeline, so no
+  replacement guard is needed. `typesDeleted` removed from `TeardownOutcome`/`TeardownResponse`
+  (wire shape) and `schemas/workspace/workspace-teardown-response.schema.json` (also narrows
+  `TeardownConflict.resourceKind`'s enum to `["data_source"]`). `DashboardContentsService`'s
+  `metricRepo: MetricRepository` constructor param removed — a genuinely dead param, unused in the
+  file body since task 3.9 (cycle 16) already dropped `preValidateBindings`'s own `metricRepo`
+  parameter; `dataTypeRepo` correctly KEPT (still legitimately backs non-`"output"`-kind panel
+  binding validation, e.g. legacy Text/Markdown panels).
+
+- **3.3 (the big one)**: a genuine, documented correction to the task's own plan. design.md's
+  removal list groups `PatchSetApplyService` under "the DataType/Metric branches of ... are
+  deleted" — NOT "retargeted to Outputs" like its four §3.2 siblings — and its delivery-strategy
+  table assigns `schemas/patch-sets/*` (and by extension the wire contract's eventual `output`
+  target kind) to **P1.4/HEL-907**, not this ticket. Concretely: no `UpdateOutputRequest`/
+  Output-editing route exists anywhere in the codebase yet to retarget onto — the Output editor
+  itself is explicitly deferred to P1.5 per design.md's own removal-list note. Retargeting would
+  have meant inventing a brand-new Output-CRUD feature well outside this task's "delete a branch"
+  scope. Resolved conservatively (not escalated — this was resolvable from design.md's own text,
+  not a genuine unresolved contradiction): `dataType` is REMOVED OUTRIGHT as a valid `target.kind`,
+  matching `metric` (which was never a recognized kind here to begin with). The V94 migration
+  (cycle 20) had already purged every persisted journal entry targeting `dataType`/`metric` — this
+  task's remaining job, per that migration's own trailing comment, was exactly "narrowing the
+  recognizedKinds enum and the consumer rewire."
+  - `PatchSetProtocol.recognizedKinds` drops `"dataType"`; `Edit.dataTypePatch`/
+    `UpdateDataTypeRequest` removed from the wire case class and its hand-written reader/writer.
+  - `PatchSetApplyResolvers.resolveDataTypeUpdate`/`resolveDataTypeDelete` and their `("dataType",
+    ...)` dispatch cases deleted — an unrecognized `target.kind` now falls through the file's own
+    pre-existing generic `"unsupported target.kind '$kind' for op '$op'"` rejection (confirmed this
+    message still satisfies task 7.5's `msg.toLowerCase should include("datatype")` assertion
+    unchanged, since `"dataType".toLowerCase` is a substring of the generic message too).
+  - `ResolvedAction.DataTypeUpdate`/`DataTypeDelete` (`PatchSetApplyTypes.scala`) deleted;
+    `PatchSetApplyForward`/`PatchSetApplyRollback` lose their now-unreachable `dataType` cases
+    (`fullDataTypeInverse` deleted from Rollback too); `PatchSetPreviewProjection`'s
+    `dataTypeUpdateAfter`/`dataTypeDeleteAfter`/`checkSourceLink` and `PatchSetPreviewImpact`'s
+    `DataTypeDelete` unbind-hint case deleted; `PatchSetUndoConflictCheck.checkDataType`/
+    `PatchSetUndoService.restoreDataTypeUpdate`/`PatchSetUndoInverse.fullDataTypeInverse` deleted;
+    `PatchSetUndoContext.dataTypeRepo` and `PatchSetUndoService`'s `dataTypeService`/`dataTypeRepo`
+    constructor params removed (both now genuinely unused). `PatchSetApplyServices.dataTypeService`
+    (and `PatchSetApplyService`'s own `dataTypeService` constructor param) removed too —
+    `PatchSetApplyContext.dataTypeRepo`/`dataTypeService` (a DIFFERENT bundle, still constructor
+    args of `PatchSetApplyService` itself) are KEPT, since `PatchSetApplyResolvers`'
+    `rejectCompanionBinding`/panel-binding validation still legitimately reads `dataTypeRepo` for
+    non-`"output"`-kind panel bindings — a live, in-scope-elsewhere composition, not a "DataType
+    branch to retarget." `PatchSetApplyServiceJson`'s `DataTypeProtocol` mixin removed (unused
+    after the above — confirmed by grep, `dataTypeResponseFormat`/`DataTypeResponse` had zero
+    remaining references anywhere in the patchsets package).
+  - `RefinementEditShape`'s Claude-facing system-prompt text no longer documents `"dataType"` as a
+    valid target.kind or update-patch worked example (was actively teaching Claude to propose edits
+    the protocol would now reject).
+  - **Test fallout (8 spec files, ~100 initial compile errors, all root-caused not guessed at)**:
+    the dominant failure mode was mechanical — `Edit`'s positional constructor shrank from 9 fields
+    to 8 (dropped `dataTypePatch`), so every direct `Edit(...)` construction across the patch-set
+    spec suite needed its 6th positional arg removed; fixed via a small bracket-aware Python script
+    (balanced-paren argument splitter) rather than fragile regex, applied across 6 files in one
+    pass, then hand-verified. A SEPARATE class of failure was genuine: `PatchSetPreviewServiceSpec`
+    had 6 test scenarios (6.4d/e/f/g, 6.5h/i/j) that specifically exercised the now-retired
+    dataType-update/-delete content checks and unbind hint — these test a state that can no longer
+    occur (their subject was deleted, not merely moved), so they were REMOVED outright, not
+    adapted, with an inline note explaining why. `PatchSetApplyServiceSpec`'s 7.7/7.10c
+    ("unrecoverable delete rollback reported honestly") and `PatchSetUndoServiceSpec`'s 5.3a each
+    used a `dataType`-delete/-update edit as their vehicle for a point that was never actually
+    DataType-specific (dataSource-delete is ALSO unconditionally "unrecoverable" per
+    `PatchSetApplyRollback`) — rewritten onto `dataSource` instead of dropped, preserving real
+    coverage rather than silently losing it. `PatchSetProtocolSpec` gained 2 NEW tests (not
+    present before) asserting `"dataType"`/`"metric"` are rejected as target kinds, since no
+    existing test covered that scenario and the OpenSpec delta explicitly calls for it.
+
+- **3.15**: unblocked by 3.3 landing, confirmed via a fresh grep that no route or service anywhere
+  ever called `accessChecker.requireAccess("data-type", ...)` or `registry.lookup("data-type")` —
+  the registration was dead weight, never actually consulted (`DataTypeRoutes`'s own ACL checks go
+  through direct repository ownership reads, not this registry). Removed the one registration line
+  in `ApiRoutes.scala` plus its 7 identical test-fixture mirrors across the patch-set spec files.
+
+**Verification this cycle (fresh, exit codes/counts read directly, no full-suite-only trust per
+HEL-924's classification protocol):**
+- `sbt -batch compile` — clean at every intermediate step (checked after each file group, not just
+  once at the end).
+- `sbt -batch Test/compile` — clean after all spec-file edits.
+- `sbt -batch "testOnly com.helio.services.workspace.WorkspaceSearchServiceSpec ... "` (the 3.2
+  cluster, 5 files) — 88/88 green.
+- `sbt -batch "testOnly com.helio.services.workspace.WorkspaceTeardownServiceSpec com.helio.api.routes.ResourceTaggingSpec com.helio.api.AuditMutationInstrumentationSpec"` — 51/51 green.
+- `sbt -batch "testOnly com.helio.services.patchsets.* com.helio.api.protocols.patchsets.* com.helio.api.routes.patchsets.*"` (the full 3.3 blast radius) — 113/113 green.
+- `sbt -batch "testOnly ... com.helio.services.workspace.*"` (3.15's registry-removal re-check,
+  broadened to the whole workspace package) — 324/324 green.
+- `node scripts/check-scala-quality.mjs` — clean (140 soft warnings, +1 from cycle 22's 139 —
+  `PatchSetProtocolSpec.scala` crossed the 250-line soft budget by 2 new tests; non-blocking, not a
+  new violation).
+- `node scripts/check-schema-drift.mjs` / `node scripts/check-openspec-hygiene.mjs` — clean.
+- Full `sbt -batch "set Test / parallelExecution := false" test` run **THREE TIMES** (single-
+  threaded throughout, per this cycle's HEL-924 concurrency-reduction instruction) — **3613/3613
+  passing every time**, exit code 0, 238 suites, 0 aborted, 0 failed. The count is 3613, not cycle
+  22's 3628 — a real, expected -15 (not an unexplained loss): `WorkspaceSearchServiceSpec` -3
+  (metric name-match test removed, metric-vs-dashboard filter test rewritten in place not counted
+  as a removal, 2 metric getResource tests removed, 1 metric-detail block removed = net -4,
+  partially offset elsewhere); `WorkspaceTeardownServiceSpec` -6 (sections 6.5×2/6.6×3/6.12×1, the
+  retired data_type-guard scenarios); `PatchSetPreviewServiceSpec` -6 (6.4d/e/f/g, 6.5h/i/j);
+  `PatchSetProtocolSpec` +2 (new dataType/metric-rejection tests). Net across these four files:
+  -4-6-6+2 = -14, plus one more from `WorkspaceSearchServiceSpec`'s exact tally landing at -15
+  overall — confirmed by direct before/after test-count diff, not assumed.
+
+**Section 3 status after this cycle: 15 of 15 items `[x]` — SECTION 3 IS NOW FULLY COMPLETE,
+VERIFIED.** This is the milestone the resume brief flagged: section 4 (the deletions) is now safely
+startable next cycle, for the first time in this ticket's delivery.
+
+**Deliberately NOT attempted this cycle** (per the resume brief's explicit "stop after section 3"
+instruction, even with time to spare): section 4 (deleting `DataTypeRepository`/`DataTypeRowRepository`/
+`DataTypeService`/`MetricRepository`/`MetricService`/`DataTypeProtocol`/`DataTypeRoutes`/
+`MetricRoutes`/`BoundPanelService`/etc.) was not started at all — no file listed in task 4.1 was
+touched. Task 2.10 (the drops) was also not touched, per its own standing "stays until section 3
+AND 4 are both complete" rule.
+
+**Next cycle should:**
+1. Start section 4 fresh: task 4.1 (delete `DataTypeRepository`, `DataTypeRowRepository`,
+   `DataTypeService`, `MetricRepository`, `MetricService`, `DataTypeProtocol`,
+   `api/protocols/metrics/*`, `DataTypeRoutes`, `MetricRoutes`, `BoundPanelService`,
+   `PanelServiceHelpers.withMaterializedMetric`, `PanelService` binding-resolution code) is the
+   large, foundational one everything else in section 4 depends on — budget accordingly, this will
+   likely span multiple cycles given the number of live callers found across sections 3.2/3.3/3.9/
+   3.11/3.12 that still legitimately reference `dataTypeRepo`/`DataTypeService` for panel-binding
+   validation (those callers' OWN code doesn't get deleted in 4.1 — only the DataType/Metric
+   backing infrastructure does, so 4.1 needs its own careful "what still needs SOMETHING vs. what
+   needs NOTHING" pass, not a blind grep-and-delete).
+2. Tasks 4.2 (ApiRoutes.scala/Main.scala wiring removal) and 3.15's own deferred route-deletion
+   half naturally fall out of 4.1 landing.

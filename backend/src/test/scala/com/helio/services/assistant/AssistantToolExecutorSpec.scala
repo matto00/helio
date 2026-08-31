@@ -76,7 +76,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     // `outputRepo` param this helper already threads through to `dashboardProposalService` --
     // `dataTypeService` is no longer a collaborator of either.
     val workspaceContextService  = new WorkspaceContextService(null, null, outputRepo, null)
-    val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, null, workspaceContextService)
+    val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, workspaceContextService)
     // HEL-904 task 3.11: rewired onto OutputRepository/NodeSnapshotRepository -- reuses the SAME
     // `outputRepo` this helper already threads to workspaceContextService/workspaceSearchService/
     // dashboardProposalService above. `null` NodeSnapshotRepository degrades to `rowCount = 0`; no

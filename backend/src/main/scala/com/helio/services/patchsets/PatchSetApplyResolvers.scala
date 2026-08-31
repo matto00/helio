@@ -4,10 +4,10 @@ import com.helio.services.panels.PanelServiceHelpers
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, DataTypeResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest}
 import com.helio.api.protocols.patchsets.Edit
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, DataTypeId, MetricId, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, DataTypeId, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
 import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
@@ -63,12 +63,9 @@ private[services] object PatchSetApplyResolvers {
       case ("dataSource", "update")   => resolveDataSourceUpdate(edit, index, user, ctx)
       case ("dataSource", "delete")   => resolveDataSourceDelete(edit, index, user, ctx)
       case ("dataSource", "create")   => resolveDataSourceCreate(edit, index, user, ctx)
-      case ("dataType", "update")     => resolveDataTypeUpdate(edit, index, user, ctx)
-      case ("dataType", "delete")     => resolveDataTypeDelete(edit, index, user, ctx)
-      case ("dataType", "create") =>
-        // design.md D1: no direct DataType create API exists — a DataType is
-        // only ever produced as a side effect of a source/pipeline.
-        Future.successful(Left(ServiceError.BadRequest(s"edit $index: create is not supported for dataType")))
+      // HEL-904 task 3.3: the "dataType" target kind is REMOVED outright
+      // (dropped from `recognizedKinds`, so this dispatch never actually
+      // reaches here) -- an unmatched fallthrough case below covers it.
       case ("pipeline", "update")     => resolvePipelineUpdate(edit, index, user, ctx)
       case ("pipeline", "delete")     => resolvePipelineDelete(edit, index, user, ctx)
       case ("pipeline", "create")     => resolvePipelineCreate(edit, index, user, ctx)
@@ -463,51 +460,6 @@ private[services] object PatchSetApplyResolvers {
     }
 
 
-  private def resolveDataTypeUpdate(
-      edit: Edit,
-      index: Int,
-      user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
-    requireTargetId(edit, index) match {
-      case Left(err) => Future.successful(Left(err))
-      case Right(idStr) =>
-        val dataTypeId = DataTypeId(idStr)
-        ctx.dataTypeRepo.findByIdOwned(dataTypeId, user).map {
-          case None => Left(ServiceError.NotFound(s"edit $index: data type not found"))
-          case Some(existing) =>
-            edit.dataTypePatch match {
-              case None => Left(ServiceError.BadRequest(s"edit $index: patch is required for a dataType update"))
-              case Some(request) =>
-                Right(ResolvedEdit(
-                  index, "dataType", "update",
-                  Some(dataTypeResponseFormat.write(DataTypeResponse.fromDomain(existing))),
-                  ResolvedAction.DataTypeUpdate(dataTypeId, request, existing)
-                ))
-            }
-        }
-    }
-
-  private def resolveDataTypeDelete(
-      edit: Edit,
-      index: Int,
-      user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
-    requireTargetId(edit, index) match {
-      case Left(err) => Future.successful(Left(err))
-      case Right(idStr) =>
-        val dataTypeId = DataTypeId(idStr)
-        ctx.dataTypeRepo.findByIdOwned(dataTypeId, user).map {
-          case None => Left(ServiceError.NotFound(s"edit $index: data type not found"))
-          case Some(existing) =>
-            Right(ResolvedEdit(
-              index, "dataType", "delete",
-              Some(dataTypeResponseFormat.write(DataTypeResponse.fromDomain(existing))),
-              ResolvedAction.DataTypeDelete(dataTypeId, existing)
-            ))
-        }
-    }
 
 
   private def resolvePipelineUpdate(

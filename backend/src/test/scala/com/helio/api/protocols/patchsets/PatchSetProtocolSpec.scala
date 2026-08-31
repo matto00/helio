@@ -29,7 +29,6 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     panelPatch         = Some(panelUpdatePatch),
     dashboardPatch     = None,
     dataSourcePatch    = None,
-    dataTypePatch      = None,
     pipelinePatch      = None,
     pipelineStepPatch  = None,
     createPatch        = None
@@ -41,7 +40,6 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     panelPatch         = None,
     dashboardPatch     = None,
     dataSourcePatch    = None,
-    dataTypePatch      = None,
     pipelinePatch      = None,
     pipelineStepPatch  = None,
     createPatch        = None
@@ -66,7 +64,6 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     panelPatch         = None,
     dashboardPatch     = Some(dashboardUpdatePatch),
     dataSourcePatch    = None,
-    dataTypePatch      = None,
     pipelinePatch      = None,
     pipelineStepPatch  = None,
     createPatch        = None
@@ -122,7 +119,6 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
       edit.panelPatch shouldBe None
       edit.dashboardPatch shouldBe None
       edit.dataSourcePatch shouldBe None
-      edit.dataTypePatch shouldBe None
       edit.pipelinePatch shouldBe None
       edit.pipelineStepPatch shouldBe None
       edit.createPatch shouldBe None
@@ -198,6 +194,24 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     "raise a deserializationError for an unrecognized target.kind" in {
       val json = JsObject(
         "target" -> JsObject("kind" -> JsString("workspace"), "id" -> JsString("ws-1")),
+        "op"     -> JsString("update")
+      )
+      an[DeserializationException] should be thrownBy json.convertTo[Edit]
+    }
+
+    // HEL-904 task 3.3 / patch-set-contract OpenSpec delta: `dataType` (and
+    // `metric`) are no longer valid target kinds at all.
+    "raise a deserializationError for target.kind = 'dataType'" in {
+      val json = JsObject(
+        "target" -> JsObject("kind" -> JsString("dataType"), "id" -> JsString("type-1")),
+        "op"     -> JsString("update")
+      )
+      an[DeserializationException] should be thrownBy json.convertTo[Edit]
+    }
+
+    "raise a deserializationError for target.kind = 'metric'" in {
+      val json = JsObject(
+        "target" -> JsObject("kind" -> JsString("metric"), "id" -> JsString("metric-1")),
         "op"     -> JsString("update")
       )
       an[DeserializationException] should be thrownBy json.convertTo[Edit]

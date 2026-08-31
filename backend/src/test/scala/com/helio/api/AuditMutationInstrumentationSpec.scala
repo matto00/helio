@@ -921,7 +921,6 @@ class AuditMutationInstrumentationSpec
         resp.committed shouldBe true
         resp.blocked shouldBe false
         resp.sourcesDeleted shouldBe 1
-        resp.typesDeleted shouldBe 1
 
         val rows = eventuallyAuditRows(r => r.action == "workspace.teardown" && r.resourceId.contains(tag))
         rows should have size 1
@@ -932,7 +931,6 @@ class AuditMutationInstrumentationSpec
         AuditSource.asString(row.source) shouldBe "ui"
         row.metadata.asJsObject.fields("sourcesDeleted") shouldBe JsNumber(1)
         row.metadata.asJsObject.fields("pipelinesDeleted") shouldBe JsNumber(0)
-        row.metadata.asJsObject.fields("typesDeleted") shouldBe JsNumber(1)
       }
       // `dataSourceId` created above is deleted by the teardown itself — no
       // further use needed, referenced only to document the fixture's shape.
@@ -955,7 +953,6 @@ class AuditMutationInstrumentationSpec
         val metadata = rows.head.metadata.asJsObject.fields
         metadata("sourcesDeleted") shouldBe JsNumber(0)
         metadata("pipelinesDeleted") shouldBe JsNumber(0)
-        metadata("typesDeleted") shouldBe JsNumber(0)
       }
     }
 

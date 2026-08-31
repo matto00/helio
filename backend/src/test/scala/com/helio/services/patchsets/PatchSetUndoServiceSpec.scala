@@ -107,7 +107,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-      AclResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
@@ -121,13 +120,13 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     metricService        = new MetricService(metricRepo, dataTypeRepo)
 
     applyService = new PatchSetApplyService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
+      panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
       metricRepo, accessChecker, applicationRepo
     )
     undoService = new PatchSetUndoService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
+      panelService, dashboardService, dataSourceService, pipelineService,
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
       applicationRepo
     )
 
@@ -224,11 +223,12 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
   "PatchSetUndoService.undo" should {
 
-    "restore panel/dashboard/dataSource/dataType/pipeline/pipelineStep update edits to their pre-apply state (5.3a)" in {
+    // HEL-904 task 3.3: `dataType` dropped from this scenario's edit set --
+    // `dataType` is no longer a valid target.kind at all.
+    "restore panel/dashboard/dataSource/pipeline/pipelineStep update edits to their pre-apply state (5.3a)" in {
       val dashboard          = seedDashboard(userA, "Dashboard v1")
       val panel               = seedPanel(dashboard.id, userA, "Panel v1")
       val (dataSourceId, _)   = seedStaticSource(userA, "Source v1")
-      val standaloneType      = seedPipelineOutputType(userA, "Type v1")
       val (pipelineSrcId, _)  = seedStaticSource(userA, "Pipeline source v1")
       val pipeline             = seedPipeline(userA, pipelineSrcId, "Pipeline v1")
       // HEL-705 (2.6): seeded DISABLED so the full-revert undo path is asserted to preserve the
@@ -239,29 +239,26 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
       val edits = Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Panel v2"), None, None, None)), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Panel v2"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some("Dashboard v2"), None, None)), None, None, None, None, None),
+          None, Some(UpdateDashboardRequest(Some("Dashboard v2"), None, None)), None, None, None, None),
         Edit(EditTarget("dataSource", Some(dataSourceId.value)), "update",
-          None, None, Some(UpdateDataSourceRequest(name = Some("Source v2"))), None, None, None, None),
-        Edit(EditTarget("dataType", Some(standaloneType.id.value)), "update",
-          None, None, None, Some(UpdateDataTypeRequest(name = Some("Type v2"), fields = None, computedFields = None)), None, None, None),
+          None, None, Some(UpdateDataSourceRequest(name = Some("Source v2"))), None, None, None),
         Edit(EditTarget("pipeline", Some(pipeline.id)), "update",
-          None, None, None, None, Some(UpdatePipelineRequest(name = "Pipeline v2")), None, None),
+          None, None, None, Some(UpdatePipelineRequest(name = "Pipeline v2")), None, None),
         Edit(EditTarget("pipelineStep", Some(step.id)), "update",
-          None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(JsObject("renames" -> JsObject("x" -> JsString("y")))), None)), None)
+          None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(JsObject("renames" -> JsObject("x" -> JsString("y")))), None)), None)
       )
       val applicationId = applySuccessfully(edits)
 
       await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
-        case Right(response) => response.edits.map(_.status) shouldBe Vector.fill(6)("restored")
+        case Right(response) => response.edits.map(_.status) shouldBe Vector.fill(5)("restored")
         case Left(err)         => fail(s"expected success, got $err")
       }
 
       await(panelRepo.findByIdInternal(panel.id)).map(_.title) shouldBe Some("Panel v1")
       await(dashboardRepo.findByIdInternal(dashboard.id)).map(_.name) shouldBe Some("Dashboard v1")
       await(dataSourceRepo.findByIdInternal(dataSourceId)).map(_.name) shouldBe Some("Source v1")
-      await(dataTypeRepo.findByIdInternal(standaloneType.id)).map(_.name) shouldBe Some("Type v1")
       await(pipelineRepo.findByIdInternal(PipelineId(pipeline.id))).map(_.name) shouldBe Some("Pipeline v1")
       val restoredStep = await(pipelineStepRepo.findByIdInternal(PipelineStepId(step.id))).getOrElse(fail("step missing"))
       restoredStep.asInstanceOf[RenameStep].config.renames shouldBe Map("a" -> "b")
@@ -280,8 +277,8 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
         "type"        -> JsString("divider")
       )
       val edits = Vector(
-        Edit(EditTarget("panel", None), "create", None, None, None, None, None, None, Some(createPatch)),
-        Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None, None)
+        Edit(EditTarget("panel", None), "create", None, None, None, None, None, Some(createPatch)),
+        Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None)
       )
       val applyResponse = await(applyService.apply(PatchSet(None, edits), userA)) match {
         case Right(r) if r.applicationId.isDefined => r
@@ -316,7 +313,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     // identify which dashboard was removed once `resultingState`/`priorState` are both absent.
     "restore a dashboard create edit by deleting the created dashboard, with newId populated on the undo outcome (5.3b-dashboard)" in {
       val createPatch = JsObject("name" -> JsString("Created by patch set"))
-      val edit = Edit(EditTarget("dashboard", None), "create", None, None, None, None, None, None, Some(createPatch))
+      val edit = Edit(EditTarget("dashboard", None), "create", None, None, None, None, None, Some(createPatch))
       val applyResponse = await(applyService.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Right(r) if r.applicationId.isDefined => r
         case other                                  => fail(s"expected a successful, journaled apply, got $other")
@@ -345,7 +342,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
         PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("old" -> JsString("new"))), enabled = Some(false)
       )
 
-      val edit = Edit(EditTarget("pipelineStep", Some(step.id)), "delete", None, None, None, None, None, None, None)
+      val edit = Edit(EditTarget("pipelineStep", Some(step.id)), "delete", None, None, None, None, None, None)
       val applicationId = applySuccessfully(Vector(edit))
 
       val undoResponse = await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
@@ -372,8 +369,8 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
       val edits = Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "update",
-          Some(UpdatePanelRequest(Some("After"), None, None, None)), None, None, None, None, None, None),
-        Edit(EditTarget("pipeline", Some(pipeline.id)), "delete", None, None, None, None, None, None, None)
+          Some(UpdatePanelRequest(Some("After"), None, None, None)), None, None, None, None, None),
+        Edit(EditTarget("pipeline", Some(pipeline.id)), "delete", None, None, None, None, None, None)
       )
       val applicationId = applySuccessfully(edits)
 
@@ -392,9 +389,9 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
       val edits = Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Conflict panel v2"), None, None, None)), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Conflict panel v2"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some("Conflict dashboard v2"), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some("Conflict dashboard v2"), None, None)), None, None, None, None)
       )
       val applicationId = applySuccessfully(edits)
 
@@ -424,10 +421,10 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
       val edits = Vector(
         Edit(EditTarget("panel", Some(panelA.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Panel A v2"), None, None, None)), None, None, None, None, None, None),
-        Edit(EditTarget("panel", Some(panelB.id.value)), "delete", None, None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Panel A v2"), None, None, None)), None, None, None, None, None),
+        Edit(EditTarget("panel", Some(panelB.id.value)), "delete", None, None, None, None, None, None),
         Edit(EditTarget("panel", Some(panelC.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Panel C v2"), None, None, None)), None, None, None, None, None, None)
+          Some(UpdatePanelRequest(Some("Panel C v2"), None, None, None)), None, None, None, None, None)
       )
       val applicationId = applySuccessfully(edits)
 
@@ -459,7 +456,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       val dashboard = seedDashboard(userA)
       val panel     = seedPanel(dashboard.id, userA, "Owner only")
       val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(Some("Should never apply"), None, None, None)), None, None, None, None, None, None)
+        Some(UpdatePanelRequest(Some("Should never apply"), None, None, None)), None, None, None, None, None)
       val applicationId = applySuccessfully(Vector(edit))
 
       await(undoService.undo(PatchSetApplicationId(applicationId), userB)) match {
@@ -487,7 +484,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
       val bindPatch = JsObject("metricId" -> JsString(metricId.value))
       val bindEdit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(bindPatch))), None, None, None, None, None, None)
+        Some(UpdatePanelRequest(None, None, None, Some(bindPatch))), None, None, None, None, None)
       val applicationId = applySuccessfully(Vector(bindEdit))
 
       // Deprecate the metric -- no raw config field on the panel itself changes.

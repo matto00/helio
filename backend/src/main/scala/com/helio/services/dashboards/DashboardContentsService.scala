@@ -9,7 +9,6 @@ import com.helio.api.protocols.proposals.{ProposalPanel, ReplaceDashboardContent
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, Panel, ResourceAccess}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository}
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,14 +34,13 @@ final class DashboardContentsService(
     panelService: PanelService,
     dataTypeRepo: DataTypeRepository,
     accessChecker: AccessChecker,
-    // HEL-549: mirrors DashboardProposalService's nullable-optional wiring
-    // convention (design.md D5) — only touched when a panel actually
-    // carries a metricId.
-    metricRepo: MetricRepository,
-    // HEL-477: nullable-optional wiring mirrors metricRepo above.
+    // HEL-477: nullable-optional wiring.
     auditService: AuditService = null,
     // HEL-904 task 3.8/3.9: validates an "output"-kind panel's binding
-    // against a real Output. Nullable-optional, mirroring metricRepo above.
+    // against a real Output. Nullable-optional, mirroring auditService above.
+    // HEL-904 task 3.2: the `metricRepo` param (HEL-549, unused since task
+    // 3.9 dropped `validateMetricBinding`/`preValidateBindings`'s metricRepo
+    // parameter -- metrics no longer exist) is REMOVED outright.
     outputRepo: OutputRepository = null
 )(implicit ec: ExecutionContext) {
 

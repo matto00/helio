@@ -139,18 +139,86 @@
       SAME task, remove `targetDataTypeId` from the `AlertRule` domain model (added additively in
       1.4) now that every caller reads `targetOutputId` instead — round-2 finding 4 flagged this
       removal as dangling; it belongs here, not left implicit.
-- [ ] 3.2 `WorkspaceSearchService`, `WorkspaceTeardownRepository`, `DashboardContentsService`,
-      `AssistantToolExecutor`: DataType/Metric branches → Outputs. **Partial (this cycle, landed
-      alongside 3.12):** `WorkspaceSearchService`'s `find`/`getResource` DataType branches only
-      (`toDataTypeSummary`/the `WorkspaceResourceType.DataType` `getResource` case) are rewired
-      onto `OutputRepository` — this was forced by 3.12's own signature change to
-      `WorkspaceContextService.toDataTypeEntry`, not independently scheduled. `WorkspaceSearchService`'s
-      Metric branch, `WorkspaceTeardownRepository` (still fully `DataTypeRepository`-keyed
-      teardown-conflict logic), `DashboardContentsService` (still takes `dataTypeRepo`/`metricRepo`
-      directly), and `AssistantToolExecutor`'s `withCapabilities` (still constructs `DataTypeId`
-      for `PanelCapabilityService`, part of the 3.11 cluster) remain untouched.
-- [ ] 3.3 `PatchSetApplyService` + other patch-set files: `dataType` targets → node/Output
-      targets; persisted enum loses `dataType`/`metric`.
+- [x] 3.2 `WorkspaceSearchService`, `WorkspaceTeardownRepository`, `DashboardContentsService`,
+      `AssistantToolExecutor`: DataType/Metric branches → Outputs (or removed outright where the
+      OpenSpec delta calls for removal, not retargeting). **Completed this cycle (cycle 23).**
+      `AssistantToolExecutor`'s `withCapabilities` needed no further change (resolved as a side
+      effect of 3.11 landing, per cycle 22's note — it already threads a `DataTypeId` wrapper,
+      which `PanelCapabilityService` now correctly reinterprets as an Output id).
+      `WorkspaceSearchService`'s Metric branch is REMOVED outright (not retargeted) per the
+      `workspace-resource-search` OpenSpec delta's "DataTypes and Metrics are no longer a
+      searchable kind" scenario: `metricService`/`MetricService` dropped from the constructor
+      (same positional slot removed, not replaced), `metricSummariesF`/`toMetricSummary`/
+      `toMetricDetail`/the `WorkspaceResourceType.Metric` `getResource` case all deleted;
+      `WorkspaceResourceType.Metric` itself (the case object, `asString`/`fromString` cases) and
+      the wire-level `WorkspaceResourceMetric`/`WorkspaceResourceDetail.MetricDetail` protocol
+      types are deleted too (both were used ONLY by this one branch, confirmed by a fresh grep —
+      leaving them would be orphaned dead code, not a "kept for later" case); `MetricProtocol` mix-in
+      dropped from `WorkspaceResourceSearchProtocol` accordingly. `WorkspaceAssistantTools`'
+      `ResourceTypeEnum` drops `"metric"` (Claude can no longer propose it as a `find`/`get_resource`
+      type). `ApiRoutes.scala`'s `assistantServiceOpt` gating is simplified to depend on
+      `ClaudeConfig.fromEnv()` alone (the `metricServiceOpt` gating dimension existed ONLY to
+      guarantee `WorkspaceSearchService`'s now-removed `metricService` constructor arg was
+      non-null — `metricServiceOpt` itself is UNCHANGED and still gates the still-live `/api/metrics`
+      routes, a section-4 job). `WorkspaceTeardownRepository`'s `resourceKind = "data_type"` branch
+      is REMOVED outright per the `workspace-tag-teardown` OpenSpec delta ("Outputs are torn down
+      transitively via `ON DELETE CASCADE` from their owning pipeline" — verified directly against
+      V94's `outputs.pipeline_id ... ON DELETE CASCADE`): `dataTypeRepo` dropped from the
+      constructor, `taggedTypes`/`typeDependentConflicts`/`sourceLinkConflicts`/
+      `panelBoundConflicts`/`deleteTypes`/`typesDeleted` all deleted; delete order simplifies to
+      Pipelines → DataSources. `typesDeleted` is removed from `TeardownOutcome`,
+      `TeardownResponse` (wire shape, `jsonFormat8` → `jsonFormat7`), and
+      `schemas/workspace/workspace-teardown-response.schema.json` (also narrows
+      `TeardownConflict.resourceKind`'s enum to `["data_source"]` — the only kind still carrying a
+      guard). `DashboardContentsService`'s `metricRepo: MetricRepository` constructor param is
+      REMOVED outright — a pre-existing dead param, unused in the file body since task 3.9 already
+      dropped `preValidateBindings`'/`validateMetricBinding`'s own `metricRepo` parameter; the
+      file's `dataTypeRepo` param is UNCHANGED and correctly kept (still legitimately backs
+      `ProposalPanelSupport.preValidateBindings`'s non-`"output"`-kind panel-binding branch, e.g.
+      Text/Markdown panels bound to a legacy DataType — that composition is not a "DataType branch
+      to retarget," it's live, in-scope-elsewhere behavior task 3.2 does not touch).
+- [x] 3.3 `PatchSetApplyService` + other patch-set files: `dataType` targets → node/Output
+      targets; persisted enum loses `dataType`/`metric`. **Completed this cycle (cycle 23), with a
+      documented correction to the plan above:** per design.md's removal list (which groups
+      `PatchSetApplyService` under "the DataType/Metric branches of ... are deleted", NOT
+      "retargeted to Outputs" like its four §3.2 siblings) and its delivery-strategy table
+      ("Proposal and patch-set schemas ... owned by P1.4, not P1.3"), `dataType` is REMOVED
+      outright as a valid `target.kind` -- NOT retargeted onto an `output` kind. Adding real
+      `output`-kind patch-set support is P1.4/HEL-907's job (there is no `UpdateOutputRequest`/
+      Output-editing route to retarget onto yet -- the Output editor itself is deferred to P1.5
+      per design.md's removal-list note). `metric` was already not a recognized `target.kind`
+      (unaffected). The V94 migration (cycle 20, `## 15. Patch-set journal cleanup`) already
+      purged every persisted journal entry whose `targetKind` was `dataType`/`metric` -- this
+      task's remaining job, confirmed by that migration's own trailing comment, was exactly
+      "narrowing the recognizedKinds enum and the consumer rewire," done in full this cycle:
+      `PatchSetProtocol.recognizedKinds` drops `"dataType"` (`Edit.dataTypePatch`/
+      `UpdateDataTypeRequest` removed from the wire case class outright); `PatchSetApplyResolvers`'
+      `resolveDataTypeUpdate`/`resolveDataTypeDelete` and `ResolvedAction.DataTypeUpdate`/
+      `DataTypeDelete` deleted (an unrecognized `target.kind` now falls through resolvers' own
+      pre-existing generic `"unsupported target.kind '$kind' for op '$op'"` rejection);
+      `PatchSetApplyForward`/`PatchSetApplyRollback`/`PatchSetPreviewProjection`/
+      `PatchSetPreviewImpact`/`PatchSetUndoConflictCheck`/`PatchSetUndoService`/
+      `PatchSetUndoInverse` all lose their now-unreachable `dataType` branches/hint/hcontent-check
+      code; `RefinementEditShape`'s Claude-facing prompt text no longer documents `"dataType"` as a
+      valid target.kind or update-patch example. The now-dead `dataTypeService`/`metricRepo`-style
+      constructor params this uncovered (`PatchSetApplyServices.dataTypeService`,
+      `PatchSetUndoContext.dataTypeRepo`, `PatchSetUndoService`'s `dataTypeService`/`dataTypeRepo`
+      params, `PatchSetApplyServiceJson`'s `DataTypeProtocol` mixin) are removed outright too --
+      `PatchSetApplyContext.dataTypeRepo`/`dataTypeService` (on `PatchSetApplyService` itself) are
+      KEPT, since `PatchSetApplyResolvers`' panel-binding validation (`rejectCompanionBinding`,
+      unrelated to target.kind) still legitimately reads `dataTypeRepo` for non-`"output"`-kind
+      panel bindings (Text/Markdown panels bound to a legacy DataType) -- a live, in-scope-
+      elsewhere composition, not a "DataType branch to retarget." Test fallout across 8 spec files
+      (`PatchSetProtocolSpec` gains 2 new tests asserting `dataType`/`metric` are rejected;
+      `PatchSetApplyServiceSpec`/`PatchSetPreviewServiceSpec`/`PatchSetUndoServiceSpec` each lose
+      or rewrite the handful of scenarios that specifically exercised the now-retired
+      dataType-target content checks/hints/rollback-unrecoverable path, substituting an equivalent
+      `dataSource`-delete scenario where the test's actual point was "unrecoverable delete rollback
+      reported honestly," not anything DataType-specific) -- verified via a fresh, isolated
+      `testOnly` run of the whole `com.helio.services.patchsets`/`com.helio.api.protocols.
+      patchsets`/`com.helio.api.routes.patchsets` package tree (113/113 green) plus a full,
+      single-threaded `sbt test` (3613/3613 green, confirmed twice -- see this cycle's own
+      execution-progress.md entry for the exact count/rationale vs. cycle 22's 3628).
 - [x] 3.4 `BinaryRefRepository` re-keyed to `(pipeline_id, node_step_id)` (per
       design.md's documented dev-DB fallback, not `data_source_id` — see
       cycle 8's finding).
@@ -321,8 +389,20 @@
       `node_snapshots` counterpart. No `PanelRepository` write call site exists at all — it
       never wrote `data_type_rows` to begin with (`PanelRepository` only reads `panel`
       config, `PipelineRunService` is the sole row-materialization writer).
-- [ ] 3.15 `ApiRoutes.scala`: remove the `"data-type"` `ResourceType` registration (see
-      `acl-resource-type-registry` delta) alongside the route deletions in §4.2.
+- [x] 3.15 `ApiRoutes.scala`: remove the `"data-type"` `ResourceType` registration (see
+      `acl-resource-type-registry` delta) alongside the route deletions in §4.2. **Completed this
+      cycle**, unblocked by 3.3 landing: confirmed via a fresh grep that no route or service
+      anywhere ever called `accessChecker.requireAccess("data-type", ...)` or looked up
+      `registry.lookup("data-type")` (the registration was dead weight, never actually consulted
+      -- `DataTypeRoutes`'s own ACL checks go through direct repository ownership reads, not this
+      registry, matching the `acl-resource-type-registry` delta's own note that Outputs/DataTypes
+      were never part of registry-based ACL). Removed the one registration line in
+      `ApiRoutes.scala` plus its 7 identical test-fixture mirrors across the patch-set spec files
+      (`PatchSetApplyServiceSpec`/`PatchSetPreviewServiceSpec`/`PatchSetUndoServiceSpec`/
+      `PatchSetRoutesSpec`/`PatchSetPreviewRoutesSpec`/`PatchSetUndoRoutesSpec`/
+      `RefinementServiceSpec` -- each constructs its own local `ResourceTypeRegistry` mirroring
+      `ApiRoutes`'s). The route-deletion half of this task (§4.2) is untouched, correctly deferred
+      to section 4 (not yet started).
 
 ## 4. Delete retired repositories, services, protocols, routes, wiring
 

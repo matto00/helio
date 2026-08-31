@@ -58,8 +58,7 @@ final class WorkspaceTeardownService(
                   user,
                   JsObject(
                     "sourcesDeleted"   -> JsNumber(outcome.sourcesDeleted),
-                    "pipelinesDeleted" -> JsNumber(outcome.pipelinesDeleted),
-                    "typesDeleted"     -> JsNumber(outcome.typesDeleted)
+                    "pipelinesDeleted" -> JsNumber(outcome.pipelinesDeleted)
                   )
                 )
               cleanupFiles(outcome).map(_ => Right(toResponse(tag, dryRun, outcome)))
@@ -98,7 +97,6 @@ final class WorkspaceTeardownService(
         TeardownConflictResponse(c.resourceKind, c.resourceId, c.resourceName, c.reason)
       ),
       sourcesDeleted   = outcome.sourcesDeleted,
-      pipelinesDeleted = outcome.pipelinesDeleted,
-      typesDeleted     = outcome.typesDeleted
+      pipelinesDeleted = outcome.pipelinesDeleted
     )
 }

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/workspace/workspace-teardown-response.schema.json",
   "title": "TeardownResponse",
-  "description": "Response body of POST /api/workspace/teardown (HEL-366). Always HTTP 200, both for a clean and a blocked call — a block is an expected, informative outcome, not a client error. `committed` is true only when every resource tagged `tag` was actually deleted (a real, non-dry-run call with no conflicts); it is false for a dry run AND for a blocked call. `blocked` is true whenever `conflicts` is non-empty, in which case NOTHING was deleted (all-or-nothing) and the delete counts are all zero. The three `*Deleted` counts report what was actually deleted on a real committed call, or what WOULD be deleted on a clean dry run — never a partial figure.",
+  "description": "Response body of POST /api/workspace/teardown (HEL-366). Always HTTP 200, both for a clean and a blocked call — a block is an expected, informative outcome, not a client error. `committed` is true only when every resource tagged `tag` was actually deleted (a real, non-dry-run call with no conflicts); it is false for a dry run AND for a blocked call. `blocked` is true whenever `conflicts` is non-empty, in which case NOTHING was deleted (all-or-nothing) and the delete counts are all zero. The `*Deleted` counts report what was actually deleted on a real committed call, or what WOULD be deleted on a clean dry run — never a partial figure. HEL-904: `typesDeleted` is removed -- Outputs are torn down transitively via ON DELETE CASCADE from their owning pipeline, not independently counted.",
   "type": "object",
   "properties": {
     "tag": {
@@ -32,10 +32,6 @@
     "pipelinesDeleted": {
       "type": "integer",
       "minimum": 0
-    },
-    "typesDeleted": {
-      "type": "integer",
-      "minimum": 0
     }
   },
   "required": [
@@ -45,8 +41,7 @@
     "blocked",
     "conflicts",
     "sourcesDeleted",
-    "pipelinesDeleted",
-    "typesDeleted"
+    "pipelinesDeleted"
   ],
   "additionalProperties": false,
   "$defs": {
@@ -56,8 +51,8 @@
       "properties": {
         "resourceKind": {
           "type": "string",
-          "enum": ["data_source", "data_type"],
-          "description": "Only these two kinds carry a blocking guard — a tagged Pipeline has no analogous dependent-of-a-Pipeline guard."
+          "enum": ["data_source"],
+          "description": "Only this kind carries a blocking guard — a tagged Pipeline has no analogous dependent-of-a-Pipeline guard, and Outputs (HEL-904) cascade with their owning pipeline instead of carrying a guard of their own."
         },
         "resourceId": {
           "type": "string"

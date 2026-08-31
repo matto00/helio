@@ -220,7 +220,7 @@ class AssistantConversationRoutesSpec
   // stays null.
   private def assistantServiceWithSearch(transport: ClaudeTransport, outputRepo: OutputRepository): AssistantService = {
     val workspaceContextService = new WorkspaceContextService(null, null, outputRepo, null)(routeEc)
-    val workspaceSearchService  = new WorkspaceSearchService(null, null, outputRepo, null, null, workspaceContextService)(routeEc)
+    val workspaceSearchService  = new WorkspaceSearchService(null, null, outputRepo, null, workspaceContextService)(routeEc)
     new AssistantService(new ClaudeClient(claudeConfig(), transport)(routeEc), workspaceSearchService, null, null, null, null, null, null)(routeEc)
   }
 

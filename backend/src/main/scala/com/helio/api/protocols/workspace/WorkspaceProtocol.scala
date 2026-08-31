@@ -17,6 +17,10 @@ final case class TeardownConflictResponse(
     reason: String
 )
 
+// HEL-904 task 3.2: `typesDeleted` is REMOVED outright (not retargeted) --
+// the `resourceKind = "data_type"` teardown branch no longer exists; Outputs
+// cascade with their owning pipeline instead of being independently counted
+// (see the `workspace-tag-teardown` OpenSpec delta).
 final case class TeardownResponse(
     tag: String,
     dryRun: Boolean,
@@ -24,13 +28,12 @@ final case class TeardownResponse(
     blocked: Boolean,
     conflicts: Vector[TeardownConflictResponse],
     sourcesDeleted: Int,
-    pipelinesDeleted: Int,
-    typesDeleted: Int
+    pipelinesDeleted: Int
 )
 
 trait WorkspaceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val teardownRequestFormat: RootJsonFormat[TeardownRequest] = jsonFormat2(TeardownRequest.apply)
   implicit val teardownConflictResponseFormat: RootJsonFormat[TeardownConflictResponse] =
     jsonFormat4(TeardownConflictResponse.apply)
-  implicit val teardownResponseFormat: RootJsonFormat[TeardownResponse] = jsonFormat8(TeardownResponse.apply)
+  implicit val teardownResponseFormat: RootJsonFormat[TeardownResponse] = jsonFormat7(TeardownResponse.apply)
 }

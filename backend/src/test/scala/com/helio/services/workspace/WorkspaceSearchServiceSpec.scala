@@ -3,14 +3,12 @@ package com.helio.services.workspace
 
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.metrics.MetricService
 import com.helio.services.pipelines.{DataTypeService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.domain.engine.SchemaField
 import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -59,7 +57,6 @@ class WorkspaceSearchServiceSpec
   private var pipelineRepo: PipelineRepository             = _
   private var pipelineStepRepo: PipelineStepRepository     = _
   private var dashboardRepo: DashboardRepository           = _
-  private var metricRepo: MetricRepository                 = _
   private var permissionRepo: ResourcePermissionRepository = _
 
   private var dashboardService: DashboardService             = _
@@ -68,7 +65,6 @@ class WorkspaceSearchServiceSpec
   private var outputRepo: OutputRepository                   = _
   private var nodeSnapshotRepo: NodeSnapshotRepository        = _
   private var pipelineService: PipelineService               = _
-  private var metricService: MetricService                   = _
   private var workspaceContextService: WorkspaceContextService = _
   private var service: WorkspaceSearchService                 = _
 
@@ -95,7 +91,6 @@ class WorkspaceSearchServiceSpec
     pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
     pipelineStepRepo = new PipelineStepRepository(ctx)
     dashboardRepo    = new DashboardRepository(ctx)
-    metricRepo       = new MetricRepository(ctx)
     permissionRepo   = new ResourcePermissionRepository(ctx)
 
     val tmpDir = java.nio.file.Files.createTempDirectory("helio-workspace-search-spec")
@@ -105,7 +100,6 @@ class WorkspaceSearchServiceSpec
     outputRepo        = new OutputRepository(ctx)
     nodeSnapshotRepo  = new NodeSnapshotRepository(ctx)
     pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
-    metricService     = new MetricService(metricRepo, dataTypeRepo)
 
     val registry = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
@@ -117,7 +111,7 @@ class WorkspaceSearchServiceSpec
       dashboardService, dataSourceService, outputRepo, pipelineService,
       nodeSnapshotRepoOpt = Some(nodeSnapshotRepo)
     )
-    service = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepo, pipelineService, metricService, workspaceContextService)
+    service = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepo, pipelineService, workspaceContextService)
 
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userAId::uuid, ${s"a-$userAId@test.local"}, now())""",
@@ -208,48 +202,6 @@ class WorkspaceSearchServiceSpec
     await(dashboardRepo.insert(dash))
   }
 
-  /** A pipeline-output DataType (`sourceId = None`, matching `MetricService.create`'s own binding
-   *  rule) + a metric bound to it, inserted directly via the repository (not `MetricService.create`)
-   *  — this spec only needs a well-formed, owned `MetricDefinition` to search/fetch, not a
-   *  re-exercise of `MetricService`'s own binding validation (already covered elsewhere). */
-  private def createMetric(
-      user: AuthenticatedUser,
-      name: String = s"metric-${UUID.randomUUID()}",
-      description: Option[String] = Some("A test metric")
-  ): MetricDefinition = {
-    val now = Instant.now()
-    val dt = DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = s"metric-dt-${UUID.randomUUID()}",
-      fields    = Vector(DataField("revenue", "Revenue", "float", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = user.id
-    )
-    await(dataTypeRepo.insert(dt, user))
-
-    val metric = MetricDefinition(
-      id                = MetricId(UUID.randomUUID().toString),
-      ownerId           = user.id,
-      dataTypeId        = dt.id,
-      name              = name,
-      description       = description,
-      measureField      = "revenue",
-      aggregation       = "sum",
-      allowedDimensions = Vector.empty,
-      format            = MetricFormat(None, None, None, None),
-      deprecated        = false,
-      createdAt         = now,
-      updatedAt         = now
-    )
-    await(metricRepo.insert(metric, user)) match {
-      case Right(m)  => m
-      case Left(err) => fail(s"metric insert failed: $err")
-    }
-  }
-
   // HEL-904 task 3.12: `id` is now an Output id (see `createPipeline`'s own doc) -- updates
   // `outputs.schema` instead of `data_types.fields`, mirroring
   // `WorkspaceContextServiceSpec`'s identical rewire.
@@ -310,13 +262,6 @@ class WorkspaceSearchServiceSpec
       hit.description should not be empty
     }
 
-    "return a summary for a query matching an owned metric's name" in {
-      val metric = createMetric(userA, "find-51-metric-alpha")
-      val results = await(service.find(userA, "find-51-metric-alpha"))
-      val hit = results.find(_.id == metric.id.value).getOrElse(fail("metric summary missing"))
-      hit.resourceType shouldBe "metric"
-      hit.description shouldBe "A test metric"
-    }
   }
 
 
@@ -330,15 +275,13 @@ class WorkspaceSearchServiceSpec
 
 
   "find (5.3 resourceTypes filter)" should {
-    "restrict results to the requested type when a query matches both a metric and a dashboard" in {
-      val metric = createMetric(userA, "find-53-shared-token")
-      val dash   = createDashboard(userA, "find-53-shared-token")
+    "restrict results to the requested type when a query matches both a dashboard and nothing else" in {
+      val dash = createDashboard(userA, "find-53-shared-token")
 
-      val results = await(service.find(userA, "find-53-shared-token", Some(Set(WorkspaceResourceType.Metric))))
+      val results = await(service.find(userA, "find-53-shared-token", Some(Set(WorkspaceResourceType.Dashboard))))
 
-      results.map(_.id) should contain(metric.id.value)
-      results.map(_.id) should not contain dash.id.value
-      results.foreach(_.resourceType shouldBe "metric")
+      results.map(_.id) should contain(dash.id.value)
+      results.foreach(_.resourceType shouldBe "dashboard")
     }
   }
 
@@ -439,67 +382,8 @@ class WorkspaceSearchServiceSpec
       result shouldBe a[Left[_, _]]
     }
 
-    "return Left(NotFound) for a nonexistent metric id" in {
-      await(service.getResource(userA, UUID.randomUUID().toString, WorkspaceResourceType.Metric)) shouldBe a[Left[_, _]]
-    }
-
-    "return Left(NotFound) for a metric owned by a different user" in {
-      val metric = createMetric(userB, "getresource-55-unowned-metric")
-      val result = await(service.getResource(userA, metric.id.value, WorkspaceResourceType.Metric))
-      result shouldBe a[Left[_, _]]
-    }
   }
 
-
-  "getResource (5.6 metric detail)" should {
-    "return the metric's full definition" in {
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "getresource-56-dt",
-        fields    = Vector(DataField("revenue", "Revenue", "float", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = userA.id
-      )
-      await(dataTypeRepo.insert(dt, userA))
-
-      val now = Instant.now()
-      val metric = MetricDefinition(
-        id                = MetricId(UUID.randomUUID().toString),
-        ownerId           = userA.id,
-        dataTypeId        = dt.id,
-        name              = "getresource-56-metric",
-        description       = Some("Full detail metric"),
-        measureField      = "revenue",
-        aggregation       = "avg",
-        allowedDimensions = Vector("region", "channel"),
-        format            = MetricFormat(unit = Some("USD"), decimals = Some(2), prefix = None, suffix = Some("/mo")),
-        deprecated        = true,
-        createdAt         = now,
-        updatedAt         = now
-      )
-      await(metricRepo.insert(metric, userA)) match {
-        case Right(_)  => ()
-        case Left(err) => fail(s"metric insert failed: $err")
-      }
-
-      val result = await(service.getResource(userA, metric.id.value, WorkspaceResourceType.Metric))
-      result match {
-        case Right(WorkspaceResourceDetail.MetricDetail(detail)) =>
-          detail.id shouldBe metric.id.value
-          detail.name shouldBe "getresource-56-metric"
-          detail.description shouldBe Some("Full detail metric")
-          detail.measureField shouldBe "revenue"
-          detail.aggregation shouldBe "avg"
-          detail.allowedDimensions shouldBe Vector("region", "channel")
-          detail.format shouldBe MetricFormat(Some("USD"), Some(2), None, Some("/mo"))
-          detail.deprecated shouldBe true
-        case other => fail(s"expected Right(MetricDetail), got $other")
-      }
-    }
-  }
 
 
   "DashboardService.findById (5.9)" should {

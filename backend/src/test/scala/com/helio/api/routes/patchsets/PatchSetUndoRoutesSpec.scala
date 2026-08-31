@@ -96,7 +96,6 @@ class PatchSetUndoRoutesSpec
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-      AclResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
@@ -110,13 +109,13 @@ class PatchSetUndoRoutesSpec
 
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     patchSetApplyService = new PatchSetApplyService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
+      panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
       metricRepo, accessChecker, applicationRepo
     )
     patchSetUndoService = new PatchSetUndoService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
+      panelService, dashboardService, dataSourceService, pipelineService,
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
       applicationRepo
     )
 
@@ -151,7 +150,7 @@ class PatchSetUndoRoutesSpec
     "restore an owned application's edits and return 200 with a restored outcome per edit" in {
       val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Undo route dashboard v1")), userA))._1
       val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-        None, Some(UpdateDashboardRequest(Some("Undo route dashboard v2"), None, None)), None, None, None, None, None)
+        None, Some(UpdateDashboardRequest(Some("Undo route dashboard v2"), None, None)), None, None, None, None)
       val applicationId = applySuccessfully(Vector(edit), userA)
 
       Post(s"/patch-sets/$applicationId/undo") ~> routesFor(userA) ~> check {
@@ -165,7 +164,7 @@ class PatchSetUndoRoutesSpec
     "reject an unowned applicationId with 404, touching nothing" in {
       val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Foreign undo dashboard")), userA))._1
       val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-        None, Some(UpdateDashboardRequest(Some("Should never revert"), None, None)), None, None, None, None, None)
+        None, Some(UpdateDashboardRequest(Some("Should never revert"), None, None)), None, None, None, None)
       val applicationId = applySuccessfully(Vector(edit), userA)
 
       Post(s"/patch-sets/$applicationId/undo") ~> routesFor(userB) ~> check {
@@ -183,7 +182,7 @@ class PatchSetUndoRoutesSpec
     "reject a conflicting application's undo with 409, restoring nothing" in {
       val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Conflict route dashboard v1")), userA))._1
       val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-        None, Some(UpdateDashboardRequest(Some("Conflict route dashboard v2"), None, None)), None, None, None, None, None)
+        None, Some(UpdateDashboardRequest(Some("Conflict route dashboard v2"), None, None)), None, None, None, None)
       val applicationId = applySuccessfully(Vector(edit), userA)
 
       // Independent change since the apply.

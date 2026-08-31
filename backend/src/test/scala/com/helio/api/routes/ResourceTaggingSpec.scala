@@ -143,7 +143,7 @@ class ResourceTaggingSpec
     val tmpDir = Files.createTempDirectory("helio-tag-spec-workspace")
     val fs     = new LocalFileSystem(tmpDir)
     val ctx    = new DbContext(db, db)(routeEc)
-    val teardownRepo = new WorkspaceTeardownRepository(ctx, dataTypeRepo)(routeEc)
+    val teardownRepo = new WorkspaceTeardownRepository(ctx)(routeEc)
     val teardownSvc   = new WorkspaceTeardownService(teardownRepo, fs)(routeEc)
     // HEL-371: WorkspaceContextService's four dependencies, built the same
     // way `dataSourceRoutesFor`/`pipelineRoutesFor` above build theirs —
