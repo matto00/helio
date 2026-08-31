@@ -4409,3 +4409,25 @@ an unambiguous target shape already fully determined by existing code (`PatchSet
 .recognizedKinds`, the already-settled trunk/splice model). Committed as
 `HEL-904 Fix round-7 final-gate findings: stale position-semantics docs (protocol/schema/spec
 delta), stale assistant-prompt worked example and patch-set target list`.
+
+## Cycle 10 (round-8 skeptic final-gate finding, single item, closing reword)
+
+Per the orchestrator's explicit instruction to close out documentation-class findings without
+spinning another full verification round: `skeptic-final-1.md` REFUTEd round-7's fix on exactly
+one item — the round-7 fix asserted "`position = count` is equivalent to trunk continuation
+(append)" unconditionally in three places, but this is false on a tail-bearing pipeline (
+`executionOrder` emits a node's tails AFTER its trunk continuation, so `position = count` anchors
+on a tail rather than trunk-last when the trunk-last step already has tails). Corrected the claim
+in `schemas/pipelines/create-pipeline-step-request.schema.json`, the
+`pipeline-steps-persistence` spec delta (position-present bullet + "Insert at count equals
+append" scenario), and `PipelineService.scala`'s `persistNewStep` comment. Reword-only, no
+behavior/test change — existing fixtures are tail-free and remain green.
+
+**Gates run fresh this cycle:**
+- `openspec validate outputs-model-migration --type change --strict` — `Change
+  'outputs-model-migration' is valid`.
+- `node scripts/check-schema-drift.mjs` — green (60 protocols / 46 files, 7 panel-type surfaces).
+- `sbt -batch compile` — success (comment-only backend change).
+
+**No escalations raised.** Purely mechanical prose correction with an unambiguous target already
+fully determined by `executionOrder`'s documented trunk-then-tails emission order.

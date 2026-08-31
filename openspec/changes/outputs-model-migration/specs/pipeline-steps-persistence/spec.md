@@ -33,7 +33,10 @@ when absent). Behavior:
   execution-order position becomes the new step's parent, per `pipeline-step-tree`'s splice
   semantics) and the new step's persisted `position` reflects its resulting sibling-group slot,
   not a whole-pipeline renumbering. `position = count` is equivalent to trunk continuation
-  (append).
+  (append) ONLY when the trunk-last step has no existing tail steps — `executionOrder` emits a
+  node's tails after its trunk continuation, so on a pipeline whose trunk-last step already has
+  tails, `position = count` anchors on that trunk-last step's last tail, not on trunk-last
+  itself.
 - **`enabled` absent:** the step is created enabled; **`enabled: false`:** the step is created
   disabled.
 
@@ -76,9 +79,13 @@ the response SHALL be `404 Not Found` and the step SHALL NOT be persisted.
 
 #### Scenario: Insert at count equals append
 
-- **WHEN** a pipeline has 2 steps and `POST` is called with `position: 2`
+- **WHEN** a pipeline has 2 steps with no tail steps (a linear trunk) and `POST` is called with
+  `position: 2`
 - **THEN** the created step is spliced onto the current trunk-last step (identical to the
-  position-absent, trunk-continuation behavior above)
+  position-absent, trunk-continuation behavior above). This equivalence holds only in the
+  tail-free case: on a pipeline whose trunk-last step already has tail steps, `position = count`
+  instead anchors on that trunk-last step's last tail (per `executionOrder`'s trunk-then-tails
+  emission order), not on trunk-last itself.
 
 #### Scenario: Insert renumbers pre-existing gaps contiguously
 

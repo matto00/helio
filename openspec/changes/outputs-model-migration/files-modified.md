@@ -172,3 +172,20 @@ corruption path (nothing is persisted from a preview call). Flagged for a future
 - `openspec/changes/outputs-model-migration/final-skeptic-deletion-sweep-7.md`,
   `final-skeptic-migration-correctness-7.md` — round-7 final-gate skeptic reports (committed, not
   authored this cycle).
+
+## Round-8 fix cycle (this commit)
+
+- `schemas/pipelines/create-pipeline-step-request.schema.json` — corrected the round-7 fix's own
+  overclaim: `position = count` is equivalent to trunk continuation ONLY when the trunk-last step
+  has no existing tails. `executionOrder` emits a node's tails after its trunk continuation, so on
+  a tail-bearing pipeline `position = count` anchors on the trunk-last step's last tail, not on
+  trunk-last itself — `persistNewStep` (`PipelineService.addStep`'s position-absent branch)
+  anchors on `current(index - 1)` where `current = executionOrder(...)`, exposing the gap.
+- `openspec/changes/outputs-model-migration/specs/pipeline-steps-persistence/spec.md` — same
+  correction in the position-present bullet, plus scoped the "Insert at count equals append"
+  scenario to the tail-free case and added the general-case note.
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — corrected the
+  same overclaim in `persistNewStep`'s source comment (round-7's own non-blocking note 1,
+  propagated into binding surfaces).
+
+Reword-only; no behavior change, no new tests (existing fixtures are tail-free and stay green).

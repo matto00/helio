@@ -603,8 +603,13 @@ final class PipelineService(
         // default step-creation path. Resolve the current trunk's last step
         // as the anchor and splice via `spliceInsertAtInternal` — the same
         // trunk-continuation primitive the explicit-`position`-at-end branch
-        // below already uses — so "append with no position" and "append at
-        // position == count" behave identically.
+        // below already uses. NOTE (round-8 correction): "no position" and
+        // "position == count" are equivalent ONLY when the trunk-last step
+        // has no existing tails. `executionOrder` emits a node's tails
+        // AFTER its trunk continuation, so on a tail-bearing pipeline
+        // `current(count - 1)` (used below) is a tail, not trunk-last —
+        // `position == count` then anchors on that tail, while the
+        // no-`position` default here always anchors on trunk-last.
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
           val anchorParentId = pipelineStepRepo.trunkOf(current).lastOption.map(_.id)
           pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled)
