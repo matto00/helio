@@ -614,7 +614,7 @@
 - [x] 6.4 `sbt compile` and `sbt test` green. **Cycle 30**: re-run fresh, single-threaded
       (`set Test / parallelExecution := false`), not inherited — `Test/compile` clean, full suite
       3360/3360 passing, 225 suites, 0 aborted, 0 failed, exit 0.
-- [ ] 6.5 File a follow-up obligation for each of the 49 deferred capabilities (not the 1 no-op)
+- [x] 6.5 File a follow-up obligation for each of the 49 deferred capabilities (not the 1 no-op)
       where the owning ticket's implementer will actually see it, not just in this change's
       docs: add a one-line pointer to `openspec-coverage-checklist.md`'s relevant section in a
       comment on HEL-907/HEL-908/HEL-909 (as appropriate) at PR-merge time, so a deferred spec
