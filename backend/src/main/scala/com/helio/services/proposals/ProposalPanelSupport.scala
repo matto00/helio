@@ -152,9 +152,13 @@ object ProposalPanelSupport {
 
   // HEL-904 task 3.10: the Metric/Timeline literal-folding branches
   // (label/unit/aggregation/timelineOptions) were removed along with the
-  // bound panel kinds they targeted. Only `dataTypeId`/`fieldMapping` remain
-  // — still meaningful for Text/Markdown's own binding (design.md: TextPanel
-  // carries `dataTypeId`/`fieldMapping` exactly like MarkdownPanel).
+  // bound panel kinds they targeted. `dataTypeId`/`fieldMapping` remain
+  // meaningful ONLY for `"output"`-kind panels (an Output id, per task
+  // 3.8/3.9 below) -- corrected round-5 (this file's own `:101-107`/
+  // `bindingCandidate` doc already had it right): TextPanelConfig and
+  // MarkdownPanelConfig carry no data binding of any kind, so a
+  // `dataTypeId`/`fieldMapping` on a text/markdown proposal panel is inert,
+  // never a real binding.
   //
   // HEL-904 task 3.8/3.9: an `"output"`-kind proposal panel's flat
   // `dataTypeId` field NAME is unchanged (still `dataTypeId` on the wire —

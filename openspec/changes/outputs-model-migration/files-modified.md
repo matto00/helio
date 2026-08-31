@@ -1,81 +1,94 @@
-# Files modified — cycle 7 (round-4 skeptic fixes: index-space bug, stale examples, doc drift)
+# Files modified — cycle 8 (round-5 skeptic findings: splice-ordering bug, sibling-scoped PATCH
+position, discretionary doc close-outs)
 
-Scope for this cycle was explicitly limited by the human coordinator to exactly three items from
-`final-skeptic-migration-correctness-4.md`'s Finding 1, `AssistantProposalToolSchemas.scala`'s
-`"metric"` examples, and documentation drift (`dashboard-proposal.schema.json`,
-`PatchSetPreviewProjection.scala`, the change's `patch-set-preview` delta spec). No opportunistic
-cleanup.
+Scope: `final-skeptic-migration-correctness-5.md` Findings 1 (splice-ordering) and 2 (PATCH
+position, ESCALATION-CLASS per the skeptic, resolved by the coordinator per this ticket's binding
+position-renumbering ruling — sibling-scoped, reject-or-rescope), plus the exhaustive
+reader/writer inventory this cycle was required to produce, plus the discretionary doc closures
+from `final-skeptic-wire-contract-diff-5.md` and `final-skeptic-deletion-sweep-5.md`.
 
-## Item 1 — `insertAtInternal`'s index space no longer matched its callers' (round-4 Finding 1)
+## Finding 1 — `spliceInsertAtInternal` misplaced the new step relative to a tail-bearing anchor
 
 - `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala` —
-  new `spliceInsertAtInternal`: a real re-parenting splice-insert (inserts a step as the trunk
-  continuation immediately under a given anchor `parentStepId`, re-parenting whatever previously
-  occupied that position-0 slot to become the new step's own child), returning the freshly
-  `SELECT`-ed persisted row rather than an echo of the request. `insertAtInternal` (sibling-scoped
-  renumber only, no re-parenting) is insufficient for "insert directly after this node" — see the
-  new method's doc for why. Insert-then-reparent ordering (not reparent-then-insert) is required to
-  avoid violating the `parent_step_id` FK against a not-yet-existing new row id — caught by the new
-  regression tests below (a real `404 Not Found` from a misclassified `PSQLException`, not a logic
-  no-op).
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — `persistNewStep`'s
-  explicit-`position` branch and `duplicateStep` now resolve the correct anchor (`current(index-1)`
-  for `persistNewStep`, the target step itself for `duplicateStep`) and call
-  `spliceInsertAtInternal` instead of `insertAtInternal`, fixing the case where a migrated
-  (parent-chained) pipeline's single-member root sibling group silently absorbed every insert at
-  the end regardless of the requested position, while the `201` response echoed the requested
-  (wrong) index instead of what actually persisted.
-- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineStepRoutesSpec.scala` —
-  (a) updated the 4 pre-existing flat-pipeline position assertions (`POST with position: 0`, `POST
-  with position in the middle`, `POST with position equal to the current step count`, `POST with
-  position heals pre-existing gaps`, `POST duplicate clones directly after the original`) to the
-  correct sibling-scoped `position` values a splice-insert now produces (order/id assertions were
-  already correct and are unchanged — only the raw `position` field values needed updating, since
-  they're no longer a whole-pipeline monotonic index); (b) two NEW regression tests, seeding a real
-  migrated-shape (parent-chained) pipeline via raw SQL — the shape the pre-existing flat-pipeline
-  coverage could never exercise, since sibling group == whole pipeline for API-built pipelines —
-  covering `duplicateStep` and `addStep(position=…)` respectively. Each asserts BOTH halves
-  separately per the coordinator's explicit instruction: (a) the new/duplicated step lands spliced
-  at the correct sibling-scoped position in `listByPipelineInternal`'s real execution order (not
-  appended to the end), and (b) the response's reported `position` equals the row's actually
-  persisted `position`, read back independently via `stepRepo.findByIdInternal` rather than trusting
-  the create response's own echo.
+  `spliceInsertAtInternal` now reparents ALL of the anchor's existing direct children (both the old
+  position-0 trunk continuation AND any position!=0 tail roots), not just the position-0 occupant.
+  This fixes the reproduced defect: an anchor whose only child was a migration-created tail (no
+  position-0 occupant at all) previously left that tail attached to the anchor, so `executionOrder`
+  emitted it BEFORE the newly-spliced-in step (tails precede the trunk continuation in the walk).
+  Reparenting every existing child preserves each child's own `position` (so their relative order
+  among themselves is unchanged; only their common parent moves one hop down onto the new step).
 
-## Item 2 — stale `"type": "metric"` worked examples
+## Finding 2 — `PATCH /api/pipeline-steps/:id {"position": N}` wrote the raw column unscoped
 
-- `backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala` —
-  both `propose_dashboard`/`propose_combined` worked examples (lines ~88, ~207) changed from
-  `"type": "metric"` (hard-rejected by `PanelType.fromString`) to `"type": "output"`, the correct
-  data-panel kind for the scenario each example illustrates (a bound value/aggregation panel).
-  `AssistantProposalToolSchemasSpec` (decode-pins these examples) still green.
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala` —
+  new private `positionScopedUpdateAction`, shared by both `update` (owner-scoped) and
+  `updateInternal` (ACL-bypassing, the one `PipelineService.updateStep`/the PATCH route/the MCP
+  `update_pipeline_step` tool/`PatchSetApplyRollback`/`PatchSetUndoService` all route through). A
+  requested `position` is now clamped to `[0, siblingCount]` and resolved WITHIN the step's own
+  existing sibling group only (same idiom as `reorderInternal`/`insertAtInternal`), so a PATCH can
+  never produce two position-0 children at one node or sever a trunk. `insert` (owner-scoped, dead
+  code, test-only caller) also re-scoped its `max(position)` query to root siblings only, closing
+  the "loaded gun" non-blocking note from round 4/5.
 
-## Item 3 — documentation drift (real defects, not cosmetic)
+## Exhaustive reader/writer inventory (this cycle's completeness proof — see execution-progress.md)
 
-- `schemas/dashboards/dashboard-proposal.schema.json` — corrected 12 stale field descriptions
-  (`dataTypeId`, `metricId`, `fieldMapping`, `aggregation`, `chartType`, `xAxisLabel`, `yAxisLabel`,
-  `seriesColors`, `label`, `unit`, `sort`, `config`) that still named the retired
-  metric/chart/table/collection/timeline panel kinds and the deleted Metrics concept as if they were
-  live. Fields whose only consumer was a now-deleted panel kind are now documented as legacy
-  (decoded but never applied, retained for wire/schema stability); `dataTypeId`/`fieldMapping`/
-  `config` are corrected to describe the current `output`/text/markdown/image placement-kind model
-  accurately (including the `dataTypeId`-is-really-an-Output-id naming note for `output` panels).
-- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewProjection.scala` — corrected
-  the class-level scaladoc, which still claimed the panel-update `chartType: "scatter"` +
-  `aggregation` conflict check ("scatter+aggregation conflict... both free, via the reused functions
-  above") was still active and mirrored by preview; `PanelService.validateScatterAggregationConflict`,
-  `ChartPanel`, and panel-side `aggregation` were all deleted by this same ticket
-  (`PanelServiceHelpers.scala:188-199`) — there is nothing left for `preview` to mirror there. The
-  inline comment at `panelUpdateAfter` already correctly stated the removal; only the file-level
-  scaladoc was stale.
-- `openspec/changes/outputs-model-migration/specs/patch-set-preview/spec.md` — corrected the same
-  stale claim in the "Preview enforces the panel/pipeline content-level checks apply would
-  separately enforce" requirement: removed the `chartType: "scatter"` + `aggregation` bullet from
-  the enforced-checks list and the requirement no longer describes the panel/pipeline checks as
-  "unchanged" from the base spec (the scatter/aggregation check specifically is not).
+Confirmed clean (sibling-scoped or read-only, no fix needed): `siblingsQuery`, the deleted-row
+children query in `deleteInternal`, `childrenOf`, `trunkOf`, `tailsOf`, `executionOrder`,
+`insertInternal`, `insertAtInternal`, `reorderInternal`, `listByPipelineInternal`/`listByPipeline`,
+`PipelineRunService.scala:266`, `RefinementPrompt.scala:87,155`, the MCP `update_pipeline_step` tool
+(routes through the same fixed backend PATCH), `PatchSetApplyRollback`/`PatchSetUndoService`
+(route through the same fixed `updateStep`), the proposal-apply path (`PipelineProposalService`
+only writes Outputs, never raw `pipeline_steps.position`). Fixed this cycle: `updateInternal`,
+`update`, `insert` (position-scoping), `spliceInsertAtInternal` (reparent-all-children ordering).
+Noted, not fixed (preview-only, not a DB writer, out of this cycle's explicit "writer" scope):
+`PatchSetPreviewProjection.pipelineStepUpdateAfter`/`PipelineStepProjectionSupport.withPosition`
+now echoes the raw requested `position` in a PREVIEW response without applying the same clamp
+`positionScopedUpdateAction` applies on the real write — a cosmetic preview/apply drift, not a
+corruption path (nothing is persisted from a preview call). Flagged for a future ticket.
 
-## Housekeeping
+## Regression coverage (all mutation-tested)
 
-- Committed the three pending round-4 skeptic report files (previously untracked, carried forward
-  per the coordinator's instruction):
-  `final-skeptic-migration-correctness-4.md`, `final-skeptic-deletion-sweep-4.md`,
-  `final-skeptic-wire-contract-diff-4.md`.
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepositorySpliceSpec.scala` —
+  new test groups for both findings: a tail-only anchor, a trunk-plus-tail anchor, and a mutation
+  proof (old position-0-only reparenting reproduces the misplacement; the real fixed method does
+  not) for Finding 1; a mid-trunk PATCH invariant test, a run-result-node-key-stability test, and a
+  mutation proof (raw unscoped write severs a real trunk; the fixed `updateInternal` cannot) for
+  Finding 2.
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/V94OutputsMigrationSpec.scala` —
+  new test group exercising the PATCH-severing proof against the REAL 20-step migrated pipeline
+  (`6ba5075b-2291-4508-881b-a517b1f300cf`) the round-5 report reproduced the collapse on: a
+  position PATCH on a mid-trunk step leaves the 20-step trunk and the run-result node key
+  (`trunkOf(...).lastOption`) intact, plus a mutation proof reproducing the exact 20→2 collapse via
+  a raw unscoped write, then confirming the real fixed method cannot reproduce it.
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineStepRoutesSpec.scala` — updated
+  the pre-existing "POST with position: 0" route test's expectations to match the corrected
+  (Finding-1-fixed) exec order (both root siblings now reparent onto the new step, not just the
+  position-0 one); added a new tail-bearing-anchor regression test for `POST
+  /pipeline-steps/:id/duplicate`, exercised through the real route against a migrated
+  (parent-chained) pipeline shape with a real tail — the exact shape the round-5 report noted the
+  existing pure-chain tests "provably cannot catch."
+
+## Discretionary doc close-outs (delegated by the human as ordinary/contained)
+
+- `schemas/authoring/combined-proposal.schema.json` — stale sentinel-rule text
+  ("outside metric/chart/table/collection/timeline" → "outside `output`").
+- `schemas/dashboards/dashboard-proposal.schema.json` — 3 stale strings asserting a text/markdown
+  `dataTypeId`/`fieldMapping` binding that no longer exists (`dataTypeId`, `fieldMapping`, `config`
+  property descriptions).
+- `backend/src/main/scala/com/helio/services/proposals/ProposalPanelSupport.scala` — fixed the
+  `:153-157` comment's self-contradiction with `:101-107`/`bindingCandidate`.
+- `backend/src/test/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemasSpec.scala` —
+  added the missing `PanelType.fromString`/`ProposalPanelSupport.validatePanel` pin over every
+  panel in every `propose_combined`/`propose_dashboard` worked example, closing the gap that let
+  this defect class (stale panel-kind literal in a worked example) recur silently across three
+  rounds.
+- `openspec/changes/outputs-model-migration/specs/pipeline-compute-op/spec.md` — corrected the
+  `InProcessPipelineEngine.applyCompute` reference to `ComputeStep.apply` (the op's real home,
+  `domain/steps/ComputeStep.scala`), preventing the wrong name from being republished into the base
+  spec at archive time.
+
+## Round-5 skeptic reports (committed, not authored this cycle)
+
+- `openspec/changes/outputs-model-migration/final-skeptic-migration-correctness-5.md`
+- `openspec/changes/outputs-model-migration/final-skeptic-wire-contract-diff-5.md`
+- `openspec/changes/outputs-model-migration/final-skeptic-deletion-sweep-5.md`

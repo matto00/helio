@@ -767,15 +767,27 @@ class PipelineStepRoutesSpec
 
       // Persists and survives reload — a subsequent GET reflects the shifted
       // order. HEL-904 cycle-7 fix: `position` is sibling-scoped (the new
-      // step splices in as the pipeline root, re-parenting `idA` to become
-      // its trunk-continuation child at position 0; `idB` stays a root
-      // sibling, unaffected, still at its own position 1) — NOT a
-      // whole-pipeline index, so it is no longer `0, 1, 2`.
+      // step splices in as the pipeline root) — NOT a whole-pipeline index.
+      //
+      // HEL-904 cycle-8 fix (round-5 skeptic Finding 1): BOTH of root's
+      // existing children (`idA` at position 0 AND `idB` at position 1) are
+      // now re-parented onto the new step, not just the position-0 one —
+      // `idB` was itself already a root-level "tail" sibling (position 1)
+      // before this insert, exactly the shape the round-5 report reproduced
+      // a misplacement on. Re-parenting it too means the new step correctly
+      // inherits everything root used to own downstream. `executionOrder`
+      // then emits `newId`'s tails (`idB`, preserved at its own position 1)
+      // BEFORE `newId`'s trunk continuation (`idA`, preserved at position 0)
+      // — this is a genuine, intentional order-of-emission consequence of
+      // the same trunk/tail model every other splice already uses, not a
+      // fresh inconsistency: `idA` and `idB` were always sibling-scoped
+      // peers, never chained to each other, so there was never a
+      // "sequential a-then-b" guarantee between them to begin with.
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val steps = responseAs[Vector[PipelineStepResponse]]
-        steps.map(_.id) shouldBe Vector(newId, idA, idB)
-        steps.map(s => (s.id, s.position)) shouldBe Vector((newId, 0), (idA, 0), (idB, 1))
+        steps.map(_.id) shouldBe Vector(newId, idB, idA)
+        steps.map(s => (s.id, s.position)) shouldBe Vector((newId, 0), (idB, 1), (idA, 0))
       }
     }
 
@@ -1096,6 +1108,47 @@ class PipelineStepRoutesSpec
       // trusting the create response's own echo).
       val persisted = await(stepRepo.findByIdInternal(PipelineStepId(cloneId)))
       persisted.map(_.position) shouldBe Some(reportedPosition)
+    }
+
+    "POST /pipeline-steps/:id/duplicate on a migrated (parent-chained) pipeline WITH a tail-bearing anchor splices the clone directly after the original, before the pre-existing tail (HEL-904 cycle-8, round-5 skeptic Finding 1)" in {
+      // Shape: trunk a -> b (b is the trunk-last step, NO position-0 child),
+      // plus a `position = 1` child of b -- exactly what V94 produces for a
+      // trunk step whose migrated aggregate tail is its only child. The
+      // round-5 report proved the pure-chain tests above (a->b->c->d, no
+      // tails) provably cannot catch this class of defect.
+      import PostgresProfile.api._
+      cleanSteps(); val pid = seedPipeline()
+      val aId = UUID.randomUUID().toString
+      val bId = UUID.randomUUID().toString
+      val tailId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($tailId, $pid, 1, 'rename', '{"renames":{}}', true, now(), now(), $bId)"""
+      )))
+      val before = await(stepRepo.listByPipelineInternal(PipelineId(pid))).map(_.id.value)
+      before shouldBe Vector(aId, bId, tailId)
+
+      var cloneId = ""
+      Post(s"/pipeline-steps/$bId/duplicate") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        cloneId = responseAs[PipelineStepResponse].id
+      }
+
+      // The clone lands directly after `b`, BEFORE the pre-existing tail
+      // (a, b, CLONE, tail) -- not after it (a, b, tail, CLONE), which is
+      // the exact misplacement the round-5 report reproduced on 3 real
+      // migrated pipelines.
+      val after = await(stepRepo.listByPipelineInternal(PipelineId(pid))).map(_.id.value)
+      after shouldBe Vector(aId, bId, cloneId, tailId)
+
+      // The tail is now the clone's child, not `b`'s -- `b` has exactly one
+      // child (the clone).
+      val allSteps = await(stepRepo.listByPipelineInternal(PipelineId(pid)))
+      stepRepo.childrenOf(allSteps, Some(PipelineStepId(bId))).map(_.id.value) shouldBe Vector(cloneId)
     }
 
     "POST /pipeline-steps/:id/duplicate on a disabled step yields a disabled clone" in {

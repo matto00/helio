@@ -5,6 +5,8 @@ import com.helio.api.protocols.patchsets.{PatchSet, PatchSetProtocol}
 import com.helio.api.protocols.pipelines.{PipelineProposal, ProposalRestApiConfig}
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
+import com.helio.domain.model.PanelType
+import com.helio.services.proposals.ProposalPanelSupport
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -103,6 +105,44 @@ class AssistantProposalToolSchemasSpec
     "bind at least one dashboard panel via the literal \"$pipelineOutput\" sentinel, surviving decode" in {
       val decoded = examplesOf("propose_combined").head.convertTo[CombinedProposal]
       decoded.dashboard.panels.map(_.dataTypeId) should contain(Some("$pipelineOutput"))
+    }
+
+    // HEL-904 cycle-8 (round-5 skeptic Finding D, wire-contract-diff-5.md):
+    // this pin was decode-only, so a stale panel-kind literal in a worked
+    // example (e.g. leftover "metric"/"chart"/"table" from before the
+    // pipelines-and-outputs remodel) could still decode fine as a plain
+    // String and never turn this suite red -- exactly why the defect class
+    // recurred across three prior rounds. Every panel in every
+    // propose_combined/propose_dashboard example must ALSO pass the real
+    // `PanelType.fromString`/`ProposalPanelSupport.validatePanel` checks
+    // AssistantToolExecutor's real apply path runs, so a stale-kind example
+    // fails HERE, not silently at runtime against a real model's call.
+    "every dashboard panel in every example passes PanelType.fromString and ProposalPanelSupport.validatePanel" in {
+      val decoded = examplesOf("propose_combined").map(_.convertTo[CombinedProposal])
+      decoded should not be empty
+      decoded.foreach { proposal =>
+        proposal.dashboard.panels.foreach { panel =>
+          withClue(s"panel '${panel.title}' (type=${panel.`type`}): ") {
+            PanelType.fromString(panel.`type`) shouldBe a[Right[_, _]]
+            ProposalPanelSupport.validatePanel("propose_combined example", panel) shouldBe a[Right[_, _]]
+          }
+        }
+      }
+    }
+  }
+
+  "propose_dashboard's schema examples (panel-kind pin)" should {
+    "every panel passes PanelType.fromString and ProposalPanelSupport.validatePanel" in {
+      val decoded = examplesOf("propose_dashboard").map(_.convertTo[DashboardProposal])
+      decoded should not be empty
+      decoded.foreach { proposal =>
+        proposal.panels.foreach { panel =>
+          withClue(s"panel '${panel.title}' (type=${panel.`type`}): ") {
+            PanelType.fromString(panel.`type`) shouldBe a[Right[_, _]]
+            ProposalPanelSupport.validatePanel("propose_dashboard example", panel) shouldBe a[Right[_, _]]
+          }
+        }
+      }
     }
   }
 

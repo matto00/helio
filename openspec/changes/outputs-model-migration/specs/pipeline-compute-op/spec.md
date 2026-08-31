@@ -4,7 +4,7 @@ _Retargeted from DataTypes/Metrics to the outputs-model (Output, node_snapshot, 
 
 ### Requirement: Compute op appends a derived field to each row using a unified config shape
 
-`InProcessPipelineEngine.applyCompute` SHALL accept config shape
+`ComputeStep.apply` SHALL accept config shape
 `{"column":"<name>","expression":"<expr>","type":"<type>"}` and append a new field named `column`
 to every row, whose value is the result of evaluating `expression` against that row's fields using
 `ExpressionEvaluator.evaluate`, per the `compute-expression-language` capability ($-prefixed column

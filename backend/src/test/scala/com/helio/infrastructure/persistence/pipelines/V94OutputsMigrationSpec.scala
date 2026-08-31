@@ -555,6 +555,70 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     }
   }
 
+  // ── HEL-904 cycle-8, round-5 skeptic Finding 2 (ESCALATION-CLASS, resolved
+  // by the coordinator per the binding position-renumbering ruling): the
+  // `PATCH /api/pipeline-steps/:id {"position": N}` write path
+  // (`PipelineStepRepository.updateInternal`) must never sever a real
+  // migrated trunk or silently re-root the node run-results are written
+  // under. Exercised end-to-end against the real 20-step migrated pipeline
+  // the round-5 report reproduced the collapse on. ──────────────────────────
+  "PipelineStepRepository.updateInternal against the real 20-step migrated pipeline (HEL-904 cycle-8 proof)" should {
+    def dbStepRepo: PipelineStepRepository = new PipelineStepRepository(new DbContext(appDb, privilegedDb)(ec))(ec)
+
+    "survive a position PATCH on a mid-trunk step intact -- no truncation, run-result node key unchanged" in {
+      val repo = dbStepRepo
+      val before = await(repo.listByPipelineInternal(PipelineId(manyStepsPipelineId)))
+      val trunkBefore = repo.trunkOf(before)
+      trunkBefore.size shouldBe 20 // the real 20-step migrated trunk the round-5 report reproduced the collapse on
+      val runResultNodeBefore = trunkBefore.lastOption.map(_.id)
+
+      // Reproduce the exact round-5 repro: PATCH position=2 on the 3rd trunk step.
+      val target = trunkBefore(2)
+      await(repo.updateInternal(target.id, config = None, position = Some(2)))
+
+      val after = await(repo.listByPipelineInternal(PipelineId(manyStepsPipelineId)))
+      val trunkAfter = repo.trunkOf(after)
+
+      // PRE-FIX (round-5 report): trunkOf collapsed from 20 steps to 2. The
+      // fix must never produce that: `target` is an only child of its
+      // parent (a pure trunk, pre-fix), so the sibling-scoped re-scope
+      // clamps to index 0 (its only valid position) -- a true no-op.
+      trunkAfter.size shouldBe 20
+      trunkAfter.map(_.id) shouldBe trunkBefore.map(_.id)
+
+      // The run-result node key (`trunkOf(...).lastOption`, consumed by
+      // `PipelineRunService.scala` to key `node_snapshots`/`binary_refs`
+      // writes) must be UNCHANGED by this position-only PATCH.
+      trunkAfter.lastOption.map(_.id) shouldBe runResultNodeBefore
+    }
+
+    "MUTATION PROOF: reverting to the pre-fix raw write reproduces the exact round-5 collapse (20 -> 2 steps), confirmed red, then restored green" in {
+      val repo = dbStepRepo
+      val before = await(repo.listByPipelineInternal(PipelineId(manyStepsPipelineId)))
+      val trunkBefore = repo.trunkOf(before)
+      trunkBefore.size shouldBe 20
+      val target = trunkBefore(2)
+
+      // RED: the pre-fix `updateInternal` wrote `position` raw, unscoped --
+      // simulate that directly with a raw UPDATE (bypassing the repo).
+      await(superDb.run(sqlu"UPDATE pipeline_steps SET position = 2 WHERE id = ${target.id.value}"))
+      val corrupted = repo.trunkOf(await(repo.listByPipelineInternal(PipelineId(manyStepsPipelineId))))
+      corrupted.size shouldBe 2 // exact round-5 repro: 20-step trunk collapses to 2
+
+      // Restore.
+      await(superDb.run(sqlu"UPDATE pipeline_steps SET position = 0 WHERE id = ${target.id.value}"))
+      val healed = repo.trunkOf(await(repo.listByPipelineInternal(PipelineId(manyStepsPipelineId))))
+      healed.size shouldBe 20
+
+      // GREEN: the real (fixed) `updateInternal`, exercised the same way,
+      // cannot reproduce the corruption -- even an out-of-range requested
+      // position clamps to the only valid sibling-scoped index.
+      await(repo.updateInternal(target.id, config = None, position = Some(99)))
+      val afterFixedWrite = repo.trunkOf(await(repo.listByPipelineInternal(PipelineId(manyStepsPipelineId))))
+      afterFixedWrite.size shouldBe 20
+    }
+  }
+
   "V94 panels.kind backfill" should {
     "collapse the real markdown-bound panel (type_id set) to 'output' -- the evaluation-2.md fix" in {
       val kind = await(superDb.run(sql"SELECT kind FROM panels WHERE id = $markdownBoundPanelId".as[String].head))

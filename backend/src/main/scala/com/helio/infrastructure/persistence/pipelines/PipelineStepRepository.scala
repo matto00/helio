@@ -67,7 +67,15 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val now = Instant.now()
     val configJson = encodeConfig(kind, config)
     val action = for {
-      maxPos   <- stepsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
+      // HEL-904 cycle-8 (round-5 skeptic non-blocking note): scoped to root
+      // siblings (`parentStepId.isEmpty`), not a whole-pipeline max -- this
+      // method never sets `parentStepId`, so every row it creates is a root
+      // sibling; scoping the max here keeps it from silently colliding with
+      // (or being skewed by) a non-root step's position once any caller of
+      // insertInternal/spliceInsertAtInternal has created one. Zero live
+      // callers today (test-only); scoped anyway, per the "loaded gun"
+      // finding, rather than left as a second whole-pipeline writer.
+      maxPos   <- stepsTable.filter(s => s.pipelineId === pipelineId.value && s.parentStepId.isEmpty).map(_.position).max.result
       position  = maxPos.map(_ + 1).getOrElse(0)
       id        = UUID.randomUUID().toString
       row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now)
@@ -102,13 +110,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             case Some(cfg) => encodeConfig(row.op, cfg)
             case None      => row.config
           }
-          val newRow = row.copy(
-            config    = newConfig,
-            position  = position.getOrElse(row.position),
-            enabled   = enabled.getOrElse(row.enabled),
-            updatedAt = now
-          )
-          stepsTable.filter(_.id === id.value).update(newRow).map(_ => Some(rowToDomain(newRow)))
+          positionScopedUpdateAction(row, newConfig, position, enabled, now).map(r => Some(rowToDomain(r)))
       }
     } yield updated
     ctx.withUserContext(user.id.value)(action.transactionally)
@@ -196,7 +198,22 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   }
 
   /** ACL-bypassing update. Safe to call only after the caller's editor or
-    * owner access has been confirmed by PipelineService via findByIdShared. */
+    * owner access has been confirmed by PipelineService via findByIdShared.
+    *
+    * HEL-904 cycle-8 fix (round-5 skeptic Finding 2 -- ESCALATION-CLASS,
+    * resolved by the coordinator per this ticket's binding position-
+    * renumbering ruling): `position` on this API is the SAME sibling-scoped
+    * tiebreaker every other writer in this file now uses, not a whole-
+    * pipeline index. A raw, unscoped write of the requested `position`
+    * value was reproduced silently severing a real 20-step migrated trunk
+    * (writing a non-zero `position` on a mid-trunk step broke `trunkOf`'s
+    * exact `position == 0` match, reclassifying the rest of the trunk as
+    * one giant tail -- and silently changing the node key
+    * `PipelineRunService.trunkOf(steps).lastOption` writes run results
+    * under). The write is now re-scoped via [[positionScopedUpdateAction]]:
+    * a requested `position` moves the step to that (clamped) index WITHIN
+    * its own existing sibling group only, by construction never producing
+    * two position-0 children at one node, exactly like `reorderInternal`. */
   def updateInternal(
       id: PipelineStepId,
       config: Option[Any],
@@ -213,16 +230,50 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             case Some(cfg) => encodeConfig(row.op, cfg)
             case None      => row.config
           }
-          val newRow = row.copy(
-            config    = newConfig,
-            position  = position.getOrElse(row.position),
-            enabled   = enabled.getOrElse(row.enabled),
-            updatedAt = now
-          )
-          stepsTable.filter(_.id === id.value).update(newRow).map(_ => Some(rowToDomain(newRow)))
+          positionScopedUpdateAction(row, newConfig, position, enabled, now).map(r => Some(rowToDomain(r)))
       }
     } yield updated
     ctx.withSystemContext(action.transactionally)
+  }
+
+  /** Shared position-scoped update body for [[update]]/[[updateInternal]]
+    * (HEL-904 cycle-8, round-5 skeptic Finding 2). When `position` is
+    * `None`, this is a plain in-place field update (config/enabled/
+    * updatedAt), same as before. When `position` is `Some(requested)`, the
+    * requested value is treated as a target index WITHIN `row`'s own
+    * existing sibling group (siblings sharing `row.parentStepId`), clamped
+    * to `[0, siblingCount]`, and the group is renumbered `0..k-1` around the
+    * moved step -- the identical sibling-scoped idiom [[reorderInternal]]
+    * and [[insertAtInternal]] already use. This can never produce two
+    * position-0 children at one node: the moved step and every other
+    * sibling are always assigned distinct indices from one contiguous
+    * `zipWithIndex` pass over the same group. */
+  private def positionScopedUpdateAction(
+      row: PipelineStepRow,
+      newConfig: String,
+      position: Option[Int],
+      enabled: Option[Boolean],
+      now: Instant
+  ) = {
+    position match {
+      case None =>
+        val newRow = row.copy(config = newConfig, enabled = enabled.getOrElse(row.enabled), updatedAt = now)
+        stepsTable.filter(_.id === row.id).update(newRow).map(_ => newRow)
+      case Some(requested) =>
+        val siblingsQ = siblingsQuery(PipelineId(row.pipelineId), row.parentStepId.map(PipelineStepId(_)))
+        for {
+          siblings <- siblingsQ.sortBy(_.position).result
+          others    = siblings.toVector.filterNot(_.id == row.id)
+          clamped   = requested.max(0).min(others.size)
+          moved     = row.copy(config = newConfig, enabled = enabled.getOrElse(row.enabled), updatedAt = now)
+          withMoved = others.patch(clamped, Vector(moved), 0)
+          updates   = withMoved.zipWithIndex.map {
+            case (r, i) if r.id == row.id => stepsTable.filter(_.id === r.id).update(r.copy(position = i))
+            case (r, i)                   => stepsTable.filter(_.id === r.id).map(s => (s.position, s.updatedAt)).update((i, now))
+          }
+          _ <- DBIO.sequence(updates)
+        } yield moved.copy(position = clamped)
+    }
   }
 
   /** ACL-bypassing insert-at-index (HEL-410). Safe to call only after the
@@ -262,12 +313,16 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   }
 
   /** ACL-bypassing splice-insert (HEL-904 cycle-7 fix, round-4 skeptic Finding
-    * 1): inserts a new step as the trunk continuation immediately under
-    * `parentStepId` (`None` = pipeline root), RE-PARENTING whatever step
-    * currently occupies that position-0 slot (if any) to become the new
-    * step's own position-0 child. This is the "insert directly after this
-    * node" primitive `duplicateStep` and `persistNewStep`'s whole-pipeline
-    * `position` index both actually need.
+    * 1; ordering corrected cycle-8, round-5 skeptic Finding 1): inserts a
+    * new step as the sole child of `parentStepId` (`None` = pipeline root),
+    * RE-PARENTING **every** step that currently is a direct child of
+    * `parentStepId` -- both the old position-0 trunk continuation AND any
+    * position!=0 tail roots -- onto the new step, preserving each
+    * reparented child's own `position` value (so their relative order among
+    * themselves, and the position-0-is-trunk invariant, is unchanged; only
+    * their common parent moves one hop down). This is the "insert directly
+    * after this node" primitive `duplicateStep` and `persistNewStep`'s
+    * whole-pipeline `position` index both actually need.
     *
     * `insertAtInternal` (sibling-scoped renumber, no re-parenting) is NOT
     * sufficient for this: calling it with `parentStepId = Some(anchor.id)`,
@@ -275,8 +330,20 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * trunk continuation) down to position 1, which `executionOrder` treats
     * as a TAIL emitted BEFORE the new step's own walk -- inverting the
     * entire remaining trunk to appear ahead of the just-inserted step.
-    * Re-parenting the old occupant under the new step instead keeps it a
-    * true trunk continuation, just one hop further down.
+    *
+    * Round-4's fix reparented only the position-0 occupant (if any), which
+    * is correct for a pure trunk anchor but wrong the moment the anchor
+    * ALSO has one or more tail children (e.g. a V94-migrated aggregate
+    * tail): those tails were left as direct children of the anchor, so
+    * `executionOrder`'s `node +: (tails ++ trunkChild.walk)` emitted them
+    * BEFORE the newly-inserted trunk continuation -- reproduced on 3 real
+    * migrated pipelines (round-5 report). Reparenting ALL of the anchor's
+    * existing children (not just the position-0 one) onto the new step
+    * fixes this: the anchor now has exactly one child (the new step), and
+    * the new step inherits everything the anchor used to own downstream
+    * (both its old trunk continuation and its old tails), so those tails
+    * are correctly emitted immediately after the new step rather than
+    * immediately after the anchor.
     *
     * Returns the freshly `SELECT`-ed, actually-persisted row (not an echo
     * of the request), so callers never report a `position` the row does
@@ -294,20 +361,21 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val newId      = UUID.randomUUID().toString
     val newRow     = PipelineStepRow(newId, pipelineId.value, 0, kind, configJson, enabled, now, now, parentStepId.map(_.value))
     val action = for {
-      // Read the occupant (if any) BEFORE inserting, then insert the new row
-      // FIRST and re-parent the occupant onto it SECOND -- the FK on
-      // `parent_step_id` referencing `pipeline_steps.id` would otherwise be
-      // violated by pointing the occupant at a not-yet-existing `newId`.
-      occupantOpt <- siblingsQuery(pipelineId, parentStepId).filter(_.position === 0).result.headOption
-      _           <- stepsTable += newRow
-      _           <- occupantOpt match {
-                       case Some(occ) =>
-                         stepsTable.filter(_.id === occ.id)
-                           .map(s => (s.parentStepId, s.position, s.updatedAt))
-                           .update((Some(newId), 0, now))
-                       case None => DBIO.successful(0)
-                     }
-      persisted <- stepsTable.filter(_.id === newId).result.head
+      // Read every existing direct child of the anchor (trunk continuation
+      // AND tails) BEFORE inserting, then insert the new row FIRST and
+      // re-parent all of them onto it SECOND -- the FK on `parent_step_id`
+      // referencing `pipeline_steps.id` would otherwise be violated by
+      // pointing a child at a not-yet-existing `newId`.
+      existingChildren <- siblingsQuery(pipelineId, parentStepId).result
+      _                 <- stepsTable += newRow
+      _                 <- if (existingChildren.nonEmpty)
+                             DBIO.sequence(existingChildren.map { child =>
+                               stepsTable.filter(_.id === child.id)
+                                 .map(s => (s.parentStepId, s.updatedAt))
+                                 .update((Some(newId), now))
+                             })
+                           else DBIO.successful(Seq.empty[Int])
+      persisted         <- stepsTable.filter(_.id === newId).result.head
     } yield rowToDomain(persisted)
     ctx.withSystemContext(action.transactionally)
   }

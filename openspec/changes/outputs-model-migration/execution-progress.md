@@ -4100,3 +4100,146 @@ pushed to any remote.
 compile`/`sbt test` green, single-threaded, fresh this turn (3354/3354, 0 failures); no scope
 creep — only the three assigned files/areas touched plus the necessarily-coupled test-assertion
 updates in `PipelineStepRoutesSpec` that Item 1's fix requires to stay green.
+
+## Cycle 8 (round-5 skeptic findings: splice-ordering, sibling-scoped PATCH position, doc close-outs)
+
+**Exhaustive `pipeline_steps.position` reader/writer inventory (this cycle's required completeness
+proof, not "the skeptic found no more"):**
+
+Readers (all confirmed sibling-scoped/correct by fresh code read this cycle, not carried over from
+a prior claim):
+- `PipelineStepRepository.siblingsQuery` (`:416`) — sibling-scoped by construction.
+- The deleted-row children query in `deleteInternal` (`:382`) — sibling-scoped.
+- `childrenOf` (`:462`) — sorts within an already sibling-scoped filter.
+- `trunkOf`/`tailsOf`/`executionOrder` — parent-chain-derived, not position-sorted.
+- `listByPipelineInternal`/`listByPipeline` — return `executionOrder`, not `.sortBy(_.position)`.
+- `PipelineRunService.scala:266`, `RefinementPrompt.scala:87,155` — confirmed still carry the
+  explicit "do not naive-position-sort" comments and consume `executionOrder`/parent-chain order.
+
+Writers (the actual exposure):
+- `PipelineStepRepository.insertInternal`/`insertAtInternal`/`reorderInternal` — already
+  sibling-scoped (fixed in prior cycles).
+- `PipelineStepRepository.spliceInsertAtInternal` — **Finding 1 (this cycle)**: reparented only the
+  position-0 occupant, not tail children. Fixed: reparents ALL of the anchor's existing direct
+  children.
+- `PipelineStepRepository.updateInternal` (backs `PipelineService.updateStep`, i.e. the public
+  `PATCH /api/pipeline-steps/:id` route, the MCP `update_pipeline_step` tool via the same HTTP
+  route, and `PatchSetApplyRollback`/`PatchSetUndoService`'s reposition-follow-up calls, which both
+  route through `updateStep` — confirmed by grep, no separate write path) — **Finding 2 (this
+  cycle, ESCALATION-CLASS per the skeptic, resolved by the coordinator per the binding
+  position-renumbering ruling: sibling-scoped, reject-or-rescope)**: wrote the raw `position` column
+  unscoped. Fixed: new shared `positionScopedUpdateAction`, clamps to `[0, siblingCount]` within the
+  step's own existing sibling group.
+- `PipelineStepRepository.update` (owner-scoped twin of `updateInternal`) — same defect, zero live
+  callers anywhere (grepped `backend/src/main/scala` and `backend/src/test/scala`), fixed for
+  consistency/future-safety via the same shared helper.
+- `PipelineStepRepository.insert` (owner-scoped, zero live callers in main code, used only by
+  `PipelineAnalyzeRoutesSpec`/`WorkspaceContextServiceSpec` fixtures) — non-blocking "loaded gun"
+  note from rounds 4/5: whole-pipeline `max(position)`, never sets `parentStepId`. Re-scoped its
+  max-query to root siblings only (cheap, zero test-behavior change since every existing caller
+  only ever creates root-level rows).
+- MCP `update_pipeline_step` tool (`helio-mcp/src/tools/write.ts:1050`) — confirmed it calls
+  `api.updatePipelineStep` against the same `PATCH /api/pipeline-steps/:id` route; no separate
+  write path, fixed transitively by the backend fix.
+- `PatchSetApplyRollback.scala:180,285` / `PatchSetUndoService.scala:251` — confirmed both call
+  `pipelineService.updateStep(... UpdatePipelineStepRequest(position = Some(prior.position)))`; no
+  separate write path, fixed transitively.
+- `PipelineProposalService.scala` — confirmed it only ever writes `OutputRepository.insertInternal`
+  (a different table); grepped for any `pipelineStepRepo`/`PipelineStep(` construction — none found.
+  Proposal-apply never touches `pipeline_steps.position` directly.
+- `PatchSetPreviewProjection.pipelineStepUpdateAfter`/`PipelineStepProjectionSupport.withPosition` —
+  reviewed: this is a PREVIEW-response projection (in-memory, nothing persisted), not a DB writer,
+  so it is out of this cycle's explicit "writer" scope. It DOES now diverge cosmetically from the
+  real apply behavior (echoes the raw requested `position` rather than the clamped one) — noted in
+  files-modified.md as a follow-up, not fixed this cycle (no data-corruption path, no design
+  question, genuinely out of the named scope).
+- Final broad sweep (`grep -rn "\.position\s*=\|position:\s*[a-zA-Z]\|SET position\|UPDATE.*position\|\.copy(position" backend/src/main/scala/com/helio`)
+  — every remaining hit is either a case-class field declaration (not a write), a wire-protocol
+  field, `PatchSetPreviewProjectionSteps.withPosition` (reviewed above), or one of the writers
+  already covered. No sixth writer found.
+
+**Fixes this cycle, both in
+`backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala`:**
+
+1. `spliceInsertAtInternal` now reparents every one of the anchor's existing direct children (not
+   just the position-0 occupant) onto the newly inserted step, preserving each child's own
+   `position`. This fixes the round-5 reproduction: an anchor whose sole child was a
+   migration-created tail (no position-0 occupant) previously left that tail attached to the
+   anchor, so it was emitted BEFORE the new step in `executionOrder` (tails precede the trunk
+   continuation in the walk). `duplicateStep` and `persistNewStep`'s explicit-`position` path both
+   call this method, so both are fixed.
+2. New shared `positionScopedUpdateAction`, used by both `update` and `updateInternal`: a requested
+   `position` on a config/enabled/position PATCH is clamped to `[0, siblingCount]` and resolved
+   WITHIN the step's existing sibling group only (identical idiom to `reorderInternal`), so it can
+   never produce two position-0 children at one node or silently sever a trunk.
+
+**Required proof, all delivered, all mutation-tested (revert fix → confirm red → restore → confirm
+green):**
+
+1. `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepositorySpliceSpec.scala`
+   — new groups: tail-only anchor (Finding 1), trunk-plus-tail anchor (Finding 1), mutation proof
+   for Finding 1; mid-trunk PATCH invariant, run-result-node-key stability, mutation proof for
+   Finding 2. 11/11 green (was 5/5 before this cycle).
+2. `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/V94OutputsMigrationSpec.scala`
+   — new group exercised against the REAL 20-step migrated pipeline
+   (`6ba5075b-2291-4508-881b-a517b1f300cf`, the exact pipeline the round-5 report reproduced the
+   20→2 collapse on): position PATCH on a mid-trunk step leaves the 20-step trunk AND the
+   run-result node key (`trunkOf(...).lastOption`, the key `PipelineRunService.scala:636` writes
+   `node_snapshots`/`binary_refs` under) unchanged; mutation proof reproduces the exact 20→2
+   collapse via a raw unscoped write, confirmed red, restored, then confirms the real fixed
+   `updateInternal` cannot reproduce it even with an out-of-range requested position. 33/33 green
+   (was 31/31 before this cycle).
+3. `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineStepRoutesSpec.scala` — updated
+   the pre-existing "POST with position: 0" test's expectations to match the corrected exec order
+   (documented inline why: both pre-existing root siblings now correctly reparent onto the new
+   step, not just the position-0 one — a genuine, intentional consequence of the fix, not a fresh
+   inconsistency). Added a new tail-bearing-anchor regression test for `POST
+   /pipeline-steps/:id/duplicate` against a real migrated (parent-chained) shape with a tail — the
+   exact shape class the round-5 report said the existing pure-chain tests "provably cannot catch."
+   63/63 green (was 61/61 before this cycle — 1 updated, 1 new).
+
+**Discretionary doc close-outs (delegated as ordinary/contained), all applied and verified:**
+- `schemas/authoring/combined-proposal.schema.json` sentinel-rule text.
+- `schemas/dashboards/dashboard-proposal.schema.json` — 3 stale text/markdown binding strings.
+- `ProposalPanelSupport.scala:153-157` comment self-contradiction with `:101-107`.
+- `AssistantProposalToolSchemasSpec` — added the missing `PanelType.fromString`/
+  `ProposalPanelSupport.validatePanel` pin over every panel in every `propose_combined`/
+  `propose_dashboard` example (12/12 green, was 10/10) — closes the gap that let a stale
+  panel-kind literal recur silently across three prior rounds.
+- `openspec/changes/outputs-model-migration/specs/pipeline-compute-op/spec.md` —
+  `InProcessPipelineEngine.applyCompute` → `ComputeStep.apply`.
+
+**Verification this cycle:**
+- `sbt -batch compile`: clean.
+- `sbt -batch Test/compile`: clean.
+- `node scripts/check-schema-drift.mjs`: green (schema edits are description-only, no enum/shape
+  change).
+- Targeted specs (`PipelineStepRepositorySpliceSpec`, `V94OutputsMigrationSpec`,
+  `PipelineStepRoutesSpec`, `AssistantProposalToolSchemasSpec`): all green, fresh, this turn.
+- Full `sbt -batch 'set Test/parallelExecution := false' test` (HEL-924 single-threaded protocol,
+  fresh this turn): **3365 tests, 225 suites, 0 aborted, 0 failed, all green**, 185s. (Up from
+  cycle 7's 3354 — +11 new tests this cycle: 6 in `PipelineStepRepositorySpliceSpec`, 2 in
+  `V94OutputsMigrationSpec`, 1 in `PipelineStepRoutesSpec`, 2 in `AssistantProposalToolSchemasSpec`.)
+  No isolation reclassification needed — clean end to end on the single serial run.
+- Frontend gate: N/A per design.md decision 17 (no frontend files touched this cycle; the ticket's
+  frontend surfaces stay non-functional until P1.5/P1.6 by design).
+
+**No escalations raised.** Finding 2 was flagged ESCALATION-CLASS by the round-5 skeptic on
+genuinely conflicting premises (is `position` on the wire a whole-pipeline index or a sibling-scoped
+tiebreaker?) — but the coordinator resolved that question BEFORE this cycle's spawn, in the RESUME
+brief itself, per this ticket's already-binding position-renumbering ruling: sibling-scoped,
+reject-or-rescope. This cycle implements that already-settled decision; it does not reopen it.
+Nothing else found this cycle rose to a genuine new design question — every writer found was the
+same already-decided class (whole-pipeline write needs to become sibling-scoped), fixed in place per
+the RESUME brief's own instruction that this is in-scope, not grounds for escalation.
+
+**Status for the next verification round:** exhaustive reader/writer inventory complete (documented
+above); both round-5 findings fixed and mutation-tested against both synthetic fixtures and the real
+20-step migrated pipeline; splice-ordering fix verified on a tail-bearing anchor via the real route;
+all 5 discretionary doc items closed; `sbt compile`/`sbt test` green, single-threaded, fresh this
+turn (3365/3365, 0 failures); schema-drift gate green; no scope creep beyond the two named findings,
+their necessarily-coupled test-assertion update in `PipelineStepRoutesSpec`, and the explicitly
+delegated doc close-outs. Only known residual: `PatchSetPreviewProjection`'s preview-response
+position echo cosmetically diverges from the real clamp behavior (noted, not fixed — no corruption
+path, out of this cycle's writer scope) — worth a follow-up ticket if the preview/apply divergence
+ever becomes user-visible.
