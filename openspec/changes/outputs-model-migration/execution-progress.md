@@ -4463,3 +4463,70 @@ same live-spec-drift problem, so no further deltas needed touching.
 **No escalations raised.** Per the orchestrator's explicit framing, the naming/wording resolution
 was a discretionary call with full latitude on approach, not a spec-authoring judgment requiring
 escalation.
+
+## Delivery-time archive fix, cycle 2: RENAMED convention + ADDED/MODIFIED collision + capability retirement
+
+A second `openspec archive outputs-model-migration --yes` attempt failed with a NEW class of
+error, distinct from the acl-resource-type-registry drift above: `alert-evaluation-engine MODIFIED
+failed for header "### Requirement: Load enabled rules for the target Output" - not found`.
+
+Investigation (reading `specs-apply.js` / `requirement-blocks.js` / an existing example at
+`openspec/changes/archive/2026-08-26-rename-connector-spi-resolve-api/specs/connector-registry/spec.md`)
+confirmed the correct convention for a MODIFIED requirement that also renames the requirement's own
+title: a `## RENAMED Requirements` section with `- FROM:`/`- TO:` bullets naming the OLD (live) and
+NEW header verbatim; archive then applies RENAMED before MODIFIED, so the MODIFIED block correctly
+keys off the NEW header (the delta authors had already written the intended new post-migration
+titles — they were just missing the RENAMED declaration that makes that legal).
+
+Fixed two files this way:
+- `specs/alert-evaluation-engine/spec.md`: RENAMED `Load enabled rules for the target DataType` →
+  `... Output`.
+- `specs/backend-persistence/spec.md`: RENAMED `Panels table stores DataType binding` → `... an
+  Output placement`. This surfaced a second-order issue: the MODIFIED block's own scenario titles
+  had also been renamed (`Panel without binding has null type_id` → `Panel without an Output
+  placement has null output_id`, etc.), which the scenario-loss guard (matches by literal scenario
+  title) read as dropped scenarios. Reverted the two scenario titles to their live names, keeping
+  the updated `output_id` body text.
+
+A subsequent `openspec validate --strict` pass (clean) followed by `openspec archive --yes` surfaced
+a THIRD, different-class error: `patch-set-preview ADDED failed for header "### Requirement: Impact
+hints are explicit and source-grounded" - already exists`. This was an ADDED/MODIFIED authoring
+mistake, not a header-name-matching one: the delta declared a requirement ADDED under a title that
+already exists live, instead of either using MODIFIED or (as the file's sibling requirement already
+correctly did) giving the ADDED entry a distinct new title and REMOVED-ing the exact old title. Fixed
+by mirroring that sibling's already-correct pattern: renamed the ADDED entry to `... for surviving
+edit kinds` and retitled the paired REMOVED entry (previously mis-named `Impact hints include a
+dataType-delete unbind hint, RLS-scoped`, which didn't match anything live) to the exact live title
+`Impact hints are explicit and source-grounded`.
+
+`openspec archive --yes` then surfaced a FOURTH, again different-class error on
+`bound-panel-composition`: `Spec must have at least one requirement` — this delta's REMOVED section
+legitimately retires the capability entirely (all 4 of its requirements REMOVED, each with a clear
+migration rationale to the new Outputs create_pipeline/place_outputs flow), but `openspec archive`
+refuses to delete a main spec on an emptied capability unless the change's `.openspec.yaml` declares
+`retire_capabilities: true`. Added that marker.
+
+**Blocker not resolved this cycle:** after adding the marker, archive still refuses:
+`'bound-panel-composition' declares retire_capabilities, but the spec holds content the merge cannot
+safely account for ... Move it into `## Purpose` or a canonical requirement, or delete the spec by
+hand.` Root-caused (via `specs-apply.js`'s `contentTheMergeCannotName`) to a live-spec formatting
+limitation, not a content/drift problem: `openspec/specs/bound-panel-composition/spec.md`'s scenario
+`WHEN`/`THEN` bullets wrap onto continuation lines (a style used throughout this spec file), and the
+retirement-content verifier only recognizes single-line scenario bullets — a wrapped continuation
+line reads as unaccounted authored content the deletion would silently take. Fixing this means
+reflowing bullet wrapping in the LIVE main spec file
+(`openspec/specs/bound-panel-composition/spec.md`), which is outside this change's own `specs/`
+delta directory and outside the scope handed to this cycle (spec-delta text only). Left unresolved
+and reported back rather than guessed at.
+
+**Gates run fresh this cycle:**
+- `openspec validate outputs-model-migration --type change --strict` — `Change
+  'outputs-model-migration' is valid` (exit 0), after each fix.
+- Extended sweep (same header-match script, run over all ~70 delta dirs) — only the two originally
+  reported mismatches (alert-evaluation-engine, backend-persistence) found; both are RENAMED-covered
+  and confirmed to verbatim-match their live FROM header.
+- `openspec archive outputs-model-migration --yes` — run personally, multiple times; progressed
+  through 3 distinct failure classes to a 4th (bound-panel-composition retirement content check)
+  that remains unresolved. Change is **NOT archived**.
+
+No backend/frontend code touched.

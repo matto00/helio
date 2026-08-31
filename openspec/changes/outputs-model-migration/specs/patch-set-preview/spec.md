@@ -21,15 +21,15 @@ unchanged and restated here.
 - **WHEN** `preview` is called with a panel-update edit whose `patch.title` is blank
 - **THEN** `preview` rejects the whole call with the same error `PATCH /api/panels/:id` would give
 
-### Requirement: Impact hints are explicit and source-grounded
+### Requirement: Impact hints are explicit and source-grounded for surviving edit kinds
 `EditPreview.impact` SHALL surface the following cascade/staleness consequences, each backed by a
 real backend behavior, and SHALL be empty for any edit with no such consequence: a `pipeline`/
 `pipelineStep` `update`/`delete` hints that output rows are stale until re-run; a `dataSource`
 `delete` hints that it cascades to dependent pipelines; a `dashboard` `delete` hints the number of
-panels it cascades to. This requirement replaces the base spec's requirement of the same title —
-the `dataType`-delete unbind hint and the panel `config.dataTypeId` rebind hint it also described no
-longer apply (see the REMOVED entry below); the pipeline/dataSource/dashboard hints it also covered
-are unchanged and restated here.
+panels it cascades to. This requirement replaces the base spec's "Impact hints are explicit and
+source-grounded" — the `dataType`-delete unbind hint and the panel `config.dataTypeId` rebind hint
+it also described no longer apply (see the REMOVED entry below); the pipeline/dataSource/dashboard
+hints it also covered are unchanged and restated here.
 
 #### Scenario: A dashboard delete surfaces its panel count
 - **WHEN** a dashboard-delete edit targeting a dashboard with 3 panels is previewed
@@ -55,7 +55,7 @@ apply would separately enforce" above.
 cascade-deleted with the pipeline (`outputs.pipeline_id ON DELETE CASCADE`), not independently
 deletable via a patch-set edit.
 
-### Requirement: Impact hints include a dataType-delete unbind hint, RLS-scoped
+### Requirement: Impact hints are explicit and source-grounded
 **Reason**: task 3.3 (as above) — `dataType` is not a recognized patch-set target kind, so no
 dataType-delete edit ever reaches impact-hint computation. Additionally, task 4.1 removed the panel
 `dataTypeId` binding (`domain/panels/TextPanel.scala`, `MarkdownPanel.scala`, `package.scala` all
@@ -63,7 +63,7 @@ record `dataTypeId`/`metricIdFormat` removed) — a `panel` `update` no longer h
 field to change, so the companion "panel bound to a different Output" impact hint this requirement
 also described has no field left to detect a change on. The pipeline/dataSource/dashboard hints this
 requirement also described are unchanged and restated under "Impact hints are explicit and
-source-grounded" above.
+source-grounded for surviving edit kinds" above.
 **Migration**: none — there is no equivalent hint in the outputs model; an Output's own
 cascade-delete-with-pipeline behavior is already covered by the `pipeline`/`pipelineStep` staleness
 hint above.

@@ -1,3 +1,8 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: Load enabled rules for the target DataType`
+- TO: `### Requirement: Load enabled rules for the target Output`
+
 ## MODIFIED Requirements
 
 ### Requirement: Single evaluation entry point
