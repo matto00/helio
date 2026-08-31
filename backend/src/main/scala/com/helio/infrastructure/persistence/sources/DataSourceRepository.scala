@@ -2,10 +2,13 @@ package com.helio.infrastructure.persistence.sources
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.api.protocols.sources.DataSourceConfigCodec
+import com.helio.domain.engine.SchemaField
+import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
 import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
-import spray.json.{JsObject, JsString, JsonParser}
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 import java.time.Instant
 import java.util.UUID
@@ -40,7 +43,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     row.sourceType match {
       case DataSourceKind.Csv =>
         val cfg = DataSourceConfigCodec.decodeCsv(row.config)
-        CsvSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
+        CsvSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)
       case DataSourceKind.RestApi =>
         val cfg = DataSourceConfigCodec.decodeRest(row.config) match {
           case Right(c) => c
@@ -54,21 +57,21 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             warnOnce(id.value, reason)
             RestApiConfig(connectorId = sentinel)
         }
-        RestSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
+        RestSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)
       case DataSourceKind.Sql =>
         val cfg = DataSourceConfigCodec.decodeSql(row.config)
-        SqlSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
+        SqlSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)
       case DataSourceKind.Static =>
-        StaticSource(id, row.name, ownerId, row.createdAt, row.updatedAt, row.tag)
+        StaticSource(id, row.name, ownerId, row.createdAt, row.updatedAt, row.tag, row.inferredSchema)
       case DataSourceKind.Text =>
         val cfg = DataSourceConfigCodec.decodeText(row.config)
-        TextSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
+        TextSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)
       case DataSourceKind.Pdf =>
         val cfg = DataSourceConfigCodec.decodePdf(row.config)
-        PdfSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
+        PdfSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)
       case DataSourceKind.Image =>
         val cfg = DataSourceConfigCodec.decodeImage(row.config)
-        ImageSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag)
+        ImageSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)
       case other =>
         throw new IllegalStateException(s"Unknown data source type in DB: '$other'")
     }
@@ -88,14 +91,15 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case i: ImageSource  => (DataSourceKind.Image,   DataSourceConfigCodec.encodeImage(i.config))
     }
     DataSourceRow(
-      id         = ds.id.value,
-      name       = ds.name,
-      sourceType = kind,
-      config     = configJson,
-      createdAt  = ds.createdAt,
-      updatedAt  = ds.updatedAt,
-      ownerId    = if (ds.ownerId.value.isEmpty) None else Some(UUID.fromString(ds.ownerId.value)),
-      tag        = ds.tag
+      id             = ds.id.value,
+      name           = ds.name,
+      sourceType     = kind,
+      config         = configJson,
+      createdAt      = ds.createdAt,
+      updatedAt      = ds.updatedAt,
+      ownerId        = if (ds.ownerId.value.isEmpty) None else Some(UUID.fromString(ds.ownerId.value)),
+      tag            = ds.tag,
+      inferredSchema = ds.inferredSchema
     )
   }
 
@@ -247,6 +251,20 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       table.filter(_.id === id.value).map(r => (r.config, r.updatedAt)).update((config, Instant.now()))
     ).map(_ > 0)
+
+  /** HEL-904 (design.md line 92): writes the source's own `inferred_schema` column,
+   *  replacing both `DataSourceService.upsertSourceDataType` and `SourceService`'s
+   *  second upsert — there is no longer a companion `DataType` row to keep in sync,
+   *  the schema lives directly on the source. In user context (RLS-gated write). */
+  def upsertInferredSchema(id: DataSourceId, schema: Vector[SchemaField], updatedAt: Instant, user: AuthenticatedUser): Future[Option[DataSource]] = {
+    val action = table
+      .filter(_.id === id.value)
+      .map(r => (r.inferredSchema, r.updatedAt))
+      .update((schema, updatedAt))
+      .andThen(table.filter(_.id === id.value).result.headOption)
+      .map(_.map(rowToDomain))
+    ctx.withUserContext(user.id.value)(action)
+  }
 }
 
 object DataSourceRepository {
@@ -263,6 +281,14 @@ object DataSourceRepository {
   implicit val jsonbStringType: BaseColumnType[String] =
     MappedColumnType.base[String, String](s => s, s => s)
 
+  /** HEL-904: `data_sources.inferred_schema` JSONB column, the same `SchemaField`
+   *  wire shape `OutputRepository` uses for `outputs.schema`. */
+  implicit val schemaFieldsColumnType: BaseColumnType[Vector[SchemaField]] =
+    MappedColumnType.base[Vector[SchemaField], String](
+      _.toJson.compactPrint,
+      _.parseJson.convertTo[Vector[SchemaField]]
+    )
+
   case class DataSourceRow(
       id: String,
       name: String,
@@ -271,7 +297,8 @@ object DataSourceRepository {
       createdAt: Instant,
       updatedAt: Instant,
       ownerId: Option[UUID],
-      tag: Option[String] = None
+      tag: Option[String] = None,
+      inferredSchema: Vector[SchemaField] = Vector.empty
   )
 
   // Constructor param renamed `slickTag` (not `tag`) — this table declares its
@@ -286,8 +313,9 @@ object DataSourceRepository {
     def updatedAt  = column[Instant]("updated_at")
     def ownerId    = column[Option[UUID]]("owner_id")
     def tag        = column[Option[String]]("tag")
+    def inferredSchema = column[Vector[SchemaField]]("inferred_schema")
 
-    def * = (id, name, sourceType, config, createdAt, updatedAt, ownerId, tag).mapTo[DataSourceRow]
+    def * = (id, name, sourceType, config, createdAt, updatedAt, ownerId, tag, inferredSchema).mapTo[DataSourceRow]
   }
 
   /** Read the static-source `{columns, rows}` payload. Used by the in-process

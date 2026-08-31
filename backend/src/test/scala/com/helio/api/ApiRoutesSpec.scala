@@ -1312,8 +1312,8 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.Created
         val response = responseAs[CreateSourceResponse]
         response.source.name shouldBe "My API"
-        response.dataType shouldBe defined
-        response.dataType.get.fields should have size 2
+        response.inferredSchema shouldBe defined
+        response.inferredSchema.get.fields should have size 2
         response.fetchError shouldBe None
       }
     }
@@ -1342,7 +1342,7 @@ class ApiRoutesSpec
       ) ~> routes(stubConnector(Left("HTTP 500: Internal Server Error"))) ~> check {
         status shouldBe StatusCodes.Created
         val response = responseAs[CreateSourceResponse]
-        response.dataType shouldBe None
+        response.inferredSchema shouldBe None
         response.fetchError shouldBe Some("HTTP 500: Internal Server Error")
       }
     }
@@ -1366,7 +1366,7 @@ class ApiRoutesSpec
       }
     }
 
-    "POST /api/sources/:id/refresh updates DataType and increments version" in {
+    "POST /api/sources/:id/refresh updates the source's inferredSchema" in {
       cleanDb()
       import com.helio.domain.model._
       import java.time.Instant
@@ -1384,25 +1384,15 @@ class ApiRoutesSpec
       )
       await(dataSourceRepo.insert(source, testUser))
 
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = Some(source.id),
-        name      = "Refresh Source",
-        fields    = Vector(DataField("old", "Old", "string", nullable = false)),
-        version   = 1,
-        createdAt = now,
-        updatedAt = now,
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
+      // HEL-904: `SourceService.refresh` re-writes `inferredSchema` directly on the source —
+      // no companion DataType, no version to increment.
       val newJson = """[{"new_col":"x"}]""".parseJson
       Post(s"/api/sources/${source.id.value}/refresh") ~> routes(stubConnector(Right(newJson))) ~> check {
         status shouldBe StatusCodes.OK
-        val response = responseAs[DataTypeResponse]
-        response.fields.map(_.name) shouldBe Vector("new_col")
-        response.version shouldBe 2
+        val response = responseAs[DataSourceResponse]
+        response.id shouldBe source.id.value
       }
+      await(dataSourceRepo.findByIdOwned(source.id, testUser)).get.inferredSchema.map(_.name) shouldBe Vector("new_col")
     }
 
     "POST /api/sources/:id/refresh returns 404 for unknown source" in {
@@ -2863,12 +2853,19 @@ class ApiRoutesSpec
       import java.time.Instant
       import java.util.UUID
 
-      // testUser creates a type via CSV upload (which auto-creates a DataType)
-      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"User Type","type":"static","columns":[{"name":"id","type":"integer"}],"rows":[]}"""
-      )) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-      }
+      // HEL-904: `POST /api/data-sources` no longer auto-creates a companion DataType — insert
+      // testUser's type directly to exercise the still-live DataTypeRoutes ACL surface.
+      val userDt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "User Type",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        ownerId   = testUser.id
+      )
+      await(dataTypeRepo.insert(userDt, testUser))
 
       // Insert a type owned by another user directly
       val dt = DataType(
@@ -2897,15 +2894,19 @@ class ApiRoutesSpec
       import java.time.Instant
       import java.util.UUID
 
-      var typeId = ""
-      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"My Type","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
-      )) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-      }
-      Get("/api/types") ~> routes() ~> check {
-        typeId = responseAs[PagedResult[DataTypeResponse]].items.head.id
-      }
+      // HEL-904: `POST /api/data-sources` no longer auto-creates a companion DataType.
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "My Type",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        ownerId   = testUser.id
+      )
+      await(dataTypeRepo.insert(dt, testUser))
+      val typeId = dt.id.value
 
       // otherUser tries to PATCH it — returns 404, not 403 (existence is not leaked)
       Patch(s"/api/types/$typeId",
@@ -2921,15 +2922,19 @@ class ApiRoutesSpec
       import java.time.Instant
       import java.util.UUID
 
-      var typeId = ""
-      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"My Type2","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
-      )) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-      }
-      Get("/api/types") ~> routes() ~> check {
-        typeId = responseAs[PagedResult[DataTypeResponse]].items.head.id
-      }
+      // HEL-904: `POST /api/data-sources` no longer auto-creates a companion DataType.
+      val dt = DataType(
+        id        = DataTypeId(UUID.randomUUID().toString),
+        sourceId  = None,
+        name      = "My Type2",
+        fields    = Vector.empty,
+        version   = 1,
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        ownerId   = testUser.id
+      )
+      await(dataTypeRepo.insert(dt, testUser))
+      val typeId = dt.id.value
 
       // otherUser tries to DELETE it — returns 404, not 403 (existence is not leaked)
       Delete(s"/api/types/$typeId") ~> otherUserRoutes() ~> check {

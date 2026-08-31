@@ -4,10 +4,10 @@ import com.helio.services.ServiceError
 import com.helio.services.sources.{DataSourceService, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, StaticDataSourceRequest}
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, DataTypeId, OutputId, OutputKind, PipelineId, PipelineStep, PipelineStepId, PipelineStepKind}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputId, OutputKind, PipelineId, PipelineStep, PipelineStepId, PipelineStepKind}
 import com.helio.domain.connectors.SqlConnectorDriver
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, OutputRepository}
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.protocols.pipelines.{PipelineStepResponse, PipelineSummaryResponse}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -46,9 +46,7 @@ final class PipelineProposalService(
     dataSourceService: DataSourceService,
     pipelineService: PipelineService,
     pipelineRunService: PipelineRunService,
-    dataTypeService: DataTypeService,
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo: DataTypeRepository,
     // HEL-904 task 3.8: the proposal's "output" is now a real Output row
     // (design.md's proposal-service scope decision), created on the
     // pipeline's last trunk step and rolled back the same way a source/
@@ -225,7 +223,7 @@ final class PipelineProposalService(
     dataSourceRepo.findByIdOwned(DataSourceId(sourceId), user).map {
       case None => Left(ServiceError.NotFound("Data source not found"))
       case Some(ds) =>
-        Right(ResolvedSource(ds.id, responseForClient = None, createdByThisCall = false, companionDataTypeIds = Vector.empty, kind = ds.kind))
+        Right(ResolvedSource(ds.id, responseForClient = None, createdByThisCall = false, kind = ds.kind))
     }
 
   private def resolveSqlSource(source: PipelineProposalSource, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] =
@@ -262,20 +260,14 @@ final class PipelineProposalService(
           .flatMap {
             case Left(err) => Future.successful(Left(err))
             case Right(ds) =>
-              // No CreateSourceResponse envelope for static (DataSourceService.createStatic
-              // returns the bare DataSource) — capture the companion DataType's id NOW,
-              // while the source still exists, so a later rollback never has to
-              // re-derive it via findBySourceId after the source is already gone
-              // (design.md D5 — that query would return nothing post-delete).
-              dataTypeRepo.findBySourceId(ds.id, user.id).map { companions =>
-                Right(ResolvedSource(
-                  ds.id,
-                  responseForClient    = Some(DataSourceResponse.fromDomain(ds)),
-                  createdByThisCall    = true,
-                  companionDataTypeIds = companions.map(_.id),
-                  kind                 = DataSourceKind.Static
-                ))
-              }
+              // HEL-904: no companion DataType to capture anymore — the inferred schema
+              // lives on the source row itself, deleted automatically alongside it.
+              Future.successful(Right(ResolvedSource(
+                ds.id,
+                responseForClient = Some(DataSourceResponse.fromDomain(ds)),
+                createdByThisCall = true,
+                kind              = DataSourceKind.Static
+              )))
           }
     }
 
@@ -290,14 +282,12 @@ final class PipelineProposalService(
    *  extra query needed). */
   private def handleInlineCreated(csr: CreateSourceResponse, kind: String, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] = {
     val sourceId = DataSourceId(csr.source.id)
-    val companionIds = csr.dataType.map(dt => DataTypeId(dt.id)).toVector
     Future.successful(Right(ResolvedSource(
       sourceId,
-      responseForClient    = Some(csr.source),
-      createdByThisCall    = true,
-      companionDataTypeIds = companionIds,
-      kind                 = kind,
-      fetchError           = csr.fetchError
+      responseForClient = Some(csr.source),
+      createdByThisCall = true,
+      kind              = kind,
+      fetchError        = csr.fetchError
     )))
   }
 
@@ -326,19 +316,16 @@ final class PipelineProposalService(
    *  HEL-904 task 3.5: `pipelineService.create` no longer mints a legacy
    *  DataType at all, so this rollback no longer has one to delete — only
    *  the real Output (`response.outputDataTypeId`, the client-facing field —
-   *  task 3.8) needs cleanup on the pipeline side. */
+   *  task 3.8) needs cleanup on the pipeline side. Task 4.1/4.3: the source's
+   *  companion DataType is gone too (its schema lives inline on
+   *  `data_sources.inferred_schema`, deleted automatically with the row), so
+   *  the source delete alone is sufficient — no separate companion cleanup. */
   def rollback(response: PipelineProposalApplyResponse, user: AuthenticatedUser): Future[Unit] =
     pipelineService.delete(PipelineId(response.pipeline.id), user).flatMap { _ =>
       outputRepo.deleteInternal(OutputId(response.outputDataTypeId)).flatMap { _ =>
         response.source match {
-          case None => Future.successful(())
-          case Some(source) =>
-            val sourceId = DataSourceId(source.id)
-            dataTypeRepo.findBySourceId(sourceId, user.id).flatMap { companions =>
-              dataSourceService.delete(sourceId, user).flatMap { _ =>
-                Future.sequence(companions.map(dt => dataTypeService.delete(dt.id, user))).map(_ => ())
-              }
-            }
+          case None         => Future.successful(())
+          case Some(source) => dataSourceService.delete(DataSourceId(source.id), user).map(_ => ())
         }
       }
     }
@@ -500,16 +487,12 @@ final class PipelineProposalService(
       }
     }
 
-  /** Deletes the inline source FIRST (nulls the companion DataType's
-   *  `sourceId` via `ON DELETE SET NULL`), then the companion DataType(s) —
-   *  `checkSourceLink` would reject the companion delete if run before the
-   *  source is gone. No-op for the `sourceId` branch (nothing was created). */
+  /** Deletes the inline source, if this call created one — its inferred schema lives
+   *  inline (`data_sources.inferred_schema`), so there is no separate companion row to
+   *  clean up. No-op for the `sourceId` branch (nothing was created). */
   private def rollbackSourceOnly(resolved: ResolvedSource, user: AuthenticatedUser): Future[Unit] =
     if (!resolved.createdByThisCall) Future.successful(())
-    else
-      dataSourceService.delete(resolved.id, user).flatMap { _ =>
-        Future.sequence(resolved.companionDataTypeIds.map(id => dataTypeService.delete(id, user))).map(_ => ())
-      }
+    else dataSourceService.delete(resolved.id, user).map(_ => ())
 }
 
 object PipelineProposalService {
@@ -525,12 +508,12 @@ object PipelineProposalService {
    *  string, populated at every resolution site — used by `createPipeline`
    *  to decide whether the run engine can execute this source at all.
    *  `fetchError` (design.md D1) carries the connector's curated message when
-   *  an inline `rest_api`/`sql` schema fetch failed; `None` otherwise. */
+   *  an inline `rest_api`/`sql` schema fetch failed; `None` otherwise. HEL-904: no more
+   *  `companionDataTypeIds` — a source's inferred schema lives inline on the row. */
   private[services] final case class ResolvedSource(
       id: DataSourceId,
       responseForClient: Option[DataSourceResponse],
       createdByThisCall: Boolean,
-      companionDataTypeIds: Vector[DataTypeId],
       kind: String,
       fetchError: Option[String] = None
   )

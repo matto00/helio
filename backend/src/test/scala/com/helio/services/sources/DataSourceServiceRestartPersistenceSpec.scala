@@ -77,7 +77,7 @@ class DataSourceServiceRestartPersistenceSpec
     val dataSourceRepo = new DataSourceRepository(ctx)
     val dataTypeRepo   = new DataTypeRepository(ctx)
     val fileSystem     = new LocalFileSystem(uploadsDir)
-    val service        = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
+    val service        = new DataSourceService(dataSourceRepo, fileSystem)
     (service, dataTypeRepo, dataSourceRepo)
   }
 
@@ -94,14 +94,10 @@ class DataSourceServiceRestartPersistenceSpec
       }
 
       // "Restart": rebuild repositories + service against the same DB.
-      val (_, dataTypeRepo2, dataSourceRepo2) = buildServices(uploadsDir)
+      val (_, _, dataSourceRepo2) = buildServices(uploadsDir)
       val sourceAfter = await(dataSourceRepo2.findByIdInternal(srcId))
       sourceAfter should not be empty
-
-      val dtsAfter = await(dataTypeRepo2.findBySourceId(srcId, owner))
-      dtsAfter should have size 1
-      dtsAfter.head.sourceId shouldBe Some(srcId)
-      dtsAfter.head.fields.map(_.name) should contain allOf ("id", "name")
+      sourceAfter.get.inferredSchema.map(_.name) should contain allOf ("id", "name")
     }
 
     "retain the inferred DataType for a Static source" in {
@@ -119,12 +115,10 @@ class DataSourceServiceRestartPersistenceSpec
         case Left(err)  => fail(s"createStatic failed: $err")
       }
 
-      val (_, dataTypeRepo2, dataSourceRepo2) = buildServices(uploadsDir)
-      await(dataSourceRepo2.findByIdInternal(srcId)) should not be empty
-      val dtsAfter = await(dataTypeRepo2.findBySourceId(srcId, owner))
-      dtsAfter should have size 1
-      dtsAfter.head.sourceId shouldBe Some(srcId)
-      dtsAfter.head.fields.map(_.name) should contain allOf ("id", "label")
+      val (_, _, dataSourceRepo2) = buildServices(uploadsDir)
+      val sourceAfter = await(dataSourceRepo2.findByIdInternal(srcId))
+      sourceAfter should not be empty
+      sourceAfter.get.inferredSchema.map(_.name) should contain allOf ("id", "label")
     }
 
     "retain the inferred DataType for a SQL source" in {

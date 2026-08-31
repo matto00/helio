@@ -190,3 +190,124 @@ patch-set file family: dataType removed outright as a target.kind), 3.15 (ApiRou
 - `openspec/changes/outputs-model-migration/execution-progress.md` — cycle 24 notes appended.
 - `openspec/changes/outputs-model-migration/files-modified.md` — this file, cycle 24 section
   appended.
+
+## Cycle 25 (task 4.3 complete; task 4.1's bulk started via a new live-consumer discovery)
+
+Continued task 4.1: rewired `DataSourceService`/`SourceService`'s companion-DataType writes onto
+`DataSourceRepository.upsertInferredSchema` (task 4.3, now `[x]`), and discovered + fixed a live
+consumer the resume brief's enumeration didn't name — `PipelineService.analyze`/
+`resolveProposalSourceSchema` also read a source's schema via the now-abandoned companion
+DataType, which would have silently degraded every non-rest/sql pipeline's analyze/select/rename
+step-schema propagation to empty. `DataTypeRepository`/`DataTypeService`/`MetricRepository`/
+`MetricService`/`DataTypeProtocol`/routes/`Main.scala` wiring itself is NOT yet deleted — still
+blocked on `PipelineRunService`'s legacy DataType writes (deliberately deferred, per the resume
+brief) and needs its own re-verification pass before task 4.1's file deletions land.
+
+### Main sources
+
+- `backend/src/infrastructure/persistence/sources/DataSourceRepository.scala` — new
+  `inferred_schema` column read/write (`upsertInferredSchema`, `DataSourceRow`/`DataSourceTable`
+  gain the field), replacing the companion-`DataType` link design.md line 92 retires.
+- `backend/src/main/scala/com/helio/services/sources/DataSourceService.scala` — every
+  create*/refresh* path's companion-`DataType` insert/update replaced with
+  `dataSourceRepo.upsertInferredSchema`; `upsertSourceDataType` rewritten as a thin wrapper over
+  it; `dataTypeRepo` constructor param removed.
+- `backend/src/main/scala/com/helio/services/sources/SourceService.scala` — same for
+  `createSql`/`createRest` (via `CreateSourceEnvelope`) and `refresh`; `refresh`'s return type
+  changed from `DataType` to `DataSource` (no companion type to return); `previewSql`/
+  `previewRest`'s companion-type-sourced computed-field evaluation removed outright (ticket.md
+  item 8: "the computed_fields concept is deleted" — this was the one remaining computed-field
+  read path); `dataTypeRepo` constructor param removed.
+- `backend/src/main/scala/com/helio/services/sources/CreateSourceEnvelope.scala` — `build` now
+  takes `dataSourceRepo` instead of `dataTypeRepo`, writes `inferred_schema` directly, and returns
+  `inferredSchema: Option[InferredSchemaResponse]` instead of `dataType: Option[DataTypeResponse]`.
+- `backend/src/main/scala/com/helio/services/sources/SchemaInferenceFacade.scala` — `toDataFields`
+  replaced with `toSchemaFields` (projects to `SchemaField {name,type}`, the `inferred_schema`
+  wire shape, instead of the retired `DataField`).
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala` —
+  `companionDataTypeIds`/`dataTypeService`/`dataTypeRepo` bookkeeping removed outright from
+  `ResolvedSource` and every rollback path — a source's inferred schema now lives inline and is
+  deleted automatically with the row, so there is nothing left to roll back separately.
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — `analyze`'s and
+  `resolveProposalSourceSchema`'s source-schema derivation rewired from
+  `dataTypeRepo.findBySourceId` to `dataSourceRepo.findByIdOwned(...).inferredSchema` (the live
+  consumer this cycle discovered — see above).
+- `backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala` —
+  `InferredFieldResponse`/`InferredSchemaResponse` moved in from the retired-in-progress
+  `DataTypeProtocol`; `CreateSourceResponse.dataType` renamed to `inferredSchema`.
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/DataTypeProtocol.scala` —
+  `InferredFieldResponse`/`InferredSchemaResponse`/`SchemaFieldResponse` removed (the first two
+  moved to `DataSourceProtocol`; `SchemaFieldResponse` moved to `PipelineAnalyzeProtocol`, its only
+  remaining same-package consumer, NOT to `DataSourceProtocol` — it backs the unrelated
+  pipeline-analyze-step response shapes, not a source's own schema).
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala` —
+  gained `SchemaFieldResponse` + its own `schemaFieldResponseFormat` (previously supplied via a
+  `DataTypeProtocol` mixin, now removed).
+- `backend/src/main/scala/com/helio/api/package.scala` — `InferredFieldResponse`/
+  `InferredSchemaResponse` aliases repointed to `protocols.sources`; `SchemaFieldResponse` stays
+  aliased to `protocols.pipelines`.
+- `backend/src/main/scala/com/helio/api/routes/sources/SourcePreviewRoutes.scala` — `POST
+  /api/sources/:id/refresh` renders `DataSourceResponse.fromDomain` instead of
+  `DataTypeResponse.fromDomain`, matching `refresh`'s new return type.
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — `DataSourceService`/`SourceService`/
+  `PipelineProposalService` construction sites drop the now-removed `dataTypeRepo`/
+  `dataTypeService` positional args.
+- `backend/src/main/resources/db/migration/V94__outputs_model.sql`, main sources otherwise
+  untouched this cycle beyond the above — no new migration steps landed (2.10's drops still
+  blocked, per plan, on 4.1's bulk deletion + 4.5).
+
+### Tests (mechanical fallout + genuine retired-scenario rewrites)
+
+- `backend/src/test/scala/com/helio/services/sources/DataSourceServiceSpec.scala`,
+  `DataSourceServiceCsvUrlSpec.scala`, `DataSourceServiceRestartPersistenceSpec.scala`,
+  `SourceServiceSpec.scala`, `SchemaInferenceFacadeSpec.scala`, `SchemaInferenceRegressionSpec.scala`,
+  `CreateSourceEnvelopeSpec.scala` — every companion-`DataType`-reading assertion rewritten to read
+  `DataSourceRepository`/the source's own `inferredSchema` instead; the two "Fix D" orphan-recovery
+  tests rewritten from "delete the companion DT row, refresh recreates it" to "clear
+  `inferred_schema`, refresh repopulates it" (same recovery-primitive intent, new mechanism); the
+  "version increments on refresh" SQL/REST refresh tests dropped (no version concept survives on a
+  bare inferred schema).
+- `backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala`,
+  `backend/src/test/scala/com/helio/api/routes/sources/DataSourceRoutesSpec.scala` — every
+  `Get("/api/types")`-verifies-the-auto-created-companion assertion rewritten to read
+  `DataSourceRepository`/the response's own `inferredSchema` directly; the three
+  DataType-ownership-ACL tests (`GET /api/types`, `PATCH`/`DELETE /api/types/:id`) switched from
+  relying on `POST /api/data-sources`'s retired side effect to inserting the test `DataType`
+  fixture directly via `dataTypeRepo.insert` (the still-live `DataTypeRoutes` ACL surface itself is
+  untouched — only its test setup needed to stop depending on the retired auto-create).
+- `backend/src/test/scala/com/helio/api/routes/ResourceTaggingSpec.scala` — the two
+  companion-DataType tag-propagation tests removed outright (genuinely retired feature, not a
+  rewrite target — there is no companion resource left for a tag to propagate to).
+- `backend/src/test/scala/com/helio/services/workspace/WorkspaceTeardownServiceSpec.scala` — the
+  6.6a "orphan companion survives" test rewritten to "no companion is ever created"; `companionTypeOf`
+  helper and its two remaining call sites removed (dead once the orphan-survives scenario no
+  longer exists).
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewServiceSpec.scala`,
+  `PatchSetUndoServiceSpec.scala`, `PatchSetApplyServiceSpec.scala` — `seedStaticSource`'s
+  `(DataSourceId, DataTypeId)` return narrowed to `DataSourceId` (every call site already discarded
+  the companion id — dead tuple element, not a behavior change).
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineApplyProposalSpec.scala`,
+  `PipelineApplyProposalRollbackSpec.scala`,
+  `backend/src/test/scala/com/helio/api/routes/proposals/CombinedApplyProposalSpec.scala` —
+  `dataTypeCount() shouldBe (beforeTypes + 1)` assertions corrected to `shouldBe beforeTypes` (no
+  companion DataType minted anymore).
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineAnalyzeRoutesSpec.scala`,
+  `PipelineAnalyzeProposalRoutesSpec.scala` — raw-SQL fixture helpers
+  (`seedPipelineWithSchema`/`seedDataSource`) switched from inserting a companion `data_types` row
+  to writing `data_sources.inferred_schema` directly (translating each existing `DataField`-shaped
+  literal to `SchemaField` shape in Scala, rather than rewriting ~18 call-site literals) — this is
+  the live-consumer fix (`PipelineService.analyze`) surfacing at the fixture level.
+- `backend/src/test/scala/com/helio/infrastructure/persistence/ResourceTagMigrationSpec.scala` —
+  adds a bare `ALTER TABLE data_sources ADD COLUMN inferred_schema ...` after its deliberate V93
+  pin (this spec isolates V73's own effect from V94's later, unrelated companion-type-deletion
+  migration step — it cannot run V94 itself, but `DataSourceRepository`'s table mapping now always
+  expects the column V94 adds).
+- Mechanical positional-constructor-arg fixes (dropped `dataTypeRepo`) across ~20 test files
+  constructing `DataSourceService`/`SourceService`/`PipelineProposalService` directly.
+
+## OpenSpec
+
+- `openspec/changes/outputs-model-migration/tasks.md` — 4.3 marked `[x]`.
+- `openspec/changes/outputs-model-migration/execution-progress.md` — cycle 25 notes appended.
+- `openspec/changes/outputs-model-migration/files-modified.md` — this file, cycle 25 section
+  appended.

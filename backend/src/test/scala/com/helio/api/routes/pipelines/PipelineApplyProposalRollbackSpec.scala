@@ -55,13 +55,13 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
         pipelineId = resp.pipeline.id
         outputTypeId = resp.outputDataTypeId
       }
-      // Source + its companion DataType + the pipeline + its output DataType
-      // + the one "limit" step — same resource counts as the old blocked
-      // outcome, but the run itself now actually executed (HEL-758).
+      // Source + the pipeline + its output Output + the one "limit" step — same resource
+      // counts as the old blocked outcome, but the run itself now actually executed (HEL-758).
+      // HEL-904 4.1/4.3: no companion DataType minted anymore.
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe (beforeSteps + 1)
-      dataTypeCount() shouldBe (beforeTypes + 1)
+      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, _) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "succeeded"
@@ -96,10 +96,11 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
         pipelineId = resp.pipeline.id
         outputTypeId = resp.outputDataTypeId
       }
+      // HEL-904 4.1/4.3: no companion DataType minted anymore.
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe (beforeSteps + 1)
-      dataTypeCount() shouldBe (beforeTypes + 1)
+      dataTypeCount() shouldBe beforeTypes
 
       val (runStatus, _) = latestPipelineRun(pipelineId).get
       runStatus shouldBe "succeeded"

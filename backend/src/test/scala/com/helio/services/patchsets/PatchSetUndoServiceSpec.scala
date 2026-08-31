@@ -114,7 +114,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
-    dataSourceService   = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
+    dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
     dataTypeService     = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
     metricService        = new MetricService(metricRepo, dataTypeRepo)
@@ -157,7 +157,9 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       case Left(e)  => fail(s"seedPanel failed: $e")
     }
 
-  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): (DataSourceId, DataTypeId) = {
+  // HEL-904: no companion DataType to look up anymore — returns just the DataSourceId
+  // (every call site already discarded the old tuple's second element).
+  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): DataSourceId = {
     val ds = await(dataSourceService.createStatic(
       StaticDataSourceRequest(name, "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))),
       owner
@@ -165,8 +167,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       case Right(d) => d
       case Left(e)  => fail(s"seedStaticSource failed: $e")
     }
-    val companion = await(dataTypeRepo.findBySourceId(ds.id, owner.id)).headOption.getOrElse(fail("companion type missing"))
-    (ds.id, companion.id)
+    ds.id
   }
 
   private def seedPipelineOutputType(owner: AuthenticatedUser, name: String): DataType = {
@@ -228,8 +229,8 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     "restore panel/dashboard/dataSource/pipeline/pipelineStep update edits to their pre-apply state (5.3a)" in {
       val dashboard          = seedDashboard(userA, "Dashboard v1")
       val panel               = seedPanel(dashboard.id, userA, "Panel v1")
-      val (dataSourceId, _)   = seedStaticSource(userA, "Source v1")
-      val (pipelineSrcId, _)  = seedStaticSource(userA, "Pipeline source v1")
+      val dataSourceId = seedStaticSource(userA, "Source v1")
+      val pipelineSrcId = seedStaticSource(userA, "Pipeline source v1")
       val pipeline             = seedPipeline(userA, pipelineSrcId, "Pipeline v1")
       // HEL-705 (2.6): seeded DISABLED so the full-revert undo path is asserted to preserve the
       // captured `enabled` state, mirroring 5.3c's delete-and-recreate coverage below.
@@ -334,7 +335,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     }
 
     "restore a pipelineStep delete edit by recreating it with its content restored (5.3c)" in {
-      val (sourceId, _) = seedStaticSource(userA, "Step-delete pipeline source")
+      val sourceId = seedStaticSource(userA, "Step-delete pipeline source")
       val pipeline        = seedPipeline(userA, sourceId, "Step-delete pipeline")
       // HEL-705: seeded DISABLED so the delete-and-recreate undo path is asserted to preserve
       // (not silently drop) the captured `enabled` state.
@@ -364,7 +365,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     "refuse the whole undo when the application contains a structurally-unrecoverable delete edit, restoring nothing else in that application (5.3d)" in {
       val dashboard      = seedDashboard(userA)
       val panel            = seedPanel(dashboard.id, userA, "Before")
-      val (sourceId, _)    = seedStaticSource(userA, "Unrecoverable pipeline source")
+      val sourceId = seedStaticSource(userA, "Unrecoverable pipeline source")
       val pipeline          = seedPipeline(userA, sourceId, "To delete")
 
       val edits = Vector(

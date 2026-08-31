@@ -113,7 +113,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
-    dataSourceService   = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
+    dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 
     service = new PatchSetApplyService(
@@ -157,7 +157,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       case Left(e)  => fail(s"seedPanel failed: $e")
     }
 
-  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): (DataSourceId, DataTypeId) = {
+  // HEL-904: no companion DataType to look up anymore — returns just the DataSourceId
+  // (every call site already discarded the old tuple's second element).
+  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): DataSourceId = {
     val ds = await(dataSourceService.createStatic(
       StaticDataSourceRequest(name, "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))),
       owner
@@ -165,8 +167,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       case Right(d) => d
       case Left(e)  => fail(s"seedStaticSource failed: $e")
     }
-    val companion = await(dataTypeRepo.findBySourceId(ds.id, owner.id)).headOption.getOrElse(fail("companion type missing"))
-    (ds.id, companion.id)
+    ds.id
   }
 
   private def seedPipelineOutputType(owner: AuthenticatedUser, name: String): DataType = {
@@ -414,7 +415,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // D1: cascades to pipelines) -- `dataType` is no longer a valid
     // target.kind at all, so it can no longer stand in for this scenario.
     "report an unrecoverable delete rollback honestly, not silently hidden (7.7)" in {
-      val (standaloneSourceId, _) = seedStaticSource(userA, "Standalone")
+      val standaloneSourceId = seedStaticSource(userA, "Standalone")
       val dashboard               = seedDashboard(userA)
 
       val edits = Vector(
@@ -462,9 +463,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // removed).
 
     "reject a pipelineStep-update edit referencing a foreign-owned JoinConfig rightDataSourceId (7.9d)" in {
-      val (sourceId, _)       = seedStaticSource(userA, "Pipeline source")
-      val (rightSourceId, _)   = seedStaticSource(userA, "Right source")
-      val (foreignSourceId, _) = seedStaticSource(userB, "Foreign source")
+      val sourceId = seedStaticSource(userA, "Pipeline source")
+      val rightSourceId = seedStaticSource(userA, "Right source")
+      val foreignSourceId = seedStaticSource(userB, "Foreign source")
       val pipeline              = seedPipeline(userA, sourceId, "Join pipeline")
       val joinConfig = JsObject(
         "rightDataSourceId" -> JsString(rightSourceId.value),
@@ -517,7 +518,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // HEL-904 task 3.3: rewritten onto a `dataSource` delete -- see 7.7's
     // identical note; `dataType` is no longer a valid target.kind.
     "still populate priorState for an unrecoverable dataSource-delete edit (7.10c)" in {
-      val (standaloneSourceId, _) = seedStaticSource(userA, "StandaloneForPriorState")
+      val standaloneSourceId = seedStaticSource(userA, "StandaloneForPriorState")
       val standaloneSource        = await(dataSourceRepo.findByIdInternal(standaloneSourceId)).getOrElse(fail("source missing"))
       val dashboard               = seedDashboard(userA)
       val edits = Vector(
@@ -536,7 +537,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
     "populate a pipeline-update edit's priorState with the joined PipelineSummaryResponse shape (7.10d)" in {
-      val (sourceId, _) = seedStaticSource(userA, "PipelineSrcForPriorState")
+      val sourceId = seedStaticSource(userA, "PipelineSrcForPriorState")
       val pipeline        = seedPipeline(userA, sourceId, "MyPipeline")
       val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "update",
         None, None, None, Some(UpdatePipelineRequest(name = "Renamed pipeline")), None, None)

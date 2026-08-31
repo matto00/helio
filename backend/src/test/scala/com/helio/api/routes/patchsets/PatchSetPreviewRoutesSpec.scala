@@ -110,7 +110,7 @@ class PatchSetPreviewRoutesSpec
 
     dashboardService = new DashboardService(dashboardRepo, accessChecker)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 

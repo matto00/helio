@@ -37,7 +37,7 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private val user    = AuthenticatedUser(ownerId)
 
   private def newService(dataSourceRepo: DataSourceRepository): PipelineProposalService =
-    new PipelineProposalService(null, null, null, null, null, dataSourceRepo, null, null)
+    new PipelineProposalService(null, null, null, null, dataSourceRepo, null)
 
   private def existingSource(source: DataSourceId): DataSource =
     StaticSource(source, "Existing", ownerId, now, now)

@@ -15,6 +15,7 @@ import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, Pipel
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.pipelines.PipelineService
 import com.helio.testsupport.JsonSchemaValidation
+import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -74,21 +75,35 @@ class PipelineAnalyzeRoutesSpec
     await(db.run(sqlu"DELETE FROM pipelines"))
   }
 
-  /** Seeds a DataSource + its companion DataType (sourceId = dsId) + a Pipeline.
-   *  Returns (pipelineId, dataSourceId). */
+  /** Projects a `DataField`-shaped JSON array (`{name,displayName,dataType,nullable}`, this
+   *  spec's existing literal shape) into the `SchemaField`-shaped array (`{name,type}`)
+   *  `data_sources.inferred_schema` actually stores (HEL-904) — kept as a translation layer
+   *  here rather than rewriting every `sourceFields` literal below. */
+  private def toSchemaFieldsJson(dataFieldsJson: String): String =
+    dataFieldsJson.parseJson match {
+      case JsArray(items) =>
+        JsArray(items.map { item =>
+          val obj = item.asJsObject
+          JsObject("name" -> obj.fields("name"), "type" -> obj.fields("dataType"))
+        }).compactPrint
+      case other => other.compactPrint
+    }
+
+  /** Seeds a DataSource (its own `inferred_schema` populated directly, HEL-904 — there is no
+   *  companion DataType anymore) + a Pipeline. Returns (pipelineId, dataSourceId). `fields` is
+   *  the legacy `DataField`-shaped JSON this spec's literals already use; translated to
+   *  `SchemaField` shape before being written to `inferred_schema`. */
   private def seedPipelineWithSchema(fields: String): (String, String) = {
     import PostgresProfile.api._
     val dsId  = UUID.randomUUID().toString
-    val dtId  = UUID.randomUUID().toString   // source DataType
     val outId = UUID.randomUUID().toString   // output DataType
     val pid   = UUID.randomUUID().toString
     val ownerId = dummyUser.id.value
+    val schemaFieldsJson = toSchemaFieldsJson(fields)
 
     await(db.run(DBIO.seq(
-      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, 'test-ds', 'rest_api', '{}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, $dsId, 'source-dt', $fields, 1, $ownerId::uuid, now(), now())""",
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, inferred_schema, created_at, updated_at)
+             VALUES ($dsId, 'test-ds', 'rest_api', '{}', $ownerId::uuid, $schemaFieldsJson::jsonb, now(), now())""",
       sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
              VALUES ($outId, 'output-dt', '[]', 1, $ownerId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)

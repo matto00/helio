@@ -29,11 +29,6 @@ final case class UpdateDataTypeRequest(
 final case class ValidateExpressionResponse(valid: Boolean, message: Option[String])
 
 
-final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
-final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
-final case class SchemaFieldResponse(name: String, `type`: String)
-
-
 final case class DataTypeRowsResponse(rows: Vector[JsObject], rowCount: Int)
 
 object DataTypeResponse {
@@ -64,10 +59,6 @@ trait DataTypeProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val computedFieldPayloadFormat: RootJsonFormat[ComputedFieldPayload]             = jsonFormat4(ComputedFieldPayload.apply)
   implicit val updateDataTypeRequestFormat: RootJsonFormat[UpdateDataTypeRequest]           = jsonFormat3(UpdateDataTypeRequest.apply)
   implicit val validateExpressionResponseFormat: RootJsonFormat[ValidateExpressionResponse] = jsonFormat2(ValidateExpressionResponse.apply)
-
-  implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
-  implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)
-  implicit val schemaFieldResponseFormat: RootJsonFormat[SchemaFieldResponse]       = jsonFormat2(SchemaFieldResponse.apply)
 
   implicit val dataTypeRowsResponseFormat: RootJsonFormat[DataTypeRowsResponse] = jsonFormat2(DataTypeRowsResponse.apply)
 }

@@ -80,7 +80,9 @@ final class SourcePreviewRoutes(
         },
         path(DataSourceIdSegment / "refresh") { id =>
           post {
-            ServiceResponse.run(sourceService.refresh(id, user))(DataTypeResponse.fromDomain)
+            // HEL-904: `refresh` now returns the `DataSource` itself (its `inferredSchema`
+            // column carries the re-inferred fields) — there is no companion `DataType`.
+            ServiceResponse.run(sourceService.refresh(id, user))(DataSourceResponse.fromDomain)
           }
         },
         path(DataSourceIdSegment / "preview") { id =>

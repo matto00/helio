@@ -2,15 +2,13 @@ package com.helio.services.sources
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
-import com.helio.domain.engine.SchemaInferenceEngine
+import com.helio.domain.engine.{SchemaField, SchemaInferenceEngine}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Materializer
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.sources.{CsvPreviewResponse, FieldOverridePayload, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
-import com.helio.api.protocols.pipelines.{InferredFieldResponse, InferredSchemaResponse}
+import com.helio.api.protocols.sources.{CsvPreviewResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.storage.FileSystem
 import SourceConfigParsing._
 import spray.json._
@@ -49,7 +47,6 @@ import scala.util.Try
  *  (`"localhost"`) that already resolves correctly via real DNS. */
 final class DataSourceService(
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo:   DataTypeRepository,
     fileSystem:     FileSystem,
     resolveHost:    String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
     isBlocked:      (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
@@ -121,26 +118,15 @@ final class DataSourceService(
       // update so the engine + Spark submitter (which consume the raw blob)
       // continue to work without further changes.
       val payload = JsObject("columns" -> req.columns.toJson, "rows" -> req.rows.toJson)
+      val fields  = req.columns.map(col => SchemaField(col.name, col.`type`)).toVector
       dataSourceRepo.insert(source, user).flatMap { _ =>
         dataSourceRepo.updateStaticPayload(sourceId, source.name, payload, now, user).flatMap {
           case None => Future.failed(new RuntimeException("Static source disappeared between insert and update"))
           case Some(ds) =>
-            // HEL-366 tasks.md 2.3(a): the companion DataType's tag mirrors
-            // its owning DataSource's tag — the default shape of a tagged
-            // resource graph that design.md Decision 6's source-link guard
-            // depends on.
-            val dataType = DataType(
-              id        = DataTypeId(UUID.randomUUID().toString),
-              sourceId  = Some(ds.id),
-              name      = req.name.trim,
-              fields    = req.columns.map(col => DataField(col.name, col.name, col.`type`, nullable = true)),
-              version   = 1,
-              createdAt = now,
-              updatedAt = now,
-              ownerId   = user.id,
-              tag       = tag
-            )
-            dataTypeRepo.insert(dataType, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
+            dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
+              audit("data_source.create", Some(ds.id.value), user)
+              Right(updated.getOrElse(ds))
+            }
         }
       }
     }
@@ -176,26 +162,14 @@ final class DataSourceService(
         )
         fileSystem.write(filePath, bytes).flatMap { _ =>
           dataSourceRepo.insert(source, user).flatMap { ds =>
-            val dt = DataType(
-              id        = DataTypeId(UUID.randomUUID().toString),
-              sourceId  = Some(ds.id),
-              name      = name,
-              fields    = schema.fields.map { f =>
-                val ov = overridesMap.get(f.name)
-                DataField(
-                  f.name,
-                  ov.map(_.displayName).getOrElse(f.displayName),
-                  ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
-                  f.nullable
-                )
-              }.toVector,
-              version   = 1,
-              createdAt = now,
-              updatedAt = now,
-              ownerId   = user.id,
-              tag       = validTag
-            )
-            dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
+            val fields = schema.fields.map { f =>
+              val ov = overridesMap.get(f.name)
+              SchemaField(f.name, ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)))
+            }.toVector
+            dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
+              audit("data_source.create", Some(ds.id.value), user)
+              Right(updated.getOrElse(ds))
+            }
           }
         }
     }
@@ -251,20 +225,13 @@ final class DataSourceService(
                 )
                 fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
-                    val dt = DataType(
-                      id        = DataTypeId(UUID.randomUUID().toString),
-                      sourceId  = Some(ds.id),
-                      name      = name.trim,
-                      fields    = schema.fields.map(f =>
-                        DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-                      ).toVector,
-                      version   = 1,
-                      createdAt = now,
-                      updatedAt = now,
-                      ownerId   = user.id,
-                      tag       = validTag
-                    )
-                    dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
+                    val fields = schema.fields.map(f =>
+                      SchemaField(f.name, DataFieldType.asString(f.dataType))
+                    ).toVector
+                    dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
+                      audit("data_source.create", Some(ds.id.value), user)
+                      Right(updated.getOrElse(ds))
+                    }
                   }
                 }
             }
@@ -337,18 +304,12 @@ final class DataSourceService(
                 )
                 fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
-                    val dt = DataType(
-                      id        = DataTypeId(UUID.randomUUID().toString),
-                      sourceId  = Some(ds.id),
-                      name      = name.trim,
-                      fields    = ContentSourceSupport.metadataFields(DataFieldType.StringBodyType, filename, bytes.length.toLong),
-                      version   = 1,
-                      createdAt = now,
-                      updatedAt = now,
-                      ownerId   = user.id,
-                      tag       = validTag
-                    )
-                    dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
+                    val fields = ContentSourceSupport.metadataFields(DataFieldType.StringBodyType, filename, bytes.length.toLong)
+                      .map(f => SchemaField(f.name, f.dataType))
+                    dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
+                      audit("data_source.create", Some(ds.id.value), user)
+                      Right(updated.getOrElse(ds))
+                    }
                   }
                 }
             }
@@ -434,18 +395,11 @@ final class DataSourceService(
                 )
                 fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
-                    val dt = DataType(
-                      id        = DataTypeId(UUID.randomUUID().toString),
-                      sourceId  = Some(ds.id),
-                      name      = name.trim,
-                      fields    = pdfFields(filename, bytes.length.toLong),
-                      version   = 1,
-                      createdAt = now,
-                      updatedAt = now,
-                      ownerId   = user.id,
-                      tag       = validTag
-                    )
-                    dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
+                    val fields = pdfFields(filename, bytes.length.toLong).map(f => SchemaField(f.name, f.dataType))
+                    dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
+                      audit("data_source.create", Some(ds.id.value), user)
+                      Right(updated.getOrElse(ds))
+                    }
                   }
                 }
             }
@@ -521,23 +475,16 @@ final class DataSourceService(
                 )
                 fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
-                    val dt = DataType(
-                      id        = DataTypeId(UUID.randomUUID().toString),
-                      sourceId  = Some(ds.id),
-                      name      = name.trim,
-                      fields    = ContentSourceSupport.metadataFields(DataFieldType.BinaryRefType, filename, bytes.length.toLong) ++
-                        Vector(
-                          DataField("width", "Width", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
-                          DataField("height", "Height", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
-                          DataField("mimeType", "MIME Type", DataFieldType.asString(DataFieldType.StringType), nullable = false)
-                        ),
-                      version   = 1,
-                      createdAt = now,
-                      updatedAt = now,
-                      ownerId   = user.id,
-                      tag       = validTag
-                    )
-                    dataTypeRepo.insert(dt, user).map(_ => { audit("data_source.create", Some(ds.id.value), user); Right(ds) })
+                    val fields = (ContentSourceSupport.metadataFields(DataFieldType.BinaryRefType, filename, bytes.length.toLong) ++
+                      Vector(
+                        DataField("width", "Width", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
+                        DataField("height", "Height", DataFieldType.asString(DataFieldType.IntegerType), nullable = false),
+                        DataField("mimeType", "MIME Type", DataFieldType.asString(DataFieldType.StringType), nullable = false)
+                      )).map(f => SchemaField(f.name, f.dataType))
+                    dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
+                      audit("data_source.create", Some(ds.id.value), user)
+                      Right(updated.getOrElse(ds))
+                    }
                   }
                 }
             }
@@ -815,40 +762,19 @@ final class DataSourceService(
     }
   }
 
-  /** Update the source's auto-inferred DataType in place, or insert a fresh
-   *  one if no DT exists for the source. Inserts preserve the link via
-   *  `sourceId = Some(source.id)`. This is the recovery primitive that lets
-   *  the Sources page "Refresh" affordance heal orphan state introduced by
-   *  pre-Fix-B′ DT deletions (HEL-256). */
+  /** HEL-904 (design.md line 92): writes the re-inferred schema straight onto the source's own
+   *  `inferred_schema` column — there is no companion `DataType` row to find-or-create anymore,
+   *  so this is a plain upsert onto `source.id` via `DataSourceRepository.upsertInferredSchema`.
+   *  Still the recovery primitive that lets the Sources page "Refresh" affordance heal orphan
+   *  state (HEL-256's original motivation), just against a column instead of a linked row. */
   private def upsertSourceDataType(
       source: DataSource,
       fields: Vector[DataField],
       user: AuthenticatedUser,
       now: Instant
-  ): Future[DataType] =
-    dataTypeRepo.findBySourceId(source.id, user.id).flatMap { types =>
-      types.headOption match {
-        case Some(dt) =>
-          val updated = dt.copy(fields = fields, updatedAt = now)
-          dataTypeRepo.update(updated, user).map(_.getOrElse(updated))
-        case None =>
-          // HEL-366 tasks.md 2.3(a): the healed companion DataType's tag
-          // mirrors its owning DataSource's tag, same as every create-time
-          // companion-DataType construction site above.
-          val fresh = DataType(
-            id        = DataTypeId(UUID.randomUUID().toString),
-            sourceId  = Some(source.id),
-            name      = source.name,
-            fields    = fields,
-            version   = 1,
-            createdAt = now,
-            updatedAt = now,
-            ownerId   = user.id,
-            tag       = source.tag
-          )
-          dataTypeRepo.insert(fresh, user)
-      }
-    }
+  ): Future[DataSource] =
+    dataSourceRepo.upsertInferredSchema(source.id, fields.map(f => SchemaField(f.name, f.dataType)), now, user)
+      .map(_.getOrElse(source))
 
 
   def preview(sourceId: DataSourceId, limit: Int, user: AuthenticatedUser): Future[Either[ServiceError, CsvPreviewResponse]] = {

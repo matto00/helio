@@ -411,7 +411,7 @@
       `DataTypeRoutes`, `MetricRoutes`, `BoundPanelService`,
       `PanelServiceHelpers.withMaterializedMetric`, `PanelService` binding-resolution code.
 - [ ] 4.2 Remove wiring in `ApiRoutes.scala` and `Main.scala`.
-- [ ] 4.3 Delete `DataSourceService.upsertSourceDataType` / `SourceService`'s second upsert /
+- [x] 4.3 Delete `DataSourceService.upsertSourceDataType` / `SourceService`'s second upsert /
       `CreateSourceEnvelope`; replace with `upsertInferredSchema`.
 - [ ] 4.4 `RlsPolicyGuardSpec`: add `outputs`/`node_snapshots`, remove `data_types`/
       `data_type_rows`/`metrics`.

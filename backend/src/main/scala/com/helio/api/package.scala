@@ -134,10 +134,14 @@ package object api {
   val UpdateDataTypeRequest: protocols.pipelines.UpdateDataTypeRequest.type = protocols.pipelines.UpdateDataTypeRequest
   type ValidateExpressionResponse = protocols.pipelines.ValidateExpressionResponse
   val ValidateExpressionResponse: protocols.pipelines.ValidateExpressionResponse.type = protocols.pipelines.ValidateExpressionResponse
-  type InferredFieldResponse = protocols.pipelines.InferredFieldResponse
-  val InferredFieldResponse: protocols.pipelines.InferredFieldResponse.type = protocols.pipelines.InferredFieldResponse
-  type InferredSchemaResponse = protocols.pipelines.InferredSchemaResponse
-  val InferredSchemaResponse: protocols.pipelines.InferredSchemaResponse.type = protocols.pipelines.InferredSchemaResponse
+  // HEL-904: InferredFieldResponse/InferredSchemaResponse moved from protocols.pipelines to
+  // protocols.sources — see DataSourceProtocol.scala. SchemaFieldResponse stayed in
+  // protocols.pipelines (PipelineAnalyzeProtocol.scala) — it's load-bearing for the unrelated
+  // pipeline-analyze-step response shapes in that same package.
+  type InferredFieldResponse = protocols.sources.InferredFieldResponse
+  val InferredFieldResponse: protocols.sources.InferredFieldResponse.type = protocols.sources.InferredFieldResponse
+  type InferredSchemaResponse = protocols.sources.InferredSchemaResponse
+  val InferredSchemaResponse: protocols.sources.InferredSchemaResponse.type = protocols.sources.InferredSchemaResponse
   type SchemaFieldResponse = protocols.pipelines.SchemaFieldResponse
   val SchemaFieldResponse: protocols.pipelines.SchemaFieldResponse.type = protocols.pipelines.SchemaFieldResponse
   type DataTypeRowsResponse = protocols.pipelines.DataTypeRowsResponse

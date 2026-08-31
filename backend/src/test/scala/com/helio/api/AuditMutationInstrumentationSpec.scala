@@ -1082,7 +1082,7 @@ class AuditMutationInstrumentationSpec
       cleanDb()
       val tmpDir       = Files.createTempDirectory("audit-mutation-instrumentation-spec")
       val fileSystem   = new LocalFileSystem(tmpDir)
-      val svc          = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, auditService = new AuditService(auditEventRepo))
+      val svc          = new DataSourceService(dataSourceRepo, fileSystem, auditService = new AuditService(auditEventRepo))
 
       val fixtures: Seq[(String, Future[Either[ServiceError, DataSource]])] = Seq(
         "csv"   -> svc.createCsv("RefreshCsv", "a,b\n1,2".getBytes(StandardCharsets.UTF_8), Vector.empty, testUser),
@@ -1110,7 +1110,7 @@ class AuditMutationInstrumentationSpec
       cleanDb()
       val tmpDir     = Files.createTempDirectory("audit-mutation-instrumentation-spec-csv-fail")
       val fileSystem = new LocalFileSystem(tmpDir)
-      val svc        = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, auditService = new AuditService(auditEventRepo))
+      val svc        = new DataSourceService(dataSourceRepo, fileSystem, auditService = new AuditService(auditEventRepo))
 
       val created = await(svc.createCsv("RefreshCsvFail", "x\n1".getBytes(StandardCharsets.UTF_8), Vector.empty, testUser)) match {
         case Right(ds) => ds
@@ -1203,7 +1203,7 @@ class AuditMutationInstrumentationSpec
     "write exactly one data_source.refresh row on a successful rest refresh" in {
       cleanDb()
       val restConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
-      val svc            = new SourceService(dataSourceRepo, dataTypeRepo, restConnector, auditService = new AuditService(auditEventRepo), connectorRepo = connectorRepo)
+      val svc            = new SourceService(dataSourceRepo, restConnector, auditService = new AuditService(auditEventRepo), connectorRepo = connectorRepo)
       val restConfigPayload = RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
 
       val created = await(svc.createRest(CreateSourceRequest("RefreshRest", DataSourceKind.RestApi, restConfigPayload, None), testUser)) match {
@@ -1224,8 +1224,8 @@ class AuditMutationInstrumentationSpec
       val failingConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Left("Request failed"))))
       val successConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
       val auditSvc          = new AuditService(auditEventRepo)
-      val failingSvc        = new SourceService(dataSourceRepo, dataTypeRepo, failingConnector, auditService = auditSvc, connectorRepo = connectorRepo)
-      val successSvc        = new SourceService(dataSourceRepo, dataTypeRepo, successConnector, auditService = auditSvc, connectorRepo = connectorRepo)
+      val failingSvc        = new SourceService(dataSourceRepo, failingConnector, auditService = auditSvc, connectorRepo = connectorRepo)
+      val successSvc        = new SourceService(dataSourceRepo, successConnector, auditService = auditSvc, connectorRepo = connectorRepo)
       val restConfigPayload = RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
 
       val created = await(failingSvc.createRest(CreateSourceRequest("RefreshRestFail", DataSourceKind.RestApi, restConfigPayload, None), testUser)) match {

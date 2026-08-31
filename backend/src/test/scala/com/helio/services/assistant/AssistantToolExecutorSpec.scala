@@ -90,7 +90,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     // working instance via `pipelineProposalServiceOverride`.
     val pipelineProposalService =
       if (pipelineProposalServiceOverride != null) pipelineProposalServiceOverride
-      else new PipelineProposalService(null, null, null, null, null, null, null, null)
+      else new PipelineProposalService(null, null, null, null, null, null)
     new AssistantToolExecutor(
       workspaceSearchService,
       panelCapabilityService,
@@ -456,7 +456,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val sourceServiceM = mock(classOf[SourceService])
       when(sourceServiceM.testSql(SqlInferRequest("sql", config))).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
       val realCombined = new CombinedProposalService(
-        new PipelineProposalService(null, null, null, null, null, null, null, null),
+        new PipelineProposalService(null, null, null, null, null, null),
         new DashboardProposalService(null, null, mock(classOf[DataTypeRepository]), null)
       )
       val executor = newExecutor(mock(classOf[DataTypeRepository]), combinedProposalService = realCombined, sourceService = sourceServiceM)
@@ -510,7 +510,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val dataSourceRepo = mock(classOf[DataSourceRepository])
       val existing         = RestSource(DataSourceId("src_existing"), "Existing REST", ownerId, now, now, RestApiConfig(connectorId = "conn-1", endpoint = "https://api.example.com", method = "GET", headers = Map.empty))
       when(dataSourceRepo.findByIdOwned(DataSourceId("src_existing"), user)).thenReturn(Future.successful(Some(existing)))
-      val realPipelineService = new PipelineProposalService(null, null, null, null, null, dataSourceRepo, null, null)
+      val realPipelineService = new PipelineProposalService(null, null, null, null, dataSourceRepo, null)
       val executor              = newExecutor(mock(classOf[DataTypeRepository]), pipelineProposalServiceOverride = realPipelineService)
 
       val proposal = pipelineProposalWith(sourceIdSource("src_existing"))

@@ -107,7 +107,7 @@ class DataSourceServiceSpec
     val tmpDir     = Files.createTempDirectory("helio-data-source-service-spec")
     fileSystem     = new LocalFileSystem(tmpDir)
     service = new DataSourceService(
-      dataSourceRepo, dataTypeRepo, fileSystem,
+      dataSourceRepo, fileSystem,
       isBlocked = testIsBlocked
     )
 
@@ -180,34 +180,30 @@ class DataSourceServiceSpec
 
   "DataSourceService.refresh (CSV)" should {
 
-    "update the linked DataType when present" in {
+    "update the source's inferredSchema when already populated" in {
       cleanDb()
       val src = createCsvSource("a,b\n1,2\n3,4")
 
       val result = await(service.refresh(src.id, None, user))
 
       result.isRight shouldBe true
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
-      dts.head.fields.map(_.name) should contain allOf ("a", "b")
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.map(_.name) should contain allOf ("a", "b")
     }
 
-    "re-create the linked DataType when missing (Fix D)" in {
+    // HEL-904: there's no separate DataType row to orphan anymore — inferredSchema is a plain
+    // column on the source — so "Fix D" is now just "refresh re-populates it from empty".
+    "re-populate the source's inferredSchema when it was empty (Fix D)" in {
       cleanDb()
       val src = createCsvSource("col1,col2\n1,2")
-      // Simulate the orphan scenario: delete the DT row directly (bypassing
-      // the Fix-B′ guard at the service layer).
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts.foreach(dt => await(dataTypeRepo.delete(dt.id, user)))
-      await(dataTypeRepo.findBySourceId(src.id, owner)) shouldBe empty
+      await(dataSourceRepo.upsertInferredSchema(src.id, Vector.empty, java.time.Instant.now(), user))
+      await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema shouldBe empty
 
       val result = await(service.refresh(src.id, None, user))
 
       result.isRight shouldBe true
-      val recreated = await(dataTypeRepo.findBySourceId(src.id, owner))
-      recreated should have size 1
-      recreated.head.sourceId shouldBe Some(src.id)
-      recreated.head.fields.map(_.name) should contain allOf ("col1", "col2")
+      val recreated = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      recreated.map(_.name) should contain allOf ("col1", "col2")
     }
 
     "return BadRequest with an actionable message when the source file is missing" in {
@@ -232,7 +228,9 @@ class DataSourceServiceSpec
 
   "DataSourceService.refresh (Static)" should {
 
-    "re-create the linked DataType when missing (Fix D)" in {
+    // HEL-904: there's no separate DataType row to orphan anymore — refresh re-writes
+    // `inferred_schema` directly from an empty starting state.
+    "re-populate the source's inferredSchema when it was empty (Fix D)" in {
       cleanDb()
       val createReq = StaticDataSourceRequest(
         name    = "Lookup",
@@ -244,9 +242,7 @@ class DataSourceServiceSpec
         case Right(s) => s
         case Left(e)  => fail(s"createStatic failed: $e")
       }
-      // Orphan: delete the linked DT.
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts.foreach(dt => await(dataTypeRepo.delete(dt.id, user)))
+      await(dataSourceRepo.upsertInferredSchema(src.id, Vector.empty, java.time.Instant.now(), user))
 
       val refreshPayload = StaticDataPayload(
         columns = Vector(StaticColumnPayload("id", "integer"), StaticColumnPayload("label", "string")),
@@ -255,10 +251,8 @@ class DataSourceServiceSpec
       val result = await(service.refresh(src.id, Some(refreshPayload), user))
 
       result.isRight shouldBe true
-      val recreated = await(dataTypeRepo.findBySourceId(src.id, owner))
-      recreated should have size 1
-      recreated.head.sourceId shouldBe Some(src.id)
-      recreated.head.fields.map(_.name) should contain allOf ("id", "label")
+      val recreated = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      recreated.map(_.name) should contain allOf ("id", "label")
     }
   }
 
@@ -273,10 +267,9 @@ class DataSourceServiceSpec
       result.isRight shouldBe true
       val src = result.toOption.get
       src.kind shouldBe "text"
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
-      dts.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
-      dts.head.fields.find(_.name == "content").map(_.dataType) shouldBe Some("string-body")
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
+      schema.find(_.name == "content").map(_.`type`) shouldBe Some("string-body")
     }
 
     "create a DataSource for a valid .md upload" in {
@@ -329,8 +322,8 @@ class DataSourceServiceSpec
         case t: TextSource => t.config.sourceUrl shouldBe Some(url)
         case other         => fail(s"expected TextSource, got: $other")
       }
-      val dts = await(dataTypeRepo.findBySourceId(result.toOption.get.id, owner))
-      dts.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
+      val schema = await(dataSourceRepo.findByIdOwned(result.toOption.get.id, user)).get.inferredSchema
+      schema.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
     }
 
     "return BadGateway when the URL cannot be fetched" in {
@@ -395,8 +388,7 @@ class DataSourceServiceSpec
 
       val result = await(service.refresh(src.id, None, user))
       result.isRight shouldBe true
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
     }
 
     "re-fetch the URL for a URL-created text source and overwrite the stored file" in {
@@ -449,11 +441,10 @@ class DataSourceServiceSpec
       result.isRight shouldBe true
       val src = result.toOption.get
       src.kind shouldBe "pdf"
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
-      dts.head.fields.map(_.name) should contain allOf
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.map(_.name) should contain allOf
         ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
-      dts.head.fields.find(_.name == "content").map(_.dataType) shouldBe Some("string-body")
+      schema.find(_.name == "content").map(_.`type`) shouldBe Some("string-body")
     }
 
     "reject an unsupported extension with BadRequest" in {
@@ -507,8 +498,8 @@ class DataSourceServiceSpec
         case p: PdfSource => p.config.sourceUrl shouldBe Some(url)
         case other        => fail(s"expected PdfSource, got: $other")
       }
-      val dts = await(dataTypeRepo.findBySourceId(result.toOption.get.id, owner))
-      dts.head.fields.map(_.name) should contain allOf
+      val schema = await(dataSourceRepo.findByIdOwned(result.toOption.get.id, user)).get.inferredSchema
+      schema.map(_.name) should contain allOf
         ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
     }
 
@@ -549,8 +540,7 @@ class DataSourceServiceSpec
 
       val result = await(service.refresh(src.id, None, user))
       result.isRight shouldBe true
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
     }
 
     "re-fetch the URL for a URL-created pdf source and overwrite the stored file" in {
@@ -603,12 +593,11 @@ class DataSourceServiceSpec
       result.isRight shouldBe true
       val src = result.toOption.get
       src.kind shouldBe "image"
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
-      dts.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes", "width", "height", "mimeType")
-      dts.head.fields.find(_.name == "content").map(_.dataType) shouldBe Some("binary-ref")
-      dts.head.fields.find(_.name == "width").map(_.dataType)   shouldBe Some("integer")
-      dts.head.fields.find(_.name == "mimeType").map(_.dataType) shouldBe Some("string")
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.map(_.name) should contain allOf ("content", "filename", "sizeBytes", "width", "height", "mimeType")
+      schema.find(_.name == "content").map(_.`type`) shouldBe Some("binary-ref")
+      schema.find(_.name == "width").map(_.`type`)   shouldBe Some("integer")
+      schema.find(_.name == "mimeType").map(_.`type`) shouldBe Some("string")
     }
 
     "create a DataSource for a valid JPEG upload" in {
@@ -672,8 +661,8 @@ class DataSourceServiceSpec
         case i: ImageSource => i.config.sourceUrl shouldBe Some(url)
         case other          => fail(s"expected ImageSource, got: $other")
       }
-      val dts = await(dataTypeRepo.findBySourceId(result.toOption.get.id, owner))
-      dts.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes", "width", "height", "mimeType")
+      val schema = await(dataSourceRepo.findByIdOwned(result.toOption.get.id, user)).get.inferredSchema
+      schema.map(_.name) should contain allOf ("content", "filename", "sizeBytes", "width", "height", "mimeType")
     }
 
     "return BadGateway when the URL cannot be fetched" in {
@@ -734,8 +723,7 @@ class DataSourceServiceSpec
 
       val result = await(service.refresh(src.id, None, user))
       result.isRight shouldBe true
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
     }
 
     "re-fetch the URL for a URL-created image source and overwrite the stored file" in {

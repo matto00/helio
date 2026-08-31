@@ -95,7 +95,7 @@ class WorkspaceSearchServiceSpec
 
     val tmpDir = java.nio.file.Files.createTempDirectory("helio-workspace-search-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    dataSourceService = new DataSourceService(dataSourceRepo, fs)
     dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     outputRepo        = new OutputRepository(ctx)
     nodeSnapshotRepo  = new NodeSnapshotRepository(ctx)

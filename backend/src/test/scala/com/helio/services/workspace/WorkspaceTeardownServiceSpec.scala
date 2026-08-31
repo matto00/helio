@@ -134,7 +134,7 @@ class WorkspaceTeardownServiceSpec
 
     val tmpDir = Files.createTempDirectory("helio-teardown-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)(routeEc, mat, typedSystem)
+    dataSourceService = new DataSourceService(dataSourceRepo, fs)(routeEc, mat, typedSystem)
 
     val teardownRepo = new WorkspaceTeardownRepository(ctx)(routeEc)
     teardownService = new WorkspaceTeardownService(teardownRepo, fs)(routeEc)
@@ -179,13 +179,6 @@ class WorkspaceTeardownServiceSpec
     }
   }
 
-  /** The auto-created companion DataType for `source` — found by tag among
-   *  `user`'s tagged DataTypes (companion tag mirrors the owning source's,
-   *  tasks.md 2.3(a)). */
-  private def companionTypeOf(source: DataSource, tag: String, user: AuthenticatedUser): DataType =
-    await(dataTypeRepo.findAll(user.id, Page(0, 200), Some(tag))).items
-      .find(_.sourceId.contains(source.id))
-      .getOrElse(fail(s"no companion DataType found for source ${source.id.value} tagged $tag"))
 
   /** Create a Pipeline (+ its freshly-inserted, same-tagged output DataType —
    *  the only insertion site, tasks.md 2.3(b)) over `sourceId`, owned by `user`. */
@@ -337,11 +330,13 @@ class WorkspaceTeardownServiceSpec
   // ── 6.6a positive path: companion DataType is no longer torn down at all ─
 
   "teardown (6.6a positive path -- the ticket's primary use case)" should {
-    "delete a tagged DataSource, leaving its own tagged companion DataType untouched " +
-      "(HEL-904: the data_type teardown branch is removed outright)" in {
+    // HEL-904 (4.1/4.3): `DataSourceService.createStatic` no longer mints a companion DataType
+    // at all -- the source's schema lives inline on `data_sources.inferred_schema`, deleted
+    // automatically with the row. There is no longer an orphan-survives scenario to assert.
+    "delete a tagged DataSource, with no companion DataType ever created (HEL-904: the " +
+      "data_type teardown branch is removed outright)" in {
       val tag = freshTag()
       val src = createTaggedSource(userA, Some(tag))
-      val companion = companionTypeOf(src, tag, userA)
 
       val resp = teardown(userA, tag)
       resp.committed shouldBe true
@@ -350,10 +345,6 @@ class WorkspaceTeardownServiceSpec
       resp.pipelinesDeleted shouldBe 0
 
       sourceExists(src.id, userA) shouldBe false
-      // No longer deleted -- teardown no longer touches data_types at all;
-      // the companion survives, orphaned (source_id -> NULL via V4's ON
-      // DELETE SET NULL), still carrying its original tag.
-      typeExists(companion.id, userA) shouldBe true
     }
   }
 
@@ -417,7 +408,6 @@ class WorkspaceTeardownServiceSpec
 
       // User B's own tagged resource graph.
       val bSrc      = createTaggedSource(userB, Some(tag))
-      val bCompanion = companionTypeOf(bSrc, tag, userB)
       val bPipeline  = createPipeline(userB, bSrc.id, Some(tag))
 
       // User A's own, smaller tagged resource (source + companion only).
@@ -437,7 +427,6 @@ class WorkspaceTeardownServiceSpec
       // Direct DB assertion (not just trusting A's response shape): B's
       // same-tagged rows are all still present, queried as B.
       sourceExists(bSrc.id, userB) shouldBe true
-      typeExists(bCompanion.id, userB) shouldBe true
       pipelineExists(bPipeline.id, userB) shouldBe true
     }
 

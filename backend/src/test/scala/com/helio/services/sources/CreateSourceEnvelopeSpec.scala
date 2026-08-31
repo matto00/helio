@@ -4,7 +4,6 @@ import com.helio.services.sources.CreateSourceEnvelope
 import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata, ConnectorResolveContext, FetchOutcome}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -59,7 +58,6 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
 
   private var embeddedPostgres: EmbeddedPostgres   = _
   private var db: JdbcBackend.Database             = _
-  private var dataTypeRepo: DataTypeRepository     = _
   private var dataSourceRepo: DataSourceRepository = _
 
   private val owner = UserId(UUID.randomUUID().toString)
@@ -75,7 +73,6 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx        = new DbContext(db, db)
-    dataTypeRepo   = new DataTypeRepository(ctx)
     dataSourceRepo = new DataSourceRepository(ctx)
   }
 
@@ -88,7 +85,7 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE data_sources RESTART IDENTITY CASCADE"))
   }
 
   private def insertedSource(name: String): RestSource = {
@@ -106,18 +103,18 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
 
   "CreateSourceEnvelope.build" should {
 
-    "produce dataType = None and fetchError = Some(err) verbatim when the connector's inferSchema fails" in {
+    "produce inferredSchema = None and fetchError = Some(err) verbatim when the connector's inferSchema fails" in {
       cleanDb()
       val inserted = insertedSource("Broken Fixture")
       val config   = EnvelopeFixtureConfig(Left("fixture unreachable"))
 
-      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataTypeRepo, user))
+      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataSourceRepo, user))
 
-      result.dataType shouldBe None
+      result.inferredSchema shouldBe None
       result.fetchError shouldBe Some("fixture unreachable")
     }
 
-    "persist a DataType and return fetchError = None when the connector's inferSchema succeeds" in {
+    "persist the inferred schema onto the source and return fetchError = None when the connector's inferSchema succeeds" in {
       cleanDb()
       val inserted = insertedSource("Working Fixture")
       val schema = InferredSchema(Seq(
@@ -126,16 +123,16 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
       ))
       val config = EnvelopeFixtureConfig(Right(schema))
 
-      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataTypeRepo, user))
+      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataSourceRepo, user))
 
       result.fetchError shouldBe None
-      val dt = result.dataType.getOrElse(fail("expected a DataType"))
-      dt.fields.map(_.name) should contain theSameElementsAs Seq("sku", "qty")
-      dt.fields.find(_.name == "sku").get.dataType shouldBe "string"
-      dt.fields.find(_.name == "qty").get.dataType shouldBe "integer"
+      val fields = result.inferredSchema.getOrElse(fail("expected an inferred schema")).fields
+      fields.map(_.name) should contain theSameElementsAs Seq("sku", "qty")
+      fields.find(_.name == "sku").get.dataType shouldBe "string"
+      fields.find(_.name == "qty").get.dataType shouldBe "integer"
 
-      val persisted = await(dataTypeRepo.findBySourceId(inserted.id, owner))
-      persisted.map(_.fields.map(_.name)) shouldBe Seq(Seq("sku", "qty"))
+      val persisted = await(dataSourceRepo.findByIdOwned(inserted.id, user))
+      persisted.map(_.inferredSchema.map(_.name)) shouldBe Some(Vector("sku", "qty"))
     }
 
     // HEL-861 (design D6, task 7.6a): the create-time advisory, composed generically from
@@ -150,7 +147,7 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
       )
       val config = EnvelopeFixtureConfig(Right(schema))
 
-      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataTypeRepo, user))
+      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataSourceRepo, user))
 
       result.rowCapNotice shouldBe defined
       result.rowCapNotice.get should include("3303")
@@ -166,7 +163,7 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
       )
       val config = EnvelopeFixtureConfig(Right(schema))
 
-      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataTypeRepo, user))
+      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataSourceRepo, user))
 
       result.rowCapNotice shouldBe None
     }
@@ -180,7 +177,7 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
       )
       val config = EnvelopeFixtureConfig(Right(schema))
 
-      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataTypeRepo, user))
+      val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, config, inserted, Instant.now(), dataSourceRepo, user))
 
       result.rowCapNotice shouldBe None
     }

@@ -2573,3 +2573,96 @@ landing, per its own standing rule; this cycle did not reach it.
    instruction.
 5. Task 4.6 (splitting oversized pipeline service files) stays lowest priority, explicitly
    deferrable per the resume brief.
+
+## Cycle 25 — task 4.3 complete; task 4.1's bulk started, one new live-consumer found and fixed
+
+Starting state verified fresh: HEAD = `3483f950` (cycle 24's commit), tree clean.
+
+**Scope landed this cycle**: task 4.3 in full (DataSourceService/SourceService/CreateSourceEnvelope
+rewired onto `DataSourceRepository.upsertInferredSchema`, replacing the companion-DataType write
+path per design.md line 92) — plus the start of 4.1's harder remaining bulk (DataSourceService and
+SourceService's `dataTypeRepo` dependency is now fully severed).
+
+**Live-consumer discovery not named in the resume brief's enumeration**: after severing
+DataSourceService/SourceService's writes, the full test suite caught `PipelineService.analyze` and
+`resolveProposalSourceSchema` silently degrading — both read a source's schema via
+`dataTypeRepo.findBySourceId`, which now returns nothing for any source created after this cycle's
+change. This would have broken pipeline analyze/step-schema-propagation (select/rename/etc.) for
+every static/csv/text/pdf/image source in production had it shipped unnoticed — the regression was
+caught by `WorkspaceContextServiceSpec`'s "4.4 per-step output columns" test going red on the
+*second* full-suite run (analyze reads the source through `PipelineService`, not
+`WorkspaceContextService` directly). Fixed by rewiring both call sites onto
+`dataSourceRepo.findByIdOwned(...).inferredSchema`. This is exactly the kind of dependent the
+resume brief warned 4.1 "needs its own careful pass" to find — PipelineService wasn't on the
+brief's named list (only PipelineRunService/PipelineProposalService/WorkspaceContextService/
+DataSourceService/SourceService were), which means **the remaining bulk of 4.1 may still have
+other undiscovered live consumers** — the only reliable signal is a fresh full-suite run after each
+severing step, not the enumeration in any one brief.
+
+**Genuinely retired functionality found and removed, not merely relocated**: `SourceService
+.previewSql`/`previewRest`'s companion-type computed-field evaluation (`applyComputedFields`) —
+per ticket.md item 8, "the computed_fields concept is deleted" outright; this was the one
+remaining live read of `DataType.computedFields` outside the pipeline-level `compute` step
+migration path. Removed; preview now returns raw/flattened rows unconditionally.
+
+**Verification this cycle (fresh, exit codes read directly):**
+- `sbt -batch compile` — clean after every file group.
+- `sbt -batch Test/compile` — iterated to zero errors across ~25 test files needing companion-type
+  → inferredSchema rewrites, plus mechanical constructor-arg fixes (dropped `dataTypeRepo`) across
+  ~20 more test files constructing `DataSourceService`/`SourceService`/`PipelineProposalService`.
+- Targeted `testOnly` batches after each fix group, converging to fully green before moving to the
+  next batch (sources package specs, then ApiRoutesSpec/DataSourceRoutesSpec, then the
+  patchset/teardown/tagging/pipeline-apply-proposal specs the second full-suite pass surfaced, then
+  the PipelineAnalyze* specs the `PipelineService.analyze` fix's own fixtures needed).
+- Full `sbt -batch "set Test / parallelExecution := false" test` run **TWICE** (single-threaded,
+  per HEL-924) — **3567/3567 passing both times**, exit code 0, 236 suites, 0 aborted, 0 failed.
+  Count is 3567, down from cycle 24's 3571: net -4 (2 companion-DataType tag-propagation tests in
+  `ResourceTaggingSpec` removed outright — genuinely retired scenario, no equivalent left to test;
+  the "version increments on refresh" SQL/REST tests in `SourceServiceSpec` removed — no version
+  concept survives on a bare `inferredSchema` column; offset by a couple of net-new/renamed tests
+  elsewhere), no unexplained loss.
+- `node scripts/check-scala-quality.mjs` — clean (0 soft warnings after fixing 2 inline-FQN
+  violations this cycle introduced in `CreateSourceEnvelope.scala`, caught by the gate itself).
+- `node scripts/check-schema-drift.mjs` — clean (65 protocol classes, 7 panel-type-enum surfaces).
+- `node scripts/check-openspec-hygiene.mjs` — clean.
+
+**Section 4 status after this cycle**: task 4.3 is `[x]`. Task 4.1 remains `[ ]` — its harder
+remaining scope (deleting `DataTypeRepository`/`DataTypeRowRepository`/`DataTypeService`/
+`MetricRepository`/`MetricService`/`DataTypeProtocol`/`api/protocols/metrics/*`/`DataTypeRoutes`/
+`MetricRoutes`) is still blocked on:
+- `PipelineRunService`'s legacy DataType schema/row writes (deliberately deferred, per the resume
+  brief's own scoping — not touched this cycle).
+- `PipelineProposalService.resolveStaticSource`/`handleInlineCreated` no longer reference
+  `dataTypeRepo` at all (severed this cycle) — confirmed via fresh grep.
+- `PipelineService`'s `dataTypeRepo: DataTypeRepository` constructor parameter is now **fully
+  dead** (zero remaining internal usages, confirmed via grep) but left in place rather than
+  removed — removing it touches ~15 more test files' positional constructor calls for a benefit
+  that's superseded once 4.1's bulk deletion touches this file anyway; flagging here so the next
+  cycle doesn't have to re-discover the dead param.
+- `DataTypeRoutes`/`MetricRoutes`/`ApiRoutes.scala`/`Main.scala` wiring (task 4.2) is untouched —
+  still gated on 4.1's bulk landing first.
+
+**Task 2.10 (dropping `metrics`/`data_types`/`data_type_rows`/`output_data_type_id`/retired
+`panels` columns) remains NOT started** — still blocked on 4.1 (in full) and 4.5, per its own
+standing rule; this cycle did not reach it (nor was it expected to, given 4.1's bulk still open).
+
+**Next cycle should:**
+1. Continue task 4.1's bulk: `PipelineRunService`'s `dataTypeRepo`/`dataTypeRowRepo` dependency is
+   the next concrete target — re-verify its actual remaining callers (the null-guarded writes
+   suggest some paths already tolerate its absence; confirm which) before cutting, and re-run the
+   FULL suite (not just targeted specs) after each severing step, per this cycle's live-consumer
+   discovery lesson.
+2. Once `PipelineRunService` is severed: delete `DataTypeRepository`/`DataTypeRowRepository`/
+   `DataTypeService`/`MetricRepository`/`MetricService`/`DataTypeProtocol`/`api/protocols/metrics/*`/
+   `DataTypeRoutes`/`MetricRoutes`/`BoundPanelService` (already gone, re-verify with a fresh grep)
+   and their backing test specs (4.5); remove `PipelineService`'s now-dead `dataTypeRepo` param in
+   the same pass, mechanically, across its ~15 test-file call sites. Task 4.2's `ApiRoutes.scala`/
+   `Main.scala` wiring cleanup falls out naturally once 4.1 lands.
+3. Task 4.4 (`RlsPolicyGuardSpec` table swap) is independently schedulable once 4.1 lands (no
+   dependency on 4.2/4.3/4.5) — not attempted this cycle (time went to the unplanned live-consumer
+   fix instead).
+4. Task 2.10 (the drops) unlocks once 4.1 (in full) and 4.5 both land — still the single most
+   irreversible step in the ticket; triple-confirm via grep before executing, per the standing
+   instruction.
+5. Task 4.6 (splitting oversized pipeline service files) stays lowest priority, explicitly
+   deferrable per the resume brief — not attempted this cycle.

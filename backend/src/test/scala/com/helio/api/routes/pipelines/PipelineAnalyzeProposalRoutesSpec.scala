@@ -96,17 +96,29 @@ class PipelineAnalyzeProposalRoutesSpec
     await(db.run(sql"SELECT COUNT(*) FROM pipeline_steps".as[Int])).head
   }
 
-  /** Seeds a caller-owned DataSource + its companion source DataType. Returns the DataSource id. */
+  /** Projects a `DataField`-shaped JSON array (`{name,displayName,dataType,nullable}`, this
+   *  spec's existing literal shape) into the `SchemaField`-shaped array (`{name,type}`)
+   *  `data_sources.inferred_schema` actually stores (HEL-904). */
+  private def toSchemaFieldsJson(dataFieldsJson: String): String =
+    dataFieldsJson.parseJson match {
+      case JsArray(items) =>
+        JsArray(items.map { item =>
+          val obj = item.asJsObject
+          JsObject("name" -> obj.fields("name"), "type" -> obj.fields("dataType"))
+        }).compactPrint
+      case other => other.compactPrint
+    }
+
+  /** Seeds a caller-owned DataSource with its own `inferred_schema` populated directly
+   *  (HEL-904 — there is no companion DataType anymore). Returns the DataSource id. */
   private def seedDataSource(ownerId: String, name: String, fields: String): String = {
     import PostgresProfile.api._
     val dsId = UUID.randomUUID().toString
-    val dtId = UUID.randomUUID().toString
-    await(db.run(DBIO.seq(
-      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, $name, 'rest_api', '{}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, $dsId, 'source-dt', $fields, 1, $ownerId::uuid, now(), now())"""
-    )))
+    val schemaFieldsJson = toSchemaFieldsJson(fields)
+    await(db.run(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, inferred_schema, created_at, updated_at)
+             VALUES ($dsId, $name, 'rest_api', '{}', $ownerId::uuid, $schemaFieldsJson::jsonb, now(), now())"""
+    ))
     dsId
   }
 

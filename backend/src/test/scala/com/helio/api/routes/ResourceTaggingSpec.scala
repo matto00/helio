@@ -113,7 +113,7 @@ class ResourceTaggingSpec
     implicit val ec: ExecutionContext = routeEc
     val tmpDir = Files.createTempDirectory("helio-tag-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    val svc    = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    val svc    = new DataSourceService(dataSourceRepo, fs)
     new DataSourceRoutes(svc, user)(typedSystem).routes
   }
 
@@ -154,7 +154,7 @@ class ResourceTaggingSpec
     val registry        = new ResourceTypeRegistry()
     val accessChecker    = new AccessCheckerImpl(new ResourcePermissionRepository(ctx)(routeEc), registry)
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes an OutputRepository now (dataTypeService
@@ -208,18 +208,10 @@ class ResourceTaggingSpec
       }
     }
 
-    "propagate the owning DataSource's tag to its auto-created companion DataType, readable via GET /types" in {
-      val tag  = freshTag()
-      val body = createStaticSourceJson("Companion Source", s""","tag":"$tag"""")
-      Post("/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> dataSourceRoutesFor(userA) ~> check {
-        status shouldBe StatusCodes.Created
-      }
-      Get(s"/types?tag=$tag") ~> dataTypeRoutesFor(userA) ~> check {
-        status shouldBe StatusCodes.OK
-        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
-        items.map(_.fields("name").convertTo[String]) should contain("Companion Source")
-      }
-    }
+    // HEL-904 (4.1/4.3): `POST /data-sources` no longer auto-creates a companion DataType at
+    // all — the source's inferred schema lives inline on `data_sources.inferred_schema`, so
+    // there is no longer a companion resource for a tag to propagate to. Removed outright
+    // (not skipped) per the retired-scenario convention this ticket's other cycles used.
   }
 
 
@@ -253,20 +245,9 @@ class ResourceTaggingSpec
       }
     }
 
-    "GET /types?tag= is owner-scoped: another owner's same-tagged DataType is not returned" in {
-      val tag = freshTag()
-      Post("/data-sources", HttpEntity(ContentTypes.`application/json`, createStaticSourceJson("A's tagged", s""","tag":"$tag""""))) ~>
-        dataSourceRoutesFor(userA) ~> check { status shouldBe StatusCodes.Created }
-      Post("/data-sources", HttpEntity(ContentTypes.`application/json`, createStaticSourceJson("B's tagged", s""","tag":"$tag""""))) ~>
-        dataSourceRoutesFor(userB) ~> check { status shouldBe StatusCodes.Created }
-
-      Get(s"/types?tag=$tag") ~> dataTypeRoutesFor(userA) ~> check {
-        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
-        val names = items.map(_.fields("name").convertTo[String])
-        names should contain("A's tagged")
-        names should not contain "B's tagged"
-      }
-    }
+    // HEL-904 (4.1/4.3): `POST /data-sources` no longer auto-creates a companion DataType, so
+    // there is nothing left for `GET /types?tag=` to owner-scope in this scenario. Removed
+    // outright, matching the companion-propagation test above.
   }
 
   // ── 6.11 Wire-format: absent field behaves identically to explicit null/false ─

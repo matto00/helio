@@ -13,7 +13,6 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -42,7 +41,6 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
 
   private var embeddedPostgres: EmbeddedPostgres   = _
   private var db: JdbcBackend.Database             = _
-  private var dataTypeRepo: DataTypeRepository     = _
   private var dataSourceRepo: DataSourceRepository = _
   private var connectorRepo: ConnectorRepository   = _
 
@@ -59,7 +57,6 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx        = new DbContext(db, db)
-    dataTypeRepo   = new DataTypeRepository(ctx)
     dataSourceRepo = new DataSourceRepository(ctx)
     connectorRepo  = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider())))
     // HEL-822: SourceService.createRest's bare-url dual-support path now writes a real
@@ -102,7 +99,7 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
     new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(response)))
 
   private def service(connector: RestApiConnectorDriver): SourceService =
-    new SourceService(dataSourceRepo, dataTypeRepo, connector, connectorRepo = connectorRepo)
+    new SourceService(dataSourceRepo, connector, connectorRepo = connectorRepo)
 
   private val restConfigPayload =
     RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
@@ -121,13 +118,13 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       }
 
       result.fetchError shouldBe None
-      val dt = result.dataType.getOrElse(fail("expected a DataType"))
-      dt.fields.map(_.name) should contain theSameElementsAs Seq("one", "label")
-      dt.fields.find(_.name == "one").get.dataType   shouldBe "integer"
-      dt.fields.find(_.name == "label").get.dataType shouldBe "string"
+      val schema = result.inferredSchema.getOrElse(fail("expected an inferred schema")).fields
+      schema.map(_.name) should contain theSameElementsAs Seq("one", "label")
+      schema.find(_.name == "one").get.dataType   shouldBe "integer"
+      schema.find(_.name == "label").get.dataType shouldBe "string"
     }
 
-    "surface fetchError (not fail the request) and create no DataType when the query fails" in {
+    "surface fetchError (not fail the request) and infer no schema when the query fails" in {
       cleanDb()
       val svc     = service(restConnector(Right(JsArray())))
       val request = SqlCreateSourceRequest("Broken", DataSourceKind.Sql, sqlConfig("SELECT * FROM definitely_not_a_real_table"))
@@ -138,7 +135,7 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       }
 
       result.fetchError shouldBe defined
-      result.dataType shouldBe None
+      result.inferredSchema shouldBe None
     }
   }
 
@@ -161,14 +158,14 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       }
 
       result.fetchError shouldBe None
-      val dt = result.dataType.getOrElse(fail("expected a DataType"))
-      dt.fields.find(_.name == "id").get.dataType shouldBe "integer"
-      val labelField = dt.fields.find(_.name == "label").get
+      val schema = result.inferredSchema.getOrElse(fail("expected an inferred schema")).fields
+      schema.find(_.name == "id").get.dataType shouldBe "integer"
+      val labelField = schema.find(_.name == "label").get
       labelField.displayName shouldBe "Label Override"
       labelField.dataType    shouldBe "string"
     }
 
-    "surface fetchError and create no DataType when the fetch fails" in {
+    "surface fetchError and infer no schema when the fetch fails" in {
       cleanDb()
       val svc     = service(restConnector(Left("Request failed")))
       val request = CreateSourceRequest("Broken", DataSourceKind.RestApi, restConfigPayload, None)
@@ -179,7 +176,7 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       }
 
       result.fetchError shouldBe Some("Request failed")
-      result.dataType shouldBe None
+      result.inferredSchema shouldBe None
     }
 
     // ── HEL-826 task 2.3: immediate 400 on a GET+body create, both dual-support branches ──
@@ -257,9 +254,11 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
   }
 
 
+  // HEL-904: refresh now re-writes `data_sources.inferred_schema` directly — there is no
+  // companion DataType row and no version concept to bump; refresh is a plain in-place upsert.
   "SourceService.refresh (SQL)" should {
 
-    "re-create a DataType (version 1) via inferSchema when the linked DataType is missing" in {
+    "re-infer the schema onto the source's inferredSchema column" in {
       cleanDb()
       val svc     = service(restConnector(Right(JsArray())))
       val request = SqlCreateSourceRequest("RefreshMe", DataSourceKind.Sql, sqlConfig("SELECT 1 AS one"))
@@ -269,38 +268,17 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       }
       val sourceId = DataSourceId(created.source.id)
 
-      val existing = await(dataTypeRepo.findBySourceId(sourceId, owner))
-      existing.foreach(dt => await(dataTypeRepo.delete(dt.id, user)))
-
       val refreshed = await(svc.refresh(sourceId, user)) match {
-        case Right(dt) => dt
+        case Right(ds) => ds
         case Left(e)   => fail(s"refresh failed: $e")
       }
-      refreshed.version shouldBe 1
-      refreshed.fields.map(_.name) shouldBe Seq("one")
-    }
-
-    "bump the version when refreshing an existing SQL-sourced DataType" in {
-      cleanDb()
-      val svc     = service(restConnector(Right(JsArray())))
-      val request = SqlCreateSourceRequest("RefreshMe2", DataSourceKind.Sql, sqlConfig("SELECT 1 AS one"))
-      val created = await(svc.createSql(request, user)) match {
-        case Right(r) => r
-        case Left(e)  => fail(s"createSql failed: $e")
-      }
-      val sourceId = DataSourceId(created.source.id)
-
-      val refreshed = await(svc.refresh(sourceId, user)) match {
-        case Right(dt) => dt
-        case Left(e)   => fail(s"refresh failed: $e")
-      }
-      refreshed.version shouldBe 2
+      refreshed.inferredSchema.map(_.name) shouldBe Seq("one")
     }
   }
 
   "SourceService.refresh (REST)" should {
 
-    "re-create a DataType (version 1) via inferSchema when the linked DataType is missing" in {
+    "re-infer the schema onto the source's inferredSchema column" in {
       cleanDb()
       val json: JsValue = JsArray(JsObject("id" -> JsNumber(1)))
       val svc            = service(restConnector(Right(json)))
@@ -311,38 +289,11 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       }
       val sourceId = DataSourceId(created.source.id)
 
-      val existing = await(dataTypeRepo.findBySourceId(sourceId, owner))
-      existing.foreach(dt => await(dataTypeRepo.delete(dt.id, user)))
-
       val refreshed = await(svc.refresh(sourceId, user)) match {
-        case Right(dt) => dt
+        case Right(ds) => ds
         case Left(e)   => fail(s"refresh failed: $e")
       }
-      refreshed.version shouldBe 1
-      refreshed.fields.map(_.name) shouldBe Seq("id")
-    }
-
-    "bump the version when refreshing an existing REST-sourced DataType" in {
-      // Note: `refreshRest`'s `upsertDataType(..., bumpVersion = false, ...)` argument is inert
-      // for this branch — `DataTypeRepository.update` unconditionally computes
-      // `existing.version + 1` and ignores the `version` field on the `DataType` passed in. This
-      // is pre-existing repository-layer behavior, unrelated to and unchanged by this ticket; the
-      // test asserts the actual observed output rather than the `bumpVersion` flag's nominal intent.
-      cleanDb()
-      val json: JsValue = JsArray(JsObject("id" -> JsNumber(1)))
-      val svc            = service(restConnector(Right(json)))
-      val request        = CreateSourceRequest("RefreshRest2", DataSourceKind.RestApi, restConfigPayload, None)
-      val created = await(svc.createRest(request, user)) match {
-        case Right(r) => r
-        case Left(e)  => fail(s"createRest failed: $e")
-      }
-      val sourceId = DataSourceId(created.source.id)
-
-      val refreshed = await(svc.refresh(sourceId, user)) match {
-        case Right(dt) => dt
-        case Left(e)   => fail(s"refresh failed: $e")
-      }
-      refreshed.version shouldBe 2
+      refreshed.inferredSchema.map(_.name) shouldBe Seq("id")
     }
   }
 
@@ -360,8 +311,8 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
         case Right(r) => r
         case Left(e)  => fail(s"createRest failed: $e")
       }
-      val dt = created.dataType.getOrElse(fail("expected a DataType"))
-      dt.fields.map(_.name) should contain("stats.pts_ppr")
+      val schema = created.inferredSchema.getOrElse(fail("expected an inferred schema")).fields
+      schema.map(_.name) should contain("stats.pts_ppr")
 
       val previewed = await(svc.preview(DataSourceId(created.source.id), user)) match {
         case Right(r) => r

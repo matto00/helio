@@ -150,8 +150,10 @@ final class PipelineService(
         // commit body for the full rationale, including why the drift capture/
         // compare sides never need an enabled-vs-full-list decision at all).
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
-          dataTypeRepo.findBySourceId(pipeline.sourceDataSourceId, user.id).flatMap { sourceDataTypes =>
-            val sourceSchema: Vector[SchemaField] = PipelineAnalyzeService.deriveSourceSchema(sourceDataTypes)
+          // HEL-904 4.1/4.3: the source's schema now lives inline on `data_sources
+          // .inferred_schema` — no companion DataType to look up anymore.
+          dataSourceRepo.findByIdOwned(pipeline.sourceDataSourceId, user).map(_.map(_.inferredSchema).getOrElse(Vector.empty)).flatMap { sourceSchema0 =>
+            val sourceSchema: Vector[SchemaField] = sourceSchema0
 
             // HEL-412 (design.md Decision 3, boundary iii): disabled steps are
             // dropped before analysis — the response therefore contains
@@ -291,10 +293,8 @@ final class PipelineService(
           case None =>
             Future.successful(Left(ServiceError.NotFound(s"Data source not found: $id")))
           case Some(ds) =>
-            dataTypeRepo.findBySourceId(ds.id, user.id).map { dataTypes =>
-              val schema = dataTypes.headOption.toVector.flatMap(_.fields).map(f => SchemaField(f.name, f.dataType))
-              Right((ds.name, schema))
-            }
+            // HEL-904 4.1/4.3: no companion DataType to look up — the schema lives inline.
+            Future.successful(Right((ds.name, ds.inferredSchema)))
         }
       case None =>
         resolveInlineSourceSchema(proposal.source, proposal.pipelineName, user)

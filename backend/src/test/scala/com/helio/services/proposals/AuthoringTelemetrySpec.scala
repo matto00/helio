@@ -108,7 +108,7 @@ class AuthoringTelemetrySpec
 
     val tmpDir = Files.createTempDirectory("helio-authoring-telemetry-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
     outputRepo            = new OutputRepository(ctx)
@@ -156,7 +156,7 @@ class AuthoringTelemetrySpec
       rows    = Vector(Vector(JsString("x"))),
       tag     = None
     )
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, new LocalFileSystem(Files.createTempDirectory("helio-authoring-telemetry-src")))
+    val dataSourceService = new DataSourceService(dataSourceRepo, new LocalFileSystem(Files.createTempDirectory("helio-authoring-telemetry-src")))
     val source = await(dataSourceService.createStatic(req, owner)) match {
       case Right(ds) => ds
       case Left(err) => fail(s"createStatic failed: $err")

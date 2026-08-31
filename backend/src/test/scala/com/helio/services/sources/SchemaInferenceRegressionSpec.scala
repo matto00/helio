@@ -65,7 +65,7 @@ class SchemaInferenceRegressionSpec
     dataSourceRepo = new DataSourceRepository(ctx)
     val tmpDir     = Files.createTempDirectory("helio-schema-inference-regression")
     fileSystem     = new LocalFileSystem(tmpDir)
-    service        = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
+    service        = new DataSourceService(dataSourceRepo, fileSystem)
   }
 
   override def afterAll(): Unit = {
@@ -94,14 +94,12 @@ class SchemaInferenceRegressionSpec
         case Left(e)  => fail(s"createCsv failed: $e")
       }
 
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
-      val dt = dts.head
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
 
       // Exactly 2 fields — no fabricated extras
-      dt.fields should have size 2
+      schema should have size 2
       // Field names come from the header, not from any constant
-      dt.fields.map(_.name) should contain theSameElementsAs Seq("city", "population")
+      schema.map(_.name) should contain theSameElementsAs Seq("city", "population")
     }
 
     "derive field types from the data rows, not from a fallback constant" in {
@@ -115,12 +113,10 @@ class SchemaInferenceRegressionSpec
         case Left(e)  => fail(s"createCsv failed: $e")
       }
 
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
-      val dt = dts.head
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
 
-      dt.fields should have size 2
-      val byName = dt.fields.map(f => f.name -> f.dataType).toMap
+      schema should have size 2
+      val byName = schema.map(f => f.name -> f.`type`).toMap
       byName("score") shouldBe "integer"
       byName("label") shouldBe "string"
     }
@@ -150,13 +146,11 @@ class SchemaInferenceRegressionSpec
         case Left(e)  => fail(s"createStatic failed: $e")
       }
 
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
-      val dt = dts.head
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
 
       // Exactly 2 fields — matching the column spec
-      dt.fields should have size 2
-      dt.fields.map(_.name) should contain theSameElementsAs Seq("product_id", "product_name")
+      schema should have size 2
+      schema.map(_.name) should contain theSameElementsAs Seq("product_id", "product_name")
     }
 
     "use the declared column types directly — no sniffing or fabrication" in {
@@ -178,9 +172,7 @@ class SchemaInferenceRegressionSpec
         case Left(e)  => fail(s"createStatic failed: $e")
       }
 
-      val dts = await(dataTypeRepo.findBySourceId(src.id, owner))
-      dts should have size 1
-      val byName = dts.head.fields.map(f => f.name -> f.dataType).toMap
+      val byName = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema.map(f => f.name -> f.`type`).toMap
       byName("flag") shouldBe "boolean"
       byName("ts")   shouldBe "timestamp"
     }

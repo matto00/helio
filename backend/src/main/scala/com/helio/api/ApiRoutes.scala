@@ -254,7 +254,7 @@ final class ApiRoutes(
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
   private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker, auditService)
-  private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService)
+  private val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService)
   // HEL-822: same nullable-optional wiring pattern as connectorEntityServiceOpt below —
   // constructed early (before sourceService) so SourceService.createRest's legacy-url
   // dual-support path (task 1.2a) has a repository to synthesize an implicit Connector
@@ -266,7 +266,7 @@ final class ApiRoutes(
       val connectorCredentialRepo = new ConnectorCredentialRepository(ctx, secretBackend)
       new ConnectorRepository(ctx, connectorCredentialRepo)
     }
-  private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector, auditService, connectorRepoOpt.orNull)
+  private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepoOpt.orNull)
   private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, auditService)
   // HEL-365: separate from dataTypeService (CRUD-only, design.md D6) — reads
   // the same dataTypeRepo/dataTypeRowRepo to build the panel-capabilities report.
@@ -310,8 +310,8 @@ final class ApiRoutes(
   // all already constructed above, plus dataSourceRepo/dataTypeRepo for the
   // read-only lookups its own scaladoc documents (no direct DB writes).
   private val pipelineProposalService = new PipelineProposalService(
-    sourceService, dataSourceService, pipelineService, pipelineRunService, dataTypeService,
-    dataSourceRepo, dataTypeRepo, outputRepoOpt.orNull
+    sourceService, dataSourceService, pipelineService, pipelineRunService,
+    dataSourceRepo, outputRepoOpt.orNull
   )
   // HEL-387: atomic combined pipeline+dashboard proposal apply — composes the
   // already-constructed pipelineProposalService/proposalService (the latter

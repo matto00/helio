@@ -78,7 +78,7 @@ class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with Scalate
     dataSourceRepo = new DataSourceRepository(ctx)
     val tmpDir     = Files.createTempDirectory("helio-data-source-service-csv-url-spec")
     fileSystem     = new LocalFileSystem(tmpDir)
-    service = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, isBlocked = admitLocalhost)
+    service = new DataSourceService(dataSourceRepo, fileSystem, isBlocked = admitLocalhost)
 
     keystoreDir = Files.createTempDirectory("csv-url-service-spec")
     val keystorePath = keystoreDir.resolve("test.p12")
@@ -161,8 +161,8 @@ class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with Scalate
       src.config.path.nonEmpty shouldBe true
       src.config.sourceUrl shouldBe Some(url)
 
-      val dt = await(dataTypeRepo.findBySourceId(src.id, owner)).head
-      dt.fields.map(_.name) shouldBe Vector("name", "age")
+      val ds = await(dataSourceRepo.findByIdOwned(src.id, user)).get
+      ds.inferredSchema.map(_.name) shouldBe Vector("name", "age")
     }
 
     "a failing fetch (404) leaves NO data source row and NO stored file" in {
@@ -211,14 +211,14 @@ class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with Scalate
     "re-fetches the URL and reflects CHANGED upstream content" in {
       refreshableBody = csvV1
       val src = await(service.createCsvUrl("Refreshable CSV", urlFor("refreshable.csv"), user)).toOption.get
-      val dtBefore = await(dataTypeRepo.findBySourceId(src.id, owner)).head
+      val schemaBefore = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
 
       refreshableBody = csvV2
       val refreshed = await(service.refresh(src.id, None, user))
       refreshed shouldBe a[Right[_, _]]
 
-      val dtAfter = await(dataTypeRepo.findBySourceId(src.id, owner)).head
-      dtAfter.fields.map(_.name) shouldBe dtBefore.fields.map(_.name)
+      val schemaAfter = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schemaAfter.map(_.name) shouldBe schemaBefore.map(_.name)
 
       val stored = fileSystem.read(src.asInstanceOf[CsvSource].config.path)
       new String(await(stored), StandardCharsets.UTF_8) shouldBe csvV2

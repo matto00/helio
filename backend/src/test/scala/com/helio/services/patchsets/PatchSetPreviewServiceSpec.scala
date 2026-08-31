@@ -172,7 +172,7 @@ class PatchSetPreviewServiceSpec
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
-    dataSourceService   = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
+    dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
     dataTypeService     = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 
@@ -226,7 +226,9 @@ class PatchSetPreviewServiceSpec
   // Text/Markdown's data-bound "Source mode" no longer exists, so no panel
   // kind can be seeded with a real `dataTypeId` binding anymore.
 
-  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): (DataSourceId, DataTypeId) = {
+  // HEL-904: no companion DataType to look up anymore — returns just the DataSourceId
+  // (every call site already discarded the old tuple's second element).
+  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): DataSourceId = {
     val ds = await(dataSourceService.createStatic(
       StaticDataSourceRequest(name, "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))),
       owner
@@ -234,8 +236,7 @@ class PatchSetPreviewServiceSpec
       case Right(d) => d
       case Left(e)  => fail(s"seedStaticSource failed: $e")
     }
-    val companion = await(dataTypeRepo.findBySourceId(ds.id, owner.id)).headOption.getOrElse(fail("companion type missing"))
-    (ds.id, companion.id)
+    ds.id
   }
 
   private def seedPipelineOutputType(owner: AuthenticatedUser, name: String): DataType = {
@@ -417,7 +418,7 @@ class PatchSetPreviewServiceSpec
     // HEL-904: scatter/aggregation conflict check (6.4b) removed -- ChartPanel no longer exists.
 
     "reject a pipeline-rename edit with a blank name, matching PipelineService.updateName (6.4c)" in {
-      val (sourceId, _) = seedStaticSource(userA, "Pipeline source")
+      val sourceId = seedStaticSource(userA, "Pipeline source")
       val pipeline        = seedPipeline(userA, sourceId, "My pipeline")
       val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "update",
         None, None, None, Some(UpdatePipelineRequest(name = "  ")), None, None)
@@ -434,7 +435,7 @@ class PatchSetPreviewServiceSpec
 
 
     "hint that pipeline output rows will be stale on a pipeline-update edit (6.5a)" in {
-      val (sourceId, _) = seedStaticSource(userA, "PipelineUpdateSrc")
+      val sourceId = seedStaticSource(userA, "PipelineUpdateSrc")
       val pipeline        = seedPipeline(userA, sourceId, "Original name")
       val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "update",
         None, None, None, Some(UpdatePipelineRequest(name = "Renamed")), None, None)
@@ -446,7 +447,7 @@ class PatchSetPreviewServiceSpec
     }
 
     "hint stale rows + cascade on a pipeline-delete edit (6.5b)" in {
-      val (sourceId, _) = seedStaticSource(userA, "PipelineDeleteSrc")
+      val sourceId = seedStaticSource(userA, "PipelineDeleteSrc")
       val pipeline        = seedPipeline(userA, sourceId, "To delete")
       val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "delete", None, None, None, None, None, None)
 
@@ -459,7 +460,7 @@ class PatchSetPreviewServiceSpec
     }
 
     "hint that pipeline output rows will be stale on a pipelineStep update/delete edit (6.5c)" in {
-      val (sourceId, _) = seedStaticSource(userA, "StepSrc")
+      val sourceId = seedStaticSource(userA, "StepSrc")
       val pipeline        = seedPipeline(userA, sourceId, "Step pipeline")
       val step = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(5)))
 
@@ -520,8 +521,8 @@ class PatchSetPreviewServiceSpec
     // recorded above — the prediction assumed absence would be made to raise, and the caller
     // analysis HEL-814 ran (which the ticket itself demanded) showed that is not safe to do.
     "GUARD: preview still ACCEPTS a join edit that OMITS joinKey — absence is a draft, and HEL-814 deliberately keeps it savable (completeness is enforced at run/analyze instead)" in {
-      val (leftSourceId, _)  = seedStaticSource(userA, "JoinLeftSrc")
-      val (rightSourceId, _) = seedStaticSource(userA, "JoinRightSrc")
+      val leftSourceId = seedStaticSource(userA, "JoinLeftSrc")
+      val rightSourceId = seedStaticSource(userA, "JoinRightSrc")
       val pipeline = seedPipeline(userA, leftSourceId, "Join pipeline")
       val step = seedPipelineStep(
         PipelineId(pipeline.id), userA, "join",
@@ -551,8 +552,8 @@ class PatchSetPreviewServiceSpec
     // proof of this ticket's actual defect. Asserting the 422 from D2's
     // `validateRawConfig` is what binds this test to the wiring.
     "PROOF: preview REJECTS a join edit whose joinKey is PRESENT but of the wrong JSON type, with a 422 naming the key" in {
-      val (leftSourceId, _)  = seedStaticSource(userA, "JoinLeftTypeSrc")
-      val (rightSourceId, _) = seedStaticSource(userA, "JoinRightTypeSrc")
+      val leftSourceId = seedStaticSource(userA, "JoinLeftTypeSrc")
+      val rightSourceId = seedStaticSource(userA, "JoinRightTypeSrc")
       val pipeline = seedPipeline(userA, leftSourceId, "Join type pipeline")
       val step = seedPipelineStep(
         PipelineId(pipeline.id), userA, "join",
@@ -584,7 +585,7 @@ class PatchSetPreviewServiceSpec
     // than a join-specific special case. `pivot`'s `index` is the shipped
     // rejection spec's own named example.
     "PROOF: preview REJECTS a pivot edit whose index holds a string rather than an array, with a 422 naming the key" in {
-      val (sourceId, _) = seedStaticSource(userA, "PivotTypeSrc")
+      val sourceId = seedStaticSource(userA, "PivotTypeSrc")
       val pipeline = seedPipeline(userA, sourceId, "Pivot type pipeline")
       val step = seedPipelineStep(
         PipelineId(pipeline.id), userA, "pivot",
@@ -618,7 +619,7 @@ class PatchSetPreviewServiceSpec
     // element and kept its siblings, producing a partially-decoded collection
     // that preview happily accepted.
     "PROOF: preview REJECTS a window edit whose orderBy holds a bare string element, rather than silently dropping that element" in {
-      val (sourceId, _) = seedStaticSource(userA, "WindowTypeSrc")
+      val sourceId = seedStaticSource(userA, "WindowTypeSrc")
       val pipeline = seedPipeline(userA, sourceId, "Window type pipeline")
       val step = seedPipelineStep(
         PipelineId(pipeline.id), userA, "window",
@@ -653,7 +654,7 @@ class PatchSetPreviewServiceSpec
     // mutation: make `validateRawConfig` reject an empty string and this goes
     // red while every proof above stays green.
     "GUARD: preview still ACCEPTS the real draft shapes measured in dev and prod (empty compute column/expression, empty lookup reference id)" in {
-      val (sourceId, _) = seedStaticSource(userA, "DraftSrc")
+      val sourceId = seedStaticSource(userA, "DraftSrc")
       val pipeline = seedPipeline(userA, sourceId, "Draft pipeline")
 
       val computeStep = seedPipelineStep(
@@ -688,7 +689,7 @@ class PatchSetPreviewServiceSpec
     }
 
     "hint that a dataSource delete cascades to dependent pipelines (6.5d)" in {
-      val (sourceId, _) = seedStaticSource(userA, "CascadeSrc")
+      val sourceId = seedStaticSource(userA, "CascadeSrc")
       val edit = Edit(EditTarget("dataSource", Some(sourceId.value)), "delete", None, None, None, None, None, None)
 
       preview(Vector(edit), userA) match {
@@ -715,7 +716,7 @@ class PatchSetPreviewServiceSpec
     // binding anymore, so this scenario can no longer occur.
 
     "surface no impact hint for an ordinary rename (6.5g)" in {
-      val (sourceId, _) = seedStaticSource(userA, "PlainRenameSrc")
+      val sourceId = seedStaticSource(userA, "PlainRenameSrc")
       val edit = Edit(EditTarget("dataSource", Some(sourceId.value)), "update",
         None, None, Some(UpdateDataSourceRequest(Some("Renamed source"))), None, None, None)
 

@@ -118,7 +118,7 @@ class RefinementServiceSpec
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
-    dataSourceService   = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    dataSourceService   = new DataSourceService(dataSourceRepo, fs)
     val dataTypeService = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
     val outputRepo     = new OutputRepository(ctx)

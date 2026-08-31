@@ -87,6 +87,14 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
       .load()
       .migrate()
 
+    // HEL-904: `DataSourceRepository`'s table mapping now always selects `inferred_schema`
+    // (added by V94, task 1.3/2.3), which this spec deliberately does not run (pinned to V93
+    // above, to isolate V73's own effect from V94's later, unrelated companion-type deletion).
+    // Add the column by hand rather than running V94 — this spec's assertions are about the
+    // `tag` column, not the Outputs remodel, so a bare `ALTER TABLE` (not V94's data migration)
+    // is the minimal change that keeps `DataSourceRepository` usable here.
+    Await.result(db.run(sqlu"ALTER TABLE data_sources ADD COLUMN inferred_schema JSONB NOT NULL DEFAULT '[]'::jsonb"), 10.seconds)
+
     val ctx        = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
     dataTypeRepo   = new DataTypeRepository(ctx)

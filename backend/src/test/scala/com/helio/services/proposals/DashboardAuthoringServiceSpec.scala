@@ -109,7 +109,7 @@ class DashboardAuthoringServiceSpec
 
     val tmpDir = Files.createTempDirectory("helio-authoring-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
 

@@ -167,7 +167,7 @@ class DataTypeDataSourceAclSpec
     implicit val ec: ExecutionContext = routeEc
     val tmpDir  = Files.createTempDirectory("helio-acl-spec")
     val fs      = new LocalFileSystem(tmpDir)
-    val svc     = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    val svc     = new DataSourceService(dataSourceRepo, fs)
     concat(
       new DataSourceRoutes(svc, user)(typedSystem).routes,
       new DataSourcePreviewRoutes(svc, user)(typedSystem).routes
@@ -177,7 +177,7 @@ class DataTypeDataSourceAclSpec
   private def sourceRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
     val stubConnector = new RestApiConnectorDriver(Some(_ => Future.successful(Left("no real HTTP in tests"))))
-    val svc           = new SourceService(dataSourceRepo, dataTypeRepo, stubConnector)
+    val svc           = new SourceService(dataSourceRepo, stubConnector)
     concat(
       new SourceRoutes(svc, user)(typedSystem).routes,
       new SourcePreviewRoutes(svc, user)(typedSystem).routes

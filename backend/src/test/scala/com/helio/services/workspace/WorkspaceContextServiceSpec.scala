@@ -119,7 +119,7 @@ class WorkspaceContextServiceSpec
 
     val tmpDir = Files.createTempDirectory("helio-workspace-context-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    dataSourceService = new DataSourceService(dataSourceRepo, fs)
     dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
     pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService

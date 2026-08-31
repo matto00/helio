@@ -42,9 +42,10 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe (beforeSteps + 1)
-      // Static source's companion DataType only -- HEL-904 task 3.5:
-      // `pipelineRepo.create` no longer mints its own output DataType.
-      dataTypeCount() shouldBe (beforeTypes + 1)
+      // HEL-904 task 3.5/4.3: `pipelineRepo.create` no longer mints its own output DataType,
+      // and `DataSourceService.createStatic` no longer mints a companion DataType either — the
+      // static source's inferred schema lives inline on `data_sources.inferred_schema`.
+      dataTypeCount() shouldBe beforeTypes
 
       // HEL-904 task 3.8: `outputDataTypeId` (field name unchanged — see
       // design.md) is now a real Output id, not a DataType id — there is no
