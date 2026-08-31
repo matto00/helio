@@ -261,6 +261,57 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(action.transactionally)
   }
 
+  /** ACL-bypassing splice-insert (HEL-904 cycle-7 fix, round-4 skeptic Finding
+    * 1): inserts a new step as the trunk continuation immediately under
+    * `parentStepId` (`None` = pipeline root), RE-PARENTING whatever step
+    * currently occupies that position-0 slot (if any) to become the new
+    * step's own position-0 child. This is the "insert directly after this
+    * node" primitive `duplicateStep` and `persistNewStep`'s whole-pipeline
+    * `position` index both actually need.
+    *
+    * `insertAtInternal` (sibling-scoped renumber, no re-parenting) is NOT
+    * sufficient for this: calling it with `parentStepId = Some(anchor.id)`,
+    * `index = 0` would renumber anchor's existing position-0 child (the old
+    * trunk continuation) down to position 1, which `executionOrder` treats
+    * as a TAIL emitted BEFORE the new step's own walk -- inverting the
+    * entire remaining trunk to appear ahead of the just-inserted step.
+    * Re-parenting the old occupant under the new step instead keeps it a
+    * true trunk continuation, just one hop further down.
+    *
+    * Returns the freshly `SELECT`-ed, actually-persisted row (not an echo
+    * of the request), so callers never report a `position` the row does
+    * not have. Safe to call only after the caller's editor or owner access
+    * has been confirmed by PipelineService via findByIdShared. */
+  def spliceInsertAtInternal(
+      pipelineId:   PipelineId,
+      kind:         String,
+      config:       Any,
+      parentStepId: Option[PipelineStepId],
+      enabled:      Boolean = true
+  ): Future[PipelineStep] = {
+    val now        = Instant.now()
+    val configJson = encodeConfig(kind, config)
+    val newId      = UUID.randomUUID().toString
+    val newRow     = PipelineStepRow(newId, pipelineId.value, 0, kind, configJson, enabled, now, now, parentStepId.map(_.value))
+    val action = for {
+      // Read the occupant (if any) BEFORE inserting, then insert the new row
+      // FIRST and re-parent the occupant onto it SECOND -- the FK on
+      // `parent_step_id` referencing `pipeline_steps.id` would otherwise be
+      // violated by pointing the occupant at a not-yet-existing `newId`.
+      occupantOpt <- siblingsQuery(pipelineId, parentStepId).filter(_.position === 0).result.headOption
+      _           <- stepsTable += newRow
+      _           <- occupantOpt match {
+                       case Some(occ) =>
+                         stepsTable.filter(_.id === occ.id)
+                           .map(s => (s.parentStepId, s.position, s.updatedAt))
+                           .update((Some(newId), 0, now))
+                       case None => DBIO.successful(0)
+                     }
+      persisted <- stepsTable.filter(_.id === newId).result.head
+    } yield rowToDomain(persisted)
+    ctx.withSystemContext(action.transactionally)
+  }
+
   /** ACL-bypassing atomic reorder (HEL-407). Safe to call only after the
     * caller's editor or owner access has been confirmed by PipelineService
     * via findByIdShared, and after the service has confirmed `orderedIds` is

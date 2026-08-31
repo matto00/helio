@@ -85,7 +85,7 @@ private[protocols] trait AssistantProposalToolSchemas {
       "panels": [
         {
           "title": "Total Revenue",
-          "type": "metric",
+          "type": "output",
           "dataTypeId": "dt_example_from_find",
           "fieldMapping": { "value": "amount" },
           "aggregation": { "value": "amount", "agg": "sum" },
@@ -204,7 +204,7 @@ private[protocols] trait AssistantProposalToolSchemas {
         "panels": [
           {
             "title": "Weekly Signups",
-            "type": "metric",
+            "type": "output",
             "dataTypeId": "$pipelineOutput",
             "fieldMapping": { "value": "signups" },
             "aggregation": { "value": "signups", "agg": "sum" }

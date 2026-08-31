@@ -4,15 +4,18 @@
 Beyond `resolveAll`'s target/ACL/shape gate, `preview` SHALL reject a patch set identically to how
 `apply` would for each of the following content-level checks, so a preview-clean patch set is not
 falsely reported clean: a panel-update edit with a blank title or a cross-type PATCH (mirrors
-`PanelServiceHelpers.resolvePatch`); a panel-update edit combining `chartType: "scatter"` with a
-set `aggregation` (mirrors `PanelService.validateScatterAggregationConflict`); a pipeline-rename
-edit with a blank `name` (mirrors `PipelineService.updateName`). This list is the SPECIFIC set of
-gaps found between `resolveAll` and the real per-kind service methods at ticket delivery time — not
-a claim that every future service-side validation is automatically covered (design.md Risks). This
-requirement replaces the base spec's "Preview also enforces the specific content-level checks apply
-would separately enforce" — the dataType-update/dataType-delete checks that requirement also
-described no longer apply (see the REMOVED entry below); the panel/pipeline checks it also covered
-are unchanged and restated here.
+`PanelServiceHelpers.resolvePatch`); a pipeline-rename edit with a blank `name` (mirrors
+`PipelineService.updateName`). This list is the SPECIFIC set of gaps found between `resolveAll` and
+the real per-kind service methods at ticket delivery time — not a claim that every future
+service-side validation is automatically covered (design.md Risks). This requirement replaces the
+base spec's "Preview also enforces the specific content-level checks apply would separately
+enforce" — the dataType-update/dataType-delete checks that requirement also described no longer
+apply (see the REMOVED entry below), and neither does the panel-update `chartType: "scatter"` +
+`aggregation` conflict check that requirement described: `PanelService.validateScatterAggregationConflict`,
+`ChartPanel`, and panel-side `aggregation` were all deleted by this same ticket (task 3.9/4.1,
+`PanelServiceHelpers.scala:188-199`), so there is nothing left for `preview` to mirror there. The
+blank-title/cross-type-PATCH and pipeline-rename checks the base requirement also covered are
+unchanged and restated here.
 
 #### Scenario: A blank-title panel update is rejected, not silently previewed as valid
 - **WHEN** `preview` is called with a panel-update edit whose `patch.title` is blank

@@ -31,11 +31,16 @@ import scala.util.{Failure, Success}
  *  re-deriving logic those functions already own (design.md Context/Risks).
  *
  *  A handful of genuinely-extra content checks (design.md D1/D1a) run here
- *  too -- panel-update's blank-title/cross-type-PATCH + scatter+aggregation
- *  conflict (both free, via the reused functions above) and pipeline-rename's
- *  blank-name check (HEL-904 task 3.3: the dataType-update/-delete content
- *  checks that used to live here are REMOVED outright -- dataType is no
- *  longer a valid target.kind). A `Left` from ANY of these fails the WHOLE `preview` call
+ *  too -- panel-update's blank-title/cross-type-PATCH (free, via
+ *  `PanelServiceHelpers.resolvePatch` above) and pipeline-rename's
+ *  blank-name check. HEL-904 task 3.3 removed the dataType-update/-delete
+ *  content checks that used to live here outright -- dataType is no longer a
+ *  valid target.kind. The panel-update scatter+aggregation conflict check
+ *  (`PanelService.validateScatterAggregationConflict`) is ALSO gone, not just
+ *  no-longer-mirrored: that validator, `ChartPanel`, and panel-side
+ *  `aggregation` were all deleted by this same ticket (see the `panelUpdateAfter`
+ *  comment below) -- there is nothing left for preview to mirror there. A
+ *  `Left` from either remaining check fails the WHOLE `preview` call
  *  (design.md D1a), never silently dropped or per-edit-only.
  *
  *  Extracted to its own file from the start (design.md Impact -- learning

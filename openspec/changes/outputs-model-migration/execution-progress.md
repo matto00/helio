@@ -4013,3 +4013,90 @@ proven (all 4 independent fixes mutation-tested, confirmed red then green); HEL-
 determined to be zero (fully this ticket's job, verified directly); both smaller findings closed;
 `openspec validate --strict` clean; `sbt compile`/`sbt test` green, single-threaded, fresh this turn
 (3352/3352, 0 failures).
+
+---
+
+## Cycle 7 — round-4 skeptic fixes (scope explicitly limited to 3 items by human coordinator)
+
+Human coordinator scoped this cycle to exactly three items from
+`final-skeptic-migration-correctness-4.md` (round 4, HEAD `139bea00`), `AssistantProposalToolSchemas.scala`'s
+stale `"metric"` examples, and documentation drift in `dashboard-proposal.schema.json` /
+`PatchSetPreviewProjection.scala` / the change's `patch-set-preview` delta spec. No opportunistic
+cleanup performed. See `files-modified.md` for the full file-by-file rationale.
+
+**Item 1 — `insertAtInternal`'s index space no longer matched its callers' (round-4 Finding 1, the
+"API lies about what it persisted" bug).** Root cause confirmed exactly as the skeptic diagnosed:
+`duplicateStep`/`persistNewStep` computed a whole-pipeline `executionOrder` index and passed it
+straight into `insertAtInternal`'s sibling-scoped (single-parent-group) index space; for any
+migrated (parent-chained) pipeline the root sibling group has exactly one member, so every insert
+silently appended to the very end regardless of the requested position, while the `201` response
+echoed the REQUESTED index rather than what actually persisted. Fix: a new
+`spliceInsertAtInternal` repository method — a real re-parenting splice (inserts the new step as
+the trunk-continuation child of a resolved anchor, re-parenting whatever previously occupied that
+slot onto the new step), not a sibling-scoped renumber. Traced through by hand why plain
+`insertAtInternal` cannot work here even with a "correctly resolved" sibling index: renumbering an
+anchor's existing position-0 child down to position 1 makes `executionOrder` treat it as a TAIL
+emitted BEFORE the new step's own walk — inverting the entire remaining trunk to appear ahead of
+the just-inserted step. Only genuine re-parenting keeps the old continuation correctly ordered
+after the new step.
+
+**First implementation attempt had a real bug, caught by the test suite, not shipped:** the initial
+`spliceInsertAtInternal` re-parented the occupant BEFORE inserting the new row, which violated the
+`parent_step_id` FK (pointing the occupant at a not-yet-existing id) — surfaced as a genuine
+`404 Not Found` (via `classifyDbError`'s `PSQLException` "violates foreign key constraint" →
+`NotFound` mapping) on what should have been a `201`, not a silent no-op. Root-caused via
+systematic debugging (isolated the failing single test, read the actual `classifyDbError`
+translation, traced the FK to the reparent-before-insert ordering) and fixed by inserting the new
+row FIRST, re-parenting the occupant SECOND, within the same transaction.
+
+Verified both halves of the fix separately per the coordinator's explicit instruction, on a real
+migrated-shape pipeline seeded via raw SQL (the shape flat, API-built pipelines can never
+exercise, since their sibling group == whole pipeline): (a) the new/duplicated step lands spliced
+at the correct position in `listByPipelineInternal`'s real execution order, not appended to the
+end; (b) the response's reported `position` equals the row's actually-persisted `position`, read
+back independently via `stepRepo.findByIdInternal`, never trusting the create response's own echo.
+Two new regression tests added (`PipelineStepRoutesSpec`), one per caller. The 4 pre-existing
+flat-pipeline `position`-value assertions were updated to the correct sibling-scoped values a
+splice-insert now produces — their order/id assertions were already correct and untouched; only the
+raw `position` field values needed updating, since `position` is no longer a whole-pipeline
+monotonic index (this is the same already-accepted consequence of design.md's binding trunk/tail
+ruling from prior cycles, just now correctly activated for these two endpoints too).
+
+**Item 2 — stale `"metric"` worked examples.** Both `propose_dashboard`/`propose_combined` examples
+in `AssistantProposalToolSchemas.scala` changed `"type": "metric"` → `"type": "output"` (the
+schema's enum was already correctly narrowed to `text|markdown|image|output`; only the worked
+examples still showed the retired value, which `PanelType.fromString` hard-rejects).
+`AssistantProposalToolSchemasSpec` (decode-pins these exact examples) confirmed still green.
+
+**Item 3 — documentation drift, treated as real defects.** Corrected 12 stale field descriptions in
+`schemas/dashboards/dashboard-proposal.schema.json` that still named retired panel kinds
+(metric/chart/table/collection/timeline) or the deleted Metrics concept as if live; fields whose
+only consumer was a deleted panel kind are now documented as legacy (decoded but never applied).
+Corrected `PatchSetPreviewProjection.scala`'s class-level scaladoc and the change's own
+`patch-set-preview` delta spec, both of which still claimed the panel-update `chartType: "scatter"`
++ `aggregation` conflict check was an active validator preview "mirrors" — that validator
+(`PanelService.validateScatterAggregationConflict`), `ChartPanel`, and panel-side `aggregation` were
+all deleted by this same ticket (confirmed: `PanelServiceHelpers.scala:188-199` documents the
+removal, no `ChartPanel*` file exists, `PatchSetPreviewProjection.scala:110-114`'s inline comment on
+`panelUpdateAfter` already correctly stated the removal — only the file-level scaladoc and the delta
+spec's prose were stale).
+
+**Verification this cycle:**
+- `sbt -batch compile`: clean.
+- `testOnly com.helio.api.protocols.assistant.AssistantProposalToolSchemasSpec`: 10/10 green (item 2).
+- `testOnly com.helio.api.routes.pipelines.PipelineStepRoutesSpec`: 62/62 green (item 1, including
+  the 2 new migrated-shape regression tests and the 5 updated flat-pipeline position assertions).
+- Full `sbt -batch 'set Test/parallelExecution := false' test` (HEL-924 single-threaded protocol,
+  fresh this turn): **3354 tests, 225 suites, 0 aborted, 0 failed, all green**, 188s. (Up from
+  cycle 6's 3352 — +2 new tests this cycle, both in `PipelineStepRoutesSpec`.) No isolation
+  reclassification needed — clean end to end on the single serial run.
+- JSON validity of the edited schema file confirmed (`python3 -m json.tool` round-trip).
+
+**No escalations raised** — all three items were ordinary implementation/documentation defects with
+no design question, exactly as the human coordinator characterized them going in. Branch still not
+pushed to any remote.
+
+**Status for the next verification round:** all three assigned items fixed and tested; `sbt
+compile`/`sbt test` green, single-threaded, fresh this turn (3354/3354, 0 failures); no scope
+creep — only the three assigned files/areas touched plus the necessarily-coupled test-assertion
+updates in `PipelineStepRoutesSpec` that Item 1's fix requires to stay green.

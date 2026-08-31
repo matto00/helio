@@ -5,7 +5,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
+import com.helio.domain.model.{AuthenticatedUser, PipelineId, PipelineStepId, UserId}
 import com.helio.domain.{CastConfig, StepConfigTypeMismatch}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
@@ -765,11 +765,17 @@ class PipelineStepRoutesSpec
         newId = resp.id
       }
 
-      // Persists and survives reload — a subsequent GET reflects the shifted order.
+      // Persists and survives reload — a subsequent GET reflects the shifted
+      // order. HEL-904 cycle-7 fix: `position` is sibling-scoped (the new
+      // step splices in as the pipeline root, re-parenting `idA` to become
+      // its trunk-continuation child at position 0; `idB` stays a root
+      // sibling, unaffected, still at its own position 1) — NOT a
+      // whole-pipeline index, so it is no longer `0, 1, 2`.
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val steps = responseAs[Vector[PipelineStepResponse]]
-        steps.map(s => (s.id, s.position)) shouldBe Vector((newId, 0), (idA, 1), (idB, 2))
+        steps.map(_.id) shouldBe Vector(newId, idA, idB)
+        steps.map(s => (s.id, s.position)) shouldBe Vector((newId, 0), (idA, 0), (idB, 1))
       }
     }
 
@@ -784,14 +790,19 @@ class PipelineStepRoutesSpec
       Post(s"/pipelines/$pid/steps", reqWithPosition(selectReq(), 1)) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val resp = responseAs[PipelineStepResponse]
-        resp.position shouldBe 1
+        // HEL-904 cycle-7 fix: sibling-scoped position -- the new step
+        // splices in as idA's trunk-continuation child (position 0 within
+        // idA's own, previously-empty, child group), not whole-pipeline
+        // index 1.
+        resp.position shouldBe 0
         newId = resp.id
       }
 
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val steps = responseAs[Vector[PipelineStepResponse]]
-        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (newId, 1), (idB, 2), (idC, 3))
+        steps.map(_.id) shouldBe Vector(idA, newId, idB, idC)
+        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (newId, 0), (idB, 1), (idC, 2))
       }
     }
 
@@ -805,13 +816,18 @@ class PipelineStepRoutesSpec
       Post(s"/pipelines/$pid/steps", reqWithPosition(castReq(), 2)) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val resp = responseAs[PipelineStepResponse]
-        resp.position shouldBe 2
+        // HEL-904 cycle-7 fix: sibling-scoped position -- appending extends
+        // the trunk by splicing the new step in as idB's (the current last
+        // step's) trunk-continuation child, position 0 within idB's own
+        // child group, not whole-pipeline index 2.
+        resp.position shouldBe 0
         newId = resp.id
       }
 
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         val steps = responseAs[Vector[PipelineStepResponse]]
-        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (idB, 1), (newId, 2))
+        steps.map(_.id) shouldBe Vector(idA, idB, newId)
+        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (idB, 1), (newId, 0))
       }
     }
 
@@ -870,12 +886,67 @@ class PipelineStepRoutesSpec
         newId = responseAs[PipelineStepResponse].id
       }
 
+      // HEL-904 cycle-7 fix: sibling-scoped position -- the new step splices
+      // in as idA's trunk-continuation child (position 0 within idA's own,
+      // previously-empty, child group); idC/idF stay root siblings at their
+      // own (still-gapped) positions, unaffected.
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         val steps = responseAs[Vector[PipelineStepResponse]]
-        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (newId, 1), (idC, 2), (idF, 3))
+        steps.map(_.id) shouldBe Vector(idA, newId, idC, idF)
+        steps.map(s => (s.id, s.position)) shouldBe Vector((idA, 0), (newId, 0), (idC, 2), (idF, 5))
       }
     }
 
+    // ── HEL-904 cycle-7 fix (round-4 skeptic Finding 1) ───────────────────
+    //
+    // The `addStep(position=…)` half of the same reproduced bug: on a
+    // MIGRATED (parent-chained) pipeline, `position` is a whole-pipeline
+    // execution-order index (per the schema's own contract), which
+    // `persistNewStep` used to pass straight into `insertAtInternal`'s
+    // sibling-scoped (root-group-only) index space -- silently appending to
+    // the end instead of splicing in at the requested slot, while the
+    // response echoed the REQUESTED (wrong) position rather than what
+    // persisted.
+    "POST /pipelines/:id/steps with an explicit position on a migrated (parent-chained) pipeline splices in at the requested slot, and the response position matches the persisted row" in {
+      import PostgresProfile.api._
+      cleanSteps(); val pid = seedPipeline()
+      val aId = UUID.randomUUID().toString
+      val bId = UUID.randomUUID().toString
+      val cId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($cId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $bId)"""
+      )))
+      // Pre-condition: a pure 3-step trunk chain, execution order a,b,c.
+      val before = await(stepRepo.listByPipelineInternal(PipelineId(pid))).map(_.id.value)
+      before shouldBe Vector(aId, bId, cId)
+
+      var newId = ""
+      var reportedPosition = -1
+      // Requesting whole-pipeline index 2 ("insert directly before the step
+      // currently at index 2", i.e. directly after `b`).
+      Post(s"/pipelines/$pid/steps", reqWithPosition(castReq(), 2)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        newId = resp.id
+        reportedPosition = resp.position
+      }
+
+      // (a) Correct sibling-scoped splice position: the new step lands
+      // between `b` and `c` in execution order (a, b, NEW, c) -- not
+      // appended to the end (a, b, c, NEW), which was the reproduced bug.
+      val after = await(stepRepo.listByPipelineInternal(PipelineId(pid))).map(_.id.value)
+      after shouldBe Vector(aId, bId, newId, cId)
+
+      // (b) The response's reported position equals what is ACTUALLY
+      // persisted, read back independently of the response object.
+      val persisted = await(stepRepo.findByIdInternal(PipelineStepId(newId)))
+      persisted.map(_.position) shouldBe Some(reportedPosition)
+    }
 
     "POST without enabled creates an enabled step" in {
       cleanSteps(); val pid = seedPipeline()
@@ -943,16 +1014,88 @@ class PipelineStepRoutesSpec
         val resp = responseAs[PipelineStepResponse]
         resp.`type` shouldBe "rename"
         resp.enabled shouldBe true
-        resp.position shouldBe 1
+        // HEL-904 cycle-7 fix: sibling-scoped position -- the clone splices
+        // in as idA's trunk-continuation child (position 0 within idA's own,
+        // previously-empty, child group), not whole-pipeline index 1. This
+        // is the exact "response position doesn't match the persisted row"
+        // regression round-4 skeptic Finding 1 flagged: the response MUST
+        // report what actually persisted, verified independently below.
+        resp.position shouldBe 0
         cloneId = resp.id
         cloneId should not be idA
       }
 
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         val steps = responseAs[Vector[PipelineStepResponse]]
+        // Order: the clone lands directly after the original (not appended
+        // to the end, which was round-4 skeptic Finding 1's reproduced bug).
         steps.map(_.id) shouldBe Vector(idA, cloneId, idB)
-        steps.map(_.position) shouldBe Vector(0, 1, 2)
+        steps.map(_.position) shouldBe Vector(0, 0, 1)
       }
+
+      // Read the row back independently of the create response, per the
+      // coordinator's explicit two-part test requirement: (a) correct
+      // sibling-scoped splice position [asserted above via the ordered GET],
+      // (b) the response's reported position equals what is ACTUALLY
+      // persisted, read back via a separate repository call rather than
+      // trusting the create response's own echo.
+      val persisted = await(stepRepo.findByIdInternal(PipelineStepId(cloneId)))
+      persisted.map(_.position) shouldBe Some(0)
+    }
+
+    // ── HEL-904 cycle-7 fix (round-4 skeptic Finding 1) ───────────────────
+    //
+    // Reproduces the reported bug on a MIGRATED (parent-chained) pipeline
+    // shape -- a real `parent_step_id` chain seeded directly via SQL, NOT
+    // built through the API (which only ever produces flat root siblings
+    // today, ordinary sibling group == whole pipeline, the exact reason the
+    // pre-existing flat-pipeline coverage above never caught this). Before
+    // the fix, `duplicateStep` computed a whole-pipeline `executionOrder`
+    // index and passed it straight to `insertAtInternal`'s sibling-scoped
+    // (root-group-only) index space, silently appending the clone to the
+    // very end instead of splicing it in after the original, while the
+    // response still echoed the REQUESTED (wrong) position.
+    "POST /pipeline-steps/:id/duplicate on a migrated (parent-chained) pipeline splices the clone directly after the original, and the response position matches the persisted row" in {
+      import PostgresProfile.api._
+      cleanSteps(); val pid = seedPipeline()
+      val aId = UUID.randomUUID().toString
+      val bId = UUID.randomUUID().toString
+      val cId = UUID.randomUUID().toString
+      val dId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($cId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $bId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($dId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $cId)"""
+      )))
+      // Pre-condition: a pure 4-step trunk chain, execution order a,b,c,d.
+      val before = await(stepRepo.listByPipelineInternal(PipelineId(pid))).map(_.id.value)
+      before shouldBe Vector(aId, bId, cId, dId)
+
+      var cloneId = ""
+      var reportedPosition = -1
+      Post(s"/pipeline-steps/$bId/duplicate") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        cloneId = resp.id
+        reportedPosition = resp.position
+      }
+
+      // (a) Correct sibling-scoped splice position: the clone lands directly
+      // after `b` in execution order (a, b, CLONE, c, d) -- not appended to
+      // the end (a, b, c, d, CLONE), which was the reproduced bug.
+      val after = await(stepRepo.listByPipelineInternal(PipelineId(pid))).map(_.id.value)
+      after shouldBe Vector(aId, bId, cloneId, cId, dId)
+
+      // (b) The response's reported position equals what is ACTUALLY
+      // persisted, read back independently of the response object (never
+      // trusting the create response's own echo).
+      val persisted = await(stepRepo.findByIdInternal(PipelineStepId(cloneId)))
+      persisted.map(_.position) shouldBe Some(reportedPosition)
     }
 
     "POST /pipeline-steps/:id/duplicate on a disabled step yields a disabled clone" in {

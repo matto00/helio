@@ -576,8 +576,10 @@ final class PipelineService(
     * above. `req.position` absent keeps the pre-existing append behavior
     * (`insertInternal`, untouched); present validates it as a list index
     * (`0 <= position <= count`, count read fresh immediately before the
-    * insert) and, if in range, inserts + renumbers via `insertAtInternal`.
-    * Out-of-range values return 422 with nothing persisted — the same
+    * insert) and, if in range, splices via `spliceInsertAtInternal` (HEL-904
+    * cycle-7 fix — see that method's doc for why a plain sibling-scoped
+    * `insertAtInternal` call is not equivalent). Out-of-range values return
+    * 422 with nothing persisted — the same
     * ServiceError variant `reorderSteps` uses for its own staleness check. */
   private def persistNewStep(
       pipelineId:  PipelineId,
@@ -607,7 +609,17 @@ final class PipelineService(
               s"position must be between 0 and $count (the pipeline's current step count)"
             )))
           } else {
-            pipelineStepRepo.insertAtInternal(pipelineId, req.`type`, typedConfig, index, enabled)
+            // HEL-904 cycle-7 fix (round-4 skeptic Finding 1): `current` is
+            // execution order (trunk/tail), not a flat root-sibling list --
+            // `index` is a WHOLE-PIPELINE slot, not a sibling-scoped one.
+            // Translate it into "splice in directly after the step at
+            // index-1" (or at the pipeline root when index == 0) via
+            // spliceInsertAtInternal, which re-parents whatever already
+            // occupies that trunk slot rather than mis-renumbering a
+            // sibling group that `insertAtInternal` would silently no-op
+            // on for migrated (parent-chained) pipelines.
+            val anchorParentId = if (index == 0) None else Some(current(index - 1).id)
+            pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled)
               .map { step =>
                 audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
                 Right(PipelineStepResponse.fromDomain(step))
@@ -819,7 +831,9 @@ final class PipelineService(
    *  get 403; an unknown or invisible step masks as 404 (design.md
    *  Decision 4, the `updateStep` ACL pattern verbatim). Clones `kind`,
    *  `config`, and `enabled`, and inserts the clone directly after the
-   *  original via `insertAtInternal` (HEL-410's transactional renumber). */
+   *  original via `spliceInsertAtInternal` (HEL-904 cycle-7 fix: a real
+   *  re-parenting splice, not a sibling-scoped renumber -- see that
+   *  method's doc). */
   def duplicateStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] =
     pipelineStepRepo.findByIdInternal(stepId).flatMap {
       case None =>
@@ -845,35 +859,32 @@ final class PipelineService(
                     log.error(s"duplicateStep: config round-trip failed for step ${stepId.value} (kind='${existing.kind}')", ex)
                     Future.successful(Left(ServiceError.InternalError(s"Invalid '${existing.kind}' config")))
                   case Success(typedConfig) =>
-                    // Safe: editor/owner access confirmed above. Use internal list
-                    // so editor grantees are not blocked by the V35 pipeline_steps
-                    // RLS owner-JOIN policy. Read close to the insert below.
-                    pipelineStepRepo.listByPipelineInternal(pipeline.id).flatMap { current =>
-                      // HEL-904 follow-on ruling: `current` is already in
-                      // executionOrder (trunk/tail structural order) -- a
-                      // `.sortBy(_.position)` here would re-break the index,
-                      // since every trunk step's `position` is now constantly `0`.
-                      current.indexWhere(_.id.value == stepId.value) match {
-                        case -1 =>
-                          Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
-                        case originalListIndex =>
-                          pipelineStepRepo
-                            .insertAtInternal(pipeline.id, existing.kind, typedConfig, originalListIndex + 1, existing.enabled)
-                            .map { step =>
-                              // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
-                              // one-row-per-call convention; metadata carries the source stepId.
-                              audit(
-                                "pipeline.step.duplicate",
-                                "pipeline_step",
-                                Some(step.id.value),
-                                user,
-                                JsObject("sourceStepId" -> JsString(stepId.value))
-                              )
-                              Right(PipelineStepResponse.fromDomain(step))
-                            }
-                            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                    // HEL-904 cycle-7 fix (round-4 skeptic Finding 1):
+                    // `existing.id` IS the anchor -- the clone must become
+                    // `existing`'s own trunk-continuation child so it lands
+                    // directly after the original in executionOrder, with
+                    // whatever `existing` used to continue to re-parented
+                    // one hop further down by spliceInsertAtInternal.
+                    // `insertAtInternal` (sibling-scoped renumber only) is
+                    // NOT equivalent here: on a migrated (parent-chained)
+                    // pipeline it silently appended the clone to the very
+                    // end instead of splicing it in after the original --
+                    // see spliceInsertAtInternal's doc for why.
+                    pipelineStepRepo
+                      .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled)
+                      .map { step =>
+                        // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
+                        // one-row-per-call convention; metadata carries the source stepId.
+                        audit(
+                          "pipeline.step.duplicate",
+                          "pipeline_step",
+                          Some(step.id.value),
+                          user,
+                          JsObject("sourceStepId" -> JsString(stepId.value))
+                        )
+                        Right(PipelineStepResponse.fromDomain(step))
                       }
-                    }
+                      .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
                 }
             }
         }
