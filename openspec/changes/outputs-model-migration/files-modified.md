@@ -1,32 +1,23 @@
-# Files modified — cycle 27 (this cycle: section 5, tasks 5.1-5.4/5.6 only)
+# Files modified — HEL-904 (cumulative across all cycles)
 
-- `schemas/data-types/data-type-assertion-status.schema.json` → `schemas/outputs/output-assertion-status.schema.json` (git mv) — task 5.1: relocated per the ticket, `$id` updated to the new path; field shapes untouched (a pure move, not a reshape).
-- `schemas/panels/panel.schema.json` — task 5.2: `oneOf` collapsed from the 9-arm bound-kind set (metric/chart/table/text/markdown/image/divider/collection/timeline) to the actual 5-kind `Panel.Registry` set (output/text/markdown/image/divider); deleted the five retired bound `$defs` (`MetricConfig`/`ChartConfig`/`TableConfig`/`CollectionConfig`/`TimelineConfig` + their nested aggregation/options defs); added `OutputConfig` (`{outputId: string}`) matching `OutputPanelConfig`; trimmed `TextConfig`/`MarkdownConfig` to their actual single `content` property (dropped stale `dataTypeId`/`fieldMapping`, confirmed dead against `TextPanelConfig`/`MarkdownPanelConfig`).
-- `schemas/panels/create-panel-request.schema.json` — task 5.2: `allOf` mirrors the same 5-arm collapse (removed metric/chart/table/collection/timeline `if/then` branches, added `output` → `OutputConfig`).
-- `schemas/panels/create-panels-batch-request.schema.json` — task 5.2: `type` enum corrected from the stale 9-value list to the canonical 5-value set (`text|markdown|image|divider|output`) for internal consistency (not covered by the drift script's `panelTypeSurfaces`, but still a real drift against backend reality).
-- `schemas/panels/panel-capabilities-response.schema.json` — deleted (task 5.2): the only route it documented (`GET /api/types/:id/panel-capabilities`) was already deleted with `DataTypeRoutes`; `PanelCapabilityService` itself is kept (design.md decision) but is no longer route-facing.
-- `schemas/panels/panel-query.schema.json` — deleted (task 5.2): unreferenced by any schema, backend, or frontend code.
-- `openspec/changes/outputs-model-migration/tasks.md` — marked 5.1/5.2/5.3/5.4/5.6 `[x]` with verification notes; documented that the wire field stays `type` (not `kind`) since `PanelResponse`/`CreatePanelRequest` never renamed it — 5.4(c)'s original "properties.kind.enum" plan text was superseded by the actual implementation, which the drift script already correctly tracks.
-- `openspec/changes/outputs-model-migration/execution-progress.md` — appended this cycle's log entry.
+Cycle 30 delta (this cycle) — mechanical class rename only, no behavior change:
 
-No backend (Scala) files touched this cycle — schemas-only diff, confirmed via `git diff --name-only main...HEAD`.
+- `backend/src/main/scala/com/helio/api/package.scala` — `WorkspaceContextDataType` → `WorkspaceContextOutput` rename (type alias/import reference)
+- `backend/src/main/scala/com/helio/api/protocols/workspace/WorkspaceContextProtocol.scala` — renamed the `WorkspaceContextDataType` case class + its `workspaceContextDataTypeFormat` implicit to `WorkspaceContextOutput`/`workspaceContextOutputFormat` (wire field names unchanged, cosmetic Scala identifier only)
+- `backend/src/main/scala/com/helio/api/protocols/workspace/WorkspaceResourceSearchProtocol.scala` — updated references to the renamed type
+- `backend/src/main/scala/com/helio/services/assistant/AssistantToolExecutor.scala` — updated references to the renamed type
+- `backend/src/main/scala/com/helio/services/patchsets/RefinementGrounding.scala` — updated references to the renamed type
+- `backend/src/main/scala/com/helio/services/patchsets/RefinementPrompt.scala` — updated references to the renamed type
+- `backend/src/main/scala/com/helio/services/proposals/DashboardAuthoringPrompt.scala` — updated references to the renamed type
+- `backend/src/main/scala/com/helio/services/proposals/DashboardAuthoringService.scala` — updated references to the renamed type
+- `backend/src/main/scala/com/helio/services/workspace/WorkspaceContextBudget.scala` — updated references to the renamed type
+- `backend/src/main/scala/com/helio/services/workspace/WorkspaceContextService.scala` — updated references to the renamed type
+- `backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceApplyBudgetSpec.scala` — updated test fixtures to the renamed type
+- `backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceComputeJoinHintsSpec.scala` — updated test fixtures to the renamed type
+- `backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceSpec.scala` — updated test fixtures to the renamed type
 
-# Files modified — cycle 28 (this cycle: 5.7 verification, section 6 sweep, escalation)
-
-- `openspec/changes/outputs-model-migration/tasks.md` — marked 5.7 `[x]` (verified already-complete: `helio-mcp/src/tools/proposal.ts:28`'s `PANEL_TYPES` and `dashboard-proposal.schema.json`'s `ProposalPanel.properties.type.enum` already both read `["text","markdown","image","output"]`, matching `agentFacingKinds`; `check-schema-drift.mjs` confirms both surfaces green — no edit needed).
-- No other source files modified this cycle. Task 6.1's grep surfaced a substantial, real gap (see execution-progress.md and this cycle's escalation) that requires an orchestrator/design decision before further code changes — no blind edits made pending that answer.
-
-# Files modified — cycle 29 (this cycle: close the 6.1 gap per coordinator ruling, fix a real 6.2 gap)
-
-- `backend/src/main/scala/com/helio/domain/model/model.scala` — deleted `DataTypeId`, `DataType`, `ComputedField`, `MetricId`, `MetricFormat`, `MetricAggregation`, `MetricDefinition`, `MetricUsagePanel`, `MetricUsage` outright (all either fully dead or test-fixture-only, per the ticket's own removal list).
-- `backend/src/main/scala/com/helio/domain/engine/PipelineAnalyzeService.scala` — deleted dead `deriveSourceSchema` (took `Vector[DataType]`, zero callers anywhere) and its `DataType` import.
-- `backend/src/main/scala/com/helio/api/protocols/IdParsing.scala` — deleted `DataTypeIdSegment`/`MetricIdSegment` (zero callers).
-- `backend/src/main/scala/com/helio/api/ApiRoutes.scala`, `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala` — dropped unused `DataTypeId` imports.
-- `backend/src/main/scala/com/helio/services/panels/PanelCapabilityService.scala` — `getCapabilities`'s public parameter retargeted from `DataTypeId` to `OutputId`; corrected stale doc comments falsely claiming `GET /api/types/:id/panel-capabilities` is "still-live" (it was already deleted alongside `DataTypeRoutes` in task 4.1); `PanelCapabilitiesResponse`'s `dataTypeId` field renamed `outputId` (internal-only wire shape, zero external frontend/mcp consumers, confirmed by grep before renaming).
-- `backend/src/main/scala/com/helio/api/protocols/panels/PanelCapabilityProtocol.scala` — matching `outputId` field rename; corrected the same stale "still-live route" doc comments.
-- `backend/src/main/scala/com/helio/services/patchsets/RefinementGrounding.scala`, `backend/src/main/scala/com/helio/services/proposals/DashboardAuthoringService.scala`, `backend/src/main/scala/com/helio/services/assistant/AssistantToolExecutor.scala` — the three real internal `getCapabilities` call sites retargeted from `DataTypeId(...)` to `OutputId(...)`.
-- `backend/src/main/scala/com/helio/infrastructure/persistence/proposals/AuthoringConversationRepository.scala`, `backend/src/main/scala/com/helio/services/workspace/WorkspaceSearchService.scala` — fixed stale doc comments citing the now-deleted `MetricDefinition`/`MetricRepository`/`WorkspaceResourceMetric`.
-- 10 test files (`DashboardAuthoringRoutesSpec`, `AlertRuleRepositorySpec`, `AlertEventRepositorySpec`, `DashboardAuthoringServiceSpec`, `AuthoringTelemetrySpec`, `PanelCapabilityServiceSpec`, `DashboardProposalServiceValidateSpec`, `AlertEvaluationServiceSpec`, `AlertRuleServiceSpec`, `AuditMutationInstrumentationSpec`, `PipelineRepositorySpec`, `InProcessPipelineEngineSpec`) — retargeted `DataType(...)`/`DataTypeId(...)` fixture construction onto plain `String` ids (every consumer only ever read `.id.value`/`.value`) or deleted dead `newDataType` fixture helpers outright (zero call sites); dropped now-unused imports; fixed two assertion strings (`"DataType not found"` → `"Output not found"`) to match `PanelCapabilityService`'s corrected error message.
-- `openspec/changes/outputs-model-migration/design.md` — new "two named wire-field-NAME exemptions" decision: `PipelineProposalProtocol`'s `outputDataTypeId`/`outputDataTypeName` and `WorkspaceContextProtocol`'s `leftDataTypeId`/`rightDataTypeId`/`outputDataTypeId`/`outputDataTypeName` are wire field NAMES (not `DataTypeId`-typed values) consumed by 30+ P1.4/P1.5/P1.6-owned frontend/helio-mcp files this ticket must not touch; documents what WAS retargeted (everything else named in the coordinator's ruling) with justification.
-- `openspec/changes/outputs-model-migration/openspec-coverage-checklist.md` — corrected: 116 total grep-matched spec files (not 115) after finding `external-run-hooks` had zero classification anywhere; recount to 66/9/18/22/1.
-- `openspec/changes/outputs-model-migration/specs/external-run-hooks/spec.md` — NEW delta: pure terminology fix ("DataType snapshot" → "node snapshot" in two requirement/scenario bodies); the capability itself (external hook-triggered runs) is untouched.
+For all prior cycles' file lists (cycles 1-29 — dozens of files spanning the full domain-model
+migration, repository/service/route deletions, schema reshape, and test retargeting), see
+`execution-progress.md`'s per-cycle sections, which enumerate each cycle's changes in full detail.
+This file reflects only the delta of the current (final) cycle per the executor instructions to
+overwrite on re-runs; the cumulative diff is `git diff main...HEAD --name-only`.

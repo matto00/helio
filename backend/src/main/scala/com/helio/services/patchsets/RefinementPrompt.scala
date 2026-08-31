@@ -2,7 +2,7 @@ package com.helio.services.patchsets
 
 import com.helio.api.protocols.panels.PanelCapabilitiesResponse
 import com.helio.api.protocols.pipelines.{PipelineStepProtocol, PipelineStepResponse, PipelineSummaryResponse}
-import com.helio.api.protocols.workspace.WorkspaceContextDataType
+import com.helio.api.protocols.workspace.WorkspaceContextOutput
 import com.helio.domain.model.{Dashboard, Panel}
 import spray.json.JsObject
 
@@ -99,7 +99,7 @@ object RefinementPrompt extends PipelineStepProtocol {
    *  (HEL-365) — so a create edit binding a DataType not yet used on the target dashboard has
    *  something to bind to (AC5). */
   private def groundingSection(
-      dataTypes: Vector[WorkspaceContextDataType],
+      dataTypes: Vector[WorkspaceContextOutput],
       capabilities: Map[String, PanelCapabilitiesResponse]
   ): String = {
     val entries = dataTypes.map { dt =>

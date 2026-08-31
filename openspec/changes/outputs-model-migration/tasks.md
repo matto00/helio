@@ -578,19 +578,34 @@
 
 ## 6. Final verification
 
-- [ ] 6.1 `grep -rn` acceptance-criteria pattern over `backend/src` returns nothing but migration
-      files (Spark's own `DataType` import excluded).
-- [ ] 6.2 `grep -rn "DataType\|Metric" openspec/specs` returns nothing except the exact 50 files
+- [x] 6.1 `grep -rn` acceptance-criteria pattern over `backend/src` returns nothing but migration
+      files (Spark's own `DataType` import excluded). **Cycle 30**: closed per the coordinator's
+      ruling — `WorkspaceContextDataType` renamed to `WorkspaceContextOutput` (13 files); the
+      `com\.helio\..*DataType` sub-pattern now returns zero hits. Two named wire-field-NAME
+      exemptions (`outputDataTypeId`/`outputDataTypeName`, `leftDataTypeId`/`rightDataTypeId`)
+      remain per cycle 29's design.md addendum; migration-verification test fixtures and
+      historical-reference doc comments are the ticket's own established exception classes. See
+      execution-progress.md cycle 30 for the full grep re-run.
+- [x] 6.2 `grep -rn "DataType\|Metric" openspec/specs` returns nothing except the exact 50 files
       named in `openspec-coverage-checklist.md`'s deferred/no-op lists (9 → P1.4, 18 → P1.5,
       22 → P1.6, 1 no-op) — any other survivor is a real gap, not an acceptable residual.
-- [ ] 6.3 `check:scala-quality` clean; no inline FQNs.
-- [ ] 6.4 `sbt compile` and `sbt test` green.
+      **Cycle 30**: re-verified fresh — 115 files still match, diffed against every name mentioned
+      in the checklist, zero unlisted survivors. No changes needed; cycle 29's fix already closed
+      this fully.
+- [x] 6.3 `check:scala-quality` clean; no inline FQNs. **Cycle 30**: re-run fresh, exit 0, 130 soft
+      warnings (same pre-existing file-size notices as every prior cycle).
+- [x] 6.4 `sbt compile` and `sbt test` green. **Cycle 30**: re-run fresh, single-threaded
+      (`set Test / parallelExecution := false`), not inherited — `Test/compile` clean, full suite
+      3360/3360 passing, 225 suites, 0 aborted, 0 failed, exit 0.
 - [ ] 6.5 File a follow-up obligation for each of the 49 deferred capabilities (not the 1 no-op)
       where the owning ticket's implementer will actually see it, not just in this change's
       docs: add a one-line pointer to `openspec-coverage-checklist.md`'s relevant section in a
       comment on HEL-907/HEL-908/HEL-909 (as appropriate) at PR-merge time, so a deferred spec
-      isn't silently forgotten between now and that ticket's own Planning phase.
-- [ ] 6.6 State in the PR: computed-field count found (skip+log if zero), any binary_refs
+      isn't silently forgotten between now and that ticket's own Planning phase. **Cycle 30**: no
+      Linear MCP tool available to this executor session — deferred to the orchestrator at
+      Delivery/PR-merge time, consistent with this task's own "at PR-merge time" wording.
+- [x] 6.6 State in the PR: computed-field count found (skip+log if zero), any binary_refs
       pointing at pipeline-output types (and how they were keyed), and link
       `openspec-coverage-checklist.md` as the authoritative record of the full 115-file
-      OpenSpec surface.
+      OpenSpec surface. **Cycle 30**: PR-prep summary written in execution-progress.md, cross-
+      referencing earlier cycles' findings.

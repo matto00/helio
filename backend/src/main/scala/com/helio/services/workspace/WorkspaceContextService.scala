@@ -7,7 +7,7 @@ import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentPreferencesResponse}
 import com.helio.api.protocols.pipelines.{AnalyzeStepResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.sources.ConnectorSummary
-import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextDashboard, WorkspaceContextDataSource, WorkspaceContextDataType, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextPipelineStep, WorkspaceContextResponse}
+import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextDashboard, WorkspaceContextDataSource, WorkspaceContextOutput, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextPipelineStep, WorkspaceContextResponse}
 import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, Dashboard, FieldTypeCategory, Output, Page, PagedResult, PipelineId}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
@@ -388,7 +388,7 @@ final class WorkspaceContextService(
    *  per-id call) degrades to `sampleRows = Vector.empty` rather than failing
    *  the whole assembly — mirrors `buildPipeline`'s per-entry degrade
    *  discipline (design.md D5 of the parent HEL-371 change). */
-  private[services] def toDataTypeEntry(output: Output, user: AuthenticatedUser): Future[WorkspaceContextDataType] = {
+  private[services] def toDataTypeEntry(output: Output, user: AuthenticatedUser): Future[WorkspaceContextOutput] = {
     // HEL-904 task 3.12: `output.schema` (`Vector[SchemaField]`, `{name, type}` only — no
     // `nullable`/`displayName`) is adapted into the existing `Vector[DataField]`-shaped
     // classification/stats machinery below (`classifySemanticRole`/`computeColumnStats`/
@@ -429,7 +429,7 @@ final class WorkspaceContextService(
       }
 
     statsF.map { case (sampleRows, columnStats) =>
-      WorkspaceContextDataType(
+      WorkspaceContextOutput(
         id             = output.id.value,
         name           = output.name,
         // HEL-904 task 3.12: an Output has no source-companion concept (that distinction was
@@ -850,7 +850,7 @@ final class WorkspaceContextService(
    *
    *  `private[services]` so this can be pure-unit-tested directly (tasks.md
    *  5.2), mirroring `sanitizeSampleRows`/`computeColumnStats`. */
-  private[services] def computeJoinHints(dataTypes: Vector[WorkspaceContextDataType]): Vector[WorkspaceContextJoinHint] = {
+  private[services] def computeJoinHints(dataTypes: Vector[WorkspaceContextOutput]): Vector[WorkspaceContextJoinHint] = {
     val candidates: Vector[JoinCandidate] = dataTypes.flatMap { dt =>
       dt.columns
         .filter(c => c.semanticRole == "identifier" && dt.columnStats.contains(c.name))

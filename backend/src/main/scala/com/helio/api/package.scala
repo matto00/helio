@@ -312,8 +312,8 @@ package object api {
   val WorkspaceContextColumn: protocols.workspace.WorkspaceContextColumn.type = protocols.workspace.WorkspaceContextColumn
   type WorkspaceContextComputedColumn = protocols.workspace.WorkspaceContextComputedColumn
   val WorkspaceContextComputedColumn: protocols.workspace.WorkspaceContextComputedColumn.type = protocols.workspace.WorkspaceContextComputedColumn
-  type WorkspaceContextDataType = protocols.workspace.WorkspaceContextDataType
-  val WorkspaceContextDataType: protocols.workspace.WorkspaceContextDataType.type = protocols.workspace.WorkspaceContextDataType
+  type WorkspaceContextOutput = protocols.workspace.WorkspaceContextOutput
+  val WorkspaceContextOutput: protocols.workspace.WorkspaceContextOutput.type = protocols.workspace.WorkspaceContextOutput
   type WorkspaceContextPipelineStep = protocols.workspace.WorkspaceContextPipelineStep
   val WorkspaceContextPipelineStep: protocols.workspace.WorkspaceContextPipelineStep.type = protocols.workspace.WorkspaceContextPipelineStep
   type WorkspaceContextPipeline = protocols.workspace.WorkspaceContextPipeline

@@ -32,7 +32,7 @@ sealed trait WorkspaceResourceDetail
 
 object WorkspaceResourceDetail {
   final case class DataSourceDetail(value: WorkspaceContextDataSource) extends WorkspaceResourceDetail
-  final case class DataTypeDetail(value: WorkspaceContextDataType) extends WorkspaceResourceDetail
+  final case class DataTypeDetail(value: WorkspaceContextOutput) extends WorkspaceResourceDetail
   final case class PipelineDetail(value: WorkspaceContextPipeline) extends WorkspaceResourceDetail
   final case class DashboardDetail(value: WorkspaceContextDashboard) extends WorkspaceResourceDetail
 }
@@ -49,7 +49,7 @@ trait WorkspaceResourceSearchProtocol extends SprayJsonSupport with DefaultJsonP
     override def write(d: WorkspaceResourceDetail): JsValue = {
       val (resourceType, inner) = d match {
         case WorkspaceResourceDetail.DataSourceDetail(v) => "dataSource" -> workspaceContextDataSourceFormat.write(v).asJsObject
-        case WorkspaceResourceDetail.DataTypeDetail(v)   => "dataType"   -> workspaceContextDataTypeFormat.write(v).asJsObject
+        case WorkspaceResourceDetail.DataTypeDetail(v)   => "dataType"   -> workspaceContextOutputFormat.write(v).asJsObject
         case WorkspaceResourceDetail.PipelineDetail(v)   => "pipeline"   -> workspaceContextPipelineFormat.write(v).asJsObject
         case WorkspaceResourceDetail.DashboardDetail(v)  => "dashboard"  -> workspaceContextDashboardFormat.write(v).asJsObject
       }
@@ -59,7 +59,7 @@ trait WorkspaceResourceSearchProtocol extends SprayJsonSupport with DefaultJsonP
     override def read(json: JsValue): WorkspaceResourceDetail =
       json.asJsObject.fields.get("resourceType") match {
         case Some(JsString("dataSource")) => WorkspaceResourceDetail.DataSourceDetail(workspaceContextDataSourceFormat.read(json))
-        case Some(JsString("dataType"))   => WorkspaceResourceDetail.DataTypeDetail(workspaceContextDataTypeFormat.read(json))
+        case Some(JsString("dataType"))   => WorkspaceResourceDetail.DataTypeDetail(workspaceContextOutputFormat.read(json))
         case Some(JsString("pipeline"))   => WorkspaceResourceDetail.PipelineDetail(workspaceContextPipelineFormat.read(json))
         case Some(JsString("dashboard"))  => WorkspaceResourceDetail.DashboardDetail(workspaceContextDashboardFormat.read(json))
         case other                        => deserializationError(s"Unknown or missing WorkspaceResourceDetail resourceType: $other")

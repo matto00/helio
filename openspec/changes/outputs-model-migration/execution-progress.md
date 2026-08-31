@@ -3266,3 +3266,99 @@ exemptions are the only intentional residue; everything else the coordinator nam
 `model.scala` itself) is closed. Section 6's remaining items (6.5's Linear-comment filing, 6.6's
 PR-prep summary) were not reached this cycle — recommend the next cycle picks up there, plus (if
 budget allows) the `WorkspaceContextDataType` class-name cosmetic rename noted above.
+
+## Cycle 30 (2026-08-30) — coordinator-ordered rename + final section-6 close-out
+
+**Coordinator's ruling on cycle 29's flagged `WorkspaceContextDataType` residual: rename now, in
+this ticket, not deferred.** Rationale confirmed independently before acting: the pattern
+`com\.helio\..*DataType` is one of the exact grep patterns HEL-910 (P1.7) runs in its own
+repo-wide final sweep, so leaving the class name in place would hand P1.7 a guaranteed AC failure
+six tickets downstream with no context. "No wire impact" (true — JSON field names are unaffected)
+is a different claim from "no downstream impact" (false — it fails a documented future grep), and
+this is now the third instance of that exact conflation on this ticket (phantom section-4/5
+deferral, an unresolved design.md citation, now this) — a real process lesson, not a one-off.
+
+**Rename executed**: `WorkspaceContextDataType` → `WorkspaceContextOutput` (the Scala case class
+and its `workspaceContextDataTypeFormat` → `workspaceContextOutputFormat` implicit), across all 13
+files cycle 29 identified (`WorkspaceContextProtocol.scala`, `WorkspaceResourceSearchProtocol.scala`,
+`api/package.scala`, `RefinementGrounding`, `AssistantToolExecutor`, `WorkspaceContextBudget`,
+`WorkspaceContextService`, `DashboardAuthoringService`, `DashboardAuthoringPrompt`,
+`RefinementPrompt`, plus 3 spec files). Purely mechanical — the JSON wire field name `dataTypes`
+on `WorkspaceContextCounts`/response bodies was NOT touched (that's a field name, not this class
+name, and is separately covered by the design.md wire-field-NAME exemptions from cycle 29); no
+schema/frontend/helio-mcp file references the Scala class name (confirmed by grep before and
+after — zero hits in `frontend/` or `helio-mcp/`).
+
+**Verification of the rename, fresh:**
+```
+grep -rnE "com\.helio\..*DataType" backend/src --include=*.scala
+```
+returns **zero results** (exit code 1) — confirmed after the rename, matching the coordinator's
+required evidence.
+
+**Full 6.1 grep re-run** (broader pattern set, not just the `com\.helio\..*DataType` slice):
+```
+grep -rn "com\.helio\..*DataType\|DataTypeId\|DataTypeRepository\|DataTypeService\|MetricDefinition\|
+MetricId\|MetricRepository\|MetricService\|output_data_type_id\|data_type_rows\|computed_fields"
+backend/src | grep -v "db/migration" | wc -l
+```
+returns **247 lines** (down from cycle 29's 255 by exactly the 8 `WorkspaceContextDataType`
+occurrence lines that no longer match). The remaining 247 are the same four documented classes
+cycle 29 already accounted for and re-verified as non-live-type residue this cycle: (a) the two
+coordinator-blessed wire-field-NAME exemptions (`outputDataTypeId`/`outputDataTypeName`,
+`leftDataTypeId`/`rightDataTypeId`), (b) migration-verification test fixtures asserting on the
+pre-migration schema's literal table/column names, (c) historical-reference doc comments citing
+already-deleted types by name (the ticket's own established commit-message style), (d) a handful
+of already-correctly-wired cosmetic test-local variable names (`targetDataTypeId` in
+`AlertRuleRoutesSpec`/`AlertRuleServiceSpec`). No new class of residue was found. 6.1 is now
+genuinely fully closed per the coordinator's exact boundary — the `WorkspaceContextDataType`
+carve-out named as the one remaining gap in cycle 29 no longer exists.
+
+**6.2 re-derived fresh, not inherited:** `grep -rl "DataType\|Metric" openspec/specs` still returns
+exactly 115 files (unchanged from cycle 29 — no spec files were touched this cycle). Diffed the
+full file list against every capability-name token mentioned anywhere in
+`openspec-coverage-checklist.md` (`comm -23` of the two sorted lists) — **empty diff, zero unlisted
+survivors**, confirming the checklist's own "zero unlisted survivors" claim from cycle 29 still
+holds and needed no further correction. No new gap found; 6.2 requires no changes this cycle.
+
+**6.3 re-run fresh:** `node scripts/check-scala-quality.mjs` — exit 0, "clean (130 soft
+warning(s))", same pre-existing file-size notices as every prior cycle (unchanged count — the
+rename touched no file's line count materially).
+
+**6.4 re-run fresh, single-threaded, HEL-924 protocol, not inherited:**
+- `sbt -batch "Test/compile"` — clean, zero errors (same 10 main-source-warning / 5 test-warning
+  baseline as prior cycles, no new warnings introduced by the rename).
+- `sbt -batch "set Test / parallelExecution := false" test` — **3360/3360 passing, exit 0, 225
+  suites, 0 aborted, 0 failed**, "Run completed in 3 minutes, 7 seconds." No regressions from the
+  rename (expected — it's a pure identifier rename with no field/behavior change).
+
+**6.5 (Linear follow-up comments for the 49 deferred capabilities):** this executor session has no
+Linear MCP tool in its available toolset. Per the executor contract's explicit fallback, this is
+noted here rather than silently skipped — **the orchestrator needs to file these at
+Delivery/PR-merge time** (one comment each on HEL-907 naming its 9 files, HEL-908 naming its 18,
+HEL-909 naming its 22, all sourced verbatim from `openspec-coverage-checklist.md`'s existing
+deferred-lists sections — no new investigation needed, just relay). This also matches task 6.5's
+own tasks.md wording ("at PR-merge time"), so this isn't a schedule slip, just a tooling-access
+handoff.
+
+**6.6 PR-prep summary (cross-referencing prior cycles' findings, not re-investigated):**
+- **Computed-field count**: 5 pipeline-output types carry one computed field each; 0 companion
+  types carry any (queried live against the shared dev DB, cycle documented at
+  execution-progress.md's "(g) computed fields → compute steps" section, ticket.md scope item 8).
+  All 5 were migrated to compute steps as part of this ticket's schema reshape; the migration
+  approach and empirical zero-companion-type finding are detailed there in full.
+- **`binary_refs` re-key**: task 2.8 found exactly one live `binary_refs` row in the shared dev DB;
+  its `data_type_id` was re-keyed onto the corresponding Output id as part of the same migration
+  pass (full detail + the discovered `binary_refs` column-set literal-`Set(...)` follow-on fix at
+  execution-progress.md's task-2.8/2.9 sections).
+- **Authoritative OpenSpec surface record**: `openspec-coverage-checklist.md` is the full,
+  re-verified (this cycle, `comm -23` empty-diff confirmed) enumeration of the 115-file
+  `DataType`/`Metric` OpenSpec surface — 65 covered by this change's own `specs/` deltas (71
+  physical delta files once the 6 non-grep-matched net-new/retargeted capabilities are counted),
+  9 deferred to HEL-907, 18 to HEL-908, 22 to HEL-909, 1 verified no-op.
+
+**This ticket is now ready for Delivery (PR creation).** All of 6.1-6.4 and 6.6 are genuinely,
+freshly closed this cycle with pasted evidence above; 6.5 is a tooling-access handoff to the
+orchestrator, not an open implementation gap. No escalations raised this cycle. No design-gate
+reopening was needed — the rename was a mechanical identifier change per the coordinator's own
+explicit instruction, not a new design decision.

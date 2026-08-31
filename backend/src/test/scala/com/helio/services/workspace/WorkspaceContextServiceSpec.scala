@@ -752,7 +752,7 @@ class WorkspaceContextServiceSpec
       val sourceEntry = resp.dataSources.find(_.name == "schema-tagged-source").getOrElse(fail("tagged source missing"))
       sourceEntry.tag shouldBe Some("prod")
       // HEL-904 task 3.12: a source-companion DataType no longer surfaces in `dataTypes` at all
-      // (no Output attached to it) -- and `WorkspaceContextDataType.tag`/`sourceId`'s "present"
+      // (no Output attached to it) -- and `WorkspaceContextOutput.tag`/`sourceId`'s "present"
       // branch has no Output-backed fixture to exercise yet (`toDataTypeEntry` always reports
       // `tag = None`/`sourceId = None` for every Output today -- `tag` isn't read off the domain
       // `Output` case class yet, see `WorkspaceContextService.toDataTypeEntry`'s own doc). This is

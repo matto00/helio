@@ -94,7 +94,7 @@ final case class WorkspaceContextColumnStats(
  *  at 40, design.md D2), keyed by column name, computed from the same
  *  ≤500-row fetch `sampleRows` derives from. Always present (an empty `Map`,
  *  never `Option`) — same always-present convention as `sampleRows`. */
-final case class WorkspaceContextDataType(
+final case class WorkspaceContextOutput(
     id: String,
     name: String,
     sourceId: Option[String],
@@ -211,7 +211,7 @@ final case class WorkspaceContextResponse(
     generatedAt: String,
     counts: WorkspaceContextCounts,
     dataSources: Vector[WorkspaceContextDataSource],
-    dataTypes: Vector[WorkspaceContextDataType],
+    dataTypes: Vector[WorkspaceContextOutput],
     pipelines: Vector[WorkspaceContextPipeline],
     dashboards: Vector[WorkspaceContextDashboard],
     joinHints: Vector[WorkspaceContextJoinHint],
@@ -241,8 +241,8 @@ trait WorkspaceContextProtocol
   // Map[String, WorkspaceContextColumnStats]'s format is summoned automatically
   // by spray-json's built-in `mapFormat[V: JsonFormat]` given the above
   // implicit — no separate named val needed.
-  implicit val workspaceContextDataTypeFormat: RootJsonFormat[WorkspaceContextDataType] =
-    jsonFormat10(WorkspaceContextDataType.apply)
+  implicit val workspaceContextOutputFormat: RootJsonFormat[WorkspaceContextOutput] =
+    jsonFormat10(WorkspaceContextOutput.apply)
   implicit val workspaceContextPipelineStepFormat: RootJsonFormat[WorkspaceContextPipelineStep] =
     jsonFormat4(WorkspaceContextPipelineStep.apply)
   implicit val workspaceContextPipelineFormat: RootJsonFormat[WorkspaceContextPipeline] =

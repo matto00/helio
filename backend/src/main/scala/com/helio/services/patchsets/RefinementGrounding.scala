@@ -7,7 +7,7 @@ import com.helio.services.workspace.WorkspaceContextService
 import com.helio.api.protocols.panels.PanelCapabilitiesResponse
 import com.helio.api.protocols.pipelines.{PipelineStepResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.patchsets.RefinementTarget
-import com.helio.api.protocols.workspace.WorkspaceContextDataType
+import com.helio.api.protocols.workspace.WorkspaceContextOutput
 import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, OutputId, Page, Panel, PipelineId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -21,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final case class RefinementGroundedContext(
     dashboard: Option[(Dashboard, Vector[Panel])],
     pipeline: Option[(PipelineSummaryResponse, Vector[PipelineStepResponse])],
-    dataTypes: Vector[WorkspaceContextDataType],
+    dataTypes: Vector[WorkspaceContextOutput],
     capabilities: Map[String, PanelCapabilitiesResponse],
     warnings: Vector[String]
 )
@@ -84,7 +84,7 @@ final class RefinementGrounding(
    *  or "delete the last panel" needs no DataType at all to succeed). */
   private def withWorkspaceContext(
       user: AuthenticatedUser
-  ): Future[(Vector[WorkspaceContextDataType], Map[String, PanelCapabilitiesResponse], Vector[String])] =
+  ): Future[(Vector[WorkspaceContextOutput], Map[String, PanelCapabilitiesResponse], Vector[String])] =
     workspaceContextService.assemble(user).flatMap { workspace =>
       val outputTypes = workspace.dataTypes.filter(_.pipelineOutput)
       Future.traverse(outputTypes)(dt => fetchCapability(dt.id, user)).map { results =>

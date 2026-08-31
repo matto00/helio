@@ -2,7 +2,7 @@ package com.helio.services.workspace
 
 import com.helio.api.protocols.sources.ConnectorSummary
 import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextPipelineStep}
-import com.helio.api.protocols.workspace.{WorkspaceContextDashboard, WorkspaceContextDataType, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextProtocol, WorkspaceContextResponse}
+import com.helio.api.protocols.workspace.{WorkspaceContextDashboard, WorkspaceContextOutput, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextProtocol, WorkspaceContextResponse}
 import com.helio.services.workspace.WorkspaceContextBudget
 import com.helio.domain.model.PagedResult
 import org.scalatest.matchers.should.Matchers
@@ -31,8 +31,8 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
    *  without hand-computing it. */
   private def paddedValue(prefix: String, i: Int): String = prefix + ("x" * 300) + i
 
-  private def dataTypeFixture(id: String): WorkspaceContextDataType =
-    WorkspaceContextDataType(
+  private def dataTypeFixture(id: String): WorkspaceContextOutput =
+    WorkspaceContextOutput(
       id = id,
       name = s"dt-$id",
       sourceId = None,
@@ -70,7 +70,7 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
     Vector(ConnectorSummary(id = "conn-1", name = "My API", kind = "rest_api", host = "https://api.example.com"))
 
   private def baseResponse(
-      dataTypes: Vector[WorkspaceContextDataType],
+      dataTypes: Vector[WorkspaceContextOutput],
       joinHints: Vector[WorkspaceContextJoinHint] = (1 to NaturalJoinHintCount).map(joinHintFixture).toVector,
       connectors: Vector[ConnectorSummary] = connectorFixture
   ): WorkspaceContextResponse =
@@ -87,7 +87,7 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
       connectors = connectors
     )
 
-  private val threeDataTypes: Vector[WorkspaceContextDataType] =
+  private val threeDataTypes: Vector[WorkspaceContextOutput] =
     Vector("a", "b", "c").map(dataTypeFixture)
 
   private val emptyPage: PagedResult[Unit] = PagedResult(Vector.empty, 0, 0, 200)
@@ -256,7 +256,7 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
   "apply (budgetBytes = 0)" should {
     "never alter any tier-0 (structural) field" in {
       val richDataTypes = Vector(
-        WorkspaceContextDataType(
+        WorkspaceContextOutput(
           id = "dt-1",
           name = "orders",
           sourceId = None,

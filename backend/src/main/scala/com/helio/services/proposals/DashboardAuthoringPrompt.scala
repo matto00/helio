@@ -2,7 +2,7 @@ package com.helio.services.proposals
 
 import com.helio.api.protocols.agents.AgentPreferencesResponse
 import com.helio.api.protocols.panels.PanelCapabilitiesResponse
-import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextDataType}
+import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextOutput}
 
 /** Builds the natural-language prompt `DashboardAuthoringService` sends to `ClaudeClient`
  *  (HEL-392 design.md D4) — kept in its own file so neither this nor `DashboardAuthoringService`
@@ -58,7 +58,7 @@ object DashboardAuthoringPrompt {
    *  HEL-371 grounding context), and its panel-capability menu (HEL-365) — the exact per-DataType
    *  facts the spec.md "grounded in the caller's real data types" scenario asserts on. */
   private def groundingSection(
-      dataTypes: Vector[WorkspaceContextDataType],
+      dataTypes: Vector[WorkspaceContextOutput],
       capabilities: Map[String, PanelCapabilitiesResponse]
   ): String = {
     val entries = dataTypes.map { dt =>
@@ -113,7 +113,7 @@ object DashboardAuthoringPrompt {
 
   def userMessage(
       goal: String,
-      dataTypes: Vector[WorkspaceContextDataType],
+      dataTypes: Vector[WorkspaceContextOutput],
       capabilities: Map[String, PanelCapabilitiesResponse],
       agentContext: WorkspaceContextAgentSection
   ): String = {

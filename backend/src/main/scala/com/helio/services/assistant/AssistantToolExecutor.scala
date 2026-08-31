@@ -154,7 +154,7 @@ final class AssistantToolExecutor(
 
   /** Design.md D3a: nests `PanelCapabilitiesResponse` under a DISTINCT top-level key alongside (not
    *  flat-unioned with) `WorkspaceResourceDetail` — both wire shapes use the literal key `"columns"`
-   *  for materially different content (`WorkspaceContextDataType.columns` carries `semanticRole`;
+   *  for materially different content (`WorkspaceContextOutput.columns` carries `semanticRole`;
    *  `PanelCapabilitiesResponse.columns` does not), so a flat `JsObject` merge would silently drop
    *  one via `Map ++` right-wins semantics. A capability-fetch failure degrades to the DataType
    *  detail alone (mirrors `DashboardAuthoringService.fetchCapability`'s own per-item degrade — this

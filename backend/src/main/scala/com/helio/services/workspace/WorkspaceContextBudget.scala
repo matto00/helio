@@ -1,7 +1,7 @@
 package com.helio.services.workspace
 
 import com.helio.api.JsonProtocols
-import com.helio.api.protocols.workspace.{WorkspaceContextDataType, WorkspaceContextResponse, WorkspaceContextTruncation}
+import com.helio.api.protocols.workspace.{WorkspaceContextOutput, WorkspaceContextResponse, WorkspaceContextTruncation}
 import com.helio.domain.model.PagedResult
 import spray.json._
 
@@ -102,19 +102,19 @@ object WorkspaceContextBudget extends JsonProtocols {
     JsObject(full.fields - "truncation").compactPrint.length
   }
 
-  private def sampleRowsLenAt(dataTypes: Vector[WorkspaceContextDataType], cap: Int): Int =
+  private def sampleRowsLenAt(dataTypes: Vector[WorkspaceContextOutput], cap: Int): Int =
     dataTypes.map(dt => JsArray(dt.sampleRows.take(cap)).compactPrint.length).sum
 
-  private def exampleValuesLenAt(dataTypes: Vector[WorkspaceContextDataType], cap: Int): Int =
+  private def exampleValuesLenAt(dataTypes: Vector[WorkspaceContextOutput], cap: Int): Int =
     dataTypes.flatMap(_.columnStats.values).map(stats => JsArray(stats.exampleValues.take(cap)).compactPrint.length).sum
 
   private def joinHintsLenAt(response: WorkspaceContextResponse, cap: Int): Int =
     JsArray(response.joinHints.take(cap).map(_.toJson)).compactPrint.length
 
-  private def trimSampleRows(dataTypes: Vector[WorkspaceContextDataType], cap: Int): Vector[WorkspaceContextDataType] =
+  private def trimSampleRows(dataTypes: Vector[WorkspaceContextOutput], cap: Int): Vector[WorkspaceContextOutput] =
     dataTypes.map(dt => dt.copy(sampleRows = dt.sampleRows.take(cap)))
 
-  private def trimExampleValues(dataTypes: Vector[WorkspaceContextDataType], cap: Int): Vector[WorkspaceContextDataType] =
+  private def trimExampleValues(dataTypes: Vector[WorkspaceContextOutput], cap: Int): Vector[WorkspaceContextOutput] =
     dataTypes.map(dt =>
       dt.copy(columnStats = dt.columnStats.map { case (name, stats) => name -> stats.copy(exampleValues = stats.exampleValues.take(cap)) })
     )
