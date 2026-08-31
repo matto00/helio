@@ -64,7 +64,12 @@
       matches the ticket's own citation exactly, `table_display_config` confirmed absent.
 - [x] 2.2 `pipeline_steps.parent_step_id` added (nullable, FK to itself) + backfilled from
       `position` order (each step's parent = the step immediately before it in position order;
-      position 0 = NULL/root). `position` itself is untouched. V94
+      the step with no matching parent-by-position = NULL/root). **Narrowed per the 2026-08-31
+      binding ruling (design.md's "position renumbering ruling"): step ORDER, carried by
+      `parent_step_id`, is preserved exactly; `position` itself is NOT left untouched — every
+      step (root included) is renumbered to `0` immediately after the backfill, while each is
+      still its parent's sole child, so `trunkOf` can require an exact `position == 0` match
+      once migration-created tails (`position >= 1`) exist.** V94
       (`backend/src/main/resources/db/migration/V94__outputs_model.sql`).
 - [x] 2.3 `outputs` table + sharing-aware RLS (mirrors `pipelines`/V39 `helio_can_access_pipeline`
       exactly — SELECT is sharing-aware, INSERT/UPDATE/DELETE are owner-only via `WITH

@@ -10,9 +10,9 @@ falsely reported clean: a panel-update edit with a blank title or a cross-type P
 set `aggregation` (mirrors `PanelService.validateScatterAggregationConflict`); a pipeline-rename
 edit with a blank `name` (mirrors `PipelineService.updateName`); a dataType-update edit with a
 computed-field expression that is too long or fails validation (mirrors
-`the pipeline/Output services.applyUpdate`); a dataType-delete edit targeting an Output/node with a panel OWNED by
-the deleting user bound to it, or targeting a source-companion Output/node (mirrors
-`the pipeline/Output services.delete`'s two conflict checks). This list is the SPECIFIC set of gaps found
+`DataTypeService.applyUpdate`); a dataType-delete edit targeting a DataType with a panel OWNED by
+the deleting user bound to it, or targeting a source-companion DataType (mirrors
+`DataTypeService.delete`'s two conflict checks). This list is the SPECIFIC set of gaps found
 between `resolveAll` and the real per-kind service methods at ticket delivery time — not a claim
 that every future service-side validation is automatically covered (design.md Risks).
 
@@ -21,7 +21,7 @@ that every future service-side validation is automatically covered (design.md Ri
 - **THEN** `preview` rejects the whole call with the same error `PATCH /api/panels/:id` would give
 
 #### Scenario: A DataType delete blocked by an owned bound panel is rejected, not hinted
-- **WHEN** `preview` is called with a dataType-delete edit targeting an Output/node a panel OWNED by
+- **WHEN** `preview` is called with a dataType-delete edit targeting a DataType a panel OWNED by
   the caller is bound to
 - **THEN** `preview` rejects the whole call with the same `Conflict` `DELETE /api/types/:id` would
   give — this is NOT surfaced merely as an impact hint

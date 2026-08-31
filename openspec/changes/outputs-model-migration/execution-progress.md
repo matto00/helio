@@ -3807,3 +3807,95 @@ pattern as the other wire-naming exemptions above) rather than fixing unilateral
 full single-threaded test suite green, fresh this turn. No escalations raised — every finding was
 an ordinary implementation fix within the confirmed design, as the skeptics themselves
 characterized them. Branch still not pushed to any remote.
+
+---
+
+## Cycle 5 — binding human ruling on the trunk/tail position bug, implemented and proven
+
+The human user ruled directly (not a design-gate skeptic round) on the round-2 final-gate's
+trunk/tail data-model bug that a first executor fix attempt (cycle 4, migration-correctness CR 1)
+did not actually close: `pipeline_steps.position` is normalized WITHIN each sibling group so the
+trunk continuation is always at `position = 0`; order is carried entirely by `parent_step_id`.
+
+**Root cause of round 1's gap (found via the real fixture, not by inspection):** round 1 forced a
+migration-created tail's OWN `position >= 1` (`GREATEST(COALESCE(MAX(position)+1, 0), 1)`), but
+`PipelineStepRepository.trunkOf` walked `childrenOf(steps, parent).headOption` — the LOWEST-position
+child, whatever its value, not literally "the position-0 child." Renumbering a sole child from 0 to
+1 changes nothing when it is still the only/lowest child: `headOption` still returns it, and
+`trunkOf` still wrongly walks into what is actually a tail whenever a trunk-last node's only child
+was a tail (no genuine position-0 sibling to lose to).
+
+**A SECOND real defect found while implementing the fix (not previously flagged):** the migration's
+`pipeline_steps.parent_step_id` backfill (section 1) assumed every pipeline's root step already sat
+at `position = 0` pre-migration. Real dev data contradicts this — pipeline
+`6ba5075b-2291-4508-881b-a517b1f300cf`'s root step has original `position = 1`. Requiring
+`trunkOf` to match `position == 0` exactly (the ruling's mechanism) would have made this root
+unreachable (`Vector()` instead of the full 20-step trunk) had the normalization only touched
+non-root steps. Fixed by normalizing EVERY step's position (root included), caught by this cycle's
+own new "all 15 multi-step pipelines" test on the FIRST run against the real fixture, before any
+mutation probe was needed.
+
+**Fix, three parts (all implemented + tested this cycle):**
+1. `V94__outputs_model.sql` section 1: `UPDATE pipeline_steps SET position = 0` for every step
+   (root + non-root), run immediately after the `parent_step_id` backfill, while every step is
+   still its parent's sole child (no tail attached yet) — cannot reorder anything.
+2. `V94__outputs_model.sql` section 8/12 (the `computed_fields` → `compute`-step chain): added the
+   same `seq = 0` `GREATEST(...,1)` guard section 5's aggregate tail already had, since the FIRST
+   hop in that chain also attaches directly to a pipeline's trunk-last step.
+3. `PipelineStepRepository.trunkOf`/`tailsOf`: `trunkOf` now uses `find(_.position == 0)`, not
+   `headOption`; `tailsOf` now uses `filter(_.position != 0)`, not `drop(1)` — the actual code fix
+   round 1 was missing.
+
+**Proof (per the orchestrator's non-negotiable requirement), all fresh this turn:**
+- New test group asserts `trunkOf`'s post-migration walk is IDENTICAL, in full, to the
+  pre-migration linear step order for all 15 real multi-step pipelines (not a sample) — also
+  independently asserts the fixture contains exactly 15 such pipelines.
+- New test group asserts all 5 real aggregate tails land at `position >= 1`, are unreachable via
+  `trunkOf`, and ARE reachable via `tailsOf` (excluded from the trunk for the right reason).
+- **Mutation-testing proof, run by hand this cycle (not left in the diff):** temporarily commented
+  out the migration's `UPDATE pipeline_steps SET position = 0` normalization, re-ran
+  `V94OutputsMigrationSpec` — reproduced the EXACT trunk-truncation defect the ruling describes
+  (`trunkOf` returned only the root instead of the full 4-step trunk for a real multi-step
+  pipeline; 2 of 29 tests failed). Restored the fix, re-ran: 29/29 green again.
+- `sbt clean compile` / `Test/compile`: clean, 0 errors (11 pre-existing warnings, unrelated).
+- `sbt testOnly ...V94OutputsMigrationSpec`: 29/29 green (was 23; +6 new: 2 trunk-order proof
+  tests, 1 aggregate-tail-reachability proof test, plus the rewritten backfill/compute-step
+  assertions).
+- Full `sbt -batch -Dslick.dbcp.maxThreads=1 "set Test/parallelExecution := false" test` (HEL-924
+  single-threaded protocol): **3348 tests, 225 suites, 0 aborted, 0 failed, all green**, 187s.
+
+**The two smaller round-2 findings, both closed this cycle:**
+- **31 mechanical sed-substitution corruptions** across the 11 flagged `openspec/changes/
+  outputs-model-migration/specs/` files, reproduced via the report's own grep and fixed
+  file-by-file against the base spec's original wording (`git show`/`openspec/specs/<name>/spec.md`
+  gave ground truth for every case): `outputOutput/node*` → `outputDataTypeName`/
+  `outputDataTypeId` (confirmed against `PipelineProposalProtocol.scala`/`PipelineSummaryResponse`
+  — real, live field names); `Output/nodeResponse` → `DataTypeResponse`; `the Output's config` →
+  `metricId`; `the pipeline/Output services` → `DataTypeService` (patch-set-preview, matching the
+  base spec verbatim) / `OutputRepository` (resource-tagging, no base-spec equivalent existed —
+  best available real identifier, since there is no live `OutputService` yet); `OutputPanel` →
+  `MetricPanel` (patch-set-undo, where the surrounding text names `metricId`).
+  `panel-data-freshness/spec.md` needed the deeper fix the round-2 report specifically called for:
+  both requirements converted to `## REMOVED Requirements` (the underlying
+  `findLastRunAtByOutputDataTypeId` method AND its only caller were removed outright in task 4.1;
+  `dataAsOf` is retained on the wire but every call site now passes `None`) rather than a
+  garbled-but-still-MODIFIED assertion for a method that no longer exists.
+  `metric-crud-api/spec.md`'s five "the Output's config.format" occurrences were checked and are
+  legitimate prose (grammatically correct, not corrupted) — left unchanged.
+- **`schemas/patch-sets/patch-set-preview-response.schema.json`'s stray `"dataType"` `kind` enum
+  value and `DataTypeResponse` mention removed**, matching the sibling `patch-set.schema.json`'s
+  prior-round fix. Also found and fixed the SAME leftover in
+  `patch-set-apply-response.schema.json` (not named in the finding, found by grepping
+  `schemas/patch-sets/*.json` for `dataType`).
+- **`AssistantProposalToolSchemas.scala:224`/`:375`'s `"dataType"` removed** from the
+  `EditTargetSchema` `kind` enum and the `propose_patch_set` tool description, matching
+  `PatchSetProtocol.recognizedKinds` (`Set("panel", "dashboard", "dataSource", "pipeline",
+  "pipelineStep")`, no `dataType`). No test referenced the old enum value (verified by grep before
+  editing), so no test change was needed.
+
+**No escalations raised** — every item was implementation of a binding ruling or an ordinary
+corruption-reversal fix within already-confirmed scope. Branch still not pushed to any remote.
+
+**Status for the next (final) skeptic pass:** trunk/tail ruling implemented, proven via full-fixture
+assertion + mutation testing; both smaller findings closed; `sbt compile`/`sbt test` green,
+single-threaded, fresh this turn.

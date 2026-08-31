@@ -3,7 +3,7 @@
 _Retargeted from DataTypes/Metrics to the outputs-model (Output, node_snapshot, pipeline-step-tree) per HEL-903 decisions 1/2/4/11. Scenario titles are preserved verbatim from the live spec even where they still name "DataType"/"Metric" (they describe the same test case); only the body text is retargeted to the new mechanism._
 
 ### Requirement: Data sources, pipelines, and DataTypes accept an optional tag at create time
-`DataSourceService`, `PipelineService`, and `the pipeline/Output services` create paths SHALL accept an
+`DataSourceService`, `PipelineService`, and `OutputRepository` create paths SHALL accept an
 optional single free-form `tag` string (max 200 chars) and persist it on the created resource.
 Omitting `tag` SHALL leave it `null` and behave exactly as before this change.
 

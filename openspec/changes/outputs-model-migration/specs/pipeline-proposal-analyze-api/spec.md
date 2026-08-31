@@ -20,5 +20,5 @@ persisting a source, pipeline, or step, and without running the pipeline.
 
 #### Scenario: A structurally invalid proposal is rejected with 400
 - **WHEN** the request body omits a `PipelineProposal`-required field (`pipelineName`, `source`,
-  `outputOutput/nodeName`, or `steps`)
+  `outputDataTypeName`, or `steps`)
 - **THEN** the endpoint returns `400`

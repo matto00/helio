@@ -17,7 +17,7 @@
   "$defs": {
     "EditPreview": {
       "type": "object",
-      "description": "before/after reuse each target kind's EXISTING response shape (PanelResponse/DashboardResponse/DataSourceResponse/DataTypeResponse/PipelineSummaryResponse/PipelineStepResponse) -- deliberately left as a generic object here rather than a six-way oneOf, since the concrete shape is determined by the edit's target.kind, not expressible as a single $ref (mirrors patch-set-apply-response.schema.json's identical EditOutcome convention).",
+      "description": "before/after reuse each target kind's EXISTING response shape (PanelResponse/DashboardResponse/DataSourceResponse/PipelineSummaryResponse/PipelineStepResponse) -- deliberately left as a generic object here rather than a five-way oneOf, since the concrete shape is determined by the edit's target.kind, not expressible as a single $ref (mirrors patch-set-apply-response.schema.json's identical EditOutcome convention). HEL-904 removed the `dataType` target kind outright (DataType/DataTypeResponse no longer exist); an `output` target kind is P1.4's (HEL-907) job to add.",
       "required": ["index", "kind", "op", "impact"],
       "properties": {
         "index": {
@@ -27,7 +27,7 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep"]
+          "enum": ["panel", "dashboard", "dataSource", "pipeline", "pipelineStep"]
         },
         "op": {
           "type": "string",

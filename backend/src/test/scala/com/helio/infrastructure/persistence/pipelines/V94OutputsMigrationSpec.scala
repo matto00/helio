@@ -1,5 +1,7 @@
 package com.helio.infrastructure.persistence.pipelines
 
+import com.helio.domain._
+import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -12,6 +14,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
+import java.time.Instant
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.io.Source
@@ -330,14 +333,23 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
   }
 
   "V94 pipeline_steps.parent_step_id backfill" should {
-    "preserve the pre-existing position order (not reset it) for a real many-step pipeline, building a pure trunk from it" in {
+    "preserve the pre-existing STEP ORDER (carried by parent_step_id, not by the raw position number) for a real many-step pipeline, building a pure trunk from it" in {
+      // HEL-904 binding ruling (2026-08-31): position is no longer asserted
+      // untouched -- it is deliberately renumbered to 0 for every non-root
+      // trunk step (see the migration's section-1 comment). What must be
+      // preserved is ORDER, walked via parent_step_id, not the raw number.
       val rows = await(superDb.run(
         sql"""SELECT id, position, parent_step_id FROM pipeline_steps
-              WHERE pipeline_id = $manyStepsPipelineId AND id NOT LIKE 'hel904-%' ORDER BY position"""
+              WHERE pipeline_id = $manyStepsPipelineId AND id NOT LIKE 'hel904-%'"""
           .as[(String, Int, Option[String])]
       ))
       val originalPositions = stepsBeforeCapture.filter(_._2 == manyStepsPipelineId).map(_._3).sorted
-      rows.map(_._2) shouldBe originalPositions // position untouched
+
+      // EVERY step -- root included -- is renumbered to position 0 (the
+      // real dev data confirms a root step's original position is not
+      // reliably 0 -- this pipeline's own root started at 1).
+      rows.count(_._3.isEmpty) shouldBe 1 // exactly one root
+      rows.map(_._2).toSet shouldBe Set(0) // every step (root + non-root) renumbered to 0
 
       val byId = rows.map { case (id, _, parent) => id -> parent }.toMap
       def walk(current: Option[String], acc: Vector[String]): Vector[String] = current match {
@@ -346,9 +358,96 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
           val next = byId.collectFirst { case (childId, Some(p)) if p == id => childId }
           walk(next, acc :+ id)
       }
-      val root = rows.collectFirst { case (id, p, None) if p == originalPositions.min => id }.get
+      val root = rows.collectFirst { case (id, _, None) => id }.get
       val walked = walk(Some(root), Vector.empty)
       walked.size shouldBe rows.size
+      walked.size shouldBe originalPositions.size
+    }
+  }
+
+  // ── HEL-904 binding ruling (2026-08-31): trunk/tail position-0 proof ──────
+  //
+  // A tiny throwaway PipelineStep wrapper -- ONLY id/pipelineId/position/
+  // parentStepId are load-bearing for `trunkOf`/`tailsOf` (both pure
+  // functions over those four fields), so every row is wrapped as a
+  // RenameStep regardless of its real `op`, exactly like
+  // `PipelineStepRepositoryTreeOrderingSpec`'s own fixture helper. This
+  // calls the REAL `PipelineStepRepository.trunkOf`/`tailsOf` (not a
+  // reimplementation of the algorithm in the test), which is the point:
+  // a bug in the actual code must be able to fail this test.
+  private def wrapStep(id: String, position: Int, parentStepId: Option[String]): PipelineStep =
+    RenameStep(
+      id           = PipelineStepId(id),
+      pipelineId   = PipelineId(manyStepsPipelineId), // unused by trunkOf/tailsOf
+      position     = position,
+      config       = RenameConfig(Map.empty),
+      createdAt    = Instant.EPOCH,
+      updatedAt    = Instant.EPOCH,
+      enabled      = true,
+      parentStepId = parentStepId.map(PipelineStepId(_))
+    )
+
+  private val stepRepo = new PipelineStepRepository(null)(ec)
+
+  private def stepsForPipeline(pipelineId: String): Vector[PipelineStep] = {
+    val rows = await(superDb.run(
+      sql"SELECT id, position, parent_step_id FROM pipeline_steps WHERE pipeline_id = $pipelineId"
+        .as[(String, Int, Option[String])]
+    ))
+    rows.map { case (id, position, parent) => wrapStep(id, position, parent) }
+  }
+
+  "PipelineStepRepository.trunkOf/tailsOf against every real multi-step pipeline (HEL-904 ruling proof)" should {
+    "identify exactly 15 real multi-step pipelines in the fixture (non-negotiable per the ruling's proof requirement)" in {
+      val multiStepPipelineIds = stepsBeforeCapture.groupBy(_._2).collect { case (pid, steps) if steps.size > 1 => pid }.toSet
+      multiStepPipelineIds.size shouldBe 15
+    }
+
+    "walk the FULL, ORIGINAL-ORDER trunk (via trunkOf, position=0 exact match) for every one of the 15 real multi-step pipelines -- not truncated, not reordered" in {
+      val multiStepPipelineIds = stepsBeforeCapture.groupBy(_._2).collect { case (pid, steps) if steps.size > 1 => pid }.toSet
+      multiStepPipelineIds.size shouldBe 15 // re-asserted here so this test alone still proves the "all 15" scope if run in isolation
+
+      multiStepPipelineIds.foreach { pipelineId =>
+        withClue(s"pipeline $pipelineId: ") {
+          val expectedOrder = stepsBeforeCapture.filter(_._2 == pipelineId).sortBy(_._3).map(_._1)
+          val steps = stepsForPipeline(pipelineId)
+          val trunk = stepRepo.trunkOf(steps).map(_.id.value)
+          trunk shouldBe expectedOrder // full trunk, exact original order -- not truncated, not reordered
+        }
+      }
+    }
+  }
+
+  "the 5 real migration-created aggregate tails (HEL-904 ruling proof)" should {
+    "land at position >= 1 and be UNREACHABLE via trunkOf for their pipeline" in {
+      val strandedIds: Set[String] = {
+        val visualKinds = Set("metric", "chart", "table", "collection", "timeline")
+        panelsBefore.filter { p =>
+          (visualKinds.contains(p.typ) || ((p.typ == "text" || p.typ == "markdown") && p.typeId.isDefined)) &&
+            (p.typeId.isEmpty || !pipelineOutputTypeIdsCapture.contains(p.typeId.get))
+        }.map(_.id).toSet
+      }
+      val aggOrMetricPanels = panelsBefore.filter(p => (p.aggregation.isDefined || p.metricId.isDefined) && !strandedIds.contains(p.id))
+      aggOrMetricPanels.size shouldBe 5 // the ruling's proof requirement: "all 5 real aggregate tails"
+
+      aggOrMetricPanels.foreach { p =>
+        withClue(s"panel ${p.id}: ") {
+          val tailStepId = s"hel904-tail-${p.id}"
+          val (position, pipelineId) = await(superDb.run(
+            sql"SELECT position, pipeline_id FROM pipeline_steps WHERE id = $tailStepId".as[(Int, String)].head
+          ))
+          position should be >= 1
+
+          val steps = stepsForPipeline(pipelineId)
+          val trunkIds = stepRepo.trunkOf(steps).map(_.id.value).toSet
+          trunkIds should not contain tailStepId
+
+          // Also confirm it IS reachable via tailsOf -- excluded from the
+          // trunk for the right reason (a real tail), not just absent.
+          val tailIds = stepRepo.tailsOf(steps).flatten.map(_.id.value).toSet
+          tailIds should contain(tailStepId)
+        }
+      }
     }
   }
 
@@ -512,14 +611,19 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
             val (op, config, parentStepId, position) = row.get
             op shouldBe "compute"
             parentStepId shouldBe expectedParent
-            // Trunk-extending sibling chain: each compute step is the FIRST
-            // (position-0) child of its own dedicated parent (either the
-            // pipeline's original trunk-last step, or the previous compute
-            // step in the chain), never a second-or-later sibling -- there is
-            // no pre-existing child of a compute step's parent for it to
-            // collide with, since each compute step in the chain becomes the
-            // sole parent of the next.
-            position shouldBe 0
+            // HEL-904 binding ruling (2026-08-31): the FIRST compute step
+            // (seq = 0) attaches directly to the pipeline's ORIGINAL
+            // trunk-last step, which has no genuine trunk continuation --
+            // exactly the same "no existing children" trap section 9's
+            // aggregate tail guards against -- so it must land at
+            // position >= 1 (in practice exactly 1, since it is the sole
+            // child), never 0, or PipelineStepRepository.trunkOf would
+            // wrongly walk into it. Every LATER hop in the chain (seq > 0)
+            // attaches to a step this SAME migration just created, which is
+            // never reachable from trunkOf regardless of its own position,
+            // so it stays at position 0 (the sole child of its own
+            // dedicated parent).
+            if (seq == 0) position should be >= 1 else position shouldBe 0
 
             val expectedConfig = JsObject(
               "column" -> o.fields("name"),

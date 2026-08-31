@@ -359,12 +359,22 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   // tree-walk ships produce a step with siblings or a non-trunk tail.
 
   /** The pipeline's trunk: starting from the position-0 root child (`parentStepId
-    * = None`), follow the position-0 child at each level. Ties are broken by
-    * `position` ascending (sibling order). Returns steps in root-to-leaf
-    * order. A pipeline with no steps returns an empty Vector. */
+    * = None`), follow the position-0 child at each level. Returns steps in
+    * root-to-leaf order. A pipeline with no steps returns an empty Vector.
+    *
+    * HEL-904 binding ruling (2026-08-31): this walk requires an EXACT
+    * `position == 0` match at each level, not merely "the lowest-position
+    * child" (`headOption` on `childrenOf`'s ascending sort, which this used
+    * to be). The two differ exactly when a node's ONLY child is a
+    * migration-created tail (position >= 1, forced by V94's migration DML)
+    * and it has no genuine trunk continuation -- `headOption` would
+    * wrongly treat that sole, non-zero-position child as "the lowest" and
+    * incorrectly extend the trunk into what is actually a tail. Requiring
+    * `position == 0` exactly is what "a node with no position-0 child ends
+    * the trunk" (the spec's stated rule) actually means. */
   def trunkOf(steps: Vector[PipelineStep]): Vector[PipelineStep] = {
     def loop(parent: Option[PipelineStepId], acc: Vector[PipelineStep]): Vector[PipelineStep] =
-      childrenOf(steps, parent).headOption match {
+      childrenOf(steps, parent).find(_.position == 0) match {
         case Some(next) => loop(Some(next.id), acc :+ next)
         case None       => acc
       }
@@ -376,10 +386,20 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def childrenOf(steps: Vector[PipelineStep], parent: Option[PipelineStepId]): Vector[PipelineStep] =
     steps.filter(_.parentStepId == parent).sortBy(_.position)
 
-  /** Every branch other than the trunk: for each step with more than one
-    * child, every child after the position-0 one roots its own tail,
-    * expanded depth-first. Returns one Vector per tail root, each in
-    * root-to-leaf order (mirrors `trunkOf`'s shape for a branch). */
+  /** Every branch other than the trunk: for each node, every child whose
+    * `position != 0` roots its own tail, expanded depth-first. Returns one
+    * Vector per tail root, each in root-to-leaf order (mirrors `trunkOf`'s
+    * shape for a branch).
+    *
+    * HEL-904 binding ruling (2026-08-31): filters on `position != 0`
+    * explicitly, rather than `drop(1)` on the ascending-sorted sibling list
+    * (this used to be `childrenOf(...).drop(1)`, dropping only the lowest-
+    * position child). The two differ exactly when a node's ONLY child is a
+    * migration-created tail root (position >= 1, no genuine position-0
+    * sibling) -- `drop(1)` on a single-element list drops it entirely,
+    * silently losing that tail; `filter(_.position != 0)` correctly keeps
+    * it, matching `trunkOf`'s companion fix (exact `position == 0`, not
+    * "lowest position", decides trunk-vs-tail). */
   def tailsOf(steps: Vector[PipelineStep]): Vector[Vector[PipelineStep]] = {
     def expand(root: PipelineStep): Vector[PipelineStep] = {
       def loop(current: PipelineStep, acc: Vector[PipelineStep]): Vector[PipelineStep] =
@@ -392,7 +412,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
     val allParents = steps.map(_.parentStepId).distinct
     allParents.flatMap { parent =>
-      childrenOf(steps, parent).drop(1).map(expand)
+      childrenOf(steps, parent).filter(_.position != 0).map(expand)
     }
   }
 

@@ -31,12 +31,16 @@ for this row** (backend-only).
 1. `pipeline_steps`: add `parent_step_id TEXT NULL REFERENCES pipeline_steps(id)` (NULL =
    child of the source root). No `ON DELETE CASCADE` — deletion splices (repository
    semantics below). Backfill `parent_step_id` from today's `position` order so every
-   existing pipeline is a pure trunk. Do NOT reset `position` — reads still order by it
-   until the tree-ordered read lands in the same ticket; there is no
-   `UNIQUE(pipeline_id, position)` and the linear engine (`PipelineStepRepository.scala:43,150`
-   sort by `position`) would silently reorder steps. New semantics: `position` = sibling
-   order among children of the same parent; for a migrated trunk that is the existing
-   sequence, unchanged.
+   existing pipeline is a pure trunk. **Narrowed constraint (2026-08-31 binding ruling on
+   this ticket, see design.md's "position renumbering ruling" decision): step ORDER —
+   carried by `parent_step_id`, not by the raw `position` number — must be preserved
+   exactly; the raw `position` NUMBER is not preserved.** Every step's `position` (root
+   included) is renumbered to `0` immediately after the `parent_step_id` backfill, while
+   every step is still the sole child of its parent (no tail attached yet), so this cannot
+   reorder anything — it only makes "the position-0 child is the trunk continuation"
+   unambiguous once tails are later attached at `position >= 1`. New semantics: `position`
+   = sibling order among children of the same parent; a migrated trunk's `position` values
+   are all `0`, its actual sequence carried entirely by `parent_step_id`.
 2. New `outputs`: `id, pipeline_id (FK CASCADE), node_step_id (FK CASCADE, NULL = root),
    owner_id, name, kind, config JSONB, schema JSONB, position, tag, created_at, updated_at`.
    `kind ∈ {metric, chart, table, collection, timeline, markdown}`. RLS: sharing-aware,

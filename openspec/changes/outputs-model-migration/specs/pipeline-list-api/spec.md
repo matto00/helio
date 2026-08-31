@@ -4,8 +4,8 @@ _Retargeted from DataTypes/Metrics to the outputs-model (Output, node_snapshot, 
 
 ### Requirement: GET /api/pipelines returns pipeline summaries
 The backend SHALL expose `GET /api/pipelines` that returns a JSON array of pipeline summary objects.
-Each object SHALL include: `id`, `name`, `sourceDataSourceName`, `outputOutput/nodeName`,
-`outputOutput/nodeId`, `lastRunStatus` (string or null), `lastRunAt` (ISO-8601 string or null),
+Each object SHALL include: `id`, `name`, `sourceDataSourceName`, `outputDataTypeName`,
+`outputDataTypeId`, `lastRunStatus` (string or null), `lastRunAt` (ISO-8601 string or null),
 and `lastRunRowCount` (number or null).
 
 #### Scenario: Returns empty array when no pipelines exist
@@ -15,7 +15,7 @@ and `lastRunRowCount` (number or null).
 #### Scenario: Returns pipeline summaries with joined names
 - **WHEN** one or more pipelines exist and `GET /api/pipelines` is called
 - **THEN** the response is `200 OK` with an array where each item includes `sourceDataSourceName`
-  from the joined data source and `outputOutput/nodeName` from the joined data type
+  from the joined data source and `outputDataTypeName` from the joined data type
 
 #### Scenario: Null last-run fields for pipelines that have never run
 - **WHEN** a pipeline has never been run

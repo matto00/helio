@@ -402,3 +402,91 @@ deleted, prefer deleting outright over rewiring into orphanhood") — re-verifie
 it has 4 live internal callers (`RefinementGrounding`, `DashboardAuthoringService`,
 `AssistantToolExecutor`, `AssistantService`'s constructor injection), none of which this ticket
 deletes, so deleting the service itself would be the "orphanhood" it is NOT in.
+
+## Decision: position renumbering ruling (2026-08-31, human user, binding)
+
+**Source:** this decision was NOT reached through a design-gate skeptic round
+like every other decision in this document — it was ruled on directly by the
+human user after round-2 final-gate skeptics found a real trunk/tail data
+model bug (`final-skeptic-migration-correctness-2.md`) that a first executor
+fix attempt did not actually close. It is binding, not a proposal to
+re-litigate.
+
+**The conflict that made this necessary.** The design spec's `pipeline_steps`
+row (line 88 of `docs/superpowers/specs/2026-08-30-pipelines-outputs-remodel-design.md`)
+contains two clauses that conflict for migrated rows: it defines the trunk as
+"the position-0 chain" from the root, and in the SAME sentence says
+`position` "is not rewritten by the migration — a migrated trunk keeps its
+existing sequence." Real dev data confirms the conflict is not hypothetical:
+across the 15 real multi-step pipelines in `hel904-real-dump.sql`, trunk
+steps carry positions inherited from the old linear index (in several
+pipelines starting at 1, not 0 — e.g. pipeline `6ba5075b-2291-4508-881b-a517b1f300cf`'s
+root step has original `position = 1`). Under a literal "position-0-only
+defines the trunk, and position is never rewritten" reading, `trunkOf` would
+either stop after zero steps (root itself isn't at position 0) or, worse,
+silently misclassify a migration-created tail as the trunk continuation the
+moment that tail became a trunk-last step's ONLY child (see the round-1/
+round-2 postmortem below).
+
+**Why round 1's fix didn't close it.** Round 1 changed the tail-attachment
+DML (`GREATEST(COALESCE(MAX(position)+1, 0), 1)`) so a migration-created
+aggregate tail's OWN position could never be 0. That is necessary but not
+sufficient: `PipelineStepRepository.trunkOf` walked
+`childrenOf(steps, parent).headOption` — the LOWEST-position child, whatever
+its value — not literally "the position-0 child." Renumbering a sole child
+from 0 to 1 changes nothing when it is still the only/lowest child:
+`headOption` still returns it, and `trunkOf` still wrongly walks into what
+is actually a tail. (`tailsOf`'s own doc comment already correctly described
+"every child after the position-0 one roots its own tail" — `trunkOf` was
+the one inconsistent with it.)
+
+**The ruling (binding, implemented in this commit).** Ordering along the
+trunk is carried by `parent_step_id` links, never by the raw `position`
+number — every step already knows its parent. This makes the "position is
+not rewritten" clause safely narrowable: `position` values ARE renumbered
+WITHIN a sibling group as part of the migration, and step ORDER is
+unaffected because order was never encoded in the number, only in the
+parent chain. Specifically:
+
+1. **Migration (`V94__outputs_model.sql`, section 1):** immediately after
+   backfilling `parent_step_id` from the old linear order, EVERY step's
+   `position` (root included, not only non-root — see the `position = 1`
+   root example above) is renumbered to exactly `0`. At this point every
+   step is still the sole child of its parent (pure linear trunk, no tail
+   yet attached), so this cannot collide two siblings onto the same
+   position — it only disambiguates trunk-vs-tail for what follows.
+2. **Every tail-creation site** (section 5's aggregate tail, already fixed
+   in round 1; section 8/12's `computed_fields` → `compute`-step chain,
+   whose FIRST hop off the pipeline's original trunk-last step was NOT
+   guarded before this ruling) forces that step's position to `>= 1` via
+   `GREATEST(COALESCE(MAX(position)+1, 0), 1)`, never `0`.
+3. **`PipelineStepRepository.trunkOf`/`tailsOf`** (the actual second half of
+   the round-1 gap) now require an EXACT `position == 0` match to select the
+   trunk continuation (`find(_.position == 0)`, not `headOption` on the
+   ascending-sorted sibling list), and `tailsOf` filters on `position != 0`
+   (not `drop(1)`) for the same reason — `drop(1)` on a single-element
+   sibling list (a trunk-last node whose only child is a tail) silently
+   dropped that tail from `tailsOf`'s own result, which `headOption` doing
+   the mirror-image wrong thing on `trunkOf`'s side, must go together.
+
+**Non-negotiable proof required** (see `V94OutputsMigrationSpec`, the new
+"HEL-904 ruling proof" test groups): for all 15 real multi-step pipelines,
+`trunkOf`'s post-migration walk is asserted identical, in full, to the
+pre-migration linear step order; all 5 real aggregate tails are asserted at
+`position >= 1` and unreachable via `trunkOf` (but reachable via `tailsOf`);
+and the fix is proven failable by mutation (temporarily reverting the
+`UPDATE pipeline_steps SET position = 0` normalization reproduces the exact
+trunk-truncation defect the ruling describes, confirmed red, then restored
+to green).
+
+**The narrowed "do not reset position" constraint.** Every prior mention of
+"position is not rewritten by the migration" (`ticket.md` scope item 1,
+`tasks.md`'s corresponding task, this file's own earlier text) is updated by
+this ruling to the narrower, correct constraint: **step ORDER (via
+`parent_step_id`) is preserved exactly; the raw `position` NUMBER is not** —
+within-sibling-group renumbering to make position-0-as-trunk unambiguous is
+now an expected, required part of the migration, not a violation of the
+original constraint's intent (which was about not silently reordering
+pipelines the still-linear engine reads — an intent renumbering-to-0 for a
+single-child sibling group cannot violate, since there is no second sibling
+to reorder against).

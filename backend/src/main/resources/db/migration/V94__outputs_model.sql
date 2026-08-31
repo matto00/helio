@@ -21,11 +21,28 @@
 -- NULL = child of the source root. Backfilled from today's `position` order
 -- so every existing pipeline becomes a pure trunk: each step's parent is the
 -- step immediately before it in position order (or NULL for position 0).
--- `position` itself is NOT reset or touched -- PipelineStepRepository still
--- reads/orders by it (`list`, `insert*`) until the DB-backed tree-ordered
--- reads land (task 1.6's deferred remainder); there is no
--- UNIQUE(pipeline_id, position), so resetting it here would risk silently
--- reordering pipelines the still-linear engine reads.
+--
+-- HEL-904 binding ruling (2026-08-31, from the human user directly, not a
+-- design-gate round -- see design.md's "position renumbering ruling"
+-- decision for the full writeup): `position` is NOT left untouched anymore.
+-- The narrower, correct constraint is: chain ORDER is carried by
+-- `parent_step_id`, never by the raw `position` number, so `position` is
+-- free to be renumbered WITHIN a sibling group as long as it does not
+-- change WHICH step is whose parent/child. Immediately below, every
+-- non-root step (still a pure one-child-per-parent chain at this point --
+-- no tail has been attached yet) is renumbered to `position = 0`, which is
+-- exactly what "the position-0 child is the trunk continuation" requires:
+-- the OLD linear positions (0, 1, 2, ... N inherited from the pre-migration
+-- index) told `trunkOf` nothing about trunk-vs-tail once a tail could be
+-- attached at any node, and left every trunk step's position ambiguous
+-- with a tail's the moment migration-created tails were added at
+-- position >= 1 later in this file. Renumbering here, once, up front, before
+-- any tail exists, makes every trunk step's position exactly 0 and leaves
+-- every migration-created tail (position >= 1, forced explicitly at each of
+-- this file's attachment sites) unambiguous relative to it --
+-- `PipelineStepRepository.trunkOf` is updated in the same commit to require
+-- an EXACT `position = 0` match (not merely "lowest position among
+-- siblings") so this distinction is actually load-bearing.
 
 ALTER TABLE pipeline_steps ADD COLUMN parent_step_id TEXT NULL REFERENCES pipeline_steps(id);
 
@@ -36,6 +53,21 @@ WHERE parent.pipeline_id = child.pipeline_id
   AND parent.position = child.position - 1;
 
 CREATE INDEX idx_pipeline_steps_parent_step_id ON pipeline_steps(parent_step_id);
+
+-- Normalize EVERY step's `position` to 0 (see the ruling above) -- root
+-- steps included, not only non-root ones: real dev data confirms
+-- pipelines whose original linear index starts at 1, not 0 (a root step
+-- with parent_step_id IS NULL but position = 1), so a root step cannot be
+-- assumed to already sit at position 0 pre-migration. At this point every
+-- step is still the SOLE child of its parent (pure linear trunk, one step
+-- per generation -- no tail has been attached yet, and each pipeline has
+-- exactly one root), so this UPDATE cannot collide two siblings onto the
+-- same position; it only disambiguates trunk-vs-tail for the
+-- tail-attachment DML later in this file. Step ORDER is unaffected -- it
+-- is carried by `parent_step_id`, set immediately above, not by this
+-- value.
+UPDATE pipeline_steps
+SET position = 0;
 
 -- ── 2. outputs (ticket.md scope item 2) ──────────────────────────────────────
 --
@@ -782,7 +814,19 @@ BEGIN
       );
       new_step_id := 'hel904-compute-' || cf_row.data_type_id || '-' || seq;
 
-      SELECT COALESCE(MAX(position) + 1, 0) INTO next_position
+      -- HEL-904 binding ruling (2026-08-31): the FIRST compute step in this
+      -- chain (seq = 0) attaches directly to `chain_parent`, which at that
+      -- point is the pipeline's ORIGINAL trunk-last step -- exactly the
+      -- same "no existing children" trap section 9's aggregate tail already
+      -- guards against. Force it off position 0 (`GREATEST(...,1)`) so
+      -- `PipelineStepRepository.trunkOf`'s exact `position = 0` match never
+      -- mistakes it for a trunk continuation. Later hops (seq > 0) attach
+      -- to a step this SAME migration just created a moment ago, which is
+      -- never a real trunk node regardless of its own position -- no guard
+      -- needed there, and requiring one would only make the chain harder
+      -- to read for no correctness gain.
+      SELECT (CASE WHEN seq = 0 THEN GREATEST(COALESCE(MAX(position) + 1, 0), 1)
+                   ELSE COALESCE(MAX(position) + 1, 0) END) INTO next_position
       FROM pipeline_steps
       WHERE pipeline_id = cf_row.pipeline_id
         AND ((parent_step_id IS NULL AND chain_parent IS NULL) OR parent_step_id = chain_parent);

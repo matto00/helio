@@ -4,16 +4,16 @@ _Retargeted from DataTypes/Metrics to the outputs-model (Output, node_snapshot, 
 
 ### Requirement: PipelineProposal schema shape
 `schemas/pipelines/pipeline-proposal.schema.json` SHALL define a `PipelineProposal` object requiring
-`pipelineName`, `source`, `outputOutput/nodeName`, and `steps`, carrying no id fields for any
+`pipelineName`, `source`, `outputDataTypeName`, and `steps`, carrying no id fields for any
 resource — no `sourceId`-for-a-new-source, no `pipelineId`, no `stepId`, no output `dataTypeId`.
 
 #### Scenario: A minimal valid proposal validates
 - **WHEN** a JSON document supplies `pipelineName`, a `source` referencing an existing `sourceId`,
-  `outputOutput/nodeName`, and an empty `steps` array
+  `outputDataTypeName`, and an empty `steps` array
 - **THEN** the document validates against `schemas/pipelines/pipeline-proposal.schema.json`
 
 #### Scenario: A proposal missing a required top-level field is rejected
-- **WHEN** a JSON document omits `outputOutput/nodeName`
+- **WHEN** a JSON document omits `outputDataTypeName`
 - **THEN** the document fails validation against `schemas/pipelines/pipeline-proposal.schema.json`
 
 ### Requirement: Backend protocol round-trips the schema, tolerating absent optionals
@@ -36,7 +36,7 @@ convention.
 
 #### Scenario: Reading tolerates every optional field being absent
 - **WHEN** a JSON object supplies only the required fields (`pipelineName`, `source`,
-  `outputOutput/nodeName`, `steps`) with every source-level optional field omitted
+  `outputDataTypeName`, `steps`) with every source-level optional field omitted
 - **THEN** `PipelineProposal`'s reader succeeds, populating the omitted fields as `None`
 
 #### Scenario: Steps reuse the existing CreatePipelineStepRequest shape

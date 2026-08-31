@@ -221,7 +221,7 @@ private[protocols] trait AssistantProposalToolSchemas {
   private val EditTargetSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
-      "kind" -> enumSchema("panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep"),
+      "kind" -> enumSchema("panel", "dashboard", "dataSource", "pipeline", "pipelineStep"),
       "id"   -> JsObject("type" -> JsString("string"))
     ),
     "required" -> JsArray(Vector(JsString("kind")))
@@ -372,7 +372,7 @@ private[protocols] trait AssistantProposalToolSchemas {
     name = "propose_patch_set",
     description =
       "Propose an ordered list of targeted edits (update/delete/create) against one or more " +
-        "EXISTING resources (panel/dashboard/dataSource/dataType/pipeline/pipelineStep). Previewed " +
+        "EXISTING resources (panel/dashboard/dataSource/pipeline/pipelineStep). Previewed " +
         "but NEVER applied. Use when the goal is refining something that already exists rather than " +
         "creating something new.",
     inputSchema = PatchSetSchema
