@@ -592,12 +592,28 @@ final class PipelineService(
     val enabled = req.enabled.getOrElse(true)
     req.position match {
       case None =>
-        pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig, enabled)
-          .map { step =>
-            audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
-            Right(PipelineStepResponse.fromDomain(step))
-          }
-          .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+        // HEL-904 cycle-9 fix (round-6 skeptic Finding 1): the no-`position`
+        // default must extend the TRUNK, not create a root sibling.
+        // `insertInternal`'s bare `parentStepId = None` default (still used
+        // by test seeding and the standalone `insert` method) makes every
+        // step after the first a root-level tail — `trunkOf` then returns
+        // only the first step, so `PipelineRunService`'s node key
+        // (`trunkOf(steps).lastOption`) and `PipelineProposalService`'s
+        // Output binding (`createdSteps.lastOption`) diverge on the primary,
+        // default step-creation path. Resolve the current trunk's last step
+        // as the anchor and splice via `spliceInsertAtInternal` — the same
+        // trunk-continuation primitive the explicit-`position`-at-end branch
+        // below already uses — so "append with no position" and "append at
+        // position == count" behave identically.
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
+          val anchorParentId = pipelineStepRepo.trunkOf(current).lastOption.map(_.id)
+          pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled)
+            .map { step =>
+              audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
+              Right(PipelineStepResponse.fromDomain(step))
+            }
+            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+        }
       case Some(index) =>
         // Safe: editor/owner access confirmed by the caller. Use internal list
         // (no owner-JOIN) so editor grantees are not blocked by the V35

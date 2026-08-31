@@ -78,6 +78,22 @@ class PipelineStepRoutesSpec
     pid
   }
 
+  // HEL-904 cycle-9: `addStep` with no `position` now extends the trunk
+  // (splices as the current trunk-last step's sole child) rather than
+  // creating a flat root sibling, so fixtures that need genuine flat ROOT
+  // siblings (to test sibling-scoped splice/reorder behavior, which the
+  // fixed `addStep` path no longer produces) seed directly via SQL, same
+  // idiom as the pre-existing sibling-group reorder test below.
+  private def seedRootStep(pid: String, op: String, configJson: String, position: Int): String = {
+    import PostgresProfile.api._
+    val id = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+             VALUES ($id, $pid, $position, $op, $configJson::text, true, now(), now(), NULL)"""
+    ))
+    id
+  }
+
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
   private val viewerUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000002"))
 
@@ -195,24 +211,72 @@ class PipelineStepRoutesSpec
       }
     }
 
-    "POST auto-increments position" in {
+    // HEL-904 cycle-9 fix (round-6 skeptic Finding 1): the no-`position`
+    // append path now extends the TRUNK -- each new step splices in as the
+    // current trunk-last step's sole child, at sibling-scoped `position`
+    // 0 (a fresh, previously-empty child group), not a whole-pipeline
+    // incrementing index. `position` is a sibling-scoped tiebreaker only.
+    "POST without an explicit position extends the trunk (sibling-scoped position 0, not a whole-pipeline increment)" in {
       cleanSteps(); val pid = seedPipeline()
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { status shouldBe StatusCodes.Created }
+      var idA = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        idA = responseAs[PipelineStepResponse].id
+      }
+      var idB = ""
       Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check {
         status shouldBe StatusCodes.Created
-        responseAs[PipelineStepResponse].position shouldBe 1
+        val resp = responseAs[PipelineStepResponse]
+        resp.position shouldBe 0
+        idB = resp.id
       }
+      // Verify the persisted parent link directly, not merely the wire
+      // `position` (which does not carry `parentStepId`).
+      val persisted = await(stepRepo.findByIdInternal(PipelineStepId(idB)))
+      persisted.map(_.parentStepId) shouldBe Some(Some(PipelineStepId(idA)))
     }
 
-    "GET returns steps ordered by position" in {
+    // HEL-904 cycle-9 fix (round-6 skeptic Finding 1, required-proof test):
+    // the primary, default step-creation path (`addStep` with no `position`)
+    // must extend the trunk, not fan out into flat root siblings -- else
+    // `PipelineRunService`'s run-result node key (`trunkOf(steps).lastOption`)
+    // and `PipelineProposalService`'s Output binding (`createdSteps.lastOption`)
+    // silently diverge on every pipeline built through the ordinary UI/API
+    // path (Probe A in the round-6 skeptic report).
+    "addStep x3 with no explicit position builds a genuine trunk -- trunkOf returns all steps in order, and its lastOption is the same id the run-result node key and an Output binding would use" in {
       cleanSteps(); val pid = seedPipeline()
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { status shouldBe StatusCodes.Created }
-      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { status shouldBe StatusCodes.Created }
+      var idA, idB, idC = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", castReq())   ~> routes ~> check { idC = responseAs[PipelineStepResponse].id }
+
+      val allSteps = await(stepRepo.listByPipelineInternal(PipelineId(pid)))
+      val trunk    = stepRepo.trunkOf(allSteps)
+
+      // The trunk contains all 3 steps, in creation order -- NOT just the
+      // first one (the pre-fix bug: every step after the first became a
+      // root-level sibling, so `trunkOf` returned only `idA`).
+      trunk.map(_.id.value) shouldBe Vector(idA, idB, idC)
+
+      // The run-result node key (`PipelineRunService.trunkOf(steps).lastOption`)
+      // and an Output binding (`PipelineProposalService`'s
+      // `createdSteps.lastOption`, since `addSteps` calls this same `addStep`
+      // path for every proposal step) must agree on which step is "last" --
+      // both are `idC` here. Pre-fix, the node key was `idA` (the trunk's
+      // sole member) while the binding was `idC`, silently diverging.
+      trunk.lastOption.map(_.id.value) shouldBe Some(idC)
+    }
+
+    "GET returns steps in trunk order (structural order, not a raw position sort)" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA, idB = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val steps = responseAs[Vector[PipelineStepResponse]]
         steps should have size 2
-        steps.map(_.position) shouldBe Vector(0, 1)
+        steps.map(_.id) shouldBe Vector(idA, idB)
       }
     }
 
@@ -564,10 +628,13 @@ class PipelineStepRoutesSpec
 
     "PUT /pipelines/:id/steps/order reorders steps and reindexes positions 0..n-1" in {
       cleanSteps(); val pid = seedPipeline()
-      var idA, idB, idC = ""
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
-      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
-      Post(s"/pipelines/$pid/steps", castReq())   ~> routes ~> check { idC = responseAs[PipelineStepResponse].id }
+      // HEL-904 cycle-9: seeded as flat ROOT siblings directly via SQL --
+      // `reorderInternal`'s sibling-scoped renumbering is only exercisable
+      // on a genuine sibling group, which `addStep` (no `position`) no
+      // longer produces (it now extends the trunk; see the cycle-9 fix).
+      val idA = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      val idB = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 1)
+      val idC = seedRootStep(pid, "cast",   """{"casts":{}}""", 2)
 
       val body = JsObject("stepIds" -> JsArray(JsString(idC), JsString(idA), JsString(idB)))
       Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
@@ -641,9 +708,10 @@ class PipelineStepRoutesSpec
 
     "PUT /pipelines/:id/steps/order failed reorder (422) leaves positions unchanged" in {
       cleanSteps(); val pid = seedPipeline()
-      var idA, idB = ""
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
-      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+      // HEL-904 cycle-9: flat ROOT siblings seeded directly via SQL (see the
+      // "reindexes positions" test above for why).
+      val idA = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      val idB = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 1)
 
       val body = JsObject("stepIds" -> JsArray(JsString(idB), JsString("nonexistent-step-id")))
       Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
@@ -753,9 +821,11 @@ class PipelineStepRoutesSpec
 
     "POST with position: 0 inserts before all existing steps and shifts them down" in {
       cleanSteps(); val pid = seedPipeline()
-      var idA, idB = ""
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
-      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+      // HEL-904 cycle-9: seeded as flat ROOT siblings directly via SQL (see
+      // the reorder tests above for why `addStep` no longer produces this
+      // shape by itself).
+      val idA = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      val idB = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 1)
 
       var newId = ""
       Post(s"/pipelines/$pid/steps", reqWithPosition(castReq(), 0)) ~> routes ~> check {
@@ -793,10 +863,10 @@ class PipelineStepRoutesSpec
 
     "POST with position in the middle shifts only later steps down" in {
       cleanSteps(); val pid = seedPipeline()
-      var idA, idB, idC = ""
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
-      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
-      Post(s"/pipelines/$pid/steps", castReq())   ~> routes ~> check { idC = responseAs[PipelineStepResponse].id }
+      // HEL-904 cycle-9: flat ROOT siblings seeded directly via SQL.
+      val idA = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      val idB = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 1)
+      val idC = seedRootStep(pid, "cast",   """{"casts":{}}""", 2)
 
       var newId = ""
       Post(s"/pipelines/$pid/steps", reqWithPosition(selectReq(), 1)) ~> routes ~> check {
@@ -820,9 +890,9 @@ class PipelineStepRoutesSpec
 
     "POST with position equal to the current step count behaves like append" in {
       cleanSteps(); val pid = seedPipeline()
-      var idA, idB = ""
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
-      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+      // HEL-904 cycle-9: flat ROOT siblings seeded directly via SQL.
+      val idA = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      val idB = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 1)
 
       var newId = ""
       Post(s"/pipelines/$pid/steps", reqWithPosition(castReq(), 2)) ~> routes ~> check {
@@ -875,13 +945,13 @@ class PipelineStepRoutesSpec
     // list index, and renumbers every step contiguously 0..n as a side effect.
     "POST with position heals pre-existing position gaps into a contiguous order" in {
       cleanSteps(); val pid = seedPipeline()
-      var idA, idB, idC, idD, idE, idF = ""
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id } // pos 0
-      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id } // pos 1
-      Post(s"/pipelines/$pid/steps", castReq())   ~> routes ~> check { idC = responseAs[PipelineStepResponse].id } // pos 2
-      Post(s"/pipelines/$pid/steps", selectReq()) ~> routes ~> check { idD = responseAs[PipelineStepResponse].id } // pos 3
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idE = responseAs[PipelineStepResponse].id } // pos 4
-      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idF = responseAs[PipelineStepResponse].id } // pos 5
+      // HEL-904 cycle-9: flat ROOT siblings seeded directly via SQL.
+      val idA = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      val idB = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 1)
+      val idC = seedRootStep(pid, "cast",   """{"casts":{}}""", 2)
+      val idD = seedRootStep(pid, "select", """{"fields":[]}""", 3)
+      val idE = seedRootStep(pid, "rename", """{"renames":{}}""", 4)
+      val idF = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 5)
 
       Delete(s"/pipeline-steps/$idB") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
       Delete(s"/pipeline-steps/$idD") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
@@ -1016,9 +1086,9 @@ class PipelineStepRoutesSpec
 
     "POST /pipeline-steps/:id/duplicate clones the step directly after the original" in {
       cleanSteps(); val pid = seedPipeline()
-      var idA, idB = ""
-      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
-      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+      // HEL-904 cycle-9: flat ROOT siblings seeded directly via SQL.
+      val idA = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      val idB = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 1)
 
       var cloneId = ""
       Post(s"/pipeline-steps/$idA/duplicate") ~> routes ~> check {

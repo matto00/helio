@@ -92,3 +92,54 @@ corruption path (nothing is persisted from a preview call). Flagged for a future
 - `openspec/changes/outputs-model-migration/final-skeptic-migration-correctness-5.md`
 - `openspec/changes/outputs-model-migration/final-skeptic-wire-contract-diff-5.md`
 - `openspec/changes/outputs-model-migration/final-skeptic-deletion-sweep-5.md`
+
+## Cycle 9 (round-6 skeptic findings, 3 named items)
+
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — `addStep`'s
+  no-`position` default branch (`persistNewStep`) now resolves the current trunk's last step
+  (`pipelineStepRepo.trunkOf(current).lastOption`) and splices via `spliceInsertAtInternal`,
+  instead of calling `insertInternal` with a bare `parentStepId = None`. Fixes round-6
+  migration-correctness Finding 1: the primary/default step-creation path was producing a flat
+  root sibling per step instead of extending the trunk, so `PipelineRunService`'s node key
+  (`trunkOf(steps).lastOption`) and `PipelineProposalService`'s Output binding
+  (`createdSteps.lastOption`) silently diverged on every ordinarily-created pipeline.
+- `backend/src/main/scala/com/helio/services/proposals/DashboardAuthoringPrompt.scala` — rewrote
+  `ProposalShapeDescription`/`Instructions`/`groundingSection` to the shipped 4-kind panel set
+  (`text | markdown | image | output`), dropping the deleted `metric | chart | table | collection |
+  timeline` kinds and their now-nonexistent `fieldMapping`/`aggregation`/`chartType`/`label`/`unit`/
+  `sort` fields. Fixes round-6 deletion-sweep Finding 2 (CR2): `POST /api/authoring/dashboard` was
+  functionally broken for every data-bound panel — every model-generated proposal following the
+  stale prompt was rejected at `PanelType.fromString`, and the single repair round-trip pointed
+  back at the same wrong shape.
+- `backend/src/main/scala/com/helio/services/proposals/ProposalPanelSupport.scala` — corrected the
+  `:153-157` comment: `fieldMapping` is decoded but never applied on ANY current panel kind
+  (including `output`, which was still wrongly claimed) — only `dataTypeId` (which becomes
+  `outputId`) is meaningful for `output` panels. Fixes round-6 deletion-sweep Finding 1 (CR1),
+  second instance.
+- `schemas/dashboards/dashboard-proposal.schema.json` — `fieldMapping` property description
+  corrected to match `buildDataConfig`'s actual `{outputId}`-only emission for `output` panels
+  (was still claiming pass-through "alongside dataTypeId"). Fixes round-6 deletion-sweep Finding 1
+  (CR1), first instance.
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineStepRoutesSpec.scala` — added the
+  required-proof regression test (addStep x3 with no position → `trunkOf` returns all 3 in order,
+  `lastOption` matches what the run-result node key/Output binding would use; mutation-tested:
+  reverting the `PipelineService` fix reproduces the failure, restoring it goes green). Updated
+  every pre-existing fixture that relied on `addStep`-with-no-position producing flat root
+  siblings (now a genuine trunk chain) — either adjusted expectations (2 tests) or switched fixture
+  seeding to a direct SQL `seedRootStep` helper for tests whose actual purpose is exercising
+  sibling-scoped splice/reorder behavior (7 tests) — matching the `PipelineId.equals`-free two-line
+  idiom the pre-existing sibling-group reorder test already used.
+- `backend/src/test/scala/com/helio/api/AuditMutationInstrumentationSpec.scala` — same fixture fix
+  as above for the `pipeline.step.reorder` audit test (two `addStep` calls no longer produce a
+  reorderable sibling pair; seeded directly via SQL instead).
+- `backend/src/test/scala/com/helio/services/proposals/DashboardAuthoringPromptSpec.scala` —
+  updated the grounding-section string assertion to the corrected `"Available pipeline
+  Outputs:"` wording; added a regression test pinning the rendered prompt's panel-kind list
+  against `PanelType.fromString`'s accepted set, so this class of drift (a stale panel-kind
+  literal in the live prompt) cannot recur silently the way it did this cycle.
+
+## Round-6 skeptic reports (committed, not authored this cycle)
+
+- `openspec/changes/outputs-model-migration/final-skeptic-migration-correctness-6.md`
+- `openspec/changes/outputs-model-migration/final-skeptic-wire-contract-diff-6.md`
+- `openspec/changes/outputs-model-migration/final-skeptic-deletion-sweep-6.md`

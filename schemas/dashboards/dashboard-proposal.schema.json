@@ -44,7 +44,7 @@
         },
         "fieldMapping": {
           "type": "object",
-          "description": "For an `output` panel, passed through into config.fieldMapping alongside dataTypeId (see the dataTypeId description above for the outputId/dataTypeId naming note). Not used by text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig carry no data binding to map fields against (pipelines-and-outputs remodel, HEL-903/904)."
+          "description": "Legacy field, decoded but never applied: buildDataConfig emits only {outputId} for an `output` panel (see the dataTypeId description above for the outputId/dataTypeId naming note) — fieldMapping is not passed through. Also not used by text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig carry no data binding to map fields against (pipelines-and-outputs remodel, HEL-903/904)."
         },
         "aggregation": {
           "type": "object",

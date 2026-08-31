@@ -688,14 +688,21 @@ class AuditMutationInstrumentationSpec
         status shouldBe StatusCodes.Created
         pipelineId = responseAs[PipelineSummaryResponse].id
       }
-      var stepId1 = ""
-      var stepId2 = ""
-      Post(s"/api/pipelines/$pipelineId/steps", CreatePipelineStepRequest("limit", JsObject("count" -> JsNumber(10)))) ~> routesFor() ~> check {
-        stepId1 = responseAs[PipelineStepResponse].id
-      }
-      Post(s"/api/pipelines/$pipelineId/steps", CreatePipelineStepRequest("limit", JsObject("count" -> JsNumber(20)))) ~> routesFor() ~> check {
-        stepId2 = responseAs[PipelineStepResponse].id
-      }
+      // HEL-904 cycle-9: seeded as flat ROOT siblings directly via SQL --
+      // `addStep` with no `position` now extends the trunk (splices as a
+      // parent-child continuation, not a sibling), so two `addStep` calls no
+      // longer produce a reorderable sibling pair; `reorderInternal`'s
+      // renumbering is sibling-scoped only. See `PipelineStepRoutesSpec`'s
+      // equivalent fixture fix for the same reasoning.
+      import slick.jdbc.PostgresProfile.api._
+      val stepId1 = UUID.randomUUID().toString
+      val stepId2 = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($stepId1, $pipelineId, 0, 'limit', '{"count":10}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($stepId2, $pipelineId, 1, 'limit', '{"count":20}', true, now(), now(), NULL)"""
+      )))
 
       Put(s"/api/pipelines/$pipelineId/steps/order", ReorderPipelineStepsRequest(Seq(stepId2, stepId1))) ~> routesFor() ~> check {
         status shouldBe StatusCodes.OK

@@ -4243,3 +4243,118 @@ delegated doc close-outs. Only known residual: `PatchSetPreviewProjection`'s pre
 position echo cosmetically diverges from the real clamp behavior (noted, not fixed — no corruption
 path, out of this cycle's writer scope) — worth a follow-up ticket if the preview/apply divergence
 ever becomes user-visible.
+
+---
+
+## Cycle 9 (round-6 skeptic, 3 named items only — strict scope discipline)
+
+Three items assigned by the coordinator, no design-gate rounds remaining:
+
+**1. `addStep`'s no-`position` default created a root sibling instead of a trunk continuation
+(round-6 migration-correctness Finding 1) — FIXED.**
+
+`PipelineService.persistNewStep`'s `req.position == None` branch called
+`pipelineStepRepo.insertInternal(pipelineId, ..., parentStepId = None)` directly, so every step
+after the first became a flat root-level sibling instead of a trunk continuation — `trunkOf` then
+returned only the first step, diverging `PipelineRunService`'s run-result node key
+(`trunkOf(steps).lastOption`) from `PipelineProposalService`'s Output binding
+(`createdSteps.lastOption`) on the primary, default step-creation path (every ordinary
+pipeline-authoring flow, including `addSteps`'s proposal-apply loop, which calls this exact
+`addStep` path per step).
+
+Fix: the `None` branch now reads the pipeline's current steps
+(`pipelineStepRepo.listByPipelineInternal`), resolves the trunk's last step as the anchor
+(`pipelineStepRepo.trunkOf(current).lastOption`), and splices the new step onto it via
+`spliceInsertAtInternal` — the same trunk-continuation primitive the explicit-`position`-at-end
+branch already used. "Append with no position" and "append at `position == count`" now behave
+identically.
+
+**Required-proof test added** (`PipelineStepRoutesSpec`, "addStep x3 with no explicit position
+builds a genuine trunk"): builds a pipeline via 3 `addStep` calls with no `position`, reads
+`stepRepo.listByPipelineInternal` → `trunkOf`, asserts all 3 steps present in creation order, and
+that `trunkOf(...).lastOption` equals the third step's id — the same id both `PipelineRunService`'s
+node key and `PipelineProposalService`'s Output binding would resolve to.
+
+**Mutation-tested** (per the ticket's explicit instruction): reverted `PipelineService.scala`'s
+fix back to the bare `insertInternal` call, re-ran `PipelineStepRoutesSpec` — the new proof test
+and the renamed "extends the trunk" test both failed (2/64), confirming the bug reproduces exactly
+as described (trunk truncates to 1 step). Restored the fix, re-ran — 64/64 green.
+
+**Test-fixture ripple (expected, not scope creep):** the fix changes what `addStep`-with-no-position
+actually produces (a genuine parent-child trunk chain, not flat root siblings), so 9 pre-existing
+tests across `PipelineStepRoutesSpec` and `AuditMutationInstrumentationSpec` that used two-or-more
+bare `addStep` calls as fixture setup for testing UNRELATED behavior (explicit-`position` splice,
+`reorder`, `duplicate`, raw position auto-increment) needed adjustment: 2 tests had their
+`position`/order expectations corrected to the new (correct) trunk semantics; 7 tests whose actual
+purpose requires genuine flat ROOT siblings (sibling-scoped splice/reorder coverage) had their
+fixture-seeding switched to direct SQL inserts (a new `seedRootStep` test helper mirroring the
+pre-existing sibling-group reorder test's own established pattern) so their original test intent is
+preserved unchanged. No test's assertions about the FIX's own target behavior were weakened; every
+adjustment is either a corrected expectation or a fixture-seeding mechanism swap.
+
+**2. `DashboardAuthoringPrompt` still instructed the model with retired panel kinds (round-6
+deletion-sweep Finding 2 / CR2) — FIXED.**
+
+`ProposalShapeDescription`/`Instructions`/`groundingSection` rewritten to the shipped 4-kind set
+(`text | markdown | image | output`), matching `PanelType.fromString` and the proposal schema's own
+enum. Dropped `dataTypeId`'s stale "REQUIRED for metric/chart/table/collection/timeline" text (now
+"REQUIRED for output panels") and every deleted-kind-only field
+(`fieldMapping`/`aggregation`/`chartType`/`xAxisLabel`/`yAxisLabel`/`seriesColors`/`label`/`unit`/
+`sort`). `groundingSection`'s wording also retargeted ("DataType id=" → "Output id=", "Available
+pipeline-output data types:" → "Available pipeline Outputs:") per the report's lower-severity note,
+since it's the same prompt file.
+
+Per the ticket's explicit instruction, `RefinementPrompt.scala:35-38`'s similar stale text was
+**not** touched — that surface is covered by an existing, explicit HEL-907 deferral and is out of
+scope for this fix.
+
+**Proof:** added a `DashboardAuthoringPromptSpec` regression test pinning the rendered prompt's
+kind-list string (`"one of: text | markdown | image | output"`), asserting no deleted-kind literal
+(`metric`/`chart`/`table`/`collection`/`timeline`) appears anywhere in the rendered prompt, and
+asserting every kind that IS mentioned round-trips through `PanelType.fromString` as `Right`. Also
+fixed the one pre-existing test that asserted on the now-changed grounding-section literal string.
+8/8 green in `DashboardAuthoringPromptSpec`.
+
+**3. Schema/comment falsely claimed `fieldMapping` pass-through for `output` panels (round-6
+deletion-sweep Finding 1 / CR1) — FIXED.**
+
+`schemas/dashboards/dashboard-proposal.schema.json`'s `fieldMapping` property description and
+`ProposalPanelSupport.scala:153-157`'s comment both corrected: `buildDataConfig` emits only
+`{"outputId": ...}` for an `output` panel — `fieldMapping` is decoded but never applied on ANY
+current panel kind (same "legacy field" treatment `metricId`/`aggregation`/etc. already received).
+Only `dataTypeId` (which becomes `outputId`) is meaningful for `output` panels.
+
+**Verification this cycle:**
+- `sbt -batch compile` / `Test/compile`: clean.
+- Targeted specs run fresh, individually, before the full suite: `PipelineStepRoutesSpec` (64/64),
+  `AuditMutationInstrumentationSpec` (33/33), `DashboardAuthoringPromptSpec` (8/8) — all green.
+- Mutation proof for item 1 (above): red → restored → green, reproduced by me this turn.
+- Full `sbt -batch 'set Test/parallelExecution := false' test` (HEL-924 single-threaded protocol,
+  fresh this turn): **3367 tests, 225 suites, 0 aborted, 0 failed, all green**, 187s. (+2 vs round
+  6's 3365 — the two new regression tests: the required-proof test and the
+  `DashboardAuthoringPromptSpec` kind-list pin. The `seedRootStep`-based fixture rewrites and the
+  1-1 test-title/expectation swaps are not net-new tests.)
+- `node scripts/check-schema-drift.mjs`: green (60 protocol files, 7 panel-type surfaces — the
+  schema edit is description-only, no enum/shape change).
+- `node scripts/check-openspec-hygiene.mjs`: green (`openspec/ is clean`).
+- `npm run check:scala-quality`: green (131 pre-existing soft line-budget warnings, no hard
+  failures — unchanged from round 6).
+- `openspec validate outputs-model-migration --type change --strict`: `Change
+  'outputs-model-migration' is valid`.
+- Frontend gate: N/A per design.md decision 17 (no frontend files touched this cycle).
+
+**No escalations raised.** All three items were ordinary implementation/documentation defects with
+no open design question, exactly as the coordinator's brief characterized them — item 1 applies the
+same already-settled trunk-continuation decision to one more writer; items 2/3 are prompt/doc
+accuracy fixes with an unambiguous target shape already fully determined by
+`PanelType.fromString`/`DataPanelKinds`/`buildDataConfig`.
+
+**Status for the next verification round:** all three named items fixed and independently verified
+(item 1 mutation-tested); the fixture ripple from item 1 is fully resolved (no test weakened, 9
+fixtures adjusted to match the corrected — and now genuinely exercised — trunk/sibling semantics);
+`sbt compile`/`sbt test` green, single-threaded, fresh this turn (3367/3367, 0 failures); schema-
+drift/openspec-hygiene/scala-quality gates all green; `openspec validate --strict` passes. Three
+round-6 skeptic reports (`final-skeptic-migration-correctness-6.md`,
+`final-skeptic-deletion-sweep-6.md`, `final-skeptic-wire-contract-diff-6.md`) committed alongside
+this cycle's fixes. No known residuals introduced this cycle beyond the pre-existing
+`PatchSetPreviewProjection` note carried over from cycle 8 (unchanged, still out of scope).
