@@ -3,15 +3,19 @@ package com.helio.services.panels
 import com.helio.services.ServiceError
 import com.helio.api.protocols.panels.{PanelCapabilitiesResponse, PanelCapabilityColumnResponse, PanelCapabilityResponse}
 import com.helio.domain.panels.OutputBindingSpec
-import com.helio.domain.model.{AuthenticatedUser, DataFieldType, DataTypeId, Output, OutputId, OutputKind}
+import com.helio.domain.model.{AuthenticatedUser, DataFieldType, Output, OutputId, OutputKind}
 import com.helio.domain.engine.SchemaField
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Business logic for `GET /api/types/:id/panel-capabilities` (HEL-365), and (HEL-904 task 3.11)
- *  every internal caller that needs the same shape signals (`RefinementGrounding`,
- *  `DashboardAuthoringService`, `AssistantToolExecutor`, `AssistantService`).
+/** Business logic for every internal caller that needs panel-capability shape signals
+ *  (`RefinementGrounding`, `DashboardAuthoringService`, `AssistantToolExecutor`,
+ *  `AssistantService`). HEL-904 cycle 29: the route this originally backed
+ *  (`GET /api/types/:id/panel-capabilities`) was already deleted outright alongside
+ *  `DataTypeRoutes` in task 4.1 — this class's own doc comment (and the design.md text it cited)
+ *  had gone stale claiming the route was "still-live"; corrected here so P1.3 doesn't inherit a
+ *  false premise (P1.3's own ticket body already correctly assumes the route is gone).
  *
  *  Given an owner-scoped Output, reports which of the six Output kinds
  *  (`OutputBindingSpec.All` — HEL-904: rewired from the retired
@@ -20,31 +24,22 @@ import scala.concurrent.{ExecutionContext, Future}
  *  per slot, and coarse shape signals (columns+types, row count,
  *  single-row flag).
  *
- *  HEL-904 task 3.11: rewired off `DataTypeRepository`/`DataTypeRowRepository` onto
- *  `OutputRepository`/`NodeSnapshotRepository`. The public `getCapabilities` signature is
- *  DELIBERATELY left keyed by `DataTypeId` (not `OutputId`) even though it now resolves an
- *  Output — every caller (the still-live `GET /api/types/:id/panel-capabilities` route,
- *  `RefinementGrounding`, `DashboardAuthoringService`, `AssistantToolExecutor`) already threads a
- *  bare id STRING sourced from `WorkspaceContextDataType.id` (itself an Output's id since task
- *  3.12) through a `DataTypeId(...)` wrapper; retargeting every call site's wrapper type is
- *  section 4/5's wire-shape-renaming job, not this task's. `id.value` is reinterpreted as an
- *  `OutputId` internally, which is safe because both are opaque `String` wrappers over the same
- *  id space post-3.12.
- *
- *  Kept separate from [[com.helio.services.pipelines.DataTypeService]] (CRUD-only per its own doc
- *  comment, design.md D6) even though both used to resolve the same DataType; now resolves an
- *  Output instead. */
+ *  HEL-904 task 3.11 rewired this off `DataTypeRepository`/`DataTypeRowRepository` onto
+ *  `OutputRepository`/`NodeSnapshotRepository`. Cycle 29 finishes the retarget: the public
+ *  `getCapabilities` signature is now keyed by `OutputId` (not the retired `DataTypeId`, which no
+ *  longer exists anywhere in `model.scala`) — every caller (`RefinementGrounding`,
+ *  `DashboardAuthoringService`, `AssistantToolExecutor`) now wraps its bare id string directly in
+ *  `OutputId(...)` at the call site, matching what this class actually resolves. */
 final class PanelCapabilityService(
     outputRepo:       OutputRepository,
     nodeSnapshotRepo: NodeSnapshotRepository
 )(implicit ec: ExecutionContext) {
 
-  def getCapabilities(id: DataTypeId, user: AuthenticatedUser): Future[Either[ServiceError, PanelCapabilitiesResponse]] =
-    // findByIdOwned, exactly like DataTypeService.findById used to (design.md D5):
-    // None covers both "doesn't exist" and "belongs to another owner" —
+  def getCapabilities(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, PanelCapabilitiesResponse]] =
+    // findByIdOwned: None covers both "doesn't exist" and "belongs to another owner" —
     // both map to 404, never 403 (existence-not-leaked).
-    outputRepo.findByIdOwned(OutputId(id.value), user).flatMap {
-      case None         => Future.successful(Left(ServiceError.NotFound("DataType not found")))
+    outputRepo.findByIdOwned(id, user).flatMap {
+      case None         => Future.successful(Left(ServiceError.NotFound("Output not found")))
       case Some(output) => rowCountOf(output).map(rowCount => Right(build(output, rowCount)))
     }
 
@@ -66,7 +61,7 @@ final class PanelCapabilityService(
     }.toMap
 
     PanelCapabilitiesResponse(
-      dataTypeId       = output.id.value,
+      outputId         = output.id.value,
       isPipelineOutput = isPipelineOutput,
       columns          = columns,
       rowCount         = rowCount,

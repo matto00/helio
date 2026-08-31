@@ -8,7 +8,7 @@ import com.helio.api.protocols.panels.PanelCapabilitiesResponse
 import com.helio.api.protocols.pipelines.{PipelineStepResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.patchsets.RefinementTarget
 import com.helio.api.protocols.workspace.WorkspaceContextDataType
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataTypeId, Page, Panel, PipelineId}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, OutputId, Page, Panel, PipelineId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 
@@ -97,7 +97,7 @@ final class RefinementGrounding(
    *  the whole grounding assembly. */
   private def fetchCapability(dataTypeId: String, user: AuthenticatedUser): Future[Either[String, (String, PanelCapabilitiesResponse)]] =
     panelCapabilityService
-      .getCapabilities(DataTypeId(dataTypeId), user)
+      .getCapabilities(OutputId(dataTypeId), user)
       .map {
         case Right(capabilities) => Right(dataTypeId -> capabilities)
         case Left(err)           => Left(degradeMessage(dataTypeId, err.message))

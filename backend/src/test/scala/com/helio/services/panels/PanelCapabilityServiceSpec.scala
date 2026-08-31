@@ -133,7 +133,7 @@ class PanelCapabilityServiceSpec extends AnyWordSpec with Matchers with BeforeAn
       )
       writeRows(pid, count = 3)
 
-      val result = await(service.getCapabilities(DataTypeId(output.id.value), userA))
+      val result = await(service.getCapabilities(OutputId(output.id.value), userA))
 
       result match {
         case Right(resp) =>
@@ -175,7 +175,7 @@ class PanelCapabilityServiceSpec extends AnyWordSpec with Matchers with BeforeAn
       val output = insertOutput(pid, schema = Vector(SchemaField("count", "integer")))
       writeRows(pid, count = 500)
 
-      val result = await(service.getCapabilities(DataTypeId(output.id.value), userA))
+      val result = await(service.getCapabilities(OutputId(output.id.value), userA))
 
       result match {
         case Right(resp) =>
@@ -197,7 +197,7 @@ class PanelCapabilityServiceSpec extends AnyWordSpec with Matchers with BeforeAn
       )
       writeRows(pid, count = 2)
 
-      val result = await(service.getCapabilities(DataTypeId(output.id.value), userA))
+      val result = await(service.getCapabilities(OutputId(output.id.value), userA))
 
       result match {
         case Right(resp) =>
@@ -215,15 +215,15 @@ class PanelCapabilityServiceSpec extends AnyWordSpec with Matchers with BeforeAn
       val pid    = insertPipeline(ownerA)
       val output = insertOutput(pid, schema = Vector.empty, owner = ownerA)
 
-      val result = await(service.getCapabilities(DataTypeId(output.id.value), userB))
+      val result = await(service.getCapabilities(OutputId(output.id.value), userB))
 
-      result shouldBe Left(ServiceError.NotFound("DataType not found"))
+      result shouldBe Left(ServiceError.NotFound("Output not found"))
     }
 
     "return 404 for a nonexistent Output id" in {
       cleanDb()
-      val result = await(service.getCapabilities(DataTypeId(UUID.randomUUID().toString), userA))
-      result shouldBe Left(ServiceError.NotFound("DataType not found"))
+      val result = await(service.getCapabilities(OutputId(UUID.randomUUID().toString), userA))
+      result shouldBe Left(ServiceError.NotFound("Output not found"))
     }
   }
 }

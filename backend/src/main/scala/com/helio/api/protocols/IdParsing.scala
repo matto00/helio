@@ -14,7 +14,6 @@ import com.helio.domain.model._
 object IdParsing {
   val DashboardIdSegment: PathMatcher1[DashboardId]         = Segment.map(DashboardId(_))
   val PanelIdSegment: PathMatcher1[PanelId]                 = Segment.map(PanelId(_))
-  val DataTypeIdSegment: PathMatcher1[DataTypeId]           = Segment.map(DataTypeId(_))
   val DataSourceIdSegment: PathMatcher1[DataSourceId]       = Segment.map(DataSourceId(_))
   val PipelineIdSegment: PathMatcher1[PipelineId]           = Segment.map(PipelineId(_))
   val PipelineStepIdSegment: PathMatcher1[PipelineStepId]   = Segment.map(PipelineStepId(_))
@@ -24,7 +23,6 @@ object IdParsing {
   val ImageUploadIdSegment: PathMatcher1[ImageUploadId]     = Segment.map(ImageUploadId(_))
   val AlertRuleIdSegment: PathMatcher1[AlertRuleId]         = Segment.map(AlertRuleId(_))
   val AlertEventIdSegment: PathMatcher1[AlertEventId]       = Segment.map(AlertEventId(_))
-  val MetricIdSegment: PathMatcher1[MetricId]               = Segment.map(MetricId(_))
   val AuthoringConversationIdSegment: PathMatcher1[AuthoringConversationId] = Segment.map(AuthoringConversationId(_))
   val PatchSetApplicationIdSegment: PathMatcher1[PatchSetApplicationId]     = Segment.map(PatchSetApplicationId(_))
   val AssistantConversationIdSegment: PathMatcher1[AssistantConversationId] = Segment.map(AssistantConversationId(_))

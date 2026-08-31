@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.model.{DataType, PipelineStep}
+import com.helio.domain.model.PipelineStep
 import com.helio.domain.steps.{
   AggregateConfig, AggregateStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
   JoinConfig, JoinStep, PivotConfig, PivotStep, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep,
@@ -43,15 +43,11 @@ object PipelineAnalyzeService {
       validationError: Option[String]
   )
 
-  /** Derive a pipeline's source schema from its source DataType's declared
-   *  fields (name + type) — the single derivation both `PipelineService.analyze`
-   *  and `PipelineRunService`'s run-success baseline capture use (HEL-462
-   *  design D1), so the two provably stay in lockstep and "no drift" is the
-   *  guaranteed steady-state for an unchanged source. Mirrors the existing
-   *  `sourceDataTypes.headOption.toVector.flatMap(_.fields)` shape: a source
-   *  has at most one companion DataType, so only its `.headOption` is used. */
-  def deriveSourceSchema(sourceDataTypes: Vector[DataType]): Vector[SchemaField] =
-    sourceDataTypes.headOption.toVector.flatMap(_.fields).map(f => SchemaField(f.name, f.dataType))
+  // HEL-904 cycle 29: `deriveSourceSchema` (took `Vector[DataType]`, the retired per-source
+  // companion-DataType derivation) deleted outright -- zero callers anywhere in main or test
+  // (confirmed by grep before deletion); `PipelineService`/`PipelineRunService` derive the
+  // source schema from `DataSource.inferredSchema` directly since task 2.x, not through this
+  // dead path.
 
   /** Propagate schemas through the ordered step list.
    *

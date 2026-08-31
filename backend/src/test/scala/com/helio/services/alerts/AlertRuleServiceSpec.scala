@@ -87,7 +87,8 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
   /** HEL-904 (task 3.1): `AlertRuleService.create` now resolves a
    *  `targetOutputId` — builds the minimal real source -> pipeline -> Output
    *  chain its FK requires. Renamed call sites keep `.id`/`.id.value`
-   *  unchanged (`Output.id: OutputId` mirrors `DataType.id: DataTypeId`). */
+   *  unchanged (`Output.id: OutputId`, the retired `DataType.id: DataTypeId`'s
+   *  direct successor -- cycle 29 deleted `DataType`/`DataTypeId` outright). */
   private def insertDataType(ownerId: UserId): Output = {
     val now    = Instant.now()
     val user   = AuthenticatedUser(ownerId)

@@ -80,19 +80,8 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     )))
   }
 
-  private def newDataType(ownerId: UserId): DataType = {
-    val now = Instant.now()
-    DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = "MyType",
-      fields    = Vector(DataField("value", "Value", "integer", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = ownerId
-    )
-  }
+  // HEL-904 cycle 29: dead `newDataType` fixture helper (zero call sites) deleted outright --
+  // its retired `DataType`/`DataTypeId` return type no longer exists anywhere in model.scala.
 
   /** HEL-904 (task 3.1): `AlertRule` now targets an Output, not a DataType —
    *  builds the minimal real source -> pipeline -> Output chain a rule's

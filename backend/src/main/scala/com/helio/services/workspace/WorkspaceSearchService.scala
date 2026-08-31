@@ -164,10 +164,12 @@ final class WorkspaceSearchService(
     }
 
   /** Full per-resource detail for exactly one owned resource, dispatched by `resourceType`. Reuses
-   *  `workspaceContextService`'s (now `private[services]`) per-entry converters for the 4 existing
-   *  types rather than duplicating that assembly logic (design.md D1); builds `WorkspaceResourceMetric`
-   *  directly from `MetricDefinition` for the 5th (no existing converter to reuse). Strictly
-   *  owner-scoped for EVERY type, matching `find`'s own owner-only listings — `Left(NotFound)` for an
+   *  `workspaceContextService`'s (now `private[services]`) per-entry converters for the 4 resource
+   *  types below (design.md D1) rather than duplicating that assembly logic. HEL-904 cycle 29: the
+   *  former 5th case (`WorkspaceResourceMetric`, built directly from the now-deleted
+   *  `MetricDefinition`) was already removed in an earlier cycle; this comment had gone stale still
+   *  citing it. Strictly owner-scoped for EVERY type, matching `find`'s own owner-only listings —
+   *  `Left(NotFound)` for an
    *  id that doesn't exist OR isn't owned by `user`, never a leaked "exists but forbidden" signal and
    *  never an exception. */
   def getResource(

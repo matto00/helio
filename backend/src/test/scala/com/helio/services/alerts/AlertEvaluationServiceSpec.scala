@@ -84,19 +84,8 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, ${s"a-$ownerId@helio.test"}, now())"""))
   }
 
-  private def newDataType(): DataType = {
-    val now = Instant.now()
-    DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = "MyType",
-      fields    = Vector(DataField("value", "Value", "integer", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = owner
-    )
-  }
+  // HEL-904 cycle 29: dead `newDataType` fixture helper (zero call sites) deleted outright --
+  // its retired `DataType`/`DataTypeId` return type no longer exists anywhere in model.scala.
 
   /** HEL-904 (task 3.1): `AlertRule` now targets an Output — builds the
    *  minimal real source -> pipeline -> Output chain its FK requires. */

@@ -23,7 +23,7 @@ import com.helio.api.routes.pipelines._
 import com.helio.api.routes.proposals._
 import com.helio.api.routes.sources._
 import com.helio.api.routes.workspace._
-import com.helio.domain.model.{ConnectorId, DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId}
+import com.helio.domain.model.{ConnectorId, DashboardId, DataSourceId, PanelId, PipelineId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.email.{EmailConfig, EmailSender, HttpResendEmailSender}
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}

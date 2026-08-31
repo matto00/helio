@@ -37,7 +37,6 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
 import java.nio.file.Files
-import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -77,7 +76,7 @@ class DashboardAuthoringRoutesSpec
 
   private val userId = UUID.randomUUID().toString
   private val user   = AuthenticatedUser(UserId(userId))
-  private var pipelineOutputType: DataType = _
+  private var pipelineOutputType: String = _
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
@@ -122,14 +121,13 @@ class DashboardAuthoringRoutesSpec
     // Seeded ONCE (not per-test) — `user` is a single shared fixture id for this whole spec, so a
     // per-test insert would violate the `users` primary key on the second test.
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, ${s"$userId@test.local"}, now())"""))
-    val now = Instant.now()
     // HEL-904 task 3.12: `DashboardAuthoringService.assembleGroundedContext`'s "empty workspace"
     // check now filters `WorkspaceContextService.assemble`'s Output-backed `dataTypes` -- a real
-    // pipeline + Output is required for this fixture's workspace to read as non-empty. The
-    // vestigial `DataType` below is kept ONLY so `pipelineOutputType.id.value` (used to bind an
-    // "output"-kind proposal panel's `dataTypeId` field, task 3.9's Output-id semantics) keeps
-    // resolving -- its id is deliberately set to the SAME string as the real Output's id, not a
-    // fresh/unrelated one; it is never inserted into `data_types` itself.
+    // pipeline + Output is required for this fixture's workspace to read as non-empty.
+    // `pipelineOutputType` (used to bind an "output"-kind proposal panel's `dataTypeId` field,
+    // task 3.9's Output-id semantics) is just the real Output's own id string -- HEL-904 cycle 29
+    // dropped the vestigial `DataType` wrapper this used to be built through (the retired
+    // `DataType`/`DataTypeId` types no longer exist anywhere in `model.scala`).
     val sourceReq = StaticDataSourceRequest(
       name    = s"src-${UUID.randomUUID()}",
       `type`  = "static",
@@ -149,17 +147,7 @@ class DashboardAuthoringRoutesSpec
       PipelineId(summary.id), nodeStepId = None, user.id, "Sales", OutputKind.Table,
       schema = Vector(SchemaField("revenue", "float"))
     ))
-    val dt = DataType(
-      id        = DataTypeId(createdOutput.id.value),
-      sourceId  = None,
-      name      = "Sales",
-      fields    = Vector(DataField("revenue", "Revenue", "float", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = user.id
-    )
-    pipelineOutputType = dt
+    pipelineOutputType = createdOutput.id.value
   }
 
   override def afterAll(): Unit = {
@@ -195,7 +183,7 @@ class DashboardAuthoringRoutesSpec
 
     "return 200 with a proposal for a well-wired buffered call" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
@@ -231,7 +219,7 @@ class DashboardAuthoringRoutesSpec
 
     "the response body carries an additive conversationId alongside proposal/warnings" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
@@ -247,7 +235,7 @@ class DashboardAuthoringRoutesSpec
 
     "return 200 with the display-only view for a conversation the caller owns" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       var conversationId: String = ""

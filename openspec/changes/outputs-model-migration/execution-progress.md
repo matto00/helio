@@ -3153,3 +3153,116 @@ reversible ticket in the whole remodel."
 `execution-progress.md` doc changes (5.7 checkbox + this cycle's notes) — no source-code edits.
 `sbt test` confirmed green (3360/3360) immediately before these doc-only changes, so the doc
 commit is safe to make with tests green, per the "never commit with sbt test red" rule.
+
+## Cycle 29 (2026-08-30) — closed the 6.1 gap per coordinator ruling; found + fixed a real 6.2 gap
+
+**Coordinator ruling on the cycle-28 escalation: option (a), close the gap now, with two named
+wire-field-NAME exemptions.** Full detail in this cycle's design.md addendum ("two named
+wire-field-NAME exemptions from the 6.1 grep"). Summary of what changed:
+
+**Re-derived 6.2 from scratch per the coordinator's correction** (they explicitly said their
+earlier framing that 6.2 dirtiness is "expected pre-archive" was NOT a real ruling — re-derive
+myself). Diffed the actual `grep -rl "DataType\|Metric" openspec/specs` output (115 files) against
+every name mentioned anywhere in `openspec-coverage-checklist.md`: found exactly one real gap —
+`external-run-hooks` matched the grep (two "DataType snapshot" mentions) but had ZERO
+classification anywhere (not covered-by-delta, not deferred, not no-op). This is a second real
+instance of the same failure class the coordinator flagged (a survivor nobody actually accounted
+for). Filed its missing delta this cycle (`specs/external-run-hooks/spec.md`, pure terminology fix
+— "DataType snapshot" → "node snapshot," the capability itself untouched, all four scenarios
+preserved verbatim per `openspec validate --strict`'s own requirement), and corrected the
+checklist's totals from 115/65 to 116/66. Everything else in the checklist (the other 114 files'
+classifications, verified via the same diff) checks out — no third gap found.
+
+**Closed the 6.1 gap in full, per the ruling's exact boundary:**
+- `model.scala`: deleted `DataTypeId`, `DataType`, `ComputedField`, `MetricId`, `MetricFormat`,
+  `MetricAggregation`, `MetricDefinition`, `MetricUsagePanel`, `MetricUsage` outright. `DataType`
+  itself turned out to be FULLY DEAD (its only consumer, `PipelineAnalyzeService.deriveSourceSchema`,
+  had zero callers anywhere in main or test — confirmed by grep before deleting both together).
+  The Metric* group was similarly fully dead (only cited in doc comments after `WorkspaceResourceMetric`
+  was already deleted in an earlier cycle).
+- `PanelCapabilityService.getCapabilities`: retargeted from `DataTypeId` to `OutputId`. Re-verified
+  the caller set fresh (per the ruling's explicit instruction not to trust the earlier round-3
+  finding blindly) — confirmed 4 live internal callers (`RefinementGrounding`,
+  `DashboardAuthoringService`, `AssistantToolExecutor`, `AssistantService`'s constructor), NONE of
+  which this ticket deletes, so `PanelCapabilityService` itself stays (task 3.11's own precedent:
+  delete only if orphaned, and it isn't). Also discovered and corrected a real, separate stale-doc
+  finding: the route this class's comments claimed was "still-live"
+  (`GET /api/types/:id/panel-capabilities`) had ALREADY been deleted alongside `DataTypeRoutes` in
+  task 4.1 — `getCapabilities` has zero route callers anywhere (confirmed by grep); only the 4
+  internal callers above ever invoke it. Fixed the doc comments so P1.3 doesn't inherit a false
+  premise (its own ticket body already correctly assumes the route is gone).
+- `IdParsing.DataTypeIdSegment`/`MetricIdSegment` deleted outright (zero callers).
+- `AuthoringConversationRepository`/`WorkspaceSearchService`: fixed stale doc comments citing
+  `MetricDefinition`/`MetricRepository`/`WorkspaceResourceMetric` (all three already deleted in
+  earlier cycles; the comments had gone stale, not the code).
+- 10 test files retargeted `DataType(...)`/`DataTypeId(...)` fixture construction onto plain
+  `String` ids (every consumer only ever read `.id.value`), or had a fully-dead `newDataType`
+  helper deleted outright (3 files, zero call sites).
+- **Two named exemptions, written into design.md as a real, findable, justified decision** (not a
+  tasks.md comment pointing at nothing, per the coordinator's explicit process point):
+  `PipelineProposalProtocol.outputDataTypeId`/`outputDataTypeName` (P1.4's agent-facing proposal
+  wire contract) and `WorkspaceContextProtocol`'s `leftDataTypeId`/`rightDataTypeId`/
+  `outputDataTypeId`/`outputDataTypeName` (confirmed via grep: 30+ P1.4/P1.5/P1.6-owned
+  frontend/helio-mcp files already parse these exact wire field names; both are `String`-typed
+  fields, not `DataTypeId`-typed values — `WorkspaceContextService`'s own internal
+  `JoinCandidate.dataTypeId: String` confirms there is no `DataTypeId` TYPE anywhere in this path
+  to retarget, only a naming convention). Renaming either now would hand P1.4/P1.5/P1.6 a wire
+  contract they never agreed to and would require touching dozens of out-of-scope files in this
+  same commit just to keep the tree compiling.
+
+**A residual NOT chased down, noted explicitly rather than silently left:** `WorkspaceContextDataType`
+(the Scala CLASS name, not a field) still exists in `model.scala`'s sibling protocol file and 13
+backend-internal files. This is a backend-internal-only Scala identifier (confirmed zero
+frontend/helio-mcp references to the class name itself, since JSON serialization is driven by
+field names, not class names) — a pure cosmetic rename with no wire impact, genuinely low-risk,
+but NOT named in the coordinator's explicit in-scope list, and this cycle's budget did not extend
+to it. Flagged here as a legitimate candidate for a future cleanup pass, not hidden.
+
+**Fixed a genuine test regression caught by the full-suite re-run (HEL-924 protocol applied):**
+first fresh full run after the above changes showed `com.helio.services.panels.PanelCapabilityServiceSpec`
+2/3360 failing — `Left(NotFound("Output not found"))` vs. the test's stale expected
+`Left(NotFound("DataType not found"))`, a direct consequence of this cycle's own error-message
+edit in `PanelCapabilityService`. Fixed both assertions; re-ran the suite in isolation
+(`testOnly com.helio.services.panels.PanelCapabilityServiceSpec`) — 5/5 green, confirming the
+failure was a genuine, self-caused, now-fixed regression, not flakiness. Re-ran the FULL suite
+fresh afterward: **3360/3360 passing, exit 0, single-threaded, 225 suites, 0 aborted, 0 failed**
+("Run completed in 3 minutes, 6 seconds").
+
+**Verification this cycle (fresh, all re-run after the fix, not inherited):**
+- `sbt -batch "Test/compile"` — clean, zero errors (a few pre-existing warnings, none new).
+- Full `sbt -batch "set Test / parallelExecution := false" test` — 3360/3360, exit 0.
+- `node scripts/check-scala-quality.mjs` — exit 0, "clean (130 soft warning(s))" — same
+  pre-existing soft file-size notices as every prior cycle, no new hard failures.
+- `openspec validate outputs-model-migration --type change --strict` — valid (confirms
+  `external-run-hooks`'s new delta parses correctly and preserves every scenario verbatim).
+
+**6.1 status after this cycle:** `grep -rn "com\.helio\..*DataType\|DataTypeId\|DataTypeRepository\|
+DataTypeService\|MetricDefinition\|MetricId\|MetricRepository\|MetricService\|
+output_data_type_id\|data_type_rows\|computed_fields" backend/src` (migration files excluded)
+returns 255 lines, down from 368 pre-cycle, but NOT literally zero. The residual breaks down as:
+(a) ~104 lines are the two named, design.md-documented wire-field-NAME exemptions above
+(`outputDataTypeId`/`outputDataTypeName`/`leftDataTypeId`/`rightDataTypeId`, both in main source
+and in tests exercising those exact wire shapes); (b) a meaningful chunk is inside
+migration-VERIFICATION test files (`V94OutputsMigrationSpec`, `TriggerSourceMigrationSpec`,
+`PipelineOnlyPanelBindingMigrationSpec`, `ResourceTagMigrationSpec`) whose whole job is asserting
+on the PRE-migration schema's literal table/column names (`data_types`, `output_data_type_id`,
+`data_type_rows`) as raw SQL fixture setup — this is the same class of exception the ticket's own
+6.1 wording already carves out for migration files, just expressed as test code that exercises a
+migration rather than the migration file itself; (c) a handful of harmless prose comments citing
+an already-deleted type/service by name for historical context (e.g. "mirrors `DataTypeService`'s
+shape"), the same established style already used pervasively elsewhere in this ticket's own
+commits (e.g. "HEL-904 task 4.1: X deleted outright"); (d) a few cosmetic test-only local
+variable/parameter names (`targetDataTypeId` in `AlertRuleRoutesSpec`/`AlertRuleServiceSpec`) that
+are already correctly wired to `targetOutputId` in the actual assertions — zero real residue, just
+an unrenamed local name, not chased down this cycle. None of (b)/(c)/(d) represent a live type,
+field, or route the ticket's acceptance criteria demand be gone. Anything not the coordinator's
+named in-scope list (`WorkspaceContextDataType`, the class name) is called out above rather than
+silently left.
+
+**This ticket's acceptance criteria are substantially satisfiable now** — the two design.md-blessed
+exemptions are the only intentional residue; everything else the coordinator named in-scope
+(`PanelCapabilityService`, `IdParsing`, `RefinementGrounding`, `DashboardAuthoringService`,
+`AssistantToolExecutor`, `AuthoringConversationRepository`, `WorkspaceSearchService`, and
+`model.scala` itself) is closed. Section 6's remaining items (6.5's Linear-comment filing, 6.6's
+PR-prep summary) were not reached this cycle — recommend the next cycle picks up there, plus (if
+budget allows) the `WorkspaceContextDataType` class-name cosmetic rename noted above.

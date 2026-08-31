@@ -7,7 +7,7 @@ import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest}
 import com.helio.api.protocols.patchsets.Edit
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, DataTypeId, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
 import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._

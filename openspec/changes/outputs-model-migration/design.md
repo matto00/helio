@@ -313,3 +313,58 @@ endpoint should be updated in the same pass, not left dangling.
 - **Frontend/MCP breakage is expected, not a regression** — the evaluator
   must not flag "frontend doesn't compile against the new API" as a
   defect; the UI gate is explicitly N/A for this row (decision 17).
+
+## Decision: two named wire-field-NAME exemptions from the 6.1 grep, both P1.4/P1.5-owned surfaces
+
+Cycle 28's execution-cycle audit found `model.scala` still DEFINING (not just historically
+mentioning) `DataTypeId`/`MetricId`/`DataType`/`ComputedField`/`MetricDefinition`/`MetricFormat`/
+`MetricAggregation`/`MetricUsagePanel`/`MetricUsage`, plus internal call sites
+(`PanelCapabilityService`, `IdParsing`, `RefinementGrounding`, `DashboardAuthoringService`,
+`AssistantToolExecutor`) still threading `DataTypeId(...)` wrappers — traced to task 3.11's own
+tasks.md entry deferring the retarget to "section 4/5's wire-shape-renaming job," a task that was
+never actually written anywhere in tasks.md. The coordinator ruled (cycle 28→29 handoff): close
+this gap now, IN THIS TICKET, with exactly two named exemptions for wire FIELD NAMES (not types) —
+everything else in that list is retargeted onto `OutputId`/deleted outright in cycle 29.
+
+**Exemption 1 — `PipelineProposalProtocol.PipelineProposalApplyResponse.outputDataTypeId` /
+`PipelineProposal.outputDataTypeName`.** These are wire FIELD NAMES on the agent-facing pipeline-
+proposal-apply response/request, not a `DataTypeId`-typed value (the field itself is `String`).
+Per this design.md's own "scope of the backend proposal services this ticket must touch" decision
+above, the agent-facing proposal wire contract is P1.4's territory ("make it compile and behave
+sanely," not rebuild the Output-proposal feature). Renaming the field now would not defer work to
+P1.4 — it would hand P1.4 a wire contract it never agreed to, and helio-mcp/frontend proposal-flow
+code (explicitly out of scope here, see ticket.md's "Out of scope" section) already depends on the
+current field name. Exempt; P1.4 renames it if/when it rebuilds that surface.
+
+**Exemption 2 — `WorkspaceContextProtocol`'s `WorkspaceContextJoinHint.leftDataTypeId`/
+`rightDataTypeId` and `WorkspaceContextPipeline.outputDataTypeId`/`outputDataTypeName`.** Same
+class of problem, wider blast radius: these are `GET /api/workspace/context`'s wire field names
+(all typed `String` internally — `WorkspaceContextService`'s own `JoinCandidate.dataTypeId: String`
+confirms there is no `DataTypeId`-typed value anywhere in this path to retarget, only a naming
+convention), and this endpoint is the exact payload helio-mcp's `get_workspace_context`-style tools
+and multiple frontend pipeline/panel pages already parse by these literal key names (confirmed:
+`grep -rln outputDataTypeId helio-mcp/src frontend/src` returns 30+ files, none of which this
+ticket may touch per its "Out of scope" section and per P1.5/P1.6's named ownership of those
+pages). Renaming these field names now would require touching dozens of P1.4/P1.5/P1.6-owned files
+in the SAME commit to keep the tree compiling/passing, which is a scope violation this ticket must
+not make unilaterally. Exempt for the same reason as Exemption 1 — the owning ticket renames it
+when it touches that surface, if it chooses to.
+
+**What IS retargeted in cycle 29 (not exempt):** `PanelCapabilityService.getCapabilities`'s public
+parameter (now `OutputId`, was `DataTypeId`) and its three internal call sites
+(`RefinementGrounding`, `DashboardAuthoringService`, `AssistantToolExecutor`) — these are
+backend-internal-only, zero external wire impact, confirmed by grep before renaming
+(`getCapabilities` has no route wired to it at all; the route it originally backed,
+`GET /api/types/:id/panel-capabilities`, was already deleted alongside `DataTypeRoutes` in task
+4.1 — several doc comments had gone stale still claiming it was "still-live," corrected in cycle
+29). `IdParsing.DataTypeIdSegment`/`MetricIdSegment` deleted outright (zero remaining callers).
+`model.scala`'s `DataTypeId`/`MetricId`/`DataType`/`ComputedField`/`MetricDefinition`/
+`MetricFormat`/`MetricAggregation`/`MetricUsagePanel`/`MetricUsage` all deleted outright (all were
+either fully dead — `DataType`'s only consumer, `PipelineAnalyzeService.deriveSourceSchema`, had
+zero callers anywhere and was deleted alongside it — or test-fixture-only, retargeted to plain
+`String` ids since every consumer only ever read `.id.value`/`.value`). `PanelCapabilityService`
+itself is KEPT, not deleted, per task 3.11's own precedent ("if callers are all retargeted or
+deleted, prefer deleting outright over rewiring into orphanhood") — re-verified fresh in cycle 29:
+it has 4 live internal callers (`RefinementGrounding`, `DashboardAuthoringService`,
+`AssistantToolExecutor`, `AssistantService`'s constructor injection), none of which this ticket
+deletes, so deleting the service itself would be the "orphanhood" it is NOT in.

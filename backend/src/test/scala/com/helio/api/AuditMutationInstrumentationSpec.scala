@@ -14,7 +14,7 @@ import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel, Repl
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.connectors.RestApiConnectorDriver
-import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, CsvSource, DataField, DataSource, DataSourceId, DataSourceKind, DataType, DataTypeId, MetricDefinition, MetricFormat, MetricId, UserId, UserSession}
+import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, CsvSource, DataField, DataSource, DataSourceId, DataSourceKind, UserId, UserSession}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository

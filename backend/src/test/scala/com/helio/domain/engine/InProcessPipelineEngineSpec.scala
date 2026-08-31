@@ -5,7 +5,7 @@ import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, Sq
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.domain.steps._
-import com.helio.domain.model.{DataSource, DataSourceId, DataTypeId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
+import com.helio.domain.model.{DataSource, DataSourceId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest

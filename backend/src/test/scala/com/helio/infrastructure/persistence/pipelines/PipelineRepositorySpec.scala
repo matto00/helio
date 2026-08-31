@@ -3,7 +3,7 @@ package com.helio.infrastructure.persistence.pipelines
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.api.http.{ResourceType, ResourceTypeRegistry}
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataTypeId, PipelineId, UserId}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineId, UserId}
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway

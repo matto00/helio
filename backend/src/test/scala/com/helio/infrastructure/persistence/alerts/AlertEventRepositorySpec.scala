@@ -85,19 +85,8 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     )))
   }
 
-  private def newDataType(ownerId: UserId): DataType = {
-    val now = Instant.now()
-    DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = "MyType",
-      fields    = Vector(DataField("value", "Value", "integer", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = ownerId
-    )
-  }
+  // HEL-904 cycle 29: dead `newDataType` fixture helper (zero call sites) deleted outright --
+  // its retired `DataType`/`DataTypeId` return type no longer exists anywhere in model.scala.
 
   private val defaultCondition: JsValue =
     JsObject("comparator" -> JsString("gt"), "threshold" -> JsNumber(5))

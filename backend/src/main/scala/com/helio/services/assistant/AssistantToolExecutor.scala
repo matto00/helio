@@ -14,7 +14,7 @@ import com.helio.api.protocols.patchsets.{PatchSet, PatchSetPreviewProtocol, Pat
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlInferRequest, SqlSourceConfigPayload}
 import com.helio.api.protocols.workspace.{WorkspaceResourceDetail, WorkspaceResourceSearchProtocol}
-import com.helio.domain.model.{AuthenticatedUser, DataTypeId, WorkspaceResourceType}
+import com.helio.domain.model.{AuthenticatedUser, OutputId, WorkspaceResourceType}
 import spray.json._
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
@@ -164,7 +164,7 @@ final class AssistantToolExecutor(
     // `WorkspaceResourceDetail`, not the narrowed `DataTypeDetail` case-class type `.toJson`'s
     // implicit search would otherwise look for.
     val detailJson: JsValue = (detail: WorkspaceResourceDetail).toJson
-    panelCapabilityService.getCapabilities(DataTypeId(detail.value.id), user).map {
+    panelCapabilityService.getCapabilities(OutputId(detail.value.id), user).map {
       case Right(capabilities) =>
         Right(JsObject("detail" -> detailJson, "panelCapabilities" -> capabilities.toJson).compactPrint)
       case Left(_) =>

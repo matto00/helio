@@ -41,7 +41,6 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
 import java.nio.file.Files
-import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -139,7 +138,7 @@ class AuthoringTelemetrySpec
 
   /** A fresh user with one pipeline-output DataType — a non-empty workspace. Returns the
    *  `DataType` too so callers that need to bind a proposal panel to it don't have to re-query. */
-  private def userWithWorkspace(): (AuthenticatedUser, DataType) = {
+  private def userWithWorkspace(): (AuthenticatedUser, String) = {
     implicit val ec: ExecutionContext = routeEc
     val owner = newUser()
     // HEL-904 task 3.12: `DashboardAuthoringService.assembleGroundedContext`'s "empty workspace"
@@ -166,22 +165,11 @@ class AuthoringTelemetrySpec
       PipelineId(summary.id), nodeStepId = None, owner.id, "Sales", OutputKind.Table,
       schema = Vector(SchemaField("revenue", "float"))
     ))
-    val now = Instant.now()
-    // The legacy `DataType` this helper returns is kept ONLY so its existing callers' `.id.value`
-    // (used to bind an "output"-kind proposal panel's `dataTypeId` field, task 3.9's own
-    // Output-id semantics) keeps resolving -- its id is deliberately set to the SAME string as
-    // the real Output's id above, not a fresh/unrelated one.
-    val dt = DataType(
-      id        = DataTypeId(createdOutput.id.value),
-      sourceId  = None,
-      name      = "Sales",
-      fields    = Vector(DataField("revenue", "Revenue", "float", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = owner.id
-    )
-    (owner, dt)
+    // `userWithWorkspace` returns the real Output's own id string (HEL-904 cycle 29: the
+    // vestigial `DataType`/`DataTypeId` wrapper this used to be built through is deleted --
+    // neither type exists anywhere in `model.scala` anymore) -- used to bind an "output"-kind
+    // proposal panel's `dataTypeId` field (task 3.9's Output-id semantics).
+    (owner, createdOutput.id.value)
   }
 
   private def cannedResponse(text: String): Future[ClaudeApiResponse] =
@@ -348,7 +336,7 @@ class AuthoringTelemetrySpec
       val (user, dt) = userWithWorkspace()
       val modelId = s"model-${UUID.randomUUID()}"
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)), modelId)
 
       var responseAuthoringRequestId: String = ""
@@ -448,7 +436,7 @@ class AuthoringTelemetrySpec
       val (user, dt) = userWithWorkspace()
       val modelId = s"model-${UUID.randomUUID()}"
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(""), Seq(ClaudeStreamEvent.TextDelta(validJson), ClaudeStreamEvent.MessageStop)), modelId)
 
       var resultAuthoringRequestId: String = ""

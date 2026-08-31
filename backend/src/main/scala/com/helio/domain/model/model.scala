@@ -10,7 +10,6 @@ import spray.json._
 final case class DashboardId(value: String) extends AnyVal
 final case class PanelId(value: String) extends AnyVal
 final case class DataSourceId(value: String) extends AnyVal
-final case class DataTypeId(value: String) extends AnyVal
 final case class UserId(value: String) extends AnyVal
 final case class PipelineId(value: String) extends AnyVal
 final case class AlertRuleId(value: String) extends AnyVal
@@ -646,30 +645,6 @@ final case class DataField(
     nullable: Boolean
 )
 
-final case class ComputedField(
-    name: String,
-    displayName: String,
-    expression: String,
-    dataType: String
-)
-
-final case class DataType(
-    id: DataTypeId,
-    sourceId: Option[DataSourceId],
-    name: String,
-    fields: Vector[DataField],
-    computedFields: Vector[ComputedField] = Vector.empty,
-    version: Int,
-    createdAt: Instant,
-    updatedAt: Instant,
-    ownerId: UserId,
-    // HEL-366: optional free-form grouping tag. For a source-companion
-    // DataType this mirrors its owning DataSource's tag; for a pipeline
-    // output DataType this mirrors its producing Pipeline's tag (both
-    // propagated at create time — see design.md Decision 6 / tasks.md 2.3).
-    tag: Option[String] = None
-)
-
 sealed trait Role
 object Role {
   case object Viewer extends Role
@@ -1015,8 +990,6 @@ final case class AlertEvent(
     snoozedUntil: Option[Instant]
 )
 
-final case class MetricId(value: String) extends AnyVal
-
 /** HEL-397 — a server-persisted, owner-scoped, multi-turn authoring conversation (the pre-apply
  *  refinement of a `DashboardProposal`; see `AuthoringConversationRepository`). */
 final case class AuthoringConversationId(value: String) extends AnyVal
@@ -1032,68 +1005,6 @@ final case class PatchSetApplicationId(value: String) extends AnyVal
  *  `AuthoringConversationId` — that type is HEL-397's pre-apply `DashboardProposal`-refinement
  *  conversation; this one is HEL-659's general-purpose assistant chat history. */
 final case class AssistantConversationId(value: String) extends AnyVal
-
-/** Display formatting hints for a [[MetricDefinition]]'s value — all optional,
- *  purely presentational (no effect on the underlying aggregation). */
-final case class MetricFormat(
-    unit: Option[String],
-    decimals: Option[Int],
-    prefix: Option[String],
-    suffix: Option[String]
-)
-
-/** Allow-list for `MetricDefinition.aggregation` (HEL-446). Deliberately a
- *  flat `Set[String]` + `validate`, not a `sealed trait` ADT like `Severity`/
- *  `Comparator`/`ScheduleKind` — `MetricDefinition.aggregation` stays a raw
- *  `String` field per the ticket's literal field list, validated only at the
- *  repository insert/update boundary (design.md Decision 1), not at
- *  construction. */
-object MetricAggregation {
-  val values: Set[String] = Set("sum", "avg", "min", "max", "count", "countDistinct")
-
-  def validate(s: String): Either[String, String] =
-    if (values.contains(s)) Right(s)
-    else Left(s"Unknown aggregation: '$s'. Valid values: ${values.toList.sorted.mkString(", ")}")
-}
-
-/** HEL-446 — Semantic/Metric Layer foundation (data-layer only; no CRUD
- *  service/routes yet, see HEL-418-B onward). A metric names a reusable
- *  measure over a pipeline-output `DataType`: an aggregation function applied
- *  to `measureField`, the dimensions it may be grouped by, and a display
- *  format. `aggregation` is validated against `MetricAggregation.values` at
- *  the repository boundary (design.md Decision 1), not at construction. */
-final case class MetricDefinition(
-    id: MetricId,
-    ownerId: UserId,
-    dataTypeId: DataTypeId,
-    name: String,
-    description: Option[String],
-    measureField: String,
-    aggregation: String,
-    allowedDimensions: Vector[String],
-    format: MetricFormat,
-    deprecated: Boolean = false,
-    createdAt: Instant,
-    updatedAt: Instant
-)
-
-/** One panel bound to a metric, for the "where used" query (HEL-560) —
- *  carries its owning dashboard's id/name so the caller never needs a
- *  second round trip to render "Panel X on Dashboard Y". */
-final case class MetricUsagePanel(
-    panelId: PanelId,
-    panelTitle: String,
-    dashboardId: DashboardId,
-    dashboardName: String
-)
-
-/** Owner-scoped usage summary for `GET /api/metrics/:id/usage` and the
- *  pre-delete count `MetricService.delete` computes (HEL-560 design.md D1). */
-final case class MetricUsage(
-    metricId: MetricId,
-    count: Int,
-    panels: Vector[MetricUsagePanel]
-)
 
 /** HEL-472 (420-A, Agent Memory & Preferences) — a per-user, schema-bounded store of
  *  agent-authoring defaults (series colors, default panel styling, naming conventions), plus a

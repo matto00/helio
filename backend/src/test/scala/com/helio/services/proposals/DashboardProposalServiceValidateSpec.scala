@@ -39,8 +39,8 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private val ownerId = UserId(UUID.randomUUID().toString)
   private val user    = AuthenticatedUser(ownerId)
 
-  private val outputTypeId    = DataTypeId(UUID.randomUUID().toString)
-  private val companionTypeId = DataTypeId(UUID.randomUUID().toString)
+  private val outputTypeId    = UUID.randomUUID().toString
+  private val companionTypeId = UUID.randomUUID().toString
 
   // HEL-904 task 3.8/3.9: an "output"-kind panel's binding now validates
   // against a real Output, not a DataType.
@@ -50,11 +50,11 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private def newService(outputRepo: OutputRepository = mock(classOf[OutputRepository])): DashboardProposalService =
     new DashboardProposalService(null, null, outputRepo)
 
-  private def metricPanel(dataTypeId: DataTypeId, `type`: String = "output"): ProposalPanel =
+  private def metricPanel(dataTypeId: String, `type`: String = "output"): ProposalPanel =
     ProposalPanel(
       title        = "Total",
       `type`       = `type`,
-      dataTypeId   = Some(dataTypeId.value),
+      dataTypeId   = Some(dataTypeId),
       metricId     = None,
       fieldMapping = Some(JsObject("value" -> JsString("region"))),
       aggregation  = None,
@@ -76,7 +76,7 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
 
     "accept a structurally valid proposal bound to a pipeline-output DataType" in {
       val outputRepo = mock(classOf[OutputRepository])
-      when(outputRepo.findByIdOwned(OutputId(outputTypeId.value), user)).thenReturn(Future.successful(Some(realOutput(OutputId(outputTypeId.value)))))
+      when(outputRepo.findByIdOwned(OutputId(outputTypeId), user)).thenReturn(Future.successful(Some(realOutput(OutputId(outputTypeId)))))
 
       val proposal = DashboardProposal("Sales", Vector(metricPanel(outputTypeId)))
       val result   = await(newService(outputRepo).validate(proposal, user))
@@ -91,7 +91,7 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     // not-found.
     "reject a binding to a nonexistent Output, identically to apply" in {
       val outputRepo = mock(classOf[OutputRepository])
-      when(outputRepo.findByIdOwned(OutputId(companionTypeId.value), user)).thenReturn(Future.successful(None))
+      when(outputRepo.findByIdOwned(OutputId(companionTypeId), user)).thenReturn(Future.successful(None))
 
       val proposal = DashboardProposal("Sales", Vector(metricPanel(companionTypeId)))
       val result   = await(newService(outputRepo).validate(proposal, user))
