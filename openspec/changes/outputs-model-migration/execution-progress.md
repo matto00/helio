@@ -2930,3 +2930,127 @@ exactly as the resume brief anticipated ("this cycle's primary task... treat it 
    `check-schema-drift.mjs` update those require. Do NOT attempt 5.5 (the 71-file OpenSpec
    capability-spec pass) — that is being fanned out to multiple parallel agents in a dedicated
    future cycle.
+
+## Cycle 27 (2026-08-30) — section 5, tasks 5.1-5.4/5.6 only (5.5 deliberately untouched)
+
+Starting state verified fresh: HEAD = `cecf29d1` (cycle 26's commit), tree clean, `sbt test`
+3360/3360 confirmed by re-reading cycle 26's own completed run output (not trusted blindly).
+
+**Scope this cycle, per the resume brief: 5.1, 5.2, 5.3, 5.4, 5.6 only. Task 5.5 (the 71-file
+OpenSpec capability-spec pass) deliberately NOT touched — reserved for a dedicated parallel
+fan-out cycle, per the resume brief's explicit instruction.**
+
+**Verify-before-redo pass (per the resume brief's own instruction — several tasks turned out to
+already be complete from earlier cycles' incidental schema-drift fixes):**
+- 5.1: `schemas/metrics/` was already deleted (cycle 25). `schemas/data-types/
+  data-type-assertion-status.schema.json` was still present, untouched. Moved this cycle via
+  `git mv` to `schemas/outputs/output-assertion-status.schema.json`, `$id` updated to match;
+  content otherwise untouched (a pure relocation per the ticket's own wording — "moving," not a
+  reshape). `schemas/data-types/` directory now gone.
+- 5.2: **NOT already done** — `schemas/panels/panel.schema.json`'s `oneOf` still carried the full
+  9-arm bound-kind set (`metric`/`chart`/`table`/`text`/`markdown`/`image`/`divider`/
+  `collection`/`timeline`) even though the `type` enum property itself had already been
+  additively updated to the final 5-value set by an earlier cycle (a real, if latent, schema
+  inconsistency: the enum said 5 values were valid, but 4 of those 5 had no matching `oneOf` arm
+  at all, and the schema still accepted 4 retired kinds with no backing domain model). Fixed this
+  cycle: collapsed `oneOf` to the actual 5 arms (`output`/`text`/`markdown`/`image`/`divider`),
+  deleted the five retired bound `$defs` (`MetricConfig`/`ChartConfig`/`TableConfig`/
+  `CollectionConfig`/`TimelineConfig` + their nested `MetricAggregation`/`ChartAggregation`/
+  `ChartOptions`/`LineChartOptions`/`BarChartOptions`/`PieChartOptions`/`ScatterChartOptions`/
+  `CollectionItemOptions`/`CollectionMetricItemOptions`/`TimelineOptions` defs — 12 dead `$defs`
+  removed in total), added `OutputConfig` (`{outputId: string}`, no `required` array — matching
+  `OutputPanelConfig.decode`'s tolerant empty-string-sentinel read path, confirmed by reading the
+  actual Scala decoder before writing the schema, not assumed). **A second real drift found while
+  doing this** (not caught by the drift script, since it only diffs enum value-sets, never
+  inspects `$defs` shapes): `TextConfig`/`MarkdownConfig` still declared `dataTypeId`/
+  `fieldMapping` properties, but `TextPanelConfig`/`MarkdownPanelConfig` (read directly,
+  `backend/src/main/scala/com/helio/domain/panels/{Text,Markdown}Panel.scala`) are each a
+  single-field case class (`content: String` only) — neither kind has carried a binding slot
+  since CS2c-3b's per-kind split. Trimmed both `$defs` to their actual single `content` property.
+  `create-panel-request.schema.json`'s `allOf` mirrored the same 5-arm collapse. Also fixed
+  `create-panels-batch-request.schema.json`'s `type` enum, which had NEVER been updated past the
+  original 9-value list (not covered by the drift script's `panelTypeSurfaces` array at all, so
+  this was a silent, mechanically-undetected drift) — corrected to the canonical 5 values.
+  Deleted `panel-capabilities-response.schema.json` (its only backing route,
+  `GET /api/types/:id/panel-capabilities`, was already deleted with `DataTypeRoutes` per task
+  3.11/4.1 — `PanelCapabilityService` itself is explicitly KEPT per design.md's own decision, it
+  is simply no longer route-facing, so its schema-documented wire contract is gone) and
+  `panel-query.schema.json` (confirmed zero references anywhere in `schemas/`, `backend/`,
+  `frontend/`, or `scripts/` before deleting). `bound-panel-request/response` were confirmed
+  already absent (no prior cycle's note claims credit — presumably retired alongside
+  `BoundPanelService` in an earlier cycle without an explicit mention).
+- 5.3: **already fully done** — verified via grep that all four `schemas/alerts/*.schema.json`
+  files reference only `targetOutputId`, zero `targetDataTypeId`/`dataTypeId` survivors. No
+  changes needed.
+- 5.4: **already fully done**, verified point-by-point against design.md's Gate-Chain
+  Implications Checklist rather than assumed from the drift script passing alone:
+  (a) arm-count guard already reads `< 5` with an updated message; (b) `extractBetween`'s
+  `"def fromString(s: String)"`/`"def asString(t: PanelType)"` markers still match — `PanelType`
+  was never renamed by 3.6, so no update was ever needed here; (c) the `panelTypeSurfaces`
+  pointers read `["properties", "type", "enum"]`, NOT `.kind.enum` — this is CORRECT, not a
+  leftover gap: the wire field never actually renamed to `kind` (see below); (d)
+  `dashboard-proposal.schema.json`'s `ProposalPanel.properties.type.enum` is compared against
+  `agentFacingPanelTypes` (4 values, divider excluded) — correct, confirmed by re-running the
+  script fresh; (e) both `dataPanelTypeSurfaces` arrays already read `["output"]`, matching
+  task 3.10's `DataPanelKinds` retarget — confirmed by re-running the script fresh.
+  **Important finding, documented so it isn't mistaken for an unfinished gap by a future
+  cycle:** tasks.md's original 5.4(c) text describes a plan to rename the wire field from
+  `type` to `kind` ("re-pointed from `properties.type.enum` to `properties.kind.enum` to match
+  task 5.2's field rename"). That rename never actually happened, and correctly so — reading
+  `PanelResponse`/`CreatePanelRequest` in `PanelProtocol.scala` confirms both still carry a
+  backtick-quoted `` `type` `` field (`jsonFormat9`/`jsonFormat5` derive the JSON key `"type"`
+  directly from the case-class field name). The ticket's "placement model (`kind`/`outputId`)"
+  language describes `Panel`'s *domain*-level discriminator (the trait method is literally named
+  `kind`, per `Panel.scala`), not a wire-level rename — `PanelResponse.fromDomain` maps
+  `panel.kind` onto the wire's `` `type` `` field, and always has. The schemas (both before and
+  after this cycle's edits) correctly track the actual wire contract (`"type"` key, 5-value
+  enum), not the stale round-3 plan text. Documented this explicitly in tasks.md's 5.2/5.4 entries
+  so a future cycle doesn't "fix" the schemas onto a `kind` key that was never real.
+- 5.6: all four gates re-run fresh after 5.1-5.4's edits (see Verification below) — none were
+  previously verified against THIS cycle's edits, so this was a genuine fresh run, not an
+  inherited pass.
+
+**5.5 explicitly NOT attempted** — per the resume brief, reserved for a dedicated parallel
+fan-out cycle. Left entirely untouched (no `openspec/specs/` files read or modified this cycle).
+
+**Verification this cycle (fresh, exit codes/output read directly):**
+- `node scripts/check-schema-drift.mjs` — "schemas in sync with JsonProtocols (60 checked across
+  46 protocol files)", "panel-type enums in sync with backend canonical sets (7 surfaces
+  checked)", exit 0.
+- `npm run check:schemas` — same result via the package-script wrapper, exit 0.
+- `npm run check:openspec` — "openspec/ is clean", exit 0.
+- `npm run check:openspec:selftest` — 17/17 passed, exit 0.
+- `python3 -c "import json; json.load(...)"` on every edited/moved JSON schema file — all parse
+  cleanly (caught and fixed one self-introduced trailing-comma syntax error in
+  `create-panel-request.schema.json` before it reached the drift check).
+- `grep -rl` sweep confirming zero remaining references anywhere in the repo to the deleted
+  `MetricConfig`/`ChartConfig`/`TableConfig`/`CollectionConfig`/`TimelineConfig` `$defs`, the two
+  deleted schema files, or the old `schemas/data-types/` path.
+- `sbt -batch compile` — clean (no backend source touched this cycle; this run is a sanity check,
+  not exercising anything new).
+- Full `sbt -batch "set Test / parallelExecution := false" test` (single-threaded, HEL-924
+  protocol) — **3360/3360 passing**, exit code 0, 225 suites, 0 aborted, 0 failed — identical
+  count to cycle 26's own confirmed-green run, as expected for a schemas-only diff with zero
+  backend source changes.
+
+**Honest boundary this cycle stops at:** only 5.1/5.2/5.3/5.4/5.6 are `[x]`. 5.5 (71-file
+OpenSpec capability-spec pass) and 5.7 (the `agentFacingKinds` mechanical constant edit in
+`helio-mcp/src/tools/proposal.ts`/`dashboard-proposal.schema.json` — separately scoped from 5.4,
+per tasks.md's own round-4 correction) remain open. Section 6 (final verification: full
+`grep -rn` acceptance-criteria sweep, `check:scala-quality`, the deferred-capability PR-comment
+follow-ups) has not been started.
+
+**Next cycle should:**
+1. Task 5.7 — the `helio-mcp/src/tools/proposal.ts` `PANEL_TYPES` / `dashboard-proposal.schema.json`
+   `ProposalPanel.properties.type.enum` mechanical edit to `agentFacingKinds`
+   (`output, text, markdown, image` — divider excluded) — check current state first, since 3.6's
+   additive increment may have already landed a compatible value; verify against
+   `check-schema-drift.mjs`'s own `agentFacingPanelTypes` derivation rather than assuming.
+2. Task 4.6 (splitting oversized pipeline service files, HEL-689) remains open, lowest priority,
+   explicitly deferrable — pick up only if time remains after higher-priority items.
+3. Task 5.5 — the dedicated parallel fan-out cycle's own job; do not attempt piecemeal from a
+   single-executor cycle given its 71-file/115-file-enumeration size, per every prior cycle's own
+   scoping note.
+4. Section 6 (final verification sweep) is the last remaining section — its own acceptance-
+   criteria grep, `check:scala-quality`, and the deferred-capability PR-comment follow-ups should
+   land only once 5.5/5.7 are both closed out.

@@ -490,52 +490,82 @@
 
 ## 5. Schemas + drift script + OpenSpec (pre-commit gate)
 
-- [ ] 5.1 Delete `schemas/metrics/`, `schemas/data-types/` (moving
+- [x] 5.1 Delete `schemas/metrics/`, `schemas/data-types/` (moving
       `data-type-assertion-status` → `schemas/outputs/output-assertion-status.schema.json`).
-      Partially done ahead of schedule this cycle: `schemas/metrics/` (4 files) deleted outright
-      because 4.1's `MetricProtocol` deletion left it failing `check-schema-drift.mjs` on its own
-      (no case class backs it anymore) — the gate has to be green on every commit, not just at
-      section 5. `schemas/data-types/data-type-assertion-status.schema.json` is untouched: its
-      backing case class (`AssertionStatusResponse`, in `PipelineProtocol.scala`) was never
-      DataType-specific — only `assertionStatusForDataType`/`DataTypeRoutes`, its ACL-checked
-      caller, were deleted — so the drift check doesn't flag it, and the schema move to
-      `schemas/outputs/` stays this task's own job.
-- [ ] 5.2 Reshape `schemas/panels/panel.schema.json` + `create-panel-request` + batch
-      request/response to the placement model (`kind`/`outputId`); delete
-      `bound-panel-request/response`, `panel-capabilities-response`, `panel-query`.
-- [ ] 5.3 Re-target `schemas/alerts/*` to `targetOutputId`.
-- [ ] 5.4 Update `scripts/check-schema-drift.mjs` (its own line numbers, cited below — NOT the
-      target files' line numbers, a round-3 citation error corrected in round 4) in the SAME
-      commit as 4.1/5.1/5.2/3.6/3.10 — five concrete, independently-breaking pieces (see design.md's
-      Gate-Chain Implications Checklist for the full technical detail):
-      (a) the hard arm-count guard at `check-schema-drift.mjs:205` (`< 8` → `< 5` or `=== 5`,
-      update its error message);
-      (b) the `extractBetween` markers at `check-schema-drift.mjs:195-199` if task 3.6 renames
-      `PanelType`/its `fromString`/`asString` methods;
-      (c) the four `panelTypeSurfaces` JSON pointers at `check-schema-drift.mjs:232-263`
-      (`create-panel-request.schema.json`, `panel.schema.json`,
-      `update-panels-batch-request.schema.json`) re-pointed from `properties.type.enum` to
-      `properties.kind.enum` to match task 5.2's field rename;
-      (d) `dashboard-proposal.schema.json`'s `$defs.ProposalPanel.properties.type.enum` (checked at
-      `check-schema-drift.mjs:255-263`, compared against `agentFacingPanelTypes`) — value and
-      ownership are task 5.7's, not restated here (round-4 fix: this bullet previously said "the
-      new kind set," 5 values including `divider`, while 5.7 says `agentFacingKinds`, 4 values;
-      the drift script compares this exact pointer against `agentFacingPanelTypes`, so 5.7's value
-      is the only one that keeps the gate green — this file's OTHER changes stay P1.4's, only this
-      one enum array is touched here);
-      (e) the two `dataPanelTypeSurfaces` arrays — `helio-mcp/src/tools/proposalValidation.ts:19`
-      (`DATA_PANEL_TYPES`) and `frontend/.../ProposalReview.tsx:29,60,146` (`DATA_PANEL_TYPES`),
-      checked at `check-schema-drift.mjs:275-297` — updated to `["output"]`, matching task 3.10's
-      corrected `DataPanelKinds` retarget (NOT the six-visualization-kind set a round-3 draft of
-      this task named — that would invert the validation, see design.md's round-4 finding).
+      `schemas/metrics/` was already deleted ahead of schedule (cycle 25, alongside `MetricProtocol`'s
+      deletion). Landed this cycle: `schemas/data-types/data-type-assertion-status.schema.json`
+      moved to `schemas/outputs/output-assertion-status.schema.json` via `git mv` (`$id` updated to
+      match the new path; field shapes/description left untouched — the ticket instruction was
+      "moving," not a content reshape, and the backing case class `AssertionStatusResponse` is now
+      dead code with zero constructor call sites, out of this task's scope to clean up).
+      `schemas/data-types/` directory removed (now empty).
+- [x] 5.2 Reshape `schemas/panels/panel.schema.json` + `create-panel-request` + batch
+      request/response to the placement model; delete `panel-capabilities-response`, `panel-query`.
+      (`bound-panel-request/response` were already absent — confirmed via `ls`, no prior cycle
+      left a note claiming credit for their deletion, so presumably retired earlier alongside
+      `BoundPanelService`.) Landed this cycle: `panel.schema.json`'s `oneOf` collapsed from 9 arms
+      (metric/chart/table/text/markdown/image/divider/collection/timeline) to the actual 5-kind
+      set (output/text/markdown/image/divider) matching `Panel.Registry`; the five retired bound
+      `$defs` (`MetricConfig`/`ChartConfig`/`TableConfig`/`CollectionConfig`/`TimelineConfig` +
+      their nested aggregation/options defs) deleted, replaced by a single `OutputConfig` def
+      (`{outputId: string}`, no `required`, matching `OutputPanelConfig.decode`'s tolerant
+      empty-string-sentinel read path — the server still 400s an outputId-less output panel at
+      create/update time via `validateConfig`, this is a wire-shape/decode-tolerance distinction,
+      not a validation gap). Also found and fixed (real drift the enum-only check couldn't catch,
+      since it doesn't inspect `$defs` shapes): `TextConfig`/`MarkdownConfig` still carried
+      `dataTypeId`/`fieldMapping` properties — confirmed dead by reading `TextPanelConfig`/
+      `MarkdownPanelConfig` (`case class TextPanelConfig(content: String)`, single field, no
+      binding slot survives on either kind) — trimmed both defs to their actual single `content`
+      property. `create-panel-request.schema.json`'s `allOf` mirrors the same 5-arm collapse.
+      `create-panels-batch-request.schema.json`'s `type` enum (stale 9-value list, not covered by
+      the drift script's `panelTypeSurfaces`) corrected to the same 5 values for internal
+      consistency; `update-panels-batch-request.schema.json` already had the correct 5-value enum
+      and no discriminated `config` shape to begin with (unchanged). **Field name stays `type`, not
+      `kind`, on the wire** — task 5.4(c)'s "`properties.kind.enum`" plan below never actually
+      landed: `PanelResponse`/`CreatePanelRequest` (`PanelProtocol.scala`) still carry a
+      backtick-quoted `` `type` `` field (JSON key `"type"`), confirmed by reading the case classes
+      and `panelResponseFormat`/`createPanelRequestFormat`'s `jsonFormatN` derivations — the
+      "placement model" the ticket asks for is a *conceptual* rename (Panel's domain discriminator
+      is called `kind` internally), not a wire-level one; the wire contract's `type` key never
+      changed across 3.6's whole increment. Schemas correctly reflect this actual (not
+      aspirational) wire shape — verified against `check-schema-drift.mjs`, which itself still
+      checks `properties.type.enum`, not `.kind.enum` (see 5.4 below).
+- [x] 5.3 Re-target `schemas/alerts/*` to `targetOutputId`. Already fully done (earlier cycle,
+      alongside section 3.1's alert-rule rewire) — verified this cycle via grep: all four
+      `schemas/alerts/*.schema.json` files reference only `targetOutputId`, zero remaining
+      `targetDataTypeId`/`dataTypeId` references.
+- [x] 5.4 Update `scripts/check-schema-drift.mjs` per design.md's Gate-Chain Implications
+      Checklist. Verified this cycle (all already correct from earlier incremental cycles, no
+      further edit needed):
+      (a) the hard arm-count guard already reads `if (canonicalPanelTypes.length < 5)` with an
+      updated error message referencing the 5-value end state (not the stale round-3 `< 8`).
+      (b) `extractBetween`'s markers (`"def fromString(s: String)"` / `"def asString(t: PanelType)"`)
+      still match `model.scala`'s actual method names — `PanelType`/`fromString`/`asString` were
+      never renamed by task 3.6, so no marker update was needed.
+      (c) the `panelTypeSurfaces` JSON pointers already read `["properties", "type", "enum"]` (not
+      `.kind.enum`) across all three arm-count-checked schema files — correct, since the wire field
+      never renamed to `kind` (see 5.2's note above); the round-3 plan's `kind` rename premise did
+      not survive into the actual implementation, and the script correctly tracks reality, not the
+      stale plan text.
+      (d) `dashboard-proposal.schema.json`'s `$defs.ProposalPanel.properties.type.enum` is checked
+      against `agentFacingPanelTypes` (4 values, `divider` excluded) — already correct, confirmed
+      by re-running the drift script fresh (green).
+      (e) the two `dataPanelTypeSurfaces` arrays (`helio-mcp/src/tools/proposalValidation.ts`
+      `DATA_PANEL_TYPES`, `frontend/.../ProposalReview.tsx` `DATA_PANEL_TYPES`) are already
+      `["output"]`, matching task 3.10's corrected `DataPanelKinds` retarget — confirmed by
+      re-running the drift script fresh (green, "panel-type enums in sync ... 7 surfaces checked").
 - [ ] 5.5 Delete/rewrite backend-facing OpenSpec capability specs — this ticket owns all 71
       capability deltas in this change's own `specs/` directory (round 3, full 115-file
       enumeration — see `openspec-coverage-checklist.md` for the authoritative per-capability
       classification: 65 of the 115 grep-matched files delta'd here, plus 6 further capability
       dirs not matched by the literal grep, 50 explicitly deferred to a named P-ticket, 1
       verified no-op); run `openspec archive` at delivery time to apply them, not before.
-- [ ] 5.6 `check:schemas`, `check-schema-drift.mjs`, `check:openspec`, `check:openspec:selftest`
-      green.
+- [x] 5.6 `check:schemas`, `check-schema-drift.mjs`, `check:openspec`, `check:openspec:selftest`
+      green. All four re-run fresh this cycle after 5.1-5.4's edits: `npm run check:schemas`
+      ("schemas in sync with JsonProtocols (60 checked across 46 protocol files)", "panel-type
+      enums in sync with backend canonical sets (7 surfaces checked)"); `npm run check:openspec`
+      ("openspec/ is clean"); `npm run check:openspec:selftest` (17/17 passed). `sbt compile` also
+      re-confirmed clean (no backend source touched this cycle, schemas-only diff).
 - [ ] 5.7 Mechanical constant/enum edit for the OTHER cross-surface arrays (NOT a feature
       rewrite — see design.md's Gate-Chain decision; `DataPanelKinds` itself is task 3.10's job,
       not this one, since it is a live predicate, not a passive list): update
