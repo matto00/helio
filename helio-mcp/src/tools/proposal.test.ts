@@ -1,10 +1,9 @@
 /**
- * HEL-549 tasks.md 4.4 — unit tests for `propose_dashboard`'s metricId
- * warning paths (missing/deprecated/unsupported-type/valid) and `applyReady`
- * reflecting them (applyReady is `warnings.length === 0` in `proposal.ts`,
- * pinned directly below). First coverage of the propose_dashboard validation
- * surface (none existed before this change, per design.md's Risks/
- * Trade-offs).
+ * `propose_dashboard`'s dataTypeId binding-warning tests (HEL-223; formerly
+ * HEL-549's `metricId` coverage — metrics are deleted wholesale by HEL-904
+ * decision 11, so the metricId warning path was removed outright from
+ * `proposalValidation.ts`, not disabled, and this suite was rewritten to
+ * match).
  *
  * Imports from `./proposalValidation.js` (NOT `./proposal.js`) deliberately
  * — see that module's docstring: importing `proposal.ts` directly pulls its
@@ -16,7 +15,7 @@
  */
 
 import { computeProposalWarnings } from "./proposalValidation.js";
-import type { DataTypeResponse, MetricResponse, ProposalPanel } from "../types.js";
+import type { DataTypeResponse, ProposalPanel } from "../types.js";
 
 const pipelineOutputType: DataTypeResponse = {
   id: "dt-1",
@@ -28,34 +27,27 @@ const pipelineOutputType: DataTypeResponse = {
   updatedAt: "2026-01-01T00:00:00Z",
 };
 
-function metricFixture(overrides: Partial<MetricResponse> = {}): MetricResponse {
-  return {
-    id: "metric-1",
-    ownerId: "user-1",
-    dataTypeId: "dt-1",
-    name: "Total Revenue",
-    measureField: "amount",
-    aggregation: "sum",
-    allowedDimensions: [],
-    format: { unit: "$" },
-    deprecated: false,
-    createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: "2026-01-01T00:00:00Z",
-    ...overrides,
-  };
-}
+const sourceCompanionType: DataTypeResponse = {
+  ...pipelineOutputType,
+  id: "dt-2",
+  name: "Raw Revenue",
+  sourceId: "src-1",
+};
 
 function panelFixture(overrides: Partial<ProposalPanel> = {}): ProposalPanel {
   return {
     title: "Revenue",
-    type: "metric",
+    type: "output",
     dataTypeId: "dt-1",
     fieldMapping: { value: "amount" },
     ...overrides,
   };
 }
 
-const typesById = new Map([["dt-1", pipelineOutputType]]);
+const typesById = new Map([
+  ["dt-1", pipelineOutputType],
+  ["dt-2", sourceCompanionType],
+]);
 
 /** `applyReady` is computed the same way `propose_dashboard` computes it
  *  (`warnings.length === 0`) — pinned here rather than re-imported so this
@@ -64,89 +56,61 @@ function applyReadyFor(warnings: string[]): boolean {
   return warnings.length === 0;
 }
 
-describe("computeProposalWarnings — metricId (HEL-549)", () => {
-  it("warns and applyReady is false when metricId is missing/not-owned", () => {
-    const metricsById = new Map<string, MetricResponse>(); // caller owns no metrics
+describe("computeProposalWarnings — dataTypeId (HEL-223)", () => {
+  it("warns and applyReady is false when an output panel has no dataTypeId", () => {
+    const warnings = computeProposalWarnings([panelFixture({ dataTypeId: undefined })], typesById);
 
+    expect(warnings).toEqual([expect.stringContaining("a output panel needs a dataTypeId")]);
+    expect(applyReadyFor(warnings)).toBe(false);
+  });
+
+  it("warns and applyReady is false when dataTypeId is not found in the workspace", () => {
     const warnings = computeProposalWarnings(
-      [panelFixture({ metricId: "metric-1" })],
+      [panelFixture({ dataTypeId: "dt-missing" })],
       typesById,
-      metricsById,
     );
 
     expect(warnings).toEqual([
-      expect.stringContaining("metricId metric-1 not found among your metrics"),
+      expect.stringContaining("dataTypeId dt-missing not found in this workspace"),
     ]);
     expect(applyReadyFor(warnings)).toBe(false);
   });
 
-  it("warns and applyReady is false when metricId resolves to a deprecated metric", () => {
-    const metric = metricFixture({ deprecated: true });
-    const metricsById = new Map([[metric.id, metric]]);
-
-    const warnings = computeProposalWarnings(
-      [panelFixture({ metricId: metric.id })],
-      typesById,
-      metricsById,
-    );
-
-    expect(warnings).toEqual([expect.stringContaining("deprecated")]);
-    expect(applyReadyFor(warnings)).toBe(false);
-  });
-
-  it("warns and applyReady is false when metricId is set on an unsupported panel type", () => {
-    const metric = metricFixture();
-    const metricsById = new Map([[metric.id, metric]]);
-
-    const warnings = computeProposalWarnings(
-      [
-        panelFixture({
-          type: "timeline",
-          metricId: metric.id,
-          fieldMapping: { time: "amount", event: "amount" },
-        }),
-      ],
-      typesById,
-      metricsById,
-    );
+  it("warns and applyReady is false when dataTypeId resolves to a source companion, not a pipeline output", () => {
+    const warnings = computeProposalWarnings([panelFixture({ dataTypeId: "dt-2" })], typesById);
 
     expect(warnings).toEqual([
-      expect.stringContaining("metricId is not supported on a timeline panel"),
+      expect.stringContaining("is a source companion, not a pipeline output"),
     ]);
     expect(applyReadyFor(warnings)).toBe(false);
   });
 
-  it("produces no metricId warning for a valid, caller-owned, non-deprecated metricId", () => {
-    const metric = metricFixture();
-    const metricsById = new Map([[metric.id, metric]]);
+  it("produces no warning for a valid pipeline-output dataTypeId", () => {
+    const warnings = computeProposalWarnings([panelFixture()], typesById);
 
+    expect(warnings).toEqual([]);
+    expect(applyReadyFor(warnings)).toBe(true);
+  });
+
+  it("omits the dataTypeId check entirely for non-data panel types (e.g. text)", () => {
     const warnings = computeProposalWarnings(
-      [panelFixture({ metricId: metric.id })],
+      [panelFixture({ type: "text", dataTypeId: undefined })],
       typesById,
-      metricsById,
     );
 
     expect(warnings).toEqual([]);
     expect(applyReadyFor(warnings)).toBe(true);
   });
 
-  it("omits the metricId check entirely when the panel supplies no metricId (unchanged behavior)", () => {
-    const warnings = computeProposalWarnings([panelFixture()], typesById, new Map());
-
-    expect(warnings).toEqual([]);
-    expect(applyReadyFor(warnings)).toBe(true);
-  });
-
-  it("surfaces both a dataTypeId warning and a metricId warning independently for the same panel", () => {
+  it("surfaces one warning per invalid panel across multiple panels", () => {
     const warnings = computeProposalWarnings(
-      [panelFixture({ dataTypeId: "dt-missing", metricId: "metric-missing" })],
+      [panelFixture({ dataTypeId: "dt-missing" }), panelFixture({ dataTypeId: undefined })],
       typesById,
-      new Map(),
     );
 
     expect(warnings).toHaveLength(2);
     expect(warnings[0]).toContain("dataTypeId dt-missing not found in this workspace");
-    expect(warnings[1]).toContain("metricId metric-missing not found among your metrics");
+    expect(warnings[1]).toContain("a output panel needs a dataTypeId");
     expect(applyReadyFor(warnings)).toBe(false);
   });
 });
