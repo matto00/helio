@@ -31,13 +31,46 @@ class AggregateStepSpec extends AnyWordSpec with Matchers {
 
   "AggregateStep.apply" should {
 
-    "return empty Seq when rows input is empty" in {
+    // HEL-905 (design.md Decision 10, HEL-744 anti-over-fix guard): a NON-empty groupBy over
+    // zero input rows still yields zero output rows -- the empty-groupBy special case
+    // (below) must never leak into this arm.
+    "return empty Seq when rows input is empty AND groupBy is non-empty" in {
       val result = apply(
         rows         = Seq.empty,
         groupBy      = Vector(groupField("dept")),
         aggregations = Vector(agg("total", "sum", "age"))
       )
       result shouldBe empty
+    }
+
+    // HEL-905 (design.md Decision 10, HEL-744): empty groupBy + zero input rows must yield
+    // exactly ONE row -- a metric Output off an empty filter shows 0, not nothing.
+    "return exactly one row with count=0 when rows AND groupBy are both empty" in {
+      val result = apply(
+        rows         = Seq.empty,
+        groupBy      = Vector.empty,
+        aggregations = Vector(agg("total", "count", "age"))
+      )
+      result should have size 1
+      result.head("total") shouldBe 0L
+    }
+
+    "return one row with null for sum/avg/min/max when rows AND groupBy are both empty" in {
+      val result = apply(
+        rows         = Seq.empty,
+        groupBy      = Vector.empty,
+        aggregations = Vector(
+          agg("total_sum", "sum", "age"),
+          agg("total_avg", "avg", "age"),
+          agg("total_min", "min", "age"),
+          agg("total_max", "max", "age")
+        )
+      )
+      result should have size 1
+      result.head("total_sum").asInstanceOf[AnyRef] shouldBe null
+      result.head("total_avg").asInstanceOf[AnyRef] shouldBe null
+      result.head("total_min").asInstanceOf[AnyRef] shouldBe null
+      result.head("total_max").asInstanceOf[AnyRef] shouldBe null
     }
 
 

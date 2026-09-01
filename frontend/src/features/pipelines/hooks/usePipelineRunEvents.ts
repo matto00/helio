@@ -1,11 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 
-export type SseRunStatus = "queued" | "running" | "succeeded" | "failed" | "dry_run";
+// HEL-905 (design.md Decision 6): "node-progress" is a NEW, non-terminal status -- deliberately
+// NOT in TERMINAL_STATUSES below, so the stream stays open across it.
+export type SseRunStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "dry_run"
+  | "node-progress";
 
 export interface RunStatusEventData {
   status: SseRunStatus;
   rowCount?: number;
   errorLog?: string;
+  /** HEL-905: present only on a "node-progress" event -- the completed node's step id
+   *  (absent/undefined for the pipeline root). */
+  nodeId?: string;
 }
 
 export interface RunEventsState {
@@ -14,6 +25,13 @@ export interface RunEventsState {
   errorLog: string | null;
   /** Set when the SSE connection cannot be established or drops mid-run. */
   connectionError: string | null;
+  /** HEL-905 (design.md Decision 6): the most recent "node-progress" event's node id, or the
+   *  pipeline root (`null`). Populated ONLY by a "node-progress" event -- never overwrites
+   *  `status`/`rowCount`, so `PipelineDetailFooter`'s existing five-branch render and
+   *  `PipelineDetailPage`'s row-count display are unaffected by this field's presence. */
+  nodeId: string | null;
+  /** HEL-905: the most recent "node-progress" event's row count for that node. */
+  nodeRowCount: number | null;
 }
 
 export interface UsePipelineRunEventsOptions {
@@ -47,6 +65,8 @@ export function usePipelineRunEvents({
     rowCount: null,
     errorLog: null,
     connectionError: null,
+    nodeId: null,
+    nodeRowCount: null,
   });
 
   // Stable ref so the event handler always sees the latest onTerminal callback
@@ -125,12 +145,31 @@ export function usePipelineRunEvents({
                 try {
                   const parsed = JSON.parse(data) as RunStatusEventData;
                   if (!unmounted) {
-                    setState({
-                      status: parsed.status,
-                      rowCount: parsed.rowCount ?? null,
-                      errorLog: parsed.errorLog ?? null,
-                      connectionError: null,
-                    });
+                    // HEL-905 (design.md Decision 6): a "node-progress" event updates ONLY the
+                    // new per-node fields -- it must never overwrite `status`/`rowCount`, the
+                    // run-level fields the footer/preview-modal already read.
+                    if (parsed.status === "node-progress") {
+                      setState((prev) => ({
+                        ...prev,
+                        nodeId: parsed.nodeId ?? null,
+                        nodeRowCount: parsed.rowCount ?? null,
+                      }));
+                    } else {
+                      setState((prev) => ({
+                        ...prev,
+                        status: parsed.status,
+                        rowCount: parsed.rowCount ?? null,
+                        errorLog: parsed.errorLog ?? null,
+                        connectionError: null,
+                        // HEL-905 (evaluation-1.md non-blocking suggestion): a fresh run-level
+                        // event (queued/running) resets the per-node fields so a PRIOR run's
+                        // nodeId/nodeRowCount cannot leak into the new run before its own first
+                        // "node-progress" event arrives.
+                        ...(parsed.status === "queued" || parsed.status === "running"
+                          ? { nodeId: null, nodeRowCount: null }
+                          : {}),
+                      }));
+                    }
                   }
 
                   if (TERMINAL_STATUSES.has(parsed.status)) {

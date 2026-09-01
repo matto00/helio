@@ -10,6 +10,7 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
+import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.testsupport.PdfFixtures
@@ -2624,7 +2625,8 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         updatedAt          = Instant.now(),
         ownerId            = UserId("00000000-0000-0000-0000-000000000001")
       )
-      val backend = new InProcessExecutionBackend(engine)
+      val stepRepo = new PipelineStepRepository(null)(ec)
+      val backend = new InProcessExecutionBackend(engine, stepRepo)
       val backendOutcome = Await.result(
         backend.execute(pipeline, ds, Vector(step), mockRepo, new AssertionSink, new TruncationSink),
         5.seconds

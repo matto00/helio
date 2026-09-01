@@ -15,7 +15,10 @@ import java.util.concurrent.ConcurrentHashMap
 final case class RunStatusEvent(
     status:   String,
     rowCount: Option[Int]    = None,
-    errorLog: Option[String] = None
+    errorLog: Option[String] = None,
+    // HEL-905 (design.md Decision 6): identifies the node a "node-progress" event describes
+    // (step id string; `None` = pipeline root). Unused by every other status value.
+    nodeId: Option[String] = None
 )
 
 object RunStatusEvent {
@@ -37,6 +40,7 @@ object RunStatusEvent {
     )
     event.rowCount.foreach(n => fields("rowCount") = JsNumber(n))
     event.errorLog.foreach(s => fields("errorLog") = JsString(s))
+    event.nodeId.foreach(s => fields("nodeId") = JsString(s))
     val json = JsObject(fields.toMap).compactPrint
     ByteString("event: run-status\ndata: " + json + "\n\n")
   }

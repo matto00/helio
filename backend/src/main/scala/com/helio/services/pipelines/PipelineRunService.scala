@@ -5,8 +5,8 @@ import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataSource, DataSourceId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
-import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, PipelineExecutionBackend, PipelineRowJson, SourceReadStats, StepExecutionException}
+import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
+import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -95,7 +95,7 @@ final class PipelineRunService(
   // HEL-330 (design.md Decision 3): the two execution call sites (`executeRun`, `previewStep`)
   // depend on this trait reference, not `engine` directly.
   private val backend: PipelineExecutionBackend =
-    if (executionBackend != null) executionBackend else new InProcessExecutionBackend(engine)
+    if (executionBackend != null) executionBackend else new InProcessExecutionBackend(engine, pipelineStepRepo)
 
   /** HEL-861 (design D4): the run-wide truncation fields, computed once from the primary
    *  source's own [[SourceReadStats]] plus any secondary-source truncated reads recorded in
@@ -237,9 +237,13 @@ final class PipelineRunService(
         // rest_api/sql) now reaches executeRun uniformly — the engine's own
         // loadRows dispatches per-kind, with a null-connector guard for
         // RestSource (design.md D3).
+        // HEL-905 (design.md Decision 7): the FULL step list (trunk + tails, disabled steps
+        // included) is passed to the engine now -- dropping a disabled mid-trunk/mid-tail step
+        // from the vector would orphan its children under a tree (their parentStepId points at a
+        // step no longer present). The tree-walk engine itself skips a disabled node in place.
         pipelineStepRepo
           .listByPipelineInternal(pipelineId)
-          .flatMap(allSteps => executeRun(pipeline, dataSource, allSteps.filter(_.enabled), isDry, user, triggerSource, triggeredByTokenId))
+          .flatMap(allSteps => executeRun(pipeline, dataSource, allSteps, isDry, user, triggerSource, triggeredByTokenId))
     }
 
   /** Run only the prefix of `steps` ending at `stepId`, returning at most 10
@@ -276,9 +280,23 @@ final class PipelineRunService(
                 case k if !sortedSteps(k).enabled =>
                   Future.successful(Left(ServiceError.UnprocessableEntity("step is disabled")))
                 case k =>
-                  // Disabled steps are excluded from the executed prefix — the
-                  // preview reflects the pipeline as it would actually run.
-                  val slicedSteps = sortedSteps.take(k + 1).filter(_.enabled)
+                  // HEL-905 (design.md Decision 5, CR4): the previewed prefix is the path from
+                  // the pipeline root to the target step, following whichever branch (trunk or
+                  // the specific tail chain) the target actually sits on -- derived by walking
+                  // `parentStepId` pointers back to the root, NOT a positional slice over
+                  // `executionOrder` (which emits a node's tails BEFORE continuing the trunk, so
+                  // a positional slice can fold an unrelated tail's steps into the "prefix").
+                  // Disabled ancestors are NOT pre-filtered here (see 3.1a) -- the engine's own
+                  // in-place skip (Decision 7) handles them; the separate guard above already
+                  // rejects previewing a disabled step itself.
+                  val byId          = sortedSteps.map(s => s.id.value -> s).toMap
+                  val target        = sortedSteps(k)
+                  def pathToRoot(step: PipelineStep, acc: Vector[PipelineStep]): Vector[PipelineStep] =
+                    step.parentStepId.flatMap(p => byId.get(p.value)) match {
+                      case Some(parent) => pathToRoot(parent, parent +: acc)
+                      case None         => acc
+                    }
+                  val slicedSteps = pathToRoot(target, Vector(target))
                   // HEL-861 (design D8/task 2.2c): the step-preview site is the one call site
                   // design.md calls out by name -- it must construct and pass its OWN
                   // truncationSink here, mirroring the real-run site, or a preview whose
@@ -293,7 +311,13 @@ final class PipelineRunService(
                   backend
                     .execute(pipeline, dataSource, slicedSteps.toVector, dataSourceRepo, new AssertionSink, truncationSink)
                     .map { outcome =>
-                      val allJsRows = outcome.rows.map { rowMap =>
+                      // HEL-905 (evaluation-1.md CR1): `outcome.rows` is always the TRUNK's
+                      // terminal frame -- for a target step on a tail, the tail's own rows live
+                      // only in `nodeOutcomes`, keyed by the target's own id. Falling back to
+                      // `outcome.rows` covers the (only) case where they're the same value: the
+                      // target step IS the trunk's own terminal step.
+                      val targetRows = outcome.nodeOutcomes.get(Some(target.id.value)).map(_.rows).getOrElse(outcome.rows)
+                      val allJsRows = targetRows.map { rowMap =>
                         JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
                       }.toVector
                       val totalCount  = allJsRows.size
@@ -439,10 +463,15 @@ final class PipelineRunService(
 
     publish(pidStr, RunStatusEvent("running"))
 
+    // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
+    // published as a non-terminal "node-progress" SSE event so the stream stays open across it.
+    def onNodeProgress(nodeId: Option[String], rowCount: Long): Unit =
+      publish(pidStr, RunStatusEvent("node-progress", nodeId = nodeId, rowCount = Some(rowCount.toInt)))
+
     val runFuture = preExec.flatMap { _ =>
       backend
-        .execute(pipeline, dataSource, steps, dataSourceRepo, assertionSink, truncationSink)
-        .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats))
+        .execute(pipeline, dataSource, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress)
+        .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
     }
 
     runFuture.transformWith {
@@ -482,7 +511,7 @@ final class PipelineRunService(
           } else Future.successful(())
         failWork.map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
 
-      case Success((resultRows, stepCounts, sourceCount, primaryStats)) =>
+      case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
         val jsRows = resultRows.map { rowMap =>
           JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
         }.toVector
@@ -494,10 +523,12 @@ final class PipelineRunService(
         // Decision 8) so `RunResultResponse.blocked`/`blockedReason` can be
         // populated without a second computation of the summary. A dry run
         // is never blocked (design.md Decision 5), hence the `.map(_ => None)`.
+        // HEL-905 (design.md Decision 5): a dry run persists nothing -- it never reaches
+        // onUnblockedRunSuccess's per-node writes, only its own (unchanged) history/SSE bookkeeping.
         val followUp: Future[Option[String]] =
           if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results).map(_ => None)
           else
-            onRunSuccess(pipeline.sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
+            onRunSuccess(pipeline.sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionSink.results)
         val (truncated, availableRowCount, notice, truncatedReads) =
           truncationFields(dataSource.name, sourceCount, primaryStats, truncationSink)
         followUp.map { blockedSummary =>
@@ -568,12 +599,13 @@ final class PipelineRunService(
       pidStr:             String,
       resultRows:         Seq[Map[String, Any]],
       jsRows:             Vector[JsObject],
+      nodeOutcomes:       Map[Option[String], NodeOutcome],
       user:               AuthenticatedUser,
       assertionResults:   Vector[AssertionResult]
   ): Future[Option[String]] = {
     val blockingFailures = assertionResults.filter(r => r.severity == "error" && !r.passed)
     if (blockingFailures.nonEmpty) onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures)
-    else onUnblockedRunSuccess(sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionResults)
+    else onUnblockedRunSuccess(sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionResults)
   }
 
   /** Blocked branch (design.md Decisions 2-4): terminal status `"failed"`
@@ -616,29 +648,44 @@ final class PipelineRunService(
       pidStr:             String,
       resultRows:         Seq[Map[String, Any]],
       jsRows:             Vector[JsObject],
+      nodeOutcomes:       Map[Option[String], NodeOutcome],
       user:               AuthenticatedUser,
       assertionResults:   Vector[AssertionResult]
   ): Future[Option[String]] = {
     publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
     val now = Instant.now()
-    // HEL-904 (task 3.14): writes `node_snapshots`, keyed by this pipeline's
-    // trunk-last step (the sole node the pre-tree-walk engine ever
-    // materializes — see P1.2/HEL-905 for the real per-node write). Task 4.1
-    // removed the legacy `data_type_rows`/`data_types` writes this dual-wrote
-    // alongside.
-    //
-    // The resolved `trunkLastStepId` is shared with `binaryRefsUpsert`
-    // below (task 3.4's re-key) — both need "this run's target node", so
-    // it's derived once rather than twice.
-    val trunkLastStepIdFut: Future[Option[String]] =
-      if (nodeSnapshotRepo != null || binaryRefRepo != null)
-        pipelineStepRepo.listByPipelineInternal(pipelineId).map { steps =>
-          pipelineStepRepo.trunkOf(steps).lastOption.map(_.id.value)
+    // HEL-905 (design.md Decisions 3, 4): a materialized node is one carrying >= 1 `outputs`
+    // row. For each materialized node, `node_snapshots` is replaced atomically (per-node, via
+    // `overwriteRows`'s existing delete-then-insert-in-one-transaction), sequenced only after the
+    // whole tree walk has already completed successfully -- cross-node atomicity is explicitly
+    // NOT provided (see design.md Decision 3): a mid-sequence failure leaves earlier nodes
+    // updated and later ones untouched.
+    val materializedWrites: Future[Unit] =
+      if (nodeSnapshotRepo != null && outputRepo != null)
+        outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+          val outputsByNode = outputs.groupBy(_.node.stepId.map(_.value))
+          val materializedNodeKeys = outputsByNode.keySet.intersect(nodeOutcomes.keySet)
+          // Sequenced (not parallel) so a later node's failure never races an earlier node's
+          // write -- matches design.md's "sequenced only after... completed successfully".
+          materializedNodeKeys.foldLeft(Future.successful(())) { (accF, nodeKey) =>
+            accF.flatMap { _ =>
+              val outcome = nodeOutcomes(nodeKey)
+              val nodeJsRows = outcome.rows.map { rowMap =>
+                JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
+              }.toVector
+              nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeKey, nodeJsRows).flatMap { _ =>
+                // HEL-905 (design.md Decision 4): per-Output shallow-union schema derivation
+                // over this node's own row set. Two Outputs on the same node get independently
+                // derived (but identical) schemas -- no sharing/caching needed at this scale.
+                val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
+                val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
+                Future
+                  .sequence(outputsByNode.getOrElse(nodeKey, Vector.empty).map(o => outputRepo.updateSchemaInternal(o.id, schema)))
+                  .map(_ => ())
+              }
+            }
+          }
         }
-      else Future.successful(None)
-    val nodeSnapshotUpsert =
-      if (nodeSnapshotRepo != null)
-        trunkLastStepIdFut.flatMap(trunkLastStepId => nodeSnapshotRepo.overwriteRows(pipelineId.value, trunkLastStepId, jsRows))
       else Future.successful(())
     // HEL-216: wire BinaryRefRepository.overwriteForNode into the one real
     // row-write call site, generically over row shape (not gated on source
@@ -648,6 +695,16 @@ final class PipelineRunService(
     // refs match exactly what jsRows/rowsUpsert just wrote. HEL-904 (task
     // 3.4): re-keyed to `(pipelineId, trunkLastStepId)` instead of the
     // retired `dataTypeId`.
+    //
+    // HEL-905: still scoped to the trunk's last node only (not every
+    // materialized node) -- extending binary-ref extraction to tail nodes is
+    // deferred; no AC of this ticket requires it (see files-modified.md).
+    val trunkLastStepIdFut: Future[Option[String]] =
+      if (binaryRefRepo != null)
+        pipelineStepRepo.listByPipelineInternal(pipelineId).map { steps =>
+          pipelineStepRepo.trunkOf(steps).lastOption.map(_.id.value)
+        }
+      else Future.successful(None)
     val binaryRefsUpsert =
       if (binaryRefRepo != null)
         trunkLastStepIdFut.flatMap { trunkLastStepId =>
@@ -660,23 +717,34 @@ final class PipelineRunService(
     // failure is logged inside AlertEvaluationService and never fails or
     // rolls back this run — see design.md "Per-rule isolation"/"Hook
     // placement".
-    // HEL-904 (task 3.1): evaluate per Output of every materialized node —
-    // today that's just this pipeline's Outputs (the pre-tree-walk engine
-    // only ever materializes one node; see P1.2/HEL-905 for the real
-    // per-node walk). Each Output's evaluation is independently isolated
-    // (mirrors AlertEvaluationService's own per-rule isolation) so one
-    // Output's failure never blocks a sibling Output on the same pipeline.
+    // HEL-905 (design.md Decision 2/tasks 4; evaluation-1.md CR3): evaluate per Output of every
+    // materialized node, using THAT node's own row set (`nodeOutcomes`) rather than the trunk's
+    // final rows -- a tail Output must be evaluated against its own frame, not the trunk's
+    // terminal one. A node with NO outcome is skipped explicitly (never silently falls back to a
+    // DIFFERENT node's rows -- evaluating an Output's rules against the wrong node's data is
+    // worse than not evaluating them at all) and logged, since every node the walk actually
+    // materializes always has an outcome; a miss here means a real bug elsewhere.
     val alertEvaluation =
       if (alertEvaluationService != null && outputRepo != null)
         outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
           Future
             .sequence(outputs.map { output =>
-              alertEvaluationService
-                .evaluateForOutput(output.id, resultRows, Some(runId.value))
-                .recoverWith { case ex =>
-                  log.error(s"AlertEvaluationService.evaluateForOutput failed for output ${output.id.value}, run ${runId.value}", ex)
+              val nodeKey = output.node.stepId.map(_.value)
+              nodeOutcomes.get(nodeKey) match {
+                case None =>
+                  log.error(
+                    s"AlertEvaluationService.evaluateForOutput skipped for output ${output.id.value}, " +
+                      s"run ${runId.value}: no NodeOutcome for node key $nodeKey (never evaluated by the tree walk)"
+                  )
                   Future.successful(())
-                }
+                case Some(nodeOutcome) =>
+                  alertEvaluationService
+                    .evaluateForOutput(output.id, nodeOutcome.rows, Some(runId.value))
+                    .recoverWith { case ex =>
+                      log.error(s"AlertEvaluationService.evaluateForOutput failed for output ${output.id.value}, run ${runId.value}", ex)
+                      Future.successful(())
+                    }
+              }
             })
             .map(_ => ())
         }
@@ -711,7 +779,7 @@ final class PipelineRunService(
           Future.successful(())
         }
     for {
-      _ <- nodeSnapshotUpsert
+      _ <- materializedWrites
       _ <- binaryRefsUpsert
       _ <- alertEvaluation
       _ <- updateMeta

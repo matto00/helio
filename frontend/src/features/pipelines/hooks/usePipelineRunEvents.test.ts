@@ -280,6 +280,88 @@ describe("usePipelineRunEvents", () => {
     controller.close();
   });
 
+  // HEL-905 (design.md Decision 6, task 6.6): a "node-progress" event updates ONLY the new
+  // per-node fields -- it must never overwrite the run-level status/rowCount the footer/
+  // preview-modal already read (which would otherwise blank the status pill mid-run).
+  it("routes a node-progress event to nodeId/nodeRowCount without touching status/rowCount", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() =>
+      usePipelineRunEvents({ pipelineId: "pipe-1", active: true }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    controller.push("run-status", JSON.stringify({ status: "running" }));
+    await waitFor(() => expect(result.current.status).toBe("running"));
+
+    controller.push(
+      "run-status",
+      JSON.stringify({ status: "node-progress", nodeId: "step-tail-1", rowCount: 7 }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.nodeId).toBe("step-tail-1");
+      expect(result.current.nodeRowCount).toBe(7);
+    });
+    // Run-level fields untouched by the node-progress event.
+    expect(result.current.status).toBe("running");
+    expect(result.current.rowCount).toBeNull();
+
+    controller.close();
+  });
+
+  // HEL-905 (evaluation-1.md non-blocking suggestion): a prior run's per-node state must not
+  // leak into a fresh run before its own first "node-progress" event arrives.
+  it("resets nodeId/nodeRowCount when a fresh run-level queued/running event arrives", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() =>
+      usePipelineRunEvents({ pipelineId: "pipe-1", active: true }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    controller.push(
+      "run-status",
+      JSON.stringify({ status: "node-progress", nodeId: "stale-node", rowCount: 3 }),
+    );
+    await waitFor(() => expect(result.current.nodeId).toBe("stale-node"));
+
+    controller.push("run-status", JSON.stringify({ status: "running" }));
+
+    await waitFor(() => {
+      expect(result.current.nodeId).toBeNull();
+      expect(result.current.nodeRowCount).toBeNull();
+    });
+
+    controller.close();
+  });
+
+  it("does not close the stream on a node-progress event (non-terminal)", async () => {
+    const { controller, fetchMock } = createSseMock();
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() =>
+      usePipelineRunEvents({ pipelineId: "pipe-1", active: true }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    controller.push(
+      "run-status",
+      JSON.stringify({ status: "node-progress", nodeId: "s1", rowCount: 2 }),
+    );
+    await waitFor(() => expect(result.current.nodeId).toBe("s1"));
+
+    controller.push("run-status", JSON.stringify({ status: "succeeded", rowCount: 9 }));
+    await waitFor(() => expect(result.current.status).toBe("succeeded"));
+
+    controller.close();
+  });
+
   it("sets connectionError when response is not text/event-stream", async () => {
     const { fetchMock } = createSseMock({ ok: false, contentType: "application/json" });
     global.fetch = fetchMock;

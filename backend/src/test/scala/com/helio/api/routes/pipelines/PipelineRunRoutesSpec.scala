@@ -13,6 +13,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse}
 import com.helio.domain._
 import com.helio.domain.model._
+import com.helio.domain.steps.{FilterCondition, FilterConfig, RenameConfig}
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -401,6 +402,7 @@ class PipelineRunRoutesSpec
       val cache  = new PipelineRunCache()
       val dsId   = seedDsWithData()
       val pid    = seedPipeline(dsId)
+      seedOutputForPipeline(pid)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -590,6 +592,7 @@ class PipelineRunRoutesSpec
       val cache              = new PipelineRunCache()
       val dsId               = seedDsWithData()
       val pid                = seedPipeline(dsId)
+      seedOutputForPipeline(pid)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -619,6 +622,7 @@ class PipelineRunRoutesSpec
       val cache              = new PipelineRunCache()
       val dsId               = seedDsWithData()
       val pid                = seedPipeline(dsId)
+      seedOutputForPipeline(pid)
 
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
@@ -746,8 +750,55 @@ class PipelineRunRoutesSpec
       }
 
       val events = Await.result(eventsFuture, 10.seconds)
-      events.map(_.status) shouldBe Seq("queued", "running", "succeeded")
+      // HEL-905 (design.md Decision 6): the tree walk also publishes non-terminal
+      // "node-progress" events (one per node completed) -- filtered out here since this test
+      // is about the run-level lifecycle sequence, not per-node progress (covered separately).
+      events.map(_.status).filterNot(_ == "node-progress") shouldBe Seq("queued", "running", "succeeded")
+      events.map(_.status) should contain("node-progress")
       events.last.rowCount shouldBe Some(2)
+    }
+
+    // HEL-905 (evaluation-1.md CR8/task 6.6): a tail's own "node-progress" event, carrying that
+    // tail's own nodeId and its own row count -- not merely inferred from trunk behavior -- must
+    // arrive over the real SSE wire, and must never disturb the run-level status/rowCount fields
+    // (design.md Decision 6's "do not gold-plate" contract).
+    "POST /pipelines/:id/run publishes a node-progress event carrying a TAIL's own nodeId and row count over SSE" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      // A trunk step (position 0) first, so the second sibling below actually lands at
+      // position 1 -- a genuine tail, not the trunk's own first child (`insertInternal`
+      // auto-assigns position by sibling count: the FIRST child under a parent always gets
+      // position 0, so a lone "tail" with no trunk sibling would incorrectly BE the trunk).
+      await(stepRepo.insertInternal(pid, "rename", RenameConfig(Map("name" -> "renamedTrunk")), enabled = true, parentStepId = None))
+      // The tail rooted off the pipeline root (now position 1): filters down to "alice" alone
+      // -- a row count (1) that provably differs from the trunk's own (2), so a naive
+      // "any node-progress event" assertion could not accidentally pass.
+      val tailStep = await(stepRepo.insertInternal(
+        pid, "filter", FilterConfig("AND", Vector(FilterCondition("name", "=", Some("alice")))),
+        enabled = true, parentStepId = None
+      ))
+      val reg = new PipelineRunRegistry()(typedSystem)
+
+      val eventsFuture = reg
+        .subscribe(pid.value)
+        .runWith(Sink.seq)(Materializer(system))
+
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, registry = reg) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      val events = Await.result(eventsFuture, 10.seconds)
+      val tailEvent = events.find(e => e.status == "node-progress" && e.nodeId.contains(tailStep.id.value))
+      tailEvent shouldBe defined
+      tailEvent.get.rowCount shouldBe Some(1)
+
+      // The run-level lifecycle/status/rowCount must be untouched by any node-progress event --
+      // the terminal "succeeded" event still reports the TRUNK's row count (2), not the tail's
+      // (1). Locate it by status rather than `events.last`: a node-progress event for the tail
+      // can legitimately be published after the terminal event on this stream.
+      events.map(_.status).filterNot(_ == "node-progress") shouldBe Seq("queued", "running", "succeeded")
+      events.find(_.status == "succeeded").get.rowCount shouldBe Some(2)
     }
 
     // HEL-859 (design.md Decision 3): fan-out surface (a) — the SSE
@@ -772,7 +823,8 @@ class PipelineRunRoutesSpec
       }
 
       val events = Await.result(eventsFuture, 10.seconds)
-      events.map(_.status) shouldBe Seq("queued", "running", "failed")
+      // HEL-905: see the succeeded-path test above for why node-progress is filtered here.
+      events.map(_.status).filterNot(_ == "node-progress") shouldBe Seq("queued", "running", "failed")
       events.last.errorLog shouldBe Some(
         s"Pipeline execution failed at step ${joinStep.id.value} (join): DataSource not found for join: $missingSourceId"
       )
@@ -783,6 +835,7 @@ class PipelineRunRoutesSpec
       val cache       = new PipelineRunCache()
       val dsId        = seedDsImage()
       val pid         = seedPipeline(dsId)
+      seedOutputForPipeline(pid)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -886,6 +939,56 @@ class PipelineRunRoutesSpec
       statusOpt shouldBe Some("succeeded")
       val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
       runs.head.status shouldBe "succeeded"
+    }
+
+    // HEL-905 (evaluation-1.md CR3): an Output whose node key has NO NodeOutcome (e.g. an
+    // orphaned Output left pointing at a step id the tree walk never actually evaluated -- not
+    // reachable via any production write path, but exactly the defensive case the old
+    // `getOrElse(resultRows)` silently mishandled) must be SKIPPED, never evaluated against a
+    // DIFFERENT node's rows. The run must still succeed and no alert event may be created for
+    // that rule.
+    "POST /pipelines/:id/run (non-dry, success) skips alert evaluation for an Output with no matching NodeOutcome, rather than falling back to another node's rows" in {
+      val cache  = new PipelineRunCache()
+      val dsId   = seedDsWithData()
+      val pid    = seedPipeline(dsId)
+      // An orphaned node key -- no such step exists, so the tree walk will never produce a
+      // NodeOutcome for it (unreachable via any real production write path today, since
+      // `outputs.node_step_id` is `ON DELETE CASCADE`; simulated here via a stubbed repository
+      // rather than a raw FK-violating insert). This is exactly the shape the old
+      // `.getOrElse(resultRows)` fallback silently mishandled by evaluating against the
+      // TRUNK's rows instead.
+      // A real Output row (satisfying the `alert_rules.target_output_id` FK), rooted at the
+      // pipeline root (node_step_id = NULL) so the insert itself succeeds -- but the stub below
+      // reports it to `alertEvaluation` as pointing at a fabricated node key that the tree walk
+      // will never produce a NodeOutcome for.
+      val realOutput   = await(outputRepo.insertInternal(pid, None, dummyUser.id, "orphan-out", OutputKind.Table))
+      val orphanStepId = PipelineStepId(UUID.randomUUID().toString)
+      val stubOutputRepo = new OutputRepository(ctx)(routeEc) {
+        override def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[Output]] =
+          Future.successful(Vector(realOutput.copy(node = NodeRef(pid, Some(orphanStepId)))))
+      }
+      val rule = AlertRule(
+        id             = AlertRuleId(UUID.randomUUID().toString),
+        ownerId        = dummyUser.id,
+        targetOutputId = realOutput.id,
+        metric         = "score",
+        condition      = JsObject("comparator" -> JsString("gt"), "threshold" -> JsNumber(0)),
+        name           = "HEL-905 CR3 orphan-node rule",
+        enabled        = true,
+        severity       = Severity.Warning,
+        createdAt      = Instant.now(),
+        updatedAt      = Instant.now()
+      )
+      val ruleId       = await(alertRuleRepo.insert(rule, dummyUser)).id
+      val alertEvalSvc = new AlertEvaluationService(alertRuleRepo, alertEventRepo)(routeEc)
+
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, alertEvalSvc = alertEvalSvc, outRepo = stubOutputRepo) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      // The run succeeds (skip, never a crash), and no alert event is created -- proving the
+      // rule was never evaluated against the trunk's (or any other node's) rows.
+      await(alertEventRepo.findActiveByRule(ruleId)) shouldBe None
     }
   }
 }
