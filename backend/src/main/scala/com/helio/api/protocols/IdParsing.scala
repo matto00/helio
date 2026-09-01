@@ -28,4 +28,5 @@ object IdParsing {
   val AssistantConversationIdSegment: PathMatcher1[AssistantConversationId] = Segment.map(AssistantConversationId(_))
   val AgentMemoryIdSegment: PathMatcher1[AgentMemoryId]     = Segment.map(AgentMemoryId(_))
   val ConnectorIdSegment: PathMatcher1[ConnectorId]         = Segment.map(ConnectorId(_))
+  val OutputIdSegment: PathMatcher1[OutputId]               = Segment.map(OutputId(_))
 }

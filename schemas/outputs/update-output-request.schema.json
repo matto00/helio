@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/update-output-request.schema.json",
+  "title": "UpdateOutputRequest",
+  "description": "Body of `PATCH /api/outputs/:id`. Both fields are optional — absent means unchanged. `config`, when present, is merged into the stored config one level deep for `legend`/`tooltip`/`seriesColors`/`axisLabels` (HEL-877) rather than replacing it wholesale.",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "config": { "type": "object" }
+  },
+  "additionalProperties": false
+}

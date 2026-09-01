@@ -42,7 +42,16 @@
           "type": "string"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "string",
+            "integer",
+            "float",
+            "boolean",
+            "timestamp",
+            "string-body",
+            "binary-ref"
+          ]
         }
       },
       "additionalProperties": false

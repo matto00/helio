@@ -51,7 +51,7 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
     PipelineAnalyzeService
       .analyze(
         Vector(PipelineAnalyzeService.PipelineStepInput("step-0", 0, op, config)),
-        Vector(SchemaField("id", "string"), SchemaField("amount", "number"), SchemaField("region", "string"))
+        Vector(SchemaField("id", "string"), SchemaField("amount", "float"), SchemaField("region", "string"))
       )
       .head
       .validationError
@@ -60,7 +60,7 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
     PipelineAnalyzeService
       .analyze(
         Vector(PipelineAnalyzeService.PipelineStepInput("step-0", 0, op, config)),
-        Vector(SchemaField("id", "string"), SchemaField("amount", "number"), SchemaField("region", "string"))
+        Vector(SchemaField("id", "string"), SchemaField("amount", "float"), SchemaField("region", "string"))
       )
       .head
 

@@ -5,6 +5,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{CreatePipelineStepRequest, JsonProtocols, ReorderPipelineStepsRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.DeletePipelineStepResponse
 import com.helio.api.protocols.IdParsing.{PipelineIdSegment, PipelineStepIdSegment}
 import com.helio.domain.model.AuthenticatedUser
 import com.helio.services.pipelines.PipelineService
@@ -53,7 +54,7 @@ class PipelineStepRoutes(pipelineService: PipelineService, user: AuthenticatedUs
               }
             },
             delete {
-              ServiceResponse.runNoContent(pipelineService.deleteStep(stepId, user))
+              ServiceResponse.run(pipelineService.deleteStep(stepId, user))(identity)
             }
           )
         },

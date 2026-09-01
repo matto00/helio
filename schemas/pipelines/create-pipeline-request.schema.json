@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/create-pipeline-request.schema.json",
+  "title": "CreatePipelineRequest",
+  "description": "POST /api/pipelines. `steps`/`outputs` (HEL-906 task 3.1) are additive -- absent or empty preserves the pre-existing simple create (name + sourceDataSourceId only). Non-empty `steps`/`outputs` builds the pipeline, its steps, and its Outputs in one call; any failure rolls back the whole call (see CreatePipelineTransactionalStepRequest's description).",
+  "type": "object",
+  "required": ["name", "sourceDataSourceId"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "sourceDataSourceId": { "type": "string", "minLength": 1 },
+    "tag": { "type": ["string", "null"] },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "create-pipeline-transactional-step-request.schema.json" }
+    },
+    "outputs": {
+      "type": "array",
+      "items": { "$ref": "create-pipeline-transactional-output-request.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

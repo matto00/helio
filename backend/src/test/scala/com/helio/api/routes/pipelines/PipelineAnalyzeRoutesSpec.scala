@@ -309,7 +309,7 @@ class PipelineAnalyzeRoutesSpec
         drift shouldBe defined
         drift.get.addedColumns shouldBe empty
         drift.get.removedColumns shouldBe Vector(SchemaFieldResponse("created_at", "string"))
-        drift.get.typeChangedColumns shouldBe Vector(TypeChangedColumnResponse("amount", previousType = "number", currentType = "integer"))
+        drift.get.typeChangedColumns shouldBe Vector(TypeChangedColumnResponse("amount", previousType = "float", currentType = "integer"))
       }
     }
 
@@ -535,7 +535,7 @@ class PipelineAnalyzeRoutesSpec
         sourceSchemaDrift    = Some(SourceSchemaDriftResponse(
           addedColumns       = Vector(SchemaFieldResponse("region", "string")),
           removedColumns     = Vector(SchemaFieldResponse("created_at", "string")),
-          typeChangedColumns = Vector(TypeChangedColumnResponse("amount", previousType = "number", currentType = "integer"))
+          typeChangedColumns = Vector(TypeChangedColumnResponse("amount", previousType = "float", currentType = "integer"))
         ))
       )
 

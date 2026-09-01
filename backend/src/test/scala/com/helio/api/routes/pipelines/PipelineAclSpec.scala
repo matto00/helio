@@ -287,7 +287,7 @@ class PipelineAclSpec
       }
       // Owner can still see + delete the step.
       Delete(s"/pipeline-steps/$stepId") ~> routesFor(userA) ~> check {
-        status shouldBe StatusCodes.NoContent
+        status shouldBe StatusCodes.OK
       }
     }
   }

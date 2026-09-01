@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/expression-validation-response.schema.json",
+  "title": "ExpressionValidationResponse",
+  "description": "POST /api/pipelines/:id/validate-expression?stepId= response (HEL-906 cycle 7). Delegates to the same ExpressionEvaluator.validate the compute step's own analyze-time hook uses, against the target node's projected schema field names.",
+  "type": "object",
+  "properties": {
+    "valid": {
+      "type": "boolean"
+    },
+    "error": {
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["valid"],
+  "additionalProperties": false
+}

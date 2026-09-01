@@ -234,6 +234,71 @@ class PipelineRepository(
     }
   }
 
+  /** DBIO variant of the pipeline-row-insert half of `create` above (HEL-906 task 3.1,
+   *  coordinator ruling D3) -- the caller (`PipelineService.create`'s single-call transactional
+   *  path) performs the `dataSourceRepo.findByIdOwned` ownership check as its own `Future` BEFORE
+   *  building this action (a read, not a write -- it doesn't need to share the write transaction
+   *  for atomicity), then composes this action with the step/Output insert actions that follow
+   *  into ONE transaction via `runTransactionally`. `sourceDataSourceName` is passed in rather
+   *  than re-resolved here since the caller already has the `DataSource` from that check. */
+  def createAction(
+      name: String,
+      sourceDataSourceId: DataSourceId,
+      sourceDataSourceName: String,
+      user: AuthenticatedUser,
+      tag: Option[String]
+  ): DBIO[PipelineSummary] = {
+    val now        = Instant.now()
+    val pipelineId = UUID.randomUUID().toString
+    val pipelineRow = PipelineRow(
+      id                 = pipelineId,
+      name               = name,
+      sourceDataSourceId = sourceDataSourceId.value,
+      lastRunStatus      = None,
+      lastRunAt          = None,
+      createdAt          = now,
+      updatedAt          = now,
+      lastRunRowCount    = None,
+      ownerId            = UUID.fromString(user.id.value),
+      tag                = tag
+    )
+    (pipelinesTable += pipelineRow).map { _ =>
+      PipelineSummary(
+        id                   = pipelineId,
+        name                 = name,
+        sourceDataSourceId   = sourceDataSourceId.value,
+        sourceDataSourceName = sourceDataSourceName,
+        lastRunStatus        = None,
+        lastRunAt            = None,
+        lastRunRowCount      = None,
+        ownerId              = user.id.value,
+        tag                  = tag
+      )
+    }
+  }
+
+  /** Runs an arbitrary `DBIO` action through the APP pool, wrapped in one transaction scoped
+   *  to `userId` (`DbContext.withUserContext`) -- exists so `PipelineService`'s single-call
+   *  transactional pipeline-creation path (HEL-906 task 3.1, coordinator ruling D3) can compose
+   *  `createAction` above with `PipelineStepRepository.insertInternalAction`/
+   *  `OutputRepository.insertInternalAction` into ONE database transaction spanning three
+   *  repositories, without exposing `DbContext` itself to the service layer (CONTRIBUTING.md:
+   *  "raw `db.run` outside a repository is forbidden" -- this keeps that discipline while still
+   *  letting the service layer be the one that KNOWS which actions need to compose).
+   *
+   *  HEL-906 cycle 7 (coordinator's empirical-experiment ruling): an earlier cycle used
+   *  `DbContext.withSystemContext` here (the RLS-bypassing privileged pool), reasoning
+   *  analytically that the composed `*Internal` actions "require" it. That reasoning was never
+   *  actually tested against a real RLS-enforced (non-superuser) connection. It was tested this
+   *  cycle (`PipelineRepositoryRunTransactionallyRlsSpec`, a non-superuser app-pool role) and
+   *  the composed chain works unmodified under `withUserContext` -- `pipeline_steps_owner`'s
+   *  and `outputs_insert`'s RLS checks both key off `current_setting('app.current_user_id')`/
+   *  `owner_id`, which is exactly the same id every row in this composed chain is already
+   *  stamped with, so no RLS check ever fires against a mismatched id here. Switched to
+   *  `withUserContext` -- this now gets atomicity AND RLS enforcement together, with no
+   *  bypass-justification comment needed (there is no bypass). */
+  def runTransactionally[R](userId: String)(action: DBIO[R]): Future[R] = ctx.withUserContext(userId)(action)
+
   /** Owner-scoped delete. pipeline_steps and pipeline_runs cascade on
     * delete via FK constraints (V23, V24). Returns `true` only if a row
     * the caller owned was removed. */

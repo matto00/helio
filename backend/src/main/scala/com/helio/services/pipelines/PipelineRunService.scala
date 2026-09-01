@@ -3,9 +3,9 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
-import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
+import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
+import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, OutputId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
@@ -250,6 +250,81 @@ final class PipelineRunService(
    *  rows for the inline preview tray.
    *  HEL-279: sharing-aware — owner and grantees can preview. */
   def previewStep(pipelineId: PipelineId, stepId: String, user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
+    previewAtNode(pipelineId, Some(stepId), user)
+
+  /** `POST /api/pipelines/:id/preview?outputId=` (HEL-906 cycle 10, P1.4's `preview_outputs`
+   *  dependency, `preview_outputs(pipelineId, outputId?)` -- `outputId` genuinely OPTIONAL, per
+   *  the coordinator's ruling that narrowing the AC to "outputId required" was not an option):
+   *
+   *   - `outputId` present: dry-run preview for exactly that Output, scoped to its own node
+   *     (`output.node.stepId`, `None` meaning the pipeline's raw source). Resolved via
+   *     `outputRepo.findById` (the SAME sharing-aware RLS select `GET /api/outputs/:id` uses)
+   *     before ever touching `pipelineId` -- a caller cannot probe a different pipeline's node
+   *     by supplying a mismatched `pipelineId`/`outputId` pair (`output.node.pipelineId` is
+   *     checked against the path's `pipelineId`).
+   *   - `outputId` absent: dry-run preview for EVERY Output on the pipeline, gated by the
+   *     pipeline-level ACL (`pipelineRepo.findByIdShared`) since there is no single Output to
+   *     resolve ACL through. Outputs sharing the same node (`node.stepId`) are computed ONCE,
+   *     not once per Output, then fanned back out -- `previewAtNode` re-runs the tree-walk
+   *     engine from scratch, so this avoids doing the same work N times for N Outputs on one
+   *     node. If ANY node's preview fails, the whole call fails (the first failure encountered)
+   *     rather than returning a partial, silently-incomplete envelope.
+   *
+   *  BOTH arms return the SAME `PipelinePreviewResponse{outputs: [{outputId, preview}]}`
+   *  envelope -- the single-Output arm is simply that envelope narrowed to one entry -- so a
+   *  caller (P1.4's MCP tool) has exactly one response shape to parse regardless of whether
+   *  `outputId` was supplied.
+   *
+   *  Delegates to the SAME `previewAtNode` helper `previewStep` uses in both arms -- guarantees
+   *  IDENTICAL no-run-state-mutation semantics: neither this nor `previewStep` ever calls
+   *  `pipelineRepo.updateLastRun`/`pipelineRunRepo.insertRun` (both only reachable from
+   *  `executeRun`, this method's sibling, never from here) -- verified by
+   *  `PipelineRunServiceSpec`'s "does not mutate last_run_status/last_run_at" tests (BOTH the
+   *  single-Output and all-Outputs variants) and `OutputRoutesSpec`'s HTTP-level equivalents. */
+  def previewOutputs(pipelineId: PipelineId, outputId: Option[OutputId], user: AuthenticatedUser): Future[Either[ServiceError, PipelinePreviewResponse]] =
+    if (outputRepo == null)
+      Future.successful(Left(ServiceError.InternalError("Output preview is unavailable (no OutputRepository configured)")))
+    else
+      outputId match {
+        case Some(id) =>
+          outputRepo.findById(id, user).flatMap {
+            case None => Future.successful(Left(ServiceError.NotFound("Output not found: " + id.value)))
+            case Some(output) if output.node.pipelineId != pipelineId =>
+              Future.successful(Left(ServiceError.NotFound("Output not found: " + id.value)))
+            case Some(output) =>
+              previewAtNode(pipelineId, output.node.stepId.map(_.value), user).map(_.map { result =>
+                PipelinePreviewResponse(Vector(OutputPreviewEntry(id.value, result)))
+              })
+          }
+        case None =>
+          pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+            case None =>
+              Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
+            case Some(_) =>
+              outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+                val distinctNodeKeys = outputs.map(_.node.stepId.map(_.value)).distinct
+                Future.traverse(distinctNodeKeys)(nodeKey => previewAtNode(pipelineId, nodeKey, user).map(nodeKey -> _)).map { resultsByNode =>
+                  resultsByNode.collectFirst { case (_, Left(err)) => err } match {
+                    case Some(err) => Left(err)
+                    case None =>
+                      val byNodeKey = resultsByNode.collect { case (k, Right(r)) => k -> r }.toMap
+                      val entries = outputs.map(o => OutputPreviewEntry(o.id.value, byNodeKey(o.node.stepId.map(_.value))))
+                      Right(PipelinePreviewResponse(entries))
+                  }
+                }
+              }
+          }
+      }
+
+  /** Shared implementation for `previewStep`/`previewOutputs` -- `targetStepId = None` means
+   *  "preview the pipeline's raw source rows" (an empty step slice); `Some(id)` walks the
+   *  path-to-root ending at that step, exactly as `previewStep` always has. Never mutates run
+   *  state (`pipelineRepo.updateLastRun`/`pipelineRunRepo.insertRun` are unreachable from here)
+   *  — verified by `PipelineRunServiceSpec`'s "does not mutate last_run_status/last_run_at"
+   *  tests (`PipelineRunService.previewOutputs` describe block, ONE test per arm -- single-Output
+   *  and all-Outputs), and at the HTTP layer by `OutputRoutesSpec`'s equivalent tests (also one
+   *  per arm). */
+  private def previewAtNode(pipelineId: PipelineId, targetStepId: Option[String], user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
@@ -260,7 +335,36 @@ final class PipelineRunService(
             Future.successful(Left(ServiceError.UnprocessableEntity(
               "DataSource not found: " + pipeline.sourceDataSourceId.value
             )))
+          case Some(dataSource) if targetStepId.isEmpty =>
+            // Source-level preview (an Output bound directly to the pipeline's raw source, no
+            // step): run the engine with an empty step slice, so `outcome.rows`/`outcome.nodeOutcomes`
+            // are simply the source's own rows, unfiltered by any step.
+            val truncationSink = new TruncationSink
+            backend
+              .execute(pipeline, dataSource, Vector.empty, dataSourceRepo, new AssertionSink, truncationSink)
+              .map { outcome =>
+                val allJsRows = outcome.rows.map { rowMap =>
+                  JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
+                }.toVector
+                val totalCount  = allJsRows.size
+                val previewRows = allJsRows.take(10)
+                val (truncated, availableRowCount, notice, truncatedReads) =
+                  truncationFields(dataSource.name, outcome.sourceRowCount, outcome.primaryStats, truncationSink)
+                Right(RunResultResponse(
+                  previewRows, totalCount, outcome.stepCounts, outcome.sourceRowCount,
+                  sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
+                  truncationNotice = notice, truncatedReads = truncatedReads
+                ))
+              }.recover { case ex =>
+                log.error(s"previewAtNode (source-level) failed for pipeline ${pipelineId.value}", ex)
+                val errMsg = ex match {
+                  case see: StepExecutionException => see.getMessage
+                  case _                            => "Pipeline execution failed"
+                }
+                Left(ServiceError.UnprocessableEntity(errMsg))
+              }
           case Some(dataSource) =>
+            val stepId = targetStepId.get
             // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list.
             // HEL-758: every source kind (including rest_api/sql) now reaches
             // this preview path uniformly (design.md D3).

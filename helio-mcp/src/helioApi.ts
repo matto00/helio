@@ -988,12 +988,18 @@ export class HelioApi {
 
   // ── Delete ────────────────────────────────────────────────────────────────
   //
-  // Every delete endpoint answers `204 No Content` (the backend's
+  // Most delete endpoints answer `204 No Content` (the backend's
   // `ServiceResponse.runNoContent`), so there is no body to return; each
   // wrapper resolves to a small `{ deleted: true, id }` acknowledgement so the
-  // MCP tool result is not an empty string. Deletion is permanent — the backend
-  // is owner-scoped (a non-owner gets 403, an unknown id 404, surfaced verbatim
-  // by the tool's guarded handler). Cascades are FK-enforced in PostgreSQL.
+  // MCP tool result is not an empty string. EXCEPTION (HEL-906 task 3.2):
+  // `DELETE /api/pipeline-steps/:id` now answers `200 OK` with a
+  // `{ removedTailStepCount }` splice-on-delete report instead — this wrapper
+  // still discards that body (never reads status or response data beyond
+  // "the request succeeded"), so the change is not observed here, but the
+  // stale "every delete endpoint answers 204" claim would have been wrong to
+  // leave in place. Deletion is permanent — the backend is owner-scoped (a
+  // non-owner gets 403, an unknown id 404, surfaced verbatim by the tool's
+  // guarded handler). Cascades are FK-enforced in PostgreSQL.
 
   /** `DELETE /api/dashboards/:id`. Owner-only. Cascades to the dashboard's
    *  panels (and per-user zoom prefs). Does not touch data sources/types. */

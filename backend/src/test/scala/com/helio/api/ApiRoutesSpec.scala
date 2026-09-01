@@ -1986,10 +1986,11 @@ class ApiRoutesSpec
           JsObject("fn" -> JsString("sum"), "field" -> JsString("amount"), "alias" -> JsString("total"))
         )
       )
+      // HEL-906 cycle 7 (task 3.8, BREAKING): {steps, outputs} envelope, not a bare array.
       Post("/api/pipeline-shapes/single-row/expand", ExpandPipelineShapeRequest(params)) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
-        val expansions = responseAs[Vector[ShapeStepExpansionResponse]]
-        expansions.map(_.kind) shouldBe Vector("aggregate")
+        val resp = responseAs[ExpandPipelineShapeResponse]
+        resp.steps.map(_.kind) shouldBe Vector("aggregate")
       }
     }
 
@@ -3265,16 +3266,15 @@ class ApiRoutesSpec
       }
     }
 
-    // HEL-904 task 4.1: `dataAsOf`'s only producer (the `dataTypeId`-keyed
-    // `PipelineRepository.findLastRunAtByOutputDataTypeId` lookup) was
-    // removed outright -- no panel can carry a `dataTypeId` binding anymore,
-    // so `dataAsOf` is now unconditionally `None` for every panel, regardless
-    // of kind. The prior "bound panel resolves an ISO timestamp" scenario is
-    // therefore removed; the remaining scenario below is renamed to reflect
-    // that `dataAsOf` is dead-but-not-yet-deleted wire shape, not a live
-    // per-panel computation.
+    // HEL-904 task 4.1 removed the OLD `dataTypeId`-keyed `dataAsOf` producer outright. HEL-906
+    // cycle 6 (evaluation-5.md CR6) rewired `dataAsOf` back onto the NEW `panel -> output ->
+    // pipeline.lastRunAt` path in `PublicDashboardRoutes` -- but ONLY for `OutputPanel`-kind
+    // placements (`config.outputId`); every other panel kind, including this test's plain
+    // `text` panel, has no output binding at all and still gets `dataAsOf = None`. This test
+    // was NOT retired -- it still holds, for a `text` panel specifically. See
+    // `PublicDashboardRoutesSpec` for the OutputPanel-kind coverage this test does not exercise.
 
-    "return dataAsOf null for every panel (the feature is retired, task 4.1)" in {
+    "return dataAsOf = None for a text panel (no output binding to resolve)" in {
       cleanDb()
 
       var dashboardId = ""
@@ -3333,6 +3333,37 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse].message shouldBe "offset must not be negative"
       }
+    }
+  }
+
+  // HEL-906 task 4.1 / ticket AC 5: `/api/types`, `/api/metrics`, and `/api/panels/bound` were
+  // already deleted outright by HEL-904 -- this asserts the absence directly (404, route not
+  // found) rather than relying on the grep-based confirmation in execution-progress.md alone,
+  // so a future accidental re-mount fails a test instead of going unnoticed.
+  "retired DataType/Metric/bound-panel routes (HEL-904)" should {
+    "404 for every GET/PATCH/DELETE /api/types/* route" in {
+      Get("/api/types") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
+      Get("/api/types/some-id") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
+      Get("/api/types/some-id/rows") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
+      Get("/api/types/some-id/assertion-status") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
+      Get("/api/types/some-id/panel-capabilities") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
+    }
+
+    "404 for every GET/POST/DELETE /api/metrics/* route" in {
+      Get("/api/metrics") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
+      Get("/api/metrics/some-id") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
+    }
+
+    // `PanelIdSegment` is an unconstrained `Segment` matcher (design.md D5) -- "bound" matches it
+    // as a bogus panel id, so this 405s (path matched, method didn't; only GET/PATCH/DELETE are
+    // registered under `path(PanelIdSegment)`) rather than 404ing. Either status proves the same
+    // thing AC 5 cares about: no `POST /api/panels/bound` route (`BoundPanelRoutes`) exists.
+    "405 for POST /api/panels/bound (path resolves to a bogus panel id, not a route -- no BoundPanelRoutes exists)" in {
+      Post("/api/panels/bound", JsObject.empty) ~> routes() ~> check { status shouldBe StatusCodes.MethodNotAllowed }
+    }
+
+    "404 for GET /api/panels/:id/query" in {
+      Get("/api/panels/some-id/query") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
     }
   }
 

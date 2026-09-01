@@ -125,7 +125,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       ExpressionEvaluator.inferType(
         "$price * $qty",
         Map("price" -> "number", "qty" -> "number")
-      ) shouldBe Right("number")
+      ) shouldBe Right("float")
     }
 
     "infer string for a concat call" in {
@@ -142,7 +142,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
     }
 
     "infer number for length" in {
-      ExpressionEvaluator.inferType("length($name)", Map("name" -> "string")) shouldBe Right("number")
+      ExpressionEvaluator.inferType("length($name)", Map("name" -> "string")) shouldBe Right("float")
     }
 
     "infer string for + when either operand is a string" in {
@@ -153,7 +153,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
     }
 
     "infer number for + when both operands are numbers" in {
-      ExpressionEvaluator.inferType("$a + $b", Map("a" -> "number", "b" -> "number")) shouldBe Right("number")
+      ExpressionEvaluator.inferType("$a + $b", Map("a" -> "number", "b" -> "number")) shouldBe Right("float")
     }
 
     "return Left for an unresolvable field reference" in {
@@ -405,7 +405,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
     // 3.4
     "inferType: resolves a dotted reference's type from the field-type map" in {
       ExpressionEvaluator.inferType("$stats.pts_ppr * 2", Map("stats.pts_ppr" -> "number")) shouldBe
-        Right("number")
+        Right("float")
     }
 
     // 3.5

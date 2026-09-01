@@ -15,7 +15,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
 
   private val baseSchema: Vector[SchemaField] = Vector(
     field("order_id",   "string"),
-    field("amount",     "number"),
+    field("amount",     "float"),
     field("created_at", "string")
   )
 
@@ -35,7 +35,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result should have size 1
       result(0).validationError shouldBe None
       result(0).inputSchema  shouldBe baseSchema
-      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("amount", "number"))
+      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("amount", "float"))
     }
 
     "select — empty fields list produces empty outputSchema" in {
@@ -92,6 +92,16 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
 
       result(0).validationError should not be empty
       result(0).outputSchema shouldBe baseSchema
+    }
+
+    "cast — non-canonical legacy target types (double/long/date) are canonicalized (HEL-895/638/906 cycle 3)" in {
+      val steps  = Vector(step("cast", """{"casts":{"amount":"double","order_id":"long","created_at":"date"}}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.find(_.name == "amount").map(_.`type`) shouldBe Some("float")
+      result(0).outputSchema.find(_.name == "order_id").map(_.`type`) shouldBe Some("integer")
+      result(0).outputSchema.find(_.name == "created_at").map(_.`type`) shouldBe Some("timestamp")
     }
 
 
@@ -265,7 +275,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val names = result(0).outputSchema.map(_.name)
       names should contain allOf ("order_id", "amount", "created_at", "tax")
       result(0).outputSchema should have size (baseSchema.size + 1)
-      result(0).outputSchema.last shouldBe SchemaField("tax", "number")
+      result(0).outputSchema.last shouldBe SchemaField("tax", "float")
     }
 
     "compute — infers output field type from the expression, ignoring a stale wire type" in {
@@ -319,7 +329,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe Some("Column references require a '$' prefix")
-      result(0).outputSchema.find(_.name == "revenue").map(_.`type`) shouldBe Some("number")
+      result(0).outputSchema.find(_.name == "revenue").map(_.`type`) shouldBe Some("float")
     }
 
     "compute — an unknown $-prefixed field reference is flagged with a validationError and falls back to the wire type" in {
@@ -328,13 +338,24 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe Some("Unknown field: missing")
-      result(0).outputSchema.find(_.name == "x").map(_.`type`) shouldBe Some("number")
+      result(0).outputSchema.find(_.name == "x").map(_.`type`) shouldBe Some("float")
     }
 
     // HEL-867 task 2.2: verify the dotted-reference error wording end-to-end on the
     // step-card validationError surface a user actually reads, not only at the
     // evaluator's return value.
-    "compute — an unresolved dotted reference produces a validationError that names the whole" +
+    "compute — a \"double\" wire type in the fallback path is canonicalized to float (HEL-895/638/906 cycle 3)" in {
+      val cfg    = """{"column":"revenue","expression":"amount * 0.1","type":"double"}"""
+      val steps  = Vector(step("compute", cfg))
+      val result = analyze(steps, baseSchema)
+
+      // "amount * 0.1" is a legacy bare-identifier expression -- validate() rejects it, so this
+      // exercises the Left(validationMsg) branch's canonicalizeLegacyType(wireType) call.
+      result(0).validationError shouldBe Some("Column references require a '$' prefix")
+      result(0).outputSchema.find(_.name == "revenue").map(_.`type`) shouldBe Some("float")
+    }
+
+        "compute — an unresolved dotted reference produces a validationError that names the whole" +
       " dotted reference, states it is matched as a literal flattened column (not a path), and" +
       " does not imply traversal was attempted" in {
       val cfg    = """{"column":"x","expression":"$stats.pts_ppr * 2","type":"number"}"""
@@ -345,7 +366,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       msg should include ("stats.pts_ppr")
       msg should include ("literal")
       msg should include ("not traversed as a path")
-      result(0).outputSchema.find(_.name == "x").map(_.`type`) shouldBe Some("number")
+      result(0).outputSchema.find(_.name == "x").map(_.`type`) shouldBe Some("float")
     }
 
 
@@ -364,8 +385,23 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val output = result(0).outputSchema
       output.map(_.name) shouldBe Vector("created_at", "total_amount", "row_count")
       output.find(_.name == "created_at").map(_.`type`) shouldBe Some("string")
-      output.find(_.name == "total_amount").map(_.`type`) shouldBe Some("number")
+      output.find(_.name == "total_amount").map(_.`type`) shouldBe Some("float")
       output.find(_.name == "row_count").map(_.`type`) shouldBe Some("integer")
+    }
+
+    "aggregate — groupBy field with a non-canonical legacy type (double/long/date) is canonicalized (HEL-906 cycle 4)" in {
+      val cfg = """{
+        "groupBy":[{"name":"amount","type":"double"},{"name":"order_id","type":"long"},{"name":"created_at","type":"date"}],
+        "aggregations":[]
+      }"""
+      val steps  = Vector(step("aggregate", cfg))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      val output = result(0).outputSchema
+      output.find(_.name == "amount").map(_.`type`) shouldBe Some("float")
+      output.find(_.name == "order_id").map(_.`type`) shouldBe Some("integer")
+      output.find(_.name == "created_at").map(_.`type`) shouldBe Some("timestamp")
     }
 
     "aggregate — count fn always yields integer type" in {
@@ -388,7 +424,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       }"""
       val steps  = Vector(step("aggregate", cfg))
       val result = analyze(steps, baseSchema)
-      result(0).outputSchema.find(_.name == "min_amt").map(_.`type`) shouldBe Some("number")
+      result(0).outputSchema.find(_.name == "min_amt").map(_.`type`) shouldBe Some("float")
       result(0).outputSchema.find(_.name == "max_created").map(_.`type`) shouldBe Some("string")
     }
 
@@ -587,16 +623,16 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     }
 
 
-    "datebucket — overwrite case: resolved output field is retyped date, no duplicate" in {
+    "datebucket — overwrite case: resolved output field is retyped timestamp (HEL-895/638), no duplicate" in {
       val steps  = Vector(step("datebucket", """{"field":"created_at","granularity":"day"}"""))
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe None
       result(0).outputSchema.count(_.name == "created_at") shouldBe 1
-      result(0).outputSchema.find(_.name == "created_at").map(_.`type`) shouldBe Some("date")
+      result(0).outputSchema.find(_.name == "created_at").map(_.`type`) shouldBe Some("timestamp")
       // other fields pass through unchanged
       result(0).outputSchema.find(_.name == "order_id").map(_.`type`) shouldBe Some("string")
-      result(0).outputSchema.find(_.name == "amount").map(_.`type`) shouldBe Some("number")
+      result(0).outputSchema.find(_.name == "amount").map(_.`type`) shouldBe Some("float")
     }
 
     "datebucket — new outputColumn is appended, source field type unchanged" in {
@@ -604,7 +640,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe None
-      result(0).outputSchema shouldBe baseSchema :+ field("created_month", "date")
+      result(0).outputSchema shouldBe baseSchema :+ field("created_month", "timestamp")
       result(0).outputSchema.find(_.name == "created_at").map(_.`type`) shouldBe Some("string")
     }
 
@@ -657,7 +693,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe None
-      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("amount", "number"))
+      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("amount", "float"))
     }
 
     "pivot — malformed config produces validationError and identity outputSchema" in {
@@ -677,12 +713,12 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema :+ field("category_rank", "integer")
     }
 
-    "window — appends outputColumn with number type for running_sum" in {
+    "window — appends outputColumn with canonical float type for running_sum (HEL-895/638)" in {
       val steps  = Vector(step("window", """{"partitionBy":["order_id"],"orderBy":[],"function":"running_sum","field":"amount","outputColumn":"cum"}"""))
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe None
-      result(0).outputSchema shouldBe baseSchema :+ field("cum", "number")
+      result(0).outputSchema shouldBe baseSchema :+ field("cum", "float")
     }
 
     "window — infers lag/lead output type from field's declared type in the input schema" in {
@@ -690,7 +726,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe None
-      result(0).outputSchema shouldBe baseSchema :+ field("prev_amount", "number")
+      result(0).outputSchema shouldBe baseSchema :+ field("prev_amount", "float")
     }
 
     "window — lag/lead falls back to string type when field is absent from the input schema" in {
@@ -739,7 +775,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe None
-      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("month", "string"), field("value", "number"))
+      result(0).outputSchema shouldBe Vector(field("order_id", "string"), field("month", "string"), field("value", "float"))
     }
 
     "unpivot — mixed valueVars types fall back to string for valueName" in {
@@ -782,7 +818,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
 
       result(0).validationError shouldBe None
-      result(0).outputSchema shouldBe Vector(field("amount", "number"), field("created_at", "string"), field("order_id", "string"))
+      result(0).outputSchema shouldBe Vector(field("amount", "float"), field("created_at", "string"), field("order_id", "string"))
       result(0).outputSchema.count(_.name == "order_id") shouldBe 1
     }
 
@@ -892,6 +928,46 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
       result(0).validationError.map(_.toLowerCase) should not be empty
       result(0).outputSchema shouldBe baseSchema
+    }
+  }
+
+  "PipelineAnalyzeService.analyzeNodes" should {
+
+    def nodeStep(id: String, parentStepId: Option[String], op: String, config: String, position: Int = 0): NodeStepInput =
+      NodeStepInput(id = id, parentStepId = parentStepId, position = position, op = op, config = config)
+
+    "project a tail's schema independently of the trunk -- a tail's select drops a column the trunk keeps" in {
+      // Trunk: source -> trunk-1 (rename, keeps all 3 columns).
+      // Tail:  branches off trunk-1 (position >= 1) with a select that drops "created_at".
+      val trunkStep = nodeStep("trunk-1", None, "rename", """{"mapping":{"order_id":"order_id"}}""", position = 0)
+      val tailStep  = nodeStep("tail-1", Some("trunk-1"), "select", """{"fields":["order_id","amount"]}""", position = 1)
+
+      val result = analyzeNodes(Vector(trunkStep, tailStep), baseSchema)
+
+      result should have size 2
+      val trunkProjection = result("trunk-1").outputSchema
+      val tailProjection  = result("tail-1").outputSchema
+
+      // The trunk keeps every column (rename is a no-op shape-wise); the tail's select drops
+      // "created_at" -- the two projections must genuinely differ, not just be independently
+      // computed copies of the same schema.
+      trunkProjection shouldBe baseSchema
+      tailProjection shouldBe Vector(field("order_id", "string"), field("amount", "float"))
+      tailProjection should not equal trunkProjection
+    }
+
+    "a tail's input schema is its own parent's output schema, not the pipeline's raw source" in {
+      val trunkStep = nodeStep("trunk-1", None, "select", """{"fields":["order_id","amount"]}""", position = 0)
+      val tailStep  = nodeStep("tail-1", Some("trunk-1"), "rename", """{"mapping":{"amount":"amount"}}""", position = 1)
+
+      val result = analyzeNodes(Vector(trunkStep, tailStep), baseSchema)
+
+      result("tail-1").inputSchema shouldBe result("trunk-1").outputSchema
+      result("tail-1").inputSchema should not equal baseSchema
+    }
+
+    "returns an empty map for an empty step list" in {
+      analyzeNodes(Vector.empty, baseSchema) shouldBe empty
     }
   }
 }

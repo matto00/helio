@@ -27,7 +27,12 @@ object SchemaInferenceFacade {
       val ov = overrides.get(f.name)
       SchemaField(
         name = f.name,
-        `type` = ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType))
+        // HEL-906 cycle 4 (evaluation-3.md CR2 sweep): `ov.dataType` is a caller-supplied
+        // field-type override over the wire (`FieldOverridePayload`) -- canonicalize known
+        // non-canonical synonyms before it lands in `data_sources.inferred_schema`, the same
+        // fix already applied to `DataSourceService.createCsv`'s own (not-yet-migrated-to-this-
+        // facade) duplicate of this exact pattern.
+        `type` = ov.map(o => DataFieldType.canonicalizeLegacy(o.dataType)).getOrElse(DataFieldType.asString(f.dataType))
       )
     }.toVector
 }

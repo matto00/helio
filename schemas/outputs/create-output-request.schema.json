@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/create-output-request.schema.json",
+  "title": "CreateOutputRequest",
+  "description": "Body of `POST /api/pipelines/:id/outputs`. `nodeStepId` absent/null targets the pipeline's raw source; a step id targets that step's tail projection.",
+  "type": "object",
+  "required": ["kind", "name"],
+  "properties": {
+    "nodeStepId": { "type": ["string", "null"] },
+    "kind": {
+      "type": "string",
+      "enum": ["table", "metric", "chart", "collection", "timeline", "markdown"]
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "config": { "type": "object" }
+  },
+  "additionalProperties": false
+}

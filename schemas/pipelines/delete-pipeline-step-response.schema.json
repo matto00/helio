@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/delete-pipeline-step-response.schema.json",
+  "title": "DeletePipelineStepResponse",
+  "description": "DELETE /api/pipeline-steps/:id response (HEL-906 cycle 7, task 3.2). `removedTailStepCount` is the splice-on-delete report: the count of TAIL descendant steps removed outright (beyond the head child promoted onto the deleted step's own slot) when the deleted step was a branch point. `0` for the common case (deleting a trunk step, or a childless tail leaf) -- only a step with multiple children can ever remove more than the target itself.",
+  "type": "object",
+  "properties": {
+    "removedTailStepCount": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": ["removedTailStepCount"],
+  "additionalProperties": false
+}

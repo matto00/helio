@@ -608,6 +608,52 @@ object DataFieldType {
     case BinaryRefType  => "binary-ref"
   }
 
+  /** HEL-906 cycle 4 (evaluation-3.md CR2): normalizes known non-canonical synonyms a
+   *  caller-supplied `type` string may carry (`"number"`/`"double"` -> `"float"`, `"long"` ->
+   *  `"integer"`, `"date"` -> `"timestamp"`) to the canonical wire value BEFORE it lands in a
+   *  `SchemaField` -- every call site that persists or projects a caller-supplied field-type
+   *  string (`DataSourceService.createStatic`'s inline column types, `PipelineService`'s inline
+   *  static-source dry-analyze path, `PipelineAnalyzeService.inferCompute`'s fallback/
+   *  `inferCast`'s `casts` map/`inferAggregate`'s `groupBy`) MUST route through this before
+   *  constructing a `SchemaField`, or a caller-chosen non-canonical synonym silently vanishes
+   *  from `DataFieldType.fromString`-gated surfaces (`capabilities`' `columns`, this whole class
+   *  of HEL-895/638/906 bugs). Any other string (including an already-canonical one, or a
+   *  genuinely unrecognized one) passes through unchanged -- this is normalization of known
+   *  synonyms, not full validation; `fromString` below is still the source of truth for what
+   *  counts as canonical. */
+  def canonicalizeLegacy(raw: String): String = raw match {
+    case "number" | "double" => "float"
+    case "long"               => "integer"
+    case "date"               => "timestamp"
+    case other                => other
+  }
+
+  /** HEL-906 cycle 5 (coordinator ruling, AC-3 "boundary validation"): the actual validating
+   *  entry point every ROUTE-reachable, caller-supplied column-`type` string must go through --
+   *  `canonicalizeLegacy` above only NORMALIZES known synonyms, it never rejects anything
+   *  (`case other => other` is a passthrough, not a validator), which is exactly the gap this
+   *  closes. Canonicalizes known synonyms first, then validates the result against
+   *  `fromString` -- `Right` carries the canonical string ready for a `SchemaField`; `Left`
+   *  carries a message naming every valid type, for a route to turn into a 400. Callers:
+   *  `DataSourceService.createStatic` (inline static-source columns) and
+   *  `PipelineAnalyzeService.inferAggregate` (`groupBy` entries) -- the two caller-supplied
+   *  column-`type` boundaries named in the ruling. */
+  def validateAndCanonicalize(raw: String): Either[String, String] = {
+    val canonicalized = canonicalizeLegacy(raw)
+    fromString(canonicalized) match {
+      case Some(_) => Right(canonicalized)
+      case None    => Left(s"Invalid column type '$raw'. Valid types: ${CanonicalWireValues.mkString(", ")}")
+    }
+  }
+
+  /** HEL-906 cycle 5 (AC-3): the seven canonical wire values, in `asString` order -- the ONE
+   *  place both the `SchemaFieldStructuralGuardSpec`/`SchemaField` `require` error message and
+   *  every `enum` in `schemas/` that lists column types should ultimately derive from, so a
+   *  future eighth `DataFieldType` case can't silently drift one of them out of sync with the
+   *  other two. */
+  val CanonicalWireValues: Vector[String] =
+    Vector(StringType, IntegerType, FloatType, BooleanType, TimestampType, StringBodyType, BinaryRefType).map(asString)
+
   /** Reverse of `asString`. Returns `None` for any string that isn't one of
    *  the 7 canonical wire values. */
   def fromString(s: String): Option[DataFieldType] = s match {

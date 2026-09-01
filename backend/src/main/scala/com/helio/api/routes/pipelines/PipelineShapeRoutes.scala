@@ -33,7 +33,7 @@ final class PipelineShapeRoutes(
           post {
             entity(as[ExpandPipelineShapeRequest]) { req =>
               ServiceResponse.run(pipelineShapeService.expand(shapeId, req.params)) { expansions =>
-                expansions.map(ShapeStepExpansionResponse.fromDomain)
+                ExpandPipelineShapeResponse.fromDomain(expansions)
               }
             }
           }

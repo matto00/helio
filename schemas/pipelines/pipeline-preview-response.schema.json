@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/pipeline-preview-response.schema.json",
+  "title": "PipelinePreviewResponse",
+  "description": "POST /api/pipelines/:id/preview response (HEL-906 task 3.7, cycle 10). Uniform envelope for both arms: outputId present narrows `outputs` to one entry; outputId absent fans out to every Output on the pipeline. `preview` reuses the pre-existing single-node preview shape (RunResultResponse).",
+  "type": "object",
+  "properties": {
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "outputId": { "type": "string" },
+          "preview": { "type": "object" }
+        },
+        "required": ["outputId", "preview"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["outputs"],
+  "additionalProperties": false
+}
