@@ -77,32 +77,61 @@ object AggregateStep {
     val groupByFields = cfg.groupBy.map(_.name)
     val aggregations  = cfg.aggregations
 
-    val grouped: Map[Seq[Any], Seq[PipelineRowJson.Row]] =
-      rows.groupBy(row => groupByFields.map(name => row.getOrElse(name, null)))
-
-    grouped.map { case (keyValues, groupRows) =>
-      val keyMap: PipelineRowJson.Row = groupByFields.zip(keyValues).toMap
+    // HEL-905 (design.md Decision 10, HEL-744): an empty groupBy over zero input rows must
+    // still yield ONE row -- `count = 0L`, every other requested fn `null` -- so a metric Output
+    // off an empty filter shows 0 rather than silently disappearing. Scoped to exactly this one
+    // new branch; a non-empty groupBy over zero rows still falls through to the unchanged
+    // `rows.groupBy(...)` logic below, which already yields zero output rows for that case (the
+    // anti-over-fix guard -- no code change needed for that arm).
+    //
+    // Note the deliberate asymmetry with a REAL (non-empty) group's all-null-field behavior
+    // below: THIS branch's `sum` is `null` (there is no group at all -- summing "nothing" has no
+    // numeric identity meaningful to a caller), whereas a genuine group whose numeric field is
+    // present-but-always-null sums to `0.0` (`Seq.empty.sum == 0.0`, a real computed value over a
+    // real, non-empty row set). Both are AC-specified; this is not an inconsistency to "fix".
+    if (rows.isEmpty && groupByFields.isEmpty) {
       val aggMap: PipelineRowJson.Row = aggregations.map { agg =>
-        val alias = agg.alias
-        val fn    = agg.fn.toLowerCase
-        val field = agg.field
-        val nums  = groupRows.flatMap(r => PipelineRowJson.toDouble(r.getOrElse(field, null)))
+        val fn = agg.fn.toLowerCase
         if (!SupportedFunctions.contains(fn))
           throw new IllegalArgumentException(
             "Unsupported aggregation function: " + fn +
               ". Supported: " + SupportedFunctions.mkString(", ")
           )
         val value: Any = fn match {
-          case "sum"   => nums.sum
-          case "avg"   => if (nums.isEmpty) null else nums.sum / nums.size
-          case "min"   => if (nums.isEmpty) null else nums.min
-          case "max"   => if (nums.isEmpty) null else nums.max
-          case "count" => groupRows.count(r => r.getOrElse(field, null) != null).toLong
+          case "count" => 0L
+          case _       => null
         }
-        alias -> value
+        agg.alias -> value
       }.toMap
-      keyMap ++ aggMap
-    }.toSeq
+      Seq(aggMap)
+    } else {
+      val grouped: Map[Seq[Any], Seq[PipelineRowJson.Row]] =
+        rows.groupBy(row => groupByFields.map(name => row.getOrElse(name, null)))
+
+      grouped.map { case (keyValues, groupRows) =>
+        val keyMap: PipelineRowJson.Row = groupByFields.zip(keyValues).toMap
+        val aggMap: PipelineRowJson.Row = aggregations.map { agg =>
+          val alias = agg.alias
+          val fn    = agg.fn.toLowerCase
+          val field = agg.field
+          val nums  = groupRows.flatMap(r => PipelineRowJson.toDouble(r.getOrElse(field, null)))
+          if (!SupportedFunctions.contains(fn))
+            throw new IllegalArgumentException(
+              "Unsupported aggregation function: " + fn +
+                ". Supported: " + SupportedFunctions.mkString(", ")
+            )
+          val value: Any = fn match {
+            case "sum"   => nums.sum
+            case "avg"   => if (nums.isEmpty) null else nums.sum / nums.size
+            case "min"   => if (nums.isEmpty) null else nums.min
+            case "max"   => if (nums.isEmpty) null else nums.max
+            case "count" => groupRows.count(r => r.getOrElse(field, null) != null).toLong
+          }
+          alias -> value
+        }.toMap
+        keyMap ++ aggMap
+      }.toSeq
+    }
   }
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {

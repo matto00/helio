@@ -23,9 +23,18 @@ trait PipelineExecutionBackend {
       steps: Vector[PipelineStep],
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink,
-      truncationSink: TruncationSink
+      truncationSink: TruncationSink,
+      // HEL-905 (design.md Decision 6): invoked once per node completed by a tree-walk
+      // implementation, defaulted to a no-op so every existing call site (and every
+      // implementation with no per-node concept, e.g. SparkJobSubmitter) keeps compiling
+      // and is never required to call it.
+      onNodeProgress: (Option[String], Long) => Unit = (_, _) => ()
   )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome]
 }
+
+/** HEL-905 (design.md Decision 1): one materialized node's terminal frame from a tree walk --
+ *  either a trunk node or a tail's terminal node. */
+final case class NodeOutcome(rows: Seq[Row], rowCount: Long)
 
 /** The row/step-count/stats outcome `PipelineRunService`'s two execution call sites
  *  (`executeRun`, `previewStep`) already compute today, unified behind [[PipelineExecutionBackend]]. */
@@ -33,5 +42,10 @@ final case class PipelineExecutionOutcome(
     rows: Seq[Row],
     stepCounts: Map[String, Long],
     sourceRowCount: Long,
-    primaryStats: SourceReadStats
+    primaryStats: SourceReadStats,
+    // HEL-905 (design.md Decision 1): NEW, additive -- every evaluated node's frame, keyed by
+    // step id string (`None` = pipeline root, mirrors `outputs.node_step_id`'s NULL = root
+    // convention). Defaults to empty so every existing construction site (SparkJobSubmitter,
+    // test fixtures) keeps compiling unmodified.
+    nodeOutcomes: Map[Option[String], NodeOutcome] = Map.empty
 )

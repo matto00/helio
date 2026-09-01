@@ -122,7 +122,11 @@ class SparkJobSubmitter(
       steps: Vector[PipelineStep],
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink,
-      truncationSink: TruncationSink
+      truncationSink: TruncationSink,
+      // HEL-905 (design.md Decision 6): no per-node concept in the Spark path -- accepted per
+      // the trait contract and never invoked, same "leave untouched" convention as
+      // assertionSink/truncationSink above.
+      onNodeProgress: (Option[String], Long) => Unit = (_, _) => ()
   )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] =
     Future {
       val df       = loadDataFrame(dataSource)
