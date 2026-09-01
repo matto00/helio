@@ -4530,3 +4530,31 @@ and reported back rather than guessed at.
   that remains unresolved. Change is **NOT archived**.
 
 No backend/frontend code touched.
+
+---
+
+## Round 9 final-gate fix (post-archive, HEL-904)
+
+Skeptic round-9 (`skeptic-final-2.md`) found the round-8 fix's stated JUSTIFICATION for why
+`position = count` isn't unconditionally equivalent to trunk continuation had the tail/trunk
+execution order backwards: it claimed `executionOrder` emits a node's tails AFTER its trunk
+continuation. The actual code (`PipelineStepRepository.executionOrder`/`walk`, lines ~566-589)
+does `node +: (tails ++ trunkChild.toVector.flatMap(walk))` — tails come BEFORE the trunk
+continuation, exactly as that function's own scaladoc (lines 566-568) already stated correctly.
+
+The underlying CONCLUSION (no unconditional equivalence between `position=count` and trunk
+continuation on a tail-bearing pipeline) remains correct and unchanged. Only the prose reason was
+inverted. Corrected in three places (reword-only, no code/test change):
+
+1. `schemas/pipelines/create-pipeline-step-request.schema.json` — `description` field.
+2. `openspec/specs/pipeline-steps-persistence/spec.md` — position-present bullet and the
+   "Insert at count equals append" scenario.
+3. `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` —
+   `persistNewStep` comment.
+
+**Gates run fresh this cycle:**
+- `node scripts/check-schema-drift.mjs` — see commit gate output (description-only change).
+- `sbt -batch compile` (backend) — comment-only change, confirms no syntax issue.
+
+No behavior change. No test changes needed per the escalation instructions (underlying code and
+its scaladoc were already correct).
