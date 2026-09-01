@@ -5,7 +5,9 @@ A backend endpoint that turns a user's natural-language goal into a validated, r
 `DashboardProposal`, grounded in the caller's real workspace context and panel capabilities via
 `ClaudeClient` — never applying the proposal itself, and reusing the apply path's own validation so
 an NL-authored proposal is held to the same standard as a hand-authored one.
+
 ## Requirements
+
 ### Requirement: The endpoint authors, validates, but never applies a proposal
 `POST /api/authoring/dashboard` SHALL accept `{ goal: String, contextOptions: Option[...],
 conversationId: Option[String] }` and return either `{ proposal: DashboardProposal, warnings:
@@ -130,3 +132,11 @@ rejection).
 - **THEN** the SSE response's terminal `AuthoringStreamEvent.Error` carries the same
   Bad-Gateway-mapped message as the buffered path would for an identical failure
 
+### Requirement: Combined dashboard proposals reference outputs and placements
+A `DashboardProposal` produced by NL authoring SHALL reference proposed Outputs and their
+dashboard placements, not DataType bindings.
+
+#### Scenario: NL authoring proposes a dashboard backed by new Outputs
+- **WHEN** a natural-language authoring request results in a combined proposal
+- **THEN** the resulting `DashboardProposal` describes placements referencing the proposal's
+  proposed Outputs, with no DataType-binding fields present

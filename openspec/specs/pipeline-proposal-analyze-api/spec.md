@@ -4,7 +4,9 @@
 Defines the dry-analyze contract for an unapplied `PipelineProposal` — projecting the source and
 per-step output schema before anything is created, reusing the existing analyze engine and
 inline-source inference/guard calls rather than a second, divergent implementation.
+
 ## Requirements
+
 ### Requirement: Dry analyze endpoint for a pipeline proposal
 `POST /api/pipelines/analyze-proposal` SHALL accept a `PipelineProposal` request body and return the
 projected source schema, per-step input/output schema, and any per-step validation errors, without
@@ -72,3 +74,12 @@ Resolving an existing `sourceId` referenced by a proposal SHALL respect data-sou
 - **THEN** the endpoint returns `404` (no existence leak), and the response body contains no schema
   data derived from that source
 
+### Requirement: Proposal analysis grounds each Output at its own node
+Pipeline proposal analysis SHALL call `PipelineAnalyzeService` at each proposed Output's specific
+target node (not the pipeline trunk) to validate that Output's `fieldMapping` against the schema
+actually available there.
+
+#### Scenario: Analysis rejects a fieldMapping invalid at its target node even if valid at the trunk
+- **WHEN** a proposed Output's `fieldMapping` references a field present at the trunk but absent
+  at its target tail node
+- **THEN** proposal analysis reports that Output's mapping as invalid

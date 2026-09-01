@@ -5,68 +5,8 @@ Give the MCP agent surface v1.5 panel parity — letting an agent create every c
 (including collection), bind text/markdown/collection panels with backend-verified field mappings,
 set chart type and per-type chart/table config, and upload images — so agents can build dashboards
 with the full panel capability set the backend already supports.
+
 ## Requirements
-### Requirement: create_panel exposes the v1.5 panel type set
-
-The MCP `create_panel` tool SHALL accept the panel `type` set
-`metric/chart/table/text/markdown/image/collection` and SHALL NOT offer `divider` — dropped for
-agent/UI parity, mirroring the human app's HEL-249 removal of divider creation (the backend wire
-contract still accepts `type: "divider"`; the MCP simply no longer offers it). The tool description
-SHALL document each type's `config` shape and the `helio://uploads/image/<id>` markdown image
-reference scheme, with no stale type list remaining.
-
-#### Scenario: Agent creates a collection panel
-- **WHEN** an agent calls `create_panel` with `type: "collection"` and `config: { baseType:
-  "metric", layout: "grid" }`
-- **THEN** the tool posts to `POST /api/panels` and returns the created panel id, and the panel
-  persists as a collection with the given base type and layout
-
-#### Scenario: Divider is not offered
-- **WHEN** an agent inspects the `create_panel` type enum
-- **THEN** `divider` is absent from the accepted values and the description lists only the seven
-  creatable types
-
-### Requirement: create_panel can set chart type and per-type chart/table config
-
-The MCP `create_panel` tool SHALL accept an optional `appearance` passthrough so a chart panel's
-`chartType` (`line`/`bar`/`pie`/`scatter`) can be set at creation, and its description SHALL document
-the per-chart-type `config.chartOptions` shape (HEL-248) and the table
-`config.density`/`config.columnOrder` shape (HEL-255). Because the backend `ChartAppearance` requires
-its non-optional fields (`seriesColors`/`legend`/`tooltip`/`axisLabels`) to be present, the tool SHALL
-send a COMPLETE `ChartAppearance` — merging the caller-supplied `chartType` into the default chart
-appearance — never a bare `{ chartType }` object (which fails backend deserialization).
-
-#### Scenario: Agent creates a bar chart at creation time
-- **WHEN** an agent calls `create_panel` with `type: "chart"` requesting chart type `bar`
-- **THEN** the tool sends a complete `ChartAppearance` with `chartType: "bar"`, the created panel
-  renders as a bar chart, and `config.chartOptions.bar` options passed in `config` are persisted
-
-#### Scenario: Invalid chart type is surfaced verbatim
-- **WHEN** an agent passes an `appearance.chart.chartType` the backend rejects
-- **THEN** the tool returns the backend's 400 message unchanged, not a generic failure
-
-### Requirement: bind_panel supports text, markdown, and collection panels
-
-The MCP `bind_panel` tool SHALL accept `panelType` values
-`metric/chart/table/text/markdown/collection`, and its description SHALL document the backend-verified
-`fieldMapping` keys per type: metric `value`/`label`/`unit`; chart `xAxis`/`yAxis`/`series`; text and
-markdown `content`; collection the base-type slots (metric → `value`/`label`/`unit`). It SHALL note
-that a collection's `baseType`/`layout` are set on `create_panel` and preserved by the merge-patch.
-
-#### Scenario: Agent binds a markdown panel to a DataType field
-- **WHEN** an agent calls `bind_panel` with `panelType: "markdown"`, a pipeline-output `dataTypeId`,
-  and `fieldMapping: { content: "<column>" }`
-- **THEN** the tool PATCHes the panel binding and the markdown panel renders the bound column's value
-
-#### Scenario: Agent binds a collection panel
-- **WHEN** an agent calls `bind_panel` with `panelType: "collection"`, a multi-row pipeline-output
-  `dataTypeId`, and metric-slot `fieldMapping` (e.g. `{ value: "amount", label: "name" }`)
-- **THEN** the collection renders one metric item per row, and the create-time `baseType`/`layout`
-  are unchanged
-
-#### Scenario: Binding a source-companion DataType is rejected verbatim
-- **WHEN** an agent binds any panel to a source-companion DataType (not a pipeline output)
-- **THEN** the tool surfaces the backend's 400 (V41 pipeline-only) message unchanged
 
 ### Requirement: upload_image MCP tool
 
@@ -225,49 +165,6 @@ and description, the `dashboard-proposal.schema.json` `ProposalPanel` definition
 - **THEN** the flat `sort` field (`"asc"` | `"desc"`) is present and the timeline binding guidance
   describes it as a flat field rather than requiring `config`
 
-### Requirement: create_bound_panel collapses the source-to-bound-panel chain into one call
-
-The MCP server SHALL expose a `create_bound_panel` tool wrapping `POST /api/panels/bound`,
-accepting the same `{ dashboardId, source|sourceDataSourceId, pipeline, panel, fieldMapping? }`
-shape and returning `{ sourceId, pipelineId, dataTypeId, panel }`. The tool description SHALL
-document that this is the preferred one-call path for building a single bound data panel, and that
-the existing granular tools (`create_data_source`, `create_pipeline`, `add_pipeline_step`,
-`run_pipeline`, `create_panel`, `bind_panel`) remain available and unchanged for callers that need
-finer-grained control (e.g. an existing pipeline they only want to re-run).
-
-#### Scenario: Agent builds one panel in a single tool call
-- **WHEN** an agent calls `create_bound_panel` with an inline `source`, one `filter` step, and a
-  `metric` panel spec with a satisfiable `fieldMapping`
-- **THEN** the tool makes exactly one HTTP request to `POST /api/panels/bound` and returns the
-  created `panel` with `dataTypeId` set, replacing what previously required 6 separate tool calls
-
-#### Scenario: Failure surfaces the failed stage verbatim
-- **WHEN** the backend rejects the request naming a failed stage (e.g. `"run"`)
-- **THEN** the tool surfaces that stage and message to the agent verbatim, matching every other
-  write tool's error-passthrough convention in `helio-mcp/src/tools/write.ts` — never swallowed or
-  retried silently
-
-### Requirement: create_panels collapses a panel fan-out into one call
-
-The MCP server SHALL expose a `create_panels` tool wrapping `POST /api/panels/batch`, accepting
-`{ dashboardId, panels: [...] }` where each entry has the same shape `create_panel` accepts (minus
-`dashboardId`, supplied once). The tool description SHALL document that all panels are created
-atomically (one bad item creates nothing) and returned in input order, and that this is the
-preferred path for laying down several panels on one dashboard in a single call (e.g. a story's
-image + markdown pair, or a batch of pre-created data panels later bound with `bind_panel`) — the
-existing `create_panel` tool remains available and unchanged for a single panel.
-
-#### Scenario: Agent creates several panels in one call
-- **WHEN** an agent calls `create_panels` with a `dashboardId` and three panel specs (image,
-  markdown, metric)
-- **THEN** the tool makes exactly one HTTP request to `POST /api/panels/batch` and returns all three
-  created panels with ids, in the order supplied
-
-#### Scenario: A bad item's error is surfaced verbatim
-- **WHEN** the backend rejects the batch because one item has an invalid `type` or chart type
-- **THEN** the tool surfaces the backend's 400 message unchanged, naming the offending item, and no
-  panels are created
-
 ### Requirement: auto_layout_dashboard packs panel sizes into a non-overlapping layout
 
 The MCP `auto_layout_dashboard` tool SHALL accept a dashboard id and a list of `{panelId, w, h}` sizes,
@@ -377,3 +274,17 @@ rejected by `preValidateBindings` at apply time.
   resolves to a caller-owned, non-deprecated metric
 - **THEN** the response includes no metricId-related warning for that panel
 
+### Requirement: update_panel MCP tool
+The MCP server SHALL expose `update_panel` accepting only placement fields (`title`, `w`, `h`,
+position) — DataType/binding fields SHALL NOT be accepted, since a panel's Output binding is fixed
+at placement time and is not mutable via `update_panel`.
+
+#### Scenario: Agent resizes a placed panel
+- **WHEN** an agent calls `update_panel` with a valid `panelId` and new `w`/`h`
+- **THEN** the tool updates the placement and returns the updated panel
+
+#### Scenario: Attempting to rebind a panel's Output is rejected
+- **WHEN** an agent calls `update_panel` with a field attempting to change the panel's bound
+  Output
+- **THEN** the tool rejects the call before issuing any HTTP request, since `update_panel`'s
+  schema does not accept a binding field

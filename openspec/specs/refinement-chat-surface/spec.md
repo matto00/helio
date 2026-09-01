@@ -4,7 +4,9 @@
 The in-app entry point for conversationally refining the currently-open dashboard — a chat drawer
 that turns a message into a previewed, reviewable patch set on the existing `/patch-sets/review`
 route, without writing anything until the user explicitly accepts.
+
 ## Requirements
+
 ### Requirement: The refinement drawer SHALL target the currently-open dashboard
 `RefinementChatDrawer` SHALL send `target: {kind: "dashboard", id: <selectedDashboardId>}` on every
 turn, taking that dashboard id from the app's already-selected dashboard, never a user-typed id.
@@ -37,3 +39,13 @@ No resource a returned patch set references SHALL be modified between a successf
   without clicking Accept
 - **THEN** every resource named in that patch set is byte-for-byte unchanged in the database
 
+### Requirement: A chart-create with an implied Output does not mistarget a follow-up edit
+When a refinement turn creates a chart implying a new Output, a subsequent follow-up edit turn in
+the same conversation SHALL target that newly-created Output/panel, not an unrelated pre-existing
+one (re-verification of HEL-670 against the Outputs model).
+
+#### Scenario: A follow-up edit after an implied-Output chart-create targets the right panel
+- **WHEN** a refinement turn creates a chart with an implied Output, and the next turn is a
+  follow-up edit referring to "the chart I just made"
+- **THEN** the edit targets the panel just created for that Output, not any other panel on the
+  dashboard
