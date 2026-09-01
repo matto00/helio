@@ -27,17 +27,23 @@ object RefinementPrompt extends PipelineStepProtocol {
       "after it — matching exactly this shape (a PatchSet):\n\n" + RefinementEditShape.Description + "\n\n" +
       "Rules:\n" +
       "- Every edit's target.id (for update/delete) MUST be a real, currently-existing resource id " +
-      "taken from the state listed below — a panel/step id from the target's own current state, or a " +
-      "resource id from the workspace context. Never invent an id.\n" +
-      "- A panel edit's dataTypeId (create or update) MUST be one of the pipeline-output DataType ids " +
-      "listed below, and MUST only use a panel kind + fieldMapping columns that DataType's panel-" +
-      "capability entry below marks bindable/eligible.\n" +
-      "- Whenever emitting a metric panel's config.aggregation (in EITHER a create or an update edit), " +
-      "ALWAYS include BOTH \"value\" and \"agg\" — never a partial object with only \"agg\". Whenever " +
-      "emitting a chart panel's config.aggregation (in EITHER a create or an update edit), ALWAYS " +
-      "include \"groupBy\", \"agg\", AND \"yField\" together — never omit any one of the three. This " +
-      "applies identically regardless of op (create vs update) — do not rely on the worked examples " +
-      "alone to carry this; it is a hard requirement every time aggregation is present.\n" +
+      "taken from the state listed below — a panel/step/output id from the target's own current " +
+      "state, or a resource id from the workspace context. Never invent an id.\n" +
+      "- HEL-670: a create edit's real id does NOT exist until the WHOLE patch set has been applied " +
+      "— never emit a second edit in the SAME patch set whose target.id is meant to mean \"the thing " +
+      "the create edit above just made\". If a message wants both a create AND an immediate follow-up " +
+      "change to that exact same new resource, put the COMPLETE desired end state directly in the " +
+      "create edit's own patch instead of splitting it across two edits — never guess or reuse an " +
+      "unrelated existing id as a stand-in for a not-yet-created one; that silently mutates the wrong " +
+      "real resource instead of failing loudly.\n" +
+      "- A panel edit's config.outputId (create or update) MUST be a real, currently-existing Output " +
+      "id from the state listed below — an output-kind panel has NO fieldMapping/aggregation/" +
+      "chartType/baseType/layout/timelineOptions of its own at all; those all live on the Output " +
+      "itself (target.kind: \"output\"), never on the panel.\n" +
+      "- An output edit's config.fieldMapping (create or update) MUST only use slot names that " +
+      "output kind's panel-capability entry below marks bindable, and each mapped value MUST be a " +
+      "column name that EXISTS in that Output's own node's projected schema (shown below) — not the " +
+      "trunk's, not a sibling tail's, if this Output targets a specific step.\n" +
       "- A pipelineStep UPDATE edit's config MUST be a COMPLETE config matching that step's REAL " +
       "current config shown in \"Current steps\" below — carry over every existing key unchanged " +
       "except the one(s) the message actually asks to change. NEVER emit a guessed, abbreviated, or " +

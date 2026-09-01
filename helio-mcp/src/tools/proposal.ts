@@ -3,13 +3,26 @@
  *
  * - `propose_dashboard` assembles a dashboard proposal and returns it as JSON,
  *   writing NOTHING. It validates the shape and (read-only) checks that each
- *   data panel binds to a real pipeline-output DataType, attaching warnings so
- *   an agent — or a human reviewer — can fix a proposal before applying it.
- *   (Wiring a natural-language → Claude call that authors the proposal is a
- *   deliberate follow-on; this tool is the artifact assembler/validator.)
+ *   `output`-kind panel binds to a real, caller-owned Output, attaching
+ *   warnings so an agent — or a human reviewer — can fix a proposal before
+ *   applying it. (Wiring a natural-language → Claude call that authors the
+ *   proposal is a deliberate follow-on; this tool is the artifact
+ *   assembler/validator.)
  * - `apply_proposal` posts an accepted proposal to POST /api/dashboards/
  *   apply-proposal — the same reviewed-artifact write path the in-app Proposal
  *   Review UI uses.
+ *
+ * HEL-907 task 1.1/1.3 dashboard half: retargeted onto Outputs. The
+ * backend contract (`dashboard-proposal.schema.json`, `DashboardProposalService`/
+ * `ProposalPanelSupport`) was already retargeted by HEL-904 (task 3.8-3.10,
+ * already on `main` before this branch existed) -- `metric`/`chart`/`table`/
+ * `collection`/`timeline` panel kinds no longer exist; `"output"` is the ONLY
+ * kind with a real data binding, and `dataTypeId` (kept under that name for
+ * wire stability) now holds an Output id. This file was the one piece of the
+ * contract still calling `GET /api/types` (deleted outright by HEL-904) for
+ * its own grounding fetch -- a dead route, so every `propose_dashboard` call
+ * has been silently degrading its own binding-warning check (or outright
+ * failing) since HEL-904 landed. Fixed here by fetching Outputs instead.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -17,12 +30,15 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
-import type { DashboardProposal, ProposalPanel } from "../types.js";
+import type { DashboardProposal, OutputResponse, ProposalPanel } from "../types.js";
 import { computeProposalWarnings } from "./proposalValidation.js";
 
 // No `divider`: dropped from the proposal flow's type set for parity with
 // create_panel (HEL-249/HEL-315/HEL-316) — the backend wire still accepts it
-// on other paths, this tool just no longer offers it.
+// on other paths, this tool just no longer offers it. No `metric`/`chart`/
+// `table`/`collection`/`timeline` either — those panel kinds were deleted
+// outright by HEL-904; `dashboard-proposal.schema.json`'s enum is
+// text/markdown/image/output only.
 // Exported so `replace_dashboard_contents` (write.ts, HEL-363) can reuse the
 // exact same agent-facing panel-type set instead of redefining it.
 export const PANEL_TYPES = ["text", "markdown", "image", "output"] as const;
@@ -34,51 +50,36 @@ const layoutSchema = z.object({
   h: z.number().int().positive(),
 });
 
-const aggFnSchema = z.enum(["count", "sum", "avg", "min", "max"]);
-
-// Viz-level aggregation spec (metric OR chart shape) — matches
-// `MetricAggregation`/`ChartAggregation` in schemas/panels/panel.schema.json.
-// A single union keeps the zod schema simple; server-side validation is the
-// authority on which shape applies to which panel type.
-const aggregationSchema = z.union([
-  z.object({ value: z.string().min(1), agg: aggFnSchema }),
-  z.object({ groupBy: z.string().min(1), agg: aggFnSchema, yField: z.string().min(1) }),
-]);
-
-const chartTypeSchema = z.enum(["bar", "line", "pie", "scatter"]);
-const dividerOrientationSchema = z.enum(["horizontal", "vertical"]);
-
 // Exported so `replace_dashboard_contents` (write.ts, HEL-363) can validate
 // its `panels` array with the exact same shape `propose_dashboard`/
 // `apply_proposal` use — the backend's `ProposalPanel` wire shape is shared
-// verbatim across all three (design.md D2).
+// verbatim across all three (design.md D2). `metricId`/`aggregation`/
+// `chartType`/`xAxisLabel`/`yAxisLabel`/`seriesColors`/`label`/`unit`/`sort`
+// are kept on the wire shape for schema stability (dashboard-proposal.schema.json's
+// own field descriptions: "legacy field, decoded but never applied") but are
+// deliberately NOT part of this tool's description below, since none of
+// them do anything anymore.
 export const panelSchema = z.object({
   title: z.string().min(1),
   type: z.enum(PANEL_TYPES),
   dataTypeId: z.string().optional(),
   fieldMapping: z.record(z.string(), z.string()).optional(),
-  aggregation: aggregationSchema.optional(),
-  // Initial config for non-data panels, applied at create time (HEL-293).
+  aggregation: z.record(z.string(), z.unknown()).optional(),
+  // Initial config for non-data panels, applied at create time.
   content: z.string().optional(),
   url: z.string().optional(),
-  orientation: dividerOrientationSchema.optional(),
-  // Chart appearance, applied as a best-effort follow-up update (HEL-293).
-  chartType: chartTypeSchema.optional(),
+  orientation: z.enum(["horizontal", "vertical"]).optional(),
+  chartType: z.enum(["bar", "line", "pie", "scatter"]).optional(),
   xAxisLabel: z.string().optional(),
   yAxisLabel: z.string().optional(),
   seriesColors: z.array(z.string()).optional(),
-  // Metric literal label/unit override — distinct from fieldMapping.label/
-  // fieldMapping.unit, which bind to a data column (HEL-293).
   label: z.string().optional(),
   unit: z.string().optional(),
-  // Flat timeline sort (HEL-321) — derived server-side into
-  // config.timelineOptions.sort; an explicit config.timelineOptions overrides.
   sort: z.enum(["asc", "desc"]).optional(),
   layout: layoutSchema.optional(),
   // Generic passthrough merged over the config derived from the flat fields
   // above, then decoded by the same panel-create path as create_panel's
-  // `config` (HEL-316) — see the propose_dashboard/apply_proposal
-  // descriptions below for the per-type v1.5 shapes this unlocks.
+  // `config`.
   config: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -98,6 +99,26 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
   }
 }
 
+/** Fetches every Output the caller owns, across every page (`limit=200` per
+ *  page, mirroring `context.ts`'s `fetchAllOutputs` -- duplicated locally
+ *  rather than shared/exported, per this codebase's established convention
+ *  for a small file-local concern, design.md D10). Bounded to a sane max
+ *  page count so a pagination bug elsewhere can never spin this into an
+ *  unbounded loop. */
+async function fetchAllOutputs(api: HelioApi): Promise<OutputResponse[]> {
+  const items: OutputResponse[] = [];
+  let offset = 0;
+  const limit = 200;
+  const maxPages = 50; // 10,000 Outputs — far beyond any real workspace
+  for (let page = 0; page < maxPages; page++) {
+    const result = await api.listAllOutputs(limit, offset);
+    items.push(...result.items);
+    if (items.length >= result.total || result.items.length === 0) break;
+    offset += limit;
+  }
+  return items;
+}
+
 export function registerProposalTools(server: McpServer, api: HelioApi): void {
   server.registerTool(
     "propose_dashboard",
@@ -105,44 +126,28 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
       title: "Propose a dashboard (no writes)",
       description:
         "Assemble a dashboard proposal (name + panels) and return it as JSON WITHOUT writing " +
-        "anything. Validates the shape and read-only-checks that each " +
-        "metric/chart/table/collection/timeline panel binds to a real pipeline-output DataType, " +
-        "returning { proposal, warnings }. Review the proposal (in-app or by inspection), then " +
-        "apply it with apply_proposal.\n" +
-        "`type` ∈ metric/chart/table/text/markdown/image/collection/timeline (there is no " +
-        "`divider`: dropped for agent/UI parity, mirroring create_panel — the backend wire still " +
-        "accepts it on other paths). Each panel accepts a generic `config` passthrough on top of " +
-        "the flat fields below, merged over the config those fields derive and decoded by the same " +
-        "panel-create path create_panel uses — use it for any v1.5 surface with no flat field:\n" +
-        "• metric — bind with dataTypeId/fieldMapping; literal `label`/`unit` overrides " +
-        "optional.\n" +
-        "• chart — bind with dataTypeId/fieldMapping; config.chartOptions keyed by chart " +
-        "type (line {smooth,showPoints,areaFill}; bar {orientation:vertical|horizontal, " +
-        "stacking:none|stacked|normalized, barGapPct:0-100}; pie {donutHolePct:0-90, " +
-        "showPercentLabels}; scatter {sizeField,colorField}). Set the chart's TYPE via the " +
-        "top-level `chartType` field (applied as a best-effort follow-up appearance update), not " +
-        "config.\n" +
-        "• table — bind with dataTypeId/fieldMapping; config.density " +
-        "(condensed|normal|spacious) and config.columnOrder (string[] of visible column keys, in " +
-        "order).\n" +
-        "• collection — bind with dataTypeId/fieldMapping (base-type slots, e.g. baseType " +
-        "metric → {value,label?,unit?}); config.baseType (metric) and config.layout " +
-        "(grid|list). One bound row = one rendered item.\n" +
-        "• timeline — bind with dataTypeId/fieldMapping ({time, event} slots — time is a " +
-        "timestamp/order column, event is the text description); flat `sort` field (asc|desc, " +
-        "default asc) sets chronological order (config.timelineOptions.sort still overrides it). " +
-        "One bound row = one rendered event.\n" +
-        "• text/markdown — `content` (literal/static text) seeds the initial body; optionally bind " +
-        "to a pipeline-output DataType via config.dataTypeId/config.fieldMapping (Source mode — " +
-        "the DataType column named by fieldMapping.content fills the body instead of the literal " +
-        "`content`).\n" +
+        "anything. Validates the shape and read-only-checks that each `output`-kind panel binds " +
+        "to a real, caller-owned Output, returning { proposal, warnings }. Review the proposal " +
+        "(in-app or by inspection), then apply it with apply_proposal.\n" +
+        "`type` ∈ text/markdown/image/output (there is no `divider`: dropped for agent/UI parity, " +
+        "mirroring create_content_panel/place_outputs — the backend wire still accepts it on other " +
+        "paths; there is no " +
+        "metric/chart/table/collection/timeline either — those panel kinds were retired). Each " +
+        "panel accepts a generic `config` passthrough on top of the flat fields below, merged over " +
+        "the config those fields derive and decoded by the same panel-create path " +
+        "place_outputs/create_content_panel uses:\n" +
+        "• output — bind with `dataTypeId` set to a real Output id (obtained from " +
+        "get_workspace_context's pipelines[].outputs[] or list_outputs) — despite the field name, " +
+        "this is an Output id, kept under that name for wire stability. `fieldMapping` is NOT " +
+        "meaningful for an output panel (an Output's own `schema` is already the grounding " +
+        "source) — do not set it.\n" +
+        "• text/markdown — `content` (literal/static text) seeds the initial body. There is no " +
+        'data-bound "Source mode" anymore — a `config.dataTypeId`/`dataTypeId` on a text/markdown ' +
+        "panel is silently inert, never a real binding.\n" +
         "• image — `url` seeds the initial imageUrl (imageFit defaults to contain; use " +
         "config.imageFit to override).\n" +
-        "A metric/chart/table/collection/timeline panel's dataTypeId always stays authoritative " +
-        "over anything `config` supplies. A text/markdown panel's config.dataTypeId IS a real " +
-        "binding attempt and is validated against the same pipeline-only rule (V41) as any other " +
-        "binding — a source-companion or non-owned DataType 400s; a valid pipeline-output DataType " +
-        "succeeds.",
+        "An output panel's `dataTypeId` always stays authoritative over anything `config` " +
+        "supplies.",
       inputSchema: {
         dashboardName: z.string().min(1),
         panels: z.array(panelSchema),
@@ -153,11 +158,12 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         const typedPanels = panels as ProposalPanel[];
         const proposal: DashboardProposal = { dashboardName, panels: typedPanels };
 
-        // Read-only validation against the workspace: resolve DataTypes once
-        // and flag panels whose binding is missing/invalid. Extracted to
-        // `proposalValidation.ts` (HEL-223) — see that module's docstring for why.
-        const typesPage = await api.listDataTypes();
-        const byId = new Map(typesPage.items.map((t) => [t.id, t]));
+        // Read-only validation against the workspace: resolve the caller's
+        // Outputs once and flag panels whose binding is missing/invalid.
+        // Extracted to `proposalValidation.ts` (HEL-223) — see that module's
+        // docstring for why.
+        const outputs = await fetchAllOutputs(api);
+        const byId = new Map(outputs.map((o) => [o.id, o]));
         const warnings = computeProposalWarnings(typedPanels, byId);
 
         return { proposal, warnings, applyReady: warnings.length === 0 };
@@ -170,12 +176,12 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
       title: "Apply a dashboard proposal",
       description:
         "Apply an accepted proposal via POST /api/dashboards/apply-proposal — the server validates " +
-        "and creates the dashboard + panels atomically through the existing services (RLS + V41 " +
-        "enforced for every panel's binding, flat OR via config; nothing is created if any panel is " +
-        "invalid). Each panel's `config` (if any) is merged over the config derived from its flat " +
-        "fields and decoded by the same panel-create path create_panel uses (see " +
-        "propose_dashboard's description for the per-type v1.5 config shapes, including " +
-        "text/markdown's config.dataTypeId binding). Returns the created dashboard + panels.",
+        "and creates the dashboard + panels atomically through the existing services (an output " +
+        "panel's FLAT `dataTypeId` -- never `config.dataTypeId`, which is not consulted for " +
+        "binding on ANY panel kind -- must resolve to a real, caller-owned Output; nothing is " +
+        "created if any panel is invalid). Each panel's `config` (if any) is merged " +
+        "over the config derived from its flat fields and decoded by the same panel-create path " +
+        "place_outputs/create_content_panel uses. Returns the created dashboard + panels.",
       inputSchema: {
         dashboardName: z.string().min(1),
         panels: z.array(panelSchema),

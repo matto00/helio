@@ -333,7 +333,10 @@ final class ApiRoutes(
   private val patchSetApplyService = new PatchSetApplyService(
     panelService, dashboardService, dataSourceService, pipelineService,
     panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-    accessChecker, patchSetApplicationRepo
+    accessChecker, patchSetApplicationRepo,
+    // HEL-907 task 1.2: wires the `output` target.kind's own repo/service, mirroring every
+    // other nullable-optional collaborator in this file (`.orNull`).
+    outputRepoOpt.orNull, outputServiceOpt.orNull
   )
   // HEL-408: read-only diff/impact preview -- reuses PatchSetApplyResolvers
   // (same package) for pre-validation; needs only the repos/accessChecker

@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.PipelineProposalService
-import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineProposal, PipelineProposalSource}
+import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalSource}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -57,7 +57,7 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     )
 
   private def proposal(source: PipelineProposalSource, pipelineName: String = "My Pipeline"): PipelineProposal =
-    PipelineProposal(pipelineName, source, "My Output", Vector.empty)
+    PipelineProposal(pipelineName, source, steps = Vector.empty, outputs = Vector.empty)
 
   "PipelineProposalService.validate" should {
 
@@ -89,11 +89,10 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       val dsRepo   = mock(classOf[DataSourceRepository])
       when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
 
-      val badStep = CreatePipelineStepRequest(
+      val badStep = CreatePipelineTransactionalStepRequest(
+        clientId = "s1",
         `type`   = "window",
-        config   = """{"partitionBy":"region","orderBy":[],"function":"row_number","outputColumn":"rn"}""".parseJson.asJsObject,
-        position = None,
-        enabled  = None
+        config   = """{"partitionBy":"region","orderBy":[],"function":"row_number","outputColumn":"rn"}""".parseJson.asJsObject
       )
       val withBadStep = proposal(existingSourceRef(sourceId.value)).copy(steps = Vector(badStep))
 
@@ -115,11 +114,10 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       val dsRepo   = mock(classOf[DataSourceRepository])
       when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
 
-      val draftStep = CreatePipelineStepRequest(
+      val draftStep = CreatePipelineTransactionalStepRequest(
+        clientId = "s1",
         `type`   = "compute",
-        config   = """{"column":"","expression":""}""".parseJson.asJsObject,
-        position = None,
-        enabled  = None
+        config   = """{"column":"","expression":""}""".parseJson.asJsObject
       )
       val withDraft = proposal(existingSourceRef(sourceId.value)).copy(steps = Vector(draftStep))
 

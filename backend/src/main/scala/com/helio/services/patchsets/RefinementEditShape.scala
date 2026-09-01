@@ -168,178 +168,92 @@ object RefinementEditShape {
       "row_number|rank|dense_rank|running_sum|lag|lead; field/offset are optional and only required by\n" +
       "running_sum/lag/lead):\n" + WindowStepExample
 
-  // `target.kind: "panel"`, `op: "update"` — ONE worked example per `PanelBindingSpec.DataBindable`
-  // kind (metric/chart/table/collection/timeline, all five — a subset would leave the model
-  // grounded-but-blind for the missing kinds, design.md D2a). `patch.config`'s field names are each
-  // kind's real `fieldMapping` slot names (`PanelBindingSpec`) and its own `*PanelConfig.Patch`
-  // fields — never generic placeholders. Chart's `chartType` is NOT part of `config` — it lives on
-  // the sibling `appearance.chart` field (shown in the chart example), which reuses this same
-  // "patch" object's `appearance` key.
+  // `target.kind: "panel"`, `op: "update"` — HEL-907 task 1.6/1.8: retargeted onto the Outputs
+  // model. A panel is now either an `output`-kind PLACEMENT (bound to a pre-existing Output via
+  // `config.outputId` -- nothing else in `config`; fieldMapping/aggregation/chartType/baseType/
+  // layout/timelineOptions all moved OFF the panel and onto the Output itself, editable only via
+  // an `output`-kind edit, never a panel edit) or a content panel (`text`/`markdown`/`image`/
+  // `divider`, no data binding at all). The five kind-specific bound-panel examples this replaced
+  // (`metric`/`chart`/`table`/`collection`/`timeline`) described panel `type` values
+  // `PanelType.fromString` has not accepted since HEL-904 -- every one of those five examples
+  // would have been REJECTED by the real backend; the file's own regression test
+  // (`RefinementEditShapeSpec`) never happened to cover them, which is how this survived
+  // undetected until this task's re-verification found it.
   //
-  // Each example is its own `private[services]` val (rather than one inlined block) so
-  // `RefinementEditShapeSpec` can parse+decode EACH one individually through the real
-  // `PatchSetProtocol.editFormat` + matching `*PanelConfig.Patch.decode` — the exact regression
-  // guard a hand-maintained prompt example needs (evaluation-1.md cycle-1 finding: the metric
-  // example's `aggregation` was missing its required `value` key — decode-shape-valid, but
-  // semantically wrong in a way nothing downstream, including `PatchSetPreviewService.preview`,
-  // would ever catch).
+  // Each example is its own `private[services]` val so `RefinementEditShapeSpec` can parse+decode
+  // it individually through the real `PatchSetProtocol.editFormat` -- same regression-guard
+  // convention every other worked example in this file already follows.
 
-  private[services] val MetricPanelExample: String =
+  private[services] val OutputPanelExample: String =
     """{
       |  "target": { "kind": "panel", "id": "panel_111" },
       |  "op": "update",
       |  "patch": {
-      |    "config": {
-      |      "dataTypeId": "type_789",
-      |      "fieldMapping": { "value": "revenue", "label": "region" },
-      |      "aggregation": { "value": "revenue", "agg": "sum" },
-      |      "unit": "$"
-      |    }
+      |    "title": "Revenue",
+      |    "config": { "outputId": "output_789" }
       |  }
       |}""".stripMargin
 
-  private[services] val ChartPanelExample: String =
+  private[services] val ContentPanelExample: String =
     """{
-      |  "target": { "kind": "panel", "id": "panel_222" },
+      |  "target": { "kind": "panel", "id": "panel_666" },
       |  "op": "update",
-      |  "patch": {
-      |    "title": "Revenue by Month",
-      |    "config": {
-      |      "dataTypeId": "type_789",
-      |      "fieldMapping": { "xAxis": "month", "yAxis": "revenue" },
-      |      "aggregation": { "groupBy": "month", "agg": "sum", "yField": "revenue" }
-      |    },
-      |    "appearance": { "chart": { "chartType": "bar" } }
-      |  }
-      |}""".stripMargin
-
-  private[services] val TablePanelExample: String =
-    """{
-      |  "target": { "kind": "panel", "id": "panel_333" },
-      |  "op": "update",
-      |  "patch": {
-      |    "config": {
-      |      "dataTypeId": "type_789",
-      |      "fieldMapping": { "col1": "customer", "col2": "revenue" }
-      |    }
-      |  }
-      |}""".stripMargin
-
-  private[services] val CollectionPanelExample: String =
-    """{
-      |  "target": { "kind": "panel", "id": "panel_444" },
-      |  "op": "update",
-      |  "patch": {
-      |    "config": {
-      |      "dataTypeId": "type_789",
-      |      "fieldMapping": { "value": "revenue", "label": "customer" },
-      |      "baseType": "metric",
-      |      "layout": "grid"
-      |    }
-      |  }
-      |}""".stripMargin
-
-  private[services] val TimelinePanelExample: String =
-    """{
-      |  "target": { "kind": "panel", "id": "panel_555" },
-      |  "op": "update",
-      |  "patch": {
-      |    "config": {
-      |      "dataTypeId": "type_789",
-      |      "fieldMapping": { "time": "createdAt", "event": "description" },
-      |      "timelineOptions": { "sort": "desc" }
-      |    }
-      |  }
+      |  "patch": { "config": { "content": "Updated note text" } }
       |}""".stripMargin
 
   private val PanelUpdateExamples: String =
-    "metric (fieldMapping slots: value required, label/unit optional):\n" + MetricPanelExample +
-      "\n\nchart (fieldMapping slots: xAxis/yAxis required, series/annotation optional; chartType is a\n" +
-      "sibling appearance field, not inside config):\n" + ChartPanelExample +
-      "\n\ntable (no fieldMapping slots — one arbitrary key per displayed column, value = column name):\n" + TablePanelExample +
-      "\n\ncollection (fieldMapping slots same as metric; baseType/layout optional):\n" + CollectionPanelExample +
-      "\n\ntimeline (fieldMapping slots: time/event, both required; timelineOptions.sort optional):\n" + TimelinePanelExample
+    "output (a placement bound to an EXISTING Output -- config.outputId is the ONLY config key; " +
+      "there is no fieldMapping/aggregation/chartType/baseType/layout/timelineOptions on a panel " +
+      "at all anymore, those live on the Output itself and are not editable through this patch -- " +
+      "if the message wants a different metric/column/chart type shown, that is an Output edit " +
+      "(target.kind: \"output\", patch reuses UpdateOutputRequest -- name/config), never a panel " +
+      "edit):\n" + OutputPanelExample +
+      "\n\ntext/markdown/image/divider (content panels, no data binding -- content lives in " +
+      "config.content for text/markdown, config.imageUrl for image, decoded tolerantly like every " +
+      "other panel kind's config):\n" + ContentPanelExample
 
-  // Panel-create worked examples — evaluation-2.md cycle-3 finding: the UPDATE examples' correct
-  // `aggregation` shape does NOT reliably generalize to a CREATE context (a live A/B: one real
-  // Claude call asked to create a metric panel with a sum aggregation reproduced cycle-1's exact
-  // missing-`value` defect; a differently-worded call got it right). A worked CREATE example for
-  // metric AND chart (the two DataBindable kinds whose `aggregation` has more than one required
-  // key) closes that specific generalization gap; `RefinementPrompt.Instructions` ALSO states the
-  // rule explicitly (never rely on an example alone to carry a hard requirement across op
-  // contexts). Each is its own `private[services]` val for the same `RefinementEditShapeSpec`
-  // regression-guard reason the panel-UPDATE examples above are.
+  // Panel-create worked example -- HEL-907 task 1.6/1.8: retargeted onto the Outputs model, same
+  // rationale as the update examples above. A panel create's ONLY data-binding field is
+  // config.outputId, pointing at a PRE-EXISTING Output (an Output must be created first, via an
+  // `output`-kind create -- see the output-create example below -- or `add_output`/
+  // `propose_pipeline`; a panel create can never mint an Output of its own in the same edit).
 
-  private[services] val MetricPanelCreateExample: String =
+  private[services] val OutputPanelCreateExample: String =
     """{
       |  "target": { "kind": "panel" },
       |  "op": "create",
       |  "patch": {
       |    "dashboardId": "dash_123",
       |    "title": "Total Revenue",
-      |    "type": "metric",
-      |    "config": {
-      |      "dataTypeId": "type_789",
-      |      "fieldMapping": { "value": "revenue" },
-      |      "aggregation": { "value": "revenue", "agg": "sum" }
-      |    }
+      |    "type": "output",
+      |    "config": { "outputId": "output_789" }
       |  }
       |}""".stripMargin
 
-  // NOTE: no `appearance` key here, unlike the chart UPDATE example — CreatePanelRequest.appearance
-  // decodes strictly (jsonFormatN, whole-object), so a PARTIAL chart appearance like
-  // {"chartType": "bar"} would fail to decode at create time (ChartAppearance requires
-  // seriesColors/legend/tooltip/axisLabels too) — confirmed the exact same defect class the
-  // aggregation fix above addresses (structurally-plausible JSON that fails downstream, here at
-  // apply time rather than silently). An UPDATE edit's appearance is a raw JsValue with genuine
-  // partial-merge semantics instead (PanelAppearance.applyPatchJson) — set chartType via a
-  // SEPARATE follow-up "panel" update edit targeting this create's resulting panel id instead of
-  // cramming it into the create itself.
-  private[services] val ChartPanelCreateExample: String =
-    """{
-      |  "target": { "kind": "panel" },
-      |  "op": "create",
-      |  "patch": {
-      |    "dashboardId": "dash_123",
-      |    "title": "Revenue by Month",
-      |    "type": "chart",
-      |    "config": {
-      |      "dataTypeId": "type_789",
-      |      "fieldMapping": { "xAxis": "month", "yAxis": "revenue" },
-      |      "aggregation": { "groupBy": "month", "agg": "sum", "yField": "revenue" }
-      |    }
-      |  }
-      |}""".stripMargin
-
-  private[services] val TablePanelCreateExample: String =
-    """{
-      |  "target": { "kind": "panel" },
-      |  "op": "create",
-      |  "patch": {
-      |    "dashboardId": "dash_123",
-      |    "title": "Top Customers",
-      |    "type": "table",
-      |    "config": { "dataTypeId": "type_789", "fieldMapping": { "col1": "customer", "col2": "revenue" } }
-      |  }
-      |}""".stripMargin
+  // HEL-907 task 1.2's own new target.kind -- an Output create edit is NOT supported (no
+  // parent-pipeline-id field on EditTarget or CreateOutputRequest to target one, mirrors
+  // pipelineStep's own precedent below); an Output UPDATE edit reuses UpdateOutputRequest
+  // (name/config) exactly like every other kind's update patch.
+  private[services] val OutputUpdateExample: String =
+    """{ "target": { "kind": "output", "id": "output_789" }, "op": "update", "patch": { "name": "Weekly Revenue" } }"""
 
   private val CreateExample: String =
-    "panel create (patch reuses CreatePanelRequest — dashboardId/type/config required, title/appearance\n" +
-      "optional; target.id is OMITTED — the resource does not exist yet). A metric/chart panel's\n" +
-      "aggregation MUST carry its full required key set even in a create edit — see the Rules section\n" +
-      "below, not just these examples. If `appearance` is supplied at create time it must be the WHOLE\n" +
-      "object (e.g. a chart's appearance needs seriesColors/legend/tooltip/axisLabels too, not just\n" +
-      "chartType) — when only a partial tweak like chartType is wanted, omit appearance from the create\n" +
-      "and add a SEPARATE follow-up \"panel\" update edit targeting the new panel instead:\n\n" +
-      "metric create:\n" + MetricPanelCreateExample +
-      "\n\nchart create:\n" + ChartPanelCreateExample +
-      "\n\ntable create:\n" + TablePanelCreateExample +
+    "panel create (patch reuses CreatePanelRequest \u2014 dashboardId/type/config required, title/appearance\n" +
+      "optional; target.id is OMITTED \u2014 the resource does not exist yet). An output-kind panel's\n" +
+      "config.outputId MUST reference an Output that ALREADY EXISTS BEFORE this patch set runs \u2014 never\n" +
+      "a not-yet-created one (see the Rules section below: a create edit's real id does not exist\n" +
+      "until this whole patch set is applied, so nothing else in the SAME patch set, including another\n" +
+      "edit's target.id, can ever legitimately reference it):\n\n" +
+      "output panel create:\n" + OutputPanelCreateExample +
+      "\n\noutput update (rename, or rebind config \u2014 see the worked output-update\n" +
+      "example above; output has NO create op of its own):\n" + OutputUpdateExample +
       "\n\ncreate is ALSO supported for dashboard (patch: { \"name\": string }), dataSource (patch reuses\n" +
-      "StaticDataSourceRequest — { \"name\", \"type\": \"static\", \"columns\": [...], \"rows\": [...] }, static\n" +
-      "only), and pipeline (patch: { \"name\", \"sourceDataSourceId\", \"outputDataTypeName\" }) — the SAME\n" +
-      "shape each one's own create endpoint accepts. create is NEVER supported for\n" +
-      "pipelineStep (no direct create API) — never emit one of those. \"dataType\" is not a valid\n" +
-      "target.kind at all anymore — never emit any edit targeting it."
+      "StaticDataSourceRequest \u2014 { \"name\", \"type\": \"static\", \"columns\": [...], \"rows\": [...] }, static\n" +
+      "only), and pipeline (patch reuses CreatePipelineRequest \u2014 { \"name\", \"sourceDataSourceId\" }\n" +
+      "required, \"tag\"/\"steps\"/\"outputs\" optional). create is NEVER supported for pipelineStep or\n" +
+      "output (neither has a direct create API reachable from a patch-set edit \u2014 never emit one of\n" +
+      "those). \"dataType\" is not a valid target.kind at all anymore \u2014 never emit any edit targeting\n" +
+      "it."
 
   private val DeleteExample: String =
     """delete (any target.kind; "patch" is ABSENT entirely — never null, never {}):
@@ -347,7 +261,7 @@ object RefinementEditShape {
 
   val Description: String =
     Skeleton + "\n\nWorked update examples (one per target.kind):\n\n" + UpdateExamples +
-      "\n\nWorked panel-update examples (one per bindable panel kind):\n\n" + PanelUpdateExamples +
+      "\n\nWorked panel-update examples (output placement, and a content-panel example):\n\n" + PanelUpdateExamples +
       "\n\nWorked create examples:\n\n" + CreateExample +
       "\n\nWorked delete example:\n\n" + DeleteExample
 }

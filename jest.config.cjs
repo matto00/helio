@@ -22,4 +22,28 @@ module.exports = {
   modulePathIgnorePatterns: ["<rootDir>/.claude/worktrees/"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
   moduleNameMapper: { "^(\\.{1,2}/.*)\\.js$": "$1" },
+  // HEL-907 evaluator-final round 3: every test file this config actually
+  // collects (outside the excluded dirs above) lives under `helio-mcp/src/**`
+  // -- confirmed by direct enumeration, not assumed; there is currently no
+  // other in-scope test tree. Root `tsconfig.json`'s `module: "commonjs"` /
+  // `moduleResolution: "node"` (classic Node10 resolution) is NOT how
+  // `helio-mcp` is actually built or run (its own `tsconfig.json` targets
+  // `NodeNext`/`NodeNext`, matching its real ESM package.json/runtime) --
+  // compiling its tests under the root's foreign, classic-resolution config
+  // was silently checking a hybrid mode nothing in production ever exercises,
+  // and tripped a real TS2589 "excessively deep" instantiation in
+  // `tools/read.ts`'s `registerTool` calls that NodeNext resolution never
+  // hits (root cause: how the two resolution strategies traverse the MCP
+  // SDK's zod-compat conditional types differs enough to blow the recursion
+  // budget under classic/Node10 specifically). `server.test.ts` was the
+  // first test to ever import that file, so this went undetected through
+  // three prior evaluation rounds -- every earlier helio-mcp test happened
+  // not to touch that import path. Overriding module/moduleResolution here
+  // to match helio-mcp's own real config is the faithful fix, not a
+  // workaround: it makes this suite typecheck the SAME way the package
+  // actually compiles for `npm run build`/`node dist/index.js`, not a
+  // resolution mode nothing else in this repo uses.
+  transform: {
+    "^.+\\.tsx?$": ["ts-jest", { tsconfig: { module: "NodeNext", moduleResolution: "NodeNext" } }],
+  },
 };

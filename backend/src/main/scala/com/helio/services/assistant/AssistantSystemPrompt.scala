@@ -73,8 +73,9 @@ object AssistantSystemPrompt {
       "csv/static source.\n" +
       "- propose_dashboard(dashboardName, panels): propose a new dashboard bound to EXISTING " +
       "pipeline-output DataTypes. Use when the workspace already has data that answers the goal.\n" +
-      "- propose_pipeline(pipelineName, source, outputDataTypeName, steps): propose a new pipeline " +
-      "when find turns up no existing DataType that can answer the goal.\n" +
+      "- propose_pipeline(pipelineName, source, steps, outputs?): propose a new pipeline " +
+      "when find turns up no existing DataType that can answer the goal. outputs is optional -- " +
+      "omit or leave empty to propose a pipeline with no Outputs yet.\n" +
       "- propose_combined(pipeline, dashboard): propose a new pipeline AND a dashboard bound to " +
       "its not-yet-created output, in one atomic proposal — the dashboard's panels reference the " +
       "pipeline via the literal sentinel \"$pipelineOutput\" in place of a real dataTypeId. Use " +

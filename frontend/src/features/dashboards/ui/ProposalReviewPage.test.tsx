@@ -4,14 +4,14 @@ import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import { dashboardsReducer } from "../state/dashboardsSlice";
-import { fetchDataTypes } from "../../dataTypes/services/dataTypeService";
+import { fetchOutputs } from "../services/outputsService";
 import { applyDashboardProposal } from "../services/proposalService";
 import { postAuthoringOutcome } from "../services/authoringService";
 import { ProposalReviewPage } from "./ProposalReviewPage";
 import type { DashboardProposal, AppliedProposal } from "../types/proposal";
 
-jest.mock("../../dataTypes/services/dataTypeService", () => ({
-  fetchDataTypes: jest.fn(),
+jest.mock("../services/outputsService", () => ({
+  fetchOutputs: jest.fn(),
 }));
 jest.mock("../services/proposalService", () => ({
   applyDashboardProposal: jest.fn(),
@@ -20,7 +20,7 @@ jest.mock("../services/authoringService", () => ({
   postAuthoringOutcome: jest.fn(),
 }));
 
-const mockedFetchDataTypes = jest.mocked(fetchDataTypes);
+const mockedFetchOutputs = jest.mocked(fetchOutputs);
 const mockedApplyDashboardProposal = jest.mocked(applyDashboardProposal);
 const mockedPostAuthoringOutcome = jest.mocked(postAuthoringOutcome);
 
@@ -84,7 +84,7 @@ beforeEach(() => {
   // EVERY `jest.fn()`, not just this file's own service mocks) — `clearAllMocks` only clears
   // call history, and every mock this file cares about is explicitly re-armed below anyway.
   jest.clearAllMocks();
-  mockedFetchDataTypes.mockResolvedValue([]);
+  mockedFetchOutputs.mockResolvedValue([]);
   mockedPostAuthoringOutcome.mockResolvedValue(undefined);
 });
 
@@ -99,7 +99,7 @@ describe("ProposalReviewPage — route guard (F-002)", () => {
     renderPage();
 
     await screen.findByText("Nothing to review");
-    expect(mockedFetchDataTypes).not.toHaveBeenCalled();
+    expect(mockedFetchOutputs).not.toHaveBeenCalled();
     expect(mockedApplyDashboardProposal).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /accept/i })).not.toBeInTheDocument();
 

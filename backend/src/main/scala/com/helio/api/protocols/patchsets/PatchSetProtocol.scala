@@ -2,20 +2,31 @@ package com.helio.api.protocols.patchsets
 
 import com.helio.api.protocols.dashboards.{DashboardProtocol, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{PanelProtocol, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{PipelineProtocol, PipelineStepProtocol, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{OutputProtocol, PipelineProtocol, PipelineStepProtocol, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceProtocol, UpdateDataSourceRequest}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
 //
 // A patch set describes N targeted edits across one or more EXISTING
-// resources (panel/dashboard/dataSource/dataType/pipeline/pipelineStep) so a
+// resources (panel/dashboard/dataSource/pipeline/pipelineStep/output) so a
 // conversational refinement can be previewed and applied atomically. Unlike
 // DashboardProposal/PipelineProposal, every update/delete edit references an
 // EXISTING resource id. Nothing is applied here — a future apply path
 // (HEL-406 and sibling tickets) consumes this artifact. The wire shape
 // matches schemas/patch-sets/patch-set.schema.json. Mirrors PipelineProposalProtocol's
 // hand-written, absent-optional-tolerant reader.
+//
+// HEL-907 task 1.2: `output` added as a target.kind (node/output/placement
+// operations, design.md/spec "Patch-set operations target nodes, outputs,
+// and placements") — "node" is the pre-existing `pipelineStep` kind (a
+// PipelineStep IS a node) and "placement" is the pre-existing `panel` kind
+// (an OutputPanel IS a placement) under their original names; only `output`
+// itself was missing. `output` has no `create` op (mirrors `pipelineStep`'s
+// own precedent, design.md D1): `CreateOutputRequest` carries no parent-
+// pipeline-id field of its own (the real `POST /api/pipelines/:id/outputs`
+// route takes it from the URL path), and `EditTarget` has no field for a
+// not-yet-existing resource's parent id either.
 
 final case class EditTarget(kind: String, id: Option[String])
 
@@ -43,7 +54,13 @@ final case class Edit(
     dataSourcePatch: Option[UpdateDataSourceRequest],
     pipelinePatch: Option[UpdatePipelineRequest],
     pipelineStepPatch: Option[UpdatePipelineStepRequest],
-    createPatch: Option[JsValue]
+    createPatch: Option[JsValue],
+    // HEL-907 task 1.2: the `output` target.kind's update-patch, mirroring every sibling field's
+    // reuse of an existing, already-tested Update*Request verbatim. Defaulted (unlike every
+    // sibling *Patch field) and placed LAST so every pre-existing positional `Edit(...)`
+    // construction site (many, across several test files) keeps compiling unchanged — Scala only
+    // allows omitting a TRAILING defaulted positional param.
+    outputPatch: Option[UpdateOutputRequest] = None
 )
 
 final case class PatchSet(summary: Option[String], edits: Vector[Edit])
@@ -55,17 +72,17 @@ trait PatchSetProtocol
     with DashboardProtocol
     with DataSourceProtocol
     with PipelineProtocol
-    with PipelineStepProtocol {
+    with PipelineStepProtocol
+    with OutputProtocol {
 
   implicit val editTargetFormat: RootJsonFormat[EditTarget] = jsonFormat2(EditTarget.apply)
 
   // Recognized `target.kind`/`op` values — mirrors
   // schemas/patch-sets/patch-set.schema.json's EditTarget.kind and Edit.op enums.
   // HEL-904 task 3.3: `dataType` is REMOVED outright (metric was never a
-  // recognized kind here to begin with) -- an `output` target kind is P1.4's
-  // job (HEL-907), not added in this ticket.
+  // recognized kind here to begin with). HEL-907 task 1.2: `output` added.
   private val recognizedKinds =
-    Set("panel", "dashboard", "dataSource", "pipeline", "pipelineStep")
+    Set("panel", "dashboard", "dataSource", "pipeline", "pipelineStep", "output")
   private val recognizedOps = Set("update", "delete", "create")
 
   /** Hand-written (not `jsonFormatN`) so the reader can validate `op`/
@@ -85,6 +102,7 @@ trait PatchSetProtocol
       e.dataSourcePatch.foreach(v => fields("patch") = v.toJson)
       e.pipelinePatch.foreach(v => fields("patch") = v.toJson)
       e.pipelineStepPatch.foreach(v => fields("patch") = v.toJson)
+      e.outputPatch.foreach(v => fields("patch") = v.toJson)
       e.createPatch.foreach(v => fields("patch") = v)
       JsObject(fields.toMap)
     }
@@ -122,20 +140,22 @@ trait PatchSetProtocol
 
       val patch = obj.fields.get("patch")
 
-      val (panelPatch, dashboardPatch, dataSourcePatch, pipelinePatch, pipelineStepPatch, createPatch) =
+      val (panelPatch, dashboardPatch, dataSourcePatch, pipelinePatch, pipelineStepPatch, outputPatch, createPatch) =
         op match {
           case "update" =>
             target.kind match {
-              case "panel"        => (patch.map(_.convertTo[UpdatePanelRequest]), None, None, None, None, None)
-              case "dashboard"    => (None, patch.map(_.convertTo[UpdateDashboardRequest]), None, None, None, None)
-              case "dataSource"   => (None, None, patch.map(_.convertTo[UpdateDataSourceRequest]), None, None, None)
-              case "pipeline"     => (None, None, None, patch.map(_.convertTo[UpdatePipelineRequest]), None, None)
+              case "panel"        => (patch.map(_.convertTo[UpdatePanelRequest]), None, None, None, None, None, None)
+              case "dashboard"    => (None, patch.map(_.convertTo[UpdateDashboardRequest]), None, None, None, None, None)
+              case "dataSource"   => (None, None, patch.map(_.convertTo[UpdateDataSourceRequest]), None, None, None, None)
+              case "pipeline"     => (None, None, None, patch.map(_.convertTo[UpdatePipelineRequest]), None, None, None)
               case "pipelineStep" =>
-                (None, None, None, None, patch.map(_.convertTo[UpdatePipelineStepRequest]), None)
-              case _ => (None, None, None, None, None, None)
+                (None, None, None, None, patch.map(_.convertTo[UpdatePipelineStepRequest]), None, None)
+              case "output" =>
+                (None, None, None, None, None, patch.map(_.convertTo[UpdateOutputRequest]), None)
+              case _ => (None, None, None, None, None, None, None)
             }
-          case "create" => (None, None, None, None, None, patch)
-          case _        => (None, None, None, None, None, None)
+          case "create" => (None, None, None, None, None, None, patch)
+          case _        => (None, None, None, None, None, None, None)
         }
 
       Edit(
@@ -146,7 +166,8 @@ trait PatchSetProtocol
         dataSourcePatch   = dataSourcePatch,
         pipelinePatch     = pipelinePatch,
         pipelineStepPatch = pipelineStepPatch,
-        createPatch       = createPatch
+        createPatch       = createPatch,
+        outputPatch       = outputPatch
       )
     }
   }

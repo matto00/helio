@@ -33,7 +33,8 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
       meta       = ResourceMeta(row.createdBy, row.createdAt, row.lastUpdated),
       appearance = row.appearance,
       layout     = row.layout,
-      ownerId    = UserId(row.ownerId.toString)
+      ownerId    = UserId(row.ownerId.toString),
+      tag        = row.tag
     )
 
   protected def domainToRow(d: Dashboard): DashboardRow =
@@ -45,7 +46,8 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
       lastUpdated = d.meta.lastUpdated,
       appearance  = d.appearance,
       layout      = d.layout,
-      ownerId     = UUID.fromString(d.ownerId.value)
+      ownerId     = UUID.fromString(d.ownerId.value),
+      tag         = d.tag
     )
 
   def findAll(ownerId: UserId, page: Page): Future[PagedResult[Dashboard]] = {
@@ -229,10 +231,14 @@ object DashboardRepository {
       lastUpdated: Instant,
       appearance: DashboardAppearance,
       layout: DashboardLayout,
-      ownerId: UUID
+      ownerId: UUID,
+      // HEL-907 evaluator-1 CR3 (V95): extends HEL-366's resource tagging to
+      // dashboards. Appended last so every pre-existing positional
+      // `DashboardRow(...)` construction keeps compiling unchanged.
+      tag: Option[String] = None
   )
 
-  class DashboardTable(tag: Tag) extends Table[DashboardRow](tag, "dashboards") {
+  class DashboardTable(slickTag: Tag) extends Table[DashboardRow](slickTag, "dashboards") {
     def id          = column[String]("id", O.PrimaryKey)
     def name        = column[String]("name")
     def createdBy   = column[String]("created_by")
@@ -241,7 +247,9 @@ object DashboardRepository {
     def appearance  = column[DashboardAppearance]("appearance")
     def layout      = column[DashboardLayout]("layout")
     def ownerId     = column[UUID]("owner_id")
+    // HEL-907 evaluator-1 CR3 (V95).
+    def tag         = column[Option[String]]("tag")
 
-    def * = (id, name, createdBy, createdAt, lastUpdated, appearance, layout, ownerId).mapTo[DashboardRow]
+    def * = (id, name, createdBy, createdAt, lastUpdated, appearance, layout, ownerId, tag).mapTo[DashboardRow]
   }
 }

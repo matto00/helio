@@ -25,28 +25,29 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
           |  "pipelineName": "Static Pipeline",
           |  "source": {"type":"static","name":"Inline Static",
           |    "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"],["y"]]}},
-          |  "outputDataTypeName": "Static Output",
-          |  "steps": [{"type":"limit","config":{"count":10}}]
+          |  "steps": [{"clientId":"s1","type":"limit","config":{"count":10}}],
+          |  "outputs": [{"kind":"table","name":"Static Output","nodeStepClientId":"s1"}]
           |}""".stripMargin
-      var outputTypeId = ""
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val obj = responseAs[String].parseJson.asJsObject
         obj.fields("source").asJsObject.fields("type").convertTo[String] shouldBe "static"
         obj.fields("pipeline").asJsObject.fields("name").convertTo[String] shouldBe "Static Pipeline"
-        outputTypeId = obj.fields("outputDataTypeId").convertTo[String]
-        outputTypeId should not be empty
+        val outputs = obj.fields("outputs").convertTo[Vector[JsValue]]
+        outputs should have size 1
+        outputs.head.asJsObject.fields("id").convertTo[String] should not be empty
         obj.fields("run").asJsObject.fields("rowCount").convertTo[Int] shouldBe 2
       }
       dataSourceCount() shouldBe (beforeSources + 1)
       pipelineCount() shouldBe (beforePipelines + 1)
       pipelineStepCount() shouldBe (beforeSteps + 1)
-      // HEL-904 task 3.8: `outputDataTypeId` (field name unchanged — see
-      // design.md) is now a real Output id, not a DataType id — there is no
-      // `GET /api/outputs/:id` route yet (P1.3/HEL-906's job), so the old
-      // "read it back and check sourceId is absent" verification has no
-      // Output-shaped equivalent here; `outputTypeId should not be empty`
-      // above already covers the meaningful assertion (a real id was minted).
+      // HEL-907 task 1.1: `outputs` (renamed from the old single
+      // `outputDataTypeId`) is now a list of real Output ids, since a
+      // proposal can create zero, one, or many. There is no
+      // `GET /api/outputs/:id` route yet, so the old "read it back and
+      // check sourceId is absent" verification has no Output-shaped
+      // equivalent here; the non-empty id assertion above already covers
+      // the meaningful assertion (a real id was minted).
     }
 
     "create nothing new for the source when the proposal references an existing sourceId" in {
@@ -55,8 +56,7 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
         s"""{
            |  "pipelineName": "Existing Source Pipeline",
            |  "source": {"sourceId": "$existingSourceId"},
-           |  "outputDataTypeName": "Existing Output",
-           |  "steps": [{"type":"limit","config":{"count":10}}]
+           |  "steps": [{"clientId":"s1","type":"limit","config":{"count":10}}]
            |}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -74,14 +74,14 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       val before = allCounts()
       val body =
         s"""{"pipelineName":"P","source":{"sourceId":"$existingSourceId","type":"static",
-           |"name":"n","config":{"columns":[],"rows":[]}},"outputDataTypeName":"O","steps":[]}""".stripMargin
+           |"name":"n","config":{"columns":[],"rows":[]}},"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
     }
 
     "reject a proposal whose source sets neither sourceId nor an inline type" in {
       val before = allCounts()
-      val body = """{"pipelineName":"P","source":{},"outputDataTypeName":"O","steps":[]}"""
+      val body = """{"pipelineName":"P","source":{},"steps":[]}"""
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
     }
@@ -90,7 +90,7 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       val before = allCounts()
       val body =
         """{"pipelineName":"P","source":{"type":"csv","name":"n","config":{"path":"x.csv"}},
-          |"outputDataTypeName":"O","steps":[]}""".stripMargin
+          |"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         responseAs[String] should include("inline csv")
@@ -103,15 +103,15 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       val body =
         """{"pipelineName":"P","source":{"type":"sql",
           |"config":{"dialect":"postgresql","host":"h","port":5432,"database":"d","user":"u","password":"p","query":"SELECT 1"}},
-          |"outputDataTypeName":"O","steps":[]}""".stripMargin
+          |"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
     }
 
     "reject an inline sql/rest_api source missing its config, creating nothing" in {
       val before = allCounts()
-      val sqlBody  = """{"pipelineName":"P","source":{"type":"sql","name":"n"},"outputDataTypeName":"O","steps":[]}"""
-      val restBody = """{"pipelineName":"P","source":{"type":"rest_api","name":"n"},"outputDataTypeName":"O","steps":[]}"""
+      val sqlBody  = """{"pipelineName":"P","source":{"type":"sql","name":"n"},"steps":[]}"""
+      val restBody = """{"pipelineName":"P","source":{"type":"rest_api","name":"n"},"steps":[]}"""
       apply(sqlBody) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       apply(restBody) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
@@ -122,7 +122,7 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       val body =
         """{"pipelineName":"P","source":{"type":"sql","name":"Bad Sql",
           |"config":{"dialect":"postgresql","host":"h","port":5432,"database":"d","user":"u","password":"p",
-          |"query":"DROP TABLE users"}},"outputDataTypeName":"O","steps":[]}""".stripMargin
+          |"query":"DROP TABLE users"}},"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[String] should include("DDL/DML")
@@ -133,8 +133,8 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
     "reject an unrecognized step type, creating nothing" in {
       val before = allCounts()
       val body =
-        s"""{"pipelineName":"P","source":{"sourceId":"$existingSourceId"},"outputDataTypeName":"O",
-           |"steps":[{"type":"not_a_real_step","config":{}}]}""".stripMargin
+        s"""{"pipelineName":"P","source":{"sourceId":"$existingSourceId"},
+           |"steps":[{"clientId":"s1","type":"not_a_real_step","config":{}}]}""".stripMargin
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
     }

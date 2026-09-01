@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCod
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols}
-import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineAnalyzeProposalResponse, PipelineProposal, PipelineProposalSource, SchemaFieldResponse, SelectAnalyzeStepResponse}
+import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalStepRequest, PipelineAnalyzeProposalResponse, PipelineProposal, PipelineProposalSource, SchemaFieldResponse, SelectAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
@@ -174,9 +174,7 @@ class PipelineAnalyzeProposalRoutesSpec
       val proposal = PipelineProposal(
         pipelineName       = "Orders pipeline",
         source              = noInlineSource.copy(sourceId = Some(dsId)),
-        outputDataTypeName = "Orders Output",
-        steps = Vector(CreatePipelineStepRequest(
-          `type` = "select",
+        steps = Vector(CreatePipelineTransactionalStepRequest(clientId = "s1", `type` = "select",
           config = JsObject("fields" -> JsArray(JsString("order_id")))
         ))
       )
@@ -185,7 +183,6 @@ class PipelineAnalyzeProposalRoutesSpec
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
         resp.sourceName shouldBe "orders-source"
-        resp.outputDataTypeName shouldBe "Orders Output"
         resp.sourceSchema.map(_.name) should contain allOf ("order_id", "amount")
         resp.steps should have size 1
         resp.steps.head.`type` shouldBe "select"
@@ -212,15 +209,12 @@ class PipelineAnalyzeProposalRoutesSpec
       val proposal = PipelineProposal(
         pipelineName       = "Orders pipeline",
         source              = noInlineSource.copy(sourceId = Some(dsId)),
-        outputDataTypeName = "Orders Output",
         steps = Vector(
-          CreatePipelineStepRequest(
-            `type`  = "select",
+          CreatePipelineTransactionalStepRequest(clientId = "s2", `type`  = "select",
             config  = JsObject("fields" -> JsArray(JsString("order_id"))),
             enabled = Some(false)
           ),
-          CreatePipelineStepRequest(
-            `type` = "select",
+          CreatePipelineTransactionalStepRequest(clientId = "s3", `type` = "select",
             config = JsObject("fields" -> JsArray(JsString("order_id"), JsString("amount")))
           )
         )
@@ -250,7 +244,6 @@ class PipelineAnalyzeProposalRoutesSpec
             rows    = Vector.empty
           ))
         ),
-        outputDataTypeName = "Static Output",
         steps               = Vector.empty
       )
 
@@ -275,7 +268,6 @@ class PipelineAnalyzeProposalRoutesSpec
             rows    = Vector.empty
           ))
         ),
-        outputDataTypeName = "Static Output",
         steps               = Vector.empty
       )
 
@@ -295,7 +287,6 @@ class PipelineAnalyzeProposalRoutesSpec
           name      = Some("Inline SQL"),
           sqlConfig = Some(sqlConfigPayload("SELECT 1 AS one, 'x' AS label"))
         ),
-        outputDataTypeName = "SQL Output",
         steps               = Vector.empty
       )
 
@@ -319,7 +310,6 @@ class PipelineAnalyzeProposalRoutesSpec
           `type`    = Some("sql"),
           sqlConfig = Some(sqlConfigPayload(query = "DROP TABLE users", port = 1))
         ),
-        outputDataTypeName = "Output",
         steps               = Vector.empty
       )
 
@@ -336,7 +326,6 @@ class PipelineAnalyzeProposalRoutesSpec
           `type`    = Some("csv"),
           csvConfig = Some(CsvSourceConfigPayload(path = "uploads/some-file.csv"))
         ),
-        outputDataTypeName = "Output",
         steps               = Vector.empty
       )
 
@@ -354,10 +343,9 @@ class PipelineAnalyzeProposalRoutesSpec
           `type` = Some("static"),
           staticConfig = Some(StaticDataPayload(columns = Vector(StaticColumnPayload("id", "string")), rows = Vector.empty))
         ),
-        outputDataTypeName = "Output",
         // Missing "expression"/"type" -- inferCompute's try/catch flags a
         // per-step validationError instead of throwing.
-        steps = Vector(CreatePipelineStepRequest(`type` = "compute", config = JsObject("column" -> JsString("total"))))
+        steps = Vector(CreatePipelineTransactionalStepRequest(clientId = "s4", `type` = "compute", config = JsObject("column" -> JsString("total"))))
       )
 
       Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
@@ -378,11 +366,10 @@ class PipelineAnalyzeProposalRoutesSpec
           `type` = Some("static"),
           staticConfig = Some(StaticDataPayload(columns = Vector(StaticColumnPayload("id", "string")), rows = Vector.empty))
         ),
-        outputDataTypeName = "Output",
         // "sql.pipeline-proposal.schema.json" deliberately leaves step `type` unconstrained
         // (checked at apply time, not by the schema) -- an unregistered kind is a
         // proven-reachable dry-analyze input, not a hypothetical one.
-        steps = Vector(CreatePipelineStepRequest(`type` = "not-a-real-step-kind", config = JsObject()))
+        steps = Vector(CreatePipelineTransactionalStepRequest(clientId = "s5", `type` = "not-a-real-step-kind", config = JsObject()))
       )
 
       Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
@@ -395,7 +382,7 @@ class PipelineAnalyzeProposalRoutesSpec
       val body = JsObject(
         "source" -> JsObject("sourceId" -> JsString("nonexistent")),
         "steps"  -> JsArray()
-        // "pipelineName" and "outputDataTypeName" are both omitted -- required per the reader.
+        // "pipelineName" is omitted -- required per the reader.
       )
       Post("/pipelines/analyze-proposal", HttpEntity(ContentTypes.`application/json`, body.compactPrint)) ~> Route.seal(routes) ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -411,7 +398,6 @@ class PipelineAnalyzeProposalRoutesSpec
       val proposal = PipelineProposal(
         pipelineName       = "Nosy pipeline",
         source              = noInlineSource.copy(sourceId = Some(dsId)),
-        outputDataTypeName = "Output",
         steps               = Vector.empty
       )
 
@@ -422,7 +408,7 @@ class PipelineAnalyzeProposalRoutesSpec
     }
 
     "return 400 (not 500) when an inline sql source's type is recognized but its config is entirely absent (3.10)" in {
-      val body = """{"pipelineName":"X","source":{"type":"sql"},"outputDataTypeName":"Y","steps":[]}"""
+      val body = """{"pipelineName":"X","source":{"type":"sql"},"steps":[]}"""
       Post("/pipelines/analyze-proposal", HttpEntity(ContentTypes.`application/json`, body)) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
       }
@@ -441,7 +427,6 @@ class PipelineAnalyzeProposalRoutesSpec
           name     = Some("Ignored inline name"),
           staticConfig = Some(StaticDataPayload(columns = Vector(StaticColumnPayload("bogus_field", "string")), rows = Vector.empty))
         ),
-        outputDataTypeName = "Output",
         steps               = Vector.empty
       )
 
@@ -487,9 +472,7 @@ class PipelineAnalyzeProposalRoutesSpec
           `type` = Some("static"),
           staticConfig = Some(StaticDataPayload(columns = Vector(StaticColumnPayload("amount", "string")), rows = Vector.empty))
         ),
-        outputDataTypeName = "Output",
-        steps = Vector(CreatePipelineStepRequest(
-          `type` = "cast",
+        steps = Vector(CreatePipelineTransactionalStepRequest(clientId = "s6", `type` = "cast",
           config = s"""{"casts":$rawCasts}""".parseJson.asJsObject
         ))
       )
@@ -516,7 +499,6 @@ class PipelineAnalyzeProposalRoutesSpec
     "validate cleanly against schemas/pipelines/pipeline-analyze-proposal-response.schema.json (3.11)" in {
       val response = PipelineAnalyzeProposalResponse(
         sourceName         = "Orders",
-        outputDataTypeName = "Orders Output",
         sourceSchema        = Vector(SchemaFieldResponse("order_id", "string")),
         steps = Vector(SelectAnalyzeStepResponse(
           id              = "step-0",

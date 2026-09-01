@@ -47,10 +47,9 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
 
   private def validPipeline(sourceId: DataSourceId): PipelineProposal =
     PipelineProposal(
-      "My Pipeline",
-      PipelineProposalSource(Some(sourceId.value), None, None, None, None, None, None),
-      "My Output",
-      Vector.empty
+      pipelineName = "My Pipeline",
+      source       = PipelineProposalSource(Some(sourceId.value), None, None, None, None, None, None),
+      steps        = Vector.empty
     )
 
   private def sentinelMetricPanel(): ProposalPanel =

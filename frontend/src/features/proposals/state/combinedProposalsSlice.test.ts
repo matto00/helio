@@ -13,12 +13,12 @@ const sampleProposal: CombinedProposal = {
   pipeline: {
     pipelineName: "Demo pipeline",
     source: { type: "static", name: "Demo source", config: {} },
-    outputDataTypeName: "Demo output",
     steps: [],
+    outputs: [{ kind: "table", name: "Demo output" }],
   },
   dashboard: {
     dashboardName: "Demo dashboard",
-    panels: [{ title: "Total", type: "metric", dataTypeId: "$pipelineOutput", fieldMapping: {} }],
+    panels: [{ title: "Total", type: "output", dataTypeId: "$pipelineOutput" }],
   },
 };
 
@@ -41,7 +41,7 @@ const sampleApplyResponse: CombinedProposalApplyResponse = {
       lastRunAt: "2026-01-01T00:00:00Z",
       lastRunRowCount: 2,
     },
-    outputDataTypeId: "dt-1",
+    outputs: [{ id: "dt-1", name: "Demo output", kind: "table" }],
     run: { rows: [], rowCount: 2 },
   },
   dashboard: {

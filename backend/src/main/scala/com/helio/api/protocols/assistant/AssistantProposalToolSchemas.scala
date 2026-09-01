@@ -148,10 +148,47 @@ private[protocols] trait AssistantProposalToolSchemas {
   private val PipelineProposalStepSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
-      "type"   -> JsObject("type" -> JsString("string")),
+      "clientId" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString(
+          "Request-scoped only, never persisted -- lets a LATER step's parentStepId, or an " +
+            "output's nodeStepClientId, target this step within the SAME proposal."
+        )
+      ),
+      "type"         -> JsObject("type" -> JsString("string")),
+      "config"       -> JsObject("type" -> JsString("object")),
+      "parentStepId" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString(
+          "Optional -- an EARLIER step's clientId in this same proposal to branch off. Absent " +
+            "extends the trunk (parented off the previous trunk step, or the source if this is the " +
+            "first step)."
+        )
+      )
+    ),
+    "required" -> JsArray(Vector(JsString("clientId"), JsString("type"), JsString("config")))
+  )
+
+  // HEL-907 task 1.1: a proposal's Output(s) -- zero, one, or many, each optionally targeting a
+  // specific step (by clientId) rather than always the pipeline's final trunk step.
+  private val PipelineProposalOutputSchema: JsObject = JsObject(
+    "type" -> JsString("object"),
+    "properties" -> JsObject(
+      "nodeStepClientId" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString(
+          "Optional -- a step's clientId in this same proposal's steps[] to attach this Output to. " +
+            "Absent means the pipeline's raw source (before any step)."
+        )
+      ),
+      "kind" -> JsObject(
+        "type" -> JsString("string"),
+        "enum" -> JsArray(Vector("table", "metric", "chart", "collection", "timeline", "markdown").map(JsString(_)))
+      ),
+      "name"   -> JsObject("type" -> JsString("string")),
       "config" -> JsObject("type" -> JsString("object"))
     ),
-    "required" -> JsArray(Vector(JsString("type"), JsString("config")))
+    "required" -> JsArray(Vector(JsString("kind"), JsString("name")))
   )
 
   // HEL-700 design.md D2/D3 — inline-source branch (`type`/`name`/`config`, no `sourceId`),
@@ -164,21 +201,27 @@ private[protocols] trait AssistantProposalToolSchemas {
         "name": "Signups API",
         "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
       },
-      "outputDataTypeName": "Weekly Signups",
       "steps": [
-        { "type": "cast", "config": { "casts": { "signups": "integer" } } }
+        { "clientId": "s1", "type": "cast", "config": { "casts": { "signups": "integer" } } }
+      ],
+      "outputs": [
+        { "nodeStepClientId": "s1", "kind": "table", "name": "Weekly Signups" }
       ]
     }""".parseJson
 
   private val PipelineProposalSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
-      "pipelineName"       -> JsObject("type" -> JsString("string")),
-      "source"              -> PipelineProposalSourceSchema,
-      "outputDataTypeName" -> JsObject("type" -> JsString("string")),
-      "steps"               -> JsObject("type" -> JsString("array"), "items" -> PipelineProposalStepSchema)
+      "pipelineName" -> JsObject("type" -> JsString("string")),
+      "source"       -> PipelineProposalSourceSchema,
+      "steps"        -> JsObject("type" -> JsString("array"), "items" -> PipelineProposalStepSchema),
+      "outputs"      -> JsObject(
+        "type" -> JsString("array"),
+        "items" -> PipelineProposalOutputSchema,
+        "description" -> JsString("Optional -- omit or leave empty to create the pipeline with zero Outputs.")
+      )
     ),
-    "required" -> JsArray(Vector("pipelineName", "source", "outputDataTypeName", "steps").map(JsString(_))),
+    "required" -> JsArray(Vector("pipelineName", "source", "steps").map(JsString(_))),
     "examples" -> JsArray(Vector(PipelineProposalExample))
   )
 
@@ -196,8 +239,10 @@ private[protocols] trait AssistantProposalToolSchemas {
           "name": "Signups API",
           "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
         },
-        "outputDataTypeName": "Weekly Signups",
-        "steps": []
+        "steps": [],
+        "outputs": [
+          { "kind": "table", "name": "Weekly Signups" }
+        ]
       },
       "dashboard": {
         "dashboardName": "Signups Overview",

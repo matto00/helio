@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/pipeline-proposal.schema.json",
   "title": "PipelineProposal",
-  "description": "A proposed pipeline (source + ordered transform steps + output DataType contract) produced by an agent (or a fixture). Carries NO ids — nothing is created until the proposal is applied by a future apply path (HEL-342). This schema/protocol is the foundation only; this ticket ships no apply route.",
+  "description": "A proposed pipeline (source + a tree of transform steps + zero-or-more Outputs) produced by an agent (or a fixture). Carries NO ids — nothing is created until the proposal is applied via POST /api/pipelines/apply-proposal. HEL-907 task 1.1: retargeted from the old single output DataType contract (outputDataTypeName) onto Outputs -- `steps`/`outputs` reuse POST /api/pipelines' own single-call transactional shapes (CreatePipelineTransactionalStepRequest/CreatePipelineTransactionalOutputRequest, HEL-906) verbatim, so a step's `clientId` and an output's `nodeStepClientId` can address tree shape and per-node Output placement before anything has a real persisted id.",
   "type": "object",
-  "required": ["pipelineName", "source", "outputDataTypeName", "steps"],
+  "required": ["pipelineName", "source", "steps"],
   "properties": {
     "pipelineName": {
       "type": "string",
@@ -14,18 +14,15 @@
     "source": {
       "$ref": "#/$defs/PipelineProposalSource"
     },
-    "outputDataTypeName": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 120,
-      "description": "Name of the DataType the applied pipeline's output will be registered under. Carries no dataTypeId — the id is minted at apply time."
-    },
     "steps": {
       "type": "array",
-      "items": {
-        "$ref": "#/$defs/PipelineProposalStep"
-      },
-      "description": "Ordered list of transform steps, applied in array order — mirrors the add_pipeline_step MCP tool's {type, config} contract and POST /api/pipelines/:id/steps."
+      "items": { "$ref": "create-pipeline-transactional-step-request.schema.json" },
+      "description": "Ordered list of transform steps -- mirrors the add_pipeline_step MCP tool's {type, config} contract and POST /api/pipelines/:id/steps, plus clientId/parentStepId for expressing branching tree shape in one call (design.md decision 2)."
+    },
+    "outputs": {
+      "type": "array",
+      "items": { "$ref": "create-pipeline-transactional-output-request.schema.json" },
+      "description": "Optional -- a pipeline proposal may create zero Outputs, to be added later via add_output. Each Output's nodeStepClientId resolves against steps[].clientId in this same proposal; absent means the pipeline's raw source."
     }
   },
   "additionalProperties": false,
@@ -52,21 +49,6 @@
         "config": {
           "type": "object",
           "description": "Inline-source branch — the per-type config payload selected by `type`: csv -> {path}; rest_api -> {url, method?, auth?, headers?}; sql -> {dialect, host, port, database, user, password, query}; static -> {columns, rows}. A single shared property regardless of `type`, matching CreatePipelineStepRequest's config and DataSourceResponse's per-subtype config convention."
-        }
-      },
-      "additionalProperties": false
-    },
-    "PipelineProposalStep": {
-      "type": "object",
-      "description": "Same {type, config} shape POST /api/pipelines/:id/steps and add_pipeline_step already accept. `type` is intentionally left unconstrained here (not enumerated) — the backend's step-kind registry (PipelineStepKind.All) is the authoritative allow-list, checked at apply time, not by this schema. Current op set (for readability only, not exhaustive as the registry grows): rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup, assert.",
-      "required": ["type", "config"],
-      "properties": {
-        "type": {
-          "type": "string",
-          "minLength": 1
-        },
-        "config": {
-          "type": "object"
         }
       },
       "additionalProperties": false

@@ -468,7 +468,13 @@ final case class Dashboard(
     meta: ResourceMeta,
     appearance: DashboardAppearance,
     layout: DashboardLayout,
-    ownerId: UserId
+    ownerId: UserId,
+    // HEL-907 evaluator-1 CR3: extends HEL-366's resource-tagging system
+    // (data_sources/pipelines/data_types, V73) to dashboards -- appended
+    // last, defaulted to None, so every pre-existing positional
+    // `Dashboard(...)` construction (tests, DashboardRepository) keeps
+    // compiling unchanged.
+    tag: Option[String] = None
 )
 // `PanelQuery`/`GET /api/panels/:id/query` removed outright (HEL-904 task
 // 4.1) — HEL-292 panel-level aggregation and this route are retired, not

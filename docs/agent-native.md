@@ -4,7 +4,10 @@ Helio's REST API is the agent surface. This document describes how an agent —
 Fable via MCP, any MCP client, or a plain shell script — goes from a **raw data
 source to a finished multi-panel dashboard** entirely through tools,
 authenticated as a real Helio user and honoring the ownership/RLS model and the
-canonical `DataSource → Pipeline → DataType → Panel` path.
+canonical `Source → Pipeline → Output → Dashboard` path (HEL-903/904/906/907 —
+the pipelines-and-outputs remodel retired the DataType/Metric model this
+document originally described; see "Tool renames" below for the full
+before/after tool list).
 
 There are two client paths over one unchanged server:
 
@@ -112,45 +115,52 @@ per-token rate limiting if abuse is observed in practice.
 ## The canonical path
 
 A panel can only render data that has flowed through the full chain — this is
-enforced server-side (V41) and mirrored in every tool description:
+enforced server-side and mirrored in every tool description:
 
 ```
-DataSource ──create_pipeline──► Pipeline ──run──► DataType (pipeline output) ──bind──► Panel
-   (raw)        (+ steps)                  (rows)     (sourceId = null)          (chart/metric/table)
+Source ──create_pipeline──► Pipeline ──run──► Output (attached to a node) ──place──► Panel
+ (raw)      (+ steps)                 (rows)   (id/kind/schema)              (output-kind)
 ```
 
-A DataType with a non-null `sourceId` is a **source companion** and is NOT
-panel-bindable; binding one returns HTTP 400. Only pipeline outputs
-(`sourceId = null`) may be bound.
+An Output is the panel-bindable projection of one pipeline node: `nodeStepId`
+absent means it is attached directly to the pipeline's source; present, it is
+attached to that specific step, grounded against that step's own projected
+schema (not the trunk's). `place_outputs` creates one placement panel per
+Output on a dashboard.
 
-> **Wire note:** spray-json omits `None` fields, so a pipeline-output DataType
-> arrives with **no `sourceId` field at all**. Detect a bindable type as
-> `(sourceId ?? null) === null`, never `=== null`.
+> **Wire note:** spray-json omits `None` fields, so an Output attached
+> directly to a pipeline's source arrives with **no `nodeStepId` field at
+> all**. Normalize a missing `nodeStepId` to `null` before deciding which
+> case it is, never `=== null` without that normalization.
 
 ## Endpoint → tool map
 
-| Primitive            | Endpoint(s)                                                       | MCP tool / script                         |
-| -------------------- | ----------------------------------------------------------------- | ----------------------------------------- |
-| Create PAT           | `POST /api/tokens`                                                | — (bootstrap)                             |
-| Workspace snapshot   | fan-out over the read endpoints                                   | `get_workspace_context` · `workspace.sh`  |
-| List dashboards      | `GET /api/dashboards`                                             | `list_dashboards`                         |
-| Get dashboard+panels | `GET /api/dashboards` + `GET /api/dashboards/:id/export`          | `get_dashboard` (composed)                |
-| List data sources    | `GET /api/data-sources`                                           | `list_data_sources`                       |
-| Inspect a source     | `GET /api/data-sources/:id/preview` \| `/api/sources/:id/preview` | `list_source_objects` (composed)          |
-| List DataTypes       | `GET /api/types`                                                  | `list_data_types`                         |
-| DataType rows        | `GET /api/types/:id/rows`                                         | `get_data_type_rows`                      |
-| List pipelines       | `GET /api/pipelines`                                              | `list_pipelines`                          |
-| Get pipeline+steps   | `GET /api/pipelines/:id` + `/:id/steps`                           | `get_pipeline` (composed)                 |
-| Analyze pipeline     | `GET /api/pipelines/:id/analyze`                                  | `analyze_pipeline`                        |
-| Create data source   | `POST /api/data-sources` (static)                                 | `create_data_source` · `create-source.sh` |
-| Create pipeline      | `POST /api/pipelines`                                             | `create_pipeline` · `create-pipeline.sh`  |
-| Add step             | `POST /api/pipelines/:id/steps`                                   | `add_pipeline_step` · `add-step.sh`       |
-| Run pipeline         | `POST /api/pipelines/:id/run` (synchronous)                       | `run_pipeline` · `run-pipeline.sh`        |
-| External trigger     | `POST /api/hooks/run` (HEL-369; scoped-or-unscoped PAT)           | — (external scheduler, not MCP)           |
-| Create dashboard     | `POST /api/dashboards`                                            | `create_dashboard`                        |
-| Create panel         | `POST /api/panels`                                                | `create_panel` · `create-panel.sh`        |
-| Bind panel           | `PATCH /api/panels/:id`                                           | `bind_panel` · `bind-panel.sh`            |
-| Panel appearance     | `PATCH /api/panels/:id`                                           | `update_panel_appearance`                 |
+| Primitive               | Endpoint(s)                                                         | MCP tool                         |
+| ----------------------- | ------------------------------------------------------------------- | -------------------------------- |
+| Create PAT              | `POST /api/tokens`                                                  | — (bootstrap)                    |
+| Workspace snapshot      | fan-out over the read endpoints                                     | `get_workspace_context`          |
+| List dashboards         | `GET /api/dashboards`                                               | `list_dashboards`                |
+| Get dashboard+panels    | `GET /api/dashboards` + `GET /api/dashboards/:id/export`            | `get_dashboard` (composed)       |
+| List data sources       | `GET /api/data-sources`                                             | `list_data_sources`              |
+| Inspect a source        | `GET /api/data-sources/:id/preview` \| `/api/sources/:id/preview`   | `list_source_objects` (composed) |
+| List pipelines          | `GET /api/pipelines`                                                | `list_pipelines`                 |
+| Get pipeline+steps      | `GET /api/pipelines/:id` + `/:id/steps`                             | `get_pipeline` (composed)        |
+| Analyze pipeline        | `GET /api/pipelines/:id/analyze`                                    | `analyze_pipeline`               |
+| List Outputs            | `GET /api/pipelines/:id/outputs` \| `GET /api/outputs`              | `list_outputs`                   |
+| Output rows             | `GET /api/outputs/:id/rows`                                         | `get_output_rows`                |
+| Preview Output(s)       | `POST /api/pipelines/:id/preview`                                   | `preview_outputs`                |
+| Node/Output capability  | `GET /api/pipelines/:id/capabilities`                               | `get_output_capabilities`        |
+| Create data source      | `POST /api/data-sources` (static)                                   | `create_data_source`             |
+| Create pipeline         | `POST /api/pipelines` (single call: source/steps/outputs)           | `create_pipeline`                |
+| Add step                | `POST /api/pipelines/:id/steps`                                     | `add_pipeline_step`              |
+| Add Output(s) via shape | `POST /api/pipeline-shapes/:id/expand` + steps + `POST .../outputs` | `add_outputs_from_shape`         |
+| Add one Output          | `POST /api/pipelines/:id/outputs`                                   | `add_output`                     |
+| Run pipeline            | `POST /api/pipelines/:id/run` (synchronous)                         | `run_pipeline`                   |
+| External trigger        | `POST /api/hooks/run` (HEL-369; scoped-or-unscoped PAT)             | — (external scheduler, not MCP)  |
+| Create dashboard        | `POST /api/dashboards`                                              | `create_dashboard`               |
+| Place Output(s)         | `POST /api/panels/batch` (+ best-effort auto-layout follow-up)      | `place_outputs`                  |
+| Create content panel    | `POST /api/panels` (text/markdown/image/divider — no data binding)  | `create_content_panel`           |
+| Panel appearance        | `PATCH /api/panels/:id`                                             | `update_panel_appearance`        |
 
 Three endpoints named in the original design do not exist on `main`; the tools
 compose real endpoints instead (documented in `helio-mcp/README.md` →
@@ -158,8 +168,46 @@ compose real endpoints instead (documented in `helio-mcp/README.md` →
 `GET /api/dashboards/:id/panels`, and no `GET /api/data-sources/:id/sources`.
 
 **Runs are synchronous.** `POST /api/pipelines/:id/run` returns only after the
-in-process engine finishes and writes rows, so a panel can be bound immediately
-after — there is no async run to poll and no race.
+in-process engine finishes and writes rows, so a panel can be placed
+immediately after — there is no async run to poll and no race.
+
+## Tool renames (HEL-903/904/906/907)
+
+The pipelines-and-outputs remodel retired the DataType/Metric model outright
+(no deprecation window) and rewrote helio-mcp's tool surface onto Outputs. No
+old tool name is aliased to its replacement — a removed tool is genuinely
+absent, verified by an exact-tool-name-set test
+(`helio-mcp/src/server.test.ts`).
+
+| Old tool                                                                            | Status / replacement                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `create_panel` / `create_panels`                                                    | → `place_outputs` (data panels) / `create_content_panel` (text/markdown/image/divider)                                                                                                                 |
+| `bind_panel`                                                                        | → `place_outputs` (a panel is created ALREADY bound to an Output; there is no separate bind step)                                                                                                      |
+| `create_bound_panel`                                                                | removed outright — its backend route (`POST /api/panels/bound`) no longer exists                                                                                                                       |
+| `get_panel_capabilities`                                                            | → `get_output_capabilities(pipelineId, stepId?)`                                                                                                                                                       |
+| `create_pipeline_from_shape`                                                        | → `add_outputs_from_shape(pipelineId, stepId?, shape, params)` — expands a shape onto an EXISTING pipeline instead of always creating a new one, and creates a real Output (the old tool created zero) |
+| `list_data_types`                                                                   | removed outright — no replacement; a pipeline's Outputs are listed via `list_outputs` / `get_workspace_context`'s `pipelines[].outputs[]`                                                              |
+| `get_data_type_rows`                                                                | → `get_output_rows(outputId)`                                                                                                                                                                          |
+| `update_data_type` / `delete_data_type`                                             | removed outright — no replacement; an Output has no independent update/delete surface separate from its producing pipeline node                                                                        |
+| `list_metrics` / `get_metric` / `create_metric` / `update_metric` / `delete_metric` | removed outright, no replacement — the Metric semantic layer (HEL-446/493) was deleted wholesale by HEL-904, not migrated onto Outputs                                                                 |
+
+`create_pipeline`/`add_pipeline_step` are NOT renamed but ARE reshaped:
+`create_pipeline` is now a single agent-facing call accepting `steps[]` (with
+`parentStepId` for tree/branching shape) and optional `outputs[]`, replacing
+the old create-then-add-steps-one-at-a-time flow; `add_pipeline_step` gained
+`parentStepId`.
+
+> **`scripts/agent/*.sh` are STALE, not yet updated for this remodel** —
+> `create-panel.sh`/`bind-panel.sh`/`compose-demo.sh`/`workspace.sh` all still
+> call the retired DataType-era endpoints/panel shape (`dataTypeId`/
+> `fieldMapping` PATCH bodies, `GET /api/types`) and will fail or behave
+> incorrectly if run today. Flagged here rather than silently left presented
+> as current — fixing them is tracked as follow-up work, not done as part of
+> this ticket's `docs/agent-native.md` update (out of this task's stated
+> scope: "update `docs/agent-native.md` with the tool rename table"). Prefer
+> `helio-mcp/` (kept in parity throughout this remodel, verified by its own
+> test suite) for anything beyond ad-hoc `curl`/`jq` exploration until these
+> scripts are updated.
 
 ## Running the two clients
 
@@ -175,6 +223,10 @@ Wire it into an MCP client with `command: node`, `args: [dist/index.js]`, and
 
 ### Shell scripts (`scripts/agent/`)
 
+**STALE** — see the callout in "Tool renames" above. These predate the
+pipelines-and-outputs remodel and still call retired endpoints; do not treat
+the commands below as currently working.
+
 ```bash
 export HELIO_PAT=helio_pat_…
 scripts/agent/compose-demo.sh     # source → pipeline → run → dashboard → panels
@@ -183,22 +235,35 @@ scripts/agent/workspace.sh | jq   # inspect the workspace
 
 ## End-to-end proof
 
-Using only the MCP write tools, an agent composes:
+**Updated for the pipelines-and-outputs remodel (HEL-903/904/906/907).** The
+original proof described here (`create_panel`/`bind_panel` against retired
+`metric`/`chart` panel kinds bound to a pipeline-output DataType) no longer
+applies to the current model. `helio-mcp/scripts/compose.ts` and
+`helio-mcp/scripts/verify-bound-panel.ts` were premised entirely on those
+retired tools with no salvageable current-model role — both were deleted
+outright (HEL-907 evaluator-1 CR2), along with their `npm run compose`/
+`npm run verify-bound-panel` package.json scripts. `helio-mcp/scripts/verify.ts`
+retains a valid role (exercising every read tool + the workspace-context
+resource against a live backend) and was retargeted onto the current tool
+surface in the same fix: `list_data_types` → `list_outputs`,
+`get_data_type_rows` → `get_output_rows`, and the `create_pipeline_from_shape`
+test block → `add_outputs_from_shape` (run via `npm run verify`).
 
-1. `create_data_source` — a static "Quarterly Sales" source (region, revenue).
-2. `create_pipeline` + `add_pipeline_step` (sort by revenue desc).
-3. `run_pipeline` — synchronous; writes 4 rows to the output DataType.
-4. `create_dashboard` + three `create_panel`/`bind_panel` pairs (metric, chart,
-   table), each bound to the pipeline-output DataType.
-
-The dashboard then renders real data in the running app — the table sorted
-320/265/210/180, a descending line chart, and a "320 / North" metric, all marked
-"Data as of …". Reproduce the composition with `helio-mcp/scripts/compose.ts`
-(`npm run compose`) or `scripts/agent/compose-demo.sh`.
-
-> Note: the original brief referenced a "seeded demo CSV source" — `DemoData`
-> seeds only dashboards (no sources/pipelines), so the proof creates its own
-> static source, which exercises the write path more completely.
+The current-model composition — `create_data_source` (or an inline source
+via `create_pipeline` itself) → `create_pipeline` (with `steps[]`/`outputs[]`
+in one call) → `run_pipeline` → `create_dashboard` → `place_outputs` — has
+been verified for real against a live backend, not just typechecked:
+`helio-mcp/e2e/sleeper-rebuild.ts` (tasks.md task 5.1) rebuilds four
+representative Sleeper-shaped dashboards (rosters/matchups/standings/
+transactions — static, domain-shaped data, not a live Sleeper API pull, per
+the script's own header comment) end to end, including a daily refresh
+schedule set via `set_pipeline_schedule` and read back via
+`get_pipeline_schedule`. Run twice against this project's own isolated
+per-worktree backend to confirm the tag-based teardown-then-rebuild path is
+idempotent (every created resource — source, pipeline, Output, and dashboard
+— is tagged and reclaimable via `teardown_resources`), then cleaned up. See
+that script's own header comment for the exact composition and how to run it
+again.
 
 ## Proposal → Review → Apply
 

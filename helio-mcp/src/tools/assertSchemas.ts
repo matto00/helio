@@ -99,7 +99,17 @@ function formatAssertConfigError(error: z.ZodError): string {
  *  other tool's failure. */
 export async function addPipelineStepHandler(
   api: HelioApi,
-  input: { pipelineId: string; type: string; config: Record<string, unknown> },
+  input: {
+    pipelineId: string;
+    type: string;
+    config: Record<string, unknown>;
+    /** HEL-907 task 3.3 -- splices the new step in directly after this EXISTING step id (an
+     *  alternative to `position` that can express a NEW tail branching off any existing node);
+     *  absent extends the trunk, unchanged from before. */
+    parentStepId?: string;
+    position?: number;
+    enabled?: boolean;
+  },
 ): Promise<PipelineStepResponse> {
   if (input.type === "assert") {
     const parsed = assertConfigSchema.safeParse(input.config);
@@ -107,5 +117,11 @@ export async function addPipelineStepHandler(
       throw new Error(formatAssertConfigError(parsed.error));
     }
   }
-  return api.addPipelineStep(input.pipelineId, { type: input.type, config: input.config });
+  return api.addPipelineStep(input.pipelineId, {
+    type: input.type,
+    config: input.config,
+    parentStepId: input.parentStepId,
+    position: input.position,
+    enabled: input.enabled,
+  });
 }

@@ -4,9 +4,9 @@ import { configureStore } from "@reduxjs/toolkit";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { dashboardsReducer } from "../state/dashboardsSlice";
-import { fetchDataTypes } from "../../dataTypes/services/dataTypeService";
+import { fetchOutputs } from "../services/outputsService";
 import { ProposalReviewPage } from "./ProposalReviewPage";
-import type { DataType } from "../../dataTypes/types/dataType";
+import type { OutputSummary } from "../services/outputsService";
 
 // HEL-539 (task 2.8/5.5 regression) — `ProposalReviewPage`'s DEV-only
 // demo-fixture path (`useDemoFixture = IS_DEV && !stateProposal`) is only
@@ -19,11 +19,11 @@ jest.mock("../../../config/env", () => ({
   IS_DEV: true,
 }));
 
-jest.mock("../../dataTypes/services/dataTypeService", () => ({
-  fetchDataTypes: jest.fn(),
+jest.mock("../services/outputsService", () => ({
+  fetchOutputs: jest.fn(),
 }));
 
-const mockedFetchDataTypes = jest.mocked(fetchDataTypes);
+const mockedFetchOutputs = jest.mocked(fetchOutputs);
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
@@ -35,21 +35,12 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  mockedFetchDataTypes.mockReset();
+  mockedFetchOutputs.mockReset();
 });
 
-const outputDataType: DataType = {
-  id: "dt-1",
-  sourceId: null,
+const output: OutputSummary = {
+  id: "output-1",
   name: "Sales",
-  fields: [
-    { name: "region", displayName: "Region", dataType: "string", nullable: false },
-    { name: "revenue", displayName: "Revenue", dataType: "float", nullable: false },
-  ],
-  computedFields: [],
-  version: 1,
-  createdAt: "2026-01-01T00:00:00Z",
-  updatedAt: "2026-01-01T00:00:00Z",
 };
 
 function renderPage() {
@@ -67,7 +58,7 @@ function renderPage() {
 
 describe("ProposalReviewPage — demo-fixture load error + retry (HEL-539 D5/task 2.8)", () => {
   it("shows a Retry action on load failure, and a successful retry clears loadError and renders the synthesized proposal", async () => {
-    mockedFetchDataTypes.mockRejectedValueOnce(new Error("network down"));
+    mockedFetchOutputs.mockRejectedValueOnce(new Error("network down"));
     renderPage();
 
     const alert = await screen.findByRole("alert");
@@ -77,7 +68,7 @@ describe("ProposalReviewPage — demo-fixture load error + retry (HEL-539 D5/tas
     expect(screen.getByRole("button", { name: "Back to dashboards" })).toBeInTheDocument();
     const retryBtn = screen.getByRole("button", { name: "Retry" });
 
-    mockedFetchDataTypes.mockResolvedValueOnce([outputDataType]);
+    mockedFetchOutputs.mockResolvedValueOnce([output]);
     fireEvent.click(retryBtn);
 
     // The retry must clear loadError immediately, not just once the new
@@ -86,15 +77,15 @@ describe("ProposalReviewPage — demo-fixture load error + retry (HEL-539 D5/tas
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
 
     await waitFor(() => expect(screen.getByDisplayValue("Sales overview")).toBeInTheDocument());
-    expect(mockedFetchDataTypes).toHaveBeenCalledTimes(2);
+    expect(mockedFetchOutputs).toHaveBeenCalledTimes(2);
   });
 
-  it("a second retry after another failure dispatches fetchDataTypes again and still recovers", async () => {
+  it("a second retry after another failure dispatches fetchOutputs again and still recovers", async () => {
     // Both failures queued up front — the retry effect fires synchronously
     // on click, before any assertion/wait can re-arm the mock in between.
-    mockedFetchDataTypes.mockRejectedValueOnce(new Error("network down"));
-    mockedFetchDataTypes.mockRejectedValueOnce(new Error("still down"));
-    mockedFetchDataTypes.mockResolvedValueOnce([outputDataType]);
+    mockedFetchOutputs.mockRejectedValueOnce(new Error("network down"));
+    mockedFetchOutputs.mockRejectedValueOnce(new Error("still down"));
+    mockedFetchOutputs.mockResolvedValueOnce([output]);
     renderPage();
 
     await screen.findByRole("alert");
@@ -105,6 +96,6 @@ describe("ProposalReviewPage — demo-fixture load error + retry (HEL-539 D5/tas
 
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     await waitFor(() => expect(screen.getByDisplayValue("Sales overview")).toBeInTheDocument());
-    expect(mockedFetchDataTypes).toHaveBeenCalledTimes(3);
+    expect(mockedFetchOutputs).toHaveBeenCalledTimes(3);
   });
 });

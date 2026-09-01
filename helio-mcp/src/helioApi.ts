@@ -21,23 +21,18 @@ import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
 import type {
   AgentMemoryEntryResponse,
   AgentPreferencesResponse,
-  BoundPanelResponse,
   CombinedProposal,
   CombinedProposalApplyResponse,
   ConnectorMetadataResponse,
   ConnectorSummary,
-  CreateMetricRequest,
   CreateSourceResult,
   CsvPreview,
   DashboardProposal,
   DashboardResponse,
   DashboardSnapshot,
   DataSourceResponse,
-  DataTypeResponse,
-  DataTypeRowsResponse,
-  MetricResponse,
+  InferredSchemaResponse,
   Paged,
-  PanelCapabilitiesResponse,
   PanelResponse,
   PatchSet,
   PatchSetApplyResponse,
@@ -56,21 +51,34 @@ import type {
   RefinementResult,
   RowsPreview,
   RunResultResponse,
+  ExpandPipelineShapeResponse,
   ShapeStepExpansionResponse,
   TeardownResponse,
-  UpdateDataTypeRequest,
-  UpdateMetricRequest,
+  UpdateOutputRequest,
   UpdatePanelRequest,
   UpdatePipelineStepRequest,
+  AssertionStatusResponse,
+  CreateOutputRequest,
+  DeleteOutputResponse,
+  NodeCapabilitiesResponse,
+  OutputPanelPlacementResponse,
+  OutputResponse,
+  OutputsResponse,
+  PipelinePreviewResponse,
+  PipelineProposalOutput,
+  PipelineProposalStep,
 } from "./types.js";
 
 /** Raw `POST /api/sources` wire shape, before the missing-Option → `null`
  *  normalization described on `CreateSourceResult`. Not exported — an
- *  implementation detail of `createRestDataSource`/`createSqlDataSource`. */
+ *  implementation detail of `createRestDataSource`/`createSqlDataSource`.
+ *  HEL-907 evaluator-final-1: `dataType` (dead since HEL-904) replaced with the field the
+ *  backend actually sends, `inferredSchema`; `rowCapNotice` added (was silently dropped too). */
 interface RawCreateSourceResponse {
   source: DataSourceResponse;
-  dataType?: DataTypeResponse;
+  inferredSchema?: InferredSchemaResponse;
   fetchError?: string;
+  rowCapNotice?: string;
 }
 
 const CSV_LIKE_TYPES = new Set(["csv", "static"]);
@@ -81,14 +89,18 @@ export interface StaticColumn {
   type: string;
 }
 
-/** run_pipeline outcome. The run is synchronous on `main`: a 200 already means
- *  completion and rows are written to `outputDataTypeId` — nothing to poll. */
+/** run_pipeline outcome. The run is synchronous on `main`: a 200 already means completion and
+ *  rows are written to the pipeline's Output(s) — nothing to poll. HEL-907 evaluator-final
+ *  round-2 CR2: `outputDataTypeId` REMOVED — it hasn't existed on the wire since HEL-904 (this
+ *  interface mapped it from `PipelineSummaryResponse.outputDataTypeId`, a field that field itself
+ *  never had either — `JSON.stringify` silently dropped the resulting `undefined`, so no agent
+ *  ever actually received it despite the tool description promising it). Call
+ *  `list_outputs(pipelineId)` afterward for the produced Output id(s). */
 export interface RunOutcome {
   pipelineId: string;
   status: string;
   rowCount: number;
   sourceRowCount: number;
-  outputDataTypeId: string;
   /** HEL-861: `true` when the run's source read (or a join/union/lookup secondary source read)
    *  was capped by the 1000-row run limit — ALWAYS `false`, never `undefined`, so a truncated run
    *  is never indistinguishable from a missing field. `guarded`/`jsonResult` stringify this object
@@ -158,12 +170,6 @@ function withCompleteChartAppearance(appearance: Record<string, unknown>): Recor
 export interface PipelineWithSteps extends PipelineSummaryResponse {
   steps: PipelineStepResponse[];
 }
-
-/** Result of `createPipelineFromShape` — mirrors `PipelineWithSteps`'s
- *  `{...summary, steps}` shape (design.md Planner Notes), the steps here being
- *  the ones actually created (each `add_pipeline_step`-equivalent call's own
- *  response), not the raw `expand` expansion payloads. */
-export type PipelineFromShapeResult = PipelineWithSteps;
 
 /** Source preview, tagged with which endpoint produced it. */
 export interface SourceObjects {
@@ -237,39 +243,9 @@ export class HelioApi {
     };
   }
 
-  /** `tag` (HEL-366), when given, restricts results to the caller's resources whose `tag`
-   *  exactly matches — an owner-scoped exact-match filter, not a search. */
-  listDataTypes(limit = 200, offset = 0, tag?: string): Promise<Paged<DataTypeResponse>> {
-    return this.http.get<Paged<DataTypeResponse>>("/api/types", { limit, offset, tag });
-  }
-
-  /** `limit`/`excludeContentFields` (HEL-372): forwarded as `?limit=`/`?excludeContentFields=`
-   *  query params when given — mirrors `GET /api/types/:id/rows`'s optional params 1:1
-   *  (`DataTypeRoutes.scala`). Omitting both preserves the prior unbounded/full-content
-   *  behavior for any existing caller. */
-  getDataTypeRows(
-    dataTypeId: string,
-    limit?: number,
-    excludeContentFields?: boolean,
-    maxStructuredColumns?: number,
-  ): Promise<DataTypeRowsResponse> {
-    return this.http.get<DataTypeRowsResponse>(`/api/types/${dataTypeId}/rows`, {
-      limit,
-      excludeContentFields:
-        excludeContentFields === undefined ? undefined : String(excludeContentFields),
-      maxStructuredColumns,
-    });
-  }
-
-  /** Get the panel-binding "menu" for a DataType (HEL-365): which of the five
-   *  data-bindable panel kinds (metric/chart/table/collection/timeline) are
-   *  structurally bindable, each one's required/optional fieldMapping slots
-   *  and eligible columns per slot, and shape signals (columns+types, row
-   *  count, single-row flag, pipeline-output vs. source-companion). Thin
-   *  pass-through — no reshaping. */
-  getPanelCapabilities(dataTypeId: string): Promise<PanelCapabilitiesResponse> {
-    return this.http.get<PanelCapabilitiesResponse>(`/api/types/${dataTypeId}/panel-capabilities`);
-  }
+  // HEL-907 evaluator-final non-blocking note 1: `listDataTypes` (GET /api/types) REMOVED --
+  // zero call sites since cycle 10 (`/api/types` itself was deleted by HEL-904; this was a
+  // dead client-side method calling a dead route, never caught because nothing exercised it).
 
   /** `tag` (HEL-366), when given, restricts results to the caller's pipelines whose `tag`
    *  exactly matches — an owner-scoped exact-match filter, not a search. */
@@ -340,19 +316,6 @@ export class HelioApi {
     return this.http.get<PipelineShapeCatalogEntryResponse[]>("/api/pipeline-shapes");
   }
 
-  /** List metrics — the caller-owned reusable measures defined over
-   *  pipeline-output DataTypes (HEL-446/HEL-493). Thin pass-through to the
-   *  paginated `GET /api/metrics`. */
-  listMetrics(limit = 200, offset = 0): Promise<Paged<MetricResponse>> {
-    return this.http.get<Paged<MetricResponse>>("/api/metrics", { limit, offset });
-  }
-
-  /** Get one metric by id (`GET /api/metrics/:id`). A non-caller-owned or
-   *  unknown id 404s, surfaced verbatim by the tool's `guarded` handler. */
-  getMetric(metricId: string): Promise<MetricResponse> {
-    return this.http.get<MetricResponse>(`/api/metrics/${metricId}`);
-  }
-
   // ── Agent preferences + memory (HEL-521, 420-C) ─────────────────────────
 
   /** Get the authenticated token owner's agent-authoring preferences
@@ -373,13 +336,10 @@ export class HelioApi {
 
   // ── Write / composition (Phase 3) ────────────────────────────────────────
 
-  /** Create a `static` data source (inline columns + rows). The backend
-   *  auto-creates a source-companion DataType; a pipeline over this source
-   *  then produces the panel-bindable output type. Returns the flat
-   *  DataSourceResponse (static create is NOT the `{source,dataType}` wrapper
-   *  shape the REST/SQL `/api/sources` endpoint returns). `tag` (HEL-366,
-   *  optional) is a free-form grouping key propagated to the auto-created
-   *  companion DataType as well — see `teardown_resources`. */
+  /** Create a `static` data source (inline columns + rows). Returns the flat
+   *  DataSourceResponse -- creates no pipeline and no Output; a pipeline over this source
+   *  (create_pipeline, with an `outputs[]` entry) produces a panel-bindable Output. `tag`
+   *  (HEL-366, optional) is a free-form grouping key -- see `teardown_resources`. */
   createDataSource(input: {
     name: string;
     columns: StaticColumn[];
@@ -410,11 +370,9 @@ export class HelioApi {
    *  to the same `/api/data-sources` endpoint, hitting the backend's new
    *  `csv`-via-URL JSON branch (mirrors `createDataSource`'s JSON POST).
    *
-   *  Like `static`, the backend auto-creates a source-companion DataType but
-   *  this route only ever returns the flat `DataSourceResponse` (no `dataType`
-   *  field) — inspect the companion via `list_source_objects`. `tag`
-   *  (HEL-366, optional) is a free-form grouping key propagated to the
-   *  auto-created companion DataType as well — see `teardown_resources`. */
+   *  Returns the flat `DataSourceResponse` -- creates no pipeline and no Output; a pipeline
+   *  over this source (create_pipeline, with an `outputs[]` entry) produces a panel-bindable
+   *  Output. `tag` (HEL-366, optional) is a free-form grouping key -- see `teardown_resources`. */
   createCsvDataSource(input: {
     name: string;
     content?: string;
@@ -440,9 +398,10 @@ export class HelioApi {
    *  Decision 4/6 -- no `url`/`auth` field exists on this input at all, so an agent cannot
    *  supply a credential inline even if instructed to; the Connector's configured auth is
    *  resolved server-side, never passed through this call). The backend attempts an initial
-   *  fetch at creation time; on success it returns the auto-created companion DataType, on
-   *  failure it returns `dataType: null` + `fetchError` (not an opaque failure) so the agent
-   *  can diagnose and retry. */
+   *  fetch at creation time; on success it returns the re-inferred `inferredSchema` (the ONLY
+   *  wire-accurate signal of success/failure -- `dataType` doesn't exist on this response and
+   *  never has, since HEL-904), on failure it returns `inferredSchema: null` + `fetchError`
+   *  (not an opaque failure) so the agent can diagnose and retry. */
   async createRestDataSource(input: {
     name: string;
     connectorId: string;
@@ -470,15 +429,15 @@ export class HelioApi {
     });
     return {
       source: raw.source,
-      dataType: raw.dataType ?? null,
+      inferredSchema: raw.inferredSchema ?? null,
+      rowCapNotice: raw.rowCapNotice ?? null,
       fetchError: raw.fetchError ?? null,
     };
   }
 
-  /** Create a `sql` data source. Same create → initial-query → companion-
-   *  DataType-or-fetchError contract as `createRestDataSource`. The backend
-   *  rejects DDL/DML query keywords and redacts the password server-side —
-   *  neither is re-implemented here. */
+  /** Create a `sql` data source. Same create → initial-query → inferredSchema-or-fetchError
+   *  contract as `createRestDataSource`. The backend rejects DDL/DML query keywords and
+   *  redacts the password server-side — neither is re-implemented here. */
   async createSqlDataSource(input: {
     name: string;
     dialect: string;
@@ -504,27 +463,43 @@ export class HelioApi {
     });
     return {
       source: raw.source,
-      dataType: raw.dataType ?? null,
+      inferredSchema: raw.inferredSchema ?? null,
+      rowCapNotice: raw.rowCapNotice ?? null,
       fetchError: raw.fetchError ?? null,
     };
   }
 
-  /** `tag` (HEL-366, optional) is a free-form grouping key propagated to the newly-created
-   *  output DataType as well (the only site that ever inserts that row) — see
-   *  `teardown_resources`. */
+  /** `POST /api/pipelines` -- HEL-907 task 3.2 retargeted this onto the single-call
+   *  transactional shape (HEL-906): `steps`/`outputs` are OPTIONAL (absent/empty preserves the
+   *  simple `{name, sourceDataSourceId, tag?}` create); non-empty builds the pipeline, its steps
+   *  (resolving `parentStepId` against earlier `clientId`s in the SAME call), and its Outputs
+   *  (resolving `nodeStepClientId` the same way) in ONE transaction. An implicit single output
+   *  from the retired DataType/Metric model is no longer created at all -- pass `outputs` if any
+   *  are wanted. */
   createPipeline(input: {
     name: string;
     sourceDataSourceId: string;
-    outputDataTypeName: string;
     tag?: string;
+    steps?: PipelineProposalStep[];
+    outputs?: PipelineProposalOutput[];
   }): Promise<PipelineSummaryResponse> {
     return this.http.post<PipelineSummaryResponse>("/api/pipelines", input);
   }
 
-  /** Append a step. `config` shape is keyed by `type` (e.g. limit → {count}). */
+  /** Append a step (`POST /api/pipelines/:id/steps`). `config` shape is keyed by `type` (e.g.
+   *  limit → {count}). `parentStepId` (HEL-907 task 3.3), when present, splices the new step in
+   *  directly after that EXISTING step id -- an alternative to `position` that can express
+   *  placements `position` cannot, most notably branching a new tail off any existing node;
+   *  absent extends the trunk (unchanged pre-existing default). */
   addPipelineStep(
     pipelineId: string,
-    step: { type: string; config: Record<string, unknown> },
+    step: {
+      type: string;
+      config: Record<string, unknown>;
+      parentStepId?: string;
+      position?: number;
+      enabled?: boolean;
+    },
   ): Promise<PipelineStepResponse> {
     return this.http.post<PipelineStepResponse>(`/api/pipelines/${pipelineId}/steps`, step);
   }
@@ -532,51 +507,37 @@ export class HelioApi {
   /** Expand a shape's params into an ordered list of step create-payloads (HEL-402, the first
    *  HTTP caller of `PipelineShape.expand`). Pure — no persistence. A 404 (unknown shapeId) or 422
    *  (the shape's own params-validation failure, message verbatim) surfaces as a `HelioApiError`
-   *  via the shared `describeError`/`guarded` path — never swallowed. */
-  expandPipelineShape(
+   *  via the shared `describeError`/`guarded` path — never swallowed.
+   *
+   *  HEL-934/HEL-907 task 3.12: the real wire response is `ExpandPipelineShapeResponse`
+   *  (`{steps, outputs?}`), NOT a bare `ShapeStepExpansionResponse[]` -- this method used to claim
+   *  the bare-array shape and return the raw HTTP body unchanged, which is a live bug: every
+   *  caller that iterated the result directly as an array (e.g. `for (const step of expansions)`)
+   *  would throw at runtime the first time a shape expanded to any steps at all, since the real
+   *  body is `{steps: [...], outputs: null}`. Unwraps `.steps` here so the external contract
+   *  (`Promise<ShapeStepExpansionResponse[]>`) stays exactly what every existing caller already
+   *  expects -- the fix is entirely internal to this method. */
+  async expandPipelineShape(
     shapeId: string,
     params: Record<string, unknown>,
   ): Promise<ShapeStepExpansionResponse[]> {
-    return this.http.post<ShapeStepExpansionResponse[]>(`/api/pipeline-shapes/${shapeId}/expand`, {
-      params,
-    });
+    const response = await this.http.post<ExpandPipelineShapeResponse>(
+      `/api/pipeline-shapes/${shapeId}/expand`,
+      { params },
+    );
+    return response.steps;
   }
 
-  /** Instantiate a shape into a new pipeline (design.md Decision 2 — validate before writing).
-   *  Calls `expandPipelineShape` FIRST; if it fails (unknown shape id / invalid params) this
-   *  rejects with that error and creates NOTHING (no orphan empty pipeline). Only once `expand`
-   *  succeeds does it create the pipeline, then add each returned `{kind, config}` expansion as a
-   *  step, in order, via the same call `addPipelineStep` uses. Does NOT run the pipeline —
-   *  `runPipeline` stays a separate, explicit call. Returns `{...summary, steps}`, mirroring
-   *  `getPipeline`'s `PipelineWithSteps`. */
-  async createPipelineFromShape(input: {
-    name: string;
-    sourceDataSourceId: string;
-    outputDataTypeName: string;
-    shapeId: string;
-    params: Record<string, unknown>;
-    tag?: string;
-  }): Promise<PipelineFromShapeResult> {
-    const expansions = await this.expandPipelineShape(input.shapeId, input.params);
-    const summary = await this.createPipeline({
-      name: input.name,
-      sourceDataSourceId: input.sourceDataSourceId,
-      outputDataTypeName: input.outputDataTypeName,
-      tag: input.tag,
-    });
-    const steps: PipelineStepResponse[] = [];
-    for (const expansion of expansions) {
-      steps.push(
-        await this.addPipelineStep(summary.id, { type: expansion.kind, config: expansion.config }),
-      );
-    }
-    return { ...summary, steps };
-  }
+  // HEL-907 task 3.4: createPipelineFromShape REMOVED outright -- its only caller
+  // (create_pipeline_from_shape) is retired; replaced by addOutputsFromShapeHandler
+  // (tools/pipelinesHandlers.ts), which expands a shape onto an EXISTING pipeline node instead
+  // of always creating a brand-new pipeline, composing expandPipelineShape/addPipelineStep/
+  // createOutput directly rather than through a dedicated helioApi method.
 
   /** Run a pipeline to completion. Synchronous on `main`: the POST returns only
-   *  after the in-process engine finishes and writes rows to the output
-   *  DataType — no polling, no race. Re-reads the summary for the output type
-   *  id + persisted status so the result chains directly into bind_panel. */
+   *  after the in-process engine finishes and writes rows to its Output(s) —
+   *  no polling, no race. Re-reads the summary for persisted status so the
+   *  result chains directly into place_outputs. */
   async runPipeline(pipelineId: string, dry = false): Promise<RunOutcome> {
     const result = await this.http.post<RunResultResponse>(
       `/api/pipelines/${pipelineId}/run`,
@@ -589,7 +550,6 @@ export class HelioApi {
       status: summary.lastRunStatus ?? "succeeded",
       rowCount: result.rowCount,
       sourceRowCount: result.sourceRowCount ?? 0,
-      outputDataTypeId: summary.outputDataTypeId,
       // HEL-861: default to `false`, never `undefined` — see RunOutcome's doc comment.
       truncated: result.sourceTruncated ?? false,
       availableRowCount: result.sourceAvailableRowCount,
@@ -601,8 +561,17 @@ export class HelioApi {
    *  existing same-owner, case-insensitive/trimmed name match instead of
    *  creating a duplicate (200), so a rebuild script can target a stable
    *  dashboard without first listing + scanning for a name match. Omitting
-   *  `ifExists` behaves exactly as before (always creates, 201). */
-  createDashboard(input: { name: string; ifExists?: "return" }): Promise<DashboardResponse> {
+   *  `ifExists` behaves exactly as before (always creates, 201). `tag`
+   *  (HEL-907 evaluator-1 CR3, V95) is optional, free-form, set only at
+   *  create time — mirrors DataSource/Pipeline's own `tag`, lets a
+   *  workflow's dashboards be torn down together with `teardown_resources`
+   *  instead of leaking (the exact bug this fixes — see
+   *  `e2e/sleeper-rebuild.ts`'s own header comment for the incident). */
+  createDashboard(input: {
+    name: string;
+    ifExists?: "return";
+    tag?: string;
+  }): Promise<DashboardResponse> {
     return this.http.post<DashboardResponse>("/api/dashboards", input);
   }
 
@@ -624,65 +593,8 @@ export class HelioApi {
     );
   }
 
-  /** Create a panel. `type` ∈
-   *  metric/chart/table/text/markdown/image/collection/timeline (the MCP no
-   *  longer offers `divider`; the backend wire still accepts it on other
-   *  paths). `config` is the subtype's create-time config (e.g. collection
-   *  `{ baseType, layout }`, chart `{ chartOptions }`, table
-   *  `{ density, columnOrder }`, timeline `{ timelineOptions: { sort } }`,
-   *  text/markdown `{ content }`).
-   *
-   *  `appearance` (HEL-305 create channel) is an optional passthrough with the
-   *  same wire shape as `update_panel_appearance`. When it carries a `chart`
-   *  object the caller's partial chart fields (notably `chartType`) are overlaid
-   *  onto the COMPLETE default `ChartAppearance` — a bare `{ chart: { chartType }}`
-   *  fails the backend's non-optional `ChartAppearance` deserialization (design
-   *  D2). */
-  createPanel(input: {
-    dashboardId: string;
-    title?: string;
-    type?: string;
-    config?: Record<string, unknown>;
-    appearance?: Record<string, unknown>;
-  }): Promise<PanelResponse> {
-    const body: Record<string, unknown> = {
-      dashboardId: input.dashboardId,
-      title: input.title,
-      type: input.type,
-      config: input.config,
-    };
-    if (input.appearance) body.appearance = withCompleteChartAppearance(input.appearance);
-    return this.http.post<PanelResponse>("/api/panels", body);
-  }
-
-  /** Create N panels on ONE dashboard in a single call (HEL-370,
-   *  `POST /api/panels/batch`) — collapses a per-story image+markdown (or a
-   *  batch of pre-created data panels) fan-out that would otherwise be N
-   *  separate `createPanel` round-trips into one atomic, all-or-nothing
-   *  server-side transaction. Each item is the same shape `createPanel`
-   *  accepts minus `dashboardId` (supplied once at the envelope level); each
-   *  item's `appearance` (if given) is completed the same way `createPanel`'s
-   *  is. Returns every created panel, with ids, in the same order supplied. */
-  createPanels(input: {
-    dashboardId: string;
-    panels: Array<{
-      title?: string;
-      type?: string;
-      config?: Record<string, unknown>;
-      appearance?: Record<string, unknown>;
-    }>;
-  }): Promise<{ panels: PanelResponse[] }> {
-    const body = {
-      dashboardId: input.dashboardId,
-      panels: input.panels.map((panel) => ({
-        title: panel.title,
-        type: panel.type,
-        config: panel.config,
-        appearance: panel.appearance ? withCompleteChartAppearance(panel.appearance) : undefined,
-      })),
-    };
-    return this.http.post<{ panels: PanelResponse[] }>("/api/panels/batch", body);
-  }
+  // HEL-907 task 3.6: createPanel/createPanels REMOVED outright -- their only callers
+  // (create_panel/create_panels) are retired; replaced by placeOutputs/createContentPanel below.
 
   /** Upload an image (HEL-246). Posts a single `file` multipart part to
    *  `POST /api/uploads/image` — the same shape `create_csv_data_source` uses —
@@ -710,25 +622,10 @@ export class HelioApi {
     return { ...result, markdownRef: `helio://uploads/image/${result.id}` };
   }
 
-  /** Bind a panel (metric/chart/table/text/markdown/collection/timeline) to a
-   *  pipeline-output DataType. PATCHes `config: { dataTypeId, fieldMapping }`;
-   *  the PATCH is a per-field merge, so a collection's create-time
-   *  `baseType`/`layout` (or a timeline's `timelineOptions.sort`) survive this
-   *  bind (design D3). `fieldMapping` is optional — a table binds with no
-   *  mapping (columns are a vestigial slot; visible columns come from
-   *  `config.columnOrder`, HEL-255). The backend rejects a companion-DataType
-   *  binding with 400 (V41 pipeline-only rule) — that error is surfaced to
-   *  the caller, never worked around. */
-  bindPanel(
-    panelId: string,
-    binding: { dataTypeId: string; fieldMapping?: Record<string, string>; panelType?: string },
-  ): Promise<PanelResponse> {
-    const body: Record<string, unknown> = {
-      config: { dataTypeId: binding.dataTypeId, fieldMapping: binding.fieldMapping ?? {} },
-    };
-    if (binding.panelType) body.type = binding.panelType;
-    return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, body);
-  }
+  // HEL-907 task 3.6: bindPanel REMOVED outright -- its only caller (bind_panel) is retired;
+  // an output-kind panel's real config shape (OutputPanelConfig) only ever carries `outputId`,
+  // never `dataTypeId`/`fieldMapping` (those moved to the Output itself) -- this method's own
+  // PATCH body would have been silently meaningless against the current model.
 
   updatePanelAppearance(
     panelId: string,
@@ -747,53 +644,56 @@ export class HelioApi {
     return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, patch);
   }
 
-  /** Create one bound panel in a single call (HEL-364, `POST /api/panels/bound`) — collapses the
-   *  6-call chain `createDataSource`/`createPipeline` → `addPipelineStep`* → `runPipeline` →
-   *  `createPanel` → `bindPanel` → `updatePanelAppearance` into one server-side, single-HTTP-request
-   *  op. NO client-side composition here (contrast with `createPipelineFromShape`, which makes 1 +
-   *  N + 1 calls itself) — this is a genuinely single `POST`. The backend validates the panel/
-   *  DataType binding BEFORE creating anything (an unsatisfiable `fieldMapping` or a non-data-
-   *  bindable `panel.type` 400s with nothing created), runs the pipeline synchronously, and returns
-   *  the bound panel with rows already present. On any post-validation failure the backend cleans up
-   *  everything it created for THIS call (never a reused `sourceDataSourceId`) and the error message
-   *  names the failed stage (`source`/`pipeline`/`steps`/`run`/`panel`) — surfaced verbatim, never
-   *  retried or swallowed. Exactly one of `source` (inline `{name,columns,rows}` — same shape as
-   *  `createDataSource`) or `sourceDataSourceId` (an existing, caller-owned DataSource) must be
-   *  given. `panel.appearance` (if given) is completed the same way `createPanel`'s is. */
-  createBoundPanel(input: {
+  // ── Placements (HEL-907 task 3.6) ───────────────────────────────────────
+
+  /** Create N `output`-kind panels (placements) on ONE dashboard in a single call
+   *  (`POST /api/panels/batch`, HEL-370) — replaces `create_panel`/`create_panels`/`bind_panel`/
+   *  `create_bound_panel` for the data-bound case: a placement carries ONLY `config.outputId`
+   *  (no fieldMapping/aggregation on the panel itself anymore -- that lives on the Output). */
+  placeOutputs(
+    dashboardId: string,
+    items: Array<{ outputId: string; title?: string }>,
+  ): Promise<{ panels: PanelResponse[] }> {
+    const body = {
+      dashboardId,
+      panels: items.map((item) => ({
+        title: item.title,
+        type: "output",
+        config: { outputId: item.outputId },
+      })),
+    };
+    return this.http.post<{ panels: PanelResponse[] }>("/api/panels/batch", body);
+  }
+
+  /** Create ONE content panel (`text`/`markdown`/`image`/`divider` -- no data binding at all).
+   *  `config` is the subtype's create-time config (text/markdown `{content}`; image
+   *  `{imageUrl, imageFit?, caption?}`; divider `{orientation?, weight?, color?}`). `appearance`
+   *  (HEL-305 create channel), when given, has its `chart` sub-object (if any) completed against
+   *  the full default `ChartAppearance` the same way the retired `createPanel` always did -- a
+   *  bare `{chart: {chartType}}` fails the backend's non-optional `ChartAppearance`
+   *  deserialization otherwise. */
+  createContentPanel(input: {
     dashboardId: string;
-    source?: { name: string; columns: StaticColumn[]; rows: unknown[][] };
-    sourceDataSourceId?: string;
-    pipeline: {
-      name?: string;
-      outputDataTypeName: string;
-      steps: { type: string; config: Record<string, unknown> }[];
-    };
-    panel: {
-      type: string;
-      title: string;
-      config?: Record<string, unknown>;
-      appearance?: Record<string, unknown>;
-    };
-    fieldMapping?: Record<string, string>;
-  }): Promise<BoundPanelResponse> {
+    title?: string;
+    type: "text" | "markdown" | "image" | "divider";
+    config?: Record<string, unknown>;
+    appearance?: Record<string, unknown>;
+  }): Promise<PanelResponse> {
     const body: Record<string, unknown> = {
       dashboardId: input.dashboardId,
-      pipeline: input.pipeline,
-      panel: {
-        type: input.panel.type,
-        title: input.panel.title,
-        config: input.panel.config,
-        appearance: input.panel.appearance
-          ? withCompleteChartAppearance(input.panel.appearance)
-          : undefined,
-      },
+      title: input.title,
+      type: input.type,
+      config: input.config,
     };
-    if (input.source) body.source = input.source;
-    if (input.sourceDataSourceId) body.sourceDataSourceId = input.sourceDataSourceId;
-    if (input.fieldMapping) body.fieldMapping = input.fieldMapping;
-    return this.http.post<BoundPanelResponse>("/api/panels/bound", body);
+    if (input.appearance) body.appearance = withCompleteChartAppearance(input.appearance);
+    return this.http.post<PanelResponse>("/api/panels", body);
   }
+
+  // HEL-907 task 3.6: createBoundPanel REMOVED outright -- its own backend route
+  // (POST /api/panels/bound) no longer exists (retired during the Outputs remodel); every call
+  // has 404'd since then, undetected because no test covered it. Its replacement is a genuine
+  // client-side composition (create_pipeline with outputs[], then place_outputs), not a single
+  // backend call -- there is no equivalent one-POST primitive in the new model.
 
   /** Apply a reviewed proposal (HEL-225). Server validates + creates the
    *  dashboard + panels atomically via the existing services (RLS + V41). */
@@ -861,19 +761,19 @@ export class HelioApi {
     return this.http.post<CombinedProposalApplyResponse>("/api/proposals/apply", combined);
   }
 
-  /** Bulk-delete every data source, pipeline, and DataType owned by the caller that carries
-   *  `tag` (HEL-366, `POST /api/workspace/teardown`). Refuses the WHOLE call (200, `blocked:
-   *  true`, nothing deleted) if any tagged resource has a dependent outside this same tag batch
-   *  — untagged, OR tagged into a different, live batch — that an ordinary single-resource
-   *  delete's cascade would otherwise reach (a tagged DataSource with an out-of-batch dependent
-   *  Pipeline; a tagged output DataType with an out-of-batch producing Pipeline; a tagged
-   *  DataType still bound to a panel or still linked to an out-of-batch source). The response's
-   *  `conflicts` names each blocked resource and why. All-or-nothing: on success every resource
-   *  tagged `tag` is deleted; on a block, NOTHING is deleted, not even the unblocked portion.
-   *  Idempotent — a repeat call with the same tag after success reports all-zero counts. Pass
-   *  `dryRun: true` to compute and return the identical plan (same counts/conflicts shape)
-   *  without deleting anything — ALWAYS call with `dryRun: true` first to verify scope before a
-   *  real teardown, since deletion is permanent. */
+  /** Bulk-delete every data source, pipeline, and dashboard owned by the caller that carries
+   *  `tag` (HEL-366, extended to dashboards HEL-907 V95; `POST /api/workspace/teardown`). A
+   *  pipeline's Outputs/placements and a dashboard's panels carry no tag of their own -- they
+   *  cascade automatically with their owning resource. Refuses the WHOLE call (200, `blocked:
+   *  true`, nothing deleted) if any tagged DATA SOURCE has a dependent pipeline outside this same
+   *  tag batch — untagged, OR tagged into a different, live batch — that an ordinary
+   *  single-resource delete's cascade would otherwise reach; dashboards and pipelines carry no
+   *  analogous guard of their own. The response's `conflicts` names each blocked resource and
+   *  why. All-or-nothing: on success every resource tagged `tag` is deleted; on a block, NOTHING
+   *  is deleted, not even the unblocked portion. Idempotent — a repeat call with the same tag
+   *  after success reports all-zero counts. Pass `dryRun: true` to compute and return the
+   *  identical plan (same counts/conflicts shape) without deleting anything — ALWAYS call with
+   *  `dryRun: true` first to verify scope before a real teardown, since deletion is permanent. */
   teardownResources(input: { tag: string; dryRun?: boolean }): Promise<TeardownResponse> {
     return this.http.post<TeardownResponse>("/api/workspace/teardown", input);
   }
@@ -892,18 +792,89 @@ export class HelioApi {
     return this.http.patch<DataSourceResponse>(`/api/data-sources/${dataSourceId}`, { name });
   }
 
-  /** `PATCH /api/types/:id`. `patch` is the already-built wire body (see
-   *  section note above) — `name`/`fields`/`computedFields` each independently
-   *  patchable; `fields`/`computedFields`, when present, replace the existing
-   *  array wholesale server-side (no per-item merge). */
-  updateDataType(dataTypeId: string, patch: UpdateDataTypeRequest): Promise<DataTypeResponse> {
-    return this.http.patch<DataTypeResponse>(`/api/types/${dataTypeId}`, patch);
-  }
-
   /** `PATCH /api/pipelines/:id`. Rename-only (design.md D1) — the backend's
    *  `UpdatePipelineRequest` has exactly one, required field. */
   updatePipeline(pipelineId: string, name: string): Promise<PipelineSummaryResponse> {
     return this.http.patch<PipelineSummaryResponse>(`/api/pipelines/${pipelineId}`, { name });
+  }
+
+  // ── Outputs (HEL-906/HEL-907 task 3.5) ──────────────────────────────────
+
+  /** `POST /api/pipelines/:id/outputs`. `nodeStepId` absent means the pipeline's raw source. */
+  createOutput(pipelineId: string, req: CreateOutputRequest): Promise<OutputResponse> {
+    return this.http.post<OutputResponse>(`/api/pipelines/${pipelineId}/outputs`, req);
+  }
+
+  /** `GET /api/pipelines/:id/outputs?nodeStepId=`. `nodeStepId` omitted lists every Output on
+   *  the pipeline; passed, scopes to that one node. */
+  listOutputsByPipeline(pipelineId: string, nodeStepId?: string): Promise<OutputsResponse> {
+    return this.http.get<OutputsResponse>(`/api/pipelines/${pipelineId}/outputs`, { nodeStepId });
+  }
+
+  /** `GET /api/outputs?offset&limit` — lean, top-level, paginated list of every Output the
+   *  caller OWNS (HEL-906 cycle 7, task 2.6, absorbs HEL-722). */
+  listAllOutputs(limit = 200, offset = 0): Promise<Paged<OutputResponse>> {
+    return this.http.get<Paged<OutputResponse>>("/api/outputs", { limit, offset });
+  }
+
+  /** `GET /api/outputs/:id`. Sharing-aware (owner/editor/viewer of the parent pipeline). */
+  getOutput(outputId: string): Promise<OutputResponse> {
+    return this.http.get<OutputResponse>(`/api/outputs/${outputId}`);
+  }
+
+  /** `PATCH /api/outputs/:id`. Owner-only; `config`, when present, merges one level deep for
+   *  `legend`/`tooltip`/`seriesColors`/`axisLabels` rather than replacing wholesale (HEL-877). */
+  updateOutput(outputId: string, patch: UpdateOutputRequest): Promise<OutputResponse> {
+    return this.http.patch<OutputResponse>(`/api/outputs/${outputId}`, patch);
+  }
+
+  /** `DELETE /api/outputs/:id`. Owner-only; also deletes every placement Panel bound to this
+   *  Output (V94 `panels.output_id ON DELETE CASCADE`, reported back explicitly here). */
+  deleteOutput(outputId: string): Promise<DeleteOutputResponse> {
+    return this.http.delete<DeleteOutputResponse>(`/api/outputs/${outputId}`);
+  }
+
+  /** `GET /api/outputs/:id/panels` — the placements report used before a destructive delete. */
+  listOutputPanels(outputId: string): Promise<OutputPanelPlacementResponse[]> {
+    return this.http.get<OutputPanelPlacementResponse[]>(`/api/outputs/${outputId}/panels`);
+  }
+
+  /** `GET /api/outputs/:id/assertion-status`. */
+  getOutputAssertionStatus(outputId: string): Promise<AssertionStatusResponse> {
+    return this.http.get<AssertionStatusResponse>(`/api/outputs/${outputId}/assertion-status`);
+  }
+
+  /** `GET /api/outputs/:id/rows?offset&limit` — paginated latest-run row snapshot
+   *  (`get_output_rows`, replaces the retired `get_data_type_rows`). */
+  getOutputRows(
+    outputId: string,
+    limit = 200,
+    offset = 0,
+  ): Promise<Paged<Record<string, unknown>>> {
+    return this.http.get<Paged<Record<string, unknown>>>(`/api/outputs/${outputId}/rows`, {
+      limit,
+      offset,
+    });
+  }
+
+  /** `POST /api/pipelines/:id/preview?outputId=`. `outputId` absent previews every Output on the
+   *  pipeline; passed, scopes to that one. Both arms return the identical
+   *  `{outputs: [{outputId, preview}]}` envelope — no branching logic needed here. */
+  previewOutputs(pipelineId: string, outputId?: string): Promise<PipelinePreviewResponse> {
+    return this.http.post<PipelinePreviewResponse>(
+      `/api/pipelines/${pipelineId}/preview`,
+      {},
+      { outputId },
+    );
+  }
+
+  /** `GET /api/pipelines/:id/capabilities?stepId=` (`get_output_capabilities`, replaces the
+   *  retired `get_panel_capabilities`, which called a route HEL-904 deleted). `stepId` absent
+   *  means the pipeline's raw source. */
+  getOutputCapabilities(pipelineId: string, stepId?: string): Promise<NodeCapabilitiesResponse> {
+    return this.http.get<NodeCapabilitiesResponse>(`/api/pipelines/${pipelineId}/capabilities`, {
+      stepId,
+    });
   }
 
   /** `PATCH /api/dashboards/:id`, name-only (design.md D7) — mirrors
@@ -930,7 +901,7 @@ export class HelioApi {
    *  ALREADY-BUILT wire body (`buildSetPipelineScheduleBody` in
    *  `tools/scheduleTools.ts` does the omit-vs-absent `enabled` encoding
    *  before calling this method), matching this class's established
-   *  already-built-patch convention (`updateDataType`/`updateMetric`). */
+   *  already-built-patch convention (`updatePipelineStep`/`updatePanel`). */
   setPipelineSchedule(
     pipelineId: string,
     body: PutPipelineScheduleRequest,
@@ -965,27 +936,6 @@ export class HelioApi {
     return this.http.patch<PipelineStepResponse>(`/api/pipeline-steps/${stepId}`, patch);
   }
 
-  // ── Metrics (semantic layer, HEL-446/HEL-493/HEL-541) ───────────────────
-
-  /** Create a metric (`POST /api/metrics`) — a named, reusable measure
-   *  (`aggregation` over `measureField`) over a caller-owned, pipeline-output
-   *  DataType (V41). The backend validates `dataTypeId`/`measureField`/
-   *  `allowedDimensions` against the DataType's actual shape; that rejection
-   *  is surfaced verbatim, never worked around here. */
-  createMetric(input: CreateMetricRequest): Promise<MetricResponse> {
-    return this.http.post<MetricResponse>("/api/metrics", input);
-  }
-
-  /** Update a metric (`PATCH /api/metrics/:id`). `patch` is the ALREADY-BUILT
-   *  wire body (design.md Decision 2's absent-vs-null convention: a key is
-   *  present only when the caller supplied that argument) — the tool layer
-   *  (`write.ts`'s body-builder) does the omit-vs-null encoding before
-   *  calling this method, so this method itself is a pure pass-through, same
-   *  as every other method on this class. */
-  updateMetric(metricId: string, patch: UpdateMetricRequest): Promise<MetricResponse> {
-    return this.http.patch<MetricResponse>(`/api/metrics/${metricId}`, patch);
-  }
-
   // ── Delete ────────────────────────────────────────────────────────────────
   //
   // Most delete endpoints answer `204 No Content` (the backend's
@@ -1016,42 +966,40 @@ export class HelioApi {
     return { deleted: true, id: dataSourceId };
   }
 
-  /** `DELETE /api/types/:id`. Cascades to any pipeline whose output is this
-   *  DataType (and that pipeline's steps/runs); panels bound to it are unbound
-   *  (`type_id` set null), not deleted. */
-  async deleteDataType(dataTypeId: string): Promise<{ deleted: true; id: string }> {
-    await this.http.delete(`/api/types/${dataTypeId}`);
-    return { deleted: true, id: dataTypeId };
-  }
-
   /** `DELETE /api/panels/:id`. Removes a single panel from its dashboard. */
   async deletePanel(panelId: string): Promise<{ deleted: true; id: string }> {
     await this.http.delete(`/api/panels/${panelId}`);
     return { deleted: true, id: panelId };
   }
 
-  /** `DELETE /api/pipelines/:id`. Owner-only. Cascades to the pipeline's steps
-   *  and run history. The output DataType is NOT deleted by deleting the
-   *  pipeline (delete it separately with delete_data_type if desired). */
+  /** `DELETE /api/pipelines/:id`. Owner-only. Cascades to the pipeline's
+   *  steps, run history, AND its Outputs (and their placements) -- unlike the
+   *  retired DataType model, an Output has no independent lifecycle from its
+   *  producing pipeline. */
   async deletePipeline(pipelineId: string): Promise<{ deleted: true; id: string }> {
     await this.http.delete(`/api/pipelines/${pipelineId}`);
     return { deleted: true, id: pipelineId };
   }
 
-  /** `DELETE /api/metrics/:id`. Owner-only. Does not touch the underlying
-   *  DataType. Any panel bound to this metric has its metric reference
-   *  cleared (`ON DELETE SET NULL`, V76) rather than being deleted. */
-  async deleteMetric(metricId: string): Promise<{ deleted: true; id: string }> {
-    await this.http.delete(`/api/metrics/${metricId}`);
-    return { deleted: true, id: metricId };
-  }
-
   /** `DELETE /api/pipeline-steps/:stepId`. Note the flat top-level path — a
    *  step is addressed by its own id, NOT nested under its pipeline. Removes a
-   *  single transform step; re-run the pipeline to reflect the change. */
-  async deletePipelineStep(stepId: string): Promise<{ deleted: true; id: string }> {
-    await this.http.delete(`/api/pipeline-steps/${stepId}`);
-    return { deleted: true, id: stepId };
+   *  single transform step; re-run the pipeline to reflect the change.
+   *
+   *  HEL-934/HEL-907 task 3.12: this route answers `200 OK` with a real
+   *  `{removedTailStepCount}` splice-on-delete report (HEL-906 task 3.2 --
+   *  deleting a mid-tree step also removes every descendant step under the
+   *  HEL-904 tree model), NOT an empty `204` like every other delete
+   *  endpoint in this class. Previously discarded that body entirely
+   *  (`await this.http.delete(...)`, never reading the response) -- an
+   *  agent deleting one step in the middle of a branch had no way to learn
+   *  it silently took N descendant steps with it. Surfaced explicitly now. */
+  async deletePipelineStep(
+    stepId: string,
+  ): Promise<{ deleted: true; id: string; removedTailStepCount: number }> {
+    const response = await this.http.delete<{ removedTailStepCount: number }>(
+      `/api/pipeline-steps/${stepId}`,
+    );
+    return { deleted: true, id: stepId, removedTailStepCount: response.removedTailStepCount };
   }
 
   /** Set a dashboard's responsive grid layout. PATCHes /api/dashboards/:id with

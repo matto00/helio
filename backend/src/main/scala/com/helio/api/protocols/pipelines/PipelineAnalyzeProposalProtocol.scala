@@ -11,11 +11,15 @@ import spray.json._
 // `analyzeStepResponseFormat`) verbatim from `PipelineAnalyzeProtocol` — the
 // same discriminated-union wire shape `GET /:id/analyze` already emits.
 
+// HEL-907 task 1.1: `outputDataTypeName` dropped outright (no alias) -- it was a pure echo of
+// PipelineProposal's now-removed same-named field; PipelineProposal's `outputs[]` carries no
+// single canonical name to echo back, and this dry-analyze response was never anything more
+// than a courtesy echo (no caller derived behavior from it -- verified against every consumer
+// of this response before removal).
 final case class PipelineAnalyzeProposalResponse(
-    sourceName:         String,
-    outputDataTypeName: String,
-    sourceSchema:        Vector[SchemaFieldResponse],
-    steps:               Vector[AnalyzeStepResponse]
+    sourceName:  String,
+    sourceSchema: Vector[SchemaFieldResponse],
+    steps:        Vector[AnalyzeStepResponse]
 )
 
 /** `PipelineAnalyzeProposalProtocol extends PipelineAnalyzeProtocol` to reuse
@@ -28,5 +32,5 @@ trait PipelineAnalyzeProposalProtocol
     with PipelineAnalyzeProtocol {
 
   implicit val pipelineAnalyzeProposalResponseFormat: RootJsonFormat[PipelineAnalyzeProposalResponse] =
-    jsonFormat4(PipelineAnalyzeProposalResponse.apply)
+    jsonFormat3(PipelineAnalyzeProposalResponse.apply)
 }

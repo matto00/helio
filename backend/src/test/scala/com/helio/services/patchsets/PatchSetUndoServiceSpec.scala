@@ -18,7 +18,7 @@ import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import org.apache.pekko.actor.typed.ActorSystem
@@ -30,6 +30,7 @@ import com.helio.api.http.{ResourceType => AclResourceType}
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry}
 import com.helio.domain._
 import com.helio.domain.model._
+import com.helio.domain.panels.OutputPanel
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -61,6 +62,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
   private var permissionRepo: ResourcePermissionRepository = _
   private var pipelineRepo: PipelineRepository           = _
   private var pipelineStepRepo: PipelineStepRepository   = _
+  private var outputRepo: OutputRepository               = _
   private var applicationRepo: PatchSetApplicationRepository = _
 
   private var dashboardService: DashboardService   = _
@@ -90,6 +92,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     permissionRepo    = new ResourcePermissionRepository(ctx)
     pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)
     pipelineStepRepo  = new PipelineStepRepository(ctx)
+    outputRepo        = new OutputRepository(ctx)
     applicationRepo   = new PatchSetApplicationRepository(ctx)
 
     val registry = new ResourceTypeRegistry(
@@ -102,7 +105,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-undo-service-spec"))
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
-    panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
+    panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo, null, outputRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
@@ -144,6 +147,12 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       case Left(e)  => fail(s"seedPanel failed: $e")
     }
 
+  /** A real, persisted Output -- `panels.output_id` is FK-constrained against `outputs`, so a
+   *  placement test needs a genuine row, not a synthetic id (an `outputRepo == null` fixture
+   *  would only skip the app-level existence CHECK, never the DB-level FK). */
+  private def seedOutput(pipeline: PipelineSummaryResponse, owner: AuthenticatedUser, name: String = "Output"): Output =
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, owner.id, name, OutputKind.Table))
+
   // HEL-904: no companion DataType to look up anymore — returns just the DataSourceId
   // (every call site already discarded the old tuple's second element).
   private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): DataSourceId = {
@@ -168,9 +177,16 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       owner: AuthenticatedUser,
       kind: String,
       config: JsObject,
-      enabled: Option[Boolean] = None
+      enabled: Option[Boolean] = None,
+      parentStepId: Option[String] = None
   ): PipelineStepResponse =
-    await(pipelineService.addStep(pipelineId, CreatePipelineStepRequest(kind, config, enabled = enabled), owner)) match {
+    await(
+      pipelineService.addStep(
+        pipelineId,
+        CreatePipelineStepRequest(kind, config, enabled = enabled, parentStepId = parentStepId),
+        owner
+      )
+    ) match {
       case Right(s) => s
       case Left(e)  => fail(s"seedPipelineStep failed: $e")
     }
@@ -268,6 +284,67 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       await(panelRepo.findByIdInternal(PanelId(recreatedId))).map(_.title) shouldBe Some("Delete me")
     }
 
+    // HEL-907 tasks.md 5.5 -- a "placement" is an output-kind Panel (design.md's own naming:
+    // "placement = panel"); its ONLY payload beyond the common identity/appearance fields every
+    // Panel carries is `config.outputId` (OutputPanelConfig, replacing the five retired bound-
+    // panel configs' fieldMapping/aggregation/etc -- see OutputPanel.scala's own doc). This test
+    // proves that field specifically survives BOTH directions of undo: a create edit's undo
+    // (delete) and a delete edit's undo (recreate) -- the panel/dashboard/pipelineStep tests
+    // above never exercise an "output"-kind panel at all, only "divider"/generic ones, so this
+    // was a real, previously-unverified gap (flagged explicitly in tasks.md's own 5.5 entry).
+    // `outputRepo` is nullable-optional on `PanelService` (HEL-904 follow-up) and this spec's
+    // `panelService` never wires one, so the outputId-existence check is skipped -- a synthetic
+    // id is fine here since this test is about placement-field PRESERVATION through undo, not
+    // Output existence validation (that is a separate, already-covered concern elsewhere).
+    "restore an output-kind placement panel's create/delete-undo, preserving config.outputId (5.5)" in {
+      val dashboard    = seedDashboard(userA)
+      val sourceId      = seedStaticSource(userA, "Placement-preservation source")
+      val pipeline      = seedPipeline(userA, sourceId, "Placement-preservation pipeline")
+      val outputToDelete = seedOutput(pipeline, userA, "Output to delete's panel")
+      val outputToCreate = seedOutput(pipeline, userA, "Output the new panel binds to")
+      val panelToDelete = await(panelService.create(
+        CreatePanelRequest(
+          Some(dashboard.id.value),
+          Some("Existing placement"),
+          Some("output"),
+          Some(JsObject("outputId" -> JsString(outputToDelete.id.value)))
+        ),
+        userA
+      )) match {
+        case Right(p) => p
+        case Left(e)  => fail(s"seed output panel failed: $e")
+      }
+
+      val createPatch = JsObject(
+        "dashboardId" -> JsString(dashboard.id.value),
+        "title"       -> JsString("New placement"),
+        "type"        -> JsString("output"),
+        "config"      -> JsObject("outputId" -> JsString(outputToCreate.id.value))
+      )
+      val edits = Vector(
+        Edit(EditTarget("panel", None), "create", None, None, None, None, None, Some(createPatch)),
+        Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None)
+      )
+      val applyResponse = await(applyService.apply(PatchSet(None, edits), userA)) match {
+        case Right(r) if r.applicationId.isDefined => r
+        case other                                  => fail(s"expected a successful, journaled apply, got $other")
+      }
+      val createdPanelId = applyResponse.edits.find(_.index == 0).flatMap(_.newId).getOrElse(fail("expected newId"))
+      val applicationId  = applyResponse.applicationId.get
+
+      val undoResponse = await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected success, got $err")
+      }
+      val deleteUndo = undoResponse.edits.find(_.index == 1).getOrElse(fail("missing outcome"))
+      deleteUndo.status shouldBe "recreated"
+      val recreatedId = deleteUndo.newId.getOrElse(fail("expected newId"))
+
+      await(panelRepo.findByIdInternal(PanelId(createdPanelId))) shouldBe None
+      val recreatedPanel = await(panelRepo.findByIdInternal(PanelId(recreatedId))).getOrElse(fail("recreated panel missing"))
+      recreatedPanel.asInstanceOf[OutputPanel].config.outputId.value shouldBe outputToDelete.id.value
+    }
+
     // skeptic-final-2.md CR1: a `dashboard` `create` edit's undo has no parent id to fall back
     // to on the frontend (unlike a panel create, whose original patch still carries a
     // `dashboardId`) -- `newId` on the `EditUndoOutcome` itself is the ONLY surviving way to
@@ -318,6 +395,50 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       recreated.asInstanceOf[RenameStep].config.renames shouldBe Map("old" -> "new")
       // HEL-705: the recreated step must NOT silently come back enabled.
       recreated.enabled shouldBe false
+    }
+
+    "restore a pipelineStep delete edit by recreating it under its original parentStepId, not silently re-parenting it to the trunk (HEL-766)" in {
+      val sourceId = seedStaticSource(userA, "Step-delete branch pipeline source")
+      val pipeline = seedPipeline(userA, sourceId, "Step-delete branch pipeline")
+      val rootStep = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("a" -> JsString("b")))
+      )
+      // Extend the trunk with a SECOND trunk step, so `rootStep` is NOT the trunk-last step by
+      // the time the branched step below is deleted-and-undone -- this is the load-bearing part
+      // of the fixture (evaluator-final-2): `addStep`'s own default ("parentStepId absent" ->
+      // splice onto the CURRENT trunk-last step) would attach a wrongly-defaulted recreate onto
+      // `trunkTail`, not `rootStep` -- a DIFFERENT, and therefore assertion-failable, target. The
+      // ORIGINAL version of this test branched off the pipeline's ONLY trunk step, which made the
+      // default-trunk-append target and the real branch-point target coincide -- the assertion
+      // passed whether or not `parentStepId` was actually threaded through the undo path at all.
+      val trunkTail = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("c" -> JsString("d"))),
+        parentStepId = Some(rootStep.id)
+      )
+      // Branch a THIRD step off `rootStep` specifically (not off `trunkTail`, the trunk-last step).
+      val branchedStep = seedPipelineStep(
+        PipelineId(pipeline.id),
+        userA,
+        "rename",
+        JsObject("renames" -> JsObject("old" -> JsString("new"))),
+        parentStepId = Some(rootStep.id)
+      )
+
+      val edit = Edit(EditTarget("pipelineStep", Some(branchedStep.id)), "delete", None, None, None, None, None, None)
+      val applicationId = applySuccessfully(Vector(edit))
+
+      val undoResponse = await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected success, got $err")
+      }
+      undoResponse.edits.head.status shouldBe "recreated"
+      val recreatedId = undoResponse.edits.head.newId.getOrElse(fail("expected newId"))
+
+      val recreated = await(pipelineStepRepo.findByIdInternal(PipelineStepId(recreatedId))).getOrElse(fail("recreated step missing"))
+      // HEL-766: must remain branched off rootStep specifically, not silently reparented onto
+      // trunkTail (the trunk-last step `addStep`'s own default would target).
+      recreated.parentStepId shouldBe Some(PipelineStepId(rootStep.id))
+      recreated.parentStepId should not be Some(PipelineStepId(trunkTail.id))
     }
 
     // ── 5.3d: structurally-unrecoverable delete-kind blocks the WHOLE undo ──

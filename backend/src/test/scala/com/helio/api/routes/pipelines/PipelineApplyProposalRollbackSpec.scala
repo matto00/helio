@@ -40,11 +40,11 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSources   = dataSourceCount()
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
-      var outputTypeId    = ""
       val body =
         s"""{"pipelineName":"Rest Run Success","source":{"type":"rest_api","name":"Inline Rest",
-           |"config":{"url":"$RestSuccessUrl"}},"outputDataTypeName":"O",
-           |"steps":[{"type":"limit","config":{"count":10}}]}""".stripMargin
+           |"config":{"url":"$RestSuccessUrl"}},
+           |"steps":[{"clientId":"s1","type":"limit","config":{"count":10}}],
+           |"outputs":[{"kind":"table","name":"Out","nodeStepClientId":"s1"}]}""".stripMargin
       var pipelineId = ""
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -52,7 +52,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
         resp.run.blocked shouldBe false
         resp.run.rowCount should be > 0
         pipelineId = resp.pipeline.id
-        outputTypeId = resp.outputDataTypeId
       }
       // Source + the pipeline + its output Output + the one "limit" step — same resource
       // counts as the old blocked outcome, but the run itself now actually executed (HEL-758).
@@ -78,12 +77,12 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSources   = dataSourceCount()
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
-      var outputTypeId    = ""
       val body =
         s"""{"pipelineName":"Sql Run Success","source":{"type":"sql","name":"Inline Sql",
            |"config":{"dialect":"postgresql","host":"localhost","port":$sqlPort,"database":"postgres",
-           |"user":"postgres","password":"postgres","query":"SELECT 1 AS one"}},"outputDataTypeName":"O",
-           |"steps":[{"type":"limit","config":{"count":10}}]}""".stripMargin
+           |"user":"postgres","password":"postgres","query":"SELECT 1 AS one"}},
+           |"steps":[{"clientId":"s1","type":"limit","config":{"count":10}}],
+           |"outputs":[{"kind":"table","name":"Out","nodeStepClientId":"s1"}]}""".stripMargin
       var pipelineId = ""
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -91,7 +90,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
         resp.run.blocked shouldBe false
         resp.run.rowCount should be > 0
         pipelineId = resp.pipeline.id
-        outputTypeId = resp.outputDataTypeId
       }
       // HEL-904 4.1/4.3: no companion DataType minted anymore.
       dataSourceCount() shouldBe (beforeSources + 1)
@@ -118,7 +116,7 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val before = allCounts()
       val body =
         s"""{"pipelineName":"Rest Run-Time Fetch Fail","source":{"type":"rest_api","name":"Inline Rest Run Fail",
-           |"config":{"url":"$RestRunFailUrl"}},"outputDataTypeName":"O","steps":[]}""".stripMargin
+           |"config":{"url":"$RestRunFailUrl"}},"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
@@ -131,7 +129,7 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSteps     = pipelineStepCount()
       val body =
         s"""{"pipelineName":"Rest Fetch Fail","source":{"type":"rest_api","name":"Inline Rest Fail",
-           |"config":{"url":"$RestFailureUrl"}},"outputDataTypeName":"O","steps":[]}""".stripMargin
+           |"config":{"url":"$RestFailureUrl"}},"steps":[]}""".stripMargin
       var pipelineId = ""
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -162,7 +160,7 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val body =
         """{"pipelineName":"Sql Connect Fail","source":{"type":"sql","name":"Inline Sql Fail",
           |"config":{"dialect":"postgresql","host":"localhost","port":1,"database":"d","user":"u",
-          |"password":"p","query":"SELECT 1"}},"outputDataTypeName":"O","steps":[]}""".stripMargin
+          |"password":"p","query":"SELECT 1"}},"steps":[]}""".stripMargin
       var pipelineId = ""
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -189,10 +187,10 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforeSources   = dataSourceCount()
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
-      var outputTypeId    = ""
       val body =
         s"""{"pipelineName":"Existing Rest","source":{"sourceId":"$preExistingId"},
-           |"outputDataTypeName":"O","steps":[]}""".stripMargin
+           |"steps":[],
+           |"outputs":[{"kind":"table","name":"Out"}]}""".stripMargin
       var pipelineId = ""
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -200,7 +198,6 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
         resp.run.blocked shouldBe false
         resp.run.rowCount should be > 0
         pipelineId = resp.pipeline.id
-        outputTypeId = resp.outputDataTypeId
       }
       // No NEW source/companion DataType — only the pipeline + its output DataType.
       dataSourceCount() shouldBe beforeSources
@@ -227,8 +224,8 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val body =
         s"""{"pipelineName":"Assert Blocked","source":{"type":"static","name":"Assert Blocked Source",
            |"config":{"columns":[{"name":"revenue","type":"integer"}],"rows":[[5],[10]]}},
-           |"outputDataTypeName":"O",
-           |"steps":[{"type":"assert","config":{"rules":[{"kind":"rowCountMax","params":{"count":1},"severity":"error"}]}}]}""".stripMargin
+           |
+           |"steps":[{"clientId":"s1","type":"assert","config":{"rules":[{"kind":"rowCountMax","params":{"count":1},"severity":"error"}]}}]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
@@ -239,8 +236,8 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val before = allCounts()
       val body =
         s"""{"pipelineName":"Static AddStep Fail","source":{"type":"static","name":"Static For Union",
-           |"config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}},"outputDataTypeName":"O",
-           |"steps":[{"type":"union","config":{"otherDataSourceId":"$otherUserSourceId","mode":"byPosition"}}]}""".stripMargin
+           |"config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}},
+           |"steps":[{"clientId":"s1","type":"union","config":{"otherDataSourceId":"$otherUserSourceId","mode":"byPosition"}}]}""".stripMargin
       apply(body) ~> routes ~> check {
         // union's right-source ownership pre-flight (PipelineService.addStep) rejects
         // a source the caller doesn't own — otherUserSourceId is owned by otherId.
@@ -253,7 +250,7 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val before = allCounts()
       val body =
         s"""{"pipelineName":"Cross Tenant","source":{"sourceId":"$otherUserSourceId"},
-           |"outputDataTypeName":"O","steps":[]}""".stripMargin
+           |"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.NotFound }
       allCounts() shouldBe before
     }

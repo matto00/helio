@@ -36,8 +36,8 @@ function pipelineProposal(config: Record<string, unknown> | undefined): Pipeline
   return {
     pipelineName: "P",
     source: { type: "rest_api", name: "Inline REST", config },
-    outputDataTypeName: "Out",
     steps: [],
+    outputs: [{ kind: "table", name: "Out" }],
   };
 }
 
@@ -65,8 +65,8 @@ describe("detectUnresolvedConnectorRefs", () => {
     const proposal: PipelineProposal = {
       pipelineName: "P",
       source: { type: "static", name: "Inline", config: {} },
-      outputDataTypeName: "Out",
       steps: [],
+      outputs: [{ kind: "table", name: "Out" }],
     };
     expect(detectUnresolvedConnectorRefs(proposal, [])).toEqual([]);
   });

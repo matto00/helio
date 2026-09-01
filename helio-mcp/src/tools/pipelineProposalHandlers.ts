@@ -24,7 +24,9 @@ import type {
   PipelineAnalyzeProposalResponse,
   PipelineProposal,
   PipelineProposalApplyResponse,
+  PipelineProposalOutput,
   PipelineProposalSource,
+  PipelineProposalStep,
 } from "../types.js";
 import { computePipelineProposalWarnings } from "./pipelineProposalValidation.js";
 
@@ -36,15 +38,15 @@ export async function proposePipelineHandler(
   input: {
     pipelineName: string;
     source: PipelineProposalSource;
-    outputDataTypeName: string;
-    steps: Array<{ type: string; config: unknown }>;
+    steps: PipelineProposalStep[];
+    outputs?: PipelineProposalOutput[];
   },
 ): Promise<{ proposal: PipelineProposal; warnings: string[]; applyReady: boolean }> {
   const proposal: PipelineProposal = {
     pipelineName: input.pipelineName,
     source: input.source,
-    outputDataTypeName: input.outputDataTypeName,
     steps: input.steps,
+    outputs: input.outputs ?? [],
   };
 
   const sourcesPage = await api.listDataSources();

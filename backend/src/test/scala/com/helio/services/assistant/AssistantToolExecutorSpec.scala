@@ -145,7 +145,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     )
 
   private def pipelineProposalWith(source: PipelineProposalSource, pipelineName: String = "New Pipeline"): PipelineProposal =
-    PipelineProposal(pipelineName, source, "New Output", Vector.empty)
+    PipelineProposal(pipelineName, source, steps = Vector.empty, outputs = Vector.empty)
 
   "execute" should {
 

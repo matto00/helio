@@ -87,6 +87,26 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     await(dataSourceRepo.insert(source, owner)).id
   }
 
+  // HEL-907 evaluator-final-2 non-blocking note 2: `validateStepCrossOwnerRefs`
+  // (PipelineService.scala) is create_pipeline's own version of the sibling addStep
+  // path's cross-owner join/union/lookup ACL check (PipelineStepRoutesSpec.scala's six
+  // POST/PATCH tests) -- until now it had ZERO direct test coverage of its own, despite
+  // being the exact same security-relevant class of check (an unauthorized secondary
+  // data-source reference smuggled into a join/union/lookup step's config).
+  private val otherOwnerId = UUID.randomUUID().toString
+  private val otherOwner   = AuthenticatedUser(UserId(otherOwnerId))
+
+  private def newForeignSource(): DataSourceId = {
+    import PostgresProfile.api._
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherOwnerId::uuid, ${s"other-$otherOwnerId@helio.test"}, now())"""))
+    val now = Instant.now()
+    val source = StaticSource(
+      DataSourceId(UUID.randomUUID().toString), "foreign-src", otherOwner.id, now, now,
+      inferredSchema = Vector(SchemaField("amount", "float"))
+    )
+    await(dataSourceRepo.insert(source, otherOwner)).id
+  }
+
   "PipelineService.create (single-call transactional shape)" should {
 
     "build a source-referencing pipeline with a trunk step, a tail step (parentStepId), and two Outputs in one call" in {
@@ -186,6 +206,128 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     "the pre-existing simple create shape (no steps/outputs) is unaffected" in {
       val sourceId = newSource()
       val result = await(service.create(CreatePipelineRequest("Simple", sourceId.value), owner))
+      result shouldBe a[Right[_, _]]
+    }
+
+    // ── HEL-907 task 1.4/5.4: per-node fieldMapping grounding ──────────────
+    //
+    // `newSource()`'s inferredSchema is {amount: float, label: string}. A `select` step that
+    // keeps only `amount` PROJECTS a narrower schema at its own node -- `label` is a VALID slot
+    // name (OutputBindingSpec accepts `label` for `metric`) but does NOT exist as a column past
+    // that select, so grounding must reject it there even though the identical mapping would be
+    // accepted at the trunk/source (proving "the tail's own projected schema, not the trunk's").
+
+    "reject an Output on a tail whose fieldMapping references a column the tail's own select step already dropped" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name               = "Tail grounding rejection",
+        sourceDataSourceId = sourceId.value,
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest("narrow", "select", JsObject("fields" -> Vector("amount").toJson).asJsObject)
+        ),
+        outputs = Vector(
+          CreatePipelineTransactionalOutputRequest(
+            nodeStepClientId = Some("narrow"), kind = "metric", name = "Bad tail mapping",
+            config = Some(JsObject("fieldMapping" -> JsObject("value" -> JsString("amount"), "label" -> JsString("label"))))
+          )
+        )
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get.message should include("label")
+
+      // Nothing persisted -- the whole transactional call rolled back, same contract the
+      // pre-existing "bad fieldMapping slot" test above already asserts for the sibling defect.
+      val summaries = await(pipelineRepo.listSummaries(owner, None))
+      summaries.map(_.name) should not contain "Tail grounding rejection"
+    }
+
+    "accept the IDENTICAL fieldMapping on an Output attached to the raw source (nodeStepClientId absent), where the column still exists" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name               = "Source-attached grounding success",
+        sourceDataSourceId = sourceId.value,
+        // Same narrowing step present in the request (proving the trunk step's own narrower
+        // schema is NOT what a source-attached Output is grounded against) -- but the Output
+        // below has no nodeStepClientId, so it must be grounded against the SOURCE's own
+        // inferredSchema (both `amount` and `label`) instead, per `analyzeNodes` omitting the
+        // source from its per-node map (design.md decision 5).
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest("narrow", "select", JsObject("fields" -> Vector("amount").toJson).asJsObject)
+        ),
+        outputs = Vector(
+          CreatePipelineTransactionalOutputRequest(
+            nodeStepClientId = None, kind = "metric", name = "Source-attached mapping",
+            config = Some(JsObject("fieldMapping" -> JsObject("value" -> JsString("amount"), "label" -> JsString("label"))))
+          )
+        )
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Right[_, _]]
+      val pipelineId = PipelineId(result.getOrElse(fail("expected Right")).id)
+      val outputs = await(outputRepo.listByPipelineInternal(pipelineId))
+      outputs.map(_.name) should contain("Source-attached mapping")
+    }
+
+    "reject a source-attached Output (nodeStepClientId absent) whose fieldMapping references a column absent from the source's own inferredSchema" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name               = "Source-attached grounding rejection",
+        sourceDataSourceId = sourceId.value,
+        outputs = Vector(
+          CreatePipelineTransactionalOutputRequest(
+            nodeStepClientId = None, kind = "metric", name = "Bad source mapping",
+            config = Some(JsObject("fieldMapping" -> JsObject("value" -> JsString("does_not_exist"))))
+          )
+        )
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get.message should include("does_not_exist")
+    }
+
+    "reject (with nothing persisted) a join step whose rightDataSourceId references another owner's data source" in {
+      val sourceId = newSource()
+      val foreignId = newForeignSource()
+      val req = CreatePipelineRequest(
+        name               = "Cross-owner join rejection",
+        sourceDataSourceId = sourceId.value,
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest(
+            "s1", "join",
+            JsObject("rightDataSourceId" -> JsString(foreignId.value), "joinKey" -> JsString("amount"), "joinType" -> JsString("inner"))
+          )
+        )
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      val summaries = await(pipelineRepo.listSummaries(owner, None))
+      summaries.map(_.name) should not contain "Cross-owner join rejection"
+
+      import PostgresProfile.api._
+      val rawCount = await(db.run(sql"select count(*) from pipelines where name = 'Cross-owner join rejection'".as[Int].head))
+      rawCount shouldBe 0
+    }
+
+    "accept a join step whose rightDataSourceId references the caller's OWN data source" in {
+      val sourceId = newSource()
+      val ownSecondSource = newSource()
+      val req = CreatePipelineRequest(
+        name               = "Own-owner join success",
+        sourceDataSourceId = sourceId.value,
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest(
+            "s1", "join",
+            JsObject("rightDataSourceId" -> JsString(ownSecondSource.value), "joinKey" -> JsString("amount"), "joinType" -> JsString("inner"))
+          )
+        )
+      )
+
+      val result = await(service.create(req, owner))
       result shouldBe a[Right[_, _]]
     }
   }

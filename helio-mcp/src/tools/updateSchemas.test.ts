@@ -1,76 +1,19 @@
 /**
- * HEL-328 tasks.md 5.1/5.2 — unit tests for `buildUpdateDataTypeBody`/
- * `buildUpdatePipelineStepBody`, the `update_data_type`/`update_pipeline_step`
- * tools' absent-vs-omitted PATCH body builders (design.md D3, mirroring
- * `buildUpdateMetricBody`'s coverage style — see `write.test.ts`). HEL-627
- * tasks.md 2.1 adds `buildUpdatePanelBody` coverage in the same style.
+ * HEL-328 tasks.md 5.1/5.2 — unit tests for `buildUpdatePipelineStepBody`/
+ * `buildUpdatePanelBody`, the `update_pipeline_step`/`update_panel` tools'
+ * absent-vs-omitted PATCH body builders (design.md D3). HEL-907 task 3.9
+ * removes `buildUpdateDataTypeBody`'s coverage outright along with the
+ * retired `update_data_type` tool and `buildUpdateDataTypeBody` itself (the
+ * DataType model was retired by HEL-904; the tool has had no backend route
+ * to call since).
  *
- * Imports from `./updateSchemas.js` (NOT `./write.js`) deliberately, for the
- * exact same reason `write.test.ts` imports `buildUpdateMetricBody` from
- * `./metricSchemas.js`: `write.ts`'s full ~20-tool Zod-schema surface is
- * pathologically expensive to type-check under this repo's root
- * `tsconfig.json`/ts-jest combination. Testing the narrow `updateSchemas.ts`
- * module directly avoids pulling that in.
+ * Imports from `./updateSchemas.js` (NOT `./write.js`) deliberately:
+ * `write.ts`'s full ~20-tool Zod-schema surface is pathologically expensive
+ * to type-check under this repo's root `tsconfig.json`/ts-jest combination.
+ * Testing the narrow `updateSchemas.ts` module directly avoids pulling that in.
  */
 
-import {
-  buildUpdateDataTypeBody,
-  buildUpdatePanelBody,
-  buildUpdatePipelineStepBody,
-} from "./updateSchemas.js";
-
-describe("buildUpdateDataTypeBody", () => {
-  it("omits every key when no arguments are supplied (fully empty patch)", () => {
-    expect(buildUpdateDataTypeBody({})).toEqual({});
-  });
-
-  it("includes only the supplied key for a single-field partial update (rename only)", () => {
-    const body = buildUpdateDataTypeBody({ name: "Orders v2" });
-
-    expect(body).toEqual({ name: "Orders v2" });
-    expect("fields" in body).toBe(false);
-    expect("computedFields" in body).toBe(false);
-  });
-
-  it("omits `name` when not supplied (leaves it unchanged server-side)", () => {
-    const body = buildUpdateDataTypeBody({
-      fields: [{ name: "amount", displayName: "Amount", dataType: "number", nullable: false }],
-    });
-
-    expect("name" in body).toBe(false);
-  });
-
-  it("includes a supplied `fields` array as a whole-array replace (no per-item merge)", () => {
-    const fields = [
-      { name: "amount", displayName: "Amount", dataType: "number", nullable: false },
-      { name: "region", displayName: "Region", dataType: "string", nullable: true },
-    ];
-    const body = buildUpdateDataTypeBody({ fields });
-
-    expect(body).toEqual({ fields });
-    expect("computedFields" in body).toBe(false);
-  });
-
-  it("includes a supplied `computedFields` array as a whole-array replace", () => {
-    const computedFields = [
-      { name: "total", displayName: "Total", expression: "amount * 2", dataType: "number" },
-    ];
-    const body = buildUpdateDataTypeBody({ computedFields });
-
-    expect(body).toEqual({ computedFields });
-    expect("fields" in body).toBe(false);
-  });
-
-  it("includes every supplied field simultaneously, in one body", () => {
-    const fields = [{ name: "amount", displayName: "Amount", dataType: "number", nullable: false }];
-    const computedFields = [
-      { name: "total", displayName: "Total", expression: "amount * 2", dataType: "number" },
-    ];
-    const body = buildUpdateDataTypeBody({ name: "Orders v2", fields, computedFields });
-
-    expect(body).toEqual({ name: "Orders v2", fields, computedFields });
-  });
-});
+import { buildUpdatePanelBody, buildUpdatePipelineStepBody } from "./updateSchemas.js";
 
 describe("buildUpdatePipelineStepBody", () => {
   it("omits every key when no arguments are supplied (fully empty patch)", () => {

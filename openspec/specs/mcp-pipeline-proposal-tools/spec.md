@@ -4,7 +4,9 @@
 Defines the MCP `propose_pipeline` / `analyze_pipeline_proposal` / `apply_pipeline_proposal` tools that
 let an external agent draft, dry-analyze, and atomically apply a `PipelineProposal` against the backend
 apply/analyze endpoints, mirroring the existing `propose_dashboard` → `apply_proposal` review flow.
+
 ## Requirements
+
 ### Requirement: propose_pipeline assembles and validates without writing
 The MCP `propose_pipeline` tool SHALL assemble a `PipelineProposal` wire body from its typed input and return `{ proposal, warnings, applyReady }` without making any write call to the Helio backend.
 
@@ -53,3 +55,13 @@ The MCP `apply_pipeline_proposal` tool SHALL call `POST /api/pipelines/apply-pro
 - **WHEN** the MCP server starts with this change applied
 - **THEN** every previously-registered tool (e.g. `propose_dashboard`, `create_pipeline`, `add_pipeline_step`) accepts the same arguments and returns the same shape as before this change
 
+### Requirement: Pipeline proposal tools operate on Outputs, not DataTypes
+Every MCP tool that reads or writes a `PipelineProposal` SHALL use the Output-oriented pipeline
+proposal schema (steps + outputs), grounding each Output's `fieldMapping` against the projected
+schema at its target node, not the pipeline trunk.
+
+#### Scenario: Proposal tool grounds an Output on a tail against that tail's schema
+- **WHEN** an agent submits a pipeline proposal containing an Output whose `stepId` targets a
+  non-trunk tail
+- **THEN** the tool validates that Output's `fieldMapping` against the projected schema computed
+  at that specific tail node, not the trunk's schema

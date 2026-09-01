@@ -57,8 +57,9 @@ final class WorkspaceTeardownService(
                   Some(tag),
                   user,
                   JsObject(
-                    "sourcesDeleted"   -> JsNumber(outcome.sourcesDeleted),
-                    "pipelinesDeleted" -> JsNumber(outcome.pipelinesDeleted)
+                    "sourcesDeleted"    -> JsNumber(outcome.sourcesDeleted),
+                    "pipelinesDeleted"  -> JsNumber(outcome.pipelinesDeleted),
+                    "dashboardsDeleted" -> JsNumber(outcome.dashboardsDeleted)
                   )
                 )
               cleanupFiles(outcome).map(_ => Right(toResponse(tag, dryRun, outcome)))
@@ -89,14 +90,15 @@ final class WorkspaceTeardownService(
 
   private def toResponse(tag: String, dryRun: Boolean, outcome: TeardownOutcome): TeardownResponse =
     TeardownResponse(
-      tag              = tag,
-      dryRun           = dryRun,
-      committed        = outcome.committed,
-      blocked          = outcome.blocked,
-      conflicts        = outcome.conflicts.map(c =>
+      tag                = tag,
+      dryRun             = dryRun,
+      committed          = outcome.committed,
+      blocked            = outcome.blocked,
+      conflicts          = outcome.conflicts.map(c =>
         TeardownConflictResponse(c.resourceKind, c.resourceId, c.resourceName, c.reason)
       ),
-      sourcesDeleted   = outcome.sourcesDeleted,
-      pipelinesDeleted = outcome.pipelinesDeleted
+      sourcesDeleted     = outcome.sourcesDeleted,
+      pipelinesDeleted   = outcome.pipelinesDeleted,
+      dashboardsDeleted  = outcome.dashboardsDeleted
     )
 }

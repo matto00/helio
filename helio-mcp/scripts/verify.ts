@@ -94,23 +94,23 @@ async function main(): Promise<void> {
       `  total=${sources.total}; ${sources.items.map((s) => `${s.name}[${s.type}]`).join(", ")}\n`,
     );
 
-    section("list_data_types");
-    const types = parse<{
-      items: Array<{ id: string; name: string; sourceId?: string | null }>;
+    section("list_outputs (workspace-wide, evaluator-1 CR2: replaces retired list_data_types)");
+    const outputs = parse<{
+      items: Array<{ id: string; name: string; pipelineId: string; nodeStepId?: string | null }>;
       total: number;
-    }>(await client.callTool({ name: "list_data_types", arguments: {} }));
-    for (const t of types.items) {
-      // sourceId is omitted on the wire when null → treat missing as bindable.
-      const bindable = (t.sourceId ?? null) === null;
+    }>(await client.callTool({ name: "list_outputs", arguments: {} }));
+    for (const o of outputs.items) {
+      // nodeStepId omitted/null on the wire → the pipeline's raw source node.
+      const raw = (o.nodeStepId ?? null) === null;
       process.stdout.write(
-        `  • ${t.name} (${t.id}) ${bindable ? "[pipeline-output → bindable]" : "[source companion]"}\n`,
+        `  • ${o.name} (${o.id}) pipeline=${o.pipelineId} ${raw ? "[raw source]" : "[step output]"}\n`,
       );
     }
 
     section("list_pipelines");
-    const pipelines = parse<
-      Array<{ id: string; name: string; outputDataTypeId: string; lastRunStatus: string | null }>
-    >(await client.callTool({ name: "list_pipelines", arguments: {} }));
+    const pipelines = parse<Array<{ id: string; name: string; lastRunStatus: string | null }>>(
+      await client.callTool({ name: "list_pipelines", arguments: {} }),
+    );
     for (const p of pipelines)
       process.stdout.write(`  • ${p.name} (${p.id}) lastRun=${p.lastRunStatus ?? "none"}\n`);
 
@@ -136,15 +136,29 @@ async function main(): Promise<void> {
         ) + "\n",
       );
 
-      section(`get_data_type_rows (output of ${firstPipeline.name})`);
-      process.stdout.write(
-        textOf(
-          await client.callTool({
-            name: "get_data_type_rows",
-            arguments: { dataTypeId: firstPipeline.outputDataTypeId },
-          }),
-        ) + "\n",
+      section(
+        `list_outputs (scoped to pipeline ${firstPipeline.name}) — evaluator-1 CR2: setup for get_output_rows`,
       );
+      const pipelineOutputs = parse<{ items: Array<{ id: string; name: string }> }>(
+        await client.callTool({
+          name: "list_outputs",
+          arguments: { pipelineId: firstPipeline.id },
+        }),
+      );
+      for (const o of pipelineOutputs.items) process.stdout.write(`  • ${o.name} (${o.id})\n`);
+
+      const firstOutput = pipelineOutputs.items[0];
+      if (firstOutput) {
+        section(`get_output_rows (${firstOutput.name}) — replaces retired get_data_type_rows`);
+        process.stdout.write(
+          textOf(
+            await client.callTool({
+              name: "get_output_rows",
+              arguments: { outputId: firstOutput.id },
+            }),
+          ) + "\n",
+        );
+      }
     }
 
     const firstSource = sources.items[0];
@@ -195,48 +209,59 @@ async function main(): Promise<void> {
       );
     }
 
-    section("create_pipeline_from_shape — setup: a dedicated static source");
-    const shapeSource = parse<{ id: string }>(
+    section(
+      "add_outputs_from_shape — setup: create_pipeline (single-call, HEL-906) with an inline static source, no steps/outputs",
+    );
+    const shapePipeline = parse<{ id: string }>(
       await client.callTool({
-        name: "create_data_source",
+        name: "create_pipeline",
         arguments: {
-          name: `HEL-400 verify source ${Date.now()}`,
-          columns: [
-            { name: "region", type: "string" },
-            { name: "revenue", type: "integer" },
-          ],
-          rows: [
-            ["North", 320],
-            ["South", 210],
-            ["East", 265],
-            ["West", 180],
-          ],
+          name: `HEL-907 verify shape-pipeline ${Date.now()}`,
+          source: {
+            type: "static",
+            name: `HEL-907 verify source ${Date.now()}`,
+            config: {
+              columns: [
+                { name: "region", type: "string" },
+                { name: "revenue", type: "integer" },
+              ],
+              rows: [
+                ["North", 320],
+                ["South", 210],
+                ["East", 265],
+                ["West", 180],
+              ],
+            },
+          },
+          steps: [],
+          outputs: [],
         },
       }),
     );
-    const pipelinesBeforeFailures = parse<Array<{ id: string }>>(
-      await client.callTool({ name: "list_pipelines", arguments: {} }),
+    const outputsBeforeFailures = parse<{ items: Array<{ id: string }> }>(
+      await client.callTool({
+        name: "list_outputs",
+        arguments: { pipelineId: shapePipeline.id },
+      }),
     );
 
-    section("create_pipeline_from_shape — valid top-n params succeed");
+    section("add_outputs_from_shape — valid top-n params succeed (evaluator-1 CR2)");
     const shapeResult = parse<{
-      id: string;
-      outputDataTypeId: string;
       steps: Array<{ type: string }>;
+      output: { id: string };
     }>(
       await client.callTool({
-        name: "create_pipeline_from_shape",
+        name: "add_outputs_from_shape",
         arguments: {
-          name: `HEL-400 verify top-n ${Date.now()}`,
-          sourceDataSourceId: shapeSource.id,
-          outputDataTypeName: `HEL-400 verify top-n output ${Date.now()}`,
+          pipelineId: shapePipeline.id,
           shapeId: "top-n",
           params: { measure: "revenue", direction: "desc", n: 2 },
+          outputName: `HEL-907 verify top-n output ${Date.now()}`,
         },
       }),
     );
     process.stdout.write(
-      `  • pipeline ${shapeResult.id} steps=${shapeResult.steps.map((s) => s.type).join(",")}\n`,
+      `  • pipeline ${shapePipeline.id} steps=${shapeResult.steps.map((s) => s.type).join(",")} output=${shapeResult.output.id}\n`,
     );
     const expandedTypes = shapeResult.steps.map((s) => s.type);
     if (JSON.stringify(expandedTypes) !== JSON.stringify(["sort", "limit"])) {
@@ -246,23 +271,22 @@ async function main(): Promise<void> {
     }
 
     section(
-      "create_pipeline_from_shape — invalid params (missing 'n') surface expand's message, no pipeline created",
+      "add_outputs_from_shape — invalid params (missing 'n') surface expand's message, nothing added (evaluator-1 CR2)",
     );
     const invalidParamsResult = await client.callTool({
-      name: "create_pipeline_from_shape",
+      name: "add_outputs_from_shape",
       arguments: {
-        name: "HEL-400 verify should-not-exist (invalid params)",
-        sourceDataSourceId: shapeSource.id,
-        outputDataTypeName: "HEL-400 verify should-not-exist output (invalid params)",
+        pipelineId: shapePipeline.id,
         shapeId: "top-n",
         params: { measure: "revenue", direction: "desc" },
+        outputName: "HEL-907 verify should-not-exist (invalid params)",
       },
     });
     process.stdout.write(
       `  • isError=${isErrorOf(invalidParamsResult)} text=${textOf(invalidParamsResult)}\n`,
     );
     if (!isErrorOf(invalidParamsResult)) {
-      throw new Error("expected create_pipeline_from_shape to fail on missing 'n'");
+      throw new Error("expected add_outputs_from_shape to fail on missing 'n'");
     }
     if (!textOf(invalidParamsResult).includes("missing required field 'n'")) {
       throw new Error(
@@ -271,23 +295,22 @@ async function main(): Promise<void> {
     }
 
     section(
-      "create_pipeline_from_shape — unknown shape id surfaces 404 message, no pipeline created",
+      "add_outputs_from_shape — unknown shape id surfaces 404 message, nothing added (evaluator-1 CR2)",
     );
     const unknownShapeResult = await client.callTool({
-      name: "create_pipeline_from_shape",
+      name: "add_outputs_from_shape",
       arguments: {
-        name: "HEL-400 verify should-not-exist (unknown shape)",
-        sourceDataSourceId: shapeSource.id,
-        outputDataTypeName: "HEL-400 verify should-not-exist output (unknown shape)",
+        pipelineId: shapePipeline.id,
         shapeId: "not-a-real-shape",
         params: {},
+        outputName: "HEL-907 verify should-not-exist (unknown shape)",
       },
     });
     process.stdout.write(
       `  • isError=${isErrorOf(unknownShapeResult)} text=${textOf(unknownShapeResult)}\n`,
     );
     if (!isErrorOf(unknownShapeResult)) {
-      throw new Error("expected create_pipeline_from_shape to fail on an unknown shape id");
+      throw new Error("expected add_outputs_from_shape to fail on an unknown shape id");
     }
     if (!textOf(unknownShapeResult).includes("Unknown pipeline shape")) {
       throw new Error(
@@ -296,21 +319,24 @@ async function main(): Promise<void> {
     }
 
     section(
-      "create_pipeline_from_shape — confirm no orphan pipeline was created by the two failures",
+      "add_outputs_from_shape — confirm no orphan Output was added by the two failures (evaluator-1 CR2)",
     );
-    const pipelinesAfterFailures = parse<Array<{ id: string }>>(
-      await client.callTool({ name: "list_pipelines", arguments: {} }),
+    const outputsAfterFailures = parse<{ items: Array<{ id: string }> }>(
+      await client.callTool({
+        name: "list_outputs",
+        arguments: { pipelineId: shapePipeline.id },
+      }),
     );
-    // Exactly one new pipeline should exist relative to before the failures: the successful top-n one.
-    const expectedCount = pipelinesBeforeFailures.length + 1;
-    if (pipelinesAfterFailures.length !== expectedCount) {
+    // Exactly one new Output should exist relative to before the failures: the successful top-n one.
+    const expectedCount = outputsBeforeFailures.items.length + 1;
+    if (outputsAfterFailures.items.length !== expectedCount) {
       throw new Error(
-        `expected ${expectedCount} pipelines after the valid call + two failed calls, got ` +
-          `${pipelinesAfterFailures.length} (before=${pipelinesBeforeFailures.length})`,
+        `expected ${expectedCount} Outputs after the valid call + two failed calls, got ` +
+          `${outputsAfterFailures.items.length} (before=${outputsBeforeFailures.items.length})`,
       );
     }
     process.stdout.write(
-      `  • pipeline count before=${pipelinesBeforeFailures.length} after=${pipelinesAfterFailures.length} (unchanged by the two failures)\n`,
+      `  • Output count before=${outputsBeforeFailures.items.length} after=${outputsAfterFailures.items.length} (unchanged by the two failures)\n`,
     );
 
     section("resource read: helio://workspace/context");

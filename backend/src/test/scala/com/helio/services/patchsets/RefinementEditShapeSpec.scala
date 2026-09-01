@@ -2,7 +2,9 @@ package com.helio.services.patchsets
 
 import com.helio.services.patchsets.RefinementEditShape
 import com.helio.api.protocols.panels.CreatePanelRequest
-import com.helio.api.protocols.patchsets.{Edit, PatchSetProtocol}
+import com.helio.api.protocols.pipelines.UpdateOutputRequest
+import com.helio.api.protocols.patchsets.{Edit, PatchSet, PatchSetProtocol}
+import com.helio.domain.panels.OutputPanelConfig
 import com.helio.domain.steps.{AggregateConfig, GroupByConfig, JoinConfig, PivotConfig, StepConfigTypeMismatch, UnpivotConfig, WindowConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -179,6 +181,87 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
   // to INVERT each assertion (e.g. assert `JoinConfig.decode(wrongShape)` raises, rather than that
   // it returns a degraded value) — never to weaken the assertion or revert the hardening just to
   // turn these tests green again.
+  // ── panel/output worked examples (HEL-907 task 1.6/1.8) ────────────────────────────────────
+  //
+  // Retargeted onto the Outputs model -- replaces the five now-invalid bound-panel-kind examples
+  // (metric/chart/table/collection/timeline, panel `type` values PanelType.fromString has not
+  // accepted since HEL-904; this suite never covered them, which is how the drift survived).
+
+  "RefinementEditShape's worked output-panel/content-panel examples" should {
+
+    "output panel update: decodes to a valid Edit whose config decodes to a non-empty outputId via OutputPanelConfig.Patch" in {
+      val edit = parseEdit(RefinementEditShape.OutputPanelExample)
+      edit.target.kind shouldBe "panel"
+      edit.op shouldBe "update"
+      val patch = edit.panelPatch.getOrElse(fail("expected panelPatch"))
+      val decoded = OutputPanelConfig.Patch.decode(patch.config.getOrElse(fail("expected config")))
+      decoded.outputId shouldBe defined
+      decoded.outputId.get.value should not be empty
+    }
+
+    "content panel update: decodes to a valid Edit with a non-empty content config" in {
+      val edit = parseEdit(RefinementEditShape.ContentPanelExample)
+      edit.target.kind shouldBe "panel"
+      edit.op shouldBe "update"
+      val patch = edit.panelPatch.getOrElse(fail("expected panelPatch"))
+      patch.config.getOrElse(fail("expected config")).asJsObject.fields.get("content") shouldBe defined
+    }
+
+    "output panel create: decodes to a valid Edit with type=output and a non-empty config.outputId, via OutputPanelConfig.decodeCreate" in {
+      val edit = parseEdit(RefinementEditShape.OutputPanelCreateExample)
+      edit.target.kind shouldBe "panel"
+      edit.op shouldBe "create"
+      val createPatch = edit.createPatch.getOrElse(fail("expected createPatch"))
+      val decoded = createPatch.convertTo[CreatePanelRequest]
+      decoded.`type` shouldBe Some("output")
+      val config = OutputPanelConfig.decodeCreate(decoded.config.getOrElse(fail("expected config")))
+      config.outputId.value should not be empty
+    }
+
+    "output update: decodes to a valid Edit whose outputPatch is a non-empty UpdateOutputRequest" in {
+      val edit = parseEdit(RefinementEditShape.OutputUpdateExample)
+      edit.target.kind shouldBe "output"
+      edit.op shouldBe "update"
+      edit.outputPatch shouldBe Some(UpdateOutputRequest(name = Some("Weekly Revenue"), config = None))
+    }
+  }
+
+  // ── HEL-670 (task 1.6/5.11): a create edit's target and any same-patch-set follow-up edit's
+  //    target.id are never fabricated/aliased onto an unrelated real resource. Deterministic,
+  //    code-level regression -- NOT a live-LLM reproduction (HEL-670's own report was 1-of-3
+  //    stochastic; the fix is structural, not prompt-luck-dependent). Proves the INVARIANT the
+  //    fixed guidance text now relies on: `PatchSetProtocol`/`PatchSetApplyResolvers` never treat
+  //    a create edit's absent target.id as aliasing onto ANY other edit in the same patch set --
+  //    a follow-up edit's target.id, whatever value it carries, is always resolved as its own
+  //    independent, real, pre-existing resource reference, never implicitly "the thing the create
+  //    edit above just made".
+
+  "HEL-670: create-edit-then-follow-up-edit shape (protocol layer)" should {
+
+    "a create edit's target carries no id at all -- there is nothing for a sibling edit to alias onto structurally" in {
+      val createEdit = RefinementEditShape.OutputPanelCreateExample.parseJson.convertTo[Edit]
+      createEdit.target.id shouldBe None
+    }
+
+    "a follow-up update edit's target.id is decoded verbatim as its OWN independent reference, never derived from or coupled to a preceding create edit in the same array" in {
+      val patchSetJson =
+        s"""{
+           |  "edits": [
+           |    ${RefinementEditShape.OutputPanelCreateExample},
+           |    { "target": { "kind": "panel", "id": "panel_UNRELATED_EXISTING" }, "op": "update", "patch": { "title": "Renamed" } }
+           |  ]
+           |}""".stripMargin
+      val patchSet = patchSetJson.parseJson.convertTo[PatchSet]
+      patchSet.edits should have size 2
+      patchSet.edits.head.op shouldBe "create"
+      patchSet.edits.head.target.id shouldBe None
+      // The follow-up edit's target.id is exactly the literal string it carried on the wire --
+      // decoding never substitutes, rewrites, or infers a different id from the create edit
+      // beside it, so an update edit can never silently mistarget "the thing just created".
+      patchSet.edits(1).target.id shouldBe Some("panel_UNRELATED_EXISTING")
+    }
+  }
+
   "The real config decoders' behavior on a hand-constructed WRONG-SHAPE config (negative control)" should {
 
     // GUARD (HEL-814 task 6.3) — NOT a reverted hardening, and not a weakened

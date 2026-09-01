@@ -11,16 +11,33 @@
 
 import { HelioApi } from "./helioApi.js";
 import type { HelioHttpClient } from "./httpClient.js";
-import type { RunResultResponse } from "./types.js";
+import type { PipelineSummaryResponse, RunResultResponse } from "./types.js";
+
+// HEL-907 evaluator-final round-2 CR4: this fixture used to include a stray `outputDataTypeId`
+// field that has not existed on `PipelineSummaryResponse` since HEL-904 -- an "evidence-shaped
+// non-evidence" fixture drift that let three separate places (types.ts, helioApi.ts, write.ts)
+// keep promising/mapping a field the backend has never sent under this model, undetected, because
+// nothing in this suite's own fixture matched the REAL nine-field wire shape closely enough to
+// notice the gap. Mirrors `PipelineProtocol.scala`'s `PipelineSummaryResponse`/`jsonFormat9`
+// exactly (nine fields) so a future field addition/removal on either side has a real chance of
+// being caught here, not just asserted to match by convention.
+const fakeSummary: PipelineSummaryResponse = {
+  id: "p1",
+  name: "pipeline",
+  sourceDataSourceId: "src-1",
+  sourceDataSourceName: "src",
+  lastRunStatus: "succeeded",
+  lastRunAt: null,
+  lastRunRowCount: null,
+  ownerId: null,
+  tag: null,
+};
 
 /** Minimal fake matching only the two methods `runPipeline` actually calls. */
 function fakeHttp(runResult: RunResultResponse): HelioHttpClient {
   return {
     post: jest.fn().mockResolvedValue(runResult),
-    get: jest.fn().mockResolvedValue({
-      lastRunStatus: "succeeded",
-      outputDataTypeId: "dt-1",
-    }),
+    get: jest.fn().mockResolvedValue(fakeSummary),
   } as unknown as HelioHttpClient;
 }
 

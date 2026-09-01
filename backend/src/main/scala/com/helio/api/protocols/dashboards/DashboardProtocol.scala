@@ -30,7 +30,12 @@ final case class DashboardResponse(
     meta: ResourceMetaResponse,
     appearance: DashboardAppearanceResponse,
     layout: DashboardLayoutResponse,
-    ownerId: String
+    ownerId: String,
+    // HEL-907 evaluator-1 CR3 (V95): free-form grouping tag, HEL-366's
+    // existing convention extended to dashboards. Omitted on the wire when
+    // unset (spray-json drops `Option = None`) -- same convention as
+    // DataSourceResponse/PipelineSummaryResponse's own `tag`.
+    tag: Option[String] = None
 )
 final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class DuplicateDashboardResponse(dashboard: DashboardResponse, panels: Vector[PanelResponse])
@@ -38,7 +43,11 @@ final case class DuplicateDashboardResponse(dashboard: DashboardResponse, panels
 // up an owner-scoped, case-insensitive/trimmed name match and returns it
 // (200) instead of creating a duplicate; any other value (or absence) leaves
 // `create` byte-for-byte unchanged (always creates, 201) — see design.md D3.
-final case class CreateDashboardRequest(name: Option[String], ifExists: Option[String] = None)
+final case class CreateDashboardRequest(
+    name: Option[String],
+    ifExists: Option[String] = None,
+    tag: Option[String] = None // HEL-907 evaluator-1 CR3: appended last with a default value
+)
 final case class UpdateDashboardRequest(
     name: Option[String],
     appearance: Option[DashboardAppearancePayload],
@@ -100,7 +109,8 @@ object DashboardResponse {
       meta       = ResourceMetaResponse.fromDomain(dashboard.meta),
       appearance = DashboardAppearanceResponse.fromDomain(dashboard.appearance),
       layout     = DashboardLayoutResponse.fromDomain(dashboard.layout),
-      ownerId    = dashboard.ownerId.value
+      ownerId    = dashboard.ownerId.value,
+      tag        = dashboard.tag
     )
 }
 
@@ -203,10 +213,10 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val dashboardAppearanceResponseFormat: RootJsonFormat[DashboardAppearanceResponse] = jsonFormat2(DashboardAppearanceResponse.apply)
   implicit val dashboardLayoutItemResponseFormat: RootJsonFormat[DashboardLayoutItemResponse] = jsonFormat5(DashboardLayoutItemResponse.apply)
   implicit val dashboardLayoutResponseFormat: RootJsonFormat[DashboardLayoutResponse]         = jsonFormat4(DashboardLayoutResponse.apply)
-  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse]                     = jsonFormat6(DashboardResponse.apply)
+  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse]                     = jsonFormat7(DashboardResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse]                   = jsonFormat1(DashboardsResponse.apply)
   implicit val duplicateDashboardResponseFormat: RootJsonFormat[DuplicateDashboardResponse]   = jsonFormat2(DuplicateDashboardResponse.apply)
-  implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest]           = jsonFormat2(CreateDashboardRequest.apply)
+  implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest]           = jsonFormat3(CreateDashboardRequest.apply)
   implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest]           = jsonFormat3(UpdateDashboardRequest.apply)
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
 

@@ -26,6 +26,12 @@
     "ownerId": {
       "type": "string",
       "minLength": 1
+    },
+    "tag": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "HEL-907 evaluator-final-2 (V95, cycle 17/20): optional free-form grouping tag, set only at create time. Omitted on the wire when null (spray-json drops `Option = None`)."
     }
   },
   "additionalProperties": false

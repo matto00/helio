@@ -32,6 +32,11 @@
     "pipelinesDeleted": {
       "type": "integer",
       "minimum": 0
+    },
+    "dashboardsDeleted": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "HEL-907 evaluator-1 CR3: dashboards joined data_sources/pipelines as a taggable, torn-down-together resource kind. A tagged dashboard's panels cascade via the pre-existing panels.dashboard_id ON DELETE CASCADE — no separate guard/count for panels."
     }
   },
   "required": [
@@ -41,7 +46,8 @@
     "blocked",
     "conflicts",
     "sourcesDeleted",
-    "pipelinesDeleted"
+    "pipelinesDeleted",
+    "dashboardsDeleted"
   ],
   "additionalProperties": false,
   "$defs": {

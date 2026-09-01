@@ -76,49 +76,46 @@ protocol stream.
 
 ## Tool catalog
 
-| Tool                     | Endpoint(s) used                                                  | Purpose                                                                                                 |
-| ------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `list_dashboards`        | `GET /api/dashboards`                                             | Paginated dashboard list                                                                                |
-| `get_dashboard`          | `GET /api/dashboards` + `GET /api/dashboards/:id/export`          | One dashboard **with its panels** (composed — see below)                                                |
-| `list_data_sources`      | `GET /api/data-sources`                                           | Data sources (csv/rest_api/sql/static)                                                                  |
-| `list_source_objects`    | `GET /api/data-sources/:id/preview` or `/api/sources/:id/preview` | Inspect a source's shape (composed — see below)                                                         |
-| `list_data_types`        | `GET /api/types`                                                  | DataTypes with columns; flags pipeline-output (bindable) vs source-companion                            |
-| `get_data_type_rows`     | `GET /api/types/:id/rows`                                         | Latest pipeline-run row snapshot                                                                        |
-| `get_panel_capabilities` | `GET /api/types/:id/panel-capabilities`                           | Which panel kinds a DataType can bind to, their fieldMapping slots + eligible columns (**HEL-365**)     |
-| `list_pipelines`         | `GET /api/pipelines`                                              | Pipeline summaries                                                                                      |
-| `get_pipeline`           | `GET /api/pipelines/:id` + `GET /api/pipelines/:id/steps`         | One pipeline **with its steps** (composed)                                                              |
-| `analyze_pipeline`       | `GET /api/pipelines/:id/analyze`                                  | Source schema + per-step input/output schema                                                            |
-| `list_pipeline_shapes`   | `GET /api/pipeline-shapes`                                        | Smart pipeline shape catalog (id/label/description/paramsSchema/outputContract, **HEL-400**)            |
-| `get_workspace_context`  | fan-out (see below)                                               | One compact snapshot of the whole workspace (**HEL-222**), now including `pipelineShapes` (**HEL-400**) |
+| Tool                    | Endpoint(s) used                                                  | Purpose                                                                                                                                                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_dashboards`       | `GET /api/dashboards`                                             | Paginated dashboard list                                                                                                                                                                                                                 |
+| `get_dashboard`         | `GET /api/dashboards` + `GET /api/dashboards/:id/export`          | One dashboard **with its panels** (composed — see below)                                                                                                                                                                                 |
+| `list_data_sources`     | `GET /api/data-sources`                                           | Data sources (csv/rest_api/sql/static)                                                                                                                                                                                                   |
+| `list_source_objects`   | `GET /api/data-sources/:id/preview` or `/api/sources/:id/preview` | Inspect a source's shape (composed — see below)                                                                                                                                                                                          |
+| `list_pipelines`        | `GET /api/pipelines`                                              | Pipeline summaries                                                                                                                                                                                                                       |
+| `get_pipeline`          | `GET /api/pipelines/:id` + `GET /api/pipelines/:id/steps`         | One pipeline **with its steps** (composed)                                                                                                                                                                                               |
+| `analyze_pipeline`      | `GET /api/pipelines/:id/analyze`                                  | Source schema + per-step input/output schema                                                                                                                                                                                             |
+| `list_pipeline_shapes`  | `GET /api/pipeline-shapes`                                        | Smart pipeline shape catalog (id/label/description/paramsSchema/outputContract, **HEL-400**)                                                                                                                                             |
+| `get_workspace_context` | fan-out (see below)                                               | One compact snapshot of the whole workspace (**HEL-222**), now including `pipelineShapes` (**HEL-400**), source `inferredSchema`, and pipeline `outputs[]` (kind/schema/placements) instead of an implicit output DataType (**HEL-907**) |
+
+The Output/pipeline/placement tool families (`add_output`/`update_output`/`delete_output`/`list_outputs`/`get_output_rows`/`preview_outputs`/`get_output_capabilities`, `add_outputs_from_shape`, `place_outputs`/`create_content_panel`) added by HEL-906/HEL-907 are not yet documented in this catalog table — a known gap, flagged rather than silently left stale; see `src/tools/outputs.ts`/`src/tools/pipelines.ts`/`src/tools/placements.ts` for their descriptions in the meantime.
 
 ### Write / composition tools
 
-| Tool                         | Endpoint                                                                                            | Purpose                                                                                                                                                                                                                                                                                                         |
-| ---------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create_data_source`         | `POST /api/data-sources` (static)                                                                   | Create a static source from inline columns + rows                                                                                                                                                                                                                                                               |
-| `create_csv_data_source`     | `POST /api/data-sources` (multipart, csv)                                                           | Create a CSV source from inline text content — no filesystem access needed                                                                                                                                                                                                                                      |
-| `create_rest_data_source`    | `POST /api/sources` (`type: rest_api`)                                                              | Create a REST API source; returns the companion DataType or a `fetchError`                                                                                                                                                                                                                                      |
-| `create_sql_data_source`     | `POST /api/sources` (`type: sql`)                                                                   | Create a SQL source; returns the companion DataType or a `fetchError`                                                                                                                                                                                                                                           |
-| `create_pipeline`            | `POST /api/pipelines`                                                                               | Create a pipeline → a new panel-bindable output DataType                                                                                                                                                                                                                                                        |
-| `add_pipeline_step`          | `POST /api/pipelines/:id/steps`                                                                     | Append a transform step (config keyed by step type)                                                                                                                                                                                                                                                             |
-| `create_pipeline_from_shape` | `POST /api/pipeline-shapes/:id/expand` then `POST /api/pipelines` + `POST /api/pipelines/:id/steps` | Instantiate a smart shape into a new pipeline in one call (**HEL-400**)                                                                                                                                                                                                                                         |
-| `run_pipeline`               | `POST /api/pipelines/:id/run`                                                                       | Run to completion (synchronous — rows exist on return, no polling)                                                                                                                                                                                                                                              |
-| `create_dashboard`           | `POST /api/dashboards`                                                                              | Create an empty dashboard                                                                                                                                                                                                                                                                                       |
-| `create_panel`               | `POST /api/panels`                                                                                  | Create a panel on a dashboard                                                                                                                                                                                                                                                                                   |
-| `bind_panel`                 | `PATCH /api/panels/:id`                                                                             | Bind metric/chart/table to a pipeline-output DataType + mapping                                                                                                                                                                                                                                                 |
-| `update_panel_appearance`    | `PATCH /api/panels/:id`                                                                             | Update panel appearance (partial)                                                                                                                                                                                                                                                                               |
-| `update_panel`               | `PATCH /api/panels/:id`                                                                             | Update a panel's title/type/config in place (**HEL-627**) — `config` is a genuine per-field partial merge (same convention as `appearance`), NOT a wholesale replace like `update_data_type`'s `fields`/`computedFields`; `type` is validated against the panel's stored kind (no-op on match, 400 on mismatch) |
-| `update_data_source`         | `PATCH /api/data-sources/:id`                                                                       | Rename a data source (**HEL-328**) — rename-only, no other field is patchable                                                                                                                                                                                                                                   |
-| `update_data_type`           | `PATCH /api/types/:id`                                                                              | Partially update a DataType's name/fields/computedFields (**HEL-328**) — `fields`/`computedFields`, when given, replace the array wholesale                                                                                                                                                                     |
-| `update_pipeline`            | `PATCH /api/pipelines/:id`                                                                          | Rename a pipeline (**HEL-328**) — rename-only, no other field is patchable                                                                                                                                                                                                                                      |
-| `update_pipeline_step`       | `PATCH /api/pipeline-steps/:id`                                                                     | Edit a step's config and/or position in place (**HEL-328**) — no `type` field (immutable at the backend)                                                                                                                                                                                                        |
-| `teardown_resources`         | `POST /api/workspace/teardown`                                                                      | Bulk-delete every owned data source/pipeline/DataType carrying a `tag` (**HEL-366**); refuses the whole call on any out-of-batch dependent; `dryRun: true` previews without deleting                                                                                                                            |
+| Tool                      | Endpoint                                  | Purpose                                                                                                                                                                                                                                            |
+| ------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create_data_source`      | `POST /api/data-sources` (static)         | Create a static source from inline columns + rows                                                                                                                                                                                                  |
+| `create_csv_data_source`  | `POST /api/data-sources` (multipart, csv) | Create a CSV source from inline text content — no filesystem access needed                                                                                                                                                                         |
+| `create_rest_data_source` | `POST /api/sources` (`type: rest_api`)    | Create a REST API source; returns the companion DataType or a `fetchError`                                                                                                                                                                         |
+| `create_sql_data_source`  | `POST /api/sources` (`type: sql`)         | Create a SQL source; returns the companion DataType or a `fetchError`                                                                                                                                                                              |
+| `create_pipeline`         | `POST /api/pipelines`                     | Create a pipeline (sourceId or inline source, `steps[]`, optional `outputs[]`) in one agent-facing call (**HEL-907**)                                                                                                                              |
+| `add_pipeline_step`       | `POST /api/pipelines/:id/steps`           | Append a transform step (config keyed by step type; `parentStepId` for tree shape, **HEL-907**)                                                                                                                                                    |
+| `run_pipeline`            | `POST /api/pipelines/:id/run`             | Run to completion (synchronous — rows exist on return, no polling)                                                                                                                                                                                 |
+| `create_dashboard`        | `POST /api/dashboards`                    | Create an empty dashboard                                                                                                                                                                                                                          |
+| `update_panel_appearance` | `PATCH /api/panels/:id`                   | Update panel appearance (partial)                                                                                                                                                                                                                  |
+| `update_panel`            | `PATCH /api/panels/:id`                   | Update a panel's title/type/config in place (**HEL-627**) — placement fields only (**HEL-907**); `config`/`appearance` are genuine per-field partial merges; `type` is validated against the panel's stored kind (no-op on match, 400 on mismatch) |
+| `update_data_source`      | `PATCH /api/data-sources/:id`             | Rename a data source (**HEL-328**) — rename-only, no other field is patchable                                                                                                                                                                      |
+| `update_pipeline`         | `PATCH /api/pipelines/:id`                | Rename a pipeline (**HEL-328**) — rename-only, no other field is patchable                                                                                                                                                                         |
+| `update_pipeline_step`    | `PATCH /api/pipeline-steps/:id`           | Edit a step's config and/or position in place (**HEL-328**) — no `type` field (immutable at the backend)                                                                                                                                           |
+| `teardown_resources`      | `POST /api/workspace/teardown`            | Bulk-delete every owned data source/pipeline/dashboard carrying a `tag` (**HEL-366**; dashboards added **HEL-907**); refuses the whole call on any out-of-batch dependent; `dryRun: true` previews without deleting                                |
 
 Each write tool returns the created resource's id so an agent can chain the
-canonical path without re-listing. `bind_panel` field-mapping keys by type:
-metric → `{value,label?,unit?}`; chart → `{xAxis,yAxis,series?}`; table →
-`{columns}`. `create_csv_data_source` does not return a companion DataType
-inline (same as `create_data_source`) — inspect it via `list_source_objects`.
+canonical path without re-listing. A panel now binds to an Output via
+`place_outputs` (see the Output tool families noted above), not `bind_panel`
+(removed, **HEL-907** — the DataType-bound field-mapping panel-creation path
+no longer exists). `create_csv_data_source` does not return a companion
+DataType inline (same as `create_data_source`) — inspect it via
+`list_source_objects`.
 `create_rest_data_source`/`create_sql_data_source` return `dataType: null` +
 `fetchError` when the initial fetch/query fails at creation time, rather than
 an opaque error, so the agent can diagnose and retry. Credentials (SQL
@@ -143,48 +140,64 @@ creating a new one, and produce N targeted edits (a `PatchSet`) instead of a who
 Plus one **resource**: `helio://workspace/context` — the same payload as
 `get_workspace_context`, so an MCP client can attach it as ambient context.
 
-Tool descriptions encode the canonical `DataSource → Pipeline → DataType →
-Panel` path and the pipeline-only binding rule (V41): a panel may bind only to a
-DataType whose `sourceId` is null (a pipeline output). Binding a source companion
-is rejected with 400 — the error is surfaced verbatim, never worked around.
+Tool descriptions encode the canonical `Source → Pipeline → Output →
+Dashboard` path (HEL-904/HEL-907): a Panel binds to an Output (`nodeStepId: null`
+means the Output is attached directly to the pipeline's source; otherwise it
+targets a specific step's projected schema). Binding a fieldMapping against a
+column that isn't actually in the targeted node's grounded schema is rejected —
+the error is surfaced verbatim, never worked around.
 
 ### End-to-end composition
 
-`scripts/compose.ts` (`npm run compose`, with `HELIO_PAT` + `HELIO_API_BASE_URL`)
-drives the write tools through a real MCP client to build a full dashboard from
-scratch — source → pipeline → sort step → run → dashboard → metric/chart/table
-panels bound to the pipeline output — then reads it back to assert the chain.
-This is the composition verified rendering real data in the running app (see
-`docs/agent-native.md` → "End-to-end proof").
+`e2e/sleeper-rebuild.ts` (with `HELIO_PAT` + `HELIO_API_BASE_URL`) drives the
+write tools through a real MCP client to build several full dashboards from
+scratch — source → pipeline (single-call `create_pipeline` with `steps[]`/
+`outputs[]`) → run → dashboard → `place_outputs` — then reads them back to
+assert the chain, plus a daily schedule set+read-back. This is the
+composition verified rendering real data in the running app (see
+`docs/agent-native.md` → "End-to-end proof"). `scripts/verify.ts`
+(`npm run verify`) is the companion read-tool verification harness — it
+does not write/compose a dashboard.
 
 ## Context serializer
 
-`get_workspace_context` (and the resource) return one snapshot:
+`get_workspace_context` (and the resource) return one snapshot (HEL-907
+design.md Decision 6 — retargeted onto Outputs, types/metrics dropped
+entirely):
 
 ```
 { generatedAt, counts,
-  dataSources: [{id,name,type}],
-  dataTypes:   [{id,name,sourceId,pipelineOutput,columns[],computedColumns[],version}],
-  pipelines:   [{…summary, steps:[{position,type,outputColumns[],validationError}]}],
-  dashboards:  [{id,name,panelCount}] }
+  dataSources: [{id,name,type,tag,inferredSchema:[{name,type}]}],
+  pipelines:   [{…summary, steps:[{position,type,outputColumns[],validationError}],
+                 lastRunAssertions, outputs:[{id,name,kind,nodeStepId,schema[],placements[]}]}],
+  dashboards:  [{id,name,panelCount}],
+  pipelineShapes, truncation, agentContext, connectors }
 ```
 
 It is a **client-side fan-out** over existing endpoints — no backend
-aggregation. Call budget: `3` list calls (sources, types, dashboards) `+ 1`
-pipelines list `+ 1 analyze per pipeline` = **4 + N(pipelines)**. For
-workspace-sized data (handfuls of each) this is comfortably fast (the verified
-run below was a single-digit number of calls completing in well under a second).
+aggregation. Call budget: `2` list calls (sources, dashboards) `+ 1` pipelines
+list `+ 1` analyze per pipeline `+ 1` run-history per pipeline `+ 1`
+pipeline-shapes catalog call `+ 1` (paginated) outputs fetch across every
+pipeline = **4 + 2N(pipelines)** — the outputs fetch is one paginated
+`listAllOutputs` call, not a per-pipeline fan-out, so it stays flat in
+pipeline count. For workspace-sized data (handfuls of each) this is
+comfortably fast. There is no more per-column sample-row/statistics fetch —
+that was the DataType/Metric enumeration (HEL-857's 220k-char overflow) that
+no longer exists in this model; a 25-source/43-pipeline fixture
+(`context.test.ts`) verifies the result stays comfortably under the byte
+budget without a separate truncation strategy.
 
 **When to add a backend `/api/context`:** only if pipeline count grows enough
-that `N` analyze calls become the bottleneck. Not needed at Phase 2 scale — this
-is flagged, not built, per the brief.
+that the `2N` analyze/run-history calls become the bottleneck. Not needed at
+Phase 2 scale — this is flagged, not built, per the brief.
 
 > **spray-json gotcha (load-bearing):** the backend omits `Option` fields that
-> are `None` from the JSON entirely. A DataType that is a pipeline output has
-> `sourceId = None`, so the wire has **no `sourceId` field at all**. The
-> serializer normalizes a missing `sourceId` to `null` before deciding
-> `pipelineOutput` — reading `sourceId === null` alone would misclassify the one
-> panel-bindable DataType as a source companion.
+> are `None` from the JSON entirely. An Output attached directly to a
+> pipeline's source has `nodeStepId = None`, so the wire has **no
+> `nodeStepId` field at all**. The serializer normalizes a missing
+> `nodeStepId` to `null` — reading `nodeStepId === null` without that
+> normalization would fail to distinguish it from a step-targeted Output on
+> the wire.
 
 ## Endpoint reality vs. the brief
 

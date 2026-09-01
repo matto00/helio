@@ -261,6 +261,20 @@ class ApiRoutesSpec
       }
     }
 
+    // HEL-907 evaluator-2: `DashboardService.create` (unlike DataSourceService/PipelineService)
+    // returns `Future[(Dashboard, Boolean)]`, no `ServiceError` convention -- `tag` is gated via
+    // `RequestValidation.validateTag` at the ROUTE layer instead (DashboardRoutes.scala), so this
+    // exercises the real REST boundary directly, not the MCP client (whose zod schema already caps
+    // `tag` at 200 chars and so can never express the over-length input this guards against).
+    "reject an over-length tag on dashboard create with a curated 400, not a raw DB-constraint 500" in {
+      cleanDb()
+      val overLengthTag = "a" * 201
+      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"), None, Some(overLengthTag))) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("tag must be at most 200 characters")
+      }
+    }
+
     "return dashboard and panel data after seeding" in {
       cleanDb()
       var dashboardId = ""

@@ -35,8 +35,8 @@ import {
 const proposal: PipelineProposal = {
   pipelineName: "Revenue pipeline",
   source: { sourceId: "source-1" },
-  outputDataTypeName: "Revenue",
   steps: [],
+  outputs: [],
 };
 
 function makeFakeApi(overrides: Partial<Record<keyof HelioApi, unknown>> = {}): HelioApi {
@@ -65,8 +65,8 @@ describe("proposePipelineHandler", () => {
     const result = await proposePipelineHandler(api, {
       pipelineName: proposal.pipelineName,
       source: proposal.source,
-      outputDataTypeName: proposal.outputDataTypeName,
       steps: proposal.steps,
+      outputs: proposal.outputs,
     });
 
     expect(result.proposal).toEqual(proposal);
@@ -82,8 +82,8 @@ describe("proposePipelineHandler", () => {
     const result = await proposePipelineHandler(api, {
       pipelineName: proposal.pipelineName,
       source: { sourceId: "source-missing" },
-      outputDataTypeName: proposal.outputDataTypeName,
       steps: proposal.steps,
+      outputs: proposal.outputs,
     });
 
     expect(result.applyReady).toBe(false);
@@ -103,8 +103,8 @@ describe("proposePipelineHandler", () => {
       proposePipelineHandler(api, {
         pipelineName: proposal.pipelineName,
         source: proposal.source,
-        outputDataTypeName: proposal.outputDataTypeName,
         steps: proposal.steps,
+        outputs: proposal.outputs,
       }),
     ).rejects.toThrow(HelioApiError);
   });
@@ -114,7 +114,6 @@ describe("analyzePipelineProposalHandler", () => {
   it("calls api.analyzePipelineProposal with the given proposal and returns its result", async () => {
     const response: PipelineAnalyzeProposalResponse = {
       sourceName: "Source 1",
-      outputDataTypeName: "Revenue",
       sourceSchema: [{ name: "amount", type: "integer" }],
       steps: [],
     };
@@ -151,13 +150,11 @@ describe("applyPipelineProposalHandler", () => {
         name: "Revenue pipeline",
         sourceDataSourceId: "source-1",
         sourceDataSourceName: "Source 1",
-        outputDataTypeName: "Revenue",
-        outputDataTypeId: "type-1",
         lastRunStatus: "succeeded",
         lastRunAt: "2026-01-01T00:00:00Z",
         lastRunRowCount: 3,
       },
-      outputDataTypeId: "type-1",
+      outputs: [{ id: "type-1", name: "Revenue", kind: "table" }],
       run: { rows: [], rowCount: 3 },
     };
     let calledWith: PipelineProposal | undefined;

@@ -95,68 +95,20 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
     ({ sourceId }) => guarded(() => api.listSourceObjects(sourceId)),
   );
 
-  server.registerTool(
-    "list_data_types",
-    {
-      title: "List DataTypes",
-      description:
-        "List DataTypes with their columns (fields) and computed fields. A DataType with " +
-        "sourceId === null is a pipeline OUTPUT and is the only kind a panel may bind to (V41). " +
-        "A DataType with a non-null sourceId is a source companion (not panel-bindable). Each " +
-        "entry's `tag` (HEL-366, omitted when unset) mirrors its owning DataSource's or producing " +
-        "Pipeline's tag. Optional `tag` param restricts to the caller's DataTypes with an exact tag " +
-        "match — a preview of exactly what teardown_resources would discover for that tag, without " +
-        "deleting anything.",
-      inputSchema: {
-        limit: z.number().int().positive().max(500).optional(),
-        offset: z.number().int().nonnegative().optional(),
-        tag: z.string().min(1).optional(),
-      },
-    },
-    ({ limit, offset, tag }) => guarded(() => api.listDataTypes(limit, offset, tag)),
-  );
-
-  server.registerTool(
-    "get_data_type_rows",
-    {
-      title: "Get DataType rows",
-      description:
-        "Fetch the latest pipeline-run row snapshot for a DataType ({ rows, rowCount }). Rows exist " +
-        "only after the DataType's producing pipeline has run successfully.",
-      inputSchema: { dataTypeId: z.string().min(1) },
-    },
-    ({ dataTypeId }) => guarded(() => api.getDataTypeRows(dataTypeId)),
-  );
-
-  server.registerTool(
-    "get_panel_capabilities",
-    {
-      title: "Get panel capabilities for a DataType",
-      description:
-        "Given a DataType id, return the same binding menu bind_panel enforces: which of the five " +
-        "data-bindable panel kinds (metric, chart, table, collection, timeline) are structurally " +
-        "bindable, each one's required/optional fieldMapping slots (metric/collection → " +
-        "{value, label?, unit?}; chart → {xAxis, yAxis, series?, annotation?}; timeline → " +
-        "{time, event}; table → none), and which of the DataType's columns are eligible for each " +
-        "slot (numeric columns for value/yAxis; a timestamp/orderable column for time; any column " +
-        "for the rest — advisory, not a bind-time-enforced guarantee). Also returns shape signals: " +
-        "columns with their types, row count, whether the DataType has exactly one row, and " +
-        "isPipelineOutput (only pipeline outputs are bindable — V41; a source-companion DataType " +
-        "reports every kind bindable: false with reason 'not-pipeline-output'). Use this instead of " +
-        "re-deriving Helio's binding rules to build an offers menu before calling create_panel + " +
-        "bind_panel.",
-      inputSchema: { dataTypeId: z.string().min(1) },
-    },
-    ({ dataTypeId }) => guarded(() => api.getPanelCapabilities(dataTypeId)),
-  );
+  // HEL-907 task 3.7/3.9: get_panel_capabilities REMOVED outright (no alias) -- it called
+  // GET /api/types/:id/panel-capabilities, a route HEL-904 deleted alongside DataTypeRoutes;
+  // every call has 404'd since then. Replaced by get_output_capabilities(pipelineId, stepId?)
+  // in tools/outputs.ts, which calls the route that actually exists
+  // (GET /api/pipelines/:id/capabilities?stepId=, HEL-906 task 3.4).
 
   server.registerTool(
     "list_pipelines",
     {
       title: "List pipelines",
       description:
-        "List pipelines as summaries (source, output DataType, last-run status/row-count). Pipelines " +
-        "are the only path that produces panel-bindable DataTypes. Use get_pipeline or " +
+        "List pipelines as summaries (source, last-run status/row-count). Pipelines are the only " +
+        "path that produces panel-bindable Outputs (see get_workspace_context / list_outputs). " +
+        "Use get_pipeline or " +
         "analyze_pipeline for step detail. Each entry's `tag` (HEL-366, omitted when unset) is its " +
         "free-form grouping key. Optional `tag` param restricts to the caller's pipelines with an " +
         "exact tag match — a preview of exactly what teardown_resources would discover for that " +
@@ -186,7 +138,8 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
       title: "Analyze pipeline",
       description:
         "Analyze a pipeline: returns the source schema and, per step, its input/output schema and any " +
-        "validation error. This is how you learn the exact columns the output DataType will have " +
+        "validation error. This is how you learn the exact columns an Output attached to a given " +
+        "step (or the source, for nodeStepId: null) will have " +
         "before running it.",
       inputSchema: { pipelineId: z.string().min(1) },
     },
@@ -229,10 +182,10 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
       description:
         "List every registered smart pipeline shape (GET /api/pipeline-shapes; thin pass-through). " +
         "A shape is a named, parameterized pipeline template that expands into an ordered list of " +
-        "ordinary pipeline steps via create_pipeline_from_shape, instead of hand-assembling them " +
+        "ordinary pipeline steps via add_outputs_from_shape, instead of hand-assembling them " +
         "with add_pipeline_step. Each catalog entry carries id/label/description/paramsSchema " +
         "(descriptive only — NOT a validating JSON Schema; real validation happens inside " +
-        "create_pipeline_from_shape's expand call, whose message is returned verbatim on failure) " +
+        "add_outputs_from_shape's expand call, whose message is returned verbatim on failure) " +
         "and outputContract (rowCount + description; the rowCount/description text carries the " +
         "real signal about the shape's output). Registered shape ids on `main`: " +
         "`passthrough` (params: fields: string[] — selects those fields, one `select` step), " +
@@ -246,42 +199,12 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "measures per bucket via datebucket + aggregate + sort), " +
         "`pivot-matrix` (params: index: string[], column: string, values: string, agg: " +
         '"sum"|"count"|"avg"|"min"|"max"|"first" — reshapes into a crosstab via an ' +
-        "optional pre-aggregate then pivot). Call create_pipeline_from_shape with one of these ids " +
-        "to instantiate it.",
+        "optional pre-aggregate then pivot). Call " +
+        "add_outputs_from_shape(pipelineId, stepId?, shape, params) with one of these ids to " +
+        "instantiate it onto an existing pipeline.",
       inputSchema: {},
     },
     () => guarded(() => api.listPipelineShapes()),
-  );
-
-  server.registerTool(
-    "list_metrics",
-    {
-      title: "List metrics",
-      description:
-        "List defined metrics (paginated envelope: items, total, offset, limit) — the caller's " +
-        "reusable measures over pipeline-output DataTypes (V41: each metric's dataTypeId has " +
-        "sourceId absent). Before deriving an ad-hoc aggregation inline in a panel or pipeline step, " +
-        "call this to see whether a metric already names the measure you need — reference it " +
-        "(get_metric) instead of re-deriving one.",
-      inputSchema: {
-        limit: z.number().int().positive().max(500).optional(),
-        offset: z.number().int().nonnegative().optional(),
-      },
-    },
-    ({ limit, offset }) => guarded(() => api.listMetrics(limit, offset)),
-  );
-
-  server.registerTool(
-    "get_metric",
-    {
-      title: "Get metric",
-      description:
-        "Get one defined metric by id, including its aggregation, measureField, allowedDimensions, " +
-        "and display format. 404s (surfaced via the guarded error path) when the id does not resolve " +
-        "to a caller-owned metric.",
-      inputSchema: { metricId: z.string().min(1) },
-    },
-    ({ metricId }) => guarded(() => api.getMetric(metricId)),
   );
 
   server.registerTool(
@@ -289,29 +212,27 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
     {
       title: "Get workspace context",
       description:
-        "One compact snapshot of the whole workspace: data sources, DataTypes (with columns), " +
-        "pipelines (with steps and per-step output columns), dashboards, the pipelineShapes " +
-        "catalog (id/label/description/paramsSchema/outputRowCount/outputDescription for every " +
-        "registered smart pipeline shape — see list_pipeline_shapes / create_pipeline_from_shape), " +
-        "and the metrics catalog (id/name/dataTypeId/measureField/aggregation/allowedDimensions/" +
-        "format/deprecated for every NON-DEPRECATED metric the caller owns — a deprecated metric is " +
-        "excluded here; call list_metrics to see deprecated ones too, e.g. to un-deprecate one). " +
-        "Bind a proposal panel to one via metricId (propose_dashboard/apply_proposal) instead of " +
-        "re-deriving a raw dataTypeId/fieldMapping binding. Each pipeline entry's " +
-        "lastRunAssertions (HEL-581) is the trustworthiness signal for whether that pipeline's " +
-        "MOST RECENT run's data can be trusted: passed/warnFailed/errorFailed counts plus a " +
-        "failures list (kind/field/severity/message) naming which assert rules failed. Reason " +
-        "about a dashboard's data quality by checking a bound DataType's producing pipeline's " +
-        "lastRunAssertions.errorFailed before treating its last run's rows as reliable — always " +
-        "present and zero-valued (not omitted) for a pipeline with no assert step or no runs yet. " +
-        "Also includes agentContext: the " +
+        "One compact snapshot of the whole workspace: data sources (with their inferredSchema, " +
+        "name/type pairs), pipelines (with steps, per-step output columns, and their Outputs — " +
+        "id/name/kind/nodeStepId/schema/placements — the panel-bindable surface a create_content_panel " +
+        "or place_outputs call targets), dashboards, and the pipelineShapes catalog " +
+        "(id/label/description/paramsSchema/outputRowCount/outputDescription for every registered " +
+        "smart pipeline shape — see list_pipeline_shapes / add_outputs_from_shape). There is no " +
+        "DataType/Metric catalog here (HEL-904 retired that model) — an Output's own schema is the " +
+        "grounding source for a fieldMapping. Each pipeline entry's lastRunAssertions (HEL-581) is " +
+        "the trustworthiness signal for whether that pipeline's MOST RECENT run's data can be " +
+        "trusted: passed/warnFailed/errorFailed counts plus a failures list " +
+        "(kind/field/severity/message) naming which assert rules failed. Reason about a dashboard's " +
+        "data quality by checking a bound Output's producing pipeline's lastRunAssertions.errorFailed " +
+        "before treating its last run's rows as reliable — always present and zero-valued (not " +
+        "omitted) for a pipeline with no assert step or no runs yet. Also includes agentContext: the " +
         "authenticated token owner's stored agent-authoring preferences plus up to 20 of their " +
         "most-recently-useful memory entries (facts/goals/preference-notes), most-recently-useful " +
         "first — read this to reason about how the user generally likes dashboards built, without a " +
         "separate call. Fetching it never updates any memory entry's lastUsedAt (a pure read). " +
-        "Read this first to reason about what exists (e.g. which DataType is a single-row pipeline " +
-        "output, which shape ids are available, or which metrics are already defined) instead of " +
-        "fanning out many calls yourself. Same payload as the helio://workspace/context resource.",
+        "Read this first to reason about what exists (e.g. which Output is single-row, which shape " +
+        "ids are available, or which pipeline already produces a needed field) instead of fanning " +
+        "out many calls yourself. Same payload as the helio://workspace/context resource.",
       inputSchema: {},
     },
     () => guarded(() => buildWorkspaceContext(api)),

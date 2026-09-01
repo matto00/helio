@@ -85,10 +85,10 @@ final class DashboardService(
       case Some("return") =>
         dashboardRepo.findByNameOwned(name, user.id).flatMap {
           case Some(existing) => Future.successful((existing, false))
-          case None           => insertNew(name, user).map((_, true))
+          case None           => insertNew(name, request.tag, user).map((_, true))
         }
       case _ =>
-        insertNew(name, user).map((_, true))
+        insertNew(name, request.tag, user).map((_, true))
     }
     resultF.map { case (dashboard, created) =>
       // HEL-477 design.md Decision 2: only the fresh-insert branch (`created
@@ -99,7 +99,7 @@ final class DashboardService(
     }
   }
 
-  private def insertNew(name: String, user: AuthenticatedUser): Future[Dashboard] = {
+  private def insertNew(name: String, tag: Option[String], user: AuthenticatedUser): Future[Dashboard] = {
     val now = Instant.now()
     val dashboard = Dashboard(
       id         = DashboardId(UUID.randomUUID().toString),
@@ -107,7 +107,11 @@ final class DashboardService(
       meta       = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
       appearance = DashboardAppearance.Default,
       layout     = DashboardLayout.Default,
-      ownerId    = user.id
+      ownerId    = user.id,
+      // HEL-907 evaluator-1 CR3: free-form grouping tag (HEL-366's existing
+      // convention), set only at create time -- no update path, mirroring
+      // DataSource/Pipeline's own tag.
+      tag        = tag
     )
     dashboardRepo.insert(dashboard)
   }
@@ -310,7 +314,14 @@ object DashboardService {
    *  independent of the HTTP protocol types. `ifExists` defaults to `None`
    *  so every pre-HEL-363 positional call site (`CreateDashboardInput(name)`)
    *  keeps compiling unchanged. */
-  final case class CreateDashboardInput(name: Option[String], ifExists: Option[String] = None)
+  final case class CreateDashboardInput(
+      name: Option[String],
+      ifExists: Option[String] = None,
+      // HEL-907 evaluator-1 CR3: appended last, defaulted, so every
+      // pre-existing positional `CreateDashboardInput(...)` call site keeps
+      // compiling unchanged.
+      tag: Option[String] = None
+  )
 
   /** Validate a snapshot payload at import time.
    *  Forwarding def — keeps the external call path `DashboardService.validateSnapshotPayload`

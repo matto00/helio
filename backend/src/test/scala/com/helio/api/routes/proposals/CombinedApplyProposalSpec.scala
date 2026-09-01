@@ -25,8 +25,8 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
           |    "pipelineName": "Combined Pipeline",
           |    "source": {"type":"static","name":"Combined Static",
           |      "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"],["y"]]}},
-          |    "outputDataTypeName": "Combined Output",
-          |    "steps": []
+          |    "steps": [],
+          |    "outputs": [{"kind":"table","name":"Combined Output"}]
           |  },
           |  "dashboard": {
           |    "dashboardName": "Combined Dashboard",
@@ -39,9 +39,9 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
         status shouldBe StatusCodes.Created
         val obj           = responseAs[String].parseJson.asJsObject
         val pipelineResp  = obj.fields("pipeline").asJsObject
-        // HEL-904 task 3.8: `outputDataTypeId` (field name unchanged — see
-        // design.md) now carries a real Output id.
-        val outputTypeId  = pipelineResp.fields("outputDataTypeId").convertTo[String]
+        // HEL-907 task 1.1: `outputs` (renamed from the old single
+        // `outputDataTypeId`) now carries the real Output id(s) created.
+        val outputTypeId  = pipelineResp.fields("outputs").convertTo[Vector[JsValue]].head.asJsObject.fields("id").convertTo[String]
         outputTypeId should not be empty
         pipelineResp.fields("run").asJsObject.fields("rowCount").convertTo[Int] shouldBe 2
 
@@ -64,8 +64,8 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
            |    "pipelineName": "Mixed Pipeline",
            |    "source": {"type":"static","name":"Mixed Static",
            |      "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}},
-           |    "outputDataTypeName": "Mixed Output",
-           |    "steps": []
+           |    "steps": [],
+           |    "outputs": [{"kind":"table","name":"Mixed Output"}]
            |  },
            |  "dashboard": {
            |    "dashboardName": "Mixed Dashboard",
@@ -78,7 +78,7 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val obj          = responseAs[String].parseJson.asJsObject
-        val outputTypeId = obj.fields("pipeline").asJsObject.fields("outputDataTypeId").convertTo[String]
+        val outputTypeId = obj.fields("pipeline").asJsObject.fields("outputs").convertTo[Vector[JsValue]].head.asJsObject.fields("id").convertTo[String]
         val panels       = obj.fields("dashboard").asJsObject.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
         panels.find(_.fields("title").convertTo[String] == "New").get
           .fields("config").asJsObject.fields("outputId").convertTo[String] shouldBe outputTypeId

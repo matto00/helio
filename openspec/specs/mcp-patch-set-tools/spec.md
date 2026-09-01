@@ -4,7 +4,9 @@
 Defines the MCP `propose_patch_set` / `apply_patch_set` tools that let an external agent refine a
 live dashboard or pipeline through the same atomic, reviewable patch-set primitive the in-app surface
 uses, instead of firing raw per-resource PATCH calls one-by-one.
+
 ## Requirements
+
 ### Requirement: propose_patch_set SHALL assemble and return a patch set without writing anything
 The MCP `propose_patch_set` tool SHALL call `POST /api/refinements` and return its `PatchSet` verbatim
 as the tool result, and SHALL NOT itself call any write endpoint.
@@ -50,3 +52,12 @@ restore.
 - **THEN** the tool returns that conflict to the caller verbatim, and does not attempt to restore any
   of the application's other edits itself
 
+### Requirement: Patch-set tools operate on nodes, outputs, and placements
+Every MCP patch-set tool (create/apply/rollback/preview) SHALL use the node/output/placement
+patch-set schema, and rollback/recreate of a `PipelineStep` patch SHALL preserve that step's
+`enabled` field exactly as it was before the patch, never defaulting it (HEL-766).
+
+#### Scenario: Rolling back a step patch preserves enabled
+- **WHEN** an agent applies a patch-set that modifies a `PipelineStep` and then rolls it back
+- **THEN** the step's `enabled` field after rollback exactly matches its value before the patch
+  was applied

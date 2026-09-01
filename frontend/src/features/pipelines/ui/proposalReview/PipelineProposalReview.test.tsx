@@ -19,11 +19,11 @@ function makeProposal(overrides: Partial<PipelineProposal> = {}): PipelinePropos
   return {
     pipelineName: "Sales pipeline",
     source: { sourceId: "src-1" },
-    outputDataTypeName: "SalesMetrics",
     steps: [
-      { type: "rename", config: { renames: { old: "new" } } },
-      { type: "limit", config: { count: 100 }, enabled: false },
+      { clientId: "s1", type: "rename", config: { renames: { old: "new" } } },
+      { clientId: "s2", type: "limit", config: { count: 100 }, enabled: false },
     ],
+    outputs: [{ kind: "table", name: "SalesMetrics" }],
     ...overrides,
   };
 }
@@ -44,7 +44,7 @@ function renderReview(overrides: Partial<ComponentProps<typeof PipelineProposalR
 }
 
 describe("PipelineProposalReview", () => {
-  it("renders the source, ordered steps, and output DataType name", () => {
+  it("renders the source, ordered steps, and proposed Outputs", () => {
     renderReview();
 
     expect(screen.getByText("Sales pipeline")).toBeInTheDocument();
@@ -100,7 +100,7 @@ describe("PipelineProposalReview", () => {
   it("renders an unrecognized step kind without crashing", () => {
     renderReview({
       proposal: makeProposal({
-        steps: [{ type: "some_future_op", config: { fancy: true } }],
+        steps: [{ clientId: "s1", type: "some_future_op", config: { fancy: true } }],
       }),
     });
     expect(screen.getByText("some_future_op")).toBeInTheDocument();

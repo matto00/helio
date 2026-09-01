@@ -139,3 +139,85 @@ describe("HelioApi pipeline schedule + dashboard rename methods", () => {
     expect(Object.keys(body)).toEqual(["name"]);
   });
 });
+
+/**
+ * HEL-934/HEL-907 task 3.12 — `expandPipelineShape`'s real wire response is
+ * `{steps, outputs?}` (`ExpandPipelineShapeResponse`), not a bare
+ * `ShapeStepExpansionResponse[]`. The pre-fix method typed (and returned) the
+ * raw HTTP body as if it WERE the bare array -- every real caller iterating
+ * the result directly would throw at runtime the first time a shape expanded
+ * to any steps. This test exercises the REAL HTTP-layer parsing (not a
+ * mocked `HelioApi`, which is what every other test of this method's callers
+ * used and which never touched this bug at all) to prove the fix.
+ */
+describe("HelioApi.expandPipelineShape (HEL-934 envelope unwrap)", () => {
+  function harnessWithReply(body: unknown) {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(reply(200, body));
+    };
+    const client = new HelioHttpClient(config, { fetchImpl });
+    return { api: new HelioApi(client), calls };
+  }
+
+  it("unwraps the real {steps, outputs} envelope, returning just the steps array", async () => {
+    const { api, calls } = harnessWithReply({
+      steps: [
+        { kind: "sort", config: { field: "revenue" } },
+        { kind: "limit", config: { count: 10 } },
+      ],
+      outputs: null,
+    });
+
+    const result = await api.expandPipelineShape("top-n", { measure: "revenue", n: 10 });
+
+    expect(result).toEqual([
+      { kind: "sort", config: { field: "revenue" } },
+      { kind: "limit", config: { count: 10 } },
+    ]);
+    expect(calls[0]?.url).toBe("https://helio.test/api/pipeline-shapes/top-n/expand");
+  });
+
+  it("returns [] for a shape that expands to zero steps, without throwing", async () => {
+    const { api } = harnessWithReply({ steps: [], outputs: null });
+
+    const result = await api.expandPipelineShape("passthrough", { fields: [] });
+
+    expect(result).toEqual([]);
+  });
+});
+
+/**
+ * HEL-934/HEL-907 task 3.12 — `DELETE /api/pipeline-steps/:id` answers `200`
+ * with a real `{removedTailStepCount}` splice-on-delete report, not an empty
+ * `204` like every other delete endpoint. The pre-fix method discarded the
+ * response body entirely.
+ */
+describe("HelioApi.deletePipelineStep (HEL-934 removedTailStepCount surfaced)", () => {
+  it("reads and surfaces removedTailStepCount from the real 200 response body", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(reply(200, { removedTailStepCount: 3 }));
+    };
+    const client = new HelioHttpClient(config, { fetchImpl });
+    const api = new HelioApi(client);
+
+    const result = await api.deletePipelineStep("step-1");
+
+    expect(calls[0]?.init.method).toBe("DELETE");
+    expect(calls[0]?.url).toBe("https://helio.test/api/pipeline-steps/step-1");
+    expect(result).toEqual({ deleted: true, id: "step-1", removedTailStepCount: 3 });
+  });
+
+  it("surfaces removedTailStepCount: 0 for a leaf step with no descendants", async () => {
+    const fetchImpl = () => Promise.resolve(reply(200, { removedTailStepCount: 0 }));
+    const client = new HelioHttpClient(config, { fetchImpl });
+    const api = new HelioApi(client);
+
+    const result = await api.deletePipelineStep("step-leaf");
+
+    expect(result).toEqual({ deleted: true, id: "step-leaf", removedTailStepCount: 0 });
+  });
+});

@@ -163,4 +163,28 @@ object OutputBindingSpec {
         s"${unknownKeys.toVector.sorted.mkString(", ")}. Valid slots: ${validSlots.mkString(", ")}"
     )
   }
+
+  /** HEL-907 task 1.4 — grounds a `fieldMapping`'s VALUES (column names) against the actual
+   *  projected schema AT THE OUTPUT'S OWN NODE (`PipelineAnalyzeService.analyzeNodes` for a
+   *  step-targeted Output; the source's own `inferredSchema` directly for a source-attached one,
+   *  `nodeStepId: null` — `analyzeNodes` omits the source itself from its per-node map). A
+   *  DIFFERENT check from [[validateFieldMapping]] above (which validates the mapping's KEYS —
+   *  the slot names — against the kind's own spec, never touching the schema at all): a
+   *  proposal or MCP tool call can name a real slot (`value`, `time`, ...) but point it at a
+   *  column that doesn't exist at this specific node, e.g. because it exists on the TRUNK but
+   *  this Output targets a TAIL branch that dropped or renamed it, or the column was consumed by
+   *  an aggregate/select step upstream of this node. Column-TYPE eligibility (`SlotEligibility`)
+   *  is a separate, already-covered concern (`evaluate`'s `eligibleColumns`) — this function only
+   *  checks EXISTENCE by name, never type. Returns `Left` naming every missing column (never just
+   *  the first), mirroring `validateFieldMapping`'s own "whole problem in one round trip"
+   *  contract. */
+  def validateFieldMappingColumnsExist(fieldMapping: Map[String, String], schema: Vector[SchemaField]): Either[String, Unit] = {
+    val columnNames = schema.map(_.name).toSet
+    val missing     = fieldMapping.values.toVector.distinct.filterNot(columnNames.contains)
+    if (missing.isEmpty) Right(())
+    else Left(
+      s"fieldMapping references column(s) not present at this node: ${missing.sorted.mkString(", ")}. " +
+        s"Available columns: ${schema.map(_.name).sorted.mkString(", ")}"
+    )
+  }
 }

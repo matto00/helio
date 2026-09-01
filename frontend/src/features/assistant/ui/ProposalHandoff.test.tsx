@@ -82,8 +82,8 @@ describe("ProposalHandoff", () => {
     const proposal: PipelineProposal = {
       pipelineName: "Sales pipeline",
       source: { sourceId: "src-1" },
-      outputDataTypeName: "SalesMetrics",
-      steps: [{ type: "rename", config: {} }],
+      steps: [{ clientId: "s1", type: "rename", config: {} }],
+      outputs: [{ kind: "table", name: "SalesMetrics" }],
     };
 
     renderAt({ kind: "pipeline", input: proposal });
@@ -106,12 +106,12 @@ describe("ProposalHandoff", () => {
       pipeline: {
         pipelineName: "Sales pipeline",
         source: { type: "static", name: "Demo source", config: {} },
-        outputDataTypeName: "SalesMetrics",
         steps: [],
+        outputs: [{ kind: "table", name: "SalesMetrics" }],
       },
       dashboard: {
         dashboardName: "Sales overview",
-        panels: [{ title: "Total", type: "metric", dataTypeId: "$pipelineOutput" }],
+        panels: [{ title: "Total", type: "output", dataTypeId: "$pipelineOutput" }],
       },
     };
 

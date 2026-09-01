@@ -36,8 +36,8 @@ beforeAll(() => {
 const proposal: PipelineProposal = {
   pipelineName: "Sales pipeline",
   source: { sourceId: "src-1" },
-  outputDataTypeName: "SalesMetrics",
   steps: [],
+  outputs: [{ kind: "table", name: "SalesMetrics" }],
 };
 
 const appliedResponse: PipelineProposalApplyResponse = {
@@ -52,7 +52,7 @@ const appliedResponse: PipelineProposalApplyResponse = {
     lastRunAt: "2026-01-01T00:00:00Z",
     lastRunRowCount: 0,
   },
-  outputDataTypeId: "dt-1",
+  outputs: [{ id: "dt-1", name: "SalesMetrics", kind: "table" }],
   run: { rows: [], rowCount: 0 },
 };
 

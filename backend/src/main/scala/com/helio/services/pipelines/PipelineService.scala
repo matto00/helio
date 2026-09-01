@@ -129,10 +129,12 @@ final class PipelineService(
   }
 
   /** The single-call transactional path (`create` above delegates here only when `steps`/
-   *  `outputs` are non-empty). `dataSourceRepo.findByIdOwned` runs OUTSIDE the transaction --
-   *  it's a read-only ACL/existence check, not a write, so it doesn't need to share the write
-   *  transaction's atomicity; `outputRepo`'s nullability is also checked outside the transaction
-   *  (a missing collaborator is a wiring problem, not a rollback-worthy business failure). */
+   *  `outputs` are non-empty). `dataSourceRepo.findByIdOwned` (for the pipeline's own source,
+   *  AND -- HEL-907 fix, see `validateStepCrossOwnerRefs` -- for every join/union/lookup step's
+   *  cross-referenced source) runs OUTSIDE the transaction -- read-only ACL/existence checks, not
+   *  writes, so they don't need to share the write transaction's atomicity; `outputRepo`'s
+   *  nullability is also checked outside the transaction (a missing collaborator is a wiring
+   *  problem, not a rollback-worthy business failure). */
   private def createTransactional(
       req: CreatePipelineRequest,
       user: AuthenticatedUser,
@@ -141,24 +143,86 @@ final class PipelineService(
     if (req.outputs.nonEmpty && outputRepo == null)
       Future.successful(Left(ServiceError.InternalError("Output creation is unavailable (no OutputRepository configured)")))
     else
-      dataSourceRepo.findByIdOwned(DataSourceId(req.sourceDataSourceId.trim), user).flatMap {
-        case None =>
-          Future.successful(Left(ServiceError.NotFound("Data source not found")))
-        case Some(dataSource) =>
-          val action: DBIO[PipelineSummary] = for {
-            summary   <- pipelineRepo.createAction(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), dataSource.name, user, tag)
-            stepIdMap <- buildStepsAction(PipelineId(summary.id), req.steps)
-            _         <- buildOutputsAction(PipelineId(summary.id), req.outputs, stepIdMap, user)
-          } yield summary
+      validateStepCrossOwnerRefs(req.steps, user).flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(()) =>
+          dataSourceRepo.findByIdOwned(DataSourceId(req.sourceDataSourceId.trim), user).flatMap {
+            case None =>
+              Future.successful(Left(ServiceError.NotFound("Data source not found")))
+            case Some(dataSource) =>
+              // HEL-907 task 1.4: computed OUTSIDE the DBIO chain -- analyzeNodes is a pure,
+              // in-memory function (no DB access), so there's no reason to pay for it inside the
+              // transaction. `req.steps` (not the just-inserted rows) is the correct input: the
+              // clientId keys this produces are exactly what `buildOutputsAction` already
+              // resolves `nodeStepClientId` against.
+              val analyzedNodes = PipelineAnalyzeService.analyzeNodes(
+                req.steps.zipWithIndex.map { case (s, idx) =>
+                  PipelineAnalyzeService.NodeStepInput(
+                    id           = s.clientId,
+                    parentStepId = s.parentStepId,
+                    position     = idx,
+                    op           = s.`type`,
+                    config       = s.config.compactPrint
+                  )
+                },
+                dataSource.inferredSchema
+              )
+              val action: DBIO[PipelineSummary] = for {
+                summary   <- pipelineRepo.createAction(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), dataSource.name, user, tag)
+                stepIdMap <- buildStepsAction(PipelineId(summary.id), req.steps)
+                _         <- buildOutputsAction(PipelineId(summary.id), req.outputs, stepIdMap, user, analyzedNodes, dataSource.inferredSchema)
+              } yield summary
 
-          pipelineRepo.runTransactionally(user.id.value)(action).map { summary =>
-            audit("pipeline.create", "pipeline", Some(summary.id), user)
-            Right(toSummaryResponse(summary))
-          }.recover {
-            case PipelineCreateValidationFailure(err) => Left(err)
-            case ex                                    => Left(PipelineService.classifyDbError(ex))
+              pipelineRepo.runTransactionally(user.id.value)(action).map { summary =>
+                audit("pipeline.create", "pipeline", Some(summary.id), user)
+                Right(toSummaryResponse(summary))
+              }.recover {
+                case PipelineCreateValidationFailure(err) => Left(err)
+                case ex                                    => Left(PipelineService.classifyDbError(ex))
+              }
           }
       }
+
+  /** HEL-907: closes a real gap found while retargeting `PipelineProposalService` onto this
+   *  single-call transactional path -- `addStep` (the pre-existing per-step write path) has
+   *  always pre-flighted a join/union/lookup step's cross-referenced `DataSourceId` for caller
+   *  ownership (HEL-278/HEL-384/HEL-386) BEFORE persisting, but `buildStepsAction` (added by
+   *  HEL-906, this path's own transactional step-insert loop) never carried the same check --
+   *  any caller of `POST /api/pipelines` with a non-empty `steps[]` (not just the proposal path)
+   *  could otherwise reference another user's DataSource as a join/union/lookup right-source with
+   *  no ownership check at all. Runs entirely OUTSIDE the write transaction (read-only), decoding
+   *  each step's config the same way `buildStepsAction` will re-decode it a moment later --
+   *  duplicated decode work, never duplicated behavior (both call sites route through the same
+   *  `PipelineStepConfigCodec.decode`), so a config `buildStepsAction` would itself reject never
+   *  reaches a cross-owner check with a bogus decoded value. Empty `LookupConfig.referenceDataSourceId`
+   *  is a no-op here too, mirroring `addStep`'s own "an incomplete draft, not a security violation"
+   *  carve-out. */
+  private def validateStepCrossOwnerRefs(
+      steps: Vector[CreatePipelineTransactionalStepRequest],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    steps.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, step) =>
+      accF.flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(()) =>
+          PipelineStepConfigCodec.decode(step.`type`, step.config.compactPrint) match {
+            case Failure(_) => Future.successful(Right(())) // buildStepsAction will reject this; not this check's job.
+            case Success(jc: JoinConfig) =>
+              checkOwnedSource(jc.rightDataSourceId, user)
+            case Success(uc: UnionConfig) =>
+              checkOwnedSource(uc.otherDataSourceId, user)
+            case Success(lc: LookupConfig) if lc.referenceDataSourceId.nonEmpty =>
+              checkOwnedSource(lc.referenceDataSourceId, user)
+            case Success(_) => Future.successful(Right(()))
+          }
+      }
+    }
+
+  private def checkOwnedSource(dataSourceId: String, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    dataSourceRepo.findByIdOwned(DataSourceId(dataSourceId), user).map {
+      case None    => Left(ServiceError.NotFound(s"Data source not found: $dataSourceId"))
+      case Some(_) => Right(())
+    }
 
   /** Builds `steps` (in array order, resolving `parentStepId` against earlier `clientId`s in
    *  the SAME request) as one composed `DBIO` chain -- every insert in this chain runs inside
@@ -206,7 +270,13 @@ final class PipelineService(
       pipelineId: PipelineId,
       outputs: Vector[CreatePipelineTransactionalOutputRequest],
       stepIdMap: Map[String, PipelineStepId],
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      // HEL-907 task 1.4: `analyzedNodes`/`sourceSchema` ground each Output's `fieldMapping`
+      // against its OWN node's projected schema -- `analyzedNodes` keyed by `clientId` (the SAME
+      // keys `stepIdMap` uses), `sourceSchema` for a source-attached Output (`nodeStepClientId`
+      // absent -- `analyzeNodes` never includes the source itself in its map).
+      analyzedNodes: Map[String, PipelineAnalyzeService.AnalyzedStep],
+      sourceSchema: Vector[SchemaField]
   ): DBIO[Unit] =
     outputs.foldLeft(DBIO.successful(()): DBIO[Unit]) { (accAction, spec) =>
       accAction.flatMap { _ =>
@@ -222,7 +292,8 @@ final class PipelineService(
               case Left(msg) => DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(msg)))
               case Right(kind) =>
                 val config = spec.config.getOrElse(JsObject.empty)
-                validateOutputFieldMapping(kind, config) match {
+                val nodeSchema = nodeClientIdOpt.flatMap(analyzedNodes.get).map(_.outputSchema).getOrElse(sourceSchema)
+                validateOutputFieldMapping(kind, config, nodeSchema) match {
                   case Left(err) => DBIO.failed(PipelineCreateValidationFailure(err))
                   case Right(()) =>
                     outputRepo.insertInternalAction(
@@ -244,8 +315,16 @@ final class PipelineService(
    *  not-yet-existing one during single-call pipeline creation) -- duplicated rather than
    *  shared because `OutputService` and `PipelineService` have no common base and pulling one
    *  into the other's constructor purely for this one validator would be a bigger coupling
-   *  change than the two-method duplication it avoids. */
-  private def validateOutputFieldMapping(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] = {
+   *  change than the two-method duplication it avoids.
+   *
+   *  HEL-907 task 1.4: `schema` is the projected schema AT THIS OUTPUT'S OWN NODE (the caller --
+   *  `buildOutputsAction` -- resolves it via `analyzeNodes`/`sourceSchema`, never the trunk's,
+   *  per this ticket's own AC). Two independent checks, both run when `fieldMapping` is present:
+   *  slot-name validity (`validateFieldMapping`, unchanged) THEN column-existence-at-this-node
+   *  (`validateFieldMappingColumnsExist`, new this task) -- ordered so an unknown SLOT name is
+   *  reported before a merely-absent COLUMN name for the same bad mapping, matching which error
+   *  is more actionable first. */
+  private def validateOutputFieldMapping(kind: OutputKind, config: JsObject, schema: Vector[SchemaField]): Either[ServiceError, Unit] = {
     val spec = OutputBindingSpec.All.find(_.outputKind == kind).getOrElse(
       throw new IllegalStateException(s"PipelineService: no OutputBindingSpec for kind $kind -- OutputBindingSpec.All is missing a case")
     )
@@ -255,7 +334,11 @@ final class PipelineService(
         val mapping = mappingObj.fields.collect { case (k, JsString(v)) => k -> v }
         OutputBindingSpec.validateFieldMapping(spec, mapping) match {
           case Left(msg) => Left(ServiceError.BadRequest(msg))
-          case Right(()) => Right(())
+          case Right(()) =>
+            OutputBindingSpec.validateFieldMappingColumnsExist(mapping, schema) match {
+              case Left(msg) => Left(ServiceError.BadRequest(msg))
+              case Right(()) => Right(())
+            }
         }
     }
   }
@@ -515,10 +598,9 @@ final class PipelineService(
             val analyzed = PipelineAnalyzeService.analyze(stepInputs, sourceSchema)
 
             Right(PipelineAnalyzeProposalResponse(
-              sourceName         = sourceName,
-              outputDataTypeName = proposal.outputDataTypeName,
-              sourceSchema        = sourceSchema.map(toFieldResponse),
-              steps               = analyzed.map(toAnalyzeStepResponse)
+              sourceName   = sourceName,
+              sourceSchema = sourceSchema.map(toFieldResponse),
+              steps        = analyzed.map(toAnalyzeStepResponse)
             ))
         }
     }
@@ -527,7 +609,7 @@ final class PipelineService(
    *  before a single step write — generalized here to every entry in a proposal's
    *  `steps` array, since `analyzeProposal` is the first caller to feed
    *  `toAnalyzeStepResponse` steps that never passed through that per-write gate. */
-  private def validateStepKinds(steps: Vector[CreatePipelineStepRequest]): Either[ServiceError, Unit] =
+  private def validateStepKinds(steps: Vector[CreatePipelineTransactionalStepRequest]): Either[ServiceError, Unit] =
     steps.find(s => !PipelineStepKind.All.contains(s.`type`)) match {
       case Some(bad) =>
         Left(ServiceError.BadRequest(

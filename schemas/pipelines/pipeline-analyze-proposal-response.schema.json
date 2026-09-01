@@ -4,12 +4,9 @@
   "title": "PipelineAnalyzeProposalResponse",
   "description": "Dry analyze over a not-yet-created PipelineProposal (HEL-381): the projected source schema, per-step input/output schema, and any per-step validation errors. Nothing is persisted. Additive sibling of GET /api/pipelines/:id/analyze's PipelineAnalyzeResponse -- carries no id/outputDataTypeId, since nothing has been created yet (design.md D4). The steps[] shape mirrors the ACTUAL discriminated-union wire format analyzeStepResponseFormat already emits (a `type` discriminator plus an object `config`), NOT pipeline-analyze-response.schema.json's stale `op`/string-`config` $defs.AnalyzeStep, which predates the CS2c-3a discriminated-union rework (design.md D6).",
   "type": "object",
-  "required": ["sourceName", "outputDataTypeName", "sourceSchema", "steps"],
+  "required": ["sourceName", "sourceSchema", "steps"],
   "properties": {
     "sourceName": {
-      "type": "string"
-    },
-    "outputDataTypeName": {
       "type": "string"
     },
     "sourceSchema": {

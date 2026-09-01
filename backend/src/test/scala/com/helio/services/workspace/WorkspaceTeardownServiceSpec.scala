@@ -4,6 +4,10 @@ import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.WorkspaceTeardownService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.domain.panels.{OutputPanel, OutputPanelConfig}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -74,6 +78,9 @@ class WorkspaceTeardownServiceSpec
 
   private var dataSourceRepo: DataSourceRepository = _
   private var pipelineRepo: PipelineRepository     = _
+  private var outputRepo: OutputRepository         = _
+  private var panelRepo: PanelRepository           = _
+  private var dashboardRepo: DashboardRepository   = _
   private var dataSourceService: DataSourceService = _
   private var teardownService: WorkspaceTeardownService = _
 
@@ -129,6 +136,9 @@ class WorkspaceTeardownServiceSpec
     ctx            = new DbContext(appDb, privilegedDb)(routeEc)
     dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
     pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
+    outputRepo     = new OutputRepository(ctx)(routeEc)
+    panelRepo      = new PanelRepository(ctx)(routeEc)
+    dashboardRepo  = new DashboardRepository(ctx)(routeEc)
 
     val tmpDir = Files.createTempDirectory("helio-teardown-spec")
     val fs     = new LocalFileSystem(tmpDir)
@@ -225,6 +235,69 @@ class WorkspaceTeardownServiceSpec
   private def pipelineExists(id: String, user: AuthenticatedUser): Boolean =
     await(pipelineRepo.findByIdOwned(PipelineId(id), user)).isDefined
 
+  /** HEL-907 task 2.1/5.8: seed an Output on `pipelineId` (no node -- attached
+   *  directly to the source) plus a dashboard + a placement Panel bound to
+   *  it, so a teardown test can assert the whole chain (pipeline -> Output ->
+   *  placement) is torn down transitively via the `ON DELETE CASCADE` FKs
+   *  V94 wires (outputs.pipeline_id -> pipelines, panels.output_id ->
+   *  outputs) -- Outputs/placements carry no independent tag of their own
+   *  (WorkspaceTeardownRepository's own docstring). */
+  private def seedOutputWithPlacement(pipelineId: String, user: AuthenticatedUser): (String, String) = {
+    val output = await(
+      outputRepo.insertInternal(
+        PipelineId(pipelineId), None, user.id, s"out-${UUID.randomUUID()}", OutputKind.Table
+      )
+    )
+    val dashboard = await(dashboardRepo.insert(
+      Dashboard(
+        DashboardId(UUID.randomUUID().toString),
+        "Placement dashboard",
+        ResourceMeta(user.id.value, Instant.now(), Instant.now()),
+        DashboardAppearance("#fff", "#eee"),
+        DashboardLayout(Vector.empty, Vector.empty, Vector.empty, Vector.empty),
+        user.id
+      )
+    ))
+    val panel = await(panelRepo.insert(
+      OutputPanel(
+        PanelId(UUID.randomUUID().toString),
+        dashboard.id,
+        "Placement panel",
+        ResourceMeta(user.id.value, Instant.now(), Instant.now()),
+        PanelAppearance("#fff", "#000", 1.0),
+        user.id,
+        OutputPanelConfig(output.id)
+      )
+    ))
+    (output.id.value, panel.id.value)
+  }
+
+  private def outputExists(id: String, user: AuthenticatedUser): Boolean =
+    await(outputRepo.findByIdOwned(OutputId(id), user)).isDefined
+
+  private def panelExists(id: String): Boolean =
+    await(panelRepo.findByIdInternal(PanelId(id))).isDefined
+
+  /** HEL-907 evaluator-1 CR3: a real, standalone tagged dashboard (no
+   *  pipeline/Output involved) -- proves dashboards participate in
+   *  tag-scoped teardown on their own, not just as `seedOutputWithPlacement`'s
+   *  incidental cascade target. */
+  private def seedTaggedDashboard(user: AuthenticatedUser, tag: Option[String]): Dashboard =
+    await(dashboardRepo.insert(
+      Dashboard(
+        DashboardId(UUID.randomUUID().toString),
+        "Tagged dashboard",
+        ResourceMeta(user.id.value, Instant.now(), Instant.now()),
+        DashboardAppearance("#fff", "#eee"),
+        DashboardLayout(Vector.empty, Vector.empty, Vector.empty, Vector.empty),
+        user.id,
+        tag
+      )
+    ))
+
+  private def dashboardExists(id: DashboardId, user: AuthenticatedUser): Boolean =
+    await(dashboardRepo.findByIdOwned(id, user)).isDefined
+
 
   "teardown (6.3 happy path)" should {
     "delete only the tagged set, with correct per-kind counts, leaving untagged resources untouched" in {
@@ -252,6 +325,49 @@ class WorkspaceTeardownServiceSpec
 
       sourceExists(controlSrc.id, userA) shouldBe true
       pipelineExists(controlPipeline.id, userA) shouldBe true
+    }
+
+    "cascade-delete a tagged pipeline's Outputs and their placements (HEL-907 tasks 2.1/5.8)" in {
+      val tag      = freshTag()
+      val src      = createTaggedSource(userA, Some(tag))
+      val pipeline = createPipeline(userA, src.id, Some(tag))
+      val (outputId, panelId) = seedOutputWithPlacement(pipeline.id, userA)
+
+      outputExists(outputId, userA) shouldBe true
+      panelExists(panelId) shouldBe true
+
+      val resp = teardown(userA, tag)
+
+      resp.committed shouldBe true
+      resp.blocked shouldBe false
+      pipelineExists(pipeline.id, userA) shouldBe false
+      // Neither the Output nor its placement Panel carries its own tag --
+      // both are torn down transitively via ON DELETE CASCADE from the
+      // deleted pipeline row (outputs.pipeline_id, then panels.output_id).
+      outputExists(outputId, userA) shouldBe false
+      panelExists(panelId) shouldBe false
+    }
+
+    // HEL-907 evaluator-1 CR3: `create_dashboard` gained a `tag` param
+    // (V95) specifically so the MCP E2E Sleeper-rebuild script's dashboards
+    // are reclaimable by tag-scoped teardown, same as sources/pipelines
+    // already were -- this proves the whole chain end to end at the service
+    // layer (a standalone tagged dashboard, not incidentally via a
+    // pipeline's Output placement).
+    "delete a tagged dashboard, leaving an untagged one untouched, and reports the count" in {
+      val tag = freshTag()
+
+      val tagged   = seedTaggedDashboard(userA, Some(tag))
+      val control  = seedTaggedDashboard(userA, None)
+
+      val resp = teardown(userA, tag)
+
+      resp.committed shouldBe true
+      resp.blocked shouldBe false
+      resp.dashboardsDeleted shouldBe 1
+
+      dashboardExists(tagged.id, userA) shouldBe false
+      dashboardExists(control.id, userA) shouldBe true
     }
   }
 

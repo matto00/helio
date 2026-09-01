@@ -8,8 +8,7 @@ import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 import { IS_DEV } from "../../../config/env";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
-import { fetchDataTypes } from "../../dataTypes/services/dataTypeService";
-import type { DataType } from "../../dataTypes/types/dataType";
+import { fetchOutputs, type OutputSummary } from "../services/outputsService";
 import { postAuthoringOutcome } from "../services/authoringService";
 import { applyProposal } from "../state/dashboardsSlice";
 import { EMPTY_WORKSPACE_COPY } from "../utils/emptyWorkspaceCopy";
@@ -17,7 +16,7 @@ import {
   classifyRequestError,
   type RequestErrorKind,
 } from "../../../services/classifyRequestError";
-import { ProposalReview, type ReviewDataType } from "./ProposalReview";
+import { ProposalReview, type ReviewOutput } from "./ProposalReview";
 import type { DashboardProposal } from "../types/proposal";
 
 /** Route container for the Proposal Review UI (HEL-224).
@@ -25,7 +24,7 @@ import type { DashboardProposal } from "../types/proposal";
  *  The proposal comes from either (a) router `location.state.proposal` (e.g.
  *  produced by the MCP `propose_dashboard` tool and handed to the app) or
  *  (b) — DEV builds only (F-002) — a demo proposal synthesized from the first
- *  pipeline-output DataType in the workspace, the fixture path used for
+ *  Output in the workspace, the fixture path used for
  *  local development and Playwright. This route sits inside `ProtectedRoute`
  *  with no other gate, so a signed-in production user landing here with no
  *  `location.state` (a stale bookmark, a back-navigation, a typo) used to get
@@ -48,7 +47,7 @@ export function ProposalReviewPage() {
   // skip the new outcome call entirely in that case, unchanged from today's behavior.
   const authoringRequestId = routeState?.authoringRequestId;
 
-  const [dataTypes, setDataTypes] = useState<DataType[] | null>(null);
+  const [outputs, setOutputs] = useState<OutputSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadErrorKind, setLoadErrorKind] = useState<RequestErrorKind | null>(null);
   // HEL-539: bumped by the Retry action to re-trigger the load effect below;
@@ -69,10 +68,10 @@ export function ProposalReviewPage() {
   useEffect(() => {
     if (!useDemoFixture) return;
     let active = true;
-    fetchDataTypes()
-      .then((types) => {
+    fetchOutputs()
+      .then((fetched) => {
         if (active) {
-          setDataTypes(types);
+          setOutputs(fetched);
           setRetrying(false);
         }
       })
@@ -80,7 +79,7 @@ export function ProposalReviewPage() {
         if (active) {
           const classified = classifyRequestError(
             err,
-            "Could not load DataTypes for this workspace.",
+            "Could not load Outputs for this workspace.",
           );
           setLoadError(classified.message);
           setLoadErrorKind(classified.kind);
@@ -107,17 +106,17 @@ export function ProposalReviewPage() {
     setRetryToken((t) => t + 1);
   }
 
-  const dataTypesById = useMemo<Record<string, ReviewDataType>>(() => {
-    const map: Record<string, ReviewDataType> = {};
-    for (const dt of dataTypes ?? []) map[dt.id] = { name: dt.name, sourceId: dt.sourceId };
+  const outputsById = useMemo<Record<string, ReviewOutput>>(() => {
+    const map: Record<string, ReviewOutput> = {};
+    for (const output of outputs ?? []) map[output.id] = { name: output.name };
     return map;
-  }, [dataTypes]);
+  }, [outputs]);
 
   const proposal = useMemo<DashboardProposal | null>(() => {
     if (stateProposal) return stateProposal;
-    if (!useDemoFixture || !dataTypes) return null;
-    return synthesizeDemoProposal(dataTypes);
-  }, [stateProposal, useDemoFixture, dataTypes]);
+    if (!useDemoFixture || !outputs) return null;
+    return synthesizeDemoProposal(outputs);
+  }, [stateProposal, useDemoFixture, outputs]);
 
   const handleAccept = async (edited: DashboardProposal) => {
     setApplying(true);
@@ -222,7 +221,7 @@ export function ProposalReviewPage() {
     <PageShell>
       <ProposalReview
         proposal={proposal}
-        dataTypesById={dataTypesById}
+        outputsById={outputsById}
         applying={applying}
         error={applyError}
         onAccept={handleAccept}
@@ -232,40 +231,25 @@ export function ProposalReviewPage() {
   );
 }
 
-/** Build a valid demo proposal from the first pipeline-output DataType, so the
+/** Build a valid demo proposal from the first Output in the workspace, so the
  *  fixture path is always applyable. Returns an empty-panel proposal when the
- *  workspace has no pipeline output yet (the page then shows guidance). */
-function synthesizeDemoProposal(dataTypes: DataType[]): DashboardProposal {
-  const output = dataTypes.find((dt) => dt.sourceId === null);
+ *  workspace has no Output yet (the page then shows guidance). An `output`
+ *  panel needs only `dataTypeId` (really the Output id, kept under that name
+ *  for wire stability) -- `fieldMapping` is not meaningful for it (the
+ *  Output's own schema is already the grounding source), unlike the retired
+ *  metric/chart/table panel kinds this fixture used to synthesize. */
+function synthesizeDemoProposal(outputs: OutputSummary[]): DashboardProposal {
+  const output = outputs[0];
   if (!output) return { dashboardName: "Proposed dashboard", panels: [] };
-
-  const fields = output.fields.map((f) => f.name);
-  const first = fields[0] ?? "value";
-  const second = fields[1] ?? first;
 
   return {
     dashboardName: `${output.name} overview`,
     panels: [
       {
-        title: `Total ${second}`,
-        type: "metric",
+        title: output.name,
+        type: "output",
         dataTypeId: output.id,
-        fieldMapping: { value: second, label: first },
-        layout: { x: 0, y: 0, w: 4, h: 3 },
-      },
-      {
-        title: `${second} by ${first}`,
-        type: "chart",
-        dataTypeId: output.id,
-        fieldMapping: { xAxis: first, yAxis: second },
-        layout: { x: 4, y: 0, w: 8, h: 3 },
-      },
-      {
-        title: `${output.name} table`,
-        type: "table",
-        dataTypeId: output.id,
-        fieldMapping: { columns: fields.join(",") },
-        layout: { x: 0, y: 3, w: 12, h: 4 },
+        layout: { x: 0, y: 0, w: 12, h: 6 },
       },
     ],
   };

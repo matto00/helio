@@ -4,6 +4,7 @@ import com.helio.api.protocols.dashboards.DashboardLayoutItemPayload
 import com.helio.api.protocols.dashboards.{DashboardLayoutPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.patchsets.{EditTarget, PatchSet}
 import com.helio.api.protocols.panels.UpdatePanelRequest
+import com.helio.api.protocols.pipelines.UpdateOutputRequest
 import com.helio.api.protocols.patchsets.{Edit, PatchSetProtocol}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -13,7 +14,9 @@ import spray.json._
  *  mirrors [[PipelineProposalProtocolSpec]]'s structure. Covers: mixed
  *  round-trip (panel update + panel delete + dashboard update), absent-
  *  optional tolerance, target.id enforcement for update/delete vs. create,
- *  and rejection of unrecognized op/target.kind values. */
+ *  and rejection of unrecognized op/target.kind values. HEL-907 task 1.2: also covers the
+ *  `output` target.kind's own round-trip (update only -- no create op, see PatchSetProtocol's
+ *  own doc). */
 class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtocol {
 
   private val panelUpdatePatch = UpdatePanelRequest(
@@ -67,6 +70,20 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
     pipelinePatch      = None,
     pipelineStepPatch  = None,
     createPatch        = None
+  )
+
+  private val outputUpdatePatch = UpdateOutputRequest(name = Some("Renamed output"), config = None)
+
+  private val outputUpdateEdit = Edit(
+    target             = EditTarget(kind = "output", id = Some("output-1")),
+    op                 = "update",
+    panelPatch         = None,
+    dashboardPatch     = None,
+    dataSourcePatch    = None,
+    pipelinePatch      = None,
+    pipelineStepPatch  = None,
+    createPatch        = None,
+    outputPatch        = Some(outputUpdatePatch)
   )
 
   private val mixedPatchSet = PatchSet(
@@ -215,6 +232,32 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
         "op"     -> JsString("update")
       )
       an[DeserializationException] should be thrownBy json.convertTo[Edit]
+    }
+
+    // HEL-907 task 1.2: `output` IS now a valid target.kind (added by this task).
+    "round-trip an output update edit" in {
+      outputUpdateEdit.toJson.convertTo[Edit] shouldBe outputUpdateEdit
+    }
+
+    "decode an output update edit's patch into UpdateOutputRequest, not any other *Patch field" in {
+      val decoded = outputUpdateEdit.toJson.convertTo[Edit]
+      decoded.outputPatch shouldBe Some(outputUpdatePatch)
+      decoded.panelPatch shouldBe None
+      decoded.dashboardPatch shouldBe None
+      decoded.dataSourcePatch shouldBe None
+      decoded.pipelinePatch shouldBe None
+      decoded.pipelineStepPatch shouldBe None
+    }
+
+    "decodes an output create edit's patch as untyped createPatch, same as every other kind -- rejecting create for output is a resolver-level concern (PatchSetApplyResolvers), not this protocol layer's" in {
+      val json = JsObject(
+        "target" -> JsObject("kind" -> JsString("output")),
+        "op"     -> JsString("create"),
+        "patch"  -> JsObject("name" -> JsString("New Output"))
+      )
+      val decoded = json.convertTo[Edit]
+      decoded.createPatch shouldBe Some(JsObject("name" -> JsString("New Output")))
+      decoded.outputPatch shouldBe None
     }
 
     "raise a deserializationError when op is missing" in {
