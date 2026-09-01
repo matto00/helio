@@ -7,17 +7,18 @@ import { InlineError } from "../../../shared/chrome/InlineError";
 import type { DashboardProposal, ProposalPanel } from "../types/proposal";
 import "./ProposalReview.css";
 
-/** Minimal DataType info the review needs to name a binding and flag a
- *  non-pipeline-output (unbindable) reference. */
-export interface ReviewDataType {
+/** Minimal Output info the review needs to name a binding (HEL-907 task 4.1
+ *  -- retargeted off the retired DataType model; an Output has no
+ *  "source companion" concept, so there is nothing analogous to flag beyond
+ *  plain existence). */
+export interface ReviewOutput {
   name: string;
-  sourceId: string | null;
 }
 
 interface ProposalReviewProps {
   proposal: DashboardProposal;
-  /** id → DataType, for resolving binding names + flagging invalid bindings. */
-  dataTypesById: Record<string, ReviewDataType>;
+  /** id → Output, for resolving binding names + flagging invalid bindings. */
+  outputsById: Record<string, ReviewOutput>;
   applying: boolean;
   error?: string | null;
   /** Called with the (possibly edited) proposal on accept. */
@@ -32,12 +33,12 @@ const PREVIEW_COLS = 12;
 const PREVIEW_ROW_PX = 16;
 
 /** Proposal Review UI (HEL-224). Renders a proposed dashboard — name + panel
- *  list (type / bound DataType / field mapping / layout) + a small preview —
+ *  list (type / bound Output / field mapping / layout) + a small preview —
  *  and lets the reviewer edit panel titles, remove panels, or reject. Nothing
  *  is written until Accept, which calls the apply-proposal endpoint. */
 export function ProposalReview({
   proposal,
-  dataTypesById,
+  outputsById,
   applying,
   error,
   onAccept,
@@ -59,10 +60,8 @@ export function ProposalReview({
 
   const bindingIssue = (panel: ProposalPanel): string | null => {
     if (!DATA_PANEL_TYPES.has(panel.type)) return null;
-    if (!panel.dataTypeId) return "No data type bound";
-    const dt = dataTypesById[panel.dataTypeId];
-    if (!dt) return "Bound data type not found in this workspace";
-    if (dt.sourceId !== null) return "Bound to a source companion — not a pipeline output";
+    if (!panel.dataTypeId) return "No Output bound";
+    if (!outputsById[panel.dataTypeId]) return "Bound Output not found in this workspace";
     return null;
   };
 
@@ -123,7 +122,7 @@ export function ProposalReview({
               {panels.map((panel, index) => {
                 const issue = bindingIssue(panel);
                 const boundName = panel.dataTypeId
-                  ? (dataTypesById[panel.dataTypeId]?.name ?? panel.dataTypeId)
+                  ? (outputsById[panel.dataTypeId]?.name ?? panel.dataTypeId)
                   : null;
                 return (
                   <li key={index} className="proposal-review__panel">
@@ -146,7 +145,7 @@ export function ProposalReview({
                     <dl className="proposal-review__meta">
                       {DATA_PANEL_TYPES.has(panel.type) && (
                         <div className="proposal-review__meta-row">
-                          <dt>Data type</dt>
+                          <dt>Output</dt>
                           <dd className="mono">{boundName ?? "—"}</dd>
                         </div>
                       )}

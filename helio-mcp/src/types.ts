@@ -45,6 +45,10 @@ export interface DashboardResponse {
   appearance: { background: string; gridBackground: string };
   layout: DashboardLayout;
   ownerId: string;
+  /** HEL-907 evaluator-1 CR3 (V95): free-form grouping tag, HEL-366's
+   *  existing convention extended to dashboards. Omitted on the wire when
+   *  unset (spray-json drops `Option = None`) — read as `tag ?? null`. */
+  tag?: string | null;
 }
 
 /** One panel as serialized in a dashboard export snapshot. `config` is a typed
@@ -72,6 +76,18 @@ export interface DashboardSnapshot {
 }
 
 /** DataSource is a discriminated union on `type` (csv/rest_api/sql/static). */
+export interface InferredFieldResponse {
+  name: string;
+  displayName: string;
+  dataType: string;
+  nullable: boolean;
+}
+
+/** `DataSource.inferredSchema` (HEL-904, moved from the retired `DataTypeProtocol`). */
+export interface InferredSchemaResponse {
+  fields: InferredFieldResponse[];
+}
+
 export interface DataSourceResponse {
   id: string;
   name: string;
@@ -82,6 +98,10 @@ export interface DataSourceResponse {
   /** HEL-366: optional free-form grouping tag, set only at create time. Omitted on the wire
    *  when null (spray-json drops `Option = None`) — read as `tag ?? null`. */
   tag?: string | null;
+  /** HEL-907 design.md Decision 6: the source's own inferred schema (`DataSourceProtocol.scala`'s
+   *  `inferredSchema: Option[InferredSchemaResponse]`). Omitted on the wire when `None` (spray-json
+   *  drops `Option = None`) — read as `inferredSchema?.fields ?? []`. */
+  inferredSchema?: InferredSchemaResponse;
 }
 
 export interface DataFieldResponse {
@@ -117,41 +137,20 @@ export interface DataTypeResponse {
   tag?: string | null;
 }
 
-/** `GET /api/types/:id/rows` — latest pipeline-run snapshot. */
-export interface DataTypeRowsResponse {
-  rows: Record<string, unknown>[];
-  rowCount: number;
-}
-
-/** `PATCH /api/types/:id` request body — mirrors the backend's
- *  `UpdateDataTypeRequest`. `name`/`fields`/`computedFields` are each
- *  independently optional: an omitted field leaves it unchanged server-side.
- *  When `fields` or `computedFields` IS provided, `DataTypeService.applyUpdate`
- *  replaces the existing array WHOLESALE (`request.X.map(...).getOrElse(existing.X)`
- *  — no per-item merge), unlike this file's other partial-PATCH shapes
- *  (`UpdateMetricRequest`, panel appearance). Item shape mirrors the backend's
- *  `DataFieldPayload`/`ComputedFieldPayload` exactly — structurally identical
- *  to `DataFieldResponse`/`ComputedFieldResponse`, reused here rather than
- *  duplicated. This interface is the already-parsed shape the tool builds a
- *  JSON body from; see `updateSchemas.ts`'s `buildUpdateDataTypeBody`. */
-export interface UpdateDataTypeRequest {
-  name?: string;
-  fields?: DataFieldResponse[];
-  computedFields?: ComputedFieldResponse[];
-}
-
-/** One column of a DataType's shape, as reported by `get_panel_capabilities`. */
+/** One column of an Output/node's shape, as reported by `get_output_capabilities`
+ *  (HEL-907 task 3.7 -- replaces the retired `get_panel_capabilities`, which called a route
+ *  HEL-904 deleted). */
 export interface PanelCapabilityColumnResponse {
   name: string;
   dataType: string;
   nullable: boolean;
 }
 
-/** Capability report for one bindable panel kind (HEL-365). `eligibleColumns`
- *  is advisory (slot key -> column names that fit that slot's column-type
- *  rule), not a bind-time guarantee — the backend does not validate
- *  `fieldMapping` column fit today. `reason`/`message` are omitted on the
- *  wire (spray-json drops `Option = None`) unless `bindable` is `false`. */
+/** Capability report for one bindable Output kind (HEL-365, retargeted HEL-906 task 3.4).
+ *  `eligibleColumns` is advisory (slot key -> column names that fit that slot's column-type
+ *  rule), not a bind-time guarantee — the backend does not validate `fieldMapping` column fit
+ *  today. `reason`/`message` are omitted on the wire (spray-json drops `Option = None`) unless
+ *  `bindable` is `false`. */
 export interface PanelCapabilityResponse {
   bindable: boolean;
   requiredSlots: string[];
@@ -161,26 +160,102 @@ export interface PanelCapabilityResponse {
   message?: string;
 }
 
-/** `GET /api/types/:id/panel-capabilities` — for an owner-scoped DataType,
- *  which of the five data-bindable panel kinds (metric/chart/table/
- *  collection/timeline) are structurally bindable, plus shape signals. */
-export interface PanelCapabilitiesResponse {
-  dataTypeId: string;
-  isPipelineOutput: boolean;
+/** `GET /api/pipelines/:id/capabilities?stepId=` (HEL-906 task 3.4) -- the node-scoped
+ *  successor to the retired `GET /api/types/:id/panel-capabilities`. `stepId` absent means the
+ *  pipeline's raw source. */
+export interface NodeCapabilitiesResponse {
+  stepId?: string;
   columns: PanelCapabilityColumnResponse[];
-  rowCount: number;
-  singleRow: boolean;
   capabilities: Record<string, PanelCapabilityResponse>;
 }
 
-/** `GET /api/pipelines` / `GET /api/pipelines/:id` — summary (no steps). */
+// ── Outputs (HEL-906/HEL-907) ────────────────────────────────────────────────
+
+/** One column of an Output's persisted, derived schema (`{name, type}` shallow-union over its
+ *  materialized rows) -- distinct from `PanelCapabilityColumnResponse` (per-node PROJECTED
+ *  schema, `nullable` included, used by `get_output_capabilities`); this one is the Output's own
+ *  stored `schema` field. */
+export interface OutputSchemaFieldResponse {
+  name: string;
+  type: string;
+}
+
+/** `GET/POST /api/pipelines/:id/outputs`, `GET/PATCH/DELETE /api/outputs/:id`, `GET /api/outputs`
+ *  (HEL-906). `config`/`schema` are typed by `kind` -- passed through verbatim, never
+ *  reinterpreted here (same convention as panel `config`). */
+export interface OutputResponse {
+  id: string;
+  pipelineId: string;
+  nodeStepId?: string;
+  ownerId: string;
+  name: string;
+  kind: string;
+  config: unknown;
+  schema: OutputSchemaFieldResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OutputsResponse {
+  items: OutputResponse[];
+}
+
+export interface CreateOutputRequest {
+  nodeStepId?: string;
+  kind: string;
+  name: string;
+  config?: Record<string, unknown>;
+}
+
+/** `name`/`config` absent means "leave unchanged" -- `config`, when present, is merged into the
+ *  stored config one level deep for `legend`/`tooltip`/`seriesColors`/`axisLabels` (HEL-877)
+ *  rather than replacing it wholesale. */
+export interface UpdateOutputRequest {
+  name?: string;
+  config?: Record<string, unknown>;
+}
+
+export interface OutputPanelPlacementResponse {
+  panelId: string;
+  dashboardId: string;
+}
+
+export interface DeleteOutputResponse {
+  removedPanelIds: string[];
+}
+
+/** `GET /api/outputs/:id/assertion-status` (HEL-576, retargeted HEL-906 task 2.5). `invalid` is
+ *  true when the Output's own node has at least one persisted error-severity failed assertion on
+ *  the pipeline's latest non-dry run. */
+export interface AssertionStatusResponse {
+  outputId: string;
+  invalid: boolean;
+  failedRuleCount: number;
+}
+
+/** One entry of `POST /api/pipelines/:id/preview?outputId=`'s response (HEL-906 cycle 10) --
+ *  present for every previewed Output, one arm (single-Output vs all-Outputs) selected by
+ *  whether `outputId` was passed. `preview` reuses `RunResultResponse`'s shape verbatim. */
+export interface OutputPreviewEntry {
+  outputId: string;
+  preview: RunResultResponse;
+}
+
+export interface PipelinePreviewResponse {
+  outputs: OutputPreviewEntry[];
+}
+
+/** `GET /api/pipelines` / `GET /api/pipelines/:id` — summary (no steps). Mirrors the backend's
+ *  `PipelineProtocol.scala` `PipelineSummaryResponse` exactly (nine fields, `jsonFormat9`) --
+ *  HEL-907 evaluator-final round-2 CR1: `outputDataTypeName`/`outputDataTypeId` REMOVED, since
+ *  they haven't existed on this wire shape since HEL-904 (the field was silently `undefined`,
+ *  dropped by `JSON.stringify`, never actually reaching an agent). If a caller needs the
+ *  pipeline's produced Output id(s), list them via `list_outputs(pipelineId)`. */
 export interface PipelineSummaryResponse {
   id: string;
   name: string;
   sourceDataSourceId: string;
   sourceDataSourceName: string;
-  outputDataTypeName: string;
-  outputDataTypeId: string;
   lastRunStatus: string | null;
   lastRunAt: string | null;
   lastRunRowCount: number | null;
@@ -290,13 +365,34 @@ export interface SchemaField {
   type: string;
 }
 
-/** `GET /api/pipelines/:id/analyze` — steps with per-step input/output schema. */
+/** `PipelineAnalyzeResponse.sourceSchemaDrift` (HEL-462) — absent when there is no baseline yet
+ *  (the pipeline has never run successfully) or the current source schema matches the baseline
+ *  exactly. Mirrors `PipelineAnalyzeProtocol.scala`'s `SourceSchemaDriftResponse`/
+ *  `TypeChangedColumnResponse`. */
+export interface TypeChangedColumnResponse {
+  name: string;
+  previousType: string;
+  currentType: string;
+}
+export interface SourceSchemaDriftResponse {
+  addedColumns: SchemaField[];
+  removedColumns: SchemaField[];
+  typeChangedColumns: TypeChangedColumnResponse[];
+}
+
+/** `GET /api/pipelines/:id/analyze` — steps with per-step input/output schema. Mirrors the
+ *  backend's `PipelineAnalyzeProtocol.scala` `PipelineAnalyzeResponse` (HEL-907 evaluator-final
+ *  round-2 CR5: `outputDataTypeName`/`outputDataTypeId` REMOVED -- neither exists on that case
+ *  class; `analyze_pipeline` passes the server JSON through verbatim, so this interface was
+ *  purely a stale, unused type-level claim, never an agent-visible defect on its own).
+ *  evaluator-final round-3 non-blocking note: `sourceSchemaDrift` was missing entirely -- the
+ *  inverse defect (under- rather than over-specification) -- added here for symmetry with the
+ *  real 6-field case class (`jsonFormat6`), omitted on the wire when `None` (spray-json drops
+ *  `Option = None`), so read as optional here too. */
 export interface PipelineAnalyzeResponse {
   id: string;
   name: string;
   sourceDataSourceName: string;
-  outputDataTypeName: string;
-  outputDataTypeId: string;
   sourceSchema: SchemaField[];
   steps: Array<{
     id: string;
@@ -307,6 +403,7 @@ export interface PipelineAnalyzeResponse {
     outputSchema: SchemaField[];
     validationError: string | null;
   }>;
+  sourceSchemaDrift?: SourceSchemaDriftResponse;
 }
 
 /** `PATCH /api/panels/:id` request body — mirrors the backend's
@@ -345,16 +442,6 @@ export interface PanelResponse {
   dataAsOf: string | null;
 }
 
-/** `POST /api/panels/bound` (HEL-364) — every id created (or reused) by the
- *  compound source→pipeline→run→panel-bind call, plus the created,
- *  already-bound panel. Mirrors the backend's `BoundPanelResponse`. */
-export interface BoundPanelResponse {
-  sourceId: string;
-  pipelineId: string;
-  dataTypeId: string;
-  panel: PanelResponse;
-}
-
 /** `POST /api/pipelines/:id/run` — synchronous run result (rows already written).
  *
  *  HEL-861: `sourceTruncated`/`sourceAvailableRowCount`/`truncationNotice` surface the backend's
@@ -379,49 +466,49 @@ export interface ProposalPanelLayout {
   h: number;
 }
 
-/** One proposed panel. No ids — data panels reference an existing
- *  pipeline-output DataType by id. Matches dashboard-proposal.schema.json. */
-/** Viz-level aggregation spec for a metric panel — overrides only the `value`
- *  slot; matches `MetricAggregation` in panel.schema.json. */
+/** One proposed panel. No ids — an `output`-kind panel's `dataTypeId`
+ *  (kept under that name for wire stability, HEL-907) is really an Output
+ *  id. Matches dashboard-proposal.schema.json.
+ *
+ *  HEL-904 retired the metric/chart/table/collection/timeline panel kinds
+ *  outright — `type` is one of text/markdown/image/output/divider now.
+ *  `metricId`/`aggregation`/`chartType`/`xAxisLabel`/`yAxisLabel`/
+ *  `seriesColors`/`label`/`unit`/`sort` are LEGACY fields kept on the wire
+ *  shape for schema stability only (`dashboard-proposal.schema.json`'s own
+ *  field descriptions: "decoded but never applied") — none of them do
+ *  anything anymore; the concepts they used to carry (fieldMapping,
+ *  aggregation, per-kind viz options) now live on the Output itself, not on
+ *  the placement. `fieldMapping` is likewise not meaningful for an
+ *  `output`-kind panel (an Output's own `schema` is already the grounding
+ *  source) or for text/markdown (which carry no data binding of any kind).
+ *
+ *  `config` (HEL-316) is a generic passthrough merged over the config
+ *  derived from the flat fields above, then decoded by the same
+ *  panel-create path place_outputs/create_content_panel uses. An
+ *  `output`-kind panel's flat `dataTypeId` always stays authoritative over
+ *  `config`; a text/markdown panel's `config.dataTypeId` is silently
+ *  inert, NOT a real binding attempt (the data-bound "Source mode" those
+ *  kinds used to support was removed outright by HEL-904 task 4.1). */
 export interface MetricAggregationSpec {
   value: string;
   agg: "count" | "sum" | "avg" | "min" | "max";
 }
 
-/** Viz-level groupBy aggregation spec for a chart panel (bar/line only);
- *  matches `ChartAggregation` in panel.schema.json. */
+/** Legacy, decoded-but-never-applied wire shape (see `ProposalPanel`'s own
+ *  doc) — kept for schema stability only; the chart panel kind it targeted
+ *  was retired by HEL-904. */
 export interface ChartAggregationSpec {
   groupBy: string;
   agg: "count" | "sum" | "avg" | "min" | "max";
   yField: string;
 }
 
-/** `content`/`url`/`orientation` seed the initial config of text/markdown,
- *  image, and divider panels (applied at create time). `chartType`/
- *  `xAxisLabel`/`yAxisLabel`/`seriesColors` apply as a best-effort follow-up
- *  appearance update for chart panels. `label`/`unit` are a literal
- *  metric-panel display override — distinct from `fieldMapping.label`/
- *  `fieldMapping.unit`, which bind to a data column. All HEL-293.
- *
- *  `config` (HEL-316) is a generic passthrough merged over the config derived
- *  from the flat fields above, then decoded by the same panel-create path as
- *  create_panel's `config` — the escape hatch for v1.5 surfaces with no flat
- *  field: collection `{baseType,layout}`, chart `{chartOptions}`, table
- *  `{density,columnOrder}`, timeline `{timelineOptions:{sort}}` (HEL-317),
- *  text/markdown `{dataTypeId,fieldMapping}` (HEL-244 binding). A
- *  metric/chart/table/collection/timeline panel's flat `dataTypeId` always
- *  stays authoritative over `config`; a text/markdown panel's
- *  `config.dataTypeId` is a real binding attempt and is validated against the
- *  same pipeline-only rule (V41) as any other binding — a source-companion or
- *  non-owned DataType is rejected. */
 export interface ProposalPanel {
   title: string;
   type: string;
   dataTypeId?: string;
-  /** HEL-549: additive to dataTypeId (which remains required) — binds a
-   *  metric/chart/table panel to a defined metric via the same
-   *  MetricPanelConfig/ChartPanelConfig/TablePanelConfig metricId slot
-   *  create_panel uses. Unsupported on collection/timeline. */
+  /** Legacy, decoded-but-never-applied wire shape — the metric panel kind
+   *  it targeted was retired by HEL-904 (see `ProposalPanel`'s own doc). */
   metricId?: string;
   fieldMapping?: Record<string, string>;
   aggregation?: MetricAggregationSpec | ChartAggregationSpec;
@@ -459,15 +546,24 @@ export interface RowsPreview {
 }
 
 /** `POST /api/sources` response (REST/SQL create) — mirrors the backend's
- *  `CreateSourceResponse`. On the wire, `dataType`/`fetchError` are Scala
- *  `Option`s and are OMITTED entirely when `None` (spray-json drops `None`
- *  fields); the `helioApi.ts` wrappers normalize a missing field to `null`
- *  before returning this shape, so callers can always rely on the field being
- *  present (never `undefined`). */
+ *  `CreateSourceResponse` (`DataSourceProtocol.scala`). HEL-907 evaluator-final-1: this
+ *  interface used to declare a `dataType` field the backend has not sent since HEL-904 (the
+ *  real field is `inferredSchema: Option[InferredSchemaResponse]`, a SIBLING of `source`, not
+ *  nested inside it) -- every create silently reported `dataType: null`, which callers could
+ *  misread as "the initial fetch failed" when it was actually just a dead field that was
+ *  ALWAYS null. On the wire, `inferredSchema`/`fetchError`/`rowCapNotice` are Scala `Option`s
+ *  and are OMITTED entirely when `None` (spray-json drops `None` fields); the `helioApi.ts`
+ *  wrappers normalize a missing field to `null` before returning this shape, so callers can
+ *  always rely on each field being present (never `undefined`). */
 export interface CreateSourceResult {
   source: DataSourceResponse;
-  dataType: DataTypeResponse | null;
+  inferredSchema: InferredSchemaResponse | null;
   fetchError: string | null;
+  /** HEL-861 design D6: a forward-looking advisory, populated when the connector's inference
+   *  measured a true row total exceeding the run-time row cap -- that a future run over this
+   *  source will be truncated. Not a report that creation itself applied a cap. `null` when the
+   *  total is unknown (SQL) or under the cap. */
+  rowCapNotice: string | null;
 }
 
 /** `GET /api/connector-types` (HEL-484) — one required config field descriptor.
@@ -570,7 +666,14 @@ export interface TeardownResponse {
   conflicts: TeardownConflictResponse[];
   sourcesDeleted: number;
   pipelinesDeleted: number;
-  typesDeleted: number;
+  /** HEL-907 evaluator-1 CR3: dashboards now participate in tag-scoped
+   *  teardown too. Replaces the stale `typesDeleted` field this interface
+   *  used to claim -- the backend's `TeardownResponse` (`WorkspaceProtocol
+   *  .scala`) has carried no such field since HEL-904 task 3.2 removed the
+   *  `data_type` teardown branch outright; this TS mirror had drifted and
+   *  was claiming a field the wire never sends (found via the CR1 grep
+   *  sweep, not the original report). */
+  dashboardsDeleted: number;
 }
 
 /** One entry in `POST /api/pipeline-shapes/:id/expand`'s response array —
@@ -582,76 +685,23 @@ export interface ShapeStepExpansionResponse {
   config: Record<string, unknown>;
 }
 
-// ── Metric (semantic layer) CRUD (HEL-493/HEL-541) — mirrors
-// `backend/.../api/protocols/MetricProtocol.scala` ──────────────────────────
-
-/** Display formatting hints for a metric's value — all optional, purely
- *  presentational. Mirrors the backend's `MetricFormat`; every field is a
- *  Scala `Option` and is OMITTED on the wire when `None` (spray-json drops
- *  `Option = None`), so each field here is `?:` per the existing `types.ts`
- *  convention. */
-export interface MetricFormat {
-  unit?: string;
-  decimals?: number;
-  prefix?: string;
-  suffix?: string;
+/** `POST /api/pipeline-shapes/:id/expand`'s real wire envelope (HEL-934) --
+ *  NOT a bare `ShapeStepExpansionResponse[]` (the pre-HEL-934 shape this
+ *  file's own `expandPipelineShape` return type used to claim, a live bug:
+ *  every real response is this envelope, so any caller that iterated the
+ *  response directly as an array would throw at runtime the first time a
+ *  shape expanded to any steps -- see HEL-907 task 3.12). `outputs` is
+ *  always absent/`null` today (no shape's `expand` populates it yet) but
+ *  the envelope itself is not, so this type carries it as optional for
+ *  forward compatibility rather than silently dropping it. */
+export interface ExpandPipelineShapeResponse {
+  steps: ShapeStepExpansionResponse[];
+  outputs?: unknown[];
 }
 
-/** `GET /api/metrics` / `GET /api/metrics/:id` / `POST /api/metrics` /
- *  `PATCH /api/metrics/:id` response — mirrors the backend's
- *  `MetricResponse`. A metric names a reusable measure (an `aggregation`
- *  applied to `measureField`) over a pipeline-output DataType (V41) — the
- *  semantic layer a panel should reference instead of re-deriving a measure
- *  inline. `description` is omitted on the wire when unset (spray-json drops
- *  `Option = None`). */
-export interface MetricResponse {
-  id: string;
-  ownerId: string;
-  dataTypeId: string;
-  name: string;
-  description?: string;
-  measureField: string;
-  aggregation: string;
-  allowedDimensions: string[];
-  format: MetricFormat;
-  deprecated: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** `POST /api/metrics` request body — mirrors the backend's
- *  `CreateMetricRequest`. `dataTypeId` must resolve to a caller-owned,
- *  pipeline-output DataType (V41); `format`, when omitted, defaults to an
- *  all-absent `MetricFormat` server-side. */
-export interface CreateMetricRequest {
-  dataTypeId: string;
-  name: string;
-  description?: string;
-  measureField: string;
-  aggregation: string;
-  allowedDimensions: string[];
-  format?: MetricFormat;
-}
-
-/** `PATCH /api/metrics/:id` request body — mirrors the backend's
- *  `UpdateMetricRequest`'s absent-vs-null convention (design.md Decision 2,
- *  same idiom as `MetricPanelConfig.Patch`/`Option[Option[X]]`): `name`/
- *  `measureField`/`aggregation`/`allowedDimensions`/`deprecated` are plain
- *  optional replace-if-present fields; `description`/`format` are
- *  nullable-optional — key ABSENT from the built JSON body means "leave
- *  unchanged", key present with value `null` means "clear". `dataTypeId` is
- *  intentionally not patchable (not in the ticket's field list). This
- *  interface itself is the already-parsed shape the tool builds a JSON body
- *  from; see `write.ts`'s body-builder for the absent-vs-null encoding. */
-export interface UpdateMetricRequest {
-  name?: string;
-  description?: string | null;
-  measureField?: string;
-  aggregation?: string;
-  allowedDimensions?: string[];
-  format?: MetricFormat | null;
-  deprecated?: boolean;
-}
+// HEL-907 task 3.9: the Metric (semantic layer) CRUD types (`MetricFormat`/`MetricResponse`/`CreateMetricRequest`/`UpdateMetricRequest`)
+// are REMOVED outright, along with `MetricRoutes` on the backend (deleted by HEL-904 -- `POST/PATCH/DELETE /api/metrics`
+// have had no route to call since) and the retired `create_metric`/`update_metric`/`delete_metric`/`list_metrics`/`get_metric` tools.
 
 // ── Pipeline proposal (HEL-379/381/383/385) — mirrors
 // `backend/.../api/protocols/PipelineProposalProtocol.scala` /
@@ -672,40 +722,77 @@ export interface PipelineProposalSource {
   config?: Record<string, unknown>;
 }
 
+/** One step of a pipeline proposal (HEL-907 task 1.1/3.10) — mirrors the
+ *  backend's `CreatePipelineTransactionalStepRequest` (P1.3/HEL-906's
+ *  single-call transactional shape) verbatim. `clientId` is request-scoped
+ *  only, never persisted — it lets a LATER step's `parentStepId`, or an
+ *  output's `nodeStepClientId`, target this step within the same proposal. */
+export interface PipelineProposalStep {
+  clientId: string;
+  type: string;
+  config: unknown;
+  parentStepId?: string | null;
+  enabled?: boolean | null;
+}
+
+/** One Output of a pipeline proposal (HEL-907 task 1.1/3.10) — mirrors the
+ *  backend's `CreatePipelineTransactionalOutputRequest` verbatim.
+ *  `nodeStepClientId` resolves against `steps[].clientId` in the same
+ *  proposal; absent means the pipeline's raw source (before any step). */
+export interface PipelineProposalOutput {
+  nodeStepClientId?: string | null;
+  kind: "table" | "metric" | "chart" | "collection" | "timeline" | "markdown";
+  name: string;
+  config?: unknown;
+}
+
 /** A pipeline proposal — the shared Proposal → Review → Apply artifact for
  *  pipelines (mirrors `DashboardProposal`). Carries no ids: nothing is
- *  created until applied via `apply_pipeline_proposal`. `steps` reuses the
- *  same `{type, config}` shape `add_pipeline_step`/`boundPipelineStepSchema`
- *  (`write.ts`) already use — no new step DTO. */
+ *  created until applied via `apply_pipeline_proposal`. `outputs` is
+ *  OPTIONAL — a proposal may create a pipeline with zero Outputs, to be
+ *  added later via `add_output`. HEL-907 task 1.1: retargeted from the old
+ *  single `outputDataTypeName` DataType contract onto Outputs. */
 export interface PipelineProposal {
   pipelineName: string;
   source: PipelineProposalSource;
-  outputDataTypeName: string;
-  steps: Array<{ type: string; config: unknown }>;
+  steps: PipelineProposalStep[];
+  outputs?: PipelineProposalOutput[];
 }
 
 /** `POST /api/pipelines/analyze-proposal` response (HEL-381) — the projected
  *  source/step schema for a not-yet-created proposal, dry (no writes, no ids
  *  minted). `steps` reuses `PipelineAnalyzeResponse["steps"]`'s exact inline
  *  per-step shape verbatim (design.md D5) — both are produced by the same
- *  backend `analyzeStepResponseFormat`, so no second, divergent type. */
+ *  backend `analyzeStepResponseFormat`, so no second, divergent type.
+ *  HEL-907 task 1.1: `outputDataTypeName` dropped outright (no alias) — it
+ *  was a pure echo of `PipelineProposal`'s now-removed same-named field. */
 export interface PipelineAnalyzeProposalResponse {
   sourceName: string;
-  outputDataTypeName: string;
   sourceSchema: SchemaField[];
   steps: PipelineAnalyzeResponse["steps"];
 }
 
-/** `POST /api/pipelines/apply-proposal` response (HEL-383) — every id created
- *  by the atomic apply, plus the synchronous run result. `source` is present
- *  only for the inline-source branch (mirrors the backend's `Option`, omitted
- *  on the wire when absent — read as `source ?? undefined`, i.e. simply
- *  check truthiness); the existing-sourceId branch has nothing new to report
- *  and omits it. */
+/** One applied Output, reported back by `apply_pipeline_proposal` (HEL-907
+ *  task 1.1) — mirrors the backend's `ProposalOutputSummary`. */
+export interface ProposalOutputSummary {
+  id: string;
+  name: string;
+  kind: string;
+  nodeStepId?: string | null;
+}
+
+/** `POST /api/pipelines/apply-proposal` response (HEL-383, retargeted
+ *  HEL-907 task 1.1) — every id created by the atomic apply, plus the
+ *  synchronous run result. `source` is present only for the inline-source
+ *  branch (mirrors the backend's `Option`, omitted on the wire when absent —
+ *  read as `source ?? undefined`, i.e. simply check truthiness); the
+ *  existing-sourceId branch has nothing new to report and omits it.
+ *  `outputs` replaces the old single `outputDataTypeId: string` — a
+ *  proposal can create zero, one, or many Outputs now. */
 export interface PipelineProposalApplyResponse {
   source?: DataSourceResponse;
   pipeline: PipelineSummaryResponse;
-  outputDataTypeId: string;
+  outputs: ProposalOutputSummary[];
   run: RunResultResponse;
 }
 

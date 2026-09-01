@@ -1,6 +1,6 @@
 package com.helio.services.patchsets
 
-import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
@@ -156,6 +156,21 @@ private[services] object PatchSetApplyRollback {
         }
       case ResolvedAction.PipelineStepDelete(_, prior) =>
         compensatePipelineStepDelete(edit, prior, user, services)
+
+      // ── output (HEL-907 task 1.2 — no create, see PatchSetProtocol's doc) ─
+      case ResolvedAction.OutputUpdate(id, _, prior, priorConfig) =>
+        services.outputService.update(id, UpdateOutputRequest(name = Some(prior.name), config = Some(priorConfig)), user).map {
+          case Right((output, config)) =>
+            edit.toOutcome("rolledBack", resultingState = Some(outputResponseFormat.write(outputResponseFrom(output, config))))
+          case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
+        }
+      case ResolvedAction.OutputDelete(_, _) =>
+        // design.md D1 precedent (dashboard/dataSource/pipeline delete, same file): cascades to
+        // every placement Panel bound to this Output (V94 `panels.output_id ON DELETE CASCADE`,
+        // also reported back explicitly by `OutputService.delete`'s `removedPanelIds`) --
+        // recreating the Output AND every one of its former placements, at their former
+        // positions, would duplicate a multi-step composition this ticket does not reimplement.
+        Future.successful(edit.toOutcome("unrecoverable"))
     }
 
   /** design.md D3a: recreate via `addStep`, then `updateStep(position=...)`
@@ -282,9 +297,15 @@ private[services] object PatchSetApplyRollback {
     UpdatePipelineStepRequest(
       `type`   = Some(prior.kind),
       config   = Some(JsonParser(PipelineStepConfigCodec.encode(prior)).asJsObject),
-      position = Some(prior.position)
+      position = Some(prior.position),
+      enabled  = Some(prior.enabled)
     )
 
   private def pipelineStepCreateRequestFromPrior(prior: PipelineStep): CreatePipelineStepRequest =
-    CreatePipelineStepRequest(`type` = prior.kind, config = JsonParser(PipelineStepConfigCodec.encode(prior)).asJsObject)
+    CreatePipelineStepRequest(
+      `type`        = prior.kind,
+      config        = JsonParser(PipelineStepConfigCodec.encode(prior)).asJsObject,
+      enabled       = Some(prior.enabled),
+      parentStepId  = prior.parentStepId.map(_.value)
+    )
 }

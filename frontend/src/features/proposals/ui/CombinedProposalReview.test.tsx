@@ -20,8 +20,8 @@ function makeProposal(overrides: Partial<CombinedProposal> = {}): CombinedPropos
     pipeline: {
       pipelineName: "Sales pipeline",
       source: { type: "static", name: "Demo source", config: {} },
-      outputDataTypeName: "SalesMetrics",
       steps: [],
+      outputs: [{ kind: "table", name: "SalesMetrics" }],
     },
     dashboard: {
       dashboardName: "Sales overview",

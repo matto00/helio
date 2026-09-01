@@ -2,7 +2,7 @@ package com.helio.services.patchsets
 
 
 import com.helio.services.ServiceError
-import com.helio.api.protocols.pipelines.{UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{OutputResponse, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
@@ -12,11 +12,11 @@ import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
 import com.helio.services.patchsets.PatchSetApplyService
-import com.helio.services.pipelines.PipelineService
+import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
@@ -66,12 +66,14 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
   private var permissionRepo: ResourcePermissionRepository = _
   private var pipelineRepo: PipelineRepository           = _
   private var pipelineStepRepo: PipelineStepRepository   = _
+  private var outputRepo: OutputRepository               = _
   private var applicationRepo: PatchSetApplicationRepository = _
 
   private var dashboardService: DashboardService   = _
   private var panelService: PanelService           = _
   private var dataSourceService: DataSourceService = _
   private var pipelineService: PipelineService     = _
+  private var outputService: OutputService         = _
   private var service: PatchSetApplyService        = _
 
   private val userAId = UUID.randomUUID().toString
@@ -94,6 +96,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     permissionRepo    = new ResourcePermissionRepository(ctx)
     pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)
     pipelineStepRepo  = new PipelineStepRepository(ctx)
+    outputRepo        = new OutputRepository(ctx)
     applicationRepo   = new PatchSetApplicationRepository(ctx)
 
     val registry = new ResourceTypeRegistry(
@@ -109,11 +112,13 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    outputService        = new OutputService(outputRepo, panelRepo, accessChecker)
 
     service = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker, applicationRepo
+      accessChecker, applicationRepo,
+      outputRepo, outputService
     )
 
     seedUsers()
@@ -170,11 +175,25 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       case Left(e)  => fail(s"seedPipeline failed: $e")
     }
 
-  private def seedPipelineStep(pipelineId: PipelineId, owner: AuthenticatedUser, kind: String, config: JsObject): PipelineStepResponse =
-    await(pipelineService.addStep(pipelineId, CreatePipelineStepRequest(kind, config), owner)) match {
+  private def seedPipelineStep(
+      pipelineId: PipelineId,
+      owner: AuthenticatedUser,
+      kind: String,
+      config: JsObject,
+      // HEL-907 evaluator-final-2: optional branch point, mirrors PatchSetUndoServiceSpec's own
+      // fixture -- needed by the rollback-side HEL-766 regression test below.
+      parentStepId: Option[String] = None
+  ): PipelineStepResponse =
+    await(pipelineService.addStep(pipelineId, CreatePipelineStepRequest(kind, config, parentStepId = parentStepId), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"seedPipelineStep failed: $e")
     }
+
+  // HEL-907 task 1.2: seeds a source-attached (nodeStepId = None) `table`-kind Output --
+  // outputRepo.insertInternal is ACL-bypassing (mirrors this file's other seed helpers' direct
+  // service/repo use), so no separate pipeline-access setup is needed here.
+  private def seedOutput(pipelineId: PipelineId, owner: AuthenticatedUser, name: String = "Output"): Output =
+    await(outputRepo.insertInternal(pipelineId, None, owner.id, name, OutputKind.Table))
 
   // Postgres TIMESTAMPTZ rounds to microsecond precision on write; a JVM
   // `Instant.now()` can carry nanosecond precision, and Java's own
@@ -257,6 +276,60 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       await(panelRepo.findByIdInternal(PanelId(newPanelId))).map(_.title) shouldBe Some("Delete me")
       // dashboard unchanged (name never actually changed -- the failing edit was never applied)
       await(dashboardRepo.findByIdInternal(dashboard.id)).map(_.name) shouldBe Some("Original dashboard name")
+    }
+
+    "roll back a mid-set pipelineStep delete by recreating it under its original parentStepId, not the trunk-append default (evaluator-final-2, exercises PatchSetApplyRollback directly)" in {
+      // GUARD, not a regression proof (evaluator-final round-2 non-blocking note): this test's
+      // production code path (PatchSetApplyRollback.pipelineStepCreateRequestFromPrior) was
+      // ALREADY correct before this cycle -- `git show d36bb991^:` on this file confirms it
+      // predates the fix commit unchanged. The genuine regression this cycle fixed was
+      // PatchSetUndoInverse.pipelineStepCreateRequestFromResponse (the HEL-766 test below in
+      // PatchSetUndoServiceSpec, a DIFFERENT code path -- a POST-application undo call, not a
+      // mid-apply rollback). This test exists to cover PatchSetApplyRollback's own
+      // inverse-builder directly, fired mid-`apply` when a LATER edit in the same batch fails
+      // and an already-applied pipelineStep delete must be compensated within the same request
+      // -- it is mutation-failable (verified: forcing parentStepId = None here fails this test),
+      // which is the right bar for a guard, but it was never red for a real defect.
+      val dashboard = seedDashboard(userA, "Rollback-pipelineStep dashboard")
+      val sourceId  = seedStaticSource(userA, "Rollback-pipelineStep source")
+      val pipeline  = seedPipeline(userA, sourceId, "Rollback-pipelineStep pipeline")
+      val rootStep  = seedPipelineStep(PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("a" -> JsString("b"))))
+      // A second trunk step, so rootStep is NOT the trunk-last step -- the load-bearing part of
+      // the fixture, same reasoning as the sibling undo-path test: addStep's own default
+      // (parentStepId absent -> splice onto the CURRENT trunk-last step) would otherwise
+      // coincidentally match the real branch point and the assertion couldn't distinguish the
+      // fix from its absence.
+      val trunkTail = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("c" -> JsString("d"))),
+        parentStepId = Some(rootStep.id)
+      )
+      val branchedStep = seedPipelineStep(
+        PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("old" -> JsString("new"))),
+        parentStepId = Some(rootStep.id)
+      )
+
+      val edits = Vector(
+        Edit(EditTarget("pipelineStep", Some(branchedStep.id)), "delete", None, None, None, None, None, None),
+        // Same real-forward-apply-time-failure device as the panel/dashboard rollback test above
+        // (7.3): a blank dashboard name passes this service's own pre-validation but fails at
+        // DashboardService.update's real validation, forcing a genuine rollback, not a
+        // pre-validation short-circuit.
+        Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update", None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None)
+      )
+
+      val result = await(service.apply(PatchSet(None, edits), userA))
+      val response = result match {
+        case Right(r)   => r
+        case Left(err)  => fail(s"expected Right with failure reported, got Left($err)")
+      }
+      response.failure shouldBe defined
+      val stepOutcome = response.edits.find(_.index == 0).getOrElse(fail("missing pipelineStep-delete outcome"))
+      stepOutcome.status shouldBe "recreated"
+      val recreatedId = stepOutcome.newId.getOrElse(fail("expected newId"))
+
+      val recreated = await(pipelineStepRepo.findByIdInternal(PipelineStepId(recreatedId))).getOrElse(fail("recreated step missing"))
+      recreated.parentStepId shouldBe Some(PipelineStepId(rootStep.id))
+      recreated.parentStepId should not be Some(PipelineStepId(trunkTail.id))
     }
 
     // skeptic-final-1.md CR1 regression: a rolled-back panel-update must
@@ -631,5 +704,128 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // HEL-904: the metricId-binding materialization regression this test
     // covered (HEL-413 5.1d) was removed outright -- metrics, and the
     // dataTypeId materialization they drove, no longer exist.
+
+    // ── output (HEL-907 task 1.2) ─────────────────────────────────────────
+
+    "apply an output update edit, renaming it (task 1.2)" in {
+      val sourceId = seedStaticSource(userA, "Output-update source")
+      val pipeline = seedPipeline(userA, sourceId, "Output-update pipeline")
+      val output   = seedOutput(PipelineId(pipeline.id), userA, "Original name")
+
+      val edit = Edit(EditTarget("output", Some(output.id.value)), "update",
+        None, None, None, None, None, None, Some(UpdateOutputRequest(name = Some("Renamed output"), config = None)))
+
+      val response = await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected success, got $err")
+      }
+      response.failure shouldBe None
+      response.edits.map(_.status) shouldBe Vector("applied")
+      response.edits.head.resultingState.map(_.convertTo[OutputResponse].name) shouldBe Some("Renamed output")
+    }
+
+    "reject an output update edit from a non-owner (viewer grantee), leaving it unchanged (task 1.2)" in {
+      val sourceId = seedStaticSource(userA, "Output-acl source")
+      val pipeline = seedPipeline(userA, sourceId, "Output-acl pipeline")
+      val output   = seedOutput(PipelineId(pipeline.id), userA, "Owner's output")
+      grantRole("pipeline", pipeline.id, userBId, "viewer")
+
+      val edit = Edit(EditTarget("output", Some(output.id.value)), "update",
+        None, None, None, None, None, None, Some(UpdateOutputRequest(name = Some("Hijacked"), config = None)))
+
+      val result = await(service.apply(PatchSet(None, Vector(edit)), userB))
+      result shouldBe a[Left[_, _]]
+      await(outputRepo.findById(output.id, userA)).map(_.name) shouldBe Some("Owner's output")
+    }
+
+    "roll back an output update edit when a later edit in the same patch set fails, restoring its original name (task 1.2)" in {
+      val sourceId  = seedStaticSource(userA, "Output-rollback source")
+      val pipeline  = seedPipeline(userA, sourceId, "Output-rollback pipeline")
+      val output    = seedOutput(PipelineId(pipeline.id), userA, "Original name")
+      val dashboard = seedDashboard(userA, "Output-rollback dashboard")
+
+      val edits = Vector(
+        Edit(EditTarget("output", Some(output.id.value)), "update",
+          None, None, None, None, None, None, Some(UpdateOutputRequest(name = Some("Renamed output"), config = None))),
+        // Passes pre-validation (target exists, patch present) but fails at DashboardService.
+        // update's own real validation -- a genuine forward-apply-only failure, mirroring 7.3's
+        // own established trick above, so the output edit above DID already apply in forward
+        // order and rollback is genuinely exercised, not short-circuited at pre-validation.
+        Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+      )
+
+      val response = await(service.apply(PatchSet(None, edits), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected Right (atomicity honored, not an HTTP error), got Left($err)")
+      }
+      response.failure shouldBe defined
+      response.edits.find(_.index == 0).map(_.status) shouldBe Some("rolledBack")
+      await(outputRepo.findById(output.id, userA)).map(_.name) shouldBe Some("Original name")
+    }
+
+    "mark an output delete edit unrecoverable on rollback, matching the dashboard/dataSource/pipeline delete precedent (task 1.2)" in {
+      val sourceId  = seedStaticSource(userA, "Output-delete-rollback source")
+      val pipeline  = seedPipeline(userA, sourceId, "Output-delete-rollback pipeline")
+      val output    = seedOutput(PipelineId(pipeline.id), userA, "To delete")
+      val dashboard = seedDashboard(userA, "Output-delete-rollback dashboard")
+
+      val edits = Vector(
+        Edit(EditTarget("output", Some(output.id.value)), "delete", None, None, None, None, None, None, None),
+        Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+      )
+
+      val response = await(service.apply(PatchSet(None, edits), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected Right, got Left($err)")
+      }
+      response.failure shouldBe defined
+      response.edits.find(_.index == 0).map(_.status) shouldBe Some("unrecoverable")
+      // The Output really is gone -- "unrecoverable" is an honest report, not a silent no-op.
+      await(outputRepo.findById(output.id, userA)) shouldBe None
+    }
+
+    "reject an output create edit -- no parent-pipeline-id field to target one (task 1.2)" in {
+      val edit = Edit(EditTarget("output", None), "create", None, None, None, None, None,
+        Some(JsObject("name" -> JsString("New Output"), "kind" -> JsString("table"))))
+
+      val result = await(service.apply(PatchSet(None, Vector(edit)), userA))
+      result shouldBe a[Left[_, _]]
+    }
+
+    // ── HEL-670 (task 1.6/5.11): full-stack proof that a create edit's target and a same-patch-set
+    //    follow-up edit's target.id never fabricate/alias onto an unrelated real resource --
+    //    complements RefinementEditShapeSpec's protocol-layer decode proof with the actual
+    //    PatchSetApplyResolvers/PatchSetApplyForward resolution+apply behavior.
+
+    "apply a create edit alongside a same-patch-set update edit targeting a DIFFERENT, pre-existing panel -- the update touches ONLY its own real target, never the newly-created one (HEL-670, task 1.6/5.11)" in {
+      val dashboard = seedDashboard(userA, "HEL-670 dashboard")
+      val existingPanel = seedPanel(dashboard.id, userA, "Pre-existing panel")
+
+      val createEdit = Edit(EditTarget("panel", None), "create", None, None, None, None, None,
+        Some(CreatePanelRequest(
+          dashboardId = Some(dashboard.id.value), title = Some("Newly created panel"), `type` = Some("divider"), config = None
+        ).toJson))
+      val updateEdit = Edit(EditTarget("panel", Some(existingPanel.id.value)), "update",
+        Some(UpdatePanelRequest(Some("Renamed pre-existing panel"), None, None, None)), None, None, None, None, None)
+
+      val response = await(service.apply(PatchSet(None, Vector(createEdit, updateEdit)), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected success, got $err")
+      }
+      response.failure shouldBe None
+      response.edits.map(_.status) shouldBe Vector("applied", "applied")
+
+      val newPanelId = response.edits.head.newId.getOrElse(fail("expected the create edit's newId"))
+      newPanelId should not be existingPanel.id.value
+
+      // The update edit's REAL target (the pre-existing panel) was renamed -- and ONLY it.
+      await(panelRepo.findByIdInternal(existingPanel.id)).map(_.title) shouldBe Some("Renamed pre-existing panel")
+      // The newly-created panel kept its OWN title from the create edit's own patch -- the update
+      // edit never touched it, proving the two edits resolved against two genuinely independent
+      // targets rather than one aliasing onto the other.
+      await(panelRepo.findByIdInternal(PanelId(newPanelId))).map(_.title) shouldBe Some("Newly created panel")
+    }
   }
 }

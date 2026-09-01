@@ -1,17 +1,20 @@
 package com.helio.api.protocols.pipelines
 
-import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineProposal, PipelineProposalProtocol, PipelineProposalSource}
+import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalProtocol, PipelineProposalSource}
 import com.helio.api.protocols.sources.SqlSourceConfigPayload
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
 /** Unit tests for [[PipelineProposalSource]]/[[PipelineProposal]]'s custom
- *  reader/writer (HEL-379) — mirrors [[DashboardProposalProtocolSpec]]'s
- *  structure. Covers: existing-sourceId round-trip, inline-source round-trip,
- *  absent-optional tolerance, absent-optional write omission, steps reusing
- *  `CreatePipelineStepRequest` unchanged, and the single-shared-`"config"`-key
- *  wire shape for the inline-source branch (design.md D1/D5). */
+ *  reader/writer (HEL-379, retargeted HEL-907 task 1.1) — mirrors
+ *  [[DashboardProposalProtocolSpec]]'s structure. Covers: existing-sourceId
+ *  round-trip, inline-source round-trip, absent-optional tolerance,
+ *  absent-optional write omission, `steps` reusing
+ *  `CreatePipelineTransactionalStepRequest` unchanged (single-call
+ *  transactional shape, HEL-906), `outputs` optional/defaulting-empty, and
+ *  the single-shared-`"config"`-key wire shape for the inline-source branch
+ *  (design.md D1/D5). */
 class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with PipelineProposalProtocol {
 
   private val existingSourceRef = PipelineProposalSource(
@@ -44,17 +47,22 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
     staticConfig = None
   )
 
-  private val oneStep = CreatePipelineStepRequest(
-    `type` = "select",
-    config = JsObject("columns" -> JsArray(JsString("id"), JsString("name")))
+  private val oneStep = CreatePipelineTransactionalStepRequest(
+    clientId = "s1",
+    `type`   = "select",
+    config   = JsObject("columns" -> JsArray(JsString("id"), JsString("name")))
   )
 
-  private def proposal(source: PipelineProposalSource, steps: Vector[CreatePipelineStepRequest] = Vector(oneStep)): PipelineProposal =
+  private def proposal(
+      source: PipelineProposalSource,
+      steps: Vector[CreatePipelineTransactionalStepRequest] = Vector(oneStep),
+      outputs: Vector[CreatePipelineTransactionalOutputRequest] = Vector.empty
+  ): PipelineProposal =
     PipelineProposal(
-      pipelineName       = "Events pipeline",
-      source             = source,
-      outputDataTypeName = "Events",
-      steps              = steps
+      pipelineName = "Events pipeline",
+      source       = source,
+      steps        = steps,
+      outputs      = outputs
     )
 
 
@@ -93,23 +101,21 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
   "PipelineProposal.read" should {
     "tolerate every source-level optional field being absent, reading only the required fields" in {
       val json = JsObject(
-        "pipelineName"       -> JsString("Minimal pipeline"),
-        "source"             -> JsObject(),
-        "outputDataTypeName" -> JsString("Minimal"),
-        "steps"              -> JsArray()
+        "pipelineName" -> JsString("Minimal pipeline"),
+        "source"       -> JsObject(),
+        "steps"        -> JsArray()
       )
       val decoded = json.convertTo[PipelineProposal]
       decoded.pipelineName shouldBe "Minimal pipeline"
-      decoded.outputDataTypeName shouldBe "Minimal"
       decoded.steps shouldBe Vector.empty
+      decoded.outputs shouldBe Vector.empty
       decoded.source shouldBe PipelineProposalSource(None, None, None, None, None, None, None)
     }
 
     "raise a deserializationError when a required top-level field is missing" in {
       val json = JsObject(
-        "pipelineName" -> JsString("X"),
-        "source"       -> JsObject("sourceId" -> JsString("src-1")),
-        "steps"        -> JsArray()
+        "source" -> JsObject("sourceId" -> JsString("src-1")),
+        "steps"  -> JsArray()
       )
       an[DeserializationException] should be thrownBy json.convertTo[PipelineProposal]
     }
@@ -133,24 +139,40 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
     }
   }
 
-  // ── HEL-379: steps reuse CreatePipelineStepRequest verbatim ───────────────
+  // ── HEL-907 task 1.1: steps reuse CreatePipelineTransactionalStepRequest verbatim ────
 
   "PipelineProposal.steps" should {
-    "round-trip using the existing CreatePipelineStepRequest {type, config} wire shape unchanged" in {
+    "round-trip using the existing CreatePipelineTransactionalStepRequest {clientId, type, config} wire shape unchanged" in {
       val json = proposal(existingSourceRef).toJson.asJsObject.fields("steps").asInstanceOf[JsArray]
       json.elements should have size 1
       val stepJson = json.elements.head.asJsObject
-      stepJson.fields.keySet shouldBe Set("type", "config")
+      stepJson.fields.keySet shouldBe Set("clientId", "type", "config")
       stepJson.fields("type") shouldBe JsString("select")
       stepJson shouldBe oneStep.toJson
 
-      json.elements.head.convertTo[CreatePipelineStepRequest] shouldBe oneStep
+      json.elements.head.convertTo[CreatePipelineTransactionalStepRequest] shouldBe oneStep
     }
 
     "preserve multiple steps in order" in {
-      val secondStep = CreatePipelineStepRequest(`type` = "limit", config = JsObject("count" -> JsNumber(10)))
+      val secondStep = CreatePipelineTransactionalStepRequest(clientId = "s2", `type` = "limit", config = JsObject("count" -> JsNumber(10)))
       val p           = proposal(existingSourceRef, steps = Vector(oneStep, secondStep))
       p.toJson.convertTo[PipelineProposal].steps shouldBe Vector(oneStep, secondStep)
+    }
+  }
+
+  // ── HEL-907 task 1.1: outputs is optional, defaulting to empty when absent ────
+
+  "PipelineProposal.outputs" should {
+    "omit the outputs key entirely when empty" in {
+      val json = proposal(existingSourceRef).toJson.asJsObject
+      json.fields.keySet should not contain "outputs"
+    }
+
+    "round-trip a non-empty outputs list" in {
+      val output = CreatePipelineTransactionalOutputRequest(nodeStepClientId = Some("s1"), kind = "table", name = "Out")
+      val p = proposal(existingSourceRef, outputs = Vector(output))
+      p.toJson.convertTo[PipelineProposal] shouldBe p
+      p.toJson.asJsObject.fields("outputs") shouldBe JsArray(output.toJson)
     }
   }
 }

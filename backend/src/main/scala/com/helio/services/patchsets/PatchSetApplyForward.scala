@@ -91,5 +91,13 @@ private[services] object PatchSetApplyForward {
         })
       case ResolvedAction.PipelineStepDelete(id, _) =>
         services.pipelineService.deleteStep(id, user).map(_.map(_ => edit.toOutcome("applied")))
+
+      // ── output (HEL-907 task 1.2 — no create, see PatchSetProtocol's doc) ─
+      case ResolvedAction.OutputUpdate(id, request, _, _) =>
+        services.outputService.update(id, request, user).map(_.map { case (output, config) =>
+          edit.toOutcome("applied", resultingState = Some(outputResponseFormat.write(outputResponseFrom(output, config))))
+        })
+      case ResolvedAction.OutputDelete(id, _) =>
+        services.outputService.delete(id, user).map(_.map(_ => edit.toOutcome("applied")))
     }
 }

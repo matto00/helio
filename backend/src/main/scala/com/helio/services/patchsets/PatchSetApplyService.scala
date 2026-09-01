@@ -4,14 +4,14 @@ import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
-import com.helio.services.pipelines.PipelineService
+import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.patchsets.{EditOutcome, PatchSet, PatchSetApplyResponse}
 import com.helio.domain.panels.PanelConfigCodec
 import com.helio.domain.model.{AuthenticatedUser, PatchSetApplicationId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import PatchSetApplicationRepository.{JournaledEdit, PatchSetApplicationRecord}
@@ -60,14 +60,18 @@ final class PatchSetApplyService(
     // later `PatchSetUndoService.undo` can restore it. Written synchronously,
     // inside this class's own terminal success branch — never fire-and-forget,
     // since the response's `applicationId` field depends on it.
-    applicationRepo: PatchSetApplicationRepository
+    applicationRepo: PatchSetApplicationRepository,
+    // HEL-907 task 1.2: nullable-optional, mirrors this file's other legacy-optional wiring —
+    // a caller that never constructs an `output`-kind edit is unaffected either way.
+    outputRepo: OutputRepository = null,
+    outputService: OutputService = null
 )(implicit ec: ExecutionContext) {
 
   private val context: PatchSetApplyContext =
-    PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker)
+    PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
 
   private val services: PatchSetApplyServices =
-    PatchSetApplyServices(panelService, dashboardService, dataSourceService, pipelineService)
+    PatchSetApplyServices(panelService, dashboardService, dataSourceService, pipelineService, outputService)
 
   def apply(patchSet: PatchSet, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetApplyResponse]] =
     PatchSetApplyResolvers.resolveAll(patchSet.edits, user, context).flatMap {

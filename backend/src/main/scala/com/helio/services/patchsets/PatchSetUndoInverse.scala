@@ -140,7 +140,14 @@ private[services] object PatchSetUndoInverse {
       config = fields("config").asJsObject,
       // `None` already means "created enabled" (design.md D7) -- matches the create endpoint's
       // own absent-means-true default, so no explicit default is restated here.
-      enabled = fields.get("enabled").map(_.convertTo[Boolean])
+      enabled = fields.get("enabled").map(_.convertTo[Boolean]),
+      // HEL-907 evaluator-final-2: was missing entirely -- a branched step's delete-undo
+      // silently recreated it on the trunk instead of its real parent, because
+      // `PipelineStepResponse` (the captured `priorState` shape) didn't carry `parentStepId`
+      // at all until this same fix added it. Reads the now-present field verbatim; absent
+      // (legacy journal entries predating this fix, or a genuine trunk step) means trunk-append,
+      // matching the create endpoint's own `None`-means-trunk-append default.
+      parentStepId = fields.get("parentStepId").map(_.convertTo[String])
     )
   }
 }

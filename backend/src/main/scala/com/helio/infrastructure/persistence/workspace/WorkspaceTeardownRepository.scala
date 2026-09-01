@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence.workspace
 
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model.AuthenticatedUser
@@ -37,6 +38,15 @@ class WorkspaceTeardownRepository(
 
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
   private val pipelinesTable   = TableQuery[PipelineRepository.PipelineTable]
+  // HEL-907 evaluator-1 CR3: extends tag-scoped teardown to dashboards --
+  // found while fixing the MCP E2E Sleeper-rebuild script's own dashboard
+  // leak (create_dashboard had no tag param because dashboards had no tag
+  // column at all, V95 adds one). A dashboard has no external-dependent
+  // guard the way a tagged DataSource does (nothing else FK-references a
+  // dashboard the way a Pipeline references its source) -- its panels
+  // cascade via the pre-existing `panels.dashboard_id ON DELETE CASCADE`
+  // (V2), so this is a plain tagged-delete, no conflict check needed.
+  private val dashboardsTable  = TableQuery[DashboardRepository.DashboardTable]
 
   /** Compute the teardown plan for `tag` under `user`'s ownership and — when
    *  it is clean (no conflicts) and `dryRun` is false — execute the deletes,
@@ -49,8 +59,9 @@ class WorkspaceTeardownRepository(
     val ownerUuid = UUID.fromString(user.id.value)
 
     val action: DBIO[TeardownOutcome] = for {
-      taggedSources   <- dataSourcesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
-      taggedPipelines <- pipelinesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
+      taggedSources    <- dataSourcesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
+      taggedPipelines  <- pipelinesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
+      taggedDashboards <- dashboardsTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
 
       sourceDependentConflicts <- DBIO.sequence(taggedSources.map(s => sourceDependentPipelineConflict(s, tag)))
 
@@ -65,11 +76,16 @@ class WorkspaceTeardownRepository(
       committed <-
         if (!clean || dryRun) DBIO.successful(false)
         else {
-          val pipelineIds = taggedPipelines.map(_.id).toSet
-          val sourceIds   = taggedSources.map(_.id).toSet
-          val deletePipelines = pipelinesTable.filter(_.id.inSet(pipelineIds)).delete
-          val deleteSources   = dataSourcesTable.filter(_.id.inSet(sourceIds)).delete
-          (deletePipelines andThen deleteSources).map(_ => true)
+          val pipelineIds  = taggedPipelines.map(_.id).toSet
+          val sourceIds    = taggedSources.map(_.id).toSet
+          val dashboardIds = taggedDashboards.map(_.id).toSet
+          val deletePipelines  = pipelinesTable.filter(_.id.inSet(pipelineIds)).delete
+          val deleteSources    = dataSourcesTable.filter(_.id.inSet(sourceIds)).delete
+          // Dashboards have no cross-resource dependent to sequence around
+          // (see the constructor-site comment above) -- deleted alongside
+          // the other two, panels cascade via their own pre-existing FK.
+          val deleteDashboards = dashboardsTable.filter(_.id.inSet(dashboardIds)).delete
+          (deletePipelines andThen deleteSources andThen deleteDashboards).map(_ => true)
         }
     } yield TeardownOutcome(
       blocked = conflicts.nonEmpty,
@@ -77,6 +93,7 @@ class WorkspaceTeardownRepository(
       committed = committed,
       sourcesDeleted = if (clean) taggedSources.size else 0,
       pipelinesDeleted = if (clean) taggedPipelines.size else 0,
+      dashboardsDeleted = if (clean) taggedDashboards.size else 0,
       // Post-commit file cleanup (design.md Decision 3 addendum, tasks.md
       // 3.5) needs the raw (sourceType, config) of every deleted source —
       // decoded by the service layer via DataSourceConfigCodec, kept out of
@@ -139,6 +156,11 @@ object WorkspaceTeardownRepository {
       committed: Boolean,
       sourcesDeleted: Int,
       pipelinesDeleted: Int,
-      deletedSources: Vector[DeletedSource]
+      // HEL-907 evaluator-1 CR3: appended last, so this stays source-compatible
+      // for any test fixture still constructing this positionally.
+      deletedSources: Vector[DeletedSource],
+      // HEL-907 evaluator-2: no default -- always explicitly set at this class's one
+      // construction site (the `yield` below), never constructed positionally elsewhere.
+      dashboardsDeleted: Int
   )
 }

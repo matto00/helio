@@ -1,7 +1,7 @@
 /**
  * Combined Proposal Apply tool (HEL-387): applies a pipeline proposal and a
  * dashboard proposal atomically in one call, letting a dashboard panel bind
- * to the pipeline's not-yet-created output DataType via the reserved
+ * to the pipeline's not-yet-created Output via the reserved
  * "$pipelineOutput" sentinel — closing the "build me a dashboard from this
  * CSV" loop that neither `apply_pipeline_proposal` nor `apply_proposal`
  * closes alone.
@@ -58,16 +58,23 @@ export function registerCombinedProposalTools(server: McpServer, api: HelioApi):
         "path apply_pipeline_proposal uses, then applies `dashboard` via the same atomic path " +
         "apply_proposal uses, rolling back the pipeline (and its inline source, if any) if the " +
         "dashboard phase fails; nothing is created if any guardrail fails.\n" +
-        "Bind a dashboard panel to `pipeline`'s not-yet-created output DataType by setting the " +
-        'literal string "$pipelineOutput" as its `dataTypeId` (metric/chart/table/collection/' +
-        "timeline panels) OR its `config.dataTypeId` (a non-data panel, e.g. text/markdown, and ONLY " +
-        "when the panel's flat `dataTypeId` is left unset — never both) — the exact same slot a real " +
-        "DataType id would occupy. A panel may instead bind to any pre-existing pipeline-output " +
-        "DataType id exactly as apply_proposal already accepts, and a dashboard may mix both kinds " +
-        "of panel in the same call. The sentinel must appear in AT MOST that one binding position " +
-        "per panel — anywhere else (the wrong slot for the panel's kind, a slot already shadowed by " +
-        "a real dataTypeId on the same panel, or a duplicate elsewhere such as fieldMapping) 400s " +
-        "the WHOLE call, creating nothing, before the pipeline is even applied.\n" +
+        "Bind a dashboard panel to `pipeline`'s not-yet-created Output with the literal string " +
+        '"$pipelineOutput" (evaluator-final round 2: the real contract has TWO accepted slots, ' +
+        "not one, but only ONE that produces a real binding — read from CombinedProposalService's " +
+        "flatIsBlessed/configIsBlessed directly, not guessed):\n" +
+        "• REAL binding: the sentinel as the flat `dataTypeId` on an `output`-kind panel — the " +
+        "same field a real Output id would occupy.\n" +
+        "• Accepted but INERT (no error, substituted, then silently ignored at panel-create — " +
+        "text/markdown/image panels have no data binding of any kind): the sentinel as the flat " +
+        "`dataTypeId` on a text/markdown/image panel, OR as `config.dataTypeId` on a " +
+        "text/markdown/image panel whose flat `dataTypeId` is left unset.\n" +
+        "• 400s the WHOLE call, creating nothing, before the pipeline is even applied: the " +
+        "sentinel as `config.dataTypeId` on an `output`-kind panel (kind mismatch — `output` " +
+        "panels are only ever blessed via the flat field); `config.dataTypeId` shadowed by an " +
+        "already-set flat `dataTypeId` on the same panel; the sentinel anywhere else entirely " +
+        "(e.g. `fieldMapping`); or a duplicate occurrence alongside a legitimate blessed one.\n" +
+        "A panel may instead bind to any pre-existing Output id exactly as apply_proposal already " +
+        "accepts, and a dashboard may mix multiple kinds of panel in the same call.\n" +
         "`pipeline.source` is EITHER an existing caller-owned `sourceId` OR an inline new-source " +
         "spec (`type`/`name`/`config`), matching apply_pipeline_proposal exactly (including its " +
         "inline-`csv`-rejected-at-apply-time guardrail); `pipeline.steps` may be empty to bind the " +
@@ -75,8 +82,9 @@ export function registerCombinedProposalTools(server: McpServer, api: HelioApi):
         "propose/analyze/dry-run counterpart; review `pipeline` (with propose_pipeline/" +
         "analyze_pipeline_proposal) and `dashboard` (with propose_dashboard) separately first if " +
         "needed — neither call writes anything. Returns { pipeline, dashboard }: `pipeline` matches " +
-        "apply_pipeline_proposal's own response (created source (if inline)/pipeline summary/output " +
-        "DataType id/run result); `dashboard` matches apply_proposal's own response (created " +
+        "apply_pipeline_proposal's own response (created source (if inline)/pipeline summary/the " +
+        "created Outputs (zero, one, or many; exactly one is required if any dashboard panel uses " +
+        "the sentinel)/run result); `dashboard` matches apply_proposal's own response (created " +
         "dashboard + panels).",
       inputSchema: {
         pipeline: z.object(pipelineProposalInputSchema),
@@ -92,8 +100,8 @@ export function registerCombinedProposalTools(server: McpServer, api: HelioApi):
           pipeline: {
             pipelineName: pipeline.pipelineName,
             source: pipeline.source as PipelineProposalSource,
-            outputDataTypeName: pipeline.outputDataTypeName,
             steps: pipeline.steps,
+            outputs: pipeline.outputs,
           },
           dashboard: {
             dashboardName: dashboard.dashboardName,

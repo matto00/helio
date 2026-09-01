@@ -4,10 +4,10 @@ import com.helio.services.panels.PanelServiceHelpers
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, OutputResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest}
 import com.helio.api.protocols.patchsets.Edit
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, Output, OutputId, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
 import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
@@ -75,6 +75,13 @@ private[services] object PatchSetApplyResolvers {
         // design.md D1: EditTarget has no field carrying a not-yet-existing
         // step's PARENT pipeline id — a create-op edit can't target one.
         Future.successful(Left(ServiceError.BadRequest(s"edit $index: create is not supported for pipelineStep")))
+      case ("output", "update") => resolveOutputUpdate(edit, index, user, ctx)
+      case ("output", "delete") => resolveOutputDelete(edit, index, user, ctx)
+      case ("output", "create") =>
+        // HEL-907 task 1.2: same reason as pipelineStep above -- CreateOutputRequest carries no
+        // parent-pipeline-id field of its own (the real route takes it from the URL path), and
+        // EditTarget has no field for a not-yet-existing resource's parent id either.
+        Future.successful(Left(ServiceError.BadRequest(s"edit $index: create is not supported for output")))
       case (kind, op) =>
         Future.successful(Left(ServiceError.BadRequest(s"edit $index: unsupported target.kind '$kind' for op '$op'")))
     }
@@ -558,6 +565,72 @@ private[services] object PatchSetApplyResolvers {
                   ResolvedAction.PipelineStepDelete(stepId, existing)
                 ))
             }
+        }
+    }
+
+  // ── output (HEL-907 task 1.2 — no create, see PatchSetProtocol's doc) ────
+
+  /** Owner-only, mirroring `OutputService.update`/`delete`'s own check exactly (`findById` is
+   *  sharing-aware RLS -- any pipeline grantee can READ -- but only the owner may mutate; a
+   *  non-owner sees 404, existence not leaked, never 403). */
+  private def findOwnedOutput(
+      id: OutputId,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Output]] =
+    ctx.outputRepo.findById(id, user).map {
+      case None                                     => Left(ServiceError.NotFound("Output not found"))
+      case Some(output) if output.ownerId != user.id => Left(ServiceError.NotFound("Output not found"))
+      case Some(output)                              => Right(output)
+    }
+
+  private def resolveOutputUpdate(
+      edit: Edit,
+      index: Int,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
+    requireTargetId(edit, index) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(idStr) =>
+        val outputId = OutputId(idStr)
+        findOwnedOutput(outputId, user, ctx).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(existing) =>
+            ctx.outputRepo.findConfigById(outputId, user).map {
+              case None => Left(ServiceError.NotFound(s"edit $index: output not found"))
+              case Some(existingConfig) =>
+                edit.outputPatch match {
+                  case None => Left(ServiceError.BadRequest(s"edit $index: patch is required for an output update"))
+                  case Some(request) =>
+                    Right(ResolvedEdit(
+                      index, "output", "update",
+                      Some(outputResponseFormat.write(outputResponseFrom(existing, existingConfig))),
+                      ResolvedAction.OutputUpdate(outputId, request, existing, existingConfig)
+                    ))
+                }
+            }
+        }
+    }
+
+  private def resolveOutputDelete(
+      edit: Edit,
+      index: Int,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
+    requireTargetId(edit, index) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(idStr) =>
+        val outputId = OutputId(idStr)
+        findOwnedOutput(outputId, user, ctx).map {
+          case Left(err) => Left(err)
+          case Right(existing) =>
+            Right(ResolvedEdit(
+              index, "output", "delete",
+              Some(outputResponseFormat.write(outputResponseFrom(existing))),
+              ResolvedAction.OutputDelete(outputId, existing)
+            ))
         }
     }
 }

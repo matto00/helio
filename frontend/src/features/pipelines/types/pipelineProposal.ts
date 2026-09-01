@@ -23,24 +23,57 @@ export interface PipelineProposalSource {
 /** One proposed step. Deliberately loose (design.md D4) — the review UI only
  *  ever *displays* a step's kind + a best-effort summary of its config, never
  *  edits or validates it client-side (Accept posts the untouched proposal
- *  payload straight through). Mirrors the backend's own `CreatePipelineStepRequest`
- *  looseness (`config` is an opaque `JsObject` server-side too). A step kind
- *  the frontend's `PipelineStepKind` union doesn't yet recognize must still
- *  render, not crash — a loose type is the only one that guarantees that. */
+ *  payload straight through). Mirrors the backend's own
+ *  `CreatePipelineTransactionalStepRequest` looseness (`config` is an opaque
+ *  `JsObject` server-side too). A step kind the frontend's `PipelineStepKind`
+ *  union doesn't yet recognize must still render, not crash — a loose type is
+ *  the only one that guarantees that. `clientId`/`parentStepId` (HEL-907 task
+ *  1.1) let a proposal describe branching tree shape before anything has a
+ *  real persisted id — display-only here, never edited client-side, same as
+ *  every other field. */
 export interface PipelineProposalStep {
+  clientId: string;
   type: string;
   config: Record<string, unknown>;
-  position?: number;
+  parentStepId?: string;
   enabled?: boolean;
 }
 
+/** One proposed Output (HEL-907 task 1.1) — a proposal may create zero, one,
+ *  or many Outputs; `nodeStepClientId` absent means the Output attaches
+ *  directly to the pipeline's source, present means it attaches to that
+ *  step (matched by `PipelineProposalStep.clientId`). Mirrors the backend's
+ *  `CreatePipelineTransactionalOutputRequest` verbatim. */
+export interface PipelineProposalOutput {
+  nodeStepClientId?: string;
+  kind: string;
+  name: string;
+  config?: Record<string, unknown>;
+}
+
 /** A pipeline proposal — the shared Proposal → Review → Apply artifact for
- *  `propose_pipeline`. Carries no ids: nothing is created until applied. */
+ *  `propose_pipeline`. Carries no ids: nothing is created until applied.
+ *  `outputs` is OPTIONAL (HEL-907 task 1.1 design.md decision 2) — a
+ *  proposal may create a pipeline with zero Outputs, to be added later.
+ *  `outputDataTypeName` is REMOVED outright (no alias, HEL-904): the
+ *  DataType/Metric output contract it named no longer exists. */
 export interface PipelineProposal {
   pipelineName: string;
   source: PipelineProposalSource;
-  outputDataTypeName: string;
   steps: PipelineProposalStep[];
+  outputs?: PipelineProposalOutput[];
+}
+
+/** One applied Output, reported back so a caller can address a specific
+ *  created Output by id/name (HEL-907 task 1.1/1.3) — replaces the old
+ *  single `outputDataTypeId: String` (at most one implicit output) now that
+ *  a proposal can create zero, one, or many. Mirrors the backend's
+ *  `ProposalOutputSummary` verbatim. */
+export interface ProposalOutputSummary {
+  id: string;
+  name: string;
+  kind: string;
+  nodeStepId?: string;
 }
 
 /** Response of `POST /api/pipelines/apply-proposal`. `pipeline` reuses the
@@ -53,10 +86,11 @@ export interface PipelineProposal {
  *  absent for the existing-sourceId branch, present for the inline branch);
  *  `run` is NOT (`PipelineProposalProtocol.scala`'s `PipelineProposalApplyResponse.run:
  *  RunResultResponse`, no `Option`) — always present on the wire, so it's typed
- *  required here too (skeptic-final-1.md non-blocking note). */
+ *  required here too (skeptic-final-1.md non-blocking note). `outputs`
+ *  (HEL-907 task 1.1/1.3) replaces the old single `outputDataTypeId`. */
 export interface PipelineProposalApplyResponse {
   source?: Record<string, unknown>;
   pipeline: PipelineSummary;
-  outputDataTypeId: string;
+  outputs: ProposalOutputSummary[];
   run: Record<string, unknown>;
 }

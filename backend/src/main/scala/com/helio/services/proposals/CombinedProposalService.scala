@@ -3,6 +3,7 @@ package com.helio.services.proposals
 import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.ServiceError
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalApplyResponse, DashboardProposal, DashboardProposalProtocol, ProposalPanel}
+import com.helio.api.protocols.pipelines.{PipelineProposalApplyResponse, ProposalOutputSummary}
 import com.helio.api.protocols.dashboards.{DashboardResponse, DuplicateDashboardResponse}
 import com.helio.api.protocols.panels.PanelResponse
 import com.helio.domain.model.AuthenticatedUser
@@ -77,22 +78,38 @@ final class CombinedProposalService(
       case Right(_) =>
         pipelineProposalService.apply(combined.pipeline, user).flatMap {
           case Left(err) => Future.successful(Left(err))
-          case Right(pipelineResp) =>
-            val resolvedDashboard = combined.dashboard.copy(
-              panels = resolveOutputRefs(combined.dashboard.panels, pipelineResp.outputDataTypeId)
-            )
-            dashboardProposalService.apply(resolvedDashboard, user).flatMap {
-              case Right((dashboard, panels)) =>
-                Future.successful(Right(CombinedProposalApplyResponse(
-                  pipeline = pipelineResp,
-                  dashboard = DuplicateDashboardResponse(
-                    dashboard = DashboardResponse.fromDomain(dashboard),
-                    panels    = panels.map(p => PanelResponse.fromDomain(p))
-                  )
-                )))
-              case Left(err) =>
-                pipelineProposalService.rollback(pipelineResp, user).map(_ => Left(err))
-            }
+          case Right(pipelineResp) => applyDashboardPhase(combined, pipelineResp, user)
+        }
+    }
+
+  /** Resolves the `$pipelineOutput` sentinel against the just-applied pipeline's real
+   *  Outputs, then runs the dashboard phase — extracted from `apply` so the "resolve, then
+   *  apply-or-rollback" shape stays flat/readable now that resolution can itself fail
+   *  (HEL-907 task 1.1: a pipeline proposal can create zero or many Outputs, not exactly
+   *  one, so resolution is no longer a total function of `pipelineResp` alone). */
+  private def applyDashboardPhase(
+      combined: CombinedProposal,
+      pipelineResp: PipelineProposalApplyResponse,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, CombinedProposalApplyResponse]] =
+    resolveSentinelOutputId(combined.dashboard.panels, pipelineResp.outputs) match {
+      case Left(err) =>
+        pipelineProposalService.rollback(pipelineResp, user).map(_ => Left(err))
+      case Right(outputIdOpt) =>
+        val resolvedDashboard = combined.dashboard.copy(
+          panels = outputIdOpt.fold(combined.dashboard.panels)(id => resolveOutputRefs(combined.dashboard.panels, id))
+        )
+        dashboardProposalService.apply(resolvedDashboard, user).flatMap {
+          case Right((dashboard, panels)) =>
+            Future.successful(Right(CombinedProposalApplyResponse(
+              pipeline = pipelineResp,
+              dashboard = DuplicateDashboardResponse(
+                dashboard = DashboardResponse.fromDomain(dashboard),
+                panels    = panels.map(p => PanelResponse.fromDomain(p))
+              )
+            )))
+          case Left(err) =>
+            pipelineProposalService.rollback(pipelineResp, user).map(_ => Left(err))
         }
     }
 }
@@ -104,6 +121,34 @@ object CombinedProposalService {
    *  creates" (design.md D1). `$` is never legal in a UUID, so collision with
    *  a real id is not a practical concern. */
   val OutputRefSentinel: String = "$pipelineOutput"
+
+  /** HEL-907 task 1.1: a pipeline proposal can now create zero, one, or many
+   *  Outputs (`PipelineProposal.outputs`), so `"$pipelineOutput"` can no
+   *  longer be resolved unconditionally against "the" output. If no panel
+   *  actually carries the sentinel, resolution is a no-op (`Right(None)`) —
+   *  even a zero-Output pipeline proposal is fine as long as nothing tries
+   *  to bind to it. If at least one panel carries the sentinel, exactly one
+   *  Output must have been created (unambiguous target); zero or more than
+   *  one is a 422 naming the real count, since this ticket does not (yet)
+   *  add `"$pipelineOutput:<name>"`-style addressing for a specific Output
+   *  among several — deferred, not silently guessed. */
+  private[proposals] def resolveSentinelOutputId(
+      panels: Vector[ProposalPanel],
+      createdOutputs: Vector[ProposalOutputSummary]
+  ): Either[ServiceError, Option[String]] =
+    if (!panels.exists(panelReferencesSentinel)) Right(None)
+    else
+      createdOutputs.toList match {
+        case single :: Nil => Right(Some(single.id))
+        case other =>
+          Left(ServiceError.UnprocessableEntity(
+            s"a dashboard panel references \"$OutputRefSentinel\", but the pipeline proposal created ${other.size} Output(s) " +
+              "(exactly one is required to resolve the sentinel unambiguously)"
+          ))
+      }
+
+  private def panelReferencesSentinel(panel: ProposalPanel): Boolean =
+    flatIsBlessed(panel) || configIsBlessed(panel)
 
   /** design.md D2/D3's shared precedence, mirroring
    *  [[ProposalPanelSupport.bindingCandidate]]'s exact `Option.orElse`

@@ -8,63 +8,19 @@
  * Transport: stdio (the standard MCP launch shape — an MCP client spawns this
  * process and speaks JSON-RPC over stdin/stdout). All human-facing logging goes
  * to stderr so it never corrupts the protocol stream on stdout.
+ *
+ * Tool/resource registration itself lives in `server.ts`'s `createServer` —
+ * split out (HEL-907 task 3.9/5.3) so a unit test can import it without
+ * tripping this file's top-level `import.meta.url` direct-invocation guard.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.js";
 import { HelioHttpClient } from "./httpClient.js";
 import { HelioApi } from "./helioApi.js";
-import { registerReadTools } from "./tools/read.js";
-import { registerWriteTools } from "./tools/write.js";
-import { registerProposalTools } from "./tools/proposal.js";
-import { registerPipelineProposalTools } from "./tools/pipelineProposal.js";
-import { registerCombinedProposalTools } from "./tools/combinedProposal.js";
-import { registerRefinementTools } from "./tools/refinement.js";
-import { buildWorkspaceContext } from "./context.js";
+import { createServer } from "./server.js";
 
-const WORKSPACE_CONTEXT_URI = "helio://workspace/context";
-
-export function createServer(api: HelioApi): McpServer {
-  const server = new McpServer({ name: "helio-mcp", version: "0.1.0" });
-
-  registerReadTools(server, api);
-  registerWriteTools(server, api);
-  registerProposalTools(server, api);
-  registerPipelineProposalTools(server, api);
-  registerCombinedProposalTools(server, api);
-  registerRefinementTools(server, api);
-
-  // The same workspace snapshot as `get_workspace_context`, exposed as a
-  // resource so MCP clients can attach it as ambient context.
-  server.registerResource(
-    "workspace-context",
-    WORKSPACE_CONTEXT_URI,
-    {
-      title: "Helio workspace context",
-      description:
-        "Compact snapshot of the authenticated user's data sources, DataTypes (with columns), " +
-        "pipelines (with steps), dashboards, and agentContext (the user's stored agent-authoring " +
-        "preferences plus up to 20 of their most-recently-useful memory entries, most-recently-" +
-        "useful first — fetching it never updates any entry's lastUsedAt).",
-      mimeType: "application/json",
-    },
-    async (uri) => {
-      const context = await buildWorkspaceContext(api);
-      return {
-        contents: [
-          {
-            uri: uri.href,
-            mimeType: "application/json",
-            text: JSON.stringify(context, null, 2),
-          },
-        ],
-      };
-    },
-  );
-
-  return server;
-}
+export { createServer } from "./server.js";
 
 async function main(): Promise<void> {
   let api: HelioApi;

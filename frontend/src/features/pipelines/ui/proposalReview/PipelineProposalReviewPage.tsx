@@ -24,7 +24,7 @@ import type { PipelineProposal } from "../../types/pipelineProposal";
  *  result) or (b) — DEV builds only (F-002) — a small, self-contained demo
  *  proposal (an inline `static` source, so it's always applyable regardless
  *  of the workspace's own data — no fetch needed to build it, unlike
- *  `ProposalReviewPage`'s DataType-derived fixture). This route sits inside
+ *  `ProposalReviewPage`'s Output-derived fixture). This route sits inside
  *  `ProtectedRoute` with no other gate, so — like the two existing precedents
  *  — a signed-in production user landing here with no `location.state` gets
  *  an explicit "nothing to review" message, never a live, applyable proposal
@@ -112,7 +112,7 @@ export function PipelineProposalReviewPage() {
   if (!proposal) {
     // Unreachable in practice — `demoPipelineProposal()` is synchronous (no
     // workspace data to fetch first, unlike `ProposalReviewPage`'s
-    // DataType-derived fixture), so once `stateProposal` or `useDemoFixture`
+    // Output-derived fixture), so once `stateProposal` or `useDemoFixture`
     // is truthy (the only way past the guard above), `proposal` is already
     // populated by the time of this render. Kept as a type-narrowing guard.
     return (
@@ -139,7 +139,7 @@ export function PipelineProposalReviewPage() {
 
 /** Build a small, genuinely-applyable demo pipeline proposal: an inline
  *  `static` source (so it never depends on the workspace already having a
- *  data source), no transform steps, and a fresh output DataType name. */
+ *  data source), no transform steps, and one source-attached Output. */
 function demoPipelineProposal(): PipelineProposal {
   return {
     pipelineName: "Demo proposed pipeline",
@@ -157,7 +157,7 @@ function demoPipelineProposal(): PipelineProposal {
         ],
       },
     },
-    outputDataTypeName: "Demo pipeline output",
     steps: [],
+    outputs: [{ kind: "table", name: "Demo pipeline output" }],
   };
 }

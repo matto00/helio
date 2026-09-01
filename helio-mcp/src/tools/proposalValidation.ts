@@ -10,28 +10,35 @@
  * `proposal.ts` directly from `proposal.test.ts` fails the jest run with
  * TS2589 at both `server.registerTool(...)` call sites) — see
  * `write.test.ts`'s docstring for the sibling case this mirrors.
+ *
+ * HEL-907 task 1.1/1.3 dashboard half: retargeted onto Outputs. The backend
+ * (`DashboardProposalService`/`ProposalPanelSupport`, HEL-904 task 3.8/3.9,
+ * already on `main` before this branch existed) has validated an
+ * `"output"`-kind panel's `dataTypeId` field as a real Output id (via
+ * `OutputRepository.findByIdOwned`) since HEL-904 -- this file was the one
+ * piece of the contract left calling `GET /api/types` (deleted outright by
+ * HEL-904), a dead route, for its own read-only grounding fetch. There is no
+ * "source companion" concept for an Output (unlike a DataType) -- every
+ * Output IS the panel-bindable projection by construction, so the only
+ * client-side check possible/needed is existence in the caller's own Output
+ * set (server-side `findByIdOwned` is still the authority on ownership).
  */
 
-import type { DataTypeResponse, ProposalPanel } from "../types.js";
+import type { OutputResponse, ProposalPanel } from "../types.js";
 
-/** Panel types whose binding is a `dataTypeId` (flat field, checked here).
- *  Mirrors the backend's `DashboardProposalService.DataPanelKinds`. */
-// HEL-904 task 3.10: retargeted to the one panel kind requiring an Output binding.
+/** Panel types whose binding is a `dataTypeId` (flat field, checked here) --
+ *  really an Output id, kept under this field name for wire stability
+ *  (see `dashboard-proposal.schema.json`'s own field description). Mirrors
+ *  the backend's `DashboardProposalService.DataPanelKinds`. */
 export const DATA_PANEL_TYPES = new Set(["output"]);
 
-// HEL-904 decision 11: metrics are deleted wholesale by this migration — the
-// former HEL-549 `metricId` check (additive to dataTypeId, missing/not-owned/
-// deprecated/unsupported-type validation against a fetched metrics catalog)
-// is removed outright, not disabled. There is no metric concept left to
-// validate against.
-
 /** Read-only validation against an already-fetched workspace snapshot: flags
- *  a data panel whose `dataTypeId` binding is missing or not a pipeline
- *  output. Pure — no I/O; the caller (`propose_dashboard`) owns the
- *  `api.listDataTypes()` fetch and the `Map` construction. */
+ *  a data panel whose `dataTypeId` (Output id) binding is missing or does
+ *  not resolve to a real, caller-owned Output. Pure -- no I/O; the caller
+ *  (`propose_dashboard`) owns the Output fetch and the `Map` construction. */
 export function computeProposalWarnings(
   panels: ProposalPanel[],
-  dataTypesById: Map<string, DataTypeResponse>,
+  outputsById: Map<string, OutputResponse>,
 ): string[] {
   const warnings: string[] = [];
 
@@ -41,15 +48,8 @@ export function computeProposalWarnings(
     if (DATA_PANEL_TYPES.has(panel.type)) {
       if (!panel.dataTypeId) {
         warnings.push(`${where}: a ${panel.type} panel needs a dataTypeId`);
-      } else {
-        const dt = dataTypesById.get(panel.dataTypeId);
-        if (!dt) {
-          warnings.push(`${where}: dataTypeId ${panel.dataTypeId} not found in this workspace`);
-        } else if ((dt.sourceId ?? null) !== null) {
-          warnings.push(
-            `${where}: dataType '${dt.name}' is a source companion, not a pipeline output — it cannot be bound`,
-          );
-        }
+      } else if (!outputsById.has(panel.dataTypeId)) {
+        warnings.push(`${where}: output ${panel.dataTypeId} not found in this workspace`);
       }
     }
   });

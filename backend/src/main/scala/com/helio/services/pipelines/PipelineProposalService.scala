@@ -2,42 +2,48 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.services.sources.{DataSourceService, SourceService}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalRestApiConfig}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalOutputSummary, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, StaticDataSourceRequest}
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputId, OutputKind, PipelineId, PipelineStep, PipelineStepId, PipelineStepKind}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputKind, PipelineId, PipelineStep, PipelineStepKind}
 import com.helio.domain.connectors.SqlConnectorDriver
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
-import com.helio.api.protocols.pipelines.{PipelineStepResponse, PipelineSummaryResponse}
+import com.helio.api.protocols.pipelines.PipelineSummaryResponse
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /** Applies a reviewed pipeline proposal (HEL-379's schema, HEL-383's apply path).
  *
- *  Turns a `PipelineProposal` (an optionally-new source + ordered steps + an
- *  output DataType contract) into real resources by composing the EXISTING
- *  services — `SourceService`/`DataSourceService` (source, if inline),
- *  `PipelineService` (pipeline + steps), and `PipelineRunService` (the run).
- *  It holds no persistence logic of its own: every write runs under the
- *  caller's RLS context via the composed services, and every delete during
- *  rollback goes through `DataSourceService.delete` / `DataTypeService.delete`
- *  / `PipelineService.delete` — never a raw repository call.
+ *  Turns a `PipelineProposal` (an optionally-new source + a tree of steps +
+ *  zero-or-more Outputs — HEL-907 task 1.1) into real resources by composing
+ *  the EXISTING services — `SourceService`/`DataSourceService` (source, if
+ *  inline) and `PipelineService` (pipeline + steps + Outputs, ONE composed
+ *  transactional call, reusing P1.3/HEL-906's `POST /api/pipelines` single-
+ *  call create path verbatim rather than re-deriving step/output creation
+ *  here), and `PipelineRunService` (the run). It holds no persistence logic
+ *  of its own: every write runs under the caller's RLS context via the
+ *  composed services, and every delete during rollback goes through
+ *  `DataSourceService.delete` / `PipelineService.delete` — never a raw
+ *  repository call.
  *
  *  Atomicity: structural validation (mutual-exclusivity, inline-source
- *  name/config presence, the SQL read-only guardrail, step type/config
- *  decoding) all run up front with no side effects, mirroring
+ *  name/config presence, the SQL read-only guardrail, step/output shape)
+ *  all run up front with no side effects, mirroring
  *  `DashboardProposalService.validateStructure`. If a later step still fails
- *  (step creation or the run itself), every resource this call created is
- *  rolled back before the error is returned — see design.md D5 (of HEL-383)
- *  for why the deletion order (pipeline → output DataType → source →
- *  companion DataType) is the only order that's actually safe given the
- *  FK-cascade asymmetries documented there. HEL-755 exception: an inline
- *  `rest_api`/`sql` schema-fetch failure (at source-creation time) does not
- *  trigger rollback — the source is kept and it's reported as a durably-
- *  persisted `blocked` run instead (see `createPipeline`, `handleInlineCreated`).
- *  Separately, a resolved source whose kind the execution engine can't run at
- *  all (`PipelineRunService.SparkUnsupportedKinds` — currently empty, since
+ *  (pipeline/step/output creation, or the run itself), every resource this
+ *  call created is rolled back before the error is returned. Deleting the
+ *  pipeline row alone is sufficient to roll back its steps AND Outputs (and
+ *  any Output's placements) — both cascade via `ON DELETE CASCADE`
+ *  (`pipeline_steps.pipeline_id`, V23; `outputs.pipeline_id` and
+ *  `panels.output_id`, V94) — so rollback here never issues a separate
+ *  Output delete the way the pre-HEL-907 single-implicit-output version did.
+ *  HEL-755 exception: an inline `rest_api`/`sql` schema-fetch failure (at
+ *  source-creation time) does not trigger rollback — the source is kept and
+ *  it's reported as a durably-persisted `blocked` run instead (see
+ *  `createPipeline`, `handleInlineCreated`). Separately, a resolved source
+ *  whose kind the execution engine can't run at all
+ *  (`PipelineRunService.SparkUnsupportedKinds` — currently empty, since
  *  HEL-758 made `rest_api`/`sql` both execution-supported) gets the same
  *  blocked-run-without-rollback treatment; that guard stays wired as a
  *  forward-looking extension point for a future genuinely-unrunnable kind. */
@@ -47,10 +53,9 @@ final class PipelineProposalService(
     pipelineService: PipelineService,
     pipelineRunService: PipelineRunService,
     dataSourceRepo: DataSourceRepository,
-    // HEL-904 task 3.8: the proposal's "output" is now a real Output row
-    // (design.md's proposal-service scope decision), created on the
-    // pipeline's last trunk step and rolled back the same way a source/
-    // companion DataType always was.
+    // HEL-907 task 1.1: used only to READ BACK the Outputs `pipelineService.create`'s
+    // single transactional call already created (for the apply response / rollback
+    // logging) -- never to write. Every Output write goes through `pipelineService.create`.
     outputRepo: OutputRepository
 )(implicit ec: ExecutionContext) {
 
@@ -99,9 +104,9 @@ final class PipelineProposalService(
   private[services] def validateStructure(proposal: PipelineProposal): Either[ServiceError, Unit] =
     for {
       _ <- requireNonBlank(proposal.pipelineName, "pipelineName")
-      _ <- requireNonBlank(proposal.outputDataTypeName, "outputDataTypeName")
       _ <- validateSourceSelector(proposal.source)
       _ <- validateSteps(proposal.steps)
+      _ <- validateOutputs(proposal.outputs, proposal.steps)
     } yield ()
 
   private def requireNonBlank(value: String, field: String): Either[ServiceError, Unit] =
@@ -164,29 +169,39 @@ final class PipelineProposalService(
     ))
   }
 
-  /** Every step's `type` must be a recognized `PipelineStepKind`, and its
-   *  `config` must decode for that kind — catches malformed step configs
-   *  before creation begins (mirrors `preValidateBindings`'s "fail before any
-   *  side effect" contract). */
-  private def validateSteps(steps: Vector[CreatePipelineStepRequest]): Either[ServiceError, Unit] =
-    steps.zipWithIndex.foldLeft[Either[ServiceError, Unit]](Right(())) {
-      case (Left(err), _)           => Left(err)
-      case (Right(_), (step, idx))  => validateStep(step, idx)
-    }
+  /** Every step's `type` must be a recognized `PipelineStepKind`, its `config`
+   *  must decode for that kind, `clientId` must be non-blank and unique
+   *  within the proposal, and `parentStepId` (when present) must resolve to
+   *  an EARLIER step's `clientId` in the same proposal (HEL-907 task 1.1 —
+   *  mirrors `PipelineService.buildStepsAction`'s own transactional-create
+   *  validation, kept in sync deliberately: both reject the same shapes, so
+   *  a proposal that validates here is guaranteed to also pass
+   *  `pipelineService.create`'s own re-validation at apply time). */
+  private def validateSteps(steps: Vector[CreatePipelineTransactionalStepRequest]): Either[ServiceError, Unit] =
+    steps.zipWithIndex.foldLeft[Either[ServiceError, (Set[String], Unit)]](Right((Set.empty[String], ()))) {
+      case (Left(err), _) => Left(err)
+      case (Right((seenClientIds, _)), (step, idx)) =>
+        validateStep(step, idx, seenClientIds).map(_ => (seenClientIds + step.clientId, ()))
+    }.map(_ => ())
 
-  private def validateStep(step: CreatePipelineStepRequest, idx: Int): Either[ServiceError, Unit] =
-    if (!PipelineStepKind.All.contains(step.`type`))
+  private def validateStep(step: CreatePipelineTransactionalStepRequest, idx: Int, seenClientIds: Set[String]): Either[ServiceError, Unit] =
+    if (step.clientId.trim.isEmpty)
+      Left(ServiceError.BadRequest(s"step ${idx + 1}: clientId is required"))
+    else if (seenClientIds.contains(step.clientId))
+      Left(ServiceError.BadRequest(s"step ${idx + 1}: duplicate clientId '${step.clientId}'"))
+    else if (step.parentStepId.exists(p => !seenClientIds.contains(p)))
+      Left(ServiceError.BadRequest(
+        s"step ${idx + 1} ('${step.clientId}'): parentStepId '${step.parentStepId.get}' must be an earlier step's clientId in this same proposal"
+      ))
+    else if (!PipelineStepKind.All.contains(step.`type`))
       Left(ServiceError.BadRequest(
         s"step ${idx + 1}: invalid type '${step.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
       ))
     else
-      // HEL-814 D0/D2: the second surface that had no `validateRawConfig`
-      // wiring. Checking only decode Success/Failure lets a wrong-shape
-      // config through here, because the decoder is contractually tolerant —
-      // so an MCP proposal could apply a `window` step whose `partitionBy` is
-      // a string and silently get an empty partition list. 422 matches
-      // `pipeline-step-config-rejection`'s status for a rejected config;
-      // the 400 below is kept for the distinct "did not parse" case.
+      // HEL-814 D0/D2: checking only decode Success/Failure lets a wrong-shape config through,
+      // because the decoder is contractually tolerant. 422 matches
+      // `pipeline-step-config-rejection`'s status for a rejected config; the 400 below is kept
+      // for the distinct "did not parse" case.
       PipelineStep.companionFor(step.`type`).toOption
         .flatMap(_.validateRawConfig(step.config.compactPrint)) match {
         case Some(msg) => Left(ServiceError.UnprocessableEntity(s"step ${idx + 1}: $msg"))
@@ -197,6 +212,29 @@ final class PipelineProposalService(
           }
       }
 
+  /** Every output's `name` must be non-blank, `kind` must be a recognized
+   *  `OutputKind`, and `nodeStepClientId` (when present) must resolve to a
+   *  `clientId` in `steps` — mirrors `PipelineService.buildOutputsAction`'s
+   *  own transactional-create validation (same "kept in sync deliberately"
+   *  rationale as `validateSteps`). */
+  private def validateOutputs(
+      outputs: Vector[CreatePipelineTransactionalOutputRequest],
+      steps: Vector[CreatePipelineTransactionalStepRequest]
+  ): Either[ServiceError, Unit] = {
+    val stepClientIds = steps.map(_.clientId).toSet
+    outputs.zipWithIndex.foldLeft[Either[ServiceError, Unit]](Right(())) {
+      case (Left(err), _) => Left(err)
+      case (Right(_), (output, idx)) =>
+        if (output.name.trim.isEmpty)
+          Left(ServiceError.BadRequest(s"output ${idx + 1}: name is required"))
+        else if (output.nodeStepClientId.exists(c => !stepClientIds.contains(c)))
+          Left(ServiceError.BadRequest(
+            s"output ${idx + 1} ('${output.name}'): nodeStepClientId '${output.nodeStepClientId.get}' must be a step's clientId in this same proposal"
+          ))
+        else
+          OutputKind.fromString(output.kind).left.map(ServiceError.BadRequest(_)).map(_ => ())
+    }
+  }
 
   private def resolveSource(
       source: PipelineProposalSource,
@@ -272,14 +310,11 @@ final class PipelineProposalService(
     }
 
   /** Shared `rest_api`/`sql` post-create handling (design.md D1): a
-   *  `fetchError` means schema inference failed and no DataType was ever
-   *  inserted for this source (`CreateSourceEnvelope`'s `Left` path never
-   *  calls `dataTypeRepo.insert`) — the source is KEPT (not deleted) and the
-   *  connector's curated message is threaded onto `ResolvedSource.fetchError`
+   *  `fetchError` means schema inference failed and no inferred schema was
+   *  ever populated for this source — the source is KEPT (not deleted) and
+   *  the connector's curated message is threaded onto `ResolvedSource.fetchError`
    *  so `createPipeline` can surface it as a `blocked` run's `blockedReason`
-   *  instead of aborting the whole apply. Otherwise capture the companion
-   *  DataType id created alongside the source, directly off the response (no
-   *  extra query needed). */
+   *  instead of aborting the whole apply. */
   private def handleInlineCreated(csr: CreateSourceResponse, kind: String, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] = {
     val sourceId = DataSourceId(csr.source.id)
     Future.successful(Right(ResolvedSource(
@@ -302,35 +337,22 @@ final class PipelineProposalService(
    *  `apply`'s own internal failures; this is the new, additive entry point
    *  for "this already succeeded, undo it now."
    *
-   *  Same delete order as `rollbackAll`: pipeline (cascades steps/runs) →
-   *  output Output → (if `response.source` is defined, meaning this
-   *  proposal's own `apply` created it inline) the source → its companion
-   *  DataType(s). Since `rollback` runs BEFORE any of ITS OWN deletes have
-   *  happened yet, a fresh `dataTypeRepo.findBySourceId` read here is safe —
-   *  unlike inside `apply`'s rollback, where that query would return nothing
-   *  once issued after the source delete (design.md D5). Composed entirely
-   *  through `pipelineService.delete`/`dataTypeService.delete`/
-   *  `dataSourceService.delete` — never a raw repository call. No existing
-   *  method in this file is modified.
-   *
-   *  HEL-904 task 3.5: `pipelineService.create` no longer mints a legacy
-   *  DataType at all, so this rollback no longer has one to delete — only
-   *  the real Output (`response.outputDataTypeId`, the client-facing field —
-   *  task 3.8) needs cleanup on the pipeline side. Task 4.1/4.3: the source's
-   *  companion DataType is gone too (its schema lives inline on
-   *  `data_sources.inferred_schema`, deleted automatically with the row), so
-   *  the source delete alone is sufficient — no separate companion cleanup. */
+   *  Deleting the pipeline cascades its steps, its Outputs, AND every
+   *  Output's placements (V23/V94 `ON DELETE CASCADE`, see this class's own
+   *  scaladoc) — no separate Output delete is issued. Then, if
+   *  `response.source` is defined (meaning this proposal's own `apply`
+   *  created it inline), the source is deleted too. Composed entirely
+   *  through `pipelineService.delete`/`dataSourceService.delete` — never a
+   *  raw repository call. */
   def rollback(response: PipelineProposalApplyResponse, user: AuthenticatedUser): Future[Unit] =
     pipelineService.delete(PipelineId(response.pipeline.id), user).flatMap { _ =>
-      outputRepo.deleteInternal(OutputId(response.outputDataTypeId)).flatMap { _ =>
-        response.source match {
-          case None         => Future.successful(())
-          case Some(source) => dataSourceService.delete(DataSourceId(source.id), user).map(_ => ())
-        }
+      response.source match {
+        case None         => Future.successful(())
+        case Some(source) => dataSourceService.delete(DataSourceId(source.id), user).map(_ => ())
       }
     }
 
-  // ── Pipeline + steps + run, then rollback on any failure (design.md D5/D6) ─
+  // ── Pipeline + steps + outputs (ONE transactional call) + run, then rollback on any failure ──
 
   private def createPipeline(
       proposal: PipelineProposal,
@@ -338,71 +360,52 @@ final class PipelineProposalService(
       user: AuthenticatedUser
   ): Future[Either[ServiceError, PipelineProposalApplyResponse]] =
     pipelineService
-      .create(CreatePipelineRequest(proposal.pipelineName.trim, resolved.id.value), user)
+      .create(
+        CreatePipelineRequest(
+          name               = proposal.pipelineName.trim,
+          sourceDataSourceId = resolved.id.value,
+          tag                = None,
+          steps              = proposal.steps,
+          outputs            = proposal.outputs
+        ),
+        user
+      )
       .flatMap {
         case Left(err) =>
-          // Nothing pipeline-side to roll back yet; the source (if this call
-          // created it) still needs cleanup.
+          // Nothing pipeline-side to roll back — `create`'s transactional path is all-or-nothing,
+          // so a Left here means nothing was persisted. The source (if this call created it)
+          // still needs cleanup.
           rollbackSourceOnly(resolved, user).map(_ => Left(err))
         case Right(summary) =>
           val pipelineId = PipelineId(summary.id)
-          addSteps(pipelineId, proposal.steps, user).flatMap {
-            case Left(err) =>
-              // The real Output doesn't exist yet (created only after steps
-              // succeed, below); `pipelineService.create` (task 3.5) no
-              // longer mints a legacy DataType to clean up here either — the
-              // pipeline row itself is the only thing to roll back.
-              pipelineService.delete(pipelineId, user)
-                .flatMap(_ => rollbackSourceOnly(resolved, user))
-                .map(_ => Left(err))
-            case Right(createdSteps) =>
-              // design.md's proposal-service scope decision (task 3.8): the
-              // Output attaches to the LAST trunk step created, or the root
-              // (`nodeStepId = None`) if the proposal specified zero steps.
-              val lastStepId = createdSteps.lastOption.map(s => PipelineStepId(s.id))
-              outputRepo
-                .insertInternal(pipelineId, lastStepId, user.id, proposal.outputDataTypeName.trim, OutputKind.Table)
-                .flatMap(output => finishPipeline(proposal, pipelineId, output.id, summary, resolved, user))
+          outputRepo.listByPipelineInternal(pipelineId).flatMap { createdOutputs =>
+            val outputSummaries = createdOutputs.map(o =>
+              ProposalOutputSummary(o.id.value, o.name, OutputKind.asString(o.kind), o.node.stepId.map(_.value))
+            )
+            finishPipeline(pipelineId, outputSummaries, summary, resolved, user)
           }
       }
 
-  /** Everything downstream of a successfully-created Output: the spark-
-   *  unsupported/schema-fetch-failure blocked-run branch, and the real
-   *  `submit` branch — both now report/roll back the real `outputId` rather
-   *  than a minted DataType id. */
+  /** Everything downstream of a successfully-created pipeline (+ steps +
+   *  Outputs): the spark-unsupported/schema-fetch-failure blocked-run
+   *  branch, and the real `submit` branch. */
   private def finishPipeline(
-      proposal: PipelineProposal,
       pipelineId: PipelineId,
-      outputId: OutputId,
+      outputs: Vector[ProposalOutputSummary],
       summary: PipelineSummaryResponse,
       resolved: ResolvedSource,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, PipelineProposalApplyResponse]] = {
-    val outputIdStr = outputId.value
     // design.md D2 (of HEL-755) + HEL-758 fix: TWO independent reasons never
     // reach `submit` — (a) the run engine can't execute this source kind AT
     // ALL regardless of connectivity (`SparkUnsupportedKinds`, currently
     // empty), or (b) THIS PARTICULAR inline source's schema-fetch already
-    // failed at creation time (`resolved.fetchError.isDefined`). (b) is
-    // unconditional on kind and is NOT superseded by HEL-758 — the base
-    // `pipeline-proposal-apply` spec's "Source-fetch failure is a structured,
-    // rolled-back error" requirement is untouched by this change (not in its
-    // MODIFIED Requirements) and the ticket's own acceptance criteria are
-    // explicit that this fail-safe path must stay intact for a genuinely
-    // unreachable/misconfigured source. Emptying `SparkUnsupportedKinds`
-    // alone would have silently dropped (b) for rest_api/sql, since both
-    // were previously gated by the SAME single condition — caught by
-    // PipelineApplyProposalRollbackSpec's schema-fetch-failure tests
-    // actually failing (422/rollback instead of 201/blocked) once (a) alone
-    // was used. Skip `submit` entirely and never roll back; the pipeline,
-    // source, and Output are kept, and the response reports a durably-
-    // persisted (design.md D3 of HEL-755) blocked run instead.
+    // failed at creation time (`resolved.fetchError.isDefined`). Skip
+    // `submit` entirely and never roll back; the pipeline, source, and
+    // Outputs are kept, and the response reports a durably-persisted
+    // (design.md D3 of HEL-755) blocked run instead.
     if (PipelineRunService.SparkUnsupportedKinds.contains(resolved.kind) || resolved.fetchError.isDefined) {
       val reason = resolved.fetchError match {
-        // HEL-758: dropped the old "...once ${resolved.kind} execution
-        // is supported" tail — rest_api/sql execution IS supported now
-        // (SparkUnsupportedKinds is empty); this specific source
-        // instance is what's unreachable, not the kind.
         case Some(err) =>
           s"Could not fetch from the source: $err. Fix the source configuration, then trigger a run " +
             "from the pipeline."
@@ -411,80 +414,48 @@ final class PipelineProposalService(
       }
       pipelineRunService.recordUnrunnable(pipelineId, reason, user).map { runResult =>
         Right(PipelineProposalApplyResponse(
-          source           = resolved.responseForClient,
-          pipeline         = summary,
-          outputDataTypeId = outputIdStr,
-          run              = runResult
+          source   = resolved.responseForClient,
+          pipeline = summary,
+          outputs  = outputs,
+          run      = runResult
         ))
       }
     } else {
-      // This branch now reaches `submit` for every source kind the engine
-      // can execute — `static`/`csv`/`text`/`pdf`/`image`, and (HEL-758) a
-      // HEALTHY `rest_api`/`sql` source (fetchError = None), since
-      // `runPipeline` no longer hardcodes a rejection for the latter two.
-      // The guarded branch above intercepts either a kind listed in the
-      // (currently empty) `SparkUnsupportedKinds` set, or any inline source
-      // whose schema-fetch already failed.
       pipelineRunService.submit(pipelineId, isDry = false, user).flatMap {
         case Left(err) =>
           // D6: run failure is "a failure at any step" — full
           // rollback, not a partial success with run: null.
-          rollbackAll(pipelineId, outputIdStr, resolved, user).map(_ => Left(err))
+          rollbackAll(pipelineId, resolved, user).map(_ => Left(err))
         // HEL-570 (design.md Decision 8): a blocked run returns `Right`
-        // with the Output never populated — treated identically to a run
+        // with the Output(s) never populated — treated identically to a run
         // failure for rollback purposes, since a "success" response here
-        // would point the caller at an empty Output. Must be checked
-        // BEFORE the unguarded `Right(runResult)` case.
+        // would point the caller at empty Outputs. Must be checked BEFORE
+        // the unguarded `Right(runResult)` case.
         case Right(runResult) if runResult.blocked =>
-          rollbackAll(pipelineId, outputIdStr, resolved, user).map(_ => Left(
+          rollbackAll(pipelineId, resolved, user).map(_ => Left(
             ServiceError.UnprocessableEntity(runResult.blockedReason.getOrElse("Run blocked by an assertion failure"))
           ))
         case Right(runResult) =>
           Future.successful(Right(PipelineProposalApplyResponse(
-            source            = resolved.responseForClient,
-            pipeline          = summary,
-            outputDataTypeId  = outputIdStr,
-            run               = runResult
+            source   = resolved.responseForClient,
+            pipeline = summary,
+            outputs  = outputs,
+            run      = runResult
           )))
       }
     }
   }
 
-  /** Create steps in proposal order, short-circuiting on the first failure.
-   *  Accumulates every created step's response (not just `Unit`, as before
-   *  HEL-904 task 3.8) so `createPipeline` can identify the LAST trunk
-   *  step's id — the node the proposal's Output attaches to (design.md:
-   *  "an Output on the pipeline's last trunk step, root if zero steps"). */
-  private def addSteps(
-      pipelineId: PipelineId,
-      steps: Vector[CreatePipelineStepRequest],
-      user: AuthenticatedUser
-  ): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
-    steps.foldLeft(Future.successful[Either[ServiceError, Vector[PipelineStepResponse]]](Right(Vector.empty))) { (accF, step) =>
-      accF.flatMap {
-        case Left(err) => Future.successful(Left(err))
-        case Right(created) =>
-          pipelineService.addStep(pipelineId, step, user).map(_.map(resp => created :+ resp))
-      }
-    }
-
-  /** design.md D5's full rollback order: pipeline (cascades steps/runs) →
-   *  the real Output AND the legacy pipeline-minted output DataType (both
-   *  independent, un-cascaded rows — see `rollback`'s scaladoc; `sourceId`
-   *  is always `None` by construction, so `checkSourceLink` passes
-   *  trivially) → the inline source (if this call created it) → its
-   *  companion DataType(s), using the id(s) already captured at creation
-   *  time — never re-queried after the source is gone. */
+  /** Full rollback: pipeline (cascades steps/Outputs/placements/runs, see
+   *  this class's own scaladoc) → the inline source (if this call created
+   *  one). `sourceId` is always `None` by construction. */
   private def rollbackAll(
       pipelineId: PipelineId,
-      outputId: String,
       resolved: ResolvedSource,
       user: AuthenticatedUser
   ): Future[Unit] =
     pipelineService.delete(pipelineId, user).flatMap { _ =>
-      outputRepo.deleteInternal(OutputId(outputId)).flatMap { _ =>
-        rollbackSourceOnly(resolved, user)
-      }
+      rollbackSourceOnly(resolved, user)
     }
 
   /** Deletes the inline source, if this call created one — its inferred schema lives
@@ -508,8 +479,7 @@ object PipelineProposalService {
    *  string, populated at every resolution site — used by `createPipeline`
    *  to decide whether the run engine can execute this source at all.
    *  `fetchError` (design.md D1) carries the connector's curated message when
-   *  an inline `rest_api`/`sql` schema fetch failed; `None` otherwise. HEL-904: no more
-   *  `companionDataTypeIds` — a source's inferred schema lives inline on the row. */
+   *  an inline `rest_api`/`sql` schema fetch failed; `None` otherwise. */
   private[services] final case class ResolvedSource(
       id: DataSourceId,
       responseForClient: Option[DataSourceResponse],

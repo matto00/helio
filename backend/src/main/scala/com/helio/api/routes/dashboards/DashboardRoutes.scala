@@ -9,6 +9,7 @@ import com.helio.api._
 import com.helio.api.protocols.IdParsing.DashboardIdSegment
 import com.helio.domain.model._
 import com.helio.services.dashboards.DashboardService
+import com.helio.api.http.RequestValidation
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -43,13 +44,24 @@ final class DashboardRoutes(
             },
             post {
               entity(as[CreateDashboardRequest]) { request =>
-                val input = DashboardService.CreateDashboardInput(request.name, request.ifExists)
-                onSuccess(dashboardService.create(input, user)) {
-                  // HEL-363: `created = false` means `ifExists: "return"` matched an
-                  // existing dashboard by name — 200, not 201 (nothing was created).
-                  case (dashboard, created) =>
-                    val status = if (created) StatusCodes.Created else StatusCodes.OK
-                    complete(status, DashboardResponse.fromDomain(dashboard))
+                // HEL-907 evaluator-2: `DashboardService.create` returns `Future[(Dashboard,
+                // Boolean)]`, no `Either`/`ServiceError` convention (unlike DataSourceService/
+                // PipelineService, which gate `tag` via `RequestValidation.validateTag` inside
+                // the service itself) -- rather than widen that signature (a breaking ripple
+                // through DashboardProposalService/PatchSetApplyForward/every other caller for
+                // one field), the same curated-400 gate this file already applies to `offset`
+                // above is applied here, at the route layer, before ever calling the service.
+                RequestValidation.validateTag(request.tag) match {
+                  case Left(msg) => complete(StatusCodes.BadRequest, ErrorResponse(msg))
+                  case Right(tag) =>
+                    val input = DashboardService.CreateDashboardInput(request.name, request.ifExists, tag)
+                    onSuccess(dashboardService.create(input, user)) {
+                      // HEL-363: `created = false` means `ifExists: "return"` matched an
+                      // existing dashboard by name — 200, not 201 (nothing was created).
+                      case (dashboard, created) =>
+                        val status = if (created) StatusCodes.Created else StatusCodes.OK
+                        complete(status, DashboardResponse.fromDomain(dashboard))
+                    }
                 }
               }
             }

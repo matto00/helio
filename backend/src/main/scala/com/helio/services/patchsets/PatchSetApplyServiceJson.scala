@@ -2,7 +2,7 @@ package com.helio.services.patchsets
 
 import com.helio.api.protocols.dashboards.DashboardProtocol
 import com.helio.api.protocols.sources.DataSourceProtocol
-import com.helio.api.protocols.pipelines.{PipelineProtocol, PipelineStepProtocol}
+import com.helio.api.protocols.pipelines.{OutputProtocol, PipelineProtocol, PipelineStepProtocol}
 import com.helio.api.protocols.panels.PanelProtocol
 
 /** Spray-JSON helper surface for the `patch-set-apply-path` (HEL-406) files —
@@ -22,3 +22,4 @@ private[services] object PatchSetApplyServiceJson
     with DataSourceProtocol
     with PipelineProtocol
     with PipelineStepProtocol
+    with OutputProtocol

@@ -159,18 +159,17 @@ function demoCombinedProposal(): CombinedProposal {
           ],
         },
       },
-      outputDataTypeName: "Demo pipeline output",
       steps: [],
+      outputs: [{ kind: "table", name: "Demo pipeline output" }],
     },
     dashboard: {
       dashboardName: "Demo proposed dashboard",
       panels: [
         {
-          title: "Total value",
-          type: "metric",
+          title: "Pipeline output",
+          type: "output",
           dataTypeId: "$pipelineOutput",
-          fieldMapping: { value: "value", label: "label" },
-          layout: { x: 0, y: 0, w: 4, h: 3 },
+          layout: { x: 0, y: 0, w: 12, h: 6 },
         },
       ],
     },

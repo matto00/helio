@@ -3,20 +3,21 @@ package com.helio.services.patchsets
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
-import com.helio.services.pipelines.PipelineService
+import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.patchsets.EditOutcome
 import com.helio.api.protocols.sources.{StaticDataSourceRequest, UpdateDataSourceRequest}
-import com.helio.domain.model.{Dashboard, DashboardId, DataSource, DataSourceId, Panel, PanelId, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{Dashboard, DashboardId, DataSource, DataSourceId, Output, OutputId, Panel, PanelId, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
-import spray.json.JsValue
+import spray.json.{JsObject, JsValue}
 
 /** Internal types shared by [[PatchSetApplyService]]'s pre-validation
  *  (design.md D2/D2a), forward-apply (design.md D1), and rollback (design.md
@@ -57,7 +58,12 @@ private[services] object ResolvedAction {
   final case class PipelineStepUpdate(id: PipelineStepId, request: UpdatePipelineStepRequest, prior: PipelineStep) extends ResolvedAction
   final case class PipelineStepDelete(id: PipelineStepId, prior: PipelineStep) extends ResolvedAction
 
-  // `dataType`/`pipelineStep` create carry no ResolvedAction — rejected at
+  // HEL-907 task 1.2: `output` has no `create` ResolvedAction either -- same
+  // "no parent-id field on EditTarget" reason as pipelineStep, see PatchSetProtocol's doc.
+  final case class OutputUpdate(id: OutputId, request: UpdateOutputRequest, prior: Output, priorConfig: JsObject) extends ResolvedAction
+  final case class OutputDelete(id: OutputId, prior: Output) extends ResolvedAction
+
+  // `dataType`/`pipelineStep`/`output` create carry no ResolvedAction — rejected at
   // pre-validation itself (design.md D1: no create API / no parent-pipeline
   // id field on EditTarget).
 }
@@ -89,7 +95,12 @@ private[services] final case class PatchSetApplyContext(
     dataSourceRepo: DataSourceRepository,
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
-    accessChecker: AccessChecker
+    accessChecker: AccessChecker,
+    // HEL-907 task 1.2: nullable-optional, mirrors this file's other legacy-optional wiring
+    // conventions (see e.g. OutputService's own auditService/pipelineRunRepo params) -- a fixture
+    // that never constructs an `output`-kind edit gets a null-deref only if it actually reaches
+    // `resolveOutputUpdate`/`resolveOutputDelete`, never before.
+    outputRepo: OutputRepository = null
 )
 
 /** The existing per-resource services [[PatchSetApplyService]]'s forward-
@@ -102,5 +113,7 @@ private[services] final case class PatchSetApplyServices(
     panelService: PanelService,
     dashboardService: DashboardService,
     dataSourceService: DataSourceService,
-    pipelineService: PipelineService
+    pipelineService: PipelineService,
+    // HEL-907 task 1.2: nullable-optional, same rationale as PatchSetApplyContext.outputRepo above.
+    outputService: OutputService = null
 )

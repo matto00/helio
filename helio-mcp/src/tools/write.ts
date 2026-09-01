@@ -1,10 +1,10 @@
 /**
  * Registers the Phase-3 write/composition tools. Each tool is a thin call to an
  * existing Helio endpoint and returns the created resource (with its id) so an
- * agent can chain the canonical path DataSource → Pipeline → DataType → Panel
+ * agent can chain the canonical path Source → Pipeline → Output → Dashboard
+ * (HEL-903/904/907; DataType/Metric retired outright, no wire trace remains)
  * without re-listing. No business logic lives here — the backend owns
- * validation (including the V41 pipeline-only binding rule, whose 400 is
- * surfaced verbatim).
+ * validation.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -15,11 +15,6 @@ import { HelioApiError } from "../httpClient.js";
 import type { ProposalPanel } from "../types.js";
 import { addPipelineStepHandler } from "./assertSchemas.js";
 import { assertExactlyOneCsvInput } from "./csvDataSourceSchema.js";
-import {
-  buildUpdateMetricBody,
-  metricAggregationSchema,
-  metricFormatSchema,
-} from "./metricSchemas.js";
 import { panelSchema } from "./proposal.js";
 import { createRestDataSourceSchema } from "./restDataSourceSchema.js";
 import {
@@ -32,27 +27,11 @@ import {
   UPDATE_DASHBOARD_DESCRIPTION,
   updateDashboardHandler,
 } from "./scheduleTools.js";
-import {
-  buildUpdateDataTypeBody,
-  buildUpdatePanelBody,
-  buildUpdatePipelineStepBody,
-  computedFieldSchema,
-  dataFieldSchema,
-} from "./updateSchemas.js";
+import { buildUpdatePanelBody, buildUpdatePipelineStepBody } from "./updateSchemas.js";
 
-// Hoisted to module scope (HEL-385 design.md D3 — round-1 skeptic correction):
-// originally declared inside `registerWriteTools`, where `export` cannot
-// legally apply to a function-local `const`. The declaration closes over
-// nothing (no reference to `server`/`api`/any other local), so this
-// relocation is behavior-preserving — `create_bound_panel` below continues to
-// resolve it via normal module-scope lookup, exactly as before. Exported so
-// `pipelineProposal.ts`'s `steps` field can reuse it verbatim instead of a
-// second, drift-prone copy — mirrors this file's own existing import of
-// `panelSchema` from `proposal.ts`.
-export const boundPipelineStepSchema = z.object({
-  type: z.string().min(1),
-  config: z.record(z.string(), z.unknown()).default({}),
-});
+// HEL-907 task 3.6: `boundPipelineStepSchema` REMOVED outright -- its only real caller,
+// create_bound_panel, is retired (see below); pipelineProposal.ts owns its own separate,
+// clientId/parentStepId-bearing step schema now.
 
 function jsonResult(value: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
@@ -77,13 +56,13 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Create data source (static)",
       description:
         "Create a `static` data source from inline columns + rows — the root of the canonical path " +
-        "DataSource → Pipeline → DataType → Panel. The backend auto-creates a source-companion " +
-        "DataType (NOT panel-bindable); build a pipeline over the returned source id to produce a " +
-        "bindable output type. Returns the created source id. For a real integration use " +
+        "Source → Pipeline → Output → Dashboard. Returns the created source id ONLY -- this tool " +
+        "creates no pipeline and no Output; build a pipeline over the returned source id " +
+        "(create_pipeline) with an `outputs[]` entry if a panel-bindable projection is needed, or " +
+        "add_output onto an existing pipeline afterward. For a real integration use " +
         "create_csv_data_source, create_rest_data_source, or create_sql_data_source instead. " +
-        "Optional `tag` (HEL-366, free-form grouping key, max 200 chars) is propagated to the " +
-        "auto-created companion DataType too, and lets a whole workflow run's resources be torn " +
-        "down together later with teardown_resources.",
+        "Optional `tag` (HEL-366, free-form grouping key, max 200 chars) lets a whole workflow " +
+        "run's resources be torn down together later with teardown_resources.",
       inputSchema: {
         name: z.string().min(1),
         columns: z.array(z.object({ name: z.string().min(1), type: z.string().min(1) })).min(1),
@@ -110,12 +89,11 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "URL-backed source RE-FETCHES the URL on every manual refresh AND on every scheduled " +
         "pipeline run, so it is the only variant that reflects upstream changes automatically. This " +
         "tool accepts NO caller-supplied filesystem `path` of any kind — only `content` or " +
-        "`sourceUrl`. Like `static`, the backend auto-creates a source-companion DataType (NOT " +
-        "returned inline — inspect it via list_source_objects); build a pipeline over the returned " +
-        "source id to produce a panel-bindable output type. Optional `tag` (HEL-366, free-form " +
-        "grouping key, max 200 chars) is propagated to the auto-created companion DataType too, " +
-        "and lets a whole workflow run's resources be torn down together later with " +
-        "teardown_resources.",
+        "`sourceUrl`. Returns the created source id ONLY -- creates no pipeline and no Output; " +
+        "build a pipeline over the returned source id (create_pipeline) with an `outputs[]` entry " +
+        "if a panel-bindable projection is needed, or add_output onto an existing pipeline " +
+        "afterward. Optional `tag` (HEL-366, free-form grouping key, max 200 chars) lets a whole " +
+        "workflow run's resources be torn down together later with teardown_resources.",
       inputSchema: {
         name: z.string().min(1),
         content: z.string().min(1).optional(),
@@ -141,10 +119,11 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "this call, and credentials are never returned by this or any tool. An `auth`/`apiKey`/`token`/" +
         "`password`/`credential` field is REJECTED with a validation error naming connectorId, not " +
         "silently dropped. The backend attempts an " +
-        "initial fetch at creation time: on success the response includes the auto-created companion " +
-        "DataType; on failure it returns dataType: null and a fetchError message instead of an opaque " +
-        "error, so a bad endpoint can be diagnosed and retried. Build a pipeline over the returned " +
-        "source id to produce a panel-bindable output type.",
+        "initial fetch at creation time: on success the response includes the re-inferred " +
+        "`inferredSchema`; on failure it returns `inferredSchema: null` and a fetchError message " +
+        "instead of an opaque error, so a bad endpoint can be diagnosed and retried. Build a " +
+        "pipeline over the returned source id (create_pipeline, with an `outputs[]` entry) to " +
+        "produce a panel-bindable Output.",
       inputSchema: createRestDataSourceSchema,
     },
     ({
@@ -181,10 +160,10 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "Create a `sql` data source. `query` MUST be a read-only SELECT — the backend rejects " +
         "DDL/DML keywords (CREATE, DROP, ALTER, DELETE, INSERT, UPDATE, TRUNCATE) verbatim and no " +
         "source is created if rejected. The backend runs the query once at creation time: on success " +
-        "the response includes the auto-created companion DataType; on failure it returns " +
-        "dataType: null and a fetchError message. The password is redacted server-side and never " +
-        "appears in this tool's result. Build a pipeline over the returned source id to produce a " +
-        "panel-bindable output type.",
+        "the response includes the re-inferred `inferredSchema`; on failure it returns " +
+        "`inferredSchema: null` and a fetchError message. The password is redacted server-side and " +
+        "never appears in this tool's result. Build a pipeline over the returned source id " +
+        "(create_pipeline, with an `outputs[]` entry) to produce a panel-bindable Output.",
       inputSchema: {
         name: z.string().min(1),
         dialect: z.string().min(1),
@@ -202,27 +181,10 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       ),
   );
 
-  server.registerTool(
-    "create_pipeline",
-    {
-      title: "Create pipeline",
-      description:
-        "Create a pipeline from a source. Creates a NEW pipeline-output DataType named " +
-        "`outputDataTypeName` (this is the panel-bindable type). Returns the pipeline summary " +
-        "including `id` and `outputDataTypeId`. Add steps with add_pipeline_step, then run_pipeline. " +
-        "Optional `tag` (HEL-366, free-form grouping key, max 200 chars) is propagated to the " +
-        "newly-created output DataType too, and lets a whole workflow run's resources be torn down " +
-        "together later with teardown_resources.",
-      inputSchema: {
-        name: z.string().min(1),
-        sourceDataSourceId: z.string().min(1),
-        outputDataTypeName: z.string().min(1),
-        tag: z.string().min(1).max(200).optional(),
-      },
-    },
-    ({ name, sourceDataSourceId, outputDataTypeName, tag }) =>
-      guarded(() => api.createPipeline({ name, sourceDataSourceId, outputDataTypeName, tag })),
-  );
+  // HEL-907 task 3.2: create_pipeline REMOVED from here (no alias) -- rewritten onto the
+  // Outputs model in its own file, tools/pipelines.ts (registerPipelineTools), since its shape
+  // changed materially (sourceId OR inline source, steps[] with parentStepId, optional
+  // outputs[]) rather than a small in-place patch.
 
   server.registerTool(
     "add_pipeline_step",
@@ -323,76 +285,35 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "regex {field, params: {pattern}} — fails if `field`'s value doesn't match `pattern` " +
         "(partial match, like String.find). Every rule additionally requires `severity`: " +
         '"warn" or "error". Use analyze_pipeline to ' +
-        "see each step's resulting output columns.",
+        "see each step's resulting output columns. Optional parentStepId (HEL-907 task 3.3) " +
+        "splices the new step in directly after that EXISTING step id, branching a NEW tail off " +
+        "any existing node -- absent extends the trunk (unchanged default).",
       inputSchema: {
         pipelineId: z.string().min(1),
         type: z.string().min(1),
         config: z.record(z.string(), z.unknown()).default({}),
+        parentStepId: z.string().min(1).optional(),
       },
     },
-    ({ pipelineId, type, config }) =>
-      guarded(() => addPipelineStepHandler(api, { pipelineId, type, config })),
+    ({ pipelineId, type, config, parentStepId }) =>
+      guarded(() => addPipelineStepHandler(api, { pipelineId, type, config, parentStepId })),
   );
 
-  server.registerTool(
-    "create_pipeline_from_shape",
-    {
-      title: "Create pipeline from a smart shape",
-      description:
-        "Instantiate a smart pipeline shape into a NEW pipeline in one call, instead of hand-" +
-        "assembling steps with create_pipeline + add_pipeline_step. Validates `params` against the " +
-        "shape's own expand FIRST (POST /api/pipeline-shapes/:shapeId/expand) — if that fails " +
-        "(unknown shapeId, or params rejected), NO pipeline is created and the tool returns an " +
-        "error whose message is the backend's 404/422 message verbatim (an unknown shapeId's " +
-        "message lists every registered id). Only once expand succeeds does it create the pipeline " +
-        "(new panel-bindable output DataType named outputDataTypeName) and add each expanded step " +
-        "in order, the same way add_pipeline_step would. Does NOT run the pipeline — call " +
-        "run_pipeline afterward (you may also add further non-shape steps first, e.g. a rename). " +
-        "Call list_pipeline_shapes first to see every registered shapeId + its params shape. " +
-        "Registered shape ids + params: " +
-        "`passthrough` {fields: string[]}; " +
-        '`single-row` {mode:"aggregate"|"filter", measures?:{fn,field,alias}[], ' +
-        "conditions?:{field,operator,value}[], combinator?}; " +
-        '`top-n` {measure, direction:"asc"|"desc", n, ties?}; ' +
-        '`time-series` {timeField, granularity:"day"|"week"|"month"|"quarter"|"year", ' +
-        "measures:{fn,field,alias}[]}; " +
-        '`pivot-matrix` {index:string[], column, values, agg:"sum"|"count"|"avg"|"min"|' +
-        '"max"|"first"}. Returns the created pipeline summary plus the ordered list of created ' +
-        "steps. Optional `tag` (HEL-366, free-form grouping key, max 200 chars) is propagated to " +
-        "the newly-created output DataType too, and lets a whole workflow run's resources be torn " +
-        "down together later with teardown_resources.",
-      inputSchema: {
-        name: z.string().min(1),
-        sourceDataSourceId: z.string().min(1),
-        outputDataTypeName: z.string().min(1),
-        shapeId: z.string().min(1),
-        params: z.record(z.string(), z.unknown()).default({}),
-        tag: z.string().min(1).max(200).optional(),
-      },
-    },
-    ({ name, sourceDataSourceId, outputDataTypeName, shapeId, params, tag }) =>
-      guarded(() =>
-        api.createPipelineFromShape({
-          name,
-          sourceDataSourceId,
-          outputDataTypeName,
-          shapeId,
-          params,
-          tag,
-        }),
-      ),
-  );
+  // HEL-907 task 3.4: create_pipeline_from_shape REMOVED from here (no alias) -- replaced by
+  // add_outputs_from_shape(pipelineId, stepId?, shapeId, params, outputName, outputKind?) in
+  // tools/pipelines.ts (registerPipelineTools), which expands a shape onto an EXISTING
+  // pipeline node instead of always creating a brand-new pipeline.
 
   server.registerTool(
     "run_pipeline",
     {
       title: "Run pipeline",
       description:
-        "Run a pipeline to completion and write rows to its output DataType. The run is " +
+        "Run a pipeline to completion and write rows to its Output(s). The run is " +
         "SYNCHRONOUS: this returns only once rows exist, so it is safe to bind a panel immediately " +
-        "after. Returns { pipelineId, status, rowCount, sourceRowCount, outputDataTypeId, " +
-        "truncated, availableRowCount, truncationNotice }. rowCount is NOT guaranteed to be the " +
-        "source's complete row count: " +
+        "after. Returns { pipelineId, status, rowCount, sourceRowCount, truncated, " +
+        "availableRowCount, truncationNotice } -- call list_outputs(pipelineId) afterward for the " +
+        "produced Output id(s). rowCount is NOT guaranteed to be the source's complete row count: " +
         "every run caps its source read at 1000 rows, and when the source (or a join/union/lookup " +
         "secondary source) has more rows than that, truncated is true and truncationNotice explains " +
         "exactly what was read vs. what exists — read it before treating a filter/sort/aggregate " +
@@ -410,17 +331,25 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     {
       title: "Create dashboard",
       description:
-        "Create an empty dashboard. Returns its id (add panels with create_panel). Pass " +
+        "Create an empty dashboard. Returns its id (add panels with place_outputs for Output " +
+        "data or create_content_panel for text/markdown/image). Pass " +
         'ifExists:"return" (HEL-363) for idempotent get-or-create: an owner-scoped, ' +
         "case-insensitive/trimmed name match is returned instead (200, same dashboard id as any " +
         "prior call) rather than creating a duplicate — useful for a scheduled rebuild script that " +
         "targets a stable dashboard without first listing + scanning for a name match. Omit " +
         "ifExists for the original behavior: always creates a new dashboard (201), even if a " +
         "same-named one already exists. Note: this is a sequential-call idempotency guarantee, not " +
-        "a hard uniqueness constraint — two truly concurrent calls with the same name can both create.",
-      inputSchema: { name: z.string().min(1), ifExists: z.literal("return").optional() },
+        "a hard uniqueness constraint — two truly concurrent calls with the same name can both create. " +
+        "Optional `tag` (HEL-366 convention, free-form, max 200 chars, set only at create time) lets " +
+        "this dashboard be torn down together with a tagged workflow's other resources via " +
+        "teardown_resources — a dashboard created with no tag is not reachable by tag-scoped teardown.",
+      inputSchema: {
+        name: z.string().min(1),
+        ifExists: z.literal("return").optional(),
+        tag: z.string().min(1).max(200).optional(),
+      },
     },
-    ({ name, ifExists }) => guarded(() => api.createDashboard({ name, ifExists })),
+    ({ name, ifExists, tag }) => guarded(() => api.createDashboard({ name, ifExists, tag })),
   );
 
   server.registerTool(
@@ -430,9 +359,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Replace ALL of an existing dashboard's panels with the supplied set, atomically " +
         "(PUT /api/dashboards/:id/contents, HEL-363) — in one server-side transaction, instead of " +
-        "hand-rolling delete_panel-per-panel followed by create_panel-per-panel (which leaves the " +
+        "hand-rolling delete_panel-per-panel followed by place_outputs-per-panel (which leaves the " +
         "live dashboard observably half-empty mid-rebuild and is not atomic). Every panel is " +
-        "validated (structure + V41 pipeline-only binding, RLS-owner-scoped) BEFORE any write: on " +
+        "validated (structure + Output binding, RLS-owner-scoped) BEFORE any write: on " +
         "any invalid panel, the response is a 400 naming the offending panel by index/title and " +
         "NOTHING is deleted or created — the dashboard's existing panel set is left byte-for-byte " +
         "unchanged. On success, every prior panel is gone and every supplied panel exists; the " +
@@ -475,208 +404,13 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       guarded(() => api.uploadImage({ content, filename, mime, encoding })),
   );
 
-  server.registerTool(
-    "create_panel",
-    {
-      title: "Create panel",
-      description:
-        "Create a panel on a dashboard. `type` ∈ " +
-        "metric/chart/table/text/markdown/image/collection/timeline (there is no `divider`: " +
-        "divider creation was dropped for agent/UI parity, mirroring the human app — the backend " +
-        "wire still accepts it on other paths, the MCP just no longer offers it). Data panels " +
-        "(metric/chart/table/collection/timeline) are created then bound with bind_panel to a " +
-        "pipeline-output DataType.\n" +
-        "config by type:\n" +
-        "• metric — bind later; literal `label`/`unit` overrides optional.\n" +
-        "• chart — `chartOptions` keyed by chart type (line {smooth,showPoints,areaFill}; " +
-        "bar {orientation:vertical|horizontal, stacking:none|stacked|normalized, barGapPct:0-100}; " +
-        "pie {donutHolePct:0-90, showPercentLabels}; scatter {sizeField,colorField}). Set the " +
-        "chart's TYPE via `appearance.chart.chartType` (line|bar|pie|scatter), not config. " +
-        "Optional `aggregation` ({groupBy, agg:count|sum|avg|min|max, yField}) groups bound rows by " +
-        "`groupBy` and plots one aggregate mark per group instead of one mark per row — honored for " +
-        "bar/line/pie (for pie, one `{name,value}` slice per group); REJECTED (400) if combined with " +
-        '`chartType: "scatter"`, since scatter plots a raw {x,y} coordinate pair per row with no ' +
-        "groupBy semantic. " +
-        "Optional `annotation` (static string) renders as a subtitle/footnote beneath the chart; " +
-        "omit it for no annotation. To source the annotation dynamically from a bound DataType " +
-        "column instead, set the reserved `fieldMapping.annotation` slot (see bind_panel) rather " +
-        "than the static `annotation` string — the static literal wins if both are set.\n" +
-        "• table — `density` (condensed|normal|spacious) and `columnOrder` (string[] of visible " +
-        "column keys, in order).\n" +
-        "• collection — `baseType` (metric) and `layout` (grid|list); set these here at create " +
-        "time (they survive a later bind_panel merge-patch). One bound row = one rendered item.\n" +
-        "• timeline — `timelineOptions.sort` (asc|desc, default asc); set here at create time (it " +
-        "survives a later bind_panel merge-patch). Renders a vertical chronological event list, " +
-        "one bound row = one rendered event.\n" +
-        "• text/markdown — `content` (literal/static text). In markdown `content`, reference an " +
-        "uploaded image with the `helio://uploads/image/<id>` scheme (get <id> from upload_image).\n" +
-        "• image — `imageUrl` (use an uploaded image's served `url`, or its " +
-        "`helio://uploads/image/<id>` ref), optional `imageFit` (contain|cover|fill), and optional " +
-        "`caption` (static string) rendered as a strip beneath the image; omit it for no caption.\n" +
-        "`appearance` is an optional passthrough (same shape as update_panel_appearance); its " +
-        "`chart.chartType` is the create-time channel for a bar/pie/scatter chart. Returns the " +
-        "panel id.",
-      inputSchema: {
-        dashboardId: z.string().min(1),
-        title: z.string().optional(),
-        type: z
-          .enum(["metric", "chart", "table", "text", "markdown", "image", "collection", "timeline"])
-          .optional(),
-        config: z.record(z.string(), z.unknown()).optional(),
-        appearance: z.record(z.string(), z.unknown()).optional(),
-      },
-    },
-    ({ dashboardId, title, type, config, appearance }) =>
-      guarded(() => api.createPanel({ dashboardId, title, type, config, appearance })),
-  );
-
-  server.registerTool(
-    "create_panels",
-    {
-      title: "Create panels (batch)",
-      description:
-        "Create several panels on ONE dashboard in a single call (POST /api/panels/batch, HEL-370) " +
-        "— the preferred path whenever you're laying down more than one panel on a dashboard (e.g. a " +
-        "story's image + markdown pair, or a batch of pre-created data panels to bind afterward with " +
-        "bind_panel), instead of N sequential create_panel calls. All panels are created atomically: " +
-        "one bad item (unrecognized type, invalid chart.chartType, or a config.dataTypeId binding " +
-        "that violates the pipeline-only rule) creates NOTHING in the batch and the tool surfaces the " +
-        "backend's 400 verbatim, naming the offending item by 1-based index and title. On success, " +
-        "returns every created panel (with ids) in the same order supplied. Each entry in `panels` " +
-        "has the exact same shape as create_panel's arguments minus `dashboardId` (supplied once here) " +
-        "— see create_panel's description for the full per-type config/appearance rules. Like " +
-        "create_panel, this only creates plain or pre-bound-DataType panels; it does not build a " +
-        "source/pipeline/run chain (bind_panel or create_bound_panel remain the paths for that). " +
-        "create_panel remains available and unchanged for a single panel.",
-      inputSchema: {
-        dashboardId: z.string().min(1),
-        panels: z.array(
-          z.object({
-            title: z.string().optional(),
-            type: z
-              .enum([
-                "metric",
-                "chart",
-                "table",
-                "text",
-                "markdown",
-                "image",
-                "collection",
-                "timeline",
-              ])
-              .optional(),
-            config: z.record(z.string(), z.unknown()).optional(),
-            appearance: z.record(z.string(), z.unknown()).optional(),
-          }),
-        ),
-      },
-    },
-    ({ dashboardId, panels }) => guarded(() => api.createPanels({ dashboardId, panels })),
-  );
-
-  server.registerTool(
-    "bind_panel",
-    {
-      title: "Bind panel to a DataType",
-      description:
-        "Bind a panel to a pipeline-output DataType and set its field mapping. " +
-        "fieldMapping keys by panel type: metric → {value, label?, unit?}; " +
-        "chart → {xAxis, yAxis, series?, annotation?} (annotation binds the chart's subtitle/" +
-        "footnote to a DataType column — first-row value; omit to keep a static config.annotation); " +
-        "text/markdown → {content} (the DataType column whose " +
-        "value fills the text/markdown body in Source mode); collection → the base-type slots, " +
-        "i.e. for baseType metric {value, label?, unit?} applied to every row/item; " +
-        "timeline → {time, event} (time is a timestamp/order column, event is the text " +
-        "description) applied to every row/entry; " +
-        "table → no fieldMapping needed (omit it — the old `columns` slot is vestigial; visible " +
-        "columns come from config.columnOrder set on create_panel). A collection's " +
-        "baseType/layout and a timeline's timelineOptions.sort are set on create_panel and " +
-        "preserved by this bind (merge-patch). " +
-        "The DataType MUST be a pipeline output (sourceId null); binding a source companion is " +
-        "rejected with 400 (V41). Pass panelType to match the panel's type.",
-      inputSchema: {
-        panelId: z.string().min(1),
-        dataTypeId: z.string().min(1),
-        fieldMapping: z.record(z.string(), z.string()).optional(),
-        panelType: z
-          .enum(["metric", "chart", "table", "text", "markdown", "collection", "timeline"])
-          .optional(),
-      },
-    },
-    ({ panelId, dataTypeId, fieldMapping, panelType }) =>
-      guarded(() => api.bindPanel(panelId, { dataTypeId, fieldMapping, panelType })),
-  );
-
-  server.registerTool(
-    "create_bound_panel",
-    {
-      title: "Create one bound panel in a single call",
-      description:
-        "Build ONE bound data panel with a single tool call — collapses the 6-call chain " +
-        "create_data_source/create_pipeline -> add_pipeline_step* -> run_pipeline -> create_panel -> " +
-        "bind_panel -> update_panel_appearance into one server-side POST /api/panels/bound (HEL-364). " +
-        "This is the PREFERRED path for a single bound panel; the granular tools above remain " +
-        "available and unchanged for finer-grained control (e.g. re-running an existing pipeline, or " +
-        "building a source once and reusing it across many panels via sourceDataSourceId).\n" +
-        "Exactly one of `source` (inline `{name, columns, rows}` — same shape as create_data_source) " +
-        "or `sourceDataSourceId` (an existing, caller-owned DataSource id) must be given. `pipeline." +
-        "outputDataTypeName` names the new panel-bindable output type; `pipeline.steps` is the same " +
-        "ordered `{type, config}` list add_pipeline_step accepts (see that tool's description for the " +
-        "full per-op config catalogue) — may be empty to bind the raw source schema unchanged. " +
-        "`panel.type` MUST be one of metric/chart/table/collection/timeline (the five data-bindable " +
-        "kinds) — any other type is rejected; use create_panel directly for text/markdown/image. " +
-        "The backend validates the requested panel type's fieldMapping is satisfiable by the " +
-        "pipeline's PROJECTED output schema BEFORE creating anything — an unsatisfiable binding " +
-        "(e.g. a chart with no numeric column for yAxis) 400s with nothing created. The pipeline run " +
-        "is synchronous, so the returned panel's DataType already has rows (no separate run_pipeline " +
-        "call needed) — a run that legitimately produces zero rows (e.g. an over-restrictive filter) " +
-        "still succeeds with a bound, empty panel, not an error. On any failure AFTER the validation " +
-        "gate, the backend cleans up every resource IT created for this call (the pipeline, its " +
-        "steps, the output DataType and its rows, and — only when `source` was created inline by " +
-        "this same call — that DataSource too; a reused sourceDataSourceId is never touched) and the " +
-        "error message names the failed stage (source/pipeline/steps/run/panel) — surfaced verbatim, " +
-        "never retried or silently swallowed. `fieldMapping` (top-level, optional) sets the created " +
-        "panel's binding — same per-type slot keys as bind_panel (metric -> {value,label?,unit?}; " +
-        "chart -> {xAxis,yAxis,series?,annotation?}; table -> omit; collection -> the base-type " +
-        "slots; timeline -> {time,event}). `panel.appearance` (optional) is completed the same way " +
-        "create_panel's is — a partial `{chart:{chartType}}` is overlaid onto the full default chart " +
-        "appearance. Returns { sourceId, pipelineId, dataTypeId, panel }.",
-      inputSchema: {
-        dashboardId: z.string().min(1),
-        source: z
-          .object({
-            name: z.string().min(1),
-            columns: z.array(z.object({ name: z.string().min(1), type: z.string().min(1) })).min(1),
-            rows: z.array(z.array(z.unknown())),
-          })
-          .optional(),
-        sourceDataSourceId: z.string().min(1).optional(),
-        pipeline: z.object({
-          name: z.string().optional(),
-          outputDataTypeName: z.string().min(1),
-          steps: z.array(boundPipelineStepSchema).default([]),
-        }),
-        panel: z.object({
-          type: z.enum(["metric", "chart", "table", "collection", "timeline"]),
-          title: z.string().min(1),
-          config: z.record(z.string(), z.unknown()).optional(),
-          appearance: z.record(z.string(), z.unknown()).optional(),
-        }),
-        fieldMapping: z.record(z.string(), z.string()).optional(),
-      },
-    },
-    ({ dashboardId, source, sourceDataSourceId, pipeline, panel, fieldMapping }) =>
-      guarded(() =>
-        api.createBoundPanel({
-          dashboardId,
-          source: source ? { ...source, rows: source.rows as unknown[][] } : undefined,
-          sourceDataSourceId,
-          pipeline,
-          panel,
-          fieldMapping,
-        }),
-      ),
-  );
+  // HEL-907 task 3.6: create_panel/create_panels/bind_panel/create_bound_panel REMOVED from
+  // here (no alias) -- replaced by place_outputs/create_content_panel in tools/placements.ts
+  // (registerPlacementTools). create_bound_panel's own backend route (POST /api/panels/bound)
+  // no longer exists (retired during the Outputs remodel) -- every call has 404'd since then,
+  // undetected because no test covered it; bind_panel's PATCH body (config: {dataTypeId,
+  // fieldMapping}) is also meaningless against an output-kind panel's real config shape
+  // (OutputPanelConfig only has outputId).
 
   server.registerTool(
     "update_panel_appearance",
@@ -709,7 +443,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
   server.registerTool(
     "update_panel",
     {
-      title: "Update panel (title/type/config/appearance)",
+      title: "Update panel (title/type/config/appearance) -- placement fields only",
       description:
         "Partially update a panel — title, type, config, and/or appearance — in place " +
         "(PATCH /api/panels/:id), without the delete-and-recreate round trip that churns the " +
@@ -723,63 +457,28 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "omitted field keeps its stored value; an explicit `null` clears it. See that tool's " +
         "description for the `chart` sub-object's own field-level merge/clear rules.\n" +
         "`config` is decoded server-side against the panel's EXISTING stored `type` and is ALSO a " +
-        "genuine per-field partial merge — the SAME absent/null convention as `appearance` — NOT a " +
-        "wholesale replace like update_data_type's `fields`/`computedFields`. `config.dataTypeId`/" +
-        "`config.fieldMapping` are technically patchable through this tool too (every bound kind's " +
-        "config carries them), but bind_panel remains the PREFERRED tool for binding changes — it " +
-        "additionally validates the V41 pipeline-only rule and `panelType` consistency, which this " +
-        "tool does not re-check client-side.\n" +
-        "Patchable `config` fields, per the panel's stored type (all nine dispatched by " +
-        "PanelConfigCodec.applyConfigPatch):\n" +
-        "• metric — `unit`/`label`/`dataTypeId`/`fieldMapping`/`aggregation`/`metricId` (standard " +
-        "absent-unchanged/null-clear/set).\n" +
-        "• chart — `dataTypeId`/`fieldMapping`/`aggregation`/`metricId` (standard); `annotation` " +
-        "clears on `null` OR a blank/whitespace-only string, not only `null`; `chartOptions` clears " +
-        "on `null` OR a non-null object that, after per-chart-type (line/bar/pie/scatter) " +
-        "validation, carries no populated sub-field — INCLUDING a bare `{}` — so sending " +
-        '`chartOptions: {}` "just to be safe" silently WIPES existing display options rather than ' +
-        "leaving them unchanged.\n" +
-        "• table — `dataTypeId`/`fieldMapping`/`columnWidths`/`metricId` (standard); `density` " +
-        "(standard, but enum-validated — an invalid value 400s, not silently dropped); " +
-        "`columnOrder` (standard).\n" +
-        "• text/markdown — `dataTypeId`/`fieldMapping` (standard); `content` has NO null/absent " +
-        "distinction the same way the others do — omitting it leaves it unchanged, but an explicit " +
-        '`null` clears it to `""` (not "removed").\n' +
-        "• image — `caption` clears on `null` OR a blank/whitespace string (same exception shape as " +
-        'chart `annotation`); `imageUrl` clears to `""` on `null` (same shape as `content`); ' +
-        '`imageFit` RESETS to the default `"contain"` on `null` (NOT a clear-to-empty) and is ' +
-        "enum-validated on a non-null value.\n" +
-        "• collection — `dataTypeId`/`fieldMapping` (standard); `baseType` RESETS to the default " +
-        '`"metric"` on `null` (NOT a clear); `layout` RESETS to the default `"grid"` on `null` (NOT ' +
-        "a clear) and is enum-validated on a non-null value; `itemOptions` clears on `null` OR an " +
-        "empty object.\n" +
-        "• timeline — `dataTypeId`/`fieldMapping` (standard); `timelineOptions.sort` RESETS to the " +
-        'default `"asc"` on `null` OR an empty object (NOT a clear).\n' +
+        "genuine per-field partial merge — the SAME absent/null convention as `appearance`. " +
+        "HEL-907: a panel now carries ONLY placement fields — there is no per-bound-kind " +
+        "fieldMapping/aggregation config on a panel anymore (that all moved to the Output itself, " +
+        '`target.kind: "output"` via update_output). Patchable `config` fields, per the panel\'s ' +
+        "stored type:\n" +
+        "• output — `outputId` (rebind this placement to a DIFFERENT existing Output; use " +
+        "update_output instead if you want to change the CURRENT Output's name/fieldMapping).\n" +
+        "• text/markdown — `content`; absent leaves it unchanged, explicit `null` clears it to " +
+        '`""` (not "removed").\n' +
+        '• image — `imageUrl` clears to "" on `null`; `imageFit` RESETS to the default ' +
+        '`"contain"` on `null` (NOT a clear-to-empty) and is enum-validated on a non-null value; ' +
+        "`caption` clears on `null` OR a blank/whitespace string.\n" +
         '• divider — `orientation` RESETS to the default `"horizontal"` on `null` (NOT a clear, ' +
-        "enum-validated on a non-null value); `weight`/`color` (standard).\n" +
+        "enum-validated on a non-null value); `weight`/`color` clear on `null`.\n" +
         "Returns the updated panel.",
       inputSchema: {
         panelId: z.string().min(1),
         title: z.string().optional(),
-        // Unlike create_panel's `type` enum (which drops "divider" for
-        // agent/UI parity — divider creation is unsupported), this tool's
-        // `type` validates against an EXISTING panel's stored kind, and a
-        // divider panel can already exist (created before this tool, or via
-        // the human app) — so "divider" is included here; every one of the
-        // nine kinds below has its own documented config field list.
-        type: z
-          .enum([
-            "metric",
-            "chart",
-            "table",
-            "text",
-            "markdown",
-            "image",
-            "collection",
-            "timeline",
-            "divider",
-          ])
-          .optional(),
+        // Unlike create_content_panel's `type` enum (text/markdown/image/divider only -- no
+        // "output", which place_outputs creates instead), this tool's `type` validates against an
+        // EXISTING panel's stored kind, so "output" is included here.
+        type: z.enum(["output", "text", "markdown", "image", "divider"]).optional(),
         config: z.record(z.string(), z.unknown()).optional(),
         appearance: z.record(z.string(), z.unknown()).optional(),
       },
@@ -797,32 +496,33 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     {
       title: "Bulk-delete every resource carrying a tag",
       description:
-        "Permanently delete every data source, pipeline, and DataType the caller owns that carries " +
-        "`tag` (POST /api/workspace/teardown) — the tag-based replacement for scanning resource " +
-        "names to find and delete a workflow run's resources. Give resources this same `tag` at " +
-        "create time (create_data_source/create_csv_data_source's `tag`, create_pipeline/" +
-        "create_pipeline_from_shape's `tag`) so they can all be torn down together in one call.\n" +
+        "Permanently delete every data source, pipeline, and dashboard the caller owns that " +
+        "carries `tag` (POST /api/workspace/teardown) — the tag-based replacement for scanning " +
+        "resource names to find and delete a workflow run's resources. Give resources this same " +
+        "`tag` at create time (create_data_source/create_csv_data_source's `tag`, create_pipeline's " +
+        "`tag`, create_dashboard's `tag`) so they can all be torn down together in one call. A " +
+        "pipeline's Outputs and their placement panels carry no tag of their own — they cascade " +
+        "automatically when their owning pipeline is deleted, and a dashboard's panels cascade " +
+        "automatically when it is deleted; neither needs (or accepts) its own separate tag.\n" +
         "**Refuse-on-out-of-batch-dependent**: the WHOLE call is refused (still HTTP 200, " +
         "`blocked: true`, NOTHING deleted — not even the unblocked portion of the tagged set) if " +
-        "any tagged resource has a dependent outside this same tag batch that an ordinary single-" +
-        "resource delete's cascade would otherwise reach: a tagged data source whose dependent " +
-        "pipeline is untagged OR tagged with a *different* value (e.g. teardown tag `T`, dependent " +
-        "pipeline tagged `U`) both block identically — being untagged and being tagged into another " +
-        "live batch are treated the same way, neither is silently swept in. Likewise a tagged " +
-        "output DataType whose producing pipeline is untagged or differently tagged blocks. A " +
-        "tagged DataType still bound to a panel, or still linked to a data source that is NOT " +
-        "tagged into this SAME batch, also blocks (a source tagged into the SAME batch as its " +
-        "companion DataType is fine — both are deleted together, the common case). `conflicts` in " +
-        "the response names each blocked resource, its kind, and the out-of-batch dependent causing " +
-        "the block; resolve by tagging the dependent into this same batch too, or deleting it " +
-        "individually first, then retry.\n" +
+        "any tagged data source has a dependent pipeline outside this same tag batch that an " +
+        "ordinary single-resource delete's cascade would otherwise reach: a tagged data source " +
+        "whose dependent pipeline is untagged OR tagged with a *different* value (e.g. teardown " +
+        "tag `T`, dependent pipeline tagged `U`) both block identically — being untagged and being " +
+        "tagged into another live batch are treated the same way, neither is silently swept in. " +
+        "Dashboards and pipelines carry no analogous guard of their own (nothing else has a hard " +
+        "FK dependency requiring a same-batch check). `conflicts` in the response names each " +
+        "blocked resource, its kind, and the out-of-batch dependent causing the block; resolve by " +
+        "tagging the dependent into this same batch too, or deleting it individually first, then " +
+        "retry.\n" +
         "**Always call with `dryRun: true` first** to preview exactly what would be deleted (or " +
         "why it would be blocked) before running for real — the response reports the same " +
-        "`sourcesDeleted`/`pipelinesDeleted`/`typesDeleted` counts and/or `conflicts` a real call " +
-        "would, but deletes nothing. Idempotent: a repeat call with the same tag after a successful " +
-        "teardown reports all-zero counts. Owner-scoped: never discovers, counts, reports, or " +
-        "deletes another user's resources, even if they carry the same tag. Irreversible once " +
-        "`dryRun` is omitted/false and the call succeeds.",
+        "`sourcesDeleted`/`pipelinesDeleted`/`dashboardsDeleted` counts and/or `conflicts` a real " +
+        "call would, but deletes nothing. Idempotent: a repeat call with the same tag after a " +
+        "successful teardown reports all-zero counts. Owner-scoped: never discovers, counts, " +
+        "reports, or deletes another user's resources, even if they carry the same tag. " +
+        "Irreversible once `dryRun` is omitted/false and the call succeeds.",
       inputSchema: {
         tag: z.string().min(1).max(200),
         dryRun: z.boolean().optional(),
@@ -831,103 +531,11 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     ({ tag, dryRun }) => guarded(() => api.teardownResources({ tag, dryRun })),
   );
 
-  // ── Metrics (semantic layer, HEL-446/HEL-493/HEL-541) ───────────────────
-
-  server.registerTool(
-    "create_metric",
-    {
-      title: "Create metric",
-      description:
-        "Define a reusable metric: an aggregation applied to one field over a pipeline-output " +
-        "DataType. `dataTypeId` MUST be a caller-owned pipeline-output DataType — V41: sourceId " +
-        "absent on that DataType (check via list_data_types/get_panel_capabilities; a source-" +
-        "companion DataType's id is rejected with 400). `measureField` and each entry of " +
-        "`allowedDimensions` must be columns that actually exist on that DataType (also validated " +
-        "server-side, verbatim rejection message on mismatch). Prefer this over re-deriving the same " +
-        "aggregation inline in every panel/pipeline step that needs it — call list_metrics first to " +
-        "check whether the measure you need is already defined, and reference it (get_metric) " +
-        "instead of duplicating the logic.",
-      inputSchema: {
-        dataTypeId: z.string().min(1),
-        name: z.string().min(1),
-        description: z.string().optional(),
-        measureField: z.string().min(1),
-        aggregation: metricAggregationSchema,
-        allowedDimensions: z.array(z.string()),
-        format: metricFormatSchema.optional(),
-      },
-    },
-    ({ dataTypeId, name, description, measureField, aggregation, allowedDimensions, format }) =>
-      guarded(() =>
-        api.createMetric({
-          dataTypeId,
-          name,
-          description,
-          measureField,
-          aggregation,
-          allowedDimensions,
-          format,
-        }),
-      ),
-  );
-
-  server.registerTool(
-    "update_metric",
-    {
-      title: "Update metric",
-      description:
-        "Partially update a defined metric (PATCH /api/metrics/:id). Every field is optional and " +
-        "independently patchable: an OMITTED argument leaves that field unchanged server-side. " +
-        "`description` and `format` are additionally NULLABLE — pass an explicit `null` to CLEAR " +
-        "that field (distinct from omitting it, which leaves it as-is); `format`, when given as an " +
-        "object, replaces the whole format object (no deep merge of its own sub-fields: unit/" +
-        "decimals/prefix/suffix). `dataTypeId` is not patchable — create a new metric if the measure " +
-        "needs to move to a different DataType. `aggregation`, when given, is validated client-side " +
-        "against the same enum create_metric uses before any request reaches the backend; " +
-        "`measureField`/`allowedDimensions` changes are validated against the metric's DataType " +
-        "server-side, same as create_metric.",
-      inputSchema: {
-        metricId: z.string().min(1),
-        name: z.string().min(1).optional(),
-        description: z.string().nullable().optional(),
-        measureField: z.string().min(1).optional(),
-        aggregation: metricAggregationSchema.optional(),
-        allowedDimensions: z.array(z.string()).optional(),
-        format: metricFormatSchema.nullable().optional(),
-        deprecated: z.boolean().optional(),
-      },
-    },
-    ({
-      metricId,
-      name,
-      description,
-      measureField,
-      aggregation,
-      allowedDimensions,
-      format,
-      deprecated,
-    }) =>
-      guarded(() =>
-        api.updateMetric(
-          metricId,
-          buildUpdateMetricBody({
-            name,
-            description,
-            measureField,
-            aggregation,
-            allowedDimensions,
-            format,
-            deprecated,
-          }),
-        ),
-      ),
-  );
-
   // ── Edit-in-place (HEL-328) ─────────────────────────────────────────────
   // Each PATCHes an existing, unmodified backend endpoint — no backend
-  // changes in this ticket. Thin pass-throughs mirroring `update_metric`
-  // above; the two multi-field tools build their PATCH body via
-  // `updateSchemas.ts`'s `buildUpdate*Body` before calling `HelioApi`.
+  // changes in this ticket. Thin pass-throughs; the two multi-field tools
+  // build their PATCH body via `updateSchemas.ts`'s `buildUpdate*Body`
+  // before calling `HelioApi`.
 
   server.registerTool(
     "update_data_source",
@@ -945,32 +553,6 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       },
     },
     ({ dataSourceId, name }) => guarded(() => api.updateDataSource(dataSourceId, name)),
-  );
-
-  server.registerTool(
-    "update_data_type",
-    {
-      title: "Update DataType",
-      description:
-        "Partially update a DataType (PATCH /api/types/:id). `name`/`fields`/`computedFields` are " +
-        "each independently optional: an OMITTED argument leaves that field unchanged server-side. " +
-        "When `fields` or `computedFields` IS provided, it REPLACES the existing array WHOLESALE " +
-        "server-side (not a per-item merge) — resend the FULL desired array, including any entries " +
-        "you want to keep, not just the ones you're adding/changing. `fields` items are " +
-        "{name, displayName, dataType, nullable}; `computedFields` items are " +
-        "{name, displayName, expression, dataType} — mirroring the backend's own field shapes. " +
-        "Returns the updated DataType.",
-      inputSchema: {
-        dataTypeId: z.string().min(1),
-        name: z.string().min(1).optional(),
-        fields: z.array(dataFieldSchema).optional(),
-        computedFields: z.array(computedFieldSchema).optional(),
-      },
-    },
-    ({ dataTypeId, name, fields, computedFields }) =>
-      guarded(() =>
-        api.updateDataType(dataTypeId, buildUpdateDataTypeBody({ name, fields, computedFields })),
-      ),
   );
 
   server.registerTool(
@@ -1087,7 +669,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Delete dashboard",
       description:
         "Permanently delete a dashboard (DELETE /api/dashboards/:id). This CASCADES: all of the " +
-        "dashboard's panels are deleted with it. Data sources, pipelines, and DataTypes are NOT " +
+        "dashboard's panels are deleted with it. Data sources, pipelines, and Outputs are NOT " +
         "affected. Owner-only — a non-owner gets 403, an unknown id 404. Irreversible.",
       inputSchema: { dashboardId: z.string().min(1) },
     },
@@ -1101,25 +683,11 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Permanently delete a data source (DELETE /api/data-sources/:id). This CASCADES to any " +
         "pipeline built on this source — and transitively that pipeline's steps, run history, and " +
-        "output DataType. The source's own companion DataType is not deleted (its sourceId is " +
-        "cleared). Irreversible — prefer deleting dependent pipelines/dashboards first if you want " +
+        "Outputs. Irreversible — prefer deleting dependent pipelines/dashboards first if you want " +
         "to control the blast radius.",
       inputSchema: { dataSourceId: z.string().min(1) },
     },
     ({ dataSourceId }) => guarded(() => api.deleteDataSource(dataSourceId)),
-  );
-
-  server.registerTool(
-    "delete_data_type",
-    {
-      title: "Delete data type",
-      description:
-        "Permanently delete a DataType (DELETE /api/types/:id). If it is a pipeline OUTPUT type this " +
-        "CASCADES to the pipeline that produces it (and that pipeline's steps and run history). Any " +
-        "panels bound to this DataType are unbound (not deleted). Irreversible.",
-      inputSchema: { dataTypeId: z.string().min(1) },
-    },
-    ({ dataTypeId }) => guarded(() => api.deleteDataType(dataTypeId)),
   );
 
   server.registerTool(
@@ -1128,7 +696,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Delete panel",
       description:
         "Permanently delete a single panel from its dashboard (DELETE /api/panels/:id). Does not " +
-        "affect the dashboard or the DataType the panel was bound to. Irreversible.",
+        "affect the dashboard or the Output the panel was bound to. Irreversible.",
       inputSchema: { panelId: z.string().min(1) },
     },
     ({ panelId }) => guarded(() => api.deletePanel(panelId)),
@@ -1140,26 +708,12 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Delete pipeline",
       description:
         "Permanently delete a pipeline (DELETE /api/pipelines/:id). This CASCADES to the pipeline's " +
-        "steps and run history. Its output DataType is NOT deleted (delete it separately with " +
-        "delete_data_type if you also want to remove the bindable type). Owner-only. Irreversible.",
+        "steps, run history, AND its Outputs (and their placements) — unlike the retired DataType " +
+        "model, an Output has no independent lifecycle from its producing pipeline. Owner-only. " +
+        "Irreversible.",
       inputSchema: { pipelineId: z.string().min(1) },
     },
     ({ pipelineId }) => guarded(() => api.deletePipeline(pipelineId)),
-  );
-
-  server.registerTool(
-    "delete_metric",
-    {
-      title: "Delete metric",
-      description:
-        "Permanently delete a defined metric (DELETE /api/metrics/:id). Does not affect the " +
-        "underlying DataType. Any panel bound to this metric is UNBOUND, not deleted (its " +
-        "metric reference is cleared, matching the existing unbind-not-delete convention for a " +
-        "deleted DataType/data source). Owner-only — a non-owner gets 403, an unknown id 404. " +
-        "Irreversible.",
-      inputSchema: { metricId: z.string().min(1) },
-    },
-    ({ metricId }) => guarded(() => api.deleteMetric(metricId)),
   );
 
   server.registerTool(
@@ -1170,7 +724,10 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "Permanently delete a single pipeline transform step (DELETE /api/pipeline-steps/:stepId). " +
         "NOTE: a step is addressed by its OWN id at a flat top-level path, not nested under its " +
         "pipeline — pass the step id (from get_pipeline / add_pipeline_step), not the pipeline id. " +
-        "Re-run the pipeline afterward to reflect the change. Irreversible.",
+        "Under the tree model (parentStepId), deleting a step ALSO deletes every descendant step " +
+        "branching off it — the response's removedTailStepCount reports how many descendants were " +
+        "removed alongside the named step, so you always know the true blast radius. Re-run the " +
+        "pipeline afterward to reflect the change. Irreversible.",
       inputSchema: { stepId: z.string().min(1) },
     },
     ({ stepId }) => guarded(() => api.deletePipelineStep(stepId)),
@@ -1219,8 +776,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "axis labels). Input order IS visual order. Panels omitted from `items` keep their current " +
         "saved position; a `panelId` not on the target dashboard is rejected with 400 (surfaced " +
         "verbatim, nothing persisted). Same placement is applied to all four responsive breakpoints. " +
-        "Create + bind panels first, then call this with their ids and your chosen sizes — no need to " +
-        "reimplement shelf-packing/clamping client-side.",
+        "Create/place panels first (create_pipeline + place_outputs / create_content_panel), then " +
+        "call this with their ids and your chosen sizes — no need to reimplement " +
+        "shelf-packing/clamping client-side.",
       inputSchema: {
         dashboardId: z.string().min(1),
         items: z

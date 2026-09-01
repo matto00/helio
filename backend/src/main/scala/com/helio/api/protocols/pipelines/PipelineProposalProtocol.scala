@@ -97,15 +97,33 @@ object ProposalRestApiConfig {
     )
 }
 
-/** `steps` reuses `CreatePipelineStepRequest` verbatim (design.md D2) — no new
- *  step DTO. Every field here is non-`Option`: all four are required by the
- *  schema (`pipelineName`, `source`, `outputDataTypeName`, `steps`). */
+/** HEL-907 task 1.1: `steps`/`outputs` now reuse P1.3's single-call
+ *  transactional shapes (`CreatePipelineTransactionalStepRequest`/
+ *  `CreatePipelineTransactionalOutputRequest`, `schemas/pipelines/
+ *  create-pipeline-transactional-{step,output}-request.schema.json`)
+ *  verbatim — no new step/output DTO, mirroring design.md D2's existing
+ *  "reuse, don't invent" convention. A step's `clientId` and an output's
+ *  `nodeStepClientId` let a proposal describe branching tree shape and
+ *  per-node Output placement before anything has a real persisted id,
+ *  exactly like `POST /api/pipelines`'s own single-call create (HEL-906).
+ *  `outputs` is OPTIONAL (design.md decision 2 of THIS ticket) — a proposal
+ *  may create a pipeline with zero Outputs, to be added later via
+ *  `add_output`. `outputDataTypeName` is REMOVED outright (no alias): the
+ *  DataType/Metric output contract this field named no longer exists
+ *  (HEL-904). */
 final case class PipelineProposal(
     pipelineName: String,
     source: PipelineProposalSource,
-    outputDataTypeName: String,
-    steps: Vector[CreatePipelineStepRequest]
+    steps: Vector[CreatePipelineTransactionalStepRequest],
+    outputs: Vector[CreatePipelineTransactionalOutputRequest] = Vector.empty
 )
+
+/** One applied Output, reported back so a caller (or a combined proposal's
+ *  sentinel resolution, `CombinedProposalService`) can address a specific
+ *  created Output by id/name — HEL-907 task 1.1/1.3, replacing the old
+ *  single `outputDataTypeId: String` (at most one implicit output) now that
+ *  a proposal can create zero, one, or many. */
+final case class ProposalOutputSummary(id: String, name: String, kind: String, nodeStepId: Option[String])
 
 //
 // `source` is `None` for the existing-sourceId branch (nothing new to report)
@@ -114,7 +132,7 @@ final case class PipelineProposal(
 final case class PipelineProposalApplyResponse(
     source: Option[DataSourceResponse],
     pipeline: PipelineSummaryResponse,
-    outputDataTypeId: String,
+    outputs: Vector[ProposalOutputSummary],
     run: RunResultResponse
 )
 
@@ -181,18 +199,22 @@ trait PipelineProposalProtocol
       }
     }
 
-  /** `pipelineName`/`source`/`outputDataTypeName`/`steps` are all required
-   *  (none is `Option` on `PipelineProposal`) — `deserializationError` on
+  /** `pipelineName`/`source`/`steps` are required — `deserializationError` on
    *  each when absent, mirroring `proposalPanelFormat`'s treatment of
-   *  `ProposalPanel`'s own two required fields (design.md D5). */
+   *  `ProposalPanel`'s own two required fields (design.md D5). `outputs`
+   *  (HEL-907 task 1.1) is OPTIONAL, defaulting to empty when absent — a
+   *  proposal may create a pipeline with zero Outputs. */
   implicit val pipelineProposalFormat: RootJsonFormat[PipelineProposal] =
     new RootJsonFormat[PipelineProposal] {
-      def write(p: PipelineProposal): JsValue = JsObject(
-        "pipelineName"       -> JsString(p.pipelineName),
-        "source"             -> p.source.toJson,
-        "outputDataTypeName" -> JsString(p.outputDataTypeName),
-        "steps"              -> JsArray(p.steps.map(_.toJson))
-      )
+      def write(p: PipelineProposal): JsValue = {
+        val fields = scala.collection.mutable.Map[String, JsValue](
+          "pipelineName" -> JsString(p.pipelineName),
+          "source"       -> p.source.toJson,
+          "steps"        -> JsArray(p.steps.map(_.toJson))
+        )
+        if (p.outputs.nonEmpty) fields("outputs") = JsArray(p.outputs.map(_.toJson))
+        JsObject(fields.toMap)
+      }
 
       def read(json: JsValue): PipelineProposal = {
         val obj = json.asJsObject
@@ -205,17 +227,20 @@ trait PipelineProposalProtocol
             .get("source")
             .map(_.convertTo[PipelineProposalSource])
             .getOrElse(deserializationError("pipeline proposal 'source' is required")),
-          outputDataTypeName = obj.fields
-            .get("outputDataTypeName")
-            .map(_.convertTo[String])
-            .getOrElse(deserializationError("pipeline proposal 'outputDataTypeName' is required")),
           steps = obj.fields
             .get("steps")
-            .map(_.convertTo[Vector[CreatePipelineStepRequest]])
-            .getOrElse(deserializationError("pipeline proposal 'steps' is required"))
+            .map(_.convertTo[Vector[CreatePipelineTransactionalStepRequest]])
+            .getOrElse(deserializationError("pipeline proposal 'steps' is required")),
+          outputs = obj.fields
+            .get("outputs")
+            .map(_.convertTo[Vector[CreatePipelineTransactionalOutputRequest]])
+            .getOrElse(Vector.empty)
         )
       }
     }
+
+  implicit val proposalOutputSummaryFormat: RootJsonFormat[ProposalOutputSummary] =
+    jsonFormat4(ProposalOutputSummary.apply)
 
   // `source: Option[DataSourceResponse]` relies on spray-json's built-in
   // Option handling (None omitted from the wire, not written as null) —

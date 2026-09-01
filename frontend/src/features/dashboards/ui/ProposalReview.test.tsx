@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 
-import { ProposalReview, type ReviewDataType } from "./ProposalReview";
+import { ProposalReview, type ReviewOutput } from "./ProposalReview";
 import type { DashboardProposal } from "../types/proposal";
 
 beforeAll(() => {
@@ -14,12 +14,11 @@ beforeAll(() => {
   });
 });
 
-const outputTypeId = "type-output";
-const companionTypeId = "type-companion";
+const outputTypeId = "output-1";
+const missingOutputId = "output-missing";
 
-const dataTypesById: Record<string, ReviewDataType> = {
-  [outputTypeId]: { name: "Sales Output", sourceId: null },
-  [companionTypeId]: { name: "Sales Companion", sourceId: "src-1" },
+const outputsById: Record<string, ReviewOutput> = {
+  [outputTypeId]: { name: "Sales Output" },
 };
 
 function makeProposal(): DashboardProposal {
@@ -47,7 +46,7 @@ function renderReview(overrides: Partial<ComponentProps<typeof ProposalReview>> 
   render(
     <ProposalReview
       proposal={makeProposal()}
-      dataTypesById={dataTypesById}
+      outputsById={outputsById}
       applying={false}
       onAccept={onAccept}
       onReject={onReject}
@@ -96,31 +95,27 @@ describe("ProposalReview", () => {
     expect(onAccept).not.toHaveBeenCalled();
   });
 
-  it("flags a panel bound to a source companion (not a pipeline output)", () => {
+  it("flags a panel bound to an Output id that does not resolve in this workspace", () => {
     const proposal: DashboardProposal = {
       dashboardName: "Bad",
-      panels: [
-        { title: "X", type: "output", dataTypeId: companionTypeId, fieldMapping: { value: "a" } },
-      ],
+      panels: [{ title: "X", type: "output", dataTypeId: missingOutputId }],
     };
     renderReview({ proposal });
-    expect(screen.getByText(/source companion/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bound Output not found in this workspace/i)).toBeInTheDocument();
   });
 
-  it("flags an unbound output panel with a 'needs bound data type' warning (HEL-310)", () => {
+  it("flags an unbound output panel with a 'no Output bound' warning (HEL-310)", () => {
     const proposal: DashboardProposal = {
       dashboardName: "Unbound Output",
       panels: [{ title: "Top Metrics", type: "output" }],
     };
     renderReview({ proposal });
-    expect(screen.getByText("No data type bound")).toBeInTheDocument();
+    expect(screen.getByText("No Output bound")).toBeInTheDocument();
   });
 
   it("disables accept while applying and shows a server error", () => {
-    renderReview({ applying: true, error: "Panels can only bind to pipeline-output data types" });
+    renderReview({ applying: true, error: "Panels can only bind to a real Output" });
     expect(screen.getByRole("button", { name: /creating/i })).toBeDisabled();
-    expect(
-      screen.getByText("Panels can only bind to pipeline-output data types"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Panels can only bind to a real Output")).toBeInTheDocument();
   });
 });

@@ -59,10 +59,9 @@ class PipelineServiceInlineRestBodySpec extends AnyWordSpec with Matchers with S
         staticConfig = None
       )
       val proposal = PipelineProposal(
-        pipelineName       = "Inline REST Pipeline",
-        source              = source,
-        outputDataTypeName = "InlineOut",
-        steps               = Vector.empty
+        pipelineName = "Inline REST Pipeline",
+        source       = source,
+        steps        = Vector.empty
       )
 
       val result = await(service.analyzeProposal(proposal, user))

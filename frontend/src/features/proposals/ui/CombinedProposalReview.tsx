@@ -8,15 +8,15 @@ import type { UnresolvedConnectorRef } from "../utils/unresolvedConnectorRefs";
 import "./CombinedProposalReview.css";
 
 /** The reserved sentinel a combined proposal's dashboard panels may bind to,
- *  standing in for the pipeline's not-yet-created output DataType
+ *  standing in for the pipeline's not-yet-created Output
  *  (`CombinedProposalService.OutputRefSentinel` on the backend, design.md
- *  Risk 1). Must never be resolved/displayed as a real DataType id. */
+ *  Risk 1). Must never be resolved/displayed as a real Output id. */
 const PIPELINE_OUTPUT_SENTINEL = "$pipelineOutput";
 
 // HEL-904 task 3.10: retargeted to the one panel kind requiring an Output binding.
 const DATA_PANEL_TYPES = new Set(["output"]);
 
-function boundDataTypeLabel(panel: ProposalPanel): string | null {
+function boundOutputLabel(panel: ProposalPanel): string | null {
   if (!DATA_PANEL_TYPES.has(panel.type)) return null;
   if (!panel.dataTypeId) return "—";
   if (panel.dataTypeId === PIPELINE_OUTPUT_SENTINEL) return "This pipeline's own output";
@@ -24,7 +24,7 @@ function boundDataTypeLabel(panel: ProposalPanel): string | null {
 }
 
 function DashboardPanelRow({ panel }: { panel: ProposalPanel }) {
-  const boundName = boundDataTypeLabel(panel);
+  const boundName = boundOutputLabel(panel);
   return (
     <li className="combined-proposal-review__panel">
       <div className="combined-proposal-review__panel-head">
@@ -34,7 +34,7 @@ function DashboardPanelRow({ panel }: { panel: ProposalPanel }) {
       <dl className="combined-proposal-review__meta">
         {boundName && (
           <div className="combined-proposal-review__meta-row">
-            <dt>Data type</dt>
+            <dt>Output</dt>
             <dd className="mono">{boundName}</dd>
           </div>
         )}
