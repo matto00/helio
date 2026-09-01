@@ -1,7 +1,7 @@
 package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.domain.model.{AssertionResult, AuthenticatedUser, DataTypeId, PipelineId, PipelineRunId}
+import com.helio.domain.model.{AssertionResult, AuthenticatedUser, PipelineId, PipelineRunId}
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -284,33 +284,12 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def listAssertionsByRunInternal(runId: PipelineRunId): Future[Vector[PipelineRunAssertionRow]] =
     ctx.withSystemContext(assertionsTable.filter(_.runId === runId.value).result).map(_.toVector)
 
-  /** System-context lookup: the id of the most recent NON-DRY run of the
-    * pipeline whose `output_data_type_id` matches `dataTypeId` (HEL-576,
-    * design.md Decision 5). `None` when no pipeline writes to this DataType,
-    * or when that pipeline has never had a non-dry run.
-    *
-    * **MUST filter out dry runs** (`r.status =!= "dry_run"`, the exact
-    * precedent `deleteOldRunsInternal` already uses above in this file): a
-    * dry run persists real `pipeline_run_assertions` rows (419-B's
-    * `onDryRunSuccess`) without ever writing the DataType's actual persisted
-    * data, so a dry-run preview must never be mistaken for the "latest run"
-    * this method's caller (`assertionStatusForDataType`) uses to decide
-    * whether a panel's badge should flip to "invalid data".
-    *
-    * Uses `withSystemContext` (privileged bypass) — same posture as
-    * `PipelineRepository.findLastRunAtByOutputDataTypeId`, whose own doc
-    * comment states the ACL gate is enforced by the caller (the DataType
-    * route/service layer here), not by this method. Joins `pipelinesTable`
-    * (to resolve `output_data_type_id -> pipeline_id`) with `runsTable` (to
-    * find the latest by `started_at desc`) — both already private vals in
-    * this repository for exactly this cross-table-lookup reason. */
-  def findLatestRunIdByOutputDataTypeIdInternal(dataTypeId: DataTypeId): Future[Option[PipelineRunId]] = {
-    val query = for {
-      pipeline <- pipelinesTable if pipeline.outputDataTypeId === dataTypeId.value
-      run      <- runsTable if run.pipelineId === pipeline.id && run.status =!= "dry_run"
-    } yield run
-    ctx.withSystemContext(query.sortBy(_.startedAt.desc).result.headOption).map(_.map(r => PipelineRunId(r.id)))
-  }
+  // HEL-904 task 2.10: `findLatestRunIdByOutputDataTypeIdInternal` removed
+  // outright -- it resolved a pipeline via `pipelines.output_data_type_id`
+  // (dropped, V94) and its only caller (`assertionStatusForDataType`/
+  // `DataTypeRoutes`) was already deleted in task 4.1; zero production
+  // callers remained, only test callers exercising a method with no live
+  // caller (see execution-progress.md cycle 26).
 }
 
 object PipelineRunRepository {

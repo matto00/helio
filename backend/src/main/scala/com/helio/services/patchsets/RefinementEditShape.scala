@@ -20,7 +20,7 @@ object RefinementEditShape {
       |  "summary": "string, optional — a short human-readable description of this patch set",
       |  "edits": [
       |    {
-      |      "target": { "kind": "panel | dashboard | dataSource | dataType | pipeline | pipelineStep", "id": "string — REQUIRED for update/delete (a REAL id from the state below); OMIT for create" },
+      |      "target": { "kind": "panel | dashboard | dataSource | pipeline | pipelineStep", "id": "string — REQUIRED for update/delete (a REAL id from the state below); OMIT for create" },
       |      "op": "update | delete | create",
       |      "patch": "object — REQUIRED for update/create; MUST be absent entirely for delete. Shape depends on (target.kind, op) — see the worked examples below."
       |    }
@@ -146,8 +146,6 @@ object RefinementEditShape {
       "{ \"target\": { \"kind\": \"dashboard\", \"id\": \"dash_123\" }, \"op\": \"update\", \"patch\": { \"name\": \"Q3 Revenue Overview\" } }\n\n" +
       "dataSource (patch reuses UpdateDataSourceRequest — name only):\n" +
       "{ \"target\": { \"kind\": \"dataSource\", \"id\": \"src_456\" }, \"op\": \"update\", \"patch\": { \"name\": \"Stripe export\" } }\n\n" +
-      "dataType (patch reuses UpdateDataTypeRequest — name/fields/computedFields, all optional):\n" +
-      "{ \"target\": { \"kind\": \"dataType\", \"id\": \"type_789\" }, \"op\": \"update\", \"patch\": { \"name\": \"Customer Orders\" } }\n\n" +
       "pipeline (patch reuses UpdatePipelineRequest — name only, required):\n" +
       "{ \"target\": { \"kind\": \"pipeline\", \"id\": \"pipe_abc\" }, \"op\": \"update\", \"patch\": { \"name\": \"Daily revenue rollup\" } }\n\n" +
       "pipelineStep (patch reuses UpdatePipelineStepRequest — type?/config?/position?; config's OWN shape\n" +
@@ -339,8 +337,9 @@ object RefinementEditShape {
       "\n\ncreate is ALSO supported for dashboard (patch: { \"name\": string }), dataSource (patch reuses\n" +
       "StaticDataSourceRequest — { \"name\", \"type\": \"static\", \"columns\": [...], \"rows\": [...] }, static\n" +
       "only), and pipeline (patch: { \"name\", \"sourceDataSourceId\", \"outputDataTypeName\" }) — the SAME\n" +
-      "shape each one's own create endpoint accepts. create is NEVER supported for dataType or\n" +
-      "pipelineStep (no direct create API for either) — never emit one of those."
+      "shape each one's own create endpoint accepts. create is NEVER supported for\n" +
+      "pipelineStep (no direct create API) — never emit one of those. \"dataType\" is not a valid\n" +
+      "target.kind at all anymore — never emit any edit targeting it."
 
   private val DeleteExample: String =
     """delete (any target.kind; "patch" is ABSENT entirely — never null, never {}):

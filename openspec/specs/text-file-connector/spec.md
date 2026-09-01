@@ -4,12 +4,14 @@
 Data Source connector for `.txt`/`.md` files (file upload and URL-based ingestion), storing content
 as a `string-body` field with `filename`/`sizeBytes` metadata and a reusable connector seam for
 future content connectors.
+
 ## Requirements
+
 ### Requirement: POST /api/data-sources accepts a .txt/.md file upload
 The endpoint SHALL accept `multipart/form-data` with a `type` part equal to `"text"`, a `file` part
 (the `.txt` or `.md` file), and a `name` part. It SHALL validate the file's extension, store the raw
 bytes via the `FileSystem` abstraction, create a `DataSource` record with discriminator `type = "text"`
-and `config = {"path": "<relative-path>"}`, register a linked `DataType` with fields `content`
+and `config = {"path": "<relative-path>"}`, update the source's `inferred_schema` with fields `content`
 (`string-body`), `filename` (`string`), and `sizeBytes` (`integer`), and return 201 with the created
 `DataSource`.
 
@@ -17,7 +19,7 @@ and `config = {"path": "<relative-path>"}`, register a linked `DataType` with fi
 - **WHEN** `POST /api/data-sources` is called with `type=text`, a valid `.txt` file, and a name
 - **THEN** the response is 201 with the created DataSource including `id`, `name`, `type: "text"`, and
   `config.path`
-- **AND** a `DataType` linked to the new source is registered with fields `content` (`string-body`),
+- **AND** an inferred schema record linked to the new source is registered with fields `content` (`string-body`),
   `filename` (`string`), and `sizeBytes` (`integer`)
 
 #### Scenario: Valid .md upload creates DataSource and DataType
@@ -46,14 +48,14 @@ and `config = {"path": "<relative-path>"}`, register a linked `DataType` with fi
 The endpoint SHALL accept a JSON body `{"name": string, "type": "text", "config": {"url": string}}`. It
 SHALL fetch the URL's content, validate the resolved filename's extension, store the fetched bytes via
 `FileSystem` (same as an upload), create a `DataSource` with `config = {"path": "<relative-path>",
-"sourceUrl": "<url>"}`, register the linked `DataType`, and return 201.
+"sourceUrl": "<url>"}`, register the source's inferred schema, and return 201.
 
 #### Scenario: Valid URL ingestion creates DataSource and DataType
 - **WHEN** `POST /api/data-sources` is called with `type: "text"` and `config.url` pointing to a
   reachable `.txt` resource
 - **THEN** the response is 201 with the created DataSource, `type: "text"`, and `config.sourceUrl` set
   to the given URL
-- **AND** a `DataType` linked to the source is registered with fields `content`, `filename`,
+- **AND** an inferred schema record linked to the source is registered with fields `content`, `filename`,
   `sizeBytes`
 
 #### Scenario: Unreachable URL returns 502
@@ -103,8 +105,8 @@ The backend SHALL reject text sources (upload or URL) whose fetched bytes are no
 ### Requirement: POST /api/data-sources/:id/refresh re-reads or re-fetches text sources
 For an upload-created text source (`config.sourceUrl` absent), refresh SHALL re-read the stored file
 via `FileSystem`. For a URL-created text source (`config.sourceUrl` present), refresh SHALL re-fetch
-the URL and overwrite the stored file. Both SHALL update the linked `DataType`'s `sizeBytes`-bearing
-row on the next pipeline run (no DataType field change, since fields are fixed by kind).
+the URL and overwrite the stored file. Both SHALL update the source's inferred schema's `sizeBytes`-bearing
+row on the next pipeline run (no inferred schema field change, since fields are fixed by kind).
 
 #### Scenario: Refresh on non-existent source returns 404
 - **WHEN** `POST /api/data-sources/:id/refresh` is called with an unknown id
@@ -129,7 +131,6 @@ by the content field's `DataFieldType`. This is the integration seam future cont
 (HEL-214, HEL-216) reuse to keep metadata field shape consistent across connector kinds.
 
 #### Scenario: Text connector builds fields with StringBodyType
-- **WHEN** a text source's `DataType` is registered
+- **WHEN** a text source's inferred schema is registered
 - **THEN** its `content` field's type is `string-body`, and `filename`/`sizeBytes` are `string`/
   `integer` respectively
-

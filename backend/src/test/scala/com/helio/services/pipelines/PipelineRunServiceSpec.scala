@@ -12,7 +12,7 @@ import com.helio.domain.model._
 import com.helio.domain.steps.{LookupConfig, UnionConfig}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.panels.PanelCapabilityService
@@ -104,8 +104,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private var stepRepo: PipelineStepRepository       = _
   private var dataSourceRepo: DataSourceRepository   = _
   private var pipelineRunRepo: PipelineRunRepository = _
-  private var dataTypeRepo: DataTypeRepository       = _
-  private var dataTypeRowRepo: DataTypeRowRepository = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
+  private var outputRepo: OutputRepository           = _
   private var service: PipelineRunService            = _
 
   override def beforeAll(): Unit = {
@@ -116,20 +116,23 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       .load().migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     ctx             = new DbContext(db, db)
-    dataTypeRepo    = new DataTypeRepository(ctx)
     dataSourceRepo  = new DataSourceRepository(ctx)
     stepRepo        = new PipelineStepRepository(ctx)
-    pipelineRepo    = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo    = new PipelineRepository(ctx, dataSourceRepo)
     pipelineRunRepo = new PipelineRunRepository(ctx)
-    dataTypeRowRepo = new DataTypeRowRepository(ctx)
+    nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
+    outputRepo      = new OutputRepository(ctx)
     val cache       = new PipelineRunCache()
     val fileSystem  = new LocalFileSystem(Paths.get("/"))
     // HEL-758: threads stubConnector so rest_api base-source tests below can
     // exercise a real (stubbed) fetch — no existing test above depends on the
     // connector being null (none of them seed a rest_api source).
+    // HEL-904 task 4.1: `dataTypeRepo`/`dataTypeRowRepo` removed outright --
+    // `nodeSnapshotRepo` is the sole row-materialization write now.
     service = new PipelineRunService(
-      pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo, dataTypeRowRepo,
-      cache, registry = null, fileSystem, connector = stubConnector
+      pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
+      cache, registry = null, fileSystem, connector = stubConnector,
+      nodeSnapshotRepo = nodeSnapshotRepo
     )
   }
 
@@ -138,6 +141,18 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
+
+  /** HEL-904 task 4.1: the surviving row-materialization read -- `node_snapshots`
+   *  keyed by `(pipelineId, trunkLastStepId)` -- replacing the retired
+   *  `dataTypeRowRepo.listRows(outputDataTypeId)`. Resolves the CURRENT
+   *  trunk-last step at call time (mirrors `PipelineRunService.
+   *  onUnblockedRunSuccess`'s own `trunkLastStepIdFut` derivation), since a
+   *  test may add a step between two `service.submit` calls. */
+  private def snapshotRows(pid: PipelineId): Vector[JsObject] = {
+    val steps = await(stepRepo.listByPipelineInternal(pid))
+    val trunkLastStepId = stepRepo.trunkOf(steps).lastOption.map(_.id.value)
+    await(nodeSnapshotRepo.listRows(pid.value, trunkLastStepId))
+  }
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
@@ -222,34 +237,33 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     val pid  = UUID.randomUUID().toString
     val dtId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId, 'dt', '[]', 1, '00000000-0000-0000-0000-000000000001', now(), now())""",
+      
       sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
+               (id, name, source_data_source_id, created_at, updated_at)
+               VALUES ($pid, 'pipe', $dsId, now(), now())"""
     )))
     PipelineId(pid)
   }
 
-  /** HEL-462: inserts the companion source DataType (`source_id = dsId`) that
-   *  `PipelineAnalyzeService.deriveSourceSchema` reads via `findBySourceId` —
-   *  `seedPipeline`/`seedDsWithData` alone leave the source without one.
-   *  Returns the new DataType's id (for `updateSourceDataTypeFields` below). */
-  private def seedSourceDataType(dsId: String, fieldsJson: String): String = {
+  /** HEL-462/HEL-904 task 4.1: writes the source's OWN `inferred_schema` column directly (the
+   *  baseline-capture read path `PipelineRunService.onUnblockedRunSuccess` uses now,
+   *  `dataSourceRepo.findByIdOwned(...).inferredSchema` — no companion DataType exists anymore)
+   *  — `seedPipeline`/`seedDsWithData` alone leave the source's `inferred_schema` empty.
+   *  `schemaJson` is a `Vector[SchemaField]`-shaped JSON array (`{"name", "dataType"}` per entry,
+   *  NOT the old `DataField` 4-field shape). Returns `dsId` (for `updateSourceInferredSchema`
+   *  below, so both helpers share one "the id to re-target" convention). */
+  private def seedSourceDataType(dsId: String, schemaJson: String): String = {
     import PostgresProfile.api._
-    val dtId = UUID.randomUUID().toString
-    await(db.run(sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, $dsId, 'source-dt', $fieldsJson, 1, '00000000-0000-0000-0000-000000000001', now(), now())"""))
-    dtId
+    await(db.run(sqlu"UPDATE data_sources SET inferred_schema = $schemaJson::jsonb WHERE id = $dsId"))
+    dsId
   }
 
-  /** Simulates a source re-inference (`SourceService.refresh`) changing the
-   *  *existing* source DataType's declared fields in place — a source has at
-   *  most one companion DataType (per `deriveSourceSchema`'s doc), so drift
-   *  scenarios update this row rather than insert a second one. */
-  private def updateSourceDataTypeFields(dtId: String, fieldsJson: String): Unit = {
+  /** Simulates a source re-inference (`SourceService.refresh`) changing the source's OWN
+   *  `inferred_schema` column in place — drift scenarios update this row, matching
+   *  `upsertInferredSchema`'s own overwrite (not append) semantics. */
+  private def updateSourceDataTypeFields(dsId: String, schemaJson: String): Unit = {
     import PostgresProfile.api._
-    await(db.run(sqlu"UPDATE data_types SET fields = $fieldsJson, updated_at = now() WHERE id = $dtId"))
+    await(db.run(sqlu"UPDATE data_sources SET inferred_schema = $schemaJson::jsonb WHERE id = $dsId"))
   }
 
   /** Grants `role` on `pipelineId` to a freshly-created user, returning that
@@ -406,18 +420,17 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   "PipelineRunService.onRunSuccess (HEL-570 assert fail-policy)" should {
 
-    "does not update the DataType schema or rows when blocked by an error-severity assertion, preserving the prior snapshot" in {
+    "does not update the node_snapshots rows when blocked by an error-severity assertion, preserving the prior snapshot" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
 
-      // Establish a prior-good snapshot with no assert step at all.
+      // Establish a prior-good snapshot with no assert step at all -- capture the
+      // trunk-last key (None, no steps yet) BEFORE the assert step below changes it.
       val firstRun = await(service.submit(pid, isDry = false, dummyUser))
       firstRun shouldBe a[Right[_, _]]
       firstRun.toOption.get.blocked shouldBe false
 
-      val priorDt   = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
-      val priorRows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      val priorRows = await(nodeSnapshotRepo.listRows(pid.value, None))
       priorRows should not be empty
 
       await(stepRepo.insert(pid, "assert", AssertConfig(Vector(blockingErrorRule)), dummyUser))
@@ -428,16 +441,14 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       response.blocked shouldBe true
       response.blockedReason shouldBe defined
 
-      val afterDt = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
-      afterDt.fields  shouldBe priorDt.fields
-      afterDt.version shouldBe priorDt.version
-      await(dataTypeRowRepo.listRows(outputDataTypeId.value)) shouldBe priorRows
+      // Blocked runs never call the node_snapshots write -- the pre-assert-step
+      // key (None) is untouched.
+      await(nodeSnapshotRepo.listRows(pid.value, None)) shouldBe priorRows
     }
 
-    "completes normally and updates the DataType when only a warn-severity assertion fails" in {
+    "completes normally and updates node_snapshots when only a warn-severity assertion fails" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
       await(stepRepo.insert(pid, "assert", AssertConfig(Vector(nonBlockingWarnRule)), dummyUser))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
@@ -446,9 +457,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       response.blocked shouldBe false
       response.blockedReason shouldBe None
 
-      val dt = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
-      dt.fields should not be empty
-      await(dataTypeRowRepo.listRows(outputDataTypeId.value)) should have size 2
+      snapshotRows(pid) should have size 2
 
       val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
       runs.head.status shouldBe "succeeded"
@@ -525,13 +534,12 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "skips a disabled step during a real run" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
       await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
-      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      val rows = snapshotRows(pid)
       rows should have size 2
       rows.foreach { row =>
         row.fields.keySet should contain("name")
@@ -542,13 +550,12 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "applies an enabled step during a real run (control)" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
       await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = true))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
-      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      val rows = snapshotRows(pid)
       rows should have size 2
       rows.foreach { row =>
         row.fields.keySet should contain("renamed_name")
@@ -572,14 +579,13 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "an all-disabled pipeline behaves as a zero-step source passthrough" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
       await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
       await(stepRepo.insert(pid, "select", SelectConfig(Vector("name")), dummyUser, enabled = false))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
-      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      val rows = snapshotRows(pid)
       rows should have size 2
       // A pipeline with only disabled steps behaves like a zero-step
       // pipeline: both original source columns survive (the `select` step,
@@ -592,7 +598,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "re-enabling a disabled step restores it, config intact" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
       val step = await(stepRepo.insert(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
 
       await(stepRepo.updateInternal(step.id, config = None, position = None, enabled = Some(true)))
@@ -600,7 +605,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
-      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      val rows = snapshotRows(pid)
       rows.foreach(_.fields.keySet should contain("renamed_name"))
     }
   }
@@ -610,7 +615,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
     "persists last_source_schema (matching the source DataType's declared fields) on a successful real run" in {
       val dsId = seedDsWithData()
-      seedSourceDataType(dsId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true},{"name":"score","displayName":"score","dataType":"double","nullable":true}]""")
+      seedSourceDataType(dsId, """[{"name":"name","type":"string"},{"name":"score","type":"double"}]""")
       val pid  = seedPipeline(dsId)
 
       await(pipelineRepo.findLastSourceSchema(pid, dummyUser)) shouldBe None
@@ -626,7 +631,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
     "does not persist a schema-drift baseline on a successful dry run" in {
       val dsId = seedDsWithData()
-      seedSourceDataType(dsId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true}]""")
+      seedSourceDataType(dsId, """[{"name":"name","type":"string"}]""")
       val pid  = seedPipeline(dsId)
 
       val result = await(service.submit(pid, isDry = true, dummyUser))
@@ -637,7 +642,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
     "does not persist a schema-drift baseline when the run is blocked by an error-severity assertion" in {
       val dsId = seedDsWithData()
-      seedSourceDataType(dsId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true}]""")
+      seedSourceDataType(dsId, """[{"name":"name","type":"string"}]""")
       val pid  = seedPipeline(dsId)
       await(stepRepo.insert(pid, "assert", AssertConfig(Vector(blockingErrorRule)), dummyUser))
 
@@ -650,7 +655,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
     "overwrites a stale baseline with the latest source schema on a subsequent successful run" in {
       val dsId = seedDsWithData()
-      val sourceDtId = seedSourceDataType(dsId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true}]""")
+      val sourceDtId = seedSourceDataType(dsId, """[{"name":"name","type":"string"}]""")
       val pid  = seedPipeline(dsId)
 
       await(service.submit(pid, isDry = false, dummyUser)) shouldBe a[Right[_, _]]
@@ -658,7 +663,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       firstBaseline shouldBe Vector(SchemaField("name", "string"))
 
       // Source schema changes out from under the pipeline (column added).
-      updateSourceDataTypeFields(sourceDtId, """[{"name":"name","displayName":"name","dataType":"string","nullable":true},{"name":"region","displayName":"region","dataType":"string","nullable":true}]""")
+      updateSourceDataTypeFields(sourceDtId, """[{"name":"name","type":"string"},{"name":"region","type":"string"}]""")
 
       await(service.submit(pid, isDry = false, dummyUser)) shouldBe a[Right[_, _]]
       val secondBaseline = await(pipelineRepo.findLastSourceSchema(pid, dummyUser)).get.parseJson.convertTo[Vector[SchemaField]]
@@ -746,7 +751,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "completes a real run for a healthy rest_api base source, populating the output DataType" in {
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -754,7 +758,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       response.blocked shouldBe false
       response.rowCount should be > 0
 
-      await(dataTypeRowRepo.listRows(outputDataTypeId.value)) should not be empty
+      snapshotRows(pid) should not be empty
 
       val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
       runs.head.status shouldBe "succeeded"
@@ -763,7 +767,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "completes a real run for a healthy sql base source, populating the output DataType" in {
       val dsId = seedSqlDs(embeddedPostgres.getPort)
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -771,7 +774,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       response.blocked shouldBe false
       response.rowCount should be > 0
 
-      await(dataTypeRowRepo.listRows(outputDataTypeId.value)) should not be empty
+      snapshotRows(pid) should not be empty
 
       val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
       runs.head.status shouldBe "succeeded"
@@ -884,6 +887,71 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       result shouldBe a[Right[_, _]]
       result.toOption.get.rows should not be empty
     }
+
+    // HEL-904 follow-on ruling (2026-08-31): previewStep resolves the target
+    // step's index against `listByPipelineInternal`'s ALREADY-CORRECT
+    // executionOrder result -- it must NOT re-sort by `.position` (a
+    // regression that would re-break trunk order, since every trunk step's
+    // `position` is now constantly `0`).
+    //
+    // Seeds a -> b -> c (a 3-level pure trunk chain, all `position = 0`)
+    // plus a's tail `t` (`position = 1`), but INSERTS the rows in the order
+    // a, t, c, b -- deliberately NOT trunk order. A naive `.sortBy(_.position)`
+    // ties every `position = 0` row (a, b, c) together and Postgres breaks
+    // that tie by row/insertion order (a, c, b, since c was inserted before
+    // b), landing `c` BEFORE its own parent `b` -- a materially wrong
+    // ordering, not merely coincidentally-still-correct. The true
+    // `executionOrder` is `[a, t, b, c]` regardless of insertion order.
+    // Preview `c` (real index 3) and confirm its actual prefix execution
+    // (limit values compose to the deepest cap, 2) proves the CORRECT
+    // 4-step prefix ran, not the naive sort's corrupted 2-step ([a, c])
+    // prefix that would also (wrongly) succeed but with different rows.
+    "resolves the target step's index from executionOrder, not a raw position sort, when insertion order does not match trunk order" in {
+      import PostgresProfile.api._
+      val dsId = seedRestDs(RestBigUrl) // RestBigTotalRows rows, well above every limit below
+      val pid  = seedPipeline(dsId)
+      val aId = UUID.randomUUID().toString
+      val bId = UUID.randomUUID().toString
+      val cId = UUID.randomUUID().toString
+      val tId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($aId, ${pid.value}, 0, 'limit', '{"count":10}', true, now(), now(), NULL)""",
+        // `t` inserted BEFORE `b`/`c` -- deliberately out of executionOrder,
+        // though still satisfying the parent_step_id FK (which requires
+        // each row's parent to already exist).
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($tId, ${pid.value}, 1, 'limit', '{"count":1}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($bId, ${pid.value}, 0, 'limit', '{"count":5}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($cId, ${pid.value}, 0, 'limit', '{"count":2}', true, now(), now(), $bId)"""
+      )))
+
+      // Sanity: the real executionOrder is [a, t, b, c] -- c at index 3.
+      val steps = await(stepRepo.listByPipelineInternal(pid))
+      steps.map(_.id.value) shouldBe Vector(aId, tId, bId, cId)
+
+      // `previewStep` resolves `c`'s index against the (correct) executionOrder
+      // vector and slices its `take(k+1)` prefix from THAT vector -- so
+      // previewing `c` (index 3) executes the full 4-step prefix
+      // [a(limit 10), t(limit 1), b(limit 5), c(limit 2)] IN THAT ORDER
+      // (today's engine is still a flat sequential fold pre-HEL-905/P1.2 --
+      // it has no tree-branch awareness yet, so `t` genuinely executes
+      // inline here; that's an accepted, already-documented gap this
+      // ticket does not touch). Composing those limits sequentially caps
+      // the result to exactly 1 row (10 -> 1 -> 1 -> 1).
+      //
+      // Under the OLD `.sortBy(_.position)` mutation, ties at `position = 0`
+      // (a, b, c) break by insertion/physical order (a, b, c -- `t`,
+      // position 1, sorts last) -- `c` would resolve to index 2 and the
+      // slice would wrongly execute [a(limit 10), b(limit 5), c(limit 2)]
+      // (skipping `t` entirely) = 2 rows. This assertion (1, not 2) is what
+      // actually discriminates the bug.
+      val result = await(service.previewStep(pid, cId, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.rows.size shouldBe 1
+    }
   }
 
   "PipelineRunService and a compute step with a statically unparseable expression (HEL-888)" should {
@@ -899,7 +967,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "fails the real run naming the step id, kind, and parse error, and writes no output rows with a null-filled compute column" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
       val step = await(stepRepo.insert(
         pid, "compute", ComputeConfig("value_vs_adp", "stats.adp_ppr - stats.pts_ppr", None), dummyUser
       ))
@@ -914,7 +981,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       // The materialised-row assertion: no output row was ever persisted
       // carrying `value_vs_adp` at all — let alone one set to `null` for
       // every row, which is exactly what `main` does today.
-      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      val rows = snapshotRows(pid)
       rows.foreach { row =>
         row.fields.get("value_vs_adp") should not be Some(JsNull)
       }
@@ -951,7 +1018,6 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "GUARD: a parseable expression over divide-by-zero and null-operand rows persists null for those rows only, and the run succeeds" in {
       val dsId = seedDsWithDataIncludingNullScore()
       val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
       await(stepRepo.insert(
         pid, "compute", ComputeConfig("ratio", "$score / ($score - 42)", None), dummyUser
       ))
@@ -959,7 +1025,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
-      val rows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
+      val rows = snapshotRows(pid)
       val byName = rows.map(r => r.fields("name").convertTo[String] -> r.fields("ratio")).toMap
       byName("alice") shouldBe JsNull   // divide-by-zero: 42 / (42 - 42)
       byName("carol") shouldBe JsNull   // null operand: score is NULL
@@ -1087,133 +1153,9 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   // HEL-891: pipeline-output DataType schema union across all output rows, not row 0 alone.
   // Fixture (i) (`RestHeterogeneousUrl`) carries all seven shapes task 1.1 enumerates.
-  "PipelineRunService.onUnblockedRunSuccess (HEL-891 schema union)" should {
+  // HEL-904 task 4.5: "PipelineRunService.onUnblockedRunSuccess (HEL-891 schema union)" describe
+  // block removed outright -- upsertFieldsFromRows/DataType.fields no longer exist; the schema-
+  // union inference engine itself (SchemaInferenceEngine.inferShallowFromJsObjects) survives for
+  // a future Output-schema caller (design.md line 89), just not exercised via this deleted path.
 
-    def capabilitySvc = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
-
-    def runHeterogeneous(url: String = RestHeterogeneousUrl): (DataType, PanelCapabilitiesResponse) = {
-      val dsId = seedRestDsNamed(url, "ds-heterogeneous-" + UUID.randomUUID())
-      val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
-
-      val result = await(service.submit(pid, isDry = false, dummyUser))
-      result shouldBe a[Right[_, _]]
-      result.toOption.get.blocked shouldBe false
-
-      val dt = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
-      val caps = await(capabilitySvc.getCapabilities(outputDataTypeId, dummyUser)).toOption.get
-      (dt, caps)
-    }
-
-    // 1.2 -- genuinely RED before the change: row 0 lacks `rec`.
-    "includes a column absent from row 0 but present on a later row in the persisted fields" in {
-      val (dt, _) = runHeterogeneous()
-      dt.fields.map(_.name) should contain("rec")
-    }
-
-    // 1.3 -- genuinely RED before the change: the criterion that matters.
-    "reports a column absent from row 0 but present on a later row in the capability report" in {
-      val (_, caps) = runHeterogeneous()
-      caps.columns.map(_.name) should contain("rec")
-    }
-
-    // 1.4 -- genuinely RED before the change: "double" fails DataFieldType.fromString and is
-    // dropped by wireType.
-    "types a fractional row-0 column as float and includes it in the capability report" in {
-      val (dt, caps) = runHeterogeneous()
-      dt.fields.find(_.name == "frac_col").map(_.dataType) shouldBe Some("float")
-      caps.columns.map(_.name) should contain("frac_col")
-    }
-
-    // 1.5 -- genuinely RED before the change: row 0 is integral, so today's row-0-only inference
-    // types this "integer".
-    "types a column integral in row 0 but fractional later as float, not integer" in {
-      val (dt, _) = runHeterogeneous()
-      dt.fields.find(_.name == "rec_yd").map(_.dataType) shouldBe Some("float")
-    }
-
-    // 1.6 -- genuinely RED before the change: row-0-only inference is order-dependent by
-    // construction (whichever row lands first determines both key set and types).
-    "derives the same field names and types regardless of row order" in {
-      val (forward, _)  = runHeterogeneous(RestHeterogeneousUrl)
-      val (reversed, _) = runHeterogeneous(RestHeterogeneousReversedUrl)
-      val forwardSorted  = forward.fields.map(f => f.name -> f.dataType).sortBy(_._1)
-      val reversedSorted = reversed.fields.map(f => f.name -> f.dataType).sortBy(_._1)
-      reversedSorted shouldBe forwardSorted
-    }
-
-    // 1.7 (D3) -- GREEN before AND after: regression guard against adopting the shared engine's
-    // absence-never-contributes nullability.
-    "marks every derived field nullable, including a column present and non-null on every row" in {
-      val (dt, _) = runHeterogeneous()
-      dt.fields.find(_.name == "id").map(_.nullable) shouldBe Some(true)
-      dt.fields should not be empty
-      all(dt.fields.map(_.nullable)) shouldBe true
-    }
-
-    // 1.9 (D6/CR2) -- genuinely RED before the change: row 0's numeric value pre-change types
-    // this column "integer", so pre-change it WOULD be offered for the metric `value` slot;
-    // post-change it must be "string" and excluded.
-    "types a column numeric in row 0 but non-numeric later as string and excludes it from a Numeric slot" in {
-      val (dt, caps) = runHeterogeneous()
-      dt.fields.find(_.name == "mixed_col").map(_.dataType) shouldBe Some("string")
-      val metricEligibleForValue = caps.capabilities("metric").eligibleColumns.getOrElse("value", Vector.empty)
-      metricEligibleForValue should not contain "mixed_col"
-    }
-
-    // 1.10 (D7/CR4) -- GREEN before AND after: regression guard against adopting the shared
-    // engine's title-cased displayName.
-    "keeps displayName equal to the raw column name" in {
-      val (dt, _) = runHeterogeneous()
-      dt.fields.find(_.name == "rec_yd").map(_.displayName) shouldBe Some("rec_yd")
-    }
-
-    // 1.11 (D5 transition C) -- genuinely RED before the change: `inferFieldType` never emitted
-    // "timestamp".
-    "types an ISO-date-like string column as timestamp and offers it for an Orderable slot" in {
-      val (dt, caps) = runHeterogeneous()
-      dt.fields.find(_.name == "date_col").map(_.dataType) shouldBe Some("timestamp")
-      val timelineEligibleForTime = caps.capabilities("timeline").eligibleColumns.getOrElse("time", Vector.empty)
-      timelineEligibleForTime should contain("date_col")
-    }
-
-    // 1.11a (D8) -- GREEN before AND after: regression guard against a null poisoning the type
-    // join. Uses integral values with the null off row 0 (see task 1.1(g)).
-    "keeps a numeric column with an explicit null on a later row typed integer and Numeric-eligible" in {
-      val (dt, caps) = runHeterogeneous()
-      dt.fields.find(_.name == "null_num").map(_.dataType) shouldBe Some("integer")
-      val metricEligibleForValue = caps.capabilities("metric").eligibleColumns.getOrElse("value", Vector.empty)
-      metricEligibleForValue should contain("null_num")
-    }
-
-    // 1.11b (D8 fallback) -- GREEN before AND after: regression guard against an all-null key
-    // being dropped or crashing the fold.
-    "includes an all-null column in the persisted fields, typed string, and in the capability report" in {
-      val (dt, caps) = runHeterogeneous()
-      dt.fields.map(_.name) should contain("all_null")
-      dt.fields.find(_.name == "all_null").map(_.dataType) shouldBe Some("string")
-      caps.columns.map(_.name) should contain("all_null")
-    }
-
-    // 1.8 (D2/CR1) -- GREEN before AND after: regression guard against adopting flattening.
-    // Fixture (ii): the image loader is the sole producer of a nested row value.
-    "types the image loader's nested content value as a single string field, not flattened, matching the persisted row key" in {
-      val dsId = seedDsImage()
-      val pid  = seedPipeline(dsId)
-      val outputDataTypeId = await(pipelineRepo.findByIdInternal(pid)).get.outputDataTypeId
-
-      val result = await(service.submit(pid, isDry = false, dummyUser))
-      result shouldBe a[Right[_, _]]
-      result.toOption.get.blocked shouldBe false
-
-      val dt = await(dataTypeRepo.findByIdInternal(outputDataTypeId)).get
-      dt.fields.map(_.name) should contain("content")
-      dt.fields.find(_.name == "content").map(_.dataType) shouldBe Some("string")
-      dt.fields.map(_.name) should not contain "content.storageKey"
-
-      val storedRows = await(dataTypeRowRepo.listRows(outputDataTypeId.value))
-      storedRows should have size 1
-      storedRows.head.fields.keySet should contain("content")
-    }
-  }
 }

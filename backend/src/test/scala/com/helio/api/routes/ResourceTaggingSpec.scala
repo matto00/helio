@@ -1,17 +1,16 @@
 package com.helio.api.routes
 
-import com.helio.api.routes.pipelines.{DataTypeRoutes, PipelineRoutes}
+import com.helio.api.routes.pipelines.PipelineRoutes
 import com.helio.api.routes.sources.DataSourceRoutes
 import com.helio.api.routes.workspace.WorkspaceRoutes
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.panels.PanelCapabilityService
-import com.helio.services.pipelines.{DataTypeService, PipelineRunService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceTeardownService}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -61,11 +60,11 @@ class ResourceTaggingSpec
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
-  private var dataTypeRowRepo: DataTypeRowRepository = _
   private var pipelineRepo: PipelineRepository     = _
   private var pipelineStepRepo: PipelineStepRepository = _
   private var pipelineRunRepo: PipelineRunRepository = _
+  private var outputRepo: OutputRepository = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
 
   private val userAId = UUID.randomUUID().toString
   private val userBId = UUID.randomUUID().toString
@@ -81,11 +80,11 @@ class ResourceTaggingSpec
     db               = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx          = new DbContext(db, db)(routeEc)
     dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
-    dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
-    dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
-    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
     pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
+    outputRepo       = new OutputRepository(ctx)(routeEc)
+    nodeSnapshotRepo = new NodeSnapshotRepository(ctx)(routeEc)
     seedUsers()
   }
 
@@ -109,29 +108,14 @@ class ResourceTaggingSpec
     implicit val ec: ExecutionContext = routeEc
     val tmpDir = Files.createTempDirectory("helio-tag-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    val svc    = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
+    val svc    = new DataSourceService(dataSourceRepo, fs)
     new DataSourceRoutes(svc, user)(typedSystem).routes
   }
 
   private def pipelineRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val svc = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val svc = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
     new PipelineRoutes(svc, user)(routeEc).routes
-  }
-
-  private def dataTypeRoutesFor(user: AuthenticatedUser): Route = {
-    implicit val ec: ExecutionContext = routeEc
-    val svc           = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val capabilitySvc = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
-    // HEL-576: assertion-status route needs a PipelineRunService — none of
-    // this file's tests exercise a real run/dry-run/SSE path, so registry
-    // and fileSystem are safely null (mirrors PipelineRunServiceSpec's own
-    // `registry = null` fixture pattern).
-    val pipelineRunService = new PipelineRunService(
-      pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
-      dataTypeRowRepo, new PipelineRunCache(), registry = null, fileSystem = null
-    )
-    new DataTypeRoutes(svc, capabilitySvc, pipelineRunService, user)(typedSystem).routes
   }
 
   private def workspaceRoutesFor(user: AuthenticatedUser): Route = {
@@ -139,7 +123,7 @@ class ResourceTaggingSpec
     val tmpDir = Files.createTempDirectory("helio-tag-spec-workspace")
     val fs     = new LocalFileSystem(tmpDir)
     val ctx    = new DbContext(db, db)(routeEc)
-    val teardownRepo = new WorkspaceTeardownRepository(ctx, dataTypeRepo)(routeEc)
+    val teardownRepo = new WorkspaceTeardownRepository(ctx)(routeEc)
     val teardownSvc   = new WorkspaceTeardownService(teardownRepo, fs)(routeEc)
     // HEL-371: WorkspaceContextService's four dependencies, built the same
     // way `dataSourceRoutesFor`/`pipelineRoutesFor` above build theirs —
@@ -150,11 +134,11 @@ class ResourceTaggingSpec
     val registry        = new ResourceTypeRegistry()
     val accessChecker    = new AccessCheckerImpl(new ResourcePermissionRepository(ctx)(routeEc), registry)
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
-    // HEL-372 design.md D7: WorkspaceContextService takes dataTypeService now.
-    val contextSvc = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    // HEL-904 task 3.12: WorkspaceContextService takes an OutputRepository now.
+    val outputRepo = new OutputRepository(ctx)(routeEc)
+    val contextSvc = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     new WorkspaceRoutes(Some(teardownSvc), contextSvc, user)(routeEc).routes
   }
 
@@ -202,18 +186,10 @@ class ResourceTaggingSpec
       }
     }
 
-    "propagate the owning DataSource's tag to its auto-created companion DataType, readable via GET /types" in {
-      val tag  = freshTag()
-      val body = createStaticSourceJson("Companion Source", s""","tag":"$tag"""")
-      Post("/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> dataSourceRoutesFor(userA) ~> check {
-        status shouldBe StatusCodes.Created
-      }
-      Get(s"/types?tag=$tag") ~> dataTypeRoutesFor(userA) ~> check {
-        status shouldBe StatusCodes.OK
-        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
-        items.map(_.fields("name").convertTo[String]) should contain("Companion Source")
-      }
-    }
+    // HEL-904 (4.1/4.3): `POST /data-sources` no longer auto-creates a companion DataType at
+    // all — the source's inferred schema lives inline on `data_sources.inferred_schema`, so
+    // there is no longer a companion resource for a tag to propagate to. Removed outright
+    // (not skipped) per the retired-scenario convention this ticket's other cycles used.
   }
 
 
@@ -238,8 +214,8 @@ class ResourceTaggingSpec
           Instant.now(), Instant.now()),
         userA
       ))
-      await(pipelineRepo.create("Tagged", src.id, "Out1", userA, Some(tag)))
-      await(pipelineRepo.create("Untagged", src.id, "Out2", userA, None))
+      await(pipelineRepo.create("Tagged", src.id, userA, Some(tag)))
+      await(pipelineRepo.create("Untagged", src.id, userA, None))
 
       Get(s"/pipelines?tag=$tag") ~> pipelineRoutesFor(userA) ~> check {
         val summaries = responseAs[Vector[PipelineSummaryResponse]]
@@ -247,20 +223,9 @@ class ResourceTaggingSpec
       }
     }
 
-    "GET /types?tag= is owner-scoped: another owner's same-tagged DataType is not returned" in {
-      val tag = freshTag()
-      Post("/data-sources", HttpEntity(ContentTypes.`application/json`, createStaticSourceJson("A's tagged", s""","tag":"$tag""""))) ~>
-        dataSourceRoutesFor(userA) ~> check { status shouldBe StatusCodes.Created }
-      Post("/data-sources", HttpEntity(ContentTypes.`application/json`, createStaticSourceJson("B's tagged", s""","tag":"$tag""""))) ~>
-        dataSourceRoutesFor(userB) ~> check { status shouldBe StatusCodes.Created }
-
-      Get(s"/types?tag=$tag") ~> dataTypeRoutesFor(userA) ~> check {
-        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
-        val names = items.map(_.fields("name").convertTo[String])
-        names should contain("A's tagged")
-        names should not contain "B's tagged"
-      }
-    }
+    // HEL-904 (4.1/4.3): `POST /data-sources` no longer auto-creates a companion DataType, so
+    // there is nothing left for `GET /types?tag=` to owner-scope in this scenario. Removed
+    // outright, matching the companion-propagation test above.
   }
 
   // ── 6.11 Wire-format: absent field behaves identically to explicit null/false ─

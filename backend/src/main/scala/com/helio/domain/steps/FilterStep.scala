@@ -55,6 +55,7 @@ final case class FilterStep(
     config: FilterConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = FilterStep.Kind

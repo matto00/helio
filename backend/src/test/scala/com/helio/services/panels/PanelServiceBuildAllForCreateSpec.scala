@@ -6,11 +6,11 @@ import com.helio.services.auth.AccessChecker
 import com.helio.services.panels.PanelService
 import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.domain.model._
+import com.helio.domain.panels.OutputPanel
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import org.mockito.Mockito.mock
+import spray.json.{JsObject, JsString}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -46,10 +46,8 @@ class PanelServiceBuildAllForCreateSpec extends AnyWordSpec with Matchers {
   private def newService(): PanelService =
     new PanelService(
       mock(classOf[PanelRepository]),
-      mock(classOf[DataTypeRepository]),
       stubAccess,
-      mock(classOf[DashboardRepository]),
-      mock(classOf[MetricRepository])
+      mock(classOf[DashboardRepository])
     )
 
   private def validTextRequest(title: String): CreatePanelRequest =
@@ -109,6 +107,25 @@ class PanelServiceBuildAllForCreateSpec extends AnyWordSpec with Matchers {
 
       result.isLeft shouldBe true
       result.swap.toOption.get.message should startWith("panel 2: ")
+    }
+
+    "build a real OutputPanel for type = \"output\" (HEL-904 task 3.6 write-path increment) — " +
+      "the new write path this task adds, not just PanelType.fromString accepting the string" in {
+      val service = newService()
+      val request = CreatePanelRequest(
+        dashboardId = Some(dashId.value),
+        title       = Some("Revenue"),
+        `type`      = Some("output"),
+        config      = Some(JsObject("outputId" -> JsString("out-1")))
+      )
+
+      val result = await(service.buildAllForCreate(dashId, Vector(request), user))
+
+      result.isRight shouldBe true
+      val built = result.toOption.get.head
+      built shouldBe a[OutputPanel]
+      built.kind shouldBe "output"
+      built.asInstanceOf[OutputPanel].outputId shouldBe Some(OutputId("out-1"))
     }
   }
 }

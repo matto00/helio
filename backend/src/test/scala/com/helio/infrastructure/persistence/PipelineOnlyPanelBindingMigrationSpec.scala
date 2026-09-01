@@ -56,10 +56,18 @@ class PipelineOnlyPanelBindingMigrationSpec extends AnyWordSpec with Matchers wi
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     seedPreV41Fixture()
 
-    // Stage 2: apply V41 (and any later migrations) against the seeded fixture.
+    // Stage 2: apply V41 (and later migrations up to, but excluding, V94)
+    // against the seeded fixture. HEL-904 task 2.9(a) makes V94 unconditionally
+    // delete any companion DataType with no pipeline binding -- pinning to V93
+    // here keeps this spec testing V41's OWN effect in isolation (a companion
+    // type is exactly the "unbound companion" shape 2.9(a) targets, so running
+    // to latest would make the final "leave an unbound companion ... untouched"
+    // assertion below false by a LATER migration's deliberate, unrelated
+    // behavior, not a V41 regression).
     Flyway.configure()
       .dataSource(jdbcUrl, "postgres", "postgres")
       .locations("classpath:db/migration")
+      .target("93")
       .load()
       .migrate()
   }

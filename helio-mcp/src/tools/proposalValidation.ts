@@ -1,6 +1,6 @@
 /**
  * `propose_dashboard`'s read-only binding-warning computation (`proposal.ts`,
- * HEL-223/HEL-549), split into its own small module for the same reason
+ * HEL-223), split into its own small module for the same reason
  * `metricSchemas.ts` documents for `write.ts` (HEL-541): a unit test can
  * import just this narrow, zod-free surface without pulling `proposal.ts`'s
  * `server.registerTool(...)` calls — combined with `panelSchema`'s full Zod
@@ -12,29 +12,26 @@
  * `write.test.ts`'s docstring for the sibling case this mirrors.
  */
 
-import type { DataTypeResponse, MetricResponse, ProposalPanel } from "../types.js";
+import type { DataTypeResponse, ProposalPanel } from "../types.js";
 
 /** Panel types whose binding is a `dataTypeId` (flat field, checked here).
  *  Mirrors the backend's `DashboardProposalService.DataPanelKinds`. */
-export const DATA_PANEL_TYPES = new Set(["metric", "chart", "table", "collection", "timeline"]);
+// HEL-904 task 3.10: retargeted to the one panel kind requiring an Output binding.
+export const DATA_PANEL_TYPES = new Set(["output"]);
 
-/** HEL-549: the exact panel-type set the backend's `metricId` slot supports
- *  (MetricPanelConfig/ChartPanelConfig/TablePanelConfig only) — mirrors
- *  `DashboardProposalService.MetricIdSupportedKinds`. */
-export const METRIC_ID_SUPPORTED_TYPES = new Set(["metric", "chart", "table"]);
+// HEL-904 decision 11: metrics are deleted wholesale by this migration — the
+// former HEL-549 `metricId` check (additive to dataTypeId, missing/not-owned/
+// deprecated/unsupported-type validation against a fetched metrics catalog)
+// is removed outright, not disabled. There is no metric concept left to
+// validate against.
 
-/** Read-only validation against an already-fetched workspace snapshot:
- *  flags a data panel whose `dataTypeId` binding is missing or not a
- *  pipeline output, and (HEL-549) independently flags a panel whose
- *  `metricId` is missing/not-owned/deprecated/set on an unsupported panel
- *  type. Both checks can fire for the same panel — `metricId` is additive to
- *  `dataTypeId`, never a substitute for it. Pure — no I/O; the caller
- *  (`propose_dashboard`) owns the `api.listDataTypes()`/`api.listMetrics()`
- *  fetch and the `Map` construction. */
+/** Read-only validation against an already-fetched workspace snapshot: flags
+ *  a data panel whose `dataTypeId` binding is missing or not a pipeline
+ *  output. Pure — no I/O; the caller (`propose_dashboard`) owns the
+ *  `api.listDataTypes()` fetch and the `Map` construction. */
 export function computeProposalWarnings(
   panels: ProposalPanel[],
   dataTypesById: Map<string, DataTypeResponse>,
-  metricsById: Map<string, MetricResponse>,
 ): string[] {
   const warnings: string[] = [];
 
@@ -52,22 +49,6 @@ export function computeProposalWarnings(
           warnings.push(
             `${where}: dataType '${dt.name}' is a source companion, not a pipeline output — it cannot be bound`,
           );
-        }
-      }
-    }
-
-    // HEL-549: metricId is additive to dataTypeId (checked above), never a
-    // substitute for it — validated independently so both warnings can
-    // surface for the same panel.
-    if (panel.metricId) {
-      if (!METRIC_ID_SUPPORTED_TYPES.has(panel.type)) {
-        warnings.push(`${where}: metricId is not supported on a ${panel.type} panel`);
-      } else {
-        const metric = metricsById.get(panel.metricId);
-        if (!metric) {
-          warnings.push(`${where}: metricId ${panel.metricId} not found among your metrics`);
-        } else if (metric.deprecated) {
-          warnings.push(`${where}: metric '${metric.name}' is deprecated`);
         }
       }
     }

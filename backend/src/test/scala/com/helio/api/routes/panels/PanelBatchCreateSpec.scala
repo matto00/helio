@@ -52,7 +52,7 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
         s"""{"dashboardId":"$dashboardId","panels":[
            |  {"title":"Photo","type":"image","config":{"imageUrl":"https://example.com/x.png"}},
            |  {"title":"Notes","type":"markdown","config":{"content":"hello"}},
-           |  {"title":"Revenue","type":"metric","config":{"dataTypeId":"$pipelineOutputTypeId","fieldMapping":{"value":"region"}}}
+           |  {"title":"Revenue","type":"output","config":{"outputId":"$pipelineOutputId"}}
            |]}""".stripMargin
       batchCreate(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -84,17 +84,42 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
       panelTitles(dashboardId) shouldBe empty
     }
 
-    "reject a source-companion DataType binding (V41) — 400, nothing created" in {
+    // HEL-904 task 3.8/3.9: `PanelService.batchCreate`'s V41
+    // `rejectCompanionBinding` check is DataType-specific (keyed on
+    // `sourceId.isDefined`) and does not resolve an "output"-kind panel's
+    // `outputId` at all — `OutputPanelConfig` only structurally requires it
+    // to be NON-EMPTY, so this regression guard covers that structural
+    // rejection (never reaches the DB).
+    "reject an \"output\" panel with an empty outputId — 400, nothing created" in {
       val dashboardId = createDashboard("V41 Target")
 
       val body =
         s"""{"dashboardId":"$dashboardId","panels":[
            |  {"title":"Good","type":"text"},
-           |  {"title":"Bad","type":"metric","config":{"dataTypeId":"$companionTypeId","fieldMapping":{"value":"region"}}}
+           |  {"title":"Bad","type":"output","config":{"outputId":""}}
            |]}""".stripMargin
       batchCreate(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[String].toLowerCase should include("pipeline-output")
+      }
+
+      panelTitles(dashboardId) shouldBe empty
+    }
+
+    // HEL-904 follow-up (flagged cycle 17, fixed this cycle):
+    // `PanelService.rejectMissingOutput` now resolves a non-empty
+    // `outputId` (via `OutputRepository.findByIdOwned`) BEFORE any write —
+    // a nonexistent id cleanly 404s instead of hitting the raw
+    // `panels.output_id REFERENCES outputs(id)` FK violation as a 500.
+    "reject an \"output\" panel whose outputId does not exist — 404, nothing created" in {
+      val dashboardId = createDashboard("Nonexistent Output Target")
+
+      val body =
+        s"""{"dashboardId":"$dashboardId","panels":[
+           |  {"title":"Good","type":"text"},
+           |  {"title":"Bad","type":"output","config":{"outputId":"${java.util.UUID.randomUUID()}"}}
+           |]}""".stripMargin
+      batchCreate(body) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
       }
 
       panelTitles(dashboardId) shouldBe empty
@@ -165,19 +190,21 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
       after.find(_.fields("title").convertTo[String] == "Pre-existing").get shouldBe before
     }
 
-    "persist per-item config/appearance (incl. chart.chartType) identically to a single POST /api/panels create" in {
+    // HEL-904 task 3.10a: "chart" is a fully retired panel type — the chart-
+    // specific appearance payload this test used to round-trip has no
+    // Output-panel equivalent (appearance now lives on the Output, not the
+    // Panel). Retargeted to an "output"-kind panel's config/appearance
+    // parity instead, preserving the single-vs-batch-create parity intent.
+    "persist per-item config/appearance identically to a single POST /api/panels create" in {
       val dashboardIdSingle = createDashboard("Parity Single")
       val dashboardIdBatch  = createDashboard("Parity Batch")
 
-      val chartAppearance =
-        s"""{"chart":{"chartType":"pie","seriesColors":["#111111"],"legend":{"show":true,"position":"top"},
-           |"tooltip":{"enabled":true},"axisLabels":{"x":{"show":true,"label":"X"},"y":{"show":true,"label":"Y"}}}}""".stripMargin
-      val config =
-        s"""{"dataTypeId":"$pipelineOutputTypeId","fieldMapping":{"value":"region"}}"""
+      val appearance = """{"background":"#111111"}"""
+      val config     = s"""{"outputId":"$pipelineOutputId"}"""
 
       val singlePanel =
         Post("/api/panels", json(
-          s"""{"dashboardId":"$dashboardIdSingle","title":"Chart","type":"chart","config":$config,"appearance":$chartAppearance}"""
+          s"""{"dashboardId":"$dashboardIdSingle","title":"Output","type":"output","config":$config,"appearance":$appearance}"""
         )).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
           status shouldBe StatusCodes.Created
           responseAs[String].parseJson.asJsObject
@@ -185,7 +212,7 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
 
       val batchBody =
         s"""{"dashboardId":"$dashboardIdBatch","panels":[
-           |  {"title":"Chart","type":"chart","config":$config,"appearance":$chartAppearance}
+           |  {"title":"Output","type":"output","config":$config,"appearance":$appearance}
            |]}""".stripMargin
       val batchPanel = batchCreate(batchBody) ~> routes ~> check {
         status shouldBe StatusCodes.Created

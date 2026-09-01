@@ -16,17 +16,7 @@
     },
     "type": {
       "type": "string",
-      "enum": [
-        "metric",
-        "chart",
-        "text",
-        "table",
-        "markdown",
-        "image",
-        "divider",
-        "collection",
-        "timeline"
-      ]
+      "enum": ["text", "markdown", "image", "divider", "output"]
     },
     "config": {
       "type": "object"
@@ -41,7 +31,7 @@
       "if": {
         "properties": {
           "type": {
-            "const": "metric"
+            "const": "output"
           }
         },
         "required": ["type"]
@@ -49,41 +39,7 @@
       "then": {
         "properties": {
           "config": {
-            "$ref": "panel.schema.json#/$defs/MetricConfig"
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "type": {
-            "const": "chart"
-          }
-        },
-        "required": ["type"]
-      },
-      "then": {
-        "properties": {
-          "config": {
-            "$ref": "panel.schema.json#/$defs/ChartConfig"
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "type": {
-            "const": "table"
-          }
-        },
-        "required": ["type"]
-      },
-      "then": {
-        "properties": {
-          "config": {
-            "$ref": "panel.schema.json#/$defs/TableConfig"
+            "$ref": "panel.schema.json#/$defs/OutputConfig"
           }
         }
       }
@@ -152,40 +108,6 @@
         "properties": {
           "config": {
             "$ref": "panel.schema.json#/$defs/DividerConfig"
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "type": {
-            "const": "collection"
-          }
-        },
-        "required": ["type"]
-      },
-      "then": {
-        "properties": {
-          "config": {
-            "$ref": "panel.schema.json#/$defs/CollectionConfig"
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "type": {
-            "const": "timeline"
-          }
-        },
-        "required": ["type"]
-      },
-      "then": {
-        "properties": {
-          "config": {
-            "$ref": "panel.schema.json#/$defs/TimelineConfig"
           }
         }
       }

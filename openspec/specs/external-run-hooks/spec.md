@@ -4,7 +4,9 @@
 A documented, authenticated, idempotent-friendly `POST /api/hooks/run` entrypoint that lets an
 external scheduler (cron, systemd, Cloud Scheduler) or automation launch a pipeline rebuild, backed
 by scoped Personal Access Tokens for least-privilege recurring workflows.
+
 ## Requirements
+
 ### Requirement: External trigger endpoint launches a pipeline run
 The system SHALL expose `POST /api/hooks/run` accepting `{ "pipelineId": "<id>" }`, authenticated by
 session cookie or `Authorization: Bearer helio_pat_...` (per the `request-authentication`
@@ -14,8 +16,8 @@ capability). On success it SHALL launch the pipeline run via the same run-lifecy
 when the run completes execution without exception but is blocked by an error-severity assertion
 failure (see `pipeline-assert-fail-policy`), exactly mirroring the status that terminal run record
 itself carries; no rollback is performed for this endpoint, since a hook-triggered run is always a
-re-run of an already-existing pipeline, so the prior DataType snapshot (never touched by a blocked run)
-remains the correct, current one.
+re-run of an already-existing pipeline, so the prior node snapshot(s) (never touched by a blocked
+run) remain the correct, current ones.
 
 #### Scenario: Valid unscoped PAT triggers a run
 - **WHEN** `POST /api/hooks/run` is called with `{ "pipelineId": "<owned-pipeline-id>" }` and a
@@ -40,8 +42,8 @@ remains the correct, current one.
 #### Scenario: A run blocked by an error-severity assertion reports status failed, not succeeded
 - **WHEN** `POST /api/hooks/run` is called for a pipeline whose `assert` step has an error-severity
   rule that fails
-- **THEN** the system returns `200 OK` with `status: "failed"` (not `"succeeded"`), and the pipeline's
-  previously-persisted DataType snapshot is unchanged
+- **THEN** the system returns `200 OK` with `status: "failed"` (not `"succeeded"`), and every
+  materialized node's previously-persisted snapshot is unchanged
 
 ### Requirement: Scoped tokens are confined to the hook endpoint and their pipeline allow-list
 A PAT minted with a non-null `scopedPipelineIds` allow-list SHALL authenticate ONLY
@@ -94,4 +96,3 @@ scoped tokens need per-request confinement/audit data, so only they are threaded
 - **WHEN** a pipeline is triggered via `POST /api/hooks/run` using an unscoped PAT, then
   `GET /api/pipelines/:id/run-history` is called by the pipeline owner
 - **THEN** the matching run record has `triggerSource: "external"` and no token id
-

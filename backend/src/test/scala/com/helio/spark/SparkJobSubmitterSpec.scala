@@ -4,7 +4,7 @@ import com.helio.domain._
 import com.helio.domain.engine.{SchemaInferenceEngine, SourceReadStats}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineRunRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -145,7 +145,6 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         id                 = pipeId,
         name               = "pipe",
         sourceDataSourceId = ds.id,
-        outputDataTypeId   = DataTypeId("dt"),
         lastRunStatus      = None,
         lastRunAt          = None,
         createdAt          = Instant.now(),
@@ -155,7 +154,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       // Task 4.2: construct with a non-null (fake) pipelineRepo — `execute` never calls it,
       // but the constructor signature still requires a value, so this exercises the real
       // signature rather than the `submitter` fixture's `pipelineRepo = null`.
-      val fakePipelineRepo = new PipelineRepository(null, null, null)
+      val fakePipelineRepo = new PipelineRepository(null, null)
       val submitterForExecute = new SparkJobSubmitter("local[*]", mockDsRepo, fakePipelineRepo)
       val outcome = Await.result(
         submitterForExecute.execute(pip, ds, Vector.empty, mockDsRepo, new AssertionSink, new TruncationSink),
@@ -296,9 +295,8 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         .migrate()
       db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
       val ctx                  = new DbContext(db, db)
-      val dtRepo               = new DataTypeRepository(ctx)
       dsRepoForSubmit          = new DataSourceRepository(ctx)
-      pipelineRepoForSubmit    = new PipelineRepository(ctx, dtRepo, dsRepoForSubmit)
+      pipelineRepoForSubmit    = new PipelineRepository(ctx, dsRepoForSubmit)
       pipelineRunRepoForSubmit = new PipelineRunRepository(ctx)
     }
 
@@ -315,12 +313,10 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         sqlu"""INSERT INTO data_sources
                  (id, name, source_type, config, owner_id, created_at, updated_at)
                  VALUES ($dsId, 'ds', 'static', '{"columns":[{"name":"x","type":"string"}],"rows":[["a"]]}', $ownerId::uuid, now(), now())""",
-        sqlu"""INSERT INTO data_types
-                 (id, name, fields, version, owner_id, created_at, updated_at)
-                 VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
+        
         sqlu"""INSERT INTO pipelines
-                 (id, name, source_data_source_id, output_data_type_id, created_at, updated_at)
-                 VALUES ($pid, 'pipe', $dsId, $dtId, now(), now())"""
+                 (id, name, source_data_source_id, created_at, updated_at)
+                 VALUES ($pid, 'pipe', $dsId, now(), now())"""
       )))
       pid
     }
@@ -330,7 +326,6 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         id                 = PipelineId(pid),
         name               = "pipe",
         sourceDataSourceId = DataSourceId(dsId),
-        outputDataTypeId   = DataTypeId("dt"),
         lastRunStatus      = None,
         lastRunAt          = None,
         createdAt          = Instant.now(),

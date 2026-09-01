@@ -4,9 +4,11 @@
 Lets an agentic workflow group the data sources, pipelines, and DataTypes it creates under a
 single free-form tag, set at create time and returned on reads, so the group can be discovered
 and filtered without relying on naming conventions.
+
 ## Requirements
+
 ### Requirement: Data sources, pipelines, and DataTypes accept an optional tag at create time
-`DataSourceService`, `PipelineService`, and `DataTypeService` create paths SHALL accept an
+`DataSourceService`, `PipelineService`, and `OutputRepository` create paths SHALL accept an
 optional single free-form `tag` string (max 200 chars) and persist it on the created resource.
 Omitting `tag` SHALL leave it `null` and behave exactly as before this change.
 
@@ -15,12 +17,18 @@ Omitting `tag` SHALL leave it `null` and behave exactly as before this change.
 - **THEN** the created data source's `tag` field is `"news-2026-07-26"`
 
 #### Scenario: Creating a resource without a tag is unaffected
-- **WHEN** a data source, pipeline, or DataType is created with no `tag` field in the request
+- **WHEN** a data source, pipeline, or Output is created with no `tag` field in the request
 - **THEN** the resource is created successfully with `tag: null`, identical to pre-change behavior
 
 #### Scenario: Tag persists and is returned on reads
-- **WHEN** a tagged data source, pipeline, or DataType is fetched by id or listed
+- **WHEN** a tagged data source or pipeline is fetched by id or listed
 - **THEN** the response includes the `tag` value that was set at creation
+
+_An Output's `tag` is write-only in the shipped build: `OutputRepository.insertInternal` persists
+`tag` (`OutputRepository.scala`, `domainToRow`), but the domain `Output` case class does not yet
+surface a `tag` field on read — the DB column exists but is not read out
+(`OutputRepository.scala`'s own doc comment), left for a later cycle if tag-scoped Output listing is
+ever needed. No ticket is currently filed for that read-side follow-up._
 
 ### Requirement: Resources can be listed filtered by tag
 `GET /api/data-sources`, `GET /api/pipelines`, and `GET /api/types` SHALL accept an optional
@@ -45,7 +53,6 @@ modify or require backfilling any existing row.
 
 #### Scenario: Existing resources remain untagged after migration
 - **WHEN** the migration adding the `tag` column is applied to a database with existing data
-  sources, pipelines, and DataTypes
+  sources, pipelines, and Outputs
 - **THEN** all pre-existing rows have `tag = null` and continue to function (create/read/update/
   delete/analyze/run) exactly as before
-

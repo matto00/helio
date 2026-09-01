@@ -1,7 +1,7 @@
 package com.helio.services.workspace
 
 import com.helio.services.workspace.WorkspaceContextService
-import com.helio.api.protocols.workspace.{WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextDataType}
+import com.helio.api.protocols.workspace.{WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextOutput}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -11,7 +11,7 @@ import scala.concurrent.ExecutionContext
 /** HEL-374 tasks.md 5.2 — pure unit tests for
  *  `WorkspaceContextService.computeJoinHints` (design.md D2), mirroring
  *  `WorkspaceContextServiceComputeColumnStatsSpec`'s no-DB-fixture pattern.
- *  `computeJoinHints` is a pure function of `Vector[WorkspaceContextDataType]`
+ *  `computeJoinHints` is a pure function of `Vector[WorkspaceContextOutput]`
  *  and touches none of the service's four constructor dependencies — every
  *  fixture below is constructed directly, not fetched (carried finding #7:
  *  prefer pure-unit specs for constructed edge cases over DB-backed specs).
@@ -61,7 +61,7 @@ class WorkspaceContextServiceComputeJoinHintsSpec extends AnyWordSpec with Match
     (column, stats)
   }
 
-  /** Builds a `WorkspaceContextDataType` from (column, stats) pairs.
+  /** Builds a `WorkspaceContextOutput` from (column, stats) pairs.
    *  `columnStatsLimit` simulates `computeColumnStats`'s own `SampleColumnLimit`
    *  (40) cap — only the first `columnStatsLimit` columns get a `columnStats`
    *  entry, mirroring the real shape a wide DataType produces, without
@@ -71,8 +71,8 @@ class WorkspaceContextServiceComputeJoinHintsSpec extends AnyWordSpec with Match
       columns: Vector[(WorkspaceContextColumn, WorkspaceContextColumnStats)],
       columnStatsLimit: Int = Int.MaxValue,
       sourceId: Option[String] = None
-  ): WorkspaceContextDataType =
-    WorkspaceContextDataType(
+  ): WorkspaceContextOutput =
+    WorkspaceContextOutput(
       id              = id,
       name            = id,
       sourceId        = sourceId,

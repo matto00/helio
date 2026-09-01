@@ -42,7 +42,9 @@ paths:
         "500":
           description: Internal server error
 ```
+
 ## Requirements
+
 ### Requirement: GET /api/pipelines/:id/analyze returns pipeline with per-step schemas
 The API SHALL expose `GET /api/pipelines/:id/analyze`. The response SHALL include the pipeline summary fields
 (`id`, `name`, `sourceDataSourceName`, `outputDataTypeName`, `outputDataTypeId`), a `sourceSchema` array, and a
@@ -52,7 +54,7 @@ stringified JSON blob). Step 0's `inputSchema` SHALL equal `sourceSchema`. Step 
 step N-1's `outputSchema`. If the pipeline is not found, the response SHALL be 404.
 
 #### Scenario: Empty step list returns pipeline with empty steps and populated sourceSchema
-- **WHEN** `GET /api/pipelines/:id/analyze` is called for a pipeline with no steps and a source DataType
+- **WHEN** `GET /api/pipelines/:id/analyze` is called for a pipeline with no steps and a source Output
   with fields `[{name: "a", type: "string"}]`
 - **THEN** the response is 200 with `sourceSchema: [{name: "a", type: "string"}]` and `steps: []`
 
@@ -112,17 +114,17 @@ step N-1's `outputSchema`. If the pipeline is not found, the response SHALL be 4
 - **THEN** the response is 404
 
 ### Requirement: Source schema derived from bound DataSource's registered DataType fields
-The analyze endpoint SHALL derive `sourceSchema` from the `DataType` that is linked to the pipeline's
-`sourceDataSourceId` via `DataType.sourceId`. Each `DataField` SHALL be represented as `{name, type}` in
-`sourceSchema`, where `type` is the `DataField.dataType` string value. If no source DataType is found,
+The analyze endpoint SHALL derive `sourceSchema` from the `Output` that is linked to the pipeline's
+`sourceDataSourceId` via `Output.sourceId`. Each `DataField` SHALL be represented as `{name, type}` in
+`sourceSchema`, where `type` is the `DataField.dataType` string value. If no source Output is found,
 `sourceSchema` SHALL be an empty array.
 
 #### Scenario: Source DataType fields populate sourceSchema
-- **WHEN** the source DataSource has a registered DataType with fields `[{name: "col1", dataType: "string"}]`
+- **WHEN** the source DataSource has a registered Output with fields `[{name: "col1", dataType: "string"}]`
 - **THEN** `sourceSchema` in the analyze response is `[{name: "col1", type: "string"}]`
 
 #### Scenario: Missing source DataType produces empty sourceSchema
-- **WHEN** the source DataSource has no registered DataType (no DataType with matching sourceId)
+- **WHEN** the source DataSource has no registered Output (no Output with matching sourceId)
 - **THEN** `sourceSchema` is `[]` and the response is still 200
 
 ### Requirement: JSON Schema and OpenAPI spec for analyze response
@@ -156,4 +158,3 @@ malformed persisted baseline SHALL be treated as no baseline (no drift reported,
 #### Scenario: Unchanged schema yields absent field
 - **WHEN** a pipeline's current source schema equals its persisted baseline
 - **THEN** the 200 response contains no `sourceSchemaDrift` member
-

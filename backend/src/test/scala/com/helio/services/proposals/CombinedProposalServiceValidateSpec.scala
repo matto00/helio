@@ -38,7 +38,7 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private val user    = AuthenticatedUser(ownerId)
 
   private def newService(dataSourceRepo: DataSourceRepository): CombinedProposalService = {
-    val pipelineProposalService = new PipelineProposalService(null, null, null, null, null, dataSourceRepo, null)
+    val pipelineProposalService = new PipelineProposalService(null, null, null, null, dataSourceRepo, null)
     new CombinedProposalService(pipelineProposalService, null)
   }
 
@@ -56,7 +56,7 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private def sentinelMetricPanel(): ProposalPanel =
     ProposalPanel(
       title        = "Total",
-      `type`       = "metric",
+      `type`       = "output",
       dataTypeId   = Some(CombinedProposalService.OutputRefSentinel),
       metricId     = None,
       fieldMapping = Some(JsObject("value" -> JsString("region"))),

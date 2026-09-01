@@ -3,7 +3,6 @@ package com.helio.services.patchsets
 import com.helio.services.patchsets.RefinementEditShape
 import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.api.protocols.patchsets.{Edit, PatchSetProtocol}
-import com.helio.domain.panels.{ChartPanelConfig, CollectionPanelConfig, MetricPanelConfig, TablePanelConfig, TimelinePanelConfig}
 import com.helio.domain.steps.{AggregateConfig, GroupByConfig, JoinConfig, PivotConfig, StepConfigTypeMismatch, UnpivotConfig, WindowConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,110 +22,6 @@ import spray.json._
 class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetProtocol {
 
   private def parseEdit(json: String): Edit = json.parseJson.convertTo[Edit]
-
-  "RefinementEditShape's worked panel-update examples" should {
-
-    "metric: decodes to a valid Edit whose config.aggregation carries BOTH value and agg (MetricAggregation's required keys)" in {
-      val edit = parseEdit(RefinementEditShape.MetricPanelExample)
-      edit.target.kind shouldBe "panel"
-      edit.op shouldBe "update"
-      val configJson = edit.panelPatch.get.config.get
-      val patch = MetricPanelConfig.Patch.decode(configJson)
-
-      patch.aggregation shouldBe defined
-      val aggregation = patch.aggregation.get.get
-      aggregation.fields.keySet should contain allOf ("value", "agg")
-      aggregation.fields("value") shouldBe a[JsString]
-      aggregation.fields("value").asInstanceOf[JsString].value should not be empty
-    }
-
-    "chart: decodes to a valid Edit whose config.aggregation carries groupBy, agg, AND yField (ChartAggregation's required keys)" in {
-      val edit = parseEdit(RefinementEditShape.ChartPanelExample)
-      val configJson = edit.panelPatch.get.config.get
-      val patch = ChartPanelConfig.Patch.decode(configJson)
-
-      patch.aggregation shouldBe defined
-      val aggregation = patch.aggregation.get.get
-      aggregation.fields.keySet should contain allOf ("groupBy", "agg", "yField")
-    }
-
-    "table: decodes to a valid Edit + TablePanelConfig.Patch with a non-empty fieldMapping" in {
-      val edit = parseEdit(RefinementEditShape.TablePanelExample)
-      val configJson = edit.panelPatch.get.config.get
-      val patch = TablePanelConfig.Patch.decode(configJson)
-
-      patch.fieldMapping shouldBe defined
-      patch.fieldMapping.get.get.fields should not be empty
-    }
-
-    "collection: decodes to a valid Edit + CollectionPanelConfig.Patch with baseType/layout set" in {
-      val edit = parseEdit(RefinementEditShape.CollectionPanelExample)
-      val configJson = edit.panelPatch.get.config.get
-      val patch = CollectionPanelConfig.Patch.decode(configJson)
-
-      patch.baseType shouldBe Some(Some("metric"))
-      patch.layout shouldBe Some(Some("grid"))
-    }
-
-    "timeline: decodes to a valid Edit + TimelinePanelConfig.Patch with both required fieldMapping slots (time, event)" in {
-      val edit = parseEdit(RefinementEditShape.TimelinePanelExample)
-      val configJson = edit.panelPatch.get.config.get
-      val patch = TimelinePanelConfig.Patch.decode(configJson)
-
-      patch.fieldMapping shouldBe defined
-      patch.fieldMapping.get.get.fields.keySet should contain allOf ("time", "event")
-    }
-  }
-
-  // ── CREATE path (evaluation-2.md cycle-3) — decodes via CreatePanelRequest + the matching
-  //    *PanelConfig.decodeCreate (the FULL-config decoder, not the partial `.Patch.decode` the
-  //    UPDATE examples above use — a create edit's `patch` is a whole `CreatePanelRequest`, not a
-  //    partial patch), mirroring exactly how `PatchSetApplyResolvers.resolvePanelCreate` itself
-  //    decodes a real `op: "create"` edit at apply time (`decodeCreatePatch[CreatePanelRequest]`). ──
-
-  "RefinementEditShape's worked panel-create examples" should {
-
-    "metric create: decodes to a valid Edit + CreatePanelRequest whose config.aggregation carries BOTH value and agg" in {
-      val edit = parseEdit(RefinementEditShape.MetricPanelCreateExample)
-      edit.target.kind shouldBe "panel"
-      edit.op shouldBe "create"
-      edit.target.id shouldBe empty // create never sets target.id — the resource doesn't exist yet
-
-      val createRequest = edit.createPatch.get.convertTo[CreatePanelRequest]
-      createRequest.`type` shouldBe Some("metric")
-      val config = MetricPanelConfig.decodeCreate(createRequest.config.get)
-
-      config.aggregation shouldBe defined
-      val aggregation = config.aggregation.get
-      aggregation.fields.keySet should contain allOf ("value", "agg")
-      aggregation.fields("value") shouldBe a[JsString]
-      aggregation.fields("value").asInstanceOf[JsString].value should not be empty
-    }
-
-    "chart create: decodes to a valid Edit + CreatePanelRequest whose config.aggregation carries groupBy, agg, AND yField" in {
-      val edit = parseEdit(RefinementEditShape.ChartPanelCreateExample)
-      edit.op shouldBe "create"
-
-      val createRequest = edit.createPatch.get.convertTo[CreatePanelRequest]
-      createRequest.`type` shouldBe Some("chart")
-      val config = ChartPanelConfig.decodeCreate(createRequest.config.get)
-
-      config.aggregation shouldBe defined
-      val aggregation = config.aggregation.get
-      aggregation.fields.keySet should contain allOf ("groupBy", "agg", "yField")
-    }
-
-    "table create: decodes to a valid Edit + CreatePanelRequest + TablePanelConfig with a non-empty fieldMapping" in {
-      val edit = parseEdit(RefinementEditShape.TablePanelCreateExample)
-      edit.op shouldBe "create"
-
-      val createRequest = edit.createPatch.get.convertTo[CreatePanelRequest]
-      createRequest.`type` shouldBe Some("table")
-      val config = TablePanelConfig.decodeCreate(createRequest.config.get)
-
-      config.fieldMapping.fields should not be empty
-    }
-  }
 
   // ── pipelineStep UPDATE path (skeptic-final-1.md, D2a's pipelineStep gap) — decodes the SAME way
   //    `PatchSetApplyResolvers.resolvePipelineStepUpdate`/`validateEmbeddedStepReferences` do

@@ -65,6 +65,7 @@ final case class DedupeStep(
     config: DedupeConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = DedupeStep.Kind

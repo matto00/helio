@@ -8,8 +8,7 @@ import com.helio.services.audit.AuditService
 import com.helio.api.protocols.proposals.{ProposalPanel, ReplaceDashboardContentsRequest}
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, Panel, ResourceAccess}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,14 +32,15 @@ import scala.concurrent.{ExecutionContext, Future}
 final class DashboardContentsService(
     dashboardRepo: DashboardRepository,
     panelService: PanelService,
-    dataTypeRepo: DataTypeRepository,
     accessChecker: AccessChecker,
-    // HEL-549: mirrors DashboardProposalService's nullable-optional wiring
-    // convention (design.md D5) — only touched when a panel actually
-    // carries a metricId.
-    metricRepo: MetricRepository,
-    // HEL-477: nullable-optional wiring mirrors metricRepo above.
-    auditService: AuditService = null
+    // HEL-477: nullable-optional wiring.
+    auditService: AuditService = null,
+    // HEL-904 task 3.8/3.9: validates an "output"-kind panel's binding
+    // against a real Output. Nullable-optional, mirroring auditService above.
+    // HEL-904 task 3.2: the `metricRepo` param (HEL-549, unused since task
+    // 3.9 dropped `validateMetricBinding`/`preValidateBindings`'s metricRepo
+    // parameter -- metrics no longer exist) is REMOVED outright.
+    outputRepo: OutputRepository = null
 )(implicit ec: ExecutionContext) {
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
@@ -58,7 +58,7 @@ final class DashboardContentsService(
         validatePanels(request.panels) match {
           case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
           case Right(_) =>
-            ProposalPanelSupport.preValidateBindings(request.panels, user, dataTypeRepo, metricRepo).flatMap {
+            ProposalPanelSupport.preValidateBindings(request.panels, user, outputRepo).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_)  => buildAndReplace(dashboardId, request.panels, user)
             }

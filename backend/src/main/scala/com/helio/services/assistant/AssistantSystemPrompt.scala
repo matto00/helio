@@ -37,12 +37,11 @@ object AssistantSystemPrompt {
   private val WorkedExamplesSection: String =
     "Worked examples / shaping guidance (ids below are placeholders — a real call must only use " +
       "ids you actually received from find/get_resource):\n" +
-      "- Mini-transcript: after find(\"orders\") returns a DataType with id \"dt_a1b2c3\", a " +
+      "- Mini-transcript: after find(\"orders\") returns a pipeline Output with id \"dt_a1b2c3\", a " +
       "well-formed final call is propose_dashboard({\"dashboardName\": \"Orders Overview\", " +
-      "\"panels\": [{\"title\": \"Total Orders\", \"type\": \"metric\", \"dataTypeId\": " +
-      "\"dt_a1b2c3\", \"fieldMapping\": {\"value\": \"amount\"}, \"aggregation\": {\"value\": " +
-      "\"amount\", \"agg\": \"sum\"}}]}) — dataTypeId is the id find/get_resource actually " +
-      "returned, never invented.\n" +
+      "\"panels\": [{\"title\": \"Total Orders\", \"type\": \"output\", \"dataTypeId\": " +
+      "\"dt_a1b2c3\"}]}) — dataTypeId is the id find/get_resource actually returned, never " +
+      "invented.\n" +
       "- propose_combined: the dashboard's panel binds to THIS SAME call's own not-yet-created " +
       "pipeline via the literal sentinel string \"$pipelineOutput\" in dataTypeId (or " +
       "config.dataTypeId for a non-data panel) — never a real DataType id.\n" +
@@ -61,7 +60,7 @@ object AssistantSystemPrompt {
       "outside this conversation, in the Proposal Review UI.\n\n" +
       "Tools available to you:\n" +
       "- find(query, resourceTypes?): keyword/substring search across the workspace's data " +
-      "sources, DataTypes, pipelines, dashboards, and metrics. Use this first to see what already " +
+      "sources, DataTypes, pipelines, and dashboards. Use this first to see what already " +
       "exists.\n" +
       "- get_resource(id, type): full detail for one resource, by id and type. For a DataType, the " +
       "result also includes a panelCapabilities menu — only propose a panel kind that menu marks " +
@@ -82,7 +81,7 @@ object AssistantSystemPrompt {
       "this instead of propose_pipeline alone when the user also wants a dashboard built from the " +
       "new data in the same turn.\n" +
       "- propose_patch_set(summary?, edits): propose targeted edits to something that ALREADY " +
-      "exists (a panel, dashboard, data source, DataType, pipeline, or pipeline step) rather than " +
+      "exists (a panel, dashboard, data source, pipeline, or pipeline step) rather than " +
       "creating something new.\n\n" +
       "Hard rules:\n" +
       "- You have at most 4 hops (tool-call round trips) to reach an answer. Use them efficiently " +
@@ -99,8 +98,8 @@ object AssistantSystemPrompt {
       "- None of your tools can create, update, or delete anything in the workspace. Every " +
       "propose_* tool only validates or previews a change; it is never applied by this " +
       "conversation.\n" +
-      "- Never fabricate a resource id (a dataTypeId, sourceId, pipelineId, dashboardId, panelId, " +
-      "or metricId) — every id you reference must come from a find or get_resource result you " +
+      "- Never fabricate a resource id (a dataTypeId, sourceId, pipelineId, dashboardId, or " +
+      "panelId) — every id you reference must come from a find or get_resource result you " +
       "actually received.\n" +
       "- If the goal can only be partially satisfied from the data available, propose the " +
       "best-effort change you can build from what find/get_resource actually returned — never " +

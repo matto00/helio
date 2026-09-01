@@ -45,8 +45,8 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
 
       val body =
         s"""{"panels":[
-           |  {"title":"New Metric","type":"metric","dataTypeId":"$pipelineOutputTypeId",
-           |   "fieldMapping":{"value":"region"},"layout":{"x":0,"y":0,"w":4,"h":3}},
+           |  {"title":"New Metric","type":"output","dataTypeId":"$pipelineOutputId",
+           |   "layout":{"x":0,"y":0,"w":4,"h":3}},
            |  {"title":"New Text","type":"text"}
            |]}""".stripMargin
       putContents(dashboardId, body) ~> routes ~> check {
@@ -76,7 +76,7 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
       val body =
         """{"panels":[
           |  {"title":"Good","type":"text"},
-          |  {"title":"Bad","type":"metric"}
+          |  {"title":"Bad","type":"output"}
           |]}""".stripMargin
       putContents(dashboardId, body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -89,17 +89,20 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
       panelTitles(dashboardId) shouldBe Vector("Keep Me")
     }
 
-    "reject a source-companion DataType binding on replace, same V41 rule as create — nothing replaced" in {
+    // HEL-904 task 3.8/3.9: an "output"-kind panel's binding now validates
+    // against a real Output — a DataType id (of any kind) is simply an
+    // ordinary not-found, not the old companion-specific message.
+    "reject an \"output\" panel bound to a DataType id (not an Output id) on replace — nothing replaced" in {
       val dashboardId = createDashboard("V41 Target")
       createTextPanel(dashboardId, "Keep Me")
 
       val body =
         s"""{"panels":[
-           |  {"title":"Bad","type":"metric","dataTypeId":"$companionTypeId","fieldMapping":{"value":"region"}}
+           |  {"title":"Bad","type":"output","dataTypeId":"$companionTypeId"}
            |]}""".stripMargin
       putContents(dashboardId, body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[String].toLowerCase should include("pipeline-output")
+        responseAs[String].toLowerCase should include("not found")
       }
 
       panelTitles(dashboardId) shouldBe Vector("Keep Me")

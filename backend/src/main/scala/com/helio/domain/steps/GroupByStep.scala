@@ -37,6 +37,7 @@ final case class GroupByStep(
     config: GroupByConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = GroupByStep.Kind

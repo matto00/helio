@@ -1,7 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -44,7 +44,6 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
   private var pipelineRepo: PipelineRepository     = _
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
@@ -72,17 +71,32 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     seedPreV73Fixture()
 
-    // Stage 2: apply V73 (and any later migrations) against the seeded fixture.
+    // Stage 2: apply V73 (and later migrations up to, but excluding, V94)
+    // against the seeded fixture. HEL-904 task 2.9(a) makes V94 unconditionally
+    // delete any companion DataType with no pipeline binding -- this spec's
+    // fixture's `companionId` row is exactly that shape, so running to latest
+    // would delete it out from under the "read pre-existing row" assertions
+    // below via a LATER migration's deliberate, unrelated behavior, not a V73
+    // regression. Pinning to V93 keeps this spec testing V73's own effect in
+    // isolation.
     Flyway.configure()
       .dataSource(jdbcUrl, "postgres", "postgres")
       .locations("classpath:db/migration")
+      .target("93")
       .load()
       .migrate()
 
+    // HEL-904: `DataSourceRepository`'s table mapping now always selects `inferred_schema`
+    // (added by V94, task 1.3/2.3), which this spec deliberately does not run (pinned to V93
+    // above, to isolate V73's own effect from V94's later, unrelated companion-type deletion).
+    // Add the column by hand rather than running V94 — this spec's assertions are about the
+    // `tag` column, not the Outputs remodel, so a bare `ALTER TABLE` (not V94's data migration)
+    // is the minimal change that keeps `DataSourceRepository` usable here.
+    Await.result(db.run(sqlu"ALTER TABLE data_sources ADD COLUMN inferred_schema JSONB NOT NULL DEFAULT '[]'::jsonb"), 10.seconds)
+
     val ctx        = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
-    dataTypeRepo   = new DataTypeRepository(ctx)
-    pipelineRepo   = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)
   }
 
   override def afterAll(): Unit = {
@@ -139,10 +153,14 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
       source.get.name shouldBe "pre-existing source"
       source.get.tag shouldBe None
 
-      val companion = await(dataTypeRepo.findByIdOwned(DataTypeId(companionId), owner))
-      companion shouldBe defined
-      companion.get.sourceId shouldBe Some(DataSourceId(srcId))
-      companion.get.tag shouldBe None
+      // HEL-904 task 4.1: `DataTypeRepository` no longer exists -- read the companion row
+      // directly (raw SQL), mirroring this test's own tag-only check above.
+      val companionRow = await(db.run(
+        sql"SELECT source_id, tag FROM data_types WHERE id = $companionId".as[(Option[String], Option[String])].headOption
+      ))
+      companionRow shouldBe defined
+      companionRow.get._1 shouldBe Some(srcId)
+      companionRow.get._2 shouldBe None
 
       val pipeline = await(pipelineRepo.findByIdOwned(PipelineId(pipelineId), owner))
       pipeline shouldBe defined

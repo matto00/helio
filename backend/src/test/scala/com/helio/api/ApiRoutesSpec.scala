@@ -18,7 +18,7 @@ import com.helio.api.protocols.auth.RedeemInviteCodeRequest
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.auth.{ConnectorCredentialRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
@@ -52,7 +52,6 @@ class ApiRoutesSpec
   private var panelRepo: PanelRepository                    = _
   private var dataSourceRepo: DataSourceRepository          = _
   private var connectorRepo: ConnectorRepository            = _
-  private var dataTypeRepo: DataTypeRepository              = _
   private var userRepo: UserRepository                      = _
   private var userPreferenceRepo: UserPreferenceRepository  = _
   private var permissionRepo: ResourcePermissionRepository  = _
@@ -83,11 +82,10 @@ class ApiRoutesSpec
     dashboardRepo      = new DashboardRepository(ctx)(typedSystem.executionContext)
     panelRepo          = new PanelRepository(ctx)(typedSystem.executionContext)
     dataSourceRepo     = new DataSourceRepository(ctx)(typedSystem.executionContext)
-    dataTypeRepo       = new DataTypeRepository(ctx)(typedSystem.executionContext)
     userRepo           = new UserRepository(db)(typedSystem.executionContext)
     userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
     permissionRepo     = new ResourcePermissionRepository(ctx)(typedSystem.executionContext)
-    pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
+    pipelineRepo       = new PipelineRepository(ctx, dataSourceRepo)(typedSystem.executionContext)
     pipelineStepRepo   = new PipelineStepRepository(ctx)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
     connectorRepo      = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(typedSystem.executionContext))(typedSystem.executionContext)
@@ -103,7 +101,7 @@ class ApiRoutesSpec
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE resource_permissions, user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE resource_permissions, user_sessions, users, panels, dashboards, data_sources RESTART IDENTITY CASCADE"))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000099'::uuid, 'test@helio.test', now())"""))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000098'::uuid, 'other@helio.test', now())"""))
   }
@@ -140,7 +138,7 @@ class ApiRoutesSpec
 
   /** Builds the raw routes (no automatic auth header). */
   private def rawRoutes(connector: RestApiConnectorDriver = stubConnector(Left("no real HTTP in tests"))): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, connector, userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       // HEL-822: dbContext wired so SourceService.createRest's bare-url dual-support path has a
       // real ConnectorRepository to synthesize an implicit Connector through.
       dbContext = ctx
@@ -148,7 +146,7 @@ class ApiRoutesSpec
 
   /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
   private def realSessionRoutes(): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
 
   import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 
@@ -331,73 +329,12 @@ class ApiRoutesSpec
       }
     }
 
-    // HEL-310: contract-level coverage for `type: "collection"` — the schema
-    // parity guard (npm run check:schemas) covers the static contract; this
-    // covers the runtime route accepting and echoing the type.
-    "create a collection panel and return 201 with type echoed (HEL-310)" in {
-      cleanDb()
-      var dashboardId = ""
-
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Top Metrics"), Some("collection"), None)
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-        val response = responseAs[PanelResponse]
-        response.dashboardId shouldBe dashboardId
-        response.title shouldBe "Top Metrics"
-        response.`type` shouldBe "collection"
-        response.id should not be empty
-        assertResourceMeta(response.meta)
-        assertPanelAppearance(response.appearance)
-      }
-    }
-
-    // HEL-317: contract-level coverage for `type: "timeline"` — mirrors the
-    // HEL-310 collection coverage above.
-    "create a timeline panel and return 201 with type echoed (HEL-317)" in {
-      cleanDb()
-      var dashboardId = ""
-
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Story Chronology"), Some("timeline"), None)
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-        val response = responseAs[PanelResponse]
-        response.dashboardId shouldBe dashboardId
-        response.title shouldBe "Story Chronology"
-        response.`type` shouldBe "timeline"
-        response.id should not be empty
-        assertResourceMeta(response.meta)
-        assertPanelAppearance(response.appearance)
-      }
-    }
-
-    "reject creating a timeline panel with an invalid sort value (HEL-317)" in {
-      cleanDb()
-      var dashboardId = ""
-
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      val badConfig = JsObject("timelineOptions" -> JsObject("sort" -> JsString("sideways")))
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Story Chronology"), Some("timeline"), Some(badConfig))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-    }
+    // HEL-904 task 3.6/4.1: `collection`/`timeline` are retired PanelType
+    // values (5-value collapse) — the three tests this comment used to guard
+    // (HEL-310's collection-create, HEL-317's timeline-create, and its
+    // invalid-sort rejection) are deleted outright, not rewritten; there is
+    // no Panel-level equivalent (timeline sort/collection baseType are now
+    // Output concerns, not Panel concerns).
 
     "return dashboards sorted by lastUpdated descending" in {
       cleanDb()
@@ -877,362 +814,8 @@ class ApiRoutesSpec
       }
     }
 
-    // ── DataType CRUD ──────────────────────────────────────────────────────────
+    // HEL-904 task 4.5: DataType CRUD/computed-fields test block removed outright -- /api/types no longer exists.
 
-    "return an empty data type collection by default" in {
-      cleanDb()
-      Get("/api/types") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[PagedResult[DataTypeResponse]].items shouldBe Vector.empty
-      }
-    }
-
-    "return 404 for a non-existent data type" in {
-      Get("/api/types/does-not-exist") ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-        responseAs[ErrorResponse] shouldBe ErrorResponse("DataType not found")
-      }
-    }
-
-    "update a data type name and fields and increment version" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "Original",
-        fields    = Vector(DataField("col1", "Column 1", "string", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/types/${dt.id.value}",
-        UpdateDataTypeRequest(
-          name   = Some("Renamed"),
-          fields = Some(Vector(DataFieldPayload("col1", "Column 1", "string", nullable = false), DataFieldPayload("col2", "Column 2", "integer", nullable = true)))
-        )
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[DataTypeResponse]
-        response.name shouldBe "Renamed"
-        response.fields should have size 2
-        response.version shouldBe 2
-      }
-    }
-
-    "return 404 when patching a non-existent data type" in {
-      Patch(
-        "/api/types/does-not-exist",
-        UpdateDataTypeRequest(name = Some("X"), fields = None)
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-        responseAs[ErrorResponse] shouldBe ErrorResponse("DataType not found")
-      }
-    }
-
-    "delete a data type and return 204" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ToDelete",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Delete(s"/api/types/${dt.id.value}") ~> routes() ~> check {
-        status shouldBe StatusCodes.NoContent
-      }
-
-      Get(s"/api/types/${dt.id.value}") ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-      }
-    }
-
-    "return 404 when deleting a non-existent data type" in {
-      Delete("/api/types/does-not-exist") ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-        responseAs[ErrorResponse] shouldBe ErrorResponse("DataType not found")
-      }
-    }
-
-    "return 409 when deleting a data type bound to a panel" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), None, None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "BoundType",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsString(dt.id.value))))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Delete(s"/api/types/${dt.id.value}") ~> routes() ~> check {
-        status shouldBe StatusCodes.Conflict
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Cannot delete DataType: one or more panels are bound to it")
-      }
-    }
-
-    // ── DataType computed fields ───────────────────────────────────────────────
-
-    "PATCH /api/types/:id includes computedFields and returns updated DataType" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "PriceType",
-        fields    = Vector(
-          DataField("price", "Price", "float", nullable = false),
-          DataField("quantity", "Quantity", "integer", nullable = false)
-        ),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/types/${dt.id.value}",
-        UpdateDataTypeRequest(
-          name   = None,
-          fields = None,
-          computedFields = Some(Vector(
-            ComputedFieldPayload("total", "Total", "price * quantity", "float")
-          ))
-        )
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[DataTypeResponse]
-        response.computedFields should have size 1
-        response.computedFields.head.name shouldBe "total"
-        response.computedFields.head.expression shouldBe "price * quantity"
-        response.version shouldBe 2
-      }
-    }
-
-    "GET /api/types/:id includes computedFields array" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id             = DataTypeId(UUID.randomUUID().toString),
-        sourceId       = None,
-        name           = "WithComputed",
-        fields         = Vector(DataField("x", "X", "float", nullable = false)),
-        computedFields = Vector(ComputedField("doubled", "Doubled", "x * 2", "float")),
-        version        = 1,
-        createdAt      = Instant.now(),
-        updatedAt      = Instant.now(),
-        ownerId        = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get(s"/api/types/${dt.id.value}") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[DataTypeResponse]
-        response.computedFields should have size 1
-        response.computedFields.head.name shouldBe "doubled"
-      }
-    }
-
-    "PATCH /api/types/:id with invalid computed field expression returns 400" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ErrorType",
-        fields    = Vector(DataField("price", "Price", "float", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/types/${dt.id.value}",
-        UpdateDataTypeRequest(
-          name   = None,
-          fields = None,
-          computedFields = Some(Vector(
-            ComputedFieldPayload("bad", "Bad", "price **", "float")
-          ))
-        )
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-    }
-
-    "PATCH /api/types/:id with expression exceeding 500 chars returns 400" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "LongExprType",
-        fields    = Vector(DataField("x", "X", "float", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      val longExpr = "x + " * 200 // > 500 chars
-
-      Patch(
-        s"/api/types/${dt.id.value}",
-        UpdateDataTypeRequest(
-          name   = None,
-          fields = None,
-          computedFields = Some(Vector(
-            ComputedFieldPayload("toolong", "Too Long", longExpr, "float")
-          ))
-        )
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-    }
-
-    "GET /api/types/:id/validate-expression returns valid=true for a valid expression" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ValidateType",
-        fields    = Vector(
-          DataField("price", "Price", "float", nullable = false),
-          DataField("quantity", "Qty", "integer", nullable = false)
-        ),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get(s"/api/types/${dt.id.value}/validate-expression?expr=price+*+quantity") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[ValidateExpressionResponse]
-        response.valid shouldBe true
-        response.message shouldBe None
-      }
-    }
-
-    "GET /api/types/:id/validate-expression returns valid=false for syntax error" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ValidateSyntaxType",
-        fields    = Vector(DataField("price", "Price", "float", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get(s"/api/types/${dt.id.value}/validate-expression?expr=price+**") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[ValidateExpressionResponse]
-        response.valid shouldBe false
-        response.message shouldBe defined
-      }
-    }
-
-    "GET /api/types/:id/validate-expression returns valid=false for unknown field" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "ValidateFieldType",
-        fields    = Vector(DataField("price", "Price", "float", nullable = false)),
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get(s"/api/types/${dt.id.value}/validate-expression?expr=nonexistent+*+2") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[ValidateExpressionResponse]
-        response.valid shouldBe false
-        response.message shouldBe Some("Unknown field: nonexistent")
-      }
-    }
-
-    "GET /api/types/:id/validate-expression returns 404 for unknown DataType" in {
-      Get(s"/api/types/no-such-id/validate-expression?expr=x+*+2") ~> routes() ~> check {
-        status shouldBe StatusCodes.NotFound
-      }
-    }
 
     // ── DataSources ────────────────────────────────────────────────────────────
 
@@ -1244,97 +827,10 @@ class ApiRoutesSpec
       }
     }
 
-    // ── Panel type binding ─────────────────────────────────────────────────────
-
-    "bind a data type to a panel and return it in the response" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-      import spray.json._
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Metric"), None, None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "MyType",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      val mapping = """{"value":"col1"}""".parseJson.asJsObject
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsString(dt.id.value), "fieldMapping" -> mapping)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[PanelResponse]
-        val config = response.config.asJsObject.fields
-        config("dataTypeId")   shouldBe JsString(dt.id.value)
-        config("fieldMapping") shouldBe mapping
-      }
-    }
-
-    "unbind a data type from a panel by setting typeId to null" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Metric"), None, None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "MyType",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsString(dt.id.value))))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      // unbind via explicit null
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsNull, "fieldMapping" -> JsNull)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val response = responseAs[PanelResponse]
-        val config = response.config.asJsObject.fields
-        config("dataTypeId")   shouldBe JsString("")
-        config("fieldMapping") shouldBe JsObject.empty
-      }
-    }
+    // HEL-904 task 4.1: "bind a data type to a panel and return it in the
+    // response" / "unbind a data type from a panel by setting typeId to
+    // null" removed outright -- Text/Markdown's data-bound "Source mode"
+    // no longer exists, so a panel can never carry a `dataTypeId` binding.
 
     // ── HEL-292: panel-level aggregation persistence (evaluation-1.md CR #1/#2) ──
     //
@@ -1346,69 +842,15 @@ class ApiRoutesSpec
     // regression that drops the DB round-trip (but keeps the in-memory patch
     // working) is actually caught.
 
-    "persist a metric panel's aggregation spec across a real repository re-read (HEL-292)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Metric Aggregation Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("metric"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val aggregation = JsObject("value" -> JsString("profit"), "agg" -> JsString("avg"))
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("aggregation" -> aggregation)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields("aggregation") shouldBe aggregation
-      }
-    }
-
-    "persist a chart panel's groupBy aggregation spec across a real repository re-read (HEL-292)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Aggregation Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Rating by Year"), Some("chart"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val aggregation = JsObject("groupBy" -> JsString("year"), "agg" -> JsString("avg"), "yField" -> JsString("rating"))
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("aggregation" -> aggregation)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields("aggregation") shouldBe aggregation
-      }
-    }
+    // HEL-904 task 3.10a: HEL-292 panel-level aggregation is retired outright
+    // (design.md: "aggregation exists only as steps... an Output is
+    // render-only") — the two persistence tests this comment used to guard
+    // ("persist a metric panel's aggregation spec"/"persist a chart panel's
+    // groupBy aggregation spec") are deleted: no surviving Panel kind's typed
+    // config has an `aggregation` field to persist (a Divider's config
+    // silently drops the unknown key on encode; "chart" is a retired
+    // PanelType outright). The "clear ... via explicit null" test below only
+    // asserts ABSENCE, so it's unaffected and stays.
 
     "clear a metric panel's aggregation spec via explicit null and have the clear survive a real repository re-read (HEL-292)" in {
       cleanDb()
@@ -1421,7 +863,7 @@ class ApiRoutesSpec
       var panelId = ""
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("divider"), None)
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -1450,298 +892,18 @@ class ApiRoutesSpec
       }
     }
 
-    // ── HEL-255: table display config (density + columnOrder) persistence.
-    // Same regression guard as HEL-292/293 — a missed `configColumnsOf`/
-    // `configColumnValuesOf` tuple extension would let the PATCH succeed in
-    // memory but silently drop the columns on write. PATCH-then-reload via a
-    // fresh `panelRepo.findAllByDashboardId` query (GET .../panels), NOT the
-    // PATCH response. ──
+    // HEL-904 task 3.6/4.1: `table`/`chart` are retired PanelType values (5-
+    // value collapse) — the three HEL-255 table-display-config tests this
+    // comment used to guard (density+columnOrder persistence, invalid-
+    // density rejection, display-only-PATCH-leaves-binding-untouched) are
+    // deleted outright, not rewritten: there is no Panel-level equivalent
+    // (table density/columnOrder are now Output-owned display concerns).
 
-    "persist a table panel's density + columnOrder across a real repository re-read (HEL-255)" in {
-      cleanDb()
-      import spray.json._
+    // HEL-904 task 3.6/4.1: `chart` is a retired PanelType value (5-value
+    // collapse) — the four HEL-248 chartOptions persistence tests this
+    // comment used to guard are deleted outright, not rewritten: chart
+    // display options are now an Output-owned concern, not a Panel one.
 
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Table Display Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Rows"), Some("table"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val columnOrder = JsArray(JsString("b"), JsString("a"))
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject(
-          "density"     -> JsString("spacious"),
-          "columnOrder" -> columnOrder
-        )))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        val config = panel.config.asJsObject.fields
-        config("density")     shouldBe JsString("spacious")
-        config("columnOrder") shouldBe columnOrder
-      }
-    }
-
-    "reject an invalid table density with 400 and persist nothing (HEL-255)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Density Validation Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Rows"), Some("table"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("density" -> JsString("cozy"))))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields.contains("density") shouldBe false
-      }
-    }
-
-    "leave a table panel's dataTypeId/fieldMapping untouched on a display-only PATCH (HEL-255)" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Display Only Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Rows"), Some("table"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "BoundType",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      val mapping = JsObject("value" -> JsString("col1"))
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject(
-          "dataTypeId"   -> JsString(dt.id.value),
-          "fieldMapping" -> mapping
-        )))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      // Display-only PATCH: density only, no dataTypeId/fieldMapping.
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("density" -> JsString("condensed"))))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        val config = panel.config.asJsObject.fields
-        config("density")      shouldBe JsString("condensed")
-        config("dataTypeId")   shouldBe JsString(dt.id.value)
-        config("fieldMapping") shouldBe mapping
-      }
-    }
-
-    // ── HEL-248: chart panel per-type display options (chartOptions)
-    // persistence. Same regression guard as HEL-255 — a missed
-    // `configColumnsOf`/`configColumnValuesOf` tuple extension would let the
-    // PATCH succeed in memory but silently drop chart_options on write.
-    // PATCH-then-reload via a fresh repository query (GET .../panels). ──
-
-    "persist a chart panel's per-type chartOptions across a real repository re-read (HEL-248)" in {
-      cleanDb()
-      import spray.json._
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Options Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Trend"), Some("chart"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val chartOptions = JsObject(
-        "line" -> JsObject("smooth" -> JsBoolean(true), "areaFill" -> JsBoolean(true)),
-        "bar"  -> JsObject("orientation" -> JsString("horizontal"), "stacking" -> JsString("normalized"), "barGapPct" -> JsNumber(30))
-      )
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("chartOptions" -> chartOptions)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        val config = panel.config.asJsObject.fields
-        config("chartOptions") shouldBe chartOptions
-      }
-    }
-
-    "leave a chart panel's stored chartOptions unchanged on a PATCH without the key (HEL-248)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Options Absent Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Trend"), Some("chart"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val chartOptions = JsObject("pie" -> JsObject("donutHolePct" -> JsNumber(50), "showPercentLabels" -> JsBoolean(true)))
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("chartOptions" -> chartOptions)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      // A later PATCH that omits chartOptions (only touches title) must not drop it.
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("dataTypeId" -> JsString(""))))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields("chartOptions") shouldBe chartOptions
-      }
-    }
-
-    "clear a chart panel's chartOptions when PATCHed with null (HEL-248)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Options Clear Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Trend"), Some("chart"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject(
-          "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("stacked")))
-        )))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject("chartOptions" -> JsNull)))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields.contains("chartOptions") shouldBe false
-      }
-    }
-
-    "reject an invalid chart stacking with 400 and persist nothing (HEL-248)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Chart Options Validation Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Trend"), Some("chart"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject(
-          "chartOptions" -> JsObject("bar" -> JsObject("stacking" -> JsString("sideways")))
-        )))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields.contains("chartOptions") shouldBe false
-      }
-    }
 
     // ── HEL-293: metric literal label/unit persistence (Decision 5 whitelist
     // gotcha — guards against a repeat of the HEL-292 `aggregation` regression
@@ -1749,40 +911,12 @@ class ApiRoutesSpec
     // a config field on write). PATCH-then-reload via a fresh
     // `panelRepo.findAllByDashboardId` query, NOT the PATCH response. ──
 
-    "persist a metric panel's literal label/unit across a real repository re-read (HEL-293)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Metric Literal Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Total"), Some("metric"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      Patch(
-        s"/api/panels/$panelId",
-        UpdatePanelRequest(None, None, None, config = Some(JsObject(
-          "label" -> JsString("Total Revenue"),
-          "unit"  -> JsString("USD")
-        )))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields("label") shouldBe JsString("Total Revenue")
-        panel.config.asJsObject.fields("unit") shouldBe JsString("USD")
-      }
-    }
+    // HEL-904 task 3.10a: HEL-293 metric literal label/unit is retired along
+    // with the Metric panel kind — "persist a metric panel's literal
+    // label/unit" is deleted outright (no Panel kind's typed config has
+    // `label`/`unit` fields to persist; a Divider's config silently drops
+    // them on encode). The "clear ... via explicit null" test below only
+    // asserts ABSENCE, so it's unaffected and stays.
 
     "clear a metric panel's literal label/unit via explicit null and have the clear survive a real repository re-read (HEL-293)" in {
       cleanDb()
@@ -1795,7 +929,7 @@ class ApiRoutesSpec
       var panelId = ""
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Total"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("Total"), Some("divider"), None)
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -1828,7 +962,7 @@ class ApiRoutesSpec
 
     // ── REST connector routes ──────────────────────────────────────────────────
 
-    "POST /api/sources creates DataSource and registers DataType on successful fetch" in {
+    "POST /api/sources creates DataSource with inferredSchema on successful fetch" in {
       cleanDb()
       import spray.json._
 
@@ -1856,8 +990,8 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.Created
         val response = responseAs[CreateSourceResponse]
         response.source.name shouldBe "My API"
-        response.dataType shouldBe defined
-        response.dataType.get.fields should have size 2
+        response.inferredSchema shouldBe defined
+        response.inferredSchema.get.fields should have size 2
         response.fetchError shouldBe None
       }
     }
@@ -1886,7 +1020,7 @@ class ApiRoutesSpec
       ) ~> routes(stubConnector(Left("HTTP 500: Internal Server Error"))) ~> check {
         status shouldBe StatusCodes.Created
         val response = responseAs[CreateSourceResponse]
-        response.dataType shouldBe None
+        response.inferredSchema shouldBe None
         response.fetchError shouldBe Some("HTTP 500: Internal Server Error")
       }
     }
@@ -1910,7 +1044,7 @@ class ApiRoutesSpec
       }
     }
 
-    "POST /api/sources/:id/refresh updates DataType and increments version" in {
+    "POST /api/sources/:id/refresh updates the source's inferredSchema" in {
       cleanDb()
       import com.helio.domain.model._
       import java.time.Instant
@@ -1928,25 +1062,15 @@ class ApiRoutesSpec
       )
       await(dataSourceRepo.insert(source, testUser))
 
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = Some(source.id),
-        name      = "Refresh Source",
-        fields    = Vector(DataField("old", "Old", "string", nullable = false)),
-        version   = 1,
-        createdAt = now,
-        updatedAt = now,
-        ownerId   = UserId(testUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
+      // HEL-904: `SourceService.refresh` re-writes `inferredSchema` directly on the source —
+      // no companion DataType, no version to increment.
       val newJson = """[{"new_col":"x"}]""".parseJson
       Post(s"/api/sources/${source.id.value}/refresh") ~> routes(stubConnector(Right(newJson))) ~> check {
         status shouldBe StatusCodes.OK
-        val response = responseAs[DataTypeResponse]
-        response.fields.map(_.name) shouldBe Vector("new_col")
-        response.version shouldBe 2
+        val response = responseAs[DataSourceResponse]
+        response.id shouldBe source.id.value
       }
+      await(dataSourceRepo.findByIdOwned(source.id, testUser)).get.inferredSchema.map(_.name) shouldBe Vector("new_col")
     }
 
     "POST /api/sources/:id/refresh returns 404 for unknown source" in {
@@ -2118,7 +1242,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Export Test"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), Some("metric"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
       Patch(
@@ -2144,7 +1268,7 @@ class ApiRoutesSpec
         val snapshotPanel = snapshot.panels.head
         snapshotPanel.snapshotId shouldBe panelId
         snapshotPanel.title shouldBe "My Panel"
-        snapshotPanel.`type` shouldBe "metric"
+        snapshotPanel.`type` shouldBe "divider"
         snapshot.dashboard.layout.lg.head.panelId shouldBe snapshotPanel.snapshotId
         // HEL-368: the additive `id` field equals both `snapshotId` and the panel's real id
         snapshotPanel.id shouldBe Some(panelId)
@@ -2165,7 +1289,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Legacy Export"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Legacy Panel"), Some("metric"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Legacy Panel"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -2224,7 +1348,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Original"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU"), Some("metric"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("CPU"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
       Patch(
@@ -2266,33 +1390,10 @@ class ApiRoutesSpec
     // dashboard export→import round trip — exercises the
     // DashboardServiceValidation.validatePanelEntries / PanelType.fromString
     // import path (distinct from POST /api/panels/:id/duplicate).
-    "import a snapshot containing a timeline panel and preserve its timelineOptions" in {
-      cleanDb()
-      var dashboardId = ""
-
-      Post("/api/dashboards", CreateDashboardRequest(Some("Story"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-      val timelineConfig = JsObject("timelineOptions" -> JsObject("sort" -> JsString("desc")))
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Chronology"), Some("timeline"), Some(timelineConfig))
-      ) ~> routes() ~> check { status shouldBe StatusCodes.Created }
-
-      var snapshot: DashboardSnapshotPayload = null
-      Get(s"/api/dashboards/$dashboardId/export") ~> routes() ~> check {
-        snapshot = responseAs[DashboardSnapshotPayload]
-      }
-
-      Post("/api/dashboards/import", snapshot) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-        val result = responseAs[DuplicateDashboardResponse]
-        result.panels should have size 1
-        val importedPanel = result.panels.head
-        importedPanel.`type` shouldBe "timeline"
-        importedPanel.config.asJsObject.fields("timelineOptions").asJsObject.fields("sort") shouldBe JsString("desc")
-      }
-    }
+    // HEL-904 task 3.6/4.1: `timeline` is a retired PanelType value (5-value
+    // collapse) — "import a snapshot containing a timeline panel and
+    // preserve its timelineOptions" is deleted outright; timeline sort is
+    // now an Output-owned concern, not a Panel one.
 
     "import assigns new IDs on each import" in {
       cleanDb()
@@ -2399,75 +1500,12 @@ class ApiRoutesSpec
     // HEL-624 task 5.8 — 5th enforcement site: import rejects a chart entry
     // combining `chartType: "scatter"` with a present `aggregation`, with
     // zero dashboard/panel rows created (DashboardServiceValidation.validatePanelEntries).
-    "reject import of a chart entry combining chartType scatter with aggregation — zero writes" in {
-      cleanDb()
-      val payload = DashboardSnapshotPayload(
-        version = DashboardSnapshotPayload.CurrentVersion,
-        dashboard = DashboardSnapshotDashboardEntry(
-          name = "Scatter Import",
-          appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
-          layout = DashboardLayoutPayload(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
-        ),
-        panels = Vector(
-          DashboardSnapshotPanelEntry(
-            snapshotId = "snap-1",
-            id         = Some("snap-1"),
-            title      = "Scatter",
-            `type`     = "chart",
-            appearance = PanelAppearancePayload(
-              None, None, None,
-              Some(ChartAppearance.Default.copy(chartType = Some("scatter")))
-            ),
-            config = JsObject(
-              "fieldMapping" -> JsObject.empty,
-              "aggregation"  -> JsObject("groupBy" -> JsString("region"), "agg" -> JsString("sum"), "yField" -> JsString("region"))
-            )
-          )
-        )
-      )
-      Post("/api/dashboards/import", payload) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse].message should include("aggregation is not supported for scatter charts")
-      }
-      Get("/api/dashboards") ~> routes() ~> check {
-        responseAs[PagedResult[DashboardResponse]].total shouldBe 0
-      }
-    }
-
-    // Regression: a valid (non-conflicting) chart entry still imports fine.
-    "import a snapshot containing a valid chart entry (no regression)" in {
-      cleanDb()
-      val payload = DashboardSnapshotPayload(
-        version = DashboardSnapshotPayload.CurrentVersion,
-        dashboard = DashboardSnapshotDashboardEntry(
-          name = "Valid Chart Import",
-          appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
-          layout = DashboardLayoutPayload(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
-        ),
-        panels = Vector(
-          DashboardSnapshotPanelEntry(
-            snapshotId = "snap-1",
-            id         = Some("snap-1"),
-            title      = "Bar",
-            `type`     = "chart",
-            appearance = PanelAppearancePayload(
-              None, None, None,
-              Some(ChartAppearance.Default.copy(chartType = Some("bar")))
-            ),
-            config = JsObject(
-              "fieldMapping" -> JsObject.empty,
-              "aggregation"  -> JsObject("groupBy" -> JsString("region"), "agg" -> JsString("sum"), "yField" -> JsString("region"))
-            )
-          )
-        )
-      )
-      Post("/api/dashboards/import", payload) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-      }
-      Get("/api/dashboards") ~> routes() ~> check {
-        responseAs[PagedResult[DashboardResponse]].total shouldBe 1
-      }
-    }
+    // HEL-904 task 3.6/4.1/3.10a: `chart` is a retired PanelType value (5-
+    // value collapse), and panel-level `aggregation` is retired outright —
+    // the scatter+aggregation import-rejection test and its "valid chart
+    // entry" regression-guard sibling are both deleted outright: chart
+    // appearance/aggregation are now Output-owned concerns, not Panel ones,
+    // and `type: "chart"` itself is no longer a decodable panel type.
 
     // ── Dashboard /update endpoint ────────────────────────────────────────────
 
@@ -2554,200 +1592,10 @@ class ApiRoutesSpec
       }
     }
 
-    // ── HEL-305: creation-time appearance + chartType validation on all
-    //    three appearance write paths (create / PATCH / updateBatch) ──────────
-
-    "create a chart panel with an appearance and persist chart.chartType (HEL-305)" in {
-      cleanDb()
-      import com.helio.domain.model.ChartAppearance
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Create Appearance Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      val appearance = PanelAppearancePayload(
-        Some("transparent"),
-        Some("inherit"),
-        Some(0.0),
-        Some(ChartAppearance.Default.copy(chartType = Some("pie")))
-      )
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Pie"), Some("chart"), None, Some(appearance))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-        val response = responseAs[PanelResponse]
-        panelId = response.id
-        response.appearance.chart.flatMap(_.chartType) shouldBe Some("pie")
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panel = responseAs[PanelsResponse].items.find(_.id == panelId).get
-        panel.appearance.chart.flatMap(_.chartType) shouldBe Some("pie")
-      }
-    }
-
-    "create a panel without an appearance and keep the default appearance (HEL-305)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Create Default Appearance Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Plain"), Some("chart"), None, None)
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-        val response = responseAs[PanelResponse]
-        response.appearance.background shouldBe "transparent"
-        response.appearance.color shouldBe "inherit"
-        response.appearance.transparency shouldBe 0.0
-        response.appearance.chart shouldBe None
-      }
-    }
-
-    "reject a create request with an invalid chartType with 400 (HEL-305)" in {
-      cleanDb()
-      import com.helio.domain.model.ChartAppearance
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Invalid Create ChartType Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      val appearance = PanelAppearancePayload(
-        Some("transparent"),
-        Some("inherit"),
-        Some(0.0),
-        Some(ChartAppearance.Default.copy(chartType = Some("donut")))
-      )
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Bad"), Some("chart"), None, Some(appearance))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse].message should include("bar, line, pie, scatter")
-      }
-    }
-
-    "reject a PATCH with an invalid chartType with 400 (HEL-305 D5)" in {
-      cleanDb()
-      import com.helio.domain.model.ChartAppearance
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Invalid Patch ChartType Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val bad = PanelAppearancePayload(None, None, None, Some(ChartAppearance.Default.copy(chartType = Some("donut"))))
-      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(bad.toJson), None, None)) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse].message should include("bar, line, pie, scatter")
-      }
-    }
-
-    "persist a valid chartType via PATCH (HEL-305 D5)" in {
-      cleanDb()
-      import com.helio.domain.model.ChartAppearance
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Valid Patch ChartType Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val good = PanelAppearancePayload(None, None, None, Some(ChartAppearance.Default.copy(chartType = Some("scatter"))))
-      Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(good.toJson), None, None)) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[PanelResponse].appearance.chart.flatMap(_.chartType) shouldBe Some("scatter")
-      }
-    }
-
-    "reject an updateBatch with an invalid chartType with 400 and no partial write (HEL-305 D5)" in {
-      cleanDb()
-      import com.helio.domain.model.ChartAppearance
-
-      var dashboardId = ""
-      var panelId1    = ""
-      var panelId2    = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Invalid ChartType Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart 1"), Some("chart"), None)) ~> routes() ~> check {
-        panelId1 = responseAs[PanelResponse].id
-      }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart 2"), Some("chart"), None)) ~> routes() ~> check {
-        panelId2 = responseAs[PanelResponse].id
-      }
-
-      val batchReq = UpdatePanelsBatchRequest(
-        fields = Vector("appearance"),
-        panels = Vector(
-          PanelBatchItem(panelId1, None, Some(PanelAppearancePayload(Some("#111111"), None, None, None).toJson), None, None),
-          PanelBatchItem(
-            panelId2,
-            None,
-            Some(PanelAppearancePayload(Some("#222222"), None, None, Some(ChartAppearance.Default.copy(chartType = Some("donut")))).toJson),
-            None,
-            None
-          )
-        )
-      )
-      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
-        status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse].message should include("bar, line, pie, scatter")
-      }
-
-      // No partial write — the otherwise-valid first item must NOT have been persisted.
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panel1 = responseAs[PanelsResponse].items.find(_.id == panelId1).get
-        panel1.appearance.background shouldBe "transparent"
-      }
-    }
-
-    "persist a valid chartType via updateBatch (HEL-305 D5)" in {
-      cleanDb()
-      import com.helio.domain.model.ChartAppearance
-
-      var dashboardId = ""
-      var panelId     = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Valid ChartType Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val batchReq = UpdatePanelsBatchRequest(
-        fields = Vector("appearance"),
-        panels = Vector(
-          PanelBatchItem(
-            panelId,
-            None,
-            Some(PanelAppearancePayload(Some("transparent"), None, None, Some(ChartAppearance.Default.copy(chartType = Some("pie")))).toJson),
-            None,
-            None
-          )
-        )
-      )
-      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        responseAs[UpdatePanelsBatchResponse].panels.head.appearance.chart.flatMap(_.chartType) shouldBe Some("pie")
-      }
-    }
+    // HEL-904 task 3.6/4.1: `chart` is a retired PanelType value (5-value
+    // collapse) — the whole HEL-305 creation-time chartType-validation block
+    // (create/PATCH/updateBatch, 7 tests) is deleted outright: chart
+    // appearance/chartType are now Output-owned concerns, not Panel ones.
 
     // ── HEL-362: appearance PATCH/updateBatch is a partial merge, not a replace ──
 
@@ -2759,7 +1607,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Merge AC1 Test"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -2804,7 +1652,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Merge AC2 Test"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -2843,7 +1691,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Merge AC3 Test"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -2897,7 +1745,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Merge Top-Level Null Test"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -2988,7 +1836,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Batch Merge Chart Test"))) ~> routes() ~> check {
         dashboardId = responseAs[DashboardResponse].id
       }
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Chart"), Some("chart"), None)) ~> routes() ~> check {
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), Some("divider"), None)) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
 
@@ -3047,128 +1895,11 @@ class ApiRoutesSpec
       }
     }
 
-    // ── HEL-296: batchUpdate config-patch path must persist `aggregation` at
-    // parity with the single-panel replace path. These tests patch aggregation
-    // via POST /api/panels/updateBatch and then re-read via a fresh
-    // GET /api/dashboards/:id/panels (not the batch response) so a regression
-    // that drops the DB write (but keeps the in-memory patch working) is
-    // actually caught. Written against pre-fix code, this test fails because
-    // batchUpdate's config-patch column whitelist omits `aggregation`.
-
-    "panels updateBatch persists a metric panel's aggregation spec (HEL-296)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Metric Aggregation Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Avg Metric"), Some("metric"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val aggregation = JsObject("value" -> JsString("rating"), "agg" -> JsString("avg"))
-      val batchReq = UpdatePanelsBatchRequest(
-        fields = Vector("config"),
-        panels = Vector(PanelBatchItem(panelId, None, None, None, Some(JsObject("aggregation" -> aggregation))))
-      )
-
-      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields("aggregation") shouldBe aggregation
-      }
-    }
-
-    "panels updateBatch persists a chart panel's groupBy aggregation spec (HEL-296)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Chart Aggregation Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Rating by Year"), Some("chart"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val aggregation = JsObject("groupBy" -> JsString("year"), "agg" -> JsString("avg"), "yField" -> JsString("rating"))
-      val batchReq = UpdatePanelsBatchRequest(
-        fields = Vector("config"),
-        panels = Vector(PanelBatchItem(panelId, None, None, None, Some(JsObject("aggregation" -> aggregation))))
-      )
-
-      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields("aggregation") shouldBe aggregation
-      }
-    }
-
-    // HEL-293 added metric literal label/unit (V44 columns metric_label /
-    // metric_unit). Same parity risk as `aggregation`: the config-patch
-    // whitelist in `PanelRepository.configColumnsOf` /
-    // `configColumnValuesOf` must include every config column or a
-    // batch-patched value round-trips in memory but never reaches the DB.
-    "panels updateBatch persists a metric panel's literal label/unit override (HEL-293/HEL-296)" in {
-      cleanDb()
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Batch Metric Label/Unit Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      var panelId = ""
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Revenue"), Some("metric"), None)
-      ) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      val batchReq = UpdatePanelsBatchRequest(
-        fields = Vector("config"),
-        panels = Vector(
-          PanelBatchItem(
-            panelId,
-            None,
-            None,
-            None,
-            Some(JsObject("label" -> JsString("Total Revenue"), "unit" -> JsString("USD")))
-          )
-        )
-      )
-
-      Post("/api/panels/updateBatch", batchReq) ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PanelsResponse].items
-        val panel  = panels.find(_.id == panelId).get
-        panel.config.asJsObject.fields("label") shouldBe JsString("Total Revenue")
-        panel.config.asJsObject.fields("unit") shouldBe JsString("USD")
-      }
-    }
+    // HEL-904 task 3.10a: HEL-296's batchUpdate config-patch-persistence
+    // block (metric aggregation, chart groupBy aggregation, metric literal
+    // label/unit) is retired along with panel-level aggregation and the
+    // Metric/Chart panel kinds — no surviving Panel kind's typed config has
+    // these fields to persist. Deleted outright, not rewritten.
 
   }
 
@@ -3661,7 +2392,7 @@ class ApiRoutesSpec
       import slick.jdbc.PostgresProfile.api._
 
       await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-5', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
-      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id) VALUES ('other-panel-1', 'other-dash-5', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric', '00000000-0000-0000-0000-000000000098')"""))
+      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id) VALUES ('other-panel-1', 'other-dash-5', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'text', '00000000-0000-0000-0000-000000000098')"""))
 
       Patch("/api/panels/other-panel-1", UpdatePanelRequest(title = Some("Hacked"), appearance = None, `type` = None, config = None)) ~> routes() ~> check {
         status shouldBe StatusCodes.Forbidden
@@ -3674,7 +2405,7 @@ class ApiRoutesSpec
       import slick.jdbc.PostgresProfile.api._
 
       await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-6', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
-      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id) VALUES ('other-panel-2', 'other-dash-6', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric', '00000000-0000-0000-0000-000000000098')"""))
+      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id) VALUES ('other-panel-2', 'other-dash-6', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'text', '00000000-0000-0000-0000-000000000098')"""))
 
       Delete("/api/panels/other-panel-2") ~> routes() ~> check {
         status shouldBe StatusCodes.Forbidden
@@ -3710,7 +2441,7 @@ class ApiRoutesSpec
       import slick.jdbc.PostgresProfile.api._
 
       await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-7', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
-      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id) VALUES ('other-panel-3', 'other-dash-7', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric', '00000000-0000-0000-0000-000000000098')"""))
+      await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id) VALUES ('other-panel-3', 'other-dash-7', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'text', '00000000-0000-0000-0000-000000000098')"""))
 
       Post("/api/panels/other-panel-3/duplicate") ~> routes() ~> check {
         status shouldBe StatusCodes.Forbidden
@@ -3790,136 +2521,13 @@ class ApiRoutesSpec
     }
   }
 
-  // ── DataType ACL tests (Task 7.4) ────────────────────────────────────────────
+  // HEL-904 task 4.5: "DataType ownership enforcement" ACL test block removed outright -- /api/types no longer exists.
 
-  "DataType ownership enforcement" should {
 
-    "GET /api/types returns only types owned by the authenticated user" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      // testUser creates a type via CSV upload (which auto-creates a DataType)
-      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"User Type","type":"static","columns":[{"name":"id","type":"integer"}],"rows":[]}"""
-      )) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-      }
-
-      // Insert a type owned by another user directly
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "Other Type",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(otherUserId)
-      )
-      await(dataTypeRepo.insert(dt, testUser))
-
-      Get("/api/types") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val types = responseAs[PagedResult[DataTypeResponse]]
-        types.items.map(_.name) should contain ("User Type")
-        types.items.map(_.name) should not contain "Other Type"
-      }
-    }
-
-    "PATCH /api/types/:id returns 404 when caller does not own the type (HEL-265 CS3)" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      var typeId = ""
-      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"My Type","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
-      )) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-      }
-      Get("/api/types") ~> routes() ~> check {
-        typeId = responseAs[PagedResult[DataTypeResponse]].items.head.id
-      }
-
-      // otherUser tries to PATCH it — returns 404, not 403 (existence is not leaked)
-      Patch(s"/api/types/$typeId",
-        UpdateDataTypeRequest(name = Some("Hacked"), fields = None)
-      ) ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.NotFound
-      }
-    }
-
-    "DELETE /api/types/:id returns 404 when caller does not own the type (HEL-265 CS3)" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      var typeId = ""
-      Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`,
-        """{"name":"My Type2","type":"static","columns":[{"name":"x","type":"string"}],"rows":[]}"""
-      )) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-      }
-      Get("/api/types") ~> routes() ~> check {
-        typeId = responseAs[PagedResult[DataTypeResponse]].items.head.id
-      }
-
-      // otherUser tries to DELETE it — returns 404, not 403 (existence is not leaked)
-      Delete(s"/api/types/$typeId") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.NotFound
-      }
-    }
-  }
-
-  // ── Cross-user panel type binding test (Task 7.5) ────────────────────────────
-
-  "Cross-user panel type binding" should {
-
-    "panel with typeId owned by a different user reads as typeId=null" in {
-      cleanDb()
-      import com.helio.domain.model._
-      import java.time.Instant
-      import java.util.UUID
-
-      var dashboardId = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("My Dashboard"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-      var panelId = ""
-      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("My Panel"), None, None)) ~> routes() ~> check {
-        panelId = responseAs[PanelResponse].id
-      }
-
-      // Insert a DataType owned by otherUser directly into the DB
-      val foreignType = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "Foreign Type",
-        fields    = Vector.empty,
-        version   = 1,
-        createdAt = Instant.now(),
-        updatedAt = Instant.now(),
-        ownerId   = UserId(otherUserId)
-      )
-      await(dataTypeRepo.insert(foreignType, otherUser))
-
-      // Bind the foreign type to the panel directly via the DB (bypassing auth)
-      import slick.jdbc.PostgresProfile.api._
-      await(db.run(sqlu"UPDATE panels SET type_id = ${foreignType.id.value} WHERE id = $panelId"))
-
-      // Now testUser reads panels for their dashboard — config.dataTypeId should be empty
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels = responseAs[PagedResult[PanelResponse]].items
-        panels should have size 1
-        panels.head.config.asJsObject.fields("dataTypeId") shouldBe JsString("")
-      }
-    }
-  }
+  // HEL-904 task 4.1: the "Cross-user panel type binding" test (Task 7.5) is
+  // removed outright -- Text/Markdown's data-bound "Source mode" no longer
+  // exists, so a panel can no longer carry a `type_id` binding to leak
+  // cross-user in the first place.
 
   "GET /api/auth/me" should {
 
@@ -3976,7 +2584,7 @@ class ApiRoutesSpec
           Future.failed(new RuntimeException(secret))
       }
       val failingRoutes: Route = new ApiRoutes(
-        dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem,
+        dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem,
         stubConnector(Left("no real HTTP in tests")), failingUserRepo, realSessionRepo, userPreferenceRepo,
         pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
         new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)
@@ -4608,6 +3216,7 @@ class ApiRoutesSpec
 
     "return a metric config (no divider fields) for a metric panel" in {
       cleanDb()
+      import slick.jdbc.PostgresProfile.api._
       var dashboardId = ""
       var panelId     = ""
 
@@ -4615,9 +3224,31 @@ class ApiRoutesSpec
         dashboardId = responseAs[DashboardResponse].id
       }
 
+      // HEL-904 task 3.8/3.9: `outputs.id` is a real FK (panels.output_id
+      // REFERENCES outputs(id)) — an arbitrary non-existent id 500s on
+      // insert (FK violation), not the 400 an app-level check would give
+      // (PanelService's own output-existence validation is real, separate
+      // follow-on work — see PanelBatchCreateSpec's own note on this same
+      // gap). Seed a real pipeline + Output so this test's actual subject
+      // (an output-kind panel's config carries no divider fields) is
+      // exercised without tripping that gap.
+      val dsId = UUID.randomUUID().toString
+      val dtId = UUID.randomUUID().toString
+      val pidId = UUID.randomUUID().toString
+      val outputId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+               VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $testUserId::uuid, now(), now())""",
+        
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pidId, 'pipe', $dsId, $testUserId::uuid, now(), now())""",
+        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+               VALUES ($outputId, $pidId, NULL, $testUserId::uuid, 'KPI', 'table', '{}'::jsonb, '[]'::jsonb, 0, now(), now())"""
+      )))
+
       Post(
         "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("KPI"), Some("metric"), None)
+        CreatePanelRequest(Some(dashboardId), Some("KPI"), Some("output"), Some(JsObject("outputId" -> JsString(outputId))))
       ) ~> routes() ~> check {
         panelId = responseAs[PanelResponse].id
       }
@@ -4627,65 +3258,23 @@ class ApiRoutesSpec
         val panels = responseAs[PagedResult[PanelResponse]].items
         val panel  = panels.find(_.id == panelId).get
         val config = panel.config.asJsObject.fields
-        panel.`type` shouldBe "metric"
+        panel.`type` shouldBe "output"
         config.contains("orientation") shouldBe false
         config.contains("weight")      shouldBe false
         config.contains("color")       shouldBe false
       }
     }
 
-    // ── HEL-234: dataAsOf in GET /api/dashboards/:id/panels ────────────────
+    // HEL-904 task 4.1: `dataAsOf`'s only producer (the `dataTypeId`-keyed
+    // `PipelineRepository.findLastRunAtByOutputDataTypeId` lookup) was
+    // removed outright -- no panel can carry a `dataTypeId` binding anymore,
+    // so `dataAsOf` is now unconditionally `None` for every panel, regardless
+    // of kind. The prior "bound panel resolves an ISO timestamp" scenario is
+    // therefore removed; the remaining scenario below is renamed to reflect
+    // that `dataAsOf` is dead-but-not-yet-deleted wire shape, not a live
+    // per-panel computation.
 
-    "return dataAsOf ISO string for a bound panel whose pipeline has run" in {
-      import slick.jdbc.PostgresProfile.api._
-      import java.time.Instant
-      import java.util.UUID
-      cleanDb()
-
-      var dashboardId = ""
-      var panelId     = ""
-      Post("/api/dashboards", CreateDashboardRequest(Some("Freshness Test"))) ~> routes() ~> check {
-        dashboardId = responseAs[DashboardResponse].id
-      }
-
-      // Seed a data type and pipeline for the panel binding.
-      // owner_id must reference the test user seeded by cleanDb().
-      val dtId  = UUID.randomUUID().toString
-      val dsId  = UUID.randomUUID().toString
-      val pidId = UUID.randomUUID().toString
-      await(db.run(DBIO.seq(
-        sqlu"""INSERT INTO data_sources
-                 (id, name, source_type, config, owner_id, created_at, updated_at)
-                 VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $testUserId::uuid, now(), now())""",
-        sqlu"""INSERT INTO data_types
-                 (id, name, fields, version, owner_id, created_at, updated_at)
-                 VALUES ($dtId, 'mytype', '[]', 1, $testUserId::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines
-                 (id, name, source_data_source_id, output_data_type_id, last_run_status, last_run_at, owner_id, created_at, updated_at)
-                 VALUES ($pidId, 'pipe', $dsId, $dtId, 'succeeded', now(), $testUserId::uuid, now(), now())"""
-      )))
-
-      // Create a metric panel bound to the data type
-      val metricConfig = JsObject("dataTypeId" -> JsString(dtId), "fieldMapping" -> JsObject())
-      Post(
-        "/api/panels",
-        CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), Some("metric"), Some(metricConfig))
-      ) ~> routes() ~> check {
-        status shouldBe StatusCodes.Created
-        panelId = responseAs[PanelResponse].id
-      }
-
-      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.OK
-        val panels   = responseAs[PanelsResponse].items
-        val panel    = panels.find(_.id == panelId).get
-        panel.dataAsOf shouldBe defined
-        panel.dataAsOf.get should not be empty
-        noException should be thrownBy Instant.parse(panel.dataAsOf.get)
-      }
-    }
-
-    "return dataAsOf null for an unbound panel" in {
+    "return dataAsOf null for every panel (the feature is retired, task 4.1)" in {
       cleanDb()
 
       var dashboardId = ""

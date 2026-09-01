@@ -2,19 +2,23 @@
 
 ## Purpose
 TBD - created by archiving change rls-verification-performance-pass. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Automated pg_class guard asserts FORCE RLS on all ACL'd tables
 The test suite SHALL include a `RlsPolicyGuardSpec` that starts an embedded Postgres instance,
 applies all Flyway migrations, and then queries `pg_class` and `pg_policies` to verify that
 every table in the ACL'd allowlist has `relrowsecurity = true`, `relforcerowsecurity = true`,
 and at least one policy defined. The spec SHALL fail with a descriptive error message naming
-the table and the missing attribute if any expectation is violated.
+the table and the missing attribute if any expectation is violated. The allowlist SHALL include
+`outputs`, `node_snapshots`, `audit_events`, and `connector_credentials`, and SHALL no longer
+include `data_types`, `data_type_rows`, or `metrics`.
 
 #### Scenario: All expected tables have RLS enabled after migrations
 - **WHEN** all Flyway migrations (V1 through the latest) are applied to a fresh embedded Postgres
-- **THEN** every table in the allowlist (`pipelines`, `data_sources`, `data_types`,
-  `pipeline_steps`, `pipeline_runs`, `data_type_rows`, `dashboards`, `panels`,
-  `resource_permissions`) has `relrowsecurity = true` in `pg_class`
+- **THEN** every table in the allowlist (`pipelines`, `data_sources`, `outputs`, `node_snapshots`,
+  `pipeline_steps`, `pipeline_runs`, `dashboards`, `panels`, `resource_permissions`,
+  `audit_events`, `connector_credentials`) has `relrowsecurity = true` in `pg_class`
 
 #### Scenario: All expected tables have FORCE RLS after migrations
 - **WHEN** all Flyway migrations are applied to a fresh embedded Postgres
@@ -33,6 +37,11 @@ the table and the missing attribute if any expectation is violated.
 - **THEN** the spec fails at build time if the table is present in the allowlist but missing
   `relrowsecurity` or `relforcerowsecurity`
 
+#### Scenario: data_types and metrics are no longer in the allowlist
+- **WHEN** the outputs-model migration drops `data_types`, `data_type_rows`, and `metrics`
+- **THEN** the allowlist no longer names them, and the guard does not fail looking for tables
+  that no longer exist
+
 ### Requirement: Performance indexes exist for RLS policy predicates
 The database schema SHALL include indexes that back the per-row predicates used by the RLS
 policies added in V35 and V36, specifically `idx_panels_owner_id` on `panels(owner_id)` and a
@@ -48,4 +57,3 @@ composite index `idx_resource_permissions_resource_grantee` on
 - **WHEN** Flyway applies V37 to the database
 - **THEN** an index named `idx_resource_permissions_resource_grantee` exists on the
   `resource_permissions` table covering `(resource_type, resource_id, grantee_id)`
-

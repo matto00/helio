@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{JsonProtocols, PipelineScheduleResponse}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineScheduleRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineScheduleRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.pipelines.PipelineScheduleService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -58,8 +58,7 @@ class PipelineScheduleRoutesSpec
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx            = new DbContext(db, db)(routeEc)
     val dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
-    val dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)
-    pipelineRepo = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     scheduleRepo = new PipelineScheduleRepository(ctx)(routeEc)
     seedUsers()
   }
@@ -87,12 +86,10 @@ class PipelineScheduleRoutesSpec
       sqlu"""INSERT INTO data_sources
                (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types
-               (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
+      
       sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, $dtId, $ownerId::uuid, now(), now())"""
+               (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pid, 'pipe', $dsId, $ownerId::uuid, now(), now())"""
     )))
     pid
   }

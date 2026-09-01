@@ -4,7 +4,7 @@ Defines the CSV upload data-source connector: multipart file upload, schema infe
 ## Requirements
 
 ### Requirement: POST /api/data-sources accepts a CSV file upload
-The endpoint SHALL accept `multipart/form-data` with a `file` part (the CSV) and a `name` part (the source name). It SHALL parse the file, infer a schema, store the file via the `FileSystem` abstraction, create a `DataSource` record with `discriminator `type = "csv"`` and `config = {"path": "<relative-path>"}`, register a linked `DataType`, and return 201 with the created `DataSource`.
+The endpoint SHALL accept `multipart/form-data` with a `file` part (the CSV) and a `name` part (the source name). It SHALL parse the file, infer a schema, store the file via the `FileSystem` abstraction, create a `DataSource` record with `discriminator `type = "csv"`` and `config = {"path": "<relative-path>"}`, update the source's `inferred_schema`, and return 201 with the created `DataSource`.
 
 A CSV source MAY additionally be created from an HTTPS `sourceUrl` instead of an uploaded file or inline content, in
 which case the stored config carries `sourceUrl` alongside `path` (see the `csv-url-ingestion` capability). A source
@@ -14,7 +14,7 @@ before; absence of `sourceUrl` in an existing stored config SHALL decode success
 #### Scenario: Valid CSV upload creates DataSource and DataType
 - **WHEN** `POST /api/data-sources` is called with a valid CSV file and a name
 - **THEN** the response is 201 with the created DataSource including `id`, `name`, `type: "csv"`, and `config.path`
-- **AND** a `DataType` linked to the new source is registered and retrievable via `GET /api/types`
+- **AND** an inferred schema record linked to the new source is registered and retrievable via `GET /api/types (removed by this ticket)`
 
 #### Scenario: Upload with no file part returns 400
 - **WHEN** `POST /api/data-sources` is called without a `file` part
@@ -47,12 +47,12 @@ The upload endpoint SHALL reject CSV files that are not valid UTF-8.
 - **THEN** the response is 400 Bad Request with a message indicating the encoding requirement
 
 ### Requirement: POST /api/data-sources/:id/refresh re-parses the stored file
-The endpoint SHALL read the stored CSV file for the given source via `FileSystem`, re-run schema inference, and update the linked `DataType`'s fields. It SHALL return 200 with the updated `DataSource`.
+The endpoint SHALL read the stored CSV file for the given source via `FileSystem`, re-run schema inference, and update the source's inferred schema's fields. It SHALL return 200 with the updated `DataSource`.
 
 #### Scenario: Refresh updates DataType fields
 - **WHEN** `POST /api/data-sources/:id/refresh` is called for a valid csv source
 - **THEN** the response is 200 with the DataSource
-- **AND** the linked DataType reflects the re-inferred schema
+- **AND** the linked inferred schema reflects the re-inferred schema
 
 #### Scenario: Refresh on non-existent source returns 404
 - **WHEN** `POST /api/data-sources/:id/refresh` is called with an unknown id

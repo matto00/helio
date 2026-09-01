@@ -5,13 +5,13 @@ import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataField, DataFieldType, DataSource, DataSourceId, DataTypeId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
-import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, PipelineAnalyzeService, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException}
+import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataSource, DataSourceId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
+import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, PipelineExecutionBackend, PipelineRowJson, SourceReadStats, StepExecutionException}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.PipelineRunAssertionRow
@@ -34,8 +34,6 @@ final class PipelineRunService(
     pipelineStepRepo: PipelineStepRepository,
     dataSourceRepo:   DataSourceRepository,
     pipelineRunRepo:  PipelineRunRepository,
-    dataTypeRepo:     DataTypeRepository,
-    dataTypeRowRepo:  DataTypeRowRepository,
     cache:            PipelineRunCache,
     registry:         PipelineRunRegistry,
     fileSystem:       FileSystem,
@@ -66,7 +64,16 @@ final class PipelineRunService(
     // `new InProcessExecutionBackend(engine)` cannot compile as a constructor default (`engine`
     // is an instance field, out of scope in a synthesized static default-argument method) --
     // resolved to the `backend` field below instead.
-    executionBackend: PipelineExecutionBackend = null
+    executionBackend: PipelineExecutionBackend = null,
+    // HEL-904 (task 3.1/3.14): nullable-default convention mirrors
+    // binaryRefRepo/alertEvaluationService above. `outputRepo` resolves the
+    // Outputs attached to a pipeline's trunk-last node so alert evaluation
+    // runs `evaluateForOutput` per Output instead of the retired
+    // `evaluateForDataType`; `nodeSnapshotRepo` writes `node_snapshots`
+    // keyed by that same node — the sole row-materialization write now that
+    // task 4.1 has removed the legacy `data_type_rows` write alongside it.
+    outputRepo: OutputRepository = null,
+    nodeSnapshotRepo: NodeSnapshotRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -254,7 +261,11 @@ final class PipelineRunService(
             // HEL-758: every source kind (including rest_api/sql) now reaches
             // this preview path uniformly (design.md D3).
             pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
-              val sortedSteps = allSteps.sortBy(_.position)
+              // HEL-904 follow-on ruling: listByPipelineInternal already returns
+              // executionOrder (the trunk/tail structural order) -- a global
+              // `.sortBy(_.position)` here would re-break run order, since every
+              // trunk step's `position` is now constantly `0`.
+              val sortedSteps = allSteps
               sortedSteps.indexWhere(_.id.value == stepId) match {
                 case -1 =>
                   Future.successful(Left(ServiceError.NotFound("Step not found: " + stepId)))
@@ -372,25 +383,6 @@ final class PipelineRunService(
     )
   }
 
-  /** Composes [[PipelineRunRepository.findLatestRunIdByOutputDataTypeIdInternal]]
-   *  with [[PipelineRunRepository.listAssertionsByRunInternal]] (design.md
-   *  Decision 6): no latest (non-dry) run means the DataType has never been
-   *  written by a real run, so `invalid = false`; otherwise `invalid` is true
-   *  when the latest run has at least one persisted error-severity failed
-   *  assertion. ACL is enforced by the caller (`DataTypeRoutes`, mirroring
-   *  `findLastRunAtByOutputDataTypeId`'s own documented pattern) -- this method
-   *  itself is privileged/unchecked. */
-  def assertionStatusForDataType(dataTypeId: DataTypeId): Future[AssertionStatusResponse] =
-    pipelineRunRepo.findLatestRunIdByOutputDataTypeIdInternal(dataTypeId).flatMap {
-      case None =>
-        Future.successful(AssertionStatusResponse(dataTypeId.value, invalid = false, failedRuleCount = 0))
-      case Some(runId) =>
-        pipelineRunRepo.listAssertionsByRunInternal(runId).map { rows =>
-          val errorFailures = rows.count(r => r.severity == "error" && !r.passed)
-          AssertionStatusResponse(dataTypeId.value, invalid = errorFailures > 0, failedRuleCount = errorFailures)
-        }
-    }
-
   /** SSE event stream (delegates to the registry). Routes wrap this into the
    *  `text/event-stream` HTTP response. */
   def eventRegistry: PipelineRunRegistry = registry
@@ -504,7 +496,8 @@ final class PipelineRunService(
         // is never blocked (design.md Decision 5), hence the `.map(_ => None)`.
         val followUp: Future[Option[String]] =
           if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results).map(_ => None)
-          else onRunSuccess(pipeline.outputDataTypeId, pipeline.sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
+          else
+            onRunSuccess(pipeline.sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionSink.results)
         val (truncated, availableRowCount, notice, truncatedReads) =
           truncationFields(dataSource.name, sourceCount, primaryStats, truncationSink)
         followUp.map { blockedSummary =>
@@ -562,14 +555,13 @@ final class PipelineRunService(
    *  and branches into two paths before any write. When at least one
    *  `error`-severity assertion failed, the run is BLOCKED: only the terminal
    *  status/history writes run (`updateMeta`/`updateRun`/`assertionsInsert`),
-   *  and `schemaUpsert`/`rowsUpsert`/`binaryRefsUpsert`/`alertEvaluation` are
-   *  skipped entirely so the prior DataType snapshot is untouched. Otherwise
-   *  the existing succeeded path runs completely unchanged. Returns `None`
-   *  when not blocked, `Some(summary)` when blocked — the same summary used
-   *  for `errorLog`, surfaced to `executeRun` so `RunResultResponse` can
-   *  report `blocked`/`blockedReason` without recomputing it (Decision 8). */
+   *  and `binaryRefsUpsert`/`alertEvaluation` are skipped entirely so the
+   *  prior node snapshot is untouched. Otherwise the existing succeeded path
+   *  runs completely unchanged. Returns `None` when not blocked, `Some(summary)`
+   *  when blocked — the same summary used for `errorLog`, surfaced to
+   *  `executeRun` so `RunResultResponse` can report `blocked`/`blockedReason`
+   *  without recomputing it (Decision 8). */
   private def onRunSuccess(
-      outputDataTypeId:   DataTypeId,
       sourceDataSourceId: DataSourceId,
       pipelineId:         PipelineId,
       runId:              PipelineRunId,
@@ -581,7 +573,7 @@ final class PipelineRunService(
   ): Future[Option[String]] = {
     val blockingFailures = assertionResults.filter(r => r.severity == "error" && !r.passed)
     if (blockingFailures.nonEmpty) onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures)
-    else onUnblockedRunSuccess(outputDataTypeId, sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionResults)
+    else onUnblockedRunSuccess(sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, user, assertionResults)
   }
 
   /** Blocked branch (design.md Decisions 2-4): terminal status `"failed"`
@@ -618,7 +610,6 @@ final class PipelineRunService(
   /** The pre-existing succeeded path (all-passing or warn-only), unchanged in
    *  behavior — a pure insertion point above this method, not a rewrite. */
   private def onUnblockedRunSuccess(
-      outputDataTypeId:   DataTypeId,
       sourceDataSourceId: DataSourceId,
       pipelineId:         PipelineId,
       runId:              PipelineRunId,
@@ -630,24 +621,38 @@ final class PipelineRunService(
   ): Future[Option[String]] = {
     publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
     val now = Instant.now()
-    // HEL-891 design D1: derive the schema from `jsRows` -- the SAME value `rowsUpsert` below
-    // hands to `overwriteRows` -- so the schema can never describe rows other than the ones
-    // actually persisted.
-    val schemaUpsert =
-      if (dataTypeRepo != null) upsertFieldsFromRows(outputDataTypeId, jsRows)
+    // HEL-904 (task 3.14): writes `node_snapshots`, keyed by this pipeline's
+    // trunk-last step (the sole node the pre-tree-walk engine ever
+    // materializes — see P1.2/HEL-905 for the real per-node write). Task 4.1
+    // removed the legacy `data_type_rows`/`data_types` writes this dual-wrote
+    // alongside.
+    //
+    // The resolved `trunkLastStepId` is shared with `binaryRefsUpsert`
+    // below (task 3.4's re-key) — both need "this run's target node", so
+    // it's derived once rather than twice.
+    val trunkLastStepIdFut: Future[Option[String]] =
+      if (nodeSnapshotRepo != null || binaryRefRepo != null)
+        pipelineStepRepo.listByPipelineInternal(pipelineId).map { steps =>
+          pipelineStepRepo.trunkOf(steps).lastOption.map(_.id.value)
+        }
+      else Future.successful(None)
+    val nodeSnapshotUpsert =
+      if (nodeSnapshotRepo != null)
+        trunkLastStepIdFut.flatMap(trunkLastStepId => nodeSnapshotRepo.overwriteRows(pipelineId.value, trunkLastStepId, jsRows))
       else Future.successful(())
-    val rowsUpsert =
-      if (dataTypeRowRepo != null) dataTypeRowRepo.overwriteRows(outputDataTypeId.value, jsRows).map(_ => ())
-      else Future.successful(())
-    // HEL-216: wire BinaryRefRepository.overwriteForDataType into the one
-    // real row-write call site, generically over row shape (not gated on
-    // source kind) — see design.md Decision "BinaryRefRepository...wired
-    // into PipelineRunService.onRunSuccess". Extracted from resultRows (the
+    // HEL-216: wire BinaryRefRepository.overwriteForNode into the one real
+    // row-write call site, generically over row shape (not gated on source
+    // kind) — see design.md Decision "BinaryRefRepository...wired into
+    // PipelineRunService.onRunSuccess". Extracted from resultRows (the
     // post-step, final row values — not the pre-step source rows) so the
-    // refs match exactly what jsRows/rowsUpsert just wrote.
+    // refs match exactly what jsRows/rowsUpsert just wrote. HEL-904 (task
+    // 3.4): re-keyed to `(pipelineId, trunkLastStepId)` instead of the
+    // retired `dataTypeId`.
     val binaryRefsUpsert =
       if (binaryRefRepo != null)
-        binaryRefRepo.overwriteForDataType(outputDataTypeId.value, extractBinaryRefs(outputDataTypeId, resultRows))
+        trunkLastStepIdFut.flatMap { trunkLastStepId =>
+          binaryRefRepo.overwriteForNode(pipelineId.value, trunkLastStepId, extractBinaryRefs(pipelineId, trunkLastStepId, resultRows))
+        }
       else Future.successful(())
     // HEL-466: fire alert-rule evaluation against the rows just written.
     // Wrapped in recoverWith (matching the file's existing discipline at
@@ -655,14 +660,26 @@ final class PipelineRunService(
     // failure is logged inside AlertEvaluationService and never fails or
     // rolls back this run — see design.md "Per-rule isolation"/"Hook
     // placement".
+    // HEL-904 (task 3.1): evaluate per Output of every materialized node —
+    // today that's just this pipeline's Outputs (the pre-tree-walk engine
+    // only ever materializes one node; see P1.2/HEL-905 for the real
+    // per-node walk). Each Output's evaluation is independently isolated
+    // (mirrors AlertEvaluationService's own per-rule isolation) so one
+    // Output's failure never blocks a sibling Output on the same pipeline.
     val alertEvaluation =
-      if (alertEvaluationService != null)
-        alertEvaluationService
-          .evaluateForDataType(outputDataTypeId, resultRows, Some(runId.value))
-          .recoverWith { case ex =>
-            log.error(s"AlertEvaluationService.evaluateForDataType failed for dataType ${outputDataTypeId.value}, run ${runId.value}", ex)
-            Future.successful(())
-          }
+      if (alertEvaluationService != null && outputRepo != null)
+        outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+          Future
+            .sequence(outputs.map { output =>
+              alertEvaluationService
+                .evaluateForOutput(output.id, resultRows, Some(runId.value))
+                .recoverWith { case ex =>
+                  log.error(s"AlertEvaluationService.evaluateForOutput failed for output ${output.id.value}, run ${runId.value}", ex)
+                  Future.successful(())
+                }
+            })
+            .map(_ => ())
+        }
       else Future.successful(())
     val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user).map(_ => ())
     val updateRun =
@@ -679,21 +696,22 @@ final class PipelineRunService(
     // successes reach this method (`onDryRunSuccess` never calls it), which
     // is exactly "a successful run" in the ticket's sense. `recoverWith`
     // ensures a resolution/write failure here never fails or blocks the run.
+    // HEL-904 (task 4.1): derives the baseline from the source's own
+    // `inferredSchema` (mirroring `PipelineService.analyze`'s own
+    // rewiring, see task 4.3) instead of the retired
+    // `dataTypeRepo.findBySourceId` -> `deriveSourceSchema` path.
     val baselineUpsert: Future[Unit] =
-      if (dataTypeRepo != null)
-        dataTypeRepo.findBySourceId(sourceDataSourceId, user.id)
-          .map(PipelineAnalyzeService.deriveSourceSchema)
-          .flatMap { schema: Vector[SchemaField] =>
-            pipelineRepo.updateLastSourceSchema(pipelineId, schema.toJson.compactPrint, user)
-          }
-          .recoverWith { case ex =>
-            log.warn(s"HEL-462: schema-drift baseline capture failed for pipeline ${pipelineId.value}", ex)
-            Future.successful(())
-          }
-      else Future.successful(())
+      dataSourceRepo.findByIdOwned(sourceDataSourceId, user)
+        .map(_.map(_.inferredSchema).getOrElse(Vector.empty))
+        .flatMap { schema =>
+          pipelineRepo.updateLastSourceSchema(pipelineId, schema.toJson.compactPrint, user)
+        }
+        .recoverWith { case ex =>
+          log.warn(s"HEL-462: schema-drift baseline capture failed for pipeline ${pipelineId.value}", ex)
+          Future.successful(())
+        }
     for {
-      _ <- schemaUpsert
-      _ <- rowsUpsert
+      _ <- nodeSnapshotUpsert
       _ <- binaryRefsUpsert
       _ <- alertEvaluation
       _ <- updateMeta
@@ -725,14 +743,15 @@ final class PipelineRunService(
    *  design.md's Risks/Trade-offs section); a false negative only means a
    *  missing secondary-index entry, non-fatal since `binary_refs` is
    *  explicitly a derived index, never the row read path. */
-  private def extractBinaryRefs(dataTypeId: DataTypeId, rows: Seq[Map[String, Any]]): Vector[BinaryRef] = {
+  private def extractBinaryRefs(pipelineId: PipelineId, nodeStepId: Option[String], rows: Seq[Map[String, Any]]): Vector[BinaryRef] = {
     val now = Instant.now()
     rows.zipWithIndex.flatMap { case (row, rowIndex) =>
       row.collect {
         case (fieldName, value: Map[String, Any] @unchecked) if isBinaryRefShape(value) =>
           BinaryRef(
             id         = UUID.randomUUID().toString,
-            dataTypeId = dataTypeId.value,
+            pipelineId = pipelineId.value,
+            nodeStepId = nodeStepId,
             rowIndex   = rowIndex,
             fieldName  = fieldName,
             storageKey = value("storageKey").asInstanceOf[String],
@@ -750,43 +769,6 @@ final class PipelineRunService(
       m.get("mimeType").exists(_.isInstanceOf[String]) &&
       m.get("filename").exists(_.isInstanceOf[String]) &&
       m.get("sizeBytes").exists(_.isInstanceOf[Long])
-
-  private def upsertFieldsFromRows(
-      dataTypeId: DataTypeId,
-      jsRows:     Vector[JsObject]
-  ): Future[Unit] = {
-    if (dataTypeRepo == null) return Future.successful(())
-    // HEL-891 design D2: union top-level keys and widen types across ALL rows via the shared
-    // shallow entry point -- NOT `inferSchemaFromRows`/`inferFromObjects`, which flatten each
-    // object through `JsonFlattener.leaves` first. Flattening would describe dotted keys the
-    // stored rows (written un-flattened by `overwriteRows`) do not have.
-    val inferred = SchemaInferenceEngine.inferShallowFromJsObjects(jsRows)
-    val fields = inferred.map { f =>
-      DataField(
-        name        = f.name,
-        // HEL-891 design D7: displayName stays the RAW column name, discarding the engine's
-        // title-cased `displayName` -- pipeline-output columns are user-chosen (rename/select
-        // step), so echo them verbatim rather than adopting third-party-API-style prettification.
-        displayName = f.name,
-        dataType    = DataFieldType.asString(f.dataType),
-        // HEL-891 design D3: nullable is pinned `true` here, discarding the engine's
-        // absence-never-contributes nullable. Rows are sparse maps and any column may be absent
-        // from any given row -- adopting the shared engine's rule would land HEL-868's bug
-        // ("a column present on 166/200 rows advertised non-nullable") on a path that does not
-        // have it today. Revisit this pin once HEL-868 lands.
-        nullable    = true
-      )
-    }.toVector
-    // Privileged: this is a background post-run schema sync. The pipeline ACL
-    // was the gate at submission time; no user context is available here.
-    // Uses updateInternal (withSystemContext) to bypass the V35 RLS policy on
-    // data_types — correct because this path runs without a request-bound user.
-    dataTypeRepo.findByIdInternal(dataTypeId).flatMap {
-      case None => Future.successful(())
-      case Some(existing) =>
-        dataTypeRepo.updateInternal(existing.copy(fields = fields, updatedAt = Instant.now())).map(_ => ())
-    }
-  }
 
 }
 

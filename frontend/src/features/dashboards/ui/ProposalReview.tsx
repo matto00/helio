@@ -26,7 +26,8 @@ interface ProposalReviewProps {
   onReject: () => void;
 }
 
-const DATA_PANEL_TYPES = new Set(["metric", "chart", "table", "collection", "timeline"]);
+// HEL-904 task 3.10: retargeted to the one panel kind requiring an Output binding.
+const DATA_PANEL_TYPES = new Set(["output"]);
 const PREVIEW_COLS = 12;
 const PREVIEW_ROW_PX = 16;
 

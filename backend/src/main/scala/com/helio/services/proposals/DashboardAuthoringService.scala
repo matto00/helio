@@ -7,8 +7,8 @@ import com.helio.services.ServiceError
 import com.helio.ai.{ClaudeClient, ClaudeError, ClaudeMessage, ClaudeRequest, ClaudeRole, ClaudeStreamEvent, TokenUsage}
 import com.helio.api.protocols.proposals.{AuthoringContextOptions, AuthoringConversationView, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardAuthoringResponse, DashboardProposal}
 import com.helio.api.protocols.panels.PanelCapabilitiesResponse
-import com.helio.api.protocols.workspace.{WorkspaceContextDataType, WorkspaceContextResponse}
-import com.helio.domain.model.{AuthenticatedUser, AuthoringConversationId, DataTypeId}
+import com.helio.api.protocols.workspace.{WorkspaceContextOutput, WorkspaceContextResponse}
+import com.helio.domain.model.{AuthenticatedUser, AuthoringConversationId, OutputId}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository.AuthoringConversationRecord
 import org.apache.pekko.NotUsed
@@ -255,7 +255,7 @@ final class DashboardAuthoringService(
     }
   }
 
-  private def pipelineOutputTypes(workspace: WorkspaceContextResponse): Vector[WorkspaceContextDataType] =
+  private def pipelineOutputTypes(workspace: WorkspaceContextResponse): Vector[WorkspaceContextOutput] =
     workspace.dataTypes.filter(_.pipelineOutput)
 
   /** One per-DataType capability fetch. A failure degrades to a warning for THAT type only —
@@ -263,7 +263,7 @@ final class DashboardAuthoringService(
    *  never fails the whole grounding assembly. */
   private def fetchCapability(dataTypeId: String, user: AuthenticatedUser): Future[Either[String, (String, PanelCapabilitiesResponse)]] =
     panelCapabilityService
-      .getCapabilities(DataTypeId(dataTypeId), user)
+      .getCapabilities(OutputId(dataTypeId), user)
       .map {
         case Right(capabilities) => Right(dataTypeId -> capabilities)
         case Left(err)           => Left(degradeMessage(dataTypeId, err.message))

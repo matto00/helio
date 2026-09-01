@@ -53,6 +53,7 @@ final case class ExtractHeadingsStep(
     config: ExtractHeadingsConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = ExtractHeadingsStep.Kind

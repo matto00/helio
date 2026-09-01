@@ -8,7 +8,6 @@ import com.helio.api.protocols.audit._
 import com.helio.api.protocols.auth._
 import com.helio.api.protocols.dashboards._
 import com.helio.api.protocols.hooks._
-import com.helio.api.protocols.metrics._
 import com.helio.api.protocols.panels._
 import com.helio.api.protocols.patchsets._
 import com.helio.api.protocols.pipelines._
@@ -56,9 +55,6 @@ import com.helio.api.protocols.workspace._
  *  - `ConnectorProtocol` has no cross-domain dependency
  *  - `PipelineShapeProtocol` has no cross-domain dependency
  *  - `PanelCapabilityProtocol` has no cross-domain dependency
- *  - `BoundPanelProtocol extends PanelProtocol with DataSourceProtocol with PipelineProtocol`
- *    (BoundPanelRequest/Response carry PanelResponse, StaticColumnPayload, and
- *    CreatePipelineStepRequest)
  *  - `DashboardAuthoringProtocol extends DashboardProposalProtocol` (DashboardAuthoringResponse
  *    nests DashboardProposal verbatim — HEL-392)
  *  - `AuthoringConversationProtocol extends DashboardProposalProtocol with PatchSetProtocol`
@@ -102,7 +98,6 @@ trait JsonProtocols
     with PatchSetApplyProtocol
     with PatchSetPreviewProtocol
     with PatchSetUndoProtocol
-    with DataTypeProtocol
     with DataSourceProtocol
     with PipelineProtocol
     with PermissionProtocol
@@ -110,12 +105,10 @@ trait JsonProtocols
     with ImageUploadProtocol
     with AlertRuleProtocol
     with AlertEventProtocol
-    with MetricProtocol
     with PipelineScheduleProtocol
     with ConnectorProtocol
     with PipelineShapeProtocol
     with PanelCapabilityProtocol
-    with BoundPanelProtocol
     with WorkspaceProtocol
     with WorkspaceContextProtocol
     with WorkspaceResourceSearchProtocol

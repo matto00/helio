@@ -22,7 +22,7 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
   // HEL-368: `id` defaults to `None` here to double as coverage that a
   // pre-existing snapshot lacking `id` (an export captured before this field
   // existed) still validates identically to one that carries it.
-  private def panel(snapshotId: String, panelType: String = "metric"): DashboardSnapshotPanelEntry =
+  private def panel(snapshotId: String, panelType: String = "output"): DashboardSnapshotPanelEntry =
     DashboardSnapshotPanelEntry(
       snapshotId = snapshotId,
       id         = None,
@@ -104,34 +104,7 @@ final class DashboardSnapshotValidationSpec extends AnyWordSpec with Matchers {
       DashboardService.validateSnapshotPayload(payload) shouldBe Right(())
     }
 
-    // HEL-624 task 5.8 — 5th enforcement site: POST /api/dashboards/import.
-    "reject a scatter+aggregation chart entry (zero writes)" in {
-      val payload = DashboardSnapshotPayload(
-        version   = currentVersion,
-        dashboard = emptyDashboard,
-        panels    = Vector(chartPanel("p1", "scatter", Some(aggregationJson)))
-      )
-      val result = DashboardService.validateSnapshotPayload(payload)
-      result.isLeft shouldBe true
-      result.left.toOption.get should include("aggregation is not supported for scatter charts")
-    }
-
-    "accept a valid (non-conflicting) chart entry — scatter with no aggregation (no regression)" in {
-      val payload = DashboardSnapshotPayload(
-        version   = currentVersion,
-        dashboard = emptyDashboard,
-        panels    = Vector(chartPanel("p1", "scatter", None))
-      )
-      DashboardService.validateSnapshotPayload(payload) shouldBe Right(())
-    }
-
-    "accept a valid (non-conflicting) chart entry — bar with aggregation (no regression)" in {
-      val payload = DashboardSnapshotPayload(
-        version   = currentVersion,
-        dashboard = emptyDashboard,
-        panels    = Vector(chartPanel("p1", "bar", Some(aggregationJson)))
-      )
-      DashboardService.validateSnapshotPayload(payload) shouldBe Right(())
-    }
+    // HEL-904: the scatter+aggregation chart cross-field checks (HEL-624 task
+    // 5.8) removed -- ChartPanel no longer exists.
   }
 }

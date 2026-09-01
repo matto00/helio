@@ -74,6 +74,7 @@ final case class StringOpsStep(
     config: StringOpsConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = StringOpsStep.Kind

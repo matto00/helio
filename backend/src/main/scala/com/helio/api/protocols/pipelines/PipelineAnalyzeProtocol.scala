@@ -13,6 +13,12 @@ import spray.json._
 // shape as the step CRUD response: `type` discriminator + typed `config`
 // object. The frontend's `AnalyzeStepResult` narrows directly off `type`.
 
+/** HEL-904: moved here from the retired `DataTypeProtocol` (this is the only surviving consumer
+ *  in this package — the analyze-step response shapes below need it in scope with no import,
+ *  since it's the same package). Unrelated to a source's own inferred-schema concept, which now
+ *  lives in `protocols.sources.InferredSchemaResponse`/`InferredFieldResponse`. */
+final case class SchemaFieldResponse(name: String, `type`: String)
+
 /** Common shape mirrored by every per-subtype analyze response. */
 sealed trait AnalyzeStepResponse {
   def id: String
@@ -178,23 +184,22 @@ final case class PipelineAnalyzeResponse(
     id:                   String,
     name:                 String,
     sourceDataSourceName: String,
-    outputDataTypeName:   String,
-    outputDataTypeId:     String,
     sourceSchema:         Vector[SchemaFieldResponse],
     steps:                Vector[AnalyzeStepResponse],
     sourceSchemaDrift:    Option[SourceSchemaDriftResponse] = None
 )
 
-/** `PipelineAnalyzeProtocol extends DataTypeProtocol with PipelineStepProtocol`
- *  because the analyze response references `SchemaFieldResponse` (lives in
- *  `DataTypeProtocol`) and the typed per-step `*Config` formatters (live in
- *  `PipelineStepProtocol`) — same dependencies the analyze types needed when
- *  they lived in `PipelineProtocol`. */
+/** `PipelineAnalyzeProtocol extends PipelineStepProtocol` for the typed
+ *  per-step `*Config` formatters — same dependency the analyze types needed
+ *  when they lived in `PipelineProtocol`. `SchemaFieldResponse` (HEL-904:
+ *  moved into THIS file, formerly `DataTypeProtocol`) is formatted directly
+ *  below rather than via a mixin, now that its only consumer is local. */
 trait PipelineAnalyzeProtocol
     extends SprayJsonSupport
     with DefaultJsonProtocol
-    with DataTypeProtocol
     with PipelineStepProtocol {
+
+  implicit val schemaFieldResponseFormat: RootJsonFormat[SchemaFieldResponse] = jsonFormat2(SchemaFieldResponse.apply)
 
   private val renameAnalyzeFormat: RootJsonFormat[RenameAnalyzeStepResponse]       = jsonFormat6(RenameAnalyzeStepResponse.apply)
   private val filterAnalyzeFormat: RootJsonFormat[FilterAnalyzeStepResponse]       = jsonFormat6(FilterAnalyzeStepResponse.apply)
@@ -282,5 +287,5 @@ trait PipelineAnalyzeProtocol
   implicit val typeChangedColumnResponseFormat: RootJsonFormat[TypeChangedColumnResponse] = jsonFormat3(TypeChangedColumnResponse.apply)
   implicit val sourceSchemaDriftResponseFormat: RootJsonFormat[SourceSchemaDriftResponse] = jsonFormat3(SourceSchemaDriftResponse.apply)
 
-  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat8(PipelineAnalyzeResponse.apply)
+  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat6(PipelineAnalyzeResponse.apply)
 }

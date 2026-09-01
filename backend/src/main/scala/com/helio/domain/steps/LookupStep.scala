@@ -60,6 +60,7 @@ final case class LookupStep(
     config: LookupConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = LookupStep.Kind

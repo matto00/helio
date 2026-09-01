@@ -11,7 +11,7 @@ import com.helio.api.{JsonProtocols, PipelineRunRecord, PipelineSummaryResponse}
 import com.helio.api.protocols.pipelines.PipelineStepResponse
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.pipelines.{PipelineRunService, PipelineService}
@@ -54,9 +54,7 @@ class PipelineAclSpec
   private var pipelineRepo: PipelineRepository          = _
   private var stepRepo: PipelineStepRepository          = _
   private var dataSourceRepo: DataSourceRepository      = _
-  private var dataTypeRepo: DataTypeRepository          = _
   private var pipelineRunRepo: PipelineRunRepository    = _
-  private var dataTypeRowRepo: DataTypeRowRepository    = _
 
   // Two distinct authenticated users — `userA` owns the pipelines under test;
   // `userB` is the cross-user probe. Both must already exist in the `users`
@@ -74,12 +72,10 @@ class PipelineAclSpec
       .load().migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx         = new DbContext(db, db)(routeEc)
-    dataTypeRepo    = new DataTypeRepository(ctx)(routeEc)
     dataSourceRepo  = new DataSourceRepository(ctx)(routeEc)
     stepRepo        = new PipelineStepRepository(ctx)(routeEc)
-    pipelineRepo    = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo    = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineRunRepo = new PipelineRunRepository(ctx)(routeEc)
-    dataTypeRowRepo = new DataTypeRowRepository(ctx)(routeEc)
     seedUsers()
   }
 
@@ -113,11 +109,10 @@ class PipelineAclSpec
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($dsId, 'ds', 'static', $cfg, $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId, 'dt', '[]', 1, $ownerId::uuid, now(), now())""",
+      
       sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, $dtId, $ownerId::uuid, now(), now())"""
+               (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pid, 'pipe', $dsId, $ownerId::uuid, now(), now())"""
     )))
     PipelineId(pid)
   }
@@ -142,10 +137,10 @@ class PipelineAclSpec
   private def routesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
     val cache         = new PipelineRunCache()
-    val pipelineSvc   = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo, dataTypeRepo)
+    val pipelineSvc   = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo)
     val runSvc        = new PipelineRunService(
-      pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
-      dataTypeRowRepo, cache, null, fileSystem
+      pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
+      cache, null, fileSystem
     )
     concat(
       new PipelineRoutes(pipelineSvc, user).routes,

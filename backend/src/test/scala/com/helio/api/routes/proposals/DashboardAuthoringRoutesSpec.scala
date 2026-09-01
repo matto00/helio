@@ -4,17 +4,19 @@ import com.helio.api.routes.proposals.DashboardAuthoringRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeStreamEvent, ClaudeTransport}
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.JsonProtocols
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.services.proposals.{DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.DataSourceService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelCapabilityService
 import com.helio.services.workspace.WorkspaceContextService
@@ -35,7 +37,6 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
 import java.nio.file.Files
-import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -61,7 +62,10 @@ class DashboardAuthoringRoutesSpec
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
-  private var dataTypeRepo: DataTypeRepository   = _
+  private var outputRepo: OutputRepository       = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
+  private var pipelineRepo: PipelineRepository   = _
+  private var dataSourceRepo: DataSourceRepository = _
 
   private var workspaceContextService: WorkspaceContextService   = _
   private var panelCapabilityService: PanelCapabilityService     = _
@@ -72,7 +76,7 @@ class DashboardAuthoringRoutesSpec
 
   private val userId = UUID.randomUUID().toString
   private val user   = AuthenticatedUser(UserId(userId))
-  private var pipelineOutputType: DataType = _
+  private var pipelineOutputType: String = _
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
@@ -88,18 +92,19 @@ class DashboardAuthoringRoutesSpec
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)
 
-    val dataSourceRepo   = new DataSourceRepository(ctx)
-    dataTypeRepo         = new DataTypeRepository(ctx)
-    val dataTypeRowRepo  = new DataTypeRowRepository(ctx)
-    val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    dataSourceRepo       = new DataSourceRepository(ctx)
+    pipelineRepo         = new PipelineRepository(ctx, dataSourceRepo)
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
     val tmpDir = Files.createTempDirectory("helio-authoring-routes-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
+    // HEL-904 task 3.12/4.1: WorkspaceContextService takes OutputRepository now (dataTypeService
+    // no longer exists).
+    outputRepo            = new OutputRepository(ctx)
+    nodeSnapshotRepo      = new NodeSnapshotRepository(ctx)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val registry        = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
@@ -108,27 +113,41 @@ class DashboardAuthoringRoutesSpec
     val accessChecker    = new AccessCheckerImpl(permissionRepo, registry)
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
 
-    workspaceContextService  = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
-    panelCapabilityService   = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
-    dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null)
+    workspaceContextService  = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
+    panelCapabilityService   = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
+    dashboardProposalService = new DashboardProposalService(null, null, outputRepo)
     conversationRepo         = new AuthoringConversationRepository(ctx)
 
     // Seeded ONCE (not per-test) — `user` is a single shared fixture id for this whole spec, so a
     // per-test insert would violate the `users` primary key on the second test.
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, ${s"$userId@test.local"}, now())"""))
-    val now = Instant.now()
-    val dt = DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = "Sales",
-      fields    = Vector(DataField("revenue", "Revenue", "float", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = user.id
+    // HEL-904 task 3.12: `DashboardAuthoringService.assembleGroundedContext`'s "empty workspace"
+    // check now filters `WorkspaceContextService.assemble`'s Output-backed `dataTypes` -- a real
+    // pipeline + Output is required for this fixture's workspace to read as non-empty.
+    // `pipelineOutputType` (used to bind an "output"-kind proposal panel's `dataTypeId` field,
+    // task 3.9's Output-id semantics) is just the real Output's own id string -- HEL-904 cycle 29
+    // dropped the vestigial `DataType` wrapper this used to be built through (the retired
+    // `DataType`/`DataTypeId` types no longer exist anywhere in `model.scala`).
+    val sourceReq = StaticDataSourceRequest(
+      name    = s"src-${UUID.randomUUID()}",
+      `type`  = "static",
+      columns = Vector(StaticColumnPayload("value", "string")),
+      rows    = Vector(Vector(JsString("x"))),
+      tag     = None
     )
-    await(dataTypeRepo.insert(dt, user))
-    pipelineOutputType = dt
+    val source = await(dataSourceService.createStatic(sourceReq, user)) match {
+      case Right(ds) => ds
+      case Left(err) => fail(s"createStatic failed: $err")
+    }
+    val summary = await(pipelineRepo.create(s"pipe-${UUID.randomUUID()}", source.id, user)) match {
+      case Right(s)  => s
+      case Left(err) => fail(s"pipeline create failed: $err")
+    }
+    val createdOutput = await(outputRepo.insertInternal(
+      PipelineId(summary.id), nodeStepId = None, user.id, "Sales", OutputKind.Table,
+      schema = Vector(SchemaField("revenue", "float"))
+    ))
+    pipelineOutputType = createdOutput.id.value
   }
 
   override def afterAll(): Unit = {
@@ -164,7 +183,7 @@ class DashboardAuthoringRoutesSpec
 
     "return 200 with a proposal for a well-wired buffered call" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
@@ -200,7 +219,7 @@ class DashboardAuthoringRoutesSpec
 
     "the response body carries an additive conversationId alongside proposal/warnings" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
@@ -216,7 +235,7 @@ class DashboardAuthoringRoutesSpec
 
     "return 200 with the display-only view for a conversation the caller owns" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${pipelineOutputType.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       var conversationId: String = ""

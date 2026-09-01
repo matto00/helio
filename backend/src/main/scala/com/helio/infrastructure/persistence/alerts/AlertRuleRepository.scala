@@ -23,24 +23,26 @@ class AlertRuleRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   private def rowToDomain(row: AlertRuleRow): AlertRule =
     AlertRule(
-      id               = AlertRuleId(row.id),
-      ownerId          = UserId(row.ownerId.toString),
-      targetDataTypeId = DataTypeId(row.targetDataTypeId),
-      metric           = row.metric,
-      condition        = row.condition.parseJson,
-      name             = row.name,
-      enabled          = row.enabled,
-      severity         = Severity.fromString(row.severity)
+      id             = AlertRuleId(row.id),
+      ownerId        = UserId(row.ownerId.toString),
+      targetOutputId = OutputId(row.targetOutputId.getOrElse(
+        throw new IllegalStateException(s"alert_rules row '${row.id}' has no target_output_id")
+      )),
+      metric         = row.metric,
+      condition      = row.condition.parseJson,
+      name           = row.name,
+      enabled        = row.enabled,
+      severity       = Severity.fromString(row.severity)
         .getOrElse(throw new IllegalStateException(s"Unknown severity in DB: '${row.severity}'")),
-      createdAt        = row.createdAt,
-      updatedAt        = row.updatedAt
+      createdAt      = row.createdAt,
+      updatedAt      = row.updatedAt
     )
 
   private def domainToRow(rule: AlertRule): AlertRuleRow =
     AlertRuleRow(
       id               = rule.id.value,
       ownerId          = UUID.fromString(rule.ownerId.value),
-      targetDataTypeId = rule.targetDataTypeId.value,
+      targetOutputId   = Some(rule.targetOutputId.value),
       metric           = rule.metric,
       condition        = rule.condition.compactPrint,
       name             = rule.name,
@@ -99,16 +101,14 @@ class AlertRuleRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** Privileged unscoped read — no ACL check, RLS-bypassing via the
    *  privileged pool.
    *
-   *  Reserved for HEL-455's background evaluation engine: a post-run path
-   *  (triggered from `PipelineRunService.onRunSuccess`) that has no
-   *  request-bound user and must see enabled rules across every owner
-   *  targeting the given DataType. No caller exists yet in this ticket —
-   *  it is exercised only by `AlertRuleRepositorySpec` until HEL-455 wires a
-   *  real callsite, mirroring `DataTypeRepository.findByIdInternal`'s
-   *  pre-caller landing pattern. */
-  def listEnabledByDataTypeInternal(dataTypeId: DataTypeId): Future[Vector[AlertRule]] =
+   *  Drives HEL-466's background evaluation engine (`PipelineRunService
+   *  .onRunSuccess` -> `AlertEvaluationService.evaluateForOutput`), which
+   *  has no request-bound user and must see enabled rules across every
+   *  owner targeting the given Output (task 3.1 — replaces the retired
+   *  `listEnabledByDataTypeInternal`). */
+  def listEnabledByOutputInternal(outputId: OutputId): Future[Vector[AlertRule]] =
     ctx.withSystemContext(
-      table.filter(r => r.targetDataTypeId === dataTypeId.value && r.enabled === true).result
+      table.filter(r => r.targetOutputId === (Some(outputId.value): Option[String]) && r.enabled === true).result
     ).map(_.map(rowToDomain).toVector)
 }
 
@@ -128,7 +128,7 @@ object AlertRuleRepository {
   case class AlertRuleRow(
       id: String,
       ownerId: UUID,
-      targetDataTypeId: String,
+      targetOutputId: Option[String],
       metric: String,
       condition: String,
       name: String,
@@ -139,18 +139,18 @@ object AlertRuleRepository {
   )
 
   class AlertRuleTable(tag: Tag) extends Table[AlertRuleRow](tag, "alert_rules") {
-    def id               = column[String]("id", O.PrimaryKey)
-    def ownerId          = column[UUID]("owner_id")
-    def targetDataTypeId = column[String]("target_data_type_id")
-    def metric           = column[String]("metric")
-    def condition        = column[String]("condition")(jsonbStringType)
-    def name             = column[String]("name")
-    def enabled          = column[Boolean]("enabled")
-    def severity         = column[String]("severity")
-    def createdAt        = column[Instant]("created_at")
-    def updatedAt        = column[Instant]("updated_at")
+    def id             = column[String]("id", O.PrimaryKey)
+    def ownerId        = column[UUID]("owner_id")
+    def targetOutputId = column[Option[String]]("target_output_id")
+    def metric         = column[String]("metric")
+    def condition      = column[String]("condition")(jsonbStringType)
+    def name           = column[String]("name")
+    def enabled        = column[Boolean]("enabled")
+    def severity       = column[String]("severity")
+    def createdAt      = column[Instant]("created_at")
+    def updatedAt      = column[Instant]("updated_at")
 
-    def * = (id, ownerId, targetDataTypeId, metric, condition, name, enabled, severity, createdAt, updatedAt)
+    def * = (id, ownerId, targetOutputId, metric, condition, name, enabled, severity, createdAt, updatedAt)
       .mapTo[AlertRuleRow]
   }
 }

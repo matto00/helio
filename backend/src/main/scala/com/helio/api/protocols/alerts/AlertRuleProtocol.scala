@@ -8,7 +8,7 @@ import spray.json._
 final case class AlertRuleResponse(
     id: String,
     ownerId: String,
-    targetDataTypeId: String,
+    targetOutputId: String,
     metric: String,
     condition: JsValue,
     name: String,
@@ -19,12 +19,12 @@ final case class AlertRuleResponse(
 )
 final case class AlertRulesResponse(items: Vector[AlertRuleResponse])
 
-/** Create request — `{ targetDataTypeId, metric, condition, severity,
+/** Create request — `{ targetOutputId, metric, condition, severity,
  *  enabled?, name }`. `enabled` is the one field the ticket calls out as
  *  optional on the wire (spray-json omits `None`); `AlertRuleService`
  *  normalizes an absent value to `true`. */
 final case class CreateAlertRuleRequest(
-    targetDataTypeId: String,
+    targetOutputId: String,
     metric: String,
     condition: JsValue,
     severity: String,
@@ -47,7 +47,7 @@ object AlertRuleResponse {
     AlertRuleResponse(
       id               = rule.id.value,
       ownerId          = rule.ownerId.value,
-      targetDataTypeId = rule.targetDataTypeId.value,
+      targetOutputId   = rule.targetOutputId.value,
       metric           = rule.metric,
       condition        = rule.condition,
       name             = rule.name,

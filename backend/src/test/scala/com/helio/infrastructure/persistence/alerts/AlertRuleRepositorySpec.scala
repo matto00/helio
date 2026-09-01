@@ -2,7 +2,8 @@ package com.helio.infrastructure.persistence.alerts
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -18,7 +19,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** HEL-447 — `AlertRuleRepository` CRUD + RLS scoping + the privileged
- *  `listEnabledByDataTypeInternal` read path. */
+ *  `listEnabledByOutputInternal` read path. */
 class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
@@ -26,7 +27,9 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var arRepo: AlertRuleRepository        = _
-  private var dtRepo: DataTypeRepository         = _
+  private var dsRepo: DataSourceRepository       = _
+  private var pipeRepo: PipelineRepository       = _
+  private var outRepo: OutputRepository          = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -41,7 +44,9 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)
     arRepo = new AlertRuleRepository(ctx)
-    dtRepo = new DataTypeRepository(ctx)
+    dsRepo = new DataSourceRepository(ctx)
+    pipeRepo = new PipelineRepository(ctx, dsRepo)
+    outRepo = new OutputRepository(ctx)
   }
 
   override def afterAll(): Unit = {
@@ -54,7 +59,9 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
   private def cleanDb(): Unit = {
     import PostgresProfile.api._
     await(db.run(sqlu"DELETE FROM alert_rules"))
-    await(db.run(sqlu"DELETE FROM data_types"))
+    await(db.run(sqlu"DELETE FROM outputs"))
+    await(db.run(sqlu"DELETE FROM pipelines"))
+    await(db.run(sqlu"DELETE FROM data_sources"))
     await(db.run(sqlu"DELETE FROM users"))
   }
 
@@ -73,18 +80,20 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     )))
   }
 
-  private def newDataType(ownerId: UserId): DataType = {
-    val now = Instant.now()
-    DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = "MyType",
-      fields    = Vector(DataField("value", "Value", "integer", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = ownerId
+  // HEL-904 cycle 29: dead `newDataType` fixture helper (zero call sites) deleted outright --
+  // its retired `DataType`/`DataTypeId` return type no longer exists anywhere in model.scala.
+
+  /** HEL-904 (task 3.1): `AlertRule` now targets an Output, not a DataType —
+   *  builds the minimal real source -> pipeline -> Output chain a rule's
+   *  `targetOutputId` FK requires. */
+  private def newOutput(ownerId: UserId, user: AuthenticatedUser): OutputId = {
+    val now    = Instant.now()
+    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
+    val createdSource = await(dsRepo.insert(source, user))
+    val pipeline = await(pipeRepo.create("pipe", createdSource.id, user)).getOrElse(
+      throw new IllegalStateException("newOutput fixture: pipeline create failed")
     )
+    await(outRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table)).id
   }
 
   private val defaultCondition: JsValue =
@@ -92,23 +101,23 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
 
   private def newRule(
       ownerId: UserId,
-      targetDataTypeId: DataTypeId,
+      targetOutputId: OutputId,
       enabled: Boolean = true,
       condition: JsValue = defaultCondition,
       name: String = "My Rule"
   ): AlertRule = {
     val now = Instant.now()
     AlertRule(
-      id               = AlertRuleId(UUID.randomUUID().toString),
-      ownerId          = ownerId,
-      targetDataTypeId = targetDataTypeId,
-      metric           = "count",
-      condition        = condition,
-      name             = name,
-      enabled          = enabled,
-      severity         = Severity.Warning,
-      createdAt        = now,
-      updatedAt        = now
+      id             = AlertRuleId(UUID.randomUUID().toString),
+      ownerId        = ownerId,
+      targetOutputId = targetOutputId,
+      metric         = "count",
+      condition      = condition,
+      name           = name,
+      enabled        = enabled,
+      severity       = Severity.Warning,
+      createdAt      = now,
+      updatedAt      = now
     )
   }
 
@@ -116,14 +125,14 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
 
     "insert then findByIdOwned round-trips every field, including unknown jsonb keys" in {
       cleanDb(); seedUsers()
-      val dt = await(dtRepo.insert(newDataType(owner1), user1))
+      val dt = newOutput(owner1, user1)
       val condition = JsObject(
         "comparator" -> JsString("gte"),
         "threshold"  -> JsNumber(10),
         "window"     -> JsString("1h"),
         "future"     -> JsObject("nested" -> JsString("kind"))
       )
-      val rule = newRule(owner1, dt.id, condition = condition)
+      val rule = newRule(owner1, dt, condition = condition)
 
       await(arRepo.insert(rule, user1))
       val found = await(arRepo.findByIdOwned(rule.id, user1))
@@ -131,7 +140,7 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       found shouldBe defined
       found.get.id shouldBe rule.id
       found.get.ownerId shouldBe owner1
-      found.get.targetDataTypeId shouldBe dt.id
+      found.get.targetOutputId shouldBe dt
       found.get.metric shouldBe "count"
       found.get.condition shouldBe condition
       found.get.name shouldBe "My Rule"
@@ -147,8 +156,8 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
 
     "findByIdOwned excludes non-owned rows (RLS scoping)" in {
       cleanDb(); seedUsers()
-      val dt   = await(dtRepo.insert(newDataType(owner1), user1))
-      val rule = newRule(owner1, dt.id)
+      val dt   = newOutput(owner1, user1)
+      val rule = newRule(owner1, dt)
       await(arRepo.insert(rule, user1))
 
       val foundByOwner    = await(arRepo.findByIdOwned(rule.id, user1))
@@ -160,11 +169,11 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
 
     "findAll returns only rules owned by the given user" in {
       cleanDb(); seedUsers()
-      val dt1 = await(dtRepo.insert(newDataType(owner1), user1))
-      val dt2 = await(dtRepo.insert(newDataType(owner2), user2))
-      val ruleA = newRule(owner1, dt1.id, name = "A")
-      val ruleB = newRule(owner1, dt1.id, name = "B")
-      val ruleC = newRule(owner2, dt2.id, name = "C")
+      val dt1 = newOutput(owner1, user1)
+      val dt2 = newOutput(owner2, user2)
+      val ruleA = newRule(owner1, dt1, name = "A")
+      val ruleB = newRule(owner1, dt1, name = "B")
+      val ruleC = newRule(owner2, dt2, name = "C")
       await(arRepo.insert(ruleA, user1))
       await(arRepo.insert(ruleB, user1))
       await(arRepo.insert(ruleC, user2))
@@ -179,8 +188,8 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
 
     "update mutates fields and bumps updatedAt" in {
       cleanDb(); seedUsers()
-      val dt   = await(dtRepo.insert(newDataType(owner1), user1))
-      val rule = newRule(owner1, dt.id)
+      val dt   = newOutput(owner1, user1)
+      val rule = newRule(owner1, dt)
       await(arRepo.insert(rule, user1))
 
       val updated = rule.copy(
@@ -203,16 +212,16 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
 
     "update returns None for unknown id" in {
       cleanDb(); seedUsers()
-      val dt      = await(dtRepo.insert(newDataType(owner1), user1))
-      val phantom = newRule(owner1, dt.id)
+      val dt      = newOutput(owner1, user1)
+      val phantom = newRule(owner1, dt)
       val result  = await(arRepo.update(phantom, user1))
       result shouldBe None
     }
 
     "delete removes the row and returns true" in {
       cleanDb(); seedUsers()
-      val dt   = await(dtRepo.insert(newDataType(owner1), user1))
-      val rule = newRule(owner1, dt.id)
+      val dt   = newOutput(owner1, user1)
+      val rule = newRule(owner1, dt)
       await(arRepo.insert(rule, user1))
 
       val deleted = await(arRepo.delete(rule.id, user1))
@@ -242,49 +251,49 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     // `AlertRuleRoutesSpec`'s "DELETE /alert-rules/:id ... return 403 or 404
     // for a cross-user caller and leave the rule in place".
 
-    "deleting the target DataType cascades and removes the alert rule" in {
+    "deleting the target Output cascades and removes the alert rule" in {
       cleanDb(); seedUsers()
-      val dt   = await(dtRepo.insert(newDataType(owner1), user1))
-      val rule = newRule(owner1, dt.id)
+      val dt   = newOutput(owner1, user1)
+      val rule = newRule(owner1, dt)
       await(arRepo.insert(rule, user1))
 
-      await(dtRepo.delete(dt.id, user1))
+      await(outRepo.deleteInternal(dt))
 
       await(arRepo.findByIdOwned(rule.id, user1)) shouldBe None
     }
 
-    "listEnabledByDataTypeInternal bypasses per-owner RLS and returns rules across owners" in {
+    "listEnabledByOutputInternal bypasses per-owner RLS and returns rules across owners" in {
       cleanDb(); seedUsers()
-      val dt1 = await(dtRepo.insert(newDataType(owner1), user1))
+      val dt1 = newOutput(owner1, user1)
       // Second rule targeting the same DataType, owned by a different user —
       // only meaningful as a repository-level exercise of the privileged
       // path (no cross-user FK requirement on target_data_type_id).
-      val ruleA = newRule(owner1, dt1.id, name = "OwnerOneRule")
-      val ruleB = newRule(owner1, dt1.id, name = "OwnerOneRuleTwo")
+      val ruleA = newRule(owner1, dt1, name = "OwnerOneRule")
+      val ruleB = newRule(owner1, dt1, name = "OwnerOneRuleTwo")
       await(arRepo.insert(ruleA, user1))
       await(arRepo.insert(ruleB, user1))
 
-      val result = await(arRepo.listEnabledByDataTypeInternal(dt1.id))
+      val result = await(arRepo.listEnabledByOutputInternal(dt1))
       result.map(_.id) should contain allOf (ruleA.id, ruleB.id)
     }
 
-    "listEnabledByDataTypeInternal excludes disabled rules" in {
+    "listEnabledByOutputInternal excludes disabled rules" in {
       cleanDb(); seedUsers()
-      val dt = await(dtRepo.insert(newDataType(owner1), user1))
-      val enabledRule  = newRule(owner1, dt.id, enabled = true, name = "Enabled")
-      val disabledRule = newRule(owner1, dt.id, enabled = false, name = "Disabled")
+      val dt = newOutput(owner1, user1)
+      val enabledRule  = newRule(owner1, dt, enabled = true, name = "Enabled")
+      val disabledRule = newRule(owner1, dt, enabled = false, name = "Disabled")
       await(arRepo.insert(enabledRule, user1))
       await(arRepo.insert(disabledRule, user1))
 
-      val result = await(arRepo.listEnabledByDataTypeInternal(dt.id))
+      val result = await(arRepo.listEnabledByOutputInternal(dt))
       result.map(_.id) should contain(enabledRule.id)
       result.map(_.id) should not contain disabledRule.id
     }
 
-    "listEnabledByDataTypeInternal returns empty for a DataType with no rules" in {
+    "listEnabledByOutputInternal returns empty for a DataType with no rules" in {
       cleanDb(); seedUsers()
-      val dt = await(dtRepo.insert(newDataType(owner1), user1))
-      val result = await(arRepo.listEnabledByDataTypeInternal(dt.id))
+      val dt = newOutput(owner1, user1)
+      val result = await(arRepo.listEnabledByOutputInternal(dt))
       result shouldBe empty
     }
   }

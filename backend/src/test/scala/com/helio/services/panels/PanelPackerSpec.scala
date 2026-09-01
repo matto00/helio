@@ -33,7 +33,7 @@ class PanelPackerSpec extends AnyWordSpec with Matchers {
     }
 
     "place a single panel at the origin" in {
-      val result = PanelPacker.pack(Vector(input("p1", PanelKind.Chart, w = 6, h = 8)), cols = 12)
+      val result = PanelPacker.pack(Vector(input("p1", PanelKind.Output, w = 6, h = 8)), cols = 12)
       result should have size 1
       result.head.x shouldBe 0
       result.head.y shouldBe 0
@@ -43,8 +43,8 @@ class PanelPackerSpec extends AnyWordSpec with Matchers {
       // 7 + 7 > 12 -> the second item wraps. Both widths clear the chart
       // minW=4, so clamping doesn't interfere with this scenario.
       val items = Vector(
-        input("p1", PanelKind.Chart, w = 7, h = 6),
-        input("p2", PanelKind.Chart, w = 7, h = 9)
+        input("p1", PanelKind.Output, w = 7, h = 6),
+        input("p2", PanelKind.Output, w = 7, h = 9)
       )
       val result = PanelPacker.pack(items, cols = 12)
       val byId   = result.map(i => i.panelId.value -> i).toMap
@@ -58,9 +58,9 @@ class PanelPackerSpec extends AnyWordSpec with Matchers {
 
     "preserve input order as visual (left-to-right, top-to-bottom) order and be deterministic" in {
       val items = Vector(
-        input("p1", PanelKind.Metric, w = 3, h = 3),
-        input("p2", PanelKind.Metric, w = 3, h = 3),
-        input("p3", PanelKind.Metric, w = 3, h = 3)
+        input("p1", PanelKind.Output, w = 3, h = 3),
+        input("p2", PanelKind.Output, w = 3, h = 3),
+        input("p3", PanelKind.Output, w = 3, h = 3)
       )
       val first  = PanelPacker.pack(items, cols = 12)
       val second = PanelPacker.pack(items, cols = 12)
@@ -89,18 +89,18 @@ class PanelPackerSpec extends AnyWordSpec with Matchers {
     }
 
     "raise an undersized chart's height to the chart kind's minimum" in {
-      val result = PanelPacker.pack(Vector(input("p1", PanelKind.Chart, w = 6, h = 2)), cols = 12)
+      val result = PanelPacker.pack(Vector(input("p1", PanelKind.Output, w = 6, h = 2)), cols = 12)
       result.head.h shouldBe 6 // chart minH
     }
 
-    "lower an oversized metric's height to the metric kind's maximum" in {
-      val result = PanelPacker.pack(Vector(input("p1", PanelKind.Metric, w = 3, h = 20)), cols = 12)
-      result.head.h shouldBe 5 // metric maxH
+    "lower an oversized output panel's height to the output kind's maximum" in {
+      val result = PanelPacker.pack(Vector(input("p1", PanelKind.Output, w = 4, h = 30)), cols = 12)
+      result.head.h shouldBe 24 // output maxH
     }
 
     "raise an undersized panel's width to its kind's minimum" in {
-      val result = PanelPacker.pack(Vector(input("p1", PanelKind.Table, w = 1, h = 5)), cols = 12)
-      result.head.w shouldBe 3 // table minW
+      val result = PanelPacker.pack(Vector(input("p1", PanelKind.Output, w = 1, h = 6)), cols = 12)
+      result.head.w shouldBe 4 // output minW
     }
 
     "apply the default bounds for a kind with no configured entry" in {
@@ -112,15 +112,15 @@ class PanelPackerSpec extends AnyWordSpec with Matchers {
 
   "clamp" should {
     "never let width exceed cols" in {
-      PanelPacker.clamp(PanelKind.Table, w = 999, h = 5, cols = 12) shouldBe (12, 5)
+      PanelPacker.clamp(PanelKind.Output, w = 999, h = 8, cols = 12) shouldBe (12, 8)
     }
   }
 
   "overlap-freedom property" should {
     "hold for many randomly generated (kind, w, h) lists, including out-of-bounds sizes" in {
       val kinds = Vector(
-        PanelKind.Metric, PanelKind.Chart, PanelKind.Table, PanelKind.Collection,
-        PanelKind.Image, PanelKind.Markdown, PanelKind.Text, PanelKind.Divider, PanelKind.Timeline
+        PanelKind.Output, PanelKind.Output,
+        PanelKind.Image, PanelKind.Markdown, PanelKind.Text, PanelKind.Divider
       )
       val seeds = 1 to 200
 

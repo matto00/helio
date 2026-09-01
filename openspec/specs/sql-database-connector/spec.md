@@ -2,22 +2,24 @@
 
 ## Purpose
 PostgreSQL and MySQL connector that executes a stored query via JDBC, infers schema, and registers a DataType. Covers create, preview, refresh, DDL/DML rejection, password masking, and the frontend SQL tab in AddSourceModal.
+
 ## Requirements
+
 ### Requirement: Create a SQL data source
 The backend SHALL expose `POST /api/sources` accepting `source_type: "sql"` with a `config` object
 containing `dialect` (`"postgresql"` or `"mysql"`), `host`, `port`, `database`, `user`,
 `password`, and `query`. On success it SHALL open a JDBC connection, execute the query, sample up
 to 100 rows, infer schema via `SchemaInferenceEngine.fromJson`, insert a `DataSource`, and insert
-a linked `DataType`. The response SHALL include `fetchError` if the connection or query fails.
+the source's inferred schema. The response SHALL include `fetchError` if the connection or query fails.
 Passwords SHALL be masked as `"***"` in all response objects.
 
 #### Scenario: Successful creation registers DataType
 - **WHEN** `POST /api/sources` is called with `source_type: "sql"` and a valid config pointing to a reachable database
-- **THEN** the response is 201 with the created DataSource (password masked) and a linked DataType in the registry
+- **THEN** the response is 201 with the created DataSource (password masked) and a linked inferred schema in the registry
 
 #### Scenario: Creation succeeds even when connection fails
 - **WHEN** `POST /api/sources` is called but the database is unreachable or credentials are wrong
-- **THEN** the response is 201 with the DataSource and a non-null `fetchError`; no DataType is registered
+- **THEN** the response is 201 with the DataSource and a non-null `fetchError`; no inferred schema is registered
 
 #### Scenario: Missing required config field returns 400
 - **WHEN** `POST /api/sources` is called with `source_type: "sql"` but `host` is absent
@@ -47,7 +49,7 @@ opening a JDBC connection. The check SHALL be case-insensitive and SHALL match w
 ### Requirement: Infer SQL schema without persisting
 The backend SHALL expose `POST /api/sources/infer` accepting `source_type: "sql"` with the same
 config shape. It SHALL apply the DDL/DML check, open a JDBC connection, execute the query, sample
-up to 100 rows, and return `InferredSchemaResponse`. No `DataSource` or `DataType` is written.
+up to 100 rows, and return `InferredSchemaResponse`. No `DataSource` or inferred schema is written.
 
 #### Scenario: Valid config returns inferred fields
 - **WHEN** `POST /api/sources/infer` is called with a reachable SQL config
@@ -81,12 +83,12 @@ JDBC connection, executes the stored query, and returns at most 10 rows as a JSO
 
 ### Requirement: Refresh a SQL data source
 The backend SHALL expose `POST /api/sources/:id/refresh` which re-opens the JDBC connection,
-re-executes the query, re-infers schema, and updates the linked `DataType` fields (incrementing
-version). If no DataType exists yet, a new one SHALL be created.
+re-executes the query, re-infers schema, and updates the source's inferred schema fields (incrementing
+version). If no inferred schema exists yet, a new one SHALL be created.
 
 #### Scenario: Successful refresh updates DataType
 - **WHEN** `POST /api/sources/:id/refresh` is called for an existing SQL source
-- **THEN** the response is 200 with the updated DataType; version is incremented by 1
+- **THEN** the response is 200 with the updated inferred schema; version is incremented by 1
 
 #### Scenario: Refresh on non-existent source returns 404
 - **WHEN** `POST /api/sources/:id/refresh` is called with an unknown id
@@ -94,7 +96,7 @@ version). If no DataType exists yet, a new one SHALL be created.
 
 #### Scenario: Connection failure on refresh returns 502
 - **WHEN** `POST /api/sources/:id/refresh` is called but the database is unreachable
-- **THEN** the response is 502; the existing DataType is unchanged
+- **THEN** the response is 502; the existing inferred schema is unchanged
 
 ### Requirement: Password is never returned in API responses
 All API responses involving a SQL DataSource SHALL replace the `password` field in the config
@@ -147,4 +149,3 @@ disabled state. On save, the modal SHALL call `POST /api/sources` with `source_t
 #### Scenario: Password field is masked
 - **WHEN** the SQL tab is displayed
 - **THEN** the password input is rendered as `type="password"` so the value is not visible
-

@@ -157,10 +157,10 @@ class RlsSharingAwareTablesSpec extends AnyWordSpec with Matchers with BeforeAnd
   private def seedPanel(dashId: String, ownerId: UserId): String = {
     val id = UUID.randomUUID().toString
     await(ctx.withSystemContext(
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
              VALUES ($id, $dashId, 'panel', ${ownerId.value}, now(), now(),
                     '{"background":"transparent","color":"inherit","transparency":0.0}'::jsonb,
-                    'metric', ${ownerId.value}::uuid)"""
+                    'text', ${ownerId.value}::uuid)"""
     ))
     id
   }

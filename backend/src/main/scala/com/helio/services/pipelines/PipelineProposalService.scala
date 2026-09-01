@@ -4,10 +4,11 @@ import com.helio.services.ServiceError
 import com.helio.services.sources.{DataSourceService, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, StaticDataSourceRequest}
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, DataTypeId, PipelineId, PipelineStep, PipelineStepKind}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputId, OutputKind, PipelineId, PipelineStep, PipelineStepId, PipelineStepKind}
 import com.helio.domain.connectors.SqlConnectorDriver
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import com.helio.api.protocols.pipelines.{PipelineStepResponse, PipelineSummaryResponse}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -45,9 +46,12 @@ final class PipelineProposalService(
     dataSourceService: DataSourceService,
     pipelineService: PipelineService,
     pipelineRunService: PipelineRunService,
-    dataTypeService: DataTypeService,
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo: DataTypeRepository
+    // HEL-904 task 3.8: the proposal's "output" is now a real Output row
+    // (design.md's proposal-service scope decision), created on the
+    // pipeline's last trunk step and rolled back the same way a source/
+    // companion DataType always was.
+    outputRepo: OutputRepository
 )(implicit ec: ExecutionContext) {
 
   import PipelineProposalService._
@@ -219,7 +223,7 @@ final class PipelineProposalService(
     dataSourceRepo.findByIdOwned(DataSourceId(sourceId), user).map {
       case None => Left(ServiceError.NotFound("Data source not found"))
       case Some(ds) =>
-        Right(ResolvedSource(ds.id, responseForClient = None, createdByThisCall = false, companionDataTypeIds = Vector.empty, kind = ds.kind))
+        Right(ResolvedSource(ds.id, responseForClient = None, createdByThisCall = false, kind = ds.kind))
     }
 
   private def resolveSqlSource(source: PipelineProposalSource, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] =
@@ -256,20 +260,14 @@ final class PipelineProposalService(
           .flatMap {
             case Left(err) => Future.successful(Left(err))
             case Right(ds) =>
-              // No CreateSourceResponse envelope for static (DataSourceService.createStatic
-              // returns the bare DataSource) — capture the companion DataType's id NOW,
-              // while the source still exists, so a later rollback never has to
-              // re-derive it via findBySourceId after the source is already gone
-              // (design.md D5 — that query would return nothing post-delete).
-              dataTypeRepo.findBySourceId(ds.id, user.id).map { companions =>
-                Right(ResolvedSource(
-                  ds.id,
-                  responseForClient    = Some(DataSourceResponse.fromDomain(ds)),
-                  createdByThisCall    = true,
-                  companionDataTypeIds = companions.map(_.id),
-                  kind                 = DataSourceKind.Static
-                ))
-              }
+              // HEL-904: no companion DataType to capture anymore — the inferred schema
+              // lives on the source row itself, deleted automatically alongside it.
+              Future.successful(Right(ResolvedSource(
+                ds.id,
+                responseForClient = Some(DataSourceResponse.fromDomain(ds)),
+                createdByThisCall = true,
+                kind              = DataSourceKind.Static
+              )))
           }
     }
 
@@ -284,14 +282,12 @@ final class PipelineProposalService(
    *  extra query needed). */
   private def handleInlineCreated(csr: CreateSourceResponse, kind: String, user: AuthenticatedUser): Future[Either[ServiceError, ResolvedSource]] = {
     val sourceId = DataSourceId(csr.source.id)
-    val companionIds = csr.dataType.map(dt => DataTypeId(dt.id)).toVector
     Future.successful(Right(ResolvedSource(
       sourceId,
-      responseForClient    = Some(csr.source),
-      createdByThisCall    = true,
-      companionDataTypeIds = companionIds,
-      kind                 = kind,
-      fetchError           = csr.fetchError
+      responseForClient = Some(csr.source),
+      createdByThisCall = true,
+      kind              = kind,
+      fetchError        = csr.fetchError
     )))
   }
 
@@ -307,7 +303,7 @@ final class PipelineProposalService(
    *  for "this already succeeded, undo it now."
    *
    *  Same delete order as `rollbackAll`: pipeline (cascades steps/runs) →
-   *  output DataType → (if `response.source` is defined, meaning this
+   *  output Output → (if `response.source` is defined, meaning this
    *  proposal's own `apply` created it inline) the source → its companion
    *  DataType(s). Since `rollback` runs BEFORE any of ITS OWN deletes have
    *  happened yet, a fresh `dataTypeRepo.findBySourceId` read here is safe —
@@ -315,19 +311,21 @@ final class PipelineProposalService(
    *  once issued after the source delete (design.md D5). Composed entirely
    *  through `pipelineService.delete`/`dataTypeService.delete`/
    *  `dataSourceService.delete` — never a raw repository call. No existing
-   *  method in this file is modified. */
+   *  method in this file is modified.
+   *
+   *  HEL-904 task 3.5: `pipelineService.create` no longer mints a legacy
+   *  DataType at all, so this rollback no longer has one to delete — only
+   *  the real Output (`response.outputDataTypeId`, the client-facing field —
+   *  task 3.8) needs cleanup on the pipeline side. Task 4.1/4.3: the source's
+   *  companion DataType is gone too (its schema lives inline on
+   *  `data_sources.inferred_schema`, deleted automatically with the row), so
+   *  the source delete alone is sufficient — no separate companion cleanup. */
   def rollback(response: PipelineProposalApplyResponse, user: AuthenticatedUser): Future[Unit] =
     pipelineService.delete(PipelineId(response.pipeline.id), user).flatMap { _ =>
-      dataTypeService.delete(DataTypeId(response.outputDataTypeId), user).flatMap { _ =>
+      outputRepo.deleteInternal(OutputId(response.outputDataTypeId)).flatMap { _ =>
         response.source match {
-          case None => Future.successful(())
-          case Some(source) =>
-            val sourceId = DataSourceId(source.id)
-            dataTypeRepo.findBySourceId(sourceId, user.id).flatMap { companions =>
-              dataSourceService.delete(sourceId, user).flatMap { _ =>
-                Future.sequence(companions.map(dt => dataTypeService.delete(dt.id, user))).map(_ => ())
-              }
-            }
+          case None         => Future.successful(())
+          case Some(source) => dataSourceService.delete(DataSourceId(source.id), user).map(_ => ())
         }
       }
     }
@@ -340,7 +338,7 @@ final class PipelineProposalService(
       user: AuthenticatedUser
   ): Future[Either[ServiceError, PipelineProposalApplyResponse]] =
     pipelineService
-      .create(CreatePipelineRequest(proposal.pipelineName.trim, resolved.id.value, proposal.outputDataTypeName.trim), user)
+      .create(CreatePipelineRequest(proposal.pipelineName.trim, resolved.id.value), user)
       .flatMap {
         case Left(err) =>
           // Nothing pipeline-side to roll back yet; the source (if this call
@@ -350,121 +348,151 @@ final class PipelineProposalService(
           val pipelineId = PipelineId(summary.id)
           addSteps(pipelineId, proposal.steps, user).flatMap {
             case Left(err) =>
-              rollbackAll(pipelineId, summary.outputDataTypeId, resolved, user).map(_ => Left(err))
-            // design.md D2 (of HEL-755) + HEL-758 fix: TWO independent reasons
-            // never reach `submit` — (a) the run engine can't execute this
-            // source kind AT ALL regardless of connectivity
-            // (`SparkUnsupportedKinds`, currently empty), or (b) THIS
-            // PARTICULAR inline source's schema-fetch already failed at
-            // creation time (`resolved.fetchError.isDefined`). (b) is
-            // unconditional on kind and is NOT superseded by HEL-758 — the
-            // base `pipeline-proposal-apply` spec's "Source-fetch failure is a
-            // structured, rolled-back error" requirement is untouched by this
-            // change (not in its MODIFIED Requirements) and the ticket's own
-            // acceptance criteria are explicit that this fail-safe path must
-            // stay intact for a genuinely unreachable/misconfigured source.
-            // Emptying `SparkUnsupportedKinds` alone would have silently
-            // dropped (b) for rest_api/sql, since both were previously gated
-            // by the SAME single condition — caught by PipelineApplyProposal-
-            // RollbackSpec's schema-fetch-failure tests actually failing
-            // (422/rollback instead of 201/blocked) once (a) alone was used.
-            // Skip `submit` entirely and never roll back; the pipeline and
-            // source are kept, and the response reports a durably-persisted
-            // (design.md D3 of HEL-755) blocked run instead. Must be checked
-            // BEFORE the unguarded `Right(_)` case below.
-            case Right(_) if PipelineRunService.SparkUnsupportedKinds.contains(resolved.kind) || resolved.fetchError.isDefined =>
-              val reason = resolved.fetchError match {
-                // HEL-758: dropped the old "...once ${resolved.kind} execution
-                // is supported" tail — rest_api/sql execution IS supported now
-                // (SparkUnsupportedKinds is empty); this specific source
-                // instance is what's unreachable, not the kind.
-                case Some(err) =>
-                  s"Could not fetch from the source: $err. Fix the source configuration, then trigger a run " +
-                    "from the pipeline."
-                case None =>
-                  s"${resolved.kind} sources aren't executed automatically yet — this pipeline was created without a run."
-              }
-              pipelineRunService.recordUnrunnable(pipelineId, reason, user).map { runResult =>
-                Right(PipelineProposalApplyResponse(
-                  source           = resolved.responseForClient,
-                  pipeline         = summary,
-                  outputDataTypeId = summary.outputDataTypeId,
-                  run              = runResult
-                ))
-              }
-            case Right(_) =>
-              // This case now reaches `submit` for every source kind the
-              // engine can execute — `static`/`csv`/`text`/`pdf`/`image`, and
-              // (HEL-758) a HEALTHY `rest_api`/`sql` source (fetchError =
-              // None), since `runPipeline` no longer hardcodes a rejection
-              // for the latter two. The guarded case above intercepts either
-              // a kind listed in the (currently empty) `SparkUnsupportedKinds`
-              // set, or any inline source whose schema-fetch already failed.
-              pipelineRunService.submit(pipelineId, isDry = false, user).flatMap {
-                case Left(err) =>
-                  // D6: run failure is "a failure at any step" — full
-                  // rollback, not a partial success with run: null.
-                  rollbackAll(pipelineId, summary.outputDataTypeId, resolved, user).map(_ => Left(err))
-                // HEL-570 (design.md Decision 8): a blocked run returns `Right`
-                // with the output DataType never populated — treated identically
-                // to a run failure for rollback purposes, since a "success"
-                // response here would point the caller at an empty DataType.
-                // Must be checked BEFORE the unguarded `Right(runResult)` case.
-                case Right(runResult) if runResult.blocked =>
-                  rollbackAll(pipelineId, summary.outputDataTypeId, resolved, user).map(_ => Left(
-                    ServiceError.UnprocessableEntity(runResult.blockedReason.getOrElse("Run blocked by an assertion failure"))
-                  ))
-                case Right(runResult) =>
-                  Future.successful(Right(PipelineProposalApplyResponse(
-                    source            = resolved.responseForClient,
-                    pipeline          = summary,
-                    outputDataTypeId  = summary.outputDataTypeId,
-                    run               = runResult
-                  )))
-              }
+              // The real Output doesn't exist yet (created only after steps
+              // succeed, below); `pipelineService.create` (task 3.5) no
+              // longer mints a legacy DataType to clean up here either — the
+              // pipeline row itself is the only thing to roll back.
+              pipelineService.delete(pipelineId, user)
+                .flatMap(_ => rollbackSourceOnly(resolved, user))
+                .map(_ => Left(err))
+            case Right(createdSteps) =>
+              // design.md's proposal-service scope decision (task 3.8): the
+              // Output attaches to the LAST trunk step created, or the root
+              // (`nodeStepId = None`) if the proposal specified zero steps.
+              val lastStepId = createdSteps.lastOption.map(s => PipelineStepId(s.id))
+              outputRepo
+                .insertInternal(pipelineId, lastStepId, user.id, proposal.outputDataTypeName.trim, OutputKind.Table)
+                .flatMap(output => finishPipeline(proposal, pipelineId, output.id, summary, resolved, user))
           }
       }
 
-  /** Create steps in proposal order, short-circuiting on the first failure. */
+  /** Everything downstream of a successfully-created Output: the spark-
+   *  unsupported/schema-fetch-failure blocked-run branch, and the real
+   *  `submit` branch — both now report/roll back the real `outputId` rather
+   *  than a minted DataType id. */
+  private def finishPipeline(
+      proposal: PipelineProposal,
+      pipelineId: PipelineId,
+      outputId: OutputId,
+      summary: PipelineSummaryResponse,
+      resolved: ResolvedSource,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, PipelineProposalApplyResponse]] = {
+    val outputIdStr = outputId.value
+    // design.md D2 (of HEL-755) + HEL-758 fix: TWO independent reasons never
+    // reach `submit` — (a) the run engine can't execute this source kind AT
+    // ALL regardless of connectivity (`SparkUnsupportedKinds`, currently
+    // empty), or (b) THIS PARTICULAR inline source's schema-fetch already
+    // failed at creation time (`resolved.fetchError.isDefined`). (b) is
+    // unconditional on kind and is NOT superseded by HEL-758 — the base
+    // `pipeline-proposal-apply` spec's "Source-fetch failure is a structured,
+    // rolled-back error" requirement is untouched by this change (not in its
+    // MODIFIED Requirements) and the ticket's own acceptance criteria are
+    // explicit that this fail-safe path must stay intact for a genuinely
+    // unreachable/misconfigured source. Emptying `SparkUnsupportedKinds`
+    // alone would have silently dropped (b) for rest_api/sql, since both
+    // were previously gated by the SAME single condition — caught by
+    // PipelineApplyProposalRollbackSpec's schema-fetch-failure tests
+    // actually failing (422/rollback instead of 201/blocked) once (a) alone
+    // was used. Skip `submit` entirely and never roll back; the pipeline,
+    // source, and Output are kept, and the response reports a durably-
+    // persisted (design.md D3 of HEL-755) blocked run instead.
+    if (PipelineRunService.SparkUnsupportedKinds.contains(resolved.kind) || resolved.fetchError.isDefined) {
+      val reason = resolved.fetchError match {
+        // HEL-758: dropped the old "...once ${resolved.kind} execution
+        // is supported" tail — rest_api/sql execution IS supported now
+        // (SparkUnsupportedKinds is empty); this specific source
+        // instance is what's unreachable, not the kind.
+        case Some(err) =>
+          s"Could not fetch from the source: $err. Fix the source configuration, then trigger a run " +
+            "from the pipeline."
+        case None =>
+          s"${resolved.kind} sources aren't executed automatically yet — this pipeline was created without a run."
+      }
+      pipelineRunService.recordUnrunnable(pipelineId, reason, user).map { runResult =>
+        Right(PipelineProposalApplyResponse(
+          source           = resolved.responseForClient,
+          pipeline         = summary,
+          outputDataTypeId = outputIdStr,
+          run              = runResult
+        ))
+      }
+    } else {
+      // This branch now reaches `submit` for every source kind the engine
+      // can execute — `static`/`csv`/`text`/`pdf`/`image`, and (HEL-758) a
+      // HEALTHY `rest_api`/`sql` source (fetchError = None), since
+      // `runPipeline` no longer hardcodes a rejection for the latter two.
+      // The guarded branch above intercepts either a kind listed in the
+      // (currently empty) `SparkUnsupportedKinds` set, or any inline source
+      // whose schema-fetch already failed.
+      pipelineRunService.submit(pipelineId, isDry = false, user).flatMap {
+        case Left(err) =>
+          // D6: run failure is "a failure at any step" — full
+          // rollback, not a partial success with run: null.
+          rollbackAll(pipelineId, outputIdStr, resolved, user).map(_ => Left(err))
+        // HEL-570 (design.md Decision 8): a blocked run returns `Right`
+        // with the Output never populated — treated identically to a run
+        // failure for rollback purposes, since a "success" response here
+        // would point the caller at an empty Output. Must be checked
+        // BEFORE the unguarded `Right(runResult)` case.
+        case Right(runResult) if runResult.blocked =>
+          rollbackAll(pipelineId, outputIdStr, resolved, user).map(_ => Left(
+            ServiceError.UnprocessableEntity(runResult.blockedReason.getOrElse("Run blocked by an assertion failure"))
+          ))
+        case Right(runResult) =>
+          Future.successful(Right(PipelineProposalApplyResponse(
+            source            = resolved.responseForClient,
+            pipeline          = summary,
+            outputDataTypeId  = outputIdStr,
+            run               = runResult
+          )))
+      }
+    }
+  }
+
+  /** Create steps in proposal order, short-circuiting on the first failure.
+   *  Accumulates every created step's response (not just `Unit`, as before
+   *  HEL-904 task 3.8) so `createPipeline` can identify the LAST trunk
+   *  step's id — the node the proposal's Output attaches to (design.md:
+   *  "an Output on the pipeline's last trunk step, root if zero steps"). */
   private def addSteps(
       pipelineId: PipelineId,
       steps: Vector[CreatePipelineStepRequest],
       user: AuthenticatedUser
-  ): Future[Either[ServiceError, Unit]] =
-    steps.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, step) =>
+  ): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
+    steps.foldLeft(Future.successful[Either[ServiceError, Vector[PipelineStepResponse]]](Right(Vector.empty))) { (accF, step) =>
       accF.flatMap {
         case Left(err) => Future.successful(Left(err))
-        case Right(_)  => pipelineService.addStep(pipelineId, step, user).map(_.map(_ => ()))
+        case Right(created) =>
+          pipelineService.addStep(pipelineId, step, user).map(_.map(resp => created :+ resp))
       }
     }
 
   /** design.md D5's full rollback order: pipeline (cascades steps/runs) →
-   *  pipeline's output DataType (`sourceId` is always `None` by construction,
-   *  so `checkSourceLink` passes trivially) → the inline source (if this call
-   *  created it) → its companion DataType(s), using the id(s) already
-   *  captured at creation time — never re-queried after the source is gone. */
+   *  the real Output AND the legacy pipeline-minted output DataType (both
+   *  independent, un-cascaded rows — see `rollback`'s scaladoc; `sourceId`
+   *  is always `None` by construction, so `checkSourceLink` passes
+   *  trivially) → the inline source (if this call created it) → its
+   *  companion DataType(s), using the id(s) already captured at creation
+   *  time — never re-queried after the source is gone. */
   private def rollbackAll(
       pipelineId: PipelineId,
-      outputDataTypeId: String,
+      outputId: String,
       resolved: ResolvedSource,
       user: AuthenticatedUser
   ): Future[Unit] =
     pipelineService.delete(pipelineId, user).flatMap { _ =>
-      dataTypeService.delete(DataTypeId(outputDataTypeId), user).flatMap { _ =>
+      outputRepo.deleteInternal(OutputId(outputId)).flatMap { _ =>
         rollbackSourceOnly(resolved, user)
       }
     }
 
-  /** Deletes the inline source FIRST (nulls the companion DataType's
-   *  `sourceId` via `ON DELETE SET NULL`), then the companion DataType(s) —
-   *  `checkSourceLink` would reject the companion delete if run before the
-   *  source is gone. No-op for the `sourceId` branch (nothing was created). */
+  /** Deletes the inline source, if this call created one — its inferred schema lives
+   *  inline (`data_sources.inferred_schema`), so there is no separate companion row to
+   *  clean up. No-op for the `sourceId` branch (nothing was created). */
   private def rollbackSourceOnly(resolved: ResolvedSource, user: AuthenticatedUser): Future[Unit] =
     if (!resolved.createdByThisCall) Future.successful(())
-    else
-      dataSourceService.delete(resolved.id, user).flatMap { _ =>
-        Future.sequence(resolved.companionDataTypeIds.map(id => dataTypeService.delete(id, user))).map(_ => ())
-      }
+    else dataSourceService.delete(resolved.id, user).map(_ => ())
 }
 
 object PipelineProposalService {
@@ -480,12 +508,12 @@ object PipelineProposalService {
    *  string, populated at every resolution site — used by `createPipeline`
    *  to decide whether the run engine can execute this source at all.
    *  `fetchError` (design.md D1) carries the connector's curated message when
-   *  an inline `rest_api`/`sql` schema fetch failed; `None` otherwise. */
+   *  an inline `rest_api`/`sql` schema fetch failed; `None` otherwise. HEL-904: no more
+   *  `companionDataTypeIds` — a source's inferred schema lives inline on the row. */
   private[services] final case class ResolvedSource(
       id: DataSourceId,
       responseForClient: Option[DataSourceResponse],
       createdByThisCall: Boolean,
-      companionDataTypeIds: Vector[DataTypeId],
       kind: String,
       fetchError: Option[String] = None
   )

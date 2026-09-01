@@ -8,7 +8,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.domain.engine.SchemaField
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -66,19 +66,18 @@ class DataSourceServiceRestartPersistenceSpec
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE data_sources RESTART IDENTITY CASCADE"))
   }
 
   /** Build a fresh service stack against the shared DB. Two calls return two
    *  independent service objects with their own repository instances —
    *  exactly the situation the JVM has after restart. */
-  private def buildServices(uploadsDir: java.nio.file.Path): (DataSourceService, DataTypeRepository, DataSourceRepository) = {
+  private def buildServices(uploadsDir: java.nio.file.Path): (DataSourceService, DataSourceRepository) = {
     val ctx            = new DbContext(db, db)
     val dataSourceRepo = new DataSourceRepository(ctx)
-    val dataTypeRepo   = new DataTypeRepository(ctx)
     val fileSystem     = new LocalFileSystem(uploadsDir)
-    val service        = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
-    (service, dataTypeRepo, dataSourceRepo)
+    val service        = new DataSourceService(dataSourceRepo, fileSystem)
+    (service, dataSourceRepo)
   }
 
   "Schema persistence across a service restart" should {
@@ -86,7 +85,7 @@ class DataSourceServiceRestartPersistenceSpec
     "retain the inferred DataType for a CSV source" in {
       cleanDb()
       val uploadsDir = Files.createTempDirectory("helio-restart-csv")
-      val (service1, _, _) = buildServices(uploadsDir)
+      val (service1, _) = buildServices(uploadsDir)
       val createBytes      = "id,name\n1,Alice\n2,Bob".getBytes(StandardCharsets.UTF_8)
       val srcId = await(service1.createCsv("Restart CSV", createBytes, Vector.empty, user)) match {
         case Right(src) => src.id
@@ -94,20 +93,16 @@ class DataSourceServiceRestartPersistenceSpec
       }
 
       // "Restart": rebuild repositories + service against the same DB.
-      val (_, dataTypeRepo2, dataSourceRepo2) = buildServices(uploadsDir)
+      val (_, dataSourceRepo2) = buildServices(uploadsDir)
       val sourceAfter = await(dataSourceRepo2.findByIdInternal(srcId))
       sourceAfter should not be empty
-
-      val dtsAfter = await(dataTypeRepo2.findBySourceId(srcId, owner))
-      dtsAfter should have size 1
-      dtsAfter.head.sourceId shouldBe Some(srcId)
-      dtsAfter.head.fields.map(_.name) should contain allOf ("id", "name")
+      sourceAfter.get.inferredSchema.map(_.name) should contain allOf ("id", "name")
     }
 
     "retain the inferred DataType for a Static source" in {
       cleanDb()
       val uploadsDir       = Files.createTempDirectory("helio-restart-static")
-      val (service1, _, _) = buildServices(uploadsDir)
+      val (service1, _) = buildServices(uploadsDir)
       val req = StaticDataSourceRequest(
         name    = "Restart Static",
         `type`  = "static",
@@ -119,22 +114,20 @@ class DataSourceServiceRestartPersistenceSpec
         case Left(err)  => fail(s"createStatic failed: $err")
       }
 
-      val (_, dataTypeRepo2, dataSourceRepo2) = buildServices(uploadsDir)
-      await(dataSourceRepo2.findByIdInternal(srcId)) should not be empty
-      val dtsAfter = await(dataTypeRepo2.findBySourceId(srcId, owner))
-      dtsAfter should have size 1
-      dtsAfter.head.sourceId shouldBe Some(srcId)
-      dtsAfter.head.fields.map(_.name) should contain allOf ("id", "label")
+      val (_, dataSourceRepo2) = buildServices(uploadsDir)
+      val sourceAfter = await(dataSourceRepo2.findByIdInternal(srcId))
+      sourceAfter should not be empty
+      sourceAfter.get.inferredSchema.map(_.name) should contain allOf ("id", "label")
     }
 
-    "retain the inferred DataType for a SQL source" in {
+    "retain the inferred schema for a SQL source" in {
       cleanDb()
       // SqlSource is not created via DataSourceService; the SQL ingest flow
       // sits behind SourceService (REST/SQL routes). We exercise the row
-      // round-trip directly through the repositories, which is what
-      // SourceService.createSqlSource ultimately writes.
-      val (_, _, dataSourceRepo1) = buildServices(Files.createTempDirectory("helio-restart-sql"))
-      val dataTypeRepo1           = new DataTypeRepository(new DbContext(db, db))
+      // round-trip directly through the repository, which is what
+      // SourceService.createSqlSource ultimately writes (HEL-904 task 4.3:
+      // `upsertInferredSchema` directly on the source, no companion DataType).
+      val (_, dataSourceRepo1) = buildServices(Files.createTempDirectory("helio-restart-sql"))
       val now                     = java.time.Instant.now()
       val srcId                   = DataSourceId(UUID.randomUUID().toString)
       val sqlSource = SqlSource(
@@ -154,30 +147,16 @@ class DataSourceServiceRestartPersistenceSpec
         )
       )
       await(dataSourceRepo1.insert(sqlSource, user))
-      val dt = DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = Some(srcId),
-        name      = "Restart SQL",
-        fields    = Vector(
-          DataField("x", "X", "integer", nullable = false),
-          DataField("y", "Y", "float",   nullable = false)
-        ),
-        version   = 1,
-        createdAt = now,
-        updatedAt = now,
-        ownerId   = owner
-      )
-      await(dataTypeRepo1.insert(dt, user))
+      await(dataSourceRepo1.upsertInferredSchema(
+        srcId, Vector(SchemaField("x", "integer"), SchemaField("y", "float")), now, user
+      ))
 
-      // "Restart": fresh repos against the same DB.
+      // "Restart": fresh repo against the same DB.
       val ctx2            = new DbContext(db, db)
       val dataSourceRepo2 = new DataSourceRepository(ctx2)
-      val dataTypeRepo2   = new DataTypeRepository(ctx2)
-      await(dataSourceRepo2.findByIdInternal(srcId)) should not be empty
-      val dtsAfter = await(dataTypeRepo2.findBySourceId(srcId, owner))
-      dtsAfter should have size 1
-      dtsAfter.head.sourceId shouldBe Some(srcId)
-      dtsAfter.head.fields.map(_.name) should contain allOf ("x", "y")
+      val sourceAfter = await(dataSourceRepo2.findByIdInternal(srcId))
+      sourceAfter should not be empty
+      sourceAfter.get.inferredSchema.map(_.name) should contain allOf ("x", "y")
     }
   }
 }

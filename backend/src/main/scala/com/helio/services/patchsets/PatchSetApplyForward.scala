@@ -4,7 +4,6 @@ import com.helio.services.dashboards.DashboardService
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.DashboardResponse
 import com.helio.api.protocols.sources.DataSourceResponse
-import com.helio.api.protocols.pipelines.DataTypeResponse
 import com.helio.api.protocols.patchsets.EditOutcome
 import com.helio.api.protocols.panels.PanelResponse
 import com.helio.domain.model.AuthenticatedUser
@@ -69,13 +68,10 @@ private[services] object PatchSetApplyForward {
           edit.toOutcome("applied", newId = Some(ds.id.value), resultingState = Some(dataSourceResponseFormat.write(DataSourceResponse.fromDomain(ds))))
         })
 
-      // ── dataType (no create — design.md D1) ───────────────────────────
-      case ResolvedAction.DataTypeUpdate(id, request, _) =>
-        services.dataTypeService.update(id, request, user).map(_.map { dt =>
-          edit.toOutcome("applied", resultingState = Some(dataTypeResponseFormat.write(DataTypeResponse.fromDomain(dt))))
-        })
-      case ResolvedAction.DataTypeDelete(id, _) =>
-        services.dataTypeService.delete(id, user).map(_.map(_ => edit.toOutcome("applied")))
+      // HEL-904 task 3.3: the `dataType` ResolvedAction cases (update/delete)
+      // are REMOVED outright -- `PatchSetProtocol.recognizedKinds` no longer
+      // accepts "dataType" as a valid target.kind, so `PatchSetApplyResolvers`
+      // can never produce one of these actions for forward-apply to handle.
 
       case ResolvedAction.PipelineUpdate(id, request, _) =>
         services.pipelineService.updateName(id, request, user).map(_.map { summary =>

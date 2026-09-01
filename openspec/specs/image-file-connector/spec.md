@@ -3,12 +3,14 @@
 ## Purpose
 Data Source connector for image files (file upload and URL-based ingestion), storing content as a
 `binary-ref` field with `filename`/`sizeBytes`/`mimeType`/`width`/`height` metadata.
+
 ## Requirements
+
 ### Requirement: POST /api/data-sources accepts an image file upload
 The endpoint SHALL accept `multipart/form-data` with a `type` part equal to `"image"`, a `file` part
 (the image file), and a `name` part. It SHALL validate the file's extension, store the raw bytes via
 the `FileSystem` abstraction, create a `DataSource` record with discriminator `type = "image"` and
-`config = {"path": "<relative-path>"}`, register a linked `DataType` with fields `content`
+`config = {"path": "<relative-path>"}`, update the source's `inferred_schema` with fields `content`
 (`binary-ref`), `filename` (`string`), `sizeBytes` (`integer`), `mimeType` (`string`), `width`
 (`integer`), and `height` (`integer`), and return 201 with the created `DataSource`.
 
@@ -16,7 +18,7 @@ the `FileSystem` abstraction, create a `DataSource` record with discriminator `t
 - **WHEN** `POST /api/data-sources` is called with `type=image`, a valid `.png` file, and a name
 - **THEN** the response is 201 with the created DataSource including `id`, `name`, `type: "image"`,
   and `config.path`
-- **AND** a `DataType` linked to the new source is registered with fields `content` (`binary-ref`),
+- **AND** an inferred schema record linked to the new source is registered with fields `content` (`binary-ref`),
   `filename` (`string`), `sizeBytes` (`integer`), `mimeType` (`string`), `width` (`integer`), and
   `height` (`integer`)
 
@@ -53,14 +55,14 @@ The endpoint SHALL accept a JSON body `{"name": string, "type": "image", "config
 It SHALL fetch the URL's content via the guarded `ContentSourceSupport.fetchUrl`, validate the
 resolved filename's extension, store the fetched bytes via `FileSystem` (same as an upload), create
 a `DataSource` with `config = {"path": "<relative-path>", "sourceUrl": "<url>"}`, register the linked
-`DataType`, and return 201.
+inferred schema, and return 201.
 
 #### Scenario: Valid URL ingestion creates DataSource and DataType
 - **WHEN** `POST /api/data-sources` is called with `type: "image"` and `config.url` pointing to a
   reachable image resource
 - **THEN** the response is 201 with the created DataSource, `type: "image"`, and `config.sourceUrl`
   set to the given URL
-- **AND** a `DataType` linked to the source is registered with fields `content`, `filename`,
+- **AND** an inferred schema record linked to the source is registered with fields `content`, `filename`,
   `sizeBytes`, `mimeType`, `width`, `height`
 
 #### Scenario: Unreachable URL returns 502
@@ -112,24 +114,24 @@ from `IMAGE_MAX_FILE_SIZE_BYTES`, defaulting to 20971520 (20 MB).
 
 ### Requirement: A successful pipeline run indexes binary-ref row values into binary_refs
 `PipelineRunService.onRunSuccess` SHALL, whenever it writes a pipeline's output rows via
-`DataTypeRowRepository.overwriteRows`, also extract every `binary-ref`-shaped field value present
+`inferred schemaRowRepository.overwriteRows`, also extract every `binary-ref`-shaped field value present
 in those rows and write the corresponding `BinaryRef` records via
-`BinaryRefRepository.overwriteForDataType` in the same operation, keyed by the output `DataType`'s
+`BinaryRefRepository.overwriteForinferred schema` in the same operation, keyed by the output inferred schema's
 id, each row's index, and the field name.
 
 #### Scenario: Running a pipeline bound to an image source populates binary_refs
 - **WHEN** a pipeline bound to an `ImageSource` is run successfully
-- **THEN** `binary_refs` contains one row for the output DataType's `content` field, matching the
+- **THEN** `binary_refs` contains one row for the output inferred schema's `content` field, matching the
   `storageKey`/`mimeType`/`filename`/`sizeBytes` written to `data_type_rows`
 
 #### Scenario: Re-running the pipeline replaces the prior binary_refs snapshot
 - **WHEN** a pipeline bound to an `ImageSource` is run a second time
-- **THEN** the previous run's `binary_refs` rows for that DataType are replaced, not accumulated
+- **THEN** the previous run's `binary_refs` rows for that inferred schema are replaced, not accumulated
   (mirrors `overwriteRows`' delete-then-insert semantics)
 
 #### Scenario: Running a pipeline with no binary-ref fields writes no binary_refs rows
 - **WHEN** a pipeline bound to a `CsvSource` or `StaticSource` (no `binary-ref` field values) is run
-- **THEN** no rows are written to `binary_refs` for that DataType
+- **THEN** no rows are written to `binary_refs` for that inferred schema
 
 ### Requirement: POST /api/data-sources/:id/refresh re-reads or re-fetches image sources
 For an upload-created image source (`config.sourceUrl` absent), refresh SHALL re-read the stored
@@ -153,4 +155,3 @@ When deleting a data source with discriminator `type = "image"`, the backend SHA
 #### Scenario: Deleting an image source removes the stored file
 - **WHEN** `DELETE /api/data-sources/:id` is called for a source with `type = "image"`
 - **THEN** the data source record is removed and the stored file is deleted from the FileSystem
-

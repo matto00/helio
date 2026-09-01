@@ -25,16 +25,7 @@ import { computeProposalWarnings } from "./proposalValidation.js";
 // on other paths, this tool just no longer offers it.
 // Exported so `replace_dashboard_contents` (write.ts, HEL-363) can reuse the
 // exact same agent-facing panel-type set instead of redefining it.
-export const PANEL_TYPES = [
-  "metric",
-  "chart",
-  "table",
-  "text",
-  "markdown",
-  "image",
-  "collection",
-  "timeline",
-] as const;
+export const PANEL_TYPES = ["text", "markdown", "image", "output"] as const;
 
 const layoutSchema = z.object({
   x: z.number().int().nonnegative(),
@@ -65,11 +56,6 @@ export const panelSchema = z.object({
   title: z.string().min(1),
   type: z.enum(PANEL_TYPES),
   dataTypeId: z.string().optional(),
-  // HEL-549: additive to dataTypeId (which remains required) — binds a
-  // metric/chart/table panel to a defined metric via the same
-  // MetricPanelConfig/ChartPanelConfig/TablePanelConfig metricId slot
-  // create_panel uses. Unsupported on collection/timeline.
-  metricId: z.string().optional(),
   fieldMapping: z.record(z.string(), z.string()).optional(),
   aggregation: aggregationSchema.optional(),
   // Initial config for non-data panels, applied at create time (HEL-293).
@@ -139,12 +125,6 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "• table — bind with dataTypeId/fieldMapping; config.density " +
         "(condensed|normal|spacious) and config.columnOrder (string[] of visible column keys, in " +
         "order).\n" +
-        "• metric/chart/table — may additionally supply `metricId` to bind the panel to a defined " +
-        "metric (see get_workspace_context's metrics catalog, or list_metrics/get_metric), reusing " +
-        "the same config slot POST /api/panels uses. dataTypeId is still required alongside it — " +
-        "metricId does not replace it. Unsupported on collection/timeline; a missing/deprecated/" +
-        "not-owned metricId or one set on an unsupported type warns here (applyReady: false) and " +
-        "400s the whole apply at apply_proposal time.\n" +
         "• collection — bind with dataTypeId/fieldMapping (base-type slots, e.g. baseType " +
         "metric → {value,label?,unit?}); config.baseType (metric) and config.layout " +
         "(grid|list). One bound row = one rendered item.\n" +
@@ -173,16 +153,12 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         const typedPanels = panels as ProposalPanel[];
         const proposal: DashboardProposal = { dashboardName, panels: typedPanels };
 
-        // Read-only validation against the workspace: resolve DataTypes/metrics
-        // once and flag panels whose binding is missing/invalid. Extracted to
-        // `proposalValidation.ts` (HEL-549) — see that module's docstring for why.
-        const [typesPage, metricsPage] = await Promise.all([
-          api.listDataTypes(),
-          api.listMetrics(),
-        ]);
+        // Read-only validation against the workspace: resolve DataTypes once
+        // and flag panels whose binding is missing/invalid. Extracted to
+        // `proposalValidation.ts` (HEL-223) — see that module's docstring for why.
+        const typesPage = await api.listDataTypes();
         const byId = new Map(typesPage.items.map((t) => [t.id, t]));
-        const metricById = new Map(metricsPage.items.map((m) => [m.id, m]));
-        const warnings = computeProposalWarnings(typedPanels, byId, metricById);
+        const warnings = computeProposalWarnings(typedPanels, byId);
 
         return { proposal, warnings, applyReady: warnings.length === 0 };
       }),

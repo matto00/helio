@@ -4,17 +4,19 @@ import com.helio.api.routes.proposals.DashboardAuthoringRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeStreamEvent, ClaudeTransport}
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, TraceContextDirective, ResourceType => AclResourceType}
 import com.helio.api.JsonProtocols
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.services.proposals.{DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.DataSourceService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelCapabilityService
 import com.helio.services.workspace.WorkspaceContextService
@@ -39,7 +41,6 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
 import java.nio.file.Files
-import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -66,7 +67,10 @@ class AuthoringTelemetrySpec
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
-  private var dataTypeRepo: DataTypeRepository   = _
+  private var outputRepo: OutputRepository       = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
+  private var pipelineRepo: PipelineRepository   = _
+  private var dataSourceRepo: DataSourceRepository = _
 
   private var workspaceContextService: WorkspaceContextService   = _
   private var panelCapabilityService: PanelCapabilityService     = _
@@ -93,18 +97,19 @@ class AuthoringTelemetrySpec
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)
 
-    val dataSourceRepo   = new DataSourceRepository(ctx)
-    dataTypeRepo         = new DataTypeRepository(ctx)
-    val dataTypeRowRepo  = new DataTypeRowRepository(ctx)
-    val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    dataSourceRepo       = new DataSourceRepository(ctx)
+    pipelineRepo         = new PipelineRepository(ctx, dataSourceRepo)
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
     val tmpDir = Files.createTempDirectory("helio-authoring-telemetry-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
+    // HEL-904 task 3.12/4.1: WorkspaceContextService takes OutputRepository now (dataTypeService
+    // no longer exists).
+    outputRepo            = new OutputRepository(ctx)
+    nodeSnapshotRepo      = new NodeSnapshotRepository(ctx)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val registry        = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
@@ -113,9 +118,9 @@ class AuthoringTelemetrySpec
     val accessChecker    = new AccessCheckerImpl(permissionRepo, registry)
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
 
-    workspaceContextService  = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
-    panelCapabilityService   = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
-    dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null)
+    workspaceContextService  = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
+    panelCapabilityService   = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
+    dashboardProposalService = new DashboardProposalService(null, null, outputRepo)
     conversationRepo         = new AuthoringConversationRepository(ctx)
   }
 
@@ -133,22 +138,38 @@ class AuthoringTelemetrySpec
 
   /** A fresh user with one pipeline-output DataType — a non-empty workspace. Returns the
    *  `DataType` too so callers that need to bind a proposal panel to it don't have to re-query. */
-  private def userWithWorkspace(): (AuthenticatedUser, DataType) = {
+  private def userWithWorkspace(): (AuthenticatedUser, String) = {
     implicit val ec: ExecutionContext = routeEc
     val owner = newUser()
-    val now   = Instant.now()
-    val dt = DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = "Sales",
-      fields    = Vector(DataField("revenue", "Revenue", "float", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = owner.id
+    // HEL-904 task 3.12: `DashboardAuthoringService.assembleGroundedContext`'s "empty workspace"
+    // check now filters `WorkspaceContextService.assemble`'s Output-backed `dataTypes` (not the
+    // legacy source-companion/pipeline-output DataType split) -- a real pipeline + Output is
+    // required for this fixture's workspace to read as non-empty.
+    val req = StaticDataSourceRequest(
+      name    = s"src-${UUID.randomUUID()}",
+      `type`  = "static",
+      columns = Vector(StaticColumnPayload("value", "string")),
+      rows    = Vector(Vector(JsString("x"))),
+      tag     = None
     )
-    await(dataTypeRepo.insert(dt, owner))
-    (owner, dt)
+    val dataSourceService = new DataSourceService(dataSourceRepo, new LocalFileSystem(Files.createTempDirectory("helio-authoring-telemetry-src")))
+    val source = await(dataSourceService.createStatic(req, owner)) match {
+      case Right(ds) => ds
+      case Left(err) => fail(s"createStatic failed: $err")
+    }
+    val summary = await(pipelineRepo.create(s"pipe-${UUID.randomUUID()}", source.id, owner)) match {
+      case Right(s)  => s
+      case Left(err) => fail(s"pipeline create failed: $err")
+    }
+    val createdOutput = await(outputRepo.insertInternal(
+      PipelineId(summary.id), nodeStepId = None, owner.id, "Sales", OutputKind.Table,
+      schema = Vector(SchemaField("revenue", "float"))
+    ))
+    // `userWithWorkspace` returns the real Output's own id string (HEL-904 cycle 29: the
+    // vestigial `DataType`/`DataTypeId` wrapper this used to be built through is deleted --
+    // neither type exists anywhere in `model.scala` anymore) -- used to bind an "output"-kind
+    // proposal panel's `dataTypeId` field (task 3.9's Output-id semantics).
+    (owner, createdOutput.id.value)
   }
 
   private def cannedResponse(text: String): Future[ClaudeApiResponse] =
@@ -315,7 +336,7 @@ class AuthoringTelemetrySpec
       val (user, dt) = userWithWorkspace()
       val modelId = s"model-${UUID.randomUUID()}"
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)), modelId)
 
       var responseAuthoringRequestId: String = ""
@@ -415,7 +436,7 @@ class AuthoringTelemetrySpec
       val (user, dt) = userWithWorkspace()
       val modelId = s"model-${UUID.randomUUID()}"
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(""), Seq(ClaudeStreamEvent.TextDelta(validJson), ClaudeStreamEvent.MessageStop)), modelId)
 
       var resultAuthoringRequestId: String = ""

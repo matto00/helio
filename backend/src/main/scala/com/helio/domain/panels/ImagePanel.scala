@@ -1,7 +1,7 @@
 package com.helio.domain.panels
 
 import com.helio.api.http.RequestValidation
-import com.helio.domain.model.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
+import com.helio.domain.model.{DashboardId, Panel, PanelAppearance, PanelId, ResourceMeta, UserId}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -102,13 +102,8 @@ final case class ImagePanel(
     config: ImagePanelConfig
 ) extends Panel {
   val kind: String                    = ImagePanel.Kind
-  def dataTypeId: Option[DataTypeId]  = None
-  def fieldMapping: Option[JsValue]   = None
 
   def validateConfig: Either[String, Unit] = Right(())
-
-  def buildQuery: Option[PanelQuery] = None
-  def withBindingCleared: Panel      = this
 
   def applyPatch(patch: ImagePanelConfig.Patch): ImagePanel = copy(
     config = ImagePanelConfig(

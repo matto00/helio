@@ -1,6 +1,7 @@
 package com.helio.domain.model
 
 import com.helio.api.http.RequestValidation
+import com.helio.domain.engine.SchemaField
 import java.time.Instant
 import org.apache.pekko.http.scaladsl.model.{ContentType, ContentTypes}
 import org.slf4j.LoggerFactory
@@ -9,7 +10,6 @@ import spray.json._
 final case class DashboardId(value: String) extends AnyVal
 final case class PanelId(value: String) extends AnyVal
 final case class DataSourceId(value: String) extends AnyVal
-final case class DataTypeId(value: String) extends AnyVal
 final case class UserId(value: String) extends AnyVal
 final case class PipelineId(value: String) extends AnyVal
 final case class AlertRuleId(value: String) extends AnyVal
@@ -99,43 +99,51 @@ object ResourceType {
   case object Panel     extends ResourceType
 }
 
+/** HEL-904 task 3.6 (collapse complete): the nine pre-existing values plus
+ *  `Output` (cycle 15's additive increment) are collapsed to the final
+ *  5-value set design.md specifies (`output | text | markdown | image |
+ *  divider`). `Metric`/`Chart`/`Table`/`Collection`/`Timeline` are removed
+ *  outright — everything they used to carry now lives on the `Output`
+ *  (`outputs.config`, `OutputRepository`), not on a panel placement. Their
+ *  bound `*Panel.scala` case classes (`MetricPanel`/`ChartPanel`/
+ *  `TablePanel`/`CollectionPanel`/`TimelinePanel`) are deleted in the same
+ *  commit, along with `PanelBindingSpec` (superseded by `OutputBindingSpec`,
+ *  keyed by `OutputKind` — added additively in this same task). See
+ *  execution-progress.md cycles 14/15 for the sizing history that led here. */
 sealed trait PanelType
 object PanelType {
-  case object Metric   extends PanelType
-  case object Chart    extends PanelType
   case object Text     extends PanelType
-  case object Table    extends PanelType
-  case object Markdown   extends PanelType
-  case object Image      extends PanelType
-  case object Divider    extends PanelType
-  case object Collection extends PanelType
-  case object Timeline   extends PanelType
+  case object Markdown extends PanelType
+  case object Image    extends PanelType
+  case object Divider  extends PanelType
+  case object Output   extends PanelType
 
-  val Default: PanelType = Metric
+  // HEL-904: was `Output` from the 5-value collapse commit — a genuine bug
+  // (not a design decision), since `OutputPanelConfig` REQUIRES a non-empty
+  // `outputId` (unlike the old default `Metric`, which tolerated an empty
+  // config) — an ordinary `POST /api/panels` with no `type` at all now 400s
+  // instead of creating a plain panel. `Divider` is the only kind that is
+  // both content-only (no data binding ever required) and always
+  // config-valid empty, matching this ticket's own established convention
+  // for "no binding needed" fallbacks elsewhere (e.g.
+  // `ProposalPanelSupport.buildDataConfig`'s empty-config panels).
+  val Default: PanelType = Divider
 
   def fromString(s: String): Either[String, PanelType] = s match {
-    case "metric"     => Right(Metric)
-    case "chart"      => Right(Chart)
-    case "text"       => Right(Text)
-    case "table"      => Right(Table)
-    case "markdown"   => Right(Markdown)
-    case "image"      => Right(Image)
-    case "divider"    => Right(Divider)
-    case "collection" => Right(Collection)
-    case "timeline"   => Right(Timeline)
-    case other        => Left(s"Unknown panel type: '$other'. Valid values: metric, chart, text, table, markdown, image, divider, collection, timeline")
+    case "text"     => Right(Text)
+    case "markdown" => Right(Markdown)
+    case "image"    => Right(Image)
+    case "divider"  => Right(Divider)
+    case "output"   => Right(Output)
+    case other      => Left(s"Unknown panel type: '$other'. Valid values: text, markdown, image, divider, output")
   }
 
   def asString(t: PanelType): String = t match {
-    case Metric     => "metric"
-    case Chart      => "chart"
-    case Text       => "text"
-    case Table      => "table"
-    case Markdown   => "markdown"
-    case Image      => "image"
-    case Divider    => "divider"
-    case Collection => "collection"
-    case Timeline   => "timeline"
+    case Text     => "text"
+    case Markdown => "markdown"
+    case Image    => "image"
+    case Divider  => "divider"
+    case Output   => "output"
   }
 }
 
@@ -462,12 +470,9 @@ final case class Dashboard(
     layout: DashboardLayout,
     ownerId: UserId
 )
-final case class PanelQuery(
-    selectedFields: List[String],
-    filters: List[JsValue],
-    sort: Option[String],
-    limit: Option[Int]
-)
+// `PanelQuery`/`GET /api/panels/:id/query` removed outright (HEL-904 task
+// 4.1) — HEL-292 panel-level aggregation and this route are retired, not
+// carried over to Outputs (design.md line 195).
 
 // `Panel` ADT lives in `Panel.scala` (trait + 7 typed subtypes under
 // `panels/`). The pre-CS2c-3b flat case class is removed.
@@ -640,30 +645,6 @@ final case class DataField(
     nullable: Boolean
 )
 
-final case class ComputedField(
-    name: String,
-    displayName: String,
-    expression: String,
-    dataType: String
-)
-
-final case class DataType(
-    id: DataTypeId,
-    sourceId: Option[DataSourceId],
-    name: String,
-    fields: Vector[DataField],
-    computedFields: Vector[ComputedField] = Vector.empty,
-    version: Int,
-    createdAt: Instant,
-    updatedAt: Instant,
-    ownerId: UserId,
-    // HEL-366: optional free-form grouping tag. For a source-companion
-    // DataType this mirrors its owning DataSource's tag; for a pipeline
-    // output DataType this mirrors its producing Pipeline's tag (both
-    // propagated at create time — see design.md Decision 6 / tasks.md 2.3).
-    tag: Option[String] = None
-)
-
 sealed trait Role
 object Role {
   case object Viewer extends Role
@@ -700,7 +681,6 @@ final case class Pipeline(
     id: PipelineId,
     name: String,
     sourceDataSourceId: DataSourceId,
-    outputDataTypeId: DataTypeId,
     lastRunStatus: Option[String],
     lastRunAt: Option[Instant],
     createdAt: Instant,
@@ -713,16 +693,94 @@ final case class Pipeline(
 final case class PipelineStepId(value: String) extends AnyVal
 final case class PipelineRunId(value: String) extends AnyVal
 
+/** HEL-904 (Outputs remodel) — an Output is a panel-bindable projection of a
+ *  single pipeline node, replacing the DataType/Metric split (design.md
+ *  "Output model"). Additive-only at this task (1.1): repositories,
+ *  rewiring, and the retirement of `Pipeline.outputDataTypeId` land in later
+ *  tasks (§1.5, §3.5). */
+final case class OutputId(value: String) extends AnyVal
+
+/** A reference to the pipeline node (a step, or the pipeline's own source)
+ *  this Output/NodeSnapshot projects. `stepId = None` means "the pipeline's
+ *  raw source rows, before any step" — mirrors `PipelineStep.parentStepId`'s
+ *  `None` = "trunk root" convention. */
+final case class NodeRef(pipelineId: PipelineId, stepId: Option[PipelineStepId])
+
+/** The shape an Output's bound data takes — mirrors the `Severity`/
+ *  `Comparator` enum pattern used elsewhere in this file. */
+sealed trait OutputKind
+object OutputKind {
+  case object Table      extends OutputKind
+  case object Metric     extends OutputKind
+  case object Chart      extends OutputKind
+  case object Collection extends OutputKind
+  case object Timeline   extends OutputKind
+  case object Markdown   extends OutputKind
+
+  /** HEL-904 task 3.6 correction: ticket.md line 42 / design.md line 76 both
+   *  specify the six Phase-1 Output kinds as `metric, chart, table,
+   *  collection, timeline, markdown` — the additive task-1.1 version of this
+   *  enum shipped with only three (`table`/`metric`/`time_series`), a
+   *  mismatch caught while implementing `OutputBindingSpec` (which must be
+   *  keyed by the real kind set to carry over `PanelBindingSpec`'s five
+   *  data-bindable slot specs + the new markdown kind). Fixed inline here
+   *  (ordinary implementation bug, not a design question) rather than left
+   *  for a later cycle to trip over again. */
+  def fromString(s: String): Either[String, OutputKind] = s match {
+    case "table"      => Right(Table)
+    case "metric"     => Right(Metric)
+    case "chart"      => Right(Chart)
+    case "collection" => Right(Collection)
+    case "timeline"   => Right(Timeline)
+    case "markdown"   => Right(Markdown)
+    case other        =>
+      Left(s"Unknown output kind: '$other'. Valid values: table, metric, chart, collection, timeline, markdown")
+  }
+
+  def asString(k: OutputKind): String = k match {
+    case Table      => "table"
+    case Metric     => "metric"
+    case Chart      => "chart"
+    case Collection => "collection"
+    case Timeline   => "timeline"
+    case Markdown   => "markdown"
+  }
+}
+
+final case class Output(
+    id: OutputId,
+    name: String,
+    ownerId: UserId,
+    node: NodeRef,
+    kind: OutputKind,
+    createdAt: Instant,
+    updatedAt: Instant,
+    // HEL-904 task 3.12: the Output's derived `{name, type}` schema (persisted on the `outputs`
+    // row, `OutputRepository.OutputRow.schema`) -- added here, defaulted to `Vector.empty`, so
+    // every pre-existing direct `Output(...)` constructor call (tests, `OutputRepository`'s own
+    // `rowToDomain`/`insertInternal`) keeps compiling unchanged; only `OutputRepository` needs to
+    // actually populate it.
+    schema: Vector[SchemaField] = Vector.empty
+)
+
 // `PipelineStep` ADT lives in `Pipeline.scala` (sealed trait + 10 typed
 // subtypes). The pre-CS2c-3a flat case class is removed.
 
 /** Row-correlated metadata for a `binary-ref` field value (HEL-217). A
  *  derived secondary index over the same metadata already present in the
- *  field's inline JSONB value in `data_type_rows.data` — never an
- *  independent read path for row data. See `BinaryRefRepository`. */
+ *  field's inline JSONB value in `node_snapshots.data` — never an
+ *  independent read path for row data. See `BinaryRefRepository`.
+ *
+ *  HEL-904 (task 3.4): re-keyed from `dataTypeId` to `(pipelineId,
+ *  nodeStepId)` — the dev DB showed the only live row keys to a
+ *  pipeline-output type, and there is no companion-type writer to key
+ *  against a `dataSourceId` instead (see design.md's `binary_refs` row and
+ *  cycle 8's own `2.8` finding). `nodeStepId = None` means the pipeline's
+ *  trunk root (mirrors `NodeSnapshotRepository`'s same convention). */
 final case class BinaryRef(
     id: String,
-    dataTypeId: String,
+    pipelineId: String,
+    nodeStepId: Option[String],
     rowIndex: Int,
     fieldName: String,
     storageKey: String,
@@ -813,14 +871,19 @@ object Comparator {
 final case class AlertRule(
     id: AlertRuleId,
     ownerId: UserId,
-    targetDataTypeId: DataTypeId,
     metric: String,
     condition: JsValue,
     name: String,
     enabled: Boolean,
     severity: Severity,
     createdAt: Instant,
-    updatedAt: Instant
+    updatedAt: Instant,
+    // HEL-904 (Outputs remodel): the Output this rule evaluates against.
+    // `targetDataTypeId` is retired as of task 3.1 — every rule now targets
+    // an Output (backfilled by the V94 migration's step (f)); every new
+    // rule created via `AlertRuleService.create` resolves an `OutputId`
+    // up front, so this is non-`Option` at the domain layer.
+    targetOutputId: OutputId
 )
 
 /** HEL-414 — scheduled-runs data model foundation (no runtime firing here;
@@ -908,14 +971,14 @@ object AlertEventAction {
  *  `AlertEventRepository.upsertFiringInternal` for the dedup/upsert path and
  *  `AlertEventStateMachine` for the single-source-of-truth transition
  *  function every mutation (user-driven or engine-driven) goes through.
- *  `ownerId`/`targetDataTypeId` are denormalized from the parent `AlertRule`
+ *  `ownerId`/`targetOutputId` are denormalized from the parent `AlertRule`
  *  at creation (design.md Decision: "Table shape"). `pipelineRunId` is
  *  unenforced (no FK) — pipeline runs are ephemeral execution records. */
 final case class AlertEvent(
     id: AlertEventId,
     alertRuleId: AlertRuleId,
     ownerId: UserId,
-    targetDataTypeId: DataTypeId,
+    targetOutputId: OutputId,
     value: JsValue,
     pipelineRunId: Option[String],
     severity: Severity,
@@ -926,8 +989,6 @@ final case class AlertEvent(
     acknowledgedAt: Option[Instant],
     snoozedUntil: Option[Instant]
 )
-
-final case class MetricId(value: String) extends AnyVal
 
 /** HEL-397 — a server-persisted, owner-scoped, multi-turn authoring conversation (the pre-apply
  *  refinement of a `DashboardProposal`; see `AuthoringConversationRepository`). */
@@ -944,68 +1005,6 @@ final case class PatchSetApplicationId(value: String) extends AnyVal
  *  `AuthoringConversationId` — that type is HEL-397's pre-apply `DashboardProposal`-refinement
  *  conversation; this one is HEL-659's general-purpose assistant chat history. */
 final case class AssistantConversationId(value: String) extends AnyVal
-
-/** Display formatting hints for a [[MetricDefinition]]'s value — all optional,
- *  purely presentational (no effect on the underlying aggregation). */
-final case class MetricFormat(
-    unit: Option[String],
-    decimals: Option[Int],
-    prefix: Option[String],
-    suffix: Option[String]
-)
-
-/** Allow-list for `MetricDefinition.aggregation` (HEL-446). Deliberately a
- *  flat `Set[String]` + `validate`, not a `sealed trait` ADT like `Severity`/
- *  `Comparator`/`ScheduleKind` — `MetricDefinition.aggregation` stays a raw
- *  `String` field per the ticket's literal field list, validated only at the
- *  repository insert/update boundary (design.md Decision 1), not at
- *  construction. */
-object MetricAggregation {
-  val values: Set[String] = Set("sum", "avg", "min", "max", "count", "countDistinct")
-
-  def validate(s: String): Either[String, String] =
-    if (values.contains(s)) Right(s)
-    else Left(s"Unknown aggregation: '$s'. Valid values: ${values.toList.sorted.mkString(", ")}")
-}
-
-/** HEL-446 — Semantic/Metric Layer foundation (data-layer only; no CRUD
- *  service/routes yet, see HEL-418-B onward). A metric names a reusable
- *  measure over a pipeline-output `DataType`: an aggregation function applied
- *  to `measureField`, the dimensions it may be grouped by, and a display
- *  format. `aggregation` is validated against `MetricAggregation.values` at
- *  the repository boundary (design.md Decision 1), not at construction. */
-final case class MetricDefinition(
-    id: MetricId,
-    ownerId: UserId,
-    dataTypeId: DataTypeId,
-    name: String,
-    description: Option[String],
-    measureField: String,
-    aggregation: String,
-    allowedDimensions: Vector[String],
-    format: MetricFormat,
-    deprecated: Boolean = false,
-    createdAt: Instant,
-    updatedAt: Instant
-)
-
-/** One panel bound to a metric, for the "where used" query (HEL-560) —
- *  carries its owning dashboard's id/name so the caller never needs a
- *  second round trip to render "Panel X on Dashboard Y". */
-final case class MetricUsagePanel(
-    panelId: PanelId,
-    panelTitle: String,
-    dashboardId: DashboardId,
-    dashboardName: String
-)
-
-/** Owner-scoped usage summary for `GET /api/metrics/:id/usage` and the
- *  pre-delete count `MetricService.delete` computes (HEL-560 design.md D1). */
-final case class MetricUsage(
-    metricId: MetricId,
-    count: Int,
-    panels: Vector[MetricUsagePanel]
-)
 
 /** HEL-472 (420-A, Agent Memory & Preferences) — a per-user, schema-bounded store of
  *  agent-authoring defaults (series colors, default panel styling, naming conventions), plus a

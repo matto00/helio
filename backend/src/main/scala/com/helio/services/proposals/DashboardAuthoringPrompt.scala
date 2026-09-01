@@ -2,7 +2,7 @@ package com.helio.services.proposals
 
 import com.helio.api.protocols.agents.AgentPreferencesResponse
 import com.helio.api.protocols.panels.PanelCapabilitiesResponse
-import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextDataType}
+import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextOutput}
 
 /** Builds the natural-language prompt `DashboardAuthoringService` sends to `ClaudeClient`
  *  (HEL-392 design.md D4) — kept in its own file so neither this nor `DashboardAuthoringService`
@@ -24,19 +24,10 @@ object DashboardAuthoringPrompt {
       |  "panels": [
       |    {
       |      "title": "string, required, 1-160 chars",
-      |      "type": "one of: metric | chart | table | text | markdown | image | collection | timeline",
-      |      "dataTypeId": "string — REQUIRED for metric/chart/table/collection/timeline; must be one of the pipeline-output DataType ids listed below",
-      |      "fieldMapping": "object, panel-type-specific column bindings — metric {value,label?,unit?}; chart {xAxis,yAxis,series?}; table {columns}",
-      |      "aggregation": "object, optional — metric {value,agg} or chart {groupBy,agg,yField}; agg is one of count|sum|avg|min|max",
+      |      "type": "one of: text | markdown | image | output",
+      |      "dataTypeId": "string — REQUIRED for output panels; must be one of the pipeline-output Output ids listed below (the field is named dataTypeId for wire-schema stability, but the value is actually an Output id)",
       |      "content": "string — text/markdown panel body",
       |      "url": "string — image panel URL",
-      |      "chartType": "one of: bar | line | pie | scatter — chart panels only",
-      |      "xAxisLabel": "string — chart panels only",
-      |      "yAxisLabel": "string — chart panels only",
-      |      "seriesColors": ["string", "..."],
-      |      "label": "string — metric panels only, literal display label",
-      |      "unit": "string — metric panels only, literal display unit",
-      |      "sort": "asc | desc — timeline panels only",
       |      "layout": { "x": "integer >= 0", "y": "integer >= 0", "w": "integer >= 1", "h": "integer >= 1" }
       |    }
       |  ]
@@ -47,26 +38,26 @@ object DashboardAuthoringPrompt {
       "Respond with ONLY a single JSON object — no prose, no markdown code fences, nothing before " +
       "or after it — matching exactly this shape:\n\n" + ProposalShapeDescription + "\n\n" +
       "Rules:\n" +
-      "- Every data-bound panel's dataTypeId MUST be one of the pipeline-output DataType ids listed " +
-      "below. Never invent a dataTypeId or bind to a data type not listed.\n" +
-      "- Only use a panel kind for a DataType when its panel-capability entry below marks that kind " +
-      "bindable, and only reference columns that entry lists as eligible.\n" +
+      "- Every output panel's dataTypeId MUST be one of the pipeline-output Output ids listed " +
+      "below. Never invent an id or bind to an Output not listed.\n" +
+      "- Only use the output panel kind for an Output when its panel-capability entry below marks " +
+      "it bindable.\n" +
       "- If the goal can only be partially satisfied from the data available, return the best-effort " +
-      "proposal you can build from what is listed below — never fabricate a dataTypeId or column."
+      "proposal you can build from what is listed below — never fabricate an id."
 
   /** One line per pipeline-output DataType: its id/name, columns (name/type/semantic role, from the
    *  HEL-371 grounding context), and its panel-capability menu (HEL-365) — the exact per-DataType
    *  facts the spec.md "grounded in the caller's real data types" scenario asserts on. */
   private def groundingSection(
-      dataTypes: Vector[WorkspaceContextDataType],
+      dataTypes: Vector[WorkspaceContextOutput],
       capabilities: Map[String, PanelCapabilitiesResponse]
   ): String = {
     val entries = dataTypes.map { dt =>
       val columns = dt.columns.map(c => s"${c.name} (${c.dataType}, ${c.semanticRole})").mkString(", ")
       val capText = capabilities.get(dt.id).map(capabilityMenuFor).getOrElse("no panel-capability data available for this data type")
-      s"- DataType id=${dt.id} name=\"${dt.name}\"\n  columns: $columns\n  panel capabilities: $capText"
+      s"- Output id=${dt.id} name=\"${dt.name}\"\n  columns: $columns\n  panel capabilities: $capText"
     }
-    "Available pipeline-output data types:\n" + entries.mkString("\n")
+    "Available pipeline Outputs:\n" + entries.mkString("\n")
   }
 
   private def capabilityMenuFor(capabilities: PanelCapabilitiesResponse): String = {
@@ -113,7 +104,7 @@ object DashboardAuthoringPrompt {
 
   def userMessage(
       goal: String,
-      dataTypes: Vector[WorkspaceContextDataType],
+      dataTypes: Vector[WorkspaceContextOutput],
       capabilities: Map[String, PanelCapabilitiesResponse],
       agentContext: WorkspaceContextAgentSection
   ): String = {

@@ -1,7 +1,7 @@
 package com.helio.domain.panels
 
 import com.helio.api.http.RequestValidation
-import com.helio.domain.model.{DashboardId, DataTypeId, Panel, PanelAppearance, PanelId, PanelQuery, ResourceMeta, UserId}
+import com.helio.domain.model.{DashboardId, Panel, PanelAppearance, PanelId, ResourceMeta, UserId}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -94,17 +94,12 @@ final case class DividerPanel(
     config: DividerPanelConfig
 ) extends Panel {
   val kind: String                    = DividerPanel.Kind
-  def dataTypeId: Option[DataTypeId]  = None
-  def fieldMapping: Option[JsValue]   = None
 
   def validateConfig: Either[String, Unit] =
     config.weight match {
       case Some(w) if w <= 0 => Left("divider weight must be positive")
       case _                 => Right(())
     }
-
-  def buildQuery: Option[PanelQuery] = None
-  def withBindingCleared: Panel      = this
 
   def applyPatch(patch: DividerPanelConfig.Patch): DividerPanel = copy(
     config = DividerPanelConfig(

@@ -5,7 +5,7 @@ import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
 import com.helio.services.panels.PanelCapabilityService
 import com.helio.services.patchsets.{PatchSetPreviewService, RefinementGrounding, RefinementService}
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.workspace.WorkspaceContextService
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
@@ -13,9 +13,8 @@ import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -70,7 +69,6 @@ class RefinementServiceSpec
   private var dashboardRepo: DashboardRepository       = _
   private var panelRepo: PanelRepository               = _
   private var dataSourceRepo: DataSourceRepository     = _
-  private var dataTypeRepo: DataTypeRepository         = _
   private var pipelineRepo: PipelineRepository         = _
   private var pipelineStepRepo: PipelineStepRepository = _
 
@@ -99,17 +97,13 @@ class RefinementServiceSpec
     dashboardRepo    = new DashboardRepository(ctx)
     panelRepo         = new PanelRepository(ctx)
     dataSourceRepo    = new DataSourceRepository(ctx)
-    dataTypeRepo      = new DataTypeRepository(ctx)
-    val dataTypeRowRepo = new DataTypeRowRepository(ctx)
-    pipelineRepo      = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)
     pipelineStepRepo  = new PipelineStepRepository(ctx)
-    val metricRepo      = new MetricRepository(ctx)
 
     val registry = new ResourceTypeRegistry(
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-      AclResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val permissionRepo = new ResourcePermissionRepository(ctx)
@@ -118,15 +112,18 @@ class RefinementServiceSpec
     val fs     = new LocalFileSystem(tmpDir)
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
-    panelService        = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
-    dataSourceService   = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
-    val dataTypeService = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
+    dataSourceService   = new DataSourceService(dataSourceRepo, fs)
+    // HEL-904 task 3.12/4.1: WorkspaceContextService takes OutputRepository now (dataTypeService
+    // no longer exists).
+    val outputRepo     = new OutputRepository(ctx)
+    val nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
+    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
-    val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
-    val panelCapabilityService  = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
+    val panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     patchSetPreviewService = new PatchSetPreviewService(
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo, metricRepo, accessChecker
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker
     )
     refinementGrounding = new RefinementGrounding(dashboardRepo, panelRepo, pipelineService, workspaceContextService, panelCapabilityService)
     conversationRepo = new AuthoringConversationRepository(ctx)
@@ -148,7 +145,7 @@ class RefinementServiceSpec
     await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Dash")), owner))._1
 
   private def createPanelFor(dashboardId: DashboardId, owner: AuthenticatedUser, title: String = "Original title"): Panel =
-    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("metric"), None), owner)) match {
+    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("divider"), None), owner)) match {
       case Right(p) => p
       case Left(e)  => fail(s"createPanelFor failed: $e")
     }
@@ -164,7 +161,7 @@ class RefinementServiceSpec
       case Right(d) => d
       case Left(e)  => fail(s"createStatic failed: $e")
     }
-    val summary = await(pipelineService.create(CreatePipelineRequest(s"pipe-${UUID.randomUUID()}", ds.id.value, "Output"), owner)) match {
+    val summary = await(pipelineService.create(CreatePipelineRequest(s"pipe-${UUID.randomUUID()}", ds.id.value), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"pipeline create failed: $e")
     }

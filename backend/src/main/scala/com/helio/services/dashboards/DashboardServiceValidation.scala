@@ -3,7 +3,7 @@ package com.helio.services.dashboards
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, UpdateDashboardRequest}
 import com.helio.domain.model._
-import com.helio.domain.panels.{ChartPanel, PanelConfigCodec}
+import com.helio.domain.panels.PanelConfigCodec
 
 /** Static validators and normalizers extracted from [[DashboardService]]
  *  to keep that file within the 300-line budget. Methods retain their
@@ -53,16 +53,13 @@ object DashboardServiceValidation {
       case (Left(err), _) => Left(err)
       case (Right(_), entry) =>
         PanelType.fromString(entry.`type`).flatMap { _ =>
+          // HEL-904: the `ChartPanel`-scoped scatter/aggregation cross-field
+          // check (D2's 5th enforcement site) was removed here along with
+          // `ChartPanel` itself — Outputs carry no panel-side `aggregation`
+          // field to conflict with a chart type.
           PanelConfigCodec.decodeCreateConfig(entry.`type`, Some(entry.config))
             .left.map(msg => s"panel '${entry.snapshotId}': $msg")
-            .flatMap {
-              case PanelConfigCodec.ChartCreate(c) =>
-                ChartPanel.rejectsAggregation(entry.appearance.chart.flatMap(_.chartType), c.aggregation.isDefined) match {
-                  case Some(msg) => Left(s"panel '${entry.snapshotId}': $msg")
-                  case None      => Right(())
-                }
-              case _ => Right(())
-            }
+            .map(_ => ())
         }
     }
 

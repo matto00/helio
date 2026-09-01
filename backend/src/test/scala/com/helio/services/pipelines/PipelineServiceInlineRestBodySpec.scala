@@ -39,7 +39,6 @@ class PipelineServiceInlineRestBodySpec extends AnyWordSpec with Matchers with S
         pipelineRepo     = null,
         pipelineStepRepo = null,
         dataSourceRepo   = null,
-        dataTypeRepo     = null,
         connector        = connector
       )
 

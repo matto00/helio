@@ -7,15 +7,14 @@ import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetUndoService}
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import org.apache.pekko.actor.typed.ActorSystem
@@ -56,9 +55,6 @@ class PatchSetUndoRoutesSpec
   private var dashboardRepo: DashboardRepository           = _
   private var panelRepo: PanelRepository                   = _
   private var dataSourceRepo: DataSourceRepository         = _
-  private var dataTypeRepo: DataTypeRepository             = _
-  private var dataTypeRowRepo: DataTypeRowRepository       = _
-  private var metricRepo: MetricRepository                 = _
   private var permissionRepo: ResourcePermissionRepository = _
   private var pipelineRepo: PipelineRepository             = _
   private var pipelineStepRepo: PipelineStepRepository     = _
@@ -85,38 +81,33 @@ class PatchSetUndoRoutesSpec
     dashboardRepo    = new DashboardRepository(ctx)(routeEc)
     panelRepo         = new PanelRepository(ctx)(routeEc)
     dataSourceRepo    = new DataSourceRepository(ctx)(routeEc)
-    dataTypeRepo      = new DataTypeRepository(ctx)(routeEc)
-    dataTypeRowRepo   = new DataTypeRowRepository(ctx)(routeEc)
-    metricRepo        = new MetricRepository(ctx)(routeEc)
     permissionRepo     = new ResourcePermissionRepository(ctx)(routeEc)
-    pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo       = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo   = new PipelineStepRepository(ctx)(routeEc)
 
     val registry = new ResourceTypeRegistry(
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-      AclResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-undo-routes-spec"))
 
     dashboardService = new DashboardService(dashboardRepo, accessChecker)
-    panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     patchSetApplyService = new PatchSetApplyService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-      metricRepo, accessChecker, applicationRepo
+      panelService, dashboardService, dataSourceService, pipelineService,
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+      accessChecker, applicationRepo
     )
     patchSetUndoService = new PatchSetUndoService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
+      panelService, dashboardService, dataSourceService, pipelineService,
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
       applicationRepo
     )
 
@@ -151,7 +142,7 @@ class PatchSetUndoRoutesSpec
     "restore an owned application's edits and return 200 with a restored outcome per edit" in {
       val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Undo route dashboard v1")), userA))._1
       val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-        None, Some(UpdateDashboardRequest(Some("Undo route dashboard v2"), None, None)), None, None, None, None, None)
+        None, Some(UpdateDashboardRequest(Some("Undo route dashboard v2"), None, None)), None, None, None, None)
       val applicationId = applySuccessfully(Vector(edit), userA)
 
       Post(s"/patch-sets/$applicationId/undo") ~> routesFor(userA) ~> check {
@@ -165,7 +156,7 @@ class PatchSetUndoRoutesSpec
     "reject an unowned applicationId with 404, touching nothing" in {
       val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Foreign undo dashboard")), userA))._1
       val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-        None, Some(UpdateDashboardRequest(Some("Should never revert"), None, None)), None, None, None, None, None)
+        None, Some(UpdateDashboardRequest(Some("Should never revert"), None, None)), None, None, None, None)
       val applicationId = applySuccessfully(Vector(edit), userA)
 
       Post(s"/patch-sets/$applicationId/undo") ~> routesFor(userB) ~> check {
@@ -183,7 +174,7 @@ class PatchSetUndoRoutesSpec
     "reject a conflicting application's undo with 409, restoring nothing" in {
       val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Conflict route dashboard v1")), userA))._1
       val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-        None, Some(UpdateDashboardRequest(Some("Conflict route dashboard v2"), None, None)), None, None, None, None, None)
+        None, Some(UpdateDashboardRequest(Some("Conflict route dashboard v2"), None, None)), None, None, None, None)
       val applicationId = applySuccessfully(Vector(edit), userA)
 
       // Independent change since the apply.

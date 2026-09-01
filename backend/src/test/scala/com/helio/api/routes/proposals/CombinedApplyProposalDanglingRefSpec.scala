@@ -36,12 +36,12 @@ class CombinedApplyProposalDanglingRefSpec extends CombinedApplyProposalSpecBase
       allCounts() shouldBe before
     }
 
-    "reject a sentinel in config.dataTypeId on a DataPanelKinds (chart) panel, creating nothing" in {
+    "reject a sentinel in config.dataTypeId on a DataPanelKinds (output) panel, creating nothing" in {
       val before = allCounts()
       val body =
         s"""{$unreachablePipeline,
            |"dashboard":{"dashboardName":"D","panels":[
-           |  {"title":"Bad Kind Mismatch","type":"chart","config":{"dataTypeId":"$$pipelineOutput"}}
+           |  {"title":"Bad Kind Mismatch","type":"output","config":{"dataTypeId":"$$pipelineOutput"}}
            |]}}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest

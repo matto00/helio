@@ -5,7 +5,9 @@ Applies a reviewed `PatchSet` (HEL-403) atomically — pre-validating every edit
 embedded cross-resource references before any mutation, applying each via the existing
 per-resource services only, and rolling back every already-applied edit on failure — the mutation
 primitive the conversational-refinement diff-preview and undo work builds on.
+
 ## Requirements
+
 ### Requirement: PatchSetApplyService applies edits atomically
 `PatchSetApplyService.apply(patchSet, user)` SHALL pre-validate every edit (target exists and is
 accessible per the SAME access rule its own kind's real update/delete path enforces for that
@@ -204,7 +206,7 @@ raw config SHALL exist only in the journal, never as a field on `EditOutcome` or
 `POST /api/patch-sets/apply` response body.
 
 #### Scenario: A metric-bound panel's journaled raw config differs from its materialized response
-- **WHEN** a panel edit updates a `MetricPanel` bound to a `metricId`
+- **WHEN** a panel edit updates a `OutputPanel` bound to `metricId`
 - **THEN** the journal's raw config for that edit carries the panel's own stored field values, not
   the bound metric's currently-effective values that the same edit's materialized `resultingState`
   carries
@@ -213,4 +215,3 @@ raw config SHALL exist only in the journal, never as a field on `EditOutcome` or
 - **WHEN** `POST /api/patch-sets/apply` successfully applies a panel update edit
 - **THEN** the response's corresponding `EditOutcome` has exactly the same fields it had before this
   change — no raw-config field is present anywhere in the response body
-

@@ -1,8 +1,8 @@
 # Services — Pipelines
 
-Pipeline CRUD, run execution/scheduling, shape application, and the DataType family (a pipeline's output artifact).
+Pipeline CRUD, run execution/scheduling, shape application, and the Output family (a pipeline's panel-bindable, per-node projections, HEL-904).
 
-Holds: `DataTypeService`, `PipelineProposalService`, `PipelineRunService`, `PipelineSchedulerService`, `PipelineScheduleService`, `PipelineService`, `PipelineShapeService`.
+Holds: `PipelineProposalService`, `PipelineRunService`, `PipelineSchedulerService`, `PipelineScheduleService`, `PipelineService`, `PipelineShapeService`.
 
 Does NOT hold: business logic for other domains, or persistence
 (`infrastructure/persistence/pipelines/`) — this directory's files call

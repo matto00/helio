@@ -122,32 +122,20 @@ package object api {
   type CreatePanelsBatchResponse = protocols.panels.CreatePanelsBatchResponse
   val CreatePanelsBatchResponse: protocols.panels.CreatePanelsBatchResponse.type = protocols.panels.CreatePanelsBatchResponse
 
-  type BoundPanelRequest = protocols.panels.BoundPanelRequest
-  val BoundPanelRequest: protocols.panels.BoundPanelRequest.type = protocols.panels.BoundPanelRequest
-  type BoundPanelResponse = protocols.panels.BoundPanelResponse
-  val BoundPanelResponse: protocols.panels.BoundPanelResponse.type = protocols.panels.BoundPanelResponse
-
-  type DataTypeResponse = protocols.pipelines.DataTypeResponse
-  val DataTypeResponse: protocols.pipelines.DataTypeResponse.type = protocols.pipelines.DataTypeResponse
-  type DataTypesResponse = protocols.pipelines.DataTypesResponse
-  val DataTypesResponse: protocols.pipelines.DataTypesResponse.type = protocols.pipelines.DataTypesResponse
-  type DataFieldPayload = protocols.pipelines.DataFieldPayload
-  val DataFieldPayload: protocols.pipelines.DataFieldPayload.type = protocols.pipelines.DataFieldPayload
-  type ComputedFieldPayload = protocols.pipelines.ComputedFieldPayload
-  val ComputedFieldPayload: protocols.pipelines.ComputedFieldPayload.type = protocols.pipelines.ComputedFieldPayload
-  type UpdateDataTypeRequest = protocols.pipelines.UpdateDataTypeRequest
-  val UpdateDataTypeRequest: protocols.pipelines.UpdateDataTypeRequest.type = protocols.pipelines.UpdateDataTypeRequest
-  type ValidateExpressionResponse = protocols.pipelines.ValidateExpressionResponse
-  val ValidateExpressionResponse: protocols.pipelines.ValidateExpressionResponse.type = protocols.pipelines.ValidateExpressionResponse
-  type InferredFieldResponse = protocols.pipelines.InferredFieldResponse
-  val InferredFieldResponse: protocols.pipelines.InferredFieldResponse.type = protocols.pipelines.InferredFieldResponse
-  type InferredSchemaResponse = protocols.pipelines.InferredSchemaResponse
-  val InferredSchemaResponse: protocols.pipelines.InferredSchemaResponse.type = protocols.pipelines.InferredSchemaResponse
+  // HEL-904 task 4.1: DataTypeResponse/DataTypesResponse/DataFieldPayload/
+  // ComputedFieldPayload/UpdateDataTypeRequest/ValidateExpressionResponse
+  // aliases removed outright — `DataTypeProtocol` (their home) is deleted;
+  // DataTypes no longer exist.
+  // HEL-904: InferredFieldResponse/InferredSchemaResponse moved from protocols.pipelines to
+  // protocols.sources — see DataSourceProtocol.scala. SchemaFieldResponse stayed in
+  // protocols.pipelines (PipelineAnalyzeProtocol.scala) — it's load-bearing for the unrelated
+  // pipeline-analyze-step response shapes in that same package.
+  type InferredFieldResponse = protocols.sources.InferredFieldResponse
+  val InferredFieldResponse: protocols.sources.InferredFieldResponse.type = protocols.sources.InferredFieldResponse
+  type InferredSchemaResponse = protocols.sources.InferredSchemaResponse
+  val InferredSchemaResponse: protocols.sources.InferredSchemaResponse.type = protocols.sources.InferredSchemaResponse
   type SchemaFieldResponse = protocols.pipelines.SchemaFieldResponse
   val SchemaFieldResponse: protocols.pipelines.SchemaFieldResponse.type = protocols.pipelines.SchemaFieldResponse
-  type DataTypeRowsResponse = protocols.pipelines.DataTypeRowsResponse
-  val DataTypeRowsResponse: protocols.pipelines.DataTypeRowsResponse.type = protocols.pipelines.DataTypeRowsResponse
-
   type DataSourceResponse = protocols.sources.DataSourceResponse
   val DataSourceResponse: protocols.sources.DataSourceResponse.type = protocols.sources.DataSourceResponse
   type DataSourcesResponse = protocols.sources.DataSourcesResponse
@@ -270,17 +258,8 @@ package object api {
   type SnoozeAlertEventRequest = protocols.alerts.SnoozeAlertEventRequest
   val SnoozeAlertEventRequest: protocols.alerts.SnoozeAlertEventRequest.type = protocols.alerts.SnoozeAlertEventRequest
 
-  // Metric (HEL-446 domain/response; HEL-493 create/update requests + REST layer)
-  type MetricResponse = protocols.metrics.MetricResponse
-  val MetricResponse: protocols.metrics.MetricResponse.type = protocols.metrics.MetricResponse
-  type CreateMetricRequest = protocols.metrics.CreateMetricRequest
-  val CreateMetricRequest: protocols.metrics.CreateMetricRequest.type = protocols.metrics.CreateMetricRequest
-  type UpdateMetricRequest = protocols.metrics.UpdateMetricRequest
-  val UpdateMetricRequest: protocols.metrics.UpdateMetricRequest.type = protocols.metrics.UpdateMetricRequest
-  type MetricUsagePanelResponse = protocols.metrics.MetricUsagePanelResponse
-  val MetricUsagePanelResponse: protocols.metrics.MetricUsagePanelResponse.type = protocols.metrics.MetricUsagePanelResponse
-  type MetricUsageResponse = protocols.metrics.MetricUsageResponse
-  val MetricUsageResponse: protocols.metrics.MetricUsageResponse.type = protocols.metrics.MetricUsageResponse
+  // HEL-904 task 4.1: Metric aliases (HEL-446/HEL-493) removed outright —
+  // `MetricProtocol` (their home) is deleted; metrics no longer exist.
 
   type PipelineScheduleResponse = protocols.pipelines.PipelineScheduleResponse
   val PipelineScheduleResponse: protocols.pipelines.PipelineScheduleResponse.type = protocols.pipelines.PipelineScheduleResponse
@@ -333,8 +312,8 @@ package object api {
   val WorkspaceContextColumn: protocols.workspace.WorkspaceContextColumn.type = protocols.workspace.WorkspaceContextColumn
   type WorkspaceContextComputedColumn = protocols.workspace.WorkspaceContextComputedColumn
   val WorkspaceContextComputedColumn: protocols.workspace.WorkspaceContextComputedColumn.type = protocols.workspace.WorkspaceContextComputedColumn
-  type WorkspaceContextDataType = protocols.workspace.WorkspaceContextDataType
-  val WorkspaceContextDataType: protocols.workspace.WorkspaceContextDataType.type = protocols.workspace.WorkspaceContextDataType
+  type WorkspaceContextOutput = protocols.workspace.WorkspaceContextOutput
+  val WorkspaceContextOutput: protocols.workspace.WorkspaceContextOutput.type = protocols.workspace.WorkspaceContextOutput
   type WorkspaceContextPipelineStep = protocols.workspace.WorkspaceContextPipelineStep
   val WorkspaceContextPipelineStep: protocols.workspace.WorkspaceContextPipelineStep.type = protocols.workspace.WorkspaceContextPipelineStep
   type WorkspaceContextPipeline = protocols.workspace.WorkspaceContextPipeline

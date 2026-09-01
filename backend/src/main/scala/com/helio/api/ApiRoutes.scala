@@ -17,29 +17,27 @@ import com.helio.api.routes.audit._
 import com.helio.api.routes.auth._
 import com.helio.api.routes.dashboards._
 import com.helio.api.routes.hooks._
-import com.helio.api.routes.metrics._
 import com.helio.api.routes.panels._
 import com.helio.api.routes.patchsets._
 import com.helio.api.routes.pipelines._
 import com.helio.api.routes.proposals._
 import com.helio.api.routes.sources._
 import com.helio.api.routes.workspace._
-import com.helio.domain.model.{ConnectorId, DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId}
+import com.helio.domain.model.{ConnectorId, DashboardId, DataSourceId, PanelId, PipelineId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.email.{EmailConfig, EmailSender, HttpResendEmailSender}
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
 import com.helio.services.auth.{ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserTierConfig}
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
-import com.helio.services.panels.{AutoLayoutService, BoundPanelService, PanelCapabilityService, PanelService}
+import com.helio.services.panels.{AutoLayoutService, PanelCapabilityService, PanelService}
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.{ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
-import com.helio.services.pipelines.{DataTypeService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
+import com.helio.services.pipelines.{PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
 import com.helio.services.hooks.HookTriggerService
-import com.helio.services.metrics.MetricService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
 import com.helio.services.ratelimit.{InMemoryRateLimiter, RateLimitConfig}
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
@@ -51,12 +49,11 @@ import com.helio.services.audit.AuditService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.FileSystem
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
@@ -71,7 +68,6 @@ final class ApiRoutes(
     dashboardRepo: DashboardRepository,
     panelRepo: PanelRepository,
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo: DataTypeRepository,
     permissionRepo: ResourcePermissionRepository,
     fileSystem: FileSystem,
     connector: RestApiConnectorDriver,
@@ -83,11 +79,10 @@ final class ApiRoutes(
     pipelineRunCache: PipelineRunCache,
     sparkJobSubmitter: SparkJobSubmitter,
     pipelineRunRepo: PipelineRunRepository = null,
-    dataTypeRowRepo: DataTypeRowRepository = null,
     apiTokenRepo: ApiTokenRepository = null,
     // HEL-216: first real caller of BinaryRefRepository.overwriteForDataType
     // (HEL-217 shipped the class with no wired caller). Nullable default
-    // mirrors pipelineRunRepo/dataTypeRowRepo — fixtures that don't pass one
+    // mirrors pipelineRunRepo — fixtures that don't pass one
     // simply skip the binary_refs write (PipelineRunService's null-checked
     // pattern).
     binaryRefRepo: BinaryRefRepository = null,
@@ -141,11 +136,7 @@ final class ApiRoutes(
     // entire teardown transaction must run via `ctx.withUserContext` (design.md
     // Decision 3's hard constraint), which no existing repository exposes.
     dbContext: DbContext = null,
-    // HEL-493: same nullable-optional wiring pattern as the repos above —
-    // fixtures that don't pass a MetricRepository simply don't get the
-    // /api/metrics routes mounted (metricServiceOpt.fold(reject)). Appended
-    // last for the same purely-additive reason.
-    metricRepo: MetricRepository = null,
+    // HEL-904 task 4.1: `metricRepo` removed outright — metrics no longer exist.
     // HEL-472 (420-A): same nullable-optional wiring pattern as the repos
     // above — fixtures that don't pass an AgentPreferencesRepository simply
     // don't get the /api/preferences routes mounted
@@ -183,6 +174,14 @@ final class ApiRoutes(
   // rest of this file's nullable-optional convention.
   private val auditService: AuditService = Option(auditEventRepo).map(new AuditService(_)).orNull
 
+  // HEL-904 (task 3.1/3.14): built from the already-nullable `dbContext`
+  // param (task 3.16-adjacent: no new ApiRoutes/Main.scala constructor
+  // param needed) — `null` in every fixture that doesn't pass a DbContext,
+  // matching this file's existing nullable-optional convention.
+  // `PipelineRunService` and `AlertRuleService` both null-check these.
+  private val outputRepoOpt: Option[OutputRepository] = Option(dbContext).map(new OutputRepository(_))
+  private val nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = Option(dbContext).map(new NodeSnapshotRepository(_))
+
   // HEL-488: same nullable-optional wiring pattern as auditService above —
   // fixtures that don't pass an AuditEventRepository simply don't get the
   // GET /api/audit-events route mounted (see the `.fold(reject)` mount site
@@ -197,7 +196,6 @@ final class ApiRoutes(
     ResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
     ResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
     ResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-    ResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
     ResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
   )
 
@@ -233,22 +231,21 @@ final class ApiRoutes(
   private val mfaServiceOpt: Option[MfaService] = Option(mfaRepo).map(new MfaService(_, userRepo, auditService))
   private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService)
-  // HEL-500: metricRepo may be null for fixtures that don't pass one (same
-  // nullable-optional wiring convention as the constructor param above) —
-  // safe because PanelService only touches it when a panel actually carries
-  // a `metricId`.
-  private val panelService      = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo, auditService)
+  // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
+  // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
+  // both removed outright.
+  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepoOpt.orNull)
   // HEL-549: metricRepo threaded in the same nullable-optional way as panelService
   // above — only touched when a proposal panel actually carries a metricId.
-  private val proposalService   = new DashboardProposalService(dashboardService, panelService, dataTypeRepo, metricRepo)
+  private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepoOpt.orNull)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
-  // dataTypeRepo/accessChecker instances the other dashboard/panel services use.
-  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, dataTypeRepo, accessChecker, metricRepo, auditService)
+  // accessChecker instances the other dashboard/panel services use.
+  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, accessChecker, auditService, outputRepoOpt.orNull)
   // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
   private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker, auditService)
-  private val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService)
+  private val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService)
   // HEL-822: same nullable-optional wiring pattern as connectorEntityServiceOpt below —
   // constructed early (before sourceService) so SourceService.createRest's legacy-url
   // dual-support path (task 1.2a) has a repository to synthesize an implicit Connector
@@ -260,15 +257,16 @@ final class ApiRoutes(
       val connectorCredentialRepo = new ConnectorCredentialRepository(ctx, secretBackend)
       new ConnectorRepository(ctx, connectorCredentialRepo)
     }
-  private val sourceService     = new SourceService(dataSourceRepo, dataTypeRepo, connector, auditService, connectorRepoOpt.orNull)
-  private val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo, auditService)
-  // HEL-365: separate from dataTypeService (CRUD-only, design.md D6) — reads
-  // the same dataTypeRepo/dataTypeRowRepo to build the panel-capabilities report.
-  private val panelCapabilityService = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+  private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepoOpt.orNull)
+  // HEL-904 task 4.1: `DataTypeService`/`DataTypeRoutes` deleted outright —
+  // DataTypes no longer exist.
+  // HEL-365: builds the panel-capabilities report from Outputs/node
+  // snapshots (design.md D6).
+  private val panelCapabilityService = new PanelCapabilityService(outputRepoOpt.orNull, nodeSnapshotRepoOpt.orNull)
   // HEL-381: threads the same RestApiConnectorDriver instance sourceService already
-  // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo/
-  // dataTypeRepo above cover every other analyzeProposal branch).
-  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo, connector, auditService)
+  // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo
+  // above covers every other analyzeProposal branch).
+  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, auditService)
   // HEL-466: only build the evaluation engine when both privileged repos it
   // needs are present — mirrors alertRuleServiceOpt/alertEventServiceOpt's
   // nullable-optional pattern below. `.orNull` feeds PipelineRunService's
@@ -286,20 +284,26 @@ final class ApiRoutes(
   // pipelineService already receive — runPipeline/previewStep now execute
   // rest_api sources in-process via InProcessPipelineEngine (design.md D3).
   val pipelineRunService = new PipelineRunService(
-    pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, dataTypeRepo,
-    dataTypeRowRepo, pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
+    pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
+    pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
     alertEvaluationServiceOpt.orNull, connector, auditService,
     // HEL-862: threads the same implicit ActorSystem this class already has,
     // so a scheduled/manual run over a URL-backed CSV source can re-fetch it.
-    system
+    system,
+    // HEL-904 (task 3.1/3.14): resolves per-Output alert evaluation +
+    // node_snapshots dual-write — `null` in fixtures that don't pass a
+    // DbContext (outputRepoOpt/nodeSnapshotRepoOpt above).
+    executionBackend = null,
+    outputRepo = outputRepoOpt.orNull,
+    nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull
   )
   // HEL-383: atomic pipeline-proposal apply — composes sourceService/
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,
   // all already constructed above, plus dataSourceRepo/dataTypeRepo for the
   // read-only lookups its own scaladoc documents (no direct DB writes).
   private val pipelineProposalService = new PipelineProposalService(
-    sourceService, dataSourceService, pipelineService, pipelineRunService, dataTypeService,
-    dataSourceRepo, dataTypeRepo
+    sourceService, dataSourceService, pipelineService, pipelineRunService,
+    dataSourceRepo, outputRepoOpt.orNull
   )
   // HEL-387: atomic combined pipeline+dashboard proposal apply — composes the
   // already-constructed pipelineProposalService/proposalService (the latter
@@ -318,36 +322,31 @@ final class ApiRoutes(
   // writes of its own. HEL-413: also takes patchSetApplicationRepo, to
   // journal a successful (no `failure`) apply (design.md D2).
   private val patchSetApplyService = new PatchSetApplyService(
-    panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
-    panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-    metricRepo, accessChecker, patchSetApplicationRepo
+    panelService, dashboardService, dataSourceService, pipelineService,
+    panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+    accessChecker, patchSetApplicationRepo
   )
   // HEL-408: read-only diff/impact preview -- reuses PatchSetApplyResolvers
   // (same package) for pre-validation; needs only the repos/accessChecker
   // its projection reads directly (design.md D1a/D4), never the per-resource
   // *Service instances apply's forward path writes through.
   private val patchSetPreviewService = new PatchSetPreviewService(
-    panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-    metricRepo, accessChecker
+    panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+    accessChecker
   )
   // HEL-413: restores a successfully-journaled apply's edits (design.md D4/D5) -- composes the
   // same per-resource services/repos patchSetApplyService does (minus metricRepo/accessChecker,
   // which undo's own Phase-1/Phase-2 passes never need -- design.md D4/D4a), plus
   // patchSetApplicationRepo to load the journal row.
   private val patchSetUndoService = new PatchSetUndoService(
-    panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
-    panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
+    panelService, dashboardService, dataSourceService, pipelineService,
+    panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
     patchSetApplicationRepo
   )
-  // HEL-364: compound POST /api/panels/bound — composes the four services
-  // above (constructed after all of them, same DI-ordering convention this
-  // file already follows) plus the repos it needs directly (dataSourceRepo
-  // for the owner-scoped sourceDataSourceId re-verify, panelRepo to persist
-  // the panel PanelService.buildForCreate only builds — design.md D1).
-  private val boundPanelService = new BoundPanelService(
-    dataSourceService, pipelineService, pipelineRunService, panelService,
-    dataSourceRepo, dataTypeRepo, dataTypeRowRepo, panelRepo, accessChecker, auditService
-  )
+  // HEL-904 task 3.6/4.1: `BoundPanelService` (`POST /api/panels/bound`) is
+  // deleted outright — design.md's P1.1 row lists it explicitly, and its
+  // `PanelBindingSpec`/bound-`*Panel.scala` dependencies no longer exist
+  // after this ticket's `PanelType` collapse.
   private val permissionService           = new PermissionService(permissionRepo, accessChecker)
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)
   // Optional wiring mirrors the nullable constructor param: fixtures that
@@ -365,7 +364,13 @@ final class ApiRoutes(
   private val imageUploadServiceOpt       = Option(imageUploadRepo).map(new ImageUploadService(_, fileSystem, auditService))
   // HEL-447: same optional-wiring pattern — fixtures that don't pass an
   // AlertRuleRepository simply don't get the /api/alert-rules routes.
-  private val alertRuleServiceOpt         = Option(alertRuleRepo).map(new AlertRuleService(_, dataTypeRepo))
+  // HEL-904 (task 3.1): both alertRuleRepo AND an OutputRepository are now
+  // required to mount /api/alert-rules — a rule's targetOutputId can't be
+  // validated without one.
+  private val alertRuleServiceOpt = for {
+    ruleRepo <- Option(alertRuleRepo)
+    outRepo  <- outputRepoOpt
+  } yield new AlertRuleService(ruleRepo, outRepo)
   // HEL-455: same optional-wiring pattern — fixtures that don't pass an
   // AlertEventRepository simply don't get the /api/alerts routes.
   private val alertEventServiceOpt        = Option(alertEventRepo).map(new AlertEventService(_))
@@ -373,9 +378,8 @@ final class ApiRoutes(
   // PipelineScheduleRepository simply don't get the
   // /api/pipelines/:id/schedule routes.
   private val pipelineScheduleServiceOpt  = Option(pipelineScheduleRepo).map(new PipelineScheduleService(_, pipelineRepo, auditService))
-  // HEL-493: same optional-wiring pattern — fixtures that don't pass a
-  // MetricRepository simply don't get the /api/metrics routes.
-  private val metricServiceOpt            = Option(metricRepo).map(new MetricService(_, dataTypeRepo))
+  // HEL-904 task 4.1: `MetricService`/`MetricRoutes` deleted outright —
+  // metrics no longer exist.
   // HEL-472 (420-A): same optional-wiring pattern — fixtures that don't pass
   // an AgentPreferencesRepository simply don't get the /api/preferences
   // routes.
@@ -436,7 +440,7 @@ final class ApiRoutes(
   // /api/workspace/teardown route mounted.
   private val workspaceTeardownServiceOpt: Option[WorkspaceTeardownService] =
     Option(dbContext).map(ctx =>
-      new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx, dataTypeRepo), fileSystem, auditService)
+      new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx), fileSystem, auditService)
     )
   // HEL-821: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
   // fixtures that don't pass a DbContext simply don't get the /api/connectors routes
@@ -462,14 +466,18 @@ final class ApiRoutes(
   private val workspaceContextService = new WorkspaceContextService(
     dashboardService,
     dataSourceService,
-    dataTypeService,
+    // HEL-904 task 3.12: `outputRepoOpt` (constructed above, alongside `nodeSnapshotRepoOpt`) —
+    // both are only `None` when `dbContext` itself is null (fixture-only), matching the same
+    // unconditional-in-production convention `dataTypeService` had.
+    outputRepoOpt.orNull,
     pipelineService,
     agentPreferencesServiceOpt,
     agentMemoryServiceOpt,
     Some(panelRepo),
     // HEL-828 design.md Decision 5: reuses the EXISTING connectorRepoOpt (constructed above,
     // alongside sourceService/connectorEntityServiceOpt) — no new ConnectorRepository here.
-    connectorRepoOpt
+    connectorRepoOpt,
+    nodeSnapshotRepoOpt
   )
   // HEL-397: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
   // fixtures that don't pass a DbContext simply don't get the authoring routes' persistence
@@ -521,24 +529,22 @@ final class ApiRoutes(
     }
 
   // HEL-665 (reopened composer ticket) design.md D2: SAME nullable-optional wiring pattern as
-  // dashboardAuthoringServiceOpt/refinementServiceOpt above, gated on ClaudeConfig.fromEnv() AND
-  // metricServiceOpt (metricServiceOpt is a genuinely NEW gating dimension neither of those two
-  // needs — WorkspaceSearchService's 5th dependency, metricService, only exists behind that
-  // nullable-metricRepo gate, independent of dbContext). Constructs WorkspaceSearchService (HEL-661)
-  // for the first time anywhere in this file. A fresh ClaudeClient/HttpClaudeTransport pair is
-  // constructed here (never shared), mirroring both sibling *ServiceOpt vals' own "fresh client per
-  // service" convention exactly.
+  // dashboardAuthoringServiceOpt/refinementServiceOpt above, gated on ClaudeConfig.fromEnv() alone.
+  // Constructs WorkspaceSearchService (HEL-661) for the first time anywhere in this file. A fresh
+  // ClaudeClient/HttpClaudeTransport pair is constructed here (never shared), mirroring both
+  // sibling *ServiceOpt vals' own "fresh client per service" convention exactly.
+  //
+  // HEL-904 task 3.2: no longer additionally gated on metricServiceOpt — WorkspaceSearchService's
+  // Metric branch is removed outright (not retargeted), so metricService is no longer one of its
+  // constructor dependencies.
   private val assistantServiceOpt: Option[AssistantService] =
-    (ClaudeConfig.fromEnv(), metricServiceOpt) match {
-      case (Left(reason), _) =>
+    ClaudeConfig.fromEnv() match {
+      case Left(reason) =>
         log.warn(s"POST /api/assistant-conversations/:id/converse disabled: $reason")
         None
-      case (Right(_), None) =>
-        log.warn("POST /api/assistant-conversations/:id/converse disabled: no MetricRepository configured")
-        None
-      case (Right(claudeConfig), Some(metricService)) =>
+      case Right(claudeConfig) =>
         val claudeClient           = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
-        val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, dataTypeService, pipelineService, metricService, workspaceContextService)
+        val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepoOpt.orNull, pipelineService, workspaceContextService)
         Some(new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, proposalService, pipelineProposalService, combinedProposalService, patchSetPreviewService, sourceService))
     }
 
@@ -611,7 +617,7 @@ final class ApiRoutes(
               pathPrefix("auth") { concat(auth.routes, oauth.routes, mfaRoutesOpt.fold(reject: Route)(_.verifyRoute)) },
               authDirectives.optionalAuthenticate { userOpt =>
                 concat(
-                  new PublicDashboardRoutes(panelRepo, panelService, pipelineRepo, aclDirective, userOpt).routes,
+                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt).routes,
                   imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes)
                 )
               },
@@ -689,17 +695,10 @@ final class ApiRoutes(
                   new AutoLayoutRoutes(autoLayoutService, authenticatedUser).routes,
                   new DashboardRoutes(dashboardService, authenticatedUser).routes,
                   new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
-                  // HEL-364: mounted ahead of PanelRoutes so the literal
-                  // "/panels/bound" path is never shadowed by PanelRoutes'
-                  // `path(PanelIdSegment)` (which would otherwise treat
-                  // "bound" as a panel id — Pekko's rejection/backtracking
-                  // happens to make either order work today since that
-                  // branch only defines delete/patch, but explicit ordering
-                  // doesn't depend on that staying true).
-                  new BoundPanelRoutes(boundPanelService, authenticatedUser).routes,
+                  // HEL-904: `BoundPanelRoutes`/`POST /api/panels/bound` removed
+                  // alongside `BoundPanelService` (see its deletion note above).
                   new PanelRoutes(panelService, authenticatedUser).routes,
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
-                  new DataTypeRoutes(dataTypeService, panelCapabilityService, pipelineRunService, authenticatedUser).routes,
                   new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
                   new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
                   new SourceRoutes(sourceService, authenticatedUser).routes,
@@ -744,7 +743,6 @@ final class ApiRoutes(
                   alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes),
                   alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes),
                   pipelineScheduleServiceOpt.fold(reject: Route)(svc => new PipelineScheduleRoutes(svc, authenticatedUser).routes),
-                  metricServiceOpt.fold(reject: Route)(svc => new MetricRoutes(svc, authenticatedUser).routes),
                   // HEL-663: same `.fold(reject)`-gated optional-wiring pattern as metricServiceOpt
                   // above — fixtures that don't pass a DbContext simply don't get the
                   // /api/assistant-conversations routes mounted. HEL-665 (reopened composer ticket)

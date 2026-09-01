@@ -12,7 +12,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class PipelineRepository(
     ctx: DbContext,
-    dataTypeRepo: DataTypeRepository,
     dataSourceRepo: DataSourceRepository
 )(implicit ec: ExecutionContext) {
 
@@ -20,7 +19,6 @@ class PipelineRepository(
 
   private val pipelinesTable   = TableQuery[PipelineTable]
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
-  private val dataTypesTable   = TableQuery[DataTypeRepository.DataTypeTable]
   private val permTable        = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
 
   /** Owner-scoped existence check. Used to gate `addStep` / `listSteps`. */
@@ -116,7 +114,6 @@ class PipelineRepository(
       id                 = PipelineId(row.id),
       name               = row.name,
       sourceDataSourceId = DataSourceId(row.sourceDataSourceId),
-      outputDataTypeId   = DataTypeId(row.outputDataTypeId),
       lastRunStatus      = row.lastRunStatus,
       lastRunAt          = row.lastRunAt,
       createdAt          = row.createdAt,
@@ -133,16 +130,13 @@ class PipelineRepository(
         val query = for {
           pipeline   <- pipelinesTable if pipeline.id === id.value
           dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
-          dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
-        } yield (pipeline, dataSource.name, dataType.name)
-        ctx.withSystemContext(query.result.headOption).map(_.map { case (p, srcName, dtName) =>
+        } yield (pipeline, dataSource.name)
+        ctx.withSystemContext(query.result.headOption).map(_.map { case (p, srcName) =>
           PipelineSummary(
             id                   = p.id,
             name                 = p.name,
             sourceDataSourceId   = p.sourceDataSourceId,
             sourceDataSourceName = srcName,
-            outputDataTypeName   = dtName,
-            outputDataTypeId     = p.outputDataTypeId,
             lastRunStatus        = p.lastRunStatus,
             lastRunAt            = p.lastRunAt.map(_.toString),
             lastRunRowCount      = p.lastRunRowCount,
@@ -158,17 +152,14 @@ class PipelineRepository(
     val query = for {
       pipeline   <- pipelinesTable if pipeline.id === id.value && pipeline.ownerId === ownerUuid
       dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
-      dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
-    } yield (pipeline, dataSource.name, dataType.name)
+    } yield (pipeline, dataSource.name)
 
-    ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map { case (p, srcName, dtName) =>
+    ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map { case (p, srcName) =>
       PipelineSummary(
         id                   = p.id,
         name                 = p.name,
         sourceDataSourceId   = p.sourceDataSourceId,
         sourceDataSourceName = srcName,
-        outputDataTypeName   = dtName,
-        outputDataTypeId     = p.outputDataTypeId,
         lastRunStatus        = p.lastRunStatus,
         lastRunAt            = p.lastRunAt.map(_.toString),
         lastRunRowCount      = p.lastRunRowCount,
@@ -198,17 +189,14 @@ class PipelineRepository(
     * the caller; returns `Left("Data source not found")` if it does not (404,
     * not 400 — existence and authorization are indistinguishable).
     *
-    * HEL-366: `tag` is set on the new pipeline row AND propagated to its
-    * freshly-created output DataType (tasks.md 2.3(b)). This is the only
-    * physical insertion site for the pipeline's output DataType — later runs
-    * (`PipelineRunService.upsertFieldsFromRows`) only update its `fields` via
-    * `findByIdInternal`/`updateInternal`, never re-insert it — so propagating
-    * here at create time is the sole place that can satisfy design.md
-    * Decision 2's "output DataType → producing Pipeline" tag-parity guard. */
+    * HEL-904 task 3.5: no longer mints a DataType — a new pipeline's
+    * panel-bindable output is an explicit Output row, created separately
+    * (see `PipelineProposalService`'s own Output-creation path, task 3.8).
+    * `output_data_type_id` is left `NULL` (V94 relaxed the NOT NULL
+    * constraint) for every pipeline created via this path. */
   def create(
       name: String,
       sourceDataSourceId: DataSourceId,
-      outputDataTypeName: String,
       user: AuthenticatedUser,
       tag: Option[String] = None
   ): Future[Either[String, PipelineSummary]] = {
@@ -216,49 +204,32 @@ class PipelineRepository(
       case None =>
         Future.successful(Left("Data source not found"))
       case Some(dataSource) =>
-        val now = Instant.now()
-        val newDataType = DataType(
-          id             = DataTypeId(UUID.randomUUID().toString),
-          sourceId       = None,
-          name           = outputDataTypeName,
-          fields         = Vector.empty,
-          computedFields = Vector.empty,
-          version        = 1,
-          createdAt      = now,
-          updatedAt      = now,
-          ownerId        = user.id,
-          tag            = tag
+        val now         = Instant.now()
+        val pipelineId  = UUID.randomUUID().toString
+        val pipelineRow = PipelineRow(
+          id                 = pipelineId,
+          name               = name,
+          sourceDataSourceId = sourceDataSourceId.value,
+          lastRunStatus      = None,
+          lastRunAt          = None,
+          createdAt          = now,
+          updatedAt          = now,
+          lastRunRowCount    = None,
+          ownerId            = UUID.fromString(user.id.value),
+          tag                = tag
         )
-        dataTypeRepo.insert(newDataType, user).flatMap { createdDataType =>
-          val pipelineId  = UUID.randomUUID().toString
-          val pipelineRow = PipelineRow(
-            id                 = pipelineId,
-            name               = name,
-            sourceDataSourceId = sourceDataSourceId.value,
-            outputDataTypeId   = createdDataType.id.value,
-            lastRunStatus      = None,
-            lastRunAt          = None,
-            createdAt          = now,
-            updatedAt          = now,
-            lastRunRowCount    = None,
-            ownerId            = UUID.fromString(user.id.value),
-            tag                = tag
-          )
-          ctx.withUserContext(user.id.value)(pipelinesTable += pipelineRow).map { _ =>
-            Right(PipelineSummary(
-              id                   = pipelineId,
-              name                 = name,
-              sourceDataSourceId   = sourceDataSourceId.value,
-              sourceDataSourceName = dataSource.name,
-              outputDataTypeName   = outputDataTypeName,
-              outputDataTypeId     = createdDataType.id.value,
-              lastRunStatus        = None,
-              lastRunAt            = None,
-              lastRunRowCount      = None,
-              ownerId              = user.id.value,
-              tag                  = tag
-            ))
-          }
+        ctx.withUserContext(user.id.value)(pipelinesTable += pipelineRow).map { _ =>
+          Right(PipelineSummary(
+            id                   = pipelineId,
+            name                 = name,
+            sourceDataSourceId   = sourceDataSourceId.value,
+            sourceDataSourceName = dataSource.name,
+            lastRunStatus        = None,
+            lastRunAt            = None,
+            lastRunRowCount      = None,
+            ownerId              = user.id.value,
+            tag                  = tag
+          ))
         }
     }
   }
@@ -292,32 +263,17 @@ class PipelineRepository(
     ).map(_ => ())
   }
 
-  /** System-context lookup: returns the most recent `last_run_at` across all
-    * pipelines whose `output_data_type_id` matches `id` AND whose
-    * `last_run_status` is `'succeeded'`. Returns `None` when no pipeline
-    * matches, or when no pipeline has ever completed a successful run.
-    *
-    * Uses `withSystemContext` (privileged bypass) because the caller — the
-    * panel response assembler — only has a `DataTypeId`, not the pipeline
-    * owner; the ACL gate is enforced at the panel layer (caller can only
-    * reach panels they are allowed to see). Follows the same pattern as
-    * `findByIdInternal`. */
-  def findLastRunAtByOutputDataTypeId(id: DataTypeId): Future[Option[Instant]] = {
-    // Filter to pipelines writing to this DataType with a successful last run.
-    // lastRunAt is Option[Instant] in the table; we only select rows where it
-    // is definitely set by filtering on lastRunStatus = 'succeeded', then take
-    // the MAX via Slick's aggregate on the non-optional instant column equivalent.
-    // We select the most-recent last_run_at and return it as Option[Instant]
-    // (None = no matching succeeded pipeline found).
-    ctx.withSystemContext(
-      pipelinesTable
-        .filter(r => r.outputDataTypeId === id.value && r.lastRunStatus === "succeeded")
-        .map(_.lastRunAt)
-        .result
-    ).map { rows =>
-      rows.flatten.maxOption
-    }
-  }
+  // HEL-904 task 2.10: `setOutputDataTypeIdInternalForTest`/
+  // `findOutputDataTypeIdInternal` removed outright -- `pipelines.
+  // output_data_type_id` is dropped (V94), and both methods had zero
+  // production callers (dead since section 4.1) plus only vestigial test
+  // callers that never actually depended on their effect (see
+  // execution-progress.md cycle 26).
+
+  // HEL-904 task 4.1: `findLastRunAtByOutputDataTypeId` removed outright —
+  // its only caller (`PublicDashboardRoutes`'s per-panel `dataAsOf` lookup)
+  // was removed in the same task since no panel carries a `dataTypeId`
+  // binding anymore.
 
   /** ACL-bypassing variant of [[updateLastRun]] for the privileged Spark
     * driver path. The pipeline ACL was already checked at submit time; the
@@ -380,17 +336,14 @@ class PipelineRepository(
     val query = for {
       pipeline   <- ownedPipelines
       dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
-      dataType   <- dataTypesTable   if dataType.id   === pipeline.outputDataTypeId
-    } yield (pipeline, dataSource.name, dataType.name)
+    } yield (pipeline, dataSource.name)
 
-    ctx.withUserContext(user.id.value)(query.result).map(_.map { case (p, srcName, dtName) =>
+    ctx.withUserContext(user.id.value)(query.result).map(_.map { case (p, srcName) =>
       PipelineSummary(
         id                   = p.id,
         name                 = p.name,
         sourceDataSourceId   = p.sourceDataSourceId,
         sourceDataSourceName = srcName,
-        outputDataTypeName   = dtName,
-        outputDataTypeId     = p.outputDataTypeId,
         lastRunStatus        = p.lastRunStatus,
         lastRunAt            = p.lastRunAt.map(_.toString),
         lastRunRowCount      = p.lastRunRowCount,
@@ -415,8 +368,6 @@ object PipelineRepository {
       name: String,
       sourceDataSourceId: String,
       sourceDataSourceName: String,
-      outputDataTypeName: String,
-      outputDataTypeId: String,
       lastRunStatus: Option[String],
       lastRunAt: Option[String],
       lastRunRowCount: Option[Long],
@@ -428,7 +379,6 @@ object PipelineRepository {
       id: String,
       name: String,
       sourceDataSourceId: String,
-      outputDataTypeId: String,
       lastRunStatus: Option[String],
       lastRunAt: Option[Instant],
       createdAt: Instant,
@@ -445,7 +395,6 @@ object PipelineRepository {
     def id                 = column[String]("id", O.PrimaryKey)
     def name               = column[String]("name")
     def sourceDataSourceId = column[String]("source_data_source_id")
-    def outputDataTypeId   = column[String]("output_data_type_id")
     def lastRunStatus      = column[Option[String]]("last_run_status")
     def lastRunAt          = column[Option[Instant]]("last_run_at")
     def createdAt          = column[Instant]("created_at")
@@ -462,7 +411,7 @@ object PipelineRepository {
     def lastSourceSchema   = column[Option[String]]("last_source_schema")
 
     def * =
-      (id, name, sourceDataSourceId, outputDataTypeId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)
+      (id, name, sourceDataSourceId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)
         .mapTo[PipelineRow]
   }
 }

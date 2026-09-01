@@ -1,6 +1,5 @@
 package com.helio.api.protocols.sources
 
-import com.helio.api.protocols.pipelines.{DataTypeProtocol, DataTypeResponse}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import com.helio.services.auth.{HasSecrets, SecretField, SecretRedaction}
@@ -184,10 +183,16 @@ final case class CreateSourceRequest(
  *  distinct). `None` when the total is unknown (SQL) or under the cap. */
 final case class CreateSourceResponse(
     source: DataSourceResponse,
-    dataType: Option[DataTypeResponse],
+    inferredSchema: Option[InferredSchemaResponse],
     fetchError: Option[String],
     rowCapNotice: Option[String] = None
 )
+
+/** HEL-904: moved from the retired `DataTypeProtocol` — a source's schema-inference response has
+ *  no dependency on the companion `DataType` concept and belongs with the rest of this file's
+ *  source-facing wire shapes. */
+final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
+final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
 final case class SqlCreateSourceRequest(name: String, `type`: String, config: SqlSourceConfigPayload)
 final case class SqlInferRequest(`type`: String, config: SqlSourceConfigPayload)
@@ -397,11 +402,10 @@ object RestApiConfigPayload {
 // `DataSourceConfigCodec` lives in `DataSourceConfigCodec.scala` — used by
 // the repository to encode/decode the stored config JSON blob.
 
-/** `DataSourceProtocol extends DataTypeProtocol` because
- *  `CreateSourceResponse` carries a `DataTypeResponse`, so
- *  `createSourceResponseFormat`'s macro needs `dataTypeResponseFormat`
- *  in implicit scope. Passive structural dependency. */
-trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with DataTypeProtocol {
+trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
+
+  implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
+  implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)
 
   implicit val csvSourceConfigPayloadFormat: RootJsonFormat[CsvSourceConfigPayload]   = jsonFormat2(CsvSourceConfigPayload.apply)
   implicit val csvSourceUrlConfigPayloadFormat: RootJsonFormat[CsvSourceUrlConfigPayload] = jsonFormat1(CsvSourceUrlConfigPayload.apply)

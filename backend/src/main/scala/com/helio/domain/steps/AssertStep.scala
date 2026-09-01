@@ -97,6 +97,7 @@ final case class AssertStep(
     config: AssertConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = AssertStep.Kind

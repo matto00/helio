@@ -4,10 +4,8 @@ import com.helio.services.ServiceError
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.api.protocols.proposals.ProposalPanel
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataTypeId, MetricId, PanelType}
-import com.helio.domain.panels.ChartPanel
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
+import com.helio.domain.model.{AuthenticatedUser, DashboardId, OutputId, PanelType}
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import spray.json.{JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,35 +35,14 @@ object ProposalPanelSupport {
       _ <- if (DashboardProposalService.DataPanelKinds.contains(panel.`type`) && panel.dataTypeId.isEmpty)
              Left(s"$where: a ${panel.`type`} panel requires a dataTypeId")
            else Right(())
-      _ <- if (panel.`type` == "chart")
-             RequestValidation.validateChartType(panel.chartType).left.map(msg => s"$where: $msg")
-           else Right(())
       _ <- if (panel.`type` == "divider")
              RequestValidation.validateDividerOrientation(panel.orientation).left.map(msg => s"$where: $msg")
            else Right(())
-      _ <- if (panel.`type` == DashboardProposalService.TimelineKind)
-             RequestValidation.validateTimelineSort(panel.sort).left.map(msg => s"$where: $msg")
-           else Right(())
-      _ <- if (panel.`type` == "chart")
-             ChartPanel.rejectsAggregation(panel.chartType, mergedAggregationPresent(panel))
-               .toLeft(()).left.map(msg => s"$where: $msg")
-           else Right(())
+      // HEL-904 task 3.10a: the "chart"/timeline/metric kind-valued predicates
+      // that used to gate chartType/aggregation/timeline-sort validation here
+      // are deleted outright, along with the code paths they guarded — those
+      // panel kinds (and `ChartPanel.rejectsAggregation`) no longer exist.
     } yield ()
-
-  /** Whether the panel's ACTUALLY-RESOLVED create-side config (the same JSON
-   *  `ChartPanelConfig.decodeCreate` will read) carries an `aggregation` key
-   *  — not `panel.aggregation` directly, which the generic HEL-316 `config`
-   *  passthrough can bypass (a proposal can supply `aggregation` via
-   *  `config: {"aggregation": {...}}` instead of the flat field, and the
-   *  decoder reads either identically). `buildCreateRequest` is pure and
-   *  side-effect-free; the `dashboardId` it takes has no bearing on the
-   *  resolved `config` (it only sets `CreatePanelRequest.dashboardId`), so a
-   *  placeholder is safe to pass here, before any real dashboard exists. */
-  private def mergedAggregationPresent(panel: ProposalPanel): Boolean =
-    buildCreateRequest(DashboardId(""), panel).config match {
-      case Some(JsObject(fields)) => fields.get("aggregation").exists(_.isInstanceOf[JsObject])
-      case _                      => false
-    }
 
   /** Verify every panel's actual binding target — the flat `dataTypeId` for
    *  `DataPanelKinds`, OR (HEL-316) a non-`DataPanelKinds` panel's
@@ -78,87 +55,58 @@ object ProposalPanelSupport {
   def preValidateBindings(
       panels: Vector[ProposalPanel],
       user: AuthenticatedUser,
-      dataTypeRepo: DataTypeRepository,
-      metricRepo: MetricRepository
+      outputRepo: OutputRepository = null
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
     panels.foldLeft[Future[Either[ServiceError, Unit]]](Future.successful(Right(()))) {
       (accF, panel) =>
         accF.flatMap {
           case Left(err) => Future.successful(Left(err))
-          case Right(_)  => validateOnePanelBinding(panel, user, dataTypeRepo, metricRepo)
+          case Right(_)  => validateDataTypeBinding(panel, user, outputRepo)
         }
     }
 
-  private def validateOnePanelBinding(
-      panel: ProposalPanel,
-      user: AuthenticatedUser,
-      dataTypeRepo: DataTypeRepository,
-      metricRepo: MetricRepository
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    validateDataTypeBinding(panel, user, dataTypeRepo).flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_)  => validateMetricBinding(panel, user, metricRepo)
-    }
-
+  /** HEL-904 task 3.8/3.9: an `"output"`-kind panel's binding candidate is a
+   *  real Output id, validated against [[OutputRepository.findByIdOwned]].
+   *  Task 4.1: the non-`"output"` (Text/Markdown) branch, which used to
+   *  validate against the now-deleted `DataTypeRepository`, is removed
+   *  outright — `TextPanelConfig`/`MarkdownPanelConfig` no longer carry a
+   *  `dataTypeId` at all (the V94 migration converted every data-bound
+   *  text/markdown panel into a `markdown`-kind Output + `OutputPanel`
+   *  placement, design.md line 76/103), so a non-output panel's
+   *  `panel.dataTypeId` is never a real binding to validate. `outputRepo`
+   *  is nullable, mirroring this file's other legacy-optional constructor
+   *  params — a caller that never wires it (many test doubles, and any call
+   *  site that doesn't yet construct output-kind panels) gets
+   *  existence-check skipped rather than an NPE. */
   private def validateDataTypeBinding(
       panel: ProposalPanel,
       user: AuthenticatedUser,
-      dataTypeRepo: DataTypeRepository
+      outputRepo: OutputRepository
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
     bindingCandidate(panel) match {
       case None => Future.successful(Right(()))
-      case Some(id) =>
-        dataTypeRepo.findByIdOwned(DataTypeId(id), user).map {
-          case None =>
-            Left(ServiceError.BadRequest(s"panel '${panel.title}': dataType $id not found"))
-          case Some(dt) if dt.sourceId.isDefined =>
-            Left(ServiceError.BadRequest(
-              s"panel '${panel.title}': panels can only bind to pipeline-output data types"
-            ))
+      case Some(_) if panel.`type` == "output" && outputRepo == null =>
+        Future.successful(Right(()))
+      case Some(id) if panel.`type` == "output" =>
+        outputRepo.findByIdOwned(OutputId(id), user).map {
+          case None    => Left(ServiceError.BadRequest(s"panel '${panel.title}': output $id not found"))
           case Some(_) => Right(())
         }
+      case Some(_) => Future.successful(Right(()))
     }
 
-  /** HEL-549: reject a `metricId` before any create when it's set on a panel
-   *  type outside `MetricIdSupportedKinds`, doesn't resolve to a
-   *  caller-owned metric, or resolves to one with `deprecated: true`
-   *  (design.md D3 — stricter than `PanelService.rejectUnresolvableMetric`'s
-   *  direct-create path, which never checks `deprecated`). A panel with no
-   *  `metricId` passes through unchanged. */
-  private def validateMetricBinding(
-      panel: ProposalPanel,
-      user: AuthenticatedUser,
-      metricRepo: MetricRepository
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    panel.metricId match {
-      case None => Future.successful(Right(()))
-      case Some(id) =>
-        if (!DashboardProposalService.MetricIdSupportedKinds.contains(panel.`type`))
-          Future.successful(Left(ServiceError.BadRequest(
-            s"panel '${panel.title}': metricId is not supported on a ${panel.`type`} panel"
-          )))
-        else
-          metricRepo.findByIdOwned(MetricId(id), user).map {
-            case None =>
-              Left(ServiceError.BadRequest(s"panel '${panel.title}': metric $id not found"))
-            case Some(metric) if metric.deprecated =>
-              Left(ServiceError.BadRequest(s"panel '${panel.title}': metric $id is deprecated"))
-            case Some(_) => Right(())
-          }
-    }
+  // HEL-904 task 3.9: `validateMetricBinding` (HEL-549) removed outright —
+  // metrics no longer exist.
 
   /** The dataTypeId that will ACTUALLY end up bound on the created panel, for
-   *  pre-validation purposes: the flat field when present; otherwise, for a
-   *  panel type OUTSIDE `DataPanelKinds` only, a `config.dataTypeId`. */
+   *  pre-validation purposes: the flat field. HEL-904 task 4.1: the
+   *  non-`DataPanelKinds` (Text/Markdown) `config.dataTypeId` fallback is
+   *  removed outright — those kinds' data-bound "Source mode" no longer
+   *  exists, so a `config.dataTypeId` on a text/markdown proposal panel is
+   *  inert (silently ignored by `TextPanelConfig.decodeCreate`/
+   *  `MarkdownPanelConfig.decodeCreate`), never a real binding to validate. */
   private def bindingCandidate(panel: ProposalPanel): Option[String] =
-    panel.dataTypeId.orElse(nonFlatConfigDataTypeId(panel))
-
-  private def nonFlatConfigDataTypeId(panel: ProposalPanel): Option[String] =
-    if (DashboardProposalService.DataPanelKinds.contains(panel.`type`)) None
-    else
-      panel.config.flatMap(_.fields.get("dataTypeId")).collect {
-        case JsString(s) if s.nonEmpty => s
-      }
+    panel.dataTypeId
 
   /** Build the create-side typed `config` JSON from the proposal panel's
    *  fields and merge the generic `config` passthrough over it (HEL-316) —
@@ -169,7 +117,8 @@ object ProposalPanelSupport {
       case Some(id) => Some(buildDataConfig(id, panel))
       case None     => buildNonDataConfig(panel).map(_.asJsObject)
     }
-    val configOpt: Option[JsValue] = mergeConfig(derived, panel.config, panel.dataTypeId)
+    val bindingKey = if (panel.`type` == "output") "outputId" else "dataTypeId"
+    val configOpt: Option[JsValue] = mergeConfig(derived, panel.config, panel.dataTypeId, bindingKey)
     CreatePanelRequest(
       dashboardId = Some(dashboardId.value),
       title       = Some(panel.title),
@@ -179,13 +128,15 @@ object ProposalPanelSupport {
   }
 
   /** Merge the passthrough `config` over the derived flat-field config: on
-   *  key conflict the explicit `config` wins — EXCEPT a `DataPanelKinds`
-   *  panel's flat `dataTypeId` is re-applied after the merge so it remains
-   *  authoritative no matter what `config` supplies. */
+   *  key conflict the explicit `config` wins — EXCEPT the panel's flat
+   *  `dataTypeId` (an Output id for an `"output"`-kind panel — HEL-904 task
+   *  3.8/3.9) is re-applied, under `bindingKey`, after the merge so it
+   *  remains authoritative no matter what `config` supplies. */
   private def mergeConfig(
       derived: Option[JsObject],
       passthrough: Option[JsObject],
-      dataTypeId: Option[String]
+      dataTypeId: Option[String],
+      bindingKey: String
   ): Option[JsObject] = {
     val merged = (derived, passthrough) match {
       case (Some(d), Some(c)) => Some(JsObject(d.fields ++ c.fields))
@@ -194,33 +145,39 @@ object ProposalPanelSupport {
       case (None, None)       => None
     }
     dataTypeId match {
-      case Some(id) => merged.map(m => JsObject(m.fields + ("dataTypeId" -> JsString(id))))
+      case Some(id) => merged.map(m => JsObject(m.fields + (bindingKey -> JsString(id))))
       case None     => merged
     }
   }
 
-  private def buildDataConfig(dataTypeId: String, panel: ProposalPanel): JsObject = {
-    val baseFields = Map(
-      "dataTypeId"   -> JsString(dataTypeId),
-      "fieldMapping" -> panel.fieldMapping.getOrElse(JsObject.empty)
-    ) ++ panel.metricId.map("metricId" -> JsString(_))
-    val withAggregation = panel.aggregation.fold(baseFields)(agg => baseFields + ("aggregation" -> agg))
-    val withMetricLiteral =
-      if (panel.`type` == DashboardProposalService.MetricKind)
-        withAggregation ++ panel.label.map("label" -> JsString(_)) ++ panel.unit.map("unit" -> JsString(_))
-      else withAggregation
-    // HEL-321: fold the flat timeline `sort` into a NESTED `timelineOptions`
-    // object — `TimelinePanelConfig.decodeCreate` reads `sort` only from
-    // there, never a flat top-level key. An explicit `config.timelineOptions`
-    // still wins via `mergeConfig`.
-    val withTimelineSort =
-      if (panel.`type` == DashboardProposalService.TimelineKind)
-        withMetricLiteral ++ panel.sort.map(s =>
-          "timelineOptions" -> JsObject("sort" -> JsString(s))
-        )
-      else withMetricLiteral
-    JsObject(withTimelineSort)
-  }
+  // HEL-904 task 3.10: the Metric/Timeline literal-folding branches
+  // (label/unit/aggregation/timelineOptions) were removed along with the
+  // bound panel kinds they targeted. `dataTypeId` remains meaningful ONLY
+  // for `"output"`-kind panels (it becomes `outputId`, per task 3.8/3.9
+  // below). `fieldMapping` is NOT meaningful on any current panel kind --
+  // corrected cycle-9 (round-6 skeptic Finding, deletion-sweep CR1):
+  // `buildDataConfig` below emits only `{"outputId": ...}` for an `output`
+  // panel, never `fieldMapping`; TextPanelConfig and MarkdownPanelConfig
+  // carry no data binding of any kind, so `dataTypeId`/`fieldMapping` on a
+  // text/markdown proposal panel is inert, never a real binding.
+  //
+  // HEL-904 task 3.8/3.9: an `"output"`-kind proposal panel's flat
+  // `dataTypeId` field NAME is unchanged (still `dataTypeId` on the wire —
+  // `ProposalPanel`/schema stability, same reasoning as `DataPanelKinds`),
+  // but its VALUE is now a real Output id (populated by
+  // `PipelineProposalService.apply`'s Output creation, or by
+  // `CombinedProposalService.resolveOutputRefs`'s `"$pipelineOutput"`
+  // sentinel substitution). `OutputPanelConfig.decodeCreate` requires
+  // `outputId`, not `dataTypeId`/`fieldMapping`, so an output-kind panel's
+  // config must carry that key instead.
+  private def buildDataConfig(dataTypeId: String, panel: ProposalPanel): JsObject =
+    if (panel.`type` == "output")
+      JsObject(Map("outputId" -> JsString(dataTypeId)))
+    else
+      JsObject(Map(
+        "dataTypeId"   -> JsString(dataTypeId),
+        "fieldMapping" -> panel.fieldMapping.getOrElse(JsObject.empty)
+      ))
 
   private def buildNonDataConfig(panel: ProposalPanel): Option[JsValue] =
     panel.`type` match {

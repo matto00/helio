@@ -10,13 +10,13 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
-import com.helio.domain.model.{AuthenticatedUser, PagedResult, UserId}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, Page, PagedResult, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.{ConnectorCredentialRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
@@ -52,7 +52,6 @@ class DataSourceRoutesSpec
   private var embeddedPostgres: EmbeddedPostgres            = _
   private var db: JdbcBackend.Database                      = _
   private var dataSourceRepo: DataSourceRepository          = _
-  private var dataTypeRepo: DataTypeRepository              = _
   private var permissionRepo: ResourcePermissionRepository  = _
   private var fileSystem: LocalFileSystem                   = _
   private var connectorRepo: ConnectorRepository            = _
@@ -100,7 +99,6 @@ class DataSourceRoutesSpec
     val ec  = typedSystem.executionContext
     val ctx = new DbContext(db, db)(ec)
     dataSourceRepo  = new DataSourceRepository(ctx)(ec)
-    dataTypeRepo    = new DataTypeRepository(ctx)(ec)
     permissionRepo  = new ResourcePermissionRepository(ctx)(ec)
     connectorRepo   = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(ec))(ec)
 
@@ -165,7 +163,7 @@ class DataSourceRoutesSpec
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"TRUNCATE TABLE data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE data_sources RESTART IDENTITY CASCADE"))
   }
 
   private val stubConnector: RestApiConnectorDriver =
@@ -197,7 +195,7 @@ class DataSourceRoutesSpec
     val panelRepo          = new PanelRepository(ctx)(ec)
     val userRepo           = new UserRepository(db)(ec)
     val userPreferenceRepo = new UserPreferenceRepository(db)(ec)
-    val pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(ec)
+    val pipelineRepo       = new PipelineRepository(ctx, dataSourceRepo)(ec)
     val pipelineStepRepo   = new PipelineStepRepository(ctx)(ec)
     // HEL-287: session auth moved from an `Authorization` bearer header to a
     // `helio_session` cookie; the CSRF header is required on non-GET
@@ -210,7 +208,7 @@ class DataSourceRoutesSpec
       else withCookie.withHeaders(withCookie.headers :+ RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue))
     } {
       new ApiRoutes(
-        dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, fileSystem, c, userRepo,
+        dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, fileSystem, c, userRepo,
         stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
         new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
         dataSourceUrlIsBlocked = testIsBlocked,
@@ -287,16 +285,10 @@ class DataSourceRoutesSpec
         body.name       shouldBe "Sales Data"
         body.`type` shouldBe "csv"
         body.id         should not be empty
-
-        Get("/api/types") ~> routes() ~> check {
-          status shouldBe StatusCodes.OK
-          val types = responseAs[PagedResult[DataTypeResponse]]
-          types.items should have length 1
-          types.items.head.name          shouldBe "Sales Data"
-          types.items.head.sourceId      shouldBe Some(body.id)
-          types.items.head.fields.map(_.name) should contain allOf ("id", "name", "score")
-        }
       }
+      // HEL-904: the schema now lives on the source's own inferredSchema column.
+      val ds = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      ds.inferredSchema.map(_.name) should contain allOf ("id", "name", "score")
     }
 
     "return 400 when name field is missing" in {
@@ -376,15 +368,9 @@ class DataSourceRoutesSpec
         body.name shouldBe "Release Notes"
         body.`type` shouldBe "text"
         body.id should not be empty
-
-        Get("/api/types") ~> routes() ~> check {
-          status shouldBe StatusCodes.OK
-          val types = responseAs[PagedResult[DataTypeResponse]]
-          types.items should have length 1
-          types.items.head.sourceId shouldBe Some(body.id)
-          types.items.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
-        }
       }
+      val ds = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      ds.inferredSchema.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
     }
 
     "return 201 for a valid .md upload" in {
@@ -431,12 +417,9 @@ class DataSourceRoutesSpec
         val ds = responseAs[DataSourceResponse].asInstanceOf[TextSourceResponse]
         ds.`type` shouldBe "text"
         ds.config.sourceUrl shouldBe Some(url)
-
-        Get("/api/types") ~> routes() ~> check {
-          val types = responseAs[PagedResult[DataTypeResponse]]
-          types.items.head.fields.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
-        }
       }
+      val stored = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      stored.inferredSchema.map(_.name) should contain allOf ("content", "filename", "sizeBytes")
     }
 
     "return 502 when the URL cannot be fetched" in {
@@ -493,16 +476,10 @@ class DataSourceRoutesSpec
         body.name shouldBe "Report"
         body.`type` shouldBe "pdf"
         body.id should not be empty
-
-        Get("/api/types") ~> routes() ~> check {
-          status shouldBe StatusCodes.OK
-          val types = responseAs[PagedResult[DataTypeResponse]]
-          types.items should have length 1
-          types.items.head.sourceId shouldBe Some(body.id)
-          types.items.head.fields.map(_.name) should contain allOf
-            ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
-        }
       }
+      val ds = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      ds.inferredSchema.map(_.name) should contain allOf
+        ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
     }
 
     "return 400 for an unsupported extension" in {
@@ -558,16 +535,10 @@ class DataSourceRoutesSpec
         body.name shouldBe "Product Photo"
         body.`type` shouldBe "image"
         body.id should not be empty
-
-        Get("/api/types") ~> routes() ~> check {
-          status shouldBe StatusCodes.OK
-          val types = responseAs[PagedResult[DataTypeResponse]]
-          types.items should have length 1
-          types.items.head.sourceId shouldBe Some(body.id)
-          types.items.head.fields.map(_.name) should contain allOf
-            ("content", "filename", "sizeBytes", "width", "height", "mimeType")
-        }
       }
+      val ds = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      ds.inferredSchema.map(_.name) should contain allOf
+        ("content", "filename", "sizeBytes", "width", "height", "mimeType")
     }
 
     "return 201 for a valid JPEG upload" in {
@@ -632,13 +603,10 @@ class DataSourceRoutesSpec
         val ds = responseAs[DataSourceResponse].asInstanceOf[PdfSourceResponse]
         ds.`type` shouldBe "pdf"
         ds.config.sourceUrl shouldBe Some(url)
-
-        Get("/api/types") ~> routes() ~> check {
-          val types = responseAs[PagedResult[DataTypeResponse]]
-          types.items.head.fields.map(_.name) should contain allOf
-            ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
-        }
       }
+      val stored = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      stored.inferredSchema.map(_.name) should contain allOf
+        ("content", "filename", "sizeBytes", "pageNumber", "pageCount", "characterCount")
     }
 
     "return 502 when the URL cannot be fetched" in {
@@ -671,13 +639,10 @@ class DataSourceRoutesSpec
         val ds = responseAs[DataSourceResponse].asInstanceOf[ImageSourceResponse]
         ds.`type` shouldBe "image"
         ds.config.sourceUrl shouldBe Some(url)
-
-        Get("/api/types") ~> routes() ~> check {
-          val types = responseAs[PagedResult[DataTypeResponse]]
-          types.items.head.fields.map(_.name) should contain allOf
-            ("content", "filename", "sizeBytes", "width", "height", "mimeType")
-        }
       }
+      val stored = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      stored.inferredSchema.map(_.name) should contain allOf
+        ("content", "filename", "sizeBytes", "width", "height", "mimeType")
     }
 
     "return 502 when the URL cannot be fetched" in {
@@ -1014,15 +979,18 @@ class DataSourceRoutesSpec
         Multipart.FormData.BodyPart.Strict("file",   HttpEntity(ContentTypes.`text/plain(UTF-8)`, validCsv)),
         Multipart.FormData.BodyPart.Strict("fields", HttpEntity(ContentTypes.`application/json`, fieldOverrides))
       )
+      var sourceId = ""
       Post("/api/data-sources", formData) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
-        responseAs[DataSourceResponse].name shouldBe "Overridden"
-        Get("/api/types") ~> routes() ~> check {
-          val types = responseAs[PagedResult[DataTypeResponse]]
-          val idField = types.items.head.fields.find(_.name == "id")
-          idField.map(_.displayName) shouldBe Some("Record ID")
-        }
+        val body = responseAs[DataSourceResponse]
+        body.name shouldBe "Overridden"
+        sourceId = body.id
       }
+      // HEL-904: field overrides are baked into `inferred_schema` directly (no companion DataType
+      // to carry a displayName — `SchemaField` is `{name, type}` only; the override's `dataType`
+      // is what's asserted here).
+      val ds = await(dataSourceRepo.findByIdOwned(DataSourceId(sourceId), testUser)).get
+      ds.inferredSchema.find(_.name == "id").map(_.`type`) shouldBe Some("integer")
     }
   }
 
@@ -1046,17 +1014,10 @@ class DataSourceRoutesSpec
         ds.name       shouldBe "Lookup Table"
         ds.`type` shouldBe "static"
         ds.id         should not be empty
-
-        Get("/api/types") ~> routes() ~> check {
-          status shouldBe StatusCodes.OK
-          val types = responseAs[PagedResult[DataTypeResponse]]
-          types.items should have length 1
-          val dt = types.items.head
-          dt.name     shouldBe "Lookup Table"
-          dt.sourceId shouldBe Some(ds.id)
-          dt.fields.map(_.name) should contain allOf ("id", "label")
-        }
       }
+      val stored = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      stored.name shouldBe "Lookup Table"
+      stored.inferredSchema.map(_.name) should contain allOf ("id", "label")
     }
 
     "return 400 when name is missing" in {
@@ -1130,11 +1091,8 @@ class DataSourceRoutesSpec
         responseAs[DataSourceResponse].id shouldBe sourceId
       }
 
-      Get("/api/types") ~> routes() ~> check {
-        val types = responseAs[PagedResult[DataTypeResponse]]
-        val dt    = types.items.head
-        dt.fields.map(_.name) should contain allOf ("col1", "col2")
-      }
+      val ds = await(dataSourceRepo.findByIdOwned(DataSourceId(sourceId), testUser)).get
+      ds.inferredSchema.map(_.name) should contain allOf ("col1", "col2")
     }
 
     "return 400 when row count exceeds 500 on refresh" in {
@@ -1225,7 +1183,7 @@ class DataSourceRoutesSpec
       ) ~> routesWith(successConnector(sampleJson)) ~> check {
         status shouldBe StatusCodes.Created
         val resp    = responseAs[CreateSourceResponse]
-        val idField = resp.dataType.flatMap(_.fields.find(_.name == "id"))
+        val idField = resp.inferredSchema.flatMap(_.fields.find(_.name == "id"))
         idField.map(_.displayName) shouldBe Some("Identifier")
       }
     }

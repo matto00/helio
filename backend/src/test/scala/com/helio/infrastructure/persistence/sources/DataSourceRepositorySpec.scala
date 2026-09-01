@@ -46,7 +46,6 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
-    await(db.run(sqlu"DELETE FROM data_types"))
     await(db.run(sqlu"DELETE FROM data_sources"))
   }
 

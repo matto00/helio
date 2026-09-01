@@ -3,6 +3,7 @@ package com.helio.services.proposals
 import com.helio.services.proposals.DashboardAuthoringPrompt
 import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentPreferencesResponse}
 import com.helio.api.protocols.workspace.WorkspaceContextAgentSection
+import com.helio.domain.model.PanelType
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json.{JsObject, JsString}
@@ -98,11 +99,33 @@ class DashboardAuthoringPromptSpec extends AnyWordSpec with Matchers {
       message should include("User preferences:")
       message should include("user loves Netflix dashboards")
       // The agentContext section comes after the grounding section and before the goal.
-      val groundingIdx = message.indexOf("Available pipeline-output data types:")
+      val groundingIdx = message.indexOf("Available pipeline Outputs:")
       val agentIdx     = message.indexOf("User preferences:")
       val goalIdx      = message.indexOf("User goal:")
       groundingIdx should be < agentIdx
       agentIdx should be < goalIdx
+    }
+
+    // HEL-904 cycle-9 fix (round-6 skeptic, deletion-sweep CR2): the rendered
+    // prompt's panel-kind instruction must equal the set `PanelType.fromString`
+    // actually accepts, so this cannot silently re-drift the way it did when
+    // the panel-kind collapse shipped without updating this prompt.
+    "instructs the model to emit exactly the panel kinds PanelType.fromString accepts (minus divider, which the proposal flow deliberately excludes for create_panel parity)" in {
+      val message = DashboardAuthoringPrompt.userMessage(
+        goal         = "Build a sales dashboard",
+        dataTypes    = Vector.empty,
+        capabilities = Map.empty,
+        agentContext = WorkspaceContextAgentSection.empty
+      )
+      message should include("\"type\": \"one of: text | markdown | image | output\"")
+      // No stale, deleted panel kinds anywhere in the instructions.
+      Vector("metric", "chart", "table", "collection", "timeline").foreach { deletedKind =>
+        message should not include deletedKind
+      }
+      // Every kind actually mentioned really is one `PanelType.fromString` accepts.
+      Vector("text", "markdown", "image", "output").foreach { kind =>
+        PanelType.fromString(kind) shouldBe a[Right[_, _]]
+      }
     }
   }
 }

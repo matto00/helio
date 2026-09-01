@@ -202,10 +202,15 @@ const fromStringBody = extractBetween(
 const canonicalPanelTypes = [
   ...fromStringBody.matchAll(/case\s+"([a-zA-Z0-9]+)"\s*=>\s*Right/g),
 ].map((m) => m[1]);
-if (canonicalPanelTypes.length < 8) {
+// HEL-904 task 3.6: PanelType collapsed from 10 to the final 5-value set
+// (output|text|markdown|image|divider) — this guard's threshold moved from
+// `< 8` to `< 5` in the SAME commit as the collapse, so it still catches a
+// genuinely broken/reformatted `fromString` parse without falsely failing on
+// the ticket's own intended end state.
+if (canonicalPanelTypes.length < 5) {
   console.error(
     `Canonical panel-type parse from ${modelScala} yielded only ${canonicalPanelTypes.length} types ` +
-      `(expected >= 8) — PanelType.fromString may have been reformatted; update the parser in this script.`,
+      `(expected >= 5) — PanelType.fromString may have been reformatted; update the parser in this script.`,
   );
   process.exit(1);
 }

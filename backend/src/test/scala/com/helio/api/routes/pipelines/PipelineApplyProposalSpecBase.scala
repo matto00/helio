@@ -15,7 +15,7 @@ import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -159,23 +159,20 @@ abstract class PipelineApplyProposalSpecBase
     val dashboardRepo    = new DashboardRepository(ctx)(routeEc)
     val panelRepo        = new PanelRepository(ctx)(routeEc)
     val dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
-    val dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
     val userRepo         = new UserRepository(appDb)(routeEc)
     val userPrefRepo     = new UserPreferenceRepository(appDb)(routeEc)
     val permissionRepo   = new ResourcePermissionRepository(ctx)(routeEc)
-    val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    val pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     val pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
     val pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
-    val dataTypeRowRepo  = new DataTypeRowRepository(ctx)(routeEc)
     connectorRepo        = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(routeEc))(routeEc)
 
     routes = new ApiRoutes(
-      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
+      dashboardRepo, panelRepo, dataSourceRepo, permissionRepo,
       stubFileSystem, stubConnector,
       userRepo, stubSessionRepo, userPrefRepo, pipelineRepo, pipelineStepRepo,
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc),
       pipelineRunRepo = pipelineRunRepo,
-      dataTypeRowRepo = dataTypeRowRepo,
       // HEL-822: SourceService.createRest's bare-url dual-support path needs a real
       // ConnectorRepository (constructed by ApiRoutes when dbContext is present) to
       // synthesize an implicit Connector for this fixture's inline `{"url": ...}` sources.
@@ -198,16 +195,9 @@ abstract class PipelineApplyProposalSpecBase
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'c2@helio.test', now())""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($srcId::uuid, 'existing-static', 'static', $staticPayload::jsonb, $userId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($srcTypeId::uuid, $srcId::uuid, 'existing-static',
-                     '[{"name":"name","displayName":"name","dataType":"string","nullable":true}]'::jsonb,
-                     1, $userId::uuid, now(), now())""",
+      
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($otherSrcId::uuid, 'other-static', 'static', $staticPayload::jsonb, $otherId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($otherTypeId::uuid, $otherSrcId::uuid, 'other-static',
-                     '[{"name":"name","displayName":"name","dataType":"string","nullable":true}]'::jsonb,
-                     1, $otherId::uuid, now(), now())"""
+             VALUES ($otherSrcId::uuid, 'other-static', 'static', $staticPayload::jsonb, $otherId::uuid, now(), now())"""
     )))
   }
 
@@ -233,13 +223,14 @@ abstract class PipelineApplyProposalSpecBase
   protected def dataSourceCount(): Int  = countRows("data_sources")
   protected def pipelineCount(): Int    = countRows("pipelines")
   protected def pipelineStepCount(): Int = countRows("pipeline_steps")
-  protected def dataTypeCount(): Int    = countRows("data_types")
 
+  // HEL-904 task 2.10: `dataTypeCount()` removed outright -- `data_types` is
+  // dropped, and no proposal apply path has created a DataType since task
+  // 3.5/3.8 retired the DataType-minting create-path.
   private def countRows(table: String): Int = table match {
     case "data_sources"   => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM data_sources".as[Int].head))
     case "pipelines"      => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM pipelines".as[Int].head))
     case "pipeline_steps" => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM pipeline_steps".as[Int].head))
-    case "data_types"     => await(ctx.withSystemContext(sql"SELECT COUNT(*) FROM data_types".as[Int].head))
   }
 
   /** HEL-755 design.md D3: reads the most recent `pipeline_runs` row for
@@ -253,5 +244,15 @@ abstract class PipelineApplyProposalSpecBase
       sql"""SELECT status, error_log FROM pipeline_runs
             WHERE pipeline_id = $pipelineId
             ORDER BY started_at DESC LIMIT 1""".as[(String, Option[String])].headOption
+    ))
+
+  /** HEL-904 task 3.5: `pipelineRepo.create` no longer mints a legacy
+   *  DataType, so a proposal-created pipeline's row output is verifiable
+   *  only via `node_snapshots` now (no `GET /api/outputs/:id/rows` route
+   *  yet — P1.3/HEL-906's job) — a direct, privileged-pool row count,
+   *  mirroring `countRows`'s existing convention. */
+  protected def nodeSnapshotRowCount(pipelineId: String): Int =
+    await(ctx.withSystemContext(
+      sql"SELECT COUNT(*) FROM node_snapshots WHERE pipeline_id = $pipelineId".as[Int].head
     ))
 }

@@ -4,26 +4,35 @@
 Lets an agentic workflow tear down every data source, pipeline, and DataType carrying a given
 tag in one owner-scoped, all-or-nothing call, refusing entirely rather than reaching resources
 outside that tag's batch, with a dry-run preview of exactly what the call would delete.
+
 ## Requirements
+
 ### Requirement: Bulk teardown deletes exactly the resources carrying a given tag
-`POST /api/workspace/teardown` with `{ tag }` SHALL delete every data source, pipeline, and
-DataType owned by the caller whose `tag` equals the given value, and SHALL NOT delete any
-resource whose `tag` does not equal the given value — including resources that would otherwise
-be reached by an existing single-resource delete's cascade (e.g. a pipeline built on a tagged
-data source, or the pipeline producing a tagged output DataType). The response SHALL report
-per-kind counts: `sourcesDeleted`, `pipelinesDeleted`, `typesDeleted`.
+Teardown SHALL delete every tagged resource across dashboards, panels, pipelines, and data
+sources. The prior `resourceKind = "data_type"` branch no longer exists — Outputs are torn down
+transitively via `ON DELETE CASCADE` from their owning pipeline, not as an independently tagged
+resource kind.
+
+#### Scenario: Tagged dashboards, panels, pipelines, and sources are deleted
+- **WHEN** teardown runs for a tag present on at least one resource of each surviving kind
+- **THEN** every resource carrying that tag is deleted
+
+#### Scenario: Deleting a tagged pipeline cascades its Outputs
+- **WHEN** a tagged pipeline with Outputs attached is torn down
+- **THEN** its Outputs (and any panels placing them) are deleted via cascade, with no separate
+  `data_type` teardown branch invoked
 
 #### Scenario: Teardown deletes only the tagged set
-- **WHEN** a caller has data sources/pipelines/DataTypes tagged `T` and other resources tagged
+- **WHEN** a caller has data sources/pipelines tagged `T` and other resources tagged
   differently or untagged, and calls `POST /api/workspace/teardown {tag: "T"}`
-- **THEN** every resource tagged `T` is deleted, every other resource (regardless of tag) is
-  untouched, and the response counts match exactly the number of resources tagged `T` per kind
+- **THEN** every resource tagged `T` is deleted (Outputs on a torn-down pipeline cascade with it),
+  every other resource (regardless of tag) is untouched, and the response counts match exactly the
+  number of resources tagged `T` per surviving kind
 
 #### Scenario: Teardown with no matching tag deletes nothing
 - **WHEN** `POST /api/workspace/teardown {tag: "nonexistent"}` is called and no owned resource
   carries that tag
-- **THEN** the call succeeds with `sourcesDeleted: 0, pipelinesDeleted: 0, typesDeleted: 0` and
-  nothing is deleted
+- **THEN** the call succeeds with zero deletions for every kind and nothing is deleted
 
 ### Requirement: Teardown refuses when a tagged resource has a dependent outside this batch
 The teardown call SHALL be refused in its entirety — no resource deleted — when deleting a
@@ -115,4 +124,3 @@ deleted, regardless of the RLS session context being correctly established.
 - **WHEN** user A calls `POST /api/workspace/teardown {tag: "T"}`, user A owns no resource
   tagged `T`, but user B owns several
 - **THEN** the call succeeds with all-zero counts; user B's resources are unaffected
-

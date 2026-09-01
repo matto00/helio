@@ -67,12 +67,12 @@ already-validated address so a rebinding DNS answer cannot redirect the fetch.
 
 ### Requirement: A URL-backed CSV source re-fetches on refresh
 `POST /api/data-sources/:id/refresh` SHALL re-fetch the stored `sourceUrl` when one is present, overwrite the stored
-snapshot with the fetched bytes, and re-infer the linked DataType's schema. A CSV source with no `sourceUrl` SHALL
+snapshot with the fetched bytes, and re-infer the linked inferred schema's schema. A CSV source with no `sourceUrl` SHALL
 continue to re-read the stored file exactly as before.
 
 #### Scenario: Refresh reflects upstream changes without re-upload
 - **WHEN** the upstream CSV content changes and refresh is called on a URL-backed CSV source
-- **THEN** the stored snapshot and the linked DataType schema reflect the NEW upstream content
+- **THEN** the stored snapshot and the linked inferred schema schema reflect the NEW upstream content
 
 #### Scenario: Inline-created CSV refresh is unchanged
 - **WHEN** refresh is called on a CSV source created from inline content

@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AlertRuleResponse, AlertRulesResponse, JsonProtocols}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.alerts.AlertRuleService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -40,7 +40,7 @@ class AlertRuleRoutesSpec
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var alertRuleRepo: AlertRuleRepository = _
-  private var dataTypeRepo: DataTypeRepository   = _
+  private var outputRepo: OutputRepository       = _
 
   private val ownerAId = UUID.randomUUID().toString
   private val ownerBId = UUID.randomUUID().toString
@@ -58,7 +58,7 @@ class AlertRuleRoutesSpec
     db            = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx       = new DbContext(db, db)(routeEc)
     alertRuleRepo = new AlertRuleRepository(ctx)(routeEc)
-    dataTypeRepo  = new DataTypeRepository(ctx)(routeEc)
+    outputRepo    = new OutputRepository(ctx)(routeEc)
     seedUsers()
   }
 
@@ -76,25 +76,37 @@ class AlertRuleRoutesSpec
     )))
   }
 
+  /** HEL-904 (task 3.1): `AlertRuleService.create` now resolves a
+   *  `targetOutputId` — builds the minimal real source -> pipeline -> Output
+   *  chain via raw SQL (mirrors this spec's own existing raw-SQL fixture
+   *  style), returning the Output id. */
   private def seedDataType(ownerId: String): String = {
     import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
     val dtId = UUID.randomUUID().toString
-    await(db.run(
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, 'TestType', '[]', 1, $ownerId::uuid, now(), now())"""
-    ))
-    dtId
+    val pId  = UUID.randomUUID().toString
+    val outId = UUID.randomUUID().toString
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($dsId, 'src', 'static', '{}', $ownerId::uuid, now(), now())""",
+      
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pId, 'pipe', $dsId, $ownerId::uuid, now(), now())""",
+      sqlu"""INSERT INTO outputs (id, pipeline_id, owner_id, name, kind, created_at, updated_at)
+             VALUES ($outId, $pId, $ownerId::uuid, 'out', 'table', now(), now())"""
+    )))
+    outId
   }
 
   private def routesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new AlertRuleService(alertRuleRepo, dataTypeRepo)
+    val service = new AlertRuleService(alertRuleRepo, outputRepo)
     new AlertRuleRoutes(service, user)(typedSystem).routes
   }
 
   private def createBody(targetDataTypeId: String, name: String = "My Rule"): JsObject =
     JsObject(
-      "targetDataTypeId" -> JsString(targetDataTypeId),
+      "targetOutputId"   -> JsString(targetDataTypeId),
       "metric"           -> JsString("count"),
       "condition"        -> JsObject("comparator" -> JsString("gt"), "threshold" -> JsNumber(5)),
       "severity"         -> JsString("warning"),
@@ -119,7 +131,7 @@ class AlertRuleRoutesSpec
       Post("/alert-rules", createBody(dtId)) ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.Created
         val resp = responseAs[AlertRuleResponse]
-        resp.targetDataTypeId shouldBe dtId
+        resp.targetOutputId shouldBe dtId
         resp.metric shouldBe "count"
         resp.severity shouldBe "warning"
         resp.enabled shouldBe true
@@ -190,8 +202,8 @@ class AlertRuleRoutesSpec
       Get("/alert-rules") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.OK
         val items = responseAs[AlertRulesResponse].items
-        items.map(_.targetDataTypeId) should contain(dtIdA)
-        items.map(_.targetDataTypeId) should not contain dtIdB
+        items.map(_.targetOutputId) should contain(dtIdA)
+        items.map(_.targetOutputId) should not contain dtIdB
       }
     }
   }

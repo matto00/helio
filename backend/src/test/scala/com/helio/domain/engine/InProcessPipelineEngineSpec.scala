@@ -5,7 +5,7 @@ import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, Sq
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.domain.steps._
-import com.helio.domain.model.{DataSource, DataSourceId, DataTypeId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
+import com.helio.domain.model.{DataSource, DataSourceId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
@@ -2452,6 +2452,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         val createdAt: Instant = now
         val updatedAt: Instant = now
         val enabled: Boolean = true
+        val parentStepId: Option[PipelineStepId] = None
         // HEL-814: this fake step's kind is not in `PipelineStep.Registry`, so
         // the engine's required-config check finds no companion and skips it,
         // leaving this test exercising exactly what it did before.
@@ -2617,7 +2618,6 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         id                 = PipelineId("pipeline-parity"),
         name               = "pipe",
         sourceDataSourceId = ds.id,
-        outputDataTypeId   = DataTypeId("dt"),
         lastRunStatus      = None,
         lastRunAt          = None,
         createdAt          = Instant.now(),

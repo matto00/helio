@@ -1,6 +1,6 @@
 package com.helio.services.patchsets
 
-import com.helio.api.protocols.pipelines.{ComputedFieldPayload, CreatePipelineStepRequest, DataFieldPayload, DataTypeResponse, PipelineStepConfigCodec, UpdateDataTypeRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
@@ -126,15 +126,8 @@ private[services] object PatchSetApplyRollback {
         // design.md D1: cascades to pipelines; ten heterogeneous create paths.
         Future.successful(edit.toOutcome("unrecoverable"))
 
-      // ── dataType (no create — design.md D1) ───────────────────────────
-      case ResolvedAction.DataTypeUpdate(id, _, prior) =>
-        services.dataTypeService.update(id, fullDataTypeInverse(prior), user).map {
-          case Right(dt) => edit.toOutcome("rolledBack", resultingState = Some(dataTypeResponseFormat.write(DataTypeResponse.fromDomain(dt))))
-          case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
-        }
-      case ResolvedAction.DataTypeDelete(_, _) =>
-        // design.md D1: no create API to restore via — hard constraint.
-        Future.successful(edit.toOutcome("unrecoverable"))
+      // HEL-904 task 3.3: the `dataType` ResolvedAction cases (update/delete)
+      // are REMOVED outright -- see `PatchSetApplyForward`'s identical note.
 
       case ResolvedAction.PipelineCreate(_) =>
         forwardOutcome.newId match {
@@ -215,17 +208,13 @@ private[services] object PatchSetApplyRollback {
 
   /** Per-kind set of Option-typed config field names each kind's own
    *  `*Config.Patch.decode`/`applyPatch` actually reads (skeptic-final-1.md
-   *  CR1). `metricDeprecated` (Metric/Chart/Table) is deliberately excluded
-   *  — it is server-materialized and never decoded from a patch at all (see
-   *  `MetricPanelConfig`'s own doc comment). Text/Markdown/Timeline have no
-   *  Option-typed Patch field, so they map to the empty set. */
+   *  CR1). HEL-904: the bound trio's metric/aggregation fields were removed
+   *  along with `MetricPanel`/`ChartPanel`/`TablePanel`/`CollectionPanel`.
+   *  Text/Markdown/Output have no Option-typed Patch field, so they map to
+   *  the empty set. */
   private def optionalConfigFieldNames(kind: String): Set[String] = kind match {
-    case MetricPanel.Kind     => Set("aggregation", "label", "unit", "metricId")
-    case ChartPanel.Kind      => Set("aggregation", "chartOptions", "annotation", "metricId")
-    case TablePanel.Kind      => Set("density", "columnOrder", "metricId")
     case ImagePanel.Kind      => Set("caption")
     case DividerPanel.Kind    => Set("weight", "color")
-    case CollectionPanel.Kind => Set("itemOptions")
     case _                    => Set.empty
   }
 
@@ -288,13 +277,6 @@ private[services] object PatchSetApplyRollback {
       ))
     )
   }
-
-  private def fullDataTypeInverse(prior: DataType): UpdateDataTypeRequest =
-    UpdateDataTypeRequest(
-      name           = Some(prior.name),
-      fields         = Some(prior.fields.map(f => DataFieldPayload(f.name, f.displayName, f.dataType, f.nullable))),
-      computedFields = Some(prior.computedFields.map(cf => ComputedFieldPayload(cf.name, cf.displayName, cf.expression, cf.dataType)))
-    )
 
   private def fullPipelineStepInverse(prior: PipelineStep): UpdatePipelineStepRequest =
     UpdatePipelineStepRequest(

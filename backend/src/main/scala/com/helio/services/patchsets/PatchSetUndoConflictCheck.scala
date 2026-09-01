@@ -2,9 +2,9 @@ package com.helio.services.patchsets
 
 import com.helio.api.protocols.dashboards.DashboardResponse
 import com.helio.api.protocols.sources.DataSourceResponse
-import com.helio.api.protocols.pipelines.{DataTypeResponse, PipelineStepConfigCodec, PipelineSummaryResponse}
+import com.helio.api.protocols.pipelines.{PipelineStepConfigCodec, PipelineSummaryResponse}
 import com.helio.api.protocols.panels.PanelResponse
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataSourceId, DataTypeId, PanelId, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataSourceId, PanelId, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import PatchSetApplicationRepository.JournaledEdit
 import PatchSetApplyServiceJson._
@@ -22,14 +22,15 @@ import scala.util.control.NonFatal
  *  `lastRunStatus`/`lastRunAt`/`lastRunRowCount`, updated by every run regardless of any
  *  patch-set edit). A `panel`/`pipelineStep` `delete` edit's undo (recreate) is always eligible —
  *  no live state to compare, nothing captured post-apply since the resource no longer exists. A
- *  `dashboard`/`dataSource`/`dataType`/`pipeline` `delete` edit is ALWAYS flagged: structurally
+ *  `dashboard`/`dataSource`/`pipeline` `delete` edit is ALWAYS flagged: structurally
  *  unrecoverable (no restoring create API — design.md D1/D5), not a conflict, but it can never
  *  satisfy undo's all-or-nothing guarantee either way, so it fails the same Phase-1 gate. */
 private[services] object PatchSetUndoConflictCheck {
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  private val UnrecoverableDeleteKinds = Set("dashboard", "dataSource", "dataType", "pipeline")
+  // HEL-904 task 3.3: `dataType` removed outright -- no longer a valid target.kind.
+  private val UnrecoverableDeleteKinds = Set("dashboard", "dataSource", "pipeline")
 
   def checkAll(
       edits: Vector[JournaledEdit],
@@ -53,7 +54,6 @@ private[services] object PatchSetUndoConflictCheck {
       case ("panel", "update" | "create")     => checkPanel(edit, ctx)
       case ("dashboard", "update" | "create") => checkDashboard(edit, user, ctx)
       case ("dataSource", "update" | "create")=> checkDataSource(edit, user, ctx)
-      case ("dataType", "update")             => checkDataType(edit, user, ctx)
       case ("pipeline", "update" | "create")  => checkPipeline(edit, user, ctx)
       case ("pipelineStep", "update")         => checkPipelineStep(edit, ctx)
       case (kind, op)                          =>
@@ -137,19 +137,6 @@ private[services] object PatchSetUndoConflictCheck {
     }
 
 
-  private def checkDataType(edit: JournaledEdit, user: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Option[String]] =
-    edit.resultingState match {
-      case None => Future.successful(Some(missing(edit)))
-      case Some(json) =>
-        val journaled = json.convertTo[DataTypeResponse]
-        ctx.dataTypeRepo.findByIdOwned(DataTypeId(journaled.id), user).map {
-          case None => Some(changed(edit, s"data type ${journaled.id} no longer exists"))
-          case Some(liveDataType) =>
-            val live = DataTypeResponse.fromDomain(liveDataType)
-            if (live.name == journaled.name && live.fields == journaled.fields && live.computedFields == journaled.computedFields) None
-            else Some(changed(edit, s"data type ${journaled.id} was changed since the patch set was applied"))
-        }
-    }
 
   //
   // design.md D4a: `PipelineSummaryResponse.lastRunStatus`/`lastRunAt`/`lastRunRowCount` update

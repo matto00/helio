@@ -7,7 +7,6 @@ import spray.json._
 final case class CreatePipelineRequest(
     name: String,
     sourceDataSourceId: String,
-    outputDataTypeName: String,
     tag: Option[String] = None
 )
 final case class UpdatePipelineRequest(name: String)
@@ -16,8 +15,6 @@ final case class PipelineSummaryResponse(
     name: String,
     sourceDataSourceId: String,
     sourceDataSourceName: String,
-    outputDataTypeName: String,
-    outputDataTypeId: String,
     lastRunStatus: Option[String],
     lastRunAt: Option[String],
     lastRunRowCount: Option[Long],
@@ -122,23 +119,22 @@ final case class RunResultResponse(
     truncatedReads: Vector[TruncatedReadResponse] = Vector.empty
 )
 
-/** `PipelineProtocol extends DataTypeProtocol with PipelineStepProtocol with
- *  PipelineAnalyzeProtocol` because the analyze response references
- *  `SchemaFieldResponse` (lives in `DataTypeProtocol`) and the typed per-step
- *  `*Config` formatters (live in `PipelineStepProtocol`); the analyze API
- *  types/formats themselves live in `PipelineAnalyzeProtocol` (extracted per
- *  HEL-221 design.md decision 8 — behavior-preserving file split to keep both
- *  files under the 250-line soft budget). */
+/** `PipelineProtocol extends PipelineStepProtocol with PipelineAnalyzeProtocol`
+ *  because the typed per-step `*Config` formatters live in
+ *  `PipelineStepProtocol`; the analyze API types/formats themselves live in
+ *  `PipelineAnalyzeProtocol` (extracted per HEL-221 design.md decision 8 —
+ *  behavior-preserving file split to keep both files under the 250-line soft
+ *  budget). HEL-904 task 4.1: `DataTypeProtocol` mixin removed outright —
+ *  DataTypes no longer exist. */
 trait PipelineProtocol
     extends SprayJsonSupport
     with DefaultJsonProtocol
-    with DataTypeProtocol
     with PipelineStepProtocol
     with PipelineAnalyzeProtocol {
 
-  implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat4(CreatePipelineRequest.apply)
+  implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat3(CreatePipelineRequest.apply)
   implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest]     = jsonFormat1(UpdatePipelineRequest.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat11(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat9(PipelineSummaryResponse.apply)
 
   implicit val assertionFailureDetailFormat: RootJsonFormat[AssertionFailureDetail] =
     jsonFormat4(AssertionFailureDetail.apply)

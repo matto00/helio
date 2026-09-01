@@ -13,7 +13,7 @@ import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.{CastConfig, SelectConfig, StepConfigTypeMismatch}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.pipelines.PipelineService
 import com.helio.testsupport.JsonSchemaValidation
@@ -48,7 +48,6 @@ class PipelineAnalyzeProposalRoutesSpec
   private var db: JdbcBackend.Database                 = _
   private var pipelineRepo: PipelineRepository         = _
   private var pipelineStepRepo: PipelineStepRepository = _
-  private var dataTypeRepo: DataTypeRepository         = _
   private var dataSourceRepo: DataSourceRepository     = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
@@ -61,9 +60,8 @@ class PipelineAnalyzeProposalRoutesSpec
       .load().migrate()
     db               = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx          = new DbContext(db, db)(routeEc)
-    dataTypeRepo     = new DataTypeRepository(ctx)(routeEc)
     dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
-    pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
   }
 
@@ -79,7 +77,6 @@ class PipelineAnalyzeProposalRoutesSpec
     import PostgresProfile.api._
     await(db.run(sqlu"DELETE FROM pipeline_steps"))
     await(db.run(sqlu"DELETE FROM pipelines"))
-    await(db.run(sqlu"DELETE FROM data_types"))
     await(db.run(sqlu"DELETE FROM data_sources"))
   }
 
@@ -96,17 +93,29 @@ class PipelineAnalyzeProposalRoutesSpec
     await(db.run(sql"SELECT COUNT(*) FROM pipeline_steps".as[Int])).head
   }
 
-  /** Seeds a caller-owned DataSource + its companion source DataType. Returns the DataSource id. */
+  /** Projects a `DataField`-shaped JSON array (`{name,displayName,dataType,nullable}`, this
+   *  spec's existing literal shape) into the `SchemaField`-shaped array (`{name,type}`)
+   *  `data_sources.inferred_schema` actually stores (HEL-904). */
+  private def toSchemaFieldsJson(dataFieldsJson: String): String =
+    dataFieldsJson.parseJson match {
+      case JsArray(items) =>
+        JsArray(items.map { item =>
+          val obj = item.asJsObject
+          JsObject("name" -> obj.fields("name"), "type" -> obj.fields("dataType"))
+        }).compactPrint
+      case other => other.compactPrint
+    }
+
+  /** Seeds a caller-owned DataSource with its own `inferred_schema` populated directly
+   *  (HEL-904 — there is no companion DataType anymore). Returns the DataSource id. */
   private def seedDataSource(ownerId: String, name: String, fields: String): String = {
     import PostgresProfile.api._
     val dsId = UUID.randomUUID().toString
-    val dtId = UUID.randomUUID().toString
-    await(db.run(DBIO.seq(
-      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, $name, 'rest_api', '{}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, source_id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, $dsId, 'source-dt', $fields, 1, $ownerId::uuid, now(), now())"""
-    )))
+    val schemaFieldsJson = toSchemaFieldsJson(fields)
+    await(db.run(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, inferred_schema, created_at, updated_at)
+             VALUES ($dsId, $name, 'rest_api', '{}', $ownerId::uuid, $schemaFieldsJson::jsonb, now(), now())"""
+    ))
     dsId
   }
 
@@ -126,7 +135,7 @@ class PipelineAnalyzeProposalRoutesSpec
 
   private def routesWith(connector: RestApiConnectorDriver): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo, connector)
+    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, connector)
     new PipelineRoutes(service, dummyUser).routes
   }
 

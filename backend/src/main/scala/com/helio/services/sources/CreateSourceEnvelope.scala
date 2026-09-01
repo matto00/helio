@@ -1,14 +1,12 @@
 package com.helio.services.sources
 
-import com.helio.api.protocols.sources.{CreateSourceResponse, DataSourceResponse, FieldOverridePayload}
-import com.helio.api.protocols.pipelines.DataTypeResponse
-import com.helio.domain.model.{AuthenticatedUser, DataSource, DataType, DataTypeId, InferredSchema}
+import com.helio.api.protocols.sources.{CreateSourceResponse, DataSourceResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse}
+import com.helio.domain.model.{AuthenticatedUser, DataFieldType, DataSource, InferredSchema}
 import com.helio.domain.connectors.{ConnectorDriver, ConnectorResolveContext}
 import com.helio.domain.engine.InProcessPipelineEngine
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 
 import java.time.Instant
-import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Shared create-time envelope construction (HEL-468), replacing the two structurally-identical
@@ -24,43 +22,42 @@ object CreateSourceEnvelope {
   /** Calls `connector.inferSchema(config)` and builds the `CreateSourceResponse` envelope:
    *  `Left(err)` forwards `err` unmodified into `fetchError` (no re-wrapping, re-prefixing, or
    *  truncation — HEL-311 curation already happened inside the connector's `inferSchema`); `Right
-   *  (schema)` projects fields via `SchemaInferenceFacade.toDataFields`, persists a new `DataType`
-   *  at `version = 1`, and returns it wrapped with `fetchError = None`. `now` is threaded in
-   *  (rather than computed fresh here) so the inserted `DataSource`'s timestamps and the new
-   *  `DataType`'s `createdAt`/`updatedAt` share the exact same instant, matching the pre-refactor
-   *  behavior exactly. */
+   *  (schema)` projects fields via `SchemaInferenceFacade.toSchemaFields`, writes them straight
+   *  onto the source's own `inferred_schema` column (`DataSourceRepository.upsertInferredSchema`,
+   *  HEL-904 — no companion `DataType` row anymore), and returns the envelope wrapped with
+   *  `fetchError = None`. `now` is threaded in (rather than computed fresh here) so the inserted
+   *  `DataSource`'s timestamps and the schema write share the exact same instant, matching the
+   *  pre-refactor behavior exactly. */
   def build[Config](
-      connector:    ConnectorDriver[Config],
-      config:       Config,
-      source:       DataSource,
-      now:          Instant,
-      dataTypeRepo: DataTypeRepository,
-      user:         AuthenticatedUser,
-      overrides:    Map[String, FieldOverridePayload] = Map.empty
+      connector:      ConnectorDriver[Config],
+      config:         Config,
+      source:         DataSource,
+      now:            Instant,
+      dataSourceRepo: DataSourceRepository,
+      user:           AuthenticatedUser,
+      overrides:      Map[String, FieldOverridePayload] = Map.empty
   )(implicit ec: ExecutionContext): Future[CreateSourceResponse] =
     connector.inferSchema(config, ConnectorResolveContext.Owned(user)).flatMap {
       case Left(err) =>
         Future.successful(CreateSourceResponse(
-          source     = DataSourceResponse.fromDomain(source),
-          dataType   = None,
-          fetchError = Some(err)
+          source         = DataSourceResponse.fromDomain(source),
+          inferredSchema = None,
+          fetchError     = Some(err)
         ))
       case Right(schema) =>
-        val fields = SchemaInferenceFacade.toDataFields(schema, overrides)
-        val dt = DataType(
-          id        = DataTypeId(UUID.randomUUID().toString),
-          sourceId  = Some(source.id),
-          name      = source.name,
-          fields    = fields,
-          version   = 1,
-          createdAt = now,
-          updatedAt = now,
-          ownerId   = user.id
-        )
-        dataTypeRepo.insert(dt, user).map { createdDt =>
+        val fields = SchemaInferenceFacade.toSchemaFields(schema, overrides)
+        dataSourceRepo.upsertInferredSchema(source.id, fields, now, user).map { updated =>
           CreateSourceResponse(
-            source       = DataSourceResponse.fromDomain(source),
-            dataType     = Some(DataTypeResponse.fromDomain(createdDt)),
+            source         = DataSourceResponse.fromDomain(updated.getOrElse(source)),
+            inferredSchema = Some(InferredSchemaResponse(schema.fields.map(f => {
+              val ov = overrides.get(f.name)
+              InferredFieldResponse(
+                f.name,
+                ov.map(_.displayName).getOrElse(f.displayName),
+                ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
+                f.nullable
+              )
+            }).toVector)),
             fetchError   = None,
             rowCapNotice = rowCapNotice(schema)
           )

@@ -11,7 +11,7 @@ import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDri
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
@@ -40,7 +40,6 @@ final class PipelineService(
     pipelineRepo:     PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     dataSourceRepo:   DataSourceRepository,
-    dataTypeRepo:     DataTypeRepository,
     // HEL-381: nullable-optional wiring mirrors the many other optional
     // collaborators ApiRoutes.scala threads (e.g. binaryRefRepo/imageUploadRepo) —
     // fixtures that don't pass a RestApiConnectorDriver simply can't dry-analyze an
@@ -83,12 +82,10 @@ final class PipelineService(
       Future.successful(Left(ServiceError.BadRequest("name is required")))
     else if (req.sourceDataSourceId.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("sourceDataSourceId is required")))
-    else if (req.outputDataTypeName.trim.isEmpty)
-      Future.successful(Left(ServiceError.BadRequest("outputDataTypeName is required")))
     else RequestValidation.validateTag(req.tag) match {
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(tag) =>
-        pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), req.outputDataTypeName.trim, user, tag).map {
+        pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), user, tag).map {
           case Right(summary)                       =>
             audit("pipeline.create", "pipeline", Some(summary.id), user)
             Right(toSummaryResponse(summary))
@@ -152,8 +149,10 @@ final class PipelineService(
         // commit body for the full rationale, including why the drift capture/
         // compare sides never need an enabled-vs-full-list decision at all).
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
-          dataTypeRepo.findBySourceId(pipeline.sourceDataSourceId, user.id).flatMap { sourceDataTypes =>
-            val sourceSchema: Vector[SchemaField] = PipelineAnalyzeService.deriveSourceSchema(sourceDataTypes)
+          // HEL-904 4.1/4.3: the source's schema now lives inline on `data_sources
+          // .inferred_schema` — no companion DataType to look up anymore.
+          dataSourceRepo.findByIdOwned(pipeline.sourceDataSourceId, user).map(_.map(_.inferredSchema).getOrElse(Vector.empty)).flatMap { sourceSchema0 =>
+            val sourceSchema: Vector[SchemaField] = sourceSchema0
 
             // HEL-412 (design.md Decision 3, boundary iii): disabled steps are
             // dropped before analysis — the response therefore contains
@@ -179,8 +178,6 @@ final class PipelineService(
                 id                   = summary.id,
                 name                 = summary.name,
                 sourceDataSourceName = summary.sourceDataSourceName,
-                outputDataTypeName   = summary.outputDataTypeName,
-                outputDataTypeId     = summary.outputDataTypeId,
                 sourceSchema         = sourceSchema.map(toFieldResponse),
                 steps                = analyzed.map(toAnalyzeStepResponse),
                 sourceSchemaDrift    = drift.map(toDriftResponse)
@@ -295,10 +292,8 @@ final class PipelineService(
           case None =>
             Future.successful(Left(ServiceError.NotFound(s"Data source not found: $id")))
           case Some(ds) =>
-            dataTypeRepo.findBySourceId(ds.id, user.id).map { dataTypes =>
-              val schema = dataTypes.headOption.toVector.flatMap(_.fields).map(f => SchemaField(f.name, f.dataType))
-              Right((ds.name, schema))
-            }
+            // HEL-904 4.1/4.3: no companion DataType to look up — the schema lives inline.
+            Future.successful(Right((ds.name, ds.inferredSchema)))
         }
       case None =>
         resolveInlineSourceSchema(proposal.source, proposal.pipelineName, user)
@@ -581,8 +576,10 @@ final class PipelineService(
     * above. `req.position` absent keeps the pre-existing append behavior
     * (`insertInternal`, untouched); present validates it as a list index
     * (`0 <= position <= count`, count read fresh immediately before the
-    * insert) and, if in range, inserts + renumbers via `insertAtInternal`.
-    * Out-of-range values return 422 with nothing persisted — the same
+    * insert) and, if in range, splices via `spliceInsertAtInternal` (HEL-904
+    * cycle-7 fix — see that method's doc for why a plain sibling-scoped
+    * `insertAtInternal` call is not equivalent). Out-of-range values return
+    * 422 with nothing persisted — the same
     * ServiceError variant `reorderSteps` uses for its own staleness check. */
   private def persistNewStep(
       pipelineId:  PipelineId,
@@ -595,12 +592,34 @@ final class PipelineService(
     val enabled = req.enabled.getOrElse(true)
     req.position match {
       case None =>
-        pipelineStepRepo.insertInternal(pipelineId, req.`type`, typedConfig, enabled)
-          .map { step =>
-            audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
-            Right(PipelineStepResponse.fromDomain(step))
-          }
-          .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+        // HEL-904 cycle-9 fix (round-6 skeptic Finding 1): the no-`position`
+        // default must extend the TRUNK, not create a root sibling.
+        // `insertInternal`'s bare `parentStepId = None` default (still used
+        // by test seeding and the standalone `insert` method) makes every
+        // step after the first a root-level tail — `trunkOf` then returns
+        // only the first step, so `PipelineRunService`'s node key
+        // (`trunkOf(steps).lastOption`) and `PipelineProposalService`'s
+        // Output binding (`createdSteps.lastOption`) diverge on the primary,
+        // default step-creation path. Resolve the current trunk's last step
+        // as the anchor and splice via `spliceInsertAtInternal` — the same
+        // trunk-continuation primitive the explicit-`position`-at-end branch
+        // below already uses. NOTE (round-8 correction): "no position" and
+        // "position == count" are equivalent ONLY when the trunk-last step
+        // has no existing tails. `executionOrder` emits a node's tails
+        // immediately after that node and BEFORE its trunk continuation, so
+        // on a tail-bearing pipeline `current(count - 1)` (used below) is a
+        // tail, not trunk-last —
+        // `position == count` then anchors on that tail, while the
+        // no-`position` default here always anchors on trunk-last.
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
+          val anchorParentId = pipelineStepRepo.trunkOf(current).lastOption.map(_.id)
+          pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled)
+            .map { step =>
+              audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
+              Right(PipelineStepResponse.fromDomain(step))
+            }
+            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+        }
       case Some(index) =>
         // Safe: editor/owner access confirmed by the caller. Use internal list
         // (no owner-JOIN) so editor grantees are not blocked by the V35
@@ -612,7 +631,17 @@ final class PipelineService(
               s"position must be between 0 and $count (the pipeline's current step count)"
             )))
           } else {
-            pipelineStepRepo.insertAtInternal(pipelineId, req.`type`, typedConfig, index, enabled)
+            // HEL-904 cycle-7 fix (round-4 skeptic Finding 1): `current` is
+            // execution order (trunk/tail), not a flat root-sibling list --
+            // `index` is a WHOLE-PIPELINE slot, not a sibling-scoped one.
+            // Translate it into "splice in directly after the step at
+            // index-1" (or at the pipeline root when index == 0) via
+            // spliceInsertAtInternal, which re-parents whatever already
+            // occupies that trunk slot rather than mis-renumbering a
+            // sibling group that `insertAtInternal` would silently no-op
+            // on for migrated (parent-chained) pipelines.
+            val anchorParentId = if (index == 0) None else Some(current(index - 1).id)
+            pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled)
               .map { step =>
                 audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
                 Right(PipelineStepResponse.fromDomain(step))
@@ -757,11 +786,16 @@ final class PipelineService(
               case Left(err) => Future.successful(Left(err))
               case Right(_)  =>
                 // Safe: editor/owner access confirmed. Use internal delete.
+                // HEL-904 task 1.6: deleteInternal now returns
+                // Option[Int] (Some(removedTailStepCount) on success, None
+                // if the step didn't exist) rather than Boolean, to carry
+                // splice-on-delete's removed-placement count for a future
+                // caller (P1.3) to surface as a warning. Not consumed here yet.
                 pipelineStepRepo.deleteInternal(stepId).map {
-                  case true  =>
+                  case Some(_) =>
                     audit("pipeline.step.delete", "pipeline_step", Some(stepId.value), user)
                     Right(())
-                  case false => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+                  case None => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
                 }
             }
         }
@@ -819,7 +853,9 @@ final class PipelineService(
    *  get 403; an unknown or invisible step masks as 404 (design.md
    *  Decision 4, the `updateStep` ACL pattern verbatim). Clones `kind`,
    *  `config`, and `enabled`, and inserts the clone directly after the
-   *  original via `insertAtInternal` (HEL-410's transactional renumber). */
+   *  original via `spliceInsertAtInternal` (HEL-904 cycle-7 fix: a real
+   *  re-parenting splice, not a sibling-scoped renumber -- see that
+   *  method's doc). */
   def duplicateStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] =
     pipelineStepRepo.findByIdInternal(stepId).flatMap {
       case None =>
@@ -845,31 +881,32 @@ final class PipelineService(
                     log.error(s"duplicateStep: config round-trip failed for step ${stepId.value} (kind='${existing.kind}')", ex)
                     Future.successful(Left(ServiceError.InternalError(s"Invalid '${existing.kind}' config")))
                   case Success(typedConfig) =>
-                    // Safe: editor/owner access confirmed above. Use internal list
-                    // so editor grantees are not blocked by the V35 pipeline_steps
-                    // RLS owner-JOIN policy. Read close to the insert below.
-                    pipelineStepRepo.listByPipelineInternal(pipeline.id).flatMap { current =>
-                      current.sortBy(_.position).indexWhere(_.id.value == stepId.value) match {
-                        case -1 =>
-                          Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
-                        case originalListIndex =>
-                          pipelineStepRepo
-                            .insertAtInternal(pipeline.id, existing.kind, typedConfig, originalListIndex + 1, existing.enabled)
-                            .map { step =>
-                              // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
-                              // one-row-per-call convention; metadata carries the source stepId.
-                              audit(
-                                "pipeline.step.duplicate",
-                                "pipeline_step",
-                                Some(step.id.value),
-                                user,
-                                JsObject("sourceStepId" -> JsString(stepId.value))
-                              )
-                              Right(PipelineStepResponse.fromDomain(step))
-                            }
-                            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                    // HEL-904 cycle-7 fix (round-4 skeptic Finding 1):
+                    // `existing.id` IS the anchor -- the clone must become
+                    // `existing`'s own trunk-continuation child so it lands
+                    // directly after the original in executionOrder, with
+                    // whatever `existing` used to continue to re-parented
+                    // one hop further down by spliceInsertAtInternal.
+                    // `insertAtInternal` (sibling-scoped renumber only) is
+                    // NOT equivalent here: on a migrated (parent-chained)
+                    // pipeline it silently appended the clone to the very
+                    // end instead of splicing it in after the original --
+                    // see spliceInsertAtInternal's doc for why.
+                    pipelineStepRepo
+                      .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled)
+                      .map { step =>
+                        // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
+                        // one-row-per-call convention; metadata carries the source stepId.
+                        audit(
+                          "pipeline.step.duplicate",
+                          "pipeline_step",
+                          Some(step.id.value),
+                          user,
+                          JsObject("sourceStepId" -> JsString(stepId.value))
+                        )
+                        Right(PipelineStepResponse.fromDomain(step))
                       }
-                    }
+                      .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
                 }
             }
         }
@@ -896,8 +933,6 @@ final class PipelineService(
       name                 = s.name,
       sourceDataSourceId   = s.sourceDataSourceId,
       sourceDataSourceName = s.sourceDataSourceName,
-      outputDataTypeName   = s.outputDataTypeName,
-      outputDataTypeId     = s.outputDataTypeId,
       lastRunStatus        = s.lastRunStatus,
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,

@@ -3,7 +3,6 @@ package com.helio.infrastructure.persistence
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -31,7 +30,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
   private var db: JdbcBackend.Database             = _
   private var ctx: DbContext                        = _
   private var dashRepo: DashboardRepository        = _
-  private var dtRepo: DataTypeRepository           = _
   private var dsRepo: DataSourceRepository         = _
   private var panelRepo: PanelRepository           = _
 
@@ -48,7 +46,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
     db       = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     ctx      = new DbContext(db, db)
     dashRepo  = new DashboardRepository(ctx)
-    dtRepo    = new DataTypeRepository(ctx)
     dsRepo    = new DataSourceRepository(ctx)
     panelRepo = new PanelRepository(ctx)
 
@@ -73,7 +70,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
   private def cleanDb(): Unit = {
     await(db.run(sqlu"DELETE FROM panels"))
     await(db.run(sqlu"DELETE FROM dashboards"))
-    await(db.run(sqlu"DELETE FROM data_types"))
     await(db.run(sqlu"DELETE FROM data_sources"))
   }
 
@@ -90,20 +86,6 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
       appearance = DashboardAppearance.Default,
       layout     = DashboardLayout.Default,
       ownerId    = ownerId
-    )
-  }
-
-  private def newDataType(name: String = "Type"): DataType = {
-    val now = Instant.now()
-    DataType(
-      id             = DataTypeId(UUID.randomUUID().toString),
-      sourceId       = None,
-      name           = name,
-      fields         = Vector.empty,
-      version        = 1,
-      createdAt      = now,
-      updatedAt      = now,
-      ownerId        = ownerId
     )
   }
 
@@ -171,40 +153,7 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
   }
 
 
-  "DataTypeRepository.findAll pagination" should {
-
-    "return correct items slice, total, offset, and limit" in {
-      cleanDb()
-      (1 to 5).foreach(i => await(dtRepo.insert(newDataType(s"T$i"), user)))
-
-      val result = await(dtRepo.findAll(ownerId, Page(offset = 2, limit = 2)))
-
-      result.total  shouldBe 5
-      result.offset shouldBe 2
-      result.limit  shouldBe 2
-      result.items  should have size 2
-    }
-
-    "return all items with Page.Default" in {
-      cleanDb()
-      (1 to 4).foreach(i => await(dtRepo.insert(newDataType(s"T$i"), user)))
-
-      val result = await(dtRepo.findAll(ownerId, Page.Default))
-
-      result.total shouldBe 4
-      result.items should have size 4
-    }
-
-    "return zero total for a user with no data types" in {
-      cleanDb()
-      val otherOwner = UserId(UUID.randomUUID().toString)
-      val result = await(dtRepo.findAll(otherOwner, Page.Default))
-
-      result.total shouldBe 0
-      result.items shouldBe empty
-    }
-  }
-
+  // HEL-904 task 4.5: "DataTypeRepository.findAll pagination" removed outright -- DataTypeRepository no longer exists.
 
   "DataSourceRepository.findAll pagination" should {
 
@@ -250,9 +199,9 @@ class PaginationSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
       (1 to 5).foreach { i =>
         await(db.run(sqlu"""
-          INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
+          INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
           VALUES (${UUID.randomUUID().toString}, ${dashId.value}, ${"Panel " + i}, ${ownerId.value}, now(), now(),
-                  '{"background":"transparent","color":"inherit","transparency":0.0}', 'metric',
+                  '{"background":"transparent","color":"inherit","transparency":0.0}', 'text',
                   ${UUID.fromString(ownerId.value).toString}::uuid)
         """))
       }

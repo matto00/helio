@@ -2,21 +2,25 @@ package com.helio.services.workspace
 
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.metrics.MetricService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.pipelines.PipelineSummaryResponse
-import com.helio.api.protocols.workspace.{WorkspaceResourceDetail, WorkspaceResourceMetric, WorkspaceResourceSummary}
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSource, DataSourceId, DataType, DataTypeId, MetricDefinition, MetricId, Page, PipelineId, WorkspaceResourceType}
+import com.helio.api.protocols.workspace.{WorkspaceResourceDetail, WorkspaceResourceSummary}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSource, DataSourceId, Output, OutputId, Page, PipelineId, WorkspaceResourceType}
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 
 import scala.concurrent.{ExecutionContext, Future}
 
 /** HEL-661 — narrow `find`/`getResource` primitives for HEL-659's top-level assistant, backing the
- *  `WorkspaceAssistantTools` `ClaudeTool` schemas. Composes the SAME 4 services `WorkspaceContextService`
- *  already composes, plus `MetricService`, and `workspaceContextService` itself for `getResource`'s
- *  per-entry detail (design.md D1) — mirrors `WorkspaceContextService`'s own "compose services, never
- *  touch repositories directly" discipline. Does NOT replace `WorkspaceContextService`: that continues
+ *  `WorkspaceAssistantTools` `ClaudeTool` schemas. Composes the SAME services `WorkspaceContextService`
+ *  already composes, plus `workspaceContextService` itself for `getResource`'s per-entry detail
+ *  (design.md D1) — mirrors `WorkspaceContextService`'s own "compose services, never touch
+ *  repositories directly" discipline. Does NOT replace `WorkspaceContextService`: that continues
  *  backing the unchanged `GET /api/workspace/context` route unaffected by this class.
+ *
+ *  HEL-904 task 3.2: the Metric resource kind is REMOVED outright (not retargeted) — metrics are
+ *  retired (design.md decision 2/11); `MetricService`/`WorkspaceResourceType.Metric` are no longer
+ *  composed or matched here (see the `workspace-resource-search` OpenSpec delta).
  *
  *  `find` intentionally does NOT reuse `workspaceContextService`'s heavier per-item assembly (sample
  *  rows/column stats, per-pipeline `analyze`) — it calls each composed service's own lightweight
@@ -27,9 +31,12 @@ import scala.concurrent.{ExecutionContext, Future}
 final class WorkspaceSearchService(
     dashboardService: DashboardService,
     dataSourceService: DataSourceService,
-    dataTypeService: DataTypeService,
+    // HEL-904 task 3.2: replaces `dataTypeService: DataTypeService` in the SAME positional slot
+    // (mirrors `WorkspaceContextService`'s own task-3.12 param swap) -- every existing test call
+    // site passing a literal `null` here keeps compiling unchanged; only call sites passing a
+    // real `dataTypeService` instance need updating to pass a real `outputRepo`.
+    outputRepo: OutputRepository,
     pipelineService: PipelineService,
-    metricService: MetricService,
     workspaceContextService: WorkspaceContextService
 )(implicit ec: ExecutionContext) {
 
@@ -63,8 +70,11 @@ final class WorkspaceSearchService(
       else Future.successful(Vector.empty)
 
     val dataTypeSummariesF: Future[Vector[WorkspaceResourceSummary]] =
-      if (requested(WorkspaceResourceType.DataType))
-        dataTypeService.findAll(user, Page.Default).map(_.items.map(toDataTypeSummary))
+      // HEL-904 task 3.2: `outputRepo` is `null` when `ApiRoutes`' `outputRepoOpt` degrades to
+      // `None` (no `DbContext` -- pre-existing task-3.1 convention) -- degrade to empty rather
+      // than NPE the whole `find`, mirroring `WorkspaceContextService.assemble`'s identical fix.
+      if (requested(WorkspaceResourceType.DataType) && outputRepo != null)
+        outputRepo.findAllByOwner(user.id, Page.Default).map(_.items.map(toDataTypeSummary))
       else Future.successful(Vector.empty)
 
     val pipelineSummariesF: Future[Vector[WorkspaceResourceSummary]] =
@@ -77,20 +87,14 @@ final class WorkspaceSearchService(
         dashboardService.findAll(user, Page.Default).flatMap(page => Future.traverse(page.items)(toDashboardSummary(_, user)))
       else Future.successful(Vector.empty)
 
-    val metricSummariesF: Future[Vector[WorkspaceResourceSummary]] =
-      if (requested(WorkspaceResourceType.Metric))
-        metricService.findAll(user, Page.Default).map(_.items.map(toMetricSummary))
-      else Future.successful(Vector.empty)
-
     for {
       dataSourceSummaries <- dataSourceSummariesF
       dataTypeSummaries   <- dataTypeSummariesF
       pipelineSummaries   <- pipelineSummariesF
       dashboardSummaries  <- dashboardSummariesF
-      metricSummaries     <- metricSummariesF
     } yield {
       val normalizedQuery = query.toLowerCase
-      val candidates = dataSourceSummaries ++ dataTypeSummaries ++ pipelineSummaries ++ dashboardSummaries ++ metricSummaries
+      val candidates = dataSourceSummaries ++ dataTypeSummaries ++ pipelineSummaries ++ dashboardSummaries
       val matches = candidates.filter(matchesQuery(_, normalizedQuery))
       rankAndTruncate(matches, normalizedQuery)
     }
@@ -121,12 +125,17 @@ final class WorkspaceSearchService(
       description  = s"${ds.kind} data source"
     )
 
-  private def toDataTypeSummary(dt: DataType): WorkspaceResourceSummary =
+  // HEL-904 task 3.2: renamed from `toDataTypeSummary` -- the wire `resourceType` string stays
+  // `"dataType"` (`WorkspaceResourceType.DataType`'s own `asString`, unchanged -- renaming that
+  // wire value is section 5's schema-surface job, not this task's), only the source domain object
+  // changed from `DataType` to `Output`. `sourceId`/source-companion distinction no longer exists
+  // (that split was retired with DataType/Metric) -- every Output is a pipeline-output projection.
+  private def toDataTypeSummary(output: Output): WorkspaceResourceSummary =
     WorkspaceResourceSummary(
-      id           = dt.id.value,
+      id           = output.id.value,
       resourceType = WorkspaceResourceType.asString(WorkspaceResourceType.DataType),
-      name         = dt.name,
-      description  = if (dt.sourceId.isEmpty) "pipeline output type" else "source-companion type"
+      name         = output.name,
+      description  = "pipeline output"
     )
 
   private def toPipelineSummary(p: PipelineSummaryResponse): WorkspaceResourceSummary =
@@ -134,7 +143,10 @@ final class WorkspaceSearchService(
       id           = p.id,
       resourceType = WorkspaceResourceType.asString(WorkspaceResourceType.Pipeline),
       name         = p.name,
-      description  = s"${p.sourceDataSourceName} → ${p.outputDataTypeName}"
+      // HEL-904 task 3.5: `outputDataTypeName` no longer exists on
+      // `PipelineSummaryResponse` (task 3.2 rewires this description onto
+      // Outputs). Left source-only until then.
+      description  = p.sourceDataSourceName
     )
 
   /** Reuses `workspaceContextService.toDashboardEntry` (widened `private[services]`, design.md D2)
@@ -151,20 +163,13 @@ final class WorkspaceSearchService(
       )
     }
 
-  private def toMetricSummary(m: MetricDefinition): WorkspaceResourceSummary =
-    WorkspaceResourceSummary(
-      id           = m.id.value,
-      resourceType = WorkspaceResourceType.asString(WorkspaceResourceType.Metric),
-      name         = m.name,
-      description  = m.description.getOrElse(s"${m.aggregation} of ${m.measureField}")
-    )
-
-
   /** Full per-resource detail for exactly one owned resource, dispatched by `resourceType`. Reuses
-   *  `workspaceContextService`'s (now `private[services]`) per-entry converters for the 4 existing
-   *  types rather than duplicating that assembly logic (design.md D1); builds `WorkspaceResourceMetric`
-   *  directly from `MetricDefinition` for the 5th (no existing converter to reuse). Strictly
-   *  owner-scoped for EVERY type, matching `find`'s own owner-only listings — `Left(NotFound)` for an
+   *  `workspaceContextService`'s (now `private[services]`) per-entry converters for the 4 resource
+   *  types below (design.md D1) rather than duplicating that assembly logic. HEL-904 cycle 29: the
+   *  former 5th case (`WorkspaceResourceMetric`, built directly from the now-deleted
+   *  `MetricDefinition`) was already removed in an earlier cycle; this comment had gone stale still
+   *  citing it. Strictly owner-scoped for EVERY type, matching `find`'s own owner-only listings —
+   *  `Left(NotFound)` for an
    *  id that doesn't exist OR isn't owned by `user`, never a leaked "exists but forbidden" signal and
    *  never an exception. */
   def getResource(
@@ -176,9 +181,13 @@ final class WorkspaceSearchService(
       dataSourceService.findById(DataSourceId(id), user).map(_.map(ds => WorkspaceResourceDetail.DataSourceDetail(workspaceContextService.toDataSourceEntry(ds))))
 
     case WorkspaceResourceType.DataType =>
-      dataTypeService.findById(DataTypeId(id), user).flatMap {
-        case Left(err) => Future.successful(Left(err))
-        case Right(dt) => workspaceContextService.toDataTypeEntry(dt, user).map(entry => Right(WorkspaceResourceDetail.DataTypeDetail(entry)))
+      // HEL-904 task 3.2: `outputRepo.findByIdOwned` returns `Future[Option[Output]]`, not the
+      // `Either[ServiceError, _]` `dataTypeService.findById` used to -- `None` maps to the same
+      // `NotFound` `getResource` already returns for every other unowned/nonexistent resource
+      // (existence-not-leaked, unchanged contract).
+      outputRepo.findByIdOwned(OutputId(id), user).flatMap {
+        case None         => Future.successful(Left(ServiceError.NotFound(s"Output not found: $id")))
+        case Some(output) => workspaceContextService.toDataTypeEntry(output, user).map(entry => Right(WorkspaceResourceDetail.DataTypeDetail(entry)))
       }
 
     case WorkspaceResourceType.Pipeline =>
@@ -190,8 +199,6 @@ final class WorkspaceSearchService(
         case Right(d)  => workspaceContextService.toDashboardEntry(d, user).map(entry => Right(WorkspaceResourceDetail.DashboardDetail(entry)))
       }
 
-    case WorkspaceResourceType.Metric =>
-      metricService.findById(MetricId(id), user).map(_.map(toMetricDetail))
   }
 
   /** `PipelineService.findSummaryById` is sharing-aware (owner, editor, and viewer grantees can
@@ -209,16 +216,4 @@ final class WorkspaceSearchService(
       case Right(summary) =>
         workspaceContextService.buildPipeline(summary, user).map(entry => Right(WorkspaceResourceDetail.PipelineDetail(entry)))
     }
-
-  private def toMetricDetail(m: MetricDefinition): WorkspaceResourceDetail =
-    WorkspaceResourceDetail.MetricDetail(WorkspaceResourceMetric(
-      id                = m.id.value,
-      name              = m.name,
-      description       = m.description,
-      measureField      = m.measureField,
-      aggregation       = m.aggregation,
-      allowedDimensions = m.allowedDimensions,
-      format            = m.format,
-      deprecated        = m.deprecated
-    ))
 }

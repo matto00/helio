@@ -1,6 +1,7 @@
 package com.helio.domain.model
 
 import com.helio.domain.connectors.ConnectorRegistry
+import com.helio.domain.engine.SchemaField
 import java.time.Instant
 
 /** DataSource ADT.
@@ -28,6 +29,11 @@ sealed trait DataSource {
    *  [[com.helio.services.WorkspaceTeardownService]] for the bulk-teardown
    *  consumer of this field. */
   def tag: Option[String]
+  /** HEL-904 (Outputs remodel, additive step 1.3): the source's own inferred
+   *  column schema, populated by ingestion/refresh independent of any
+   *  DataType. Defaults empty so every pre-existing call site keeps
+   *  compiling until the data-migration step (tasks.md §2.9) backfills it. */
+  def inferredSchema: Vector[SchemaField]
 }
 
 /** CSV-backed source. The `path` is a FileSystem-relative key into the uploads
@@ -45,7 +51,8 @@ final case class CsvSource(
     createdAt: Instant,
     updatedAt: Instant,
     config: CsvSourceConfig,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[SchemaField] = Vector.empty
 ) extends DataSource {
   override val kind: String = "csv"
 }
@@ -57,7 +64,8 @@ final case class RestSource(
     createdAt: Instant,
     updatedAt: Instant,
     config: RestApiConfig,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[SchemaField] = Vector.empty
 ) extends DataSource {
   override val kind: String = "rest_api"
 }
@@ -69,7 +77,8 @@ final case class SqlSource(
     createdAt: Instant,
     updatedAt: Instant,
     config: SqlSourceConfig,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[SchemaField] = Vector.empty
 ) extends DataSource {
   override val kind: String = "sql"
 }
@@ -90,7 +99,8 @@ final case class TextSource(
     createdAt: Instant,
     updatedAt: Instant,
     config: TextSourceConfig,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[SchemaField] = Vector.empty
 ) extends DataSource {
   override val kind: String = "text"
 }
@@ -113,7 +123,8 @@ final case class PdfSource(
     createdAt: Instant,
     updatedAt: Instant,
     config: PdfSourceConfig,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[SchemaField] = Vector.empty
 ) extends DataSource {
   override val kind: String = "pdf"
 }
@@ -137,7 +148,8 @@ final case class StaticSource(
     ownerId: UserId,
     createdAt: Instant,
     updatedAt: Instant,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[SchemaField] = Vector.empty
 ) extends DataSource {
   override val kind: String = "static"
 }
@@ -158,7 +170,8 @@ final case class ImageSource(
     createdAt: Instant,
     updatedAt: Instant,
     config: ImageSourceConfig,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[SchemaField] = Vector.empty
 ) extends DataSource {
   override val kind: String = "image"
 }

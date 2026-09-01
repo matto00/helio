@@ -2,7 +2,7 @@ package com.helio.services.patchsets
 
 import com.helio.api.protocols.panels.PanelCapabilitiesResponse
 import com.helio.api.protocols.pipelines.{PipelineStepProtocol, PipelineStepResponse, PipelineSummaryResponse}
-import com.helio.api.protocols.workspace.WorkspaceContextDataType
+import com.helio.api.protocols.workspace.WorkspaceContextOutput
 import com.helio.domain.model.{Dashboard, Panel}
 import spray.json.JsObject
 
@@ -61,8 +61,7 @@ object RefinementPrompt extends PipelineStepProtocol {
       else
         panels
           .map { p =>
-            val dtSuffix = p.dataTypeId.map(dt => s" dataTypeId=${dt.value}").getOrElse("")
-            s"""  - panel id="${p.id.value}" title="${p.title}" type=${p.kind}$dtSuffix"""
+            s"""  - panel id="${p.id.value}" title="${p.title}" type=${p.kind}"""
           }
           .mkString("\n")
     s"""Target: dashboard id="${dashboard.id.value}" name="${dashboard.name}"
@@ -83,14 +82,18 @@ object RefinementPrompt extends PipelineStepProtocol {
     val stepLines =
       if (steps.isEmpty) "  (no steps yet)"
       else
+        // HEL-904 follow-on ruling: `steps` arrives already in executionOrder
+        // (trunk/tail structural order, via PipelineService.listSteps ->
+        // listByPipelineInternal) -- a `.sortBy(_.position)` here would
+        // re-break the order, since every trunk step's `position` is now
+        // constantly `0`.
         steps
-          .sortBy(_.position)
           .map { s =>
             val configJson = pipelineStepResponseFormat.write(s).asJsObject.fields.getOrElse("config", JsObject.empty)
             s"""  - step id="${s.id}" position=${s.position} type=${s.`type`} config=${configJson.compactPrint}"""
           }
           .mkString("\n")
-    s"""Target: pipeline id="${summary.id}" name="${summary.name}" outputDataTypeId="${summary.outputDataTypeId}"
+    s"""Target: pipeline id="${summary.id}" name="${summary.name}"
        |Current steps:
        |$stepLines""".stripMargin
   }
@@ -100,7 +103,7 @@ object RefinementPrompt extends PipelineStepProtocol {
    *  (HEL-365) — so a create edit binding a DataType not yet used on the target dashboard has
    *  something to bind to (AC5). */
   private def groundingSection(
-      dataTypes: Vector[WorkspaceContextDataType],
+      dataTypes: Vector[WorkspaceContextOutput],
       capabilities: Map[String, PanelCapabilitiesResponse]
   ): String = {
     val entries = dataTypes.map { dt =>

@@ -28,7 +28,7 @@ function makeProposal(): DashboardProposal {
     panels: [
       {
         title: "Total Revenue",
-        type: "metric",
+        type: "output",
         dataTypeId: outputTypeId,
         fieldMapping: { value: "revenue" },
         layout: { x: 0, y: 0, w: 4, h: 3 },
@@ -100,17 +100,17 @@ describe("ProposalReview", () => {
     const proposal: DashboardProposal = {
       dashboardName: "Bad",
       panels: [
-        { title: "X", type: "metric", dataTypeId: companionTypeId, fieldMapping: { value: "a" } },
+        { title: "X", type: "output", dataTypeId: companionTypeId, fieldMapping: { value: "a" } },
       ],
     };
     renderReview({ proposal });
     expect(screen.getByText(/source companion/i)).toBeInTheDocument();
   });
 
-  it("flags an unbound collection panel with a 'needs bound data type' warning (HEL-310)", () => {
+  it("flags an unbound output panel with a 'needs bound data type' warning (HEL-310)", () => {
     const proposal: DashboardProposal = {
-      dashboardName: "Unbound Collection",
-      panels: [{ title: "Top Metrics", type: "collection" }],
+      dashboardName: "Unbound Output",
+      panels: [{ title: "Top Metrics", type: "output" }],
     };
     renderReview({ proposal });
     expect(screen.getByText("No data type bound")).toBeInTheDocument();

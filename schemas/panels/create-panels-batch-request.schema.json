@@ -24,17 +24,7 @@
           },
           "type": {
             "type": "string",
-            "enum": [
-              "metric",
-              "chart",
-              "text",
-              "table",
-              "markdown",
-              "image",
-              "divider",
-              "collection",
-              "timeline"
-            ]
+            "enum": ["text", "markdown", "image", "divider", "output"]
           },
           "config": {
             "type": "object"

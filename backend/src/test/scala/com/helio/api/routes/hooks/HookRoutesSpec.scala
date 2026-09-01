@@ -13,7 +13,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -93,17 +93,16 @@ class HookRoutesSpec
     val dashboardRepo       = new DashboardRepository(ctx)(routeEc)
     val panelRepo           = new PanelRepository(ctx)(routeEc)
     val dataSourceRepo      = new DataSourceRepository(ctx)(routeEc)
-    val dataTypeRepo        = new DataTypeRepository(ctx)(routeEc)
     val userRepo            = new UserRepository(db)(routeEc)
     val userPreferenceRepo  = new UserPreferenceRepository(db)(routeEc)
     val permissionRepo      = new ResourcePermissionRepository(ctx)(routeEc)
-    val pipelineRepo        = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    val pipelineRepo        = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     val pipelineStepRepo    = new PipelineStepRepository(ctx)(routeEc)
     pipelineRunRepo         = new PipelineRunRepository(ctx)(routeEc)
     val apiTokenRepo        = new ApiTokenRepository(ctx)(routeEc)
 
     routes = new ApiRoutes(
-      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
+      dashboardRepo, panelRepo, dataSourceRepo, permissionRepo,
       stubFileSystem,
       new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP in tests")))),
       userRepo, stubSessionRepo, userPreferenceRepo,
@@ -128,7 +127,7 @@ class HookRoutesSpec
 
   private def cleanDb(): Unit =
     await(ctx.withSystemContext(
-      sqlu"TRUNCATE TABLE api_tokens, pipeline_runs, pipelines, data_types, data_sources CASCADE"
+      sqlu"TRUNCATE TABLE api_tokens, pipeline_runs, pipelines, data_sources CASCADE"
     ))
 
   private def bearer(token: String)        = Authorization(OAuth2BearerToken(token))
@@ -156,10 +155,9 @@ class HookRoutesSpec
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerUserId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, 'dt', '[]', 1, $ownerUserId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-             VALUES ($pid, 'pipe', $dsId, $dtId, $ownerUserId::uuid, now(), now())"""
+      
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pid, 'pipe', $dsId, $ownerUserId::uuid, now(), now())"""
     )))
     pid
   }
@@ -180,10 +178,9 @@ class HookRoutesSpec
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($dsId, 'ds', 'static', $dsConfig, $ownerUserId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-             VALUES ($dtId, 'dt', '[]', 1, $ownerUserId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-             VALUES ($pid, 'pipe', $dsId, $dtId, $ownerUserId::uuid, now(), now())""",
+      
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pid, 'pipe', $dsId, $ownerUserId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, created_at, updated_at)
              VALUES ($stepId, $pid, 0, 'assert', $stepConfig, now(), now())"""
     )))

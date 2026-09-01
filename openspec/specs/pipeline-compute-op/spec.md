@@ -7,7 +7,7 @@ TBD - created by archiving change pipeline-op-compute-field. Update Purpose afte
 
 ### Requirement: Compute op appends a derived field to each row using a unified config shape
 
-`InProcessPipelineEngine.applyCompute` SHALL accept config shape
+`ComputeStep.apply` SHALL accept config shape
 `{"column":"<name>","expression":"<expr>","type":"<type>"}` and append a new field named `column`
 to every row, whose value is the result of evaluating `expression` against that row's fields using
 `ExpressionEvaluator.evaluate`, per the `compute-expression-language` capability ($-prefixed column
@@ -31,7 +31,7 @@ its column supplied later; this governs only what happens when it is analyzed or
 to a missing or empty `expression`.
 
 This narrows the unconditional "SHALL append a new field named `column` to every row" above. With an
-empty `column` that clause silently writes a field named `""` into the output DataType and into every
+empty `column` that clause silently writes a field named `""` into the Output and into every
 downstream consumer, which is indistinguishable from success — the defect class HEL-814 closed, and
 the one measured on real production rows (a `compute` step with both `column` and `expression` empty).
 

@@ -17,7 +17,7 @@ class CombinedApplyProposalRegressionSpec extends CombinedApplyProposalSpecBase 
       val before = dashboardCount()
       val body =
         """{"dashboardName":"D","panels":[
-          |  {"title":"X","type":"metric","dataTypeId":"$pipelineOutput","fieldMapping":{"value":"y"}}
+          |  {"title":"X","type":"output","dataTypeId":"$pipelineOutput","fieldMapping":{"value":"y"}}
           |]}""".stripMargin
       Post("/api/dashboards/apply-proposal", json(body)).addHeader(sessionCookie).addHeader(csrfHeader) ~>
         routes ~> check {

@@ -5,7 +5,9 @@ Defines the patch-set schema + backend protocol — a reviewable artifact descri
 edits (update/delete/create) across one or more existing resources, reusing existing per-resource
 PATCH/create request shapes — the foundation the conversational-refinement diff-preview,
 atomic-apply, and undo work builds on.
+
 ## Requirements
+
 ### Requirement: PatchSet schema shape
 `schemas/patch-sets/patch-set.schema.json` SHALL define a `PatchSet` object requiring `edits` (an ordered
 array of `Edit`) and carrying an optional `summary` string. Each `Edit` SHALL require `target`
@@ -36,15 +38,18 @@ mirroring the existing discriminated-shape pattern in `create-panel-request.sche
 - **THEN** the document validates against `schemas/patch-sets/patch-set.schema.json`
 
 ### Requirement: patch reuses existing per-resource request shapes
-An `Edit`'s `patch` field SHALL NOT introduce new per-resource shapes. Its real shape, documented
-per `(target.kind, op)` in the schema's own description rather than machine-`$ref`'d (none of the
-six per-resource request shapes has an existing standalone schema file), SHALL be: for `op:
-update`, the existing `UpdatePanelRequest`/`UpdateDashboardRequest`/`UpdateDataSourceRequest`/
-`UpdateDataTypeRequest`/`UpdatePipelineRequest`/`UpdatePipelineStepRequest` shape matching
-`target.kind`; for `op: create`, the matching `Create*Request` shape (decoded by a future apply
-path, not this contract); for `op: delete`, `patch` is unused — the backend `Edit` reader SHALL
-raise a `deserializationError` when `op` is `delete` and the wire JSON's `"patch"` key is present,
-rather than silently discarding it.
+A patch's `target.kind` SHALL be one of the surviving resource kinds (`dashboard`, `panel`,
+`pipeline`, `pipelineStep`, `output`, `dataSource`); `dataType` and `metric` are no longer valid
+target kinds. Existing persisted patch-set journal entries targeting `dataType` or `metric` are
+deleted by the outputs-model migration.
+
+#### Scenario: A dataType or metric target kind is rejected
+- **WHEN** a patch is submitted with `target.kind = "dataType"` or `target.kind = "metric"`
+- **THEN** the request is rejected as an invalid target kind
+
+#### Scenario: An output target kind is accepted
+- **WHEN** a patch is submitted with `target.kind = "output"` and a valid per-resource shape
+- **THEN** the patch is accepted and applies to the named Output
 
 #### Scenario: An update edit's patch matches the target kind's existing PATCH shape
 - **WHEN** an `Edit` has `target.kind: "dashboard"`, `op: "update"`, and `patch: {name: "Renamed"}`
@@ -86,4 +91,3 @@ and `target.id` is absent or blank, and SHALL NOT require `target.id` when `op` 
 - **WHEN** `Edit`'s custom reader decodes a JSON object with `op: "create"` and a `target` omitting
   `id`
 - **THEN** it succeeds, producing an `Edit` with `target.id = None`
-

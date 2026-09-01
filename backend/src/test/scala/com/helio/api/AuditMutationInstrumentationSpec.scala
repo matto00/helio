@@ -14,16 +14,15 @@ import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel, Repl
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.connectors.RestApiConnectorDriver
-import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, CsvSource, DataField, DataSource, DataSourceId, DataSourceKind, DataType, DataTypeId, MetricDefinition, MetricFormat, MetricId, UserId, UserSession}
+import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, CsvSource, DataField, DataSource, DataSourceId, DataSourceKind, UserId, UserSession}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.api.protocols.workspace.{TeardownRequest, TeardownResponse}
 import com.helio.infrastructure.storage.{FileSystem, ListPage, LocalFileSystem}
@@ -69,7 +68,6 @@ class AuditMutationInstrumentationSpec
   private var dashboardRepo: DashboardRepository           = _
   private var panelRepo: PanelRepository                   = _
   private var dataSourceRepo: DataSourceRepository         = _
-  private var dataTypeRepo: DataTypeRepository              = _
   private var userRepo: UserRepository                     = _
   private var userPreferenceRepo: UserPreferenceRepository = _
   private var permissionRepo: ResourcePermissionRepository = _
@@ -78,7 +76,6 @@ class AuditMutationInstrumentationSpec
   private var auditEventRepo: AuditEventRepository          = _
   private var apiTokenRepo: ApiTokenRepository               = _
   private var mfaRepo: MfaRepository                        = _
-  private var metricRepo: MetricRepository                  = _
   private var realSessionRepo: SlickUserSessionRepository   = _
   // HEL-838 tasks.md 2.1: simplified `DbContext(db, db)` pattern (both pools
   // the same superuser connection) — this spec doesn't exercise RLS, only
@@ -104,16 +101,14 @@ class AuditMutationInstrumentationSpec
     dashboardRepo      = new DashboardRepository(ctx)(typedSystem.executionContext)
     panelRepo          = new PanelRepository(ctx)(typedSystem.executionContext)
     dataSourceRepo     = new DataSourceRepository(ctx)(typedSystem.executionContext)
-    dataTypeRepo       = new DataTypeRepository(ctx)(typedSystem.executionContext)
     userRepo           = new UserRepository(db)(typedSystem.executionContext)
     userPreferenceRepo = new UserPreferenceRepository(db)(typedSystem.executionContext)
     permissionRepo     = new ResourcePermissionRepository(ctx)(typedSystem.executionContext)
-    pipelineRepo       = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(typedSystem.executionContext)
+    pipelineRepo       = new PipelineRepository(ctx, dataSourceRepo)(typedSystem.executionContext)
     pipelineStepRepo   = new PipelineStepRepository(ctx)(typedSystem.executionContext)
     auditEventRepo     = new AuditEventRepository(ctx)(typedSystem.executionContext)
     apiTokenRepo       = new ApiTokenRepository(ctx)(typedSystem.executionContext)
     mfaRepo            = new MfaRepository(db)(typedSystem.executionContext)
-    metricRepo         = new MetricRepository(ctx)(typedSystem.executionContext)
     realSessionRepo    = new SlickUserSessionRepository(db)(typedSystem.executionContext)
     dbContext          = ctx
     // HEL-822: real ConnectorRepository fixture for the direct SourceService.createRest(...)
@@ -137,7 +132,7 @@ class AuditMutationInstrumentationSpec
     // is also rejected by the same trigger, so each test's fixture data is
     // cleared, and audit rows are read (never wiped) per test via the
     // per-test filtering `allAuditRows()` already does on `action`.
-    await(db.run(sqlu"TRUNCATE TABLE api_tokens, resource_permissions, user_sessions, users, panels, dashboards, data_types, data_sources RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE api_tokens, resource_permissions, user_sessions, users, panels, dashboards, data_sources RESTART IDENTITY CASCADE"))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-000000000099'::uuid, 'test@helio.test', now())"""))
   }
 
@@ -164,12 +159,11 @@ class AuditMutationInstrumentationSpec
    *  this is the "real/embedded audit repo" the acceptance criteria ask for. */
   private def routesFor(): Route = {
     val raw = new ApiRoutes(
-      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector,
+      dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, stubConnector,
       userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       auditEventRepo = auditEventRepo,
       mfaRepo = mfaRepo,
-      metricRepo = metricRepo,
       apiTokenRepo = apiTokenRepo,
       dbContext = dbContext
     ).routes
@@ -188,12 +182,11 @@ class AuditMutationInstrumentationSpec
    *  per `AuthDirectives.resolveIdentity`'s session-over-header precedence. */
   private def rawRoutesFor(): Route =
     new ApiRoutes(
-      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector,
+      dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, stubConnector,
       userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       auditEventRepo = auditEventRepo,
       mfaRepo = mfaRepo,
-      metricRepo = metricRepo,
       apiTokenRepo = apiTokenRepo
     ).routes
 
@@ -206,12 +199,11 @@ class AuditMutationInstrumentationSpec
    *  callers supply their own via `Cookie`/CSRF headers). */
   private def realSessionRoutesFor(): Route =
     new ApiRoutes(
-      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector,
+      dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, stubConnector,
       userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       auditEventRepo = auditEventRepo,
       mfaRepo = mfaRepo,
-      metricRepo = metricRepo,
       apiTokenRepo = apiTokenRepo
     ).routes
 
@@ -301,48 +293,10 @@ class AuditMutationInstrumentationSpec
     secret
   }
 
-  /** Pipeline-output DataType (`sourceId = None`) — the shape a `Metric`
-   *  must bind to at creation time (mirrors `MetricRoutesSpec.
-   *  seedPipelineOutputDataType`). */
-  private def seedPipelineOutputDataType(owner: UserId): DataType = {
-    val now = Instant.now()
-    val dt = DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = "AuditRollbackType",
-      fields    = Vector(DataField("revenue", "Revenue", "number", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = owner
-    )
-    await(dataTypeRepo.insert(dt, AuthenticatedUser(owner)))
-  }
-
-  /** A metric bound to `dataTypeId`, inserted directly via the repository
-   *  (bypassing `POST /api/metrics`, whose own create-time V41 check would
-   *  otherwise make it impossible to construct the exact fixture this test
-   *  needs — see the test's own comment for why). */
-  private def seedMetric(owner: UserId, dataTypeId: DataTypeId): MetricId = {
-    val now = Instant.now()
-    val metric = MetricDefinition(
-      id                = MetricId(UUID.randomUUID().toString),
-      ownerId           = owner,
-      dataTypeId        = dataTypeId,
-      name              = "Audit Rollback Metric",
-      description       = None,
-      measureField      = "revenue",
-      aggregation       = "sum",
-      allowedDimensions = Vector.empty,
-      format            = MetricFormat(None, None, None, None),
-      createdAt         = now,
-      updatedAt         = now
-    )
-    await(metricRepo.insert(metric, AuthenticatedUser(owner))) match {
-      case Right(inserted) => inserted.id
-      case Left(err)       => fail(s"seedMetric failed: $err")
-    }
-  }
+  // HEL-904 task 4.1: `seedPipelineOutputDataType`/`seedMetric` removed
+  // outright — both were already dead (no remaining caller after the
+  // "proposal-apply rollback" test they fed was deleted), and DataTypes/
+  // metrics no longer exist.
 
   "dashboard mutations" should {
 
@@ -519,7 +473,7 @@ class AuditMutationInstrumentationSpec
           Future.failed(new RuntimeException("HEL-477 test: simulated audit append failure"))
       }
       val raw = new ApiRoutes(
-        dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo, stubFileSystem, stubConnector,
+        dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, stubConnector,
         userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
         new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
         auditEventRepo = failingAuditRepo
@@ -699,7 +653,7 @@ class AuditMutationInstrumentationSpec
         dataSourceId = responseAs[DataSourceResponse].id
       }
       var pipelineId = ""
-      Post("/api/pipelines", CreatePipelineRequest("DupStepPipeline", dataSourceId, "DupStepOutput")) ~> routesFor() ~> check {
+      Post("/api/pipelines", CreatePipelineRequest("DupStepPipeline", dataSourceId)) ~> routesFor() ~> check {
         status shouldBe StatusCodes.Created
         pipelineId = responseAs[PipelineSummaryResponse].id
       }
@@ -730,18 +684,25 @@ class AuditMutationInstrumentationSpec
         dataSourceId = responseAs[DataSourceResponse].id
       }
       var pipelineId = ""
-      Post("/api/pipelines", CreatePipelineRequest("ReorderStepPipeline", dataSourceId, "ReorderStepOutput")) ~> routesFor() ~> check {
+      Post("/api/pipelines", CreatePipelineRequest("ReorderStepPipeline", dataSourceId)) ~> routesFor() ~> check {
         status shouldBe StatusCodes.Created
         pipelineId = responseAs[PipelineSummaryResponse].id
       }
-      var stepId1 = ""
-      var stepId2 = ""
-      Post(s"/api/pipelines/$pipelineId/steps", CreatePipelineStepRequest("limit", JsObject("count" -> JsNumber(10)))) ~> routesFor() ~> check {
-        stepId1 = responseAs[PipelineStepResponse].id
-      }
-      Post(s"/api/pipelines/$pipelineId/steps", CreatePipelineStepRequest("limit", JsObject("count" -> JsNumber(20)))) ~> routesFor() ~> check {
-        stepId2 = responseAs[PipelineStepResponse].id
-      }
+      // HEL-904 cycle-9: seeded as flat ROOT siblings directly via SQL --
+      // `addStep` with no `position` now extends the trunk (splices as a
+      // parent-child continuation, not a sibling), so two `addStep` calls no
+      // longer produce a reorderable sibling pair; `reorderInternal`'s
+      // renumbering is sibling-scoped only. See `PipelineStepRoutesSpec`'s
+      // equivalent fixture fix for the same reasoning.
+      import slick.jdbc.PostgresProfile.api._
+      val stepId1 = UUID.randomUUID().toString
+      val stepId2 = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($stepId1, $pipelineId, 0, 'limit', '{"count":10}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($stepId2, $pipelineId, 1, 'limit', '{"count":20}', true, now(), now(), NULL)"""
+      )))
 
       Put(s"/api/pipelines/$pipelineId/steps/order", ReorderPipelineStepsRequest(Seq(stepId2, stepId1))) ~> routesFor() ~> check {
         status shouldBe StatusCodes.OK
@@ -755,59 +716,20 @@ class AuditMutationInstrumentationSpec
 
   "proposal-apply rollback (design.md Decision 10)" should {
 
-    "write dashboard.create but NOT dashboard.delete when panel creation fails partway through" in {
-      cleanDb()
-      val testStart = Instant.now()
-      val ownerId   = UserId(testUserId)
-      // Panel 1's OWN dataTypeId (`typeA`) stays a valid, unflipped
-      // pipeline-output type — `ProposalPanelSupport.validateDataTypeBinding`
-      // (pre-validation) checks exactly that field and passes. Panel 2's
-      // `metricId` resolves to a metric bound to a DIFFERENT DataType
-      // (`typeB`) — pre-validation's `validateMetricBinding` only checks the
-      // metric's own existence/deprecated flag, never re-deriving/checking
-      // `metric.dataTypeId`'s pipeline-output-ness. `typeB` is flipped to a
-      // companion type (source_id set) via direct SQL AFTER the metric is
-      // created (satisfying `MetricService.create`'s own V41 check at
-      // metric-creation time), so the flip is invisible to pre-validation
-      // but caught by `PanelService.rejectUnresolvableMetric` at ACTUAL
-      // panel-2 creation time — the exact asymmetry
-      // `DashboardProposalService.createAll`'s rollback branch exists to
-      // handle safely (dashboard.create already happened for panel 1's
-      // dashboard; deleteInternal must not also write dashboard.delete).
-      val typeA    = seedPipelineOutputDataType(ownerId)
-      val typeB    = seedPipelineOutputDataType(ownerId)
-      val metricId = seedMetric(ownerId, typeB.id)
-      import slick.jdbc.PostgresProfile.api._
-      val fakeSourceId = UUID.randomUUID().toString
-      await(db.run(sqlu"""INSERT INTO data_sources (id, name, source_type, config, created_at, updated_at)
-             VALUES ($fakeSourceId, 'FlipSource', 'static', '{}', now(), now())"""))
-      await(db.run(sqlu"UPDATE data_types SET source_id = $fakeSourceId WHERE id = ${typeB.id.value}"))
-
-      val proposal = DashboardProposal(
-        dashboardName = "RollbackTarget",
-        panels = Vector(
-          ProposalPanel("OK Panel", "metric", Some(typeA.id.value), None, None, None, None, None, None, None, None, None, None, None, None, None, None, None),
-          ProposalPanel("Metric Panel", "metric", Some(typeA.id.value), Some(metricId.value), None, None, None, None, None, None, None, None, None, None, None, None, None, None)
-        )
-      )
-      Post("/api/dashboards/apply-proposal", proposal) ~> routesFor() ~> check {
-        status shouldBe StatusCodes.BadRequest
-      }
-      // The dashboard WAS created (first write of createAll, before panel 2's
-      // rejection) — `deleteInternal` deletes the row itself (only its audit
-      // trail is suppressed), so it can't be looked up by name afterward.
-      // `testUser` accumulates dashboard.create rows across this whole
-      // suite (audit_events is append-only, never wiped by cleanDb), so
-      // scope to rows written after `testStart`, captured at the top of
-      // this test — robust to suite/declaration-order changes.
-      val createRows = eventuallyAuditRows(r =>
-        r.action == "dashboard.create" && r.actorUserId.contains(ownerId) && r.createdAt.isAfter(testStart)
-      )
-      createRows should have size 1
-      val rolledBackDashboardId = createRows.head.resourceId.getOrElse(fail("dashboard.create row has no resourceId"))
-      // ...but the rollback used deleteInternal, so no dashboard.delete row exists for it.
-      allAuditRows().count(r => r.action == "dashboard.delete" && r.resourceId.contains(rolledBackDashboardId)) shouldBe 0
-    }
+    // HEL-904 task 3.9: `validateMetricBinding` is deleted outright — metrics
+    // no longer exist — so this test's whole trigger mechanism (a panel
+    // whose flat binding passes pre-validation but is rejected at ACTUAL
+    // creation time via a metric's dataTypeId flipped to a companion type
+    // AFTER the metric was created) has no surviving code path to exercise.
+    // An "output"-kind panel's binding is now checked once, up front,
+    // against a real Output (`ProposalPanelSupport.validateDataTypeBinding`'s
+    // `OutputRepository` branch) — there is no equivalent
+    // pre-validation-passes-but-actual-creation-rejects asymmetry for
+    // Outputs today. Deleted rather than retargeted; the underlying
+    // dashboard.create-without-dashboard.delete rollback behavior this test
+    // guarded is still exercised by other rollback-shaped specs (e.g.
+    // `DashboardApplyProposalSpec`'s own rollback-on-partial-failure
+    // coverage) even though this specific audit-row assertion is gone.
   }
 
   "PAT/session actor attribution (HEL-483)" should {
@@ -960,7 +882,6 @@ class AuditMutationInstrumentationSpec
         resp.committed shouldBe true
         resp.blocked shouldBe false
         resp.sourcesDeleted shouldBe 1
-        resp.typesDeleted shouldBe 1
 
         val rows = eventuallyAuditRows(r => r.action == "workspace.teardown" && r.resourceId.contains(tag))
         rows should have size 1
@@ -971,7 +892,6 @@ class AuditMutationInstrumentationSpec
         AuditSource.asString(row.source) shouldBe "ui"
         row.metadata.asJsObject.fields("sourcesDeleted") shouldBe JsNumber(1)
         row.metadata.asJsObject.fields("pipelinesDeleted") shouldBe JsNumber(0)
-        row.metadata.asJsObject.fields("typesDeleted") shouldBe JsNumber(1)
       }
       // `dataSourceId` created above is deleted by the teardown itself — no
       // further use needed, referenced only to document the fixture's shape.
@@ -994,7 +914,6 @@ class AuditMutationInstrumentationSpec
         val metadata = rows.head.metadata.asJsObject.fields
         metadata("sourcesDeleted") shouldBe JsNumber(0)
         metadata("pipelinesDeleted") shouldBe JsNumber(0)
-        metadata("typesDeleted") shouldBe JsNumber(0)
       }
     }
 
@@ -1031,7 +950,7 @@ class AuditMutationInstrumentationSpec
       val srcId       = createTaggedSource("TeardownBlockedSource", blockedTag)
       // An untagged dependent pipeline over the tagged source blocks the
       // whole call (mirrors WorkspaceTeardownServiceSpec 6.4).
-      Post("/api/pipelines", CreatePipelineRequest("TeardownBlockedPipeline", srcId, "TeardownBlockedOutput")) ~> routesFor() ~> check {
+      Post("/api/pipelines", CreatePipelineRequest("TeardownBlockedPipeline", srcId)) ~> routesFor() ~> check {
         status shouldBe StatusCodes.Created
       }
 
@@ -1124,7 +1043,7 @@ class AuditMutationInstrumentationSpec
       cleanDb()
       val tmpDir       = Files.createTempDirectory("audit-mutation-instrumentation-spec")
       val fileSystem   = new LocalFileSystem(tmpDir)
-      val svc          = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, auditService = new AuditService(auditEventRepo))
+      val svc          = new DataSourceService(dataSourceRepo, fileSystem, auditService = new AuditService(auditEventRepo))
 
       val fixtures: Seq[(String, Future[Either[ServiceError, DataSource]])] = Seq(
         "csv"   -> svc.createCsv("RefreshCsv", "a,b\n1,2".getBytes(StandardCharsets.UTF_8), Vector.empty, testUser),
@@ -1152,7 +1071,7 @@ class AuditMutationInstrumentationSpec
       cleanDb()
       val tmpDir     = Files.createTempDirectory("audit-mutation-instrumentation-spec-csv-fail")
       val fileSystem = new LocalFileSystem(tmpDir)
-      val svc        = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem, auditService = new AuditService(auditEventRepo))
+      val svc        = new DataSourceService(dataSourceRepo, fileSystem, auditService = new AuditService(auditEventRepo))
 
       val created = await(svc.createCsv("RefreshCsvFail", "x\n1".getBytes(StandardCharsets.UTF_8), Vector.empty, testUser)) match {
         case Right(ds) => ds
@@ -1245,7 +1164,7 @@ class AuditMutationInstrumentationSpec
     "write exactly one data_source.refresh row on a successful rest refresh" in {
       cleanDb()
       val restConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
-      val svc            = new SourceService(dataSourceRepo, dataTypeRepo, restConnector, auditService = new AuditService(auditEventRepo), connectorRepo = connectorRepo)
+      val svc            = new SourceService(dataSourceRepo, restConnector, auditService = new AuditService(auditEventRepo), connectorRepo = connectorRepo)
       val restConfigPayload = RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
 
       val created = await(svc.createRest(CreateSourceRequest("RefreshRest", DataSourceKind.RestApi, restConfigPayload, None), testUser)) match {
@@ -1266,8 +1185,8 @@ class AuditMutationInstrumentationSpec
       val failingConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Left("Request failed"))))
       val successConnector = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("id" -> JsNumber(1)))))))
       val auditSvc          = new AuditService(auditEventRepo)
-      val failingSvc        = new SourceService(dataSourceRepo, dataTypeRepo, failingConnector, auditService = auditSvc, connectorRepo = connectorRepo)
-      val successSvc        = new SourceService(dataSourceRepo, dataTypeRepo, successConnector, auditService = auditSvc, connectorRepo = connectorRepo)
+      val failingSvc        = new SourceService(dataSourceRepo, failingConnector, auditService = auditSvc, connectorRepo = connectorRepo)
+      val successSvc        = new SourceService(dataSourceRepo, successConnector, auditService = auditSvc, connectorRepo = connectorRepo)
       val restConfigPayload = RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
 
       val created = await(failingSvc.createRest(CreateSourceRequest("RefreshRestFail", DataSourceKind.RestApi, restConfigPayload, None), testUser)) match {

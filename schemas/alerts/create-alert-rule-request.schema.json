@@ -5,7 +5,7 @@
   "description": "POST /api/alert-rules body. `enabled` is optional — spray-json omits `None` on the wire, and the service normalizes an absent value to `true`.",
   "type": "object",
   "properties": {
-    "targetDataTypeId": {
+    "targetOutputId": {
       "type": "string",
       "minLength": 1
     },
@@ -42,6 +42,6 @@
       "minLength": 1
     }
   },
-  "required": ["targetDataTypeId", "metric", "condition", "severity", "name"],
+  "required": ["targetOutputId", "metric", "condition", "severity", "name"],
   "additionalProperties": false
 }

@@ -150,8 +150,10 @@ object AuthoringConversationRepository {
   implicit val latestPatchSetColumnType: BaseColumnType[PatchSet] =
     MappedColumnType.base[PatchSet, String](_.toJson.compactPrint, _.parseJson.convertTo[PatchSet])
 
-  /** The repository-facing shape — value-class-typed, mirrors `MetricDefinition`'s role for
-   *  `MetricRepository`. Never crosses the HTTP boundary directly: `DashboardAuthoringService`/
+  /** The repository-facing shape — value-class-typed, mirrors the same repository-facing/wire
+   *  boundary split every other owner-scoped repository in this package uses (HEL-904 cycle 29:
+   *  this comment previously cited `MetricDefinition`/`MetricRepository`, both deleted). Never
+   *  crosses the HTTP boundary directly: `DashboardAuthoringService`/
    *  `RefinementService` either destructure it into their own response type (just the new
    *  `conversationId`) or into `AuthoringConversationView` (`displayTurns`/`latestProposal`/
    *  `latestPatchSet` only, via `findDisplayById`). `latestProposal`/`latestPatchSet` are mutually

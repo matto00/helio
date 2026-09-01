@@ -4,14 +4,14 @@ package com.helio.services.proposals
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelCapabilityService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.proposals.{AuthoringHistoryBudget, DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.WorkspaceContextService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -70,8 +70,8 @@ class DashboardAuthoringServiceSpec
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
-  private var dataTypeRowRepo: DataTypeRowRepository = _
+  private var outputRepo: OutputRepository = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
 
   private var workspaceContextService: WorkspaceContextService     = _
   private var panelCapabilityService: PanelCapabilityService       = _
@@ -97,17 +97,16 @@ class DashboardAuthoringServiceSpec
     val ctx = new DbContext(db, db)
 
     dataSourceRepo   = new DataSourceRepository(ctx)
-    dataTypeRepo     = new DataTypeRepository(ctx)
-    dataTypeRowRepo  = new DataTypeRowRepository(ctx)
-    val pipelineRepo     = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    outputRepo       = new OutputRepository(ctx)
+    nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
+    val pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
     val tmpDir = Files.createTempDirectory("helio-authoring-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    val dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)
-    val dataTypeService   = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val registry       = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
@@ -116,13 +115,13 @@ class DashboardAuthoringServiceSpec
     val accessChecker   = new AccessCheckerImpl(permissionRepo, registry)
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)
 
-    workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, dataTypeService, pipelineService)
-    panelCapabilityService  = new PanelCapabilityService(dataTypeRepo, dataTypeRowRepo)
+    workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
+    panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     // dashboardService/panelService are never touched by `.validate` (the only method
     // DashboardAuthoringService calls) — null, same rationale as
     // DashboardProposalServiceValidateSpec. metricRepo: null mirrors PanelService's
     // nullable-optional wiring convention (no proposal panel here ever carries a metricId).
-    dashboardProposalService = new DashboardProposalService(null, null, dataTypeRepo, null)
+    dashboardProposalService = new DashboardProposalService(null, null, outputRepo)
     conversationRepo         = new AuthoringConversationRepository(ctx)
   }
 
@@ -138,24 +137,35 @@ class DashboardAuthoringServiceSpec
     AuthenticatedUser(UserId(id))
   }
 
-  private def insertPipelineOutputType(owner: AuthenticatedUser, name: String = "Sales"): DataType = {
+  // HEL-904 task 3.8/3.9: an "output"-kind panel's `validProposalJson` binding
+  // now validates against a real Output (OutputRepository), not a DataType —
+  // this helper additively seeds a pipeline + real Output REUSING the
+  // DataType's own id string as the Output's id (`outputs.id` is an
+  // independent TEXT PK, no FK to `data_types`, so this is a legitimate
+  // reuse, not a collision) so every existing `insertPipelineOutputType`/
+  // `validProposalJson(dt)` call site keeps working unmodified —
+  // the DataType itself still exists too, for the workspace-non-emptiness
+  // short-circuit callers that only need a DataType to be present.
+  // Both helpers return a bare Output id string (HEL-904 cycle 29: the `DataType`/`DataTypeId`
+  // wrapper types they used to build and return through are deleted -- neither exists anywhere in
+  // `model.scala` anymore; every existing caller only ever read `.id.value` off the result).
+  private def insertPipelineOutputType(owner: AuthenticatedUser, name: String = "Sales"): String = {
     implicit val ec: ExecutionContext = routeEc
-    val now = Instant.now()
-    val dt = DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = None,
-      name      = name,
-      fields    = Vector(DataField("revenue", "Revenue", "float", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = owner.id
-    )
-    await(dataTypeRepo.insert(dt, owner))
-    dt
+    val outputId    = UUID.randomUUID().toString
+    val srcId       = UUID.randomUUID().toString
+    val pipelineId  = UUID.randomUUID().toString
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($srcId::uuid, 'authoring-spec-src', 'static', '{}'::jsonb, ${owner.id.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+             VALUES ($pipelineId, $name, $srcId::uuid, ${owner.id.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+             VALUES ($outputId, $pipelineId, NULL, ${owner.id.value}::uuid, $name, 'table', '{}'::jsonb, '[]'::jsonb, 0, now(), now())"""
+    )))
+    outputId
   }
 
-  private def insertCompanionType(owner: AuthenticatedUser): DataType = {
+  private def insertCompanionType(owner: AuthenticatedUser): String = {
     implicit val ec: ExecutionContext = routeEc
     val now    = Instant.now()
     val source = CsvSource(
@@ -167,18 +177,10 @@ class DashboardAuthoringServiceSpec
       config    = CsvSourceConfig("csv/test.csv")
     )
     await(dataSourceRepo.insert(source, owner))
-    val dt = DataType(
-      id        = DataTypeId(UUID.randomUUID().toString),
-      sourceId  = Some(source.id),
-      name      = "Companion",
-      fields    = Vector(DataField("revenue", "Revenue", "float", nullable = false)),
-      version   = 1,
-      createdAt = now,
-      updatedAt = now,
-      ownerId   = owner.id
-    )
-    await(dataTypeRepo.insert(dt, owner))
-    dt
+    // HEL-904 task 2.10: no insert at all -- this fixture only needs a syntactically valid,
+    // genuinely nonexistent id (the test's own point, per the describe-block comment above);
+    // nothing downstream ever reads a persisted row for it.
+    UUID.randomUUID().toString
   }
 
 
@@ -235,7 +237,7 @@ class DashboardAuthoringServiceSpec
   private val goal = "Show total revenue"
 
   private def validProposalJson(dataTypeId: String): String =
-    s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"metric","dataTypeId":"$dataTypeId","fieldMapping":{"value":"revenue"}}]}"""
+    s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"$dataTypeId","fieldMapping":{"value":"revenue"}}]}"""
 
   // Well-formed JSON, but fails DashboardProposalService.validate's structural check (blank
   // dashboardName) — exercises the "parses fine, fails validate" repair trigger, not just a parse
@@ -248,7 +250,7 @@ class DashboardAuthoringServiceSpec
     "pass a valid first-attempt proposal through unchanged (1 invocation)" in {
       val user = newUser()
       val dt   = insertPipelineOutputType(user)
-      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value))))
+      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt))))
       val service   = newAuthoringService(transport)
 
       val result = await(service.author(DashboardAuthoringRequest(goal, None), user))
@@ -263,7 +265,7 @@ class DashboardAuthoringServiceSpec
       val dt   = insertPipelineOutputType(user)
       val transport = new FakeClaudeTransport(Vector(
         cannedResponse(invalidProposalJson),
-        cannedResponse(validProposalJson(dt.id.value))
+        cannedResponse(validProposalJson(dt))
       ))
       val service = newAuthoringService(transport)
 
@@ -302,11 +304,15 @@ class DashboardAuthoringServiceSpec
       transport.streamInvocations.get() shouldBe 0
     }
 
-    "reject a binding to a non-pipeline-output DataType identically to DashboardProposalService.apply's own rejection" in {
+    // HEL-904 task 3.8/3.9: an "output"-kind panel's binding now validates
+    // against a real Output, not a DataType — `insertCompanionType` mints a
+    // DataType only, never an Output, so it's an ordinary not-found now
+    // (there is no "companion" concept for Outputs).
+    "reject a binding to a nonexistent Output identically to DashboardProposalService.apply's own rejection" in {
       val user      = newUser()
       insertPipelineOutputType(user) // keeps the workspace non-empty, so the empty-workspace short-circuit doesn't fire
       val companion = insertCompanionType(user)
-      val badJson   = validProposalJson(companion.id.value)
+      val badJson   = validProposalJson(companion)
       val transport = new FakeClaudeTransport(Vector(cannedResponse(badJson), cannedResponse(badJson)))
       val service   = newAuthoringService(transport)
 
@@ -315,7 +321,7 @@ class DashboardAuthoringServiceSpec
       result shouldBe a[Left[_, _]]
       val err = result.swap.toOption.get.serviceError
       err shouldBe a[ServiceError.UnprocessableEntity]
-      err.message.toLowerCase should include("pipeline-output")
+      err.message.toLowerCase should include("not found")
       transport.sendInvocations.get() shouldBe 2
     }
 
@@ -374,7 +380,7 @@ class DashboardAuthoringServiceSpec
     "forward text deltas as Progress events, ending in exactly one terminal Result event" in {
       val user = newUser()
       val dt   = insertPipelineOutputType(user)
-      val json = validProposalJson(dt.id.value)
+      val json = validProposalJson(dt)
       val deltas = Seq(
         ClaudeStreamEvent.TextDelta(json.take(json.length / 2)),
         ClaudeStreamEvent.TextDelta(json.drop(json.length / 2)),
@@ -398,7 +404,7 @@ class DashboardAuthoringServiceSpec
       val dt   = insertPipelineOutputType(user)
       val deltas    = Seq(ClaudeStreamEvent.TextDelta(invalidProposalJson), ClaudeStreamEvent.MessageStop)
       val transport = new FakeClaudeTransport(
-        sendResponses   = Vector(cannedResponse(validProposalJson(dt.id.value))),
+        sendResponses   = Vector(cannedResponse(validProposalJson(dt))),
         streamResponses = Vector(deltas)
       )
       val service = newAuthoringService(transport)
@@ -540,8 +546,8 @@ class DashboardAuthoringServiceSpec
     "a second turn with conversationId edits the first turn's proposal, re-validated, and the persisted turn count increases" in {
       val user = newUser()
       val dt   = insertPipelineOutputType(user)
-      val turn2Json = s"""{"dashboardName":"Sales v2","panels":[{"title":"Total","type":"metric","dataTypeId":"${dt.id.value}","fieldMapping":{"value":"revenue"}}]}"""
-      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value)), cannedResponse(turn2Json)))
+      val turn2Json = s"""{"dashboardName":"Sales v2","panels":[{"title":"Total","type":"output","dataTypeId":"${dt}","fieldMapping":{"value":"revenue"}}]}"""
+      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt)), cannedResponse(turn2Json)))
       val service   = newAuthoringService(transport)
 
       val turn1 = await(service.author(DashboardAuthoringRequest(goal, None), user))
@@ -566,8 +572,8 @@ class DashboardAuthoringServiceSpec
     "a continued turn's Claude request carries only the plain follow-up text, never re-embedded grounding" in {
       val user = newUser()
       val dt   = insertPipelineOutputType(user)
-      val turn2Json = validProposalJson(dt.id.value)
-      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value)), cannedResponse(turn2Json)))
+      val turn2Json = validProposalJson(dt)
+      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt)), cannedResponse(turn2Json)))
       val service   = newAuthoringService(transport)
 
       val turn1 = await(service.author(DashboardAuthoringRequest(goal, None), user))
@@ -602,7 +608,7 @@ class DashboardAuthoringServiceSpec
         )
       )
 
-      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value))))
+      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt))))
       val service   = newAuthoringService(transport)
 
       val result = await(service.author(DashboardAuthoringRequest("one more edit", None, Some(seeded.id.value)), user))
@@ -707,7 +713,7 @@ class DashboardAuthoringServiceSpec
     "authorStreaming with conversationId continues the conversation and the terminal Result event carries the same conversationId" in {
       val user = newUser()
       val dt   = insertPipelineOutputType(user)
-      val turn1Json = validProposalJson(dt.id.value)
+      val turn1Json = validProposalJson(dt)
       val turn2Json = s"""{"dashboardName":"Sales v2","panels":[]}"""
       val turn1Transport = new FakeClaudeTransport(streamResponses = Vector(Seq(ClaudeStreamEvent.TextDelta(turn1Json), ClaudeStreamEvent.MessageStop)))
       val turn1Service   = newAuthoringService(turn1Transport)
@@ -728,7 +734,7 @@ class DashboardAuthoringServiceSpec
       val user  = newUser()
       val other = newUser()
       val dt    = insertPipelineOutputType(user)
-      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt.id.value))))
+      val transport = new FakeClaudeTransport(Vector(cannedResponse(validProposalJson(dt))))
       val service   = newAuthoringService(transport)
 
       val turn1 = await(service.author(DashboardAuthoringRequest(goal, None), user))

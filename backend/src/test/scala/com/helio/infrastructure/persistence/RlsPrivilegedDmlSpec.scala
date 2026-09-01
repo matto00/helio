@@ -143,9 +143,7 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
       "pipeline_steps",
       "pipeline_runs",
       "pipelines",
-      "data_type_rows",
       "dashboards",
-      "data_types",
       "data_sources"
     )
     await(ctx.withSystemContext(
@@ -207,35 +205,26 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     }
   }
 
-  "withSystemContext DML on data_types" should {
-
-    "INSERT a row" in {
-      cleanDb()
-      val id = UUID.randomUUID().toString
-      noException should be thrownBy await(ctx.withSystemContext(
-        sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($id::uuid, 'dt-a', '[]'::jsonb, 1, ${ownerA.value}::uuid, now(), now())"""
-      ))
-    }
-  }
+  // HEL-904 task 2.10: the "DML on data_types" and "DML on data_type_rows"
+  // describe-blocks are deleted outright, not adapted -- both tables are
+  // dropped; `outputs`/`node_snapshots` (their replacements) don't yet have
+  // dedicated coverage in this spec (a tracked gap, not this task's job to
+  // close).
 
   "withSystemContext DML on pipelines" should {
 
     "INSERT a row" in {
       cleanDb()
       val srcId = UUID.randomUUID().toString
-      val dtId  = UUID.randomUUID().toString
       val pipId = UUID.randomUUID().toString
-      await(ctx.withSystemContext(DBIO.seq(
+      await(ctx.withSystemContext(
         sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($srcId::uuid, 'src-pipe', 'csv', '{"path":"csv/test.csv"}'::jsonb,
-                       ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId::uuid, 'dt-pipe', '[]'::jsonb, 1, ${ownerA.value}::uuid, now(), now())"""
-      )))
+                       ${ownerA.value}::uuid, now(), now())"""
+      ))
       noException should be thrownBy await(ctx.withSystemContext(
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pipId, 'pipe-a', $srcId, $dtId, ${ownerA.value}::uuid, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pipId, 'pipe-a', $srcId, ${ownerA.value}::uuid, now(), now())"""
       ))
     }
   }
@@ -245,17 +234,14 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     "INSERT a row" in {
       cleanDb()
       val srcId  = UUID.randomUUID().toString
-      val dtId   = UUID.randomUUID().toString
       val pipId  = UUID.randomUUID().toString
       val stepId = UUID.randomUUID().toString
       await(ctx.withSystemContext(DBIO.seq(
         sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($srcId::uuid, 'src-steps', 'csv', '{"path":"csv/test.csv"}'::jsonb,
                        ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId::uuid, 'dt-steps', '[]'::jsonb, 1, ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pipId, 'pipe-steps', $srcId, $dtId, ${ownerA.value}::uuid, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pipId, 'pipe-steps', $srcId, ${ownerA.value}::uuid, now(), now())"""
       )))
       noException should be thrownBy await(ctx.withSystemContext(
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, created_at, updated_at)
@@ -269,37 +255,18 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     "INSERT a row" in {
       cleanDb()
       val srcId = UUID.randomUUID().toString
-      val dtId  = UUID.randomUUID().toString
       val pipId = UUID.randomUUID().toString
       val runId = UUID.randomUUID().toString
       await(ctx.withSystemContext(DBIO.seq(
         sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($srcId::uuid, 'src-runs', 'csv', '{"path":"csv/test.csv"}'::jsonb,
                        ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId::uuid, 'dt-runs', '[]'::jsonb, 1, ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, output_data_type_id, owner_id, created_at, updated_at)
-               VALUES ($pipId, 'pipe-runs', $srcId, $dtId, ${ownerA.value}::uuid, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pipId, 'pipe-runs', $srcId, ${ownerA.value}::uuid, now(), now())"""
       )))
       noException should be thrownBy await(ctx.withSystemContext(
         sqlu"""INSERT INTO pipeline_runs (id, pipeline_id, status, started_at)
                VALUES ($runId, $pipId, 'running', now())"""
-      ))
-    }
-  }
-
-  "withSystemContext DML on data_type_rows" should {
-
-    "INSERT a row" in {
-      cleanDb()
-      val dtId = UUID.randomUUID().toString
-      await(ctx.withSystemContext(
-        sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, created_at, updated_at)
-               VALUES ($dtId::uuid, 'dt-rows', '[]'::jsonb, 1, ${ownerA.value}::uuid, now(), now())"""
-      ))
-      noException should be thrownBy await(ctx.withSystemContext(
-        sqlu"""INSERT INTO data_type_rows (data_type_id, row_index, data)
-               VALUES ($dtId, 0, '{"key":"value"}'::jsonb)"""
       ))
     }
   }
@@ -365,10 +332,10 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
                        ${ownerA.value}::uuid)"""
       ))
       noException should be thrownBy await(ctx.withSystemContext(
-        sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
+        sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
                VALUES ($panelId, $dashId, 'panel-a', ${ownerA.value}, now(), now(),
                        '{"background":"transparent","color":"inherit","transparency":0.0}'::jsonb,
-                       'metric', ${ownerA.value}::uuid)"""
+                       'text', ${ownerA.value}::uuid)"""
       ))
     }
   }

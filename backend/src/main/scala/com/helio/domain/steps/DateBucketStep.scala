@@ -49,6 +49,7 @@ final case class DateBucketStep(
     config: DateBucketConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = DateBucketStep.Kind

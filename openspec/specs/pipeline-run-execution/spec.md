@@ -78,7 +78,7 @@ the source data but SHALL NOT write results to the Type Registry and SHALL NOT u
 
 #### Scenario: Dry run does not write to the Type Registry
 - **WHEN** `POST /api/pipelines/:id/run?dry=true` is called successfully
-- **THEN** the output DataType's `fields` and `version` are unchanged after the call
+- **THEN** the Output's `fields` and `version` are unchanged after the call
 
 ### Requirement: Rename step renames one or more columns
 The execution engine SHALL support the `rename` op. The step config SHALL contain a `mappings`
@@ -141,33 +141,33 @@ both sources (right-side duplicate key column excluded).
 - **THEN** all left-side rows appear in the result with null values for right-side columns where no match exists
 
 ### Requirement: Successful non-dry run writes schema snapshot to Type Registry
-After a successful non-dry run the backend SHALL update the output DataType record
+After a successful non-dry run the backend SHALL update the node snapshot / Output
 (`pipelines.output_data_type_id`) with the inferred field schema derived from the result row keys,
 UNLESS the run is blocked by an error-severity assertion failure (see `pipeline-assert-fail-policy`), in
-which case the DataType record SHALL NOT be updated and its previously-persisted schema SHALL remain
+which case the Output record SHALL NOT be updated and its previously-persisted schema SHALL remain
 unchanged. When the update does occur, field types SHALL be inferred from the actual runtime values in
 the first result row: `Boolean` values → `"boolean"`, integer/long values → `"integer"`, float/double
-values → `"double"`, all other values → `"string"`. The DataType's `version` SHALL be incremented.
+values → `"double"`, all other values → `"string"`. The Output's `version` SHALL be incremented.
 
 #### Scenario: Output DataType fields reflect run result schema
 - **WHEN** `POST /api/pipelines/:id/run` succeeds and the result has columns `["name", "total"]`
-- **THEN** the output DataType's `fields` contain entries for `name` and `total` with `dataType: "string"`
+- **THEN** the Output's `fields` contain entries for `name` and `total` with `dataType: "string"`
 
 #### Scenario: Output DataType version increments after run
 - **WHEN** a non-dry run completes successfully
-- **THEN** the output DataType's `version` is one higher than before the run
+- **THEN** the Output's `version` is one higher than before the run
 
 #### Scenario: Numeric column inferred as integer type
 - **WHEN** a non-dry run produces rows where a column's first-row value is an Int or Long
-- **THEN** the output DataType's field for that column has `dataType: "integer"`
+- **THEN** the Output's field for that column has `dataType: "integer"`
 
 #### Scenario: Floating-point column inferred as double type
 - **WHEN** a non-dry run produces rows where a column's first-row value is a Float or Double
-- **THEN** the output DataType's field for that column has `dataType: "double"`
+- **THEN** the Output's field for that column has `dataType: "double"`
 
 #### Scenario: Blocked run does not update the DataType schema or version
 - **WHEN** a non-dry run's `assert` step has an error-severity rule that fails
-- **THEN** the output DataType's `fields` and `version` are byte-for-byte unchanged from before the run
+- **THEN** the Output's `fields` and `version` are byte-for-byte unchanged from before the run
 
 ### Requirement: Select step retains only specified columns during pipeline execution
 The execution engine SHALL support the `select` op during pipeline runs. The step config SHALL
@@ -262,13 +262,13 @@ source-kind read failure already produces.
 - **WHEN** `POST /api/pipelines/:id/run` is called on a pipeline whose base source is a reachable
   `rest_api` source
 - **THEN** the response is `200 OK` with rows fetched from the REST endpoint, `last_run_status` is
-  `"succeeded"`, and the output DataType is populated with those rows
+  `"succeeded"`, and the Output is populated with those rows
 
 #### Scenario: A healthy sql source completes a real run
 - **WHEN** `POST /api/pipelines/:id/run` is called on a pipeline whose base source is a reachable
   `sql` source
 - **THEN** the response is `200 OK` with rows fetched from the SQL query, `last_run_status` is
-  `"succeeded"`, and the output DataType is populated with those rows
+  `"succeeded"`, and the Output is populated with those rows
 
 #### Scenario: An unreachable rest_api source fails the run, not silently
 - **WHEN** `POST /api/pipelines/:id/run` is called on a pipeline whose base `rest_api` source cannot
@@ -293,7 +293,7 @@ rejected as an unsupported source type.
 When a pipeline's base source is a `rest_api` or `sql` source whose fetched rows contain nested JSON objects,
 row materialisation SHALL expand those objects into dot-separated columns using the shared traversal defined
 by the `nested-json-flattening` capability, so the executed rows carry the columns the source's registered
-`DataType` advertises. A nested object SHALL NOT be materialised as a raw JSON string under its top-level key.
+`Output` advertises. A nested object SHALL NOT be materialised as a raw JSON string under its top-level key.
 Rows containing no nested object SHALL be materialised exactly as before.
 
 #### Scenario: Nested response row carries dotted columns

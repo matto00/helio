@@ -1,5 +1,6 @@
 package com.helio.services.assistant
 
+import com.helio.domain.model.PanelType
 import com.helio.services.assistant.AssistantSystemPrompt
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -58,6 +59,33 @@ class AssistantSystemPromptSpec extends AnyWordSpec with Matchers {
 
     "state the updated 4-hop cap" in {
       AssistantSystemPrompt.text should include("at most 4 hops")
+    }
+
+    // HEL-904 cycle-10 fix (round-7 skeptic, deletion-sweep CR1): the worked propose_dashboard
+    // example, the find tool's resource-type list, and the "never fabricate an id" rule must never
+    // regress to a deleted panel kind or a retired Metrics/DataType resource concept — pinned the
+    // same way DashboardAuthoringPromptSpec pins its own sibling prompt.
+    "never mentions deleted panel kinds or retired Metrics/DataType resource ids" in {
+      Vector("\"metric\"", "\"chart\"", "\"table\"", "\"collection\"", "\"timeline\"", "metricId", "and metrics").foreach {
+        deletedLiteral =>
+          AssistantSystemPrompt.text should not include deletedLiteral
+      }
+      // Every kind actually mentioned in the worked example really is one `PanelType.fromString`
+      // accepts.
+      Vector("text", "markdown", "image", "output").foreach { kind =>
+        PanelType.fromString(kind) shouldBe a[Right[_, _]]
+      }
+    }
+
+    "retargets the worked propose_dashboard example to the output panel kind" in {
+      AssistantSystemPrompt.text should include("\"type\": \"output\"")
+    }
+
+    // HEL-904 cycle-11 fix (round-7 skeptic, deletion-sweep CR1 lower-severity item): the
+    // propose_patch_set tool description must not offer DataType as an editable target --
+    // PatchSetProtocol.recognizedKinds no longer accepts "dataType" (task 3.3 removed it outright).
+    "does not offer DataType as a propose_patch_set edit target" in {
+      AssistantSystemPrompt.text should not include "data source, DataType, pipeline"
     }
   }
 }

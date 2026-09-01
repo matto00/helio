@@ -36,6 +36,7 @@ final case class CastStep(
     config: CastConfig,
     createdAt: Instant,
     updatedAt: Instant,
+    parentStepId: Option[PipelineStepId] = None,
     enabled: Boolean = true
 ) extends PipelineStep {
   val kind: String = CastStep.Kind

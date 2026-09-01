@@ -31,33 +31,24 @@
         },
         "type": {
           "type": "string",
-          "enum": [
-            "metric",
-            "chart",
-            "table",
-            "text",
-            "markdown",
-            "image",
-            "collection",
-            "timeline"
-          ],
+          "enum": ["text", "markdown", "image", "output"],
           "description": "No `divider`: dropped from the proposal flow's agent-facing type set for parity with create_panel (HEL-249/HEL-315/HEL-316). The backend wire (PanelType.fromString) still accepts it on other paths."
         },
         "dataTypeId": {
           "type": "string",
-          "description": "Required for metric/chart/table/collection/timeline panels; must be a pipeline-output DataType (sourceId null). Omitted for text/markdown/image/divider."
+          "description": "Required for `output` panels, where the value is actually an Output id (not a DataType id despite the field name, kept for schema stability) bound to a pipeline-owned Output. Omitted for text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig no longer carry a data binding of any kind (pipelines-and-outputs remodel, HEL-903/904)."
         },
         "metricId": {
           "type": "string",
-          "description": "Additive to dataTypeId (which remains required) — binds a metric/chart/table panel to a defined metric via the same MetricPanelConfig/ChartPanelConfig/TablePanelConfig metricId slot POST /api/panels uses. Unsupported on collection/timeline (and any non-data panel type); must resolve to a caller-owned, non-deprecated metric or the whole apply is rejected (400, nothing created)."
+          "description": "Legacy field, decoded but never applied: the panel kinds that could carry a metricId (metric/chart/table) and the Metrics concept itself were deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only; no current panel type consumes it."
         },
         "fieldMapping": {
           "type": "object",
-          "description": "Panel-type-keyed mapping: metric {value,label?,unit?}; chart {xAxis,yAxis,series?}; table {columns}. fieldMapping.label/unit bind to a data column, distinct from the top-level label/unit literal override below."
+          "description": "Legacy field, decoded but never applied: buildDataConfig emits only {outputId} for an `output` panel (see the dataTypeId description above for the outputId/dataTypeId naming note) — fieldMapping is not passed through. Also not used by text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig carry no data binding to map fields against (pipelines-and-outputs remodel, HEL-903/904)."
         },
         "aggregation": {
           "type": "object",
-          "description": "Optional viz-level aggregation, metric/chart only: metric {value,agg}; chart {groupBy,agg,yField}. agg is one of count|sum|avg|min|max."
+          "description": "Legacy field, decoded but never applied: viz-level aggregation belonged to the metric/chart panel kinds, which were deleted by the pipelines-and-outputs remodel (HEL-903/904) along with the aggregation concept those kinds carried. Retained on the wire for schema stability only."
         },
         "content": {
           "type": "string",
@@ -75,42 +66,42 @@
         "chartType": {
           "type": "string",
           "enum": ["bar", "line", "pie", "scatter"],
-          "description": "Chart sub-type for chart panels, applied as a best-effort follow-up appearance update after create. Ignored for other panel types."
+          "description": "Legacy field, decoded but never applied: the chart panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "xAxisLabel": {
           "type": "string",
-          "description": "Chart x-axis title, chart panels only. Applied via the same follow-up appearance update as chartType."
+          "description": "Legacy field, decoded but never applied: the chart panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "yAxisLabel": {
           "type": "string",
-          "description": "Chart y-axis title, chart panels only. Applied via the same follow-up appearance update as chartType."
+          "description": "Legacy field, decoded but never applied: the chart panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "seriesColors": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Chart series colors, chart panels only. Applied via the same follow-up appearance update as chartType."
+          "description": "Legacy field, decoded but never applied: the chart panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "label": {
           "type": "string",
-          "description": "Literal display label for a metric panel — distinct from fieldMapping.label, which binds to a data column. Renders even when no matching bound column exists."
+          "description": "Legacy field, decoded but never applied: the metric panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "unit": {
           "type": "string",
-          "description": "Literal display unit for a metric panel — distinct from fieldMapping.unit, which binds to a data column."
+          "description": "Legacy field, decoded but never applied: the metric panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "sort": {
           "type": "string",
           "enum": ["asc", "desc"],
-          "description": "Timeline event ordering, timeline panels only — derived into config.timelineOptions.sort. Defaults to 'asc' when omitted. Ignored for other panel types. An explicit config.timelineOptions.sort overrides this flat value."
+          "description": "Legacy field, decoded but never applied: the timeline panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "layout": {
           "$ref": "#/$defs/ProposalPanelLayout"
         },
         "config": {
           "type": "object",
-          "description": "Optional generic passthrough merged over the config derived from the flat fields above, then decoded by the same panel-create path as POST /api/panels. Makes every v1.5 config surface expressible: collection {baseType,layout}; timeline {timelineOptions:{sort}} — though timeline sort is also expressible via the flat `sort` field above; chart {chartOptions}; table {density,columnOrder}; text/markdown {content, dataTypeId, fieldMapping}. On key conflict this wins over a derived flat field, EXCEPT a metric/chart/table/collection/timeline panel's dataTypeId, which always stays the flat-field value. A text/markdown config.dataTypeId is a real binding attempt (HEL-244) and is validated against the same pipeline-only rule as any other panel's binding — a source-companion or non-owned DataType is rejected (400); a valid pipeline-output DataType succeeds."
+          "description": "Optional generic passthrough merged over the config derived from the flat fields above, then decoded by the same panel-create path as POST /api/panels. Current surfaces: output {outputId}; text/markdown {content}; image {imageUrl}. On key conflict this wins over a derived flat field, EXCEPT an `output` panel's dataTypeId (really an Output id — see the dataTypeId description above), which always stays the flat-field value. text/markdown panels carry no dataTypeId/fieldMapping of any kind (TextPanelConfig/MarkdownPanelConfig, pipelines-and-outputs remodel HEL-903/904) — a `config.dataTypeId` on a text/markdown panel is silently inert, not a binding attempt. The collection/timeline/chart/table/metric config surfaces (baseType/layout, timelineOptions, chartOptions, density/columnOrder) were deleted by the pipelines-and-outputs remodel (HEL-903/904) along with the panel kinds that carried them."
         }
       },
       "additionalProperties": false

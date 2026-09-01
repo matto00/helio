@@ -4,10 +4,12 @@
 The `AlertEvent` domain model and its single-source-of-truth lifecycle state machine
 (`firing`/`resolved`/`acknowledged`/`snoozed`), including the de-duplication contract that
 guarantees at most one active event per alert rule.
+
 ## Requirements
+
 ### Requirement: AlertEvent domain model
 The system SHALL define an `AlertEvent` domain model with `id: AlertEventId`,
-`alertRuleId: AlertRuleId`, `ownerId: UserId`, `targetDataTypeId: DataTypeId`, `value: JsValue` (the
+`alertRuleId: AlertRuleId`, `ownerId: UserId`, `targetOutputId: OutputId`, `value: JsValue` (the
 evaluated value that triggered/updated the event), `pipelineRunId: Option[String]`,
 `severity: Severity`, `state` (one of `firing`/`resolved`/`acknowledged`/`snoozed`),
 `firstFiredAt: Instant`, `lastEvaluatedAt: Instant`, `resolvedAt: Option[Instant]`,
@@ -156,4 +158,3 @@ the persisted `state` column flipping back to `firing` via `ReFire`.
 - **WHEN** an event is `snoozed` with `snoozedUntil` in the past and the rule breaches again
   (`ReFire` via the privileged upsert path)
 - **THEN** the event's persisted `state` becomes `firing` and `snoozedUntil` is cleared
-

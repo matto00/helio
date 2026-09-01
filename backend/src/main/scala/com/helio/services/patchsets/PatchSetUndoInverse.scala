@@ -1,14 +1,14 @@
 package com.helio.services.patchsets
 
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelAppearanceResponse, PanelResponse, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, ComputedFieldPayload, DataFieldPayload, DataTypeResponse, UpdateDataTypeRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutItemResponse, DashboardLayoutPayload, DashboardResponse, UpdateDashboardRequest}
 import com.helio.domain.panels._
 import PatchSetApplyServiceJson._
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 
 /** Full-overwrite inverse-request builders FROM the persisted, decoded RESPONSE-shaped JSON
- *  (`PanelResponse`/`DashboardResponse`/`DataTypeResponse`/raw `PipelineStepResponse` JSON) that
+ *  (`PanelResponse`/`DashboardResponse`/raw `PipelineStepResponse` JSON) that
  *  survives in `PatchSetApplicationRepository`'s journal — NOT a literal reuse of
  *  `PatchSetApplyRollback`'s private inverse-builders, which take domain objects (`Panel`,
  *  `Dashboard`, ...) that exist only for the duration of one apply call (design.md D5).
@@ -40,12 +40,8 @@ private[services] object PatchSetUndoInverse {
    *  `PatchSetUndoInverseSpec` (tasks.md 5.2) is the regression test guarding against the two
    *  implementations drifting apart the way HEL-406's own final gate caught once already. */
   private def optionalConfigFieldNames(kind: String): Set[String] = kind match {
-    case MetricPanel.Kind     => Set("aggregation", "label", "unit", "metricId")
-    case ChartPanel.Kind      => Set("aggregation", "chartOptions", "annotation", "metricId")
-    case TablePanel.Kind      => Set("density", "columnOrder", "metricId")
     case ImagePanel.Kind      => Set("caption")
     case DividerPanel.Kind    => Set("weight", "color")
-    case CollectionPanel.Kind => Set("itemOptions")
     case _                    => Set.empty
   }
 
@@ -110,12 +106,8 @@ private[services] object PatchSetUndoInverse {
   }
 
 
-  def fullDataTypeInverse(response: DataTypeResponse): UpdateDataTypeRequest =
-    UpdateDataTypeRequest(
-      name           = Some(response.name),
-      fields         = Some(response.fields.map(f => DataFieldPayload(f.name, f.displayName, f.dataType, f.nullable))),
-      computedFields = Some(response.computedFields.map(cf => ComputedFieldPayload(cf.name, cf.displayName, cf.expression, cf.dataType)))
-    )
+  // HEL-904 task 3.3: `fullDataTypeInverse` REMOVED outright -- `dataType` is
+  // no longer a valid target.kind, so undo never restores one.
 
   //
   // Unlike the five kinds above, `PipelineStepResponse` is a 22-subtype sealed union whose

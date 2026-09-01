@@ -12,7 +12,7 @@ optional `bodyContentType`, default `application/json`), optional `rootSelector`
 locating the row array/object in the response, applied by `toRows`; unset reproduces today's
 top-level-array/object behavior exactly). On success it SHALL insert the DataSource, attempt an
 initial fetch+inference (resolving the referenced Connector's base host and credential), and if
-inference succeeds, insert a DataType linked to the source. The response SHALL include
+inference succeeds, insert a inferred schema on the source. The response SHALL include
 `fetchError` if the initial fetch failed. The system SHALL NOT accept a credential or auth
 value directly on this request — a request containing one SHALL be rejected (400). A request
 whose `method` is `GET` or `HEAD` and which also supplies a non-empty `body` SHALL be rejected
@@ -39,12 +39,12 @@ test-connection accept the legacy bare-url shape ephemerally" below, unmodified)
 - **WHEN** `POST /api/sources` is called with a valid `connectorId` referencing the caller's
   own Connector, and the resolved URL returns a 2xx JSON response
 - **THEN** the response is 201 with the created DataSource (no credentials) and a linked
-  DataType in the registry
+  inferred schema in the registry
 
 #### Scenario: Creation succeeds even when fetch fails
 - **WHEN** `POST /api/sources` is called but the remote URL returns a 4xx/5xx or is unreachable
 - **THEN** the response is 201 with the DataSource and a non-null `fetchError` field; no
-  DataType is registered
+  inferred schema is registered
 
 #### Scenario: connectorId referencing another user's Connector returns 400
 - **WHEN** `POST /api/sources` is called with a `connectorId` that exists but is owned by a
@@ -85,13 +85,13 @@ test-connection accept the legacy bare-url shape ephemerally" below, unmodified)
 ### Requirement: Refresh a REST/HTTP data source
 The backend SHALL expose `POST /api/sources/:id/refresh` which resolves the source's
 referenced Connector, re-fetches the composed URL, re-runs schema inference, and overwrites
-the linked DataType's fields (incrementing its version). If no DataType exists yet (e.g.
+the source's inferred_schema fields (incrementing its version). If no inferred schema exists yet (e.g.
 initial fetch failed), a new one SHALL be created.
 
 #### Scenario: Successful refresh updates DataType fields
 - **WHEN** `POST /api/sources/:id/refresh` is called and the resolved URL returns a 2xx JSON
   response
-- **THEN** the response is 200 with the updated DataType; version is incremented by 1
+- **THEN** the response is 200 with the updated inferred schema; version is incremented by 1
 
 #### Scenario: Refresh on non-existent source returns 404
 - **WHEN** `POST /api/sources/:id/refresh` is called with an unknown id
@@ -99,12 +99,12 @@ initial fetch failed), a new one SHALL be created.
 
 #### Scenario: Refresh fetch failure returns 502
 - **WHEN** `POST /api/sources/:id/refresh` is called but the remote request fails
-- **THEN** the response is 502 with a descriptive error; existing DataType is unchanged
+- **THEN** the response is 502 with a descriptive error; existing inferred schema is unchanged
 
 ### Requirement: Preview a REST/HTTP data source
 The backend SHALL expose `GET /api/sources/:id/preview` which resolves the source's referenced
 Connector, fetches the composed URL, parses the JSON response, and returns the first 10 rows
-as a JSON array. No DataSource or DataType records are created or modified.
+as a JSON array. No DataSource or inferred schema records are created or modified.
 
 #### Scenario: Preview returns up to 10 rows
 - **WHEN** `GET /api/sources/:id/preview` is called and the resolved URL returns a JSON array

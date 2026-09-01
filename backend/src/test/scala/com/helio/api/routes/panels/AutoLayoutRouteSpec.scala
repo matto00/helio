@@ -48,8 +48,8 @@ class AutoLayoutRouteSpec extends ApplyProposalSpecBase {
 
     "pack supplied panels into non-overlapping positions, persisted identically to lg/md/sm/xs" in {
       val dashboardId = createDashboard("Auto Layout Target")
-      val p1 = createPanel(dashboardId, "Chart 1", "chart")
-      val p2 = createPanel(dashboardId, "Chart 2", "chart")
+      val p1 = createPanel(dashboardId, "Chart 1", "divider")
+      val p2 = createPanel(dashboardId, "Chart 2", "divider")
 
       // w=6 + w=8 > 12 -> p2 wraps to a new shelf below p1.
       autoLayout(dashboardId, s"""{"items":[{"panelId":"$p1","w":6,"h":8},{"panelId":"$p2","w":8,"h":8}]}""") ~> routes ~> check {
@@ -69,7 +69,7 @@ class AutoLayoutRouteSpec extends ApplyProposalSpecBase {
 
     "returns 400 for a panelId not on the dashboard, no persistence" in {
       val dashboardId = createDashboard("Unknown Panel Target")
-      val p1 = createPanel(dashboardId, "Chart 1", "chart")
+      val p1 = createPanel(dashboardId, "Chart 1", "divider")
       val fakeId = UUID.randomUUID().toString
 
       autoLayout(dashboardId, s"""{"items":[{"panelId":"$p1","w":6,"h":8},{"panelId":"$fakeId","w":4,"h":4}]}""") ~> routes ~> check {
@@ -82,7 +82,7 @@ class AutoLayoutRouteSpec extends ApplyProposalSpecBase {
     "keeps an omitted panel's saved position unchanged and appends the newly packed panel" in {
       val dashboardId = createDashboard("Omit Target")
       val kept = createPanel(dashboardId, "Kept", "text")
-      val packed = createPanel(dashboardId, "Packed", "chart")
+      val packed = createPanel(dashboardId, "Packed", "divider")
 
       patchLayout(dashboardId, s"""{"panelId":"$kept","x":0,"y":0,"w":2,"h":2}""")
 

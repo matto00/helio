@@ -6,13 +6,13 @@ import com.helio.api.protocols.pipelines.{UpdatePipelineRequest, UpdatePipelineS
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, DataTypeResponse, PipelineStepResponse, PipelineSummaryResponse}
-import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse}
+import com.helio.api.protocols.sources.{DataSourceResponse, StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
 import com.helio.services.patchsets.PatchSetApplyService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
@@ -20,9 +20,7 @@ import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, Pipel
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.metrics.MetricRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, DataTypeRowRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -65,9 +63,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
   private var dashboardRepo: DashboardRepository         = _
   private var panelRepo: PanelRepository                 = _
   private var dataSourceRepo: DataSourceRepository       = _
-  private var dataTypeRepo: DataTypeRepository           = _
-  private var dataTypeRowRepo: DataTypeRowRepository     = _
-  private var metricRepo: MetricRepository               = _
   private var permissionRepo: ResourcePermissionRepository = _
   private var pipelineRepo: PipelineRepository           = _
   private var pipelineStepRepo: PipelineStepRepository   = _
@@ -76,7 +71,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
   private var dashboardService: DashboardService   = _
   private var panelService: PanelService           = _
   private var dataSourceService: DataSourceService = _
-  private var dataTypeService: DataTypeService     = _
   private var pipelineService: PipelineService     = _
   private var service: PatchSetApplyService        = _
 
@@ -97,11 +91,8 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     dashboardRepo    = new DashboardRepository(ctx)
     panelRepo         = new PanelRepository(ctx)
     dataSourceRepo    = new DataSourceRepository(ctx)
-    dataTypeRepo      = new DataTypeRepository(ctx)
-    dataTypeRowRepo   = new DataTypeRowRepository(ctx)
-    metricRepo        = new MetricRepository(ctx)
     permissionRepo    = new ResourcePermissionRepository(ctx)
-    pipelineRepo      = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)
+    pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)
     pipelineStepRepo  = new PipelineStepRepository(ctx)
     applicationRepo   = new PatchSetApplicationRepository(ctx)
 
@@ -109,22 +100,20 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("panel",       id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
-      AclResourceType("data-type",   id => dataTypeRepo.findByIdInternal(DataTypeId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-apply-service-spec"))
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
-    panelService        = new PanelService(panelRepo, dataTypeRepo, accessChecker, dashboardRepo, metricRepo)
-    dataSourceService   = new DataSourceService(dataSourceRepo, dataTypeRepo, fileSystem)
-    dataTypeService     = new DataTypeService(dataTypeRepo, dataTypeRowRepo, dataSourceRepo)
-    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, dataTypeRepo)
+    panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
+    dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
+    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     service = new PatchSetApplyService(
-      panelService, dashboardService, dataSourceService, dataTypeService, pipelineService,
-      panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo,
-      metricRepo, accessChecker, applicationRepo
+      panelService, dashboardService, dataSourceService, pipelineService,
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+      accessChecker, applicationRepo
     )
 
     seedUsers()
@@ -157,12 +146,14 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     await(dashboardService.create(DashboardService.CreateDashboardInput(Some(name)), owner))._1
 
   private def seedPanel(dashboardId: DashboardId, owner: AuthenticatedUser, title: String = "Panel"): Panel =
-    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("metric"), None), owner)) match {
+    await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("divider"), None), owner)) match {
       case Right(p) => p
       case Left(e)  => fail(s"seedPanel failed: $e")
     }
 
-  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): (DataSourceId, DataTypeId) = {
+  // HEL-904: no companion DataType to look up anymore — returns just the DataSourceId
+  // (every call site already discarded the old tuple's second element).
+  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): DataSourceId = {
     val ds = await(dataSourceService.createStatic(
       StaticDataSourceRequest(name, "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))),
       owner
@@ -170,18 +161,11 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       case Right(d) => d
       case Left(e)  => fail(s"seedStaticSource failed: $e")
     }
-    val companion = await(dataTypeRepo.findBySourceId(ds.id, owner.id)).headOption.getOrElse(fail("companion type missing"))
-    (ds.id, companion.id)
-  }
-
-  private def seedPipelineOutputType(owner: AuthenticatedUser, name: String): DataType = {
-    val now = Instant.now()
-    val dt = DataType(DataTypeId(UUID.randomUUID().toString), None, name, Vector(DataField("value", "value", "integer", nullable = true)), Vector.empty, 1, now, now, owner.id)
-    await(dataTypeRepo.insert(dt, owner))
+    ds.id
   }
 
   private def seedPipeline(owner: AuthenticatedUser, sourceId: DataSourceId, name: String = "Pipeline"): PipelineSummaryResponse =
-    await(pipelineService.create(CreatePipelineRequest(name, sourceId.value, "Output"), owner)) match {
+    await(pipelineService.create(CreatePipelineRequest(name, sourceId.value), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"seedPipeline failed: $e")
     }
@@ -191,27 +175,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       case Right(s) => s
       case Left(e)  => fail(s"seedPipelineStep failed: $e")
     }
-
-  private def seedMetric(owner: AuthenticatedUser, dataTypeId: DataTypeId, name: String = "Metric"): MetricId = {
-    val now = Instant.now()
-    val m = MetricDefinition(
-      id                = MetricId(UUID.randomUUID().toString),
-      ownerId           = owner.id,
-      dataTypeId        = dataTypeId,
-      name              = name,
-      description       = None,
-      measureField      = "value",
-      aggregation       = "sum",
-      allowedDimensions = Vector.empty,
-      format            = MetricFormat(None, None, None, None),
-      createdAt         = now,
-      updatedAt         = now
-    )
-    await(metricRepo.insert(m, owner)) match {
-      case Right(inserted) => inserted.id
-      case Left(err)       => fail(s"seedMetric failed: $err")
-    }
-  }
 
   // Postgres TIMESTAMPTZ rounds to microsecond precision on write; a JVM
   // `Instant.now()` can carry nanosecond precision, and Java's own
@@ -228,12 +191,6 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     r.copy(meta = r.meta.copy(createdAt = "", lastUpdated = ""))
   }
 
-  private def dataTypeResponseNormalized(json: JsValue): DataTypeResponse = {
-    val r = json.convertTo[DataTypeResponse]
-    r.copy(createdAt = "", updatedAt = "")
-  }
-
-
   "PatchSetApplyService.apply" should {
 
     "apply a mixed patch set (panel update + panel delete + dashboard update) cleanly, each reported applied (7.2)" in {
@@ -243,11 +200,11 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
 
       val edits = Vector(
         Edit(EditTarget("panel", Some(panelToUpdate.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Updated title"), None, None, None)), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Updated title"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete",
-          None, None, None, None, None, None, None),
+          None, None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some("Renamed dashboard"), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some("Renamed dashboard"), None, None)), None, None, None, None)
       )
 
       val result = await(service.apply(PatchSet(None, edits), userA))
@@ -275,11 +232,11 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       // forward-apply-only failure, not a pre-validation rejection.
       val edits = Vector(
         Edit(EditTarget("panel", Some(panelToUpdate.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Changed title"), None, None, None)), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Changed title"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete",
-          None, None, None, None, None, None, None),
+          None, None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None)
       )
 
       val result = await(service.apply(PatchSet(None, edits), userA))
@@ -311,18 +268,19 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // would silently fail to restore an unset->set transition, even though
     // `status` still reports "rolledBack".
     "genuinely clear a config Option field that transitioned None->Some, when the update rolling it back is itself rolled back (skeptic-final-1.md CR1)" in {
+      // HEL-904: rewired from the retired MetricPanel's `aggregation` field
+      // onto DividerPanel's `weight` -- same D5 None->Some->rollback contract,
+      // a still-live optional-field kind.
       val dashboard = seedDashboard(userA)
-      val panel     = seedPanel(dashboard.id, userA, "Aggregation panel")
-      // Seeded via config = None -> decodeCreateConfig defaults to Empty ->
-      // aggregation is unset before any edit in this patch set runs.
-      await(panelRepo.findByIdInternal(panel.id)).collect { case mp: MetricPanel => mp.config.aggregation } shouldBe Some(None)
+      val panel     = seedPanel(dashboard.id, userA, "Weighted divider panel")
+      await(panelRepo.findByIdInternal(panel.id)).collect { case dp: DividerPanel => dp.config.weight } shouldBe Some(None)
 
-      val setAggregation = JsObject("aggregation" -> JsObject("op" -> JsString("sum")))
+      val setWeight = JsObject("weight" -> JsNumber(3))
       val edits = Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "update",
-          Some(UpdatePanelRequest(None, None, None, Some(setAggregation))), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(None, None, None, Some(setWeight))), None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None)
       )
 
       val response = await(service.apply(PatchSet(None, edits), userA)) match {
@@ -334,9 +292,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       panelOutcome.status shouldBe "rolledBack"
 
       // The actual assertion this regression test exists for: not just
-      // `status == "rolledBack"`, but the DB row's aggregation is genuinely
-      // back to unset -- not left at the forward edit's Some(...) value.
-      await(panelRepo.findByIdInternal(panel.id)).collect { case mp: MetricPanel => mp.config.aggregation } shouldBe Some(None)
+      // `status == "rolledBack"`, but the DB row's weight is genuinely back
+      // to unset -- not left at the forward edit's Some(...) value.
+      await(panelRepo.findByIdInternal(panel.id)).collect { case dp: DividerPanel => dp.config.weight } shouldBe Some(None)
     }
 
 
@@ -346,9 +304,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
 
       val edits = Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Should never apply"), None, None, None)), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Should never apply"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(UUID.randomUUID().toString)), "update",
-          None, Some(UpdateDashboardRequest(Some("Nonexistent"), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some("Nonexistent"), None, None)), None, None, None, None)
       )
       val result = await(service.apply(PatchSet(None, edits), userA))
       result match {
@@ -364,7 +322,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       grantRole("dashboard", dashboard.id.value, userBId, "editor")
 
       val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(Some("Edited by grantee"), None, None, None)), None, None, None, None, None, None)
+        Some(UpdatePanelRequest(Some("Edited by grantee"), None, None, None)), None, None, None, None, None)
       val result = await(service.apply(PatchSet(None, Vector(edit)), userB))
       result match {
         case Right(response) => response.edits.head.status shouldBe "applied"
@@ -378,7 +336,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       grantRole("dashboard", dashboard.id.value, userBId, "editor")
 
       val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "delete",
-        None, None, None, None, None, None, None)
+        None, None, None, None, None, None)
       val result = await(service.apply(PatchSet(None, Vector(edit)), userB))
       result match {
         case Left(ServiceError.Forbidden(_)) => succeed
@@ -389,13 +347,13 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
 
 
     "reject a create edit targeting dataType or pipelineStep pre-apply with a clear message (7.5)" in {
-      val dataTypeCreate = Edit(EditTarget("dataType", None), "create", None, None, None, None, None, None, Some(JsObject()))
+      val dataTypeCreate = Edit(EditTarget("dataType", None), "create", None, None, None, None, None, Some(JsObject()))
       await(service.apply(PatchSet(None, Vector(dataTypeCreate)), userA)) match {
         case Left(ServiceError.BadRequest(msg)) => msg.toLowerCase should include("datatype")
         case other                                => fail(s"expected BadRequest, got $other")
       }
 
-      val stepCreate = Edit(EditTarget("pipelineStep", None), "create", None, None, None, None, None, None, Some(JsObject()))
+      val stepCreate = Edit(EditTarget("pipelineStep", None), "create", None, None, None, None, None, Some(JsObject()))
       await(service.apply(PatchSet(None, Vector(stepCreate)), userA)) match {
         case Left(ServiceError.BadRequest(msg)) => msg.toLowerCase should include("pipelinestep")
         case other                                => fail(s"expected BadRequest, got $other")
@@ -405,7 +363,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
 
     "reject a dashboard-create edit whose createPatch sets ifExists (7.6)" in {
       val createPatch = JsObject("name" -> JsString("Should not be created"), "ifExists" -> JsString("return"))
-      val edit = Edit(EditTarget("dashboard", None), "create", None, None, None, None, None, None, Some(createPatch))
+      val edit = Edit(EditTarget("dashboard", None), "create", None, None, None, None, None, Some(createPatch))
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Left(ServiceError.BadRequest(_)) => succeed
         case other                              => fail(s"expected BadRequest, got $other")
@@ -413,25 +371,29 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
 
+    // HEL-904 task 3.3: rewritten onto a `dataSource` delete (also
+    // unconditionally "unrecoverable" per `PatchSetApplyRollback` -- design.md
+    // D1: cascades to pipelines) -- `dataType` is no longer a valid
+    // target.kind at all, so it can no longer stand in for this scenario.
     "report an unrecoverable delete rollback honestly, not silently hidden (7.7)" in {
-      val standaloneType = seedPipelineOutputType(userA, "Standalone")
-      val dashboard       = seedDashboard(userA)
+      val standaloneSourceId = seedStaticSource(userA, "Standalone")
+      val dashboard               = seedDashboard(userA)
 
       val edits = Vector(
-        Edit(EditTarget("dataType", Some(standaloneType.id.value)), "delete", None, None, None, None, None, None, None),
+        Edit(EditTarget("dataSource", Some(standaloneSourceId.value)), "delete", None, None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None)
       )
       val response = await(service.apply(PatchSet(None, edits), userA)) match {
         case Right(r)  => r
         case Left(err) => fail(s"expected Right, got Left($err)")
       }
       response.failure shouldBe defined
-      val dtOutcome = response.edits.find(_.index == 0).getOrElse(fail("missing dataType edit outcome"))
-      dtOutcome.status shouldBe "unrecoverable"
-      dtOutcome.resultingState shouldBe None
+      val dsOutcome = response.edits.find(_.index == 0).getOrElse(fail("missing dataSource edit outcome"))
+      dsOutcome.status shouldBe "unrecoverable"
+      dsOutcome.resultingState shouldBe None
 
-      await(dataTypeRepo.findByIdInternal(standaloneType.id)) shouldBe None
+      await(dataSourceRepo.findByIdInternal(standaloneSourceId)) shouldBe None
     }
 
     // ── 7.9 (design.md D2a): embedded cross-resource reference checks ─────
@@ -444,67 +406,27 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val createPatch = JsObject(
         "dashboardId" -> JsString(foreignDashboard.id.value),
         "title"       -> JsString("Sneaky"),
-        "type"        -> JsString("metric")
+        "type"        -> JsString("divider")
       )
       val edits = Vector(
-        Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None, None),
-        Edit(EditTarget("panel", None), "create", None, None, None, None, None, None, Some(createPatch))
+        Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None),
+        Edit(EditTarget("panel", None), "create", None, None, None, None, None, Some(createPatch))
       )
       val result = await(service.apply(PatchSet(None, edits), userA))
       result shouldBe a[Left[_, _]]
       await(panelRepo.findByIdInternal(panelToDelete.id)) shouldBe defined
     }
 
-    "reject a panel-update edit binding to an owned companion DataType (7.9b)" in {
-      val dashboard              = seedDashboard(userA)
-      val panel                   = seedPanel(dashboard.id, userA)
-      val (_, companionTypeId)    = seedStaticSource(userA, "Companion source")
-
-      val configPatch = JsObject("dataTypeId" -> JsString(companionTypeId.value))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(configPatch))), None, None, None, None, None, None)
-      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
-        case Left(ServiceError.BadRequest(_)) => succeed
-        case other                              => fail(s"expected BadRequest, got $other")
-      }
-    }
-
-    "accept (not reject) a panel-update edit whose dataTypeId is foreign-owned (7.9b negative)" in {
-      val dashboard = seedDashboard(userA)
-      val panel     = seedPanel(dashboard.id, userA)
-      // Foreign-OWNED but genuinely existing (satisfies the panels_type_id_fkey
-      // constraint) -- distinct from a truly nonexistent id, which the FK
-      // itself would reject regardless of this check's own pass-through rule.
-      val foreignType = seedPipelineOutputType(userB, "ForeignOutputForNegativeCase")
-
-      val configPatch = JsObject("dataTypeId" -> JsString(foreignType.id.value))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(configPatch))), None, None, None, None, None, None)
-      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
-        case Right(response) => response.edits.head.status shouldBe "applied"
-        case Left(err)         => fail(s"expected the foreign dataTypeId to pass through unchanged, got $err")
-      }
-    }
-
-    "reject a panel-update edit referencing a foreign-owned metricId (7.9c)" in {
-      val dashboard          = seedDashboard(userA)
-      val panel                = seedPanel(dashboard.id, userA)
-      val foreignOutputType    = seedPipelineOutputType(userB, "ForeignOutput")
-      val foreignMetricId      = seedMetric(userB, foreignOutputType.id)
-
-      val configPatch = JsObject("metricId" -> JsString(foreignMetricId.value))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(configPatch))), None, None, None, None, None, None)
-      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
-        case Left(ServiceError.BadRequest(_)) => succeed
-        case other                              => fail(s"expected BadRequest, got $other")
-      }
-    }
+    // HEL-904 task 4.1: 7.9b (companion-DataType rejection) and its negative
+    // removed outright, alongside `metricId` cross-owner rejection (7.9c) --
+    // no panel can carry a `dataTypeId`/`metricId` binding anymore
+    // (Text/Markdown's data-bound "Source mode" and metrics are both
+    // removed).
 
     "reject a pipelineStep-update edit referencing a foreign-owned JoinConfig rightDataSourceId (7.9d)" in {
-      val (sourceId, _)       = seedStaticSource(userA, "Pipeline source")
-      val (rightSourceId, _)   = seedStaticSource(userA, "Right source")
-      val (foreignSourceId, _) = seedStaticSource(userB, "Foreign source")
+      val sourceId = seedStaticSource(userA, "Pipeline source")
+      val rightSourceId = seedStaticSource(userA, "Right source")
+      val foreignSourceId = seedStaticSource(userB, "Foreign source")
       val pipeline              = seedPipeline(userA, sourceId, "Join pipeline")
       val joinConfig = JsObject(
         "rightDataSourceId" -> JsString(rightSourceId.value),
@@ -519,7 +441,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
         "joinType"           -> JsString("inner")
       )
       val edit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
-        None, None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(updatedJoinConfig), None)), None)
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(updatedJoinConfig), None)), None)
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Left(ServiceError.NotFound(_)) => succeed
         case other                            => fail(s"expected NotFound (data source not found), got $other")
@@ -531,7 +453,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val dashboard = seedDashboard(userA)
       val panel     = seedPanel(dashboard.id, userA, "Original")
       val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(Some("Changed"), None, None, None)), None, None, None, None, None, None)
+        Some(UpdatePanelRequest(Some("Changed"), None, None, None)), None, None, None, None, None)
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Right(response) =>
           val priorJson = response.edits.head.priorState.getOrElse(fail("expected priorState"))
@@ -545,44 +467,46 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val createPatch = JsObject(
         "dashboardId" -> JsString(dashboard.id.value),
         "title"       -> JsString("New panel"),
-        "type"        -> JsString("metric")
+        "type"        -> JsString("divider")
       )
-      val edit = Edit(EditTarget("panel", None), "create", None, None, None, None, None, None, Some(createPatch))
+      val edit = Edit(EditTarget("panel", None), "create", None, None, None, None, None, Some(createPatch))
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Right(response) => response.edits.head.priorState shouldBe None
         case Left(err)         => fail(s"expected success, got $err")
       }
     }
 
-    "still populate priorState for an unrecoverable dataType-delete edit (7.10c)" in {
-      val standaloneType = seedPipelineOutputType(userA, "StandaloneForPriorState")
-      val dashboard       = seedDashboard(userA)
+    // HEL-904 task 3.3: rewritten onto a `dataSource` delete -- see 7.7's
+    // identical note; `dataType` is no longer a valid target.kind.
+    "still populate priorState for an unrecoverable dataSource-delete edit (7.10c)" in {
+      val standaloneSourceId = seedStaticSource(userA, "StandaloneForPriorState")
+      val standaloneSource        = await(dataSourceRepo.findByIdInternal(standaloneSourceId)).getOrElse(fail("source missing"))
+      val dashboard               = seedDashboard(userA)
       val edits = Vector(
-        Edit(EditTarget("dataType", Some(standaloneType.id.value)), "delete", None, None, None, None, None, None, None),
+        Edit(EditTarget("dataSource", Some(standaloneSourceId.value)), "delete", None, None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None)
       )
       await(service.apply(PatchSet(None, edits), userA)) match {
         case Right(response) =>
-          val dtOutcome = response.edits.find(_.index == 0).getOrElse(fail("missing outcome"))
-          dtOutcome.status shouldBe "unrecoverable"
-          val priorJson = dtOutcome.priorState.getOrElse(fail("expected priorState"))
-          dataTypeResponseNormalized(priorJson) shouldBe dataTypeResponseNormalized(DataTypeResponse.fromDomain(standaloneType).toJson)
+          val dsOutcome = response.edits.find(_.index == 0).getOrElse(fail("missing outcome"))
+          dsOutcome.status shouldBe "unrecoverable"
+          val priorJson = dsOutcome.priorState.getOrElse(fail("expected priorState"))
+          priorJson shouldBe dataSourceResponseFormat.write(DataSourceResponse.fromDomain(standaloneSource))
         case Left(err) => fail(s"expected Right, got Left($err)")
       }
     }
 
     "populate a pipeline-update edit's priorState with the joined PipelineSummaryResponse shape (7.10d)" in {
-      val (sourceId, _) = seedStaticSource(userA, "PipelineSrcForPriorState")
+      val sourceId = seedStaticSource(userA, "PipelineSrcForPriorState")
       val pipeline        = seedPipeline(userA, sourceId, "MyPipeline")
       val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "update",
-        None, None, None, None, Some(UpdatePipelineRequest(name = "Renamed pipeline")), None, None)
+        None, None, None, Some(UpdatePipelineRequest(name = "Renamed pipeline")), None, None)
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Right(response) =>
           val priorJson = response.edits.head.priorState.getOrElse(fail("expected priorState"))
           val prior     = priorJson.convertTo[PipelineSummaryResponse]
           prior.sourceDataSourceName shouldBe "PipelineSrcForPriorState"
-          prior.outputDataTypeName shouldBe "Output"
           prior.name shouldBe "MyPipeline"
         case Left(err) => fail(s"expected success, got $err")
       }
@@ -594,9 +518,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val createPatch = JsObject(
         "dashboardId" -> JsString(dashboard.id.value),
         "title"       -> JsString("Created panel"),
-        "type"        -> JsString("metric")
+        "type"        -> JsString("divider")
       )
-      val edit = Edit(EditTarget("panel", None), "create", None, None, None, None, None, None, Some(createPatch))
+      val edit = Edit(EditTarget("panel", None), "create", None, None, None, None, None, Some(createPatch))
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Right(response) =>
           val outcome = response.edits.head
@@ -613,7 +537,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val dashboard = seedDashboard(userA)
       val panel     = seedPanel(dashboard.id, userA, "Before")
       val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(Some("After"), None, None, None)), None, None, None, None, None, None)
+        Some(UpdatePanelRequest(Some("After"), None, None, None)), None, None, None, None, None)
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Right(response) =>
           val updated = await(panelRepo.findByIdInternal(panel.id)).getOrElse(fail("panel not found"))
@@ -625,7 +549,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     "leave resultingState absent for a plain (non-rolled-back) panel-delete edit (7.11c)" in {
       val dashboard = seedDashboard(userA)
       val panel     = seedPanel(dashboard.id, userA)
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "delete", None, None, None, None, None, None, None)
+      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "delete", None, None, None, None, None, None)
       await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Right(response) => response.edits.head.resultingState shouldBe None
         case Left(err)         => fail(s"expected success, got $err")
@@ -636,9 +560,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val dashboard      = seedDashboard(userA)
       val panelToDelete  = seedPanel(dashboard.id, userA, "Recreate me")
       val edits = Vector(
-        Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None, None),
+        Edit(EditTarget("panel", Some(panelToDelete.id.value)), "delete", None, None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None)
       )
       await(service.apply(PatchSet(None, edits), userA)) match {
         case Right(response) =>
@@ -658,7 +582,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val dashboard = seedDashboard(userA)
       val panel     = seedPanel(dashboard.id, userA, "Journaled")
       val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(Some("Journaled - updated"), None, None, None)), None, None, None, None, None, None)
+        Some(UpdatePanelRequest(Some("Journaled - updated"), None, None, None)), None, None, None, None, None)
       val response = await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
         case Right(r)  => r
         case Left(err) => fail(s"expected success, got $err")
@@ -678,9 +602,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val panelToUpdate = seedPanel(dashboard.id, userA, "Original title")
       val edits = Vector(
         Edit(EditTarget("panel", Some(panelToUpdate.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Changed"), None, None, None)), None, None, None, None, None, None),
+          Some(UpdatePanelRequest(Some("Changed"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None)
       )
       val response = await(service.apply(PatchSet(None, edits), userA)) match {
         case Right(r)  => r
@@ -694,7 +618,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       val dashboard = seedDashboard(userA, "Retention dashboard")
       val applicationIds = (1 to 21).map { i =>
         val edit = Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
-          None, Some(UpdateDashboardRequest(Some(s"Retention $i"), None, None)), None, None, None, None, None)
+          None, Some(UpdateDashboardRequest(Some(s"Retention $i"), None, None)), None, None, None, None)
         await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
           case Right(r)  => r.applicationId.getOrElse(fail("expected applicationId"))
           case Left(err) => fail(s"expected success, got $err")
@@ -704,31 +628,8 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       await(applicationRepo.findById(PatchSetApplicationId(applicationIds.last), userA)) shouldBe defined
     }
 
-    "journal a bound MetricPanel update's rawResultingConfig as the RAW (unmaterialized) config, distinct from resultingState's materialized effective dataTypeId (HEL-413 5.1d)" in {
-      val dashboard  = seedDashboard(userA)
-      val outputType = seedPipelineOutputType(userA, "Raw config source")
-      val metricId   = seedMetric(userA, outputType.id, "Raw config metric")
-      val panel      = seedPanel(dashboard.id, userA, "Bound panel")
-      val dataTypeId = outputType.id
-
-      val bindPatch = JsObject("metricId" -> JsString(metricId.value))
-      val edit = Edit(EditTarget("panel", Some(panel.id.value)), "update",
-        Some(UpdatePanelRequest(None, None, None, Some(bindPatch))), None, None, None, None, None, None)
-      val response = await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
-        case Right(r)  => r
-        case Left(err) => fail(s"expected success, got $err")
-      }
-      val applicationId = response.applicationId.getOrElse(fail("expected applicationId"))
-
-      // The materialized `/apply` response shows the metric's EFFECTIVE dataTypeId...
-      val materializedConfig = response.edits.head.resultingState.getOrElse(fail("expected resultingState")).asJsObject.fields("config").asJsObject
-      materializedConfig.fields("dataTypeId") shouldBe JsString(dataTypeId.value)
-
-      // ...but the journal's rawResultingConfig is the genuinely RAW, unmaterialized config -- the
-      // raw dataTypeId is still unset, since no raw override was ever patched in (design.md D2a).
-      val record    = await(applicationRepo.findById(PatchSetApplicationId(applicationId), userA)).getOrElse(fail("journal row missing"))
-      val rawConfig = record.edits.head.rawResultingConfig.getOrElse(fail("expected rawResultingConfig")).asJsObject
-      rawConfig.fields("dataTypeId") shouldBe JsString("")
-    }
+    // HEL-904: the metricId-binding materialization regression this test
+    // covered (HEL-413 5.1d) was removed outright -- metrics, and the
+    // dataTypeId materialization they drove, no longer exist.
   }
 }

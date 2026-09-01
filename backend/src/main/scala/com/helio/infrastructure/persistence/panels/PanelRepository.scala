@@ -213,29 +213,10 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
     ).map(_.map(rowToDomain))
   }
 
-  /** RLS-scoped detection for HEL-408's dataType-delete impact hint
-   *  (design.md D4's detection mechanism, round-2 REFUTE fix): counts panels
-   *  bound to `dataTypeId` VISIBLE to `user` under `panels_select`'s own
-   *  dashboard-ACL RLS policy (`USING (helio_can_access_dashboard(
-   *  dashboard_id))`, `V36__rls_sharing_aware_tables.sql:146-148`) --
-   *  deliberately NO `owner_id` predicate in this SQL; the RLS policy is the
-   *  ONLY scoping mechanism, so this single un-filtered query already
-   *  returns "panels bound to this type that this user can see" (owner OR
-   *  sharing grant), combining `existsBoundToAnyOwnedPanel`'s
-   *  already-known-`false` owned case with a genuinely different cross-owner
-   *  case in one call.
-   *
-   *  Run on the APP pool (`withUserContext`), never the privileged pool --
-   *  see design.md D4's "Why RLS-scoped, not privileged" for why a
-   *  privileged query here would leak an unrelated tenant's private
-   *  resource's existence via the hint text. Mirrors `DataTypeRepository.
-   *  existsBoundToAnyOwnedPanel`'s `withUserContext`/raw-SQL style,
-   *  deliberately WITHOUT its `owner_id` clause. */
-  def existsBoundToType(dataTypeId: DataTypeId, user: AuthenticatedUser): Future[Boolean] =
-    ctx.withUserContext(user.id.value)(
-      sql"SELECT COUNT(*) FROM panels WHERE type_id = ${dataTypeId.value}".as[Int].head
-    ).map(_ > 0)
-
+  // HEL-904 task 4.1: `existsBoundToType` removed outright -- no panel can
+  // carry a `dataTypeId` binding anymore (Text/Markdown's data-bound
+  // "Source mode" was removed in the same task), so the method had zero
+  // remaining callers.
 }
 
 object PanelRepository {
@@ -264,54 +245,34 @@ object PanelRepository {
    *  panel subtype's config can populate via `PanelRowMapper.domainToRow`.
    *  Both `PanelRepository.replace` and `PanelMutationOps.batchUpdate`'s
    *  config-patch branch write back this exact set so the two paths cannot
-   *  silently diverge when a new config column is added (HEL-296). */
+   *  silently diverge when a new config column is added (HEL-296).
+   *
+   *  HEL-904 task 2.10: shrunk to the surviving literal-content/media
+   *  columns only — `type_id`/`field_mapping`/`aggregation`/`metric_*`/
+   *  `chart_options`/`collection_options`/`timeline_options`/
+   *  `column_widths`/`table_density`/`column_order`/`chart_annotation` were
+   *  dropped from `panels` (V94), and none of them were ever populated by
+   *  `PanelRowMapper.domainToRow` post-collapse anyway (always written as
+   *  `None`). */
   def configColumnsOf(r: PanelTable): (
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
       Rep[Option[String]],
       Rep[Option[String]],
       Rep[Option[String]],
       Rep[Option[Int]],
       Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
-      Rep[Option[String]],
       Rep[Option[String]]
   ) =
-    (r.typeId, r.fieldMapping, r.content, r.imageUrl, r.imageFit, r.dividerOrientation, r.dividerWeight, r.dividerColor, r.aggregation, r.metricLabel, r.metricUnit, r.columnWidths, r.tableDensity, r.columnOrder, r.chartOptions, r.collectionOptions, r.timelineOptions, r.imageCaption, r.chartAnnotation, r.metricId)
+    (r.content, r.imageUrl, r.imageFit, r.dividerWeight, r.dividerOrientation, r.dividerColor)
 
   def configColumnValuesOf(row: PanelRow): (
       Option[String],
       Option[String],
       Option[String],
-      Option[String],
-      Option[String],
-      Option[String],
       Option[Int],
-      Option[String],
-      Option[String],
-      Option[String],
-      Option[String],
-      Option[String],
-      Option[String],
-      Option[String],
-      Option[String],
-      Option[String],
-      Option[String],
-      Option[String],
       Option[String],
       Option[String]
   ) =
-    (row.typeId, row.fieldMapping, row.content, row.imageUrl, row.imageFit, row.dividerOrientation, row.dividerWeight, row.dividerColor, row.aggregation, row.metricLabel, row.metricUnit, row.columnWidths, row.tableDensity, row.columnOrder, row.chartOptions, row.collectionOptions, row.timelineOptions, row.imageCaption, row.chartAnnotation, row.metricId)
+    (row.content, row.imageUrl, row.imageFit, row.dividerWeight, row.dividerOrientation, row.dividerColor)
 
   case class PanelRow(
       id: String,
@@ -321,9 +282,6 @@ object PanelRepository {
       createdAt: Instant,
       lastUpdated: Instant,
       appearance: PanelAppearance,
-      panelType: String,
-      typeId: Option[String],
-      fieldMapping: Option[String],
       ownerId: UUID,
       content: Option[String],
       imageUrl: Option[String],
@@ -331,18 +289,15 @@ object PanelRepository {
       dividerOrientation: Option[String],
       dividerWeight: Option[Int],
       dividerColor: Option[String],
-      aggregation: Option[String],
-      metricLabel: Option[String],
-      metricUnit: Option[String],
-      columnWidths: Option[String],
-      tableDensity: Option[String],
-      columnOrder: Option[String],
-      chartOptions: Option[String],
-      collectionOptions: Option[String],
-      timelineOptions: Option[String],
       imageCaption: Option[String],
-      chartAnnotation: Option[String],
-      metricId: Option[String]
+      // The placement's Output binding (`panels.output_id`, added by V94 §4
+      // — nullable FK; set only for `kind = 'output'` rows).
+      outputId: Option[String] = None,
+      // HEL-904 task 2.10: `panels.kind` (`output | text | markdown | image |
+      // divider`) is now the sole subtype discriminator (`type`/`type_id`
+      // dropped) and NOT NULL — every write sets it via
+      // `PanelRowMapper.domainToRow`.
+      kind: String
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -353,9 +308,6 @@ object PanelRepository {
     def createdAt    = column[Instant]("created_at")
     def lastUpdated  = column[Instant]("last_updated")
     def appearance   = column[PanelAppearance]("appearance")
-    def panelType    = column[String]("type")
-    def typeId       = column[Option[String]]("type_id")
-    def fieldMapping = column[Option[String]]("field_mapping")
     def ownerId      = column[UUID]("owner_id")
     def content      = column[Option[String]]("content")
     def imageUrl            = column[Option[String]]("image_url")
@@ -363,26 +315,13 @@ object PanelRepository {
     def dividerOrientation  = column[Option[String]]("divider_orientation")
     def dividerWeight       = column[Option[Int]]("divider_weight")
     def dividerColor        = column[Option[String]]("divider_color")
-    def aggregation         = column[Option[String]]("aggregation")
-    def metricLabel         = column[Option[String]]("metric_label")
-    def metricUnit          = column[Option[String]]("metric_unit")
-    def columnWidths        = column[Option[String]]("column_widths")
-    def tableDensity        = column[Option[String]]("table_density")
-    def columnOrder         = column[Option[String]]("column_order")
-    def chartOptions        = column[Option[String]]("chart_options")
-    def collectionOptions   = column[Option[String]]("collection_options")
-    def timelineOptions     = column[Option[String]]("timeline_options")
     def imageCaption        = column[Option[String]]("image_caption")
-    def chartAnnotation     = column[Option[String]]("chart_annotation")
-    def metricId            = column[Option[String]]("metric_id")
+    def outputId            = column[Option[String]]("output_id")
+    def kind                = column[String]("kind")
 
-    // 29 columns exceeds Scala's 22-tuple ceiling, so the projection is built as
-    // a Slick HList (see `slick.collection.heterogeneous`) rather than a tuple.
     def * =
       (id :: dashboardId :: title :: createdBy :: createdAt :: lastUpdated :: appearance ::
-        panelType :: typeId :: fieldMapping :: ownerId :: content :: imageUrl :: imageFit ::
-        dividerOrientation :: dividerWeight :: dividerColor :: aggregation :: metricLabel ::
-        metricUnit :: columnWidths :: tableDensity :: columnOrder :: chartOptions ::
-        collectionOptions :: timelineOptions :: imageCaption :: chartAnnotation :: metricId :: HNil).mapTo[PanelRow]
+        ownerId :: content :: imageUrl :: imageFit :: dividerOrientation :: dividerWeight ::
+        dividerColor :: imageCaption :: outputId :: kind :: HNil).mapTo[PanelRow]
   }
 }

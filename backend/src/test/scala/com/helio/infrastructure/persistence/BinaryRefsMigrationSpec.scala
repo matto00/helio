@@ -42,6 +42,13 @@ class BinaryRefsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
 
   "V46 migration" should {
 
+    // HEL-904 task 2.10: `data_type_id` is dropped -- `pipeline_id`/
+    // `node_step_id` (task 2.8, V94) are the sole key now. Dropping the
+    // column also drops its dependent index (`idx_binary_refs_data_type_id`)
+    // and the composite UNIQUE constraint on `(data_type_id, row_index,
+    // field_name)` automatically, so both of those describe-blocks are
+    // deleted outright rather than adapted -- there is nothing left keyed
+    // on `data_type_id` to assert.
     "create the binary_refs table with the expected columns" in {
       val columns = await(
         db.run(
@@ -53,46 +60,28 @@ class BinaryRefsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
 
       columns shouldBe Set(
         "id",
-        "data_type_id",
         "row_index",
         "field_name",
         "storage_key",
         "mime_type",
         "filename",
         "size_bytes",
-        "created_at"
+        "created_at",
+        "pipeline_id",
+        "node_step_id"
       )
     }
 
-    "create an index on data_type_id" in {
-      val result = await(
+    "leave the binary_refs_owner RLS policy keyed on pipeline_id, not data_type_id" in {
+      val policyExists = await(
         db.run(
-          sql"""SELECT indexname FROM pg_indexes
-                WHERE tablename = 'binary_refs' AND indexname = 'idx_binary_refs_data_type_id'"""
-            .as[String]
-            .headOption
+          sql"""SELECT EXISTS (SELECT 1 FROM pg_policies
+                WHERE tablename = 'binary_refs' AND policyname = 'binary_refs_owner')"""
+            .as[Boolean]
+            .head
         )
       )
-      result shouldBe Some("idx_binary_refs_data_type_id")
-    }
-
-    "create a unique index on (data_type_id, row_index, field_name)" in {
-      // Exclude the primary key index (also UNIQUE, on `id` alone) so this
-      // targets only the composite UNIQUE constraint's backing index.
-      val result = await(
-        db.run(
-          sql"""SELECT indexdef FROM pg_indexes
-                WHERE tablename = 'binary_refs'
-                  AND indexdef ILIKE '%UNIQUE%'
-                  AND indexname <> 'binary_refs_pkey'"""
-            .as[String]
-            .headOption
-        )
-      )
-      result shouldBe defined
-      result.get should include("data_type_id")
-      result.get should include("row_index")
-      result.get should include("field_name")
+      policyExists shouldBe true
     }
   }
 }

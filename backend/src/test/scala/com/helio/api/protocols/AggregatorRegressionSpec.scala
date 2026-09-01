@@ -6,12 +6,11 @@ import com.helio.api.protocols.panels.PanelAppearancePayload
 import com.helio.api.protocols.auth.UserResponse
 import com.helio.api.protocols.dashboards.{DashboardAppearanceResponse, DashboardLayoutResponse, DashboardSnapshotDashboardEntry, DashboardSnapshotPanelEntry}
 import com.helio.api.protocols.panels.PanelAppearanceResponse
-import com.helio.api.protocols.pipelines.{ComputedFieldResponse, DataFieldResponse}
 import com.helio.api.protocols.sources.RestApiConfigPayload
 import com.helio.api.protocols.auth.{AuthResponse, PermissionResponse}
 import com.helio.api.protocols.dashboards.{DashboardResponse, DashboardSnapshotPayload}
 import com.helio.api.protocols.panels.PanelResponse
-import com.helio.api.protocols.pipelines.{DataTypeResponse, PipelineSummaryResponse, RunResultResponse, RunStatusResponse}
+import com.helio.api.protocols.pipelines.{PipelineSummaryResponse, RunResultResponse, RunStatusResponse}
 import com.helio.api.protocols.sources.{DataSourceResponse, RestSourceResponse}
 import com.helio.api.JsonProtocols
 import org.scalatest.matchers.should.Matchers
@@ -87,19 +86,8 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
       roundTrip(original) shouldBe original
     }
 
-    "round-trip DataTypeResponse" in {
-      val original = DataTypeResponse(
-        id             = "dt-1",
-        sourceId       = Some("ds-1"),
-        name           = "Type 1",
-        fields         = Vector(DataFieldResponse("f1", "Field 1", "string", nullable = true)),
-        computedFields = Vector(ComputedFieldResponse("c1", "Computed 1", "f1 + 1", "string")),
-        version        = 1,
-        createdAt      = "2026-01-01T00:00:00Z",
-        updatedAt      = "2026-01-02T00:00:00Z"
-      )
-      roundTrip(original) shouldBe original
-    }
+    // HEL-904 task 4.5: "round-trip DataTypeResponse" removed outright —
+    // DataTypeResponse/DataFieldResponse/ComputedFieldResponse no longer exist.
 
     "round-trip PipelineSummaryResponse" in {
       val original = PipelineSummaryResponse(
@@ -107,8 +95,6 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
         name                 = "Pipeline 1",
         sourceDataSourceId   = "ds-1",
         sourceDataSourceName = "Source 1",
-        outputDataTypeName   = "Type 1",
-        outputDataTypeId     = "dt-1",
         lastRunStatus        = Some("succeeded"),
         lastRunAt            = Some("2026-01-02T00:00:00Z"),
         lastRunRowCount      = Some(42L)

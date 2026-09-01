@@ -3,13 +3,11 @@ package com.helio.services.sources
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.domain.connectors.{ConnectorResolveContext, SqlConnectorDriver}
-import com.helio.domain.engine.{ExpressionEvaluator, JsonFlattener}
+import com.helio.domain.engine.JsonFlattener
 import com.helio.domain.connectors.RestApiConnectorDriver
-import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, PreviewSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlInferRequest, SqlSourceConfigPayload, TestConnectionResponse}
-import com.helio.api.protocols.pipelines.{InferredFieldResponse, InferredSchemaResponse}
+import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, InferredFieldResponse, InferredSchemaResponse, PreviewSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlInferRequest, SqlSourceConfigPayload, TestConnectionResponse}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
 import spray.json._
 
 import java.time.Instant
@@ -30,7 +28,6 @@ import scala.concurrent.{ExecutionContext, Future}
  *  needs raw rows for computed-field evaluation, not an inferred schema. */
 final class SourceService(
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo:   DataTypeRepository,
     connector:      RestApiConnectorDriver,
     // HEL-477: nullable-optional wiring mirrors this file's other DI.
     auditService: AuditService = null,
@@ -65,7 +62,7 @@ final class SourceService(
           config    = sqlConfig
         )
         dataSourceRepo.insert(source, user).flatMap { inserted =>
-          CreateSourceEnvelope.build(SqlConnectorDriver, sqlConfig, inserted, now, dataTypeRepo, user).map { response =>
+          CreateSourceEnvelope.build(SqlConnectorDriver, sqlConfig, inserted, now, dataSourceRepo, user).map { response =>
             audit(Some(inserted.id.value), user)
             Right(response)
           }
@@ -153,7 +150,7 @@ final class SourceService(
     )
     dataSourceRepo.insert(source, user).flatMap { inserted =>
       val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
-      CreateSourceEnvelope.build(connector, restConfig, inserted, now, dataTypeRepo, user, overridesMap).map { response =>
+      CreateSourceEnvelope.build(connector, restConfig, inserted, now, dataSourceRepo, user, overridesMap).map { response =>
         audit(Some(inserted.id.value), user)
         Right(response)
       }
@@ -253,7 +250,10 @@ final class SourceService(
   }
 
 
-  def refresh(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
+  /** HEL-904 (design.md line 92): returns the refreshed `DataSource` itself (its
+   *  `inferredSchema` column now carries the re-inferred fields) rather than a
+   *  companion `DataType` — there is no companion type anymore. */
+  def refresh(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
     dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("DataSource not found")))
@@ -270,7 +270,7 @@ final class SourceService(
       case l => l
     }
 
-  private def refreshSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
+  private def refreshSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
     SqlConnectorDriver.inferSchema(source.config, ConnectorResolveContext.Internal).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
@@ -278,15 +278,14 @@ final class SourceService(
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(schema) =>
-        val now    = Instant.now()
-        val fields = SchemaInferenceFacade.toDataFields(schema)
-        upsertDataType(source, fields, now, bumpVersion = true, user).map {
-          case Some(dt) => Right(dt)
-          case None     => Left(ServiceError.NotFound("DataType not found"))
+        val now = Instant.now()
+        upsertInferredSchema(source, schema, now, user).map {
+          case Some(ds) => Right(ds)
+          case None     => Left(ServiceError.NotFound("Data source not found"))
         }
     }
 
-  private def refreshRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, DataType]] =
+  private def refreshRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
     connector.inferSchema(source.config, ConnectorResolveContext.Owned(user)).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
@@ -294,11 +293,10 @@ final class SourceService(
         // as-is rather than double-wrapping with a redundant prefix.
         Future.successful(Left(ServiceError.BadGateway(err)))
       case Right(schema) =>
-        val now    = Instant.now()
-        val fields = SchemaInferenceFacade.toDataFields(schema)
-        upsertDataType(source, fields, now, bumpVersion = false, user).map {
-          case Some(dt) => Right(dt)
-          case None     => Left(ServiceError.NotFound("DataType not found"))
+        val now = Instant.now()
+        upsertInferredSchema(source, schema, now, user).map {
+          case Some(ds) => Right(ds)
+          case None     => Left(ServiceError.NotFound("Data source not found"))
         }
     }
 
@@ -316,35 +314,32 @@ final class SourceService(
     }
 
   private def previewSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
-    SqlConnectorDriver.execute(source.config, maxRows = 10).flatMap {
+    SqlConnectorDriver.execute(source.config, maxRows = 10).map {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
         // (SqlConnectorDriver logs the raw JDBC cause server-side) — pass through
         // as-is rather than double-wrapping with a redundant prefix.
-        Future.successful(Left(ServiceError.BadGateway(err)))
+        Left(ServiceError.BadGateway(err))
       case Right(rows) =>
-        dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
-          val computedFields          = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
-          val rawRows                 = SqlConnectorDriver.toRows(rows)
-          val (augmented, evalErrors) = applyComputedFields(rawRows, computedFields)
-          Right(PreviewSourceResponse(augmented, evalErrors))
-        }
+        // HEL-904: companion-type computed fields are retired (ticket.md item 8 — "the
+        // computed_fields concept is deleted"); preview no longer evaluates them.
+        Right(PreviewSourceResponse(SqlConnectorDriver.toRows(rows), Vector.empty))
     }
 
   private def previewRest(source: RestSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
-    connector.fetch(source.config, ConnectorResolveContext.Owned(user)).flatMap {
+    connector.fetch(source.config, ConnectorResolveContext.Owned(user)).map {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
         // (RestApiConnectorDriver logs the raw cause server-side) — pass through
         // as-is rather than double-wrapping with a redundant prefix.
-        Future.successful(Left(ServiceError.BadGateway(err)))
+        Left(ServiceError.BadGateway(err))
       case Right(json) =>
         // HEL-599 design.md D5: this is the 4th `toRows` call site — a broken `rootSelector`
         // must surface here too, reusing the existing HEL-311 `BadGateway` pass-through rather
         // than a new error channel (this is the surface a user configuring a selector actually
         // looks at, so a silent empty success here is exactly the bug being fixed).
         connector.toRowsEither(json, source.config.rootSelector) match {
-          case Left(err) => Future.successful(Left(ServiceError.BadGateway(err)))
+          case Left(err) => Left(ServiceError.BadGateway(err))
           case Right(jsRows) =>
             // design.md D6: preview stays in `JsValue` space (never routes through
             // `jsRowToRow`), so it needs its own flatten to keep it in agreement with the
@@ -355,62 +350,17 @@ final class SourceService(
               case obj: JsObject => JsonFlattener.flattenJsObject(obj)
               case other         => other
             }
-            dataTypeRepo.findBySourceId(source.id, user.id).map { dataTypes =>
-              val computedFields = dataTypes.headOption.map(_.computedFields).getOrElse(Vector.empty)
-              val (rows, evalErrors) = applyComputedFields(normalizedRows, computedFields)
-              Right(PreviewSourceResponse(rows, evalErrors))
-            }
+            // HEL-904: companion-type computed fields are retired (ticket.md item 8).
+            Right(PreviewSourceResponse(normalizedRows, Vector.empty))
         }
     }
 
 
-  private def upsertDataType(source: DataSource, fields: Vector[DataField], now: Instant, bumpVersion: Boolean, user: AuthenticatedUser): Future[Option[DataType]] =
-    dataTypeRepo.findBySourceId(source.id, user.id).flatMap { existing =>
-      existing.headOption match {
-        case Some(dt) =>
-          val updated = dt.copy(
-            fields    = fields,
-            version   = if (bumpVersion) dt.version + 1 else dt.version,
-            updatedAt = now
-          )
-          dataTypeRepo.update(updated, user)
-        case None =>
-          val dt = DataType(
-            id        = DataTypeId(UUID.randomUUID().toString),
-            sourceId  = Some(source.id),
-            name      = source.name,
-            fields    = fields,
-            version   = 1,
-            createdAt = now,
-            updatedAt = now,
-            ownerId   = user.id
-          )
-          dataTypeRepo.insert(dt, user).map(Some(_))
-      }
-    }
-
-  /** Append computed-field values to each row JsObject. Non-object rows pass
-   *  through unchanged; per-row eval errors are captured in the returned
-   *  error vector. */
-  private def applyComputedFields(
-      rows: Vector[JsValue],
-      computedFields: Vector[ComputedField]
-  ): (Vector[JsValue], Vector[String]) = {
-    if (computedFields.isEmpty) return (rows, Vector.empty)
-    val errors = scala.collection.mutable.ArrayBuffer.empty[String]
-    val augmented = rows.map {
-      case obj: JsObject =>
-        val extra: Map[String, JsValue] = computedFields.map { cf =>
-          cf.name -> ExpressionEvaluator.evaluate(cf.expression, obj.fields).fold(
-            err => { errors += err.message; JsNull },
-            identity
-          )
-        }.toMap
-        JsObject(obj.fields ++ extra)
-      case other => other
-    }
-    (augmented, errors.distinct.toVector)
-  }
+  /** HEL-904 (design.md line 92): writes the re-inferred schema straight onto the source's own
+   *  `inferred_schema` column via `DataSourceRepository.upsertInferredSchema` — there is no
+   *  companion `DataType` row to find-or-create anymore. */
+  private def upsertInferredSchema(source: DataSource, schema: InferredSchema, now: Instant, user: AuthenticatedUser): Future[Option[DataSource]] =
+    dataSourceRepo.upsertInferredSchema(source.id, SchemaInferenceFacade.toSchemaFields(schema), now, user)
 
   private def toInferredSchema(schema: InferredSchema): InferredSchemaResponse = {
     val fields = schema.fields.map(f =>

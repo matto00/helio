@@ -30,17 +30,7 @@
           },
           "type": {
             "type": "string",
-            "enum": [
-              "metric",
-              "chart",
-              "text",
-              "table",
-              "markdown",
-              "image",
-              "divider",
-              "collection",
-              "timeline"
-            ]
+            "enum": ["text", "markdown", "image", "divider", "output"]
           },
           "appearance": {
             "$ref": "panel-appearance-patch.schema.json"

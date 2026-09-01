@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change rls-privileged-bypass. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Privileged Postgres role exists with BYPASSRLS
 The database schema SHALL include a `helio_privileged` role with the `BYPASSRLS`
 and `NOLOGIN` attributes, created idempotently by a Flyway migration. The
@@ -59,7 +61,7 @@ caller.
 
 #### Scenario: Background and pipeline callers are justified
 - **WHEN** `SparkJobSubmitter`, `PipelineRunRepository` internal methods,
-  `DataTypeRowRepository`, `SourceSchemaHealthCheck`, or `DemoData` call
+  `NodeSnapshotRepository`, `SourceSchemaHealthCheck`, or `DemoData` call
   `withSystemContext`
 - **THEN** each callsite has a comment stating the pipeline/boot ACL gate that
   makes bypass safe for that caller
@@ -93,4 +95,3 @@ all ACL'd tables with `FORCE ROW LEVEL SECURITY`, and at least one policy per ta
 - **WHEN** Flyway applies all migrations to a completely empty Postgres database
 - **THEN** every ACL'd table in the allowlist has both `relrowsecurity` and `relforcerowsecurity`
   set to true in `pg_class`
-

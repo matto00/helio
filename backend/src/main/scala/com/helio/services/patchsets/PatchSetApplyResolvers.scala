@@ -4,10 +4,10 @@ import com.helio.services.panels.PanelServiceHelpers
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, DataTypeResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest}
 import com.helio.api.protocols.patchsets.Edit
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, DataTypeId, MetricId, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
 import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
@@ -63,12 +63,9 @@ private[services] object PatchSetApplyResolvers {
       case ("dataSource", "update")   => resolveDataSourceUpdate(edit, index, user, ctx)
       case ("dataSource", "delete")   => resolveDataSourceDelete(edit, index, user, ctx)
       case ("dataSource", "create")   => resolveDataSourceCreate(edit, index, user, ctx)
-      case ("dataType", "update")     => resolveDataTypeUpdate(edit, index, user, ctx)
-      case ("dataType", "delete")     => resolveDataTypeDelete(edit, index, user, ctx)
-      case ("dataType", "create") =>
-        // design.md D1: no direct DataType create API exists — a DataType is
-        // only ever produced as a side effect of a source/pipeline.
-        Future.successful(Left(ServiceError.BadRequest(s"edit $index: create is not supported for dataType")))
+      // HEL-904 task 3.3: the "dataType" target kind is REMOVED outright
+      // (dropped from `recognizedKinds`, so this dispatch never actually
+      // reaches here) -- an unmatched fallthrough case below covers it.
       case ("pipeline", "update")     => resolvePipelineUpdate(edit, index, user, ctx)
       case ("pipeline", "delete")     => resolvePipelineDelete(edit, index, user, ctx)
       case ("pipeline", "create")     => resolvePipelineCreate(edit, index, user, ctx)
@@ -134,8 +131,6 @@ private[services] object PatchSetApplyResolvers {
       name                 = s.name,
       sourceDataSourceId   = s.sourceDataSourceId,
       sourceDataSourceName = s.sourceDataSourceName,
-      outputDataTypeName   = s.outputDataTypeName,
-      outputDataTypeId     = s.outputDataTypeId,
       lastRunStatus        = s.lastRunStatus,
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,
@@ -144,67 +139,11 @@ private[services] object PatchSetApplyResolvers {
     )
 
 
-  /** panel update/create: `rejectCompanionBinding`/`rejectUnresolvableMetric`'s
-   *  SAME checks (`PanelService.scala:483-524`), mirrored — not reimplemented
-   *  by calling the private methods (inaccessible outside `PanelService`),
-   *  but the same repo lookups + same rejection conditions. */
-  private def validatePanelBindingRefs(
-      dataTypeIdOpt: Option[DataTypeId],
-      metricIdOpt: Option[MetricId],
-      user: AuthenticatedUser,
-      index: Int,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    rejectCompanionBinding(dataTypeIdOpt, user, index, ctx).flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_)  => rejectUnresolvableMetric(metricIdOpt, user, index, ctx)
-    }
-
-  /** A foreign-owned or nonexistent `dataTypeId` passes through unchanged
-   *  (matches `PanelService.update`'s own documented pass-through behavior) —
-   *  only an OWNED companion (non-pipeline-output) type is rejected. */
-  private def rejectCompanionBinding(
-      dataTypeIdOpt: Option[DataTypeId],
-      user: AuthenticatedUser,
-      index: Int,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    dataTypeIdOpt match {
-      case None => Future.successful(Right(()))
-      case Some(dataTypeId) =>
-        ctx.dataTypeRepo.findByIdOwned(dataTypeId, user).map {
-          case Some(dt) if dt.sourceId.isDefined =>
-            Left(ServiceError.BadRequest(s"edit $index: panels can only bind to pipeline-output data types"))
-          case _ => Right(())
-        }
-    }
-
-  /** Unlike `dataTypeId` above, a foreign/nonexistent `metricId` IS actively
-   *  rejected (matches `rejectUnresolvableMetric`'s own documented
-   *  behavior) — `metricRepo` mirrors `PanelService`'s nullable-optional
-   *  wiring convention. */
-  private def rejectUnresolvableMetric(
-      metricIdOpt: Option[MetricId],
-      user: AuthenticatedUser,
-      index: Int,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
-    metricIdOpt match {
-      case None => Future.successful(Right(()))
-      case Some(metricId) =>
-        Option(ctx.metricRepo) match {
-          case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: metricId does not resolve to a metric you own")))
-          case Some(metricRepo) =>
-            metricRepo.findByIdOwned(metricId, user).flatMap {
-              case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: metricId does not resolve to a metric you own")))
-              case Some(metric) =>
-                ctx.dataTypeRepo.findByIdOwned(metric.dataTypeId, user).map {
-                  case Some(dt) if dt.sourceId.isEmpty => Right(())
-                  case _ => Left(ServiceError.BadRequest(s"edit $index: metricId's bound data type is not a valid pipeline-output binding"))
-                }
-            }
-        }
-    }
+  // HEL-904 task 3.9/4.1: `rejectUnresolvableMetric` and
+  // `validatePanelBindingRefs`/`rejectCompanionBinding` removed — metrics no
+  // longer exist, and Text/Markdown's data-bound "Source mode" (the only
+  // panel kinds that ever carried a rejectable `dataTypeId`) was removed
+  // outright in the same task.
 
   /** pipelineStep update: when the decoded config patch is a
    *  `JoinConfig`/`UnionConfig`/`LookupConfig`, the SAME "Pre-flight ACL"
@@ -284,17 +223,11 @@ private[services] object PatchSetApplyResolvers {
                 edit.panelPatch match {
                   case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: patch is required for a panel update")))
                   case Some(request) =>
-                    val dataTypeIdOpt = request.config.flatMap(PanelServiceHelpers.dataTypeIdFromConfigPatch)
-                    val metricIdOpt   = request.config.flatMap(PanelServiceHelpers.metricIdFromConfigPatch)
-                    validatePanelBindingRefs(dataTypeIdOpt, metricIdOpt, user, index, ctx).map {
-                      case Left(err) => Left(err)
-                      case Right(_) =>
-                        Right(ResolvedEdit(
-                          index, "panel", "update",
-                          Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))),
-                          ResolvedAction.PanelUpdate(panelId, request, panel)
-                        ))
-                    }
+                    Future.successful(Right(ResolvedEdit(
+                      index, "panel", "update",
+                      Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))),
+                      ResolvedAction.PanelUpdate(panelId, request, panel)
+                    )))
                 }
             }
         }
@@ -342,13 +275,8 @@ private[services] object PatchSetApplyResolvers {
               case Right(_) =>
                 PanelServiceHelpers.resolveCreateConfig(request) match {
                   case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"edit $index: $msg")))
-                  case Right(createConfig) =>
-                    val dataTypeIdOpt = PanelServiceHelpers.dataTypeIdFromCreateConfig(createConfig)
-                    val metricIdOpt   = PanelServiceHelpers.metricIdFromCreateConfig(createConfig)
-                    validatePanelBindingRefs(dataTypeIdOpt, metricIdOpt, user, index, ctx).map {
-                      case Left(err) => Left(err)
-                      case Right(_)  => Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request)))
-                    }
+                  case Right(_) =>
+                    Future.successful(Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request))))
                 }
             }
         }
@@ -495,51 +423,6 @@ private[services] object PatchSetApplyResolvers {
     }
 
 
-  private def resolveDataTypeUpdate(
-      edit: Edit,
-      index: Int,
-      user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
-    requireTargetId(edit, index) match {
-      case Left(err) => Future.successful(Left(err))
-      case Right(idStr) =>
-        val dataTypeId = DataTypeId(idStr)
-        ctx.dataTypeRepo.findByIdOwned(dataTypeId, user).map {
-          case None => Left(ServiceError.NotFound(s"edit $index: data type not found"))
-          case Some(existing) =>
-            edit.dataTypePatch match {
-              case None => Left(ServiceError.BadRequest(s"edit $index: patch is required for a dataType update"))
-              case Some(request) =>
-                Right(ResolvedEdit(
-                  index, "dataType", "update",
-                  Some(dataTypeResponseFormat.write(DataTypeResponse.fromDomain(existing))),
-                  ResolvedAction.DataTypeUpdate(dataTypeId, request, existing)
-                ))
-            }
-        }
-    }
-
-  private def resolveDataTypeDelete(
-      edit: Edit,
-      index: Int,
-      user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
-    requireTargetId(edit, index) match {
-      case Left(err) => Future.successful(Left(err))
-      case Right(idStr) =>
-        val dataTypeId = DataTypeId(idStr)
-        ctx.dataTypeRepo.findByIdOwned(dataTypeId, user).map {
-          case None => Left(ServiceError.NotFound(s"edit $index: data type not found"))
-          case Some(existing) =>
-            Right(ResolvedEdit(
-              index, "dataType", "delete",
-              Some(dataTypeResponseFormat.write(DataTypeResponse.fromDomain(existing))),
-              ResolvedAction.DataTypeDelete(dataTypeId, existing)
-            ))
-        }
-    }
 
 
   private def resolvePipelineUpdate(

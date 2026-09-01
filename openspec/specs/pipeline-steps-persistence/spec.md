@@ -6,7 +6,9 @@ Defines the persistence model, REST contract, and wire shape for pipeline
 steps. CS2c-3a (HEL-236) evolved the request/response shape from
 `{ op: String, config: String }` (config as JSON-stringified blob) to a
 discriminated union over `type` with a typed `config` object per subtype.
+
 ## Requirements
+
 ### Requirement: Pipeline steps table exists in the database
 
 The backend SHALL maintain a `pipeline_steps` table with columns: `id` (TEXT PK),
@@ -92,18 +94,29 @@ shape is determined by `type`), `createdAt` (ISO-8601), `updatedAt` (ISO-8601).
 
 The backend SHALL expose `POST /api/pipelines/:id/steps` that accepts
 `{ type, config, position?, enabled? }` in the request body (where `config` is a typed object
-whose shape is determined by `type`, `position` is an OPTIONAL integer list index into the
-pipeline's current position-sorted step list, and `enabled` is an OPTIONAL boolean defaulting to
-true when absent). Behavior:
+whose shape is determined by `type`, `position` is an OPTIONAL integer index into the pipeline's
+current whole-pipeline execution order, and `enabled` is an OPTIONAL boolean defaulting to true
+when absent). Behavior:
 
-- **`position` absent (default — the pre-existing contract, unchanged):** the step is appended
-  with the next available position (MAX(position)+1 or 0 if no steps exist).
+- **`position` absent (default — trunk continuation):** the step is spliced onto the pipeline as
+  the current trunk-last step's sole new child. It becomes the sole member of a fresh sibling
+  group and its persisted `position` is always `0`, never `MAX(position)+1` — placement in
+  execution order is carried by `parent_step_id`, not by a whole-pipeline-incrementing
+  `position`. If the trunk-last step already has children (tail steps), those existing children
+  are re-parented onto the new step, per `pipeline-step-tree`'s splice semantics, so the new step
+  becomes the new trunk-last and the pre-existing tails are re-attached after it in execution
+  order.
 - **`position` present:** the value SHALL be validated as `0 ≤ position ≤ count` (where `count`
-  is the pipeline's current step count; `position = count` is equivalent to append); out-of-range
-  values SHALL return `422 Unprocessable Entity` with no step persisted. On success the step is
-  inserted at that list index and every step position in the pipeline is renumbered contiguously
-  (0..n) within a single database transaction — later steps shift down by one, and any
-  pre-existing position gaps are healed as a side effect.
+  is the pipeline's current step count, counted in whole-pipeline execution order); out-of-range
+  values SHALL return `422 Unprocessable Entity` with no step persisted. On success the requested
+  execution-order index is translated to a splice anchor (the step currently occupying that
+  execution-order position becomes the new step's parent, per `pipeline-step-tree`'s splice
+  semantics) and the new step's persisted `position` reflects its resulting sibling-group slot,
+  not a whole-pipeline renumbering. `position = count` is equivalent to trunk continuation
+  (append) ONLY when the trunk-last step has no existing tail steps — `executionOrder` emits a
+  node's tails immediately after that node and before its trunk continuation, so on a pipeline
+  whose trunk-last step already has tails, `position = count` anchors on that trunk-last step's
+  last tail, not on trunk-last itself.
 - **`enabled` absent:** the step is created enabled; **`enabled: false`:** the step is created
   disabled.
 
@@ -121,7 +134,9 @@ the response SHALL be `404 Not Found` and the step SHALL NOT be persisted.
 
 - **WHEN** `POST /api/pipelines/:id/steps` is called without `position` and the pipeline already
   has steps
-- **THEN** the created step has `position` equal to the current maximum position plus one
+- **THEN** the created step extends the trunk as the current trunk-last step's sole child, with
+  persisted `position: 0` (a fresh sibling group) — NOT the prior `MAX(position)+1` whole-pipeline
+  value — and the new step's id is now `trunkOf(...).lastOption`
 
 #### Scenario: Created step defaults to enabled
 
@@ -130,32 +145,44 @@ the response SHALL be `404 Not Found` and the step SHALL NOT be persisted.
 
 #### Scenario: Insert at the start shifts every step down
 
-- **WHEN** a pipeline has steps A, B (positions 0, 1) and `POST` is called with `position: 0`
-- **THEN** the created step has `position: 0` and A, B now have positions 1, 2, all persisted
+- **WHEN** a pipeline has steps A, B (trunk order, execution-order indices 0, 1) and `POST` is
+  called with `position: 0`
+- **THEN** the created step is spliced in as the pipeline root's new sole child, A is re-parented
+  onto it, and the resulting execution order is new-step, A, B
 
 #### Scenario: Insert in the middle shifts later steps only
 
-- **WHEN** a pipeline has steps A, B, C (positions 0, 1, 2) and `POST` is called with `position: 1`
-- **THEN** the created step has `position: 1`, A keeps position 0, and B, C now have positions
-  2, 3
+- **WHEN** a pipeline has steps A, B, C (trunk order, execution-order indices 0, 1, 2) and `POST`
+  is called with `position: 1`
+- **THEN** the created step is spliced onto A as A's new sole child, B is re-parented onto the new
+  step, and the resulting execution order is A, new-step, B, C
 
 #### Scenario: Insert at count equals append
 
-- **WHEN** a pipeline has 2 steps and `POST` is called with `position: 2`
-- **THEN** the created step has `position: 2` and the existing steps' positions are unchanged in
-  order
+- **WHEN** a pipeline has 2 steps with no tail steps (a linear trunk) and `POST` is called with
+  `position: 2`
+- **THEN** the created step is spliced onto the current trunk-last step (identical to the
+  position-absent, trunk-continuation behavior above). This equivalence holds only in the
+  tail-free case: on a pipeline whose trunk-last step already has tail steps, `position = count`
+  instead anchors on that trunk-last step's last tail (per `executionOrder`'s tails-before-trunk
+  emission order), not on trunk-last itself.
+
+#### Scenario: Insert renumbers pre-existing gaps contiguously
+
+- **WHEN** a pipeline's execution order has non-contiguous whole-pipeline indices open to the
+  caller as `position` inputs (e.g. from a prior deletion) and `POST` is called with a
+  mid-sequence `position`
+- **THEN** the requested index is resolved against the pipeline's current execution order (which
+  has no gaps — `pipeline-step-tree`'s `executionOrder` always emits every live step exactly
+  once), the new step is spliced onto the resolved anchor, and the resulting execution order
+  contains every step exactly once with no gaps; sibling-scoped `position` values are not a
+  whole-pipeline renumbering concern under this model
 
 #### Scenario: Out-of-range position is rejected
 
 - **WHEN** `POST` is called with `position: -1`, or with `position` greater than the pipeline's
-  current step count
+  current step count (counted in whole-pipeline execution order)
 - **THEN** the response is `422 Unprocessable Entity` and no step is persisted
-
-#### Scenario: Insert renumbers pre-existing gaps contiguously
-
-- **WHEN** a pipeline's steps have non-contiguous positions (e.g. 0, 2, 5 after deletions) and
-  `POST` is called with `position: 1`
-- **THEN** after the insert all steps have contiguous positions 0..3 in the intended order
 
 #### Scenario: Returns 404 for unknown pipeline
 
@@ -169,7 +196,8 @@ the response SHALL be `404 Not Found` and the step SHALL NOT be persisted.
 
 #### Scenario: Returns 400 for malformed config payload
 
-- **WHEN** `POST /api/pipelines/:id/steps` is called with a `type` whose `config` shape does not parse against the per-subtype schema
+- **WHEN** `POST /api/pipelines/:id/steps` is called with a `type` whose `config` shape does not
+  parse against the per-subtype schema
 - **THEN** the response is `400 Bad Request` with a message identifying the offending subtype
 
 #### Scenario: Returns 404 when join right-source is not caller-owned
@@ -228,4 +256,3 @@ The backend SHALL expose `DELETE /api/pipeline-steps/:id` that removes the step 
 
 - **WHEN** `DELETE /api/pipeline-steps/:id` is called with a step id that does not exist
 - **THEN** the response is `404 Not Found`
-

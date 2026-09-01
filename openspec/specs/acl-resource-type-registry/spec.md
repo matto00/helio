@@ -2,7 +2,9 @@
 
 ## Purpose
 A registry that maps string resource type keys to ownership resolver functions, decoupling the ACL directive from individual resource types. Adding a new resource type requires only a single registry entry with no changes to the directive.
+
 ## Requirements
+
 ### Requirement: ResourceType encapsulates a resource type key and its ownership resolver
 The system SHALL provide a `ResourceType` case class in `com.helio.api` with:
 - `key: String` — a non-empty string identifying the resource type (e.g. `"dashboard"`, `"panel"`)
@@ -41,7 +43,11 @@ The system SHALL register the following resource types in `ApiRoutes` when const
 - `"dashboard"` — resolved via `DashboardRepository.findById`
 - `"panel"` — resolved via `PanelRepository.findById`
 - `"data-source"` — resolved via `DataSourceRepository.findById`
-- `"data-type"` — resolved via `DataTypeRepository.findById`
+- `"pipeline"` — resolved via `PipelineRepository.findById`
+
+The `"data-type"` resource type (resolved via `DataTypeRepository.findById`) no longer exists.
+Outputs are authorized through their owning pipeline (see `outputs-model`), not through a
+separate resource-type entry — an Output has no independent ACL resolver.
 
 The registry SHALL be injected into `AclDirective` and SHALL be the sole source of ownership
 resolvers used by the directive.
@@ -60,7 +66,8 @@ resolvers used by the directive.
 
 #### Scenario: DataType type is registered
 - **WHEN** the server starts
-- **THEN** `registry.lookup("data-type")` returns a `Some` containing the data-type resolver
+- **THEN** `registry.lookup("data-type")` returns `None` — the `"data-type"` resource type was
+  retired by this migration and is no longer registered (see the requirement body above)
 
 ### Requirement: Adding a new resource type requires only a registry entry
 The system SHALL be designed so that plugging in a new resource type (e.g. `"report"`) requires only:
@@ -73,4 +80,3 @@ No modifications SHALL be required to `AclDirective`, `ResourceTypeRegistry`, or
 - **WHEN** a new `ResourceType("report", reportRepo.resolveOwner)` is added to the registry in `ApiRoutes`
 - **THEN** `AclDirective.authorizeResource` enforces ownership for `"report"` resources without any
   changes to the directive class itself
-

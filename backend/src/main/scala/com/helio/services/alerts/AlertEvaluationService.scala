@@ -11,15 +11,17 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-/** HEL-466 — the alert rule evaluation runtime. `evaluateForDataType` is the
+/** HEL-466 — the alert rule evaluation runtime. `evaluateForOutput` is the
  *  single entry point, callable identically from `PipelineRunService
- *  .onRunSuccess` (this ticket's caller) and the future HEL-340 scheduler:
- *  it has zero dependency on `PipelineId`/`PipelineRunId`/`AuthenticatedUser`
+ *  .onRunSuccess` (this ticket's caller, run for every Output of every
+ *  materialized node) and the future HEL-340 scheduler: it has zero
+ *  dependency on `PipelineId`/`PipelineRunId`/`AuthenticatedUser`
  *  (design.md "Row representation" decision).
  *
- *  Loads every enabled rule for the target `DataTypeId` via the privileged
- *  `AlertRuleRepository.listEnabledByDataTypeInternal` (no request user in
- *  this background path), evaluates each independently, and drives
+ *  Loads every enabled rule for the target `OutputId` via the privileged
+ *  `AlertRuleRepository.listEnabledByOutputInternal` (HEL-904 — replaces
+ *  the retired `listEnabledByDataTypeInternal`; no request user in this
+ *  background path), evaluates each independently, and drives
  *  `AlertEventRepository`'s privileged `upsertFiringInternal` (breach) /
  *  `resolveInternal` (clear) transitions — the sole write paths for
  *  `alert_events`, both of which route through `AlertEventStateMachine
@@ -76,7 +78,7 @@ final class AlertEvaluationService(
 
   /** Parses `condition.comparator`/`condition.threshold` out of the opaque
    *  jsonb blob. Throws (caught by the per-rule `recover` in
-   *  `evaluateForDataType`) on a missing/malformed key or an unknown
+   *  `evaluateForOutput`) on a missing/malformed key or an unknown
    *  comparator — a bad rule must never block sibling rules. */
   private def parseCondition(condition: JsValue): (Comparator, Double) = {
     val obj            = condition.asJsObject
@@ -86,26 +88,26 @@ final class AlertEvaluationService(
     (comparator, threshold)
   }
 
-  /** Load every enabled rule for `dataTypeId` and evaluate each against
+  /** Load every enabled rule for `outputId` and evaluate each against
    *  `rows` (the exact rows just written — no re-read). Each rule runs
    *  inside its own `Future` wrapped in `recover`, so one rule's exception
    *  (bad `condition` JSON, coercion failure, repository error) is logged
-   *  and never blocks sibling rules for the same `DataTypeId`. Callers (e.g.
+   *  and never blocks sibling rules for the same `OutputId`. Callers (e.g.
    *  `PipelineRunService.onRunSuccess`) additionally wrap the whole call so a
    *  defect here can never fail the triggering pipeline run. */
-  def evaluateForDataType(
-      dataTypeId: DataTypeId,
+  def evaluateForOutput(
+      outputId: OutputId,
       rows: Seq[PipelineRowJson.Row],
       triggeringRunId: Option[String]
   ): Future[Unit] =
-    alertRuleRepo.listEnabledByDataTypeInternal(dataTypeId).flatMap { rules =>
+    alertRuleRepo.listEnabledByOutputInternal(outputId).flatMap { rules =>
       Future
         .sequence(rules.map { rule =>
           evaluateRule(rule, rows, triggeringRunId).recover {
             case NonFatal(e) =>
               log.error(
-                "AlertEvaluationService: evaluation failed for rule={} dataTypeId={} triggeringRunId={}",
-                rule.id.value, dataTypeId.value, triggeringRunId.getOrElse("none"), e
+                "AlertEvaluationService: evaluation failed for rule={} outputId={} triggeringRunId={}",
+                rule.id.value, outputId.value, triggeringRunId.getOrElse("none"), e
               )
               ()
           }
@@ -126,21 +128,21 @@ final class AlertEvaluationService(
         Future.successful(())
       case Some((value, true)) =>
         alertEventRepo
-          .upsertFiringInternal(rule.id, rule.ownerId, rule.targetDataTypeId, JsNumber(value), triggeringRunId, rule.severity)
+          .upsertFiringInternal(rule.id, rule.ownerId, rule.targetOutputId, JsNumber(value), triggeringRunId, rule.severity)
           .map { event =>
             log.info(
-              "AlertEvaluationService: rule={} event={} state={} severity={} dataTypeId={} triggeringRunId={}",
+              "AlertEvaluationService: rule={} event={} state={} severity={} outputId={} triggeringRunId={}",
               rule.id.value, event.id.value, AlertEventState.asString(event.state),
-              Severity.asString(event.severity), rule.targetDataTypeId.value, triggeringRunId.getOrElse("none")
+              Severity.asString(event.severity), rule.targetOutputId.value, triggeringRunId.getOrElse("none")
             )
           }
       case Some((_, false)) =>
         alertEventRepo.resolveInternal(rule.id).map {
           case Some(event) =>
             log.info(
-              "AlertEvaluationService: rule={} event={} state={} severity={} dataTypeId={} triggeringRunId={}",
+              "AlertEvaluationService: rule={} event={} state={} severity={} outputId={} triggeringRunId={}",
               rule.id.value, event.id.value, AlertEventState.asString(event.state),
-              Severity.asString(event.severity), rule.targetDataTypeId.value, triggeringRunId.getOrElse("none")
+              Severity.asString(event.severity), rule.targetOutputId.value, triggeringRunId.getOrElse("none")
             )
           case None =>
             () // no active event, or active event was snoozed — no-op

@@ -9,7 +9,8 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AlertEventResponse, AlertEventsResponse, JsonProtocols}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.DataTypeRepository
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.alerts.AlertEventService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -43,7 +44,9 @@ class AlertEventRoutesSpec
   private var db: JdbcBackend.Database                = _
   private var alertEventRepo: AlertEventRepository    = _
   private var alertRuleRepo: AlertRuleRepository       = _
-  private var dataTypeRepo: DataTypeRepository         = _
+  private var dataSourceRepo: DataSourceRepository     = _
+  private var pipelineRepo: PipelineRepository         = _
+  private var outputRepo: OutputRepository             = _
 
   private val ownerAId = UUID.randomUUID().toString
   private val ownerBId = UUID.randomUUID().toString
@@ -62,7 +65,9 @@ class AlertEventRoutesSpec
     val ctx        = new DbContext(db, db)(routeEc)
     alertEventRepo = new AlertEventRepository(ctx)(routeEc)
     alertRuleRepo  = new AlertRuleRepository(ctx)(routeEc)
-    dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)
+    dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
+    pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
+    outputRepo     = new OutputRepository(ctx)(routeEc)
     seedUsers()
   }
 
@@ -89,39 +94,39 @@ class AlertEventRoutesSpec
   /** Seeds a DataType + AlertRule + firing AlertEvent owned by `ownerId`
    *  (via the privileged upsert path — no HTTP endpoint creates events; that
    *  is HEL-466's engine callsite). Returns the event id. */
+  /** HEL-904 (task 3.1): builds the minimal real source -> pipeline ->
+   *  Output chain a rule's `targetOutputId` FK requires. */
+  private def newOutput(ownerId: UserId, user: AuthenticatedUser): OutputId = {
+    val now    = Instant.now()
+    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
+    val createdSource = await(dataSourceRepo.insert(source, user))
+    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, user)).getOrElse(
+      throw new IllegalStateException("newOutput fixture: pipeline create failed")
+    )
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table)).id
+  }
+
   private def seedFiringEvent(ownerId: String): String = {
-    val user = AuthenticatedUser(UserId(ownerId))
-    val now  = Instant.now()
-    val dt = await(dataTypeRepo.insert(
-      DataType(
-        id        = DataTypeId(UUID.randomUUID().toString),
-        sourceId  = None,
-        name      = "MyType",
-        fields    = Vector(DataField("value", "Value", "integer", nullable = false)),
-        version   = 1,
-        createdAt = now,
-        updatedAt = now,
-        ownerId   = UserId(ownerId)
-      ),
-      user
-    ))
+    val user   = AuthenticatedUser(UserId(ownerId))
+    val now    = Instant.now()
+    val output = newOutput(UserId(ownerId), user)
     val rule = await(alertRuleRepo.insert(
       AlertRule(
-        id               = AlertRuleId(UUID.randomUUID().toString),
-        ownerId          = UserId(ownerId),
-        targetDataTypeId = dt.id,
-        metric           = "count",
-        condition        = JsObject("comparator" -> JsString("gt"), "threshold" -> JsNumber(5)),
-        name             = "My Rule",
-        enabled          = true,
-        severity         = Severity.Warning,
-        createdAt        = now,
-        updatedAt        = now
+        id             = AlertRuleId(UUID.randomUUID().toString),
+        ownerId        = UserId(ownerId),
+        targetOutputId = output,
+        metric         = "count",
+        condition      = JsObject("comparator" -> JsString("gt"), "threshold" -> JsNumber(5)),
+        name           = "My Rule",
+        enabled        = true,
+        severity       = Severity.Warning,
+        createdAt      = now,
+        updatedAt      = now
       ),
       user
     ))
     val event = await(alertEventRepo.upsertFiringInternal(
-      rule.id, UserId(ownerId), dt.id, JsNumber(10), Some("run-1"), Severity.Warning
+      rule.id, UserId(ownerId), output, JsNumber(10), Some("run-1"), Severity.Warning
     ))
     event.id.value
   }

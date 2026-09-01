@@ -3,17 +3,17 @@ package com.helio.services.patchsets
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
-import com.helio.services.pipelines.{DataTypeService, PipelineService}
+import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.dashboards.DashboardResponse
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
-import com.helio.api.protocols.pipelines.{DataTypeResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.patchsets.{EditUndoOutcome, PatchSetUndoResponse}
 import com.helio.api.protocols.panels.PanelResponse
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataSourceId, DataTypeId, PanelId, PatchSetApplicationId, PipelineId, PipelineStepId}
+import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataSourceId, PanelId, PatchSetApplicationId, PipelineId, PipelineStepId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import PatchSetApplicationRepository.JournaledEdit
@@ -41,16 +41,16 @@ import scala.util.control.NonFatal
  *      reports every not-yet-reached edit `notAttempted` — edits already restored earlier in that
  *      SAME walk are never compensated back (design.md D4's narrower, explicitly-documented third
  *      guarantee tier). */
+// HEL-904 task 3.3: `dataTypeService`/`dataTypeRepo` REMOVED outright --
+// `dataType` is no longer a valid target.kind, so undo never restores one.
 final class PatchSetUndoService(
     panelService: PanelService,
     dashboardService: DashboardService,
     dataSourceService: DataSourceService,
-    dataTypeService: DataTypeService,
     pipelineService: PipelineService,
     panelRepo: PanelRepository,
     dashboardRepo: DashboardRepository,
     dataSourceRepo: DataSourceRepository,
-    dataTypeRepo: DataTypeRepository,
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     applicationRepo: PatchSetApplicationRepository
@@ -59,7 +59,7 @@ final class PatchSetUndoService(
   private val log = LoggerFactory.getLogger(getClass)
 
   private val context: PatchSetUndoContext =
-    PatchSetUndoContext(panelRepo, dashboardRepo, dataSourceRepo, dataTypeRepo, pipelineRepo, pipelineStepRepo)
+    PatchSetUndoContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo)
 
   def undo(applicationId: PatchSetApplicationId, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetUndoResponse]] =
     applicationRepo.findById(applicationId, user).flatMap {
@@ -108,7 +108,6 @@ final class PatchSetUndoService(
       case ("dashboard", "create")    => restoreCreateUndo(edit, id => dashboardService.delete(DashboardId(id), user))
       case ("dataSource", "update")   => restoreDataSourceUpdate(edit, user)
       case ("dataSource", "create")   => restoreCreateUndo(edit, id => dataSourceService.delete(DataSourceId(id), user))
-      case ("dataType", "update")     => restoreDataTypeUpdate(edit, user)
       case ("pipeline", "update")     => restorePipelineUpdate(edit, user)
       case ("pipeline", "create")     => restoreCreateUndo(edit, id => pipelineService.delete(PipelineId(id), user))
       case ("pipelineStep", "update") => restorePipelineStepUpdate(edit, user)
@@ -197,20 +196,6 @@ final class PatchSetUndoService(
         dataSourceService.update(DataSourceId(prior.id), UpdateDataSourceRequest(name = Some(prior.name)), user).map {
           case Right(ds) =>
             Right(EditUndoOutcome(edit.index, "restored", None, Some(dataSourceResponseFormat.write(DataSourceResponse.fromDomain(ds)))))
-          case Left(err) => Left(restoreFailed(edit, err.message))
-        }
-    }
-
-  // ── dataType (no create — design.md D1) ───────────────────────────────────
-
-  private def restoreDataTypeUpdate(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
-    edit.priorState match {
-      case None => Future.successful(Left(missingPriorState(edit)))
-      case Some(json) =>
-        val prior = json.convertTo[DataTypeResponse]
-        dataTypeService.update(DataTypeId(prior.id), PatchSetUndoInverse.fullDataTypeInverse(prior), user).map {
-          case Right(dt) =>
-            Right(EditUndoOutcome(edit.index, "restored", None, Some(dataTypeResponseFormat.write(DataTypeResponse.fromDomain(dt)))))
           case Left(err) => Left(restoreFailed(edit, err.message))
         }
     }

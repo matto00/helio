@@ -4,12 +4,15 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
 //
-// `GET /api/types/:id/panel-capabilities` wire shape. See
-// `com.helio.services.PanelCapabilityService` for how these are built and
-// `com.helio.domain.panels.PanelBindingSpec` for the slot/eligibility source
-// of truth this response reports on.
+// Internal shape used by `PanelCapabilityService`'s callers (`RefinementGrounding`,
+// `DashboardAuthoringService`, `AssistantToolExecutor`) — the route this originally backed
+// (`GET /api/types/:id/panel-capabilities`) was already deleted alongside `DataTypeRoutes` in
+// HEL-904 task 4.1 (HEL-904 cycle 29: this file's own comment had gone stale claiming otherwise).
+// See `com.helio.services.panels.PanelCapabilityService` for how these are built and
+// `com.helio.domain.panels.OutputBindingSpec` for the slot/eligibility source of truth this
+// response reports on.
 
-/** One column of the DataType's shape — name, wire-string `dataType`
+/** One column of an Output's shape — name, wire-string `dataType`
  *  (`DataFieldType.asString`), and nullability. */
 final case class PanelCapabilityColumnResponse(name: String, dataType: String, nullable: Boolean)
 
@@ -45,14 +48,13 @@ object PanelCapabilityResponse {
   type EligibleColumns = Map[String, Vector[String]]
 }
 
-/** `GET /api/types/:id/panel-capabilities` response — shape signals
+/** Panel-capability report for one Output — shape signals
  *  (`columns`/`rowCount`/`singleRow`/`isPipelineOutput`) plus one
- *  [[PanelCapabilityResponse]] per data-bindable panel kind, keyed by
- *  `PanelType.asString` (`metric`/`chart`/`table`/`collection`/`timeline`).
- *  `capabilities` is type-aliased for the same reason as
- *  [[PanelCapabilityResponse.eligibleColumns]] above. */
+ *  [[PanelCapabilityResponse]] per bindable Output kind, keyed by
+ *  `OutputKind.asString`. `capabilities` is type-aliased for the same
+ *  reason as [[PanelCapabilityResponse.eligibleColumns]] above. */
 final case class PanelCapabilitiesResponse(
-    dataTypeId: String,
+    outputId: String,
     isPipelineOutput: Boolean,
     columns: Vector[PanelCapabilityColumnResponse],
     rowCount: Int,

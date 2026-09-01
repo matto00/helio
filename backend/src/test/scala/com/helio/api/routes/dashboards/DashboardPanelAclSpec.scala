@@ -13,7 +13,7 @@ import com.helio.api.{ApiRoutes, JsonProtocols}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -48,7 +48,8 @@ import scala.concurrent.duration.DurationInt
  *  - Viewer trying to mutate → 403 (resource visible, mutation blocked)
  *
  *  Holes closed:
- *  - /api/panels/:id/query: any authenticated user could query any panel (now: 404 for non-grantee)
+ *  - /api/panels/:id/query: any authenticated user could query any panel (HEL-904 task 4.1: the
+ *    route itself is now removed outright, so this returns 404 for everyone)
  *  - /api/dashboards/:id cross-user GET/PATCH/DELETE: leaks before service guard (now: 404)
  *  - POST /api/dashboards/:id/duplicate: cross-user 404
  */
@@ -67,7 +68,6 @@ class DashboardPanelAclSpec
   private var ctx: DbContext                               = _
   private var dashboardRepo: DashboardRepository           = _
   private var panelRepo: PanelRepository                   = _
-  private var dataTypeRepo: DataTypeRepository             = _
   private var dataSourceRepo: DataSourceRepository         = _
   private var permissionRepo: ResourcePermissionRepository = _
   private var userRepo: UserRepository                     = _
@@ -101,7 +101,6 @@ class DashboardPanelAclSpec
     ctx            = new DbContext(db, db)(routeEc)
     dashboardRepo  = new DashboardRepository(ctx)(routeEc)
     panelRepo      = new PanelRepository(ctx)(routeEc)
-    dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)
     dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
     permissionRepo = new ResourcePermissionRepository(ctx)(routeEc)
     userRepo       = new UserRepository(db)(routeEc)
@@ -143,10 +142,10 @@ class DashboardPanelAclSpec
     import PostgresProfile.api._
     val id = UUID.randomUUID().toString
     await(db.run(
-      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, type, owner_id)
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
                VALUES ($id, $dashId, 'Test Panel', $ownerId, now(), now(),
                        '{"background":"transparent","color":"inherit","transparency":0.0}',
-                       'metric', ${ownerId}::uuid)"""
+                       'text', ${ownerId}::uuid)"""
     ))
     id
   }
@@ -189,7 +188,7 @@ class DashboardPanelAclSpec
 
 
   private def mkPipelineRepo =
-    new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
+    new PipelineRepository(ctx, dataSourceRepo)(routeEc)
   private def mkPipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
 
   private def stubFileSystem = {
@@ -199,7 +198,7 @@ class DashboardPanelAclSpec
 
   private def buildRoutes(): ApiRoutes =
     new ApiRoutes(
-      dashboardRepo, panelRepo, dataSourceRepo, dataTypeRepo, permissionRepo,
+      dashboardRepo, panelRepo, dataSourceRepo, permissionRepo,
       stubFileSystem,
       new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP in tests")))),
       userRepo, stubSessionRepo, userPrefRepo,
@@ -444,8 +443,8 @@ class DashboardPanelAclSpec
     }
   }
 
-  "GET /api/panels/:id/query (cross-user, no grant)" should {
-    "return 404 (was: open hole — any authenticated user could query any panel)" in {
+  "GET /api/panels/:id/query" should {
+    "return 404 -- the route itself was removed outright (HEL-904 task 4.1), not merely ACL-gated" in {
       val dashId  = seedDashboard(userAId)
       val panelId = seedPanel(dashId, userAId)
       Get(s"/api/panels/$panelId/query") ~> routesB() ~> check {

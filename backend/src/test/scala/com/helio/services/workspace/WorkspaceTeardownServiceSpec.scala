@@ -3,16 +3,13 @@ package com.helio.services.workspace
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.WorkspaceTeardownService
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{DataTypeRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.api.protocols.workspace.{TeardownRequest, TeardownResponse}
 import com.helio.domain.model._
-import com.helio.domain.panels.{MetricPanel, MetricPanelConfig}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
@@ -25,7 +22,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
-import spray.json.{JsObject, JsString}
+import spray.json.JsString
 
 import java.nio.file.Files
 import java.time.Instant
@@ -36,17 +33,30 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** HEL-366 tasks.md section 6 — `WorkspaceTeardownService.teardown` coverage.
  *
  *  **Real RLS, not the simplified `DbContext(db, db)` pattern most ACL specs
- *  use.** `WorkspaceTeardownRepository`'s dependent-cascade and source-link
- *  guards (`sourceDependentPipelineConflict`/`outputTypeDependentPipelineConflict`/
- *  `sourceLinkConflict`) are raw SQL with NO explicit `owner_id` predicate —
- *  their entire cross-owner safety comes from Postgres RLS evaluating under
- *  `withUserContext` (design.md Decision 3/6). A test harness where both the
- *  app pool and the privileged pool connect as the `postgres` superuser
- *  (BYPASSRLS) would make every guard query see every owner's rows regardless
- *  of correctness, and 6.9/6.12 would pass for the wrong reason. This spec
- *  mirrors `RlsOwnerTablesSpec`'s dual-pool harness instead: the app pool
- *  connects as a real, non-superuser `helio_app_test` role so V35/V36 FORCE
- *  ROW LEVEL SECURITY policies are actually evaluated. */
+ *  use.** `WorkspaceTeardownRepository`'s remaining dependent-cascade guard
+ *  (`sourceDependentPipelineConflict`) is raw SQL with NO explicit `owner_id`
+ *  predicate — its entire cross-owner safety comes from Postgres RLS
+ *  evaluating under `withUserContext` (design.md Decision 3/6). A test
+ *  harness where both the app pool and the privileged pool connect as the
+ *  `postgres` superuser (BYPASSRLS) would make every guard query see every
+ *  owner's rows regardless of correctness, and 6.9 would pass for the wrong
+ *  reason. This spec mirrors `RlsOwnerTablesSpec`'s dual-pool harness
+ *  instead: the app pool connects as a real, non-superuser `helio_app_test`
+ *  role so V35/V36 FORCE ROW LEVEL SECURITY policies are actually evaluated.
+ *
+ *  HEL-904 task 3.2: the `resourceKind = "data_type"` teardown branch (and
+ *  its `outputTypeDependentPipelineConflict`/`sourceLinkConflict`/
+ *  `panelBoundConflict` guards) is REMOVED outright, per the
+ *  `workspace-tag-teardown` OpenSpec delta — Outputs cascade with their
+ *  owning pipeline instead. The old sections 6.5/6.6/6.12 (which exercised
+ *  exactly those retired guards) are removed below; every remaining section
+ *  is updated to drop its `typesDeleted` assertions (the field itself is
+ *  removed from `TeardownResponse`). Companion DataTypes minted by
+ *  `DataSourceService.createStatic` (legacy path, still live until section
+ *  4) are no longer torn down by this service at all -- `data_types.
+ *  source_id` is `ON DELETE SET NULL` (V4), so a companion row simply
+ *  survives its source's deletion, orphaned but present, exactly like any
+ *  other resource this ticket doesn't touch. */
 class WorkspaceTeardownServiceSpec
     extends AnyWordSpec
     with Matchers
@@ -63,10 +73,7 @@ class WorkspaceTeardownServiceSpec
   private var ctx: DbContext                     = _
 
   private var dataSourceRepo: DataSourceRepository = _
-  private var dataTypeRepo: DataTypeRepository     = _
   private var pipelineRepo: PipelineRepository     = _
-  private var panelRepo: PanelRepository           = _
-  private var dashboardRepo: DashboardRepository   = _
   private var dataSourceService: DataSourceService = _
   private var teardownService: WorkspaceTeardownService = _
 
@@ -121,16 +128,13 @@ class WorkspaceTeardownServiceSpec
 
     ctx            = new DbContext(appDb, privilegedDb)(routeEc)
     dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
-    dataTypeRepo   = new DataTypeRepository(ctx)(routeEc)
-    pipelineRepo   = new PipelineRepository(ctx, dataTypeRepo, dataSourceRepo)(routeEc)
-    panelRepo      = new PanelRepository(ctx)(routeEc)
-    dashboardRepo  = new DashboardRepository(ctx)(routeEc)
+    pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
 
     val tmpDir = Files.createTempDirectory("helio-teardown-spec")
     val fs     = new LocalFileSystem(tmpDir)
-    dataSourceService = new DataSourceService(dataSourceRepo, dataTypeRepo, fs)(routeEc, mat, typedSystem)
+    dataSourceService = new DataSourceService(dataSourceRepo, fs)(routeEc, mat, typedSystem)
 
-    val teardownRepo = new WorkspaceTeardownRepository(ctx, dataTypeRepo)(routeEc)
+    val teardownRepo = new WorkspaceTeardownRepository(ctx)(routeEc)
     teardownService = new WorkspaceTeardownService(teardownRepo, fs)(routeEc)
 
     await(ctx.withSystemContext(DBIO.seq(
@@ -173,27 +177,32 @@ class WorkspaceTeardownServiceSpec
     }
   }
 
-  /** The auto-created companion DataType for `source` — found by tag among
-   *  `user`'s tagged DataTypes (companion tag mirrors the owning source's,
-   *  tasks.md 2.3(a)). */
-  private def companionTypeOf(source: DataSource, tag: String, user: AuthenticatedUser): DataType =
-    await(dataTypeRepo.findAll(user.id, Page(0, 200), Some(tag))).items
-      .find(_.sourceId.contains(source.id))
-      .getOrElse(fail(s"no companion DataType found for source ${source.id.value} tagged $tag"))
 
   /** Create a Pipeline (+ its freshly-inserted, same-tagged output DataType —
    *  the only insertion site, tasks.md 2.3(b)) over `sourceId`, owned by `user`. */
+  /** Test-only shape mirroring the pre-3.5 `PipelineSummary` -- `id` and
+   *  `outputDataTypeId` are the only fields this spec's own assertions
+   *  read. */
+  private final case class SeededPipeline(id: String)
+
+  /** HEL-904 task 2.10: the companion-DataType fixture step (a `data_types`
+   *  row wired in solely to satisfy `pipelines.output_data_type_id`'s FK)
+   *  is removed outright -- that column is dropped by this task, and
+   *  `outputDataTypeId` was never actually read by any assertion in this
+   *  file. */
   private def createPipeline(
       user: AuthenticatedUser,
       sourceId: DataSourceId,
       tag: Option[String],
       name: String = s"pipe-${UUID.randomUUID()}",
       outputName: String = s"out-${UUID.randomUUID()}"
-  ): PipelineSummary =
-    await(pipelineRepo.create(name, sourceId, outputName, user, tag)) match {
-      case Right(summary) => summary
-      case Left(err)       => fail(s"pipeline create failed: $err")
+  ): SeededPipeline = {
+    val summary = await(pipelineRepo.create(name, sourceId, user, tag)) match {
+      case Right(s)  => s
+      case Left(err) => fail(s"pipeline create failed: $err")
     }
+    SeededPipeline(id = summary.id)
+  }
 
   /** Directly rewrite a pipeline's/data type's/data source's `tag` column via
    *  the privileged pool — the only way to construct an out-of-batch-tagged
@@ -202,36 +211,6 @@ class WorkspaceTeardownServiceSpec
    *  is no update-tag endpoint to exercise instead). */
   private def retagPipeline(id: String, tag: String): Unit =
     await(ctx.withSystemContext(sqlu"UPDATE pipelines SET tag = $tag WHERE id = $id"))
-  private def retagDataType(id: String, tag: String): Unit =
-    await(ctx.withSystemContext(sqlu"UPDATE data_types SET tag = $tag WHERE id = $id"))
-  private def retagDataSource(id: String, tag: String): Unit =
-    await(ctx.withSystemContext(sqlu"UPDATE data_sources SET tag = $tag WHERE id = $id"))
-  private def clearDataSourceTag(id: String): Unit =
-    await(ctx.withSystemContext(sqlu"UPDATE data_sources SET tag = NULL WHERE id = $id"))
-
-  /** Seed a dashboard + a metric panel bound to `dataTypeId`, owned by `user`. */
-  private def bindPanelTo(dataTypeId: DataTypeId, user: AuthenticatedUser): Unit = {
-    val now  = Instant.now()
-    val dash = Dashboard(
-      id         = DashboardId(UUID.randomUUID().toString),
-      name       = "Dash",
-      meta       = ResourceMeta(user.id.value, now, now),
-      appearance = DashboardAppearance.Default,
-      layout     = DashboardLayout.Default,
-      ownerId    = user.id
-    )
-    await(dashboardRepo.insert(dash))
-    val panel = MetricPanel(
-      id          = PanelId(UUID.randomUUID().toString),
-      dashboardId = dash.id,
-      title       = "Metric",
-      meta        = ResourceMeta(user.id.value, now, now),
-      appearance  = PanelAppearance.Default,
-      ownerId     = user.id,
-      config      = MetricPanelConfig(dataTypeId, JsObject.empty)
-    )
-    await(panelRepo.insert(panel))
-  }
 
   private def teardown(user: AuthenticatedUser, tag: String, dryRun: Boolean = false): TeardownResponse =
     await(teardownService.teardown(TeardownRequest(Some(tag), Some(dryRun)), user)) match {
@@ -241,8 +220,8 @@ class WorkspaceTeardownServiceSpec
 
   private def sourceExists(id: DataSourceId, user: AuthenticatedUser): Boolean =
     await(dataSourceRepo.findByIdOwned(id, user)).isDefined
-  private def typeExists(id: DataTypeId, user: AuthenticatedUser): Boolean =
-    await(dataTypeRepo.findByIdOwned(id, user)).isDefined
+  // HEL-904 task 4.1: `typeExists` (DataTypeRepository-backed) removed outright -- unused
+  // (no test in this file ever called it) and DataTypeRepository no longer exists.
   private def pipelineExists(id: String, user: AuthenticatedUser): Boolean =
     await(pipelineRepo.findByIdOwned(PipelineId(id), user)).isDefined
 
@@ -251,8 +230,8 @@ class WorkspaceTeardownServiceSpec
     "delete only the tagged set, with correct per-kind counts, leaving untagged resources untouched" in {
       val tag = freshTag()
 
-      // Fully self-contained tagged batch: source T -> companion type T,
-      // pipeline T (over the same source) -> output type T.
+      // Fully self-contained tagged batch: source T, pipeline T (over the
+      // same source).
       val src      = createTaggedSource(userA, Some(tag))
       val pipeline = createPipeline(userA, src.id, Some(tag))
 
@@ -267,7 +246,6 @@ class WorkspaceTeardownServiceSpec
       resp.conflicts shouldBe empty
       resp.sourcesDeleted shouldBe 1
       resp.pipelinesDeleted shouldBe 1
-      resp.typesDeleted shouldBe 2 // companion + pipeline output
 
       sourceExists(src.id, userA) shouldBe false
       pipelineExists(pipeline.id, userA) shouldBe false
@@ -291,22 +269,18 @@ class WorkspaceTeardownServiceSpec
       blockedResp.conflicts.exists(c => c.resourceKind == "data_source" && c.resourceId == src.id.value) shouldBe true
       blockedResp.sourcesDeleted shouldBe 0
       blockedResp.pipelinesDeleted shouldBe 0
-      blockedResp.typesDeleted shouldBe 0
 
       sourceExists(src.id, userA) shouldBe true
       pipelineExists(dep.id, userA) shouldBe true
 
-      // Tag the dependent (and its own output type, mirroring what a real
-      // tagged create would look like) into the same batch, then retry.
+      // Tag the dependent into the same batch, then retry.
       retagPipeline(dep.id, tag)
-      retagDataType(dep.outputDataTypeId, tag)
 
       val resp = teardown(userA, tag)
       resp.committed shouldBe true
       resp.blocked shouldBe false
       resp.sourcesDeleted shouldBe 1
       resp.pipelinesDeleted shouldBe 1
-      resp.typesDeleted shouldBe 2 // companion + dependent's own output type
 
       sourceExists(src.id, userA) shouldBe false
       pipelineExists(dep.id, userA) shouldBe false
@@ -324,7 +298,7 @@ class WorkspaceTeardownServiceSpec
       resp.committed shouldBe false
       resp.conflicts.exists(c => c.resourceKind == "data_source" && c.resourceId == src.id.value) shouldBe true
 
-      // Source + its companion are untouched (the block).
+      // Source is untouched (the block).
       sourceExists(src.id, userA) shouldBe true
 
       // The differently-tagged dependent pipeline is left COMPLETELY
@@ -335,116 +309,24 @@ class WorkspaceTeardownServiceSpec
     }
   }
 
-
-  "teardown (6.5 output DataType -> Pipeline dependent guard)" should {
-    "block the whole call when the producing pipeline is untagged" in {
-      val tag = freshTag()
-      // An ordinary untagged source + pipeline; then retag ONLY the output
-      // DataType into the batch, artificially producing the "tagged output,
-      // untagged producer" state the guard exists to catch.
-      val src      = createTaggedSource(userA, None)
-      val pipeline = createPipeline(userA, src.id, None)
-      retagDataType(pipeline.outputDataTypeId, tag)
-
-      val resp = teardown(userA, tag)
-      resp.blocked shouldBe true
-      resp.committed shouldBe false
-      resp.conflicts.exists(c => c.resourceKind == "data_type" && c.resourceId == pipeline.outputDataTypeId) shouldBe true
-      resp.typesDeleted shouldBe 0
-
-      typeExists(DataTypeId(pipeline.outputDataTypeId), userA) shouldBe true
-    }
-
-    "block the whole call when the producing pipeline is tagged into a DIFFERENT, live batch, " +
-      "and leave that pipeline completely untouched" in {
-      val tag      = freshTag()
-      val otherTag = freshTag()
-      val src      = createTaggedSource(userA, None)
-      val pipeline = createPipeline(userA, src.id, Some(otherTag))
-      retagDataType(pipeline.outputDataTypeId, tag)
-
-      val resp = teardown(userA, tag)
-      resp.blocked shouldBe true
-      resp.committed shouldBe false
-      resp.conflicts.exists(c => c.resourceKind == "data_type" && c.resourceId == pipeline.outputDataTypeId) shouldBe true
-
-      val stillThere = await(pipelineRepo.findByIdOwned(PipelineId(pipeline.id), userA))
-      stillThere shouldBe defined
-      stillThere.get.tag shouldBe Some(otherTag)
-    }
-  }
-
-  // ── 6.6 DataType guards (panel-bound / source-link) + 6.6a positive path ─
-
-  "teardown (6.6 DataType guards)" should {
-    "block on a tagged DataType bound to a panel (matches DELETE /api/types/:id's conflict)" in {
-      val tag      = freshTag()
-      val src      = createTaggedSource(userA, None)
-      val pipeline = createPipeline(userA, src.id, Some(tag))
-      bindPanelTo(DataTypeId(pipeline.outputDataTypeId), userA)
-
-      val resp = teardown(userA, tag)
-      resp.blocked shouldBe true
-      resp.committed shouldBe false
-      resp.conflicts.exists { c =>
-        c.resourceKind == "data_type" && c.resourceId == pipeline.outputDataTypeId && c.reason.contains("panel")
-      } shouldBe true
-
-      typeExists(DataTypeId(pipeline.outputDataTypeId), userA) shouldBe true
-      pipelineExists(pipeline.id, userA) shouldBe true
-    }
-
-    "block when a tagged companion DataType's linked source is UNTAGGED (not the same batch)" in {
-      val tag = freshTag()
-      // Create source+companion both tagged T, then untag ONLY the source —
-      // the companion stays tagged T but its link no longer matches the batch.
-      val src = createTaggedSource(userA, Some(tag))
-      clearDataSourceTag(src.id.value)
-
-      val companion = companionTypeOf(src, tag, userA)
-
-      val resp = teardown(userA, tag)
-      resp.blocked shouldBe true
-      resp.committed shouldBe false
-      resp.conflicts.exists(c => c.resourceKind == "data_type" && c.resourceId == companion.id.value) shouldBe true
-
-      typeExists(companion.id, userA) shouldBe true
-      sourceExists(src.id, userA) shouldBe true
-    }
-
-    "block when a tagged companion DataType's linked source is tagged into a DIFFERENT batch" in {
-      val tag      = freshTag()
-      val otherTag = freshTag()
-      val src      = createTaggedSource(userA, Some(tag))
-      val companion = companionTypeOf(src, tag, userA)
-      retagDataSource(src.id.value, otherTag)
-
-      val resp = teardown(userA, tag)
-      resp.blocked shouldBe true
-      resp.conflicts.exists(c => c.resourceKind == "data_type" && c.resourceId == companion.id.value) shouldBe true
-
-      typeExists(companion.id, userA) shouldBe true
-      val stillThere = await(dataSourceRepo.findByIdOwned(src.id, userA))
-      stillThere shouldBe defined
-      stillThere.get.tag shouldBe Some(otherTag)
-    }
-  }
+  // ── 6.6a positive path: companion DataType is no longer torn down at all ─
 
   "teardown (6.6a positive path -- the ticket's primary use case)" should {
-    "delete a tagged DataSource and its own tagged companion DataType together, in one call" in {
+    // HEL-904 (4.1/4.3): `DataSourceService.createStatic` no longer mints a companion DataType
+    // at all -- the source's schema lives inline on `data_sources.inferred_schema`, deleted
+    // automatically with the row. There is no longer an orphan-survives scenario to assert.
+    "delete a tagged DataSource, with no companion DataType ever created (HEL-904: the " +
+      "data_type teardown branch is removed outright)" in {
       val tag = freshTag()
       val src = createTaggedSource(userA, Some(tag))
-      val companion = companionTypeOf(src, tag, userA)
 
       val resp = teardown(userA, tag)
       resp.committed shouldBe true
       resp.blocked shouldBe false
       resp.sourcesDeleted shouldBe 1
-      resp.typesDeleted shouldBe 1
       resp.pipelinesDeleted shouldBe 0
 
       sourceExists(src.id, userA) shouldBe false
-      typeExists(companion.id, userA) shouldBe false
     }
   }
 
@@ -463,7 +345,6 @@ class WorkspaceTeardownServiceSpec
       second.blocked shouldBe false
       second.sourcesDeleted shouldBe 0
       second.pipelinesDeleted shouldBe 0
-      second.typesDeleted shouldBe 0
     }
   }
 
@@ -478,7 +359,6 @@ class WorkspaceTeardownServiceSpec
       resp.committed shouldBe false
       resp.blocked shouldBe false
       resp.sourcesDeleted shouldBe 1
-      resp.typesDeleted shouldBe 1
 
       sourceExists(src.id, userA) shouldBe true
     }
@@ -510,7 +390,6 @@ class WorkspaceTeardownServiceSpec
 
       // User B's own tagged resource graph.
       val bSrc      = createTaggedSource(userB, Some(tag))
-      val bCompanion = companionTypeOf(bSrc, tag, userB)
       val bPipeline  = createPipeline(userB, bSrc.id, Some(tag))
 
       // User A's own, smaller tagged resource (source + companion only).
@@ -524,14 +403,12 @@ class WorkspaceTeardownServiceSpec
       resp.conflicts shouldBe empty
       resp.sourcesDeleted shouldBe 1
       resp.pipelinesDeleted shouldBe 0
-      resp.typesDeleted shouldBe 1
 
       sourceExists(aSrc.id, userA) shouldBe false
 
       // Direct DB assertion (not just trusting A's response shape): B's
       // same-tagged rows are all still present, queried as B.
       sourceExists(bSrc.id, userB) shouldBe true
-      typeExists(bCompanion.id, userB) shouldBe true
       pipelineExists(bPipeline.id, userB) shouldBe true
     }
 
@@ -544,46 +421,7 @@ class WorkspaceTeardownServiceSpec
       resp.blocked shouldBe false
       resp.sourcesDeleted shouldBe 0
       resp.pipelinesDeleted shouldBe 0
-      resp.typesDeleted shouldBe 0
 
-      sourceExists(bSrc.id, userB) shouldBe true
-    }
-  }
-
-  // ── 6.12 Teardown never touches the privileged pool (RLS-scoped, not leaked) ─
-
-  "teardown (6.12 privileged-pool non-leak)" should {
-    "treat a DataType whose sourceId points at a DataSource NOT owned by the caller as having " +
-      "no linked source, rather than leaking cross-owner existence via the source-link guard" in {
-      val tag = freshTag()
-
-      // A source owned by user B (untagged; irrelevant to A's teardown tag).
-      val bSrc = createTaggedSource(userB, None)
-
-      // A DataType owned by A, tagged T, but whose sourceId points at B's
-      // source — a state no real create path can produce (every create path
-      // links a DataType only to a source the SAME owner just created); built
-      // directly via the privileged pool to construct the dangling reference
-      // this guard's RLS-scoping must not leak on.
-      val danglingId = UUID.randomUUID().toString
-      await(ctx.withSystemContext(
-        sqlu"""INSERT INTO data_types (id, name, fields, version, owner_id, source_id, tag, created_at, updated_at)
-               VALUES ($danglingId, 'Dangling', '[]'::jsonb, 1, $userAId::uuid, ${bSrc.id.value}, $tag, now(), now())"""
-      ))
-
-      val resp = teardown(userA, tag)
-
-      // Not blocked: under `withUserContext(A)`, RLS hides B's source from
-      // the source-link guard's query entirely, so it is treated as "no
-      // linked source" (design.md Decision 3/6) rather than a cross-owner
-      // existence leak that would (wrongly) block or (worse) surface B's
-      // source's name/id to A.
-      resp.blocked shouldBe false
-      resp.committed shouldBe true
-      resp.conflicts shouldBe empty
-      resp.typesDeleted shouldBe 1
-
-      typeExists(DataTypeId(danglingId), userA) shouldBe false
       sourceExists(bSrc.id, userB) shouldBe true
     }
   }

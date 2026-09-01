@@ -26,7 +26,7 @@
   "$defs": {
     "EditOutcome": {
       "type": "object",
-      "description": "status: applied (no rollback needed) | rolledBack (a create/update edit was undone) | recreated (a panel/pipelineStep delete-rollback restored content under a NEW id) | unrecoverable (a dashboard/dataSource/dataType/pipeline delete-rollback could not restore the resource). priorState/resultingState reuse each target kind's EXISTING response shape (PanelResponse/DashboardResponse/DataSourceResponse/DataTypeResponse/PipelineSummaryResponse/PipelineStepResponse) -- deliberately left as a generic object here rather than a six-way oneOf, since the concrete shape is determined by the edit's target.kind, not expressible as a single $ref.",
+      "description": "status: applied (no rollback needed) | rolledBack (a create/update edit was undone) | recreated (a panel/pipelineStep delete-rollback restored content under a NEW id) | unrecoverable (a dashboard/dataSource/pipeline delete-rollback could not restore the resource). priorState/resultingState reuse each target kind's EXISTING response shape (PanelResponse/DashboardResponse/DataSourceResponse/PipelineSummaryResponse/PipelineStepResponse) -- deliberately left as a generic object here rather than a five-way oneOf, since the concrete shape is determined by the edit's target.kind, not expressible as a single $ref. HEL-904 removed the `dataType` target kind outright (DataType/DataTypeResponse no longer exist).",
       "required": ["index", "status"],
       "properties": {
         "index": {
