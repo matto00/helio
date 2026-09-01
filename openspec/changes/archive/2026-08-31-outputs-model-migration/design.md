@@ -198,11 +198,10 @@ this kind of line-level breakage.
 - **Does it write anything outside its own sandbox?** No — it only reads
   `schemas/`, backend source files, and the four named frontend/helio-mcp
   files, and exits non-zero on mismatch; it writes no files.
-- **Does it behave differently from a linked worktree than from a main
-  checkout?** No — it only reads paths relative to the repo root the commit
+- **Does it behave differently from a linked worktree than from a main checkout?** No — it only reads paths relative to the repo root the commit
   runs in, which resolves identically whether that root is a linked
   worktree or the main checkout.
-- **What happens on its first run after this ticket's changes?** It must
+- **What happens on its first run?** After this ticket's changes, it must
   find the reshaped panel-kind schema, the updated backend arm count, AND
   the four cross-surface files' updated kind lists, all in the same commit
   — there is no transitional state where old and new shapes are both
