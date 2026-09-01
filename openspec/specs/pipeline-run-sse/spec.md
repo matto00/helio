@@ -3,7 +3,9 @@
 ## Purpose
 Stream pipeline run-status events to authorized clients over `GET /api/pipelines/:id/run-events` (SSE), with
 sharing-aware access control and no internal-error leakage.
+
 ## Requirements
+
 ### Requirement: SSE endpoint streams run status events for a pipeline
 The backend SHALL expose `GET /api/pipelines/:id/run-events` as a Server-Sent Events endpoint using
 Pekko HTTP `EventStreamMarshalling`. The response content type SHALL be `text/event-stream`. Each
@@ -43,12 +45,14 @@ requests SHALL receive `404 Not Found`. Authenticated users with no grant SHALL 
 ### Requirement: PipelineRunRegistry publishes status events at each run transition
 The backend SHALL maintain an in-memory registry (`PipelineRunRegistry`) keyed by pipeline ID.
 `PipelineRunRoutes` SHALL publish events to the registry at each status transition:
-`queued` before execution starts, `running` after the engine begins, `succeeded` or `failed` on
-completion, `dry_run` on successful dry-run completion. A non-dry run whose execution completes without
-exception but is blocked by an error-severity assertion failure (see `pipeline-assert-fail-policy`)
-SHALL publish `failed`, not `succeeded`, with `errorLog` naming the failing rule(s) — this is a
-terminal-status outcome distinct from an execution exception, but uses the same `failed` event kind.
-Events SHALL be ephemeral — not persisted to the database.
+`queued` before execution starts, `running` after the engine begins, one or more `node-progress`
+events as the tree-walk engine completes each node (trunk and tails alike), and `succeeded` or
+`failed` on completion, `dry_run` on successful dry-run completion. A non-dry run whose execution
+completes without exception but is blocked by an error-severity assertion failure (see
+`pipeline-assert-fail-policy`) SHALL publish `failed`, not `succeeded`, with `errorLog` naming the
+failing rule(s) — this is a terminal-status outcome distinct from an execution exception, but uses the
+same `failed` event kind. `node-progress` is NOT a terminal status — the stream SHALL remain open
+across it. Events SHALL be ephemeral — not persisted to the database.
 
 #### Scenario: Queued event published before engine starts
 - **WHEN** `POST /api/pipelines/:id/run` is received and pre-execution DB work begins
@@ -75,6 +79,10 @@ Events SHALL be ephemeral — not persisted to the database.
 - **WHEN** a non-dry run completes execution without exception, but an `assert` step's error-severity
   rule fails
 - **THEN** a `failed` event is published (not `succeeded`), with `errorLog` naming the failing rule
+
+#### Scenario: node-progress event does not close the stream
+- **WHEN** a `node-progress` event is published for a pipeline run
+- **THEN** the SSE stream remains open and continues to accept further events
 
 ### Requirement: SSE subscriber receives events published after connection opens
 A client that connects to `run-events` before a run is posted SHALL receive all subsequent
@@ -109,3 +117,27 @@ server-side.
 - **THEN** the response is `500` and the response body does not contain the exception message, and the exception
   with stack trace is logged server-side
 
+### Requirement: Run-status events carry per-node identity and row counts
+
+Each `node-progress` SSE event emitted while a pipeline runs SHALL include a `nodeId` field
+identifying which step-tree node the event describes (or its absence for the pipeline root), and a
+`rowCount` field for that node's frame at the point the event was emitted. This applies to trunk nodes
+and tail nodes alike.
+
+#### Scenario: A tail node's progress is reported by node id
+
+- **GIVEN** a pipeline with a tail attached to a mid-trunk node
+- **WHEN** the pipeline runs and the tail is evaluated
+- **THEN** a `node-progress` SSE event is emitted carrying the tail node's `nodeId` and its row count
+
+### Requirement: Assertion results are keyed by node
+
+`pipeline_run_assertions` rows SHALL be keyed by the step-tree node they were evaluated against
+(via the existing `step_id` column), covering trunk and tail nodes alike.
+
+#### Scenario: An assertion on a tail step is recorded against that tail's node
+
+- **GIVEN** an assert step attached to a tail
+- **WHEN** the pipeline runs and the assertion evaluates
+- **THEN** the resulting `pipeline_run_assertions` row's `step_id` identifies the tail's own step,
+  not the trunk node it branched from
