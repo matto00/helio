@@ -44,8 +44,11 @@ execution itself completed without exception — no third `last_run_status` valu
 
 ### Requirement: GET /api/pipelines returns pipeline summaries
 The backend SHALL expose `GET /api/pipelines` that returns a JSON array of pipeline summary
-objects. Each object SHALL include: `id`, `name`, `sourceDataSourceName`, `lastRunStatus` (string
-or null), `lastRunAt` (ISO-8601 string or null), and `lastRunRowCount` (number or null).
+objects. Each object SHALL include: `id`, `name`, `sourceDataSourceName`. `lastRunStatus`,
+`lastRunAt`, and `lastRunRowCount` SHALL be present with their real values once a pipeline has run,
+and SHALL be ABSENT from the response entirely (not present as `null`) for a pipeline that has
+never run — `PipelineSummaryResponse`'s fields are `Option[...]` serialized via `jsonFormat9` with
+no `NullOptions` mixed in, so spray-json omits a `None` field rather than writing `null`.
 `outputDataTypeName`/`outputDataTypeId` are no longer included — a pipeline's Outputs are fetched
 via `GET /api/pipelines/:id/outputs`.
 
@@ -58,9 +61,10 @@ via `GET /api/pipelines/:id/outputs`.
 - **THEN** the response is `200 OK` with an array where each item includes `sourceDataSourceName`
   from the joined data source and no `outputDataTypeName`/`outputDataTypeId` field
 
-#### Scenario: Null last-run fields for pipelines that have never run
+#### Scenario: Absent last-run fields for pipelines that have never run
 - **WHEN** a pipeline has never been run
-- **THEN** `lastRunStatus`, `lastRunAt`, and `lastRunRowCount` are all `null` in the response
+- **THEN** `lastRunStatus`, `lastRunAt`, and `lastRunRowCount` are all ABSENT from the response
+  (not present as `null`)
 
 #### Scenario: Non-null last-run fields for pipelines that have run
 - **WHEN** a pipeline has a recorded last run

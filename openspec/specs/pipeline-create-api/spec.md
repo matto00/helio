@@ -39,7 +39,7 @@ than requiring a separate `POST /api/data-sources` call first) does not exist â€
   `steps`/`outputs`
 - **THEN** the response is `201 Created` with a JSON body containing the new pipeline's `id`,
   `name`, `sourceDataSourceId`, `sourceDataSourceName` (from the referenced data source),
-  `lastRunStatus: null`, `lastRunAt: null`, and no `outputDataTypeName` field
+  `lastRunStatus` and `lastRunAt` both absent from the response (spray-json omits `Option = None` fields rather than writing `null`), and no `outputDataTypeName` field
 
 #### Scenario: Missing required field returns 400
 - **WHEN** `POST /api/pipelines` is called with a missing or empty required field
