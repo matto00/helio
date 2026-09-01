@@ -143,4 +143,24 @@ object OutputBindingSpec {
     val eligibility = spec.eligibilityOf(slotKey)
     columns.filter(c => DataFieldType.fromString(c.`type`).exists(t => SlotEligibility.accepts(eligibility, t))).map(_.name)
   }
+
+  /** HEL-906 (task 3.6, absorbed bug HEL-892) — validates the SLOT NAMES of a
+   *  `fieldMapping` (not column-type eligibility, which `evaluate` already
+   *  covers) against `spec`'s own `requiredSlots ++ optionalSlots`. Returns
+   *  `Left` naming every unknown key and the full valid-slot list for this
+   *  kind (never just the first bad key, so a caller sees the whole problem
+   *  in one round trip) -- the ticket's "400 naming the valid slots for that
+   *  kind" contract. Pure domain logic; not yet wired to a live HTTP route
+   *  (no endpoint accepts an Output `fieldMapping` payload in this cycle —
+   *  see execution-progress.md's CR8 deferral) but exercised directly by
+   *  `OutputBindingSpecSpec`. */
+  def validateFieldMapping(spec: OutputBindingSpec, fieldMapping: Map[String, String]): Either[String, Unit] = {
+    val validSlots  = spec.allSlots
+    val unknownKeys = fieldMapping.keySet.diff(validSlots.toSet)
+    if (unknownKeys.isEmpty) Right(())
+    else Left(
+      s"Unknown fieldMapping slot(s) for '${OutputKind.asString(spec.outputKind)}': " +
+        s"${unknownKeys.toVector.sorted.mkString(", ")}. Valid slots: ${validSlots.mkString(", ")}"
+    )
+  }
 }

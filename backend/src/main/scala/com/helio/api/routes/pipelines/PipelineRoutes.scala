@@ -6,8 +6,8 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{CreatePipelineRequest, JsonProtocols, UpdatePipelineRequest}
 import com.helio.api.protocols.IdParsing.PipelineIdSegment
-import com.helio.api.protocols.pipelines.PipelineProposal
-import com.helio.domain.model.AuthenticatedUser
+import com.helio.api.protocols.pipelines.{PipelineProposal, ValidateExpressionRequest}
+import com.helio.domain.model.{AuthenticatedUser, PipelineStepId}
 import com.helio.services.pipelines.PipelineService
 
 import scala.concurrent.ExecutionContext
@@ -52,6 +52,26 @@ class PipelineRoutes(
         path(PipelineIdSegment / "analyze") { pipelineId =>
           get {
             ServiceResponse.run(pipelineService.analyze(pipelineId, user))(identity)
+          }
+        },
+        // HEL-906 task 3.4: `stepId` absent means the pipeline's raw source (mirrors
+        // `NodeRef.stepId = None`).
+        path(PipelineIdSegment / "capabilities") { pipelineId =>
+          get {
+            parameter("stepId".optional) { stepId =>
+              ServiceResponse.run(pipelineService.capabilitiesAtNode(pipelineId, stepId.map(PipelineStepId(_)), user))(identity)
+            }
+          }
+        },
+        // HEL-906 cycle 7: `stepId` absent means the pipeline's raw source, exactly like
+        // `capabilities` above (same node-resolution machinery under the hood).
+        path(PipelineIdSegment / "validate-expression") { pipelineId =>
+          post {
+            parameter("stepId".optional) { stepId =>
+              entity(as[ValidateExpressionRequest]) { req =>
+                ServiceResponse.run(pipelineService.validateExpression(pipelineId, stepId.map(PipelineStepId(_)), req.expression, user))(identity)
+              }
+            }
           }
         },
         path(PipelineIdSegment) { pipelineId =>

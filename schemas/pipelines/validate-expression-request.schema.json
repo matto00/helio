@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/validate-expression-request.schema.json",
+  "title": "ValidateExpressionRequest",
+  "description": "POST /api/pipelines/:id/validate-expression?stepId= body (HEL-906 cycle 7). `stepId` is a query parameter, not part of the body; absent means the pipeline's raw source schema.",
+  "type": "object",
+  "properties": {
+    "expression": {
+      "type": "string"
+    }
+  },
+  "required": ["expression"],
+  "additionalProperties": false
+}

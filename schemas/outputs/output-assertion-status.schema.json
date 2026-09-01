@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/outputs/output-assertion-status.schema.json",
   "title": "AssertionStatusResponse",
-  "description": "Response for GET /api/types/:id/assertion-status (HEL-576). `invalid` is true when the DataType's owning pipeline's latest NON-DRY run has at least one persisted error-severity failed assertion -- a dry run is never considered. `failedRuleCount` is the count of such failures.",
+  "description": "Response for GET /api/outputs/:id/assertion-status (HEL-576, retargeted HEL-906). `invalid` is true when the Output's owning pipeline node's (HEL-906: `stepId`-scoped, not the retired DataType's) latest NON-DRY run has at least one persisted error-severity failed assertion -- a dry run is never considered. `failedRuleCount` is the count of such failures.",
   "type": "object",
   "properties": {
-    "dataTypeId": {
+    "outputId": {
       "type": "string"
     },
     "invalid": {
@@ -15,6 +15,6 @@
       "type": "integer"
     }
   },
-  "required": ["dataTypeId", "invalid", "failedRuleCount"],
+  "required": ["outputId", "invalid", "failedRuleCount"],
   "additionalProperties": false
 }

@@ -4,10 +4,41 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
 
+/** `steps`/`outputs` (HEL-906 task 3.1, additive): the single-call transactional pipeline
+ *  creation shape. `steps` are built in array order; each carries a request-scoped `clientId`
+ *  (never persisted) so a later step's `parentStepId` can target an EARLIER step in the SAME
+ *  request before either has a real, server-assigned id -- `parentStepId` absent means "extend
+ *  the trunk from wherever pipeline creation left off" (root, since a freshly created pipeline
+ *  has no steps yet); a `parentStepId` present must resolve to an earlier step's `clientId` in
+ *  this same request (a 400 if it doesn't -- forward/self/unknown references are all rejected).
+ *  `outputs`' `nodeStepClientId` follows the identical resolve-by-`clientId` rule, `None` meaning
+ *  the pipeline's raw source. Failure at ANY step or Output (a bad step type/config, an
+ *  unresolvable `parentStepId`/`nodeStepClientId`, an invalid Output kind or `fieldMapping`)
+ *  rolls back the ENTIRE call -- ratified as a single real Slick transaction (design.md D3,
+ *  option iii) spanning `PipelineRepository`/`PipelineStepRepository`/`OutputRepository`
+ *  (`PipelineRepository.runTransactionally`, `DbContext.withUserContext`), not a
+ *  compensating-delete of the just-created pipeline row. The compensating-delete approach was
+ *  an earlier cycle's implementation and was deleted outright once the real transaction
+ *  shipped -- see `PipelineService.createTransactional`'s doc. */
+final case class CreatePipelineTransactionalStepRequest(
+    clientId: String,
+    `type`: String,
+    config: JsObject,
+    parentStepId: Option[String] = None,
+    enabled: Option[Boolean] = None
+)
+final case class CreatePipelineTransactionalOutputRequest(
+    nodeStepClientId: Option[String],
+    kind: String,
+    name: String,
+    config: Option[JsObject] = None
+)
 final case class CreatePipelineRequest(
     name: String,
     sourceDataSourceId: String,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    steps: Vector[CreatePipelineTransactionalStepRequest] = Vector.empty,
+    outputs: Vector[CreatePipelineTransactionalOutputRequest] = Vector.empty
 )
 final case class UpdatePipelineRequest(name: String)
 final case class PipelineSummaryResponse(
@@ -72,12 +103,16 @@ final case class PipelineRunRecord(
     triggeredByTokenId: Option[String] = None,
     assertions: AssertionSummary = AssertionSummary()
 )
-/** `GET /api/types/:id/assertion-status` response (HEL-576, design.md
- *  Decision 6): `invalid` is true when the DataType's owning pipeline's
- *  latest NON-DRY run has at least one persisted error-severity failed
- *  assertion; `failedRuleCount` is the count of such failures. */
+/** `GET /api/outputs/:id/assertion-status` response (HEL-576, design.md
+ *  Decision 6; retargeted from the retired `GET /api/types/:id/assertion-status`
+ *  by HEL-906 task 2.5): `invalid` is true when the Output's own node (its
+ *  `NodeRef.stepId` -- `None` means the pipeline's raw source, which never has
+ *  an `assert` step and is therefore always `invalid = false`) has at least
+ *  one persisted error-severity failed assertion on the pipeline's latest
+ *  NON-DRY run; `failedRuleCount` is the count of such failures, scoped to
+ *  that step alone (not the whole run). */
 final case class AssertionStatusResponse(
-    dataTypeId: String,
+    outputId: String,
     invalid: Boolean,
     failedRuleCount: Int
 )
@@ -119,6 +154,17 @@ final case class RunResultResponse(
     truncatedReads: Vector[TruncatedReadResponse] = Vector.empty
 )
 
+/** `POST /api/pipelines/:id/preview?outputId=` response (HEL-906 cycle 10) -- ONE entry per
+ *  previewed Output, `preview` reusing the pre-existing single-node `RunResultResponse` shape
+ *  unchanged. */
+final case class OutputPreviewEntry(outputId: String, preview: RunResultResponse)
+
+/** The uniform envelope BOTH preview arms return: `outputId` present narrows this to exactly
+ *  one entry; `outputId` absent fans out to every Output on the pipeline. A caller (P1.4's MCP
+ *  `preview_outputs(pipelineId, outputId?)` tool) has exactly one response shape to parse
+ *  either way. */
+final case class PipelinePreviewResponse(outputs: Vector[OutputPreviewEntry])
+
 /** `PipelineProtocol extends PipelineStepProtocol with PipelineAnalyzeProtocol`
  *  because the typed per-step `*Config` formatters live in
  *  `PipelineStepProtocol`; the analyze API types/formats themselves live in
@@ -132,7 +178,39 @@ trait PipelineProtocol
     with PipelineStepProtocol
     with PipelineAnalyzeProtocol {
 
-  implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest]     = jsonFormat3(CreatePipelineRequest.apply)
+  implicit val createPipelineTransactionalStepRequestFormat: RootJsonFormat[CreatePipelineTransactionalStepRequest] =
+    jsonFormat5(CreatePipelineTransactionalStepRequest.apply)
+  implicit val createPipelineTransactionalOutputRequestFormat: RootJsonFormat[CreatePipelineTransactionalOutputRequest] =
+    jsonFormat4(CreatePipelineTransactionalOutputRequest.apply)
+  // Hand-rolled (not jsonFormat5): spray-json's macro-generated format does NOT apply a case
+  // class's Scala default value for a missing non-`Option` field (only `Option` fields default
+  // to `None` when absent) -- `steps`/`outputs` being `Vector[...] = Vector.empty` would
+  // otherwise make every pre-existing `{name, sourceDataSourceId, tag}` request body (with no
+  // `steps`/`outputs` key at all) fail to decode, breaking every existing caller of the simple
+  // create shape. This reader explicitly defaults an absent `steps`/`outputs` key to `Vector
+  // .empty`, preserving the pre-HEL-906 wire contract exactly for that shape.
+  implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest] = new RootJsonFormat[CreatePipelineRequest] {
+    override def write(r: CreatePipelineRequest): JsValue = JsObject(
+      "name" -> JsString(r.name),
+      "sourceDataSourceId" -> JsString(r.sourceDataSourceId),
+      "tag" -> r.tag.map(JsString(_)).getOrElse(JsNull),
+      "steps" -> r.steps.toJson,
+      "outputs" -> r.outputs.toJson
+    )
+    override def read(json: JsValue): CreatePipelineRequest = {
+      val obj = json.asJsObject
+      CreatePipelineRequest(
+        name               = obj.fields("name").convertTo[String],
+        sourceDataSourceId = obj.fields("sourceDataSourceId").convertTo[String],
+        tag                = obj.fields.get("tag").flatMap {
+          case JsNull => None
+          case other  => Some(other.convertTo[String])
+        },
+        steps   = obj.fields.get("steps").map(_.convertTo[Vector[CreatePipelineTransactionalStepRequest]]).getOrElse(Vector.empty),
+        outputs = obj.fields.get("outputs").map(_.convertTo[Vector[CreatePipelineTransactionalOutputRequest]]).getOrElse(Vector.empty)
+      )
+    }
+  }
   implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest]     = jsonFormat1(UpdatePipelineRequest.apply)
   implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat9(PipelineSummaryResponse.apply)
 
@@ -172,4 +250,9 @@ trait PipelineProtocol
   implicit val truncatedReadResponseFormat: RootJsonFormat[TruncatedReadResponse] =
     jsonFormat3(TruncatedReadResponse.apply)
   implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat11(RunResultResponse.apply)
+
+  // HEL-906 cycle 10: same declaration-order constraint as above -- both depend on
+  // runResultResponseFormat already being in scope.
+  implicit val outputPreviewEntryFormat: RootJsonFormat[OutputPreviewEntry] = jsonFormat2(OutputPreviewEntry.apply)
+  implicit val pipelinePreviewResponseFormat: RootJsonFormat[PipelinePreviewResponse] = jsonFormat1(PipelinePreviewResponse.apply)
 }

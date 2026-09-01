@@ -223,6 +223,51 @@ class DataSourceServiceSpec
     }
   }
 
+  "DataSourceService.createStatic" should {
+    "canonicalize a non-canonical legacy column type (double/long/date) before persisting inferredSchema (HEL-906 cycle 4)" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name    = "Legacy Types",
+        `type`  = "static",
+        columns = Vector(
+          StaticColumnPayload("amount", "double"),
+          StaticColumnPayload("count", "long"),
+          StaticColumnPayload("createdAt", "date")
+        ),
+        rows = Vector(Vector(JsNumber(1.5), JsNumber(3), JsString("2026-01-01")))
+      )
+      val src = await(service.createStatic(createReq, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createStatic failed: $e")
+      }
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.find(_.name == "amount").map(_.`type`) shouldBe Some("float")
+      schema.find(_.name == "count").map(_.`type`) shouldBe Some("integer")
+      schema.find(_.name == "createdAt").map(_.`type`) shouldBe Some("timestamp")
+    }
+
+    "reject an entirely unrecognized column type with a 400 naming every valid type (HEL-906 cycle 5, AC-3 boundary validation)" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name    = "Bad Types",
+        `type`  = "static",
+        columns = Vector(StaticColumnPayload("amount", "banana")),
+        rows    = Vector(Vector(JsString("x")))
+      )
+      val result = await(service.createStatic(createReq, user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) =>
+          msg should include("amount")
+          msg should include("banana")
+          msg should include("string")
+          msg should include("integer")
+        case other => fail(s"Expected BadRequest, got: $other")
+      }
+      // Nothing persisted -- confirms the validation genuinely runs BEFORE any write.
+      await(dataSourceRepo.findAll(owner, Page(0, 100))).items.map(_.name) should not contain "Bad Types"
+    }
+  }
+
   "DataSourceService.refresh (Static)" should {
 
     // HEL-904: there's no separate DataType row to orphan anymore — refresh re-writes
@@ -250,6 +295,54 @@ class DataSourceServiceSpec
       result.isRight shouldBe true
       val recreated = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
       recreated.map(_.name) should contain allOf ("id", "label")
+    }
+
+    "canonicalize a non-canonical legacy column type on refresh, not just create (HEL-906 cycle 5)" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name = "RefreshLegacy", `type` = "static",
+        columns = Vector(StaticColumnPayload("id", "integer")),
+        rows = Vector(Vector(JsNumber(1)))
+      )
+      val src = await(service.createStatic(createReq, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createStatic failed: $e")
+      }
+      val refreshPayload = StaticDataPayload(
+        columns = Vector(StaticColumnPayload("id", "integer"), StaticColumnPayload("score", "double")),
+        rows    = Vector(Vector[JsValue](JsNumber(1), JsNumber(3.5)))
+      )
+      val result = await(service.refresh(src.id, Some(refreshPayload), user))
+      result.isRight shouldBe true
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.find(_.name == "score").map(_.`type`) shouldBe Some("float")
+    }
+
+    "reject an entirely unrecognized column type on refresh with a 400 naming every valid type (HEL-906 cycle 5)" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name = "RefreshBadType", `type` = "static",
+        columns = Vector(StaticColumnPayload("id", "integer")),
+        rows = Vector(Vector(JsNumber(1)))
+      )
+      val src = await(service.createStatic(createReq, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createStatic failed: $e")
+      }
+      val refreshPayload = StaticDataPayload(
+        columns = Vector(StaticColumnPayload("id", "banana")),
+        rows    = Vector(Vector[JsValue](JsNumber(1)))
+      )
+      val result = await(service.refresh(src.id, Some(refreshPayload), user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) =>
+          msg should include("banana")
+          msg should include("integer")
+        case other => fail(s"Expected BadRequest, got: $other")
+      }
+      // The pre-refresh schema is untouched.
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.map(_.name) shouldBe Vector("id")
     }
   }
 

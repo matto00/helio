@@ -157,6 +157,28 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
     ctx.withSystemContext(query.result.headOption).map(_.map(rowToDomain))
   }
 
+  /** ACL-bypassing lookup of every panel placement bound to an Output
+   *  (HEL-906 task 2.4/2.3: `GET /api/outputs/:id/panels` and the
+   *  `DELETE /api/outputs/:id` removed-placements report). Safe to call only
+   *  after the caller's Output/pipeline access has been confirmed by the
+   *  service layer — mirrors `findByIdInternal`'s contract. */
+  def findByOutputIdInternal(outputId: String): Future[Vector[Panel]] =
+    ctx.withSystemContext(table.filter(_.outputId === Option(outputId)).result).map(_.toVector.map(rowToDomain))
+
+  /** ACL-bypassing bulk delete of every panel bound to an Output — the
+   *  application-level mirror of `outputs`' `ON DELETE CASCADE` FK (V94),
+   *  called BEFORE the Output row itself is deleted so the removed ids can
+   *  be reported back to the caller (`DELETE /api/outputs/:id` response,
+   *  HEL-906 task 2.3). Returns the ids of every panel removed. */
+  def deleteByOutputIdInternal(outputId: String): Future[Vector[PanelId]] = {
+    val query = table.filter(_.outputId === Option(outputId))
+    ctx.withSystemContext(
+      query.map(_.id).result.flatMap { ids =>
+        query.delete.map(_ => ids.toVector.map(PanelId(_)))
+      }.transactionally
+    )
+  }
+
   def insert(panel: Panel): Future[Panel] =
     ctx.withUserContext(panel.ownerId.value)(table += domainToRow(panel))
       .map(_ => panel)

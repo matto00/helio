@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/output-schema-field.schema.json",
+  "title": "OutputSchemaFieldResponse",
+  "description": "One `{name, type}` entry of an Output's derived schema. `type` is one of the seven canonical DataFieldType wire values (HEL-895).",
+  "type": "object",
+  "required": ["name", "type"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "type": {
+      "type": "string",
+      "enum": ["string", "integer", "float", "boolean", "timestamp", "string-body", "binary-ref"]
+    }
+  },
+  "additionalProperties": false
+}

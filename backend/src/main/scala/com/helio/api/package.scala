@@ -291,6 +291,8 @@ package object api {
   val ExpandPipelineShapeRequest: protocols.pipelines.ExpandPipelineShapeRequest.type = protocols.pipelines.ExpandPipelineShapeRequest
   type ShapeStepExpansionResponse = protocols.pipelines.ShapeStepExpansionResponse
   val ShapeStepExpansionResponse: protocols.pipelines.ShapeStepExpansionResponse.type = protocols.pipelines.ShapeStepExpansionResponse
+  type ExpandPipelineShapeResponse = protocols.pipelines.ExpandPipelineShapeResponse
+  val ExpandPipelineShapeResponse: protocols.pipelines.ExpandPipelineShapeResponse.type = protocols.pipelines.ExpandPipelineShapeResponse
 
   type TeardownRequest = protocols.workspace.TeardownRequest
   val TeardownRequest: protocols.workspace.TeardownRequest.type = protocols.workspace.TeardownRequest

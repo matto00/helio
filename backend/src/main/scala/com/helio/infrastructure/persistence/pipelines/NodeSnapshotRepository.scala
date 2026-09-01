@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.pipelines
 
+import com.helio.domain.model.{Page, PagedResult}
 import com.helio.infrastructure.persistence.DbContext
 import slick.jdbc.PostgresProfile.api._
 import slick.jdbc.SQLActionBuilder
@@ -86,5 +87,46 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx
       .withSystemContext(fullQuery.as[String])
       .map(_.map(_.parseJson(listRowsJsonParserSettings).asJsObject).toVector)
+  }
+
+  /** HEL-906 cycle 7 (`GET /api/outputs/:id/rows`, P1.4's `get_output_rows` dependency):
+   *  offset/limit paginated variant of `listRows` above, returning the total row count
+   *  alongside the page so `OutputService.rows` can build a `PagedResult`. Mirrors
+   *  `PanelRepository.findAllByDashboardId`'s `Page`-in/`PagedResult`-out convention. Runs two
+   *  queries (a count, then the page) rather than a single `count(*) OVER()` window function --
+   *  simplicity over one fewer round trip, matching every other paginated repository method in
+   *  this codebase (none of them use a window function either). */
+  def listRowsPaged(
+      pipelineId: String,
+      nodeStepId: Option[String],
+      page: Page,
+      excludeKeys: Set[String] = Set.empty
+  ): Future[PagedResult[JsObject]] = {
+    val nodeFilter: SQLActionBuilder = nodeStepId match {
+      case Some(stepId) => sql" AND node_step_id = $stepId"
+      case None         => sql" AND node_step_id IS NULL"
+    }
+
+    val countQuery: SQLActionBuilder =
+      sql"SELECT count(*) FROM node_snapshots WHERE pipeline_id = $pipelineId".concat(nodeFilter)
+
+    val dataExpr: SQLActionBuilder =
+      excludeKeys.foldLeft(sql"data") { (acc, key) => acc.concat(sql" - $key::text") }
+
+    val dataQuery: SQLActionBuilder =
+      sql"SELECT (".concat(dataExpr).concat(sql")::text FROM node_snapshots WHERE pipeline_id = $pipelineId")
+        .concat(nodeFilter)
+        .concat(sql" ORDER BY row_index ASC")
+        .concat(sql" OFFSET ${page.offset} LIMIT ${page.limit}")
+
+    for {
+      total <- ctx.withSystemContext(countQuery.as[Int].head)
+      rows  <- ctx.withSystemContext(dataQuery.as[String])
+    } yield PagedResult(
+      items  = rows.map(_.parseJson(listRowsJsonParserSettings).asJsObject).toVector,
+      total  = total,
+      offset = page.offset,
+      limit  = page.limit
+    )
   }
 }

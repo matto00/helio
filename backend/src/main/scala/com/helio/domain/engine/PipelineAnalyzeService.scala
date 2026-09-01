@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.model.PipelineStep
+import com.helio.domain.model.{DataFieldType, PipelineStep}
 import com.helio.domain.steps.{
   AggregateConfig, AggregateStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
   JoinConfig, JoinStep, PivotConfig, PivotStep, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep,
@@ -11,7 +11,30 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 
-final case class SchemaField(name: String, `type`: String)
+/** HEL-906 cycle 5 (coordinator ruling, AC-3 "real structural guard"): `require` in the
+ *  primary constructor is the ONE choke point every `SchemaField(...)` construction site in the
+ *  whole codebase passes through, whichever of the 31+ sites it is -- there is no way to build a
+ *  `SchemaField` with a non-canonical `type` string without an immediate `IllegalArgumentException`
+ *  at construction time. This is deliberately a hard failure (not a silent `Either`/`Option`
+ *  return), because a `SchemaField` with a bad type is a programming error at every INTERNAL
+ *  call site (they should already be canonical, e.g. via `DataFieldType.asString`/
+ *  `canonicalizeLegacy`) -- the two BOUNDARY call sites that accept a raw, unvalidated
+ *  caller-supplied `type` string over the wire (`DataSourceService.createStatic`,
+ *  `PipelineAnalyzeService.inferAggregate`'s `groupBy`) validate with `DataFieldType.fromString`
+ *  and return a clean 400 BEFORE ever reaching this constructor, so a malformed request never
+ *  hits this `require` in practice -- it exists to catch any FUTURE producer that skips that
+ *  boundary check, converting the old silent-`case other => other`-passthrough gap
+ *  `canonicalizeLegacy` still has into a fail-loud bug instead of a silently-corrupted row.
+ *  `SchemaFieldStructuralGuardSpec` asserts this directly (constructing a `SchemaField` with a
+ *  garbage type throws), so a future refactor that removes this `require` fails a test, not just
+ *  a review. */
+final case class SchemaField(name: String, `type`: String) {
+  require(
+    DataFieldType.fromString(`type`).isDefined,
+    s"SchemaField: '${`type`}' is not a canonical DataFieldType wire value for field '$name'. " +
+      s"Valid values: ${DataFieldType.CanonicalWireValues.mkString(", ")}"
+  )
+}
 
 
 object PipelineAnalyzeService {
@@ -23,7 +46,53 @@ object PipelineAnalyzeService {
     * `pipelines.last_source_schema`) and `PipelineService` (tolerant-parsing
     * it back out at analyze time), so both sides of the HEL-462 baseline
     * round-trip through one definition. */
-  implicit val schemaFieldJsonFormat: RootJsonFormat[SchemaField] = jsonFormat2(SchemaField.apply)
+  /** HEL-906 cycle 5 (coordinator ruling, AC-3 "dev DB check" fallout): hand-rolled, not
+   *  `jsonFormat2`, so `read` can canonicalize a LEGACY-persisted, non-canonical `type` string
+   *  (`"number"`/`"double"`/`"long"`/`"date"`) via `DataFieldType.canonicalizeLegacy` before it
+   *  reaches `SchemaField`'s validating constructor. The dev-DB check this ruling required found
+   *  real, already-persisted `data_sources.inferred_schema` rows with a `"number"` type (12 of
+   *  141 rows, predating this ticket's fixes) -- without this tolerant read, EVERY subsequent
+   *  deserialization of one of those rows (`GET /api/pipelines/:id/analyze`,
+   *  `PipelineRunService.onRunSuccess`'s baseline capture, etc.) would throw `SchemaField`'s
+   *  `require` and 500, converting quietly-wrong data into a hard outage for existing rows this
+   *  same ticket already knows about. `write` always emits the canonical form (every
+   *  in-process-constructed `SchemaField` is already canonical, by the structural guard).
+   *
+   *  HEL-906 cycle 6 (evaluation-5.md CR1's residual-hole callout): `canonicalizeLegacy` only
+   *  maps the FOUR *known* legacy synonyms (`"number"`/`"double"`/`"long"`/`"date"`) -- a
+   *  persisted row carrying a genuinely UNRECOGNIZED type (not one of those four, and not
+   *  already canonical) would still reach `SchemaField`'s `require` and throw, 500ing on every
+   *  subsequent read. The dev-DB check (HEL-932) found only the known `"number"` case live
+   *  today, so this has not been observed in practice -- but leaving an unbounded read path
+   *  able to 500 on ANY future stray value is a real, avoidable outage surface for a read-only
+   *  deserialization path. Deliberate decision: widen the fallback to `StringType` (the most
+   *  conservative canonical type -- never narrows a value that might not fit a numeric/temporal
+   *  type) with a loud warning log carrying the row's raw value, rather than throw. This keeps
+   *  reads from ever 500ing on stray persisted data while still surfacing the anomaly
+   *  operationally (searchable log line) instead of silently normalizing it away. Write is
+   *  unaffected -- every in-process value is already canonical by construction. */
+  implicit val schemaFieldJsonFormat: RootJsonFormat[SchemaField] = new RootJsonFormat[SchemaField] {
+    override def write(f: SchemaField): JsValue = JsObject("name" -> JsString(f.name), "type" -> JsString(f.`type`))
+    override def read(json: JsValue): SchemaField = {
+      val obj  = json.asJsObject
+      val name = obj.fields("name").convertTo[String]
+      val raw  = obj.fields("type").convertTo[String]
+      val canonicalized = DataFieldType.canonicalizeLegacy(raw)
+      val resolvedType = DataFieldType.fromString(canonicalized) match {
+        case Some(_) => canonicalized
+        case None =>
+          log.warn(
+            "schemaFieldJsonFormat.read: field '{}' carries unrecognized persisted type '{}' " +
+              "(canonicalized to '{}', still not a canonical DataFieldType) -- falling back to " +
+              "'{}' rather than 500ing on read. Valid types: {}",
+            name, raw, canonicalized, DataFieldType.asString(DataFieldType.StringType),
+            DataFieldType.CanonicalWireValues.mkString(", ")
+          )
+          DataFieldType.asString(DataFieldType.StringType)
+      }
+      SchemaField(name = name, `type` = resolvedType)
+    }
+  }
 
   /** Minimal step input consumed by inference — decoupled from infrastructure row types. */
   final case class PipelineStepInput(
@@ -80,6 +149,66 @@ object PipelineAnalyzeService {
       currentSchema = output
       analyzed
     }
+  }
+
+  /** Tree-shaped input for [[analyzeNodes]] — like [[PipelineStepInput]] plus
+   *  `parentStepId` (`None` = child of the pipeline's raw source), the same
+   *  adjacency `InProcessPipelineEngine`'s tree walk uses at runtime. */
+  final case class NodeStepInput(
+      id:           String,
+      parentStepId: Option[String],
+      position:     Int,
+      op:           String,
+      config:       String
+  )
+
+  /** Per-node (trunk + every tail) schema projection — the HEL-905 task 6.4
+   *  handoff. Unlike [[analyze]] (a single ordered chain), this walks the
+   *  `parentStepId` tree so a tail's projection is computed from ITS OWN
+   *  ancestor chain back to the source, independent of any sibling tail or
+   *  of the trunk continuing past the tail's branch point. Returns every
+   *  node's [[AnalyzedStep]] keyed by step id; the pipeline's raw source
+   *  schema itself (node id `None`) is `sourceSchema`, not present in the
+   *  map — callers needing the source's own "projection" use `sourceSchema`
+   *  directly, mirroring `NodeRef.stepId = None` meaning "the source" (see
+   *  `com.helio.domain.model.NodeRef`).
+   *
+   *  Deliberately does NOT replicate `InProcessPipelineEngine`'s
+   *  `InvalidGraph` structural validation (single trunk child at position 0,
+   *  no tail branching past a tail root) — that is an execution-time
+   *  invariant on the STORED graph; this is a pure schema-propagation
+   *  function that tolerates whatever `steps` shape it is given (a step
+   *  with an unresolvable `parentStepId` is simply never reached and is
+   *  absent from the result map, which the `capabilities?stepId=` route
+   *  reports as its own "unknown stepId" 404 rather than a crash here). */
+  def analyzeNodes(steps: Vector[NodeStepInput], sourceSchema: Vector[SchemaField]): Map[String, AnalyzedStep] = {
+    val byParent: Map[Option[String], Vector[NodeStepInput]] = steps.groupBy(_.parentStepId)
+    val results  = scala.collection.mutable.LinkedHashMap.empty[String, AnalyzedStep]
+
+    def schemaAt(parentId: Option[String]): Vector[SchemaField] =
+      parentId.flatMap(results.get).map(_.outputSchema).getOrElse(sourceSchema)
+
+    def walk(parentId: Option[String]): Unit =
+      byParent.getOrElse(parentId, Vector.empty).sortBy(_.position).foreach { step =>
+        val inputSchema = schemaAt(parentId)
+        val (output, err) = validateStepConfig(step.op, step.config) match {
+          case Some(msg) => (inputSchema, Some(msg))
+          case None      => inferOutputSchema(step.op, step.config, inputSchema)
+        }
+        results(step.id) = AnalyzedStep(
+          id              = step.id,
+          position        = step.position,
+          op              = step.op,
+          config          = step.config,
+          inputSchema     = inputSchema,
+          outputSchema    = output,
+          validationError = err
+        )
+        walk(Some(step.id))
+      }
+
+    walk(None)
+    results.toMap
   }
 
   /** HEL-859 (design.md Decisions 4/5/6/7): analyze-time validation of step
@@ -271,7 +400,7 @@ object PipelineAnalyzeService {
   private def inferCast(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
     parseConfig("cast", config) { json =>
       val casts = json.fields("casts").convertTo[Map[String, String]]
-      inputSchema.map(f => f.copy(`type` = casts.getOrElse(f.name, f.`type`)))
+      inputSchema.map(f => f.copy(`type` = casts.get(f.name).map(canonicalizeLegacyType).getOrElse(f.`type`)))
     } (inputSchema)
 
   /** compute — append a single derived field to the existing schema.
@@ -295,10 +424,10 @@ object PipelineAnalyzeService {
 
       ExpressionEvaluator.validate(expression, fieldNames) match {
         case Left(validationMsg) =>
-          (inputSchema :+ SchemaField(name = column, `type` = wireType), Some(validationMsg))
+          (inputSchema :+ SchemaField(name = column, `type` = canonicalizeLegacyType(wireType)), Some(validationMsg))
         case Right(_) =>
           val fieldTypes = inputSchema.map(f => f.name -> f.`type`).toMap
-          val outputType = ExpressionEvaluator.inferType(expression, fieldTypes).getOrElse(wireType)
+          val outputType = ExpressionEvaluator.inferType(expression, fieldTypes).getOrElse(canonicalizeLegacyType(wireType))
           (inputSchema :+ SchemaField(name = column, `type` = outputType), None)
       }
     } catch {
@@ -309,29 +438,76 @@ object PipelineAnalyzeService {
         (inputSchema, Some("compute config error"))
     }
 
+  /** HEL-906 cycle 3 (evaluation-2.md finding): both `compute`'s config-supplied `type`
+   *  fallback and `cast`'s config-supplied `casts` target-type strings are legacy/free-form
+   *  caller input (design.md Decision 5's "best-effort fallback" for compute; `cast`'s
+   *  `CastStep.castValue` dispatch set for cast) -- normalizes every known non-canonical
+   *  synonym (`"number"`/`"double"` -> `"float"`, `"long"` -> `"integer"`, `"date"` ->
+   *  `"timestamp"`) to the canonical `DataFieldType` wire value before it lands in a
+   *  projected `SchemaField`, so neither path reintroduces the same "silently dropped from
+   *  capabilities" bug `aggResultType`/`inferWindow`/`inferDateBucket` had (HEL-895/638).
+   *  Any other caller-supplied string (including an already-canonical one) passes through
+   *  unchanged -- this is normalization of known synonyms, not full validation. */
+  private def canonicalizeLegacyType(wireType: String): String =
+    DataFieldType.canonicalizeLegacy(wireType)
+
   /** aggregate — groupBy fields ++ aggregation alias fields.
    *
    *  config.groupBy: Array<{ name, type }>
    *  config.aggregations: Array<{ alias, fn, field }>
    */
   private def inferAggregate(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
-    parseConfig("aggregate", config) { json =>
-      val groupByFields = json.fields("groupBy").convertTo[Vector[JsValue]].map { v =>
-        val obj = v.asJsObject
-        SchemaField(
-          name  = obj.fields("name").convertTo[String],
-          `type` = obj.fields("type").convertTo[String]
-        )
+    try {
+      val json       = config.parseJson.asJsObject
+      val groupByRaw = json.fields("groupBy").convertTo[Vector[JsValue]].map(_.asJsObject)
+      // HEL-906 cycle 5 (coordinator ruling, AC-3 "boundary validation"): every `groupBy`
+      // entry's caller-supplied `type` must resolve to a canonical DataFieldType, or the
+      // whole step is rejected with a validationError naming the offending field(s) and every
+      // valid type -- `canonicalizeLegacy` alone (cycle 4) only normalized KNOWN synonyms and
+      // silently passed an unrecognized string straight through into the projected schema.
+      // Checked explicitly (not via the generic `parseConfig`/`SchemaField`'s `require`
+      // catch-all below) so the message names the actual bad value and every valid type,
+      // matching this file's existing convention for a targeted business-rule violation
+      // (e.g. `inferCompute`'s "Unknown field: X") rather than the generic "<op> config error"
+      // category HEL-311 reserves for a genuinely malformed/unparseable config.
+      val invalidGroupByTypes = groupByRaw.flatMap { obj =>
+        val name    = obj.fields("name").convertTo[String]
+        val rawType = obj.fields("type").convertTo[String]
+        DataFieldType.validateAndCanonicalize(rawType) match {
+          case Left(_)  => Some(name -> rawType)
+          case Right(_) => None
+        }
       }
-      val aggFields = json.fields("aggregations").convertTo[Vector[JsValue]].map { v =>
-        val obj   = v.asJsObject
-        val alias = obj.fields("alias").convertTo[String]
-        val fn    = obj.fields("fn").convertTo[String]
-        val field = obj.fields("field").convertTo[String]
-        SchemaField(name = alias, `type` = aggResultType(fn, field, inputSchema))
+      if (invalidGroupByTypes.nonEmpty) {
+        val detail = invalidGroupByTypes.map { case (name, badType) => s"'$name': '$badType'" }.mkString(", ")
+        (inputSchema, Some(
+          s"aggregate: invalid groupBy type(s): $detail. Valid types: ${DataFieldType.CanonicalWireValues.mkString(", ")}"
+        ))
+      } else {
+        val groupByFields = groupByRaw.map { obj =>
+          val rawType = obj.fields("type").convertTo[String]
+          SchemaField(
+            name   = obj.fields("name").convertTo[String],
+            `type` = DataFieldType.validateAndCanonicalize(rawType).getOrElse(rawType) // validated above; getOrElse unreachable
+          )
+        }
+        val aggFields = json.fields("aggregations").convertTo[Vector[JsValue]].map { v =>
+          val obj   = v.asJsObject
+          val alias = obj.fields("alias").convertTo[String]
+          val fn    = obj.fields("fn").convertTo[String]
+          val field = obj.fields("field").convertTo[String]
+          SchemaField(name = alias, `type` = aggResultType(fn, field, inputSchema))
+        }
+        (groupByFields ++ aggFields, None)
       }
-      groupByFields ++ aggFields
-    } (inputSchema)
+    } catch {
+      case ex: Exception =>
+        // HEL-311: keep the "<op> config error" category, drop the raw exception tail; log
+        // the detail. Reserved for genuinely malformed/unparseable JSON -- an invalid groupBy
+        // type is handled above with its own specific, actionable message instead.
+        log.warn("aggregate config error", ex)
+        (inputSchema, Some("aggregate config error"))
+    }
 
   /** splittext (HEL-219) — mirrors `inferCompute`'s validate-then-shape pattern.
    *
@@ -437,7 +613,8 @@ object PipelineAnalyzeService {
 
   /** datebucket (HEL-378) — output schema = input schema with the resolved
    *  output field (`outputColumn` if present and non-blank, else `field`)
-   *  typed `date`: replace-in-place if the resolved name already exists in
+   *  typed `timestamp` (HEL-895/638: canonical DataFieldType — `date` is NOT one of the
+   *  seven canonical wire values): replace-in-place if the resolved name already exists in
    *  `inputSchema`, append if new (design.md decision 4 — `filterNot` + `:+`,
    *  the same collision-safe shape `inferSplitText`/`inferExtractHeadings`/
    *  `inferChunkByTokenCount` use, not `inferCompute`'s unconditional
@@ -449,7 +626,7 @@ object PipelineAnalyzeService {
       val field        = json.fields("field").convertTo[String]
       val outputColumn = json.fields.get("outputColumn").collect { case JsString(s) if s.nonEmpty => s }
       val resolvedName = outputColumn.getOrElse(field)
-      inputSchema.filterNot(_.name == resolvedName) :+ SchemaField(name = resolvedName, `type` = "date")
+      inputSchema.filterNot(_.name == resolvedName) :+ SchemaField(name = resolvedName, `type` = "timestamp")
     } (inputSchema)
 
   /** pivot (HEL-375) — design.md decision 5: the output schema is *only* the
@@ -495,7 +672,7 @@ object PipelineAnalyzeService {
    *  an existing field name — same collision rule `datebucket`/`splittext`
    *  apply, `filterNot` + `:+`). The output type is fully determined by
    *  `function` + the input schema, with no data sampling: `integer` for the
-   *  rank family, `number` for `running_sum`, the same declared type as
+   *  rank family, `float` for `running_sum` (HEL-895/638: canonical DataFieldType, not "number"), the same declared type as
    *  `field`'s entry in `inputSchema` for `lag`/`lead` (falling back to
    *  `string` if `field` is absent from `inputSchema`). An unrecognized
    *  `function` string degrades gracefully rather than erroring, falling
@@ -508,7 +685,7 @@ object PipelineAnalyzeService {
       val outputColumn = json.fields("outputColumn").convertTo[String]
       val outputType = function match {
         case "row_number" | "rank" | "dense_rank" => "integer"
-        case "running_sum"                        => "number"
+        case "running_sum"                        => "float"
         case "lag" | "lead" =>
           field.flatMap(f => inputSchema.find(_.name == f)).map(_.`type`).getOrElse("string")
         case _ => "string"
@@ -680,7 +857,7 @@ object PipelineAnalyzeService {
   private def aggResultType(fn: String, field: String, inputSchema: Vector[SchemaField]): String =
     fn match {
       case "count"      => "integer"
-      case "sum" | "avg" => "number"
+      case "sum" | "avg" => "float"
       case "min" | "max" => inputSchema.find(_.name == field).map(_.`type`).getOrElse("string")
       case _            => "string"
     }

@@ -7,15 +7,19 @@ import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.pipelines.RunStatusResponse
 import com.helio.api.protocols.IdParsing
-import com.helio.domain.model.AuthenticatedUser
+import com.helio.domain.model.{AuthenticatedUser, OutputId}
 import com.helio.services.pipelines.PipelineRunService
 
 import scala.concurrent.ExecutionContext
 
-/** Run status + per-step preview endpoints.
+/** Run status + per-step/per-Output preview endpoints.
  *
  *  - `GET /api/pipelines/:id/runs/:runId` — cached run status / result
  *  - `GET /api/pipelines/:id/steps/:stepId/preview` — single-step preview tray
+ *  - `POST /api/pipelines/:id/preview?outputId=` — per-Output dry run when `outputId` is
+ *    present, ALL-Outputs dry run (uniform `{outputs: [...]}` envelope either way) when absent
+ *    (HEL-906 cycle 10, P1.4's `preview_outputs(pipelineId, outputId?)` dependency); never
+ *    mutates run state.
  */
 final class PipelineRunStatusRoutes(runService: PipelineRunService, user: AuthenticatedUser)(implicit ec: ExecutionContext)
     extends JsonProtocols {
@@ -44,6 +48,13 @@ final class PipelineRunStatusRoutes(runService: PipelineRunService, user: Authen
         path("steps" / Segment / "preview") { stepId =>
           get {
             ServiceResponse.run(runService.previewStep(pipelineId, stepId, user))(identity)
+          }
+        },
+        path("preview") {
+          post {
+            parameters("outputId".optional) { outputIdRaw =>
+              ServiceResponse.run(runService.previewOutputs(pipelineId, outputIdRaw.map(OutputId(_)), user))(identity)
+            }
           }
         }
       )

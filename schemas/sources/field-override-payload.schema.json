@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/field-override-payload.schema.json",
+  "title": "FieldOverridePayload",
+  "description": "A caller-supplied per-field type override on CSV/SQL/REST source creation (HEL-906 cycle 5, AC-3: `dataType` is canonicalized via DataFieldType.canonicalizeLegacy/validateAndCanonicalize before it reaches inferredSchema -- see SchemaInferenceFacade.toSchemaFields / DataSourceService.createCsv).",
+  "type": "object",
+  "required": ["name", "displayName", "dataType"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "displayName": { "type": "string" },
+    "dataType": {
+      "type": "string",
+      "enum": ["string", "integer", "float", "boolean", "timestamp", "string-body", "binary-ref"]
+    }
+  },
+  "additionalProperties": false
+}

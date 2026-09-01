@@ -100,6 +100,22 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def findByIdInternal(id: OutputId): Future[Option[Output]] =
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption).map(_.map(rowToDomain))
 
+  /** Sharing-aware read (HEL-906): relies entirely on the `outputs_select`
+   *  RLS policy (`helio_can_access_pipeline`, V94) rather than an app-level
+   *  filter — a cross-tenant caller's query simply returns zero rows, giving
+   *  the existence-not-leaked 404 semantics CONTRIBUTING.md's ACL triad
+   *  requires without duplicating the sharing predicate in Scala. */
+  def findById(id: OutputId, user: AuthenticatedUser): Future[Option[Output]] =
+    ctx.withUserContext(user.id.value)(table.filter(_.id === id.value).result.headOption).map(_.map(rowToDomain))
+
+  /** Read the raw `config`/`tag` columns alongside the domain object — the
+   *  domain `Output` case class doesn't carry `config` (it's a
+   *  route/service-layer concern, mirroring `PanelConfigCodec`'s per-subtype
+   *  split), so callers that need to patch-merge `config` (task 2.3a) read
+   *  it here rather than adding a field to the shared domain model. */
+  def findConfigById(id: OutputId, user: AuthenticatedUser): Future[Option[JsObject]] =
+    ctx.withUserContext(user.id.value)(table.filter(_.id === id.value).map(_.config).result.headOption)
+
   /** Owner-scoped read (not merely sharing-aware) — used by
    *  `AlertRuleService.create` (task 3.1) to validate a rule's
    *  `targetOutputId` before persisting, mirroring the strict
@@ -132,17 +148,33 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       config: JsObject = JsObject.empty,
       schema: Vector[SchemaField] = Vector.empty,
       tag: Option[String] = None
-  ): Future[Output] = {
+  ): Future[Output] =
+    ctx.withSystemContext(insertInternalAction(pipelineId, nodeStepId, ownerId, name, kind, config, schema, tag).transactionally)
+
+  /** DBIO variant of `insertInternal` above -- extracted (HEL-906 task 3.1, coordinator ruling
+   *  D3) so `PipelineService`'s single-call transactional pipeline-creation path can compose this
+   *  Output insert into the SAME database transaction as the pipeline row and every step insert,
+   *  via `PipelineRepository.runTransactionally`. Public for that cross-repository composition;
+   *  same "safe only after pipeline access confirmed" contract as `insertInternal`. */
+  def insertInternalAction(
+      pipelineId: PipelineId,
+      nodeStepId: Option[PipelineStepId],
+      ownerId: UserId,
+      name: String,
+      kind: OutputKind,
+      config: JsObject = JsObject.empty,
+      schema: Vector[SchemaField] = Vector.empty,
+      tag: Option[String] = None
+  ): DBIO[Output] = {
     val now = Instant.now()
     val id  = OutputId(UUID.randomUUID().toString)
-    val action = for {
+    for {
       maxPos <- table.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
       position = maxPos.map(_ + 1).getOrElse(0)
       output   = Output(id, name, ownerId, NodeRef(pipelineId, nodeStepId), kind, now, now, schema)
       row      = domainToRow(output, config, schema, position, tag)
       _       <- table += row
     } yield output
-    ctx.withSystemContext(action.transactionally)
   }
 
   /** ACL-bypassing schema update -- used by tests (and any future re-analyze path) to update an
@@ -150,6 +182,43 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  `update`'s ability to replace `fields` post-creation. */
   def updateSchemaInternal(id: OutputId, schema: Vector[SchemaField]): Future[Unit] =
     ctx.withSystemContext(table.filter(_.id === id.value).map(_.schema).update(schema)).map(_ => ())
+
+  /** Owner-scoped update of `name`/`config` (HEL-906 task 2.3a). Relies on the
+   *  `outputs_update` RLS policy (owner-only, V94) for enforcement; the
+   *  `withUserContext` call here is the privileged-pool discipline this
+   *  file's other methods share, not the ACL check itself. Returns the
+   *  updated `Output` (via `findById`) or `None` when the row doesn't exist
+   *  or isn't owned by `user` (RLS silently updates zero rows). */
+  def updateOwned(id: OutputId, user: AuthenticatedUser, name: Option[String], config: Option[JsObject]): Future[Option[Output]] = {
+    val now = Instant.now()
+    val nameAction   = name.map(n => table.filter(_.id === id.value).map(r => (r.name, r.updatedAt)).update((n, now)))
+    val configAction = config.map(c => table.filter(_.id === id.value).map(r => (r.config, r.updatedAt)).update((c, now)))
+    val combined: DBIO[Int] = (nameAction.toList ++ configAction.toList) match {
+      case Nil        => DBIO.successful(0)
+      case one :: Nil  => one
+      case many        => DBIO.sequence(many).map(_.sum)
+    }
+    // A `no fields to update` call (both `name`/`config` absent) issues no UPDATE at all, so
+    // `rowsAffected == 0` there is expected and NOT itself a sign of an RLS-blocked write --
+    // existence/ownership has to be checked explicitly in that branch instead (evaluation-1.md
+    // non-blocking suggestion: an empty-body PATCH must still 404 for a non-owner grantee, not
+    // silently 200 via the sharing-aware `findById` a grantee's own read access would satisfy).
+    // Otherwise (some field WAS attempted), `rowsAffected == 0` means the `outputs_update` RLS
+    // policy (owner-only, V94) silently dropped the write for a non-owner caller -- returning
+    // `None` there is what makes that 404, not a no-op-that-looks-like-success (the "RLS
+    // silently no-ops instead of erroring" trap CONTRIBUTING.md's ACL triad warns about).
+    ctx.withUserContext(user.id.value)(combined.transactionally).flatMap { rowsAffected =>
+      if (rowsAffected > 0) findById(id, user)
+      else if (name.isEmpty && config.isEmpty) findByOwned(id, user)
+      else Future.successful(None)
+    }
+  }
+
+  /** Owner-checked read used only by `updateOwned`'s no-op (empty-body PATCH) branch above --
+   *  `findById` alone is sharing-aware and would let a non-owner editor grantee's empty PATCH
+   *  return 200, which breaks the owner-only contract this whole method exists to enforce. */
+  private def findByOwned(id: OutputId, user: AuthenticatedUser): Future[Option[Output]] =
+    findById(id, user).map(_.filter(_.ownerId == user.id))
 
   /** ACL-bypassing delete. Safe to call only after the caller's pipeline
    *  access has been confirmed by the service layer. */

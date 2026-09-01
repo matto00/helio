@@ -41,7 +41,7 @@ object DemoData {
         createdAt      = now,
         updatedAt      = now,
         config         = CsvSourceConfig(path = "demo/orders.csv"),
-        inferredSchema = Vector(SchemaField("orderId", "string"), SchemaField("amount", "number"), SchemaField("status", "string"))
+        inferredSchema = Vector(SchemaField("orderId", "string"), SchemaField("amount", "float"), SchemaField("status", "string"))
       )
       Await.result(dataSourceRepo.insert(source, SystemUser), 5.seconds)
 

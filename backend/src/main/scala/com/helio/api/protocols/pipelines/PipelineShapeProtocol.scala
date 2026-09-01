@@ -52,14 +52,44 @@ object PipelineShapeCatalogEntryResponse {
  *  reshaping (the shape itself owns all params validation). */
 final case class ExpandPipelineShapeRequest(params: JsObject)
 
-/** Wire shape for one [[ShapeStepExpansion]] entry in the `expand` response array — a 1:1 mirror of
- *  `CreatePipelineStepRequest`'s `{type, config}` shape (`kind` here, not `` `type` ``, matching the
- *  domain field name directly since this isn't itself a create request). */
-final case class ShapeStepExpansionResponse(kind: String, config: JsObject)
+/** Wire shape for one [[ShapeStepExpansion]] entry, one element of `ExpandPipelineShapeResponse`'s
+ *  `steps` array (HEL-906 cycle 7, task 3.8: BREAKING envelope change from a bare array to
+ *  `{steps, outputs?}`). `clientId`/`parentStepId` mirror `CreatePipelineTransactionalStepRequest`'s
+ *  own chaining convention EXACTLY -- `clientId` is a synthetic per-response id (`"step-0"`,
+ *  `"step-1"`, ...) assigned in expansion order, and `parentStepId` references the PRIOR entry's
+ *  `clientId` (`None` for the first) -- so a caller can pass this array's `steps` DIRECTLY as
+ *  `POST /api/pipelines`'s (or a future `POST /api/pipelines/:id/steps` batch endpoint's)
+ *  `steps[]` without re-deriving the chain itself. Every `PipelineShape.expand` today produces a
+ *  pure linear chain (no shape branches into multiple tails), so this is always a straight line;
+ *  `parentStepId` still names the mechanism explicitly rather than leaving chain order implicit,
+ *  so a future branching shape has a wire shape ready for it. */
+final case class ShapeStepExpansionResponse(clientId: String, kind: String, config: JsObject, parentStepId: Option[String])
 
 object ShapeStepExpansionResponse {
-  def fromDomain(expansion: ShapeStepExpansion): ShapeStepExpansionResponse =
-    ShapeStepExpansionResponse(kind = expansion.kind, config = expansion.config)
+  /** Assigns synthetic `clientId`s (`"step-0"`, `"step-1"`, ...) in order and chains each entry's
+   *  `parentStepId` to the PRIOR entry's `clientId` -- the whole `Vector` must be converted
+   *  together (not per-element) since each entry needs to know its own index. */
+  def fromDomain(expansions: Vector[ShapeStepExpansion]): Vector[ShapeStepExpansionResponse] =
+    expansions.zipWithIndex.map { case (expansion, idx) =>
+      ShapeStepExpansionResponse(
+        clientId     = s"step-$idx",
+        kind         = expansion.kind,
+        config       = expansion.config,
+        parentStepId = if (idx == 0) None else Some(s"step-${idx - 1}")
+      )
+    }
+}
+
+/** `POST /api/pipeline-shapes/:id/expand` response envelope (HEL-906 cycle 7, task 3.8,
+ *  BREAKING -- was a bare `Vector[ShapeStepExpansionResponse]` array). `outputs` is `None` for
+ *  EVERY shape today -- `PipelineShape.expand`'s domain contract has no output-declaration
+ *  concept yet, so this is forward-compatible wire shape for a future shape that DOES declare
+ *  one, not a currently-populated field. */
+final case class ExpandPipelineShapeResponse(steps: Vector[ShapeStepExpansionResponse], outputs: Option[JsArray] = None)
+
+object ExpandPipelineShapeResponse {
+  def fromDomain(expansions: Vector[ShapeStepExpansion]): ExpandPipelineShapeResponse =
+    ExpandPipelineShapeResponse(steps = ShapeStepExpansionResponse.fromDomain(expansions), outputs = None)
 }
 
 trait PipelineShapeProtocol extends SprayJsonSupport with DefaultJsonProtocol {
@@ -99,5 +129,7 @@ trait PipelineShapeProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val expandPipelineShapeRequestFormat: RootJsonFormat[ExpandPipelineShapeRequest] =
     jsonFormat1(ExpandPipelineShapeRequest.apply)
   implicit val shapeStepExpansionResponseFormat: RootJsonFormat[ShapeStepExpansionResponse] =
-    jsonFormat2(ShapeStepExpansionResponse.apply)
+    jsonFormat4(ShapeStepExpansionResponse.apply)
+  implicit val expandPipelineShapeResponseFormat: RootJsonFormat[ExpandPipelineShapeResponse] =
+    jsonFormat2(ExpandPipelineShapeResponse.apply)
 }

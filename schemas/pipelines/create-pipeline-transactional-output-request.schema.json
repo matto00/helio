@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/create-pipeline-transactional-output-request.schema.json",
+  "title": "CreatePipelineTransactionalOutputRequest",
+  "description": "One Output of the single-call POST /api/pipelines request (HEL-906 task 3.1). `nodeStepClientId` resolves against a `steps[].clientId` in the same request; absent means the pipeline's raw source.",
+  "type": "object",
+  "required": ["kind", "name"],
+  "properties": {
+    "nodeStepClientId": { "type": ["string", "null"] },
+    "kind": {
+      "type": "string",
+      "enum": ["table", "metric", "chart", "collection", "timeline", "markdown"]
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "config": { "type": "object" }
+  },
+  "additionalProperties": false
+}

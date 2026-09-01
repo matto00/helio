@@ -445,18 +445,19 @@ object ExpressionEvaluator {
 
 
   /**
-   * Compute the result type (`"number"` or `"string"`) of `expr` by walking its AST
-   * against a map of field name → type, without evaluating against real row data.
-   * Used by `PipelineAnalyzeService.inferCompute` to derive a compute step's output
-   * field type from the expression itself, instead of trusting the (possibly stale)
-   * wire `type`. Only called after `validate(expr, fieldTypes.keySet)` succeeds.
+   * Compute the result type (`"float"` or `"string"` — HEL-895/638/906 cycle-3: a canonical
+   * `DataFieldType` wire value, not the non-canonical `"number"` this used to emit) of `expr`
+   * by walking its AST against a map of field name -> type, without evaluating against real
+   * row data. Used by `PipelineAnalyzeService.inferCompute` to derive a compute step's output
+   * field type from the expression itself, instead of trusting the (possibly stale) wire
+   * `type`. Only called after `validate(expr, fieldTypes.keySet)` succeeds.
    */
   def inferType(expr: String, fieldTypes: Map[String, String]): Either[String, String] =
     parse(expr).flatMap(ast => inferTypeOf(ast, fieldTypes))
 
   private def inferTypeOf(expr: Expr, fieldTypes: Map[String, String]): Either[String, String] =
     expr match {
-      case NumLit(_) => Right("number")
+      case NumLit(_) => Right("float")
       case StrLit(_) => Right("string")
       case FieldRef(name) =>
         fieldTypes.get(name).toRight(unknownFieldMessage(name, fieldTypes.keySet))
@@ -466,8 +467,8 @@ object ExpressionEvaluator {
           rt <- inferTypeOf(r, fieldTypes)
         } yield {
           if (op == '+' && (lt == "string" || rt == "string")) "string"
-          else if (op == '+') "number"
-          else "number"
+          else if (op == '+') "float"
+          else "float"
         }
       case Call(name, args) =>
         args
@@ -476,7 +477,7 @@ object ExpressionEvaluator {
           }
           .map { _ =>
             name match {
-              case "length" => "number"
+              case "length" => "float"
               case _        => "string" // concat, substring, lower, upper
             }
           }

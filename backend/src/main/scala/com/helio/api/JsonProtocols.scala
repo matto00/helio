@@ -122,3 +122,5 @@ trait JsonProtocols
     with BetaAccessProtocol
     with AuditEventProtocol
     with ConnectorEntityProtocol
+    with OutputProtocol
+    with NodeCapabilitiesProtocol

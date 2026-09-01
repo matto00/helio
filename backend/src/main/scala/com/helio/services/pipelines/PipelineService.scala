@@ -3,20 +3,24 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineStepRequest, DateBucketAnalyzeStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineStepConfigCodec, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
+import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineStepRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, DateBucketAnalyzeStepResponse, DeletePipelineStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineStepConfigCodec, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, PipelineId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift}
-import com.helio.domain.engine.{PipelineAnalyzeService, SchemaField}
+import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}
+import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}
+import com.helio.domain.panels.OutputBindingSpec
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, OutputKind, Pipeline, PipelineId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift}
+import com.helio.domain.engine.{ExpressionEvaluator, PipelineAnalyzeService, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
 import spray.json._
 import spray.json.DefaultJsonProtocol._
+import slick.jdbc.PostgresProfile.api._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -49,7 +53,12 @@ final class PipelineService(
     // same instance SourceService already receives).
     connector: RestApiConnectorDriver = null,
     // HEL-477: nullable-optional wiring mirrors connector above.
-    auditService: AuditService = null
+    auditService: AuditService = null,
+    // HEL-906 task 3.1: nullable-optional wiring mirrors connector/auditService above -- a
+    // fixture that doesn't pass an OutputRepository simply can't exercise `create`'s
+    // `outputs[]` branch (a non-empty `outputs[]` with no OutputRepository wired is an
+    // InternalError, never silently ignored -- see `create`'s doc).
+    outputRepo: OutputRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -77,6 +86,26 @@ final class PipelineService(
       case None          => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
     }
 
+  /** `req.steps`/`req.outputs` absent or empty (the pre-existing shape) is unchanged --
+   *  a single `pipelineRepo.create` call, exactly as before. HEL-906 task 3.1 (single-call
+   *  transactional creation, coordinator ruling D3): when either is non-empty, the pipeline row,
+   *  every step (respecting `parentStepId`, resolved against `clientId`s in `req.steps` -- an
+   *  unresolvable reference fails the whole call), and every Output (respecting
+   *  `nodeStepClientId`, same resolution rule; an invalid `kind`, `DataFieldType.fromString`
+   *  rejection, or a `fieldMapping` slot-name violation all fail the whole call) are built inside
+   *  ONE Slick transaction (`PipelineRepository.runTransactionally`, `DbContext.withUserContext`
+   *  under the hood -- cycle 7's empirical RLS experiment confirmed the composed action runs
+   *  correctly under the RLS-enforced app pool, not just the privileged pool cycle 5-6 used) --
+   *  a genuine `.transactionally` spanning `PipelineRepository.createAction`/
+   *  `PipelineStepRepository.insertInternalAction`/`OutputRepository.insertInternalAction`, not a
+   *  create-then-compensate delete (that was cycle 4's implementation; the coordinator ruled it
+   *  out explicitly once the composed `DBIO` action was confirmed to run correctly as one
+   *  transaction, and it has been deleted, not patched). A validation failure partway
+   *  through is signalled by throwing `PipelineCreateValidationFailure` from inside the composed
+   *  `DBIO` chain (`DBIO.failed`) -- Slick's `.transactionally` rolls back the ENTIRE transaction
+   *  on any failed action in the chain, so a bad step 3 of 5 genuinely leaves zero rows behind,
+   *  not "steps 1-2 committed, then a separate delete." The exception is caught once, after the
+   *  transaction completes, and converted back to the `ServiceError` it carries. */
   def create(req: CreatePipelineRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSummaryResponse]] = {
     if (req.name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name is required")))
@@ -85,12 +114,148 @@ final class PipelineService(
     else RequestValidation.validateTag(req.tag) match {
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(tag) =>
-        pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), user, tag).map {
-          case Right(summary)                       =>
+        if (req.steps.isEmpty && req.outputs.isEmpty)
+          // Pre-existing shape, BYTE-IDENTICAL to before HEL-906 task 3.1 -- untouched.
+          pipelineRepo.create(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), user, tag).map {
+            case Right(summary)                       =>
+              audit("pipeline.create", "pipeline", Some(summary.id), user)
+              Right(toSummaryResponse(summary))
+            case Left(msg) if msg.contains("not found") => Left(ServiceError.NotFound(msg))
+            case Left(msg)                              => Left(ServiceError.BadRequest(msg))
+          }
+        else
+          createTransactional(req, user, tag)
+    }
+  }
+
+  /** The single-call transactional path (`create` above delegates here only when `steps`/
+   *  `outputs` are non-empty). `dataSourceRepo.findByIdOwned` runs OUTSIDE the transaction --
+   *  it's a read-only ACL/existence check, not a write, so it doesn't need to share the write
+   *  transaction's atomicity; `outputRepo`'s nullability is also checked outside the transaction
+   *  (a missing collaborator is a wiring problem, not a rollback-worthy business failure). */
+  private def createTransactional(
+      req: CreatePipelineRequest,
+      user: AuthenticatedUser,
+      tag: Option[String]
+  ): Future[Either[ServiceError, PipelineSummaryResponse]] =
+    if (req.outputs.nonEmpty && outputRepo == null)
+      Future.successful(Left(ServiceError.InternalError("Output creation is unavailable (no OutputRepository configured)")))
+    else
+      dataSourceRepo.findByIdOwned(DataSourceId(req.sourceDataSourceId.trim), user).flatMap {
+        case None =>
+          Future.successful(Left(ServiceError.NotFound("Data source not found")))
+        case Some(dataSource) =>
+          val action: DBIO[PipelineSummary] = for {
+            summary   <- pipelineRepo.createAction(req.name.trim, DataSourceId(req.sourceDataSourceId.trim), dataSource.name, user, tag)
+            stepIdMap <- buildStepsAction(PipelineId(summary.id), req.steps)
+            _         <- buildOutputsAction(PipelineId(summary.id), req.outputs, stepIdMap, user)
+          } yield summary
+
+          pipelineRepo.runTransactionally(user.id.value)(action).map { summary =>
             audit("pipeline.create", "pipeline", Some(summary.id), user)
             Right(toSummaryResponse(summary))
-          case Left(msg) if msg.contains("not found") => Left(ServiceError.NotFound(msg))
-          case Left(msg)                              => Left(ServiceError.BadRequest(msg))
+          }.recover {
+            case PipelineCreateValidationFailure(err) => Left(err)
+            case ex                                    => Left(PipelineService.classifyDbError(ex))
+          }
+      }
+
+  /** Builds `steps` (in array order, resolving `parentStepId` against earlier `clientId`s in
+   *  the SAME request) as one composed `DBIO` chain -- every insert in this chain runs inside
+   *  the caller's single transaction (`createTransactional`). A validation failure (duplicate
+   *  `clientId`, unknown step type, unresolvable `parentStepId`, bad config) is signalled via
+   *  `DBIO.failed(PipelineCreateValidationFailure(...))`, which aborts the WHOLE transaction --
+   *  there is no partial-insert state to clean up because nothing before this point has
+   *  committed yet. Returns the `clientId -> real PipelineStepId` map so `buildOutputsAction`
+   *  can resolve `nodeStepClientId` the same way. */
+  private def buildStepsAction(
+      pipelineId: PipelineId,
+      steps: Vector[CreatePipelineTransactionalStepRequest]
+  ): DBIO[Map[String, PipelineStepId]] =
+    steps.foldLeft(DBIO.successful(Map.empty[String, PipelineStepId]): DBIO[Map[String, PipelineStepId]]) { (accAction, spec) =>
+      accAction.flatMap { clientIdMap =>
+        if (clientIdMap.contains(spec.clientId))
+          DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(s"Duplicate step clientId: ${spec.clientId}")))
+        else if (!PipelineStepKind.All.contains(spec.`type`))
+          DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(
+            s"Invalid step type '${spec.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
+          )))
+        else spec.parentStepId match {
+          case Some(parentClientId) if !clientIdMap.contains(parentClientId) =>
+            DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(
+              s"Step '${spec.clientId}' references unresolvable parentStepId '$parentClientId' -- it must be an earlier step's clientId in this same request"
+            )))
+          case parentClientIdOpt =>
+            PipelineStepConfigCodec.decode(spec.`type`, spec.config.compactPrint) match {
+              case Failure(ex) =>
+                log.warn(s"create (transactional): config decode failed for step type '${spec.`type`}'", ex)
+                DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(s"Invalid '${spec.`type`}' config")))
+              case Success(typedConfig) =>
+                val parentStepId = parentClientIdOpt.map(clientIdMap(_))
+                pipelineStepRepo.insertInternalAction(pipelineId, spec.`type`, typedConfig, spec.enabled.getOrElse(true), parentStepId)
+                  .map(step => clientIdMap + (spec.clientId -> step.id))
+            }
+        }
+      }
+    }
+
+  /** Builds `outputs` (resolving `nodeStepClientId` against `buildStepsAction`'s result map) as
+   *  one composed `DBIO` chain, same "abort the whole transaction on failure" contract as
+   *  `buildStepsAction`. */
+  private def buildOutputsAction(
+      pipelineId: PipelineId,
+      outputs: Vector[CreatePipelineTransactionalOutputRequest],
+      stepIdMap: Map[String, PipelineStepId],
+      user: AuthenticatedUser
+  ): DBIO[Unit] =
+    outputs.foldLeft(DBIO.successful(()): DBIO[Unit]) { (accAction, spec) =>
+      accAction.flatMap { _ =>
+        spec.nodeStepClientId match {
+          case Some(clientId) if !stepIdMap.contains(clientId) =>
+            DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(
+              s"Output '${spec.name}' references unresolvable nodeStepClientId '$clientId' -- it must be a step's clientId in this same request"
+            )))
+          case nodeClientIdOpt =>
+            if (spec.name.trim.isEmpty)
+              DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest("name is required")))
+            else OutputKind.fromString(spec.kind) match {
+              case Left(msg) => DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(msg)))
+              case Right(kind) =>
+                val config = spec.config.getOrElse(JsObject.empty)
+                validateOutputFieldMapping(kind, config) match {
+                  case Left(err) => DBIO.failed(PipelineCreateValidationFailure(err))
+                  case Right(()) =>
+                    outputRepo.insertInternalAction(
+                      pipelineId = pipelineId,
+                      nodeStepId = nodeClientIdOpt.map(stepIdMap(_)),
+                      ownerId    = user.id,
+                      name       = spec.name.trim,
+                      kind       = kind,
+                      config     = config
+                    ).map(_ => ())
+                }
+            }
+        }
+      }
+    }
+
+  /** HEL-892: mirrors `OutputService.validateFieldMapping` exactly (that class's ACL/RLS-facing
+   *  copy operates against a persisted Output; this one runs pre-insert against a
+   *  not-yet-existing one during single-call pipeline creation) -- duplicated rather than
+   *  shared because `OutputService` and `PipelineService` have no common base and pulling one
+   *  into the other's constructor purely for this one validator would be a bigger coupling
+   *  change than the two-method duplication it avoids. */
+  private def validateOutputFieldMapping(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] = {
+    val spec = OutputBindingSpec.All.find(_.outputKind == kind).getOrElse(
+      throw new IllegalStateException(s"PipelineService: no OutputBindingSpec for kind $kind -- OutputBindingSpec.All is missing a case")
+    )
+    config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
+      case None => Right(())
+      case Some(mappingObj) =>
+        val mapping = mappingObj.fields.collect { case (k, JsString(v)) => k -> v }
+        OutputBindingSpec.validateFieldMapping(spec, mapping) match {
+          case Left(msg) => Left(ServiceError.BadRequest(msg))
+          case Right(()) => Right(())
         }
     }
   }
@@ -188,6 +353,100 @@ final class PipelineService(
       case _ =>
         Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
     }
+  }
+
+  /** `GET /api/pipelines/:id/capabilities?stepId=` (HEL-906 task 3.4) — evaluates
+   *  `OutputBindingSpec` against the per-node projection `PipelineAnalyzeService.analyzeNodes`
+   *  (task 3.3) computes for `stepId`, `None` meaning the pipeline's raw source. Sharing-aware
+   *  read (owner/editor/viewer of the pipeline), mirroring `analyze` above. An unresolvable
+   *  `stepId` (absent from the pipeline's own step list, or present but unreached by the tree
+   *  walk) is a 404 naming the id -- never a silent fallback to the source schema. */
+  def capabilitiesAtNode(
+      pipelineId: PipelineId,
+      stepId: Option[PipelineStepId],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, NodeCapabilitiesResponse]] =
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+      case Some(pipeline) =>
+        projectedSchemaAtNode(pipelineId, pipeline, stepId, user).map {
+          case None =>
+            Left(ServiceError.NotFound(s"Unknown stepId: ${stepId.map(_.value).getOrElse("")}"))
+          case Some(schema) =>
+            Right(buildNodeCapabilities(stepId, schema))
+        }
+    }
+
+  /** `POST /api/pipelines/:id/validate-expression?stepId=` (HEL-906 cycle 7): delegates to
+   *  the SAME `ExpressionEvaluator.validate` the `compute` step's own analyze-time hook uses
+   *  (`PipelineAnalyzeService.inferCompute`), against the node's projected schema field names
+   *  -- reuses `capabilitiesAtNode`'s node-resolution machinery (`projectedSchemaAtNode`)
+   *  rather than a second schema-projection codepath. `stepId` absent means the pipeline's
+   *  raw source schema. An unknown `stepId` is a 404, matching `capabilitiesAtNode`'s own
+   *  convention. */
+  def validateExpression(
+      pipelineId: PipelineId,
+      stepId: Option[PipelineStepId],
+      expression: String,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, ExpressionValidationResponse]] =
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+      case Some(pipeline) =>
+        projectedSchemaAtNode(pipelineId, pipeline, stepId, user).map {
+          case None =>
+            Left(ServiceError.NotFound(s"Unknown stepId: ${stepId.map(_.value).getOrElse("")}"))
+          case Some(schema) =>
+            val fieldNames = schema.map(_.name).toSet
+            ExpressionEvaluator.validate(expression, fieldNames) match {
+              case Right(())  => Right(ExpressionValidationResponse(valid = true, error = None))
+              case Left(msg)  => Right(ExpressionValidationResponse(valid = false, error = Some(msg)))
+            }
+        }
+    }
+
+  /** Shared node-schema-projection resolution for `capabilitiesAtNode`/`validateExpression` --
+   *  `None` (outer) means an unknown `stepId`; `Some(sourceSchema)` when `stepId` is absent. */
+  private def projectedSchemaAtNode(
+      pipelineId: PipelineId,
+      pipeline: Pipeline,
+      stepId: Option[PipelineStepId],
+      user: AuthenticatedUser
+  ): Future[Option[Vector[SchemaField]]] =
+    pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
+      dataSourceRepo.findByIdOwned(pipeline.sourceDataSourceId, user).map(_.map(_.inferredSchema).getOrElse(Vector.empty)).map { sourceSchema =>
+        val steps = allSteps.filter(_.enabled)
+        val nodeInputs = steps.map(s =>
+          PipelineAnalyzeService.NodeStepInput(
+            id           = s.id.value,
+            parentStepId = s.parentStepId.map(_.value),
+            position     = s.position,
+            op           = s.kind,
+            config       = PipelineStepConfigCodec.encode(s)
+          )
+        )
+        val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, sourceSchema)
+        stepId match {
+          case None      => Some(sourceSchema)
+          case Some(sid) => projections.get(sid.value).map(_.outputSchema)
+        }
+      }
+    }
+
+  private def buildNodeCapabilities(stepId: Option[PipelineStepId], schema: Vector[SchemaField]): NodeCapabilitiesResponse = {
+    val columns = schema.flatMap(sf => DataFieldType.fromString(sf.`type`).map(t => PanelCapabilityColumnResponse(sf.name, DataFieldType.asString(t), nullable = false)))
+    val capabilities = OutputBindingSpec.All.map { spec =>
+      val result = OutputBindingSpec.evaluate(spec, schema)
+      OutputKind.asString(spec.outputKind) -> PanelCapabilityResponse(
+        bindable        = result.bindable,
+        requiredSlots   = spec.requiredSlots,
+        optionalSlots   = spec.optionalSlots,
+        eligibleColumns = result.eligibleColumns,
+        reason          = result.reason,
+        message         = result.message
+      )
+    }.toMap
+    NodeCapabilitiesResponse(stepId.map(_.value), columns, capabilities)
   }
 
   /** Tolerant-parse of the persisted `last_source_schema` baseline (design
@@ -382,7 +641,11 @@ final class PipelineService(
           case None =>
             Future.successful(Left(ServiceError.BadRequest("inline 'static' source requires a 'config' object")))
           case Some(payload) =>
-            Future.successful(Right((name, payload.columns.map(c => SchemaField(c.name, c.`type`)))))
+            // HEL-906 cycle 4 (evaluation-3.md CR2): `c.type` is caller-supplied inline config
+            // over the wire (analyze-proposal's inline static-source dry-analyze path) --
+            // canonicalize before it becomes part of the projected schema, same as
+            // DataSourceService.createStatic and PipelineAnalyzeService's producers.
+            Future.successful(Right((name, payload.columns.map(c => SchemaField(c.name, DataFieldType.canonicalizeLegacy(c.`type`))))))
         }
       case Some(DataSourceKind.Csv) =>
         Future.successful(Left(ServiceError.BadRequest(
@@ -590,7 +853,26 @@ final class PipelineService(
     // HEL-412: absent `enabled` creates an enabled step (the pre-existing
     // implicit behavior, made explicit).
     val enabled = req.enabled.getOrElse(true)
-    req.position match {
+    req.parentStepId match {
+      case Some(parentStepIdRaw) =>
+        // HEL-906 cycle 7 (task 3.2): an explicit parentStepId takes precedence over
+        // `position` (documented on the request type) -- validate it belongs to THIS
+        // pipeline before splicing, so a caller cannot anchor a new step onto an unrelated
+        // pipeline's step id.
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
+          if (!current.exists(_.id.value == parentStepIdRaw))
+            Future.successful(Left(ServiceError.UnprocessableEntity(
+              s"parentStepId '$parentStepIdRaw' is not a step of this pipeline"
+            )))
+          else
+            pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, Some(PipelineStepId(parentStepIdRaw)), enabled)
+              .map { step =>
+                audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
+                Right(PipelineStepResponse.fromDomain(step))
+              }
+              .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+        }
+      case None => req.position match {
       case None =>
         // HEL-904 cycle-9 fix (round-6 skeptic Finding 1): the no-`position`
         // default must extend the TRUNK, not create a root sibling.
@@ -649,6 +931,7 @@ final class PipelineService(
               .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
           }
         }
+      }
     }
   }
 
@@ -769,7 +1052,7 @@ final class PipelineService(
   }
 
   /** Step delete — requires Editor or Owner. Viewer grantees get 403. */
-  def deleteStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+  def deleteStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, DeletePipelineStepResponse]] =
     pipelineStepRepo.findByIdInternal(stepId).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
@@ -786,15 +1069,14 @@ final class PipelineService(
               case Left(err) => Future.successful(Left(err))
               case Right(_)  =>
                 // Safe: editor/owner access confirmed. Use internal delete.
-                // HEL-904 task 1.6: deleteInternal now returns
-                // Option[Int] (Some(removedTailStepCount) on success, None
-                // if the step didn't exist) rather than Boolean, to carry
-                // splice-on-delete's removed-placement count for a future
-                // caller (P1.3) to surface as a warning. Not consumed here yet.
+                // HEL-904 task 1.6 / HEL-906 cycle 7 (task 3.2): deleteInternal returns
+                // Option[Int] (Some(removedTailStepCount) on success, None if the step
+                // didn't exist) -- now surfaced to the caller as a splice-on-delete report,
+                // instead of being discarded.
                 pipelineStepRepo.deleteInternal(stepId).map {
-                  case Some(_) =>
+                  case Some(removedTailStepCount) =>
                     audit("pipeline.step.delete", "pipeline_step", Some(stepId.value), user)
-                    Right(())
+                    Right(DeletePipelineStepResponse(removedTailStepCount))
                   case None => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
                 }
             }
@@ -943,6 +1225,15 @@ final class PipelineService(
   private def toFieldResponse(sf: SchemaField): SchemaFieldResponse =
     SchemaFieldResponse(sf.name, sf.`type`)
 }
+
+/** Carries a `ServiceError` out of a composed `DBIO` chain via `DBIO.failed` (HEL-906 task 3.1,
+ *  coordinator ruling D3) -- `PipelineService.createTransactional`'s single transaction has no
+ *  other channel for a mid-chain business-validation failure (a bad step config, an unresolvable
+ *  `clientId` reference, an invalid Output kind/`fieldMapping`) to abort the whole transaction
+ *  AND report a specific, typed error back to the caller. Thrown inside `buildStepsAction`/
+ *  `buildOutputsAction`; caught exactly once, in `createTransactional`'s `.recover`, after the
+ *  transaction (already rolled back by Slick at that point) completes. */
+private final case class PipelineCreateValidationFailure(error: ServiceError) extends RuntimeException(error.message)
 
 object PipelineService {
 

@@ -11,7 +11,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.api._
-import com.helio.api.protocols.pipelines.{CastStepResponse, ComputeStepResponse, LookupStepResponse, PipelineStepResponse, RenameStepResponse, SelectStepResponse, UnionStepResponse}
+import com.helio.api.protocols.pipelines.{CastStepResponse, ComputeStepResponse, DeletePipelineStepResponse, LookupStepResponse, PipelineStepResponse, RenameStepResponse, SelectStepResponse, UnionStepResponse}
 import com.helio.api.routes.pipelines.PipelineStepRoutes
 import com.helio.services.pipelines.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -163,6 +163,11 @@ class PipelineStepRoutesSpec
   // of the *Req() helpers above.
   private def reqWithEnabled(base: JsObject, enabled: Boolean): JsObject =
     JsObject(base.fields + ("enabled" -> JsBoolean(enabled)))
+
+  // HEL-906 cycle 7 (task 3.2): merge an explicit `parentStepId` into a request body built
+  // by one of the *Req() helpers above.
+  private def reqWithParentStepId(base: JsObject, parentStepId: String): JsObject =
+    JsObject(base.fields + ("parentStepId" -> JsString(parentStepId)))
 
   // Exact request body the "+ Add transformation step" picker sends on lookup-step
   // creation — frontend/src/features/pipelines/state/stepNarrowing.ts's
@@ -319,7 +324,7 @@ class PipelineStepRoutesSpec
       }
     }
 
-    "DELETE removes a step and returns 204" in {
+    "DELETE removes a step and returns 200 with a splice-on-delete report" in {
       cleanSteps(); val pid = seedPipeline()
       var stepId = ""
       Post(s"/pipelines/$pid/steps", castReq()) ~> routes ~> check {
@@ -327,7 +332,82 @@ class PipelineStepRoutesSpec
         stepId = r.id
         r shouldBe a [CastStepResponse]
       }
-      Delete(s"/pipeline-steps/$stepId") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
+      // HEL-906 cycle 7 (task 3.2): DELETE now returns 200 with a
+      // DeletePipelineStepResponse (splice-on-delete removed-tail-step report) instead of
+      // a bare 204 -- a leaf/trunk step with no children removes nothing beyond itself.
+      Delete(s"/pipeline-steps/$stepId") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[DeletePipelineStepResponse].removedTailStepCount shouldBe 0
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        responseAs[Vector[PipelineStepResponse]] shouldBe empty
+      }
+    }
+
+    "DELETE on a branch point reports the removed-tail-step splice count (HEL-906 task 3.2)" in {
+      import PostgresProfile.api._
+      val pid = seedPipeline()
+      val rootId = seedRootStep(pid, "cast", """{"casts":{}}""", 0)
+      // Two real children of root, seeded directly (the per-step POST route's own
+      // spliceInsertAtInternal semantics can never create a genuine branch -- every insert
+      // there reparents the anchor's EXISTING children onto the new step, so a raw-SQL seed is
+      // the only way to set up an actual branch point for this splice-on-delete assertion).
+      val headChildId = UUID.randomUUID().toString
+      val tailRootId  = UUID.randomUUID().toString
+      val tailChildId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($headChildId, $pid, 0, 'cast', '{"casts":{}}', true, now(), now(), $rootId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($tailRootId, $pid, 1, 'cast', '{"casts":{}}', true, now(), now(), $rootId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($tailChildId, $pid, 0, 'cast', '{"casts":{}}', true, now(), now(), $tailRootId)"""
+      )))
+
+      // Deleting root: headChild (the position-0 child) is promoted onto root's old slot;
+      // tailRoot AND its own child (tailChild) are removed outright -- removedTailStepCount = 2.
+      Delete(s"/pipeline-steps/$rootId") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[DeletePipelineStepResponse].removedTailStepCount shouldBe 2
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        val ids = responseAs[Vector[PipelineStepResponse]].map(_.id)
+        ids should contain(headChildId)
+        ids should not contain tailRootId
+        ids should not contain tailChildId
+      }
+    }
+
+    "POST with an explicit parentStepId splices the new step in directly after the anchor (HEL-906 task 3.2)" in {
+      val pid = seedPipeline()
+      var rootId = ""
+      Post(s"/pipelines/$pid/steps", castReq()) ~> routes ~> check {
+        rootId = responseAs[PipelineStepResponse].id
+      }
+      var childId = ""
+      Post(s"/pipelines/$pid/steps", reqWithParentStepId(castReq(), rootId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        childId = responseAs[PipelineStepResponse].id
+      }
+      // No PipelineStepResponse field carries parentStepId directly -- verify the splice via
+      // real persisted tree order instead, mirroring `stepRepo.listByPipelineInternal`'s own
+      // `trunkOf` contract: root, then the new child, in execution order.
+      import PostgresProfile.api._
+      val persistedParent = await(db.run(
+        sql"SELECT parent_step_id FROM pipeline_steps WHERE id = $childId".as[Option[String]].head
+      ))
+      persistedParent shouldBe Some(rootId)
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps.map(_.id) should contain(childId)
+      }
+    }
+
+    "POST with a parentStepId not belonging to this pipeline returns 422, persisting nothing" in {
+      val pid = seedPipeline()
+      Post(s"/pipelines/$pid/steps", reqWithParentStepId(castReq(), "not-a-real-step-id")) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         responseAs[Vector[PipelineStepResponse]] shouldBe empty
       }
@@ -953,9 +1033,9 @@ class PipelineStepRoutesSpec
       val idE = seedRootStep(pid, "rename", """{"renames":{}}""", 4)
       val idF = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 5)
 
-      Delete(s"/pipeline-steps/$idB") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
-      Delete(s"/pipeline-steps/$idD") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
-      Delete(s"/pipeline-steps/$idE") ~> routes ~> check { status shouldBe StatusCodes.NoContent }
+      Delete(s"/pipeline-steps/$idB") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      Delete(s"/pipeline-steps/$idD") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      Delete(s"/pipeline-steps/$idE") ~> routes ~> check { status shouldBe StatusCodes.OK }
 
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         val steps = responseAs[Vector[PipelineStepResponse]]

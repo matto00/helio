@@ -263,6 +263,29 @@ class PipelineAnalyzeProposalRoutesSpec
       counter.get() shouldBe 0
     }
 
+    "canonicalizes a non-canonical legacy column type (double/long/date) in an inline static source's schema (HEL-906 cycle 4)" in {
+      cleanAll()
+      val proposal = PipelineProposal(
+        pipelineName       = "Static pipeline legacy types",
+        source              = noInlineSource.copy(
+          `type` = Some("static"),
+          name   = Some("Inline Static Legacy"),
+          staticConfig = Some(StaticDataPayload(
+            columns = Vector(StaticColumnPayload("amount", "double"), StaticColumnPayload("id", "long"), StaticColumnPayload("createdAt", "date")),
+            rows    = Vector.empty
+          ))
+        ),
+        outputDataTypeName = "Static Output",
+        steps               = Vector.empty
+      )
+
+      Post("/pipelines/analyze-proposal", proposal) ~> routesWith(countingConnector(new AtomicInteger(0))) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeProposalResponse]
+        resp.sourceSchema.map(f => (f.name, f.`type`)) shouldBe Vector(("amount", "float"), ("id", "integer"), ("createdAt", "timestamp"))
+      }
+    }
+
     "return the inferred schema for an inline sql source whose query is a SELECT (3.4)" in {
       cleanAll()
       val proposal = PipelineProposal(

@@ -36,7 +36,7 @@ import com.helio.services.sources.{ConnectorEntityService, ContentSourceSupport,
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
-import com.helio.services.pipelines.{PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
+import com.helio.services.pipelines.{OutputService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
 import com.helio.services.ratelimit.{InMemoryRateLimiter, RateLimitConfig}
@@ -221,6 +221,15 @@ final class ApiRoutes(
   private val traceContext = new TraceContextDirective()
 
   private val accessChecker     = new AccessCheckerImpl(permissionRepo, registry)
+  // HEL-906: mirrors alertRuleServiceOpt's nullable-optional wiring below —
+  // fixtures that don't pass a DbContext simply don't get
+  // /api/pipelines/:id/outputs or /api/outputs/:id mounted.
+  private val outputServiceOpt: Option[OutputService] =
+    // HEL-906 task 2.5: threads the same `pipelineRunRepo` constructor param ApiRoutes already
+    // takes (nullable, default `null`) -- fixtures that don't pass one simply get
+    // `assertionStatus`'s null-checked `invalid = false` fallback, matching every other
+    // nullable-optional collaborator in this file.
+    outputRepoOpt.map(new OutputService(_, panelRepo, accessChecker, auditService, pipelineRunRepo, nodeSnapshotRepoOpt.orNull))
   // HEL-703: read once, shared by authService (register/login/OAuth tier assignment) and
   // chatAccessServiceOpt (beta daily cap) below — mirrors cookieConfig's fromEnv-once convention.
   private val userTierConfig    = UserTierConfig.fromEnv()
@@ -266,7 +275,7 @@ final class ApiRoutes(
   // HEL-381: threads the same RestApiConnectorDriver instance sourceService already
   // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo
   // above covers every other analyzeProposal branch).
-  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, auditService)
+  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, auditService, outputRepoOpt.orNull)
   // HEL-466: only build the evaluation engine when both privileged repos it
   // needs are present — mirrors alertRuleServiceOpt/alertEventServiceOpt's
   // nullable-optional pattern below. `.orNull` feeds PipelineRunService's
@@ -617,7 +626,7 @@ final class ApiRoutes(
               pathPrefix("auth") { concat(auth.routes, oauth.routes, mfaRoutesOpt.fold(reject: Route)(_.verifyRoute)) },
               authDirectives.optionalAuthenticate { userOpt =>
                 concat(
-                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt).routes,
+                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepoOpt, Option(pipelineRepo)).routes,
                   imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes)
                 )
               },
@@ -715,6 +724,9 @@ final class ApiRoutes(
                   new PipelineShapeRoutes(pipelineShapeService, authenticatedUser).routes,
                   new PipelineRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
+                  // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id` —
+                  // fixtures that don't pass a DbContext simply don't get these mounted.
+                  outputServiceOpt.fold(reject: Route)(svc => new OutputRoutes(svc, authenticatedUser).routes),
                   new PipelineProposalRoutes(pipelineProposalService, authenticatedUser).routes,
                   // HEL-387: brand-new top-level `proposals` prefix (design.md
                   // D6) — shares no path space with any existing route, so

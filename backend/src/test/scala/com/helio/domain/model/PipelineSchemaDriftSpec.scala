@@ -13,7 +13,7 @@ class PipelineSchemaDriftSpec extends AnyWordSpec with Matchers {
 
   private val baseline: Vector[SchemaField] = Vector(
     field("order_id",   "string"),
-    field("amount",     "number"),
+    field("amount",     "float"),
     field("created_at", "string")
   )
 
@@ -28,7 +28,7 @@ class PipelineSchemaDriftSpec extends AnyWordSpec with Matchers {
     }
 
     "report no drift when the current schema matches the baseline but in a different order" in {
-      val reordered = Vector(field("created_at", "string"), field("order_id", "string"), field("amount", "number"))
+      val reordered = Vector(field("created_at", "string"), field("order_id", "string"), field("amount", "float"))
       PipelineSchemaDrift.diff(Some(baseline), reordered) shouldBe None
     }
 
@@ -57,7 +57,7 @@ class PipelineSchemaDriftSpec extends AnyWordSpec with Matchers {
       val result  = PipelineSchemaDrift.diff(Some(baseline), current)
 
       result shouldBe defined
-      result.get.typeChangedColumns shouldBe Vector(TypeChangedColumn("amount", previousType = "number", currentType = "string"))
+      result.get.typeChangedColumns shouldBe Vector(TypeChangedColumn("amount", previousType = "float", currentType = "string"))
       result.get.addedColumns shouldBe empty
       result.get.removedColumns shouldBe empty
     }
@@ -65,7 +65,7 @@ class PipelineSchemaDriftSpec extends AnyWordSpec with Matchers {
     "reports added, removed, and type-changed columns together in one drift" in {
       val current = Vector(
         field("order_id", "string"),      // unchanged
-        field("amount",   "integer"),     // type changed (was "number")
+        field("amount",   "integer"),     // type changed (was "float")
         field("region",   "string")       // added ("created_at" implicitly removed)
       )
       val result = PipelineSchemaDrift.diff(Some(baseline), current)
@@ -73,17 +73,17 @@ class PipelineSchemaDriftSpec extends AnyWordSpec with Matchers {
       result shouldBe defined
       result.get.addedColumns shouldBe Vector(field("region", "string"))
       result.get.removedColumns shouldBe Vector(field("created_at", "string"))
-      result.get.typeChangedColumns shouldBe Vector(TypeChangedColumn("amount", previousType = "number", currentType = "integer"))
+      result.get.typeChangedColumns shouldBe Vector(TypeChangedColumn("amount", previousType = "float", currentType = "integer"))
     }
 
     "collapses duplicate column names to their positionally-last entry on both sides" in {
       val dupBaseline = Vector(field("id", "string"), field("id", "integer"))
-      val dupCurrent  = Vector(field("id", "integer"), field("id", "number"))
+      val dupCurrent  = Vector(field("id", "integer"), field("id", "float"))
 
-      // Last-wins: baseline "id" == "integer", current "id" == "number" -> a type change.
+      // Last-wins: baseline "id" == "integer", current "id" == "float" -> a type change.
       val result = PipelineSchemaDrift.diff(Some(dupBaseline), dupCurrent)
       result shouldBe defined
-      result.get.typeChangedColumns shouldBe Vector(TypeChangedColumn("id", previousType = "integer", currentType = "number"))
+      result.get.typeChangedColumns shouldBe Vector(TypeChangedColumn("id", previousType = "integer", currentType = "float"))
     }
 
     "reports no drift for an empty baseline compared against an empty current schema" in {

@@ -149,8 +149,21 @@ final case class AssertStepResponse(
  *  old MAX(position)+1 whole-pipeline append value); present means the index
  *  is translated to a splice anchor, validated at the service layer as
  *  `0 <= position <= count`. `enabled` (HEL-412) is OPTIONAL and defaults to
- *  `true` (created enabled) when absent. */
-final case class CreatePipelineStepRequest(`type`: String, config: JsObject, position: Option[Int] = None, enabled: Option[Boolean] = None)
+ *  `true` (created enabled) when absent.
+ *
+ *  `parentStepId` (HEL-906 cycle 7, task 3.2) is OPTIONAL: an explicit real persisted step id
+ *  to splice the new step in directly after -- an alternative to `position` that can express
+ *  placements `position` (a whole-pipeline slot index) cannot, most notably branching a NEW
+ *  tail off any existing node. When present, takes precedence over `position` (validated to
+ *  belong to this pipeline at the service layer; an unrelated/nonexistent id is a 422, nothing
+ *  persisted). `None` with `position` also absent keeps the pre-existing trunk-append default. */
+final case class CreatePipelineStepRequest(
+    `type`: String,
+    config: JsObject,
+    position: Option[Int] = None,
+    enabled: Option[Boolean] = None,
+    parentStepId: Option[String] = None
+)
 
 /** PATCH request — `type` is optional. If present and different from the
  *  persisted row's kind, the service returns 400 (cross-type PATCH locked).
@@ -162,6 +175,15 @@ final case class UpdatePipelineStepRequest(`type`: Option[String], config: Optio
  *  pipeline's current step ids (validated at the service layer); on success
  *  every step's `position` is set to its index in `stepIds`. */
 final case class ReorderPipelineStepsRequest(stepIds: Seq[String])
+
+/** `DELETE /api/pipeline-steps/:id` response (HEL-906 cycle 7, task 3.2): the splice-on-delete
+ *  removed-placement count -- `PipelineStepRepository.deleteInternal` already computes this
+ *  (every TAIL descendant of a deleted branch-point step, beyond its promoted head child, is
+ *  itself removed rather than re-parented) but the service previously discarded it. Mirrors
+ *  `DeleteOutputResponse`'s report-what-was-removed convention. `removedTailStepCount = 0` for
+ *  the common case (deleting a trunk step, or a childless tail leaf) -- only a step with
+ *  MULTIPLE children (a branch point) can ever remove more than the target itself. */
+final case class DeletePipelineStepResponse(removedTailStepCount: Int)
 
 object PipelineStepResponse {
   /** Project the domain ADT into the discriminated-union wire response. */
@@ -320,7 +342,8 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       }
   }
 
-  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat4(CreatePipelineStepRequest.apply)
+  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat5(CreatePipelineStepRequest.apply)
   implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat4(UpdatePipelineStepRequest.apply)
   implicit val reorderPipelineStepsRequestFormat: RootJsonFormat[ReorderPipelineStepsRequest] = jsonFormat1(ReorderPipelineStepsRequest.apply)
+  implicit val deletePipelineStepResponseFormat: RootJsonFormat[DeletePipelineStepResponse] = jsonFormat1(DeletePipelineStepResponse.apply)
 }

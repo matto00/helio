@@ -184,17 +184,32 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       config: Any,
       enabled: Boolean = true,
       parentStepId: Option[PipelineStepId] = None
-  ): Future[PipelineStep] = {
+  ): Future[PipelineStep] =
+    ctx.withSystemContext(insertInternalAction(pipelineId, kind, config, enabled, parentStepId).transactionally)
+
+  /** DBIO variant of `insertInternal` above -- extracted (HEL-906 task 3.1, coordinator ruling
+   *  D3) so `PipelineService`'s single-call transactional pipeline-creation path can compose
+   *  this step insert into the SAME database transaction as the pipeline row and every other
+   *  step/Output insert, via `PipelineRepository.runTransactionally`, rather than each insert
+   *  opening and committing its own transaction. Public (not `private`) for that cross-repository
+   *  composition; still only safe to call after the caller's editor-or-owner pipeline access has
+   *  been confirmed, exactly like `insertInternal`. */
+  def insertInternalAction(
+      pipelineId: PipelineId,
+      kind: String,
+      config: Any,
+      enabled: Boolean = true,
+      parentStepId: Option[PipelineStepId] = None
+  ): DBIO[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
-    val action = for {
+    for {
       maxPos   <- siblingsQuery(pipelineId, parentStepId).map(_.position).max.result
       position  = maxPos.map(_ + 1).getOrElse(0)
       id        = UUID.randomUUID().toString
       row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now, parentStepId.map(_.value))
       _        <- stepsTable += row
     } yield rowToDomain(row)
-    ctx.withSystemContext(action.transactionally)
   }
 
   /** ACL-bypassing update. Safe to call only after the caller's editor or

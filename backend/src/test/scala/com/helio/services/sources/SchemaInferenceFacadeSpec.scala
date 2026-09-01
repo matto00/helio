@@ -37,6 +37,12 @@ class SchemaInferenceFacadeSpec extends AnyWordSpec with Matchers {
       labelField.`type` shouldBe "string"
     }
 
+    "canonicalize a non-canonical legacy override dataType (double/long/date) (HEL-906 cycle 4)" in {
+      val overrides = Map("id" -> FieldOverridePayload(name = "id", displayName = "Order ID", dataType = "double"))
+      val fields    = SchemaInferenceFacade.toSchemaFields(schema, overrides)
+      fields.find(_.name == "id").get.`type` shouldBe "float"
+    }
+
     "ignore an override whose field name doesn't match any inferred field (no-op)" in {
       val overrides = Map("nonexistent" -> FieldOverridePayload(name = "nonexistent", displayName = "X", dataType = "boolean"))
       val fields    = SchemaInferenceFacade.toSchemaFields(schema, overrides)

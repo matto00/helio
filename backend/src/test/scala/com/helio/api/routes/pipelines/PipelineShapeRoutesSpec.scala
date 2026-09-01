@@ -3,12 +3,12 @@ package com.helio.api.routes.pipelines
 import com.helio.api.routes.pipelines.PipelineShapeRoutes
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{ErrorResponse, ExpandPipelineShapeRequest, JsonProtocols, PipelineShapeCatalogEntryResponse, ShapeStepExpansionResponse}
+import com.helio.api.{ErrorResponse, ExpandPipelineShapeRequest, ExpandPipelineShapeResponse, JsonProtocols, PipelineShapeCatalogEntryResponse}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.services.pipelines.PipelineShapeService
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import spray.json.{JsArray, JsObject, JsString}
+import spray.json._
 
 import java.util.UUID
 
@@ -63,7 +63,10 @@ class PipelineShapeRoutesSpec extends AnyWordSpec with Matchers with ScalatestRo
 
   "POST /pipeline-shapes/:id/expand" should {
 
-    "return 200 with the expanded steps for a registered shape and valid params (HEL-402)" in {
+    // HEL-906 cycle 7 (task 3.8, BREAKING): the response envelope changed from a bare
+    // `Vector[ShapeStepExpansionResponse]` array to `{steps, outputs?}`. This test was updated
+    // to the new shape, not left asserting the old bare-array response.
+    "return 200 with {steps, outputs} for a registered shape and valid params (HEL-402, HEL-906 task 3.8)" in {
       val params = JsObject(
         "mode"     -> JsString("aggregate"),
         "measures" -> JsArray(
@@ -72,9 +75,52 @@ class PipelineShapeRoutesSpec extends AnyWordSpec with Matchers with ScalatestRo
       )
       Post("/pipeline-shapes/single-row/expand", ExpandPipelineShapeRequest(params)) ~> routes ~> check {
         status shouldBe StatusCodes.OK
-        val expansions = responseAs[Vector[ShapeStepExpansionResponse]]
-        expansions should have size 1
-        expansions.head.kind shouldBe "aggregate"
+        // Raw-JSON assertion FIRST, on the raw parsed JsObject -- not just the unmarshalled case
+        // class. `resp.outputs shouldBe None`/`resp.steps.head.parentStepId shouldBe None` alone
+        // cannot distinguish "key omitted" from "key present as null" (spray-json's default
+        // OptionFormat, with no NullOptions mixed in anywhere in this backend, DROPS a None
+        // field entirely rather than writing `null` -- that ambiguity is exactly how a wrong
+        // "outputs: null"/"parentStepId: null" spec claim slipped through review THREE separate
+        // times). Assert both keys are genuinely ABSENT from the raw object.
+        val rawJson = responseAs[JsObject]
+        rawJson.fields.keySet should contain("steps")
+        rawJson.fields.keySet should not contain "outputs"
+        val rawFirstStep = rawJson.fields("steps").asInstanceOf[JsArray].elements.head.asJsObject
+        rawFirstStep.fields.keySet should not contain "parentStepId"
+
+        val resp = rawJson.convertTo[ExpandPipelineShapeResponse]
+        resp.steps should have size 1
+        resp.steps.head.kind shouldBe "aggregate"
+        // Chaining convention: clientId/parentStepId, mirroring
+        // CreatePipelineTransactionalStepRequest -- the sole step is the chain root.
+        resp.steps.head.clientId shouldBe "step-0"
+        resp.steps.head.parentStepId shouldBe None
+        resp.outputs shouldBe None
+      }
+    }
+
+    "chains multiple expanded steps' clientId/parentStepId in expansion order (HEL-906 task 3.8)" in {
+      // top-n expands to [sort, limit] -- two steps, a real chain to assert against.
+      val params = JsObject(
+        "measure"   -> JsString("amount"),
+        "n"         -> JsNumber(5),
+        "direction" -> JsString("desc")
+      )
+      Post("/pipeline-shapes/top-n/expand", ExpandPipelineShapeRequest(params)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        // Raw-JSON assertion: the FIRST entry's raw object must OMIT `parentStepId` entirely
+        // (not carry it as `null`); the SECOND entry must carry it as a real string.
+        val rawJson = responseAs[JsObject]
+        val rawSteps = rawJson.fields("steps").asInstanceOf[JsArray].elements.map(_.asJsObject)
+        rawSteps.head.fields.keySet should not contain "parentStepId"
+        rawSteps(1).fields("parentStepId") shouldBe JsString("step-0")
+
+        val resp = rawJson.convertTo[ExpandPipelineShapeResponse]
+        resp.steps should have size 2
+        resp.steps(0).clientId shouldBe "step-0"
+        resp.steps(0).parentStepId shouldBe None
+        resp.steps(1).clientId shouldBe "step-1"
+        resp.steps(1).parentStepId shouldBe Some("step-0")
       }
     }
 

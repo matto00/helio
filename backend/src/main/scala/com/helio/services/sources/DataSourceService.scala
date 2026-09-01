@@ -103,6 +103,24 @@ final class DataSourceService(
     else RequestValidation.validateTag(req.tag) match {
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(tag) =>
+      // HEL-906 cycle 5 (coordinator ruling, AC-3 "boundary validation"): every column's
+      // caller-supplied `type` (POST /api/data-sources/static) must resolve to a canonical
+      // DataFieldType or the whole request is rejected with a 400 naming the valid types --
+      // `canonicalizeLegacy` alone (cycle 4) only normalized KNOWN synonyms and silently passed
+      // an unrecognized string (e.g. "banana") straight through, which is exactly the gap this
+      // closes. Collected up front (not per-field .map) so every bad column is named at once.
+      val invalidColumns = req.columns.flatMap { col =>
+        DataFieldType.validateAndCanonicalize(col.`type`) match {
+          case Left(_)  => Some(col.name -> col.`type`)
+          case Right(_) => None
+        }
+      }
+      if (invalidColumns.nonEmpty) {
+        val detail = invalidColumns.map { case (name, badType) => s"'$name': '$badType'" }.mkString(", ")
+        Future.successful(Left(ServiceError.BadRequest(
+          s"Invalid column type(s): $detail. Valid types: ${DataFieldType.CanonicalWireValues.mkString(", ")}"
+        )))
+      } else {
       val now      = Instant.now()
       val sourceId = DataSourceId(UUID.randomUUID().toString)
       val source   = StaticSource(
@@ -118,7 +136,10 @@ final class DataSourceService(
       // update so the engine + Spark submitter (which consume the raw blob)
       // continue to work without further changes.
       val payload = JsObject("columns" -> req.columns.toJson, "rows" -> req.rows.toJson)
-      val fields  = req.columns.map(col => SchemaField(col.name, col.`type`)).toVector
+      // Every column's type was already validated above -- .getOrElse is unreachable in
+      // practice (defensive only, mirrors the validated-above invariant, never masks a bug
+      // since `invalidColumns.nonEmpty` would have short-circuited before this line).
+      val fields  = req.columns.map(col => SchemaField(col.name, DataFieldType.validateAndCanonicalize(col.`type`).getOrElse(col.`type`))).toVector
       dataSourceRepo.insert(source, user).flatMap { _ =>
         dataSourceRepo.updateStaticPayload(sourceId, source.name, payload, now, user).flatMap {
           case None => Future.failed(new RuntimeException("Static source disappeared between insert and update"))
@@ -128,6 +149,7 @@ final class DataSourceService(
               Right(updated.getOrElse(ds))
             }
         }
+      }
       }
     }
 
@@ -164,7 +186,11 @@ final class DataSourceService(
           dataSourceRepo.insert(source, user).flatMap { ds =>
             val fields = schema.fields.map { f =>
               val ov = overridesMap.get(f.name)
-              SchemaField(f.name, ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)))
+              // HEL-906 cycle 4 (evaluation-3.md CR2 sweep, found while enumerating every
+              // `SchemaField(` construction site): `ov.dataType` is a caller-supplied CSV
+              // column-type OVERRIDE (`POST /api/data-sources/csv`'s `overrides[]`) -- the same
+              // unnormalized-passthrough bug class as `createStatic`'s inline columns.
+              SchemaField(f.name, ov.map(o => DataFieldType.canonicalizeLegacy(o.dataType)).getOrElse(DataFieldType.asString(f.dataType)))
             }.toVector
             dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
               audit("data_source.create", Some(ds.id.value), user)
@@ -583,12 +609,31 @@ final class DataSourceService(
     }
 
   private def applyStaticRefresh(source: StaticSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
-    val now     = Instant.now()
-    val payloadJson = JsObject("columns" -> payload.columns.toJson, "rows" -> payload.rows.toJson)
-    val fields = payload.columns.map(col => DataField(col.name, col.name, col.`type`, nullable = true))
-    dataSourceRepo.updateStaticPayload(source.id, source.name, payloadJson, now, user).flatMap {
-      case None     => Future.failed(new RuntimeException("Source disappeared during update"))
-      case Some(ds) => upsertSourceDataType(ds, fields, user, now).map(_ => Right(ds))
+    // HEL-906 cycle 5 (coordinator ruling, AC-3 "boundary validation"): a static refresh
+    // accepts the SAME caller-supplied column-`type` shape `createStatic` does -- found live
+    // (via a 500, not silently) while running this cycle's full test suite after adding
+    // `SchemaField`'s structural guard. Same validation, same 400 contract, for the same reason.
+    val invalidColumns = payload.columns.flatMap { col =>
+      DataFieldType.validateAndCanonicalize(col.`type`) match {
+        case Left(_)  => Some(col.name -> col.`type`)
+        case Right(_) => None
+      }
+    }
+    if (invalidColumns.nonEmpty) {
+      val detail = invalidColumns.map { case (name, badType) => s"'$name': '$badType'" }.mkString(", ")
+      Future.successful(Left(ServiceError.BadRequest(
+        s"Invalid column type(s): $detail. Valid types: ${DataFieldType.CanonicalWireValues.mkString(", ")}"
+      )))
+    } else {
+      val now     = Instant.now()
+      val payloadJson = JsObject("columns" -> payload.columns.toJson, "rows" -> payload.rows.toJson)
+      val fields = payload.columns.map(col =>
+        DataField(col.name, col.name, DataFieldType.validateAndCanonicalize(col.`type`).getOrElse(col.`type`), nullable = true)
+      )
+      dataSourceRepo.updateStaticPayload(source.id, source.name, payloadJson, now, user).flatMap {
+        case None     => Future.failed(new RuntimeException("Source disappeared during update"))
+        case Some(ds) => upsertSourceDataType(ds, fields, user, now).map(_ => Right(ds))
+      }
     }
   }
 

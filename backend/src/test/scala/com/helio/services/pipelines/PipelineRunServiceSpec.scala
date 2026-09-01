@@ -664,7 +664,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val baselineJson = await(pipelineRepo.findLastSourceSchema(pid, dummyUser))
       baselineJson shouldBe defined
       val baseline = baselineJson.get.parseJson.convertTo[Vector[SchemaField]]
-      baseline should contain theSameElementsAs Vector(SchemaField("name", "string"), SchemaField("score", "double"))
+      baseline should contain theSameElementsAs Vector(SchemaField("name", "string"), SchemaField("score", "float"))
     }
 
     "does not persist a schema-drift baseline on a successful dry run" in {
@@ -987,6 +987,164 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(service.previewStep(pid, cId, dummyUser))
       result shouldBe a[Right[_, _]]
       result.toOption.get.rows.size shouldBe 2
+    }
+  }
+
+  "PipelineRunService.previewOutputs (HEL-906 cycle 10, P1.4's preview_outputs(pipelineId, outputId?) dependency)" should {
+
+    "previews a step-bound Output's own node, scoped by outputId rather than stepId" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
+      val output = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "preview-out", OutputKind.Table))
+
+      val result = await(service.previewOutputs(pid, Some(output.id), dummyUser))
+      result shouldBe a[Right[_, _]]
+      val envelope = result.toOption.get
+      envelope.outputs should have size 1
+      envelope.outputs.head.outputId shouldBe output.id.value
+      envelope.outputs.head.preview.rows should not be empty
+    }
+
+    "previews a SOURCE-bound Output (node.stepId = None) as the raw source rows" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "source-preview-out", OutputKind.Table))
+
+      val result = await(service.previewOutputs(pid, Some(output.id), dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.outputs.head.preview.rows should not be empty
+    }
+
+    "404s for an Output that does not exist" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val result = await(service.previewOutputs(pid, Some(OutputId(UUID.randomUUID().toString)), dummyUser))
+      result shouldBe a[Left[_, _]]
+    }
+
+    "404s when the outputId belongs to a DIFFERENT pipeline than the one in the path" in {
+      val dsId1 = seedRestDs(RestSuccessUrl)
+      val pid1  = seedPipeline(dsId1)
+      val dsId2 = seedRestDs(RestSuccessUrl)
+      val pid2  = seedPipeline(dsId2)
+      val outputOnPid2 = await(outputRepo.insertInternal(pid2, None, dummyUser.id, "wrong-pipeline-out", OutputKind.Table))
+
+      val result = await(service.previewOutputs(pid1, Some(outputOnPid2.id), dummyUser))
+      result shouldBe a[Left[_, _]]
+    }
+
+    // AC requirement (evaluation-6.md item 2): the run-state-unchanged assertion must be a
+    // REAL test that would fail if a preview call accidentally mutated run state -- not
+    // assumed. Captures the pipeline's `lastRunStatus`/`lastRunAt` BEFORE the preview call,
+    // asserts they are still None immediately after a real submit populated NON-None values
+    // on a DIFFERENT pipeline (sanity that the assertion mechanism itself can detect a
+    // mutation), then confirms THIS pipeline's own run state is untouched by its preview call.
+    "does not mutate last_run_status/last_run_at (single-Output arm) -- a REAL run on a different pipeline in between proves the assertion mechanism can detect a mutation" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out", OutputKind.Table))
+
+      val before = await(pipelineRepo.findByIdInternal(pid)).get
+      before.lastRunStatus shouldBe None
+      before.lastRunAt shouldBe None
+
+      // Sanity check the assertion mechanism itself: a REAL run on a SEPARATE pipeline DOES
+      // populate lastRunStatus/lastRunAt -- proving this test would catch a preview that
+      // accidentally called the same mutation path.
+      val otherDsId = seedRestDs(RestSuccessUrl)
+      val otherPid  = seedPipeline(otherDsId)
+      await(service.submit(otherPid, isDry = false, dummyUser))
+      val otherAfterRealRun = await(pipelineRepo.findByIdInternal(otherPid)).get
+      otherAfterRealRun.lastRunStatus shouldBe defined
+      otherAfterRealRun.lastRunAt shouldBe defined
+
+      val result = await(service.previewOutputs(pid, Some(output.id), dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      val after = await(pipelineRepo.findByIdInternal(pid)).get
+      after.lastRunStatus shouldBe None
+      after.lastRunAt shouldBe None
+    }
+
+    // ── outputId ABSENT: the all-Outputs arm (HEL-906 cycle 10) ──────────────────────────────
+
+    "with outputId absent, previews EVERY Output on the pipeline in the SAME envelope shape" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
+      val sourceOutput = await(outputRepo.insertInternal(pid, None, dummyUser.id, "src-out", OutputKind.Table))
+      val stepOutput   = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "step-out", OutputKind.Table))
+
+      val result = await(service.previewOutputs(pid, None, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val envelope = result.toOption.get
+      envelope.outputs.map(_.outputId).toSet shouldBe Set(sourceOutput.id.value, stepOutput.id.value)
+      envelope.outputs.foreach(_.preview.rows should not be empty)
+    }
+
+    "with outputId absent, computes each DISTINCT node's preview only ONCE even when multiple Outputs share it" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
+      val outputA = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-a", OutputKind.Table))
+      val outputB = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-b", OutputKind.Table))
+
+      val result = await(service.previewOutputs(pid, None, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val envelope = result.toOption.get
+      envelope.outputs should have size 2
+      val byId = envelope.outputs.map(o => o.outputId -> o.preview).toMap
+      // Both Outputs share the SAME node -- their previews must be identical (proves both were
+      // resolved from the one computed-once result, not two independent, possibly-diverging runs).
+      byId(outputA.id.value).rows shouldBe byId(outputB.id.value).rows
+    }
+
+    "with outputId absent, an empty envelope for a pipeline with no Outputs" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.previewOutputs(pid, None, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.outputs shouldBe empty
+    }
+
+    // Same AC requirement as the single-Output arm above, but for the all-Outputs path -- the
+    // evaluation-explicitly-named risk: "that's exactly where a mutation would be most likely
+    // to slip in given more work happens per call."
+    "does not mutate last_run_status/last_run_at (all-Outputs arm) -- a REAL run on a different pipeline in between proves the assertion mechanism can detect a mutation" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
+      await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out-1", OutputKind.Table))
+      await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "unchanged-out-2", OutputKind.Table))
+
+      val before = await(pipelineRepo.findByIdInternal(pid)).get
+      before.lastRunStatus shouldBe None
+      before.lastRunAt shouldBe None
+
+      val otherDsId = seedRestDs(RestSuccessUrl)
+      val otherPid  = seedPipeline(otherDsId)
+      await(service.submit(otherPid, isDry = false, dummyUser))
+      val otherAfterRealRun = await(pipelineRepo.findByIdInternal(otherPid)).get
+      otherAfterRealRun.lastRunStatus shouldBe defined
+      otherAfterRealRun.lastRunAt shouldBe defined
+
+      val result = await(service.previewOutputs(pid, None, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.outputs should have size 2
+
+      val after = await(pipelineRepo.findByIdInternal(pid)).get
+      after.lastRunStatus shouldBe None
+      after.lastRunAt shouldBe None
+    }
+
+    "with outputId absent, 404s for a pipeline the caller cannot see" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      val result = await(service.previewOutputs(PipelineId(UUID.randomUUID().toString), None, dummyUser))
+      result shouldBe a[Left[_, _]]
+      val _ = pid
     }
   }
 
