@@ -39,6 +39,17 @@
     "dataAsOf": {
       "type": ["string", "null"],
       "description": "ISO-8601 timestamp of the most recent pipeline run that wrote to this panel's bound DataType; null when unbound or never run."
+    },
+    "layout": {
+      "type": ["object", "null"],
+      "description": "Decision-15 server-owned default grid placement (HEL-909) — present only on the `POST /api/panels` response for a newly placed `output` panel; absent/null everywhere else (layout otherwise lives on the dashboard's own `layout` field).",
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
     }
   },
   "additionalProperties": false,

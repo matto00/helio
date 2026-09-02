@@ -8,9 +8,6 @@ import * as assistantConversationsService from "../../features/assistant/service
 import type { AssistantConversationSummary } from "../../features/assistant/types";
 import { authReducer } from "../../features/auth/state/authSlice";
 import type { User, UserTier } from "../../features/auth/types/user";
-import { dataTypesReducer } from "../../features/dataTypes/state/dataTypesSlice";
-import type { DataType } from "../../features/dataTypes/types/dataType";
-import { metricsReducer } from "../../features/metrics/state/metricsSlice";
 import { pipelinesReducer } from "../../features/pipelines/state/pipelinesSlice";
 import * as pipelineService from "../../features/pipelines/services/pipelineService";
 import type { PipelineSummary } from "../../features/pipelines/types/pipelineStep";
@@ -38,20 +35,6 @@ beforeEach(() => {
   listConversationsMock.mockResolvedValue([]);
   updateConversationMock.mockReset();
 });
-
-function buildDataType(overrides: Partial<DataType>): DataType {
-  return {
-    id: "type-1",
-    name: "Documents",
-    sourceId: null,
-    version: 1,
-    fields: [],
-    computedFields: [],
-    createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: "2026-01-01T00:00:00Z",
-    ...overrides,
-  };
-}
 
 function buildPipeline(overrides: Partial<PipelineSummary>): PipelineSummary {
   return {
@@ -89,7 +72,7 @@ function buildUser(tier: UserTier): User {
   };
 }
 
-function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
+function makeStore(options: StoreOptions = {}) {
   const {
     pipelineItems = [],
     pipelineStatus = "idle",
@@ -100,22 +83,14 @@ function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
   return configureStore({
     reducer: {
       auth: authReducer,
-      dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
-      metrics: metricsReducer,
       assistantConversations: assistantConversationsReducer,
     } as never,
     preloadedState: {
       auth: {
         status: "idle" as const,
         currentUser,
-      },
-      dataTypes: {
-        items: dataTypeItems,
-        status: "succeeded" as const,
-        error: null,
-        selectedTypeId: null,
       },
       pipelines: {
         items: pipelineItems,
@@ -125,11 +100,6 @@ function makeStore(dataTypeItems: DataType[], options: StoreOptions = {}) {
         // SidebarBody itself never reads this field, but a test asserting
         // the CTA's effect needs a real starting value, not `undefined`.
         createModalOpen: false,
-      },
-      metrics: {
-        items: [],
-        status: "idle" as const,
-        error: null,
       },
       assistantConversations: {
         items: conversationItems,
@@ -151,8 +121,8 @@ function LocationProbe() {
   return <div data-testid="location-probe">{location.pathname}</div>;
 }
 
-function renderAt(path: string, dataTypeItems: DataType[] = [], options: StoreOptions = {}) {
-  const store = makeStore(dataTypeItems, options);
+function renderAt(path: string, options: StoreOptions = {}) {
+  const store = makeStore(options);
   return {
     store,
     ...render(
@@ -166,99 +136,6 @@ function renderAt(path: string, dataTypeItems: DataType[] = [], options: StoreOp
   };
 }
 
-describe("SidebarBody registry section — unstructured-type badge", () => {
-  it("shows the badge for a DataType with a content field", () => {
-    const contentType = buildDataType({
-      id: "type-content",
-      name: "Support Tickets",
-      fields: [{ name: "body", displayName: "Body", dataType: "string-body", nullable: false }],
-    });
-
-    renderAt("/registry", [contentType]);
-
-    const row = screen.getByText("Support Tickets").closest("li");
-    expect(row?.querySelector(".dashboard-list__badge")).toHaveTextContent("Content");
-  });
-
-  it("shows no badge for a purely structured DataType", () => {
-    const structuredType = buildDataType({
-      id: "type-structured",
-      name: "Sales",
-      fields: [{ name: "amount", displayName: "Amount", dataType: "float", nullable: false }],
-    });
-
-    renderAt("/registry", [structuredType]);
-
-    const row = screen.getByText("Sales").closest("li");
-    expect(row?.querySelector(".dashboard-list__badge")).not.toBeInTheDocument();
-  });
-});
-
-// HEL-548 D4/D4a/task 5.3/5.4 — the registry sidebar's empty state gets a
-// pipeline-create CTA (emptyCta), NOT onAdd — onAdd would ALSO render a
-// persistent "+" in the Data Types header that creates a pipeline, an
-// affordance whose label and result disagree.
-describe("SidebarBody registry section — empty state CTA (HEL-548 D4a)", () => {
-  it("renders no '+' header button for Data Types (emptyCta, not onAdd)", () => {
-    renderAt("/registry", []);
-    expect(
-      screen.queryByRole("button", { name: /add data type|new data type/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("the empty state's CTA opens the pipeline create flow", () => {
-    const { store } = renderAt("/registry", []);
-    expect(store.getState().pipelines.createModalOpen).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
-    expect(store.getState().pipelines.createModalOpen).toBe(true);
-  });
-});
-
-describe("SidebarBody registry section — pipeline provenance subtitle", () => {
-  it("shows 'Pipeline: <name>' under a DataType produced by a loaded pipeline", () => {
-    const dt = buildDataType({ id: "type-1", name: "RevenueRow" });
-    renderAt("/registry", [dt], {
-      pipelineStatus: "succeeded",
-      pipelineItems: [buildPipeline({ outputDataTypeId: "type-1", name: "Revenue ETL" })],
-    });
-
-    const row = screen.getByText("RevenueRow").closest("li");
-    expect(row?.querySelector(".dashboard-list__subtitle")).toHaveTextContent(
-      "Pipeline: Revenue ETL",
-    );
-  });
-
-  it("shows no subtitle when no loaded pipeline matches the DataType", () => {
-    const dt = buildDataType({ id: "type-1", name: "RevenueRow" });
-    renderAt("/registry", [dt], {
-      pipelineStatus: "succeeded",
-      pipelineItems: [buildPipeline({ outputDataTypeId: "type-other", name: "Other ETL" })],
-    });
-
-    const row = screen.getByText("RevenueRow").closest("li");
-    expect(row?.querySelector(".dashboard-list__subtitle")).not.toBeInTheDocument();
-  });
-
-  it("dispatches fetchPipelines once on a cold registry visit (pipelines idle)", async () => {
-    const dt = buildDataType({ id: "type-1", name: "RevenueRow" });
-    renderAt("/registry", [dt], { pipelineStatus: "idle" });
-
-    await waitFor(() => expect(getPipelinesMock).toHaveBeenCalledTimes(1));
-  });
-
-  it("does not refetch pipelines when they are already loaded", async () => {
-    const dt = buildDataType({ id: "type-1", name: "RevenueRow" });
-    renderAt("/registry", [dt], {
-      pipelineStatus: "succeeded",
-      pipelineItems: [buildPipeline({ outputDataTypeId: "type-1" })],
-    });
-
-    // Give any pending effect a chance to run, then assert no fetch fired.
-    await Promise.resolve();
-    expect(getPipelinesMock).not.toHaveBeenCalled();
-  });
-});
-
 describe("SidebarBody — regression check for other sections", () => {
   it("renders the sources sidebar list with no badge markup", () => {
     renderAt("/sources");
@@ -270,12 +147,6 @@ describe("SidebarBody — regression check for other sections", () => {
     renderAt("/pipelines");
     expect(document.querySelector(".dashboard-list__badge")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Data Pipelines" })).toBeInTheDocument();
-  });
-
-  it("renders the metrics sidebar list with no badge markup", () => {
-    renderAt("/metrics");
-    expect(document.querySelector(".dashboard-list__badge")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Metrics" })).toBeInTheDocument();
   });
 
   // F-016: Settings and the proposal/patch-set review routes aren't a list section — this used to
@@ -297,9 +168,11 @@ describe("SidebarBody pipelines section — delete-dependency warning (F-144)", 
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
   }
 
-  it("warns that deleting a pipeline also deletes the data type it produces", () => {
-    const dt = buildDataType({ id: "type-1", name: "RevenueRow" });
-    renderAt("/pipelines", [dt], {
+  // HEL-909: the warning's copy is retired from naming a specific DataType
+  // (the DataType feature is gone) to a generic Output-impact warning, shown
+  // for any known pipeline regardless of `outputDataTypeId`.
+  it("warns that deleting a pipeline may break panels bound to its Outputs", () => {
+    renderAt("/pipelines", {
       pipelineItems: [
         buildPipeline({ id: "pipe-1", name: "Revenue ETL", outputDataTypeId: "type-1" }),
       ],
@@ -309,21 +182,8 @@ describe("SidebarBody pipelines section — delete-dependency warning (F-144)", 
     openDeleteConfirm("Revenue ETL");
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      'Also deletes the "RevenueRow" data type — any panels or metrics using it will stop working.',
+      "Any panels bound to this pipeline's Outputs will stop working.",
     );
-  });
-
-  it("shows no warning for a pipeline with no output data type yet", () => {
-    renderAt("/pipelines", [], {
-      pipelineItems: [
-        buildPipeline({ id: "pipe-2", name: "Draft ETL", outputDataTypeId: undefined }),
-      ],
-      pipelineStatus: "succeeded",
-    });
-
-    openDeleteConfirm("Draft ETL");
-
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 
@@ -345,7 +205,7 @@ function buildConversation(
 // THIS component, not through either of those two.
 describe("SidebarBody chat section — tier gating (HEL-703 cycle 2)", () => {
   it("a free-tier user sees the locked state with a working link to the self-serve request flow, not the raw list/error, and never fetches", async () => {
-    renderAt("/chat", [], { currentUser: buildUser("free") });
+    renderAt("/chat", { currentUser: buildUser("free") });
 
     expect(screen.getByText("Assistant access is limited")).toBeInTheDocument();
     expect(
@@ -379,7 +239,7 @@ describe("SidebarBody chat section — tier gating (HEL-703 cycle 2)", () => {
   });
 
   it("a beta-tier user still sees the normal chat section (list fetch + New chat)", async () => {
-    renderAt("/chat", [], { currentUser: buildUser("beta"), conversationStatus: "idle" });
+    renderAt("/chat", { currentUser: buildUser("beta"), conversationStatus: "idle" });
 
     await waitFor(() => expect(listConversationsMock).toHaveBeenCalledTimes(1));
     expect(screen.queryByText("Assistant access is limited")).not.toBeInTheDocument();
@@ -390,7 +250,7 @@ describe("SidebarBody chat section — tier gating (HEL-703 cycle 2)", () => {
   });
 
   it("an owner-tier user still sees the normal chat section (list fetch + New chat)", async () => {
-    renderAt("/chat", [], { currentUser: buildUser("owner"), conversationStatus: "idle" });
+    renderAt("/chat", { currentUser: buildUser("owner"), conversationStatus: "idle" });
 
     await waitFor(() => expect(listConversationsMock).toHaveBeenCalledTimes(1));
     expect(screen.queryByText("Assistant access is limited")).not.toBeInTheDocument();
@@ -407,7 +267,7 @@ describe("SidebarBody chat section — conversation list (HEL-664)", () => {
       buildConversation({ id: "conv-pinned", title: "Older pinned", pinned: true }),
       buildConversation({ id: "conv-recent", title: "Newer unpinned", pinned: false }),
     ];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     const names = screen.getAllByText(/Older pinned|Newer unpinned/).map((el) => el.textContent);
     expect(names).toEqual(["Older pinned", "Newer unpinned"]);
@@ -418,7 +278,7 @@ describe("SidebarBody chat section — conversation list (HEL-664)", () => {
       buildConversation({ id: "conv-pinned", title: "Pinned one", pinned: true }),
       buildConversation({ id: "conv-plain", title: "Plain one", pinned: false }),
     ];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     const pinnedRow = screen.getByText("Pinned one").closest("li");
     const plainRow = screen.getByText("Plain one").closest("li");
@@ -428,14 +288,14 @@ describe("SidebarBody chat section — conversation list (HEL-664)", () => {
 
   it("renders no delete affordance for conversations (HEL-663 has no delete endpoint)", () => {
     const items = [buildConversation({})];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     expect(screen.queryByRole("button", { name: /actions$/ })).not.toBeInTheDocument();
   });
 
   it('clicking "New chat" sets startingNewConversation even with existing conversations and a selection', () => {
     const items = [buildConversation({ id: "conv-1" })];
-    const { store } = renderAt("/chat", [], {
+    const { store } = renderAt("/chat", {
       conversationItems: items,
       conversationStatus: "succeeded",
     });
@@ -456,7 +316,7 @@ describe("SidebarBody chat section — conversation list (HEL-664)", () => {
       updatedAt: "2026-08-01T00:00:00Z",
     });
     const items = [buildConversation({ pinned: false })];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     // HEL-718: this icon-only row action already had aria-label; this locks
     // in the added visible title tooltip pairing it.
@@ -485,7 +345,7 @@ describe("SidebarBody chat section — conversation list (HEL-664)", () => {
       updatedAt: "2026-08-01T00:00:00Z",
     });
     const items = [buildConversation({ pinned: false })];
-    const { store } = renderAt("/chat", [], {
+    const { store } = renderAt("/chat", {
       conversationItems: items,
       conversationStatus: "succeeded",
     });
@@ -518,7 +378,7 @@ describe("SidebarBody chat section — inline rename (HEL-693)", () => {
       updatedAt: "2026-08-01T00:00:00Z",
     });
     const items = [buildConversation({})];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     const input = openRename();
     fireEvent.change(input, { target: { value: "New title" } });
@@ -532,7 +392,7 @@ describe("SidebarBody chat section — inline rename (HEL-693)", () => {
 
   it("Escape cancels a rename with no PATCH and restores the original title", () => {
     const items = [buildConversation({})];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     const input = openRename();
     fireEvent.change(input, { target: { value: "Changed title" } });
@@ -547,7 +407,7 @@ describe("SidebarBody chat section — inline rename (HEL-693)", () => {
 
   it("a blank-after-trim title commits nothing and marks the input invalid", () => {
     const items = [buildConversation({})];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     const input = openRename();
     fireEvent.change(input, { target: { value: "   " } });
@@ -559,7 +419,7 @@ describe("SidebarBody chat section — inline rename (HEL-693)", () => {
 
   it("committing an unchanged title exits edit mode with no PATCH", () => {
     const items = [buildConversation({})];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     const input = openRename();
     fireEvent.keyDown(input, { key: "Enter" });
@@ -574,7 +434,7 @@ describe("SidebarBody chat section — inline rename (HEL-693)", () => {
   it("a failed rename keeps the row editable and shows a role=alert error", async () => {
     updateConversationMock.mockRejectedValueOnce(new Error("Failed to rename conversation."));
     const items = [buildConversation({})];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     const input = openRename();
     fireEvent.change(input, { target: { value: "New title" } });
@@ -612,7 +472,7 @@ describe("SidebarBody chat section — inline rename (HEL-693)", () => {
         }),
     );
     const items = [buildConversation({})];
-    renderAt("/chat", [], { conversationItems: items, conversationStatus: "succeeded" });
+    renderAt("/chat", { conversationItems: items, conversationStatus: "succeeded" });
 
     const input = openRename();
     fireEvent.change(input, { target: { value: "New title" } });
@@ -630,7 +490,7 @@ describe("SidebarBody chat section — inline rename (HEL-693)", () => {
 
   it("clicking the rename action does not also select the conversation", () => {
     const items = [buildConversation({})];
-    const { store } = renderAt("/chat", [], {
+    const { store } = renderAt("/chat", {
       conversationItems: items,
       conversationStatus: "succeeded",
     });

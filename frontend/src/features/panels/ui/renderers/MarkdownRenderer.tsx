@@ -1,6 +1,5 @@
 import { lazy, Suspense } from "react";
 
-import type { MappedPanelData, MarkdownPanel } from "../../types/panel";
 import { PanelSuspenseFallback } from "../../../../shared/ui/SuspenseFallback";
 
 // HEL-512 — `react-markdown`/`remark-gfm` (see `MarkdownPanel.tsx`) is loaded via a dynamic
@@ -14,15 +13,14 @@ const MarkdownPanelView = lazy(() =>
 );
 
 interface MarkdownRendererProps {
-  panel: MarkdownPanel;
-  /** Bound markdown data, if the panel was fetched against a DataType. */
-  data?: MappedPanelData | null;
+  /** Literal markdown content — a `markdown`-kind panel's own `content`, or
+   *  an output-kind panel's Output-fetched `MarkdownOutputConfig.content`.
+   *  HEL-909 retired the bound/Source mode entirely (design.md's Axis B
+   *  resolution) — this is always the literal path now. */
+  content: string | null;
 }
 
-export function MarkdownRenderer({ panel, data }: MarkdownRendererProps) {
-  // Bound data path takes priority (Source mode); otherwise fall back to the
-  // typed-config `content` field (Static mode). Mirrors `TextRenderer`.
-  const content = (data?.content ?? panel.config.content) || null;
+export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   return (
     <Suspense fallback={<PanelSuspenseFallback />}>
       <MarkdownPanelView content={content} />

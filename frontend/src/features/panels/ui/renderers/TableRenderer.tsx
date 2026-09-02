@@ -1,19 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import "./TableRenderer.css";
 import { DataGrid, Spinner } from "../../../../shared/ui/index";
 import type { ColumnDef } from "../../../../shared/ui/index";
-import type { TableDensity } from "../../types/panel";
-import { useAppDispatch } from "../../../../hooks/reduxHooks";
-import { updatePanelColumnWidths } from "../../state/panelsSlice";
-
-/** Debounce window (ms) between the last column-resize event and the
- *  persisted PATCH — matches the hand-rolled ref+setTimeout debounce idiom
- *  used by `ComputedFieldForm.tsx`. HEL-253. */
-const RESIZE_PERSIST_DEBOUNCE_MS = 400;
 
 interface TableRendererProps {
-  /** Panel id — required to persist column-width resizes. HEL-253. */
+  /** Bound Output id — kept for interface parity with the pre-HEL-909 shape
+   *  (was `panelId`); no longer used to persist column widths, since
+   *  per-panel column-width/density persistence had no Output-config
+   *  equivalent when this kind repointed onto the Output model. */
   panelId: string;
   rawRows?: string[][] | null;
   headers?: string[] | null;
@@ -22,13 +17,8 @@ interface TableRendererProps {
   paginationHasMore?: boolean;
   paginationIsLoadingMore?: boolean;
   onLoadMore?: () => void;
-  /** Persisted column widths loaded from `panel.config.columnWidths`. HEL-253. */
-  columnWidths?: Record<string, number>;
-  /** Persisted row density from `panel.config.density`; absent → DataGrid's
-   *  full-variant default (normal). HEL-255. */
-  density?: TableDensity;
-  /** Persisted visible-column order from `panel.config.columnOrder`; absent or
-   *  empty → all columns in natural order. HEL-255. */
+  /** Visible-column order from the Output's `TableOutputConfig.columnOrder`;
+   *  absent or empty → all columns in natural order. */
   columnOrder?: string[];
 }
 
@@ -59,74 +49,22 @@ function orderedColumns(naturalKeys: string[], columnOrder?: string[]): ColumnDe
   return columnOrder.filter((key) => present.has(key)).map((key) => ({ key }));
 }
 
-/** Content signature of the persisted widths (key-order independent) so the
- *  local width state re-seeds when the stored value actually changes — most
- *  importantly when a Reset clears it — rather than on every fresh object
- *  identity the parent hands down for the same content. HEL-255 design D6. */
-function widthsSignature(widths?: Record<string, number>): string {
-  if (!widths) return "";
-  return Object.keys(widths)
-    .sort()
-    .map((key) => `${key}:${widths[key]}`)
-    .join(",");
-}
-
 export function TableRenderer({
-  panelId,
   rawRows,
   headers,
   paginationRows,
   paginationHasMore,
   paginationIsLoadingMore,
   onLoadMore,
-  columnWidths,
-  density,
   columnOrder,
 }: TableRendererProps) {
-  const dispatch = useAppDispatch();
-  // Local, immediately-responsive width state — seeded from the persisted
-  // config and updated synchronously on every drag tick so resizing feels
-  // instant; the network PATCH is debounced separately below.
-  const [widths, setWidths] = useState<Record<string, number>>(columnWidths ?? {});
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Local-only column widths (no longer persisted — see the file's HEL-909
+  // interface-parity note on `panelId`).
+  const [widths, setWidths] = useState<Record<string, number>>({});
 
-  // Reload local width state from the persisted config when this instance
-  // starts rendering a different panel OR when the persisted widths' *content*
-  // changes (e.g. a Reset clears them) — "adjusting state when a prop changes"
-  // during render (not an effect) per React's guidance. Keying on the content
-  // signature (not object identity) means an unchanged value re-handed down on
-  // an unrelated re-render never clobbers an in-progress drag, while a genuine
-  // external clear re-seeds immediately without a reload. HEL-255 design D6.
-  const persistedSignature = widthsSignature(columnWidths);
-  const [seed, setSeed] = useState({ panelId, signature: persistedSignature });
-  if (seed.panelId !== panelId || seed.signature !== persistedSignature) {
-    setSeed({ panelId, signature: persistedSignature });
-    setWidths(columnWidths ?? {});
-  }
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
-
-  const handleColumnResize = useCallback(
-    (key: string, width: number) => {
-      setWidths((prev) => {
-        const next = { ...prev, [key]: width };
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => {
-          // Dispatch the thunk (not the raw service call) so its fulfilled
-          // reducer syncs the persisted widths back into the stored panel —
-          // otherwise `hasStoredWidths` (and the edit pane's Reset button)
-          // would stay stale until a page reload. HEL-255.
-          void dispatch(updatePanelColumnWidths({ panelId, columnWidths: next }));
-        }, RESIZE_PERSIST_DEBOUNCE_MS);
-        return next;
-      });
-    },
-    [dispatch, panelId],
-  );
+  const handleColumnResize = (key: string, width: number) => {
+    setWidths((prev) => ({ ...prev, [key]: width }));
+  };
 
   // Prefer paginated rows when available (Task 3.7)
   if (paginationRows && paginationRows.length > 0) {
@@ -137,7 +75,6 @@ export function TableRenderer({
           variant="full"
           rows={paginationRows}
           columns={columns}
-          density={density}
           columnWidths={widths}
           onColumnResize={handleColumnResize}
         />
@@ -174,7 +111,6 @@ export function TableRenderer({
           variant="full"
           rows={rows}
           columns={columns}
-          density={density}
           columnWidths={widths}
           onColumnResize={handleColumnResize}
         />

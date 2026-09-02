@@ -1,5 +1,3 @@
-import { Shapes } from "lucide-react";
-
 import { navDestinations } from "./navDestinations";
 
 // Locks the shared source of truth both the desktop sidebar (`App.tsx`) and
@@ -7,15 +5,16 @@ import { navDestinations } from "./navDestinations";
 // surfaces at once, which is the whole point of task 1.2/1.3 (see
 // App.test.tsx's "Main navigation" assertions for the desktop side, and
 // BottomNav.test.tsx for the phone side; both must agree with this list).
+//
+// HEL-909: Data Types (/registry) and Metrics (/metrics) are retired
+// outright — nav collapses from 7 to 5 destinations.
 describe("navDestinations", () => {
-  it("lists the seven top-level sections in sidebar order with matching labels", () => {
+  it("lists the five top-level sections in sidebar order with matching labels", () => {
     expect(navDestinations.map((d) => d.label)).toEqual([
       "Dashboards",
       "Data Sources",
       "Data Pipelines",
       "Connectors",
-      "Data Types",
-      "Metrics",
       "Assistant",
     ]);
   });
@@ -26,8 +25,6 @@ describe("navDestinations", () => {
       "/sources",
       "/pipelines",
       "/connectors",
-      "/registry",
-      "/metrics",
       "/chat",
     ]);
   });
@@ -43,10 +40,5 @@ describe("navDestinations", () => {
   it("gives every destination a distinct Lucide icon component", () => {
     const icons = new Set(navDestinations.map((d) => d.icon));
     expect(icons.size).toBe(navDestinations.length);
-  });
-
-  it("uses Shapes (not BookOpen) for Data Types (HEL-774 D11)", () => {
-    const dataTypes = navDestinations.find((d) => d.to === "/registry");
-    expect(dataTypes?.icon).toBe(Shapes);
   });
 });

@@ -23,6 +23,7 @@ const testSource: DataSource = {
   type: "rest_api",
   createdAt: "2026-03-22T00:00:00Z",
   updatedAt: "2026-03-22T00:00:00Z",
+  inferredSchema: [],
   config: { url: "https://example.com/api" },
 };
 
@@ -73,6 +74,7 @@ describe("sourcesSlice", () => {
       type: "static",
       createdAt: "2026-04-18T00:00:00Z",
       updatedAt: "2026-04-18T00:00:00Z",
+      inferredSchema: [],
     };
     const nextState = sourcesReducer(
       undefined,
@@ -99,6 +101,7 @@ describe("createStaticSource thunk", () => {
       type: "static",
       createdAt: "2026-04-18T00:00:00Z",
       updatedAt: "2026-04-18T00:00:00Z",
+      inferredSchema: [],
     };
     createStaticSourceMock.mockResolvedValueOnce(staticSource);
 

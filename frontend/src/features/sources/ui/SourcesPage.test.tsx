@@ -1,6 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
-import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
 import { fetchSources as fetchSourcesRequest } from "../services/dataSourceService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { SourcesPage } from "./SourcesPage";
@@ -16,13 +15,6 @@ jest.mock("../services/dataSourceService", () => ({
   updateSource: jest.fn(),
 }));
 
-jest.mock("../../dataTypes/services/dataTypeService", () => ({
-  fetchDataTypes: jest.fn(),
-  updateDataType: jest.fn(),
-  deleteDataType: jest.fn(),
-}));
-
-const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 const fetchSourcesMock = jest.mocked(fetchSourcesRequest);
 
 // AddSourceModal uses <dialog> showModal/close, which jsdom doesn't
@@ -38,9 +30,7 @@ beforeEach(() => {
 
 describe("SourcesPage", () => {
   beforeEach(() => {
-    fetchDataTypesMock.mockResolvedValue([]);
     fetchSourcesMock.mockClear();
-    fetchDataTypesMock.mockClear();
   });
 
   it("renders the page shell (heading lives in the top breadcrumb, not in-page)", () => {
@@ -74,6 +64,7 @@ describe("SourcesPage", () => {
             type: "csv" as const,
             createdAt: "2026-05-01T00:00:00Z",
             updatedAt: "2026-05-01T00:00:00Z",
+            inferredSchema: [],
             config: { path: "csv/src-1.csv" },
           },
         ],
@@ -85,37 +76,25 @@ describe("SourcesPage", () => {
     expect(screen.getByText("Sales CSV")).toBeInTheDocument();
   });
 
-  it("dispatches fetchDataTypes on mount to populate the source schema preview", async () => {
-    renderWithStore(<SourcesPage />);
-    await screen.findByText(/Connect a data source/i);
-    // The source detail panel renders its inferred-schema table from the
-    // dataTypes slice, so the page warms the slice on mount.
-    expect(fetchDataTypesMock).toHaveBeenCalled();
-  });
-
+  // HEL-909 vocabulary refresh — "bindable type" (DataType) is retired;
+  // the pipeline step now produces Outputs.
   it("F-011: the empty-state copy names the pipeline step, not a direct source-to-panel binding", async () => {
     renderWithStore(<SourcesPage />);
-    expect(
-      await screen.findByText(/shape into a bindable type with a pipeline/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/shape into Outputs with a pipeline/i)).toBeInTheDocument();
   });
 
-  it("F-072: fetches sources and data types on a cold mount", () => {
+  it("F-072: fetches sources on a cold mount", () => {
     renderWithStore(<SourcesPage />, {
       sources: { items: [], status: "idle" },
-      dataTypes: { items: [], status: "idle" },
     });
     expect(fetchSourcesMock).toHaveBeenCalled();
-    expect(fetchDataTypesMock).toHaveBeenCalled();
   });
 
-  it("F-072: does not re-dispatch fetchSources/fetchDataTypes once already loaded", () => {
+  it("F-072: does not re-dispatch fetchSources once already loaded", () => {
     renderWithStore(<SourcesPage />, {
       sources: { items: [], status: "succeeded" },
-      dataTypes: { items: [], status: "succeeded" },
     });
     expect(fetchSourcesMock).not.toHaveBeenCalled();
-    expect(fetchDataTypesMock).not.toHaveBeenCalled();
   });
 
   // HEL-539 — error state + retry recovery
@@ -123,7 +102,6 @@ describe("SourcesPage", () => {
     fetchSourcesMock.mockRejectedValueOnce(new Error("network error"));
     renderWithStore(<SourcesPage />, {
       sources: { items: [], status: "idle" },
-      dataTypes: { items: [], status: "succeeded" },
     });
 
     const alert = await screen.findByRole("alert");

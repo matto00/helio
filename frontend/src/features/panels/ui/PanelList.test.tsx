@@ -372,239 +372,6 @@ describe("PanelList", () => {
     expect(within(emptyState).getByRole("button", { name: "Add panel" })).toBeInTheDocument();
   });
 
-  it("clicking 'Add panel' in the empty state opens the creation modal", () => {
-    renderWithStore(<PanelList />, {
-      dashboards: {
-        items: [
-          {
-            id: "dashboard-1",
-            name: "Operations",
-            meta: defaultMeta,
-            appearance: defaultDashboardAppearance,
-            layout: defaultDashboardLayout,
-          },
-        ],
-        selectedDashboardId: "dashboard-1",
-      },
-      panels: {
-        items: [],
-        loadedDashboardId: "dashboard-1",
-        status: "succeeded",
-      },
-    });
-
-    const emptyState = screen.getByLabelText("No panels yet");
-    fireEvent.click(within(emptyState).getByRole("button", { name: "Add panel" }));
-
-    expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Chart" })).toBeInTheDocument();
-  });
-
-  // The header's "Add panel" button (and the panel-count pill beside it) were
-  // removed — that bar cost a full row above every dashboard. The trigger now
-  // lives in the command bar; `PanelList`'s own remaining trigger is the empty
-  // state's CTA, covered by the test above.
-  it("opens the creation modal at type-select step when the creation flag is set", () => {
-    renderWithStore(<PanelList />, {
-      dashboards: {
-        items: [
-          {
-            id: "dashboard-1",
-            name: "Operations",
-            meta: defaultMeta,
-            appearance: defaultDashboardAppearance,
-            layout: defaultDashboardLayout,
-          },
-        ],
-        selectedDashboardId: "dashboard-1",
-      },
-      panels: {
-        items: [],
-        loadedDashboardId: "dashboard-1",
-        status: "succeeded",
-        panelCreationModalOpen: true,
-      },
-    });
-
-    // Modal is open at type-select step — no radio buttons, type cards instead
-    expect(screen.queryByRole("radio", { name: "Metric" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Chart" })).toBeInTheDocument();
-  });
-
-  it("selecting metric and submitting calls createPanel with type metric", async () => {
-    createPanelMock.mockResolvedValue({
-      id: "panel-2",
-      dashboardId: "dashboard-1",
-      title: "New Panel",
-      type: "metric" as const,
-      meta: defaultMeta,
-      appearance: defaultPanelAppearance,
-      config: { dataTypeId: "dt-1", fieldMapping: {} },
-    });
-    fetchPanelsMock.mockResolvedValue([]);
-
-    // The "Add panel" trigger now lives in the command bar (CommandBar.tsx),
-    // outside this component — so the modal is opened here through the same
-    // public slice state that button flips, rather than by clicking a control
-    // `PanelList` no longer renders. `PanelList` still OWNS the modal; only
-    // the trigger moved.
-    renderWithStore(<PanelList />, {
-      dashboards: baseDashboardsState,
-      panels: {
-        items: [],
-        loadedDashboardId: "dashboard-1",
-        status: "succeeded",
-        panelCreationModalOpen: true,
-      },
-      ...dataTypeStoreAdditions,
-    });
-
-    // Select metric type, select DataType, enter title, submit
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
-    // Metric is data-bound — navigate through the DataType step
-    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "New Panel" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
-
-    await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith(
-        "dashboard-1",
-        "New Panel",
-        "metric",
-        undefined,
-        "dt-1",
-      ),
-    );
-  });
-
-  it("selecting chart and submitting calls createPanel with type chart", async () => {
-    createPanelMock.mockResolvedValue({
-      id: "panel-2",
-      dashboardId: "dashboard-1",
-      title: "Revenue Chart",
-      type: "chart" as const,
-      meta: defaultMeta,
-      appearance: defaultPanelAppearance,
-      config: { dataTypeId: "dt-1", fieldMapping: {} },
-    });
-    fetchPanelsMock.mockResolvedValue([]);
-
-    renderWithStore(<PanelList />, {
-      dashboards: baseDashboardsState,
-      panels: {
-        items: [],
-        loadedDashboardId: "dashboard-1",
-        status: "succeeded",
-        panelCreationModalOpen: true,
-      },
-      ...dataTypeStoreAdditions,
-    });
-
-    // Modal is opened by the store flag (the trigger lives in the command
-    // bar now); select chart type, select DataType, enter title, submit
-    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
-    // Chart is data-bound — navigate through the DataType step
-    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.change(screen.getByLabelText("Panel title"), {
-      target: { value: "Revenue Chart" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
-
-    await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith(
-        "dashboard-1",
-        "Revenue Chart",
-        "chart",
-        undefined,
-        "dt-1",
-      ),
-    );
-  });
-
-  it("modal resets to type-select step after successful create", async () => {
-    createPanelMock.mockResolvedValue({
-      id: "panel-2",
-      dashboardId: "dashboard-1",
-      title: "Table Panel",
-      type: "table" as const,
-      meta: defaultMeta,
-      appearance: defaultPanelAppearance,
-      config: { dataTypeId: "dt-1", fieldMapping: {} },
-    });
-    fetchPanelsMock.mockResolvedValue([]);
-
-    const { store } = renderWithStore(<PanelList />, {
-      dashboards: baseDashboardsState,
-      panels: {
-        items: [],
-        loadedDashboardId: "dashboard-1",
-        status: "succeeded",
-        panelCreationModalOpen: true,
-      },
-      ...dataTypeStoreAdditions,
-    });
-
-    // Modal is opened by the store flag; select table, navigate DataType
-    // step, create
-    fireEvent.click(screen.getByRole("button", { name: "Table" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
-    // Table is data-bound — navigate through the DataType step
-    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Table Panel" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
-
-    await waitFor(() => expect(createPanelMock).toHaveBeenCalled());
-
-    // Reopen modal — should start at type-select step with no pre-selection.
-    // Dispatched rather than clicked: this is exactly what the command bar's
-    // "Add panel" item does, and it is the only remaining way in now that
-    // `PanelList` renders no trigger of its own in this state.
-    act(() => {
-      store.dispatch(setPanelCreationModalOpen(true));
-    });
-    expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Panel title")).not.toBeInTheDocument();
-  });
-
-  // HEL-548 D5a/task 4.2a/4.2b — a slice flag outlives the component that set
-  // it, unlike the `useState` this replaced. Reachable defect: open the
-  // modal → Cmd/Ctrl+K → navigate away → PanelList unmounts with the flag
-  // still `true` → returning to `/` reopens the modal unbidden (browser Back
-  // hits the same path). Locked by remounting PanelList against the SAME
-  // store (via `rerender`, which reuses `renderWithStore`'s one Provider/
-  // store instance) with the flag preset `true`.
-  describe("panel-creation modal flag reset on unmount (HEL-548 D5a)", () => {
-    it("does not reopen the modal on a fresh mount after a prior instance unmounted with the flag left true", () => {
-      const { rerender } = renderWithStore(<PanelList />, {
-        dashboards: baseDashboardsState,
-        panels: {
-          items: [],
-          loadedDashboardId: "dashboard-1",
-          status: "succeeded",
-          panelCreationModalOpen: true,
-        },
-      });
-
-      // Sanity: the preset flag really does open the modal on first mount —
-      // proves the probe can detect "modal open" at all before trusting a
-      // later "not open" reading.
-      expect(screen.getByRole("button", { name: "Metric" })).toBeInTheDocument();
-
-      // Unmount PanelList (fires its cleanup effect) — the store persists
-      // (same Provider instance) — then mount a FRESH PanelList instance.
-      rerender(<></>);
-      rerender(<PanelList />);
-
-      expect(screen.queryByRole("button", { name: "Metric" })).not.toBeInTheDocument();
-    });
-  });
-
   it("renders panel content inside the dashboard grid foundation", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
@@ -625,7 +392,7 @@ describe("PanelList", () => {
             id: "panel-1",
             dashboardId: "dashboard-1",
             title: "Revenue Pulse",
-            type: "metric" as const,
+            type: "output" as const,
             meta: defaultMeta,
             appearance: defaultPanelAppearance,
           },
@@ -733,7 +500,7 @@ describe("PanelList", () => {
               id: "panel-1",
               dashboardId: "dashboard-1",
               title: "Revenue Pulse",
-              type: "metric" as const,
+              type: "output" as const,
               meta: defaultMeta,
               appearance: defaultPanelAppearance,
             },
@@ -756,7 +523,7 @@ describe("PanelList", () => {
               id: "panel-1",
               dashboardId: "dashboard-1",
               title: "Revenue Pulse",
-              type: "metric" as const,
+              type: "output" as const,
               meta: defaultMeta,
               appearance: defaultPanelAppearance,
             },
@@ -769,80 +536,6 @@ describe("PanelList", () => {
       expect(container.querySelector(".ui-skeleton")).not.toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
     });
-  });
-
-  it("creates a panel via modal and refreshes selected dashboard panels", async () => {
-    createPanelMock.mockResolvedValue({
-      id: "panel-2",
-      dashboardId: "dashboard-1",
-      title: "Forecast",
-      type: "metric" as const,
-      meta: defaultMeta,
-      appearance: defaultPanelAppearance,
-      config: { dataTypeId: "", fieldMapping: {} },
-    });
-    fetchPanelsMock.mockResolvedValue([
-      {
-        id: "panel-1",
-        dashboardId: "dashboard-1",
-        title: "Revenue Pulse",
-        type: "metric" as const,
-        meta: defaultMeta,
-        appearance: defaultPanelAppearance,
-        config: { dataTypeId: "", fieldMapping: {} },
-      },
-      {
-        id: "panel-2",
-        dashboardId: "dashboard-1",
-        title: "Forecast",
-        type: "metric" as const,
-        meta: defaultMeta,
-        appearance: defaultPanelAppearance,
-        config: { dataTypeId: "", fieldMapping: {} },
-      },
-    ]);
-
-    renderWithStore(<PanelList />, {
-      dashboards: baseDashboardsState,
-      panels: {
-        items: [
-          {
-            id: "panel-1",
-            dashboardId: "dashboard-1",
-            title: "Revenue Pulse",
-            type: "metric" as const,
-            meta: defaultMeta,
-            appearance: defaultPanelAppearance,
-          },
-        ],
-        loadedDashboardId: "dashboard-1",
-        status: "succeeded",
-        panelCreationModalOpen: true,
-      },
-      ...dataTypeStoreAdditions,
-    });
-
-    // Modal is opened by the store flag (the trigger lives in the command bar
-    // now); select type, navigate DataType step, enter title, submit
-    fireEvent.click(screen.getByRole("button", { name: "Metric" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start blank" }));
-    // Metric is data-bound — navigate through the DataType step
-    fireEvent.click(screen.getByRole("button", { name: "Revenue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Forecast" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create panel" }));
-
-    await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith(
-        "dashboard-1",
-        "Forecast",
-        "metric",
-        undefined,
-        "dt-1",
-      ),
-    );
-    await waitFor(() => expect(fetchPanelsMock).toHaveBeenCalledWith("dashboard-1"));
-    expect(screen.getByRole("heading", { name: "Forecast" })).toBeInTheDocument();
   });
 
   it("zoom controls appear when a dashboard is selected", () => {
@@ -984,7 +677,7 @@ describe("PanelList", () => {
             id: "panel-1",
             dashboardId: "dashboard-1",
             title: "Revenue Pulse",
-            type: "metric" as const,
+            type: "output" as const,
             meta: defaultMeta,
             appearance: defaultPanelAppearance,
           },
@@ -1076,7 +769,7 @@ describe("PanelList", () => {
             id: "panel-1",
             dashboardId: "dashboard-1",
             title: "Revenue Pulse",
-            type: "metric" as const,
+            type: "output" as const,
             meta: defaultMeta,
             appearance: defaultPanelAppearance,
           },
@@ -1180,7 +873,7 @@ describe("PanelList", () => {
             id: "panel-1",
             dashboardId: "dashboard-1",
             title: "Revenue Pulse",
-            type: "metric" as const,
+            type: "output" as const,
             meta: defaultMeta,
             appearance: defaultPanelAppearance,
           },
@@ -1214,30 +907,5 @@ describe("PanelList", () => {
 
     const afterZoomOut = MockPanelGrid.mock.calls[MockPanelGrid.mock.calls.length - 1][0];
     expect(afterZoomOut.zoomLevel).toBeCloseTo(0.9);
-  });
-
-  it("image option appears in the modal type picker", () => {
-    renderWithStore(<PanelList />, {
-      dashboards: {
-        items: [
-          {
-            id: "dashboard-1",
-            name: "Operations",
-            meta: defaultMeta,
-            appearance: defaultDashboardAppearance,
-            layout: defaultDashboardLayout,
-          },
-        ],
-        selectedDashboardId: "dashboard-1",
-      },
-      panels: {
-        items: [],
-        loadedDashboardId: "dashboard-1",
-        status: "succeeded",
-        panelCreationModalOpen: true,
-      },
-    });
-
-    expect(screen.getByRole("button", { name: "Image" })).toBeInTheDocument();
   });
 });

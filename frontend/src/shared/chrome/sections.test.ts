@@ -1,5 +1,3 @@
-import { Shapes } from "lucide-react";
-
 import { navDestinations } from "./navDestinations";
 import { pickerIdForPathname, sectionForPathname, sectionLabel, sections } from "./sections";
 
@@ -8,6 +6,9 @@ import { pickerIdForPathname, sectionForPathname, sectionLabel, sections } from 
 // its route→label/icon/picker mapping from. These tests lock the registry's
 // own contract; App.test.tsx/SidebarBody.test.tsx/navDestinations.test.ts/
 // BottomNav.test.tsx lock that the consuming surfaces actually read it.
+//
+// HEL-909: Data Types (/registry) and Metrics (/metrics) are retired
+// outright — nav collapses from 7 destinations to 5.
 describe("sections registry", () => {
   const expected: Array<{
     path: string;
@@ -19,8 +20,6 @@ describe("sections registry", () => {
     { path: "/sources", label: "Data Sources", pickerId: "sources", showInNav: true },
     { path: "/pipelines", label: "Data Pipelines", pickerId: "pipelines", showInNav: true },
     { path: "/connectors", label: "Connectors", pickerId: "other", showInNav: true },
-    { path: "/registry", label: "Data Types", pickerId: "registry", showInNav: true },
-    { path: "/metrics", label: "Metrics", pickerId: "metrics", showInNav: true },
     { path: "/chat", label: "Assistant", pickerId: "chat", showInNav: true },
     { path: "/settings", label: "Settings", pickerId: "other", showInNav: false },
     { path: "/proposals/review", label: "Review Proposal", pickerId: "other", showInNav: false },
@@ -39,7 +38,7 @@ describe("sections registry", () => {
     },
   ];
 
-  it("lists all 11 routes with their expected {label, pickerId, showInNav}", () => {
+  it("lists all 9 routes with their expected {label, pickerId, showInNav}", () => {
     expect(
       sections.map((section) => ({
         path: section.path,
@@ -62,25 +61,13 @@ describe("sections registry", () => {
   it("resolves nested detail routes to their parent section's picker/label", () => {
     expect(pickerIdForPathname("/pipelines/pipe-1")).toBe("pipelines");
     expect(sectionLabel("/pipelines/pipe-1")).toBe("Data Pipelines");
-    expect(pickerIdForPathname("/registry/type-1")).toBe("registry");
-    expect(pickerIdForPathname("/metrics/metric-1")).toBe("metrics");
   });
 
-  it("nav-visible entries match the current 7 navDestinations, in order", () => {
+  it("nav-visible entries match the current 5 navDestinations, in order", () => {
     const navVisible = sections.filter((section) => section.showInNav);
     expect(navVisible.map((section) => section.path)).toEqual(navDestinations.map((d) => d.to));
     expect(navVisible.map((section) => section.label)).toEqual(navDestinations.map((d) => d.label));
-    expect(navVisible).toHaveLength(7);
-  });
-
-  // HEL-774 D11: dropping BottomNav's visible labels makes the glyph the
-  // sole carrier of meaning for the phone tab bar; BookOpen (documentation/
-  // library) reads as a dead end for a type registry without a label beside
-  // it, so Data Types moved to Shapes. Locked at the registry level since
-  // both the desktop sidebar and BottomNav derive from this one entry.
-  it("uses Shapes (not BookOpen) for the Data Types entry", () => {
-    const dataTypes = sections.find((section) => section.path === "/registry");
-    expect(dataTypes?.icon).toBe(Shapes);
+    expect(navVisible).toHaveLength(5);
   });
 
   // The direct fix for the "review routes had no section" bug (PR #382) — these three used to all
@@ -112,8 +99,18 @@ describe("sections registry", () => {
 
   it("/ matches only the exact root path, not every other route (end: true)", () => {
     expect(pickerIdForPathname("/")).toBe("dashboards");
-    for (const path of ["/sources", "/pipelines", "/registry", "/metrics", "/chat", "/settings"]) {
+    for (const path of ["/sources", "/pipelines", "/chat", "/settings"]) {
       expect(pickerIdForPathname(path)).not.toBe("dashboards");
     }
+  });
+
+  // HEL-909: the retired routes must not resolve to a stale section — they
+  // fall through to the "other"/"Dashboards" catch-all, just like any other
+  // unregistered path (no stub, no redirect — decision 11).
+  it("no longer resolves /registry or /metrics to a real section", () => {
+    expect(sections.some((section) => section.path === "/registry")).toBe(false);
+    expect(sections.some((section) => section.path === "/metrics")).toBe(false);
+    expect(pickerIdForPathname("/registry")).toBe("other");
+    expect(pickerIdForPathname("/metrics")).toBe("other");
   });
 });

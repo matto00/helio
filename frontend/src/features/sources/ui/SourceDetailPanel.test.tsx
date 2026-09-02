@@ -1,6 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
-import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
 import {
   fetchCsvPreview as fetchCsvPreviewRequest,
   refreshSource as refreshSourceRequest,
@@ -10,7 +9,6 @@ import {
 import { renderWithStore } from "../../../test/renderWithStore";
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import type { DataSource } from "../types/dataSource";
-import type { DataType } from "../../dataTypes/types/dataType";
 
 jest.mock("../services/dataSourceService", () => ({
   fetchCsvPreview: jest.fn(),
@@ -20,25 +18,27 @@ jest.mock("../services/dataSourceService", () => ({
   updateSource: jest.fn(),
 }));
 
-jest.mock("../../dataTypes/services/dataTypeService", () => ({
-  fetchDataTypes: jest.fn(),
-  updateDataType: jest.fn(),
-  deleteDataType: jest.fn(),
-}));
-
 const refreshSourceMock = jest.mocked(refreshSourceRequest);
-const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 const fetchCsvPreviewMock = jest.mocked(fetchCsvPreviewRequest);
 const deleteSourceMock = jest.mocked(deleteSourceRequest);
 const updateSourceMock = jest.mocked(updateSourceRequest);
 
-const csvSource: DataSource = {
+const csvSourceNoSchema: DataSource = {
   id: "src-1",
   name: "Sales CSV",
   type: "csv",
   createdAt: "2026-05-01T00:00:00Z",
   updatedAt: "2026-05-01T00:00:00Z",
   config: { path: "csv/src-1.csv" },
+  inferredSchema: [],
+};
+
+const csvSource: DataSource = {
+  ...csvSourceNoSchema,
+  inferredSchema: [
+    { name: "id", displayName: "ID", dataType: "integer", nullable: false },
+    { name: "amount", displayName: "Amount", dataType: "float", nullable: true },
+  ],
 };
 
 // HEL-539 (D5a) — `sql` is one of the 4 DataSourceKind values whose preview
@@ -59,36 +59,19 @@ const sqlSource: DataSource = {
     password: "secret",
     query: "select 1",
   },
-};
-
-const linkedType: DataType = {
-  id: "dt-1",
-  sourceId: "src-1",
-  name: "Sales CSV",
-  fields: [
-    { name: "id", displayName: "ID", dataType: "integer", nullable: false },
-    { name: "amount", displayName: "Amount", dataType: "float", nullable: true },
-  ],
-  computedFields: [],
-  version: 1,
-  createdAt: "2026-05-01T00:00:00Z",
-  updatedAt: "2026-05-01T00:00:00Z",
+  inferredSchema: [],
 };
 
 describe("SourceDetailPanel", () => {
   beforeEach(() => {
     refreshSourceMock.mockReset();
-    fetchDataTypesMock.mockReset();
-    fetchDataTypesMock.mockResolvedValue([]);
     deleteSourceMock.mockReset();
     deleteSourceMock.mockResolvedValue(undefined);
     updateSourceMock.mockReset();
   });
 
-  it("renders the schema table when a linked DataType has fields", () => {
-    renderWithStore(<SourceDetailPanel source={csvSource} />, {
-      dataTypes: { items: [linkedType] },
-    });
+  it("renders the schema table when the source has an inferred schema", () => {
+    renderWithStore(<SourceDetailPanel source={csvSource} />);
     expect(screen.getByRole("region", { name: /inferred schema/i })).toBeInTheDocument();
     expect(screen.getByText("id")).toBeInTheDocument();
     expect(screen.getByText("amount")).toBeInTheDocument();
@@ -96,9 +79,7 @@ describe("SourceDetailPanel", () => {
 
   it("renders its preview DataGrid at condensed density (preview variant default)", async () => {
     fetchCsvPreviewMock.mockResolvedValue({ headers: ["id"], rows: [["1"]] });
-    const { container } = renderWithStore(<SourceDetailPanel source={csvSource} />, {
-      dataTypes: { items: [linkedType] },
-    });
+    const { container } = renderWithStore(<SourceDetailPanel source={csvSource} />);
 
     fireEvent.click(screen.getByRole("button", { name: /preview/i }));
 
@@ -110,9 +91,7 @@ describe("SourceDetailPanel", () => {
   describe("preview skeleton (HEL-528)", () => {
     it("shows a shape-matched preview skeleton on the initial load, not the 'Click Preview' hint", () => {
       fetchCsvPreviewMock.mockReturnValue(new Promise(() => {})); // never resolves
-      const { container } = renderWithStore(<SourceDetailPanel source={csvSource} />, {
-        dataTypes: { items: [linkedType] },
-      });
+      const { container } = renderWithStore(<SourceDetailPanel source={csvSource} />);
 
       fireEvent.click(screen.getByRole("button", { name: /preview/i }));
 
@@ -123,9 +102,7 @@ describe("SourceDetailPanel", () => {
 
     it("keeps the resolved DataGrid rendered during a Reload — does not replace it with the skeleton", async () => {
       fetchCsvPreviewMock.mockResolvedValueOnce({ headers: ["id"], rows: [["1"]] });
-      const { container } = renderWithStore(<SourceDetailPanel source={csvSource} />, {
-        dataTypes: { items: [linkedType] },
-      });
+      const { container } = renderWithStore(<SourceDetailPanel source={csvSource} />);
 
       fireEvent.click(screen.getByRole("button", { name: /preview/i }));
       await waitFor(() => expect(screen.getByText("1")).toBeInTheDocument());
@@ -139,27 +116,22 @@ describe("SourceDetailPanel", () => {
     });
   });
 
-  it("renders the empty-schema affordance when no linked DataType exists", () => {
-    renderWithStore(<SourceDetailPanel source={csvSource} />, {
-      dataTypes: { items: [] },
-    });
+  it("renders the empty-schema affordance when the source has no inferred schema", () => {
+    renderWithStore(<SourceDetailPanel source={csvSourceNoSchema} />);
     expect(screen.getByRole("region", { name: /schema not available/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /refresh source/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /delete and re-upload/i })).toBeInTheDocument();
   });
 
-  it("calls refreshSource and re-fetches dataTypes when Refresh source is clicked", async () => {
-    refreshSourceMock.mockResolvedValue(linkedType);
-    renderWithStore(<SourceDetailPanel source={csvSource} />, {
-      dataTypes: { items: [] },
-    });
+  it("calls refreshSource and re-fetches sources when Refresh source is clicked", async () => {
+    refreshSourceMock.mockResolvedValue(csvSource);
+    renderWithStore(<SourceDetailPanel source={csvSourceNoSchema} />);
 
     fireEvent.click(screen.getByRole("button", { name: /refresh source/i }));
 
     await waitFor(() => {
       expect(refreshSourceMock).toHaveBeenCalledWith("src-1", "csv");
     });
-    expect(fetchDataTypesMock).toHaveBeenCalled();
   });
 
   it("shows the backend's actionable error message when refresh fails with an axios 400", async () => {
@@ -171,9 +143,7 @@ describe("SourceDetailPanel", () => {
       },
     });
     refreshSourceMock.mockRejectedValue(axiosError);
-    renderWithStore(<SourceDetailPanel source={csvSource} />, {
-      dataTypes: { items: [] },
-    });
+    renderWithStore(<SourceDetailPanel source={csvSourceNoSchema} />);
 
     fireEvent.click(screen.getByRole("button", { name: /refresh source/i }));
 
@@ -182,9 +152,7 @@ describe("SourceDetailPanel", () => {
 
   it("falls back to a generic message when the error is not an axios error", async () => {
     refreshSourceMock.mockRejectedValue(new Error("network down"));
-    renderWithStore(<SourceDetailPanel source={csvSource} />, {
-      dataTypes: { items: [] },
-    });
+    renderWithStore(<SourceDetailPanel source={csvSourceNoSchema} />);
 
     fireEvent.click(screen.getByRole("button", { name: /refresh source/i }));
 
@@ -192,17 +160,13 @@ describe("SourceDetailPanel", () => {
   });
 
   it("F-179: the truncated source name carries a title attribute with the full name", () => {
-    renderWithStore(<SourceDetailPanel source={csvSource} />, {
-      dataTypes: { items: [linkedType] },
-    });
+    renderWithStore(<SourceDetailPanel source={csvSource} />);
     expect(screen.getByText("Sales CSV")).toHaveAttribute("title", "Sales CSV");
   });
 
   describe("delete confirmation (F-012)", () => {
     it("requires confirmation before deleting — no single-click delete", () => {
-      renderWithStore(<SourceDetailPanel source={csvSource} />, {
-        dataTypes: { items: [] },
-      });
+      renderWithStore(<SourceDetailPanel source={csvSourceNoSchema} />);
 
       fireEvent.click(screen.getByRole("button", { name: /delete and re-upload/i }));
 
@@ -214,9 +178,7 @@ describe("SourceDetailPanel", () => {
     });
 
     it("Cancel backs out without deleting", () => {
-      renderWithStore(<SourceDetailPanel source={csvSource} />, {
-        dataTypes: { items: [] },
-      });
+      renderWithStore(<SourceDetailPanel source={csvSourceNoSchema} />);
 
       fireEvent.click(screen.getByRole("button", { name: /delete and re-upload/i }));
       fireEvent.click(screen.getByRole("button", { name: /cancel delete/i }));
@@ -229,9 +191,7 @@ describe("SourceDetailPanel", () => {
   describe("inline rename (F-070)", () => {
     it("commits a rename via updateSource on Enter", async () => {
       updateSourceMock.mockResolvedValue({ ...csvSource, name: "Renamed Sales CSV" });
-      renderWithStore(<SourceDetailPanel source={csvSource} />, {
-        dataTypes: { items: [linkedType] },
-      });
+      renderWithStore(<SourceDetailPanel source={csvSource} />);
 
       fireEvent.click(screen.getByRole("button", { name: /rename sales csv/i }));
       const input = screen.getByRole("textbox", { name: /rename sales csv/i });
@@ -244,9 +204,7 @@ describe("SourceDetailPanel", () => {
     });
 
     it("Escape cancels without saving", () => {
-      renderWithStore(<SourceDetailPanel source={csvSource} />, {
-        dataTypes: { items: [linkedType] },
-      });
+      renderWithStore(<SourceDetailPanel source={csvSource} />);
 
       fireEvent.click(screen.getByRole("button", { name: /rename sales csv/i }));
       const input = screen.getByRole("textbox", { name: /rename sales csv/i });
@@ -264,9 +222,7 @@ describe("SourceDetailPanel", () => {
   describe("preview error/unsupported split (D5a)", () => {
     it("selecting an unsupported-preview source (sql) and clicking Preview renders the capability message with no Retry action", async () => {
       fetchCsvPreviewMock.mockClear();
-      renderWithStore(<SourceDetailPanel source={sqlSource} />, {
-        dataTypes: { items: [] },
-      });
+      renderWithStore(<SourceDetailPanel source={sqlSource} />);
 
       fireEvent.click(screen.getByRole("button", { name: /preview/i }));
 
@@ -281,9 +237,7 @@ describe("SourceDetailPanel", () => {
     it("a real fetch failure on a preview-capable source (csv) renders previewError with a working Retry", async () => {
       fetchCsvPreviewMock.mockReset();
       fetchCsvPreviewMock.mockRejectedValueOnce(new Error("network down"));
-      renderWithStore(<SourceDetailPanel source={csvSource} />, {
-        dataTypes: { items: [linkedType] },
-      });
+      renderWithStore(<SourceDetailPanel source={csvSource} />);
 
       fireEvent.click(screen.getByRole("button", { name: /preview/i }));
 

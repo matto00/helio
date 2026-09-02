@@ -279,7 +279,7 @@ describe("PanelList <-> OnboardingChecklist integration (HEL-554)", () => {
         },
         panels: {
           items: [
-            { id: "panel-1", dashboardId: "dash-1", title: "Revenue", type: "metric" as const },
+            { id: "panel-1", dashboardId: "dash-1", title: "Revenue", type: "output" as const },
           ],
           loadedDashboardId: "dash-1",
           status: "succeeded",

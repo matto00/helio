@@ -1,4 +1,4 @@
-// Per-thunk reducer + thunk sub-suites — matches `metricsSlice.test.ts`'s
+// Per-thunk reducer + thunk sub-suites — matches other feature slices' test
 // structure.
 
 import {

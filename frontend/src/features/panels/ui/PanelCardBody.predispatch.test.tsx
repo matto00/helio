@@ -1,9 +1,7 @@
 // HEL-528 design.md D13 — locks the panel body's pre-dispatch frame at the
 // COMPONENT level, driven through `PanelCardBody`/`usePanelData` (the grid
-// path, task 3.2b's exact defect: `PanelCard.tsx`'s now-deleted `tableIsLoading`
-// re-derived the loading flag with `paginationEntry != null`, so a table panel
-// alone still fell through to `TableRenderer`'s ghost table) and through
-// `PanelDetailModal` (which uses the same hook with no override at all).
+// path) and through `PanelDetailModal` (which uses the same hook with no
+// override at all).
 //
 // A normal `render()`/`act()` call flushes the mount effect's dispatch
 // synchronously, and `fetchPanelPage.pending` populates `paginationState`
@@ -14,29 +12,33 @@
 // wrapped reducer below runs the real `panelsReducer` for everything (item
 // lookup, etc. all behave normally) but pins `paginationState` at its seeded
 // empty value regardless of what's dispatched, faithfully holding the
-// component in the state D13/3.2b care about.
+// component in the state D13 cares about.
+//
+// HEL-909: an output-kind panel's renderer choice now ALSO depends on
+// `useOutputMeta`'s own `GET /api/outputs/:id` fetch — `getOutputById` is
+// mocked to a never-resolving promise here so the body stays on its
+// kind-agnostic loading skeleton for the whole test, mirroring the frozen
+// pagination state's intent.
 
 import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
 import { render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 
-import { fetchDataTypeRows } from "../../dataTypes/services/dataTypeService";
-import { makeMetricPanel, makeTablePanel } from "../../../test/panelFixtures";
+import { makeOutputPanel } from "../../../test/panelFixtures";
 import { ThemeProvider } from "../../../theme/ThemeProvider";
 import { panelsReducer } from "../state/panelsSlice";
 import { PanelCardBody } from "./PanelCard";
 import { PanelDetailModal } from "./detailModal/PanelDetailModal";
 import type { Panel } from "../types/panel";
 
-jest.mock("../../dataTypes/services/dataTypeService", () => ({
-  fetchDataTypeRows: jest.fn(),
+jest.mock("../../pipelines/services/outputService", () => ({
+  getOutputById: jest.fn(() => new Promise(() => {})),
+  getAssertionStatus: jest.fn(() => new Promise(() => {})),
 }));
 
 jest.mock("../hooks/usePanelPolling", () => ({
   usePanelPolling: jest.fn(),
 }));
-
-const mockFetchDataTypeRows = jest.mocked(fetchDataTypeRows);
 
 function makeFrozenPaginationStore(panel: Panel) {
   const seed = panelsReducer(undefined, { type: "@@INIT" });
@@ -60,30 +62,14 @@ function renderCardBody(panel: Panel) {
   );
 }
 
-beforeEach(() => {
-  mockFetchDataTypeRows.mockResolvedValue({ rows: [{ revenue: "1000" }], rowCount: 1 });
-});
-
-describe("PanelCardBody — pre-dispatch frame (design.md D13/3.2b)", () => {
-  it("a bound metric panel shows the skeleton, not '--'/'No data', before its fetch is dispatched", () => {
-    const panel = makeMetricPanel({
-      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue" } },
-    });
+describe("PanelCardBody — pre-dispatch frame (design.md D13)", () => {
+  it("a bound output panel shows the skeleton, not '--'/'No data', before its fetch is dispatched", () => {
+    const panel = makeOutputPanel();
     const { container } = renderCardBody(panel);
 
     expect(container.querySelector(".panel-body-skeleton")).toBeInTheDocument();
     expect(screen.queryByText("--")).not.toBeInTheDocument();
     expect(screen.queryByText("No data available")).not.toBeInTheDocument();
-  });
-
-  it("a bound table panel shows the skeleton, not TableRenderer's ghost table, before its fetch is dispatched", () => {
-    const panel = makeTablePanel({
-      config: { dataTypeId: "dt-1", fieldMapping: {} },
-    });
-    const { container } = renderCardBody(panel);
-
-    expect(container.querySelector(".panel-body-skeleton")).toBeInTheDocument();
-    expect(container.querySelector("table")).not.toBeInTheDocument();
   });
 });
 
@@ -97,10 +83,8 @@ describe("PanelDetailModal — pre-dispatch frame (design.md D13)", () => {
     });
   });
 
-  it("inherits the same skeleton-before-dispatch behaviour for a bound metric panel", () => {
-    const panel = makeMetricPanel({
-      config: { dataTypeId: "dt-1", fieldMapping: { value: "revenue" } },
-    });
+  it("inherits the same skeleton-before-dispatch behaviour for a bound output panel", () => {
+    const panel = makeOutputPanel();
     const store = makeFrozenPaginationStore(panel);
     const { container } = render(
       <Provider store={store}>

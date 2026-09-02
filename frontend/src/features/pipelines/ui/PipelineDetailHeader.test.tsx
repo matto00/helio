@@ -14,6 +14,7 @@ const sqlSource: DataSource = {
   type: "sql",
   createdAt: "",
   updatedAt: "",
+  inferredSchema: [],
   config: {
     dialect: "postgresql",
     host: "h",

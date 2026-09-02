@@ -64,6 +64,7 @@ import {
 import {
   ChartKindFields,
   MarkdownKindFields,
+  METRIC_FORMAT_OPTIONS,
   MetricKindFields,
   SimpleMappingFields,
   TableKindFields,
@@ -209,6 +210,7 @@ export function OutputEditorSheet({
     metricConfig.fieldMapping.unit ?? "",
     metricConfig.unit ?? "",
   );
+  const [metricFormat, setMetricFormat] = useState<string>(metricConfig.format ?? "number");
 
   // Markdown
   const markdownContentState = useBoundOrLiteralState(
@@ -222,6 +224,9 @@ export function OutputEditorSheet({
     collectionConfig.fieldMapping,
   );
   const [timelineFieldMapping, setTimelineFieldMapping] = useState(timelineConfig.fieldMapping);
+  const [collectionFormat, setCollectionFormat] = useState<string>(
+    collectionConfig.format ?? "number",
+  );
 
   const fieldOptions = columnOptions(capabilities);
   const aggFieldOptions = aggColumnOptions(capabilities);
@@ -260,8 +265,10 @@ export function OutputEditorSheet({
       metricAggFn,
       metricLabelState,
       metricUnitState,
+      metricFormat,
       markdownContentState,
       collectionFieldMapping,
+      collectionFormat,
       timelineFieldMapping,
     });
   }
@@ -346,6 +353,7 @@ export function OutputEditorSheet({
         metricAggFn,
         metricLabelState,
         metricUnitState,
+        metricFormat,
       },
       capabilities,
     );
@@ -502,23 +510,38 @@ export function OutputEditorSheet({
           onReduceChange={setMetricAggFn}
           labelState={metricLabelState}
           unitState={metricUnitState}
+          formatValue={metricFormat}
+          onFormatChange={setMetricFormat}
         />
       )}
       {kind === "markdown" && (
         <MarkdownKindFields fieldOptions={fieldOptions} contentState={markdownContentState} />
       )}
       {kind === "collection" && (
-        <SimpleMappingFields
-          title="Item fields"
-          slots={[
-            { key: "value", label: "Value" },
-            { key: "label", label: "Label" },
-            { key: "unit", label: "Unit" },
-          ]}
-          fieldMapping={collectionFieldMapping}
-          onFieldChange={(k, v) => setCollectionFieldMapping((prev) => ({ ...prev, [k]: v }))}
-          fieldOptions={fieldOptions}
-        />
+        <>
+          <SimpleMappingFields
+            title="Item fields"
+            slots={[
+              { key: "value", label: "Value" },
+              { key: "label", label: "Label" },
+              { key: "unit", label: "Unit" },
+            ]}
+            fieldMapping={collectionFieldMapping}
+            onFieldChange={(k, v) => setCollectionFieldMapping((prev) => ({ ...prev, [k]: v }))}
+            fieldOptions={fieldOptions}
+          />
+          <div className="output-editor-sheet__data-section">
+            <label className="output-editor-sheet__data-label" htmlFor="output-collection-format">
+              Format
+            </label>
+            <Select
+              ariaLabel="Format"
+              value={collectionFormat}
+              onChange={setCollectionFormat}
+              options={METRIC_FORMAT_OPTIONS}
+            />
+          </div>
+        </>
       )}
       {kind === "timeline" && (
         <SimpleMappingFields
@@ -554,6 +577,7 @@ export function OutputEditorSheet({
           metricLabelState.mode === "literal" ? metricLabelState.literalValue : undefined
         }
         metricUnit={metricUnitState.mode === "literal" ? metricUnitState.literalValue : undefined}
+        metricFormat={metricFormat}
         markdownContent={
           markdownContentState.mode === "literal" ? markdownContentState.literalValue : undefined
         }

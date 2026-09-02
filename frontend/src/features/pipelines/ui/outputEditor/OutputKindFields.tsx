@@ -159,6 +159,13 @@ export function TableKindFields({
   );
 }
 
+export const METRIC_FORMAT_OPTIONS: SelectOption[] = [
+  { value: "number", label: "Number" },
+  { value: "integer", label: "Integer" },
+  { value: "currency", label: "Currency ($)" },
+  { value: "percent", label: "Percent (%)" },
+];
+
 interface MetricKindFieldsProps {
   fieldOptions: SelectOption[];
   fieldValue: string;
@@ -167,6 +174,10 @@ interface MetricKindFieldsProps {
   onReduceChange: (v: string) => void;
   labelState: BoundOrLiteralState;
   unitState: BoundOrLiteralState;
+  /** HEL-876 — numeric display style; `"number"` matches the pre-HEL-876
+   *  default rendering. */
+  formatValue: string;
+  onFormatChange: (v: string) => void;
 }
 
 export function MetricKindFields({
@@ -177,6 +188,8 @@ export function MetricKindFields({
   onReduceChange,
   labelState,
   unitState,
+  formatValue,
+  onFormatChange,
 }: MetricKindFieldsProps) {
   return (
     <>
@@ -187,6 +200,17 @@ export function MetricKindFields({
         reduceValue={reduceValue}
         onReduceChange={onReduceChange}
       />
+      <div className="output-editor-sheet__data-section">
+        <label className="output-editor-sheet__data-label" htmlFor="output-metric-format">
+          Format
+        </label>
+        <Select
+          ariaLabel="Format"
+          value={formatValue}
+          onChange={onFormatChange}
+          options={METRIC_FORMAT_OPTIONS}
+        />
+      </div>
       <div className="output-editor-sheet__data-section">
         <span className="output-editor-sheet__data-label">Label &amp; Unit</span>
         <BoundOrLiteralField

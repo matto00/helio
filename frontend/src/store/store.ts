@@ -4,10 +4,8 @@ import { assistantConversationsReducer } from "../features/assistant/state/assis
 import { auditEventsReducer } from "../features/audit/state/auditEventsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
-import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
-import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { patchSetsReducer } from "../features/patchSets/state/patchSetsSlice";
@@ -33,8 +31,6 @@ export const store = configureStore({
     layoutHistory: layoutHistoryReducer,
     onboarding: onboardingReducer,
     panels: panelsReducer,
-    dataTypes: dataTypesReducer,
-    metrics: metricsReducer,
     patchSets: patchSetsReducer,
     pipelines: pipelinesReducer,
     outputs: outputsReducer,

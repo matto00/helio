@@ -12,6 +12,7 @@ import {
   allOnboardingStepsComplete,
   deriveCollectionStepStatus,
   derivePanelStepStatus,
+  derivePlacementStepStatus,
 } from "../state/onboardingSteps";
 import { readStoredDismissed, writeStoredDismissed } from "../state/onboardingStorage";
 
@@ -28,7 +29,7 @@ export interface OnboardingHostResult {
  *  effect the onboarding surface needs: hydrating/persisting the per-user
  *  dismissal, the sticky auto-activation effect, the sources/pipelines fetch
  *  trigger the host route doesn't already cover, and recording the
- *  all-four-complete dismissal. */
+ *  all-three-complete dismissal. */
 export function useOnboardingHost(): OnboardingHostResult {
   const dispatch = useAppDispatch();
   const currentUserId = useAppSelector((state) => state.auth.currentUser?.id ?? null);
@@ -90,24 +91,25 @@ export function useOnboardingHost(): OnboardingHostResult {
     }
   }, [visible, sources.status, pipelines.status, dispatch]);
 
-  // D10/task 1.12 — reaching all four steps records the dismissal (so a
+  // D10/task 1.12 — reaching all three steps records the dismissal (so a
   // later load doesn't auto-activate) but leaves `active` untouched, so the
   // ticked chain stays on screen instead of vanishing the instant its own
   // completion becomes true. Gated on `visible` too: a returning user who
-  // already has all four resources and never opened the checklist at all
+  // already has all three resources and never opened the checklist at all
   // must not have a dismissal silently recorded on their behalf — the
   // recording is a consequence of the checklist actually being shown, not a
   // background sweep over every account's data.
   useEffect(() => {
     if (!visible || dismissed !== false) return;
+    const dashboardStatus = deriveCollectionStepStatus(dashboards.status, dashboards.items.length);
+    const panelStatus = derivePanelStepStatus({
+      selectedDashboardId: dashboards.selectedDashboardId,
+      panels,
+    });
     const steps = {
       source: deriveCollectionStepStatus(sources.status, sources.items.length),
       pipeline: deriveCollectionStepStatus(pipelines.status, pipelines.items.length),
-      dashboard: deriveCollectionStepStatus(dashboards.status, dashboards.items.length),
-      panel: derivePanelStepStatus({
-        selectedDashboardId: dashboards.selectedDashboardId,
-        panels,
-      }),
+      placement: derivePlacementStepStatus(dashboardStatus, panelStatus),
     };
     if (allOnboardingStepsComplete(steps)) {
       dispatch(recordOnboardingComplete());

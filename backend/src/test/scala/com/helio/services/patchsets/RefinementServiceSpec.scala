@@ -146,7 +146,7 @@ class RefinementServiceSpec
 
   private def createPanelFor(dashboardId: DashboardId, owner: AuthenticatedUser, title: String = "Original title"): Panel =
     await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("divider"), None), owner)) match {
-      case Right(p) => p
+      case Right((p, _)) => p
       case Left(e)  => fail(s"createPanelFor failed: $e")
     }
 

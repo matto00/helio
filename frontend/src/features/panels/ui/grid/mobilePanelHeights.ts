@@ -27,22 +27,14 @@ export interface MobilePanelHeightPolicy {
 //    (see files-modified.md's device test plan). Nothing outside this file
 //    needs to change to retune sizing. ──────────────────────────────────────
 
-/** metric: content-sized, ~104–132px; `h` is ignored entirely (W4.3). */
-const METRIC_HEIGHT_PX = 120;
-
-/** chart: aspect-driven `clamp(200, w × 0.62, 340)`, modulated by `h`. */
-const CHART_MIN_HEIGHT_PX = 200;
-const CHART_MAX_HEIGHT_PX = 340;
-const CHART_WIDTH_ASPECT_RATIO = 0.62;
-const CHART_COMPACT_H = 4;
-const CHART_TALL_H = 8;
-/** How far the compact/tall ends pull away from the width-driven aspect
- *  height. At phone content widths (~344–358px) the aspect height is only
- *  ~213–222px — well under CHART_MAX_HEIGHT_PX — so in practice `h` nudges
- *  within a narrower band than the full [200,340] range. If device feedback
- *  wants `h` to matter more, widen these factors first. */
-const CHART_H_COMPACT_FACTOR = 0.85;
-const CHART_H_TALL_FACTOR = 1.15;
+// HEL-909: the per-kind metric/chart height math (aspect-ratio-driven chart
+// sizing, fixed metric height) was retired along with the bound-trio panel
+// kinds — an `output` placement's rendered content kind is not visible to
+// this function today (see `computeMobilePanelHeight`'s doc comment). The
+// constants and `computeChartHeight` helper that implemented it are removed
+// wholesale rather than left as dead code; recover them from git history
+// (this file, pre-HEL-909) if/when output-kind-aware sizing is threaded
+// through.
 
 // table: capped at `min(60dvh, intrinsic)` — applied in MobilePanelStack.css
 // (`.mobile-panel-stack__item--table .panel-content--table`), not here;
@@ -69,51 +61,35 @@ export function resolveStackContentWidth(containerWidth: number): number {
   return Math.max(0, containerWidth - STACK_ITEM_CHROME_PX);
 }
 
-function computeChartHeight(h: number, w: number): number {
-  const aspectHeight = clampNumber(
-    w * CHART_WIDTH_ASPECT_RATIO,
-    CHART_MIN_HEIGHT_PX,
-    CHART_MAX_HEIGHT_PX,
-  );
-  const t = clampNumber((h - CHART_COMPACT_H) / (CHART_TALL_H - CHART_COMPACT_H), 0, 1);
-  const factor = CHART_H_COMPACT_FACTOR + t * (CHART_H_TALL_FACTOR - CHART_H_COMPACT_FACTOR);
-  return Math.round(clampNumber(aspectHeight * factor, CHART_MIN_HEIGHT_PX, CHART_MAX_HEIGHT_PX));
-}
-
 /** Maps a panel's kind, stored `h`, and resolved content width to the phone
  *  stack's height policy (W4.3). `w` is the panel's *content* width, not the
  *  raw grid-container width — callers resolve it via
- *  `resolveStackContentWidth` first. */
+ *  `resolveStackContentWidth` first.
+ *
+ *  HEL-909: a placement is one of 5 kinds now (output/text/markdown/image/
+ *  divider); an `output` panel's *rendered* content (metric/chart/table/
+ *  collection/timeline/markdown) is a property of the fetched Output, not
+ *  the placement, and is not available to this pure function today. Until a
+ *  follow-up threads the resolved Output kind through, `output` gets the
+ *  same "capped, internally-scrolling" treatment `table` had — the safest
+ *  default for content whose intrinsic height can be arbitrarily large. See
+ *  files-modified.md's punch list for the deferred output-kind-aware
+ *  refinement. */
 export function computeMobilePanelHeight(
   kind: PanelKind,
   h: number,
   w: number,
 ): MobilePanelHeightPolicy {
   switch (kind) {
-    case "metric":
-      return { height: METRIC_HEIGHT_PX, scrollsInternally: false };
-    case "chart":
-      return { height: computeChartHeight(h, w), scrollsInternally: false };
-    case "table":
-      // Capped via CSS (`min(60dvh, intrinsic)`); the only stack kind with an
-      // internal scroller.
+    case "output":
+      // Capped via CSS (`min(60dvh, intrinsic)`); the sole stack kind with an
+      // internal scroller until output-kind-aware sizing lands. `h`/`w` are
+      // unused for this kind today (see doc comment above).
       return { height: null, scrollsInternally: true };
     case "markdown":
     case "text":
     case "image":
     case "divider":
-      return { height: null, scrollsInternally: false };
-    case "collection":
-      // HEL-247 (D5) — a collection is tile content like metric/markdown, NOT a
-      // table: it sizes to its intrinsic content and the item grid wraps to the
-      // stack's content width (via the renderer's auto-fill minmax). Explicitly
-      // intrinsic with no internal scroller — deliberately NOT the "only table
-      // gets a nested scroller" bucket, and never a silent fall-through default.
-      return { height: null, scrollsInternally: false };
-    case "timeline":
-      // HEL-317 — a timeline is intrinsic list content like collection: it
-      // sizes to its content (the vertical event list) and never gets a
-      // nested scroller in the phone stack.
       return { height: null, scrollsInternally: false };
   }
 }

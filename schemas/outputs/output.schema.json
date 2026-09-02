@@ -32,7 +32,12 @@
       "items": { "$ref": "output-schema-field.schema.json" }
     },
     "createdAt": { "type": "string" },
-    "updatedAt": { "type": "string" }
+    "updatedAt": { "type": "string" },
+    "panelCount": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Number of panels currently bound to this Output (HEL-909 CR2). Populated on `GET /api/outputs` (list) responses only, to avoid an N+1 `GET /api/outputs/:id/panels` fetch per card in the Output picker; `null`/absent on the single-resource endpoints (`GET/PATCH /api/outputs/:id`), which don't compute it."
+    }
   },
   "additionalProperties": false
 }

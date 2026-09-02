@@ -1,19 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchPanelPage } from "../state/panelsSlice";
-import {
-  getChartAggregation,
-  getDataTypeId,
-  getFieldMapping,
-  getMetricAggregation,
-  getMetricLiteral,
-} from "../state/panelNarrowing";
+import { getOutputId } from "../state/panelNarrowing";
 import type { MappedPanelData, Panel } from "../types/panel";
-import {
-  computeAggregate,
-  groupAndAggregate,
-  type GroupedAggregate,
-} from "../../../utils/aggregate";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
 
@@ -26,45 +15,22 @@ export interface PanelDataResult {
   /** Classification of `error` — `null` when there is no error. */
   errorKind: RequestErrorKind | null;
   noData: boolean;
-  /** HEL-292: precomputed groupBy aggregate for a chart panel with an
-   *  `aggregation` spec — `null` when the panel has none. Computed over the
-   *  typed `rows` (real `null`/`undefined` intact), NOT `rawRows`. */
-  chartAggregate: GroupedAggregate | null;
+  /** Retained for renderer-compatibility during the HEL-909 migration; the
+   *  Output itself now owns any groupBy aggregation, so this is always
+   *  `null`. */
+  chartAggregate: null;
   /** Reset the fetch-deduplication key and trigger a fresh data fetch. */
   refresh: () => void;
 }
 
+/** Fetches rows for an output-kind panel's bound Output
+ *  (`GET /api/outputs/:id/rows`). Non-output panels never fetch. */
 export function usePanelData(panel: Panel): PanelDataResult {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
 
-  // CS2c-3c — read binding through narrowing helpers so the cache key composes
-  // from the bound-trio subtypes' typed config rather than a flat `panel.typeId`.
-  // HEL-242 root-cause hypothesis points here; preserve current behavior (cache
-  // key shape unchanged: `panelId|typeId|fieldMappingKey`).
-  const typeId = getDataTypeId(panel);
-  const mapping = getFieldMapping(panel);
-  const fieldMappingKey = mapping ? JSON.stringify(mapping) : null;
-
-  // HEL-292 — a viz-level aggregation spec changes how much of the row set
-  // usePanelData needs in memory (see pageSize below), so it must be part of
-  // the fetch-dedupe key: toggling/editing the spec re-fetches at the right
-  // page size instead of silently reusing a smaller cached page.
-  const metricAggregation = getMetricAggregation(panel);
-  const chartAggregationSpec = getChartAggregation(panel);
-  // HEL-293 — literal label/unit override, read directly off panel.config
-  // (not part of the fetch-dedupe key: it doesn't affect which rows are
-  // fetched, only how the resolved data is displayed).
-  const metricLiteral = getMetricLiteral(panel);
-  const aggregationKey = metricAggregation
-    ? JSON.stringify(metricAggregation)
-    : chartAggregationSpec
-      ? JSON.stringify(chartAggregationSpec)
-      : null;
-
-  const currentFetchKey = typeId
-    ? panel.id + "|" + typeId + "|" + (fieldMappingKey ?? "") + "|" + (aggregationKey ?? "")
-    : null;
+  const outputId = getOutputId(panel);
+  const currentFetchKey = outputId ? panel.id + "|" + outputId : null;
 
   const prevFetchKey = useRef<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -74,13 +40,6 @@ export function usePanelData(panel: Panel): PanelDataResult {
     kind: RequestErrorKind;
   } | null>(null);
 
-  /**
-   * Reset the fetch-deduplication key and trigger a re-render so the data
-   * useEffect bypasses its guard and re-fetches on the next tick. Also
-   * eagerly clears any stored error for this panel so a Retry action never
-   * continues to render the prior failure while the new fetch is in flight
-   * (D6).
-   */
   const refresh = useCallback(() => {
     prevFetchKey.current = null;
     setErrorForKey(null);
@@ -88,46 +47,20 @@ export function usePanelData(panel: Panel): PanelDataResult {
   }, []);
 
   useEffect(() => {
-    if (!currentFetchKey) {
+    if (!currentFetchKey || !outputId) {
       return;
     }
 
-    // HEL-242 — bypass the dedupe early-return when `paginationEntry == null`.
-    // A null entry means either the panel has never been fetched OR a stale-
-    // invalidation action (e.g. `markDataTypeRowsStale` dispatched after a
-    // pipeline-run success) just cleared it; both cases require a fresh fetch.
     if (prevFetchKey.current === currentFetchKey && paginationEntry != null) {
       return;
     }
     prevFetchKey.current = currentFetchKey;
 
-    // HEL-292 — an aggregation spec needs the FULL row set in memory (the
-    // aggregate is computed over all bound rows, not a page of them), so
-    // request a page size covering the whole set instead of the
-    // metric/chart default.
-    const pageSize = aggregationKey
-      ? Number.MAX_SAFE_INTEGER
-      : panel.type === "chart"
-        ? 200
-        : panel.type === "table"
-          ? 50
-          : // HEL-247 (skeptic CR2) — a collection renders one item per row, so
-            // it needs table-parity page size (50), NOT the silent 10-row `else`
-            // bucket, which would cap a "one metric per region" collection.
-            // HEL-317 — a timeline is the same shape (one entry per row), so it
-            // gets the same table-parity page size.
-            panel.type === "collection" || panel.type === "timeline"
-            ? 50
-            : 10;
     const keyAtDispatch = currentFetchKey;
 
-    void dispatch(fetchPanelPage({ panelId: panel.id, page: 0, pageSize }))
+    void dispatch(fetchPanelPage({ panelId: panel.id, outputId, page: 0, pageSize: 200 }))
       .unwrap()
       .then(() => {
-        // D6 — a fetch can fulfill via a background refetch (e.g.
-        // `markDataTypeRowsStale` after a pipeline run completes) that never
-        // goes through `refresh()`'s eager clear above, so the success path
-        // itself must also clear a prior stored error for this key.
         setErrorForKey((prev) => (prev?.key === keyAtDispatch ? null : prev));
       })
       .catch((err: { message?: string; kind?: RequestErrorKind } | undefined) => {
@@ -137,31 +70,15 @@ export function usePanelData(panel: Panel): PanelDataResult {
           kind: err?.kind ?? "error",
         });
       });
-  }, [
-    currentFetchKey,
-    panel.id,
-    panel.type,
-    dispatch,
-    refreshToken,
-    paginationEntry,
-    aggregationKey,
-  ]);
+  }, [currentFetchKey, outputId, panel.id, dispatch, refreshToken, paginationEntry]);
 
-  // Derive rows unconditionally so the useMemo hooks below (1.1–1.3) are always called.
-  // Wrapped in useMemo so the ?? [] fallback doesn't produce a new empty-array
-  // reference on every render (which would defeat the downstream memos).
-  // paginationEntry is from useAppSelector: Immer returns the same reference
-  // when nothing changed, so this memo hits reliably during drag.
   const rows = useMemo(() => paginationEntry?.rows ?? [], [paginationEntry]);
 
-  // 1.1 — Memoize headers keyed on the rows array reference.  Redux only returns a new
-  // array when rows actually change, so this memo hits reliably across re-renders.
   const headers = useMemo(
     () => (rows.length > 0 ? Object.keys(rows[0]).map(String) : null),
     [rows],
   );
 
-  // 1.2 — Memoize rawRows keyed on the rows array reference.
   const rawRows = useMemo(
     () =>
       rows.length > 0
@@ -171,55 +88,6 @@ export function usePanelData(panel: Panel): PanelDataResult {
         : null,
     [rows],
   );
-
-  // 1.3 — Memoize data (field-mapped first-row object) keyed on rows + fieldMappingKey.
-  // fieldMappingKey is a stable JSON string; parsing it inside the memo avoids a
-  // dependency on the mapping object reference (which may be recreated each render).
-  // HEL-292 — when a metric aggregation spec is set, the `value` slot is overridden
-  // with `computeAggregate` over ALL rows instead of `rows[0]`; label/unit/trend are
-  // unaffected and continue to read fieldMapping off the first row.
-  // HEL-292 (cycle-3 fix) — design.md Decision 3 makes `metricAggregation`
-  // independent of `fieldMapping`: a metric panel may have an aggregation
-  // spec with no field-mapping slots set at all (`fieldMapping === {}`,
-  // `fieldMappingKey === null`). The guard must not bail out to `null` in
-  // that case, or the aggregate override below is never reached.
-  const data = useMemo<MappedPanelData | null>(() => {
-    if (rows.length === 0 || (!fieldMappingKey && !metricAggregation)) return null;
-    const fieldMapping = fieldMappingKey
-      ? (JSON.parse(fieldMappingKey) as Record<string, string>)
-      : {};
-    const firstRow = rows[0];
-    const mapped: MappedPanelData = {};
-    for (const [slot, field] of Object.entries(fieldMapping)) {
-      const value = firstRow[field];
-      mapped[slot] = value !== undefined && value !== null ? String(value) : "";
-    }
-    if (metricAggregation) {
-      const aggregate = computeAggregate(rows, metricAggregation.value, metricAggregation.agg);
-      mapped.value = aggregate !== null ? String(aggregate) : "";
-    }
-    // HEL-293 (Decision 4) — a literal label/unit override wins over the
-    // fieldMapping-resolved value when both are present. Deliberately NOT
-    // part of the early-return guard above: a metric with only a literal
-    // label/unit and no `value` binding still renders "--"/"No data" per
-    // MetricRenderer's hasValue guard (labels alone are not a data signal).
-    if (metricLiteral?.label) mapped.label = metricLiteral.label;
-    if (metricLiteral?.unit) mapped.unit = metricLiteral.unit;
-    return mapped;
-  }, [rows, fieldMappingKey, metricAggregation, metricLiteral]);
-
-  // HEL-292 — precomputed groupBy aggregate for a chart panel with an
-  // `aggregation` spec, computed over the typed `rows` (real `null`/`undefined`
-  // intact) so `count` can distinguish null from a genuine empty string.
-  const chartAggregate = useMemo<GroupedAggregate | null>(() => {
-    if (rows.length === 0 || !chartAggregationSpec) return null;
-    return groupAndAggregate(
-      rows,
-      chartAggregationSpec.groupBy,
-      chartAggregationSpec.agg,
-      chartAggregationSpec.yField,
-    );
-  }, [rows, chartAggregationSpec]);
 
   if (!currentFetchKey) {
     return {
@@ -237,19 +105,20 @@ export function usePanelData(panel: Panel): PanelDataResult {
 
   const error = errorForKey?.key === currentFetchKey ? errorForKey.message : null;
   const errorKind = errorForKey?.key === currentFetchKey ? errorForKey.kind : null;
-  // HEL-528 design.md D13 — `paginationEntry` is `undefined` on first mount,
-  // before the fetch effect above has dispatched: without the `== null` half
-  // this was `false` for that whole frame, so a metric panel fell through to
-  // its renderer with null data ("--"/"No data") before any request existed.
-  // Safe to treat as loading because it is always followed by a dispatch —
-  // the effect above returns early only when `!currentFetchKey` (handled by
-  // the early return above this point), and its dedupe guard is deliberately
-  // bypassed when `paginationEntry == null` (HEL-242). Once the entry
-  // exists, this is character-for-character the original expression.
   const isLoading =
     paginationEntry == null || (paginationEntry.isLoadingMore === true && rows.length === 0);
   const noData =
     paginationEntry != null && !paginationEntry.isLoadingMore && rows.length === 0 && !error;
 
-  return { data, rawRows, headers, isLoading, error, errorKind, noData, chartAggregate, refresh };
+  return {
+    data: null,
+    rawRows,
+    headers,
+    isLoading,
+    error,
+    errorKind,
+    noData,
+    chartAggregate: null,
+    refresh,
+  };
 }

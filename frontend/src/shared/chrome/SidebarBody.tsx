@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Database, GitBranch, Layers, Pencil, Pin, PinOff } from "lucide-react";
+import { Database, GitBranch, Pencil, Pin, PinOff } from "lucide-react";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faComments, faGaugeHigh, faLock } from "@fortawesome/free-solid-svg-icons";
+import { faComments, faLock } from "@fortawesome/free-solid-svg-icons";
 
 import {
   fetchConversations,
@@ -14,21 +14,8 @@ import {
   togglePinned,
 } from "../../features/assistant/state/assistantConversationsSlice";
 import {
-  deleteDataType,
-  fetchDataTypes,
-  selectPipelineOutputDataTypes,
-} from "../../features/dataTypes/state/dataTypesSlice";
-import { isUnstructuredDataType } from "../../features/dataTypes/types/dataType";
-import {
-  deleteMetric,
-  fetchMetrics,
-  setCreateMetricModalOpen,
-} from "../../features/metrics/state/metricsSlice";
-import { useCreatePipelineAction } from "../../features/pipelines/hooks/useCreatePipelineAction";
-import {
   deletePipeline,
   fetchPipelines,
-  selectPipelineNameByOutputTypeId,
   setCreatePipelineModalOpen,
 } from "../../features/pipelines/state/pipelinesSlice";
 import {
@@ -54,18 +41,8 @@ export function SidebarBody() {
 
   const sources = useAppSelector((state) => state.sources);
   const pipelines = useAppSelector((state) => state.pipelines);
-  const dataTypes = useAppSelector((state) => state.dataTypes);
-  const metrics = useAppSelector((state) => state.metrics);
   const conversations = useAppSelector((state) => state.assistantConversations);
   const currentUser = useAppSelector((state) => state.auth.currentUser);
-  const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
-  const pipelineNameByTypeId = useAppSelector(selectPipelineNameByOutputTypeId);
-  // HEL-548 D4/D4a — the registry's only create path: a type exists solely as
-  // a pipeline's output, so its sidebar empty state's action opens the
-  // pipeline-create flow, not a (nonexistent) "add type" one. Called
-  // unconditionally (Rules of Hooks) even though only the "registry" branch
-  // below consumes it.
-  const createPipelineAction = useCreatePipelineAction();
 
   const section = pickerIdForPathname(pathname);
   // HEL-703 design.md D9 (cycle-2 evaluator CR1) — mirrors `ChatPage.tsx`/`QuickLauncherOverlay.tsx`'s
@@ -78,35 +55,15 @@ export function SidebarBody() {
       void dispatch(fetchSources());
     } else if (section === "pipelines" && pipelines.status === "idle") {
       void dispatch(fetchPipelines());
-    } else if (section === "registry" && dataTypes.status === "idle") {
-      void dispatch(fetchDataTypes());
-    } else if (section === "metrics" && metrics.status === "idle") {
-      void dispatch(fetchMetrics());
     } else if (section === "chat" && !isFreeTier && conversations.status === "idle") {
       void dispatch(fetchConversations());
     }
     // The sources section also needs pipelines loaded: the delete-confirm
-    // warning counts pipelines that read from the source being deleted. The
-    // registry section needs them too, to resolve each DataType's producing
-    // pipeline for the provenance subtitle (HEL-270).
-    if ((section === "sources" || section === "registry") && pipelines.status === "idle") {
+    // warning counts pipelines that read from the source being deleted.
+    if (section === "sources" && pipelines.status === "idle") {
       void dispatch(fetchPipelines());
     }
-    // F-144: the pipelines section's own delete-confirm warning needs to name
-    // the DataType a pipeline produces (see `deleteWarning` below).
-    if (section === "pipelines" && dataTypes.status === "idle") {
-      void dispatch(fetchDataTypes());
-    }
-  }, [
-    section,
-    dispatch,
-    sources.status,
-    pipelines.status,
-    dataTypes.status,
-    metrics.status,
-    conversations.status,
-    isFreeTier,
-  ]);
+  }, [section, dispatch, sources.status, pipelines.status, conversations.status, isFreeTier]);
 
   if (section === "sources") {
     // Route-driven, like the pipelines and metrics branches below: `/sources`
@@ -159,99 +116,20 @@ export function SidebarBody() {
         emptyDescription="Pipelines transform raw source data into typed rows you can chart."
         onAdd={() => dispatch(setCreatePipelineModalOpen(true))}
         addLabel="New pipeline"
-        // F-144: deleting a pipeline silently orphaned the data type it
-        // produces (and anything bound to it) with no warning, unlike the
-        // sources section just above. One hop deep, mirroring that same
-        // shallow-dependency style — not a live panel/metric count, but
-        // enough to stop a surprise silent break.
+        // F-144: deleting a pipeline silently orphaned anything bound to its
+        // Outputs, with no warning, unlike the sources section just above.
+        // HEL-909: the DataType-named warning is retired along with the
+        // DataType feature — an Output-aware warning (naming which Outputs/
+        // panels break) is a follow-up, not reintroduced here.
         deleteWarning={(item) => {
           const pipeline = pipelines.items.find((p) => p.id === item.id);
-          const outputTypeId = pipeline?.outputDataTypeId;
-          if (outputTypeId === undefined || outputTypeId === null) return null;
-          const outputType = dataTypes.items.find((dt) => dt.id === outputTypeId);
-          const typeName = outputType?.name ?? "its output type";
-          return `Also deletes the "${typeName}" data type — any panels or metrics using it will stop working.`;
+          if (!pipeline) return null;
+          return "Any panels bound to this pipeline's Outputs will stop working.";
         }}
         onDelete={async (item) => {
           await dispatch(deletePipeline(item.id));
           if (routeId === item.id) navigate("/pipelines");
         }}
-      />
-    );
-  }
-
-  if (section === "metrics") {
-    return (
-      <SidebarItemList
-        heading="Metrics"
-        items={metrics.items}
-        initialLoad={
-          (metrics.status === "idle" || metrics.status === "loading") && metrics.items.length === 0
-        }
-        error={metrics.error}
-        toHref={(item) => `/metrics/${item.id}`}
-        activeId={routeId ?? null}
-        emptyText="Define your first metric"
-        emptyIcon={faGaugeHigh}
-        emptyDescription="Metrics reuse a pipeline-output data type's measure field, aggregation, and format."
-        onAdd={() => dispatch(setCreateMetricModalOpen(true))}
-        addLabel="New metric"
-        onDelete={async (item) => {
-          await dispatch(deleteMetric(item.id));
-          if (routeId === item.id) navigate("/metrics");
-        }}
-      />
-    );
-  }
-
-  if (section === "registry") {
-    // Classify over the full DataType[] list here — `renderBadge`'s `item` param
-    // is typed `SidebarItem` ({id, name}), which has no `fields` to classify on.
-    const unstructuredTypeIds = new Set(
-      pipelineOutputDataTypes.filter(isUnstructuredDataType).map((dt) => dt.id),
-    );
-    // Attach the producing-pipeline provenance subtitle where resolvable; omit
-    // it entirely when no pipeline is loaded for the DataType (HEL-270).
-    const registryItems: SidebarItem[] = pipelineOutputDataTypes.map((dt) => {
-      const pipelineName = pipelineNameByTypeId.get(dt.id);
-      return {
-        id: dt.id,
-        name: dt.name,
-        subtitle: pipelineName !== undefined ? `Pipeline: ${pipelineName}` : undefined,
-      };
-    });
-    return (
-      <SidebarItemList
-        heading="Data Types"
-        items={registryItems}
-        initialLoad={
-          (dataTypes.status === "idle" || dataTypes.status === "loading") &&
-          registryItems.length === 0
-        }
-        rowShape="stacked"
-        error={dataTypes.error}
-        toHref={(item) => `/registry/${item.id}`}
-        activeId={routeId ?? null}
-        emptyText="No types defined"
-        emptyIcon={<Layers />}
-        emptyDescription="Types are created by pipelines."
-        // HEL-548 D4/D4a — emptyCta, NOT onAdd: onAdd would ALSO render a
-        // persistent "+" in this section's header, an affordance that would
-        // create a pipeline under a "Data Types" heading. This section has no
-        // create action of its own, so it gets the CTA without the header
-        // icon. Label stays "New pipeline" (D4) — it names the thing the
-        // action actually creates, read together with the description above
-        // ("Types are created by pipelines.").
-        emptyCta={createPipelineAction.cta}
-        onDelete={async (item) => {
-          await dispatch(deleteDataType(item.id));
-          if (routeId === item.id) navigate("/registry");
-        }}
-        renderBadge={(item) =>
-          unstructuredTypeIds.has(item.id) ? (
-            <span className="dashboard-list__badge">Content</span>
-          ) : null
-        }
       />
     );
   }

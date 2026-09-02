@@ -1,27 +1,8 @@
 import { render, screen } from "@testing-library/react";
 
 import { CollectionRenderer } from "./CollectionRenderer";
-import type { CollectionPanel } from "../../types/panel";
 
-function makeCollectionPanel(config: Partial<CollectionPanel["config"]> = {}): CollectionPanel {
-  return {
-    id: "p1",
-    dashboardId: "d1",
-    title: "Metrics by Region",
-    meta: { createdBy: "u", createdAt: "", lastUpdated: "" },
-    appearance: { background: "", color: "", transparency: 0 },
-    ownerId: "u",
-    refreshInterval: null,
-    type: "collection",
-    config: {
-      dataTypeId: "dt-1",
-      fieldMapping: { value: "amount", label: "region" },
-      baseType: "metric",
-      layout: "grid",
-      ...config,
-    },
-  };
-}
+const FIELD_MAPPING = { value: "amount", label: "region" };
 
 const HEADERS = ["region", "amount"];
 const ROWS = [
@@ -33,7 +14,12 @@ const ROWS = [
 describe("CollectionRenderer — one row per item (HEL-247)", () => {
   it("expands N bound rows into N metric items, each with its own mapped value", () => {
     const { container } = render(
-      <CollectionRenderer panel={makeCollectionPanel()} rawRows={ROWS} headers={HEADERS} />,
+      <CollectionRenderer
+        fieldMapping={FIELD_MAPPING}
+        layout="grid"
+        rawRows={ROWS}
+        headers={HEADERS}
+      />,
     );
     const items = container.querySelectorAll(".panel-content__collection-item");
     expect(items).toHaveLength(3);
@@ -45,10 +31,12 @@ describe("CollectionRenderer — one row per item (HEL-247)", () => {
     expect(screen.getByText("South")).toBeInTheDocument();
   });
 
-  it("applies a literal itemOptions.metric.unit to every item", () => {
+  it("applies a literal metricOptions.unit to every item", () => {
     const { container } = render(
       <CollectionRenderer
-        panel={makeCollectionPanel({ itemOptions: { metric: { unit: "$" } } })}
+        fieldMapping={FIELD_MAPPING}
+        layout="grid"
+        metricOptions={{ unit: "$" }}
         rawRows={ROWS}
         headers={HEADERS}
       />,
@@ -61,7 +49,8 @@ describe("CollectionRenderer — one row per item (HEL-247)", () => {
   it("applies the grid layout class for grid collections", () => {
     const { container } = render(
       <CollectionRenderer
-        panel={makeCollectionPanel({ layout: "grid" })}
+        fieldMapping={FIELD_MAPPING}
+        layout="grid"
         rawRows={ROWS}
         headers={HEADERS}
       />,
@@ -72,7 +61,8 @@ describe("CollectionRenderer — one row per item (HEL-247)", () => {
   it("applies the list layout class for list collections", () => {
     const { container } = render(
       <CollectionRenderer
-        panel={makeCollectionPanel({ layout: "list" })}
+        fieldMapping={FIELD_MAPPING}
+        layout="list"
         rawRows={ROWS}
         headers={HEADERS}
       />,
@@ -81,20 +71,33 @@ describe("CollectionRenderer — one row per item (HEL-247)", () => {
   });
 });
 
-describe("CollectionRenderer — empty and unbound states", () => {
-  it("shows an unbound placeholder when no data type is bound", () => {
+describe("CollectionRenderer format (HEL-876)", () => {
+  it("forwards format to each item's MetricRenderer (baseType: metric)", () => {
     render(
       <CollectionRenderer
-        panel={makeCollectionPanel({ dataTypeId: "" })}
-        rawRows={null}
-        headers={null}
+        fieldMapping={FIELD_MAPPING}
+        layout="grid"
+        format="currency"
+        rawRows={ROWS}
+        headers={HEADERS}
       />,
     );
-    expect(screen.getByText(/bind a data type/i)).toBeInTheDocument();
+    expect(screen.getByText("$100.00")).toBeInTheDocument();
+    expect(screen.getByText("$200.00")).toBeInTheDocument();
+    expect(screen.getByText("$300.00")).toBeInTheDocument();
   });
+});
 
-  it("shows a No data state when bound but the snapshot has zero rows", () => {
-    render(<CollectionRenderer panel={makeCollectionPanel()} rawRows={[]} headers={HEADERS} />);
+describe("CollectionRenderer — empty state", () => {
+  it("shows a No data state when the snapshot has zero rows", () => {
+    render(
+      <CollectionRenderer
+        fieldMapping={FIELD_MAPPING}
+        layout="grid"
+        rawRows={[]}
+        headers={HEADERS}
+      />,
+    );
     expect(screen.getByText("No data")).toBeInTheDocument();
   });
 });

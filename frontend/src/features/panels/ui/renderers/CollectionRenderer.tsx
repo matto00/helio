@@ -1,9 +1,16 @@
 import "./CollectionRenderer.css";
-import type { CollectionPanel, MappedPanelData } from "../../types/panel";
+import type { MappedPanelData } from "../../types/panel";
+import type { MetricFormat } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
 import { MetricRenderer } from "./MetricRenderer";
 
 interface CollectionRendererProps {
-  panel: CollectionPanel;
+  /** Bound-column mapping from the Output's `CollectionOutputConfig`. */
+  fieldMapping: Record<string, string>;
+  layout: "grid" | "list";
+  metricOptions?: { label?: string; unit?: string };
+  /** `baseType: metric` items' numeric display style (HEL-876) — forwarded
+   *  to each item's `MetricRenderer` unchanged. */
+  format?: MetricFormat | null;
   /** Fetched snapshot rows (string cells, aligned to `headers`) — one row per
    *  rendered item, the table fetch path. */
   rawRows?: string[][] | null;
@@ -35,22 +42,14 @@ function buildMetricItem(
  *  v1 ships the `metric` base type only: each item reuses `MetricRenderer` so it
  *  gets the exact Metric visual language. Grid layout wraps responsively (no
  *  horizontal overflow at 390px); list layout is a single divided column. */
-export function CollectionRenderer({ panel, rawRows, headers }: CollectionRendererProps) {
-  const { dataTypeId, fieldMapping, layout } = panel.config;
-  const metricOptions = panel.config.itemOptions?.metric;
-
-  // Unbound → invite configuration (consistent with the other data-bound kinds'
-  // state styling), never an error.
-  if (!dataTypeId) {
-    return (
-      <div className="panel-content panel-content--state">
-        <span className="panel-content__state-label">
-          Bind a data type to populate this collection
-        </span>
-      </div>
-    );
-  }
-
+export function CollectionRenderer({
+  fieldMapping,
+  layout,
+  metricOptions,
+  format,
+  rawRows,
+  headers,
+}: CollectionRendererProps) {
   // Bound but no rows → "No data" state rather than an empty body.
   if (!rawRows || rawRows.length === 0 || !headers) {
     return (
@@ -64,7 +63,10 @@ export function CollectionRenderer({ panel, rawRows, headers }: CollectionRender
     <div className={`panel-content panel-content--collection panel-content--collection-${layout}`}>
       {rawRows.map((row, index) => (
         <div key={index} className="panel-content__collection-item">
-          <MetricRenderer data={buildMetricItem(row, headers, fieldMapping, metricOptions)} />
+          <MetricRenderer
+            data={buildMetricItem(row, headers, fieldMapping, metricOptions)}
+            format={format}
+          />
         </div>
       ))}
     </div>

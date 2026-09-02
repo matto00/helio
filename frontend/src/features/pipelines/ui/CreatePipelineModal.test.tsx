@@ -33,6 +33,7 @@ const testDataSources: DataSource[] = [
     type: "rest_api",
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
+    inferredSchema: [],
     config: { url: "https://example.com/api" },
   },
   {
@@ -41,6 +42,7 @@ const testDataSources: DataSource[] = [
     type: "sql",
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
+    inferredSchema: [],
     config: {
       dialect: "postgresql",
       host: "h",

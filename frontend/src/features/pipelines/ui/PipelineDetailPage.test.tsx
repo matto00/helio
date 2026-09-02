@@ -9,7 +9,6 @@ import { authReducer } from "../../auth/state/authSlice";
 import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../../layout/state/layoutHistorySlice";
 import { panelsReducer } from "../../panels/state/panelsSlice";
-import { dataTypesReducer } from "../../dataTypes/state/dataTypesSlice";
 import { toastsReducer } from "../../toasts/state/toastsSlice";
 import { pipelinesReducer } from "../state/pipelinesSlice";
 import { outputsReducer } from "../state/outputsSlice";
@@ -130,7 +129,6 @@ const defaultPipeline: PipelineSummary = {
 
 // Source fixture shape — uses the same discriminated-union as production code.
 import type { DataSource } from "../../sources/types/dataSource";
-import type { DataType } from "../../dataTypes/types/dataType";
 type SourceItem = DataSource;
 
 type PipelinesPreloadedState = {
@@ -154,7 +152,6 @@ type PipelinesPreloadedState = {
 function makeStore(
   sourcesItems: SourceItem[] = [],
   pipelinesState: PipelinesPreloadedState = {},
-  dataTypesItems: DataType[] = [],
   // HEL-719: the relocated (owner-only) Share button needs a signed-in
   // `auth.currentUser` whose id matches `currentPipeline.ownerId` — every
   // other test in this file leaves this unset (isOwner stays false, matching
@@ -167,7 +164,6 @@ function makeStore(
       dashboards: dashboardsReducer,
       layoutHistory: layoutHistoryReducer,
       panels: panelsReducer,
-      dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
       outputs: outputsReducer,
@@ -195,12 +191,6 @@ function makeStore(
         items: sourcesItems,
         status: "succeeded" as const,
         error: null,
-      },
-      dataTypes: {
-        items: dataTypesItems,
-        status: "succeeded" as const,
-        error: null,
-        selectedTypeId: null,
       },
       pipelines: {
         items: [],
@@ -250,8 +240,6 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
               <Route path="/pipelines" element={<div>Pipelines List</div>} />
               <Route path="/sources" element={<div>Sources Page</div>} />
               <Route path="/sources/:id" element={<div>Source Detail Page</div>} />
-              <Route path="/registry" element={<div>Type Registry Page</div>} />
-              <Route path="/registry/:id" element={<div>Type Detail Page</div>} />
             </Routes>
           </OverlayProvider>
         </Provider>
@@ -410,6 +398,7 @@ describe("PipelineDetailPage", () => {
         type: "sql",
         createdAt: "",
         updatedAt: "",
+        inferredSchema: [],
         config: {
           dialect: "postgresql",
           host: "h",
@@ -426,6 +415,7 @@ describe("PipelineDetailPage", () => {
         type: "csv",
         createdAt: "",
         updatedAt: "",
+        inferredSchema: [],
         config: { path: "uploads/test.csv" },
       },
     ]);
@@ -448,6 +438,7 @@ describe("PipelineDetailPage", () => {
         type: "sql",
         createdAt: "",
         updatedAt: "",
+        inferredSchema: [],
         config: {
           dialect: "postgresql",
           host: "h",
@@ -1410,21 +1401,21 @@ describe("PipelineDetailPage — Share menu item (HEL-719)", () => {
   });
 
   it("is present in the actions menu when the current user owns the pipeline", () => {
-    const store = makeStore([], { currentPipeline: ownedPipeline }, [], "user-1");
+    const store = makeStore([], { currentPipeline: ownedPipeline }, "user-1");
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Share" })).toBeInTheDocument();
   });
 
   it("is absent from the actions menu when the current user does not own the pipeline", () => {
-    const store = makeStore([], { currentPipeline: ownedPipeline }, [], "someone-else");
+    const store = makeStore([], { currentPipeline: ownedPipeline }, "someone-else");
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Share" })).not.toBeInTheDocument();
   });
 
   it("opens the share dialog when activated", () => {
-    const store = makeStore([], { currentPipeline: ownedPipeline }, [], "user-1");
+    const store = makeStore([], { currentPipeline: ownedPipeline }, "user-1");
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Share" }));
@@ -2504,6 +2495,7 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     type: "sql",
     createdAt: "",
     updatedAt: "",
+    inferredSchema: [],
     config: {
       dialect: "postgresql",
       host: "h",
@@ -2513,17 +2505,6 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
       password: "p",
       query: "SELECT 1",
     },
-  };
-
-  const ownedType: DataType = {
-    id: "dt-1",
-    name: "TestType",
-    sourceId: null,
-    version: 1,
-    fields: [],
-    computedFields: [],
-    createdAt: "",
-    updatedAt: "",
   };
 
   const pipelineWithOutputType: PipelineSummary = {
@@ -2549,14 +2530,14 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
   });
 
   it("Edit source menu item is present when the bound source is in sources.items", () => {
-    const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
+    const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType });
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Edit source" })).toBeInTheDocument();
   });
 
   it("Edit source menu item is absent when the bound source is not in sources.items", () => {
-    const store = makeStore([], { currentPipeline: pipelineWithOutputType }, []);
+    const store = makeStore([], { currentPipeline: pipelineWithOutputType });
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
@@ -2567,7 +2548,7 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
   // page to resolve the selection — the page is a section overview now, so a
   // bare `/sources` would show the list rather than the source being edited.
   it("activating Edit source navigates to that source's detail route", () => {
-    const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType }, []);
+    const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType });
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit source" }));
@@ -2579,7 +2560,7 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
   // header's actions menu, replaced by the Outputs-count/last-run-status
   // group; not gated on `dataTypes.items` ownership at all any more.
   it("does not offer an 'Edit type' action regardless of dataTypes.items ownership", () => {
-    const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
+    const store = makeStore([], { currentPipeline: pipelineWithOutputType });
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Edit type" })).not.toBeInTheDocument();
@@ -2594,7 +2575,7 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
       ...pipelineWithOutputType,
       ownerId: "someone-else",
     };
-    const store = makeStore([], { currentPipeline: sharedPipeline }, []);
+    const store = makeStore([], { currentPipeline: sharedPipeline });
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();

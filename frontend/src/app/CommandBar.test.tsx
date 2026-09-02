@@ -6,9 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
-import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
-import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { ThemeProvider } from "../theme/ThemeProvider";
@@ -29,8 +27,6 @@ function makeStore() {
       layoutHistory: layoutHistoryReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
-      dataTypes: dataTypesReducer,
-      metrics: metricsReducer,
       assistantConversations: assistantConversationsReducer,
     },
   });

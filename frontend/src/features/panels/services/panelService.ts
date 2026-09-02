@@ -1,29 +1,18 @@
 import type {
-  ChartAggregation,
-  ChartTypeOptionsMap,
   DividerOrientation,
   ImageFit,
-  MetricAggregation,
   Panel,
   PanelAppearance,
-  PanelType,
-  TableDensity,
-  TimelineSort,
-  TypeConfig,
+  PanelKind,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
 } from "../types/panel";
 import type { PagedResult } from "../../../types/models";
-import type { CollectionItemOptions, CollectionLayout } from "../types/panel";
 import {
+  buildContentPatch,
   buildCreatePanelBody,
-  buildBindingPatch,
-  buildCollectionPatch,
   buildDividerPatch,
   buildImagePatch,
-  buildTableWidthsPatch,
-  buildContentBindingPatch,
-  buildTimelinePatch,
 } from "../state/panelPayloads";
 import { httpClient } from "../../../services/httpClient";
 
@@ -38,31 +27,31 @@ export async function fetchPanels(dashboardId: string): Promise<Panel[]> {
   return response.data.items;
 }
 
+/** Create a panel. `outputId` is required for `type: "output"`; ignored
+ *  otherwise. No layout is ever sent — the server owns decision-15 default
+ *  placement/size. */
 export async function createPanel(
   dashboardId: string,
-  title: string,
-  type?: PanelType,
-  typeConfig?: TypeConfig,
-  dataTypeId?: string,
+  type: PanelKind,
+  title?: string,
+  outputId?: string,
 ): Promise<Panel> {
-  // CS2c-3c wire shape — `{ dashboardId, title, type, config }`. When the
-  // caller omits `type` we default to "metric" so the body still satisfies
-  // the typed-config wire (legacy callers used to omit `type` and let the
-  // backend default; the typed wire requires us to be explicit).
-  const resolvedType: PanelType = type ?? "metric";
-  const body = buildCreatePanelBody({
-    dashboardId,
-    title,
-    type: resolvedType,
-    typeConfig,
-    dataTypeId,
-  });
+  const body = buildCreatePanelBody({ dashboardId, title, type, outputId });
   const response = await httpClient.post<Panel>("/api/panels", body);
   return response.data;
 }
 
 export async function updatePanelTitle(panelId: string, title: string): Promise<Panel> {
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { title });
+  return response.data;
+}
+
+/** PATCH an existing panel's `outputId` in place, preserving its position/
+ *  size ("Swap output" — `specs/panel-detail-modal/spec.md`). */
+export async function patchPanelOutputId(panelId: string, outputId: string): Promise<Panel> {
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
+    config: { outputId },
+  });
   return response.data;
 }
 
@@ -95,130 +84,16 @@ export async function updatePanelsBatch(
   return response.data;
 }
 
-/** HEL-255: Table display-config slice of a binding Save. Each field follows
- *  the absent-vs-null convention — `undefined` leaves the stored value
- *  unchanged, `null` clears it (density only ever sets a value; `columnWidths`
- *  is only ever cleared, by the Reset action). */
-export interface TableDisplayPatch {
-  density?: TableDensity;
-  columnOrder?: string[] | null;
-  columnWidths?: null;
-}
-
-/** PATCH a binding (metric/chart/table). The backend dispatches on the
- *  stored panel's `type` and applies the typed-config patch — there is no
- *  cross-type leak because the typed-config decoders are subtype-specific. */
-export async function updatePanelBinding(
-  panelId: string,
-  typeId: string | null,
-  fieldMapping: Record<string, string> | null,
-  _refreshInterval: number | null,
-  aggregation?: MetricAggregation | ChartAggregation | null,
-  /** HEL-243: literal label/unit override — `undefined` = leave unchanged,
-   *  `null` = explicit clear, a string = set. See `buildBindingPatch`. */
-  label?: string | null,
-  unit?: string | null,
-  /** HEL-255: Table density/columnOrder/width-reset folded into the same
-   *  single Save PATCH so the whole edit pane persists atomically. */
-  tableDisplay?: TableDisplayPatch,
-  /** HEL-248: Chart per-type display options folded into the same single Save
-   *  PATCH — `undefined` = leave unchanged, `null` = clear, object = replace. */
-  chartOptions?: ChartTypeOptionsMap | null,
-  /** HEL-318: Chart static annotation folded into the same single Save PATCH —
-   *  `undefined` = leave unchanged, `null` = clear, string = set. */
-  annotation?: string | null,
-  /** HEL-500/HEL-553: bind-to-metric mode folded into the same single Save
-   *  PATCH — `undefined` = leave unchanged, `null` = clear, a metric id =
-   *  set. Positional tail param, matching the existing `annotation`/
-   *  `chartOptions` convention. */
-  metricId?: string | null,
-): Promise<Panel> {
-  // refreshInterval is intentionally dropped at the network boundary — the
-  // backend has no schema or column for it. The slice mirrors it into Redux
-  // state as a frontend-only optimistic update so polling keeps working.
-  const config = buildBindingPatch({
-    typeId,
-    fieldMapping,
-    aggregation,
-    label,
-    unit,
-    density: tableDisplay?.density,
-    columnOrder: tableDisplay?.columnOrder,
-    columnWidths: tableDisplay?.columnWidths,
-    chartOptions,
-    annotation,
-    metricId,
-  });
+/** PATCH a Text panel's literal content. */
+export async function updatePanelTextContent(panelId: string, content: string): Promise<Panel> {
+  const config = buildContentPatch(content);
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }
 
-/** PATCH a Collection panel's editor save (HEL-247). The binding
- *  (`dataTypeId`/`fieldMapping`) plus `baseType`/`layout`/`itemOptions` ride a
- *  single config PATCH so the whole editor persists atomically; each field
- *  follows the absent-vs-null convention (see `buildCollectionPatch`). */
-export async function updatePanelCollection(
-  panelId: string,
-  args: {
-    typeId: string | null;
-    fieldMapping: Record<string, string> | null;
-    baseType?: string;
-    layout?: CollectionLayout;
-    itemOptions?: CollectionItemOptions | null;
-  },
-): Promise<Panel> {
-  const config = buildCollectionPatch(args);
-  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
-  return response.data;
-}
-
-/** PATCH a Timeline panel's editor save (HEL-317). The binding
- *  (`dataTypeId`/`fieldMapping`) plus `timelineOptions.sort` ride a single
- *  config PATCH so the whole editor persists atomically; each field follows
- *  the absent-vs-null convention (see `buildTimelinePatch`). */
-export async function updatePanelTimeline(
-  panelId: string,
-  args: {
-    typeId: string | null;
-    fieldMapping: Record<string, string> | null;
-    sort?: TimelineSort;
-  },
-): Promise<Panel> {
-  const config = buildTimelinePatch(args);
-  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
-  return response.data;
-}
-
-/** PATCH a Text panel's Content editor save (HEL-244) — see
- *  `buildContentBindingPatch` for the Source/Static patch-shape rules. */
-export async function updatePanelTextBinding(
-  panelId: string,
-  args: {
-    mode: "field" | "literal";
-    typeId: string | null;
-    fieldValue: string;
-    literalValue: string;
-  },
-): Promise<Panel> {
-  const config = buildContentBindingPatch(args);
-  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
-  return response.data;
-}
-
-/** PATCH a Markdown panel's Content editor save (HEL-245) — mirrors
- *  `updatePanelTextBinding`; shares `buildContentBindingPatch` for the
- *  Source/Static patch-shape rules. Typed as its own call per the per-kind
- *  service/thunk convention. */
-export async function updatePanelMarkdownBinding(
-  panelId: string,
-  args: {
-    mode: "field" | "literal";
-    typeId: string | null;
-    fieldValue: string;
-    literalValue: string;
-  },
-): Promise<Panel> {
-  const config = buildContentBindingPatch(args);
+/** PATCH a Markdown panel's literal content. */
+export async function updatePanelMarkdownContent(panelId: string, content: string): Promise<Panel> {
+  const config = buildContentPatch(content);
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }
@@ -249,19 +124,6 @@ export async function uploadPanelImage(file: File): Promise<UploadPanelImageResp
   const response = await httpClient.post<UploadPanelImageResponse>("/api/uploads/image", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return response.data;
-}
-
-/** PATCH a Table panel's persisted column widths (HEL-253). Kept as its own
- *  call — separate from `updatePanelBinding` — so a debounced resize PATCH
- *  never races/clobbers an in-flight binding edit's absent-vs-null
- *  semantics; see `buildTableWidthsPatch`. */
-export async function updatePanelColumnWidths(
-  panelId: string,
-  columnWidths: Record<string, number>,
-): Promise<Panel> {
-  const config = buildTableWidthsPatch(columnWidths);
-  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }
 

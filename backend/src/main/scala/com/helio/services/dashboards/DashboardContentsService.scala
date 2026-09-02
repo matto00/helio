@@ -2,7 +2,7 @@ package com.helio.services.dashboards
 
 import com.helio.services.proposals.ProposalPanelSupport
 import com.helio.services.auth.AccessChecker
-import com.helio.services.panels.PanelService
+import com.helio.services.panels.{LayoutBreakpointScaling, PanelService}
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.proposals.{ProposalPanel, ReplaceDashboardContentsRequest}
@@ -127,10 +127,16 @@ final class DashboardContentsService(
    *  replacing the dashboard's stored layout — any prior layout entries
    *  referenced the now-deleted old panel ids, so leaving them would dangle. */
   private def remapLayout(proposalPanels: Vector[ProposalPanel], builtPanels: Vector[Panel]): DashboardLayout = {
-    val items = proposalPanels.zip(builtPanels).flatMap { case (proposal, built) =>
+    val lgItems = proposalPanels.zip(builtPanels).flatMap { case (proposal, built) =>
       proposal.layout.map(l => DashboardLayoutItem(built.id, l.x, l.y, l.w, l.h))
     }
-    DashboardLayout(lg = items, md = items, sm = items, xs = items)
+    val lgCols = LayoutBreakpointScaling.breakpointCols("lg")
+    DashboardLayout(
+      lg = lgItems,
+      md = LayoutBreakpointScaling.scaleItemsToBreakpoint(lgItems, lgCols, LayoutBreakpointScaling.breakpointCols("md")),
+      sm = LayoutBreakpointScaling.scaleItemsToBreakpoint(lgItems, lgCols, LayoutBreakpointScaling.breakpointCols("sm")),
+      xs = LayoutBreakpointScaling.scaleItemsToBreakpoint(lgItems, lgCols, LayoutBreakpointScaling.breakpointCols("xs"))
+    )
   }
 
   /** Owner or editor grantee may replace contents — mirrors

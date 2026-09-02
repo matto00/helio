@@ -168,7 +168,7 @@ final class PatchSetUndoService(
       case Some(json) =>
         val prior = json.convertTo[PanelResponse]
         panelService.create(PatchSetUndoInverse.panelCreateRequestFromResponse(prior), user).map {
-          case Right(panel) =>
+          case Right((panel, _)) =>
             Right(EditUndoOutcome(edit.index, "recreated", Some(panel.id.value), Some(panelResponseFormat.write(PanelResponse.fromDomain(panel)))))
           case Left(err) => Left(restoreFailed(edit, err.message))
         }

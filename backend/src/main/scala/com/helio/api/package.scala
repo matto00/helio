@@ -103,6 +103,8 @@ package object api {
   val PanelAppearanceResponse: protocols.panels.PanelAppearanceResponse.type = protocols.panels.PanelAppearanceResponse
   type PanelResponse = protocols.panels.PanelResponse
   val PanelResponse: protocols.panels.PanelResponse.type = protocols.panels.PanelResponse
+  type PanelLayoutResponse = protocols.panels.PanelLayoutResponse
+  val PanelLayoutResponse: protocols.panels.PanelLayoutResponse.type = protocols.panels.PanelLayoutResponse
   type PanelsResponse = protocols.panels.PanelsResponse
   val PanelsResponse: protocols.panels.PanelsResponse.type = protocols.panels.PanelsResponse
   type CreatePanelRequest = protocols.panels.CreatePanelRequest

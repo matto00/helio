@@ -2,6 +2,7 @@ package com.helio.api.protocols.sources
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
+import com.helio.domain.engine.SchemaField
 import com.helio.services.auth.{HasSecrets, SecretField, SecretRedaction}
 import spray.json._
 
@@ -23,6 +24,9 @@ sealed trait DataSourceResponse {
   def `type`: String
   /** HEL-366: optional free-form grouping tag, set only at create time. */
   def tag: Option[String]
+  /** HEL-909: the source's inferred schema, moved onto the source payload
+   *  itself now that the standalone DataType concept is retired. */
+  def inferredSchema: Vector[InferredFieldResponse]
 }
 
 final case class CsvSourceResponse(
@@ -31,7 +35,8 @@ final case class CsvSourceResponse(
     createdAt: String,
     updatedAt: String,
     config: CsvSourceConfigPayload,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[InferredFieldResponse] = Vector.empty
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Csv
 }
@@ -42,7 +47,8 @@ final case class RestSourceResponse(
     createdAt: String,
     updatedAt: String,
     config: RestApiConfigPayload,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[InferredFieldResponse] = Vector.empty
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.RestApi
 }
@@ -53,7 +59,8 @@ final case class SqlSourceResponse(
     createdAt: String,
     updatedAt: String,
     config: SqlSourceConfigPayload,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[InferredFieldResponse] = Vector.empty
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Sql
 }
@@ -63,7 +70,8 @@ final case class StaticSourceResponse(
     name: String,
     createdAt: String,
     updatedAt: String,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[InferredFieldResponse] = Vector.empty
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Static
 }
@@ -74,7 +82,8 @@ final case class TextSourceResponse(
     createdAt: String,
     updatedAt: String,
     config: TextSourceConfigPayload,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[InferredFieldResponse] = Vector.empty
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Text
 }
@@ -85,7 +94,8 @@ final case class PdfSourceResponse(
     createdAt: String,
     updatedAt: String,
     config: PdfSourceConfigPayload,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[InferredFieldResponse] = Vector.empty
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Pdf
 }
@@ -96,7 +106,8 @@ final case class ImageSourceResponse(
     createdAt: String,
     updatedAt: String,
     config: ImageSourceConfigPayload,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    inferredSchema: Vector[InferredFieldResponse] = Vector.empty
 ) extends DataSourceResponse {
   def `type`: String = DataSourceKind.Image
 }
@@ -192,6 +203,14 @@ final case class CreateSourceResponse(
  *  no dependency on the companion `DataType` concept and belongs with the rest of this file's
  *  source-facing wire shapes. */
 final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
+object InferredFieldResponse {
+  /** HEL-909: projects a source's raw `SchemaField`s (`{name, type}`) into the
+   *  richer response shape — `displayName` defaults to `name`, `nullable`
+   *  defaults to `false` (the source-level inferred schema carries no
+   *  per-field nullability today). */
+  def fromDomain(fields: Vector[SchemaField]): Vector[InferredFieldResponse] =
+    fields.map(f => InferredFieldResponse(f.name, f.name, f.`type`, nullable = false))
+}
 final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
 final case class SqlCreateSourceRequest(name: String, `type`: String, config: SqlSourceConfigPayload)
@@ -231,7 +250,8 @@ object DataSourceResponse {
         createdAt = c.createdAt.toString,
         updatedAt = c.updatedAt.toString,
         config    = CsvSourceConfigPayload(c.config.path, c.config.sourceUrl),
-        tag       = c.tag
+        tag       = c.tag,
+        inferredSchema = InferredFieldResponse.fromDomain(c.inferredSchema)
       )
     case r: RestSource =>
       RestSourceResponse(
@@ -240,7 +260,8 @@ object DataSourceResponse {
         createdAt = r.createdAt.toString,
         updatedAt = r.updatedAt.toString,
         config    = SecretRedaction.redact(RestApiConfigPayload.fromDomain(r.config)),
-        tag       = r.tag
+        tag       = r.tag,
+        inferredSchema = InferredFieldResponse.fromDomain(r.inferredSchema)
       )
     case s: SqlSource =>
       SqlSourceResponse(
@@ -249,7 +270,8 @@ object DataSourceResponse {
         createdAt = s.createdAt.toString,
         updatedAt = s.updatedAt.toString,
         config    = SecretRedaction.redact(SqlSourceConfigPayload.fromDomain(s.config)),
-        tag       = s.tag
+        tag       = s.tag,
+        inferredSchema = InferredFieldResponse.fromDomain(s.inferredSchema)
       )
     case s: StaticSource =>
       StaticSourceResponse(
@@ -257,7 +279,8 @@ object DataSourceResponse {
         name      = s.name,
         createdAt = s.createdAt.toString,
         updatedAt = s.updatedAt.toString,
-        tag       = s.tag
+        tag       = s.tag,
+        inferredSchema = InferredFieldResponse.fromDomain(s.inferredSchema)
       )
     case t: TextSource =>
       TextSourceResponse(
@@ -266,7 +289,8 @@ object DataSourceResponse {
         createdAt = t.createdAt.toString,
         updatedAt = t.updatedAt.toString,
         config    = TextSourceConfigPayload(t.config.path, t.config.sourceUrl),
-        tag       = t.tag
+        tag       = t.tag,
+        inferredSchema = InferredFieldResponse.fromDomain(t.inferredSchema)
       )
     case p: PdfSource =>
       PdfSourceResponse(
@@ -275,7 +299,8 @@ object DataSourceResponse {
         createdAt = p.createdAt.toString,
         updatedAt = p.updatedAt.toString,
         config    = PdfSourceConfigPayload(p.config.path, p.config.sourceUrl),
-        tag       = p.tag
+        tag       = p.tag,
+        inferredSchema = InferredFieldResponse.fromDomain(p.inferredSchema)
       )
     case i: ImageSource =>
       ImageSourceResponse(
@@ -284,7 +309,8 @@ object DataSourceResponse {
         createdAt = i.createdAt.toString,
         updatedAt = i.updatedAt.toString,
         config    = ImageSourceConfigPayload(i.config.path, i.config.sourceUrl),
-        tag       = i.tag
+        tag       = i.tag,
+        inferredSchema = InferredFieldResponse.fromDomain(i.inferredSchema)
       )
   }
 }
@@ -425,13 +451,13 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val imageSourceUrlRequestFormat: RootJsonFormat[ImageSourceUrlRequest]             = jsonFormat4(ImageSourceUrlRequest.apply)
 
   // ── Per-subtype response formats (used only inside DataSourceResponseFormat) ─
-  private val csvSourceResponseFormat: RootJsonFormat[CsvSourceResponse]       = jsonFormat6(CsvSourceResponse.apply)
-  private val restSourceResponseFormat: RootJsonFormat[RestSourceResponse]     = jsonFormat6(RestSourceResponse.apply)
-  private val sqlSourceResponseFormat: RootJsonFormat[SqlSourceResponse]       = jsonFormat6(SqlSourceResponse.apply)
-  private val staticSourceResponseFormat: RootJsonFormat[StaticSourceResponse] = jsonFormat5(StaticSourceResponse.apply)
-  private val textSourceResponseFormat: RootJsonFormat[TextSourceResponse]     = jsonFormat6(TextSourceResponse.apply)
-  private val pdfSourceResponseFormat: RootJsonFormat[PdfSourceResponse]       = jsonFormat6(PdfSourceResponse.apply)
-  private val imageSourceResponseFormat: RootJsonFormat[ImageSourceResponse]   = jsonFormat6(ImageSourceResponse.apply)
+  private val csvSourceResponseFormat: RootJsonFormat[CsvSourceResponse]       = jsonFormat7(CsvSourceResponse.apply)
+  private val restSourceResponseFormat: RootJsonFormat[RestSourceResponse]     = jsonFormat7(RestSourceResponse.apply)
+  private val sqlSourceResponseFormat: RootJsonFormat[SqlSourceResponse]       = jsonFormat7(SqlSourceResponse.apply)
+  private val staticSourceResponseFormat: RootJsonFormat[StaticSourceResponse] = jsonFormat6(StaticSourceResponse.apply)
+  private val textSourceResponseFormat: RootJsonFormat[TextSourceResponse]     = jsonFormat7(TextSourceResponse.apply)
+  private val pdfSourceResponseFormat: RootJsonFormat[PdfSourceResponse]       = jsonFormat7(PdfSourceResponse.apply)
+  private val imageSourceResponseFormat: RootJsonFormat[ImageSourceResponse]   = jsonFormat7(ImageSourceResponse.apply)
 
   /** Discriminated-union format for the [[DataSourceResponse]] ADT.
    *

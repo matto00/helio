@@ -1,13 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import {
-  ChartNoAxesColumn,
-  Database,
-  LayoutDashboard,
-  Link2,
-  MessageCircle,
-  Shapes,
-  Workflow,
-} from "lucide-react";
+import { Database, LayoutDashboard, Link2, MessageCircle, Workflow } from "lucide-react";
 
 /** Which picker/list a route belongs to — the same narrow union
  * `SidebarBody`'s old `sectionFromPathname` returned. Says *which* section's
@@ -16,14 +8,7 @@ import {
  * routes can share a `pickerId` of `"other"` while keeping distinct labels
  * (`/settings`, `/proposals/review`, `/patch-sets/review` — none of them are
  * a pickable list section). */
-export type PickerId =
-  | "dashboards"
-  | "sources"
-  | "pipelines"
-  | "registry"
-  | "metrics"
-  | "chat"
-  | "other";
+export type PickerId = "dashboards" | "sources" | "pipelines" | "chat" | "other";
 
 interface SectionEntryBase {
   /** Route path this entry matches. Exact-match (`end: true`) or prefix
@@ -55,7 +40,7 @@ export type SectionEntry =
  * Order is most-specific-first (kept from the old `sectionFromPathname`):
  * `/` is the only exact-match (`end: true`) entry, since every path starts
  * with "/" — everything else prefix-matches, which also covers nested detail
- * routes (`/pipelines/:id`, `/registry/:id`, `/metrics/:id`). */
+ * routes (`/pipelines/:id`). */
 export const sections: SectionEntry[] = [
   {
     path: "/",
@@ -87,28 +72,6 @@ export const sections: SectionEntry[] = [
     pickerId: "other",
     label: "Connectors",
     icon: Link2,
-    showInNav: true,
-  },
-  {
-    path: "/registry",
-    pickerId: "registry",
-    label: "Data Types",
-    // HEL-774: BookOpen -> Shapes. Dropping BottomNav's visible labels makes
-    // the glyph the sole carrier of meaning, and an open book reads as
-    // documentation/a library, not a registry of row shapes — Shapes reads
-    // as "kinds of things", which is what a type registry is (D11). Also
-    // reaches the desktop sidebar, which keeps its label, so the change is
-    // cosmetic there and corrective here; leaving the two surfaces on
-    // different icons would break this registry's single-source-of-truth
-    // guarantee.
-    icon: Shapes,
-    showInNav: true,
-  },
-  {
-    path: "/metrics",
-    pickerId: "metrics",
-    label: "Metrics",
-    icon: ChartNoAxesColumn,
     showInNav: true,
   },
   {

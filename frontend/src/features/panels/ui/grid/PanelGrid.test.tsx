@@ -11,7 +11,7 @@ import { AUTO_SAVE_INTERVAL_MS } from "../../hooks/usePanelUpdatesFlush";
 import { accumulatePanelUpdate } from "../../state/panelsSlice";
 import { SaveStateContext } from "../../../../context/SaveStateContext";
 import { renderWithStore } from "../../../../test/renderWithStore";
-import { makeMetricPanel } from "../../../../test/panelFixtures";
+import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { PanelGrid, type PanelGridHandle } from "./PanelGrid";
 
 // HEL-528 skeptic-final-1.md CR1 — `width` is now a prop `PanelList` measures
@@ -79,7 +79,7 @@ const updatePanelTitleMock = jest.mocked(updatePanelTitleRequest);
 const updatePanelsBatchMock = jest.mocked(updatePanelsBatchRequest);
 const updateDashboardLayoutMock = jest.mocked(updateDashboardLayoutRequest);
 
-const testPanel = makeMetricPanel({
+const testPanel = makeOutputPanel({
   id: "panel-1",
   dashboardId: "d1",
   title: "Revenue",
@@ -399,68 +399,6 @@ describe("PanelGrid", () => {
         (responsiveProps.onDragStop as unknown as () => void)?.();
       });
       expect(screen.getByText("No data available")).toBeInTheDocument();
-    });
-  });
-
-  // ── HEL-234: dataAsOf freshness indicator ───────────────────────────────────
-  describe("dataAsOf freshness indicator", () => {
-    it("renders 'Data as of ...' below the title when dataAsOf is set", () => {
-      const panelWithFreshness = makeMetricPanel({
-        id: "panel-fresh",
-        dashboardId: "d1",
-        title: "Fresh Panel",
-        dataAsOf: "2026-01-01T00:00:00Z",
-      });
-
-      renderWithStore(
-        <PanelGrid
-          dashboardId="d1"
-          layout={emptyLayout}
-          panels={[panelWithFreshness]}
-          width={DESKTOP_WIDTH}
-        />,
-        { panels: { items: [panelWithFreshness] } },
-      );
-
-      expect(screen.getByText(/Data as of/i)).toBeInTheDocument();
-    });
-
-    it("does not render the freshness indicator when dataAsOf is null", () => {
-      const panelNoFreshness = makeMetricPanel({
-        id: "panel-nofresh",
-        dashboardId: "d1",
-        title: "Stale Panel",
-        dataAsOf: null,
-      });
-
-      renderWithStore(
-        <PanelGrid
-          dashboardId="d1"
-          layout={emptyLayout}
-          panels={[panelNoFreshness]}
-          width={DESKTOP_WIDTH}
-        />,
-        { panels: { items: [panelNoFreshness] } },
-      );
-
-      expect(screen.queryByText(/Data as of/i)).not.toBeInTheDocument();
-    });
-
-    it("does not render the freshness indicator when dataAsOf is absent (default null)", () => {
-      // testPanel uses makeMetricPanel with no dataAsOf — defaults to null
-      renderWithStore(
-        <PanelGrid
-          dashboardId="d1"
-          layout={emptyLayout}
-          panels={[testPanel]}
-          width={DESKTOP_WIDTH}
-        />,
-        {
-          panels: { items: [testPanel] },
-        },
-      );
-
-      expect(screen.queryByText(/Data as of/i)).not.toBeInTheDocument();
     });
   });
 

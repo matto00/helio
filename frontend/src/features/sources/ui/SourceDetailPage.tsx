@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 
-import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
 import { fetchSources } from "../state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { SourceDetailPanel } from "./SourceDetailPanel";
@@ -29,7 +28,6 @@ export function SourceDetailPage() {
     error: sourcesError,
     errorKind: sourcesErrorKind,
   } = useAppSelector((state) => state.sources);
-  const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
 
   useEffect(() => {
     // Guarded on `idle` (the SidebarBody fetch convention) so landing here
@@ -37,11 +35,7 @@ export function SourceDetailPage() {
     if (sourcesStatus === "idle") {
       void dispatch(fetchSources());
     }
-    // The schema preview needs the inferred DataType for this source.
-    if (dataTypesStatus === "idle") {
-      void dispatch(fetchDataTypes());
-    }
-  }, [dispatch, sourcesStatus, dataTypesStatus]);
+  }, [dispatch, sourcesStatus]);
 
   const source = sources.find((s) => s.id === id) ?? null;
   const isRetrying = sourcesStatus === "loading";

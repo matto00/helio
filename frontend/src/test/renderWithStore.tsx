@@ -9,10 +9,8 @@ import { assistantConversationsReducer } from "../features/assistant/state/assis
 import { auditEventsReducer } from "../features/audit/state/auditEventsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
-import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
-import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
@@ -30,10 +28,8 @@ import type {
   AssistantConversationSummary,
 } from "../features/assistant/types";
 import type { DashboardAppearance, DashboardLayout } from "../features/dashboards/types/dashboard";
-import type { DataType } from "../features/dataTypes/types/dataType";
-import type { Metric, MetricSummary } from "../features/metrics/types/metric";
 import type { PipelineSummary } from "../features/pipelines/types/pipelineStep";
-import type { PanelAppearance, PanelType } from "../features/panels/types/panel";
+import type { PanelAppearance, PanelKind } from "../features/panels/types/panel";
 import type { DataSource } from "../features/sources/types/dataSource";
 import type { ResourceMeta } from "../types/models";
 const defaultMeta: ResourceMeta = {
@@ -64,7 +60,7 @@ interface TestState {
       id: string;
       dashboardId: string;
       title: string;
-      type?: PanelType;
+      type?: PanelKind;
       meta?: ResourceMeta;
       appearance?: PanelAppearance;
     }>;
@@ -75,16 +71,6 @@ interface TestState {
     staleDashboardId?: string | null;
     /** HEL-548 D5a — see `panelsSlice.ts`'s `PanelsState.panelCreationModalOpen`. */
     panelCreationModalOpen?: boolean;
-  };
-  dataTypes?: {
-    items?: DataType[];
-    status?: "idle" | "loading" | "succeeded" | "failed";
-    error?: string | null;
-    /** HEL-576: pre-seed a DataType's cached assertion status. */
-    assertionStatusByDataTypeId?: Record<
-      string,
-      { invalid: boolean; failedRuleCount: number } | undefined
-    >;
   };
   sources?: {
     items?: DataSource[];
@@ -100,15 +86,6 @@ interface TestState {
     items?: PipelineSummary[];
     status?: "idle" | "loading" | "succeeded" | "failed";
     error?: string | null;
-  };
-  metrics?: {
-    items?: MetricSummary[];
-    status?: "idle" | "loading" | "succeeded" | "failed";
-    error?: string | null;
-    /** HEL-560: single-metric detail state consumed by `MetricDetailPage.tsx`. */
-    currentMetric?: Metric | null;
-    currentMetricStatus?: "idle" | "loading" | "succeeded" | "failed";
-    currentMetricError?: string | null;
   };
   /** HEL-554: onboarding checklist state consumed by `useOnboardingHost`/
    * `OnboardingChecklist`. `dismissed` defaults to `null` (not yet
@@ -182,8 +159,6 @@ export function renderWithStore(
     layoutHistory: layoutHistoryReducer,
     onboarding: onboardingReducer,
     panels: panelsReducer,
-    dataTypes: dataTypesReducer,
-    metrics: metricsReducer,
     pipelines: pipelinesReducer,
     settings: settingsReducer,
     sources: sourcesReducer,
@@ -213,11 +188,9 @@ export function renderWithStore(
         panels: {
           items:
             preloadedState.panels?.items.map((panel) => ({
-              typeId: null,
-              fieldMapping: null,
               refreshInterval: null,
               ...panel,
-              type: panel.type ?? "metric",
+              type: panel.type ?? "output",
               meta: panel.meta ?? defaultMeta,
               appearance: panel.appearance ?? defaultPanelAppearance,
             })) ?? [],
@@ -230,18 +203,6 @@ export function renderWithStore(
           staleDashboardId: preloadedState.panels?.staleDashboardId ?? null,
           panelCreationModalOpen: preloadedState.panels?.panelCreationModalOpen ?? false,
         },
-        dataTypes: {
-          items: preloadedState.dataTypes?.items ?? [],
-          status: preloadedState.dataTypes?.status ?? "idle",
-          error: preloadedState.dataTypes?.error ?? null,
-          selectedTypeId: null,
-          // HEL-576: PanelCard's assertion-status selector reads these two
-          // fields unconditionally for any bound panel — omitting them here
-          // would throw ("Cannot read properties of undefined") the moment a
-          // caller passes ANY preloadedState (which replaces this whole slice).
-          assertionStatusByDataTypeId: preloadedState.dataTypes?.assertionStatusByDataTypeId ?? {},
-          assertionStatusPendingIds: {},
-        },
         sources: {
           items: preloadedState.sources?.items ?? [],
           status: preloadedState.sources?.status ?? "idle",
@@ -252,21 +213,6 @@ export function renderWithStore(
           items: preloadedState.pipelines?.items ?? [],
           status: preloadedState.pipelines?.status ?? "idle",
           error: preloadedState.pipelines?.error ?? null,
-        },
-        metrics: {
-          items: preloadedState.metrics?.items ?? [],
-          status: preloadedState.metrics?.status ?? "idle",
-          error: preloadedState.metrics?.error ?? null,
-          createStatus: "idle",
-          createError: null,
-          updateStatus: "idle",
-          updateError: null,
-          deleteStatus: "idle",
-          deleteError: null,
-          currentMetric: preloadedState.metrics?.currentMetric ?? null,
-          currentMetricStatus: preloadedState.metrics?.currentMetricStatus ?? "idle",
-          currentMetricError: preloadedState.metrics?.currentMetricError ?? null,
-          createModalOpen: false,
         },
         onboarding: {
           active: preloadedState.onboarding?.active ?? false,

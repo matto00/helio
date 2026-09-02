@@ -16,7 +16,7 @@ import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 
-import { makeMetricPanel } from "../../../../test/panelFixtures";
+import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { ThemeProvider } from "../../../../theme/ThemeProvider";
 import { panelsReducer } from "../../state/panelsSlice";
 import { DesktopPanelGrid } from "./DesktopPanelGrid";
@@ -93,7 +93,7 @@ function renderWithStore(store: ReturnType<typeof makeStore>, panels: Panel[]) {
 
 describe("DesktopPanelGrid — detail-modal crash guard (HEL-651)", () => {
   it("does not crash and unmounts the modal when its backing panel is removed while open (panelsStatus: succeeded)", () => {
-    const panel = makeMetricPanel({ id: "p1" });
+    const panel = makeOutputPanel({ id: "p1" });
     const store = makeStore([panel], "succeeded");
     const { rerender } = renderWithStore(store, [panel]);
 
@@ -124,7 +124,7 @@ describe("DesktopPanelGrid — detail-modal crash guard (HEL-651)", () => {
     // Covers the "another actor deleted it" / "parent dashboard deleted"
     // cases generically (design.md: no literal cross-tab script is
     // reachable — this simulates the *result* of any external removal).
-    const panel = makeMetricPanel({ id: "p1" });
+    const panel = makeOutputPanel({ id: "p1" });
     const store = makeStore([panel], "succeeded");
     const { rerender } = renderWithStore(store, [panel]);
     fireEvent.click(screen.getByTestId("mock-panel-card-p1"));
@@ -152,7 +152,7 @@ describe("DesktopPanelGrid — detail-modal crash guard (HEL-651)", () => {
   });
 
   it("does not crash during a transient loading/failed window, and reopens once the panel is confirmed present again", () => {
-    const panel = makeMetricPanel({ id: "p1" });
+    const panel = makeOutputPanel({ id: "p1" });
     const store = makeStore([panel], "succeeded");
 
     const wrap = (panels: Panel[]) => (

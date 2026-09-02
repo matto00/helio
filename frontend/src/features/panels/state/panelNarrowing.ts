@@ -1,81 +1,37 @@
 // Type-narrowing helpers for the `Panel` discriminated union.
 //
 // Consumers that need a subtype-specific config field should narrow first
-// (`if (isMetricPanel(panel)) { panel.config.dataTypeId … }`) or use one of
+// (`if (isOutputPanel(panel)) { panel.config.outputId … }`) or use one of
 // the accessors below for read-only convenience without explicit branches.
 //
-// `dataTypeId` / `fieldMapping` / `content` / `imageUrl` / `imageFit` /
-// `dividerOrientation` / `dividerWeight` / `dividerColor` used to live as
-// flat nullable fields on `Panel`; the CS2c-3c wire collapse moves them
-// inside the typed `config` payload. The helpers below collapse the now-
-// repeated narrowing back to a one-liner at read sites that don't otherwise
-// need to know the subtype.
+// HEL-909: the bound trio (metric/chart/table) and collection/timeline
+// panel kinds are retired. `getDataTypeId`/`getFieldMapping`/
+// `getMetricAggregation`/`getChartAggregation`/`getMetricLiteral` go with
+// them — that data now lives on the fetched Output, not the placement.
 
 import type {
-  ChartAggregation,
-  ChartPanel,
-  CollectionPanel,
   DividerOrientation,
   DividerPanel,
   ImageFit,
   ImagePanel,
   MarkdownPanel,
-  MetricAggregation,
-  MetricPanel,
+  OutputPanel,
   Panel,
-  TablePanel,
   TextPanel,
-  TimelinePanel,
 } from "../types/panel";
 
-export const isMetricPanel = (p: Panel): p is MetricPanel => p.type === "metric";
-export const isChartPanel = (p: Panel): p is ChartPanel => p.type === "chart";
-export const isTablePanel = (p: Panel): p is TablePanel => p.type === "table";
+export const isOutputPanel = (p: Panel): p is OutputPanel => p.type === "output";
 export const isTextPanel = (p: Panel): p is TextPanel => p.type === "text";
 export const isMarkdownPanel = (p: Panel): p is MarkdownPanel => p.type === "markdown";
 export const isImagePanel = (p: Panel): p is ImagePanel => p.type === "image";
 export const isDividerPanel = (p: Panel): p is DividerPanel => p.type === "divider";
-export const isCollectionPanel = (p: Panel): p is CollectionPanel => p.type === "collection";
-export const isTimelinePanel = (p: Panel): p is TimelinePanel => p.type === "timeline";
 
-/** True when the subtype carries a `dataTypeId` / `fieldMapping` binding pair. */
-export const isBoundCapablePanel = (
-  p: Panel,
-): p is
-  | MetricPanel
-  | ChartPanel
-  | TablePanel
-  | TextPanel
-  | MarkdownPanel
-  | CollectionPanel
-  | TimelinePanel =>
-  p.type === "metric" ||
-  p.type === "chart" ||
-  p.type === "table" ||
-  p.type === "text" ||
-  p.type === "markdown" ||
-  p.type === "collection" ||
-  p.type === "timeline";
-
-//
-// Backend emits `dataTypeId: ""` for unbound bound-capable panels (the
-// empty-string convention preserves typed-config invariants). Frontend
-// consumers want a `string | null` view, so we collapse `""` to `null` at
-// the accessor boundary — this keeps existing call-site logic
-// (`if (panel.typeId) …`) working unchanged through narrowing.
-
-/** Returns the bound DataType id, or `null` if the panel is unbound. */
-export function getDataTypeId(panel: Panel): string | null {
-  if (!isBoundCapablePanel(panel)) return null;
-  const id = panel.config.dataTypeId;
+/** Returns the placement's bound Output id, or `null` for a non-output panel
+ *  or an unset placement. */
+export function getOutputId(panel: Panel): string | null {
+  if (!isOutputPanel(panel)) return null;
+  const id = panel.config.outputId;
   return id.length > 0 ? id : null;
-}
-
-/** Returns the field mapping, or `null` if absent / not applicable. */
-export function getFieldMapping(panel: Panel): Record<string, string> | null {
-  if (!isBoundCapablePanel(panel)) return null;
-  const mapping = panel.config.fieldMapping;
-  return Object.keys(mapping).length > 0 ? mapping : null;
 }
 
 /** Returns text/markdown content, or `null` for other subtypes. */
@@ -117,34 +73,4 @@ export function getDividerWeight(panel: Panel): number | null {
 export function getDividerColor(panel: Panel): string | null {
   if (!isDividerPanel(panel)) return null;
   return panel.config.color ?? null;
-}
-
-/** Returns the metric panel's viz-level aggregation spec (HEL-292), or
- *  `null` when absent / not a metric panel. */
-export function getMetricAggregation(panel: Panel): MetricAggregation | null {
-  if (!isMetricPanel(panel)) return null;
-  return panel.config.aggregation ?? null;
-}
-
-/** Returns the chart panel's viz-level groupBy aggregation spec (HEL-292), or
- *  `null` when absent / not a chart panel. */
-export function getChartAggregation(panel: Panel): ChartAggregation | null {
-  if (!isChartPanel(panel)) return null;
-  return panel.config.aggregation ?? null;
-}
-
-/** A metric panel's literal label/unit override (HEL-293) — distinct from
- *  `fieldMapping.label`/`fieldMapping.unit`, which bind to a data column. */
-export interface MetricLiteral {
-  label?: string;
-  unit?: string;
-}
-
-/** Returns the metric panel's literal label/unit override, or `null` when
- *  neither is set / not a metric panel. */
-export function getMetricLiteral(panel: Panel): MetricLiteral | null {
-  if (!isMetricPanel(panel)) return null;
-  const { label, unit } = panel.config;
-  if (label === undefined && unit === undefined) return null;
-  return { label, unit };
 }

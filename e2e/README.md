@@ -1,7 +1,7 @@
 # E2E
 
 Playwright end-to-end specs, one file per scenario. Most are named after the
-ticket that added them (e.g. `hel716-panel-creation-focus-trap.spec.ts`),
+ticket that added them (e.g. `hel909-output-picker-panel-sheet.spec.ts`),
 but not all — `auth-cookie-migration.spec.ts` is named for the scenario
 instead. Consistent naming is not enforced.
 

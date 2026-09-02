@@ -5,7 +5,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 // jsdom implements no real layout, `clip-path` compositing, or media-query
 // evaluation, so the anchor-position, stacking, tap-target, and reduced-
 // motion claims below can't be observed from a DOM-rendering Jest test —
-// mirrors `e2e/hel716-panel-creation-focus-trap.spec.ts`'s pattern (run on
+// mirrors `e2e/hel909-output-picker-panel-sheet.spec.ts`'s pattern (run on
 // demand via `npm run e2e`, not part of the pre-commit gates). Per the
 // session brief: launched via this repo's own `@playwright/test` runner
 // (its own browser process), never the shared MCP Playwright session.
@@ -419,11 +419,23 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
   });
 
   // Task 6.7 / AC1/AC6 — direction change on a create-action section
-  // (dashboards) and a no-action section (metrics), at 430 and 375, in
-  // both themes.
+  // (dashboards), at 430 and 375, in both themes.
+  //
+  // HEL-909: the former second half of this test used `/metrics` as its
+  // "no create action" comparison section. `/metrics` was retired outright
+  // (nav collapse), and every remaining pickable section (dashboards,
+  // sources, pipelines, chat) now has its own create action (chat's
+  // "New chat" was added by a later HEL-909 cycle closing HEL-789's
+  // surviving half) -- `/connectors` is a real destination but is
+  // deliberately `pickerId: "other"` (not a pickable list section, see
+  // `sections.ts`), so it never renders a "Switch X" phone title control at
+  // all and can't stand in as a like-for-like replacement. There is no
+  // longer a real "no create action" picker section to compare against, so
+  // that half of this test is dropped rather than pointed at a section that
+  // doesn't behave the way the test's own name claims.
   for (const width of [430, 375]) {
     for (const theme of ["dark", "light"] as const) {
-      test(`direction change reads as anchored on a create-action section and a no-action section at ${width}px, ${theme} theme`, async ({
+      test(`direction change reads as anchored on a create-action section at ${width}px, ${theme} theme`, async ({
         page,
         request,
       }) => {
@@ -451,25 +463,6 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
         expect(dashboardsGeometry.sheetTop).toBeCloseTo(dashboardsGeometry.barBottom, 0);
         await expect(page.getByRole("button", { name: /New dashboard/ })).toBeVisible();
         await dashboardsTrigger.click();
-        await expect(page.getByRole("dialog")).toHaveCount(0);
-
-        // Metrics — no create action, still descends from the same seam.
-        await page.goto("/metrics");
-        const metricsTrigger = await openSheet(page, /Switch metrics/i);
-        const metricsGeometry = await page.evaluate(() => {
-          const panel = document.querySelector(".mobile-nav-sheet__panel");
-          const bar = document.querySelector(".app-command-bar");
-          if (!panel || !bar) throw new Error("not found");
-          return {
-            sheetTop: panel.getBoundingClientRect().top,
-            barBottom: bar.getBoundingClientRect().bottom,
-          };
-        });
-        expect(metricsGeometry.sheetTop).toBeCloseTo(metricsGeometry.barBottom, 0);
-        // No create action anywhere in the metrics sheet.
-        const dialog = page.getByRole("dialog");
-        await expect(dialog.getByRole("button", { name: /new|add/i })).toHaveCount(0);
-        await metricsTrigger.click();
         await expect(page.getByRole("dialog")).toHaveCount(0);
       });
     }

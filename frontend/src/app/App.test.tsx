@@ -10,15 +10,12 @@ import {
 } from "../features/assistant/services/assistantConversationsService";
 import { authReducer } from "../features/auth/state/authSlice";
 import { getMeRequest } from "../features/auth/services/authService";
-import { dataTypesReducer } from "../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
-import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { getPipelines as getPipelinesRequest } from "../features/pipelines/services/pipelineService";
-import { fetchDataTypes as fetchDataTypesRequest } from "../features/dataTypes/services/dataTypeService";
 import { fetchSources as fetchSourcesRequest } from "../features/sources/services/dataSourceService";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
@@ -33,7 +30,7 @@ import {
 } from "../features/panels/services/panelService";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
-import { makeMetricPanel } from "../test/panelFixtures";
+import { makeOutputPanel } from "../test/panelFixtures";
 import { App } from "./App";
 
 jest.mock("../features/dashboards/services/dashboardService", () => ({
@@ -49,20 +46,12 @@ jest.mock("../features/panels/services/panelService", () => ({
   updatePanelsBatch: jest.fn().mockResolvedValue({ panels: [] }),
 }));
 
-jest.mock("../features/dataTypes/services/dataTypeService", () => ({
-  fetchDataTypes: jest.fn().mockResolvedValue([]),
-}));
-
 jest.mock("../features/sources/services/dataSourceService", () => ({
   fetchSources: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../features/pipelines/services/pipelineService", () => ({
   getPipelines: jest.fn().mockResolvedValue([]),
-}));
-
-jest.mock("../features/metrics/services/metricService", () => ({
-  fetchMetrics: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../features/assistant/services/assistantConversationsService", () => ({
@@ -94,7 +83,6 @@ const getMeRequestMock = jest.mocked(getMeRequest);
 const fetchDashboardsMock = jest.mocked(fetchDashboardsRequest);
 const fetchPanelsMock = jest.mocked(fetchPanelsRequest);
 const getPipelinesMock = jest.mocked(getPipelinesRequest);
-const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 const fetchSourcesMock = jest.mocked(fetchSourcesRequest);
 const updateDashboardAppearanceMock = jest.mocked(updateDashboardAppearanceRequest);
 const updateDashboardLayoutMock = jest.mocked(updateDashboardLayoutRequest);
@@ -131,10 +119,8 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
       layoutHistory: layoutHistoryReducer,
       onboarding: onboardingReducer,
       panels: panelsReducer,
-      dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
-      metrics: metricsReducer,
       toasts: toastsReducer,
     },
     preloadedState: {
@@ -189,8 +175,6 @@ describe("App", () => {
     listConversationsMock.mockReset();
     listConversationsMock.mockResolvedValue([]);
     getConversationMock.mockReset();
-    fetchDataTypesMock.mockReset();
-    fetchDataTypesMock.mockResolvedValue([]);
     fetchSourcesMock.mockReset();
     fetchSourcesMock.mockResolvedValue([]);
     HTMLDialogElement.prototype.showModal = jest.fn(function () {
@@ -314,14 +298,14 @@ describe("App", () => {
               id: "panel-1",
               dashboardId,
               title: "CPU Usage",
-              type: "metric" as const,
+              type: "output" as const,
               meta: {
                 createdBy: "system",
                 createdAt: "2026-03-14T12:00:00Z",
                 lastUpdated: "2026-03-14T12:30:00Z",
               },
               appearance: defaultPanelAppearance,
-              config: { dataTypeId: "", fieldMapping: {} },
+              config: { outputId: "output-1" },
             },
           ]
         : [
@@ -329,14 +313,14 @@ describe("App", () => {
               id: "panel-2",
               dashboardId,
               title: "Revenue Pulse",
-              type: "metric" as const,
+              type: "output" as const,
               meta: {
                 createdBy: "system",
                 createdAt: "2026-03-14T13:00:00Z",
                 lastUpdated: "2026-03-14T13:30:00Z",
               },
               appearance: defaultPanelAppearance,
-              config: { dataTypeId: "", fieldMapping: {} },
+              config: { outputId: "output-2" },
             },
           ],
     );
@@ -509,70 +493,6 @@ describe("App", () => {
     expect(dataSourcesLink).toHaveAttribute("href", "/sources");
   });
 
-  it("renders a Data Types nav link in the sidebar", async () => {
-    fetchDashboardsMock.mockResolvedValue([]);
-    fetchPanelsMock.mockResolvedValue([]);
-
-    renderApp();
-
-    await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
-    const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
-    expect(within(sidebarNav).getByRole("link", { name: "Data Types" })).toBeInTheDocument();
-  });
-
-  it("navigates to /registry and renders the Data Types page", async () => {
-    fetchDashboardsMock.mockResolvedValue([]);
-    fetchPanelsMock.mockResolvedValue([]);
-
-    renderApp();
-
-    await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
-
-    const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
-    fireEvent.click(within(sidebarNav).getByRole("link", { name: "Data Types" }));
-
-    // The in-page heading was dropped (top breadcrumb shows the section).
-    // Verify the page rendered by looking for its container.
-    await waitFor(() => expect(document.querySelector(".type-registry-page")).toBeInTheDocument());
-  });
-
-  it("renders a Metrics nav link in the sidebar", async () => {
-    fetchDashboardsMock.mockResolvedValue([]);
-    fetchPanelsMock.mockResolvedValue([]);
-
-    renderApp();
-
-    const sidebarNav = await screen.findByRole("navigation", { name: "Main navigation" });
-    const metricsLink = within(sidebarNav).getByRole("link", { name: "Metrics" });
-    expect(metricsLink).toBeInTheDocument();
-    expect(metricsLink).toHaveAttribute("href", "/metrics");
-  });
-
-  it("navigates to /metrics and renders the Metrics page", async () => {
-    fetchDashboardsMock.mockResolvedValue([]);
-    fetchPanelsMock.mockResolvedValue([]);
-
-    renderApp();
-
-    await waitFor(() => expect(fetchDashboardsMock).toHaveBeenCalledTimes(1));
-
-    const sidebarNav = screen.getByRole("navigation", { name: "Main navigation" });
-    fireEvent.click(within(sidebarNav).getByRole("link", { name: "Metrics" }));
-
-    await waitFor(() => expect(document.querySelector(".metrics-page")).toBeInTheDocument());
-  });
-
-  it("shows 'Metrics' breadcrumb when route is /metrics", async () => {
-    fetchDashboardsMock.mockResolvedValue([]);
-    fetchPanelsMock.mockResolvedValue([]);
-
-    renderApp({ initialPath: "/metrics" });
-
-    await waitFor(() =>
-      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Metrics"),
-    );
-  });
-
   it("shows 'Data Pipelines' breadcrumb when route is /pipelines", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
@@ -631,7 +551,7 @@ describe("App", () => {
   // skeptic-final-1.md change request 1 — `breadcrumbItemName` (App.tsx) had
   // no "chat" arm, so the breadcrumb (and the mobile pill's "current:" label)
   // never reflected the selected conversation's title, unlike every sibling
-  // Redux-selection section (sources/registry). Mirrors the /pipelines
+  // Redux-selection section (e.g. pipelines). Mirrors the /pipelines
   // breadcrumb-reflects-selection test above, for both the fallback-to-first
   // case and an explicit desktop-sidebar selection.
   it("shows the fallback-selected (first) conversation's title in the breadcrumb when nothing is explicitly selected", async () => {
@@ -699,7 +619,7 @@ describe("App", () => {
   });
 
   // Task 5.1 — the phone section-item sheet reuses MobileNavSheet for
-  // /sources, /pipelines, /registry, not just dashboards. These two tests
+  // /sources, /pipelines, not just dashboards. These two tests
   // exercise the /pipelines wiring specifically: `toHref`-style navigation
   // (not a Redux select) and the empty-state message, per
   // notes/mobile-pwa-handoff.md §W3.3 ("every section is a picker, never a
@@ -770,7 +690,7 @@ describe("App", () => {
   // the breadcrumb item name and the phone sheet's selection for this section
   // (design.md tasks 1.3/3.3 — the two used to be independent switches in
   // App.tsx that could silently drift). Sources has since moved from Redux
-  // selection to NAVIGATION, like pipelines/metrics: `/sources` is a section
+  // selection to NAVIGATION, like pipelines: `/sources` is a section
   // overview and `/sources/:id` the detail.
   it("names no source in the breadcrumb on the section overview, where none is selected", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
@@ -782,6 +702,7 @@ describe("App", () => {
         type: "static",
         createdAt: "2026-01-01T00:00:00Z",
         updatedAt: "2026-01-01T00:00:00Z",
+        inferredSchema: [],
       },
       {
         id: "src-2",
@@ -789,6 +710,7 @@ describe("App", () => {
         type: "static",
         createdAt: "2026-01-02T00:00:00Z",
         updatedAt: "2026-01-02T00:00:00Z",
+        inferredSchema: [],
       },
     ]);
 
@@ -818,6 +740,7 @@ describe("App", () => {
         type: "static",
         createdAt: "2026-01-01T00:00:00Z",
         updatedAt: "2026-01-01T00:00:00Z",
+        inferredSchema: [],
       },
       {
         id: "src-2",
@@ -825,6 +748,7 @@ describe("App", () => {
         type: "static",
         createdAt: "2026-01-02T00:00:00Z",
         updatedAt: "2026-01-02T00:00:00Z",
+        inferredSchema: [],
       },
     ]);
 
@@ -851,101 +775,8 @@ describe("App", () => {
     );
   });
 
-  // HEL-724 — registry is likewise a Redux-selection section, and its
-  // pipeline-prefetch effect (for the provenance subtitle, HEL-270) is one of
-  // the four call sites `usePickerSelection` consolidates.
-  it("names no data type in the breadcrumb on the section overview, where none is selected", async () => {
-    fetchDashboardsMock.mockResolvedValue([]);
-    fetchPanelsMock.mockResolvedValue([]);
-    fetchDataTypesMock.mockResolvedValue([
-      {
-        id: "type-1",
-        name: "RevenueRow",
-        sourceId: null,
-        version: 1,
-        fields: [],
-        computedFields: [],
-        createdAt: "2026-01-01T00:00:00Z",
-        updatedAt: "2026-01-01T00:00:00Z",
-      },
-      {
-        id: "type-2",
-        name: "OpsRow",
-        sourceId: null,
-        version: 1,
-        fields: [],
-        computedFields: [],
-        createdAt: "2026-01-02T00:00:00Z",
-        updatedAt: "2026-01-02T00:00:00Z",
-      },
-    ]);
-
-    renderApp({ initialPath: "/registry" });
-
-    // Route-driven now: `/registry` is the section overview, so the breadcrumb
-    // resolves to the section alone. It used to name `items[0]` ("RevenueRow")
-    // via a `selectedTypeId ?? items[0]` fallback — the same fallback that
-    // made `/registry` force-navigate to one arbitrary type's detail.
-    await waitFor(() =>
-      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
-        "Data Types",
-      ),
-    );
-    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).not.toHaveTextContent(
-      "RevenueRow",
-    );
-  });
-
-  it("phone section sheet on /registry navigates to the chosen type's detail route", async () => {
-    fetchDashboardsMock.mockResolvedValue([]);
-    fetchPanelsMock.mockResolvedValue([]);
-    fetchDataTypesMock.mockResolvedValue([
-      {
-        id: "type-1",
-        name: "RevenueRow",
-        sourceId: null,
-        version: 1,
-        fields: [],
-        computedFields: [],
-        createdAt: "2026-01-01T00:00:00Z",
-        updatedAt: "2026-01-01T00:00:00Z",
-      },
-      {
-        id: "type-2",
-        name: "OpsRow",
-        sourceId: null,
-        version: 1,
-        fields: [],
-        computedFields: [],
-        createdAt: "2026-01-02T00:00:00Z",
-        updatedAt: "2026-01-02T00:00:00Z",
-      },
-    ]);
-
-    const { store } = renderApp({ initialPath: "/registry" });
-
-    const titleButton = await screen.findByRole("button", { name: /Switch data types/i });
-    fireEvent.click(titleButton);
-
-    const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "OpsRow" }));
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    // The registry moved from Redux selection to route-driven selection, so
-    // the observable outcome is the resolved route rather than
-    // `dataTypes.selectedTypeId`. Asserted through the breadcrumb because
-    // these tests run under MemoryRouter, whose history never touches the
-    // jsdom URL.
-    await waitFor(() =>
-      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("OpsRow"),
-    );
-    await waitFor(() =>
-      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("OpsRow"),
-    );
-  });
-
   // HEL-664 (tasks.md 4.10/4.11, design.md D2) — chat is a Redux-selection
-  // section (like sources/registry), not navigation like pipelines: selecting
+  // section (like sources), not navigation like pipelines: selecting
   // via the phone sheet must dispatch the identical `setSelectedConversationId`
   // action the desktop sidebar's `onSelect` would for the same conversation.
   it("phone section sheet on /chat dispatches the same selection action the desktop sidebar would", async () => {
@@ -995,13 +826,12 @@ describe("App", () => {
     );
   });
 
-  // HEL-773 task 5.7 — the bare-`<p>` this test used to assert on is
-  // retired; assistant has no shared create-action hook (out of scope), so
-  // its empty branch renders the shared `EmptyState` message-only, with no
-  // CTA — distinct from the pipelines case above. Scoped to the dialog: the
-  // command bar's separate HEL-746 "New chat" trigger is unrelated to this
-  // empty branch and stays rendered regardless.
-  it("phone section sheet on /chat shows the shared EmptyState message-only (no CTA) when there are no conversations", async () => {
+  // HEL-789's surviving half — Assistant now has the same shared
+  // create-action shape every other section does (`useCreateConversationAction`),
+  // so its empty branch renders the shared `EmptyState` WITH a "New chat"
+  // CTA, matching the pipelines/sources/dashboards case, closing what used
+  // to be the one section with no mobile create-action parity.
+  it("phone section sheet on /chat shows the shared EmptyState with a 'New chat' CTA when there are no conversations", async () => {
     fetchDashboardsMock.mockResolvedValue([]);
     fetchPanelsMock.mockResolvedValue([]);
     listConversationsMock.mockResolvedValue([]);
@@ -1013,7 +843,7 @@ describe("App", () => {
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("No conversations yet")).toBeInTheDocument();
-    expect(within(dialog).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "New chat" })).toBeInTheDocument();
   });
 
   it("redirects unauthenticated user from /pipelines to /login", async () => {
@@ -1043,7 +873,7 @@ describe("App", () => {
         layout: defaultDashboardLayout,
       },
     ]);
-    const panelBase = makeMetricPanel({
+    const panelBase = makeOutputPanel({
       id: "panel-1",
       dashboardId: "dashboard-1",
       title: "Revenue Pulse",

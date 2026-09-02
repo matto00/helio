@@ -12,7 +12,7 @@ import { OnboardingChecklist } from "../../onboarding/ui/OnboardingChecklist";
 import { PanelGrid } from "./grid/PanelGrid";
 import { PanelGridSkeleton } from "./grid/PanelGridSkeleton";
 import { panelGridConfig } from "./grid/panelGridConfig";
-import { PanelCreationModal } from "./PanelCreationModal";
+import { OutputPicker } from "./OutputPicker";
 import { useCreatePanelAction } from "../hooks/useCreatePanelAction";
 import { fetchPanels, setPanelCreationModalOpen } from "../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
@@ -312,8 +312,12 @@ export function PanelList() {
           </button>
         </div>
       ) : null}
-      {panelCreationModalOpen ? (
-        <PanelCreationModal onClose={() => dispatch(setPanelCreationModalOpen(false))} />
+      {panelCreationModalOpen && selectedDashboardId ? (
+        <OutputPicker
+          dashboardId={selectedDashboardId}
+          currentDashboardPanels={items}
+          onClose={() => dispatch(setPanelCreationModalOpen(false))}
+        />
       ) : null}
       <StatusMessage
         status={status === "failed" ? "failed" : "idle"}
@@ -360,7 +364,8 @@ export function PanelList() {
           ending and the panels-loading skeleton starting where NEITHER
           existed — so the wrapper unmounted and remounted as a NEW DOM node,
           orphaning the observer against a now-detached element, which reports
-          0 width. Caught live (frame-traced against `/registry`, not
+          0 width. Caught live (frame-traced against the now-retired type
+          registry page, not
           assumed): `gridContainerWidth` sampled `1280 → 1152 → 0` across
           exactly that sequence, with `0` surviving into the panels-loading
           skeleton and staying there. Keeping ONE wrapper mounted for

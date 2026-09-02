@@ -29,6 +29,11 @@ export interface Output {
   schema: OutputSchemaField[];
   createdAt: string;
   updatedAt: string;
+  /** Number of panels currently bound to this Output. Populated only on
+   *  `GET /api/outputs` (list) responses (HEL-909 CR2) — absent/`undefined`
+   *  on single-resource endpoints (`GET/PATCH /api/outputs/:id`), which
+   *  don't compute it. */
+  panelCount?: number;
 }
 
 export interface CreateOutputPayload {

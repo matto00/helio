@@ -1,8 +1,9 @@
 import "./TimelineRenderer.css";
-import type { TimelinePanel } from "../../types/panel";
 
 interface TimelineRendererProps {
-  panel: TimelinePanel;
+  /** Bound-column mapping from the Output's `TimelineOutputConfig`. */
+  fieldMapping: Record<string, string>;
+  sort: "asc" | "desc";
   /** Fetched snapshot rows (string cells, aligned to `headers`) — one row per
    *  rendered entry, the table fetch path (mirrors `CollectionRenderer`). */
   rawRows?: string[][] | null;
@@ -54,21 +55,8 @@ function buildEntries(
  *  event list (HEL-317): one marker + connector + time + description per
  *  entry, ordered per `timelineOptions.sort`. The trailing connector is
  *  suppressed on the last entry so a single row degrades cleanly. */
-export function TimelineRenderer({ panel, rawRows, headers }: TimelineRendererProps) {
-  const { dataTypeId, fieldMapping, timelineOptions } = panel.config;
-
-  // Unbound → invite configuration, never an error.
-  if (!dataTypeId) {
-    return (
-      <div className="panel-content panel-content--state">
-        <span className="panel-content__state-label">
-          Bind a data type to populate this timeline
-        </span>
-      </div>
-    );
-  }
-
-  // Bound but no rows → "No data" state rather than an empty body.
+export function TimelineRenderer({ fieldMapping, sort, rawRows, headers }: TimelineRendererProps) {
+  // No rows → "No data" state rather than an empty body.
   if (!rawRows || rawRows.length === 0 || !headers) {
     return (
       <div className="panel-content panel-content--state">
@@ -77,7 +65,7 @@ export function TimelineRenderer({ panel, rawRows, headers }: TimelineRendererPr
     );
   }
 
-  const entries = buildEntries(rawRows, headers, fieldMapping, timelineOptions.sort);
+  const entries = buildEntries(rawRows, headers, fieldMapping, sort);
 
   return (
     <div className="panel-content panel-content--timeline">

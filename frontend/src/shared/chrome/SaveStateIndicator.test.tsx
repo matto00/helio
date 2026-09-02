@@ -5,7 +5,6 @@ import { MemoryRouter } from "react-router-dom";
 
 import { panelsReducer } from "../../features/panels/state/panelsSlice";
 import { authReducer } from "../../features/auth/state/authSlice";
-import { dataTypesReducer } from "../../features/dataTypes/state/dataTypesSlice";
 import { dashboardsReducer } from "../../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../../features/layout/state/layoutHistorySlice";
 import { sourcesReducer } from "../../features/sources/state/sourcesSlice";
@@ -22,7 +21,6 @@ function makeStore(overrides: {
       dashboards: dashboardsReducer,
       layoutHistory: layoutHistoryReducer,
       panels: panelsReducer,
-      dataTypes: dataTypesReducer,
       sources: sourcesReducer,
     } as never,
     preloadedState: {

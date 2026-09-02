@@ -35,7 +35,6 @@ import {
   deletePanel,
   duplicatePanel,
   fetchPanels,
-  updatePanelColumnWidths,
   updatePanelsBatch,
 } from "../../panels/state/panelsSlice";
 
@@ -45,10 +44,6 @@ import {
   deleteSource,
   inferSqlSource,
 } from "../../sources/state/sourcesSlice";
-
-import { deleteDataType } from "../../dataTypes/state/dataTypesSlice";
-
-import { deleteMetric } from "../../metrics/state/metricsSlice";
 
 import {
   createPipeline,
@@ -128,15 +123,10 @@ const SUCCESS_TOASTS: SuccessToastEntry[] = [
   success(createSqlSource.fulfilled, (payload) => `Data source "${payload.name}" created.`),
   success(createStaticSource.fulfilled, (payload) => `Data source "${payload.name}" created.`),
   success(deleteSource.fulfilled, () => "Data source deleted."),
-  success(deleteDataType.fulfilled, () => "Data type deleted."),
   success(createPipeline.fulfilled, (payload) => `Pipeline "${payload.name}" created.`),
   success(deletePipeline.fulfilled, () => "Pipeline deleted."),
   success(deleteAgentMemoryEntryThunk.fulfilled, () => "Memory entry deleted."),
   success(clearAgentMemoryThunk.fulfilled, () => "Agent memory cleared."),
-  // HEL-535 D5 (include-metrics) — deleteMetric's three sibling delete
-  // affordances (dashboards/panels/sources et al.) already toast on success;
-  // this one silently didn't.
-  success(deleteMetric.fulfilled, () => "Metric deleted."),
 ];
 
 const ERROR_TOASTS: ErrorToastEntry[] = [
@@ -159,7 +149,6 @@ const ERROR_TOASTS: ErrorToastEntry[] = [
   error(createStaticSource.rejected, "Failed to create static source."),
   error(deleteSource.rejected, "Failed to delete source."),
   error(inferSqlSource.rejected, "Failed to connect to database."),
-  error(deleteDataType.rejected, "Failed to delete data type."),
   error(createPipeline.rejected, "Failed to create pipeline."),
   error(deletePipeline.rejected, "Failed to delete pipeline."),
   error(submitPipelineRun.rejected, "Failed to start pipeline run."),
@@ -170,7 +159,6 @@ const ERROR_TOASTS: ErrorToastEntry[] = [
   // Fallback wording names what the user did, not the wire call:
   error(updateDashboardLayout.rejected, "Failed to save dashboard layout."),
   error(updatePanelsBatch.rejected, "Failed to save panel changes."),
-  error(updatePanelColumnWidths.rejected, "Failed to resize columns."),
   // HEL-535 D5 — closes the header-toggle path (PipelineDetailHeader's
   // <Toggle> previously just silently refused to move on failure). Known,
   // tracked duplicate on the schedule dialog's OWN save path
@@ -181,9 +169,6 @@ const ERROR_TOASTS: ErrorToastEntry[] = [
   // entry's only real beneficiary. Resolving the double-report generally is
   // HEL-771's job, not this change's.
   error(savePipelineSchedule.rejected, "Failed to save pipeline schedule."),
-  // HEL-535 D5 (include-metrics) — deleteMetric's rejection was dropped at
-  // all three dispatch sites (none called `.unwrap()`).
-  error(deleteMetric.rejected, "Failed to delete metric."),
 ];
 
 export function addToastListeners(startListening: AppStartListening) {

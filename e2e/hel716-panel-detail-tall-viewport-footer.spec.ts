@@ -20,7 +20,7 @@ import { expect, test } from "@playwright/test";
 // The default/short viewport used by most manual and automated passes hid
 // this defect entirely (only reproduces above ~756px viewport height) — this
 // spec pins a tall (900px) viewport specifically so it can't regress silently
-// again. Mirrors e2e/hel716-panel-creation-focus-trap.spec.ts's pattern — run
+// again. Mirrors e2e/hel909-output-picker-panel-sheet.spec.ts's pattern — run
 // on demand via `npm run e2e`, not part of the pre-commit gates.
 
 const CSRF_HEADER = "X-Helio-Requested-With";

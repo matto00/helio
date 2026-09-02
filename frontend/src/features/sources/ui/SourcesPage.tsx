@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Database } from "lucide-react";
 
 import "./SourcesPage.css";
-import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
 import { fetchPipelines } from "../../pipelines/state/pipelinesSlice";
 import { selectPipelineNamesBySourceId } from "../../pipelines/state/pipelinesSlice";
 import { useAddSourceAction } from "../hooks/useAddSourceAction";
@@ -26,7 +25,6 @@ export function SourcesPage() {
     errorKind: sourcesErrorKind,
     addModalOpen,
   } = useAppSelector((state) => state.sources);
-  const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
   const pipelinesStatus = useAppSelector((state) => state.pipelines.status);
   const pipelineNamesBySourceId = useAppSelector(selectPipelineNamesBySourceId);
   const addSourceAction = useAddSourceAction();
@@ -41,17 +39,13 @@ export function SourcesPage() {
     if (sourcesStatus === "idle") {
       void dispatch(fetchSources());
     }
-    // Schema preview needs the inferred DataType for the selected source.
-    if (dataTypesStatus === "idle") {
-      void dispatch(fetchDataTypes());
-    }
     // The overview's "Used by" column resolves each source's reading
     // pipelines. Same `idle` guard — the sidebar's sources section already
     // fetches pipelines for its delete-confirm warning.
     if (pipelinesStatus === "idle") {
       void dispatch(fetchPipelines());
     }
-  }, [dispatch, sourcesStatus, dataTypesStatus, pipelinesStatus]);
+  }, [dispatch, sourcesStatus, pipelinesStatus]);
 
   // HEL-554 D4/task 3.4 — mirrors `PanelList.tsx:193-197`'s identical
   // cleanup for `panelCreationModalOpen`. `addModalOpen` is a Redux flag, so
@@ -150,7 +144,7 @@ export function SourcesPage() {
                 variant="main"
                 icon={<Database />}
                 title="Connect a data source"
-                description="Pull in data from PostgreSQL, MySQL, CSV, or static input. Helio infers a schema you can then shape into a bindable type with a pipeline."
+                description="Pull in data from PostgreSQL, MySQL, CSV, or static input. Helio infers a schema you can then shape into Outputs with a pipeline."
                 cta={addSourceAction.cta}
               />
             ))

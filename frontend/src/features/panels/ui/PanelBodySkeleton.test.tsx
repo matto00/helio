@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import { PanelBodySkeleton } from "./PanelBodySkeleton";
 import { PanelContent } from "./PanelContent";
 import { PanelSuspenseFallback } from "../../../shared/ui/SuspenseFallback";
-import { makeChartPanel, makeMetricPanel, makeTablePanel } from "../../../test/panelFixtures";
+import { makeOutputPanel, makeTextPanel, makeMarkdownPanel } from "../../../test/panelFixtures";
 
 // HEL-528 design.md D6 (6.5e) — `PanelContent`'s data-loading state and
 // `PanelSuspenseFallback` (the lazy-chunk fallback) must present the SAME
@@ -13,7 +13,7 @@ import { makeChartPanel, makeMetricPanel, makeTablePanel } from "../../../test/p
 describe("PanelBodySkeleton — shared, kind-agnostic (design.md D6)", () => {
   it("PanelContent's loading state renders the exact same markup as PanelSuspenseFallback", () => {
     const { container: contentContainer } = render(
-      <PanelContent panel={makeMetricPanel()} isLoading />,
+      <PanelContent panel={makeOutputPanel()} isLoading />,
     );
     const { container: fallbackContainer } = render(<PanelSuspenseFallback />);
 
@@ -24,25 +24,25 @@ describe("PanelBodySkeleton — shared, kind-agnostic (design.md D6)", () => {
     expect(contentSkeleton?.innerHTML).toBe(fallbackSkeleton?.innerHTML);
   });
 
-  it("renders identically for a metric, a table, and a chart panel — no per-kind variation", () => {
-    const metric = render(<PanelBodySkeleton />).container.innerHTML;
-    const table = render(<PanelBodySkeleton />).container.innerHTML;
-    const chart = render(<PanelBodySkeleton />).container.innerHTML;
-    expect(metric).toBe(table);
-    expect(table).toBe(chart);
+  it("renders identically for an output, a text, and a markdown panel — no per-kind variation", () => {
+    const first = render(<PanelBodySkeleton />).container.innerHTML;
+    const second = render(<PanelBodySkeleton />).container.innerHTML;
+    const third = render(<PanelBodySkeleton />).container.innerHTML;
+    expect(first).toBe(second);
+    expect(second).toBe(third);
 
     // Sanity: PanelContent's loading branch (the actual call site) is also
     // identical across kinds — it never threads `panel` into the skeleton.
-    const metricLoading = render(
-      <PanelContent panel={makeMetricPanel()} isLoading />,
+    const outputLoading = render(
+      <PanelContent panel={makeOutputPanel()} isLoading />,
     ).container.querySelector(".panel-body-skeleton")?.innerHTML;
-    const tableLoading = render(
-      <PanelContent panel={makeTablePanel()} isLoading />,
+    const textLoading = render(
+      <PanelContent panel={makeTextPanel()} isLoading />,
     ).container.querySelector(".panel-body-skeleton")?.innerHTML;
-    const chartLoading = render(
-      <PanelContent panel={makeChartPanel()} isLoading />,
+    const markdownLoading = render(
+      <PanelContent panel={makeMarkdownPanel()} isLoading />,
     ).container.querySelector(".panel-body-skeleton")?.innerHTML;
-    expect(metricLoading).toBe(tableLoading);
-    expect(tableLoading).toBe(chartLoading);
+    expect(outputLoading).toBe(textLoading);
+    expect(textLoading).toBe(markdownLoading);
   });
 });

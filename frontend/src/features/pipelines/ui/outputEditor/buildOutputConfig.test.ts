@@ -32,8 +32,10 @@ function baseParams(overrides: Partial<BuildOutputConfigParams> = {}): BuildOutp
     metricAggFn: "",
     metricLabelState: boundOrLiteral(),
     metricUnitState: boundOrLiteral(),
+    metricFormat: "number",
     markdownContentState: boundOrLiteral(),
     collectionFieldMapping: {},
+    collectionFormat: "number",
     timelineFieldMapping: {},
     ...overrides,
   };
@@ -73,6 +75,25 @@ describe("buildOutputConfig", () => {
     );
     expect((reduced.fieldMapping as Record<string, string>).value).toBeUndefined();
     expect(reduced.aggregation).toEqual({ value: "amount", agg: "sum" });
+  });
+
+  it("metric config carries format (HEL-876) and rejects an unrecognized value", () => {
+    const withFormat = buildOutputConfig(
+      baseParams({ kind: "metric", metricField: "amount", metricFormat: "currency" }),
+    );
+    expect(withFormat.format).toBe("currency");
+
+    const bogus = buildOutputConfig(
+      baseParams({ kind: "metric", metricField: "amount", metricFormat: "not-a-format" }),
+    );
+    expect(bogus.format).toBeNull();
+  });
+
+  it("collection config carries format (HEL-876)", () => {
+    const config = buildOutputConfig(
+      baseParams({ kind: "collection", collectionFormat: "percent" }),
+    );
+    expect(config.format).toBe("percent");
   });
 
   it("markdown config writes literal content when mode is literal", () => {

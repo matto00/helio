@@ -1,60 +1,35 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { updatePanelAppearance as updatePanelAppearanceRequest } from "../../services/panelService";
-import { updatePanelBinding as updatePanelBindingRequest } from "../../services/panelService";
-import { updatePanelMarkdownBinding as updatePanelMarkdownBindingRequest } from "../../services/panelService";
-import { updatePanelImage as updatePanelImageRequest } from "../../services/panelService";
-import { uploadPanelImage as uploadPanelImageRequest } from "../../services/panelService";
 import { updatePanelDivider as updatePanelDividerRequest } from "../../services/panelService";
-import { fetchDataTypes as fetchDataTypesRequest } from "../../../dataTypes/services/dataTypeService";
+import { uploadPanelImage as uploadPanelImageRequest } from "../../services/panelService";
+import { getOutputById as getOutputByIdRequest } from "../../../pipelines/services/outputService";
 import { renderWithStore } from "../../../../test/renderWithStore";
-import {
-  makeChartPanel,
-  makeDividerPanel,
-  makeImagePanel,
-  makeMarkdownPanel,
-  makeMetricPanel,
-} from "../../../../test/panelFixtures";
+import { makeDividerPanel, makeImagePanel, makeOutputPanel } from "../../../../test/panelFixtures";
+import type { Output } from "../../../pipelines/types/output";
 import { PanelDetailModal } from "./PanelDetailModal";
-
-// This suite exercises chart panels (`makeChartPanel`), which pull in
-// `ChartPanel.tsx` — it renders via `echarts-for-react/esm/core` (F-022,
-// tree-shaken `echarts/core` registration) rather than the default
-// `echarts-for-react` export. Mirrors the mock in the co-located
-// `ChartPanel.test.tsx`: this project's CommonJS Jest transform can't handle
-// `echarts`'s ESM-only subpath exports, so both the `/core` entry and the
-// registration module (`echartsCore.ts`, a ship-time bundle-size concern
-// only, irrelevant to anything under test here) are stubbed.
-jest.mock("echarts-for-react/esm/core", () => ({
-  __esModule: true,
-  default: ({ option }: { option: unknown }) => (
-    <div data-testid="echarts" data-option={JSON.stringify(option)} />
-  ),
-}));
-jest.mock("../echartsCore", () => ({ __esModule: true, default: {} }));
 
 jest.mock("../../services/panelService", () => ({
   fetchPanels: jest.fn(),
   createPanel: jest.fn(),
   updatePanelAppearance: jest.fn(),
-  updatePanelBinding: jest.fn(),
-  updatePanelMarkdownBinding: jest.fn(),
   updatePanelImage: jest.fn(),
   uploadPanelImage: jest.fn(),
   updatePanelDivider: jest.fn(),
+  updatePanelTextContent: jest.fn(),
+  updatePanelMarkdownContent: jest.fn(),
 }));
 
-jest.mock("../../../dataTypes/services/dataTypeService", () => ({
-  fetchDataTypes: jest.fn(),
+jest.mock("../../../pipelines/services/outputService", () => ({
+  getOutputById: jest.fn(),
+  getOutputRows: jest.fn().mockResolvedValue({ items: [], total: 0, offset: 0, limit: 200 }),
+  listOutputPanels: jest.fn().mockResolvedValue([]),
 }));
 
 const updateAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
-const updateBindingMock = jest.mocked(updatePanelBindingRequest);
-const updateMarkdownBindingMock = jest.mocked(updatePanelMarkdownBindingRequest);
-const updateImageMock = jest.mocked(updatePanelImageRequest);
-const uploadImageMock = jest.mocked(uploadPanelImageRequest);
 const updateDividerMock = jest.mocked(updatePanelDividerRequest);
-const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
+const uploadImageMock = jest.mocked(uploadPanelImageRequest);
+const getOutputByIdMock = jest.mocked(getOutputByIdRequest);
 
 const panelBaseFields = {
   id: "p1",
@@ -68,8 +43,7 @@ const panelBaseFields = {
   },
 };
 
-const testPanel = makeMetricPanel(panelBaseFields);
-const chartTestPanel = makeChartPanel(panelBaseFields);
+const testPanel = makeOutputPanel({ ...panelBaseFields, config: { outputId: "output-1" } });
 const dividerTestPanel = makeDividerPanel({
   ...panelBaseFields,
   config: { orientation: "horizontal", weight: 1, color: "#cccccc" },
@@ -79,27 +53,21 @@ const dividerTestPanelNullColor = makeDividerPanel({
   ...panelBaseFields,
   config: { orientation: "horizontal", weight: 1 },
 });
-const markdownTestPanel = makeMarkdownPanel({
-  ...panelBaseFields,
-  config: { content: "# Hello" },
-});
 const imageTestPanel = makeImagePanel({
   ...panelBaseFields,
   config: { imageUrl: "https://example.com/img.png", imageFit: "contain" },
 });
 
-const testDataType = {
-  id: "dt-1",
-  name: "Sales Metrics",
-  sourceId: null,
-  version: 1,
-  fields: [
-    { name: "revenue", displayName: "Revenue", dataType: "float", nullable: false },
-    { name: "label", displayName: "Label", dataType: "string", nullable: true },
-  ],
-  computedFields: [],
-  createdAt: "2026-03-22T00:00:00Z",
-  updatedAt: "2026-03-22T00:00:00Z",
+const testOutput: Output = {
+  id: "output-1",
+  pipelineId: "pipe-1",
+  ownerId: "u1",
+  name: "Revenue Table",
+  kind: "table",
+  config: {},
+  schema: [],
+  createdAt: "2026-01-01T00:00:00Z",
+  updatedAt: "2026-01-01T00:00:00Z",
 };
 
 function setupDialog() {
@@ -116,18 +84,6 @@ function renderModal(onClose = jest.fn()) {
   return renderWithStore(<PanelDetailModal panel={testPanel} onClose={onClose} />);
 }
 
-function renderModalWithDataType(onClose = jest.fn()) {
-  setupDialog();
-  return renderWithStore(<PanelDetailModal panel={testPanel} onClose={onClose} />, {
-    dataTypes: { items: [testDataType], status: "succeeded" },
-  });
-}
-
-function renderChartModal(onClose = jest.fn()) {
-  setupDialog();
-  return renderWithStore(<PanelDetailModal panel={chartTestPanel} onClose={onClose} />);
-}
-
 function renderDividerModal(onClose = jest.fn()) {
   setupDialog();
   return renderWithStore(<PanelDetailModal panel={dividerTestPanel} onClose={onClose} />);
@@ -138,11 +94,6 @@ function renderDividerModalNullColor(onClose = jest.fn()) {
   return renderWithStore(<PanelDetailModal panel={dividerTestPanelNullColor} onClose={onClose} />);
 }
 
-function renderMarkdownModal(onClose = jest.fn()) {
-  setupDialog();
-  return renderWithStore(<PanelDetailModal panel={markdownTestPanel} onClose={onClose} />);
-}
-
 function renderImageModal(onClose = jest.fn()) {
   setupDialog();
   return renderWithStore(<PanelDetailModal panel={imageTestPanel} onClose={onClose} />);
@@ -151,13 +102,10 @@ function renderImageModal(onClose = jest.fn()) {
 describe("PanelDetailModal", () => {
   beforeEach(() => {
     updateAppearanceMock.mockReset();
-    updateBindingMock.mockReset();
-    updateMarkdownBindingMock.mockReset();
-    updateImageMock.mockReset();
-    uploadImageMock.mockReset();
     updateDividerMock.mockReset();
-    // Default to resolving with empty array so data-type fetch does not crash tests
-    fetchDataTypesMock.mockResolvedValue([]);
+    uploadImageMock.mockReset();
+    getOutputByIdMock.mockReset();
+    getOutputByIdMock.mockResolvedValue(testOutput);
   });
 
   it("shows the panel title in the header", () => {
@@ -186,31 +134,34 @@ describe("PanelDetailModal", () => {
     expect(screen.queryByRole("button", { name: "Edit panel" })).not.toBeInTheDocument();
   });
 
-  it("modal opens in view mode — tab bar not visible, Edit button visible", () => {
-    renderModal();
-    expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
-  });
-
   // 2.1 — Edit mode shows unified form with no tab bar
   it("clicking Edit transitions to edit mode with a unified form — no tab bar present", () => {
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
-    // Appearance section heading and controls are visible
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
     expect(screen.getByLabelText("Revenue background color")).toBeInTheDocument();
   });
 
-  // 2.1 — Data-capable panels show Appearance and Data sections
-  it("metric panel edit mode shows Appearance and Data sections without a tab bar", () => {
+  // Output-kind sheet contract (specs/panel-detail-modal ADDED requirement) —
+  // no field-mapping/aggregation control anywhere, and an Output link/Swap
+  // output/placements note instead of a "Data" tab.
+  it("output panel edit mode shows Output link/Swap output/placements note and no field-mapping control", async () => {
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Data" })).toBeInTheDocument();
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+
+    expect(await screen.findByRole("link", { name: "Revenue Table" })).toHaveAttribute(
+      "href",
+      "/pipelines/pipe-1?outputId=output-1",
+    );
+    expect(screen.getByRole("button", { name: "Swap output" })).toBeInTheDocument();
+    expect(screen.getByText(/Used on/)).toBeInTheDocument();
+
+    expect(screen.queryByRole("heading", { name: "Data" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Value field")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Search data types")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/aggregation/i)).not.toBeInTheDocument();
   });
 
   // 2.1 — Divider panels show Appearance and Divider sections
@@ -254,12 +205,10 @@ describe("PanelDetailModal", () => {
     renderModal();
     const dialog = screen.getByRole("dialog", { name: "Revenue settings" });
 
-    // Append a text input as a child of the dialog to simulate a focused form field
     const input = document.createElement("input");
     input.type = "text";
     dialog.appendChild(input);
 
-    // Fire keydown on the input — it bubbles to the dialog with e.target = input
     fireEvent.keyDown(input, { key: "e" });
 
     expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
@@ -275,18 +224,12 @@ describe("PanelDetailModal", () => {
     const onClose = jest.fn();
     renderModal(onClose);
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    // No changes made — click ✕ directly
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
     expect(screen.queryByText("You have unsaved changes. Discard them?")).not.toBeInTheDocument();
   });
 
-  // HEL-716: the ✕ button now routes through the same unified `onClose` as
-  // backdrop-click/Escape (see openspec design.md Decision 5) — confirming
-  // discard from any of those vectors returns to view mode rather than
-  // closing the whole modal (that distinct "close on confirm" behavior was
-  // only reachable via this specific button pre-migration).
   it("✕ button in edit mode with unsaved changes shows discard warning; confirming returns to view mode", () => {
     const onClose = jest.fn();
     renderModal(onClose);
@@ -296,149 +239,9 @@ describe("PanelDetailModal", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
-    // Confirm discard — returns to view mode, does not close the modal.
     fireEvent.click(screen.getByRole("button", { name: /Discard/i }));
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument();
-  });
-
-  it("data section shows the type search input for data-capable panels in edit mode", () => {
-    renderModal();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    expect(screen.getByLabelText("Search data types")).toBeInTheDocument();
-  });
-
-  it("dispatches fetchDataTypes when edit mode is entered for data-capable panels", async () => {
-    fetchDataTypesMock.mockResolvedValue([testDataType]);
-    renderModal();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    await waitFor(() => expect(fetchDataTypesMock).toHaveBeenCalled());
-  });
-
-  it("shows the DataType list when data types are loaded", () => {
-    renderModalWithDataType();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    expect(screen.getByRole("listbox", { name: "Data types" })).toBeInTheDocument();
-    expect(screen.getByText("Sales Metrics")).toBeInTheDocument();
-  });
-
-  it("shows field mapping slots after selecting a DataType", () => {
-    renderModalWithDataType();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByText("Sales Metrics"));
-    // metric panel: value, label, unit slots
-    expect(screen.getByLabelText("Value field")).toBeInTheDocument();
-    expect(screen.getByLabelText("Label field")).toBeInTheDocument();
-    expect(screen.getByLabelText("Unit field")).toBeInTheDocument();
-  });
-
-  it("filters the DataType list by search query", () => {
-    renderModalWithDataType();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.change(screen.getByLabelText("Search data types"), {
-      target: { value: "xyz" },
-    });
-    expect(screen.queryByText("Sales Metrics")).not.toBeInTheDocument();
-  });
-
-  // Task 2.2 — companion DataTypes (sourceId set) are internal source-schema
-  // records and must never be offered as panel binding targets.
-  it("excludes companion DataTypes (sourceId set) from the picker", () => {
-    setupDialog();
-    renderWithStore(<PanelDetailModal panel={testPanel} onClose={jest.fn()} />, {
-      dataTypes: {
-        items: [
-          testDataType,
-          {
-            id: "dt-companion",
-            name: "Source Companion",
-            sourceId: "src-1",
-            version: 1,
-            fields: [],
-            computedFields: [],
-            createdAt: "2026-03-22T00:00:00Z",
-            updatedAt: "2026-03-22T00:00:00Z",
-          },
-        ],
-        status: "succeeded",
-      },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-
-    expect(screen.getByText("Sales Metrics")).toBeInTheDocument();
-    expect(screen.queryByText("Source Companion")).not.toBeInTheDocument();
-  });
-
-  // Task 2.2 — the footer link now points at Pipelines (bindable types are
-  // pipeline outputs), not Sources.
-  it("shows a link to Pipelines (not Sources) in the Data section", () => {
-    renderModalWithDataType();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-
-    const link = screen.getByRole("link", { name: "Create a pipeline →" });
-    expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute("href", "/pipelines");
-  });
-
-  // Save transitions to view mode (not close)
-  it("saves binding and transitions to view mode on Save", async () => {
-    updateBindingMock.mockResolvedValue(
-      makeMetricPanel({ ...panelBaseFields, config: { dataTypeId: "dt-1" } }),
-    );
-    const onClose = jest.fn();
-    renderModalWithDataType(onClose);
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByText("Sales Metrics"));
-    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
-
-    await waitFor(() =>
-      expect(updateBindingMock).toHaveBeenCalledWith(
-        "p1",
-        "dt-1",
-        null,
-        null,
-        undefined,
-        undefined,
-        undefined,
-        // HEL-255: trailing tableDisplay arg — undefined for a metric panel.
-        undefined,
-        // HEL-248: trailing chartOptions arg — undefined for a metric panel.
-        undefined,
-        // HEL-318: trailing annotation arg — undefined for a metric panel.
-        undefined,
-        // HEL-500/HEL-553: trailing metricId arg — undefined (untouched).
-        undefined,
-      ),
-    );
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
-    );
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it("shows an inline error when data Save fails", async () => {
-    updateBindingMock.mockRejectedValue(new Error("Network error"));
-    renderModalWithDataType();
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByText("Sales Metrics"));
-    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Failed to save data binding.")).toBeInTheDocument();
-    });
-  });
-
-  it("shows discard warning when Cancel is clicked with unsaved data changes", () => {
-    renderModalWithDataType();
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByText("Sales Metrics"));
-    fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
-
-    expect(screen.getByText("You have unsaved changes. Discard them?")).toBeInTheDocument();
   });
 
   it("title field is pre-filled with the current panel title", () => {
@@ -460,7 +263,6 @@ describe("PanelDetailModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    // Save transitions to view mode, not close
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
@@ -481,73 +283,16 @@ describe("PanelDetailModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    // Save transitions to view mode, not close
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
     expect(onClose).not.toHaveBeenCalled();
 
-    // The appearance change should be in pendingPanelUpdates, not sent to the server
     expect(updateAppearanceMock).not.toHaveBeenCalled();
     expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
     expect(store.getState().panels.pendingPanelUpdates["p1"].appearance?.background).toBe(
       "#000000",
     );
-  });
-
-  // 2.3 — Unified save dispatches appearance + data binding in sequence
-  it("unified save dispatches appearance and data binding in sequence when both are dirty", async () => {
-    updateBindingMock.mockResolvedValue(
-      makeMetricPanel({ ...panelBaseFields, config: { dataTypeId: "dt-1" } }),
-    );
-    const onClose = jest.fn();
-    const { store } = renderModalWithDataType(onClose);
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.change(screen.getByLabelText("Revenue transparency"), {
-      target: { value: "50" },
-    });
-    fireEvent.click(screen.getByText("Sales Metrics"));
-    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
-
-    expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeDefined();
-    await waitFor(() =>
-      expect(updateBindingMock).toHaveBeenCalledWith(
-        "p1",
-        "dt-1",
-        null,
-        null,
-        undefined,
-        undefined,
-        undefined,
-        // HEL-255: trailing tableDisplay arg — undefined for a metric panel.
-        undefined,
-        // HEL-248: trailing chartOptions arg — undefined for a metric panel.
-        undefined,
-        // HEL-318: trailing annotation arg — undefined for a metric panel.
-        undefined,
-        // HEL-500/HEL-553: trailing metricId arg — undefined (untouched).
-        undefined,
-      ),
-    );
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
-    );
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  // 2.4 — Section-level inline error on data save failure; modal stays open
-  it("section-level inline error appears when data save fails and modal stays open", async () => {
-    updateBindingMock.mockRejectedValue(new Error("Network error"));
-    renderModalWithDataType();
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByText("Sales Metrics"));
-    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Failed to save data binding.")).toBeInTheDocument();
-    });
   });
 
   // Task 2.3 — Cancel with no changes transitions to view mode (not close)
@@ -668,102 +413,8 @@ describe("PanelDetailModal", () => {
       target: { value: "#ff0000" },
     });
 
-    // No API calls should have been made
     expect(updateAppearanceMock).not.toHaveBeenCalled();
-    expect(updateBindingMock).not.toHaveBeenCalled();
-    expect(updateMarkdownBindingMock).not.toHaveBeenCalled();
-    expect(updateImageMock).not.toHaveBeenCalled();
     expect(updateDividerMock).not.toHaveBeenCalled();
-  });
-
-  describe("Chart section", () => {
-    it("renders Chart section on Appearance tab for chart panels", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      expect(screen.getByLabelText("Show legend")).toBeInTheDocument();
-      expect(screen.getByLabelText("Enable tooltip")).toBeInTheDocument();
-      expect(screen.getByLabelText("Show X-axis label")).toBeInTheDocument();
-      expect(screen.getByLabelText("Show Y-axis label")).toBeInTheDocument();
-    });
-
-    it("does not render Chart section for non-chart panels", () => {
-      renderModal();
-      expect(screen.queryByLabelText("Show legend")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Enable tooltip")).not.toBeInTheDocument();
-    });
-
-    it("renders 8 series color swatches for chart panels", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      const swatches = screen.getAllByLabelText(/Series color/);
-      expect(swatches).toHaveLength(8);
-    });
-
-    it("shows legend position selector when legend is visible", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      expect(screen.getByLabelText("Legend position")).toBeInTheDocument();
-    });
-
-    it("hides legend position selector when legend is toggled off", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      fireEvent.click(screen.getByLabelText("Show legend"));
-      expect(screen.queryByLabelText("Legend position")).not.toBeInTheDocument();
-    });
-
-    it("shows X-axis label text input when X-axis label is enabled", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      expect(screen.getByLabelText("X-axis label text")).toBeInTheDocument();
-    });
-
-    it("shows Y-axis label text input when Y-axis label is enabled", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      expect(screen.getByLabelText("Y-axis label text")).toBeInTheDocument();
-    });
-
-    it("hides X-axis label text input when toggled off", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      fireEvent.click(screen.getByLabelText("Show X-axis label"));
-      expect(screen.queryByLabelText("X-axis label text")).not.toBeInTheDocument();
-    });
-  });
-
-  describe("Chart type selector", () => {
-    it("renders chart type radio buttons for chart panels", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      expect(screen.getByLabelText("Chart type bar")).toBeInTheDocument();
-      expect(screen.getByLabelText("Chart type line")).toBeInTheDocument();
-      expect(screen.getByLabelText("Chart type pie")).toBeInTheDocument();
-      expect(screen.getByLabelText("Chart type scatter")).toBeInTheDocument();
-    });
-
-    it("does not render chart type radio buttons for non-chart panels", () => {
-      renderModal();
-      expect(screen.queryByLabelText("Chart type bar")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Chart type line")).not.toBeInTheDocument();
-    });
-
-    it("defaults to line chart type", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      const lineRadio = screen.getByLabelText("Chart type line") as HTMLInputElement;
-      expect(lineRadio.checked).toBe(true);
-    });
-
-    it("updates the preview when a chart type is selected", () => {
-      renderChartModal();
-      fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-      const pieRadio = screen.getByLabelText("Chart type pie");
-      fireEvent.click(pieRadio);
-      expect((pieRadio as HTMLInputElement).checked).toBe(true);
-      const barRadio = screen.getByLabelText("Chart type bar") as HTMLInputElement;
-      expect(barRadio.checked).toBe(false);
-    });
   });
 
   describe("Divider section", () => {
@@ -787,7 +438,7 @@ describe("PanelDetailModal", () => {
       expect(screen.getByLabelText("Divider color")).toBeInTheDocument();
     });
 
-    it("does not show divider controls when the panel is a metric", () => {
+    it("does not show divider controls when the panel is output-kind", () => {
       renderModal();
       expect(screen.queryByLabelText("Divider orientation")).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Divider weight")).not.toBeInTheDocument();
@@ -805,9 +456,9 @@ describe("PanelDetailModal", () => {
 describe("PanelDetailModal -- divider panel", () => {
   beforeEach(() => {
     updateAppearanceMock.mockReset();
-    updateBindingMock.mockReset();
     updateDividerMock.mockReset();
-    fetchDataTypesMock.mockResolvedValue([]);
+    getOutputByIdMock.mockReset();
+    getOutputByIdMock.mockResolvedValue(testOutput);
   });
 
   it("shows Divider section controls in edit mode for divider panels", () => {
@@ -818,19 +469,8 @@ describe("PanelDetailModal -- divider panel", () => {
     expect(screen.getByLabelText("Divider color")).toBeInTheDocument();
   });
 
-  it("does not show Divider section for non-divider panels", () => {
-    renderModal();
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    expect(screen.queryByRole("heading", { name: "Divider" })).not.toBeInTheDocument();
-  });
-
   it("does not show divider controls in view mode", () => {
     renderDividerModal();
-    expect(screen.queryByLabelText("Divider orientation")).not.toBeInTheDocument();
-  });
-
-  it("does not show divider controls for non-divider panels", () => {
-    renderModal();
     expect(screen.queryByLabelText("Divider orientation")).not.toBeInTheDocument();
   });
 
@@ -847,19 +487,17 @@ describe("PanelDetailModal -- divider panel", () => {
     renderDividerModalNullColor();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    // Change weight to make the divider section dirty (leave color at the #cccccc fallback)
     fireEvent.change(screen.getByLabelText("Divider weight"), { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() =>
       expect(updateDividerMock).toHaveBeenCalledWith(
-        testPanel.id,
+        dividerTestPanelNullColor.id,
         "horizontal",
         2,
         null, // null preserved — not "#cccccc"
       ),
     );
-    // Modal should be in view mode after save
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
@@ -879,9 +517,13 @@ describe("PanelDetailModal -- divider panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     await waitFor(() =>
-      expect(updateDividerMock).toHaveBeenCalledWith(testPanel.id, "horizontal", 1, "#ff0000"),
+      expect(updateDividerMock).toHaveBeenCalledWith(
+        dividerTestPanel.id,
+        "horizontal",
+        1,
+        "#ff0000",
+      ),
     );
-    // Modal should be in view mode after save
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );

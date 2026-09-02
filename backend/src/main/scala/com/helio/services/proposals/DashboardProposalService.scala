@@ -1,7 +1,7 @@
 package com.helio.services.proposals
 
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.panels.PanelService
+import com.helio.services.panels.{LayoutBreakpointScaling, PanelService}
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
@@ -112,7 +112,7 @@ final class DashboardProposalService(
       case Some(panel) =>
         panelService.create(ProposalPanelSupport.buildCreateRequest(dashboardId, panel), user).flatMap {
           case Left(err)    => Future.successful(Left(err))
-          case Right(panel0) => createPanels(dashboardId, remaining.tail, user, acc :+ panel0)
+          case Right((panel0, _)) => createPanels(dashboardId, remaining.tail, user, acc :+ panel0)
         }
     }
 
@@ -130,7 +130,18 @@ final class DashboardProposalService(
     }
     if (items.isEmpty) Future.successful((dashboard, createdPanels))
     else {
-      val layout = DashboardLayoutPayload(lg = items, md = items, sm = items, xs = items)
+      val lgCols = LayoutBreakpointScaling.breakpointCols("lg")
+      def scaled(targetCols: Int): Vector[DashboardLayoutItemPayload] =
+        items.map { item =>
+          val (x, w) = LayoutBreakpointScaling.scaleWidthAndX(item.x, item.w, lgCols, targetCols)
+          item.copy(x = x, w = w)
+        }
+      val layout = DashboardLayoutPayload(
+        lg = items,
+        md = scaled(LayoutBreakpointScaling.breakpointCols("md")),
+        sm = scaled(LayoutBreakpointScaling.breakpointCols("sm")),
+        xs = scaled(LayoutBreakpointScaling.breakpointCols("xs"))
+      )
       dashboardService
         .update(dashboard.id, UpdateDashboardRequest(None, None, Some(layout)), user)
         .map {

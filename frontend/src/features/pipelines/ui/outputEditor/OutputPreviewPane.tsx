@@ -24,7 +24,7 @@ import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
 import { MetricRenderer } from "../../../panels/ui/renderers/MetricRenderer";
 import type { MappedPanelData, ChartTypeOptionsMap } from "../../../panels/types/panel";
 import type { RunResult } from "../../types/output";
-import { isAggFn } from "./outputConfigTypes";
+import { isAggFn, isMetricFormat, type MetricFormat } from "./outputConfigTypes";
 
 interface OutputPreviewPaneProps {
   kind: string;
@@ -45,6 +45,7 @@ interface OutputPreviewPaneProps {
   metricAggFn?: string;
   metricLabel?: string;
   metricUnit?: string;
+  metricFormat?: string;
   // Markdown
   markdownContent?: string;
 }
@@ -74,8 +75,10 @@ export function OutputPreviewPane({
   metricAggFn,
   metricLabel,
   metricUnit,
+  metricFormat,
   markdownContent,
 }: OutputPreviewPaneProps) {
+  const metricFormatValue: MetricFormat | null = isMetricFormat(metricFormat) ? metricFormat : null;
   const rawRowData = useMemo(() => rows?.rows ?? [], [rows]);
 
   const chartAggregate = useMemo(() => {
@@ -129,7 +132,7 @@ export function OutputPreviewPane({
       label: metricLabel ?? "",
       unit: metricUnit ?? "",
     };
-    return <MetricRenderer data={data} />;
+    return <MetricRenderer data={data} format={metricFormatValue} />;
   }
 
   if (kind === "markdown") {

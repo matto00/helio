@@ -136,17 +136,31 @@ function cleanupOverlaps(items: DashboardLayoutItem[]): DashboardLayoutItem[] {
  * grid; rows are unitless). If a panel has no entry in the source layout, it's omitted
  * and resolveBreakpointLayout fills it via the normal non-overlapping placement path.
  */
+/** Scales a single item's `w`/`x` from `sourceCols` to `targetCols`,
+ * proportionally, clamping `w` to `[1, targetCols]` and `x` to
+ * `[0, targetCols - w]`. `y`/`h` are row-based (unitless across
+ * breakpoints) and carry over unchanged. Exported (HEL-909 CR1 cycle-2 fix)
+ * so callers that need to scale one newly-placed item per breakpoint (e.g.
+ * `panelThunks.ts`'s `createPanel`) can reuse the exact same formula
+ * `projectLayout` uses for a whole saved layout, instead of re-deriving it
+ * and risking the two sides disagreeing. */
+export function scaleLayoutItem(
+  item: DashboardLayoutItem,
+  sourceCols: number,
+  targetCols: number,
+): DashboardLayoutItem {
+  const scale = targetCols / sourceCols;
+  const w = Math.max(1, Math.min(targetCols, Math.round(item.w * scale)));
+  const x = Math.max(0, Math.min(targetCols - w, Math.round(item.x * scale)));
+  return { panelId: item.panelId, x, y: item.y, w, h: item.h };
+}
+
 function projectLayout(
   sourceItems: DashboardLayoutItem[],
   sourceCols: number,
   targetCols: number,
 ): DashboardLayoutItem[] {
-  const scale = targetCols / sourceCols;
-  return sourceItems.map((item) => {
-    const w = Math.max(1, Math.min(targetCols, Math.round(item.w * scale)));
-    const x = Math.max(0, Math.min(targetCols - w, Math.round(item.x * scale)));
-    return { panelId: item.panelId, x, y: item.y, w, h: item.h };
-  });
+  return sourceItems.map((item) => scaleLayoutItem(item, sourceCols, targetCols));
 }
 
 /** Pick the breakpoint with the most saved entries (preferring larger breakpoints on ties),

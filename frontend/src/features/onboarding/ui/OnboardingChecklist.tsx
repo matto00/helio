@@ -1,4 +1,4 @@
-import { LayoutGrid, Shapes, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -17,33 +17,27 @@ import { dismissOnboarding } from "../state/onboardingSlice";
 import {
   deriveCollectionStepStatus,
   derivePanelStepStatus,
+  derivePlacementStepStatus,
   firstIncompleteStep,
   type OnboardingStepStatuses,
 } from "../state/onboardingSteps";
 
-// D8 — each step's glyph comes from the shared section registry, never
-// re-picked, so the lesson binds concept to the same icon the nav uses for
-// it. `sections.ts` guarantees these four routes are registered, nav-visible
-// entries; `LayoutGrid` is the documented fallback for the (unreachable in
-// practice) case a lookup ever misses, narrowed with `isNavSection` rather
-// than a non-null assertion.
+// D8 — each step's glyph comes from the shared section registry (closes
+// HEL-794), never a separate hardcoded icon, so the lesson binds concept to
+// the same icon the nav uses for it. `sections.ts` guarantees these routes
+// are registered, nav-visible entries; the placement step reuses the
+// dashboard glyph (a dashboard is where an Output gets placed) since it has
+// no nav section of its own.
 function navGlyph(pathname: string) {
   const section = sectionForPathname(pathname);
-  return section !== undefined && isNavSection(section) ? section.icon : LayoutGrid;
+  if (section === undefined || !isNavSection(section)) {
+    throw new Error(`onboarding: no registered nav section for ${pathname}`);
+  }
+  return section.icon;
 }
 const SOURCE_GLYPH = navGlyph("/sources");
 const PIPELINE_GLYPH = navGlyph("/pipelines");
-const DASHBOARD_GLYPH = navGlyph("/");
-// Panels have no nav section of their own (D8) — reuses the glyph the panel
-// empty state already carries (`PanelList.tsx`'s `LayoutGrid` icon).
-const PANEL_GLYPH = LayoutGrid;
-
-const PIPELINE_STEP_DESCRIPTION = (
-  <>
-    Shape that source into a <Shapes aria-hidden="true" className="onboarding-checklist__glyph" />{" "}
-    type. Types are only ever a pipeline&rsquo;s output — you never create one directly.
-  </>
-);
+const PLACEMENT_GLYPH = navGlyph("/");
 
 interface OnboardingChecklistProps {
   /** The SAME `useCreateDashboardAction()` instance `PanelList` calls for
@@ -58,11 +52,11 @@ interface OnboardingChecklistProps {
   emphasisVariant: "primary" | "secondary";
 }
 
-/** The guided first-run checklist (HEL-554) — a dismissible, four-step
- *  sequence teaching the source -> pipeline -> type -> panel model. Rendered
- *  by `PanelList` whenever `useOnboardingHost()` reports `visible`; every
- *  step's completion is derived from the already-fetched Redux slices, never
- *  from local guesswork. */
+/** The guided first-run checklist (HEL-554), collapsed to HEL-909's 3-step
+ *  model: connect a source, shape it into outputs, place them on a
+ *  dashboard. Rendered by `PanelList` whenever `useOnboardingHost()` reports
+ *  `visible`; every step's completion is derived from the already-fetched
+ *  Redux slices, never from local guesswork. */
 export function OnboardingChecklist({
   createDashboardAction,
   emphasisVariant,
@@ -86,14 +80,27 @@ export function OnboardingChecklist({
     panel: false,
   });
 
+  const dashboardStatus = deriveCollectionStepStatus(dashboards.status, dashboards.items.length);
+  const panelStatus = derivePanelStepStatus({
+    selectedDashboardId: dashboards.selectedDashboardId,
+    panels,
+  });
+  // "Shape it into outputs" (step 2) has an unmet precondition when no
+  // source exists yet — nothing to shape (ADDED requirement, "An unmet
+  // precondition leaves a step unavailable").
+  const pipelineActionDisabled = sources.items.length === 0;
   const steps: OnboardingStepStatuses = {
     source: deriveCollectionStepStatus(sources.status, sources.items.length),
     pipeline: deriveCollectionStepStatus(pipelines.status, pipelines.items.length),
-    dashboard: deriveCollectionStepStatus(dashboards.status, dashboards.items.length),
-    panel: derivePanelStepStatus({ selectedDashboardId: dashboards.selectedDashboardId, panels }),
+    placement: derivePlacementStepStatus(dashboardStatus, panelStatus),
   };
   const emphasized = firstIncompleteStep(steps);
   const allComplete = emphasized === null;
+  // Step 3's own action/copy depend on whether a dashboard exists yet: with
+  // none, the action creates one (there is nothing to place an Output onto
+  // yet); once one exists, the action opens the Output picker (task 1.5's
+  // `useCreatePanelAction`, never the retired `PanelCreationModal`).
+  const dashboardReady = dashboardStatus === "complete";
 
   function retry(key: keyof typeof retrying, action: () => Promise<unknown>) {
     setRetrying((current) => ({ ...current, [key]: true }));
@@ -109,8 +116,8 @@ export function OnboardingChecklist({
           </h2>
           <p className="onboarding-checklist__lede">
             {allComplete
-              ? "Source, pipeline, type, panel — every dashboard you build follows it."
-              : "Helio turns a data source into a dashboard in four steps — each one feeds the next."}
+              ? "Source, outputs, dashboard — every dashboard you build follows it. Find everything else in Dashboards, Pipelines, Sources, Connectors, and the Assistant."
+              : "Helio turns a data source into a dashboard in three steps — each one feeds the next."}
           </p>
         </div>
         <IconButton
@@ -136,47 +143,42 @@ export function OnboardingChecklist({
         />
         <OnboardingStep
           icon={PIPELINE_GLYPH}
-          label="Build a pipeline"
-          description={PIPELINE_STEP_DESCRIPTION}
+          label="Shape it into outputs"
+          description="Turn that source into the Outputs your dashboards will show."
           status={steps.pipeline}
           emphasized={emphasized === "pipeline"}
           emphasisVariant={emphasisVariant}
           actionLabel={pipelineAction.cta.label}
           onAction={pipelineAction.cta.onClick}
+          actionDisabled={pipelineActionDisabled}
           collectionError={pipelines.error}
           retrying={retrying.pipeline}
           onRetry={() => retry("pipeline", () => dispatch(fetchPipelines()))}
         />
         <OnboardingStep
-          icon={DASHBOARD_GLYPH}
-          label="Create a dashboard"
-          description="A canvas for your panels."
-          status={steps.dashboard}
-          emphasized={emphasized === "dashboard"}
+          icon={PLACEMENT_GLYPH}
+          label="Place them on a dashboard"
+          description="Pick an Output and drop it onto a dashboard to see your data."
+          status={steps.placement}
+          emphasized={emphasized === "placement"}
           emphasisVariant={emphasisVariant}
-          actionLabel={createDashboardAction.cta.label}
-          onAction={createDashboardAction.cta.onClick}
-          actionDisabled={createDashboardAction.cta.disabled}
-          collectionError={dashboards.error}
-          createError={createDashboardAction.error}
-        />
-        <OnboardingStep
-          icon={PANEL_GLYPH}
-          label="Add a panel"
-          description="Bind a panel to that type to see your data."
-          status={steps.panel}
-          emphasized={emphasized === "panel"}
-          emphasisVariant={emphasisVariant}
-          actionLabel={panelAction.cta.label}
-          onAction={panelAction.cta.onClick}
-          actionDisabled={panelAction.cta.disabled}
-          collectionError={panels.error}
+          actionLabel={dashboardReady ? panelAction.cta.label : createDashboardAction.cta.label}
+          onAction={dashboardReady ? panelAction.cta.onClick : createDashboardAction.cta.onClick}
+          actionDisabled={
+            dashboardReady ? panelAction.cta.disabled : createDashboardAction.cta.disabled
+          }
+          collectionError={dashboardReady ? panels.error : dashboards.error}
+          createError={dashboardReady ? null : createDashboardAction.error}
           retrying={retrying.panel}
-          onRetry={() => {
-            const dashboardId = dashboards.selectedDashboardId;
-            if (dashboardId === null) return;
-            retry("panel", () => dispatch(fetchPanels(dashboardId)));
-          }}
+          onRetry={
+            dashboardReady
+              ? () => {
+                  const dashboardId = dashboards.selectedDashboardId;
+                  if (dashboardId === null) return;
+                  retry("panel", () => dispatch(fetchPanels(dashboardId)));
+                }
+              : undefined
+          }
         />
       </ul>
       {allComplete ? (

@@ -1,27 +1,16 @@
-// Text panel's Content editor (HEL-244 design.md Decision 2). Not a
-// `BindingEditor` extension — `BindingEditor` is typed for the bound trio
-// (metric/chart/table) and its generic `FieldMappingSlots`/aggregation-loop
-// shape doesn't fit "one field, mode-gated DataTypePicker visibility." This
-// composes `useBoundOrLiteralState` (mode/field/literal state — "field" mode
-// = Source, writes `fieldMapping.content`; "literal" mode = Static, writes
-// `config.content`), `DataTypePicker` (rendered only in Source mode), and
-// `BoundOrLiteralField` (mode toggle + switched input, always rendered).
+// Text panel's Content editor (HEL-909: literal-only — the Source/bound
+// mode was stripped along with the retired DataType-field-mapping model per
+// design.md's explicit resolution; a Text panel is dashboard-native and
+// carries no Output).
 
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 
-import {
-  fetchDataTypes,
-  selectPipelineOutputDataTypes,
-} from "../../../dataTypes/state/dataTypesSlice";
-import { updatePanelTextBinding } from "../../state/panelsSlice";
-import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
+import { updatePanelTextContent } from "../../state/panelsSlice";
+import { useAppDispatch } from "../../../../hooks/reduxHooks";
 import type { TextPanel } from "../../types/panel";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { DirtyChangeCallback, PanelEditorHandle } from "./editorTypes";
-import { BoundOrLiteralField, defaultBoundOrLiteralMode } from "./BoundOrLiteralField";
-import { DataTypePicker } from "./DataTypePicker";
-import { fieldOptions } from "./fieldOptions";
-import { useBoundOrLiteralState } from "./useBoundOrLiteralState";
+import { Textarea } from "../../../../shared/ui/index";
 
 interface TextContentEditorProps {
   panel: TextPanel;
@@ -31,67 +20,21 @@ interface TextContentEditorProps {
 export const TextContentEditor = forwardRef<PanelEditorHandle, TextContentEditorProps>(
   function TextContentEditor({ panel, onDirtyChange }, ref) {
     const dispatch = useAppDispatch();
-    const dataTypes = useAppSelector((state) => state.dataTypes.items);
-    const pipelineOutputDataTypes = useAppSelector(selectPipelineOutputDataTypes);
-    const dataTypesStatus = useAppSelector((state) => state.dataTypes.status);
-
-    const initialTypeId =
-      panel.config.dataTypeId && panel.config.dataTypeId.length > 0
-        ? panel.config.dataTypeId
-        : null;
-    const initialFieldValue = panel.config.fieldMapping.content ?? "";
-    const initialLiteralValue = panel.config.content;
-    // HEL-244 — mirrors design.md Decision 2 / the `panel-config-field-or-
-    // literal-pattern` capability's mode-default heuristic
-    // (`defaultBoundOrLiteralMode`). Text has no independent "literal
-    // override is set" signal the way Metric's `config.label`/`config.unit`
-    // do (content is always present, never `undefined`), so "literal is
-    // set" is derived from bound-ness instead: an already-bound panel
-    // defaults to Source, an unbound one to Static.
-    const initialMode = defaultBoundOrLiteralMode(initialTypeId === null);
-
-    const [selectedTypeId, setSelectedTypeId] = useState<string | null>(initialTypeId);
-    const [typeSearch, setTypeSearch] = useState("");
+    const initialContent = panel.config.content;
+    const [content, setContent] = useState(initialContent);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const contentState = useBoundOrLiteralState(
-      initialMode,
-      initialFieldValue,
-      initialLiteralValue,
-    );
-
-    const dataDirty = selectedTypeId !== initialTypeId || contentState.dirty;
-
-    useEffect(() => {
-      if (dataTypesStatus === "idle") {
-        void dispatch(fetchDataTypes());
-      }
-    }, [dataTypesStatus, dispatch]);
-
-    useEffect(() => {
-      onDirtyChange(dataDirty);
-    }, [dataDirty, onDirtyChange]);
 
     useImperativeHandle(
       ref,
       () => ({
         reset: () => {
-          setSelectedTypeId(initialTypeId);
-          setTypeSearch("");
-          contentState.reset();
+          setContent(initialContent);
           setSaveError(null);
         },
         save: async () => {
-          if (!dataDirty) return { ok: true };
+          if (content === initialContent) return { ok: true };
           try {
-            await dispatch(
-              updatePanelTextBinding({
-                panelId: panel.id,
-                mode: contentState.mode,
-                typeId: selectedTypeId,
-                fieldValue: contentState.fieldValue,
-                literalValue: contentState.literalValue,
-              }),
-            ).unwrap();
+            await dispatch(updatePanelTextContent({ panelId: panel.id, content })).unwrap();
             return { ok: true };
           } catch {
             const error = "Failed to save content.";
@@ -100,48 +43,22 @@ export const TextContentEditor = forwardRef<PanelEditorHandle, TextContentEditor
           }
         },
       }),
-      [contentState, dataDirty, dispatch, initialTypeId, panel.id, selectedTypeId],
-    );
-
-    const selectedType = dataTypes.find((dt) => dt.id === selectedTypeId) ?? null;
-    const filteredDataTypes = pipelineOutputDataTypes.filter((dt) =>
-      dt.name.toLowerCase().includes(typeSearch.toLowerCase()),
+      [content, dispatch, initialContent, panel.id],
     );
 
     return (
       <>
         <h3 className="panel-detail-modal__edit-section-heading">Content</h3>
-        {contentState.mode === "field" && (
-          <DataTypePicker
-            selectedType={selectedType}
-            typeSearch={typeSearch}
-            onTypeSearchChange={setTypeSearch}
-            dataTypesStatus={dataTypesStatus}
-            filteredDataTypes={filteredDataTypes}
-            selectedTypeId={selectedTypeId}
-            onSelect={(dataTypeId) => {
-              setSelectedTypeId(dataTypeId);
-              setTypeSearch("");
-            }}
-            onClear={() => {
-              setSelectedTypeId(null);
-              contentState.setFieldValue("");
-              setTypeSearch("");
-            }}
-          />
-        )}
         <div className="panel-detail-modal__data-section">
-          <BoundOrLiteralField
-            label="Content"
-            mode={contentState.mode}
-            onModeChange={contentState.setMode}
-            fieldOptions={selectedType ? fieldOptions(selectedType) : []}
-            fieldValue={contentState.fieldValue}
-            onFieldChange={contentState.setFieldValue}
-            literalValue={contentState.literalValue}
-            onLiteralChange={contentState.setLiteralValue}
-            literalPlaceholder="Write your text here…"
-            literalMultiline
+          <Textarea
+            aria-label="Content"
+            value={content}
+            onChange={(e) => {
+              const v = e.target.value;
+              setContent(v);
+              onDirtyChange(v !== initialContent);
+            }}
+            placeholder="Write your text here…"
           />
         </div>
         <InlineError error={saveError} />

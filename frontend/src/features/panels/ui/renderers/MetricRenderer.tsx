@@ -1,24 +1,46 @@
 import type { MappedPanelData } from "../../types/panel";
+import type { MetricFormat } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
+
 interface MetricRendererProps {
   data?: MappedPanelData | null;
+  /** Numeric display style (HEL-876) — `undefined`/`"number"` is the
+   *  pre-HEL-876 default (2 max fraction digits, no grouping). */
+  format?: MetricFormat | null;
 }
 
 /** Cap the metric value slot's rendered decimal precision at 2 fraction digits (no thousands
  *  grouping) so a long/repeating decimal from an `avg` aggregate doesn't overflow the value slot
  *  (HEL-297; see design.md Decision 1). Empty string, non-numeric text, and non-finite results
  *  (e.g. the literal `"Infinity"`) pass through unchanged — only genuinely numeric-looking
- *  strings are reformatted. */
-function formatMetricValue(value: string | undefined): string | undefined {
+ *  strings are reformatted. `format` (HEL-876) selects the `Intl.NumberFormat` shape applied to
+ *  a genuinely numeric value; `"number"`/absent keeps the original HEL-297 formatter exactly. */
+function formatMetricValue(
+  value: string | undefined,
+  format?: MetricFormat | null,
+): string | undefined {
   if (value === undefined || value.trim() === "") return value;
   const n = Number(value);
   if (!Number.isFinite(n)) return value;
-  return new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 2,
-    useGrouping: false,
-  }).format(n);
+  switch (format) {
+    case "integer":
+      return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n);
+    case "currency":
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(n);
+    case "percent":
+      return new Intl.NumberFormat(undefined, {
+        style: "percent",
+        maximumFractionDigits: 2,
+      }).format(n);
+    case "number":
+    default:
+      return new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: 2,
+        useGrouping: false,
+      }).format(n);
+  }
 }
 
-export function MetricRenderer({ data }: MetricRendererProps) {
+export function MetricRenderer({ data, format }: MetricRendererProps) {
   const trend = data?.trend;
   const trendDirectionClass = trend
     ? trend.startsWith("+")
@@ -39,7 +61,7 @@ export function MetricRenderer({ data }: MetricRendererProps) {
   return (
     <div className="panel-content panel-content--metric">
       <span className="panel-content__metric-value">
-        {formatMetricValue(data?.value) ?? "--"}
+        {formatMetricValue(data?.value, format) || "--"}
         {data?.unit && <span className="panel-content__metric-unit">{data.unit}</span>}
       </span>
       {/* The "No data" fallback is keyed on value presence, not label presence — a missing

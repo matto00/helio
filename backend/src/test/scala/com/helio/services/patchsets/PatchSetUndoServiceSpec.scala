@@ -143,7 +143,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
   private def seedPanel(dashboardId: DashboardId, owner: AuthenticatedUser, title: String = "Panel"): Panel =
     await(panelService.create(CreatePanelRequest(Some(dashboardId.value), Some(title), Some("divider"), None), owner)) match {
-      case Right(p) => p
+      case Right((p, _)) => p
       case Left(e)  => fail(s"seedPanel failed: $e")
     }
 
@@ -311,7 +311,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
         ),
         userA
       )) match {
-        case Right(p) => p
+        case Right((p, _)) => p
         case Left(e)  => fail(s"seed output panel failed: $e")
       }
 

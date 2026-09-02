@@ -43,7 +43,8 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 
 /** Wire shape of a `PipelineSummary`: spray-json omits an `Option[T] = None`
  *  field entirely rather than serializing it as `null` (a recurring gotcha
- *  in this codebase — see `dataTypeService.ts`'s `normalizeDataType`), so a
+ *  in this codebase — see the equivalent normalization pattern in
+ *  `outputService.ts`), so a
  *  never-run pipeline arrives with `lastRunAt`/`lastRunStatus`/
  *  `lastRunRowCount` *absent*, not `null`. `PipelineListTable.tsx` and this
  *  page's own meta-bar only guard against `null` (`!== null`/`!= null`), so
@@ -108,7 +109,7 @@ interface PipelinesState {
    * + button so the page itself doesn't need to own modal state. */
   createModalOpen: boolean;
   // Per-pipeline schedule (HEL-416). `null` means "no schedule set" — a
-  // domain state, not an error (design D5, mirrors dataTypesSlice's
+  // domain state, not an error (design D5, mirrors the retired type-registry slice's
   // 409-branching precedent for expected non-2xx responses).
   schedule: Record<string, PipelineSchedule | null>;
   scheduleStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
@@ -317,7 +318,7 @@ export const applyPipelineProposal = createAsyncThunk<
 
 /** GET the pipeline's schedule. A 404 ("no schedule set") is an expected
  *  domain state, not a failure — it resolves `fulfilled` with `schedule: null`
- *  (design D5, mirrors `dataTypesSlice.ts`'s 409-branching precedent). Any
+ *  (design D5, mirrors the retired type-registry slice's 409-branching precedent). Any
  *  other error rejects normally. */
 export const fetchPipelineSchedule = createAsyncThunk<
   { pipelineId: string; schedule: PipelineSchedule | null },

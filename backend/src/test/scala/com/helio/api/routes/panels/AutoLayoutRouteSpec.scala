@@ -46,7 +46,7 @@ class AutoLayoutRouteSpec extends ApplyProposalSpecBase {
 
   "POST /api/dashboards/:id/auto-layout" should {
 
-    "pack supplied panels into non-overlapping positions, persisted identically to lg/md/sm/xs" in {
+    "pack supplied panels into non-overlapping lg positions, scaling md/sm/xs to their own column counts" in {
       val dashboardId = createDashboard("Auto Layout Target")
       val p1 = createPanel(dashboardId, "Chart 1", "divider")
       val p2 = createPanel(dashboardId, "Chart 2", "divider")
@@ -57,13 +57,22 @@ class AutoLayoutRouteSpec extends ApplyProposalSpecBase {
         val layout = responseAs[String].parseJson.asJsObject.fields("layout").asJsObject
         val lg = layout.fields("lg").convertTo[Vector[JsValue]]
         lg should have size 2
-        layout.fields("md") shouldBe layout.fields("lg")
-        layout.fields("sm") shouldBe layout.fields("lg")
-        layout.fields("xs") shouldBe layout.fields("lg")
 
         val byId = lg.map(_.asJsObject).map(o => o.fields("panelId").convertTo[String] -> o).toMap
         byId(p1).fields("y").convertTo[Int] shouldBe 0
         byId(p2).fields("y").convertTo[Int] should be > 0
+
+        // HEL-909 cycle-3: lg is packed at cols=12; md/sm/xs have narrower
+        // column counts (10/6/2) and must be independently scaled, not a
+        // verbatim copy of the 12-col lg array — every md/sm/xs item's w
+        // must be <= its own breakpoint's column count.
+        def maxW(bp: String): Int = layout.fields(bp).convertTo[Vector[JsValue]].map(_.asJsObject.fields("w").convertTo[Int]).max
+        layout.fields("md") should not be layout.fields("lg")
+        layout.fields("sm") should not be layout.fields("lg")
+        layout.fields("xs") should not be layout.fields("lg")
+        maxW("md") should be <= 10
+        maxW("sm") should be <= 6
+        maxW("xs") should be <= 2
       }
     }
 
