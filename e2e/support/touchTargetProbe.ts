@@ -66,6 +66,20 @@ export async function assertHiddenAtWidth(locator: Locator): Promise<void> {
 
 export type BisectAxis = "x" | "y";
 
+/** Thrown when a control never reaches stable, hit-testable geometry within
+ *  the readiness budget — i.e. "not ready", as opposed to `expect()` failing
+ *  the floor assertion once geometry IS stable, which means "too small".
+ *  HEL-897: these two outcomes were previously indistinguishable — both
+ *  surfaced as a bisected extent of `0`. Callers (and CI logs) can now tell
+ *  a genuine touch-target regression apart from a harness timing failure by
+ *  which error they see. */
+export class HitRegionNotReadyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HitRegionNotReadyError";
+  }
+}
+
 /** `elementFromPoint` bisection along one axis for `::after`-hit-expander
  *  controls (DESIGN.md Control-metrics / HEL-772/777). Neither
  *  `getComputedStyle(el, "::after")` nor box-based measurement can see an
@@ -76,75 +90,109 @@ export type BisectAxis = "x" | "y";
  *  Asserts INSIDE the helper against `>= 44 - samplingStep` (never a
  *  literal `>= 44` — a correctly abutting hit region legitimately bisects
  *  to just under 44px, per DESIGN.md lines 215-223) so no call site can
- *  reintroduce the wrong threshold. */
+ *  reintroduce the wrong threshold.
+ *
+ *  Root cause (HEL-897): the previous implementation split "wait until the
+ *  control's centre hits it" and "walk outward to find the hit extent" into
+ *  TWO separate Node↔browser round trips (`locator.boundingBox()` then a
+ *  later `page.evaluate(...)`), reading the element's geometry once via one
+ *  IPC call and consuming it via a second, later one. Under CI's slower,
+ *  colder Vite dev-server (fresh checkout, no warm module/style cache,
+ *  shared-runner contention), the gap between those two round trips is long
+ *  enough for the page to keep changing underneath the probe — a pending
+ *  style recalc lands, or the underlying DOM node is replaced by a React
+ *  re-render — after the centre-hit poll already passed but before the walk
+ *  runs. The walk then reads a stale `elementHandle`/coordinates pair and
+ *  finds nothing at the very first sampled point in EITHER direction,
+ *  which is exactly the flat, deterministic `Received: 0` this ticket
+ *  documents (not a plausible sub-floor number, which a genuine sizing
+ *  regression would produce).
+ *
+ *  The fix removes the gap rather than papering over it: readiness
+ *  (geometry connected, unchanged across two consecutive animation frames,
+ *  AND hit-testable at its own centre) and the bisection walk now run
+ *  inside the SAME `page.evaluate` call, so there is no Node round trip
+ *  between "confirm it's ready" and "measure it" for anything to invalidate
+ *  in between. This is a readiness assertion, not a longer sleep: it
+ *  explicitly requires two-consecutive-frame geometric stability (which
+ *  fails fast on an active CSS transition/animation or an as-yet-unapplied
+ *  stylesheet) rather than waiting a fixed duration and hoping. */
 export async function bisectHitExtent(
   page: Page,
   locator: Locator,
   axis: BisectAxis,
   samplingStep = 0.25,
-  { minPx = DEFAULT_MIN_PX }: { minPx?: number } = {},
+  {
+    minPx = DEFAULT_MIN_PX,
+    readyTimeoutMs = 5_000,
+  }: { minPx?: number; readyTimeoutMs?: number } = {},
 ): Promise<number> {
   const handle = await locator.elementHandle();
   if (handle === null) {
     throw new Error("bisectHitExtent: could not resolve an element handle");
   }
 
-  // Settle before measuring. `boundingBox()` does NOT wait for actionability
-  // or stability, and under the Vite dev server (which both CI and local runs
-  // use) stylesheets are injected by JS after first paint — so a probe issued
-  // straight after `goto` can read the control's UNSTYLED coordinates, then
-  // walk points the control has since moved away from. The walk finds nothing
-  // at the very first step and the extent comes back as a flat `0`, which
-  // reads like a real overlap bug rather than a stale rect.
-  //
-  // Poll until the control's own centre actually hits it, re-reading the rect
-  // each time so the coordinates the walk uses are the ones that just passed.
-  // This is a genuinely different assertion from the walk below: this one says
-  // "the rect is current", the walk says "the hit region is big enough".
-  let box = await locator.boundingBox();
-  await expect
-    .poll(
-      async () => {
-        box = await locator.boundingBox();
-        if (box === null) return false;
-        const cx = box.x + box.width / 2;
-        const cy = box.y + box.height / 2;
-        return await page.evaluate(
-          ({ cx, cy, elHandle }) => {
-            const at = document.elementFromPoint(cx, cy);
-            return at !== null && (elHandle === at || elHandle.contains(at));
-          },
-          { cx, cy, elHandle: handle },
-        );
-      },
-      {
-        message:
-          "control's own centre must hit the control before its extent is measured — a stale " +
-          "rect (measured before dev-server CSS applied) would otherwise bisect to a bogus 0",
-        timeout: 5_000,
-      },
-    )
-    .toBe(true);
+  const result = await page.evaluate(
+    ({ axis, samplingStep, elHandle, readyTimeoutMs }) => {
+      function rectsEqual(a: DOMRect, b: DOMRect): boolean {
+        return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+      }
 
-  if (box === null) {
-    throw new Error("bisectHitExtent: control has no bounding box (not rendered)");
-  }
-  const centerX = box.x + box.width / 2;
-  const centerY = box.y + box.height / 2;
+      function centerHits(rect: DOMRect): boolean {
+        const cx = rect.x + rect.width / 2;
+        const cy = rect.y + rect.height / 2;
+        const at = document.elementFromPoint(cx, cy);
+        return at !== null && (elHandle === at || elHandle.contains(at));
+      }
 
-  // Walk outward from center in BOTH directions along the axis, in
-  // `samplingStep` increments, until `document.elementFromPoint` no longer
-  // resolves to the control (or one of its descendants) — the real,
-  // region-vs-region hit extent, not the painted box and not the ::after's
-  // own declared width/height.
-  const extentPx = await page.evaluate(
-    ({ centerX, centerY, axis, samplingStep, elHandle }) => {
+      /** Resolves with the settled rect once geometry has been IDENTICAL
+       *  across two consecutive animation frames and is currently
+       *  hit-testable at its own centre — never a fixed sleep, always a
+       *  frame-referenced stability check, so a control that's still
+       *  transitioning/animating (or awaiting an as-yet-unapplied
+       *  stylesheet) keeps failing this gate rather than being measured
+       *  mid-motion. Resolves `null` on timeout (not-ready) rather than a
+       *  detected-but-too-small control (a `DOMRect` with `width`/`height`
+       *  can still legitimately be below the floor -- that is NOT a
+       *  not-ready case and must reach the bisection walk below). */
+      function waitForSettledRect(): Promise<DOMRect | null> {
+        return new Promise((resolve) => {
+          const deadline = performance.now() + readyTimeoutMs;
+          function attempt() {
+            if (!elHandle.isConnected) {
+              if (performance.now() > deadline) return resolve(null);
+              requestAnimationFrame(attempt);
+              return;
+            }
+            const r1 = elHandle.getBoundingClientRect();
+            requestAnimationFrame(() => {
+              if (!elHandle.isConnected) {
+                if (performance.now() > deadline) return resolve(null);
+                requestAnimationFrame(attempt);
+                return;
+              }
+              const r2 = elHandle.getBoundingClientRect();
+              if (rectsEqual(r1, r2) && centerHits(r2)) {
+                resolve(r2);
+                return;
+              }
+              if (performance.now() > deadline) {
+                resolve(null);
+                return;
+              }
+              requestAnimationFrame(attempt);
+            });
+          }
+          requestAnimationFrame(attempt);
+        });
+      }
+
       function containsPoint(x: number, y: number): boolean {
         const atPoint = document.elementFromPoint(x, y);
         return atPoint !== null && (elHandle === atPoint || elHandle.contains(atPoint));
       }
 
-      function walk(direction: 1 | -1): number {
+      function walk(centerX: number, centerY: number, direction: 1 | -1): number {
         let distance = 0;
         while (true) {
           const nextDistance = distance + samplingStep;
@@ -156,19 +204,37 @@ export async function bisectHitExtent(
         return distance;
       }
 
-      const positiveExtent = walk(1);
-      const negativeExtent = walk(-1);
-      return positiveExtent + negativeExtent;
+      return waitForSettledRect().then((rect) => {
+        if (rect === null) {
+          return { ready: false as const };
+        }
+        // Bisect IMMEDIATELY off the just-settled rect, in the same task —
+        // no further await, no round trip back to Node, so nothing else can
+        // invalidate these coordinates between confirming readiness and
+        // measuring the extent (the root-cause gap this fix closes).
+        const centerX = rect.x + rect.width / 2;
+        const centerY = rect.y + rect.height / 2;
+        const extentPx = walk(centerX, centerY, 1) + walk(centerX, centerY, -1);
+        return { ready: true as const, extentPx, rect: { width: rect.width, height: rect.height } };
+      });
     },
-    { centerX, centerY, axis, samplingStep, elHandle: handle },
+    { axis, samplingStep, elHandle: handle, readyTimeoutMs },
   );
 
+  if (!result.ready) {
+    throw new HitRegionNotReadyError(
+      `bisectHitExtent: control never reached stable, hit-testable geometry within ${readyTimeoutMs}ms ` +
+        "(still animating, mid CSS-injection, or its DOM node was replaced) — this is a readiness " +
+        "failure, NOT a touch-target-floor violation.",
+    );
+  }
+
   expect(
-    extentPx,
+    result.extentPx,
     `bisected ${axis}-axis hit extent must clear the epsilon-adjusted floor (>= ${minPx - samplingStep})`,
   ).toBeGreaterThanOrEqual(minPx - samplingStep);
 
-  return extentPx;
+  return result.extentPx;
 }
 
 export interface ExemptEntry {
