@@ -1,8 +1,8 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
-import { makeMetricPanel } from "../../../test/panelFixtures";
-import { fetchAssertionStatus as fetchAssertionStatusRequest } from "../../dataTypes/services/dataTypeService";
+import { makeOutputPanel } from "../../../test/panelFixtures";
+import { getAssertionStatus as getAssertionStatusRequest } from "../../pipelines/services/outputService";
 import { usePanelData } from "../hooks/usePanelData";
 import { PanelCard } from "./PanelCard";
 
@@ -29,11 +29,12 @@ jest.mock("../hooks/usePanelPolling", () => ({
   usePanelPolling: jest.fn(),
 }));
 
-jest.mock("../../dataTypes/services/dataTypeService", () => ({
-  fetchAssertionStatus: jest.fn(),
+jest.mock("../../pipelines/services/outputService", () => ({
+  getAssertionStatus: jest.fn(),
+  getOutputById: jest.fn(() => new Promise(() => {})), // never resolves — body stays a skeleton
 }));
 
-const fetchAssertionStatusMock = jest.mocked(fetchAssertionStatusRequest);
+const getAssertionStatusMock = jest.mocked(getAssertionStatusRequest);
 
 // Every callback prop is a no-op stub — this suite only exercises the
 // HEL-576 invalid-data badge / fetch-dispatch behavior, not the card's
@@ -59,73 +60,67 @@ const noopProps = {
 
 describe("PanelCard — HEL-576 invalid-data badge", () => {
   beforeEach(() => {
-    fetchAssertionStatusMock.mockReset();
-    fetchAssertionStatusMock.mockResolvedValue({
-      dataTypeId: "dt-1",
+    getAssertionStatusMock.mockReset();
+  });
+
+  it("renders the invalid-data badge when the Output's assertion status reports invalid: true", async () => {
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-1",
+      invalid: true,
+      failedRuleCount: 1,
+    });
+    const panel = makeOutputPanel();
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    expect(await screen.findByText("Invalid data")).toBeInTheDocument();
+  });
+
+  it("shows no badge when the Output's assertion status reports invalid: false", async () => {
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-1",
       invalid: false,
       failedRuleCount: 0,
     });
-  });
+    const panel = makeOutputPanel();
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
 
-  it("renders the invalid-data badge when the cached assertion status reports invalid: true", () => {
-    const panel = makeMetricPanel({ config: { dataTypeId: "dt-1" } });
-    renderWithStore(<PanelCard panel={panel} {...noopProps} />, {
-      panels: { items: [] },
-      dataTypes: {
-        assertionStatusByDataTypeId: { "dt-1": { invalid: true, failedRuleCount: 1 } },
-      },
-    });
-
-    expect(screen.getByText("Invalid data")).toBeInTheDocument();
-  });
-
-  it("shows no badge when the cached assertion status reports invalid: false", () => {
-    const panel = makeMetricPanel({ config: { dataTypeId: "dt-1" } });
-    renderWithStore(<PanelCard panel={panel} {...noopProps} />, {
-      panels: { items: [] },
-      dataTypes: {
-        assertionStatusByDataTypeId: { "dt-1": { invalid: false, failedRuleCount: 0 } },
-      },
-    });
-
+    await waitFor(() => expect(getAssertionStatusMock).toHaveBeenCalledWith("output-1"));
     expect(screen.queryByText("Invalid data")).not.toBeInTheDocument();
   });
 
-  it("shows no badge before the fetch resolves (no cache entry yet)", () => {
-    const panel = makeMetricPanel({ config: { dataTypeId: "dt-1" } });
+  it("shows no badge before the fetch resolves", () => {
+    getAssertionStatusMock.mockReturnValue(new Promise(() => {}));
+    const panel = makeOutputPanel();
     renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
 
     expect(screen.queryByText("Invalid data")).not.toBeInTheDocument();
   });
 
-  it("dispatches a fetch for the panel's bound dataTypeId on mount", async () => {
-    const panel = makeMetricPanel({ config: { dataTypeId: "dt-2" } });
+  it("dispatches a fetch for the panel's bound outputId on mount", async () => {
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-2",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+    const panel = makeOutputPanel({ config: { outputId: "output-2" } });
     renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
 
-    await waitFor(() => expect(fetchAssertionStatusMock).toHaveBeenCalledWith("dt-2"));
-  });
-
-  it("does not dispatch a fetch for an unbound panel", async () => {
-    const panel = makeMetricPanel({ config: { dataTypeId: "" } });
-    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchAssertionStatusMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(getAssertionStatusMock).toHaveBeenCalledWith("output-2"));
   });
 });
 
 describe("PanelCard — F-128 header actions (delete-confirm crowding + tooltips)", () => {
   beforeEach(() => {
-    fetchAssertionStatusMock.mockReset();
-    fetchAssertionStatusMock.mockResolvedValue({
-      dataTypeId: "dt-1",
+    getAssertionStatusMock.mockReset();
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-1",
       invalid: false,
       failedRuleCount: 0,
     });
   });
 
   it("hides the drag handle while confirming delete, leaving only Confirm/Cancel", () => {
-    const panel = makeMetricPanel({ title: "Revenue" });
+    const panel = makeOutputPanel({ title: "Revenue" });
     renderWithStore(<PanelCard panel={panel} {...noopProps} isConfirmingDelete />, {
       panels: { items: [] },
     });
@@ -136,7 +131,7 @@ describe("PanelCard — F-128 header actions (delete-confirm crowding + tooltips
   });
 
   it("shows the drag handle (not Confirm/Cancel) when not confirming delete", () => {
-    const panel = makeMetricPanel({ title: "Revenue" });
+    const panel = makeOutputPanel({ title: "Revenue" });
     renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
 
     expect(screen.getByRole("button", { name: "Move Revenue panel" })).toBeInTheDocument();
@@ -144,7 +139,7 @@ describe("PanelCard — F-128 header actions (delete-confirm crowding + tooltips
   });
 
   it("gives the drag handle a native title tooltip mirroring its aria-label (F-221)", () => {
-    const panel = makeMetricPanel({ title: "Revenue" });
+    const panel = makeOutputPanel({ title: "Revenue" });
     renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
 
     const handle = screen.getByRole("button", { name: "Move Revenue panel" });
@@ -157,7 +152,7 @@ describe("PanelCard — F-128 header actions (delete-confirm crowding + tooltips
   // catch. Migrated onto the shared IconButton primitive, which gives it
   // both for free.
   it("gives the delete-cancel button an accessible name and matching title tooltip", () => {
-    const panel = makeMetricPanel({ title: "Revenue" });
+    const panel = makeOutputPanel({ title: "Revenue" });
     renderWithStore(<PanelCard panel={panel} {...noopProps} isConfirmingDelete />, {
       panels: { items: [] },
     });
@@ -168,7 +163,7 @@ describe("PanelCard — F-128 header actions (delete-confirm crowding + tooltips
   });
 
   it("calls onCancelDelete when the delete-cancel button is clicked", () => {
-    const panel = makeMetricPanel({ title: "Revenue" });
+    const panel = makeOutputPanel({ title: "Revenue" });
     const onCancelDelete = jest.fn();
     renderWithStore(
       <PanelCard panel={panel} {...noopProps} isConfirmingDelete onCancelDelete={onCancelDelete} />,
@@ -181,49 +176,22 @@ describe("PanelCard — F-128 header actions (delete-confirm crowding + tooltips
   });
 });
 
-describe("PanelCard — F-066 freshness tooltip", () => {
-  beforeEach(() => {
-    fetchAssertionStatusMock.mockReset();
-    fetchAssertionStatusMock.mockResolvedValue({
-      dataTypeId: "dt-1",
-      invalid: false,
-      failedRuleCount: 0,
-    });
-  });
-
-  it("exposes the exact timestamp via title on the relative-time freshness line", () => {
-    const dataAsOf = "2026-07-18T12:00:00Z";
-    const panel = makeMetricPanel({ dataAsOf });
-    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
-
-    const freshness = screen.getByText(/Data as of/);
-    expect(freshness).toHaveAttribute("title", `Data as of ${new Date(dataAsOf).toLocaleString()}`);
-  });
-
-  it("renders no freshness line (and no tooltip) when the panel has no dataAsOf", () => {
-    const panel = makeMetricPanel({ dataAsOf: null });
-    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
-
-    expect(screen.queryByText(/Data as of/)).not.toBeInTheDocument();
-  });
-});
-
 // F-099: the drag handle used to be two bare `<span>` dots — visually
 // near-identical to the adjacent ActionsMenu trigger's 3-dot ellipsis, with
 // no icon/shape/color differentiation between "open a menu" and "drag to
 // move the whole panel".
 describe("PanelCard — F-099 drag handle visual distinction", () => {
   beforeEach(() => {
-    fetchAssertionStatusMock.mockReset();
-    fetchAssertionStatusMock.mockResolvedValue({
-      dataTypeId: "dt-1",
+    getAssertionStatusMock.mockReset();
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-1",
       invalid: false,
       failedRuleCount: 0,
     });
   });
 
   it("renders the drag handle with a grip icon instead of the old bare dot spans", () => {
-    const panel = makeMetricPanel({ title: "Revenue" });
+    const panel = makeOutputPanel({ title: "Revenue" });
     renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
 
     const handle = screen.getByRole("button", { name: "Move Revenue panel" });
@@ -236,9 +204,9 @@ describe("PanelCard — F-099 drag handle visual distinction", () => {
 // icon-only Retry (small grid cells) that calls usePanelData().refresh.
 describe("PanelCard — error state retry (HEL-539)", () => {
   beforeEach(() => {
-    fetchAssertionStatusMock.mockReset();
-    fetchAssertionStatusMock.mockResolvedValue({
-      dataTypeId: "dt-1",
+    getAssertionStatusMock.mockReset();
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-1",
       invalid: false,
       failedRuleCount: 0,
     });
@@ -262,7 +230,7 @@ describe("PanelCard — error state retry (HEL-539)", () => {
       refresh,
     });
 
-    const panel = makeMetricPanel({ title: "Revenue", config: { dataTypeId: "dt-1" } });
+    const panel = makeOutputPanel({ title: "Revenue" });
     renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
 
     expect(screen.getByText("Failed to load panel data.")).toBeInTheDocument();
@@ -284,7 +252,7 @@ describe("PanelCard — error state retry (HEL-539)", () => {
       refresh: jest.fn(),
     });
 
-    const panel = makeMetricPanel({ title: "Revenue", config: { dataTypeId: "dt-1" } });
+    const panel = makeOutputPanel({ title: "Revenue" });
     renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
 
     expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();

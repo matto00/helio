@@ -1,6 +1,6 @@
 package com.helio.services.panels
 
-import com.helio.domain.model.{DashboardLayoutItem, PanelId, PanelKind}
+import com.helio.domain.model.{DashboardLayoutItem, OutputKind, PanelId, PanelKind}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -124,4 +124,28 @@ object PanelPacker {
 
     allItems.map(i => DashboardLayoutItem(i.panelId, i.x, i.y, i.w, i.h)).toVector
   }
+}
+
+/** Decision-15 (epic spec `docs/superpowers/specs/2026-08-30-pipelines-outputs-remodel-design.md`
+ *  lines 44 / 140 / 224): the server-owned default grid size for a freshly
+ *  placed `POST /api/panels` Output panel, keyed by the referenced Output's
+ *  own `kind` — distinct from [[PanelPacker.Bounds]], which clamps sizes for
+ *  the (unrelated) `/auto-layout` re-flow endpoint and has no per-Output-kind
+ *  granularity (every Output panel collapses onto one `PanelKind.Output`
+ *  bound there). This table is the one place decision-15's six explicit
+ *  sizes live — never duplicated on the frontend (`useOutputPickerData`/
+ *  `panelService.ts` send no layout at all; see their own comments). */
+object OutputPanelDefaultSize {
+  final case class Size(w: Int, h: Int)
+
+  private val Sizes: Map[OutputKind, Size] = Map(
+    OutputKind.Metric     -> Size(w = 3, h = 2),
+    OutputKind.Chart      -> Size(w = 6, h = 4),
+    OutputKind.Table      -> Size(w = 6, h = 6),
+    OutputKind.Collection -> Size(w = 6, h = 4),
+    OutputKind.Timeline   -> Size(w = 4, h = 6),
+    OutputKind.Markdown   -> Size(w = 4, h = 4)
+  )
+
+  def forKind(kind: OutputKind): Size = Sizes(kind)
 }

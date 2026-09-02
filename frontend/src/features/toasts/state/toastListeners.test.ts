@@ -16,7 +16,6 @@ import {
   deletePanel,
   duplicatePanel,
   fetchPanels,
-  updatePanelColumnWidths,
   updatePanelsBatch,
 } from "../../panels/state/panelsSlice";
 import {
@@ -25,8 +24,6 @@ import {
   deleteSource,
   inferSqlSource,
 } from "../../sources/state/sourcesSlice";
-import { deleteDataType } from "../../dataTypes/state/dataTypesSlice";
-import { deleteMetric } from "../../metrics/state/metricsSlice";
 import {
   createPipeline,
   deletePipeline,
@@ -203,19 +200,6 @@ describe("toastListeners — regression guard (every pre-existing entry still fi
     );
   });
 
-  it("dataTypes: delete success + error", () => {
-    expectToast(
-      { type: deleteDataType.fulfilled.type, payload: "dt1" },
-      "success",
-      "Data type deleted.",
-    );
-    expectToast(
-      { type: deleteDataType.rejected.type, payload: undefined },
-      "error",
-      "Failed to delete data type.",
-    );
-  });
-
   it("pipelines: create/delete success + error, submitPipelineRun error", () => {
     expectToast(
       { type: createPipeline.fulfilled.type, payload: { name: "ETL" } },
@@ -324,35 +308,11 @@ describe("toastListeners — HEL-535 D5: previously-swallowed failures now repor
     );
   });
 
-  it("updatePanelColumnWidths rejection emits exactly one error toast, phrased as the user's resize", () => {
-    expectToast(
-      { type: updatePanelColumnWidths.rejected.type, payload: "Failed to resize columns." },
-      "error",
-      "Failed to resize columns.",
-    );
-  });
-
   it("savePipelineSchedule rejection (header toggle) emits exactly one error toast", () => {
     expectToast(
       { type: savePipelineSchedule.rejected.type, payload: undefined },
       "error",
       "Failed to save pipeline schedule.",
-    );
-  });
-
-  it("deleteMetric rejection emits exactly one error toast", () => {
-    expectToast(
-      { type: deleteMetric.rejected.type, payload: undefined },
-      "error",
-      "Failed to delete metric.",
-    );
-  });
-
-  it("deleteMetric success emits exactly one success toast (its siblings already had one)", () => {
-    expectToast(
-      { type: deleteMetric.fulfilled.type, payload: "met1" },
-      "success",
-      "Metric deleted.",
     );
   });
 });

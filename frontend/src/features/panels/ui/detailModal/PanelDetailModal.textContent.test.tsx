@@ -1,50 +1,25 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
-import { updatePanelTextBinding as updatePanelTextBindingRequest } from "../../services/panelService";
-import { fetchDataTypes as fetchDataTypesRequest } from "../../../dataTypes/services/dataTypeService";
+import { updatePanelTextContent as updatePanelTextContentRequest } from "../../services/panelService";
 import { renderWithStore } from "../../../../test/renderWithStore";
 import { makeTextPanel } from "../../../../test/panelFixtures";
-import type { DataType } from "../../../dataTypes/types/dataType";
 import { PanelDetailModal } from "./PanelDetailModal";
 
-// This suite's tree includes a chart panel path — `ChartPanel.tsx` renders via
-// `echarts-for-react/esm/core` (F-022, tree-shaken `echarts/core`
-// registration) rather than the default `echarts-for-react` export. Mirrors
-// the mock in the co-located `ChartPanel.test.tsx`: this project's CommonJS
-// Jest transform can't handle `echarts`'s ESM-only subpath exports, so both
-// the `/core` entry and the registration module (`echartsCore.ts`, a
-// ship-time bundle-size concern only, irrelevant to anything under test
-// here) are stubbed.
-jest.mock("echarts-for-react/esm/core", () => ({
-  __esModule: true,
-  default: ({ option }: { option: unknown }) => (
-    <div data-testid="echarts" data-option={JSON.stringify(option)} />
-  ),
-}));
-jest.mock("../echartsCore", () => ({ __esModule: true, default: {} }));
-
-// HEL-244 — Text panel's Content editor (Source/Static modes), wired through
-// `PanelDetailModal` (which previously had no Text editor at all). Mirrors
-// the `PanelDetailModal.labelUnit.test.tsx` integration pattern established
-// for HEL-243's Label/Unit controls.
+// HEL-909: Text panel's Content editor is literal-only — the Source/Static
+// bind-or-literal toggle was stripped per design.md's explicit resolution
+// (a Text panel is dashboard-native and carries no Output).
 
 jest.mock("../../services/panelService", () => ({
   fetchPanels: jest.fn(),
   createPanel: jest.fn(),
   updatePanelAppearance: jest.fn(),
-  updatePanelBinding: jest.fn(),
-  updatePanelContent: jest.fn(),
-  updatePanelTextBinding: jest.fn(),
+  updatePanelTextContent: jest.fn(),
+  updatePanelMarkdownContent: jest.fn(),
   updatePanelImage: jest.fn(),
   updatePanelDivider: jest.fn(),
 }));
 
-jest.mock("../../../dataTypes/services/dataTypeService", () => ({
-  fetchDataTypes: jest.fn(),
-}));
-
-const updateTextBindingMock = jest.mocked(updatePanelTextBindingRequest);
-const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
+const updateTextContentMock = jest.mocked(updatePanelTextContentRequest);
 
 const panelBaseFields = {
   id: "p1",
@@ -58,28 +33,9 @@ const panelBaseFields = {
   },
 };
 
-const testDataType: DataType = {
-  id: "dt-1",
-  name: "Headlines",
-  sourceId: null,
-  version: 1,
-  fields: [
-    { name: "headline", displayName: "Headline", dataType: "string", nullable: false },
-    { name: "author", displayName: "Author", dataType: "string", nullable: false },
-  ],
-  computedFields: [],
-  createdAt: "2026-03-22T00:00:00Z",
-  updatedAt: "2026-03-22T00:00:00Z",
-};
-
-const unboundPanelWithLiteral = makeTextPanel({
+const textPanel = makeTextPanel({
   ...panelBaseFields,
-  config: { content: "Prior literal text", dataTypeId: "", fieldMapping: {} },
-});
-
-const boundPanel = makeTextPanel({
-  ...panelBaseFields,
-  config: { content: "Fallback text", dataTypeId: "dt-1", fieldMapping: { content: "headline" } },
+  config: { content: "Prior literal text" },
 });
 
 function setupDialog() {
@@ -91,117 +47,57 @@ function setupDialog() {
   });
 }
 
-function renderTextModal(panel = unboundPanelWithLiteral) {
+function renderTextModal(panel = textPanel) {
   setupDialog();
-  return renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />, {
-    dataTypes: { items: [testDataType], status: "succeeded" },
-  });
+  return renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />);
 }
 
-describe("TextContentEditor (via PanelDetailModal)", () => {
+describe("TextContentEditor (via PanelDetailModal) — literal-only content", () => {
   beforeEach(() => {
-    updateTextBindingMock.mockReset();
-    fetchDataTypesMock.mockResolvedValue([]);
+    updateTextContentMock.mockReset();
   });
 
-  it("defaults to Static (Fixed text) mode for an unbound panel and hides the DataType picker", () => {
-    renderTextModal(unboundPanelWithLiteral);
+  it("shows the current literal content and no bind-to-field control", () => {
+    renderTextModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
 
-    expect(screen.getByRole("button", { name: "Fixed text" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByLabelText("Content text")).toHaveValue("Prior literal text");
+    expect(screen.getByLabelText("Content")).toHaveValue("Prior literal text");
+    expect(screen.queryByRole("button", { name: "Bind to field" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Search data types")).not.toBeInTheDocument();
   });
 
-  it("defaults to Source (Bind to field) mode for a bound panel and shows the DataType picker", () => {
-    renderTextModal(boundPanel);
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-
-    expect(screen.getByRole("button", { name: "Bind to field" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+  it("saving edited content sends the new literal content", async () => {
+    updateTextContentMock.mockResolvedValue(
+      makeTextPanel({ ...panelBaseFields, config: { content: "New static text" } }),
     );
-    // Already-bound to "Headlines" — the picker shows the selected type, not the search box.
-    expect(screen.getByText("Headlines")).toBeInTheDocument();
-  });
-
-  it("switching mode to Source reveals the DataType picker; switching back to Static hides it", () => {
-    renderTextModal(unboundPanelWithLiteral);
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Bind to field" }));
-    expect(screen.getByLabelText("Search data types")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Fixed text" }));
-    expect(screen.queryByLabelText("Search data types")).not.toBeInTheDocument();
-  });
-
-  it("saving in Source mode sends dataTypeId/fieldValue and does NOT touch content (bind-direction corollary)", async () => {
-    updateTextBindingMock.mockResolvedValue(boundPanel);
-    renderTextModal(unboundPanelWithLiteral);
+    renderTextModal();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("button", { name: "Bind to field" }));
-    fireEvent.click(screen.getByText("Headlines"));
-    fireEvent.click(screen.getByLabelText("Content field"));
-    fireEvent.click(screen.getByRole("option", { name: "headline" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
-
-    await waitFor(() => expect(updateTextBindingMock).toHaveBeenCalled());
-    const [panelId, args] = updateTextBindingMock.mock.calls[0];
-    expect(panelId).toBe("p1");
-    expect(args.mode).toBe("field");
-    expect(args.typeId).toBe("dt-1");
-    expect(args.fieldValue).toBe("headline");
-    // The regression this guards: the save call must carry the mode/typeId/
-    // fieldValue needed to omit `content` from the outgoing patch (see
-    // `buildContentBindingPatch`'s dedicated unit tests in panelPayloads.test.ts
-    // for the exact patch-shape assertion) — literalValue is passed through
-    // but `buildContentBindingPatch` never surfaces it in Source mode.
-    expect(args.literalValue).toBe("Prior literal text");
-  });
-
-  it("saving in Static mode sends the edited literal content and clears the binding", async () => {
-    updateTextBindingMock.mockResolvedValue(unboundPanelWithLiteral);
-    renderTextModal(boundPanel);
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    fireEvent.click(screen.getByRole("button", { name: "Fixed text" }));
-    fireEvent.change(screen.getByLabelText("Content text"), {
+    fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "New static text" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
-    await waitFor(() => expect(updateTextBindingMock).toHaveBeenCalled());
-    const [panelId, args] = updateTextBindingMock.mock.calls[0];
-    expect(panelId).toBe("p1");
-    expect(args.mode).toBe("literal");
-    expect(args.literalValue).toBe("New static text");
+    await waitFor(() => expect(updateTextContentMock).toHaveBeenCalled());
+    expect(updateTextContentMock).toHaveBeenCalledWith("p1", "New static text");
   });
 
-  it("discarding edits resets the mode toggle and content back to the panel's saved values", () => {
-    renderTextModal(unboundPanelWithLiteral);
+  it("discarding edits resets content back to the panel's saved value", () => {
+    renderTextModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Bind to field" }));
-    expect(screen.getByLabelText("Search data types")).toBeInTheDocument();
-
+    fireEvent.change(screen.getByLabelText("Content"), {
+      target: { value: "Unsaved draft" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
-    expect(screen.getByRole("button", { name: "Fixed text" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByLabelText("Content text")).toHaveValue("Prior literal text");
+    expect(screen.getByLabelText("Content")).toHaveValue("Prior literal text");
   });
 
   it("does not call save when nothing was changed (no-op save)", async () => {
-    renderTextModal(unboundPanelWithLiteral);
+    renderTextModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     // Change only the title (appearance-level change), leaving Content untouched.
     fireEvent.change(screen.getByLabelText("Panel title"), {
@@ -212,6 +108,6 @@ describe("TextContentEditor (via PanelDetailModal)", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Edit panel" })).toBeInTheDocument(),
     );
-    expect(updateTextBindingMock).not.toHaveBeenCalled();
+    expect(updateTextContentMock).not.toHaveBeenCalled();
   });
 });

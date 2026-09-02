@@ -1,8 +1,9 @@
 // Config shapes stored in `Output.config` (raw JSON on the wire), per
 // `OutputKind` (task 5.1). Unlike the retired `PanelConfig` variants these
-// carry no `dataTypeId` — a bound field is just a column name resolved
-// against capabilities-at-node (`NodeCapabilities.columns`), not a DataType
-// entity (design.md decision 3/HEL-903 dropped DataType/Metric entities).
+// carry no bind-target id — a bound field is just a column name resolved
+// against capabilities-at-node (`NodeCapabilities.columns`), not a
+// type-registry entity (design.md decision 3/HEL-903 dropped the DataType/
+// Metric entities).
 // Field names otherwise mirror the equivalent `PanelConfig` variant closely
 // so a future Output->Panel-config render adapter (task 4.2) stays a
 // near-identity mapping.
@@ -30,11 +31,22 @@ export interface TableOutputConfig {
   columnOrder?: string[];
 }
 
+/** Numeric display style for `metric`/`collection baseType: metric` renderers
+ *  (HEL-876). `undefined`/absent behaves exactly like the pre-HEL-876 default
+ *  (2 max fraction digits, no thousands grouping) — this is a purely additive
+ *  config field, no existing Output loses its current rendering. */
+export type MetricFormat = "number" | "integer" | "currency" | "percent";
+
+export function isMetricFormat(value: unknown): value is MetricFormat {
+  return value === "number" || value === "integer" || value === "currency" || value === "percent";
+}
+
 export interface MetricOutputConfig {
   fieldMapping: Record<string, string>;
   aggregation?: MetricAggregation | null;
   label?: string;
   unit?: string;
+  format?: MetricFormat | null;
 }
 
 export interface MarkdownOutputConfig {
@@ -45,6 +57,10 @@ export interface MarkdownOutputConfig {
 export interface CollectionOutputConfig {
   fieldMapping: Record<string, string>;
   layout: "grid" | "list";
+  /** `baseType: metric` items' numeric display style (HEL-876) — same
+   *  semantics/values as `MetricOutputConfig.format`, applied per-item via
+   *  `CollectionRenderer`'s `MetricRenderer` reuse. */
+  format?: MetricFormat | null;
 }
 
 export interface TimelineOutputConfig {
@@ -107,6 +123,7 @@ export function readMetricConfig(config: Record<string, unknown>): MetricOutputC
     aggregation: (config.aggregation as MetricAggregation | null | undefined) ?? null,
     label: typeof config.label === "string" ? config.label : undefined,
     unit: typeof config.unit === "string" ? config.unit : undefined,
+    format: isMetricFormat(config.format) ? config.format : null,
   };
 }
 
@@ -121,6 +138,7 @@ export function readCollectionConfig(config: Record<string, unknown>): Collectio
   return {
     fieldMapping: safeRecord(config.fieldMapping),
     layout: config.layout === "list" ? "list" : "grid",
+    format: isMetricFormat(config.format) ? config.format : null,
   };
 }
 

@@ -1,4 +1,4 @@
-// Per-panel CRUD thunks for the CS2c-3c wire shape.
+// Per-panel CRUD thunks for the HEL-909 `{ type, config }` wire shape.
 //
 // Extracted from `panelsSlice.ts` so the slice file stays under the
 // file-size cap. The slice imports these thunks for `extraReducers` wiring;
@@ -13,48 +13,38 @@ import {
   deletePanel as deletePanelRequest,
   duplicatePanel as duplicatePanelRequest,
   fetchPanels as fetchPanelsRequest,
+  patchPanelOutputId as patchPanelOutputIdRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
-  updatePanelBinding as updatePanelBindingRequest,
-  updatePanelCollection as updatePanelCollectionRequest,
-  updatePanelColumnWidths as updatePanelColumnWidthsRequest,
   updatePanelDivider as updatePanelDividerRequest,
   updatePanelImage as updatePanelImageRequest,
+  updatePanelMarkdownContent as updatePanelMarkdownContentRequest,
   updatePanelsBatch as updatePanelsBatchRequest,
-  updatePanelMarkdownBinding as updatePanelMarkdownBindingRequest,
-  updatePanelTextBinding as updatePanelTextBindingRequest,
-  updatePanelTimeline as updatePanelTimelineRequest,
+  updatePanelTextContent as updatePanelTextContentRequest,
   updatePanelTitle as updatePanelTitleRequest,
-  type TableDisplayPatch,
 } from "../services/panelService";
-import { fetchDataTypeRows } from "../../dataTypes/services/dataTypeService";
+import { getOutputRows } from "../../pipelines/services/outputService";
 import {
   classifyRequestError,
   type RequestErrorKind,
 } from "../../../services/classifyRequestError";
 import type { RootState } from "../../../store/store";
 import type {
-  ChartAggregation,
-  ChartTypeOptionsMap,
-  CollectionItemOptions,
-  CollectionLayout,
   DividerOrientation,
   ImageFit,
-  MetricAggregation,
   Panel,
   PanelAppearance,
-  PanelType,
-  TimelineSort,
-  TypeConfig,
+  PanelKind,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
 } from "../types/panel";
-import { getDataTypeId } from "./panelNarrowing";
 
 // Imported as a delayed reference to avoid cyclic-import issues on the
 // slice's `reducer` symbol. The thunks only need the action creator
 // `markDashboardPanelsStale` and the `fetchPanels` thunk itself — both are
 // re-exported by the slice once it is constructed.
 import { markDashboardPanelsStale } from "./panelActions";
+import { setDashboardLayoutLocally } from "../../dashboards/state/dashboardsSlice";
+import { dashboardGridCols, scaleLayoutItem } from "../../dashboards/state/dashboardLayout";
 
 export const fetchPanels = createAsyncThunk<
   Panel[],
@@ -87,23 +77,53 @@ export const createPanel = createAsyncThunk<
   Panel,
   {
     dashboardId: string;
-    title: string;
-    type?: PanelType;
-    typeConfig?: TypeConfig;
-    dataTypeId?: string;
+    type: PanelKind;
+    title?: string;
+    outputId?: string;
   },
   { state: RootState; rejectValue: string }
 >(
   "panels/createPanel",
-  async ({ dashboardId, title, type, typeConfig, dataTypeId }, { dispatch, rejectWithValue }) => {
+  async ({ dashboardId, type, title, outputId }, { dispatch, getState, rejectWithValue }) => {
     try {
-      const createdPanel = await createPanelRequest(
-        dashboardId,
-        title,
-        type,
-        typeConfig,
-        dataTypeId,
-      );
+      const createdPanel = await createPanelRequest(dashboardId, type, title, outputId);
+      // Decision-15 (HEL-909 CR6/spec `output-picker/spec.md`): the server
+      // computes and returns the placed layout on `createdPanel.layout` —
+      // merge it into the dashboard's own layout locally so the grid
+      // renders it at its real size immediately, without waiting on a full
+      // dashboard refetch. HEL-909 CR1 cycle-2 fix: append the new item to
+      // EACH breakpoint's own existing array (never replace md/sm/xs with
+      // lg's array — that destroyed independently-customized arrangements),
+      // scaling w/x to that breakpoint's column count via `scaleLayoutItem`
+      // (mirroring the backend's identical `scaleItemToBreakpoint`) instead
+      // of copying lg's dimensions verbatim.
+      if (createdPanel.layout) {
+        const dashboard = getState().dashboards.items.find((d) => d.id === dashboardId);
+        if (dashboard) {
+          const lgItem = { panelId: createdPanel.id, ...createdPanel.layout };
+          const lgCols = dashboardGridCols.lg ?? 12;
+          dispatch(
+            setDashboardLayoutLocally({
+              dashboardId,
+              layout: {
+                lg: [...dashboard.layout.lg, lgItem],
+                md: [
+                  ...dashboard.layout.md,
+                  scaleLayoutItem(lgItem, lgCols, dashboardGridCols.md ?? lgCols),
+                ],
+                sm: [
+                  ...dashboard.layout.sm,
+                  scaleLayoutItem(lgItem, lgCols, dashboardGridCols.sm ?? lgCols),
+                ],
+                xs: [
+                  ...dashboard.layout.xs,
+                  scaleLayoutItem(lgItem, lgCols, dashboardGridCols.xs ?? lgCols),
+                ],
+              },
+            }),
+          );
+        }
+      }
       dispatch(markDashboardPanelsStale(dashboardId));
       await dispatch(fetchPanels(dashboardId));
       return createdPanel;
@@ -124,6 +144,30 @@ export const updatePanelTitle = createAsyncThunk<
     return rejectWithValue("Failed to update panel title.");
   }
 });
+
+/** "Swap output" (HEL-909 CR4) — PATCHes an existing panel's own `outputId`
+ *  in place, preserving its position/size, then refetches the dashboard's
+ *  panels so the sheet/grid reflect the new binding. `markDashboardPanelsStale`
+ *  resets `panels.status` to `"idle"` first so `fetchPanels`'s own dedup
+ *  `condition` doesn't skip the refetch (the dashboard is otherwise always
+ *  already `"succeeded"` by the time a user reaches Swap output). */
+export const swapPanelOutput = createAsyncThunk<
+  Panel,
+  { panelId: string; outputId: string; dashboardId: string },
+  { state: RootState; rejectValue: string }
+>(
+  "panels/swapPanelOutput",
+  async ({ panelId, outputId, dashboardId }, { dispatch, rejectWithValue }) => {
+    try {
+      const updated = await patchPanelOutputIdRequest(panelId, outputId);
+      dispatch(markDashboardPanelsStale(dashboardId));
+      await dispatch(fetchPanels(dashboardId));
+      return updated;
+    } catch {
+      return rejectWithValue("Failed to swap output.");
+    }
+  },
+);
 
 export const deletePanel = createAsyncThunk<
   string,
@@ -166,211 +210,31 @@ export const updatePanelAppearance = createAsyncThunk<
   }
 });
 
-export const updatePanelBinding = createAsyncThunk<
+/** PATCH a Text panel's literal content. */
+export const updatePanelTextContent = createAsyncThunk<
   Panel,
-  {
-    panelId: string;
-    typeId: string | null;
-    fieldMapping: Record<string, string> | null;
-    refreshInterval: number | null;
-    /** HEL-292: `undefined` = leave unchanged, `null` = explicit clear, an
-     *  object = set/replace. See `buildBindingPatch`. */
-    aggregation?: MetricAggregation | ChartAggregation | null;
-    /** HEL-243: literal label/unit override — `undefined` = leave unchanged,
-     *  `null` = explicit clear, a string = set. See `buildBindingPatch`. */
-    label?: string | null;
-    unit?: string | null;
-    /** HEL-255: Table density/columnOrder/width-reset, folded into the same
-     *  single Save PATCH. See `TableDisplayPatch`. */
-    tableDisplay?: TableDisplayPatch;
-    /** HEL-248: Chart per-type display options, folded into the same single
-     *  Save PATCH. `undefined` = leave unchanged, `null` = clear, object =
-     *  replace. See `buildBindingPatch`. */
-    chartOptions?: ChartTypeOptionsMap | null;
-    /** HEL-318: Chart static annotation, folded into the same single Save
-     *  PATCH. `undefined` = leave unchanged, `null` = clear, string = set. */
-    annotation?: string | null;
-    /** HEL-500/HEL-553: bind-to-metric mode, folded into the same single Save
-     *  PATCH. `undefined` = leave unchanged, `null` = clear, a metric id =
-     *  set. */
-    metricId?: string | null;
-  },
+  { panelId: string; content: string },
   { rejectValue: string }
->(
-  "panels/updatePanelBinding",
-  async (
-    {
-      panelId,
-      typeId,
-      fieldMapping,
-      refreshInterval,
-      aggregation,
-      label,
-      unit,
-      tableDisplay,
-      chartOptions,
-      annotation,
-      metricId,
-    },
-    { rejectWithValue },
-  ) => {
-    try {
-      // `aggregation`/`label`/`unit`/`tableDisplay`/`chartOptions`/`annotation`/
-      // `metricId` are optional trailing params on `updatePanelBindingRequest`;
-      // passing them as `undefined` when the caller didn't supply one is
-      // behaviorally identical to omitting the argument.
-      return await updatePanelBindingRequest(
-        panelId,
-        typeId,
-        fieldMapping,
-        refreshInterval,
-        aggregation,
-        label,
-        unit,
-        tableDisplay,
-        chartOptions,
-        annotation,
-        metricId,
-      );
-    } catch {
-      return rejectWithValue("Failed to update panel binding.");
-    }
-  },
-);
-
-/** HEL-247: PATCH a Collection panel's editor save — binding +
- *  baseType/layout/itemOptions in a single config PATCH. */
-export const updatePanelCollection = createAsyncThunk<
-  Panel,
-  {
-    panelId: string;
-    typeId: string | null;
-    fieldMapping: Record<string, string> | null;
-    baseType?: string;
-    layout?: CollectionLayout;
-    itemOptions?: CollectionItemOptions | null;
-  },
-  { rejectValue: string }
->(
-  "panels/updatePanelCollection",
-  async ({ panelId, typeId, fieldMapping, baseType, layout, itemOptions }, { rejectWithValue }) => {
-    try {
-      return await updatePanelCollectionRequest(panelId, {
-        typeId,
-        fieldMapping,
-        baseType,
-        layout,
-        itemOptions,
-      });
-    } catch {
-      return rejectWithValue("Failed to update collection panel.");
-    }
-  },
-);
-
-/** HEL-317: PATCH a Timeline panel's editor save — binding + `sort` in a
- *  single config PATCH. */
-export const updatePanelTimeline = createAsyncThunk<
-  Panel,
-  {
-    panelId: string;
-    typeId: string | null;
-    fieldMapping: Record<string, string> | null;
-    sort?: TimelineSort;
-  },
-  { rejectValue: string }
->(
-  "panels/updatePanelTimeline",
-  async ({ panelId, typeId, fieldMapping, sort }, { rejectWithValue }) => {
-    try {
-      return await updatePanelTimelineRequest(panelId, { typeId, fieldMapping, sort });
-    } catch {
-      return rejectWithValue("Failed to update timeline panel.");
-    }
-  },
-);
-
-/** HEL-255: persist a Table panel's drag-resized column widths AND keep the
- *  Redux-stored panel in sync. The raw `updatePanelColumnWidths` service call
- *  is fire-and-forget (debounced from the grid); routing it through a thunk
- *  whose `fulfilled` reducer replaces the stored panel means `config.
- *  columnWidths` is no longer stale after a same-session resize — so the edit
- *  pane's "Reset column widths" button (gated on `hasStoredWidths`) enables
- *  without a page reload. Mirrors `updatePanelBinding`'s fulfilled sync. */
-export const updatePanelColumnWidths = createAsyncThunk<
-  Panel,
-  { panelId: string; columnWidths: Record<string, number> },
-  { rejectValue: string }
->("panels/updatePanelColumnWidths", async ({ panelId, columnWidths }, { rejectWithValue }) => {
+>("panels/updatePanelTextContent", async ({ panelId, content }, { rejectWithValue }) => {
   try {
-    return await updatePanelColumnWidthsRequest(panelId, columnWidths);
+    return await updatePanelTextContentRequest(panelId, content);
   } catch {
-    // HEL-535 evaluation-1.md CR3 — phrased as what the user did (a column
-    // resize), not the wire call (`updatePanelColumnWidths`/"persist column
-    // widths."); this string IS the toast the user sees — `payload ?? "..."`
-    // in toastListeners.ts's ERROR_TOASTS table can never reach its own
-    // fallback, because this catch always supplies a defined payload. Keep
-    // the two in sync if either changes.
-    return rejectWithValue("Failed to resize columns.");
+    return rejectWithValue("Failed to update panel content.");
   }
 });
 
-/** HEL-244: PATCH a Text panel's Content editor save — see
- *  `buildContentBindingPatch` for the Source/Static patch-shape rules. */
-export const updatePanelTextBinding = createAsyncThunk<
+/** PATCH a Markdown panel's literal content. */
+export const updatePanelMarkdownContent = createAsyncThunk<
   Panel,
-  {
-    panelId: string;
-    mode: "field" | "literal";
-    typeId: string | null;
-    fieldValue: string;
-    literalValue: string;
-  },
+  { panelId: string; content: string },
   { rejectValue: string }
->(
-  "panels/updatePanelTextBinding",
-  async ({ panelId, mode, typeId, fieldValue, literalValue }, { rejectWithValue }) => {
-    try {
-      return await updatePanelTextBindingRequest(panelId, {
-        mode,
-        typeId,
-        fieldValue,
-        literalValue,
-      });
-    } catch {
-      return rejectWithValue("Failed to update panel content.");
-    }
-  },
-);
-
-/** HEL-245: PATCH a Markdown panel's Content editor save — mirrors
- *  `updatePanelTextBinding`; see `buildContentBindingPatch` for the
- *  Source/Static patch-shape rules. */
-export const updatePanelMarkdownBinding = createAsyncThunk<
-  Panel,
-  {
-    panelId: string;
-    mode: "field" | "literal";
-    typeId: string | null;
-    fieldValue: string;
-    literalValue: string;
-  },
-  { rejectValue: string }
->(
-  "panels/updatePanelMarkdownBinding",
-  async ({ panelId, mode, typeId, fieldValue, literalValue }, { rejectWithValue }) => {
-    try {
-      return await updatePanelMarkdownBindingRequest(panelId, {
-        mode,
-        typeId,
-        fieldValue,
-        literalValue,
-      });
-    } catch {
-      return rejectWithValue("Failed to update panel content.");
-    }
-  },
-);
+>("panels/updatePanelMarkdownContent", async ({ panelId, content }, { rejectWithValue }) => {
+  try {
+    return await updatePanelMarkdownContentRequest(panelId, content);
+  } catch {
+    return rejectWithValue("Failed to update panel content.");
+  }
+});
 
 export const updatePanelImage = createAsyncThunk<
   Panel,
@@ -428,24 +292,18 @@ export const updatePanelsBatch = createAsyncThunk<
   }
 });
 
-// Panels read rows from their bound DataType (populated by pipeline runs).
-// The rows endpoint returns the full set; pagination is sliced on the client.
+// An output-kind panel reads rows from its bound Output
+// (`GET /api/outputs/:id/rows`); pagination is sliced on the client.
 export const fetchPanelPage = createAsyncThunk<
   { panelId: string; page: number; rows: Record<string, unknown>[]; hasMore: boolean },
-  { panelId: string; page: number; pageSize: number },
+  { panelId: string; outputId: string; page: number; pageSize: number },
   { state: RootState; rejectValue: { message: string; kind: RequestErrorKind } }
->("panels/fetchPanelPage", async ({ panelId, page, pageSize }, { getState, rejectWithValue }) => {
-  const panel = getState().panels.items.find((p) => p.id === panelId);
-  const dataTypeId = panel ? getDataTypeId(panel) : null;
-  if (!dataTypeId) {
-    return rejectWithValue(classifyRequestError(undefined, "Panel is not bound to a data type."));
-  }
+>("panels/fetchPanelPage", async ({ panelId, outputId, page, pageSize }, { rejectWithValue }) => {
   try {
-    const { rows } = await fetchDataTypeRows(dataTypeId);
-    const start = page * pageSize;
-    const slice = rows.slice(start, start + pageSize);
-    const hasMore = start + pageSize < rows.length;
-    return { panelId, page, rows: slice, hasMore };
+    const offset = page * pageSize;
+    const result = await getOutputRows(outputId, offset, pageSize);
+    const hasMore = offset + pageSize < result.total;
+    return { panelId, page, rows: result.items, hasMore };
   } catch (err: unknown) {
     return rejectWithValue(classifyRequestError(err, "Failed to load panel data."));
   }

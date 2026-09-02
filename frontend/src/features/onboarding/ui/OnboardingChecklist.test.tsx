@@ -1,4 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { useLocation } from "react-router-dom";
 
 import { fetchSources as fetchSourcesRequest } from "../../sources/services/dataSourceService";
@@ -33,14 +35,20 @@ function noopCreateDashboardAction(
   };
 }
 
+// A source must exist before there's anything to fetch/idle-check for
+// pipelines — most scenarios below seed one so the pipeline step's action
+// isn't unavailable for reasons unrelated to what's being tested.
+const withSource = { sources: { status: "succeeded" as const, items: [{ id: "s1" } as never] } };
+
 describe("OnboardingChecklist", () => {
   beforeEach(() => {
     fetchSourcesMock.mockReset().mockResolvedValue([]);
     getPipelinesMock.mockReset().mockResolvedValue([]);
   });
 
-  // D8 — the copy is the deliverable; assert it verbatim.
-  it("renders D8's copy verbatim for the in-progress state", () => {
+  // Spec: "The checklist teaches the source-to-output-to-dashboard model in
+  // words and in glyphs" — exactly three steps, verbatim copy.
+  it("renders exactly three steps with D8's copy verbatim for the in-progress state", () => {
     renderWithStore(
       <OnboardingChecklist
         createDashboardAction={noopCreateDashboardAction()}
@@ -52,53 +60,37 @@ describe("OnboardingChecklist", () => {
     expect(screen.getByText("Build your first dashboard")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Helio turns a data source into a dashboard in four steps — each one feeds the next.",
+        "Helio turns a data source into a dashboard in three steps — each one feeds the next.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Connect a data source")).toBeInTheDocument();
     expect(screen.getByText("A CSV, a database, or an API.")).toBeInTheDocument();
-    expect(screen.getByText("Build a pipeline")).toBeInTheDocument();
+    expect(screen.getByText("Shape it into outputs")).toBeInTheDocument();
     expect(
-      screen.getByText(/Types are only ever a pipeline.s output — you never create one directly\./),
+      screen.getByText("Turn that source into the Outputs your dashboards will show."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Create a dashboard")).toBeInTheDocument();
-    expect(screen.getByText("A canvas for your panels.")).toBeInTheDocument();
-    expect(screen.getByText("Add a panel")).toBeInTheDocument();
-    // task 2.3 — exact wording, not "to see it".
-    expect(screen.getByText("Bind a panel to that type to see your data.")).toBeInTheDocument();
-  });
-
-  // task 2.6 — the /registry glyph rendered inline beside "type" in the
-  // pipeline step's own sentence, not as a pill/chip.
-  it("renders the Shapes (/registry) glyph inline in the pipeline step's sentence", () => {
-    renderWithStore(
-      <OnboardingChecklist
-        createDashboardAction={noopCreateDashboardAction()}
-        emphasisVariant="primary"
-      />,
-    );
-    const pipelineDescription = screen.getByText(/Shape that source into a/);
-    expect(pipelineDescription.querySelector(".lucide-shapes")).toBeInTheDocument();
-    // Not rendered as a StatusChip pill (§6) — no chip class wraps it.
-    expect(pipelineDescription.querySelector(".onboarding-checklist__glyph")).not.toHaveClass(
-      "status-chip",
-    );
+    expect(screen.getByText("Place them on a dashboard")).toBeInTheDocument();
+    expect(
+      screen.getByText("Pick an Output and drop it onto a dashboard to see your data."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/[Tt]ype/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/[Mm]etric/)).not.toBeInTheDocument();
   });
 
   // task 2.5/D8 — each step's glyph comes from `shared/chrome/sections.ts`,
-  // matching the same icon the nav uses for that section.
+  // matching the same icon the nav uses for that section (closes HEL-794).
   it("each step carries its section's own nav glyph", () => {
     const { container } = renderWithStore(
       <OnboardingChecklist
         createDashboardAction={noopCreateDashboardAction()}
         emphasisVariant="primary"
       />,
+      withSource,
     );
     const titles = container.querySelectorAll(".onboarding-checklist__step-title");
     expect(titles[0].querySelector(".lucide-database")).toBeInTheDocument(); // /sources
     expect(titles[1].querySelector(".lucide-workflow")).toBeInTheDocument(); // /pipelines
     expect(titles[2].querySelector(".lucide-layout-dashboard")).toBeInTheDocument(); // /
-    expect(titles[3].querySelector(".lucide-layout-grid")).toBeInTheDocument(); // panels (D8 fallback)
   });
 
   describe("step completion state (D10)", () => {
@@ -201,15 +193,59 @@ describe("OnboardingChecklist", () => {
     });
   });
 
-  it("the panel step's action is unavailable with no dashboard selected, matching the underlying create action's own state", () => {
+  // ADDED requirement: "An unmet precondition leaves a step unavailable" —
+  // the "shape it into outputs" step names "at least one source exists" as
+  // its example precondition.
+  it("the pipeline step's action is unavailable with no source connected yet", () => {
     renderWithStore(
       <OnboardingChecklist
         createDashboardAction={noopCreateDashboardAction()}
         emphasisVariant="primary"
       />,
-      { dashboards: { items: [], selectedDashboardId: null } },
+      { sources: { status: "succeeded", items: [] } },
     );
-    expect(screen.getByRole("button", { name: "Add panel" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "New pipeline" })).toBeDisabled();
+  });
+
+  it("the pipeline step's action is available once a source exists", () => {
+    renderWithStore(
+      <OnboardingChecklist
+        createDashboardAction={noopCreateDashboardAction()}
+        emphasisVariant="primary"
+      />,
+      withSource,
+    );
+    expect(screen.getByRole("button", { name: "New pipeline" })).toBeEnabled();
+  });
+
+  it("with no dashboard yet, the placement step's action creates a dashboard, not the Output picker", () => {
+    renderWithStore(
+      <OnboardingChecklist
+        createDashboardAction={noopCreateDashboardAction()}
+        emphasisVariant="primary"
+      />,
+      { dashboards: { items: [], selectedDashboardId: null, status: "succeeded" }, ...withSource },
+    );
+    expect(screen.getByRole("button", { name: "New dashboard" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add panel" })).not.toBeInTheDocument();
+  });
+
+  it("once a dashboard exists, the placement step's action opens the Output picker (Add panel), never PanelCreationModal", () => {
+    renderWithStore(
+      <OnboardingChecklist
+        createDashboardAction={noopCreateDashboardAction()}
+        emphasisVariant="primary"
+      />,
+      {
+        dashboards: {
+          items: [{ id: "dash-1" } as never],
+          selectedDashboardId: "dash-1",
+          status: "succeeded",
+        },
+        ...withSource,
+      },
+    );
+    expect(screen.getByRole("button", { name: "Add panel" })).toBeInTheDocument();
   });
 
   it("step 1 navigates to /sources rather than setting a modal flag", () => {
@@ -246,11 +282,12 @@ describe("OnboardingChecklist", () => {
         createDashboardAction={noopCreateDashboardAction({ error: "Failed to create dashboard." })}
         emphasisVariant="primary"
       />,
+      { dashboards: { items: [], selectedDashboardId: null, status: "succeeded" } },
     );
     expect(screen.getByRole("alert")).toHaveTextContent("Failed to create dashboard.");
   });
 
-  describe("all-four-complete (D8)", () => {
+  describe("all-three-complete", () => {
     const completeState = {
       dashboards: {
         items: [
@@ -276,7 +313,7 @@ describe("OnboardingChecklist", () => {
       },
     };
 
-    it("keeps the chain on screen, ticked, with the completion title/lede and a Done button", () => {
+    it("keeps the chain on screen, ticked, with the completion title/lede (naming all five destinations) and a Done button", () => {
       renderWithStore(
         <OnboardingChecklist
           createDashboardAction={noopCreateDashboardAction()}
@@ -285,14 +322,16 @@ describe("OnboardingChecklist", () => {
         completeState,
       );
       expect(screen.getByText("That's the whole chain")).toBeInTheDocument();
-      expect(
-        screen.getByText("Source, pipeline, type, panel — every dashboard you build follows it."),
-      ).toBeInTheDocument();
+      // Closing copy names all five nav destinations (closes the surviving
+      // half of HEL-793).
+      for (const destination of ["Dashboards", "Pipelines", "Sources", "Connectors", "Assistant"]) {
+        expect(screen.getByText(new RegExp(destination))).toBeInTheDocument();
+      }
       expect(
         screen.getAllByText(
-          /^(Connect a data source|Build a pipeline|Create a dashboard|Add a panel)$/,
+          /^(Connect a data source|Shape it into outputs|Place them on a dashboard)$/,
         ),
-      ).toHaveLength(4);
+      ).toHaveLength(3);
       const doneButton = screen.getByRole("button", { name: "Done" });
       expect(doneButton).toBeInTheDocument();
     });
@@ -308,6 +347,63 @@ describe("OnboardingChecklist", () => {
       fireEvent.click(screen.getByRole("button", { name: "Done" }));
       expect(store.getState().onboarding.active).toBe(false);
       expect(store.getState().onboarding.dismissed).toBe(true);
+    });
+
+    // HEL-792 — a regression test asserting COMPUTED styles, not just text
+    // content/class name. `OnboardingChecklist.css` is mocked away by
+    // jest's moduleNameMapper (like every `.css` import in this suite), so
+    // this test loads the REAL file off disk with `fs.readFileSync` and
+    // injects it into `document.head` as a real `<style>` tag — jsdom's CSS
+    // engine then actually matches the selector and resolves declared
+    // values (verified: a `var(...)` declaration comes back verbatim from
+    // `getComputedStyle`, since jsdom doesn't evaluate custom properties,
+    // but DOES apply the matching rule) onto the rendered element.
+    const realCss = readFileSync(join(__dirname, "OnboardingChecklist.css"), "utf8");
+
+    function renderWithInjectedCss(css: string) {
+      const styleTag = document.createElement("style");
+      styleTag.textContent = css;
+      document.head.appendChild(styleTag);
+      renderWithStore(
+        <OnboardingChecklist
+          createDashboardAction={noopCreateDashboardAction()}
+          emphasisVariant="primary"
+        />,
+        completeState,
+      );
+      return () => styleTag.remove();
+    }
+
+    afterEach(() => {
+      document.head.innerHTML = "";
+    });
+
+    it("the Done button's computed background/color come from the real CSS cascade (HEL-792)", () => {
+      renderWithInjectedCss(realCss);
+      const doneButton = screen.getByRole("button", { name: "Done" });
+      const computed = getComputedStyle(doneButton);
+      expect(computed.getPropertyValue("background")).toBe("var(--app-accent)");
+      expect(computed.getPropertyValue("color")).toBe("var(--app-accent-ink)");
+    });
+
+    // (red-before-green, HEL-792's explicit requirement) — with the
+    // governing rule's declarations stripped out of the SAME real
+    // stylesheet (simulating the cascade being deliberately broken), the
+    // assertion above must fail. Proves this test can actually catch a
+    // regression, not just echo back whatever renders.
+    it("(red-before-green) stripping the governing rule's declarations from the real stylesheet fails the computed-style assertion", () => {
+      const brokenCss = realCss.replace(
+        /\.onboarding-checklist__done--primary\s*\{[^}]*\}/,
+        ".onboarding-checklist__done--primary { }",
+      );
+      // Confirm the probe actually found and blanked the rule — otherwise
+      // this "red" case would trivially pass for the wrong reason.
+      expect(brokenCss).not.toEqual(realCss);
+      renderWithInjectedCss(brokenCss);
+      const doneButton = screen.getByRole("button", { name: "Done" });
+      const computed = getComputedStyle(doneButton);
+      expect(computed.getPropertyValue("background")).not.toBe("var(--app-accent)");
+      expect(computed.getPropertyValue("color")).not.toBe("var(--app-accent-ink)");
     });
   });
 

@@ -4,9 +4,8 @@ import { useState } from "react";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
 import { refreshSource } from "../services/dataSourceService";
-import { deleteSource } from "../state/sourcesSlice";
+import { deleteSource, fetchSources } from "../state/sourcesSlice";
 import type { DataSource } from "../types/dataSource";
 
 interface EmptySchemaAffordanceProps {
@@ -39,7 +38,7 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
     setError(null);
     try {
       await refreshSource(source.id, source.type);
-      await dispatch(fetchDataTypes());
+      await dispatch(fetchSources());
     } catch (err: unknown) {
       const serverMessage =
         isAxiosError(err) && typeof err.response?.data?.message === "string"

@@ -3131,6 +3131,66 @@ class ApiRoutesSpec
     }
   }
 
+  "PATCH /api/panels/:id updating output binding" should {
+    // HEL-909 regression guard (found live via e2e evidence, `PanelRepository
+    // .configColumnsOf`/`configColumnValuesOf` never included `output_id` --
+    // the "single source of truth" tuple both `replace()` and
+    // `PanelMutationOps.batchUpdate`'s config-patch branch write through).
+    // Proven red first: reverting that fix locally reproduced exactly this
+    // failure -- the PATCH returned 200 with the OLD `outputId` unchanged in
+    // both the response body and a fresh re-fetch, silently no-opping the
+    // "Swap output" feature this PATCH exists to serve.
+    "swap an output-kind panel's outputId and persist it (not just echo the request)" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Swap Output Test"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      val dsId       = UUID.randomUUID().toString
+      val pidId      = UUID.randomUUID().toString
+      val outputAId  = UUID.randomUUID().toString
+      val outputBId  = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+               VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $testUserId::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pidId, 'pipe', $dsId, $testUserId::uuid, now(), now())""",
+        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+               VALUES ($outputAId, $pidId, NULL, $testUserId::uuid, 'Throughput', 'table', '{}'::jsonb, '[]'::jsonb, 0, now(), now())""",
+        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+               VALUES ($outputBId, $pidId, NULL, $testUserId::uuid, 'Latency', 'table', '{}'::jsonb, '[]'::jsonb, 1, now(), now())"""
+      )))
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), None, Some("output"), Some(JsObject("outputId" -> JsString(outputAId))))
+      ) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+
+      Patch(
+        s"/api/panels/$panelId",
+        HttpEntity(ContentTypes.`application/json`, s"""{"config":{"outputId":"$outputBId"}}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PanelResponse].config.asJsObject.fields("outputId") shouldBe JsString(outputBId)
+      }
+
+      // Re-fetch independently of the PATCH response — this is what actually
+      // distinguishes "persisted" from "computed in memory and echoed back".
+      Get(s"/api/dashboards/$dashboardId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panels = responseAs[PagedResult[PanelResponse]].items
+        val panel  = panels.find(_.id == panelId).get
+        panel.config.asJsObject.fields("outputId") shouldBe JsString(outputBId)
+      }
+    }
+  }
+
   "PATCH /api/panels/:id updating divider fields" should {
 
     "set divider config fields and return 200" in {

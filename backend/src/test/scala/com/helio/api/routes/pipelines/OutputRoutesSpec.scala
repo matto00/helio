@@ -330,6 +330,7 @@ class OutputRoutesSpec
       val config = JsObject("outputId" -> JsString(output.id.value))
       val panel = await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
         .getOrElse(throw new IllegalStateException("panel create fixture failed"))
+        ._1
 
       Get(s"/outputs/${output.id.value}/panels") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -365,7 +366,7 @@ class OutputRoutesSpec
       def newOutputPanel(): PanelId = {
         val config = JsObject("outputId" -> JsString(output.id.value))
         await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
-          .getOrElse(throw new IllegalStateException("panel create fixture failed")).id
+          .getOrElse(throw new IllegalStateException("panel create fixture failed"))._1.id
       }
       val panel1Id = newOutputPanel()
       val panel2Id = newOutputPanel()
@@ -577,6 +578,28 @@ class OutputRoutesSpec
     "400 a negative offset" in {
       Get("/outputs?offset=-1") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    // HEL-909 CR2 (evaluation-2.md finding 2): the list response carries each
+    // Output's panel-placement count directly, so the Output picker doesn't
+    // have to fetch `GET /api/outputs/:id/panels` per card (an N+1 that
+    // self-rate-limited on a realistic Output count).
+    "carries each Output's panelCount, batched, without an N+1 per-Output fetch" in {
+      val pipelineId = newSharedPipeline()
+      val boundOutput   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "bound-out", OutputKind.Table))
+      val unboundOutput = await(outputRepo.insertInternal(pipelineId, None, owner.id, "unbound-out", OutputKind.Table))
+      val (dashboard, _) = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("count-dash")), owner))
+      val config = JsObject("outputId" -> JsString(boundOutput.id.value))
+      await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
+      await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
+
+      Get("/outputs") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        val items = paged.fields("items").convertTo[Vector[OutputResponse]]
+        items.find(_.name == "bound-out").flatMap(_.panelCount) shouldBe Some(2)
+        items.find(_.name == "unbound-out").flatMap(_.panelCount) shouldBe Some(0)
       }
     }
   }

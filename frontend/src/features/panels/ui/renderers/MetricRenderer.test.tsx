@@ -99,3 +99,25 @@ describe("MetricRenderer — trend direction classes", () => {
     expect(container.querySelector(".panel-content__metric-trend")).not.toBeInTheDocument();
   });
 });
+
+describe("MetricRenderer format (HEL-876)", () => {
+  it("defaults to the pre-HEL-876 2-decimal, no-grouping formatting when format is absent", () => {
+    render(<MetricRenderer data={{ value: "1234.5678" }} />);
+    expect(screen.getByText("1234.57")).toBeInTheDocument();
+  });
+
+  it("rounds to a whole number for format: integer", () => {
+    render(<MetricRenderer data={{ value: "1234.5678" }} format="integer" />);
+    expect(screen.getByText("1,235")).toBeInTheDocument();
+  });
+
+  it("renders a currency symbol and grouping for format: currency", () => {
+    render(<MetricRenderer data={{ value: "1234.5" }} format="currency" />);
+    expect(screen.getByText("$1,234.50")).toBeInTheDocument();
+  });
+
+  it("multiplies by 100 and appends % for format: percent", () => {
+    render(<MetricRenderer data={{ value: "0.4213" }} format="percent" />);
+    expect(screen.getByText("42.13%")).toBeInTheDocument();
+  });
+});

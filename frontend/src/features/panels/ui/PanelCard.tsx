@@ -1,12 +1,11 @@
-import React, { useCallback, useEffect, useMemo, type CSSProperties } from "react";
+import React, { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGripVertical } from "@fortawesome/free-solid-svg-icons";
 
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
-import { formatRelativeTime } from "../../../utils/formatRelativeTime";
-import { getDataTypeId } from "../state/panelNarrowing";
+import { getOutputId } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel, fetchPanelPage } from "../state/panelsSlice";
-import { fetchAssertionStatus, selectAssertionInvalid } from "../../dataTypes/state/dataTypesSlice";
+import { getAssertionStatus } from "../../pipelines/services/outputService";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
@@ -66,19 +65,21 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
   const { data, rawRows, headers, isLoading, error, errorKind, noData, chartAggregate, refresh } =
     usePanelData(panel);
-  usePanelPolling(refresh, panel.refreshInterval ?? null, getDataTypeId(panel));
+  usePanelPolling(refresh, panel.refreshInterval ?? null, getOutputId(panel));
 
+  const outputId = getOutputId(panel);
   const handleLoadMore = useCallback(() => {
-    if (paginationEntry && !paginationEntry.isLoadingMore) {
+    if (paginationEntry && !paginationEntry.isLoadingMore && outputId) {
       void dispatch(
         fetchPanelPage({
           panelId: panel.id,
+          outputId,
           page: paginationEntry.currentPage + 1,
           pageSize: 50,
         }),
       );
     }
-  }, [dispatch, panel.id, paginationEntry]);
+  }, [dispatch, panel.id, outputId, paginationEntry]);
 
   // All hooks are called unconditionally above; the early return is safe here.
   // Body is hidden only during active drag — title and handle remain visible.
@@ -157,16 +158,35 @@ export const PanelCard = React.memo(function PanelCard({
 }: PanelCardProps) {
   const dispatch = useAppDispatch();
 
-  // HEL-576: fetch the bound DataType's assertion status (deduped in the
-  // slice — see `fetchAssertionStatus`'s `condition` — so N panels bound to
-  // the same DataType share one request) and read whether it's invalid.
-  const dataTypeId = getDataTypeId(panel);
-  const isDataInvalid = useAppSelector((state) => selectAssertionInvalid(state, dataTypeId));
+  // HEL-909: assertion status now reads the panel's bound Output
+  // (`GET /api/outputs/:id/assertion-status`) rather than a DataType. Not
+  // yet Redux-cached/deduped across panels sharing an Output — a follow-up,
+  // since the prior DataType path's slice-level dedupe (`fetchAssertionStatus`'s
+  // `condition`) has no Output-side equivalent yet.
+  const outputId = getOutputId(panel);
+  const [isDataInvalid, setIsDataInvalid] = useState(false);
   useEffect(() => {
-    if (dataTypeId) {
-      void dispatch(fetchAssertionStatus(dataTypeId));
+    let cancelled = false;
+    if (outputId) {
+      void getAssertionStatus(outputId)
+        .then((status) => {
+          if (!cancelled) setIsDataInvalid(status.invalid);
+        })
+        .catch(() => {
+          if (!cancelled) setIsDataInvalid(false);
+        });
+    } else {
+      // No bound Output — resolve asynchronously (not a synchronous setState
+      // call inside the effect body) so switching a panel away from an
+      // Output still clears a previously-set invalid flag.
+      void Promise.resolve().then(() => {
+        if (!cancelled) setIsDataInvalid(false);
+      });
     }
-  }, [dispatch, dataTypeId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [outputId]);
 
   // 2.2 — Memoize style to avoid a new object identity on every render.
   const style = useMemo(
@@ -240,14 +260,6 @@ export const PanelCard = React.memo(function PanelCard({
           ) : (
             <>
               <h3 className="panel-grid-card__title">{panel.title}</h3>
-              {panel.dataAsOf ? (
-                <p
-                  className="panel-grid-card__freshness"
-                  title={`Data as of ${new Date(panel.dataAsOf).toLocaleString()}`}
-                >
-                  Data as of {formatRelativeTime(panel.dataAsOf)}
-                </p>
-              ) : null}
             </>
           )}
         </div>

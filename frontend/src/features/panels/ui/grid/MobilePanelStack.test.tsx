@@ -4,8 +4,7 @@ import { renderWithStore } from "../../../../test/renderWithStore";
 import {
   makeDividerPanel,
   makeMarkdownPanel,
-  makeMetricPanel,
-  makeTablePanel,
+  makeOutputPanel,
 } from "../../../../test/panelFixtures";
 import { defaultDashboardLayout } from "../../../dashboards/state/dashboardLayout";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
@@ -89,9 +88,9 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
   // exercises. B and C share y=0 at x=0/x=1 (2-col row) to test the x
   // tie-break; A sits in a separate row below both.
   it("orders panels by the xs layout's y then x, not declaration order", () => {
-    const panelA = makeMetricPanel({ id: "a", title: "Panel A" });
-    const panelB = makeMetricPanel({ id: "b", title: "Panel B" });
-    const panelC = makeMetricPanel({ id: "c", title: "Panel C" });
+    const panelA = makeOutputPanel({ id: "a", title: "Panel A" });
+    const panelB = makeOutputPanel({ id: "b", title: "Panel B" });
+    const panelC = makeOutputPanel({ id: "c", title: "Panel C" });
     const layout = layoutWithXs([
       { panelId: "a", x: 0, y: 4, w: 2, h: 4 },
       { panelId: "b", x: 0, y: 0, w: 1, h: 4 },
@@ -110,8 +109,8 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
   });
 
   it("falls back to resolveDashboardLayout placement for a panel missing from the saved xs layout", () => {
-    const known = makeMetricPanel({ id: "known", title: "Known" });
-    const missing = makeMetricPanel({ id: "missing", title: "Missing" });
+    const known = makeOutputPanel({ id: "known", title: "Known" });
+    const missing = makeOutputPanel({ id: "missing", title: "Missing" });
     const layout = layoutWithXs([{ panelId: "known", x: 0, y: 5, w: 2, h: 4 }]);
 
     const { container } = renderWithStore(
@@ -132,7 +131,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
   // delete control anywhere in the stack; tapping opens the detail modal.
   describe("read-only affordances", () => {
     it("renders no drag handle, actions menu, or title-edit input", () => {
-      const panel = makeMetricPanel({ id: "p1", title: "Revenue" });
+      const panel = makeOutputPanel({ id: "p1", title: "Revenue" });
       const layout = layoutWithXs([{ panelId: "p1", x: 0, y: 0, w: 2, h: 4 }]);
 
       renderWithStore(<MobilePanelStack panels={[panel]} layout={layout} containerWidth={390} />, {
@@ -145,7 +144,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
     });
 
     it("tapping a panel card opens the panel detail modal", () => {
-      const panel = makeMetricPanel({ id: "p1", title: "Revenue" });
+      const panel = makeOutputPanel({ id: "p1", title: "Revenue" });
       const layout = layoutWithXs([{ panelId: "p1", x: 0, y: 0, w: 2, h: 4 }]);
 
       renderWithStore(<MobilePanelStack panels={[panel]} layout={layout} containerWidth={390} />, {
@@ -158,7 +157,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
     });
 
     it("renders the plain stack container, not the RGL grid class", () => {
-      const panel = makeMetricPanel({ id: "p1", title: "Revenue" });
+      const panel = makeOutputPanel({ id: "p1", title: "Revenue" });
       const layout = layoutWithXs([{ panelId: "p1", x: 0, y: 0, w: 2, h: 4 }]);
 
       const { container } = renderWithStore(
@@ -199,7 +198,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
   // stack's auto-height flex item. MobilePanelStack must force it to render
   // as the intrinsic horizontal hairline instead.
   it("forces a vertical divider to render as a horizontal hairline in the stack", () => {
-    // Real dividers carry no dataTypeId, so usePanelData's `currentFetchKey`
+    // Real dividers carry no outputId, so usePanelData's `currentFetchKey`
     // is null and production noData is always `false` (see usePanelData.ts)
     // — override the module-level default (noData: true) to reach
     // DividerRenderer's actual markup instead of PanelContent's "No data
@@ -237,9 +236,15 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
     expect(rule).not.toHaveStyle({ height: "100%" });
   });
 
-  // W4.3 — table panel gets the internal-scroll marker class.
-  it("marks the table item with the internal-scroll class, distinct from other kinds", () => {
-    const table = makeTablePanel({ id: "t1", title: "Table" });
+  // W4.3 — output-kind panel gets the internal-scroll marker class. HEL-909:
+  // an output placement's rendered content kind (table/chart/metric/etc.) is
+  // not visible to `computeMobilePanelHeight` today — every output-kind
+  // panel gets `--output`, not a per-underlying-kind class (see that
+  // function's doc comment) — so this only distinguishes output from
+  // content-kind panels, not table specifically, until output-kind-aware
+  // sizing is threaded through.
+  it("marks the output item with the internal-scroll class, distinct from content-kind panels", () => {
+    const output = makeOutputPanel({ id: "t1", title: "Table" });
     const markdown = makeMarkdownPanel({ id: "m1", title: "Markdown" });
     const layout = layoutWithXs([
       { panelId: "t1", x: 0, y: 0, w: 2, h: 5 },
@@ -247,11 +252,11 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
     ]);
 
     const { container } = renderWithStore(
-      <MobilePanelStack panels={[table, markdown]} layout={layout} containerWidth={390} />,
-      { panels: { items: [table, markdown] } },
+      <MobilePanelStack panels={[output, markdown]} layout={layout} containerWidth={390} />,
+      { panels: { items: [output, markdown] } },
     );
 
-    expect(container.querySelector(".mobile-panel-stack__item--table")).toBeInTheDocument();
+    expect(container.querySelector(".mobile-panel-stack__item--output")).toBeInTheDocument();
     expect(container.querySelector(".mobile-panel-stack__item--markdown")).toBeInTheDocument();
   });
 });

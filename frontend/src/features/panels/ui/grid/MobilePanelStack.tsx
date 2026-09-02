@@ -19,7 +19,6 @@
 import { useCallback, useMemo, useState, type CSSProperties, type MouseEvent } from "react";
 
 import { resolveDashboardLayout } from "../../../dashboards/state/dashboardLayout";
-import { formatRelativeTime } from "../../../../utils/formatRelativeTime";
 import { useTheme } from "../../../../theme/ThemeProvider";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
@@ -115,11 +114,6 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
           >
             <div className="mobile-panel-stack__header">
               <h3 className="panel-grid-card__title">{panel.title}</h3>
-              {panel.dataAsOf ? (
-                <p className="panel-grid-card__freshness">
-                  Data as of {formatRelativeTime(panel.dataAsOf)}
-                </p>
-              ) : null}
             </div>
             <PanelCardBody panel={panel} frozen={false} compact />
           </article>

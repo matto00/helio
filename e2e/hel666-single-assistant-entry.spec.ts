@@ -40,7 +40,10 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     });
     expect(dashboardRes.status()).toBe(201);
 
-    const routes = ["/", "/sources", "/pipelines", "/registry", "/metrics", "/chat"];
+    // HEL-909: /registry and /metrics were retired outright (nav collapse) --
+    // dropped from this route list rather than asserting the launcher is
+    // visible on routes that no longer exist.
+    const routes = ["/", "/sources", "/pipelines", "/chat"];
     for (const route of routes) {
       await page.goto(route);
       // The single quick-launcher trigger (HEL-665, unconditional) is present on every route --

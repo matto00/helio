@@ -36,7 +36,7 @@ private[services] object PatchSetApplyForward {
       case ResolvedAction.PanelDelete(id, _) =>
         services.panelService.delete(id, user).map(_.map(_ => edit.toOutcome("applied")))
       case ResolvedAction.PanelCreate(request) =>
-        services.panelService.create(request, user).map(_.map { panel =>
+        services.panelService.create(request, user).map(_.map { case (panel, _) =>
           edit.toOutcome("applied", newId = Some(panel.id.value), resultingState = Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))))
         })
 

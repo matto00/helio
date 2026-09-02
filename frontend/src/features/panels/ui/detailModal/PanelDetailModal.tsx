@@ -1,5 +1,6 @@
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import "./PanelDetailModal.css";
 import "./PanelDetailModal.binding.css";
@@ -9,18 +10,17 @@ import "./PanelDetailModal.mobile.css";
 import { Modal } from "../../../../shared/ui/Modal";
 import { accumulatePanelUpdate } from "../../state/panelsSlice";
 import {
-  isChartPanel,
-  isCollectionPanel,
   isDividerPanel,
   isImagePanel,
   isMarkdownPanel,
-  isTablePanel,
-  isMetricPanel,
+  isOutputPanel,
   isTextPanel,
-  isTimelinePanel,
 } from "../../state/panelNarrowing";
 import { useAppDispatch } from "../../../../hooks/reduxHooks";
 import { usePanelData } from "../../hooks/usePanelData";
+import { useOutputMeta } from "../../hooks/useOutputMeta";
+import { listOutputPanels } from "../../../pipelines/services/outputService";
+import { OutputPicker } from "../OutputPicker";
 import { useTheme } from "../../../../theme/ThemeProvider";
 import {
   clampTransparency,
@@ -32,13 +32,10 @@ import {
 import type { ChartAppearance, Panel, PanelAppearance } from "../../types/panel";
 import { PanelContent } from "../PanelContent";
 import { AppearanceEditor } from "../editors/AppearanceEditor";
-import { BindingEditor } from "../editors/BindingEditor";
-import { CollectionEditor } from "../editors/CollectionEditor";
 import { DividerEditor } from "../editors/DividerEditor";
 import { ImageEditor } from "../editors/ImageEditor";
 import { MarkdownEditor } from "../editors/MarkdownEditor";
 import { TextContentEditor } from "../editors/TextContentEditor";
-import { TimelineEditor } from "../editors/TimelineEditor";
 import type { PanelEditorHandle } from "../editors/editorTypes";
 
 function padSeriesColors(colors: string[]): string[] {
@@ -60,6 +57,73 @@ function buildInitialChart(panel: Panel): ChartAppearance {
     axisLabels: panel.appearance.chart?.axisLabels ?? defaultChartAppearance.axisLabels,
     chartType: panel.appearance.chart?.chartType ?? "line",
   };
+}
+
+/** HEL-909 — the placements/Output-link/Swap-output section of the Panel
+ *  sheet for an output-kind panel. Fetches the Output's own metadata (for
+ *  the pipeline link) and its placement count separately from
+ *  `usePanelData` (which only fetches rows). */
+function OutputPanelSection({ panel }: { panel: Panel }) {
+  const outputId = isOutputPanel(panel) ? panel.config.outputId : "";
+  const { output } = useOutputMeta(outputId);
+  const [placementCount, setPlacementCount] = useState<number | null>(null);
+  const [swapPickerOpen, setSwapPickerOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listOutputPanels(outputId)
+      .then((placements) => {
+        // "Used on N dashboards" counts distinct dashboards, not panel
+        // placements -- two panels on the same dashboard bound to this
+        // Output must read "Used on 1 dashboards", not 2 (HEL-909
+        // non-blocking suggestion).
+        const dashboardCount = new Set(placements.map((p) => p.dashboardId)).size;
+        if (!cancelled) setPlacementCount(dashboardCount);
+      })
+      .catch(() => {
+        if (!cancelled) setPlacementCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [outputId]);
+
+  return (
+    <div className="panel-detail-modal__data-section">
+      <h3 className="panel-detail-modal__edit-section-heading">Output</h3>
+      {output ? (
+        <Link
+          to={`/pipelines/${output.pipelineId}?outputId=${output.id}`}
+          className="panel-detail-modal__output-link"
+        >
+          {output.name}
+        </Link>
+      ) : (
+        <span className="panel-detail-modal__output-link-loading">Loading…</span>
+      )}
+      <button
+        type="button"
+        className="panel-detail-modal__swap-output-btn"
+        onClick={() => setSwapPickerOpen(true)}
+      >
+        Swap output
+      </button>
+      <p className="panel-detail-modal__placements-note">
+        {placementCount === null
+          ? "Used on — dashboards"
+          : `Used on ${placementCount} dashboard${placementCount === 1 ? "" : "s"}`}
+      </p>
+      {swapPickerOpen ? (
+        <OutputPicker
+          dashboardId={panel.dashboardId}
+          currentDashboardPanels={[]}
+          mode="swap"
+          swapPanelId={panel.id}
+          onClose={() => setSwapPickerOpen(false)}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 interface PanelDetailModalProps {
@@ -99,25 +163,19 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
   const [transparency, setTransparency] = useState(initialTransparency);
   const [chartAppearance, setChartAppearance] = useState<ChartAppearance>(initialChart);
 
-  // ── Subtype editor refs (only one is mounted at a time per `panel.type`) ─
-  const bindingEditorRef = useRef<PanelEditorHandle | null>(null);
+  // ── Subtype editor refs (only one is mounted at a time, content-kind panels
+  //    only — an output-kind panel has no subtype editor, see
+  //    `OutputPanelSection` above) ─
   const markdownEditorRef = useRef<PanelEditorHandle | null>(null);
   const textEditorRef = useRef<PanelEditorHandle | null>(null);
   const imageEditorRef = useRef<PanelEditorHandle | null>(null);
   const dividerEditorRef = useRef<PanelEditorHandle | null>(null);
-  const collectionEditorRef = useRef<PanelEditorHandle | null>(null);
-  const timelineEditorRef = useRef<PanelEditorHandle | null>(null);
 
   function activeEditorRef(): RefObject<PanelEditorHandle | null> | null {
-    if (isMetricPanel(panel) || isChartPanel(panel) || isTablePanel(panel)) {
-      return bindingEditorRef;
-    }
     if (isMarkdownPanel(panel)) return markdownEditorRef;
     if (isTextPanel(panel)) return textEditorRef;
     if (isImagePanel(panel)) return imageEditorRef;
     if (isDividerPanel(panel)) return dividerEditorRef;
-    if (isCollectionPanel(panel)) return collectionEditorRef;
-    if (isTimelinePanel(panel)) return timelineEditorRef;
     return null;
   }
 
@@ -133,8 +191,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     title !== initialTitle ||
     background !== initialBackground ||
     color !== initialColor ||
-    transparency !== initialTransparency ||
-    (panel.type === "chart" && JSON.stringify(chartAppearance) !== JSON.stringify(initialChart));
+    transparency !== initialTransparency;
 
   const isAnyDirty = appearanceDirty || subtypeDirty;
 
@@ -206,7 +263,6 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
         background,
         color,
         transparency: clampTransparency(transparency / 100),
-        ...(panel.type === "chart" ? { chart: chartAppearance } : {}),
       };
       dispatch(
         accumulatePanelUpdate({
@@ -219,6 +275,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
       );
 
       // 2. Dispatch subtype-specific section via the active editor's ref
+      //    (content-kind panels only — output-kind panels have none).
       const ref = activeEditorRef();
       if (ref?.current && subtypeDirty) {
         const result = await ref.current.save();
@@ -235,17 +292,6 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
   }
 
   function renderSubtypeEditor() {
-    if (isMetricPanel(panel) || isChartPanel(panel) || isTablePanel(panel)) {
-      return (
-        <BindingEditor
-          ref={bindingEditorRef}
-          panel={panel}
-          initialRefreshInterval={panel.refreshInterval ?? null}
-          chartType={chartAppearance.chartType}
-          onDirtyChange={handleSubtypeDirtyChange}
-        />
-      );
-    }
     if (isMarkdownPanel(panel)) {
       return (
         <MarkdownEditor
@@ -278,24 +324,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
         />
       );
     }
-    if (isCollectionPanel(panel)) {
-      return (
-        <CollectionEditor
-          ref={collectionEditorRef}
-          panel={panel}
-          onDirtyChange={handleSubtypeDirtyChange}
-        />
-      );
-    }
-    if (isTimelinePanel(panel)) {
-      return (
-        <TimelineEditor
-          ref={timelineEditorRef}
-          panel={panel}
-          onDirtyChange={handleSubtypeDirtyChange}
-        />
-      );
-    }
+    // Output-kind panels: no subtype editor — see OutputPanelSection instead.
     return null;
   }
 
@@ -383,11 +412,11 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
                 setColor={setColor}
                 transparency={transparency}
                 setTransparency={setTransparency}
-                showChartSection={panel.type === "chart"}
+                showChartSection={false}
                 chartAppearance={chartAppearance}
                 setChartAppearance={setChartAppearance}
               />
-              {renderSubtypeEditor()}
+              {isOutputPanel(panel) ? <OutputPanelSection panel={panel} /> : renderSubtypeEditor()}
             </form>
 
             {showDiscardWarning ? (

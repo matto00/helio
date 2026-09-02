@@ -1,12 +1,13 @@
-// HEL-255 — Table panel display controls (cell density, column visibility +
-// order, reset column widths) for the panel detail modal's edit pane. Purely
-// presentational: all state + save/dirty/reset plumbing lives in
-// `useTableDisplayState` (owned by `BindingEditor`), mirroring how
-// `MetricValueEditor` / `ChartAggregationFields` are driven.
+// HEL-255 — Table display controls (cell density, column visibility +
+// order, reset column widths) for the Output editor's Table kind fields.
+// Purely presentational; state + save/dirty/reset plumbing now lives on the
+// Output editor side (`useOutputTableColumns`), not on a panel — a table's
+// display config belongs to the Output, not the placement (HEL-909).
 
 import { Select, type SelectOption } from "../../../../shared/ui/index";
-import type { TableDensity } from "../../types/panel";
-import type { TableColumnRow } from "./useTableDisplayState";
+import type { TableColumnRow } from "../../../pipelines/ui/outputEditor/useOutputTableColumns";
+
+export type TableDensity = "condensed" | "normal" | "spacious";
 
 const DENSITY_OPTIONS: SelectOption[] = [
   { value: "condensed", label: "Condensed" },

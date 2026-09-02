@@ -9,11 +9,11 @@ import { Skeleton } from "../../../../shared/ui/Skeleton";
 // A single documented neutral height (design.md D10's accepted per-card
 // height delta on this surface only) — the real stack's per-card height
 // depends on each panel's KIND (`mobilePanelHeights.ts`), which isn't known
-// until the panels fetch resolves. `metric`'s fixed height is used as the
-// neutral value because it's the one kind whose height doesn't also depend
-// on the measured container width (unlike `chart`'s aspect-ratio height), so
-// it stays stable across a resize while the skeleton is up.
-const NEUTRAL_CARD_HEIGHT_PX = computeMobilePanelHeight("metric", 0, 0).height ?? 120;
+// until the panels fetch resolves. A content-kind panel's fixed (null →
+// fallback) height is used as the neutral value since it doesn't also
+// depend on the measured container width, so it stays stable across a
+// resize while the skeleton is up.
+const NEUTRAL_CARD_HEIGHT_PX = computeMobilePanelHeight("text", 0, 0).height ?? 120;
 
 interface MobilePanelStackSkeletonProps {
   layout: DashboardLayout;

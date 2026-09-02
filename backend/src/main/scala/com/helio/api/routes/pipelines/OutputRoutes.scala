@@ -9,6 +9,7 @@ import com.helio.api.protocols.IdParsing.{OutputIdSegment, PipelineIdSegment}
 import com.helio.api.protocols.pipelines.{CreateOutputRequest, OutputsResponse, UpdateOutputRequest}
 import com.helio.domain.model.{AuthenticatedUser, Page, PagedResult}
 import com.helio.services.pipelines.OutputService
+import spray.json.JsObject
 
 import scala.concurrent.ExecutionContext
 
@@ -115,7 +116,12 @@ class OutputRoutes(
             else {
               val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
               onSuccess(outputService.listAll(user, page)) { result =>
-                complete(PagedResult(result.items.map(o => outputResponseFrom(o)), result.total, result.offset, result.limit))
+                onSuccess(outputService.panelCountsFor(result.items)) { counts =>
+                  val items = result.items.map(o =>
+                    outputResponseFrom(o, JsObject.empty, Some(counts.getOrElse(o.id.value, 0)))
+                  )
+                  complete(PagedResult(items, result.total, result.offset, result.limit))
+                }
               }
             }
           }

@@ -13,6 +13,13 @@ import spray.json._
  *  has no single case class this protocol could bind to. */
 final case class OutputSchemaFieldResponse(name: String, `type`: String)
 
+/** `panelCount` (HEL-909 CR2) is the number of panels currently bound to this
+ *  Output. Populated only by `outputResponseFrom`'s `GET /api/outputs` (list)
+ *  caller; every single-resource caller (findById/create/update) leaves it
+ *  `None`, since none of them needs it and computing it costs an extra
+ *  batched query. Replaces the Output picker's prior N+1
+ *  `GET /api/outputs/:id/panels`-per-card fetch, which self-rate-limited on
+ *  a realistic Output count. */
 final case class OutputResponse(
     id: String,
     pipelineId: String,
@@ -23,7 +30,8 @@ final case class OutputResponse(
     config: JsValue,
     schema: Vector[OutputSchemaFieldResponse],
     createdAt: String,
-    updatedAt: String
+    updatedAt: String,
+    panelCount: Option[Int] = None
 )
 
 final case class OutputsResponse(items: Vector[OutputResponse])
@@ -51,7 +59,7 @@ final case class DeleteOutputResponse(removedPanelIds: Vector[String])
 
 trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputSchemaFieldResponseFormat: RootJsonFormat[OutputSchemaFieldResponse] = jsonFormat2(OutputSchemaFieldResponse)
-  implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat10(OutputResponse)
+  implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat11(OutputResponse)
   implicit val outputsResponseFormat: RootJsonFormat[OutputsResponse]                     = jsonFormat1(OutputsResponse)
   implicit val createOutputRequestFormat: RootJsonFormat[CreateOutputRequest]             = jsonFormat4(CreateOutputRequest)
   implicit val outputPanelPlacementResponseFormat: RootJsonFormat[OutputPanelPlacementResponse] = jsonFormat2(OutputPanelPlacementResponse)
@@ -62,6 +70,9 @@ trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   def outputResponseFrom(output: Output): OutputResponse = outputResponseFrom(output, JsObject.empty)
 
   def outputResponseFrom(output: Output, config: JsObject): OutputResponse =
+    outputResponseFrom(output, config, panelCount = None)
+
+  def outputResponseFrom(output: Output, config: JsObject, panelCount: Option[Int]): OutputResponse =
     OutputResponse(
       id         = output.id.value,
       pipelineId = output.node.pipelineId.value,
@@ -72,6 +83,7 @@ trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       config     = config,
       schema     = output.schema.flatMap(sf => DataFieldType.fromString(sf.`type`).map(t => OutputSchemaFieldResponse(sf.name, DataFieldType.asString(t)))),
       createdAt  = output.createdAt.toString,
-      updatedAt  = output.updatedAt.toString
+      updatedAt  = output.updatedAt.toString,
+      panelCount = panelCount
     )
 }

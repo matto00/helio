@@ -1,8 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import { duplicateDashboard, importDashboard } from "../../dashboards/state/dashboardsSlice";
-import { markDashboardPanelsStale, markDataTypeRowsStale } from "./panelActions";
-import { isBoundCapablePanel } from "./panelNarrowing";
+import { markDashboardPanelsStale } from "./panelActions";
 import {
   createPanel,
   deletePanel,
@@ -10,15 +9,11 @@ import {
   fetchPanelPage,
   fetchPanels,
   updatePanelAppearance,
-  updatePanelBinding,
-  updatePanelCollection,
-  updatePanelColumnWidths,
   updatePanelDivider,
   updatePanelImage,
+  updatePanelMarkdownContent,
   updatePanelsBatch,
-  updatePanelMarkdownBinding,
-  updatePanelTextBinding,
-  updatePanelTimeline,
+  updatePanelTextContent,
   updatePanelTitle,
 } from "./panelThunks";
 import type {
@@ -119,18 +114,6 @@ const panelsSlice = createSlice({
         // / status: "idle" otherwise). Cleared by fetchPanels.pending below.
         state.staleDashboardId = action.payload;
       })
-      // HEL-242 — pipeline-run completion dispatches this with the run's
-      // outputDataTypeId so panels bound to that DataType refetch rows on the
-      // next `usePanelData` effect tick (the hook's dedupe guard treats a
-      // cleared `paginationState` entry as "must refetch").
-      .addCase(markDataTypeRowsStale, (state, action) => {
-        const typeId = action.payload;
-        for (const panel of state.items) {
-          if (!isBoundCapablePanel(panel)) continue;
-          if (panel.config.dataTypeId !== typeId) continue;
-          delete state.paginationState[panel.id];
-        }
-      })
       .addCase(fetchPanels.pending, (state, action) => {
         state.status = "loading";
         state.error = null;
@@ -170,35 +153,12 @@ const panelsSlice = createSlice({
       .addCase(duplicatePanel.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to duplicate panel.";
       })
-      .addCase(updatePanelBinding.fulfilled, (state, action) => {
+      .addCase(updatePanelTextContent.fulfilled, (state, action) => {
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );
       })
-      .addCase(updatePanelCollection.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
-      })
-      .addCase(updatePanelTimeline.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
-      })
-      // HEL-255 — keep the stored panel's config.columnWidths in sync after a
-      // debounced grid resize so the edit pane's Reset button reflects reality
-      // without a reload.
-      .addCase(updatePanelColumnWidths.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
-      })
-      .addCase(updatePanelTextBinding.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
-      })
-      .addCase(updatePanelMarkdownBinding.fulfilled, (state, action) => {
+      .addCase(updatePanelMarkdownContent.fulfilled, (state, action) => {
         state.items = state.items.map((panel) =>
           panel.id === action.payload.id ? action.payload : panel,
         );
@@ -285,18 +245,14 @@ export {
   fetchPanelPage,
   fetchPanels,
   updatePanelAppearance,
-  updatePanelBinding,
-  updatePanelCollection,
-  updatePanelColumnWidths,
   updatePanelDivider,
   updatePanelImage,
+  updatePanelMarkdownContent,
   updatePanelsBatch,
-  updatePanelMarkdownBinding,
-  updatePanelTextBinding,
-  updatePanelTimeline,
+  updatePanelTextContent,
   updatePanelTitle,
 } from "./panelThunks";
-export { markDashboardPanelsStale, markDataTypeRowsStale } from "./panelActions";
+export { markDashboardPanelsStale } from "./panelActions";
 
 export function buildBatchRequest(
   pending: Record<string, PanelUpdateFields>,

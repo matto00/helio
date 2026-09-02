@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { fetchSources } from "../../sources/state/sourcesSlice";
@@ -387,6 +387,28 @@ export function usePipelineDetailPage() {
   const handleCloseOutputSheet = useCallback(() => {
     setOutputSheet(null);
   }, []);
+
+  // HEL-909 — the Panel sheet's "Output link" deep-links here as
+  // `/pipelines/:id?outputId=<id>` (no pre-existing OutputEditorSheet
+  // deep-link convention exists to follow — this is the new one). Opens the
+  // sheet once the matching Output has loaded into `allOutputs`; clears the
+  // param afterward so a later manual close doesn't immediately reopen it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const targetOutputId = searchParams.get("outputId");
+    if (!targetOutputId) return;
+    const target = allOutputs.find((o) => o.id === targetOutputId);
+    if (!target) return;
+    setOutputSheet({ output: target });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("outputId");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, allOutputs, setSearchParams]);
 
   const handleEditSource = useCallback(() => {
     if (!boundSource) return;

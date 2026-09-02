@@ -5,16 +5,22 @@ import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import {
-  isChartPanel,
-  isCollectionPanel,
   isDividerPanel,
   isImagePanel,
   isMarkdownPanel,
-  isMetricPanel,
-  isTablePanel,
+  isOutputPanel,
   isTextPanel,
-  isTimelinePanel,
 } from "../state/panelNarrowing";
+import { useOutputMeta } from "../hooks/useOutputMeta";
+import {
+  readChartConfig,
+  readCollectionConfig,
+  readMarkdownConfig,
+  readMetricConfig,
+  readTableConfig,
+  readTimelineConfig,
+} from "../../pipelines/ui/outputEditor/outputConfigTypes";
+import { computeAggregate } from "../../../utils/aggregate";
 import { ChartRenderer } from "./renderers/ChartRenderer";
 import { CollectionRenderer } from "./renderers/CollectionRenderer";
 import { DividerRenderer } from "./renderers/DividerRenderer";
@@ -55,6 +61,135 @@ export interface PanelContentProps {
   /** HEL-301: forwarded to `ChartRenderer` only — see `ChartPanel`'s
    *  `compact` prop. */
   compact?: boolean;
+}
+
+/** Dispatches on an output-kind panel's fetched Output `kind`/`config`
+ *  (HEL-909 Cycle-1 finding: an `OutputPanel` placement alone does not carry
+ *  enough info to render). Non-output panel kinds (text/markdown/image/
+ *  divider) are dashboard-native and never reach here. */
+function OutputPanelContent({
+  rawRows,
+  headers,
+  appearance,
+  paginationRows,
+  paginationHasMore,
+  paginationIsLoadingMore,
+  onLoadMore,
+  chartAggregate,
+  compact,
+  outputId,
+}: {
+  rawRows?: string[][] | null;
+  headers?: string[] | null;
+  appearance: PanelAppearance;
+  paginationRows?: Record<string, unknown>[] | null;
+  paginationHasMore?: boolean;
+  paginationIsLoadingMore?: boolean;
+  onLoadMore?: () => void;
+  chartAggregate?: GroupedAggregate | null;
+  compact?: boolean;
+  outputId: string;
+}) {
+  const { output, isLoading } = useOutputMeta(outputId);
+
+  if (isLoading || !output) {
+    return (
+      <div className="panel-content panel-content--state" aria-label="Loading data">
+        <PanelBodySkeleton />
+      </div>
+    );
+  }
+
+  const kind = output.kind;
+
+  if (kind === "chart") {
+    const cfg = readChartConfig(output.config);
+    return (
+      <ChartRenderer
+        appearance={appearance}
+        rawRows={rawRows}
+        headers={headers}
+        fieldMapping={cfg.fieldMapping}
+        chartAggregate={chartAggregate}
+        chartOptions={cfg.chartOptions}
+        annotation={cfg.annotation ?? null}
+        compact={compact}
+      />
+    );
+  }
+
+  if (kind === "table") {
+    const cfg = readTableConfig(output.config);
+    return (
+      <TableRenderer
+        panelId={outputId}
+        rawRows={rawRows}
+        headers={headers}
+        paginationRows={paginationRows}
+        paginationHasMore={paginationHasMore}
+        paginationIsLoadingMore={paginationIsLoadingMore}
+        onLoadMore={onLoadMore}
+        columnOrder={cfg.columnOrder}
+      />
+    );
+  }
+
+  if (kind === "metric") {
+    const cfg = readMetricConfig(output.config);
+    const firstRow =
+      rawRows && headers && rawRows.length > 0
+        ? Object.fromEntries(headers.map((h, i) => [h, rawRows[0][i]]))
+        : null;
+    const valueColumn = Object.values(cfg.fieldMapping)[0];
+    const rowsAsRecords =
+      rawRows && headers
+        ? rawRows.map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i]])))
+        : [];
+    const value =
+      valueColumn && cfg.aggregation?.agg
+        ? String(computeAggregate(rowsAsRecords, valueColumn, cfg.aggregation.agg) ?? "")
+        : valueColumn && firstRow
+          ? String(firstRow[valueColumn] ?? "")
+          : "";
+    const data: MappedPanelData = { value, label: cfg.label ?? "", unit: cfg.unit ?? "" };
+    return <MetricRenderer data={data} format={cfg.format} />;
+  }
+
+  if (kind === "markdown") {
+    const cfg = readMarkdownConfig(output.config);
+    return <MarkdownRenderer content={cfg.content} />;
+  }
+
+  if (kind === "collection") {
+    const cfg = readCollectionConfig(output.config);
+    return (
+      <CollectionRenderer
+        fieldMapping={cfg.fieldMapping}
+        layout={cfg.layout}
+        format={cfg.format}
+        rawRows={rawRows}
+        headers={headers}
+      />
+    );
+  }
+
+  if (kind === "timeline") {
+    const cfg = readTimelineConfig(output.config);
+    return (
+      <TimelineRenderer
+        fieldMapping={cfg.fieldMapping}
+        sort={cfg.sort}
+        rawRows={rawRows}
+        headers={headers}
+      />
+    );
+  }
+
+  return (
+    <div className="panel-content panel-content--state">
+      <span className="panel-content__state-label">Unsupported output kind</span>
+    </div>
+  );
 }
 
 export function PanelContent({
@@ -115,55 +250,26 @@ export function PanelContent({
   }
 
   // Dispatcher: narrow on the discriminator and pick the renderer.
-  if (isMetricPanel(panel)) return <MetricRenderer data={data} />;
-  if (isChartPanel(panel)) {
+  if (isOutputPanel(panel)) {
     return (
-      <ChartRenderer
+      <OutputPanelContent
+        rawRows={rawRows}
+        headers={headers}
         appearance={appearance ?? panel.appearance}
-        rawRows={rawRows}
-        headers={headers}
-        fieldMapping={panel.config.fieldMapping}
-        chartAggregate={chartAggregate}
-        chartOptions={panel.config.chartOptions}
-        // HEL-323 — literal-wins: the static `config.annotation` takes
-        // precedence; otherwise fall back to the bound annotation resolved
-        // from the first row (`data.annotation`, the value of
-        // `fieldMapping.annotation` computed by `usePanelData`).
-        annotation={panel.config.annotation ?? data?.annotation ?? null}
-        compact={compact}
-      />
-    );
-  }
-  if (isTablePanel(panel)) {
-    return (
-      <TableRenderer
-        panelId={panel.id}
-        rawRows={rawRows}
-        headers={headers}
         paginationRows={paginationRows}
         paginationHasMore={paginationHasMore}
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
-        columnWidths={panel.config.columnWidths}
-        density={panel.config.density}
-        columnOrder={panel.config.columnOrder}
+        chartAggregate={chartAggregate}
+        compact={compact}
+        outputId={panel.config.outputId}
       />
     );
   }
   if (isTextPanel(panel)) return <TextRenderer data={data} content={panel.config.content} />;
-  if (isMarkdownPanel(panel)) return <MarkdownRenderer panel={panel} data={data} />;
+  if (isMarkdownPanel(panel)) return <MarkdownRenderer content={panel.config.content} />;
   if (isImagePanel(panel)) return <ImageRenderer panel={panel} />;
   if (isDividerPanel(panel)) return <DividerRenderer panel={panel} />;
-  // HEL-247 — collection uses the table fetch path (rawRows/headers): one bound
-  // row expands to one metric item.
-  if (isCollectionPanel(panel)) {
-    return <CollectionRenderer panel={panel} rawRows={rawRows} headers={headers} />;
-  }
-  // HEL-317 — timeline uses the same table fetch path as collection: one
-  // bound row expands to one timeline entry.
-  if (isTimelinePanel(panel)) {
-    return <TimelineRenderer panel={panel} rawRows={rawRows} headers={headers} />;
-  }
 
   // Exhaustiveness fallback — the union is closed so this is unreachable.
   return <MetricRenderer data={data} />;

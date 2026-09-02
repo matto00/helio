@@ -1,0 +1,113 @@
+.output-picker__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: 70vh;
+  overflow-y: auto;
+  /* CR4 — the auto-focused search input's focus ring (`ui-input:focus-visible`'s
+     accent border + halo) needs breathing room on every edge or it clips
+     against this scroll container's own bounds. */
+  padding: var(--space-1);
+}
+
+.output-picker__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+  padding: var(--space-4) 0;
+  text-align: center;
+}
+
+.output-picker__status--error {
+  color: var(--app-danger);
+}
+
+.output-picker__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.output-picker__group-heading {
+  color: var(--app-text-muted);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.output-picker__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-2);
+}
+
+.output-picker__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    background-color var(--app-transition);
+}
+
+/* CR5 — hover is a neutral surface/border tint (DESIGN.md §0.3: the accent is
+   never a structural hover wash on neutral controls); virtual/keyboard focus
+   (`--card--focused`, driven by `aria-selected`) is the ONE place this card
+   uses the accent, via the standard §8 focus ring, at the standard 2px
+   offset so it stays visually distinct from hover. */
+.output-picker__card:hover,
+.output-picker__card--hovered {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.output-picker__card--focused {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.output-picker__card--placed {
+  background: var(--app-surface-soft);
+}
+
+.output-picker__card--content {
+  align-items: center;
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+.output-picker__card-kind {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+}
+
+.output-picker__card-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.output-picker__card-count {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.output-picker__card-badge {
+  font-size: var(--text-xs);
+  color: var(--app-accent);
+  font-weight: var(--weight-medium);
+}
+
+.output-picker__content-row {
+  border-top: 1px solid var(--app-border-subtle);
+  padding-top: var(--space-3);
+}

@@ -4,8 +4,8 @@
 `usePortalPopover.ts` are genuinely cross-feature — each is imported by
 multiple `features/*` dirs (verified: `reduxHooks` by all 14 feature dirs
 plus `app/` and `shared/`; `usePortalPopover` by `features/auth`,
-`features/dashboards`, `features/metrics`, plus `shared/chrome` and
-`shared/ui`). `useRelativeTime.ts` is not — its only real consumer,
+`features/dashboards`, plus `shared/chrome` and `shared/ui`).
+`useRelativeTime.ts` is not — its only real consumer,
 repo-wide, is `shared/chrome/SaveStateIndicator.tsx`; no `features/*` dir
 imports it. It lives here anyway since it is `shared/chrome`'s dependency
 and `shared/` has no `hooks/` subdirectory of its own to hold it.

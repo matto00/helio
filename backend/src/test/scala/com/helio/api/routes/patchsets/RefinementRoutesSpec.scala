@@ -119,7 +119,7 @@ class RefinementRoutesSpec
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, ${s"$userId@test.local"}, now())"""))
     val dash  = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Dash")), user))._1
     val panel = await(panelService.create(CreatePanelRequest(Some(dash.id.value), Some("Panel"), Some("divider"), None), user)) match {
-      case Right(p) => p
+      case Right((p, _)) => p
       case Left(e)  => fail(s"panel seed failed: $e")
     }
     dashboardId = dash.id.value

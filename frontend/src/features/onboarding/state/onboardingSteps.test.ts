@@ -2,6 +2,7 @@ import {
   allOnboardingStepsComplete,
   deriveCollectionStepStatus,
   derivePanelStepStatus,
+  derivePlacementStepStatus,
   firstIncompleteStep,
   type OnboardingStepStatuses,
 } from "./onboardingSteps";
@@ -131,17 +132,31 @@ describe("derivePanelStepStatus", () => {
   });
 });
 
+describe("derivePlacementStepStatus", () => {
+  it("reports the dashboard status while no dashboard exists yet", () => {
+    expect(derivePlacementStepStatus("incomplete", "incomplete")).toBe("incomplete");
+    expect(derivePlacementStepStatus("indeterminate", "incomplete")).toBe("indeterminate");
+    expect(derivePlacementStepStatus("failed", "incomplete")).toBe("failed");
+  });
+
+  it("defers to the panel status once a dashboard exists", () => {
+    expect(derivePlacementStepStatus("complete", "complete")).toBe("complete");
+    expect(derivePlacementStepStatus("complete", "incomplete")).toBe("incomplete");
+    expect(derivePlacementStepStatus("complete", "indeterminate")).toBe("indeterminate");
+    expect(derivePlacementStepStatus("complete", "failed")).toBe("failed");
+  });
+});
+
 describe("allOnboardingStepsComplete / firstIncompleteStep", () => {
   const allComplete: OnboardingStepStatuses = {
     source: "complete",
     pipeline: "complete",
-    dashboard: "complete",
-    panel: "complete",
+    placement: "complete",
   };
 
-  it("true only when all four steps are complete", () => {
+  it("true only when all three steps are complete", () => {
     expect(allOnboardingStepsComplete(allComplete)).toBe(true);
-    expect(allOnboardingStepsComplete({ ...allComplete, panel: "incomplete" })).toBe(false);
+    expect(allOnboardingStepsComplete({ ...allComplete, placement: "incomplete" })).toBe(false);
     expect(allOnboardingStepsComplete({ ...allComplete, source: "indeterminate" })).toBe(false);
     expect(allOnboardingStepsComplete({ ...allComplete, pipeline: "failed" })).toBe(false);
   });
@@ -150,8 +165,7 @@ describe("allOnboardingStepsComplete / firstIncompleteStep", () => {
     const steps: OnboardingStepStatuses = {
       source: "incomplete",
       pipeline: "indeterminate",
-      dashboard: "indeterminate",
-      panel: "incomplete",
+      placement: "indeterminate",
     };
     expect(firstIncompleteStep(steps)).toBe("source");
   });
@@ -164,8 +178,7 @@ describe("allOnboardingStepsComplete / firstIncompleteStep", () => {
     const steps: OnboardingStepStatuses = {
       source: "complete",
       pipeline: "failed",
-      dashboard: "incomplete",
-      panel: "incomplete",
+      placement: "incomplete",
     };
     expect(firstIncompleteStep(steps)).toBe("pipeline");
   });

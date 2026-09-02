@@ -41,12 +41,18 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
       }
       dashboardCount() shouldBe (before + 1)
 
-      // Layout persisted for the positioned panel.
+      // Layout persisted for the positioned panel. HEL-909 cycle-3: the
+      // proposal's w=4 (of lg's 12 cols) must be scaled down for xs (2
+      // cols), not copied verbatim — copying verbatim would leave an item
+      // wider than the grid it's placed on.
       Get(s"/api/dashboards/$createdId/export").addHeader(sessionCookie) ~> routes ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[String].parseJson.asJsObject
+        val layout = responseAs[String].parseJson.asJsObject
           .fields("dashboard").asJsObject.fields("layout").asJsObject
-          .fields("lg").convertTo[Vector[JsValue]] should not be empty
+        layout.fields("lg").convertTo[Vector[JsValue]] should not be empty
+        val xsItems = layout.fields("xs").convertTo[Vector[JsValue]]
+        xsItems should not be empty
+        xsItems.map(_.asJsObject.fields("w").convertTo[Int]).max should be <= 2
       }
     }
 

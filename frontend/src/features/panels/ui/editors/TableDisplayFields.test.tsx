@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 
 import { TableDisplayFields } from "./TableDisplayFields";
-import type { TableColumnRow } from "./useTableDisplayState";
+import type { TableColumnRow } from "../../../pipelines/ui/outputEditor/useOutputTableColumns";
 
 const columns: TableColumnRow[] = [
   { key: "a", visible: true },

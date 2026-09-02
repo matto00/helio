@@ -62,6 +62,9 @@ interface DataSourceBase {
   name: string;
   createdAt: string;
   updatedAt: string;
+  /** HEL-909: the source's inferred schema, moved onto the source payload
+   *  itself now that the standalone DataType concept is retired. */
+  inferredSchema: InferredField[];
 }
 
 export interface CsvSource extends DataSourceBase {

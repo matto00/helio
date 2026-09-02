@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { Database, GitBranch, Layers, LayoutDashboard } from "lucide-react";
+import { Database, GitBranch, LayoutDashboard } from "lucide-react";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import { faComments, faGaugeHigh } from "@fortawesome/free-solid-svg-icons";
+import { faComments } from "@fortawesome/free-solid-svg-icons";
 
 import type { PickerId } from "./sections";
 
@@ -14,11 +14,11 @@ export interface PickerEmptyStateCopy {
 /** HEL-773 design.md D11/task 4.1 — the one shared source of icon/title/
  *  description copy for `MobileNavSheet`'s empty branch (`EmptyState
  *  variant="sidebar"`), keyed by `PickerId` so every section (including the
- *  unreachable `other`) has a complete entry. `sources`/`pipelines`/
- *  `registry`/`metrics`/`chat` intentionally match `SidebarBody.tsx`'s
- *  `SidebarItemList` props verbatim (`emptyText`/`emptyIcon`/
- *  `emptyDescription`) — locked against that rendered copy by
- *  `pickerEmptyState.test.ts` (task 5.8) for those five sections only.
+ *  unreachable `other`) has a complete entry. `sources`/`pipelines`/`chat`
+ *  intentionally match `SidebarBody.tsx`'s `SidebarItemList` props verbatim
+ *  (`emptyText`/`emptyIcon`/`emptyDescription`) — locked against that
+ *  rendered copy by `pickerEmptyState.test.ts` (task 5.8) for those
+ *  sections only.
  *  `dashboards` mirrors `DashboardList.tsx`'s own empty-state copy for
  *  consistency but is deliberately NOT locked: that surface is the
  *  zero-dashboard surface HEL-554 is concurrently rewriting, so pinning a
@@ -42,17 +42,6 @@ export const PICKER_EMPTY_STATE: Record<PickerId, PickerEmptyStateCopy> = {
     icon: <GitBranch />,
     title: "Build your first pipeline",
     description: "Pipelines transform raw source data into typed rows you can chart.",
-  },
-  registry: {
-    icon: <Layers />,
-    title: "No types defined",
-    description: "Types are created by pipelines.",
-  },
-  metrics: {
-    icon: faGaugeHigh,
-    title: "Define your first metric",
-    description:
-      "Metrics reuse a pipeline-output data type's measure field, aggregation, and format.",
   },
   chat: {
     icon: faComments,

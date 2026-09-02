@@ -58,19 +58,33 @@ export function derivePanelStepStatus({
   return "incomplete";
 }
 
+/** HEL-909's 3-step model: connect a source, shape it into outputs, place
+ *  them on a dashboard. The third step ("placement") folds the old
+ *  dashboard-exists and panel-exists checks into one status (see
+ *  `derivePlacementStepStatus`) — a dashboard is a means to placing an
+ *  Output, not a step of its own any more. */
 export interface OnboardingStepStatuses {
   source: OnboardingStepStatus;
   pipeline: OnboardingStepStatus;
-  dashboard: OnboardingStepStatus;
-  panel: OnboardingStepStatus;
+  placement: OnboardingStepStatus;
+}
+
+/** The third step's status: while no dashboard exists yet, this step
+ *  reports the dashboard collection's own status (there's nothing to place
+ *  an Output onto); once a dashboard exists, it reports the panel step's
+ *  status instead. Keeps `derivePanelStepStatus`/`deriveCollectionStepStatus`
+ *  as the two single-purpose derivations and composes them here rather than
+ *  duplicating either one's logic. */
+export function derivePlacementStepStatus(
+  dashboardStatus: OnboardingStepStatus,
+  panelStatus: OnboardingStepStatus,
+): OnboardingStepStatus {
+  return dashboardStatus === "complete" ? panelStatus : dashboardStatus;
 }
 
 export function allOnboardingStepsComplete(steps: OnboardingStepStatuses): boolean {
   return (
-    steps.source === "complete" &&
-    steps.pipeline === "complete" &&
-    steps.dashboard === "complete" &&
-    steps.panel === "complete"
+    steps.source === "complete" && steps.pipeline === "complete" && steps.placement === "complete"
   );
 }
 
@@ -82,6 +96,6 @@ export function allOnboardingStepsComplete(steps: OnboardingStepStatuses): boole
 export function firstIncompleteStep(
   steps: OnboardingStepStatuses,
 ): keyof OnboardingStepStatuses | null {
-  const order: Array<keyof OnboardingStepStatuses> = ["source", "pipeline", "dashboard", "panel"];
+  const order: Array<keyof OnboardingStepStatuses> = ["source", "pipeline", "placement"];
   return order.find((step) => steps[step] !== "complete") ?? null;
 }

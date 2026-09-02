@@ -165,6 +165,25 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
   def findByOutputIdInternal(outputId: String): Future[Vector[Panel]] =
     ctx.withSystemContext(table.filter(_.outputId === Option(outputId)).result).map(_.toVector.map(rowToDomain))
 
+  /** ACL-bypassing per-Output panel COUNT, batched across every id in
+   *  `outputIds` in a single grouped query (HEL-909 CR2) — replaces the
+   *  Output picker's prior one-`GET /api/outputs/:id/panels`-per-card N+1
+   *  fetch, which rate-limited itself on a realistic Output count. Returns
+   *  only ids that have at least one bound panel; callers should default a
+   *  missing id to `0`. Safe to call only after the caller's Output/pipeline
+   *  access has been confirmed by the service layer, mirroring
+   *  `findByOutputIdInternal`'s contract. */
+  def countByOutputIdsInternal(outputIds: Seq[String]): Future[Map[String, Int]] =
+    if (outputIds.isEmpty) Future.successful(Map.empty)
+    else
+      ctx.withSystemContext(
+        table
+          .filter(_.outputId.getOrElse("").inSet(outputIds))
+          .groupBy(_.outputId.getOrElse(""))
+          .map { case (outputId, group) => outputId -> group.length }
+          .result
+      ).map(_.toMap)
+
   /** ACL-bypassing bulk delete of every panel bound to an Output — the
    *  application-level mirror of `outputs`' `ON DELETE CASCADE` FK (V94),
    *  called BEFORE the Output row itself is deleted so the removed ids can
@@ -275,16 +294,26 @@ object PanelRepository {
    *  `column_widths`/`table_density`/`column_order`/`chart_annotation` were
    *  dropped from `panels` (V94), and none of them were ever populated by
    *  `PanelRowMapper.domainToRow` post-collapse anyway (always written as
-   *  `None`). */
+   *  `None`).
+   *
+   *  HEL-909 follow-up (found live via e2e evidence): `output_id` (V94 §4,
+   *  `OutputPanel`'s own config column) was added to `PanelRow` after this
+   *  tuple was last shrunk and was never folded into it — every `replace()`/
+   *  batch config-patch write silently kept the ORIGINAL `output_id` no
+   *  matter what `OutputPanelConfig.Patch` decoded, so "Swap output"
+   *  returned 200 with the new id in the response body while the row (and
+   *  every subsequent read) kept the old one. Added here so this is the
+   *  single source of truth it already claims to be. */
   def configColumnsOf(r: PanelTable): (
       Rep[Option[String]],
       Rep[Option[String]],
       Rep[Option[String]],
       Rep[Option[Int]],
       Rep[Option[String]],
+      Rep[Option[String]],
       Rep[Option[String]]
   ) =
-    (r.content, r.imageUrl, r.imageFit, r.dividerWeight, r.dividerOrientation, r.dividerColor)
+    (r.content, r.imageUrl, r.imageFit, r.dividerWeight, r.dividerOrientation, r.dividerColor, r.outputId)
 
   def configColumnValuesOf(row: PanelRow): (
       Option[String],
@@ -292,9 +321,18 @@ object PanelRepository {
       Option[String],
       Option[Int],
       Option[String],
+      Option[String],
       Option[String]
   ) =
-    (row.content, row.imageUrl, row.imageFit, row.dividerWeight, row.dividerOrientation, row.dividerColor)
+    (
+      row.content,
+      row.imageUrl,
+      row.imageFit,
+      row.dividerWeight,
+      row.dividerOrientation,
+      row.dividerColor,
+      row.outputId
+    )
 
   case class PanelRow(
       id: String,

@@ -3,10 +3,10 @@ import {
   createFallbackDashboardLayout,
   resolveDashboardLayout,
 } from "./dashboardLayout";
-import { makeMetricPanel } from "../../../test/panelFixtures";
+import { makeOutputPanel } from "../../../test/panelFixtures";
 
 const makePanel = (id: string) =>
-  makeMetricPanel({
+  makeOutputPanel({
     id,
     dashboardId: "dashboard-1",
     title: id,

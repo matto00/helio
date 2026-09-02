@@ -84,7 +84,7 @@ private[services] object PatchSetApplyRollback {
         // caller-specified id; the dashboard's layout entry for the OLD id is
         // NOT repointed (documented v1 limit).
         services.panelService.create(panelCreateRequestFromPrior(prior), user).map {
-          case Right(recreated) =>
+          case Right((recreated, _)) =>
             edit.toOutcome("recreated", newId = Some(recreated.id.value), resultingState = Some(panelResponseFormat.write(PanelResponse.fromDomain(recreated))))
           case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
         }

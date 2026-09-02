@@ -43,7 +43,7 @@ import type {
   User,
 } from "../../auth/types/user";
 
-/** Matches `pipelinesSlice.ts`/`metricsSlice.ts`'s existing error-extraction
+/** Matches `pipelinesSlice.ts`'s existing error-extraction
  *  pattern: the backend's `ErrorResponse(message)` always uses the `message`
  *  field name. Duplicated per-slice rather than extracted to a shared
  *  helper, matching existing house style. */

@@ -2,25 +2,8 @@
 
 ## Purpose
 This registry is the single source of truth mapping every authenticated-shell route to its {label, icon, nav visibility, picker-selection id}, so the sidebar, breadcrumb, document title, and mobile chrome cannot drift into independent, inconsistent copies.
+
 ## Requirements
-### Requirement: One registry resolves every chrome route to label/icon/picker
-The frontend SHALL provide exactly one registry (`frontend/src/shared/chrome/sections.ts`) mapping
-every route the authenticated shell renders (`/`, `/sources`, `/pipelines`, `/registry`,
-`/metrics`, `/chat`, `/settings`, `/proposals/review`, `/patch-sets/review`) to a `{path, label,
-shortLabel?, icon?, showInNav, pickerId}` entry. The desktop breadcrumb, `document.title`, the
-phone title/sheet, the sidebar nav rail, and `BottomNav` SHALL all derive their route→label/icon
-mapping from this one registry — no component SHALL hardcode an independent route→label or
-route→icon mapping.
-
-#### Scenario: Every route resolves a label from the registry
-- **WHEN** the app shell renders on any of the nine registered routes
-- **THEN** the breadcrumb, `document.title`, and (on phone) the section title all show that route's
-  registry `label`, with no route falling through to another route's label
-
-#### Scenario: Adding a route requires only a registry edit
-- **WHEN** a new chrome route is added to the registry with a `label`/`icon`/`pickerId`
-- **THEN** the sidebar nav rail (if `showInNav` is true), `BottomNav` (if `showInNav` is true), the
-  breadcrumb, and `document.title` all reflect it without any other file being edited
 
 ### Requirement: Non-picker chrome routes get their own distinct label
 Non-picker chrome routes SHALL each resolve their own distinct registry `label` — `/settings`,
@@ -31,15 +14,6 @@ or with any picker route.
 - **WHEN** the app shell renders on `/settings`, `/proposals/review`, or `/patch-sets/review`
 - **THEN** the breadcrumb and `document.title` show that route's own label ("Settings", "Review
   Proposal", "Review Changes" respectively) and never "Dashboards" or another section's label
-
-### Requirement: The primary nav destination list is derived from the registry
-`navDestinations` (consumed by the sidebar nav rail and `BottomNav`) SHALL be derived from the
-registry's entries where `showInNav` is true, rather than maintained as an independent list.
-
-#### Scenario: Nav-visible entries match the registry
-- **WHEN** the sidebar nav rail or `BottomNav` renders
-- **THEN** it shows exactly the registry entries with `showInNav: true`, in registry order, with no
-  entry present in one nav surface but not the other
 
 ### Requirement: Registry icons are visually distinct at collapsed-rail size
 Adjacent primary-nav registry entries SHALL use icons that are visually distinguishable from one
@@ -56,3 +30,29 @@ clearly as a metrics/chart glyph rather than a clock/history glyph.
 - **WHEN** the sidebar nav rail or `BottomNav` renders the Metrics entry
 - **THEN** its icon is a chart/column-style glyph rather than a gauge/clock-style glyph
 
+### Requirement: The primary nav destination list is exactly five entries, derived from the registry
+The registry's nav-visible entries SHALL be exactly: Dashboards, Data Sources, Data Pipelines, Connectors, Assistant, and this list SHALL be the single source every nav-deriving surface (sidebar rail, bottom tab bar, mobile nav sheet, onboarding glyphs) reads from — no surface hardcodes an independent list.
+
+#### Scenario: Nav-visible entries match the registry
+- **WHEN** the registry's nav-visible entries are read
+- **THEN** they are exactly Dashboards, Data Sources, Data Pipelines, Connectors, Assistant, in that order
+
+#### Scenario: Five nav destinations are shown everywhere
+- **WHEN** any nav-deriving surface (sidebar, bottom nav, mobile sheet) renders
+- **THEN** exactly five destinations appear, matching the registry
+- **AND** no Data Types or Metrics entry appears anywhere
+
+### Requirement: One registry resolves every chrome route to label/icon/picker, with no registry/metrics picker id
+Every route SHALL resolve a label from the registry, and adding a new route SHALL require only a registry edit (no second hardcoded mapping elsewhere). The `PickerId` union SHALL NOT include `"registry"` or `"metrics"`; `/registry`, `/registry/:id`, `/metrics`, `/metrics/:id` are not registered routes and resolve to no chrome section (decision 11 — no stubs or redirects).
+
+#### Scenario: Every route resolves a label from the registry
+- **WHEN** any registered chrome route is rendered
+- **THEN** its label and icon (if nav-visible) come from the registry, not a separate hardcoded mapping
+
+#### Scenario: Adding a route requires only a registry edit
+- **WHEN** a new route is added to the registry array
+- **THEN** every nav-deriving surface picks it up with no additional code change
+
+#### Scenario: Retired routes have no chrome mapping
+- **WHEN** the registry is queried for `/registry` or `/metrics`
+- **THEN** no matching section entry is found — these paths are not registered routes at all

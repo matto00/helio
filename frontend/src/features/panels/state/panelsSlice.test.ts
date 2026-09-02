@@ -7,24 +7,22 @@ import {
   fetchPanelPage,
   fetchPanels,
   markDashboardPanelsStale,
-  markDataTypeRowsStale,
   panelsReducer,
   resetPanelPagination,
   updatePanelAppearance,
-  updatePanelBinding,
-  updatePanelMarkdownBinding,
+  updatePanelMarkdownContent,
   updatePanelsBatch,
 } from "./panelsSlice";
-import { importDashboard } from "../../dashboards/state/dashboardsSlice";
-import { makeMarkdownPanel, makeMetricPanel } from "../../../test/panelFixtures";
-import type { MetricPanel } from "../types/panel";
+import { dashboardsReducer, importDashboard } from "../../dashboards/state/dashboardsSlice";
+import { makeMarkdownPanel, makeOutputPanel } from "../../../test/panelFixtures";
+import type { OutputPanel } from "../types/panel";
 const defaultMeta = {
   createdBy: "system",
   createdAt: "2026-03-14T00:00:00Z",
   lastUpdated: "2026-03-14T00:00:00Z",
 };
 
-const basePanel: MetricPanel = makeMetricPanel({
+const basePanel: OutputPanel = makeOutputPanel({
   id: "panel-1",
   dashboardId: "dashboard-1",
   title: "Latency",
@@ -92,7 +90,7 @@ describe("panelsSlice", () => {
 
     const nextState = panelsReducer(
       initialState,
-      createPanel.rejected(null, "request-id-2", { dashboardId: "dashboard-1", title: "Forecast" }),
+      createPanel.rejected(null, "request-id-2", { dashboardId: "dashboard-1", type: "output" }),
     );
 
     expect(nextState.error).toBe("Failed to create panel.");
@@ -104,7 +102,7 @@ describe("panelsSlice", () => {
       fetchPanels.fulfilled([basePanel], "request-id", "dashboard-1"),
     );
 
-    const importedPanel = makeMetricPanel({
+    const importedPanel = makeOutputPanel({
       id: "panel-imported",
       dashboardId: "dashboard-imported",
       title: "Latency",
@@ -142,38 +140,6 @@ describe("panelsSlice", () => {
     expect(nextState.items[0].id).toBe("panel-imported");
     expect(nextState.loadedDashboardId).toBe("dashboard-imported");
     expect(nextState.status).toBe("succeeded");
-  });
-
-  it("updates the matching panel when updatePanelBinding fulfills", () => {
-    const initialState = panelsReducer(
-      undefined,
-      fetchPanels.fulfilled([basePanel], "request-id", "dashboard-1"),
-    );
-
-    const boundPanel = makeMetricPanel({
-      id: "panel-1",
-      dashboardId: "dashboard-1",
-      title: "Latency",
-      meta: defaultMeta,
-      appearance: { background: "transparent", color: "inherit", transparency: 0 },
-      refreshInterval: 300,
-      config: { dataTypeId: "dt-1", fieldMapping: { value: "count" } },
-    });
-
-    const nextState = panelsReducer(
-      initialState,
-      updatePanelBinding.fulfilled(boundPanel, "request-id-3", {
-        panelId: "panel-1",
-        typeId: "dt-1",
-        fieldMapping: { value: "count" },
-        refreshInterval: 300,
-      }),
-    );
-
-    const updated = nextState.items[0] as MetricPanel;
-    expect(updated.config.dataTypeId).toBe("dt-1");
-    expect(updated.config.fieldMapping).toEqual({ value: "count" });
-    expect(updated.refreshInterval).toBe(300);
   });
 
   // Task 5.1 — accumulatePanelUpdate merges fields and patches items; clearPendingPanelUpdates resets
@@ -220,7 +186,7 @@ describe("panelsSlice", () => {
       withPanel,
       accumulatePanelUpdate({
         panelId: "panel-1",
-        fields: { title: "First title", type: "chart" },
+        fields: { title: "First title", type: "output" },
       }),
     );
     const after2 = panelsReducer(
@@ -233,10 +199,10 @@ describe("panelsSlice", () => {
 
     expect(after2.pendingPanelUpdates["panel-1"]).toEqual({
       title: "Second title",
-      type: "chart",
+      type: "output",
     });
     expect(after2.items[0].title).toBe("Second title");
-    expect(after2.items[0].type).toBe("chart");
+    expect(after2.items[0].type).toBe("output");
   });
 
   // Task 5.3 — failed updatePanelsBatch does NOT clear pendingPanelUpdates
@@ -269,6 +235,7 @@ describe("panelsSlice", () => {
         undefined,
         fetchPanelPage.fulfilled({ panelId: "panel-1", page: 0, rows, hasMore: true }, "req", {
           panelId: "panel-1",
+          outputId: "output-1",
           page: 0,
           pageSize: 50,
         }),
@@ -291,7 +258,7 @@ describe("panelsSlice", () => {
         fetchPanelPage.fulfilled(
           { panelId: "panel-1", page: 0, rows: firstRows, hasMore: true },
           "req-1",
-          { panelId: "panel-1", page: 0, pageSize: 2 },
+          { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 2 },
         ),
       );
 
@@ -300,7 +267,7 @@ describe("panelsSlice", () => {
         fetchPanelPage.fulfilled(
           { panelId: "panel-1", page: 1, rows: moreRows, hasMore: false },
           "req-2",
-          { panelId: "panel-1", page: 1, pageSize: 2 },
+          { panelId: "panel-1", outputId: "output-1", page: 1, pageSize: 2 },
         ),
       );
 
@@ -313,7 +280,12 @@ describe("panelsSlice", () => {
     it("pending sets isLoadingMore: true", () => {
       const nextState = panelsReducer(
         undefined,
-        fetchPanelPage.pending("req", { panelId: "panel-1", page: 0, pageSize: 50 }),
+        fetchPanelPage.pending("req", {
+          panelId: "panel-1",
+          outputId: "output-1",
+          page: 0,
+          pageSize: 50,
+        }),
       );
       expect(nextState.paginationState["panel-1"].isLoadingMore).toBe(true);
     });
@@ -326,7 +298,7 @@ describe("panelsSlice", () => {
         fetchPanelPage.fulfilled(
           { panelId: "panel-1", page: 0, rows: [{ n: 1 }], hasMore: false },
           "req",
-          { panelId: "panel-1", page: 0, pageSize: 50 },
+          { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 50 },
         ),
       );
 
@@ -343,7 +315,7 @@ describe("panelsSlice", () => {
         fetchPanelPage.fulfilled(
           { panelId: "panel-1", page: 0, rows: [{ n: 1 }], hasMore: false },
           "req-1",
-          { panelId: "panel-1", page: 0, pageSize: 50 },
+          { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 50 },
         ),
       );
       state = panelsReducer(
@@ -351,7 +323,7 @@ describe("panelsSlice", () => {
         fetchPanelPage.fulfilled(
           { panelId: "panel-2", page: 0, rows: [{ n: 2 }], hasMore: false },
           "req-2",
-          { panelId: "panel-2", page: 0, pageSize: 50 },
+          { panelId: "panel-2", outputId: "output-2", page: 0, pageSize: 50 },
         ),
       );
 
@@ -362,97 +334,14 @@ describe("panelsSlice", () => {
     });
   });
 
-  // HEL-242 — markDataTypeRowsStale clears paginationState only for panels
-  // bound to the affected DataType.
-  describe("markDataTypeRowsStale", () => {
-    function seedThreePanels() {
-      // Two metric panels bound to dt-A, one table panel bound to dt-B.
-      const panelA1 = makeMetricPanel({
-        id: "panel-a1",
-        dashboardId: "d1",
-        config: { dataTypeId: "dt-A", fieldMapping: { value: "v" } },
-      });
-      const panelA2 = makeMetricPanel({
-        id: "panel-a2",
-        dashboardId: "d1",
-        config: { dataTypeId: "dt-A", fieldMapping: { value: "v" } },
-      });
-      const panelB = makeMetricPanel({
-        id: "panel-b",
-        dashboardId: "d1",
-        config: { dataTypeId: "dt-B", fieldMapping: { value: "v" } },
-      });
-
-      let state = panelsReducer(
-        undefined,
-        fetchPanels.fulfilled([panelA1, panelA2, panelB], "req", "d1"),
-      );
-      // Seed pagination state for all three panels.
-      for (const id of ["panel-a1", "panel-a2", "panel-b"]) {
-        state = panelsReducer(
-          state,
-          fetchPanelPage.fulfilled(
-            { panelId: id, page: 0, rows: [{ v: 1 }], hasMore: false },
-            "r",
-            {
-              panelId: id,
-              page: 0,
-              pageSize: 50,
-            },
-          ),
-        );
-      }
-      return state;
-    }
-
-    it("clears paginationState entries for every panel bound to the affected DataType", () => {
-      const seeded = seedThreePanels();
-      expect(Object.keys(seeded.paginationState).sort()).toEqual([
-        "panel-a1",
-        "panel-a2",
-        "panel-b",
-      ]);
-
-      const afterStale = panelsReducer(seeded, markDataTypeRowsStale("dt-A"));
-
-      expect(afterStale.paginationState["panel-a1"]).toBeUndefined();
-      expect(afterStale.paginationState["panel-a2"]).toBeUndefined();
-      // Panel bound to dt-B is untouched.
-      expect(afterStale.paginationState["panel-b"]).toBeDefined();
-      expect(afterStale.paginationState["panel-b"].rows).toEqual([{ v: 1 }]);
-    });
-
-    it("is a no-op when no panel is bound to the dispatched DataType id", () => {
-      const seeded = seedThreePanels();
-      const afterStale = panelsReducer(seeded, markDataTypeRowsStale("dt-unrelated"));
-
-      expect(Object.keys(afterStale.paginationState).sort()).toEqual([
-        "panel-a1",
-        "panel-a2",
-        "panel-b",
-      ]);
-      expect(afterStale.paginationState["panel-a1"].rows).toEqual([{ v: 1 }]);
-    });
-
-    it("ignores panels whose subtype does not carry a DataType binding", () => {
-      // A text panel cannot bind to a DataType; the reducer's `isBoundCapablePanel`
-      // narrowing must skip it without inspecting a missing `config.dataTypeId`.
-      const textPanel = makeMarkdownPanel({ id: "panel-text", dashboardId: "d1" });
-      const seeded = seedThreePanels();
-      const withText = panelsReducer(seeded, fetchPanels.fulfilled([textPanel], "req", "d1"));
-
-      expect(() => panelsReducer(withText, markDataTypeRowsStale("dt-A"))).not.toThrow();
-    });
-  });
-
-  // Task 4.1 — createPanel thunk includes dataTypeId in service request when provided
+  // Task 4.1 — createPanel thunk passes outputId through to the service request
   describe("createPanel thunk", () => {
     afterEach(() => {
       jest.restoreAllMocks();
     });
 
-    it("includes dataTypeId in the service request when provided", async () => {
-      const mockCreatedPanel = makeMetricPanel({ id: "panel-1", dashboardId: "dashboard-1" });
+    it("includes outputId in the service request when provided", async () => {
+      const mockCreatedPanel = makeOutputPanel({ id: "panel-1", dashboardId: "dashboard-1" });
       jest.spyOn(panelService, "createPanel").mockResolvedValue(mockCreatedPanel);
       // Also mock fetchPanels so the thunk doesn't error after create
       jest.spyOn(panelService, "fetchPanels").mockResolvedValue([mockCreatedPanel]);
@@ -478,24 +367,104 @@ describe("panelsSlice", () => {
 
       const action = createPanel({
         dashboardId: "dashboard-1",
+        type: "output",
         title: "Revenue",
-        type: "metric",
-        dataTypeId: "dt-x",
+        outputId: "out-x",
       });
       // @ts-expect-error — test store has fewer slices than the full RootState
       await store.dispatch(action);
 
       expect(panelService.createPanel).toHaveBeenCalledWith(
         "dashboard-1",
+        "output",
         "Revenue",
-        "metric",
-        undefined,
-        "dt-x",
+        "out-x",
       );
+    });
+
+    // HEL-909 CR1 cycle-2 fix (evaluation-2.md finding 1): the client-side
+    // mirror of the backend's `placeDefaultLayout` bug -- `createPanel` used
+    // to overwrite md/sm/xs with a bare copy of the lg array (verbatim
+    // `w`/`x`, not scaled to each breakpoint's own column count), destroying
+    // any pre-existing, independently-customized per-breakpoint layout.
+    it("appends the new panel to each breakpoint's own existing layout, scaled to its column count", async () => {
+      const mockCreatedPanel = {
+        ...makeOutputPanel({ id: "panel-new", dashboardId: "dashboard-1" }),
+        layout: { x: 0, y: 5, w: 6, h: 4 },
+      };
+      jest.spyOn(panelService, "createPanel").mockResolvedValue(mockCreatedPanel);
+      jest.spyOn(panelService, "fetchPanels").mockResolvedValue([mockCreatedPanel]);
+
+      const existingPanelId = "panel-existing";
+      const store = configureStore({
+        reducer: { panels: panelsReducer, dashboards: dashboardsReducer },
+        preloadedState: {
+          panels: {
+            items: [],
+            loadedDashboardId: "dashboard-1",
+            status: "succeeded" as const,
+            error: null,
+            pendingPanelUpdates: {},
+            lastSavedAt: null,
+            paginationState: {},
+            staleDashboardId: null,
+            panelCreationModalOpen: false,
+          },
+          dashboards: {
+            items: [
+              {
+                id: "dashboard-1",
+                name: "Ops",
+                meta: defaultMeta,
+                appearance: { background: "transparent", gridBackground: "transparent" },
+                layout: {
+                  lg: [{ panelId: existingPanelId, x: 8, y: 0, w: 4, h: 5 }],
+                  md: [{ panelId: existingPanelId, x: 3, y: 1, w: 7, h: 9 }],
+                  sm: [{ panelId: existingPanelId, x: 1, y: 2, w: 5, h: 3 }],
+                  xs: [{ panelId: existingPanelId, x: 0, y: 0, w: 2, h: 7 }],
+                },
+              },
+            ],
+            selectedDashboardId: "dashboard-1",
+            status: "succeeded" as const,
+            error: null,
+            hasPendingLayout: false,
+          },
+        },
+      });
+
+      const action = createPanel({
+        dashboardId: "dashboard-1",
+        type: "output",
+        outputId: "out-x",
+      });
+      // @ts-expect-error — test store has fewer slices than the full RootState
+      await store.dispatch(action);
+
+      const dashboard = store.getState().dashboards.items[0];
+
+      // Pre-existing md/sm/xs items survive unchanged (not overwritten by lg's array).
+      expect(dashboard.layout.md[0]).toEqual({ panelId: existingPanelId, x: 3, y: 1, w: 7, h: 9 });
+      expect(dashboard.layout.sm[0]).toEqual({ panelId: existingPanelId, x: 1, y: 2, w: 5, h: 3 });
+      expect(dashboard.layout.xs[0]).toEqual({ panelId: existingPanelId, x: 0, y: 0, w: 2, h: 7 });
+
+      // The new item is appended (not replacing), one per breakpoint.
+      expect(dashboard.layout.lg).toHaveLength(2);
+      expect(dashboard.layout.md).toHaveLength(2);
+      expect(dashboard.layout.sm).toHaveLength(2);
+      expect(dashboard.layout.xs).toHaveLength(2);
+
+      // And scaled per breakpoint's column count (lg 12 / md 10 / sm 6 / xs 2),
+      // not the raw lg w/x copied verbatim.
+      expect(dashboard.layout.lg[1]).toMatchObject({ w: 6, x: 0 });
+      expect(dashboard.layout.md[1]).toMatchObject({ w: 5, x: 0 }); // round(6 * 10/12)
+      expect(dashboard.layout.sm[1]).toMatchObject({ w: 3, x: 0 }); // round(6 * 6/12)
+      expect(dashboard.layout.xs[1].w).toBeLessThanOrEqual(2);
+      expect(dashboard.layout.xs[1].w).not.toBe(dashboard.layout.lg[1].w);
     });
   });
 
-  it("replaces the updated panel when updatePanelMarkdownBinding fulfills", () => {
+  it("replaces the updated panel when updatePanelMarkdownContent fulfills", () => {
     const markdownPanel = makeMarkdownPanel({
       id: "panel-1",
       dashboardId: "dashboard-1",
@@ -510,19 +479,13 @@ describe("panelsSlice", () => {
 
     const nextState = panelsReducer(
       initialState,
-      updatePanelMarkdownBinding.fulfilled(
+      updatePanelMarkdownContent.fulfilled(
         {
           ...markdownPanel,
-          config: { content: "## Updated content", dataTypeId: "", fieldMapping: {} },
+          config: { content: "## Updated content" },
         },
         "request-id-4",
-        {
-          panelId: "panel-1",
-          mode: "literal",
-          typeId: null,
-          fieldValue: "",
-          literalValue: "## Updated content",
-        },
+        { panelId: "panel-1", content: "## Updated content" },
       ),
     );
 

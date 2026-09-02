@@ -12,7 +12,6 @@ import {
   inferFromJson as inferFromJsonRequest,
   testConnection as testConnectionRequest,
 } from "../services/dataSourceService";
-import { fetchDataTypes as fetchDataTypesRequest } from "../../dataTypes/services/dataTypeService";
 import { fetchConnectors as fetchConnectorsRequest } from "../../connectors/services/connectorEntityService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { AddSourceModal } from "./AddSourceModal";
@@ -129,12 +128,6 @@ jest.mock("../services/dataSourceService", () => ({
   refreshSource: jest.fn(),
 }));
 
-jest.mock("../../dataTypes/services/dataTypeService", () => ({
-  fetchDataTypes: jest.fn(),
-  updateDataType: jest.fn(),
-  deleteDataType: jest.fn(),
-}));
-
 const createTextSourceUploadMock = jest.mocked(createTextSourceUploadRequest);
 const createTextSourceUrlMock = jest.mocked(createTextSourceUrlRequest);
 const createPdfSourceUploadMock = jest.mocked(createPdfSourceUploadRequest);
@@ -143,7 +136,6 @@ const createImageSourceUploadMock = jest.mocked(createImageSourceUploadRequest);
 const createImageSourceUrlMock = jest.mocked(createImageSourceUrlRequest);
 const createStaticSourceMock = jest.mocked(createStaticSourceRequest);
 const createRestSourceMock = jest.mocked(createRestSourceRequest);
-const fetchDataTypesMock = jest.mocked(fetchDataTypesRequest);
 const inferFromJsonMock = jest.mocked(inferFromJsonRequest);
 const testConnectionMock = jest.mocked(testConnectionRequest);
 const fetchConnectorsMock = jest.mocked(fetchConnectorsRequest);
@@ -160,7 +152,6 @@ async function selectTestConnector() {
 describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    fetchDataTypesMock.mockResolvedValue([]);
     // jsdom does not implement showModal/close natively (Modal.tsx uses a
     // native <dialog>); stub them, mirroring shared/ui/Modal.test.tsx.
     HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
@@ -191,6 +182,7 @@ describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
       type: "text",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
+      inferredSchema: [],
       config: { path: "text/ds-1.txt" },
     });
     const onClose = jest.fn();
@@ -225,6 +217,7 @@ describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
       type: "text",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
+      inferredSchema: [],
       config: { path: "text/ds-2.txt", sourceUrl: "https://example.com/notes.txt" },
     });
     const onClose = jest.fn();
@@ -274,7 +267,6 @@ describe("AddSourceModal — text/Markdown source (HEL-215)", () => {
 describe("AddSourceModal — PDF source (HEL-214)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    fetchDataTypesMock.mockResolvedValue([]);
     // jsdom does not implement showModal/close natively (Modal.tsx uses a
     // native <dialog>); stub them, mirroring shared/ui/Modal.test.tsx.
     HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
@@ -305,6 +297,7 @@ describe("AddSourceModal — PDF source (HEL-214)", () => {
       type: "pdf",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
+      inferredSchema: [],
       config: { path: "pdf/ds-1.pdf" },
     });
     const onClose = jest.fn();
@@ -329,6 +322,7 @@ describe("AddSourceModal — PDF source (HEL-214)", () => {
       type: "pdf",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
+      inferredSchema: [],
       config: { path: "pdf/ds-2.pdf", sourceUrl: "https://example.com/report.pdf" },
     });
     const onClose = jest.fn();
@@ -378,7 +372,6 @@ describe("AddSourceModal — PDF source (HEL-214)", () => {
 describe("AddSourceModal — image source (HEL-216)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    fetchDataTypesMock.mockResolvedValue([]);
     // jsdom does not implement showModal/close natively (Modal.tsx uses a
     // native <dialog>); stub them, mirroring shared/ui/Modal.test.tsx.
     HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
@@ -409,6 +402,7 @@ describe("AddSourceModal — image source (HEL-216)", () => {
       type: "image",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
+      inferredSchema: [],
       config: { path: "image/ds-1.png" },
     });
     const onClose = jest.fn();
@@ -433,6 +427,7 @@ describe("AddSourceModal — image source (HEL-216)", () => {
       type: "image",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
+      inferredSchema: [],
       config: { path: "image/ds-2.png", sourceUrl: "https://example.com/photo.png" },
     });
     const onClose = jest.fn();
@@ -482,7 +477,6 @@ describe("AddSourceModal — image source (HEL-216)", () => {
 describe("AddSourceModal — REST API connection test (HEL-480)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    fetchDataTypesMock.mockResolvedValue([]);
     fetchConnectorsMock.mockResolvedValue([
       {
         id: "connector-1",
@@ -590,9 +584,9 @@ describe("AddSourceModal — REST API connection test (HEL-480)", () => {
         type: "rest_api",
         createdAt: "2026-01-01T00:00:00Z",
         updatedAt: "2026-01-01T00:00:00Z",
+        inferredSchema: [],
         config: { url: "https://api.example.com/v1/accounts" },
       },
-      dataType: null,
       fetchError: null,
     });
     const onClose = jest.fn();
@@ -656,7 +650,6 @@ describe("AddSourceModal — REST API connection test (HEL-480)", () => {
 describe("AddSourceModal — static source (thunk-dispatched create path, F-008)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    fetchDataTypesMock.mockResolvedValue([]);
     HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
       this.setAttribute("open", "");
     });
@@ -681,6 +674,7 @@ describe("AddSourceModal — static source (thunk-dispatched create path, F-008)
       type: "static",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
+      inferredSchema: [],
     });
     const onClose = jest.fn();
     const { store } = renderWithStore(<AddSourceModal onClose={onClose} />, undefined, "/", {

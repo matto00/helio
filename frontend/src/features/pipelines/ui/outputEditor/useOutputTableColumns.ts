@@ -1,8 +1,9 @@
 // Simplified column visibility/order state for a table-kind Output (task
 // 5.1/5.2). Mirrors `useTableDisplayState.ts`'s column-row bookkeeping but
 // decoupled from `Panel` (that hook takes a whole `Panel` object, tightly
-// bound to `panel.config.dataTypeId` -- not applicable here, since an Output
-// has no DataType). Column widths / density are not part of the Output
+// bound to the panel config's own bind-target id -- not applicable here,
+// since an Output has no type-registry entity to bind to). Column widths /
+// density are not part of the Output
 // config model yet (see `TableKindFields`'s doc comment) -- only visibility
 // + order.
 

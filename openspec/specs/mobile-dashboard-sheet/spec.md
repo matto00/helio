@@ -6,7 +6,9 @@ switch dashboards, sources, pipelines, and registry items — the item-level nav
 sidebar used to carry — without forking state or introducing a second overlay mechanism. The sheet
 descends from the command bar that triggers it and carries a section-appropriate create action, so
 no section is a dead end on phone.
+
 ## Requirements
+
 ### Requirement: Tappable command-bar title on phone
 Below the 768px breakpoint the command bar SHALL render a tappable title control showing the current
 dashboard name on `/` (and the current section/item name on `/sources`, `/pipelines`, `/registry`) with a
@@ -176,64 +178,17 @@ or actions-menu affordance. It SHALL expose at most one create affordance, as sp
 - **WHEN** the sheet is open
 - **THEN** no rename, delete, duplicate, import, export, or actions-menu affordance is present
 
-### Requirement: Section-appropriate create action in the sheet
-The sheet SHALL offer a create action appropriate to the current section — create a dashboard on the
-dashboards picker, add a source on sources, create a pipeline on pipelines — performing the operation exposed
-by that section's shared create-action hook, and labelled and glyphed from that hook rather than from strings
-authored here. The action SHALL be rendered as a distinct action rather than as a row of the item list, and
-SHALL meet the 44px tap-target floor at phone width. Exactly one create affordance SHALL be visible at a
-time: when the empty branch renders, its `EmptyState` call-to-action is that affordance and the header action
-SHALL be suppressed. The type registry, whose items are produced by pipelines, SHALL offer the create-pipeline
-action in its empty branch only — matching the desktop sidebar, which gives that section a call-to-action but
-no header control — so the section is never a dead end on phone. Metrics and assistant, which have no shared
-create-action hook, SHALL offer no create action rather than a fabricated one.
+### Requirement: Section-appropriate create action in the sheet, with full desktop parity
+The mobile nav sheet SHALL offer a create action for every destination that has one on desktop, including Assistant ("New chat") — no destination's mobile entry point is silently dropped relative to desktop. Where a create action exists, it SHALL run the shared creation hook's flow, take its label and glyph from that hook, never show two create affordances at once, meet the 44px tap-target floor, and show a visible, human-readable failure if the create action fails without leaving a stale failure state or letting the sheet dismiss out from under a pending create — unchanged from the section's existing create-action behavior.
+
+#### Scenario: Assistant has a mobile create action
+- **WHEN** the mobile nav sheet renders the Assistant destination
+- **THEN** a create ("New chat") action is present, matching desktop parity
 
 #### Scenario: Create action runs the shared hook's flow
-- **WHEN** the user opens the sheet on a section with a create action and taps it
-- **THEN** the flow exposed by that section's shared create-action hook runs — for sources and pipelines
-  that is the same modal the desktop control opens; for dashboards it is the hook's immediate
-  quick-create, which is deliberately distinct from the sidebar's named-create form
-
-#### Scenario: Action label and glyph come from the hook
-- **WHEN** a create action is rendered in the sheet
-- **THEN** its label and icon are the hook's own `cta.label` and `cta.icon`, identical to the strings and
-  glyph the desktop surfaces render for the same action
+- **WHEN** the user activates a section's create action in the sheet
+- **THEN** the same creation hook desktop uses for that section runs
 
 #### Scenario: Never two create affordances at once
-- **WHEN** the sheet is open on a section that has a create action, whether or not that section has items
-- **THEN** exactly one create affordance is present in the sheet
-
-#### Scenario: Create action meets the tap-target floor
-- **WHEN** the sheet is open at a 430px-wide viewport
-- **THEN** the create action's computed tap dimension is at least 44px
-
-#### Scenario: The registry offers a create action only when empty
-- **WHEN** the sheet is open on the type registry section
-- **THEN** no header create action is rendered, and when the section has no items the empty branch offers the
-  create-pipeline action, matching the desktop sidebar
-
-#### Scenario: Sections without a hook offer no create action
-- **WHEN** the sheet is open on the metrics or assistant section
-- **THEN** no create action is rendered
-
-#### Scenario: A failed create is visible and human-readable
-- **WHEN** a create action fails while the sheet is open
-- **THEN** the failure is surfaced in the sheet with error intent — as an error-intent `EmptyState` when the
-  empty branch is showing, mirroring the treatment the same action already uses elsewhere, and as the shared
-  inline-error primitive beside the header action when the list is showing
-
-#### Scenario: A pending create is not disabled
-- **WHEN** a create action is in flight
-- **THEN** its label reflects the pending state and the control remains enabled, preserving the existing
-  behaviour of the shared hook
-
-#### Scenario: The sheet does not dismiss out from under a create that can fail
-- **WHEN** a create action that can report failure is fired from the sheet
-- **THEN** the sheet remains open until that create succeeds, dismissing on success and staying open on
-  failure so the failure is presented; actions that cannot fail dismiss the sheet immediately, so their modal
-  never opens behind it
-
-#### Scenario: A stale failure does not resurface
-- **WHEN** a create failed previously and the user opens the sheet again
-- **THEN** no stale error from the earlier attempt is shown
-
+- **WHEN** the sheet renders a section with a create action
+- **THEN** only one create affordance is shown for that section

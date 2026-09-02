@@ -59,12 +59,17 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
       // Old panel gone; new panels present — full replace, not a merge.
       panelTitles(dashboardId) should contain theSameElementsAs Vector("New Metric", "New Text")
 
-      // Layout persisted for the positioned panel.
+      // Layout persisted for the positioned panel. HEL-909 cycle-3: w=4 (of
+      // lg's 12 cols) must be scaled down for xs (2 cols), not copied
+      // verbatim.
       Get(s"/api/dashboards/$dashboardId/export").addHeader(sessionCookie) ~> routes ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[String].parseJson.asJsObject
+        val layout = responseAs[String].parseJson.asJsObject
           .fields("dashboard").asJsObject.fields("layout").asJsObject
-          .fields("lg").convertTo[Vector[JsValue]] should not be empty
+        layout.fields("lg").convertTo[Vector[JsValue]] should not be empty
+        val xsItems = layout.fields("xs").convertTo[Vector[JsValue]]
+        xsItems should not be empty
+        xsItems.map(_.asJsObject.fields("w").convertTo[Int]).max should be <= 2
       }
     }
 

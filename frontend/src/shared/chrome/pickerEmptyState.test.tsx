@@ -5,8 +5,6 @@ import { Provider } from "react-redux";
 
 import { assistantConversationsReducer } from "../../features/assistant/state/assistantConversationsSlice";
 import { authReducer } from "../../features/auth/state/authSlice";
-import { dataTypesReducer } from "../../features/dataTypes/state/dataTypesSlice";
-import { metricsReducer } from "../../features/metrics/state/metricsSlice";
 import { pipelinesReducer } from "../../features/pipelines/state/pipelinesSlice";
 import { sourcesReducer } from "../../features/sources/state/sourcesSlice";
 import { SidebarBody } from "./SidebarBody";
@@ -27,8 +25,6 @@ import type { PickerId } from "./sections";
 const SIDEBAR_OWNED_PICKER_ROUTES: Record<Exclude<PickerId, "dashboards" | "other">, string> = {
   sources: "/sources",
   pipelines: "/pipelines",
-  registry: "/registry",
-  metrics: "/metrics",
   chat: "/chat",
 };
 
@@ -36,15 +32,12 @@ function makeStore() {
   return configureStore({
     reducer: {
       auth: authReducer,
-      dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
-      metrics: metricsReducer,
       assistantConversations: assistantConversationsReducer,
     } as never,
     preloadedState: {
       auth: { status: "idle", currentUser: null },
-      dataTypes: { items: [], status: "succeeded", error: null, selectedTypeId: null },
       sources: {
         items: [],
         status: "succeeded",
@@ -54,19 +47,6 @@ function makeStore() {
         addModalOpen: false,
       },
       pipelines: { items: [], status: "succeeded", error: null, createModalOpen: false },
-      metrics: {
-        items: [],
-        status: "succeeded",
-        error: null,
-        createStatus: "idle",
-        createError: null,
-        updateStatus: "idle",
-        updateError: null,
-        deleteStatus: "idle",
-        deleteError: null,
-        currentMetric: null,
-        createMetricModalOpen: false,
-      },
       assistantConversations: {
         items: [],
         status: "succeeded",
@@ -97,7 +77,7 @@ describe("pickerEmptyState — locked against the desktop sidebar's rendered cop
 
       const entry = PICKER_EMPTY_STATE[pickerId];
       expect(screen.getByText(entry.title)).toBeInTheDocument();
-      // Registry's description can be empty in principle for other sections,
+      // A description can be empty in principle for other sections,
       // but every sidebar-owned entry here does carry one — `getByText` on
       // an empty string would match too broadly, so guard it explicitly.
       expect(entry.description.length).toBeGreaterThan(0);
@@ -106,15 +86,7 @@ describe("pickerEmptyState — locked against the desktop sidebar's rendered cop
   );
 
   it("covers every PickerId member, including the unreachable other", () => {
-    const allPickerIds: PickerId[] = [
-      "dashboards",
-      "sources",
-      "pipelines",
-      "registry",
-      "metrics",
-      "chat",
-      "other",
-    ];
+    const allPickerIds: PickerId[] = ["dashboards", "sources", "pipelines", "chat", "other"];
     for (const pickerId of allPickerIds) {
       expect(PICKER_EMPTY_STATE[pickerId]).toBeDefined();
       expect(PICKER_EMPTY_STATE[pickerId].title.length).toBeGreaterThan(0);

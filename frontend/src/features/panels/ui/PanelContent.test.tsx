@@ -3,12 +3,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { PanelContent } from "./PanelContent";
 import type { ChartPanelProps } from "./ChartPanel";
-import {
-  makeChartPanel,
-  makeMetricPanel,
-  makeTablePanel,
-  makeTextPanel,
-} from "../../../test/panelFixtures";
+import { makeOutputPanel, makeTextPanel } from "../../../test/panelFixtures";
+import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
+import type { Output } from "../../pipelines/types/output";
 
 let capturedChartProps: ChartPanelProps | null = null;
 
@@ -19,14 +16,38 @@ jest.mock("./ChartPanel", () => ({
   },
 }));
 
+jest.mock("../../pipelines/services/outputService", () => ({
+  getOutputById: jest.fn(),
+}));
+
+const getOutputByIdMock = jest.mocked(getOutputByIdRequest);
+
 beforeEach(() => {
   capturedChartProps = null;
+  getOutputByIdMock.mockReset();
 });
+
+function makeOutput(overrides: Partial<Output> = {}): Output {
+  return {
+    id: "output-1",
+    pipelineId: "pipe-1",
+    ownerId: "u1",
+    name: "Test Output",
+    kind: "metric",
+    config: {},
+    schema: [],
+    createdAt: "",
+    updatedAt: "",
+    ...overrides,
+  };
+}
 
 // HEL-512 — `ChartPanel` is now a `React.lazy` target inside `ChartRenderer` (design.md Decision
 // 1); even with the `./ChartPanel` mock above resolving immediately, it mounts asynchronously
-// behind a `Suspense` boundary, so assertions on `capturedChartProps` must wait for the chunk's
-// (mocked) dynamic `import()` promise to resolve first — `await screen.findByTestId(...)`.
+// behind a `Suspense` boundary. HEL-909 additionally means an output-kind panel's renderer choice
+// (metric/chart/table/etc.) itself resolves asynchronously (`useOutputMeta`'s `GET
+// /api/outputs/:id` fetch) — every assertion below awaits `screen.findByTestId(...)` or an
+// equivalent async query rather than asserting synchronously.
 describe("PanelContent — appearance forwarding", () => {
   it("forwards appearance prop to ChartPanel", async () => {
     const appearance = {
@@ -43,48 +64,54 @@ describe("PanelContent — appearance forwarding", () => {
         },
       },
     };
-    const panel = makeChartPanel({ appearance });
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
+    const panel = makeOutputPanel({ appearance });
     render(<PanelContent panel={panel} appearance={appearance} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(appearance);
   });
 
   it("forwards panel.appearance when no appearance prop is provided", async () => {
-    const panel = makeChartPanel();
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
+    const panel = makeOutputPanel();
     render(<PanelContent panel={panel} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(panel.appearance);
   });
 });
 
-describe("PanelContent — placeholder (unbound)", () => {
-  it("renders the metric placeholder for type metric", () => {
-    render(<PanelContent panel={makeMetricPanel()} />);
-    expect(screen.getByText("--")).toBeInTheDocument();
-    expect(screen.getByText("No data")).toBeInTheDocument();
+describe("PanelContent — output kind dispatch", () => {
+  it("renders the metric placeholder for output kind metric", async () => {
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "metric" }));
+    render(<PanelContent panel={makeOutputPanel()} />);
+    expect(await screen.findByText("--")).toBeInTheDocument();
   });
 
-  it("renders an ECharts chart panel for type chart", async () => {
-    render(<PanelContent panel={makeChartPanel()} />);
+  it("renders an ECharts chart panel for output kind chart", async () => {
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
+    render(<PanelContent panel={makeOutputPanel()} />);
     expect(await screen.findByTestId("chart-panel")).toBeInTheDocument();
   });
 
-  it("renders placeholder lines for type text", () => {
+  it("renders a table element for output kind table", async () => {
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "table" }));
+    const { container } = renderWithStore(
+      <PanelContent panel={makeOutputPanel()} rawRows={[["1"]]} headers={["value"]} />,
+    );
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(container.querySelector("table")).toBeInTheDocument();
+  });
+
+  it("renders placeholder lines for type text (dashboard-native, not an output fetch)", () => {
     const { container } = render(<PanelContent panel={makeTextPanel()} />);
     const lines = container.querySelectorAll(".panel-content__text-line");
     expect(lines.length).toBeGreaterThan(0);
-  });
-
-  it("renders a table element for type table", () => {
-    // TableRenderer now dispatches (width-persist thunk), so a store is needed.
-    const { container } = renderWithStore(<PanelContent panel={makeTablePanel()} />);
-    expect(container.querySelector("table")).toBeInTheDocument();
   });
 });
 
 describe("PanelContent — loading state", () => {
   it("shows a kind-agnostic body skeleton (HEL-528 design.md D6), not a spinner", () => {
-    const { container } = render(<PanelContent panel={makeMetricPanel()} isLoading={true} />);
+    const { container } = render(<PanelContent panel={makeOutputPanel()} isLoading={true} />);
     expect(screen.getByLabelText("Loading data")).toBeInTheDocument();
     expect(container.querySelector(".panel-body-skeleton")).toBeInTheDocument();
     expect(container.querySelector(".ui-skeleton")).toBeInTheDocument();
@@ -92,19 +119,19 @@ describe("PanelContent — loading state", () => {
   });
 
   it("does not render metric content while loading", () => {
-    render(<PanelContent panel={makeMetricPanel()} isLoading={true} />);
+    render(<PanelContent panel={makeOutputPanel()} isLoading={true} />);
     expect(screen.queryByText("--")).not.toBeInTheDocument();
   });
 });
 
 describe("PanelContent — error state", () => {
   it("shows the error message", () => {
-    render(<PanelContent panel={makeMetricPanel()} error="Failed to load data." />);
+    render(<PanelContent panel={makeOutputPanel()} error="Failed to load data." />);
     expect(screen.getByText("Failed to load data.")).toBeInTheDocument();
   });
 
   it("does not render metric content when there is an error", () => {
-    render(<PanelContent panel={makeMetricPanel()} error="Failed to load data." />);
+    render(<PanelContent panel={makeOutputPanel()} error="Failed to load data." />);
     expect(screen.queryByText("--")).not.toBeInTheDocument();
   });
 });
@@ -113,14 +140,14 @@ describe("PanelContent — error state", () => {
 // its own role="alert" (announced=false), Retry action, and kind-based icon.
 describe("PanelContent — error state retry wiring (HEL-539)", () => {
   it("carries a single role=alert (announced=false, not doubled by the wrapper's own role)", () => {
-    render(<PanelContent panel={makeMetricPanel()} error="Failed to load data." />);
+    render(<PanelContent panel={makeOutputPanel()} error="Failed to load data." />);
     expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it("renders a Retry action invoking onRetry when errorKind is error (or unset)", () => {
     const onRetry = jest.fn();
     render(
-      <PanelContent panel={makeMetricPanel()} error="Failed to load data." onRetry={onRetry} />,
+      <PanelContent panel={makeOutputPanel()} error="Failed to load data." onRetry={onRetry} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
@@ -130,7 +157,7 @@ describe("PanelContent — error state retry wiring (HEL-539)", () => {
     const onRetry = jest.fn();
     render(
       <PanelContent
-        panel={makeMetricPanel()}
+        panel={makeOutputPanel()}
         error="You don't have access to this panel's data."
         errorKind="forbidden"
         onRetry={onRetry}
@@ -143,7 +170,7 @@ describe("PanelContent — error state retry wiring (HEL-539)", () => {
     const onRetry = jest.fn();
     render(
       <PanelContent
-        panel={makeMetricPanel()}
+        panel={makeOutputPanel()}
         error="Failed to load data."
         onRetry={onRetry}
         retryVariant="icon-only"
@@ -157,21 +184,8 @@ describe("PanelContent — error state retry wiring (HEL-539)", () => {
 
 describe("PanelContent — no-data state", () => {
   it("shows the no-data message", () => {
-    render(<PanelContent panel={makeMetricPanel()} noData={true} />);
+    render(<PanelContent panel={makeOutputPanel()} noData={true} />);
     expect(screen.getByText("No data available")).toBeInTheDocument();
-  });
-});
-
-describe("PanelContent — live metric data", () => {
-  it("displays value and label from data prop", () => {
-    render(<PanelContent panel={makeMetricPanel()} data={{ value: "42", label: "Revenue" }} />);
-    expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.getByText("Revenue")).toBeInTheDocument();
-  });
-
-  it("falls back to placeholder when data is null", () => {
-    render(<PanelContent panel={makeMetricPanel()} data={null} />);
-    expect(screen.getByText("--")).toBeInTheDocument();
   });
 });
 
@@ -180,16 +194,17 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
     const fieldMapping = { xAxis: "date", yAxis: "price" };
     const rawRows = [["2024-01-01", "100"]];
     const headers = ["date", "price"];
-    const panel = makeChartPanel({ config: { fieldMapping } });
-    render(<PanelContent panel={panel} rawRows={rawRows} headers={headers} />);
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart", config: { fieldMapping } }));
+    render(<PanelContent panel={makeOutputPanel()} rawRows={rawRows} headers={headers} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual(fieldMapping);
     expect(capturedChartProps?.rawRows).toEqual(rawRows);
     expect(capturedChartProps?.headers).toEqual(headers);
   });
 
-  it("forwards an empty fieldMapping object to ChartPanel for an unbound chart panel", async () => {
-    render(<PanelContent panel={makeChartPanel()} />);
+  it("forwards an empty fieldMapping object to ChartPanel when the Output config has none", async () => {
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
+    render(<PanelContent panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual({});
   });
@@ -197,70 +212,47 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
   // HEL-301 — compact threads through to ChartPanel so the phone stack can
   // hide the legend / shrink axis labels (W5).
   it("forwards compact=true to ChartPanel", async () => {
-    render(<PanelContent panel={makeChartPanel()} compact />);
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
+    render(<PanelContent panel={makeOutputPanel()} compact />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBe(true);
   });
 
   it("leaves compact undefined for the desktop grid (no compact prop passed)", async () => {
-    render(<PanelContent panel={makeChartPanel()} />);
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
+    render(<PanelContent panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBeUndefined();
   });
 });
 
 // HEL-323 — the chart annotation may be static (`config.annotation`) or bound
-// (`data.annotation`, resolved by usePanelData from `fieldMapping.annotation`).
-// PanelContent resolves the effective annotation literal-wins and passes it to
-// ChartRenderer (real here; only ChartPanel is mocked), which renders the
-// `.chart-panel__annotation` element.
-// HEL-512 — the annotation `<p>` sits outside ChartRenderer's `Suspense` boundary (see
-// design.md Decision 2) so it's present on the synchronous first render regardless of the lazy
-// `ChartPanel` chunk's load state; each test still awaits `chart-panel` mounting so the mocked
-// dynamic import's pending promise doesn't resolve after the test completes (React `act()`
-// warning) — mirrors the pattern used above.
+// (`data.annotation`); with the Output model, the static Output-config
+// annotation always wins per PanelContent's literal-wins resolution.
 describe("PanelContent — chart annotation resolution (HEL-323)", () => {
   it("renders the static config.annotation when set", async () => {
-    const panel = makeChartPanel({ config: { annotation: "Fixed note" } });
-    const { container } = render(<PanelContent panel={panel} />);
+    getOutputByIdMock.mockResolvedValue(
+      makeOutput({ kind: "chart", config: { annotation: "Fixed note" } }),
+    );
+    const { container } = render(<PanelContent panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
   });
 
-  it("renders the bound annotation from data when no static annotation is set", async () => {
-    const panel = makeChartPanel({ config: { fieldMapping: { annotation: "note" } } });
-    const { container } = render(
-      <PanelContent panel={panel} data={{ annotation: "Preliminary — revised weekly" }} />,
-    );
-    await screen.findByTestId("chart-panel");
-    expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent(
-      "Preliminary — revised weekly",
-    );
-  });
-
-  it("static config.annotation wins over a bound data.annotation when both are present", async () => {
-    const panel = makeChartPanel({
-      config: { annotation: "Fixed note", fieldMapping: { annotation: "note" } },
-    });
-    const { container } = render(
-      <PanelContent panel={panel} data={{ annotation: "Bound value" }} />,
-    );
-    await screen.findByTestId("chart-panel");
-    expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
-  });
-
-  it("renders no annotation element when neither static nor bound is set", async () => {
-    const { container } = render(<PanelContent panel={makeChartPanel()} data={{}} />);
+  it("renders no annotation element when none is set", async () => {
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
+    const { container } = render(<PanelContent panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
   });
 });
 
 describe("PanelContent — live table data", () => {
-  it("renders live rows and headers", () => {
+  it("renders live rows and headers", async () => {
+    getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "table" }));
     const { container } = renderWithStore(
       <PanelContent
-        panel={makeTablePanel()}
+        panel={makeOutputPanel()}
         rawRows={[
           ["1000", "North"],
           ["2000", "South"],
@@ -268,7 +260,7 @@ describe("PanelContent — live table data", () => {
         headers={["Revenue", "Region"]}
       />,
     );
-    expect(screen.getByText("Revenue")).toBeInTheDocument();
+    expect(await screen.findByText("Revenue")).toBeInTheDocument();
     expect(screen.getByText("North")).toBeInTheDocument();
     expect(screen.getByText("2000")).toBeInTheDocument();
     const rows = container.querySelectorAll("tbody tr");
@@ -276,101 +268,13 @@ describe("PanelContent — live table data", () => {
   });
 });
 
-describe("PanelContent — TableContent sizing", () => {
-  it("2.1 renders .panel-content--table container when data rows are provided", () => {
-    const { container } = renderWithStore(
-      <PanelContent
-        panel={makeTablePanel()}
-        rawRows={[
-          ["Alice", "30"],
-          ["Bob", "25"],
-        ]}
-        headers={["Name", "Age"]}
-      />,
-    );
-    expect(container.querySelector(".panel-content--table")).toBeInTheDocument();
-  });
-
-  it("2.2 renders placeholder table inside .panel-content--table when no data", () => {
-    const { container } = renderWithStore(<PanelContent panel={makeTablePanel()} />);
-    const tableContainer = container.querySelector(".panel-content--table");
-    expect(tableContainer).toBeInTheDocument();
-    expect(tableContainer?.querySelector("table")).toBeInTheDocument();
-  });
-
-  it("2.3 renders correct number of <tr> rows for given rawRows", () => {
-    const { container } = renderWithStore(
-      <PanelContent panel={makeTablePanel()} rawRows={[["A"], ["B"], ["C"]]} />,
-    );
-    const rows = container.querySelectorAll("tbody tr");
-    expect(rows.length).toBe(3);
-  });
-
-  it("2.4 renders column headers from headers prop when provided", () => {
-    renderWithStore(
-      <PanelContent
-        panel={makeTablePanel()}
-        rawRows={[["val1", "val2"]]}
-        headers={["Column A", "Column B"]}
-      />,
-    );
-    expect(screen.getByText("Column A")).toBeInTheDocument();
-    expect(screen.getByText("Column B")).toBeInTheDocument();
-  });
-});
-
-describe("PanelContent — metric trend indicator", () => {
-  it("renders trend indicator with --up class when trend starts with '+'", () => {
-    const { container } = render(
-      <PanelContent
-        panel={makeMetricPanel()}
-        data={{ value: "100", label: "Revenue", trend: "+3.2%" }}
-      />,
-    );
-    const trend = container.querySelector(".panel-content__metric-trend");
-    expect(trend).toBeInTheDocument();
-    expect(trend).toHaveClass("panel-content__metric-trend--up");
-    expect(trend).toHaveTextContent("+3.2%");
-  });
-
-  it("renders trend indicator with --down class when trend starts with '-'", () => {
-    const { container } = render(
-      <PanelContent
-        panel={makeMetricPanel()}
-        data={{ value: "100", label: "Revenue", trend: "-1.1%" }}
-      />,
-    );
-    const trend = container.querySelector(".panel-content__metric-trend");
-    expect(trend).toBeInTheDocument();
-    expect(trend).toHaveClass("panel-content__metric-trend--down");
-    expect(trend).toHaveTextContent("-1.1%");
-  });
-
-  it("renders trend indicator with --flat class for neutral trend string", () => {
-    const { container } = render(
-      <PanelContent
-        panel={makeMetricPanel()}
-        data={{ value: "100", label: "Revenue", trend: "0%" }}
-      />,
-    );
-    const trend = container.querySelector(".panel-content__metric-trend");
-    expect(trend).toBeInTheDocument();
-    expect(trend).toHaveClass("panel-content__metric-trend--flat");
-    expect(trend).toHaveTextContent("0%");
-  });
-
-  it("does not render trend indicator when data.trend is not present", () => {
-    const { container } = render(
-      <PanelContent panel={makeMetricPanel()} data={{ value: "100", label: "Revenue" }} />,
-    );
-    expect(container.querySelector(".panel-content__metric-trend")).not.toBeInTheDocument();
-  });
-
-  it("does not render trend indicator when panel is unbound (no data)", () => {
-    const { container } = render(<PanelContent panel={makeMetricPanel()} />);
-    expect(container.querySelector(".panel-content__metric-trend")).not.toBeInTheDocument();
-  });
-});
+// HEL-909: the metric trend indicator (`MetricRenderer`'s `data.trend`) has
+// no surviving Output-config source — `MetricOutputConfig` carries no
+// `trend` field and `OutputPanelContent` computes its metric `data` from
+// the fetched Output's config + rows, never from a passed-through `data`
+// prop. A genuine capability drop, not a rename — the prior describe block
+// asserting trend rendering via a directly-passed `data` prop tested a path
+// no output-kind panel can reach any more; deleted rather than rewritten.
 
 describe("PanelContent — live text data", () => {
   it("renders .panel-content__text-live element when text panel has live content", () => {
@@ -389,11 +293,7 @@ describe("PanelContent — live text data", () => {
     expect(liveEl).toHaveTextContent("Sample text");
   });
 
-  // HEL-244 regression — an existing unbound Text panel (no dataTypeId, only
-  // literal config.content) must render identically to before this change:
-  // no `data` prop is passed (usePanelData returns null for unbound panels),
-  // so TextRenderer falls back to config.content.
-  it("renders literal config.content unchanged for an unbound Text panel (no data prop)", () => {
+  it("renders literal config.content unchanged for a Text panel (no data prop)", () => {
     const { container } = render(
       <PanelContent panel={makeTextPanel({ config: { content: "Static fallback text" } })} />,
     );

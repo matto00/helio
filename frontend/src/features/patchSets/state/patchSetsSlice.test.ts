@@ -99,11 +99,11 @@ describe("patchSetsSlice", () => {
       new Error("Rejected"),
       "req-1",
       samplePatchSet,
-      "Cannot delete DataType: one or more panels are bound to it",
+      "Cannot delete Output: one or more panels are bound to it",
     );
     const state = patchSetsReducer(undefined, action);
     expect(state.applyStatus).toBe("failed");
-    expect(state.applyError).toBe("Cannot delete DataType: one or more panels are bound to it");
+    expect(state.applyError).toBe("Cannot delete Output: one or more panels are bound to it");
   });
 
   const sampleUndoArg = { applicationId: "app-1", patchSet: samplePatchSet };
@@ -151,8 +151,8 @@ describe("patchSetsSlice", () => {
     /** `panelsSlice.loadedDashboardId` is the ONLY signal this function
      *  consults to decide whether a touched dashboard is the one on screen
      *  (skeptic-final-1.md CR1) — a minimal partial-state fixture is enough,
-     *  mirroring `dataTypesSlice.test.ts`'s own `as unknown as RootState`
-     *  partial-state precedent. */
+     *  mirroring other slice tests' `as unknown as RootState` partial-state
+     *  precedent. */
     function mockGetState(loadedDashboardId: string | null): () => RootState {
       return () => ({ panels: { loadedDashboardId } }) as unknown as RootState;
     }

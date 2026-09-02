@@ -51,6 +51,14 @@ final class OutputService(
   def listAll(user: AuthenticatedUser, page: Page): Future[PagedResult[Output]] =
     outputRepo.findAllByOwner(user.id, page)
 
+  /** Per-page panel-placement counts for `listAll`'s page (HEL-909 CR2) — a
+   *  single batched query via `PanelRepository.countByOutputIdsInternal`
+   *  instead of the Output picker's prior N+1
+   *  `GET /api/outputs/:id/panels` fan-out per card. Missing ids (no bound
+   *  panels) default to `0` by the caller reading this map. */
+  def panelCountsFor(outputs: Vector[Output]): Future[Map[String, Int]] =
+    panelRepo.countByOutputIdsInternal(outputs.map(_.id.value))
+
   /** List every Output on a pipeline (optionally scoped to one node), gated
    *  on any level of pipeline access (owner/editor/viewer). */
   def listByPipeline(pipelineId: PipelineId, nodeStepId: Option[String], user: AuthenticatedUser): Future[Either[ServiceError, Vector[Output]]] =

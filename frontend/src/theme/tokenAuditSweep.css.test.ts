@@ -52,18 +52,17 @@ import path from "path";
 
 const SRC_ROOT = path.join(__dirname, "..");
 
+// HEL-909: `features/dataTypes/**`, `features/metrics/**`, and
+// `features/pipelines/ui/computedFields/**` were deleted outright (Axis A) —
+// their swept CSS files and pinned baseline entries below go with them, not
+// left as a stale ENOENT reference.
 const SWEPT_FILES = [
   "features/dashboards/ui/DashboardAppearanceEditor.css",
-  "features/dataTypes/ui/TypeDetailPanel.css",
-  "features/dataTypes/ui/TypeRegistryPage.css",
-  "features/metrics/ui/MetricsPage.css",
   "features/panels/ui/ImagePanel.css",
   "features/pipelines/ui/PipelineDetailHeader.css",
   "features/pipelines/ui/PipelineDetailPage.css",
   "features/pipelines/ui/PipelinesPage.css",
   "features/pipelines/ui/RunHistoryModal.css",
-  "features/pipelines/ui/computedFields/ComputedFieldForm.css",
-  "features/pipelines/ui/computedFields/ComputedFieldsEditor.css",
   "features/settings/ui/AgentMemoryList.css",
   "features/sources/ui/AddSourceModal.css",
   "features/sources/ui/SourceDetailPanel.css",
@@ -137,18 +136,6 @@ const spacingIsDisallowed = (line: string): boolean => !line.includes("var(--spa
 const SPACING_BASELINE: BaselineEntry[] = [
   { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 85 },
   { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 91 },
-  { file: "features/dataTypes/ui/TypeDetailPanel.css", line: 118 },
-  { file: "features/dataTypes/ui/TypeDetailPanel.css", line: 186 },
-  { file: "features/dataTypes/ui/TypeDetailPanel.css", line: 84 },
-  { file: "features/dataTypes/ui/TypeDetailPanel.css", line: 92 },
-  { file: "features/metrics/ui/MetricsPage.css", line: 145 },
-  { file: "features/metrics/ui/MetricsPage.css", line: 44 },
-  { file: "features/metrics/ui/MetricsPage.css", line: 45 },
-  { file: "features/pipelines/ui/computedFields/ComputedFieldForm.css", line: 9 },
-  { file: "features/pipelines/ui/computedFields/ComputedFieldsEditor.css", line: 43 },
-  { file: "features/pipelines/ui/computedFields/ComputedFieldsEditor.css", line: 64 },
-  { file: "features/pipelines/ui/computedFields/ComputedFieldsEditor.css", line: 69 },
-  { file: "features/pipelines/ui/computedFields/ComputedFieldsEditor.css", line: 78 },
   { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 182 },
   { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 99 },
   // HEL-908 task 3.4 — this file's baseline is line-number-pinned (see the

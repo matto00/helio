@@ -1,7 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import "./AddSourceModal.css";
-import { fetchDataTypes } from "../../dataTypes/state/dataTypesSlice";
 import {
   createStaticSource,
   createSqlSource,
@@ -97,7 +96,6 @@ export function AddSourceModal({ onClose, onCreated }: AddSourceModalProps) {
   // so the five direct-service paths and the two thunk paths read identically.
   function finishCreate(created: { id: string }, options: { toast?: boolean } = {}) {
     void dispatch(fetchSources());
-    void dispatch(fetchDataTypes());
     dispatch(setSelectedSourceId(created.id));
     if (options.toast !== false) {
       pushToast({ variant: "success", message: `Data source "${name.trim()}" created.` });

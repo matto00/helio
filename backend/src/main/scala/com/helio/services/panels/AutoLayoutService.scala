@@ -32,7 +32,16 @@ import scala.concurrent.{ExecutionContext, Future}
  *  ticket's own acceptance criterion). A request `panelId` that isn't one of
  *  the dashboard's panels rejects the WHOLE request with 400 and persists
  *  nothing (design.md D6, mirrors `DashboardContentsService.validatePanels`'s
- *  fail-on-first-bad-item convention). */
+ *  fail-on-first-bad-item convention).
+ *
+ *  HEL-909 cycle-3 fix: `lg` is packed at the request's `cols` width, but
+ *  `md`/`sm`/`xs` have their OWN, narrower column counts
+ *  (`LayoutBreakpointScaling.breakpointCols`) — writing the `lg` array
+ *  verbatim into those breakpoints (the original behavior here) produced
+ *  the same unscaled-copy defect `PanelService.placeDefaultLayout` was
+ *  fixed for in cycle 2. `md`/`sm`/`xs` are now each independently derived
+ *  via `LayoutBreakpointScaling.scaleItemsToBreakpoint` from the packed
+ *  `lg` items. */
 final class AutoLayoutService(
     dashboardRepo: DashboardRepository,
     panelRepo: PanelRepository,
@@ -93,8 +102,11 @@ final class AutoLayoutService(
           val items        = kept ++ packed
 
           val now     = Instant.now()
+          val md      = LayoutBreakpointScaling.scaleItemsToBreakpoint(items, cols, LayoutBreakpointScaling.breakpointCols("md"))
+          val sm      = LayoutBreakpointScaling.scaleItemsToBreakpoint(items, cols, LayoutBreakpointScaling.breakpointCols("sm"))
+          val xs      = LayoutBreakpointScaling.scaleItemsToBreakpoint(items, cols, LayoutBreakpointScaling.breakpointCols("xs"))
           val updated = existing.copy(
-            layout = DashboardLayout(lg = items, md = items, sm = items, xs = items),
+            layout = DashboardLayout(lg = items, md = md, sm = sm, xs = xs),
             meta   = existing.meta.copy(lastUpdated = now)
           )
           Right(updated)

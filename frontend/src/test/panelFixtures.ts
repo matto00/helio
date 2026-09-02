@@ -1,27 +1,26 @@
-// Test fixtures for the CS2c-3c Panel discriminated union.
+// Test fixtures for the Panel discriminated union.
 //
 // Tests historically built panel literals using the flat-field shape. The
 // helpers below construct typed-config panels by subtype with sensible
 // defaults, accepting partial overrides for the per-test fields the test
 // actually cares about.
+//
+// HEL-909: the bound trio (metric/chart/table) and collection/timeline kinds
+// are retired — `makeOutputPanel` replaces them all. A placement carries only
+// `outputId`; anything render-relevant (kind, config, rows) lives on the
+// fetched Output, not the placement.
 
 import type {
-  ChartPanel,
-  ChartPanelConfig,
-  CollectionPanel,
-  CollectionPanelConfig,
   DividerPanel,
   DividerPanelConfig,
   ImagePanel,
   ImagePanelConfig,
   MarkdownPanel,
   MarkdownPanelConfig,
-  MetricPanel,
-  MetricPanelConfig,
+  OutputPanel,
+  OutputPanelConfig,
   Panel,
   PanelAppearance,
-  TablePanel,
-  TablePanelConfig,
   TextPanel,
   TextPanelConfig,
 } from "../features/panels/types/panel";
@@ -46,8 +45,6 @@ interface PanelBaseOverrides {
   appearance?: PanelAppearance;
   ownerId?: string;
   refreshInterval?: number | null;
-  /** HEL-234: ISO-8601 freshness timestamp; absent/null when panel is unbound. */
-  dataAsOf?: string | null;
 }
 
 function applyBase<T extends Panel>(
@@ -63,53 +60,18 @@ function applyBase<T extends Panel>(
     appearance: overrides.appearance ?? defaultAppearance,
     ownerId: overrides.ownerId ?? "u1",
     refreshInterval: overrides.refreshInterval ?? null,
-    dataAsOf: overrides.dataAsOf ?? null,
     type,
     config,
   } as T;
 }
 
-export function makeMetricPanel(
-  overrides: PanelBaseOverrides & { config?: Partial<MetricPanelConfig> } = {},
-): MetricPanel {
-  const config: MetricPanelConfig = {
-    dataTypeId: overrides.config?.dataTypeId ?? "",
-    fieldMapping: overrides.config?.fieldMapping ?? {},
-    aggregation: overrides.config?.aggregation,
-    label: overrides.config?.label,
-    unit: overrides.config?.unit,
-    metricId: overrides.config?.metricId,
-    metricDeprecated: overrides.config?.metricDeprecated,
+export function makeOutputPanel(
+  overrides: PanelBaseOverrides & { config?: Partial<OutputPanelConfig> } = {},
+): OutputPanel {
+  const config: OutputPanelConfig = {
+    outputId: overrides.config?.outputId ?? "output-1",
   };
-  return applyBase<MetricPanel>(overrides, "metric", config);
-}
-
-export function makeChartPanel(
-  overrides: PanelBaseOverrides & { config?: Partial<ChartPanelConfig> } = {},
-): ChartPanel {
-  const config: ChartPanelConfig = {
-    dataTypeId: overrides.config?.dataTypeId ?? "",
-    fieldMapping: overrides.config?.fieldMapping ?? {},
-    aggregation: overrides.config?.aggregation,
-    chartOptions: overrides.config?.chartOptions,
-    annotation: overrides.config?.annotation,
-    metricId: overrides.config?.metricId,
-    metricDeprecated: overrides.config?.metricDeprecated,
-  };
-  return applyBase<ChartPanel>(overrides, "chart", config);
-}
-
-export function makeTablePanel(
-  overrides: PanelBaseOverrides & { config?: Partial<TablePanelConfig> } = {},
-): TablePanel {
-  const config: TablePanelConfig = {
-    dataTypeId: overrides.config?.dataTypeId ?? "",
-    fieldMapping: overrides.config?.fieldMapping ?? {},
-    columnWidths: overrides.config?.columnWidths,
-    metricId: overrides.config?.metricId,
-    metricDeprecated: overrides.config?.metricDeprecated,
-  };
-  return applyBase<TablePanel>(overrides, "table", config);
+  return applyBase<OutputPanel>(overrides, "output", config);
 }
 
 export function makeTextPanel(
@@ -117,8 +79,6 @@ export function makeTextPanel(
 ): TextPanel {
   const config: TextPanelConfig = {
     content: overrides.config?.content ?? "",
-    dataTypeId: overrides.config?.dataTypeId ?? "",
-    fieldMapping: overrides.config?.fieldMapping ?? {},
   };
   return applyBase<TextPanel>(overrides, "text", config);
 }
@@ -128,8 +88,6 @@ export function makeMarkdownPanel(
 ): MarkdownPanel {
   const config: MarkdownPanelConfig = {
     content: overrides.config?.content ?? "",
-    dataTypeId: overrides.config?.dataTypeId ?? "",
-    fieldMapping: overrides.config?.fieldMapping ?? {},
   };
   return applyBase<MarkdownPanel>(overrides, "markdown", config);
 }
@@ -153,17 +111,4 @@ export function makeDividerPanel(
     color: overrides.config?.color,
   };
   return applyBase<DividerPanel>(overrides, "divider", config);
-}
-
-export function makeCollectionPanel(
-  overrides: PanelBaseOverrides & { config?: Partial<CollectionPanelConfig> } = {},
-): CollectionPanel {
-  const config: CollectionPanelConfig = {
-    dataTypeId: overrides.config?.dataTypeId ?? "",
-    fieldMapping: overrides.config?.fieldMapping ?? {},
-    baseType: overrides.config?.baseType ?? "metric",
-    layout: overrides.config?.layout ?? "grid",
-    itemOptions: overrides.config?.itemOptions,
-  };
-  return applyBase<CollectionPanel>(overrides, "collection", config);
 }

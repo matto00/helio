@@ -15,8 +15,9 @@ import type {
 /** spray-json omits an absent `Option[String]` field rather than sending
  *  `null` — normalize `nodeStepId` at the service boundary so the rest of
  *  the app can treat "absent" and "explicitly missing" identically without
- *  re-deriving this each call site (see `dataTypeService.ts`'s
- *  `normalizeDataType` for the established precedent). */
+ *  re-deriving this each call site — this is a recurring pattern in this
+ *  codebase (see `pipelinesSlice.ts`'s `PipelineSummaryWire` normalization
+ *  for another instance). */
 function normalizeOutput(output: Output): Output {
   return { ...output, nodeStepId: output.nodeStepId ?? undefined };
 }
@@ -55,6 +56,30 @@ export async function updateOutput(
 export async function deleteOutput(outputId: string): Promise<DeleteOutputResult> {
   const response = await httpClient.delete<DeleteOutputResult>(`/api/outputs/${outputId}`);
   return response.data;
+}
+
+/** `GET /api/outputs` — every Output the caller owns, across all pipelines
+ *  (HEL-909 `OutputPicker`). The backend caps `limit` at `Page.MaxLimit`
+ *  server-side, so a caller with more Outputs than one page would silently
+ *  see a truncated list — loop until `total` is exhausted rather than
+ *  assuming one page suffices. Realistic Output counts are in the tens, so
+ *  this is at most a couple of round trips in practice. */
+export async function listAllOutputs(): Promise<Output[]> {
+  const limit = 200;
+  let offset = 0;
+  const all: Output[] = [];
+  for (;;) {
+    const response = await httpClient.get<{
+      items: Output[];
+      total: number;
+      offset: number;
+      limit: number;
+    }>("/api/outputs", { params: { offset, limit } });
+    all.push(...response.data.items.map(normalizeOutput));
+    offset += response.data.items.length;
+    if (response.data.items.length === 0 || offset >= response.data.total) break;
+  }
+  return all;
 }
 
 export async function listOutputPanels(outputId: string): Promise<OutputPanelPlacement[]> {

@@ -143,7 +143,7 @@ class PatchSetPreviewRoutesSpec
       val panel = await(panelService.create(
         CreatePanelRequest(Some(dashboard.id.value), Some("Preview panel"), Some("divider"), None), userA
       )) match {
-        case Right(p) => p
+        case Right((p, _)) => p
         case Left(e)  => fail(s"panel seed failed: $e")
       }
 

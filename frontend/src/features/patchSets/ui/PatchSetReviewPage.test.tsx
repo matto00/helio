@@ -67,10 +67,10 @@ const demoPanel: Panel = {
   id: "panel-1",
   dashboardId: "dash-1",
   title: "Revenue",
-  type: "metric",
+  type: "output",
   meta: defaultMeta,
   appearance: { background: "transparent", color: "inherit", transparency: 0 },
-  config: { dataTypeId: "type-1", fieldMapping: { value: "revenue" } },
+  config: { outputId: "output-1" },
 };
 
 const explicitPatchSet: PatchSet = {

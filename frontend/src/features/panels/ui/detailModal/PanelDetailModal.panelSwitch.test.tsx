@@ -80,8 +80,6 @@ function renderStack() {
     <MobilePanelStack panels={[panelA, panelB]} layout={switchLayout} containerWidth={390} />,
     {
       panels: { items: [panelA, panelB] },
-      // Seed as succeeded so editors don't dispatch a data-type fetch.
-      dataTypes: { items: [], status: "succeeded" },
     },
   );
 }
@@ -124,9 +122,7 @@ describe("PanelDetailModal — direct panel switch (HEL-307)", () => {
     expect((screen.getByLabelText("Panel A background color") as HTMLInputElement).value).toBe(
       "#111111",
     );
-    expect((screen.getByLabelText("Content text") as HTMLTextAreaElement).value).toBe(
-      "# A content",
-    );
+    expect((screen.getByLabelText("Content") as HTMLTextAreaElement).value).toBe("# A content");
 
     // Switch directly to B without closing the modal.
     fireEvent.click(screen.getByRole("heading", { name: "Panel B" }));
@@ -139,9 +135,7 @@ describe("PanelDetailModal — direct panel switch (HEL-307)", () => {
     );
     expect((screen.getByLabelText("Panel B text color") as HTMLInputElement).value).toBe("#020202");
     expect((screen.getByLabelText("Panel B transparency") as HTMLInputElement).value).toBe("80");
-    expect((screen.getByLabelText("Content text") as HTMLTextAreaElement).value).toBe(
-      "# B content",
-    );
+    expect((screen.getByLabelText("Content") as HTMLTextAreaElement).value).toBe("# B content");
   });
 
   it("a Save after a direct A→B switch cannot carry A's staged values onto B", () => {

@@ -1,4 +1,3 @@
-import type { DataType } from "../../dataTypes/types/dataType";
 import type {
   DataSource,
   DataSourceKind,
@@ -15,7 +14,6 @@ export type { SqlSourceConfig } from "../types/dataSource";
 
 interface CreateSourceResponse {
   source: DataSource;
-  dataType: DataType | null;
   fetchError: string | null;
 }
 
@@ -184,9 +182,9 @@ export async function deleteSource(sourceId: string): Promise<void> {
   await httpClient.delete(`/api/data-sources/${sourceId}`);
 }
 
-export async function refreshSource(sourceId: string, kind: DataSourceKind): Promise<DataType> {
+export async function refreshSource(sourceId: string, kind: DataSourceKind): Promise<DataSource> {
   const base = kind === "rest_api" || kind === "sql" ? "/api/sources" : "/api/data-sources";
-  const response = await httpClient.post<DataType>(`${base}/${sourceId}/refresh`);
+  const response = await httpClient.post<DataSource>(`${base}/${sourceId}/refresh`);
   return response.data;
 }
 

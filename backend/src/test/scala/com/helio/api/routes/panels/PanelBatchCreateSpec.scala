@@ -221,8 +221,12 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
 
       // Compare every field EXCEPT identity/parent-scoped ones (id, dashboardId,
       // meta timestamps, ownerId) which necessarily differ across two distinct
-      // creates on two distinct dashboards.
-      val ignoredFields = Set("id", "dashboardId", "meta", "ownerId")
+      // creates on two distinct dashboards, and `layout` (HEL-909 decision-15
+      // server-owned default size) — a single `POST /api/panels` create
+      // computes + returns it, but `batchCreate` does not (deliberately out
+      // of this ticket's scope; decision-15 is defined only for the picker's
+      // single-placement path).
+      val ignoredFields = Set("id", "dashboardId", "meta", "ownerId", "layout")
       def strip(obj: JsObject): Map[String, JsValue] = obj.fields.filter { case (k, _) => !ignoredFields.contains(k) }
       strip(singlePanel) shouldBe strip(batchPanel)
     }

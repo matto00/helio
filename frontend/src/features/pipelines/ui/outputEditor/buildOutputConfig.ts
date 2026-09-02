@@ -8,7 +8,7 @@ import type { ChartTypeOptionsMap } from "../../../panels/types/panel";
 import type { BoundOrLiteralState } from "../../../panels/ui/editors/useBoundOrLiteralState";
 import type { AggregateConfig } from "../../types/pipelineStep";
 import type { NodeCapabilities, OutputKind } from "../../types/output";
-import { isAggFn } from "./outputConfigTypes";
+import { isAggFn, isMetricFormat, type MetricFormat } from "./outputConfigTypes";
 
 export interface BuildOutputConfigParams {
   kind: OutputKind;
@@ -28,11 +28,18 @@ export interface BuildOutputConfigParams {
   metricAggFn: string;
   metricLabelState: BoundOrLiteralState;
   metricUnitState: BoundOrLiteralState;
+  // HEL-876 — numeric display style, shared by metric and collection (metric baseType).
+  metricFormat: string;
   // Markdown
   markdownContentState: BoundOrLiteralState;
   // Collection / Timeline
   collectionFieldMapping: Record<string, string>;
+  collectionFormat: string;
   timelineFieldMapping: Record<string, string>;
+}
+
+function readFormatOrNull(value: string): MetricFormat | null {
+  return isMetricFormat(value) ? value : null;
 }
 
 export function buildOutputConfig(params: BuildOutputConfigParams): Record<string, unknown> {
@@ -84,6 +91,7 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
           params.metricUnitState.mode === "literal"
             ? params.metricUnitState.literalValue
             : undefined,
+        format: readFormatOrNull(params.metricFormat),
       };
     case "markdown":
       return {
@@ -97,7 +105,11 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
             : {},
       };
     case "collection":
-      return { fieldMapping: params.collectionFieldMapping, layout: "grid" };
+      return {
+        fieldMapping: params.collectionFieldMapping,
+        layout: "grid",
+        format: readFormatOrNull(params.collectionFormat),
+      };
     case "timeline":
       return { fieldMapping: params.timelineFieldMapping, sort: "asc" };
     default:
@@ -147,6 +159,7 @@ export function buildAggregateTailConfigs(
     | "metricAggFn"
     | "metricLabelState"
     | "metricUnitState"
+    | "metricFormat"
   >,
   capabilities: NodeCapabilities | undefined,
 ): { aggregateConfig: AggregateConfig; outputConfig: Record<string, unknown> } | null {
@@ -191,6 +204,7 @@ export function buildAggregateTailConfigs(
           : undefined,
       unit:
         params.metricUnitState.mode === "literal" ? params.metricUnitState.literalValue : undefined,
+      format: readFormatOrNull(params.metricFormat),
     },
   };
 }

@@ -1,23 +1,21 @@
-// HEL-440 raw-element guard: asserts the three migrated rename controls
-// (PanelCard title, PipelineDetailFooter output name, TypeDetailPanel name)
-// render the shared TextField primitive (`ui-input` class), not a bare
-// <input>. Prior art: PipelineShareDialog.test.tsx's F-143 assertion shape.
+// HEL-440 raw-element guard: asserts the migrated rename controls
+// (PanelCard title, PipelineDetailFooter output name) render the shared
+// TextField primitive (`ui-input` class), not a bare <input>. Prior art:
+// PipelineShareDialog.test.tsx's F-143 assertion shape.
 //
 // Per design.md's guard-scope decision, this asserts only the element with
-// each control's accessible name — not "no raw <input> anywhere" — since
-// TypeDetailPanel legitimately renders raw checkbox/text inputs elsewhere
-// that no primitive covers.
+// each control's accessible name — not "no raw <input> anywhere".
+//
+// TypeDetailPanel's rename-control coverage was retired outright by HEL-909:
+// the DataType/type-registry surface it belonged to no longer exists (Axis A
+// deletion) — not a case needing a rewrite onto a different fixture.
 
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
 import { renderWithStore } from "./renderWithStore";
-import { makeMetricPanel } from "./panelFixtures";
+import { makeOutputPanel } from "./panelFixtures";
 import { PanelCard } from "../features/panels/ui/PanelCard";
 import { PipelineDetailFooter } from "../features/pipelines/ui/PipelineDetailFooter";
-import { TypeDetailPanel } from "../features/dataTypes/ui/TypeDetailPanel";
-import { fetchAssertionStatus as fetchAssertionStatusRequest } from "../features/dataTypes/services/dataTypeService";
-import { fetchDataTypeRows } from "../features/dataTypes/services/dataTypeService";
-import type { DataType } from "../features/dataTypes/types/dataType";
 
 jest.mock("../features/panels/hooks/usePanelData", () => ({
   usePanelData: jest.fn(() => ({
@@ -36,14 +34,6 @@ jest.mock("../features/panels/hooks/usePanelData", () => ({
 jest.mock("../features/panels/hooks/usePanelPolling", () => ({
   usePanelPolling: jest.fn(),
 }));
-
-jest.mock("../features/dataTypes/services/dataTypeService", () => ({
-  fetchAssertionStatus: jest.fn(),
-  fetchDataTypeRows: jest.fn(),
-}));
-
-const fetchAssertionStatusMock = jest.mocked(fetchAssertionStatusRequest);
-const fetchDataTypeRowsMock = jest.mocked(fetchDataTypeRows);
 
 const panelCardNoopProps = {
   theme: "dark" as const,
@@ -96,29 +86,9 @@ const pipelineFooterNoopProps = {
   lastRunStatus: null,
 };
 
-const testDataType: DataType = {
-  id: "dt-1",
-  name: "Documents",
-  sourceId: null,
-  version: 1,
-  fields: [{ name: "body", displayName: "Body", dataType: "string", nullable: false }],
-  computedFields: [],
-  createdAt: "2026-03-22T00:00:00Z",
-  updatedAt: "2026-03-22T00:00:00Z",
-};
-
 describe("HEL-440 raw-element guard — migrated rename controls", () => {
-  beforeEach(() => {
-    fetchAssertionStatusMock.mockReset().mockResolvedValue({
-      dataTypeId: "dt-1",
-      invalid: false,
-      failedRuleCount: 0,
-    });
-    fetchDataTypeRowsMock.mockReset().mockResolvedValue({ rows: [], rowCount: 0 });
-  });
-
   it("PanelCard: the 'Panel title' rename control carries TextField's ui-input class", () => {
-    const panel = makeMetricPanel({ config: { dataTypeId: "dt-1" } });
+    const panel = makeOutputPanel();
     renderWithStore(<PanelCard panel={panel} {...panelCardNoopProps} />, {
       panels: { items: [] },
     });
@@ -131,15 +101,6 @@ describe("HEL-440 raw-element guard — migrated rename controls", () => {
     renderWithStore(<PipelineDetailFooter {...pipelineFooterNoopProps} />);
 
     const input = screen.getByRole("textbox", { name: "Pipeline name" });
-    expect(input).toHaveClass("ui-input");
-  });
-
-  it("TypeDetailPanel: the 'Data type name' rename control carries TextField's ui-input class", async () => {
-    renderWithStore(<TypeDetailPanel dataType={testDataType} />);
-
-    await waitFor(() => expect(fetchDataTypeRowsMock).toHaveBeenCalledWith("dt-1"));
-
-    const input = screen.getByRole("textbox", { name: "Data type name" });
     expect(input).toHaveClass("ui-input");
   });
 });

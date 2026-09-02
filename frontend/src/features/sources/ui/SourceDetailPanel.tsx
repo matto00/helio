@@ -3,7 +3,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import "./SourceDetailPanel.css";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
-import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { updateSource } from "../state/sourcesSlice";
 import type { DataSource, DataSourceKind } from "../types/dataSource";
 import { InlineError } from "../../../shared/chrome/InlineError";
@@ -127,13 +127,6 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
     }
   }
 
-  // Pull the DataType inferred from this source (created automatically when the
-  // source is added; carries field/column metadata). Showing its schema lets
-  // the user inspect the inferred columns without running a preview first.
-  const relatedType = useAppSelector((state) =>
-    state.dataTypes.items.find((dt) => dt.sourceId === source.id),
-  );
-
   async function handlePreview() {
     setIsLoading(true);
     setPreviewError(null);
@@ -226,7 +219,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
       </div>
       {isRenaming ? <InlineError error={renameError} variant="banner" /> : null}
 
-      {relatedType !== undefined && relatedType.fields.length > 0 ? (
+      {source.inferredSchema.length > 0 ? (
         <section className="source-detail-panel__schema" aria-label="Inferred schema">
           <h4 className="source-detail-panel__section-title">Schema</h4>
           <div className="source-detail-panel__schema-table-wrapper">
@@ -239,7 +232,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
                 </tr>
               </thead>
               <tbody>
-                {relatedType.fields.map((field) => (
+                {source.inferredSchema.map((field) => (
                   <tr key={field.name}>
                     <td className="source-detail-panel__schema-field-name">{field.name}</td>
                     <td>{field.dataType}</td>

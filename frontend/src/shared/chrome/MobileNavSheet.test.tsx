@@ -285,8 +285,8 @@ describe("MobileNavSheet", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  // design.md D9 — flag-flip actions (sources/pipelines/registry) dismiss
-  // the sheet as soon as they fire, since `isPending`/`error` never change.
+  // design.md D9 — flag-flip actions (sources/pipelines) dismiss the sheet
+  // as soon as they fire, since `isPending`/`error` never change.
   it("dismisses immediately when a create action that cannot fail (isPending always false) is fired", async () => {
     const onClick = jest.fn();
     const { onClose } = renderSheet({
