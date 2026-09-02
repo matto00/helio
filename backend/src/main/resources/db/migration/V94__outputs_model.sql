@@ -37,6 +37,34 @@
 -- this migration performs against one of those tables raises 42704, not
 -- just the one statement the incident happened to hit first.
 --
+-- ROUND 2: the above fix shipped and got the migration past 42704, but the
+-- very next deploy (v0.7.10, Cloud Run revision helio-backend-00068-hb5)
+-- failed further in, at the `INSERT INTO outputs` backfill (section 9)
+-- with `ERROR: new row violates row-level security policy for table
+-- "outputs"` -- no SQLSTATE 42704 this time, because `outputs`/
+-- `node_snapshots`'s own policies (sections 2/3) already use
+-- `current_setting(..., missing_ok = true)`. `missing_ok` only changes an
+-- unset GUC from an ERROR to a NULL/false evaluation -- it does not change
+-- FORCE's effect of also gating the table OWNER. `outputs`/`node_snapshots`
+-- are created (not pre-existing) by this same migration, so they were
+-- entirely missed by round 1's table list. See sections 2/3 and 22 below.
+--
+-- ROUND 3: rounds 1/2 shipped fixed but were only ever PROVEN against an
+-- empty database (round 1) or without every panel/metric shape the real
+-- backfill loops branch on (round 2's own first fixture pass) -- neither
+-- reached section 9's `SELECT ... INTO metric_row FROM metrics WHERE id =
+-- panel_row.metric_id`, taken only for HEL-292 aggregation panels
+-- (`panels.metric_id IS NOT NULL`). `metrics` (V75) is owner-only with the
+-- same non-`missing_ok` policy shape as `pipeline_steps` -- same 42704
+-- failure as round 1, just gated on a rarer panel shape. Caught this round
+-- by seeding `FlywayNonSuperuserMigrationSpec` with the real
+-- `hel904-real-dump.sql` fixture (which does carry `metric_id` panels) and
+-- by systematically grepping every FORCE-RLS table name against this
+-- file's non-comment lines rather than fixing only the one statement the
+-- next deploy would have hit. `metrics` is bracketed in section 0 and, like
+-- `data_types`/`data_type_rows`, DROPped by section 21 -- never
+-- un-bracketed.
+--
 -- Why NOT the alternatives (ruled out, see HEL-943):
 --  * Setting `app.current_user_id` to some concrete value for the
 --    migration's duration would make every one of those owner-scoped
@@ -54,26 +82,43 @@
 --    DROP TABLE, ...) is not permitted under it.
 --
 -- Fix: `helio` (DB_USER) owns every table this migration reads or writes
--- that already carries FORCE ROW LEVEL SECURITY, so it -- and only it, as
--- the owning role -- can toggle FORCE off for the duration of this single
--- migration transaction and back on before it commits. `NO FORCE ROW LEVEL
--- SECURITY` does NOT disable RLS (`rowsecurity` stays on, policies still
--- exist) -- it only restores ordinary Postgres semantics where the table
--- OWNER bypasses RLS, exactly like every non-FORCE table already behaves
--- for its owner. Scoped to precisely the pre-existing tables this
--- migration's DML/SELECTs touch (`pipelines`, `data_sources`,
--- `pipeline_steps`, `data_types`, `data_type_rows`, `panels`, `binary_refs`,
--- `alert_rules`, `alert_events`, `patch_set_applications`) -- the two new
--- tables this file creates (`outputs`, `node_snapshots`) use `missing_ok`
--- policies from the start (see sections 2/3) and are never bracketed.
--- `data_types`/`data_type_rows` are DROPped by this same migration (section
+-- that carries FORCE ROW LEVEL SECURITY -- including `outputs`/
+-- `node_snapshots`, which this SAME migration creates and populates -- so
+-- it, and only it, as the owning role, can toggle FORCE off for the
+-- duration of this single migration transaction and back on before it
+-- commits. `NO FORCE ROW LEVEL SECURITY` does NOT disable RLS
+-- (`rowsecurity` stays on, policies still exist) -- it only restores
+-- ordinary Postgres semantics where the table OWNER bypasses RLS, exactly
+-- like every non-FORCE table already behaves for its owner. Scoped to
+-- precisely the tables this migration's DML/SELECTs touch:
+--  * Pre-existing tables (`pipelines`, `data_sources`, `pipeline_steps`,
+--    `data_types`, `data_type_rows`, `panels`, `binary_refs`,
+--    `alert_rules`, `alert_events`, `patch_set_applications`) -- bracketed
+--    here in section 0, `NO FORCE` up front, `FORCE` restored in section 22.
+--  * `outputs`/`node_snapshots` -- created by THIS migration (sections
+--    2/3), so there is nothing to bracket here in section 0 (the tables
+--    do not exist yet); instead their own `CREATE TABLE` blocks skip
+--    `FORCE` entirely (see the comments there) and section 22 turns it on
+--    for the first time, after every backfill INSERT into them has run.
+--    Originally missed in round 1 of this fix (v0.7.10, Cloud Run revision
+--    helio-backend-00068-hb5): `outputs_insert`/`node_snapshots_insert`
+--    already use `missing_ok = true`, so an unset `app.current_user_id`
+--    evaluates the check to NULL/false rather than erroring -- but FALSE
+--    still rejects the owner's own insert once FORCE applies, surfacing as
+--    `ERROR: new row violates row-level security policy for table
+--    "outputs"` instead of 42704. `missing_ok` avoids the *error*, not the
+--    *rejection* -- the owner-bypass bracket is required either way.
+-- `data_types`/`data_type_rows`/`metrics` are DROPped by this same
+-- migration (section
 -- 21) so they are never un-bracketed -- there is nothing left to restore
--- FORCE on. Every other table is un-bracketed at the very end (section 22)
--- so the production RLS posture after this migration is byte-for-byte
--- identical to before it: FORCE ROW LEVEL SECURITY was never actually
--- "off" from any OTHER role's perspective (it only ever affected `helio`'s
--- OWN owner-bypass, which no other login role has), and it is back on
--- before this transaction (and therefore this migration) commits.
+-- FORCE on. Every other table gets FORCE back (or, for `outputs`/
+-- `node_snapshots`, for the first time) at the very end (section 22), so
+-- the production RLS posture after this migration is byte-for-byte
+-- identical to what it would have been without this bracket: FORCE ROW
+-- LEVEL SECURITY was never actually "off" from any OTHER role's
+-- perspective (it only ever affected `helio`'s OWN owner-bypass, which no
+-- other login role has), and it is on before this transaction (and
+-- therefore this migration) commits.
 ALTER TABLE pipelines NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE data_sources NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE pipeline_steps NO FORCE ROW LEVEL SECURITY;
@@ -84,6 +129,17 @@ ALTER TABLE binary_refs NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE alert_rules NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE alert_events NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE patch_set_applications NO FORCE ROW LEVEL SECURITY;
+-- `metrics` (HEL-943 round 3): section 9's panel->Output DO block does
+-- `SELECT ... INTO metric_row FROM metrics WHERE id = panel_row.metric_id`
+-- for every HEL-292 aggregation panel (`metrics` per V75, owner-only,
+-- non-`missing_ok` policy, same fail-loud 42704 shape as pipeline_steps).
+-- Missed by rounds 1/2 of this fix because both were only exercised against
+-- either an empty database or without enough seeded panel/metric shapes to
+-- reach this branch -- see `FlywayNonSuperuserMigrationSpec`'s fixture-
+-- sanity assertions, added specifically to keep this class of gap from
+-- recurring a fourth time. `metrics` is DROPped by section 21 (like
+-- `data_types`/`data_type_rows`), so it is never un-bracketed either.
+ALTER TABLE metrics NO FORCE ROW LEVEL SECURITY;
 
 -- ── 1. pipeline_steps.parent_step_id (ticket.md scope item 1) ───────────────
 --
@@ -167,8 +223,18 @@ CREATE INDEX idx_outputs_node_step_id ON outputs(node_step_id);
 CREATE INDEX idx_outputs_owner_id ON outputs(owner_id);
 
 ALTER TABLE outputs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE outputs FORCE ROW LEVEL SECURITY;
-
+-- NOT `FORCE`d here (HEL-943 round 2): this migration's own DO blocks
+-- (sections 9/13 below) INSERT real backfilled rows into `outputs` as
+-- `helio` (the table owner) with no `app.current_user_id` ever SET. Even
+-- though `outputs_insert`'s WITH CHECK uses `missing_ok = true` (so it
+-- evaluates to NULL/false instead of erroring), an unset owner check still
+-- means EVERY insert violates it once FORCE applies to the owner too --
+-- `ERROR: new row violates row-level security policy for table "outputs"`,
+-- observed on the v0.7.10 deploy (Cloud Run revision helio-backend-00068-hb5)
+-- once section 0's original 42704 fix let the migration run far enough to
+-- reach this INSERT. `FORCE` is applied at the very end, in section 22,
+-- alongside the other bracketed tables -- see section 0's header for the
+-- full rationale (same mechanism, same "helio owns this table" argument).
 CREATE POLICY outputs_select ON outputs
   FOR SELECT
   USING (helio_can_access_pipeline(pipeline_id));
@@ -232,8 +298,11 @@ CREATE UNIQUE INDEX idx_node_snapshots_root_unique
 CREATE INDEX idx_node_snapshots_pipeline_id ON node_snapshots(pipeline_id);
 
 ALTER TABLE node_snapshots ENABLE ROW LEVEL SECURITY;
-ALTER TABLE node_snapshots FORCE ROW LEVEL SECURITY;
-
+-- NOT `FORCE`d here (HEL-943 round 2) -- same reasoning as `outputs` above:
+-- section 11's DO block INSERTs real backfilled rows as `helio` (the table
+-- owner) with no `app.current_user_id` ever SET, and `node_snapshots_insert`
+-- gates on `helio_can_access_pipeline`, which also evaluates to false (not
+-- an error) with no context set. `FORCE` is applied in section 22.
 CREATE POLICY node_snapshots_select ON node_snapshots
   FOR SELECT
   USING (helio_can_access_pipeline(pipeline_id));
@@ -1234,8 +1303,9 @@ DROP TABLE data_types;
 --
 -- Restore FORCE ROW LEVEL SECURITY on every surviving table that section 0
 -- turned it off for, so the RLS posture after this migration commits is
--- identical to before it. `data_types`/`data_type_rows` are DROPped above
--- (section 21) -- there is nothing left to restore FORCE on for either.
+-- identical to before it. `data_types`/`data_type_rows`/`metrics` are
+-- DROPped above (section 21) -- there is nothing left to restore FORCE on
+-- for any of the three.
 ALTER TABLE pipelines FORCE ROW LEVEL SECURITY;
 ALTER TABLE data_sources FORCE ROW LEVEL SECURITY;
 ALTER TABLE pipeline_steps FORCE ROW LEVEL SECURITY;
@@ -1244,3 +1314,17 @@ ALTER TABLE binary_refs FORCE ROW LEVEL SECURITY;
 ALTER TABLE alert_rules FORCE ROW LEVEL SECURITY;
 ALTER TABLE alert_events FORCE ROW LEVEL SECURITY;
 ALTER TABLE patch_set_applications FORCE ROW LEVEL SECURITY;
+
+-- `outputs`/`node_snapshots` (HEL-943 round 2): these two tables are
+-- CREATED by this same migration (sections 2/3) without FORCE, precisely so
+-- this migration's own backfill INSERTs into them (sections 9/11/13) --
+-- run as `helio`, the owner, with no `app.current_user_id` ever SET --
+-- are not rejected by their own `missing_ok`-gated policies (an unset
+-- context still evaluates those to false/NULL, which blocks the owner's
+-- insert once FORCE applies to the owner too). FORCE is turned on here,
+-- for the first time, once every backfill that writes to them has already
+-- run -- this is not a "restore" (they never had FORCE before this
+-- migration created them) but it belongs in this same final section so
+-- every table's terminal RLS posture is set in one place.
+ALTER TABLE outputs FORCE ROW LEVEL SECURITY;
+ALTER TABLE node_snapshots FORCE ROW LEVEL SECURITY;
