@@ -16,6 +16,75 @@
 -- any existing column an existing consumer reads. No existing repository/
 -- service code path is rewired by this migration -- that is section 3's job.
 
+-- ── 0. Migration-context bracket (HEL-943) ──────────────────────────────────
+--
+-- PROD INCIDENT: this migration originally failed on the v0.7.9 deploy
+-- (Cloud Run revision helio-backend-00067-qmw) at the `UPDATE pipeline_steps`
+-- backfill (section 1 below) with `ERROR: unrecognized configuration
+-- parameter "app.current_user_id"` (SQLSTATE 42704), aborting the deploy.
+--
+-- Root cause: `Database.initApp` runs Flyway using the plain application
+-- `DB_USER` (`helio`) -- the SAME non-privileged, non-BYPASSRLS login every
+-- `withUserContext` request uses (see that file's own header comment).
+-- `helio` also owns every table Flyway creates, so `FORCE ROW LEVEL
+-- SECURITY` (added specifically so the table OWNER cannot bypass RLS, per
+-- V35's header) applies to Flyway's own migration connection. Every
+-- existing owner-only/indirect-owner policy from V35/V36/V46/V60/V61/V79
+-- (and friends) reads `current_setting('app.current_user_id')` WITHOUT
+-- `missing_ok = true` -- by design (see V35's header: "the cast raises an
+-- error, making the app pool fail-closed rather than silently leaking
+-- data"). Flyway's connection never SETs that GUC, so every read or write
+-- this migration performs against one of those tables raises 42704, not
+-- just the one statement the incident happened to hit first.
+--
+-- Why NOT the alternatives (ruled out, see HEL-943):
+--  * Setting `app.current_user_id` to some concrete value for the
+--    migration's duration would make every one of those owner-scoped
+--    policies filter to ONE user's rows, silently under-migrating every
+--    other user's data -- far worse than failing loudly.
+--  * Relaxing the policies to `missing_ok = true` repo-wide would flip
+--    V35's deliberate fail-CLOSED posture (unset context = error) to
+--    fail-OPEN-to-"no rows" for every request path that ever forgets to
+--    set the context, which is a security regression far outside this
+--    migration's scope.
+--  * `ALTER ROLE helio BYPASSRLS` permanently disables the entire RLS
+--    model for the live application role.
+--  * `SET ROLE helio_privileged` fails outright: that role is NOLOGIN and
+--    is not the owner of these tables, so this file's DDL (ALTER TABLE,
+--    DROP TABLE, ...) is not permitted under it.
+--
+-- Fix: `helio` (DB_USER) owns every table this migration reads or writes
+-- that already carries FORCE ROW LEVEL SECURITY, so it -- and only it, as
+-- the owning role -- can toggle FORCE off for the duration of this single
+-- migration transaction and back on before it commits. `NO FORCE ROW LEVEL
+-- SECURITY` does NOT disable RLS (`rowsecurity` stays on, policies still
+-- exist) -- it only restores ordinary Postgres semantics where the table
+-- OWNER bypasses RLS, exactly like every non-FORCE table already behaves
+-- for its owner. Scoped to precisely the pre-existing tables this
+-- migration's DML/SELECTs touch (`pipelines`, `data_sources`,
+-- `pipeline_steps`, `data_types`, `data_type_rows`, `panels`, `binary_refs`,
+-- `alert_rules`, `alert_events`, `patch_set_applications`) -- the two new
+-- tables this file creates (`outputs`, `node_snapshots`) use `missing_ok`
+-- policies from the start (see sections 2/3) and are never bracketed.
+-- `data_types`/`data_type_rows` are DROPped by this same migration (section
+-- 21) so they are never un-bracketed -- there is nothing left to restore
+-- FORCE on. Every other table is un-bracketed at the very end (section 22)
+-- so the production RLS posture after this migration is byte-for-byte
+-- identical to before it: FORCE ROW LEVEL SECURITY was never actually
+-- "off" from any OTHER role's perspective (it only ever affected `helio`'s
+-- OWN owner-bypass, which no other login role has), and it is back on
+-- before this transaction (and therefore this migration) commits.
+ALTER TABLE pipelines NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE data_sources NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE pipeline_steps NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE data_types NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE data_type_rows NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE panels NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE binary_refs NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE alert_rules NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE alert_events NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE patch_set_applications NO FORCE ROW LEVEL SECURITY;
+
 -- ── 1. pipeline_steps.parent_step_id (ticket.md scope item 1) ───────────────
 --
 -- NULL = child of the source root. Backfilled from today's `position` order
@@ -1160,3 +1229,18 @@ ALTER TABLE binary_refs DROP COLUMN data_type_id;
 DROP TABLE metrics;
 DROP TABLE data_type_rows;
 DROP TABLE data_types;
+
+-- ── 22. Migration-context bracket restore (HEL-943) ─────────────────────────
+--
+-- Restore FORCE ROW LEVEL SECURITY on every surviving table that section 0
+-- turned it off for, so the RLS posture after this migration commits is
+-- identical to before it. `data_types`/`data_type_rows` are DROPped above
+-- (section 21) -- there is nothing left to restore FORCE on for either.
+ALTER TABLE pipelines FORCE ROW LEVEL SECURITY;
+ALTER TABLE data_sources FORCE ROW LEVEL SECURITY;
+ALTER TABLE pipeline_steps FORCE ROW LEVEL SECURITY;
+ALTER TABLE panels FORCE ROW LEVEL SECURITY;
+ALTER TABLE binary_refs FORCE ROW LEVEL SECURITY;
+ALTER TABLE alert_rules FORCE ROW LEVEL SECURITY;
+ALTER TABLE alert_events FORCE ROW LEVEL SECURITY;
+ALTER TABLE patch_set_applications FORCE ROW LEVEL SECURITY;
