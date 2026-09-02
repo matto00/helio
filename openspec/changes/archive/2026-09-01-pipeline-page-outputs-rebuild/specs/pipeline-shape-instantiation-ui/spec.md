@@ -64,7 +64,7 @@ below are fixture-only until then. The existing `"string"` / `"string[]"` / `"in
   entry and leaves that field empty
 - **THEN** the submit control is disabled (or submission is blocked) until the field is non-empty
 
-### Requirement: Submitting the params form expands the shape and seeds steps and Outputs
+### Requirement: Submitting the params form expands the shape and seeds steps
 
 Submitting the params form SHALL call `POST /api/pipeline-shapes/:id/expand` with the collected
 params only (the endpoint has no `parentStepId` field and never learns which step was chosen —
@@ -86,6 +86,26 @@ backend today — the Outputs-creation arm of this requirement is implemented bu
 against a fixture until a shape declares outputs; the steps-only path is the only one currently
 live.
 
+#### Scenario: Successful expand seeds steps in order
+- **WHEN** the expand response omits `outputs` (spray-json omits absent `Option`, not `null` — the
+  case every registered shape currently returns) and a user submits valid params for `top-n`
+  (which expands to a `sort` step then a `limit` step)
+- **THEN** two new step cards appear, in order: `sort` first, then `limit` (each `parentStepId`
+  resolved from its `clientId` reference), both rendered by the standard `StepCard` component and
+  independently editable
+
+#### Scenario: Instantiating into a non-empty pipeline appends after existing steps
+- **WHEN** a user submits valid params for a shape against a chosen trunk step that already has one
+  manually-added child (a tail)
+- **THEN** the shape's expanded steps are seeded as a NEW tail off the chosen step (a tail-attach,
+  per the primitive `attachTailInternal` established for tail creation elsewhere in this change);
+  the chosen step's existing tail and every other step are unmodified and not replaced
+
+#### Scenario: Instantiating against a zero-step pipeline seeds a trunk, not a tail
+- **WHEN** a user opens the shape picker from the empty-state (no steps yet) and submits valid params
+- **THEN** the response's root step is created with no `parentStepId` (seeding the trunk root),
+  and subsequent steps chain off it exactly as the non-empty case chains off the chosen node
+
 #### Scenario: Successful expand seeds steps and an Output (fixture-only until a shape declares outputs)
 - **WHEN** a user submits valid params for a shape that expands to `{steps: [...], outputs: [...]}`
   against a trunk step with no existing tail
@@ -93,21 +113,16 @@ live.
   resolved to the real created step ids), and the returned Output(s) attach to the resulting tail
   node via the same resolution, all independently editable afterward
 
-#### Scenario: Expand response with no outputs seeds steps only (the live path today)
-- **WHEN** the expand response omits `outputs` (spray-json omits absent `Option`, not `null` — the
-  case every registered shape currently returns)
-- **THEN** the form treats it as zero Outputs to create, not an error, and seeds only the steps,
-  each `parentStepId` resolved from its `clientId` reference
+#### Scenario: Seeded steps carry no shape provenance
+- **WHEN** a shape's steps have been seeded into a pipeline
+- **THEN** each resulting step's persisted config contains only that step kind's own fields — no
+  `shapeId`, `sourceShape`, or equivalent field is present anywhere in the step's config or wire
+  response
 
-#### Scenario: Instantiating against a zero-step pipeline seeds a trunk, not a tail
-- **WHEN** a user opens the shape picker from the empty-state (no steps yet) and submits valid params
-- **THEN** the response's root step is created with no `parentStepId` (seeding the trunk root),
-  and subsequent steps chain off it exactly as the non-empty case chains off the chosen node
-
-#### Scenario: Seeded steps and Outputs carry no shape provenance
-- **WHEN** a shape's steps and Outputs have been seeded
-- **THEN** each resulting step's and Output's persisted config contains only its own fields — no
-  `shapeId`, `sourceShape`, or equivalent field is present anywhere in config or wire response
+#### Scenario: Seeded Outputs carry no shape provenance (fixture-only until a shape declares outputs)
+- **WHEN** a shape's Outputs have been seeded (per the fixture-only scenario above)
+- **THEN** each resulting Output's persisted config contains only its own fields — no `shapeId`,
+  `sourceShape`, or equivalent field is present anywhere in config or wire response
 
 ### Requirement: A failed expand or step-create is always surfaced, never silent
 

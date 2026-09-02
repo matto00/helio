@@ -1,7 +1,9 @@
 ## Purpose
 Defines the frontend pipeline editor page (`/pipelines/:id`), which provides a visual editor
 for viewing and modifying pipeline transformation steps.
+
 ## Requirements
+
 ### Requirement: Pipeline detail page renders at /pipelines/:id
 The frontend SHALL render a `PipelineDetailPage` component when the user navigates to
 `/pipelines/:id`. The page SHALL display three sections: a single header region combining the
@@ -87,18 +89,21 @@ The user SHALL be able to remove a transformation step from the river view. Afte
 - **THEN** that step is no longer visible in the river view
 
 ### Requirement: Editable output name in footer
-The footer bar SHALL display an output name field. The user SHALL be able to edit the output name inline.
+The footer bar SHALL display the pipeline's own name field (not a bound output-type name). The
+user SHALL be able to edit the pipeline name inline.
 
 #### Scenario: Output name is editable
-- **WHEN** the user activates the output name field
+- **WHEN** the user activates the pipeline name field
 - **THEN** an input element is rendered allowing the name to be changed
 
 ### Requirement: Run pipeline button shows placeholder
-The "Run pipeline" button in the footer bar SHALL be visible. When clicked, it SHALL display a placeholder message indicating execution is not yet available.
+The "Run pipeline" and "Dry run" buttons in the footer bar SHALL trigger a real pipeline run over
+SSE (this requirement no longer describes a placeholder; superseded by the shipped `pipeline-run-sse`
+and `pipeline-dry-run-ui` capabilities).
 
 #### Scenario: Run button shows placeholder on click
 - **WHEN** the user clicks the "Run pipeline" button
-- **THEN** a placeholder message is shown (e.g. via alert or inline toast)
+- **THEN** a live run is submitted and its status streams via SSE, not a placeholder message
 
 ### Requirement: Pipeline detail page shows loading state while fetching
 `PipelineDetailPage` SHALL display a loading indicator while `fetchPipelineById` or
@@ -153,18 +158,20 @@ and no "Never run" placeholder is shown (the never-run state is communicated in 
 - **THEN** the appropriate status badge is rendered in the footer's last-run metadata
 
 ### Requirement: Bound-type bar displays the pipeline's output DataType
-The page header SHALL show the pipeline's output DataType name
-(`currentPipeline.outputDataTypeName`), read-only. The page SHALL fetch `state.dataTypes.items`
-(via the `fetchDataTypes` thunk) on mount if not already loaded, so ownership of the output
-DataType can be determined the same way source ownership is: by presence in the already-fetched,
-owner-scoped list.
+The page header SHALL show source, schedule, run status, and the pipeline's total Outputs count
+("Outputs (N)"). The "Output type" link and any DataType-bound header field are removed; the page
+SHALL NOT fetch `state.dataTypes.items` or reference `outputDataTypeName`/`outputDataTypeId`.
 
 #### Scenario: Page header shows the output type name
-- **WHEN** `PipelineDetailPage` is rendered with a loaded `currentPipeline`
-- **THEN** the page header shows `currentPipeline.outputDataTypeName`
+- **WHEN** `PipelineDetailPage` is rendered with a loaded `currentPipeline` that has 4 Outputs
+- **THEN** the page header shows "Outputs (4)" and no "Output type" link is present
 
 ### Requirement: Pipeline-sharing role does not grant source/type edit access
-A pipeline-sharing `editor` or `viewer` grant (see `pipeline-sharing`) confers no ownership of the pipeline's bound DataSource or output DataType. The "Edit Source" / "Edit Type" buttons SHALL be gated solely on DataSource/DataType ownership (presence in the current user's owner-scoped `sources.items` / `dataTypes.items`), never on pipeline ownership or pipeline-sharing role alone.
+A pipeline-sharing `editor` or `viewer` grant (see `pipeline-sharing`) confers no ownership of the
+pipeline's bound DataSource. The "Edit Source" button SHALL be gated solely on DataSource ownership
+(presence in the current user's owner-scoped `sources.items`), never on pipeline ownership or
+pipeline-sharing role alone. (The output-DataType half of this requirement is removed along with
+the DataType concept — see `pipeline-output-type-selector`'s REMOVED Requirements.)
 
 #### Scenario: Shared pipeline editor without source ownership sees no Edit Source button
 - **WHEN** the current user has an `editor` grant on the pipeline but does not own its bound
@@ -209,25 +216,6 @@ the existing add-step row). The affordance SHALL:
 - **THEN** the pipeline re-analyzes without manual action and downstream steps' schemas/validation
   reflect the new upstream step
 
-### Requirement: Edit Type action is ownership-gated
-The header's single actions menu SHALL include an "Edit type" item when `state.dataTypes.items`
-contains a DataType whose id matches `currentPipeline.outputDataTypeId` (i.e. the current user
-owns it); activating it sets `dataTypes.selectedTypeId` to that DataType's id and navigates to
-`/registry`. When no matching DataType is found in `state.dataTypes.items`, the "Edit type" item
-SHALL NOT appear in the menu.
-
-#### Scenario: Edit type action shown when the current user owns the output type
-- **WHEN** `state.dataTypes.items` contains a DataType whose id matches `currentPipeline.outputDataTypeId`, and the user opens the header's actions menu
-- **THEN** an "Edit type" menu item is visible
-
-#### Scenario: Edit type action hidden when the current user does not own the output type
-- **WHEN** no DataType in `state.dataTypes.items` matches `currentPipeline.outputDataTypeId`, and the user opens the header's actions menu
-- **THEN** no "Edit type" menu item is rendered
-
-#### Scenario: Activating Edit type navigates to the type registry
-- **WHEN** the user opens the header's actions menu and activates "Edit type"
-- **THEN** `dataTypes.selectedTypeId` is set to the output DataType's id and the app navigates to `/registry`
-
 ### Requirement: Header actions consolidate into one menu
 The page header SHALL expose exactly one action-menu trigger button (not one button per action)
 for its per-field edit actions. The menu SHALL be built from the existing `ActionsMenu` shared
@@ -260,4 +248,3 @@ as their own always-visible buttons.
 #### Scenario: Run history, Preview, and Share collapse into the overflow menu
 - **WHEN** the current user owns the pipeline (Share available) and opens the footer's "More actions" menu
 - **THEN** "Run history", "Preview", and "Share" are listed as menu items, and none of the three renders as its own always-visible button
-

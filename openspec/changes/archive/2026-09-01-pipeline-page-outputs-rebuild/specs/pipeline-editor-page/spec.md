@@ -8,7 +8,7 @@ user SHALL be able to edit the pipeline name inline.
 - **WHEN** the user activates the pipeline name field
 - **THEN** an input element is rendered allowing the name to be changed
 
-### Requirement: Run pipeline and Dry run buttons trigger real runs
+### Requirement: Run pipeline button shows placeholder
 The "Run pipeline" and "Dry run" buttons in the footer bar SHALL trigger a real pipeline run over
 SSE (this requirement no longer describes a placeholder; superseded by the shipped `pipeline-run-sse`
 and `pipeline-dry-run-ui` capabilities).
@@ -17,7 +17,7 @@ and `pipeline-dry-run-ui` capabilities).
 - **WHEN** the user clicks the "Run pipeline" button
 - **THEN** a live run is submitted and its status streams via SSE, not a placeholder message
 
-### Requirement: Header shows Outputs count instead of a bound output type
+### Requirement: Bound-type bar displays the pipeline's output DataType
 The page header SHALL show source, schedule, run status, and the pipeline's total Outputs count
 ("Outputs (N)"). The "Output type" link and any DataType-bound header field are removed; the page
 SHALL NOT fetch `state.dataTypes.items` or reference `outputDataTypeName`/`outputDataTypeId`.

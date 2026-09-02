@@ -2,14 +2,15 @@
 
 ## Purpose
 Let pipeline authors reorder steps directly in the editor — by drag or keyboard — with the new order persisted atomically via a batch endpoint and the pipeline re-validated (analyze + previews) to surface any step made invalid by its new position.
+
 ## Requirements
+
 ### Requirement: PUT /api/pipelines/:id/steps/order atomically reorders a pipeline's trunk
 The backend SHALL expose `PUT /api/pipelines/:id/steps/order` accepting `{ "stepIds": [...] }`.
-`stepIds` is a **trunk-only** contract (design.md decision 15 / non-goal waiver #2): it must be
-exactly a permutation of the pipeline's CURRENT trunk step ids — trunk = the `position == 0`
-chain from the pipeline root, as returned by `trunkOf`. Any tail id present in `stepIds` is
-rejected (tails are attached to a node's id, not a trunk slot, and are never reordered by this
-endpoint). The endpoint SHALL:
+`stepIds` is a **trunk-only** contract: it must be exactly a permutation of the pipeline's
+CURRENT trunk step ids — trunk = the `position == 0` chain from the pipeline root, as returned by
+`trunkOf`. Any tail id present in `stepIds` is rejected (tails are attached to a node's id, not a
+trunk slot, and are never reordered by this endpoint). The endpoint SHALL:
 - Require editor or owner access on the pipeline (viewers receive `403 Forbidden`; pipelines the
   caller cannot see return `404 Not Found`, masking existence)
 - Return `422 Unprocessable Entity` when `stepIds` is not exactly a permutation of the pipeline's
@@ -17,9 +18,8 @@ endpoint). The endpoint SHALL:
   duplicate
 - On success, **relink** `parentStepId` along the requested order — `stepIds[0]`'s
   `parentStepId` becomes the pipeline root (`None`), and `stepIds[i]`'s `parentStepId` becomes
-  `stepIds[i - 1]` for `i > 0` — and write every trunk step's `position` as `0` (a trunk node is
-  always the position-0 / trunk-continuation child of its new parent), all within a single
-  database transaction; a rejected (`422`) reorder SHALL leave every position and every
+  `stepIds[i - 1]` for `i > 0` — and write every trunk step's `position` as `0`, all within a
+  single database transaction; a rejected (`422`) reorder SHALL leave every position and every
   `parentStepId` unchanged. A moved trunk node's own tail (if any) travels with it automatically,
   because the tail's `parentStepId` already references the trunk node's id, not a positional
   slot; the node that ends up occupying a moved node's old slot in the array does NOT inherit
@@ -93,4 +93,3 @@ The pipeline editor SHALL let an author reorder steps and persist the result:
 - **WHEN** the reorder request fails (e.g. concurrent edit made the payload stale)
 - **THEN** the step list reverts to its previous order and a visible error is surfaced (no
   silently lost reorder)
-

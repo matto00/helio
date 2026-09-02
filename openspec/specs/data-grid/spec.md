@@ -4,7 +4,9 @@
 Defines the shared `DataGrid` primitive's rendering contract (rows/columns, empty state, variant/
 density defaults, and default cell formatting) that every table-shaped surface in the app renders
 through, replacing per-surface duplicated table markup.
+
 ## Requirements
+
 ### Requirement: DataGrid renders rows and columns
 `DataGrid` SHALL render a set of `rows: Record<string, unknown>[]` as a table. When `columns` is
 omitted, the column set SHALL be derived as the union of keys across the first 50 rows, in
@@ -121,13 +123,18 @@ ancestor wrappers SHALL size it (via flex/grid sizing) but SHALL NOT hard-clip i
 
 Every current `DataGrid` consumer SHALL render `<DataGrid>` without an explicit `density` prop, so each surface inherits the variant default (`preview` -> `condensed`, `full` -> `normal`) rather than hardcoding or duplicating density logic per surface.
 
-Covered consumers: `TypeDetailPanel`, `SourceDetailPanel`, `PipelinePreviewModal`, `StepCard`,
-`SqlTab`, `TableRenderer`. A consumer MAY pass an explicit `density` override only when its surface
-has a documented reason to diverge from the variant default.
+Covered consumers: `TypeDetailPanel`, `SourceDetailPanel`, `StepCard`, `SqlTab`, `TableRenderer`.
+(`PipelinePreviewModal` is removed from this list — HEL-908 deleted it, superseded by per-Output
+previews. Its replacement, the Output editor sheet's `OutputPreviewPane`, is NOT a `DataGrid`
+consumer — it renders its own plain read-only `<table>` for table/collection/timeline kinds,
+deliberately not wired through `DataGrid`/`TableRenderer`, since `TableRenderer` persists
+column-resize PATCHes against a `panelId` an Output sheet has no matching panel for. This is a net
+reduction in `DataGrid` consumers, not a swap.) A consumer MAY pass an explicit `density` override
+only when its surface has a documented reason to diverge from the variant default.
 
 #### Scenario: Preview-variant consumers render condensed by default
-- **WHEN** `TypeDetailPanel`, `SourceDetailPanel`, `PipelinePreviewModal`, `StepCard`, or `SqlTab`
-  renders its `DataGrid` instance
+- **WHEN** `TypeDetailPanel`, `SourceDetailPanel`, `StepCard`, or `SqlTab` renders its `DataGrid`
+  instance
 - **THEN** the rendered grid has condensed row spacing (`ui-data-grid--condensed`), matching the
   `preview` variant default
 
@@ -190,4 +197,3 @@ border never starts a panel-level drag or resize gesture.
 - **WHEN** a `TableRenderer`'s `DataGrid` is rendered inside a `PanelGrid` panel card and the user
   presses down on a column's resize handle and drags
 - **THEN** only the column resizes — the panel card does not move and no panel drag-start fires
-

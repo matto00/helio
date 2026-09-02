@@ -45,8 +45,14 @@ and fold panel binding UI into it as the reusable Output editor.
 - `pipeline-shape-instantiation-ui`: shape flow retargets to Output-producing expand against a step.
 
 ### Removed Capabilities
-- `pipeline-output-type-selector`: DataType concept dropped by HEL-904; superseded by the Output
-  sheet's capabilities-at-node mapping UI.
+- None actually removed by this ticket at delivery time. `pipeline-output-type-selector`
+  (`selectPipelineOutputDataTypes`) was originally planned for removal here (DataType concept
+  dropped by HEL-904, superseded by the Output sheet's capabilities-at-node mapping UI), but
+  `PanelDetailModal` and `MetricEditorForm` still call it live — genuinely blocked on the
+  out-of-scope `PanelDetailModal` migration (HEL-937), same as task 2.5/5.9. Caught at archive
+  time (openspec correctly refused to retire a capability with live callers); the spec delta
+  removing it was deleted rather than force-archived. Retirement moves to HEL-937/HEL-938.
+
 
 ## Impact
 
