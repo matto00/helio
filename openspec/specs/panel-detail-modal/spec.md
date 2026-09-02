@@ -2,31 +2,15 @@
 
 ## Purpose
 The panel detail modal provides panel-level customization (appearance and data configuration) accessible from the panel actions menu and from a direct click on the panel card body.
+
 ## Requirements
+
 ### Requirement: Panel detail modal opens from the actions menu
 The "Customize" action in the panel actions menu MUST open the panel detail modal for that panel. Panel body click is also a trigger — see the ADDED requirement below.
 
 #### Scenario: Customize action opens the modal
 - **WHEN** the user clicks "Customize" in a panel's actions menu
 - **THEN** the panel detail modal opens with the panel's title in the header
-
-### Requirement: Panel detail modal has Appearance and Data tabs
-The modal MUST present an Appearance tab and a Data tab. The Appearance tab MUST be active by default **when in edit mode**. Tabs are not visible in view mode.
-
-#### Scenario: Appearance tab is active on entering edit mode
-- **WHEN** the user clicks Edit to enter edit mode
-- **THEN** the Appearance tab is selected and its content is visible
-
-#### Scenario: User switches to the Data tab in edit mode
-- **WHEN** the user clicks the Data tab while in edit mode
-- **THEN** the Data tab content is shown and Appearance tab content is hidden
-
-### Requirement: Data tab shows a placeholder
-The Data tab MUST display a placeholder message indicating data source connectivity is not yet available.
-
-#### Scenario: Data tab shows placeholder text
-- **WHEN** the Data tab is active
-- **THEN** a message such as "Connect a data source to display real content" is visible
 
 ### Requirement: Modal dismisses on Escape, backdrop click, and Cancel
 The modal MUST close when the user presses Escape (in view mode), clicks the backdrop (in view
@@ -186,3 +170,27 @@ requirement; see design.md.)
 - **THEN** the modal is shown again for that same panel (it was not permanently closed by the
   transient state)
 
+### Requirement: Output-kind panel sheet has no binding controls; content-kind panels are unaffected
+For an output-kind panel, the panel detail modal (the "Panel sheet") SHALL show title override, appearance, a link to the panel's Output on its pipeline page, a "Swap output" action, and a placements note ("used on N dashboards") — it SHALL NOT show a field-mapping, aggregation, or any other visualization-configuration control, and SHALL have no "Data" tab. Content-kind panels (text, markdown, image, divider) are unaffected by this requirement: like every other panel kind, they render a single unified edit form (Appearance section plus a kind-specific section — e.g. Divider, or the literal text/markdown content editor) with no tab bar at all. This was already true before this change (there was never a tab bar for any panel kind); this requirement records it as unchanged rather than reintroducing one.
+
+#### Scenario: Output panel sheet has no binding controls
+- **WHEN** the user opens the detail sheet for an output-kind panel
+- **THEN** the sheet shows title override, appearance, an Output link, and Swap output
+- **AND** no field-mapping or aggregation control is rendered anywhere in the sheet
+- **AND** no "Data" tab is shown
+
+#### Scenario: Output link opens the Output's pipeline page
+- **WHEN** the user activates the Output link in the panel sheet
+- **THEN** the user is navigated to `/pipelines/:id` with that Output's sheet opened
+
+#### Scenario: Content panel keeps its unified, tab-free edit form
+- **WHEN** the user opens the detail sheet for a text, markdown, image, or divider panel
+- **THEN** a single edit form is shown with an Appearance section and that kind's literal-content editor, with no tab bar and no "Data" tab — unchanged from before this change
+
+### Requirement: Swap output re-uses the picker
+Activating "Swap output" on an output-kind panel's sheet MUST re-open the Output picker, scoped to replacing the current panel's `outputId` in place (preserving the panel's position/size) rather than creating a new placement.
+
+#### Scenario: Swap output preserves placement position and size
+- **WHEN** the user swaps an output-kind panel's Output via the picker
+- **THEN** the panel's existing position and size are preserved
+- **AND** only `outputId` changes

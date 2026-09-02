@@ -3,64 +3,20 @@
 ## Purpose
 Defines the frontend contract for creating panels via the backend API, including payload structure,
 panel list refresh behavior, and inline feedback within the creation modal.
+
 ## Requirements
-### Requirement: Frontend panel creation is backend-backed
-The frontend MUST create panels through the backend API in the context of the selected dashboard. The
-create request MUST include the `type` selected by the user in the type-first modal; there is no
-default type assumed by the UI — the user MUST explicitly select a type before the create request is
-submitted. For data-bound panel types (metric, chart, text, table), the create request MUST also
-include the `dataTypeId` selected in the DataType picker step; the Create button SHALL be disabled
-until a DataType is selected. Any optional type-specific config values entered in the name-entry step
-MUST also be included in the create request payload.
 
-#### Scenario: User creates a panel from the panel list
-- **GIVEN** a dashboard is selected
-- **WHEN** the user opens the panel creation modal, selects a data-bound type, selects a template, selects a DataType, enters a title, and confirms create
-- **THEN** the frontend submits a panel-create request to the backend
-- **AND** the request includes the selected dashboard id
-- **AND** the request includes the type the user selected in the modal
-- **AND** the request includes the dataTypeId the user selected in the DataType step
-
-#### Scenario: Panel create request carries type when provided
-- **GIVEN** a `type` value is supplied to the create thunk
-- **WHEN** the frontend submits the create request
-- **THEN** the request body includes the `type` field with the provided value
-
-#### Scenario: Panel create request carries dataTypeId for data-bound types
-- **GIVEN** a data-bound panel type is selected and a DataType has been chosen
-- **WHEN** the frontend submits the create request
-- **THEN** the request body includes the `dataTypeId` field with the chosen DataType's id
-
-#### Scenario: Panel create request does not carry dataTypeId for non-data-bound types
-- **GIVEN** a non-data-bound panel type (markdown, image, divider) is selected
-- **WHEN** the frontend submits the create request
-- **THEN** the request body does not include a `dataTypeId` field
-
-#### Scenario: Panel create request carries type-specific config when provided
-- **GIVEN** the user has entered one or more optional type-specific config values in the name-entry step
-- **WHEN** the frontend submits the create request
-- **THEN** the request body includes the type-specific config fields with the entered values
-
-#### Scenario: Create button is disabled until DataType is selected for data-bound types
-- **GIVEN** the user has reached the name-entry step for a data-bound panel type
-- **WHEN** no DataType was selected (should not happen in normal flow but guards against state edge cases)
-- **THEN** the Create button is disabled
-
-### Requirement: Panel list refreshes after successful create
-The frontend MUST refresh selected-dashboard panels after a successful panel creation.
+### Requirement: Panel list refreshes after a successful placement or content-panel create
+Placing an Output via the picker, or creating a content panel, SHALL refresh the dashboard's panel list so the new panel appears without a manual refresh — the same outcome `frontend-panel-creation` always guaranteed, now triggered by the picker's placement call instead of the retired wizard's create call.
 
 #### Scenario: Panel create succeeds
-- **GIVEN** panel create returns success
-- **WHEN** the create flow completes
-- **THEN** the frontend refreshes panels for the selected dashboard
-- **AND** the newly created panel appears in rendered panel content
+- **WHEN** the user places an Output via the picker, or creates a content panel
+- **THEN** the request succeeds
+- **AND** the dashboard's panel list includes the new panel without requiring a manual refresh
 
-### Requirement: Inline panel creation exposes simple explicit feedback
-The panel create modal MUST provide inline loading and failure feedback within the modal dialog.
+### Requirement: Placement and content-panel creation expose simple explicit feedback
+Placing an Output or creating a content panel SHALL surface simple, explicit success/error feedback — the same feedback contract `frontend-panel-creation` always guaranteed, now covering the picker's placement call and content-panel creation instead of the retired wizard's multi-step create flow.
 
 #### Scenario: Panel create fails
-- **GIVEN** the panel creation modal is open at the title step
-- **WHEN** the backend create request fails
-- **THEN** an inline error message is shown inside the modal
-- **AND** the create action is re-enabled for retry
-
+- **WHEN** `POST /api/panels` fails while placing an Output or creating a content panel
+- **THEN** the picker (or dashboard) shows an explicit, human-readable error rather than failing silently

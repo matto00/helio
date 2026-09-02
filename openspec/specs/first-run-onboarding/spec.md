@@ -3,7 +3,9 @@
 ## Purpose
 The guided first-run checklist that teaches the source -> pipeline -> type -> panel model: when it appears,
 how each step's completion is derived and actioned, how dismissal persists per user, and how it re-opens.
+
 ## Requirements
+
 ### Requirement: The checklist is presented whenever it is active, and activation is distinct from content
 
 The system SHALL distinguish three separate notions and SHALL NOT conflate them: whether the checklist is
@@ -122,36 +124,6 @@ failed fetch is never swallowed.
 - **WHEN** the user activates the retry on a step whose collection failed
 - **THEN** that collection is fetched again and the step resolves to a definite state on success
 
-### Requirement: Each step's action opens that step's real creation flow
-
-Each step SHALL open the same creation flow the workspace's own create action for that resource opens,
-obtained from that resource's shared create action rather than re-derived by the checklist.
-
-Where a step's flow is mounted by a page other than the one hosting the checklist, the step SHALL navigate
-to that page, where that page's own create affordance opens the flow. The checklist SHALL NOT set a
-page-mounted flow's visibility flag from a surface that does not mount that flow, in any form — including
-setting it alongside a navigation, which leaves the mounting page rendering with the flag already set and so
-exposed to an unmount cleanup running before the flow is ever seen.
-
-A step whose precondition is unmet SHALL remain unavailable, exactly as the underlying create action
-already reports.
-
-#### Scenario: A step whose flow is mounted at the shell opens in place
-- **WHEN** the user activates a step whose creation flow is mounted at the application shell
-- **THEN** that flow opens without navigation
-
-#### Scenario: A step whose flow is mounted elsewhere navigates to that page
-- **WHEN** the user activates a step whose creation flow is mounted by another page
-- **THEN** the workspace navigates to that page, where that page's own create affordance opens the flow
-
-#### Scenario: The checklist never sets a page-mounted flow's visibility flag
-- **WHEN** the user activates a step whose creation flow is mounted by another page
-- **THEN** the checklist sets no visibility flag for that flow
-
-#### Scenario: An unmet precondition leaves a step unavailable
-- **WHEN** the panel step is reached with no dashboard selected
-- **THEN** that step's action is unavailable, matching the underlying create action's own state
-
 ### Requirement: Dismissal persists per user and the checklist can be re-opened from anywhere
 
 The checklist SHALL be dismissible without blocking any other use of the workspace, and its dismissal SHALL
@@ -193,37 +165,49 @@ A failure to read or write the stored dismissal SHALL NOT prevent the workspace 
 - **WHEN** reading or writing the stored dismissal raises an error
 - **THEN** the workspace still renders
 
-### Requirement: The checklist teaches the source-to-panel model in words and in glyphs
+### Requirement: The checklist teaches the source-to-output-to-dashboard model in words and in glyphs
+The checklist SHALL present exactly three steps — connect a source, shape it into outputs, place them on a dashboard — with every glyph derived from the nav section registry (not a bypass constant, closing HEL-794). The closing copy SHALL name all five nav destinations (Dashboards, Data Sources, Data Pipelines, Connectors, Assistant) so the icon-only mobile nav is fully covered (closing the surviving half of HEL-793).
 
-The checklist's copy SHALL name the workspace's four resources — data source, pipeline, type, and panel —
-and SHALL state explicitly that a type is produced by a pipeline and cannot be created directly, because the
-type registry offers no create path.
+#### Scenario: Three-step model replaces the four-step one
+- **WHEN** the onboarding checklist renders
+- **THEN** exactly three steps are shown: connect a source, shape it into outputs, place them on a dashboard
+- **AND** no step references Types or Metrics
 
-Because the workspace's phone navigation is icon-only, the vocabulary lesson SHALL bind each concept to the
-glyph that navigation uses for it. Each step SHALL carry its section's own glyph, taken from the shared
-section registry every other surface derives from rather than independently chosen, and the type concept
-SHALL be shown with the registry's own glyph beside the sentence that explains it. Teaching the words while
-leaving the glyphs unexplained would leave a user unable to map either onto the other.
+#### Scenario: Every step glyph comes from the section registry
+- **WHEN** the checklist renders its step icons
+- **THEN** each icon is read from `sections.ts`'s registry entries, not a separate hardcoded icon
 
-The copy SHALL be brief enough to read at a glance, and SHALL be specific to this workspace's model rather
-than generic encouragement. This SHALL hold for the completed state as much as for the steps: on completion
-the surface SHALL restate the chain it just taught, rather than offering congratulation that names none of
-the four resources.
+#### Scenario: Closing copy names all five destinations
+- **WHEN** the checklist reaches its closing/completion copy
+- **THEN** the text names Dashboards, Data Sources, Data Pipelines, Connectors, and Assistant
 
-#### Scenario: The copy states where types come from
-- **WHEN** the checklist is presented
-- **THEN** its pipeline step states that a type is a pipeline's output and is never created directly
+### Requirement: Each of the three steps' actions opens that step's real creation flow
+Each step's action SHALL open that step's real creation flow: a step whose flow is mounted at the shell (e.g. a modal) opens in place; a step whose flow is mounted elsewhere (e.g. a full page) navigates to that page. The checklist SHALL NOT set a page-mounted flow's own visibility flag directly. A step whose precondition is unmet SHALL remain unavailable rather than opening a broken flow. The third step's ("place them on a dashboard") action SHALL open the Output picker (or a dashboard on which the picker is available) — never the retired `PanelCreationModal`.
 
-#### Scenario: Each step carries its section's own glyph
-- **WHEN** the checklist is presented
-- **THEN** each step shows the same glyph the workspace navigation uses for that section, taken from the
-  shared registry rather than chosen independently
+#### Scenario: A step whose flow is mounted at the shell opens in place
+- **WHEN** the user activates a step whose creation flow is a shell-mounted modal
+- **THEN** that modal opens without a route navigation
 
-#### Scenario: The type concept is shown with the registry glyph
-- **WHEN** the checklist presents the step that explains what a type is
-- **THEN** the type registry's own glyph is shown alongside that explanation
+#### Scenario: A step whose flow is mounted elsewhere navigates to that page
+- **WHEN** the user activates a step whose creation flow lives on its own page
+- **THEN** the user is navigated to that page
 
-#### Scenario: The completed state restates the chain
-- **WHEN** every step is complete
-- **THEN** the surface names the four resources in order rather than offering generic congratulation
+#### Scenario: The checklist never sets a page-mounted flow's visibility flag
+- **WHEN** a step's flow is page-mounted
+- **THEN** the checklist only navigates; it does not toggle that page's own open/visible state directly
 
+#### Scenario: An unmet precondition leaves a step unavailable
+- **WHEN** a step's precondition (e.g. at least one source exists, for the "shape it into outputs" step) is not met
+- **THEN** that step's action remains unavailable rather than opening a flow that would immediately fail
+
+#### Scenario: Third step opens the Output picker
+- **WHEN** the user activates the third onboarding step's action
+- **THEN** the Output picker opens (directly, or via navigating to a dashboard where it can be opened)
+
+### Requirement: Done button is styled correctly and provably so
+The onboarding checklist's Done button SHALL be styled per DESIGN.md, and SHALL be covered by a regression test that asserts **computed** styles (`getComputedStyle` in jsdom, or an equivalent rendered probe) — a test asserting only text content or a class name is not sufficient (closing HEL-792's second half). The test SHALL be proven red against a deliberately broken style cascade before being trusted.
+
+#### Scenario: Computed-style guard catches a broken cascade
+- **WHEN** the Done button's governing CSS rule is deliberately removed (test setup)
+- **THEN** the regression test fails
+- **AND** restoring the rule makes it pass again

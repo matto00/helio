@@ -4,7 +4,9 @@
 Provides a breakpoint-gated, promotable bottom tab bar for section navigation on phone-width
 viewports (<768px), replacing the broken collapsed-sidebar stub and keeping phone and desktop
 navigation from drifting via a single shared destination list.
+
 ## Requirements
+
 ### Requirement: Bottom tab bar provides section navigation on phone
 The frontend SHALL render a bottom tab bar (`shared/chrome/BottomNav`) below the 768px breakpoint
 with exactly the six section destinations of the desktop sidebar (`/`, `/sources`, `/pipelines`,
@@ -115,35 +117,6 @@ sole carve-out from `DESIGN.md`'s opacity invariant; all other chrome remains op
 - **THEN** all six icon-only destinations render within the capsule, each retaining a tap target of
   at least 44x44 CSS px
 
-### Requirement: Every route is escapable via the tab bar
-Below 768px, every protected route SHALL render the tab bar so the user can always reach another
-section without browser chrome (no swipe-back exists in standalone mode). Because the bar now
-floats over content rather than sitting on a reserved ledge, page content SHALL still be able to
-scroll fully clear of it: the content region SHALL reserve clearance equal to the capsule height
-plus its bottom inset plus `env(safe-area-inset-bottom)`. That geometry SHALL have exactly one
-definition — the shared `--bottom-nav-height` token family — consumed by the bar itself, the
-content clearance, and the toast viewport, so the three cannot drift apart. Fixed-position overlay
-chrome that would otherwise rest on the bar SHALL clear it from the same token.
-
-#### Scenario: No trapped route
-- **WHEN** the user is on any of `/`, `/sources`, `/pipelines`, `/registry` at phone width
-- **THEN** the tab bar is present and navigating to every other section succeeds
-
-#### Scenario: Content scrolls clear of the floating bar
-- **WHEN** a page is scrolled to its end at phone width
-- **THEN** the final content comes to rest fully above the floating capsule, with no content
-  permanently trapped beneath it
-
-#### Scenario: Clearance stays in sync with bar geometry
-- **WHEN** the bar's capsule height or edge inset changes
-- **THEN** the content region's reserved clearance and the toast viewport's offset both change with
-  it, because all three read the same token rather than restating its value
-
-#### Scenario: Floating panel-list chrome clears the bar
-- **WHEN** a dashboard's panel list is open at a viewport width where both the zoom widget and the
-  tab bar render
-- **THEN** the zoom widget rests clear of the capsule rather than on top of it
-
 ### Requirement: BottomNav is promotable to desktop without a rewrite
 `BottomNav` SHALL be a self-contained shared component whose phone-only visibility is enforced by
 a breakpoint rule in its own stylesheet, such that showing it at desktop widths is a
@@ -201,3 +174,17 @@ satisfied vacuously. The active tab SHALL still be correctly indicated either wa
 - **THEN** no added transition runs on the active tab's lozenge — either because none was declared,
   or because the declared one is removed rather than shortened — and the correct tab is indicated
 
+### Requirement: Every one of the five current routes is escapable via the tab bar
+The bottom tab bar SHALL render exactly the five current nav destinations (Dashboards, Data Sources, Data Pipelines, Connectors, Assistant); no tab exists for the retired Data Types or Metrics routes. Every route remains reachable from the tab bar with no trapped route; content continues to scroll clear of the floating bar and clearance stays in sync with bar geometry, exactly as before this change.
+
+#### Scenario: Five tabs, no retired destinations
+- **WHEN** the bottom tab bar renders on phone
+- **THEN** exactly five tabs are shown, matching the nav-section-registry's five entries
+
+#### Scenario: No trapped route
+- **WHEN** the user is on any of the five routes
+- **THEN** the tab bar offers a path to every other route with no dead end
+
+#### Scenario: Content scrolls clear of the floating bar
+- **WHEN** a page's content is taller than the viewport
+- **THEN** scrolling content never renders underneath the floating tab bar

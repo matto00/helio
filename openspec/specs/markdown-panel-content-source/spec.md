@@ -2,40 +2,8 @@
 
 ## Purpose
 Defines the Markdown panel's Source/Static content modes (field-or-literal editor, bound-over-literal render resolution) and the `helio://uploads/image/<id>` reference scheme that resolves uploaded images through the uploads route at render time.
+
 ## Requirements
-### Requirement: Markdown content resolves bound data over literal content
-
-At render time, a Markdown panel SHALL resolve its content as the bound DataType field's mapped value
-(`data.content`, populated by the generic per-slot mapping in `usePanelData`) when present, falling back
-to the literal `config.content`. Empty resolved content SHALL render the existing placeholder state.
-
-#### Scenario: Bound panel renders pipeline-produced markdown
-- **WHEN** a Markdown panel is bound to a DataType whose latest rows contain a markdown string in the
-  mapped field
-- **THEN** the grid panel renders that string as Markdown
-
-#### Scenario: Unbound panel renders literal content
-- **WHEN** a Markdown panel has no binding and non-empty `config.content`
-- **THEN** the grid panel renders the literal content as Markdown
-
-### Requirement: Markdown source/static editing mirrors the sibling field-or-literal pattern
-
-The Markdown Content editor SHALL compose `useBoundOrLiteralState`, a Source-mode-only `DataTypePicker`
-(filtered to pipeline-output DataTypes), and `BoundOrLiteralField` with `literalMultiline`, mirroring the
-Text panel's Content editor. Mode SHALL default to Source for a bound panel and Static for an unbound
-one. Saving in Source mode SHALL set `dataTypeId`/`fieldMapping.content` and omit `content` from the
-patch (preserving prior literal text); saving in Static mode SHALL clear the binding (explicit nulls) and
-set `content`.
-
-#### Scenario: Source save omits content from the patch
-- **WHEN** the user saves the Content editor in Source mode with a DataType and field selected
-- **THEN** the PATCH `config` contains `dataTypeId` and `fieldMapping: { "content": "<field>" }` and no
-  `content` key
-
-#### Scenario: Static save clears the binding explicitly
-- **WHEN** the user saves the Content editor in Static mode on a previously bound panel
-- **THEN** the PATCH `config` contains `dataTypeId: null`, `fieldMapping: null`, and the authored
-  `content`
 
 ### Requirement: helio uploads URL scheme resolves to the uploads route
 
@@ -82,4 +50,3 @@ used (markdown panel content), what they resolve to (`GET /api/uploads/image/:id
 - **WHEN** a reader consults `docs/uploads.md`
 - **THEN** it documents the upload endpoint, the byte-serving endpoint, and the `helio://` markdown
   reference scheme with an example
-
