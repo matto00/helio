@@ -105,7 +105,7 @@ must reinforce, never weaken, the existing never-fabricate-ids rule.
 #### Scenario: The combined example exercises the pipeline-output sentinel
 - **WHEN** `propose_combined`'s schema example is inspected and decoded
 - **THEN** at least one dashboard panel in the example binds via the literal sentinel `"$pipelineOutput"` in place
-  of a real dataTypeId, and the example still decodes to a `CombinedProposal`
+  of a real outputId, and the example still decodes to a `CombinedProposal`
 
 #### Scenario: The system prompt's shaping guidance is present and placeholder-safe
 - **WHEN** `AssistantSystemPrompt.text` is inspected

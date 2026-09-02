@@ -44,7 +44,7 @@ no direct repository writes.
 Pre-validation SHALL also authorize a SECOND, separately-owned resource referenced from inside an
 edit's `patch`/`createPatch`, wherever its real create/update path also authorizes one — not defer
 that check to forward-apply time. This covers: `panel` `create` (`dashboardId`), `pipeline`
-`create` (`sourceDataSourceId`), `panel` `update`/`create` (`dataTypeId`/`metricId`, when present
+`create` (`sourceDataSourceId`), `panel` `update`/`create` (`outputId`/`metricId`, when present
 in the config patch), and `pipelineStep` `update` (a `JoinConfig`/`UnionConfig`/`LookupConfig`'s
 referenced `DataSource`, when present).
 
@@ -55,10 +55,10 @@ referenced `DataSource`, when present).
   including a preceding panel-delete edit that would otherwise have already succeeded
 
 #### Scenario: A panel-update edit binding to an owned companion DataType is rejected pre-apply
-- **WHEN** a patch set includes a panel-update edit whose config patch sets `dataTypeId` to a
+- **WHEN** a patch set includes a panel-update edit whose config patch sets `outputId` to a
   DataType the caller OWNS but which is a companion (non-pipeline-output) type
 - **THEN** pre-validation rejects the whole patch set before any edit mutates anything — mirroring
-  `rejectCompanionBinding`'s real rule exactly: a foreign-owned or nonexistent `dataTypeId` is NOT
+  `rejectCompanionBinding`'s real rule exactly: a foreign-owned or nonexistent `outputId` is NOT
   rejected by this specific check (it passes through unchanged, matching
   `PanelService.update`'s own documented behavior); only an OWNED companion-type binding is
 
@@ -66,7 +66,7 @@ referenced `DataSource`, when present).
 - **WHEN** a patch set includes a panel-update edit whose config patch sets `metricId` to a metric
   the caller does not own (or that doesn't resolve at all)
 - **THEN** pre-validation rejects the whole patch set before any edit mutates anything — unlike
-  `dataTypeId`, `rejectUnresolvableMetric` DOES actively reject a foreign/nonexistent reference
+  `outputId`, `rejectUnresolvableMetric` DOES actively reject a foreign/nonexistent reference
 
 ### Requirement: A failure rolls back every already-applied edit
 When an edit fails partway through an otherwise-pre-validated apply, `PatchSetApplyService` SHALL

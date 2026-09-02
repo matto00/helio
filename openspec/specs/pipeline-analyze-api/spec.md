@@ -47,7 +47,7 @@ paths:
 
 ### Requirement: GET /api/pipelines/:id/analyze returns pipeline with per-step schemas
 The API SHALL expose `GET /api/pipelines/:id/analyze`. The response SHALL include the pipeline summary fields
-(`id`, `name`, `sourceDataSourceName`, `outputDataTypeName`, `outputDataTypeId`), a `sourceSchema` array, and a
+(`id`, `name`, `sourceDataSourceName`, `outputDataTypeName`, and the retired `output_data_type_id` field), a `sourceSchema` array, and a
 `steps` array. Each step SHALL include its `id`, `position`, `type` (discriminator), `config` (typed object
 matching the discriminator), `inputSchema`, and `outputSchema` (CS2c-3a wire shape — `config` is no longer a
 stringified JSON blob). Step 0's `inputSchema` SHALL equal `sourceSchema`. Step N's `inputSchema` SHALL equal

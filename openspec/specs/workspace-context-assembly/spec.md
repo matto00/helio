@@ -349,8 +349,8 @@ documented precedence order. `semanticRole` is advisory: it SHALL NOT alter the 
 ### Requirement: Bounded, precision-favoring join hints
 The response SHALL carry a top-level `joinHints` array: cross-Output pairs of `identifier`-role columns
 (HEL-374, "Deterministic column semantic role") from the caller's own pipeline-Outputs, whose
-normalized column name and declared-type bucket match, each reporting `leftDataTypeId`, `leftColumn`,
-`rightDataTypeId`, `rightColumn`, and a `confidence` score in `[0.5, 1.0]`. Every hint SHALL be labelled
+normalized column name and declared-type bucket match, each reporting `leftOutputId`, `leftColumn`,
+`rightOutputId`, `rightColumn`, and a `confidence` score in `[0.5, 1.0]`. Every hint SHALL be labelled
 advisory/inferred; `joinHints` SHALL NOT be used to alter any Output's declared schema. The candidate
 search SHALL be bounded by construction (a documented cap on both per-bucket comparisons and total hints
 returned), independent of workspace size. `confidence` SHALL combine value-overlap evidence with

@@ -170,11 +170,21 @@ Registry / first-row-only inference mechanism no longer exists (removed by HEL-9
 types are now derived from the complete per-node row set via shallow union inference, not from
 runtime-value inspection of a single row.
 
+(HEL-910 docs sweep: this requirement's own heading and the two scenario names below still read
+"Type Registry" / "Output DataType" — that is stale vocabulary this sweep is closing out. Both the
+mechanism and the retirement note above were already accurate; only the naming was lagging. The
+heading is intentionally left unchanged in this MODIFIED delta so it continues to match the live
+`openspec/specs/pipeline-run-execution/spec.md` requirement exactly for archival merge; a follow-up
+rename would go through a dedicated `RENAMED Requirements` delta rather than being smuggled into a
+same-cycle body edit.)
+
 #### Scenario: Output DataType fields reflect run result schema
 - **WHEN** `POST /api/pipelines/:id/run` succeeds against a materialized node whose result rows have
   columns `["name", "total"]`
 - **THEN** that node's Output(s) `schema` contains fields for `name` and `total`, derived from the
   complete row set for that node, not only the first row
+- (naming note: "DataType" here is legacy vocabulary for what this codebase now calls an Output's
+  `schema` field — no `DataType` entity exists post-HEL-904/HEL-891)
 
 #### Scenario: Output DataType version increments after run
 - **WHEN** a non-dry run completes successfully against a materialized node

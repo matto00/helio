@@ -2,27 +2,8 @@
 
 ## Purpose
 Persisted per-chart-type display options (`chartOptions`, keyed line/bar/pie/scatter) on ChartPanelConfig — wire shape, validation, persistence, and back-compat.
+
 ## Requirements
-### Requirement: ChartPanelConfig carries optional per-chart-type display options
-`ChartPanelConfig` SHALL accept an optional `chartOptions` object keyed by chart type
-(`line`, `bar`, `pie`, `scatter`), each key optional and independently shaped:
-- `line`: `smooth?: boolean`, `showPoints?: boolean`, `areaFill?: boolean`
-- `bar`: `orientation?: "vertical" | "horizontal"`, `stacking?: "none" | "stacked" | "normalized"`,
-  `barGapPct?: number` (0–100)
-- `pie`: `donutHolePct?: number` (0–90), `showPercentLabels?: boolean`
-- `scatter`: `sizeField?: string`, `colorField?: string` (data-column keys of the bound DataType)
-
-The shape MUST be declared in `schemas/panels/panel.schema.json` under `$defs.ChartConfig` and mirrored in the
-frontend `ChartPanelConfig` type and the backend `ChartPanelConfig` domain class.
-
-#### Scenario: Config round-trips through create and GET
-- **WHEN** a chart panel is created or patched with `config.chartOptions` containing valid per-type entries
-- **THEN** a subsequent panel fetch returns the same `chartOptions` object
-
-#### Scenario: Absent chartOptions means current behavior
-- **WHEN** a chart panel's config carries no `chartOptions` key (absent, not null)
-- **THEN** the panel decodes, persists, and renders exactly as before this change
-- **AND** no `chartOptions` key is invented on the wire response
 
 ### Requirement: chartOptions persists in a dedicated nullable column
 The backend SHALL persist `chartOptions` in a single nullable `chart_options` JSONB column on `panels`
@@ -67,4 +48,3 @@ panel appearance, or refresh interval.
 - **WHEN** the user switches the chart type to `pie`, saves, then switches back to `bar` and saves
 - **THEN** the panel renders with the originally configured bar options
 - **AND** binding, appearance, and refresh interval are unchanged throughout
-

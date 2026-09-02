@@ -61,7 +61,7 @@ used for `alert_rules`.
 
 ### Requirement: Privileged internal upsert for the evaluation engine
 `AlertEventRepository` SHALL expose `findActiveByRule(ruleId)` and `upsertFiringInternal(ruleId,
-ownerId, targetDataTypeId, value, pipelineRunId, severity)` running through `withSystemContext`
+ownerId, targetOutputId, value, pipelineRunId, severity)` running through `withSystemContext`
 (RLS bypass), implementing the de-duplication contract for a background/system-context caller with
 no request user. When an active row exists, `upsertFiringInternal` SHALL route the update through
 `AlertEventStateMachine.transition(existing, ReFire(value, severity, pipelineRunId))` uniformly —

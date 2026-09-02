@@ -80,7 +80,7 @@ metric value and the `condition.threshold` value using the `condition.comparator
 
 ### Requirement: Breach drives a firing event
 When a rule breaches, the system SHALL call `AlertEventRepository.upsertFiringInternal` with the
-rule's `id`, `ownerId`, `targetDataTypeId`, the extracted value (as a `JsNumber`), the
+rule's `id`, `ownerId`, `targetOutputId`, the extracted value (as a `JsNumber`), the
 `triggeringRunId`, and the rule's `severity`.
 
 #### Scenario: First breach creates a firing event
@@ -110,7 +110,7 @@ The system SHALL produce no evaluation and no `AlertEvent` changes for a run tha
 the row-write step, or that reaches `onRunSuccess` but is blocked by the assert fail-policy before the
 row-write step (see `pipeline-assert-fail-policy`) — evaluating rules against rows that were never
 actually written to the DataType would fire alerts referencing values no dashboard ever displays. Once invoked, an
-exception raised while evaluating one rule, or while evaluating rules for a `DataTypeId` overall, SHALL
+exception raised while evaluating one rule, or while evaluating rules for a `OutputId` overall, SHALL
 be logged and SHALL NOT propagate to the caller in a way that fails or rolls back the triggering
 pipeline run.
 
@@ -119,7 +119,7 @@ pipeline run.
 - **THEN** `evaluateForDataType` is never invoked and no `AlertEvent` is created
 
 #### Scenario: One rule's evaluation error does not block sibling rules
-- **WHEN** evaluating two enabled rules for the same `DataTypeId`, and the first rule's
+- **WHEN** evaluating two enabled rules for the same `OutputId`, and the first rule's
   `condition` is malformed (missing `comparator`/`threshold`) causing an exception
 - **THEN** the first rule's failure is logged and the second rule is still evaluated normally
 
