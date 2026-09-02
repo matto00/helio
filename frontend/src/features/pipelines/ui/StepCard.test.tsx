@@ -65,6 +65,10 @@ function baseProps(overrides: Partial<ComponentProps<typeof StepCard>> = {}) {
     onToggleEnabled: jest.fn(),
     onDuplicate: jest.fn(),
     enabledBits: "1",
+    outputs: [],
+    previewRowCountByOutputId: {},
+    onOpenOutput: jest.fn(),
+    onAddOutput: jest.fn(),
     ...overrides,
   };
 }
@@ -881,5 +885,40 @@ describe("StepCard disable/enable + duplicate (HEL-412)", () => {
     expect(
       screen.queryByRole("img", { name: "Step has a validation error" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+// HEL-908 task 3.4 — tail rendering (`isTail`). The "+ tail" CREATE
+// affordance that a first pass of this task added was removed after a live
+// probe against the real backend showed `POST /pipelines/:id/steps` with
+// `parentStepId` set does not create a tail branch — `spliceInsertAtInternal`
+// always reparents the anchor's existing children onto the new step (a
+// trunk-insert, not a branch-attach), so the button would have silently
+// corrupted pipeline structure. See execution-progress.md Cycle 6 and the
+// escalation raised alongside it. `isTail`'s render-only behavior (hiding
+// the drag handle/Move buttons, the `--tail` modifier class) is unaffected
+// and still correct for tail data that already exists (e.g. legacy
+// V94-migrated pipelines) — covered below.
+describe("StepCard tail rendering (isTail)", () => {
+  it("hides the drag handle and Move up/down buttons on a tail card (isTail)", () => {
+    const { container } = render(<StepCard {...baseProps({ isTail: true })} />);
+
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card-drag-handle"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Move step up" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Move step down" })).not.toBeInTheDocument();
+  });
+
+  it("applies the --tail modifier class on a tail card", () => {
+    const { container } = render(<StepCard {...baseProps({ isTail: true })} />);
+    expect(container.querySelector(".pipeline-detail-page__step-card--tail")).toBeInTheDocument();
+  });
+
+  it("shows the drag handle and Move buttons on a trunk card (isTail unset)", () => {
+    const { container } = render(<StepCard {...baseProps()} />);
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card-drag-handle"),
+    ).toBeInTheDocument();
   });
 });

@@ -21,6 +21,10 @@
     "parentStepId": {
       "type": "string",
       "description": "HEL-906 cycle 7 (task 3.2): an explicit real persisted step id (must belong to this pipeline) to splice the new step in directly after, taking precedence over `position` when both are present. `position` can only ever express a whole-pipeline execution-order slot; `parentStepId` is the only way to anchor a splice directly at a specific node without recomputing its index. An id not belonging to this pipeline is rejected with 422 and nothing is persisted."
+    },
+    "attachAsTail": {
+      "type": "boolean",
+      "description": "HEL-908: only meaningful alongside `parentStepId`. `true` attaches the new step as a genuine NEW sibling of `parentStepId`'s existing children (a `position >= 1` tail root) WITHOUT reparenting any of them, via the `attachTailInternal` primitive. Absent/`false` preserves the pre-existing splice-insert default (insert directly after the anchor, reparenting the anchor's existing children onto the new step)."
     }
   },
   "required": ["type", "config"],

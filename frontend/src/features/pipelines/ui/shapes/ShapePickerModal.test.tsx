@@ -1,4 +1,4 @@
-// HEL-402 — "Start from a shape" picker + params form + submit flow. Covers
+// HEL-402 — "Add Outputs from a shape" picker + params form + submit flow. Covers
 // shape selection → per-dataType widget rendering → submit → seeded steps,
 // plus the two non-silent-failure paths the ticket exists to guard against
 // (HEL-336 lookup-picker defect): a 422/404 from `/expand` shown inline with
@@ -9,7 +9,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { ShapePickerModal } from "./ShapePickerModal";
 import { expandPipelineShape, getPipelineShapeCatalog } from "../../services/pipelineService";
-import type { PipelineShapeCatalogEntry, ShapeStepExpansion } from "../../types/pipelineShape";
+import type {
+  ExpandPipelineShapeResponse,
+  PipelineShapeCatalogEntry,
+} from "../../types/pipelineShape";
 
 jest.mock("../../services/pipelineService", () => ({
   getPipelineShapeCatalog: jest.fn(),
@@ -124,9 +127,9 @@ describe("ShapePickerModal", () => {
   });
 
   it("submitting valid params expands the shape and hands the result to onSeedSteps, then closes", async () => {
-    const expansions: ShapeStepExpansion[] = [
-      { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
-    ];
+    const expansions: ExpandPipelineShapeResponse = {
+      steps: [{ clientId: "step-0", kind: "aggregate", config: { groupBy: [], aggregations: [] } }],
+    };
     expandPipelineShapeMock.mockResolvedValueOnce(expansions);
     const onSeedSteps = jest.fn().mockResolvedValue(undefined);
     const onClose = jest.fn();
@@ -148,7 +151,7 @@ describe("ShapePickerModal", () => {
         measures: [{ fn: "sum", field: "amount", alias: "total" }],
       });
     });
-    await waitFor(() => expect(onSeedSteps).toHaveBeenCalledWith(expansions));
+    await waitFor(() => expect(onSeedSteps).toHaveBeenCalledWith(expansions, undefined));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 

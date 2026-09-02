@@ -11,6 +11,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import { PipelineRiverView } from "./PipelineRiverView";
 import { OP_TYPES } from "../state/stepNarrowing";
+import { buildStepTree } from "../state/stepTree";
 import type { Step } from "../types/step";
 
 const FILTER_OP = OP_TYPES.find((op) => op.id === "filter")!;
@@ -50,14 +51,22 @@ const stepD: Step = {
 };
 
 function baseProps(overrides: Partial<ComponentProps<typeof PipelineRiverView>> = {}) {
+  // HEL-908 task 3.4 — none of this file's fixture steps carry a
+  // `parentStepId`, so `buildStepTree` degrades to the old flat trunk-only
+  // behavior these pre-existing tests assert on (see `stepTree.ts`'s orphan
+  // sweep). Derived from `overrides.steps` when present so an override that
+  // swaps in a different fixture array still gets a matching tree.
+  const resolvedSteps = overrides.steps ?? [stepA, stepB, stepC];
   return {
-    steps: [stepA, stepB, stepC],
+    steps: resolvedSteps,
+    stepTree: buildStepTree(resolvedSteps),
     pipelineId: "pipe-1",
     dropdownOpen: false,
     openDropdown: jest.fn(),
     closeDropdown: jest.fn(),
     onAddStep: jest.fn(),
     onInsertStep: jest.fn(),
+    onAddTailStep: jest.fn(),
     onRemoveStep: jest.fn(),
     getAnalyzeColumns: () => [],
     getAnalyzeSchema: () => [],
@@ -69,6 +78,10 @@ function baseProps(overrides: Partial<ComponentProps<typeof PipelineRiverView>> 
     onReorderSteps: jest.fn(),
     onToggleStepEnabled: jest.fn(),
     onDuplicateStep: jest.fn(),
+    outputsByStepId: {},
+    previewRowCountByOutputId: {},
+    onOpenOutput: jest.fn(),
+    onAddOutput: jest.fn(),
     ...overrides,
   };
 }
@@ -295,5 +308,31 @@ describe("PipelineRiverView disable/duplicate delegation (HEL-412)", () => {
     );
 
     expect(onDuplicateStep).toHaveBeenCalledWith("a");
+  });
+});
+
+// skeptic-final-2 (round 1) CR1 — the bottom "Add Outputs from a shape"
+// trigger always anchors on the trunk-last step; that anchor already having
+// a tail is exactly the state that made the OLD handler create a second,
+// dead tail branch (see usePipelineDetailPage.ts's handleInstantiateShape
+// doc comment). The trigger must be disabled in that state, not merely
+// "handled" post-hoc by the handler.
+describe("PipelineRiverView shape-picker trunk-last-tail gate (skeptic-final-2 round 1 CR1)", () => {
+  it("enables 'Add Outputs from a shape' when the trunk-last step has no tail", () => {
+    render(<PipelineRiverView {...baseProps()} />);
+    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeEnabled();
+  });
+
+  it("disables 'Add Outputs from a shape' when the trunk-last step already has a tail", () => {
+    // Unlike this file's default flat fixture (no `parentStepId` at all —
+    // see `baseProps`'s doc comment), a real trunk chain must be linked via
+    // `parentStepId` for `buildStepTree` to derive a tail at all.
+    const linkedA: Step = { ...stepA, parentStepId: undefined };
+    const linkedB: Step = { ...stepB, parentStepId: "a", position: 0 };
+    const linkedC: Step = { ...stepC, parentStepId: "b", position: 0 };
+    const tail: Step = { ...stepD, id: "t", parentStepId: "c", position: 1 };
+    const steps = [linkedA, linkedB, linkedC, tail];
+    render(<PipelineRiverView {...baseProps({ steps, stepTree: buildStepTree(steps) })} />);
+    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeDisabled();
   });
 });

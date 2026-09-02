@@ -13,13 +13,32 @@ import { OpDropdown } from "./OpDropdown";
 import { RibbonSegment } from "./RibbonSegment";
 import { ShapePickerModal } from "./shapes/ShapePickerModal";
 import { StepCard } from "./StepCard";
+import { TailChain } from "./TailChain";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import type { OpType, Step } from "../types/step";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
-import type { ShapeStepExpansion } from "../types/pipelineShape";
+import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
+import type { Output } from "../types/output";
+import type { StepTree } from "../state/stepTree";
+import { reorderTrunk } from "../state/stepTree";
+
+// task 3.3 — mirrors `EMPTY_ANALYZE_COLUMNS` in `usePipelineDetailPage.ts`: a
+// step with zero Outputs gets the same stable `[]` reference on every
+// lookup, not a fresh array per render (a precondition for `StepCard`'s
+// `React.memo` to actually skip re-rendering unrelated cards -- see F-146).
+const EMPTY_OUTPUTS: Output[] = [];
+// HEL-908 task 3.4 — same stable-reference precedent, for a trunk step with
+// no tail (`TailChain` early-returns `null` on an empty array either way,
+// but a fresh `[]` per render would still be a fresh prop reference).
+const EMPTY_TAIL_STEPS: Step[] = [];
 
 interface PipelineRiverViewProps {
   steps: Step[];
+  /** HEL-908 task 3.4 — trunk/tail grouping (design.md decision 1); the
+   *  main list below maps `stepTree.trunk`, not `steps`, so tail steps are
+   *  rendered via `TailChain` nested under their trunk node instead of as
+   *  flat top-level cards. */
+  stepTree: StepTree;
   pipelineId: string;
   dropdownOpen: boolean;
   openDropdown: () => void;
@@ -29,6 +48,11 @@ interface PipelineRiverViewProps {
    *  (0 = before the first step); `PipelineDetailPage.handleInsertStep` owns
    *  the optimistic splice + persistence, mirroring `onAddStep`. */
   onInsertStep: (opType: OpType, index: number) => void;
+  /** HEL-908 tasks 3.4/5.6 — "+ tail" create affordance: attaches a new step as a
+   *  genuine branch off `parentStepId` via the backend's `attachTailInternal`
+   *  primitive (design.md's non-goal waiver). See `usePipelineDetailPage.
+   *  handleAddTailStep`. */
+  onAddTailStep: (opType: OpType, parentStepId: string) => void;
   onRemoveStep: (stepId: string) => void;
   getAnalyzeColumns: (stepId: string) => string[];
   getAnalyzeSchema: (stepId: string) => SchemaField[];
@@ -40,7 +64,10 @@ interface PipelineRiverViewProps {
   runStepRowCounts: Record<string, number> | null | undefined;
   /** HEL-402 — performs the sequential per-step create loop for a shape's
    *  expanded steps; see `PipelineDetailPage.handleInstantiateShape`. */
-  onInstantiateShape: (expansions: ShapeStepExpansion[]) => Promise<void>;
+  onInstantiateShape: (
+    expansion: ExpandPipelineShapeResponse,
+    anchorStepId?: string,
+  ) => Promise<void>;
   /** HEL-407 — invoked with the full reordered `Step[]` on drop or a Move
    *  up/down click; `PipelineDetailPage.handleReorderSteps` owns persistence
    *  + reconciliation (design.md Decision 7). */
@@ -53,26 +80,26 @@ interface PipelineRiverViewProps {
    *  `PipelineDetailPage.handleDuplicateStep` owns splicing the clone in
    *  after the original. */
   onDuplicateStep: (stepId: string) => void;
-}
-
-/** Returns a copy of `items` with the element at `fromIndex` moved to end up
- *  at `toIndex` (HEL-407). Pure — shared by the drag-drop handler and the
- *  Move up/down buttons so both paths compute a reorder the same way. */
-function moveStep<T>(items: T[], fromIndex: number, toIndex: number): T[] {
-  const next = [...items];
-  const [moved] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, moved);
-  return next;
+  /** task 3.3 — one Outputs array per trunk/tail step id, from
+   *  `selectOutputsByStepId`; feeds each `StepCard`'s `OutputsRail`. */
+  outputsByStepId: Record<string, Output[]>;
+  /** task 3.3 — live-thumbnail row counts keyed by `outputId`, from the
+   *  shared preview cache (`selectPreviewRowCountByOutputId`). */
+  previewRowCountByOutputId: Record<string, number>;
+  onOpenOutput: (output: Output) => void;
+  onAddOutput: (stepId: string) => void;
 }
 
 export function PipelineRiverView({
   steps,
+  stepTree,
   pipelineId,
   dropdownOpen,
   openDropdown,
   closeDropdown,
   onAddStep,
   onInsertStep,
+  onAddTailStep,
   onRemoveStep,
   getAnalyzeColumns,
   getAnalyzeSchema,
@@ -84,29 +111,42 @@ export function PipelineRiverView({
   onReorderSteps,
   onToggleStepEnabled,
   onDuplicateStep,
+  outputsByStepId,
+  previewRowCountByOutputId,
+  onOpenOutput,
+  onAddOutput,
 }: PipelineRiverViewProps) {
   // Only one add-step trigger is mounted at a time (empty-state XOR list), so a
   // single ref anchors the portalled OpDropdown to whichever button is showing.
   const addStepButtonRef = useRef<HTMLButtonElement>(null);
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
+  // HEL-908 task 6.1 — "Add Outputs from a shape" targets a chosen anchor
+  // node: `undefined` for the empty-state trigger (seeds a new trunk), the
+  // last trunk step's id for the bottom-of-list trigger (always a leaf, so
+  // `handleInstantiateShape` resolves it to plain trunk-continuation).
+  const [shapePickerAnchorStepId, setShapePickerAnchorStepId] = useState<string | undefined>(
+    undefined,
+  );
 
-  // F-146 — lets `handleMoveUp`/`handleMoveDown` below read the current
-  // `steps` without closing over the prop directly, so they stay stable
-  // (`useCallback` identity unchanged) across the renders that change
-  // `steps` most often — editing one step's config re-renders this
-  // component with a new `steps` array on every keystroke. A
-  // `useCallback([..., steps])` dependency would get a new identity on
-  // exactly those renders, which — since these are `StepCard` props —
-  // would keep every *other*, unrelated `StepCard` re-rendering via
-  // `React.memo`'s prop comparison (see `StepCard.tsx`).
-  const stepsRef = useRef(steps);
+  // F-146/HEL-908 — lets `handleMoveUp`/`handleMoveDown`/`handleCardDrop`
+  // below read the current `stepTree` without closing over the prop
+  // directly, so they stay stable (`useCallback` identity unchanged) across
+  // the renders that change `steps`/`stepTree` most often — editing one
+  // step's config re-renders this component with new arrays on every
+  // keystroke. A `useCallback([..., stepTree])` dependency would get a new
+  // identity on exactly those renders, which — since these are `StepCard`
+  // props — would keep every *other*, unrelated `StepCard` re-rendering via
+  // `React.memo`'s prop comparison (see `StepCard.tsx`). Reorder handlers
+  // need TRUNK-relative indices (see `reorderTrunk` in state/stepTree.ts),
+  // not flat-array indices, so this ref holds `stepTree`, not `steps`.
+  const stepTreeRef = useRef(stepTree);
   // eslint-plugin-react-hooks@7's react-hooks/refs rule forbids writing a ref
   // during render (the assignment used to sit right here) — commit it in an
   // effect instead. Still runs before any event handler can read it, and the
   // whole point of this ref is to be read outside render (see above).
   useEffect(() => {
-    stepsRef.current = steps;
-  }, [steps]);
+    stepTreeRef.current = stepTree;
+  }, [stepTree]);
 
   // HEL-410 — gap "insert step here" affordance (design.md Decision 5): one
   // compact "+" button per gap (before the first card + between each pair;
@@ -118,6 +158,20 @@ export function PipelineRiverView({
   // not during render) and read freely during render like any other state.
   const [insertDropdownAt, setInsertDropdownAt] = useState<number | null>(null);
   const [insertAnchorEl, setInsertAnchorEl] = useState<HTMLButtonElement | null>(null);
+
+  // HEL-908 tasks 3.4/5.6 — "+ tail" create affordance, keyed by trunk step
+  // id (same anchor-in-state pattern as the gap picker above, since the
+  // trigger button is per-trunk-card, not a single fixed ref). Only one
+  // dropdown open at a time, mirroring `openGapDropdown`/`openBottomDropdown`.
+  const [tailDropdownForStepId, setTailDropdownForStepId] = useState<string | null>(null);
+  const [tailAnchorEl, setTailAnchorEl] = useState<HTMLButtonElement | null>(null);
+
+  function openTailDropdown(stepId: string, anchorEl: HTMLButtonElement) {
+    closeDropdown();
+    setInsertDropdownAt(null);
+    setTailDropdownForStepId(stepId);
+    setTailAnchorEl(anchorEl);
+  }
 
   function openBottomDropdown() {
     // Only one dropdown open at a time — opening the add-row picker closes
@@ -173,7 +227,13 @@ export function PipelineRiverView({
       // hovered index. Upward drags need no adjustment — nothing before the
       // dragged item's original position shifts. (CR1, evaluation-1.md.)
       const targetIndex = draggedIndex < overIndex ? overIndex - 1 : overIndex;
-      onReorderSteps(moveStep(steps, draggedIndex, targetIndex));
+      // HEL-908 — `draggedIndex`/`targetIndex` are TRUNK-relative (set from
+      // `stepTree.trunk.map`'s own `idx`, see the JSX below); `reorderTrunk`
+      // permutes the trunk and re-flattens with each node's tail (if any)
+      // carried along by node id, not `moveStep(steps, ...)` on the flat
+      // array (a real index mismatch the instant any tail exists — found
+      // and fixed alongside design.md decision 15).
+      onReorderSteps(reorderTrunk(stepTreeRef.current, draggedIndex, targetIndex));
     }
     setDraggedIndex(null);
     setOverIndex(null);
@@ -190,20 +250,20 @@ export function PipelineRiverView({
   // these only change identity when it does (i.e. a different pipeline).
   const handleMoveUp = useCallback(
     (stepId: string) => {
-      const currentSteps = stepsRef.current;
-      const index = currentSteps.findIndex((s) => s.id === stepId);
+      const currentTree = stepTreeRef.current;
+      const index = currentTree.trunk.findIndex((s) => s.id === stepId);
       if (index <= 0) return;
-      onReorderSteps(moveStep(currentSteps, index, index - 1));
+      onReorderSteps(reorderTrunk(currentTree, index, index - 1));
     },
     [onReorderSteps],
   );
 
   const handleMoveDown = useCallback(
     (stepId: string) => {
-      const currentSteps = stepsRef.current;
-      const index = currentSteps.findIndex((s) => s.id === stepId);
-      if (index === -1 || index >= currentSteps.length - 1) return;
-      onReorderSteps(moveStep(currentSteps, index, index + 1));
+      const currentTree = stepTreeRef.current;
+      const index = currentTree.trunk.findIndex((s) => s.id === stepId);
+      if (index === -1 || index >= currentTree.trunk.length - 1) return;
+      onReorderSteps(reorderTrunk(currentTree, index, index + 1));
     },
     [onReorderSteps],
   );
@@ -241,6 +301,15 @@ export function PipelineRiverView({
     );
   }
 
+  // skeptic-final-2 (round 1) CR1 — the bottom "Add Outputs from a shape"
+  // trigger always anchors on the trunk's LAST step (see the button below);
+  // gate it on that anchor already having a tail so this can never again
+  // silently create a second, dead tail branch (see
+  // `usePipelineDetailPage.handleInstantiateShape`'s doc comment).
+  const trunkLastStepId = stepTree.trunk[stepTree.trunk.length - 1]?.id;
+  const trunkLastHasTail =
+    trunkLastStepId !== undefined && Boolean(stepTree.tailsByStepId[trunkLastStepId]);
+
   return (
     <div className="pipeline-detail-page__river">
       <div className="pipeline-detail-page__river-inner">
@@ -271,9 +340,12 @@ export function PipelineRiverView({
               <button
                 type="button"
                 className="pipeline-detail-page__shape-picker-btn"
-                onClick={() => setShapePickerOpen(true)}
+                onClick={() => {
+                  setShapePickerAnchorStepId(undefined);
+                  setShapePickerOpen(true);
+                }}
               >
-                Start from a shape
+                Add Outputs from a shape
               </button>
             </div>
             {dropdownOpen && (
@@ -287,7 +359,7 @@ export function PipelineRiverView({
         ) : (
           <>
             {renderGap(0)}
-            {steps.map((step, idx) => (
+            {stepTree.trunk.map((step, idx) => (
               <Fragment key={step.id}>
                 {draggedIndex !== null && overIndex === idx && (
                   <div className="pipeline-detail-page__drop-indicator" aria-hidden="true" />
@@ -311,12 +383,65 @@ export function PipelineRiverView({
                     onStepDragStart={handleStepDragStart}
                     onStepDragEnd={handleStepDragEnd}
                     onMoveUp={idx > 0 ? handleMoveUp : undefined}
-                    onMoveDown={idx < steps.length - 1 ? handleMoveDown : undefined}
+                    onMoveDown={idx < stepTree.trunk.length - 1 ? handleMoveDown : undefined}
                     onToggleEnabled={onToggleStepEnabled}
                     onDuplicate={onDuplicateStep}
                     enabledBits={enabledBits}
+                    outputs={outputsByStepId[step.id] ?? EMPTY_OUTPUTS}
+                    previewRowCountByOutputId={previewRowCountByOutputId}
+                    onOpenOutput={onOpenOutput}
+                    onAddOutput={onAddOutput}
                   />
-                  {idx < steps.length - 1 && renderGap(idx + 1)}
+                  {/* HEL-908 tasks 3.4/5.6 — "+ tail" affordance: single-tail-per-node
+                   * (design.md's Phase-1 invariant) enforced here by only rendering the
+                   * button when this trunk node has NO existing tail yet
+                   * (`stepTree.tailsByStepId[step.id]` absent). */}
+                  {!stepTree.tailsByStepId[step.id] && (
+                    <div className="pipeline-detail-page__add-tail-row">
+                      <button
+                        type="button"
+                        className="pipeline-detail-page__add-tail-btn"
+                        aria-label="Add tail step"
+                        title="Add tail step"
+                        onClick={(e) => openTailDropdown(step.id, e.currentTarget)}
+                      >
+                        <FontAwesomeIcon icon={faPlus} aria-hidden="true" /> tail
+                      </button>
+                      {tailDropdownForStepId === step.id && (
+                        <OpDropdown
+                          anchorRef={{ current: tailAnchorEl }}
+                          onSelect={(opType) => {
+                            onAddTailStep(opType, step.id);
+                            setTailDropdownForStepId(null);
+                          }}
+                          onClose={() => setTailDropdownForStepId(null)}
+                        />
+                      )}
+                    </div>
+                  )}
+                  {/* HEL-908 task 3.4 — nested beneath its trunk node, before
+                   * the gap/ribbon to the NEXT trunk step, per design.md
+                   * decision 1 ("each trunk step renders zero-or-one
+                   * TailChain"). */}
+                  <TailChain
+                    steps={stepTree.tailsByStepId[step.id] ?? EMPTY_TAIL_STEPS}
+                    pipelineId={pipelineId}
+                    onRemove={onRemoveStep}
+                    getAnalyzeColumns={getAnalyzeColumns}
+                    getAnalyzeSchema={getAnalyzeSchema}
+                    getAnalyzeOutputSchema={getAnalyzeOutputSchema}
+                    getAnalyzeValidationError={getAnalyzeValidationError}
+                    onConfigChange={onStepConfigChange}
+                    runStepRowCounts={runStepRowCounts}
+                    onToggleStepEnabled={onToggleStepEnabled}
+                    onDuplicateStep={onDuplicateStep}
+                    enabledBits={enabledBits}
+                    outputsByStepId={outputsByStepId}
+                    previewRowCountByOutputId={previewRowCountByOutputId}
+                    onOpenOutput={onOpenOutput}
+                    onAddOutput={onAddOutput}
+                  />
+                  {idx < stepTree.trunk.length - 1 && renderGap(idx + 1)}
                 </div>
               </Fragment>
             ))}
@@ -329,12 +454,27 @@ export function PipelineRiverView({
               >
                 + Add transformation step
               </button>
+              {/* skeptic-final-2 (round 1) CR1 — a shape's first step always
+               * targets this trunk-last anchor with plain trunk-continuation
+               * semantics (see `usePipelineDetailPage.handleInstantiateShape`);
+               * an anchor that already has a tail can't legally accept
+               * another one, so disable rather than let the handler create a
+               * second, dead tail branch. */}
               <button
                 type="button"
                 className="pipeline-detail-page__shape-picker-btn pipeline-detail-page__shape-picker-btn--dashed"
-                onClick={() => setShapePickerOpen(true)}
+                disabled={trunkLastHasTail}
+                title={
+                  trunkLastHasTail
+                    ? "This step already has a tail branch — remove it, or add a plain step first, before adding a shape here."
+                    : undefined
+                }
+                onClick={() => {
+                  setShapePickerAnchorStepId(stepTree.trunk[stepTree.trunk.length - 1]?.id);
+                  setShapePickerOpen(true);
+                }}
               >
-                Start from a shape
+                Add Outputs from a shape
               </button>
               {dropdownOpen && (
                 <OpDropdown
@@ -350,6 +490,7 @@ export function PipelineRiverView({
 
       {shapePickerOpen && (
         <ShapePickerModal
+          anchorStepId={shapePickerAnchorStepId}
           onClose={() => setShapePickerOpen(false)}
           onSeedSteps={onInstantiateShape}
         />

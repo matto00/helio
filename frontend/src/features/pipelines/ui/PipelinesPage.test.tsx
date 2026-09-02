@@ -112,12 +112,10 @@ describe("PipelinesPage", () => {
 
     expect(screen.getByText("Sales Pipeline")).toBeInTheDocument();
     expect(screen.getByText("Sales API")).toBeInTheDocument();
-    expect(screen.getByText("SalesMetrics")).toBeInTheDocument();
     expect(screen.getByText("Succeeded")).toBeInTheDocument();
 
     expect(screen.getByText("Inventory Sync")).toBeInTheDocument();
     expect(screen.getByText("ERP DB")).toBeInTheDocument();
-    expect(screen.getByText("InventoryData")).toBeInTheDocument();
     expect(screen.getByText("Failed")).toBeInTheDocument();
   });
 

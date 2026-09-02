@@ -10,7 +10,6 @@ const pipeline: PipelineSummary = {
   ownerId: "owner-1",
   sourceDataSourceId: "ds-1",
   sourceDataSourceName: "Sales API",
-  outputDataTypeName: "SalesMetrics",
   outputDataTypeId: "dt-sales",
   lastRunStatus: "succeeded",
   lastRunAt: "2026-05-01T10:00:00Z",

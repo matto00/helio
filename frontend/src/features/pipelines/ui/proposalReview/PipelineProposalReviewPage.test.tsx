@@ -46,7 +46,6 @@ const appliedResponse: PipelineProposalApplyResponse = {
     name: "Sales pipeline",
     sourceDataSourceId: "src-1",
     sourceDataSourceName: "Sales API",
-    outputDataTypeName: "SalesMetrics",
     outputDataTypeId: "dt-1",
     lastRunStatus: "succeeded",
     lastRunAt: "2026-01-01T00:00:00Z",

@@ -219,7 +219,11 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
 }
 
 let stepCounter = 0;
-export function makeStep(opType: OpType): Step {
+/** `parentStepId`, when passed (HEL-908 task 3.4's "+ tail" affordance),
+ *  marks this temp step as a tail attach — purely cosmetic until the create
+ *  call resolves and the page refetches the authoritative list; the trunk
+ *  append path (no `parentStepId`) is unaffected. */
+export function makeStep(opType: OpType, parentStepId?: string): Step {
   stepCounter += 1;
   return {
     id: `step-${stepCounter}`,
@@ -229,6 +233,7 @@ export function makeStep(opType: OpType): Step {
     // A freshly created (not-yet-persisted) step is always enabled — there's
     // no UI affordance to create a disabled step directly.
     enabled: true,
+    parentStepId,
   };
 }
 
@@ -247,6 +252,8 @@ export function pipelineStepToStep(ps: PipelineStep): Step {
     // helper is also called with the raw response of create/duplicate calls
     // that don't route through a dedicated normalizer).
     enabled: ps.enabled ?? true,
+    parentStepId: ps.parentStepId ?? undefined,
+    position: ps.position,
   };
 }
 

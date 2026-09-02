@@ -72,6 +72,19 @@
   .tap-expand-44::after {
     content: "";
     position: absolute;
+    /* Evaluation-1 cycle-2 CR4: a later-painted, non-positioned sibling in
+     * normal flow (e.g. another control stacked directly below the control
+     * this expander belongs to) can occlude the invisible overhang below --
+     * its own box paints on top of this pseudo-element for that shared
+     * region, silently stealing the taps this rule exists to grant. A
+     * positioned descendant paints above non-positioned siblings within the
+     * SAME stacking context by document order, but only once it actually
+     * establishes a later paint slot; giving the pseudo an explicit
+     * `z-index` (its containing block is already `position: relative`,
+     * satisfying the other precondition) guarantees that ordering rather
+     * than leaving it to default `auto` stacking, which does not reliably
+     * win here. */
+    z-index: 1;
     top: 50%;
     left: 0;
     right: 0;

@@ -77,7 +77,6 @@ export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) 
           <tr>
             <th className="pipeline-list-table__th">Name</th>
             <th className="pipeline-list-table__th">Source</th>
-            <th className="pipeline-list-table__th">Output type</th>
             <th className="pipeline-list-table__th">Last run status</th>
             <th className="pipeline-list-table__th">Last run at</th>
             <th className="pipeline-list-table__th">Rows written</th>
@@ -103,7 +102,6 @@ export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) 
                   </Link>
                 </td>
                 <td className="pipeline-list-table__td">{pipeline.sourceDataSourceName}</td>
-                <td className="pipeline-list-table__td">{pipeline.outputDataTypeName}</td>
                 <td className="pipeline-list-table__td">
                   {pipeline.lastRunStatus === null ? (
                     <span className="pipeline-list-table__never-run">Never run</span>

@@ -18,6 +18,7 @@ import { labelForKind } from "../../sources/utils/labelForKind";
 import type { DataSource } from "../../sources/types/dataSource";
 import type { PipelineSchedule } from "../types/pipelineSchedule";
 import { Toggle } from "../../../shared/ui/Toggle";
+import { StatusChip } from "../../../shared/ui/StatusChip";
 import { ActionsMenu, type ActionsMenuItem } from "../../../shared/chrome/ActionsMenu";
 
 import "./PipelineDetailHeader.css";
@@ -53,15 +54,16 @@ interface PipelineDetailHeaderProps {
   /** Navigates to the source's detail view. Only invoked when `canEditSource`
    *  is true (the button is not rendered otherwise). */
   onEditSource: () => void;
-  /** The pipeline's bound output DataType name (`Pipeline.outputDataTypeName`). */
-  outputTypeName: string;
-  /** Whether the current user owns the output DataType (i.e. it is
-   *  resolvable in their own owner-scoped `dataTypes.items`). Gates the
-   *  "Edit Type" button — see `pipeline-editor-page` spec. */
-  canEditType: boolean;
-  /** Navigates to the type's detail view. Only invoked when `canEditType` is
-   *  true (the button is not rendered otherwise). */
-  onEditType: () => void;
+  /** HEL-908 task 8.1 — the pipeline's total Output count (`selectOutputsForPipeline`),
+   *  replacing the retired "Output type" link (DataType-bound, HEL-903 dropped
+   *  DataType-per-pipeline as the panel-binding concept). */
+  outputsCount: number;
+  /** HEL-908 task 8.1 — the pipeline's last run status, for a compact chip
+   *  alongside source/schedule (the footer's own `StatusChip` still owns the
+   *  detailed in-progress/queued run state; this is a glanceable header
+   *  summary of the LAST completed run only, mirroring `PipelineListTable`'s
+   *  own header-row badge). `null` means no run has completed yet. */
+  lastRunStatus: "succeeded" | "failed" | null;
   /** The pipeline's current schedule, or `null` if none is set. */
   schedule: PipelineSchedule | null;
   /** Opens PipelineScheduleDialog (create or edit, depending on `schedule`). */
@@ -71,8 +73,6 @@ interface PipelineDetailHeaderProps {
   onToggleScheduleEnabled: (enabled: boolean) => void;
   /** Opens the run-history modal. */
   onOpenHistory: () => void;
-  /** Opens the output-preview modal. */
-  onOpenPreview: () => void;
   /** Whether the current user owns the pipeline. Gates "Share" (owner-only). */
   isOwner: boolean;
   /** Opens the share dialog. Only invoked when `isOwner` is true. */
@@ -84,37 +84,37 @@ export function PipelineDetailHeader({
   source,
   canEditSource,
   onEditSource,
-  outputTypeName,
-  canEditType,
-  onEditType,
+  outputsCount,
+  lastRunStatus,
   schedule,
   onEditSchedule,
   onToggleScheduleEnabled,
   onOpenHistory,
-  onOpenPreview,
   isOwner,
   onOpenShare,
 }: PipelineDetailHeaderProps) {
   const nextRun = schedule !== null ? formatNextRun(schedule.nextRunAt) : null;
 
-  // design.md D5 — one menu replaces the three per-field edit buttons.
+  // design.md D5 — one menu replaces the per-field edit buttons.
   // Gating is identical to each retired button's own condition; "Edit
   // schedule"/"Set schedule" is always present (mirrors the always-visible
   // button it replaces). Built fresh each render — cheap, and keeps item
   // gating trivially readable next to the JSX it used to live beside.
   // The page's ONE actions menu. Previously there were two — this one (edit
-  // source/type/schedule) and a second in the footer (run history/preview/
+  // source/schedule) and a second in the footer (run history/preview/
   // share). On desktop they sat at opposite corners and read as distinct; once
   // the header stacks at <=1100px they end up as two identical kebabs a few
   // hundred pixels apart, neither labeled, with no way to tell which holds
   // what. Merged here, ordered edit-actions then view-actions, with the same
   // per-item gating both menus already had.
+  //
+  // HEL-908 task 8.1/8.2 — "Edit type" (DataType-bound) and "Preview" (the
+  // deleted `PipelinePreviewModal`, superseded by per-Output previews in the
+  // Output editor sheet / Outputs rail thumbnails) are both removed.
   const actionItems: ActionsMenuItem[] = [
     ...(canEditSource ? [{ label: "Edit source", onClick: onEditSource }] : []),
-    ...(canEditType ? [{ label: "Edit type", onClick: onEditType }] : []),
     { label: schedule === null ? "Set schedule" : "Edit schedule", onClick: onEditSchedule },
     { label: "Run history", onClick: onOpenHistory },
-    { label: "Preview", onClick: onOpenPreview },
     ...(isOwner ? [{ label: "Share", onClick: onOpenShare }] : []),
   ];
 
@@ -131,11 +131,18 @@ export function PipelineDetailHeader({
         </div>
       </div>
 
-      {/* ── Bound output type ── */}
+      {/* ── Outputs count + last run status (HEL-908 task 8.1 — replaces the
+          retired DataType-bound "Output type" link). Rendered as a single
+          "Outputs (N)" string, matching the gallery tab's own "Outputs (N)"
+          label convention (`pipeline-editor-page`'s HEL-908 delta scenario). ── */}
       <div className="pipeline-detail-header__group">
-        <span className="pipeline-detail-header__group-label">Type</span>
         <div className="pipeline-detail-header__group-value">
-          <span className="pipeline-detail-header__type-name">{outputTypeName}</span>
+          <span className="pipeline-detail-header__type-name">Outputs ({outputsCount})</span>
+          {lastRunStatus !== null && (
+            <StatusChip intent={lastRunStatus === "succeeded" ? "success" : "error"}>
+              {lastRunStatus === "succeeded" ? "Succeeded" : "Failed"}
+            </StatusChip>
+          )}
         </div>
       </div>
 

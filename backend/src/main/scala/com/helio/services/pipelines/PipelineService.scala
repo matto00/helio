@@ -946,13 +946,22 @@ final class PipelineService(
             Future.successful(Left(ServiceError.UnprocessableEntity(
               s"parentStepId '$parentStepIdRaw' is not a step of this pipeline"
             )))
-          else
-            pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, Some(PipelineStepId(parentStepIdRaw)), enabled)
+          else {
+            // HEL-908: `attachAsTail = true` uses the branch-attach primitive (new sibling,
+            // no reparenting) instead of the default splice (insert-directly-after, reparenting
+            // the anchor's existing children) -- see CreatePipelineStepRequest's doc comment.
+            val persistF =
+              if (req.attachAsTail.getOrElse(false))
+                pipelineStepRepo.attachTailInternal(pipelineId, req.`type`, typedConfig, PipelineStepId(parentStepIdRaw), enabled)
+              else
+                pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, Some(PipelineStepId(parentStepIdRaw)), enabled)
+            persistF
               .map { step =>
                 audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
                 Right(PipelineStepResponse.fromDomain(step))
               }
               .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+          }
         }
       case None => req.position match {
       case None =>
@@ -1165,11 +1174,15 @@ final class PipelineService(
         }
     }
 
-  /** Atomic batch reorder (HEL-407) — requires Editor or Owner. Viewer
-   *  grantees get 403. `req.stepIds` must be exactly a permutation of the
-   *  pipeline's current step ids (set equality + length); otherwise 422.
-   *  On success, every step's `position` is set to its index in `stepIds`
-   *  within a single repository transaction. */
+  /** Atomic TRUNK reorder (HEL-407, request-shape contract revised HEL-908 design.md decision
+   *  15) — requires Editor or Owner. Viewer grantees get 403. `req.stepIds` must be exactly the
+   *  pipeline's CURRENT TRUNK step ids (via `PipelineStepRepository.trunkOf`), in the desired
+   *  new order — no tail ids, no missing/duplicate trunk ids; otherwise 422 with a message
+   *  naming the specific violation (`PipelineStepRepository.reorderTrunkInternal`'s own
+   *  validation, re-derived from a fresh read rather than trusted from this pre-check, so a
+   *  race cannot silently corrupt structure). Per the human's ruling on trunk-to-trunk reorder
+   *  ("the tail follows its trunk step"), a moved trunk node's tail travels with it automatically
+   *  — no tail row is touched by this operation. */
   def reorderSteps(pipelineId: PipelineId, req: ReorderPipelineStepsRequest, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None =>
@@ -1182,34 +1195,25 @@ final class PipelineService(
         editorCheckF.flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            // Safe: editor/owner access confirmed above. Use internal variant
-            // so editor grantees are not blocked by the V35 pipeline_steps
-            // RLS owner-JOIN policy.
-            pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
-              val currentIds   = current.map(_.id.value).toSet
-              val requestedIds = req.stepIds.toSet
-              if (req.stepIds.size != current.size || requestedIds != currentIds) {
-                Future.successful(Left(ServiceError.UnprocessableEntity(
-                  "stepIds must be exactly a permutation of the pipeline's current step ids"
-                )))
-              } else {
-                // Safe: editor/owner access confirmed above. Use internal reorder.
-                pipelineStepRepo.reorderInternal(pipelineId, req.stepIds.map(PipelineStepId(_)))
-                  .map { steps =>
-                    // HEL-477 skeptic-final-1 round 1 (design.md Decision 7): ONE row per call,
-                    // not one per step — metadata carries the resulting ordered step ids.
-                    audit(
-                      "pipeline.step.reorder",
-                      "pipeline",
-                      Some(pipelineId.value),
-                      user,
-                      JsObject("stepIds" -> JsArray(steps.map(s => JsString(s.id.value)).toVector))
-                    )
-                    Right(steps.map(PipelineStepResponse.fromDomain))
-                  }
-                  .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+            // Safe: editor/owner access confirmed above. Use internal reorder — trunk-only
+            // contract enforced inside reorderTrunkInternal against a fresh read, not trusted
+            // from a pre-check here.
+            pipelineStepRepo.reorderTrunkInternal(pipelineId, req.stepIds.map(PipelineStepId(_)))
+              .map {
+                case Left(err) => Left(ServiceError.UnprocessableEntity(err))
+                case Right(steps) =>
+                  // HEL-477 skeptic-final-1 round 1 (design.md Decision 7): ONE row per call,
+                  // not one per step — metadata carries the resulting ordered step ids.
+                  audit(
+                    "pipeline.step.reorder",
+                    "pipeline",
+                    Some(pipelineId.value),
+                    user,
+                    JsObject("stepIds" -> JsArray(steps.map(s => JsString(s.id.value)).toVector))
+                  )
+                  Right(steps.map(PipelineStepResponse.fromDomain))
               }
-            }
+              .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
         }
     }
 

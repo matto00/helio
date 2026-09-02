@@ -12,8 +12,8 @@ import {
   runPipeline,
 } from "../../pipelines/services/pipelineService";
 import type {
+  ExpandPipelineShapeResponse,
   PipelineShapeCatalogEntry,
-  ShapeStepExpansion,
 } from "../../pipelines/types/pipelineShape";
 import type { Panel } from "../types/panel";
 import { PanelCreationModal } from "./PanelCreationModal";
@@ -610,7 +610,6 @@ describe("PanelCreationModal — DataType picker step", () => {
         name: "Revenue Pipeline",
         sourceDataSourceId: "src-1",
         sourceDataSourceName: "Sales CSV",
-        outputDataTypeName: "Revenue",
         outputDataTypeId: "dt-1",
         lastRunStatus: "succeeded",
         lastRunAt: "2026-01-01T00:00:00Z",
@@ -871,9 +870,9 @@ describe("PanelCreationModal — shape flow", () => {
     outputContract: { rowCount: { kind: "exactly-one" }, description: "" },
   };
 
-  const expansions: ShapeStepExpansion[] = [
-    { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
-  ];
+  const expansions: ExpandPipelineShapeResponse = {
+    steps: [{ clientId: "step-0", kind: "aggregate", config: { groupBy: [], aggregations: [] } }],
+  };
 
   const storeWithSources = {
     ...storeWithDataTypes,
@@ -960,7 +959,6 @@ describe("PanelCreationModal — shape flow", () => {
       name: "Sales ETL",
       sourceDataSourceId: "ds-1",
       sourceDataSourceName: "Sales API",
-      outputDataTypeName: "SalesMetrics",
       outputDataTypeId: "dt-new",
       lastRunStatus: null,
       lastRunAt: null,

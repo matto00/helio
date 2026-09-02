@@ -332,6 +332,65 @@
   cursor: not-allowed;
 }
 
+/* ── "+ tail" create affordance (HEL-908 tasks 3.4/5.6) — small text button
+ * beneath a trunk card's own actions, only rendered when that node has no
+ * tail yet (single-tail-per-node invariant enforced by the caller). Mirrors
+ * the gap-insert button's token usage, sized for a text label rather than a
+ * bare icon. ── */
+.pipeline-detail-page__add-tail-row {
+  margin: var(--space-1) 0 0 var(--space-6);
+}
+
+.pipeline-detail-page__add-tail-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px dashed var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.pipeline-detail-page__add-tail-btn:hover,
+.pipeline-detail-page__add-tail-btn:focus-visible {
+  background: var(--app-accent-surface);
+  border-color: var(--app-accent-mid);
+  color: var(--app-accent);
+}
+
+/* ── Tail chain (HEL-908 task 3.4) — indented, dashed-connector sub-list
+ * nested beneath its trunk node's card, one entry per tail step. ── */
+.pipeline-detail-page__tail-chain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0 var(--space-6);
+}
+
+.pipeline-detail-page__tail-chain-item {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.pipeline-detail-page__tail-chain-connector {
+  flex-shrink: 0;
+  width: 1px;
+  border-left: 2px dashed var(--app-border-strong);
+  margin-left: var(--space-2);
+}
+
+.pipeline-detail-page__tail-chain-item .pipeline-detail-page__step-card {
+  flex: 1;
+}
+
 /* HEL-412 — a disabled step's toggle button stays legible (not muted by the
  * `--disabled` card modifier below, which only mutes the label/icon/body) so
  * "re-enable" is always readable. `aria-pressed` marks the active (disabled)
@@ -1398,6 +1457,18 @@
     height: 44px;
     transform: translateY(-50%);
   }
+
+  /* Evaluation-1 cycle-2 CR4: `.pipeline-detail-page__step-card` has
+   * `overflow: hidden` (rounded-corner clipping); when the Outputs rail is a
+   * collapsed card's last visible content, its chips' `tap-expand-44`
+   * bottom overhang sits flush against the card's own clip boundary and
+   * gets clipped outright -- z-index cannot escape a clipping ancestor, so
+   * this needs the layout fix z-index alone (`tapTarget.css`) can't
+   * provide: reserve room inside the card for the 8px overhang a 28px
+   * (`--control-sm`) control needs under this same touch-target gate. */
+  .pipeline-detail-page__step-card {
+    padding-bottom: var(--space-2);
+  }
 }
 
 @media (max-width: 430px) {
@@ -1513,4 +1584,33 @@
 
 .pipeline-detail-page__truncation-banner-text {
   flex: 1 1 auto;
+}
+
+/* ── Steps / Outputs tab bar (task 4.1) ── */
+.pipeline-detail-page__tabs {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5) 0;
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.pipeline-detail-page__tab {
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: var(--app-transition);
+}
+
+.pipeline-detail-page__tab:hover {
+  color: var(--app-text);
+}
+
+.pipeline-detail-page__tab--active {
+  color: var(--app-text);
+  border-bottom-color: var(--app-accent);
 }

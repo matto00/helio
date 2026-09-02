@@ -1,9 +1,9 @@
 // StepCard — one expandable card per pipeline step on the PipelineDetailPage.
-// Owns the per-step editor surface (delegating to the kind-specific editors)
-// and the local, inline "preview data" panel (rows + output schema — HEL-404).
-// Per-op editor state + PATCH-on-change persistence live in `useStepCardState`.
+// Owns the header/actions chrome and delegates the op-specific editor
+// (`StepOpEditor.tsx`) and the inline "preview data" panel state
+// (`useStepCardPreview.ts`, HEL-682 split, task 3.2) to their own modules.
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChevronDown,
@@ -15,67 +15,16 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import { useStepCardState } from "../hooks/useStepCardState";
+import { useStepCardPreview } from "../hooks/useStepCardPreview";
 import { DataGrid } from "../../../shared/ui/index";
 import { InlineError } from "../../../shared/chrome/InlineError";
-import { extractErrorMessage } from "../../../services/extractErrorMessage";
-import { fetchStepPreview } from "../services/pipelineService";
-import type { StepPreviewResponse } from "../services/pipelineService";
 import { renamesOf } from "../state/stepNarrowing";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
-import { AggregateConfig } from "./stepConfigs/AggregateConfig";
-import { AssertConfig } from "./stepConfigs/AssertConfig";
-import { CastFieldsConfig } from "./stepConfigs/CastFieldsConfig";
-import { ChunkByTokenCountConfig } from "./stepConfigs/ChunkByTokenCountConfig";
-import { ComputeFieldConfig } from "./stepConfigs/ComputeFieldConfig";
-import { DateBucketConfig } from "./stepConfigs/DateBucketConfig";
-import { DedupeConfig } from "./stepConfigs/DedupeConfig";
-import { ExtractHeadingsConfig } from "./stepConfigs/ExtractHeadingsConfig";
-import { FillNullConfig } from "./stepConfigs/FillNullConfig";
-import { FilterConfig } from "./stepConfigs/FilterConfig";
-import { LimitConfig } from "./stepConfigs/LimitConfig";
-import { LookupConfig } from "./stepConfigs/LookupConfig";
-import { PivotConfig } from "./stepConfigs/PivotConfig";
-import { RenameFieldsConfig } from "./stepConfigs/RenameFieldsConfig";
-import { SortConfig } from "./stepConfigs/SortConfig";
-import { SelectFieldsConfig } from "./stepConfigs/SelectFieldsConfig";
-import { SplitTextConfig } from "./stepConfigs/SplitTextConfig";
+import { StepOpEditor } from "./StepOpEditor";
 import { StepSchemaDiffChips } from "./StepSchemaDiffChips";
-import { StringOpsConfig } from "./stepConfigs/StringOpsConfig";
-import { UnionConfig } from "./stepConfigs/UnionConfig";
-import { UnpivotConfig } from "./stepConfigs/UnpivotConfig";
-import { WindowConfig } from "./stepConfigs/WindowConfig";
-
-// HEL-404 — persistent per-user "preview open" preference. One global key
-// (not per-step, see design.md Decision 3): the last explicit open/hide
-// choice becomes the default for every StepCard, so expanding any card
-// auto-opens its preview once the user has opted in. Follows theme.ts's
-// storage-key + read-at-init precedent; the try/catch guard here is our own
-// hardening (theme.ts only guards `typeof window`).
-const PREVIEW_OPEN_STORAGE_KEY = "helio-step-preview-open";
-
-/** 500ms > the 300ms analyze debounce in PipelineDetailPage, so the analyze
- *  round-trip and any config-PATCH burst settle first (design.md Decision 2). */
-const PREVIEW_REFRESH_DEBOUNCE_MS = 500;
-
-function readStoredPreviewOpen(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(PREVIEW_OPEN_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function writeStoredPreviewOpen(value: boolean): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(PREVIEW_OPEN_STORAGE_KEY, value ? "true" : "false");
-  } catch {
-    // Storage unavailable (private browsing, quota, disabled) — the
-    // in-memory preview state still works for the current session.
-  }
-}
+import { OutputsRail } from "./OutputsRail";
+import type { Output } from "../types/output";
 
 interface StepCardProps {
   step: Step;
@@ -128,12 +77,27 @@ interface StepCardProps {
    *  folded into the preview fingerprint so a toggle anywhere refreshes every
    *  open preview tray, not just this card's own. */
   enabledBits: string;
+  /** task 3.3 — this step's own Outputs (already filtered/grouped by the
+   *  parent's `selectOutputsByStepId`); rendered as an `OutputsRail` chip row
+   *  in the card body. */
+  outputs: Output[];
+  previewRowCountByOutputId: Record<string, number>;
+  onOpenOutput: (output: Output) => void;
+  onAddOutput: (stepId: string) => void;
+  /** HEL-908 task 3.4 — `true` renders this card as an indented, dashed tail
+   *  item (`TailChain`'s sole consumer) instead of a top-level trunk card;
+   *  hides the Move up/down buttons and drag handle, since tail-internal
+   *  reorder shares the same backend `PUT /steps/order` sibling-scoped
+   *  primitive that trunk-to-trunk reorder already relies on (untouched by
+   *  this ticket — see `execution-progress.md` Cycle 6 for why building new
+   *  reorder UI on top of it isn't attempted here). */
+  isTail?: boolean;
 }
 
-// F-146 — 615 lines, rendered once per pipeline step, and every edit to any
-// one step's config re-renders `PipelineDetailPage`/`PipelineRiverView` with
-// a new `steps` array (one keystroke in one step's editor). Without `memo`,
-// that re-render cascaded into every OTHER step's `StepCard` too — each
+// F-146 — rendered once per pipeline step, and every edit to any one step's
+// config re-renders `PipelineDetailPage`/`PipelineRiverView` with a new
+// `steps` array (one keystroke in one step's editor). Without `memo`, that
+// re-render cascaded into every OTHER step's `StepCard` too — each
 // re-running its own hooks, effects, and (for expanded/preview-open cards)
 // full editor + preview markup for no reason. `PipelineDetailPage` and
 // `PipelineRiverView` were the other half of this fix (HEL sweep F-146):
@@ -160,32 +124,14 @@ export const StepCard = React.memo(function StepCard({
   onToggleEnabled,
   onDuplicate,
   enabledBits,
+  outputs,
+  previewRowCountByOutputId,
+  onOpenOutput,
+  onAddOutput,
+  isTail = false,
 }: StepCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // Preview state (component-local, transient rows/loading/error; previewOpen
-  // is the one piece that persists — see PREVIEW_OPEN_STORAGE_KEY above).
-  const [previewOpen, setPreviewOpen] = useState<boolean>(() => readStoredPreviewOpen());
-  const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-
-  // HEL-404 — tracks the config fingerprint the preview was last fetched for.
-  // `null` means "not fetched since preview last activated" (fresh open or
-  // just-expanded card): fetch immediately, no debounce. A non-null value
-  // that differs from the current fingerprint means the config changed while
-  // the preview was active: debounce the re-fetch. Resets to `null` whenever
-  // the preview deactivates by the USER's own action (hidden or card
-  // collapsed) so reopening always fetches fresh. Deliberately NOT reset when
-  // a step is merely disabled (see the `step.enabled` branch below) — HEL-412
-  // evaluation-1.md CR1.
-  const lastFetchedFingerprint = useRef<string | null>(null);
-  // HEL-412 evaluation-1.md CR1 — tracks whether the step was enabled on the
-  // previous run of this effect, so a false→true transition can be detected
-  // and routed through the debounced path even when `lastFetchedFingerprint`
-  // happens to be `null` (e.g. the step was disabled+expanded+previewOpen
-  // from a stale localStorage preference before ever fetching once).
-  const wasEnabledRef = useRef(step.enabled);
   // HEL-407 (design.md Decision 9) — the UI `Step` type has no persisted
   // `position` field, so a reorder alone wouldn't change `step.config` and
   // would silently leave a stale preview. Fold `stepIndex` into the
@@ -198,89 +144,20 @@ export const StepCard = React.memo(function StepCard({
   // toggle, not just this card's own.
   const configFingerprint = `${stepIndex}:${enabledBits}:${JSON.stringify(step.config)}`;
 
-  useEffect(() => {
-    const wasEnabled = wasEnabledRef.current;
-    wasEnabledRef.current = step.enabled;
-
-    // A disabled step's preview is unavailable (its control is hidden) —
-    // skip the fetch entirely rather than hitting the backend's defensive
-    // 422 ("step is disabled"). Deliberately does NOT touch
-    // `lastFetchedFingerprint` here (HEL-412 evaluation-1.md CR1): disabling
-    // is not a user-initiated "close the tray" action, so re-enabling must
-    // not look like a fresh activation.
-    if (!step.enabled) return;
-
-    const active = expanded && previewOpen;
-    if (!active) {
-      lastFetchedFingerprint.current = null;
-      return;
-    }
-
-    async function runFetch() {
-      setPreviewLoading(true);
-      setPreviewError(null);
-      try {
-        const result: StepPreviewResponse = await fetchStepPreview(pipelineId, step.id);
-        setPreviewRows(result.rows);
-      } catch (err: unknown) {
-        // HEL sweep F-155: don't surface raw Axios/transport text (e.g.
-        // "Request failed with status code 422") — read the backend's
-        // parsed error body first, matching the app-wide extractErrorMessage
-        // convention (see its docstring).
-        setPreviewError(extractErrorMessage(err, "Preview failed — try again."));
-      } finally {
-        setPreviewLoading(false);
-      }
-    }
-
-    // HEL-412 evaluation-1.md CR1 — a disabled→enabled transition must NEVER
-    // take the immediate/undebounced "activation" branch below: the
-    // optimistic enable flip in `PipelineDetailPage.handleToggleStepEnabled`
-    // fires this same re-render before its own PATCH has resolved, so an
-    // immediate GET can reach the backend (and get a defensive 422) before
-    // the enable commits server-side. Always debounce-refetch instead — even
-    // when `configFingerprint` happens to equal what was last fetched (a
-    // single-step pipeline's `enabledBits`/config round-trip back to the
-    // exact same string across a disable→enable cycle), because the
-    // underlying server-side reality genuinely changed (skip → run): a
-    // fingerprint-equality short-circuit here would leave the preview stuck
-    // on stale-but-textually-identical data.
-    if (!wasEnabled) {
-      const handle = window.setTimeout(() => {
-        lastFetchedFingerprint.current = configFingerprint;
-        void runFetch();
-      }, PREVIEW_REFRESH_DEBOUNCE_MS);
-      return () => window.clearTimeout(handle);
-    }
-
-    if (lastFetchedFingerprint.current === null) {
-      // Activation: fetch immediately, no debounce.
-      lastFetchedFingerprint.current = configFingerprint;
-      void runFetch();
-      return;
-    }
-
-    if (lastFetchedFingerprint.current === configFingerprint) {
-      // Already fetched for this config — nothing changed.
-      return;
-    }
-
-    // Config changed while active: debounce the re-fetch so a PATCH burst
-    // (and the analyze round-trip that feeds the schema strip) settles first.
-    const handle = window.setTimeout(() => {
-      lastFetchedFingerprint.current = configFingerprint;
-      void runFetch();
-    }, PREVIEW_REFRESH_DEBOUNCE_MS);
-    return () => window.clearTimeout(handle);
-  }, [expanded, previewOpen, step.enabled, pipelineId, step.id, configFingerprint]);
-
-  function handlePreviewToggle() {
-    setPreviewOpen((prev) => {
-      const next = !prev;
-      writeStoredPreviewOpen(next);
-      return next;
-    });
-  }
+  const {
+    previewOpen,
+    previewRows,
+    previewLoading,
+    previewError,
+    handlePreviewToggle,
+    syncPreviewOpenFromStorage,
+  } = useStepCardPreview({
+    pipelineId,
+    stepId: step.id,
+    stepEnabled: step.enabled,
+    expanded,
+    configFingerprint,
+  });
 
   function handleHeaderClick() {
     if (!expanded) {
@@ -288,61 +165,18 @@ export const StepCard = React.memo(function StepCard({
       // StepCards mount unconditionally (only the body is gated on
       // `expanded`), so a mount-time-only read would miss a preference
       // change a sibling card made earlier in the same session.
-      setPreviewOpen(readStoredPreviewOpen());
+      syncPreviewOpenFromStorage();
     }
     setExpanded((prev) => !prev);
   }
 
-  const {
-    selectedFields,
-    renames,
-    casts,
-    filterConfig,
-    computeConfig,
-    aggregateConfig,
-    limitCount,
-    sortConfig,
-    splitTextConfig,
-    extractHeadingsConfig,
-    chunkByTokenCountConfig,
-    dateBucketConfig,
-    pivotConfig,
-    windowConfig,
-    unpivotConfig,
-    dedupeConfig,
-    fillNullConfig,
-    stringOpsConfig,
-    unionConfig,
-    lookupConfig,
-    assertConfig,
-    onFieldToggle,
-    onRenameChange,
-    onCastChange,
-    onFilterChange,
-    onComputeChange,
-    onAggregateChange,
-    onLimitChange,
-    onSortChange,
-    onSplitTextChange,
-    onExtractHeadingsChange,
-    onChunkByTokenCountChange,
-    onDateBucketChange,
-    onPivotChange,
-    onWindowChange,
-    onUnpivotChange,
-    onDedupeChange,
-    onFillNullChange,
-    onStringOpsChange,
-    onUnionChange,
-    onLookupChange,
-    onAssertChange,
-  } = useStepCardState(step, onConfigChange);
+  const stepCardState = useStepCardState(step, onConfigChange);
 
   return (
     <div
       // `--errored` mirrors the `--expanded` modifier (design.md Decision 1).
       // `--disabled` (HEL-412) mutes the card when the step is toggled off.
-      className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}${validationError ? " pipeline-detail-page__step-card--errored" : ""}${!step.enabled ? " pipeline-detail-page__step-card--disabled" : ""}`}
+      className={`pipeline-detail-page__step-card${expanded ? " pipeline-detail-page__step-card--expanded" : ""}${validationError ? " pipeline-detail-page__step-card--errored" : ""}${!step.enabled ? " pipeline-detail-page__step-card--disabled" : ""}${isTail ? " pipeline-detail-page__step-card--tail" : ""}`}
     >
       {/* HEL-407 (design.md Decision 4): the header is now a wrapper `<div>`.
        * The expand-toggle `<button>` keeps its content/semantics unchanged
@@ -385,41 +219,49 @@ export const StepCard = React.memo(function StepCard({
           </span>
         </button>
         <div className="pipeline-detail-page__step-card-actions-cluster">
-          {/* design.md Decision 5 — the drag handle is an `aria-hidden`
-           * mouse/touch-only drag surface, not a focusable control: the
-           * keyboard-accessible reorder path is the Move up/down buttons
-           * below, not this handle. A focusable-but-hidden element would be
-           * an accessibility anti-pattern (phantom tab-stop excluded from
-           * the a11y tree), so this is a `<span>`, not a `<button>`. */}
-          <span
-            className="pipeline-detail-page__step-card-drag-handle"
-            aria-hidden="true"
-            draggable
-            onDragStart={() => onStepDragStart(stepIndex)}
-            onDragEnd={onStepDragEnd}
-          >
-            <FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />
-          </span>
-          <button
-            type="button"
-            className="pipeline-detail-page__step-card-move-btn"
-            aria-label="Move step up"
-            title="Move step up"
-            disabled={onMoveUp === undefined}
-            onClick={() => onMoveUp?.(step.id)}
-          >
-            <FontAwesomeIcon icon={faChevronUp} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="pipeline-detail-page__step-card-move-btn"
-            aria-label="Move step down"
-            title="Move step down"
-            disabled={onMoveDown === undefined}
-            onClick={() => onMoveDown?.(step.id)}
-          >
-            <FontAwesomeIcon icon={faChevronDown} aria-hidden="true" />
-          </button>
+          {/* HEL-908 task 3.4 — the drag handle and Move up/down buttons are
+           * trunk-only (see `isTail` prop doc): tail-internal reorder shares
+           * the same sibling-scoped `PUT /steps/order` primitive trunk
+           * reorder already relies on, unmodified by this ticket. */}
+          {!isTail && (
+            <>
+              {/* design.md Decision 5 — the drag handle is an `aria-hidden`
+               * mouse/touch-only drag surface, not a focusable control: the
+               * keyboard-accessible reorder path is the Move up/down buttons
+               * below, not this handle. A focusable-but-hidden element would be
+               * an accessibility anti-pattern (phantom tab-stop excluded from
+               * the a11y tree), so this is a `<span>`, not a `<button>`. */}
+              <span
+                className="pipeline-detail-page__step-card-drag-handle"
+                aria-hidden="true"
+                draggable
+                onDragStart={() => onStepDragStart(stepIndex)}
+                onDragEnd={onStepDragEnd}
+              >
+                <FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />
+              </span>
+              <button
+                type="button"
+                className="pipeline-detail-page__step-card-move-btn"
+                aria-label="Move step up"
+                title="Move step up"
+                disabled={onMoveUp === undefined}
+                onClick={() => onMoveUp?.(step.id)}
+              >
+                <FontAwesomeIcon icon={faChevronUp} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="pipeline-detail-page__step-card-move-btn"
+                aria-label="Move step down"
+                title="Move step down"
+                disabled={onMoveDown === undefined}
+                onClick={() => onMoveDown?.(step.id)}
+              >
+                <FontAwesomeIcon icon={faChevronDown} aria-hidden="true" />
+              </button>
+            </>
+          )}
           {/* HEL-412 (design.md Decision 6) — sibling of the toggle/drag/move
            * controls above, never nested inside another button. The
            * accessible name flips with state; the icon stays constant
@@ -446,6 +288,16 @@ export const StepCard = React.memo(function StepCard({
         </div>
       </div>
 
+      {/* task 3.3 — always visible (not gated on `expanded`): the rail is
+       * this step's Outputs summary, the whole point of which is to be
+       * scannable without opening the card. */}
+      <OutputsRail
+        outputs={outputs}
+        previewRowCountByOutputId={previewRowCountByOutputId}
+        onOpenOutput={onOpenOutput}
+        onAddOutput={() => onAddOutput(step.id)}
+      />
+
       {expanded && (
         <div className="pipeline-detail-page__step-card-body">
           <StepSchemaDiffChips
@@ -459,126 +311,13 @@ export const StepCard = React.memo(function StepCard({
            * input via `ComputeFieldConfig`, kept as-is below — excluded here
            * so it isn't rendered twice). */}
           {step.opType.id !== "compute" && <InlineError error={validationError ?? null} />}
-          {step.opType.id === "select" ? (
-            <SelectFieldsConfig
-              columns={analyzeColumns}
-              selectedFields={selectedFields}
-              onToggle={onFieldToggle}
-            />
-          ) : step.opType.id === "rename" ? (
-            <RenameFieldsConfig
-              columns={analyzeColumns}
-              renames={renames}
-              onChange={onRenameChange}
-            />
-          ) : step.opType.id === "cast" ? (
-            <CastFieldsConfig columns={analyzeColumns} casts={casts} onChange={onCastChange} />
-          ) : step.opType.id === "filter" ? (
-            <FilterConfig
-              config={filterConfig}
-              analyzeSchema={analyzeSchema}
-              onChange={onFilterChange}
-            />
-          ) : step.opType.id === "compute" ? (
-            <ComputeFieldConfig
-              config={computeConfig}
-              analyzeColumns={analyzeColumns}
-              validationError={validationError}
-              onChange={onComputeChange}
-            />
-          ) : step.opType.id === "aggregate" ? (
-            <AggregateConfig
-              config={aggregateConfig}
-              analyzeSchema={analyzeSchema}
-              analyzeColumns={analyzeColumns}
-              onChange={onAggregateChange}
-            />
-          ) : step.opType.id === "limit" ? (
-            <LimitConfig count={limitCount} onChange={onLimitChange} />
-          ) : step.opType.id === "sort" ? (
-            <SortConfig sortBy={sortConfig} columns={analyzeColumns} onChange={onSortChange} />
-          ) : step.opType.id === "splittext" ? (
-            <SplitTextConfig
-              config={splitTextConfig}
-              analyzeSchema={analyzeSchema}
-              onChange={onSplitTextChange}
-            />
-          ) : step.opType.id === "extractheadings" ? (
-            <ExtractHeadingsConfig
-              config={extractHeadingsConfig}
-              analyzeSchema={analyzeSchema}
-              onChange={onExtractHeadingsChange}
-            />
-          ) : step.opType.id === "chunkbytokencount" ? (
-            <ChunkByTokenCountConfig
-              config={chunkByTokenCountConfig}
-              analyzeSchema={analyzeSchema}
-              onChange={onChunkByTokenCountChange}
-            />
-          ) : step.opType.id === "datebucket" ? (
-            <DateBucketConfig
-              config={dateBucketConfig}
-              analyzeColumns={analyzeColumns}
-              onChange={onDateBucketChange}
-            />
-          ) : step.opType.id === "pivot" ? (
-            <PivotConfig
-              config={pivotConfig}
-              analyzeSchema={analyzeSchema}
-              analyzeColumns={analyzeColumns}
-              onChange={onPivotChange}
-            />
-          ) : step.opType.id === "window" ? (
-            <WindowConfig
-              config={windowConfig}
-              analyzeSchema={analyzeSchema}
-              analyzeColumns={analyzeColumns}
-              onChange={onWindowChange}
-            />
-          ) : step.opType.id === "unpivot" ? (
-            <UnpivotConfig
-              config={unpivotConfig}
-              analyzeSchema={analyzeSchema}
-              onChange={onUnpivotChange}
-            />
-          ) : step.opType.id === "dedupe" ? (
-            <DedupeConfig
-              config={dedupeConfig}
-              analyzeColumns={analyzeColumns}
-              onChange={onDedupeChange}
-            />
-          ) : step.opType.id === "fillnull" ? (
-            <FillNullConfig
-              config={fillNullConfig}
-              analyzeColumns={analyzeColumns}
-              onChange={onFillNullChange}
-            />
-          ) : step.opType.id === "stringops" ? (
-            <StringOpsConfig
-              config={stringOpsConfig}
-              analyzeSchema={analyzeSchema}
-              analyzeColumns={analyzeColumns}
-              onChange={onStringOpsChange}
-            />
-          ) : step.opType.id === "union" ? (
-            <UnionConfig config={unionConfig} onChange={onUnionChange} />
-          ) : step.opType.id === "lookup" ? (
-            <LookupConfig
-              config={lookupConfig}
-              analyzeSchema={analyzeSchema}
-              onChange={onLookupChange}
-            />
-          ) : step.opType.id === "assert" ? (
-            <AssertConfig
-              config={assertConfig}
-              analyzeSchema={analyzeSchema}
-              onChange={onAssertChange}
-            />
-          ) : (
-            <p className="pipeline-detail-page__step-card-desc">
-              Configure this {step.opType.label.toLowerCase()} step.
-            </p>
-          )}
+          <StepOpEditor
+            step={step}
+            analyzeColumns={analyzeColumns}
+            analyzeSchema={analyzeSchema}
+            validationError={validationError}
+            stepCardState={stepCardState}
+          />
           <div className="pipeline-detail-page__step-card-actions">
             {/* HEL-412 (design.md Decision 6) — preview is unavailable for a
              * disabled step (it doesn't run), so the control is hidden

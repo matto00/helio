@@ -395,6 +395,72 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(action.transactionally)
   }
 
+  /** ACL-bypassing branch-attach (HEL-908): inserts a new step as a genuine NEW sibling of
+    * `parentStepId`'s existing children -- a `position >= 1` tail root -- WITHOUT touching any
+    * of them. This is the counterpart to [[spliceInsertAtInternal]] above, which inserts
+    * directly after the anchor and REPARENTS every one of the anchor's existing children onto
+    * the new step (a trunk-insert-deeper primitive). Neither is a substitute for the other:
+    * splicing an anchor that already has a trunk continuation makes the new step the trunk
+    * continuation (reparenting the old one one hop down); attaching makes the new step an
+    * entirely separate branch, leaving the anchor's existing trunk continuation (and any other
+    * tails) exactly where they were.
+    *
+    * Implementation is the sibling-scoped append idiom every other writer in this file uses
+    * ([[siblingsQuery]] + max-position-then-append, same shape as [[insertInternal]]), with ONE
+    * deliberate deviation from [[insertInternalAction]]: the computed position is floored at `1`
+    * UNCONDITIONALLY, regardless of whether the anchor already has children. When the anchor
+    * already has a `position == 0` trunk child, the new row lands at `max(existingMax + 1, 1)`
+    * -- by [[tailsOf]]/[[executionOrder]]'s own `position != 0` rule, that is exactly what makes
+    * it a tail rather than the trunk. When the anchor has NO children yet (the common case --
+    * attaching a tail off the pipeline's current LAST/leaf trunk step), the new row STILL lands
+    * at `position == 1`, not `position == 0`: this primitive's entire contract is "attach a tail",
+    * and a leaf anchor is not an exception to that contract -- it is the modal case. (Evaluation-1
+    * cycle-2 CR1: the earlier `position == 0` leaf fallback silently spliced the new step into the
+    * trunk 100% of the time for the common leaf-anchor case, corrupting every downstream trunk
+    * step and the pipeline's persisted run output. Fixed here at the primitive so every caller --
+    * UI and route alike -- gets a real tail without having to branch on leaf-vs-non-leaf itself.)
+    * `position == 0` is deliberately left EMPTY at the anchor in the leaf case; nothing back-fills
+    * it, so the anchor's trunk simply ends there until a genuine trunk-continuation insert
+    * ([[spliceInsertAtInternal]]) is used.
+    *
+    * `parentStepId` is a non-`Option` `PipelineStepId` (evaluation-1 cycle-2 non-blocking
+    * suggestion): a `None` here would append at the root sibling group, a shape the "tail"
+    * concept has no meaning for -- `PipelineService` only ever calls this from its
+    * `parentStepId`-present branch, so the type now says so rather than leaving a `None` case
+    * every caller has to reason was never actually reachable.
+    *
+    * Safe to call only after the caller's editor or owner access has been confirmed by
+    * PipelineService via findByIdShared, exactly like every other `*Internal` method here. */
+  def attachTailInternal(
+      pipelineId:   PipelineId,
+      kind:         String,
+      config:       Any,
+      parentStepId: PipelineStepId,
+      enabled:      Boolean = true
+  ): Future[PipelineStep] =
+    ctx.withSystemContext(attachTailInternalAction(pipelineId, kind, config, parentStepId, enabled).transactionally)
+
+  /** DBIO body of [[attachTailInternal]] above -- extracted so route/service-level tests can
+    * compose it into a larger transaction if ever needed, matching the `*InternalAction` idiom
+    * already used by [[insertInternalAction]]. */
+  private def attachTailInternalAction(
+      pipelineId:   PipelineId,
+      kind:         String,
+      config:       Any,
+      parentStepId: PipelineStepId,
+      enabled:      Boolean
+  ): DBIO[PipelineStep] = {
+    val now        = Instant.now()
+    val configJson = encodeConfig(kind, config)
+    for {
+      maxPos   <- siblingsQuery(pipelineId, Some(parentStepId)).map(_.position).max.result
+      position  = maxPos.map(_ + 1).getOrElse(1).max(1)
+      id        = UUID.randomUUID().toString
+      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now, Some(parentStepId.value))
+      _        <- stepsTable += row
+    } yield rowToDomain(row)
+  }
+
   /** ACL-bypassing atomic reorder (HEL-407). Safe to call only after the
     * caller's editor or owner access has been confirmed by PipelineService
     * via findByIdShared, and after the service has confirmed `orderedIds` is
@@ -431,6 +497,78 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       rows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
     } yield executionOrder(rows.toVector.map(rowToDomain))
     ctx.withSystemContext(action.transactionally)
+  }
+
+  /** ACL-bypassing trunk-to-trunk reorder (HEL-908, design.md decision 15 / non-goal waiver #2).
+    * Safe to call only after the caller's editor or owner access has been confirmed by
+    * PipelineService via findByIdShared, and after the service has validated `orderedTrunkIds`
+    * against [[PipelineService]]'s own trunk-only permutation contract (see Decision 15) --
+    * this method itself re-derives and re-validates the trunk from a FRESH read rather than
+    * trusting the caller's earlier snapshot, so a race between the service's check and this
+    * call cannot silently corrupt structure.
+    *
+    * Unlike [[reorderInternal]] (sibling-scoped `position` renumber, a no-op for a pure trunk
+    * since every trunk step has a distinct parent), this RELINKS the `parentStepId` chain
+    * itself: `orderedTrunkIds(0).parentStepId` becomes `None` (the new trunk root),
+    * `orderedTrunkIds(i).parentStepId` becomes `orderedTrunkIds(i - 1)` for `i > 0`, and every
+    * trunk node's `position` is written as `0` (a trunk node is always the position-0 / trunk-
+    * continuation child of its new parent, by `trunkOf`/`executionOrder`'s own definition).
+    *
+    * Per the human's ruling ("the tail FOLLOWS ITS TRUNK STEP"): a tail's own `parentStepId`
+    * already references its trunk node's id, not a position/slot, and ids never change here --
+    * so no tail row is read or written by this method. A moved trunk node's tail travels with
+    * it automatically (the tail still points at the same node id, wherever that node's own
+    * `parentStepId`/`position` now point); the node that ends up occupying the moved node's old
+    * position in the trunk array does NOT inherit that tail, because the tail was never
+    * attached to a "slot" -- only ever to the node's id.
+    *
+    * Returns `Left(error message)` (never partially applies a rejected request) when
+    * `orderedTrunkIds` is not exactly a permutation of the pipeline's CURRENT trunk ids -- any
+    * tail id present, any trunk id missing, or any duplicate. */
+  def reorderTrunkInternal(pipelineId: PipelineId, orderedTrunkIds: Seq[PipelineStepId]): Future[Either[String, Vector[PipelineStep]]] = {
+    val now = Instant.now()
+    val action = for {
+      rows          <- stepsTable.filter(_.pipelineId === pipelineId.value).result
+      steps          = rows.toVector.map(rowToDomain)
+      currentTrunk   = trunkOf(steps).map(_.id)
+      validation     = validateTrunkReorderRequest(currentTrunk, orderedTrunkIds)
+      result        <- validation match {
+        case Left(err) => DBIO.successful(Left(err): Either[String, Vector[PipelineStep]])
+        case Right(())  =>
+          val updates = orderedTrunkIds.zipWithIndex.map { case (id, idx) =>
+            val newParent: Option[String] = if (idx == 0) None else Some(orderedTrunkIds(idx - 1).value)
+            stepsTable.filter(_.id === id.value).map(s => (s.parentStepId, s.position, s.updatedAt)).update((newParent, 0, now))
+          }
+          for {
+            _         <- DBIO.sequence(updates)
+            finalRows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
+          } yield Right(executionOrder(finalRows.toVector.map(rowToDomain))): Either[String, Vector[PipelineStep]]
+      }
+    } yield result
+    ctx.withSystemContext(action.transactionally)
+  }
+
+  /** Pure validation for [[reorderTrunkInternal]]'s request-shape contract (design.md decision
+    * 15): `requested` must be exactly a permutation of `currentTrunk` -- same length, same set,
+    * no duplicates. Named per-violation messages so a rejected request is diagnosable by the
+    * caller, not a generic "invalid" 422. */
+  private def validateTrunkReorderRequest(
+      currentTrunk: Vector[PipelineStepId],
+      requested: Seq[PipelineStepId]
+  ): Either[String, Unit] = {
+    val currentSet   = currentTrunk.toSet
+    val requestedSet = requested.toSet
+    if (requested.size != requestedSet.size)
+      Left("orderedTrunkIds must not contain duplicate step ids")
+    else if (requestedSet != currentSet) {
+      val missing = currentSet -- requestedSet
+      val extra   = requestedSet -- currentSet
+      val parts = Vector(
+        if (missing.nonEmpty) Some(s"missing trunk step ids: ${missing.map(_.value).mkString(", ")}") else None,
+        if (extra.nonEmpty) Some(s"unexpected step ids (tail ids are not accepted here, only current trunk ids): ${extra.map(_.value).mkString(", ")}") else None
+      ).flatten
+      Left(s"orderedTrunkIds must be exactly the pipeline's current trunk step ids: ${parts.mkString("; ")}")
+    } else Right(())
   }
 
   /** ACL-bypassing delete, with splice-on-delete (HEL-904 task 1.6/1.7): safe
