@@ -59,7 +59,6 @@ function buildPipeline(overrides: Partial<PipelineSummary>): PipelineSummary {
     name: "Revenue ETL",
     sourceDataSourceId: "src-1",
     sourceDataSourceName: "Profit",
-    outputDataTypeName: "RevenueRow",
     outputDataTypeId: "type-1",
     lastRunStatus: "succeeded",
     lastRunAt: "2026-01-01T00:00:00Z",

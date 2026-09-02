@@ -1,0 +1,110 @@
+/* Output editor sheet (task 5.1). Skeptic-final-3 (round 1) CR6 — this used
+   to borrow the `features/panels` feature's `panel-detail-modal__*` classes
+   (defined in `PanelDetailModal.binding.css`/`.css`/`.sections.css`, none of
+   which this component imports) without any actual import/shared-component
+   relationship: a silent cross-feature CSS dependency where P1.6 (HEL-909,
+   the very next ticket, which touches `features/panels/` directly) could
+   restyle this sheet with zero visibility. The rules below are this
+   component's OWN copies (`output-editor-sheet__*`), so a future edit to
+   the panels feature's form chrome can no longer reach in here. Values are
+   copied byte-for-byte from `panel-detail-modal__data-section`/
+   `__data-label`/`__edit-section-heading`/`__field-hint`/`__mapping-row`/
+   `__mapping-label`/`__type-hint` at the time of the fix; the two features
+   are free to diverge from here on, by design. */
+
+.output-editor-sheet__data-section {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.output-editor-sheet__data-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text-muted);
+}
+
+.output-editor-sheet__edit-section-heading {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--app-text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.output-editor-sheet__field-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.output-editor-sheet__type-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.output-editor-sheet__mapping-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.output-editor-sheet__mapping-label {
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.output-editor-sheet__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* skeptic-final-3 (round 1) CR1/CR2 — the delete/cancel/save buttons now use
+   the shared `ui-modal-btn` recipe (44px mobile hit expander + real
+   primary/secondary/danger treatments); this only keeps the sheet-specific
+   footer-left placement. */
+.output-editor-sheet__delete {
+  margin-right: auto;
+}
+
+.output-editor-sheet__placements {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.output-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.output-preview-table th,
+.output-preview-table td {
+  border: 1px solid var(--app-border-subtle);
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+}
+
+/* Evaluation-1 cycle-2 CR7: static layout values that were previously
+   inline `style={{}}` in `OutputPreviewPane.tsx` (DESIGN.md [mechanical] --
+   inline styles are for genuinely dynamic values only). */
+
+.output-preview-pane__chart {
+  height: 240px;
+}
+
+.output-preview-pane__markdown {
+  white-space: pre-wrap;
+}
+
+.output-preview-pane__table-section {
+  overflow: auto;
+  max-height: 240px;
+}

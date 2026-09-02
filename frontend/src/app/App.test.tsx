@@ -719,7 +719,6 @@ describe("App", () => {
         name: "Revenue ETL",
         sourceDataSourceId: "src-1",
         sourceDataSourceName: "Profit",
-        outputDataTypeName: "RevenueRow",
         outputDataTypeId: "type-1",
         lastRunStatus: "succeeded",
         lastRunAt: "2026-03-14T10:00:00Z",

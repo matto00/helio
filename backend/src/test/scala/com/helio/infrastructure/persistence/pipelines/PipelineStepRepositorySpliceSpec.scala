@@ -351,4 +351,266 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       afterFixedWrite.size shouldBe 4
     }
   }
+
+  // ── HEL-908: attachTailInternal (genuine branch-attach primitive) ────────
+  //
+  // Distinct from spliceInsertAtInternal: attaches a new step as a
+  // position>=1 sibling of the anchor WITHOUT reparenting the anchor's
+  // existing children. Both assertions below are mutation-tested (proven
+  // to fail against spliceInsertAtInternal's reparenting behavior) so a
+  // future regression that silently swaps the two primitives is caught.
+
+  "attachTailInternal (branch-attach -- HEL-908)" should {
+
+    "attach a new tail off the anchor WITHOUT reparenting the anchor's existing trunk child" in {
+      val pid    = seedPipeline()
+      val root0  = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val anchor = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(root0.id)))
+      // anchor's existing trunk continuation -- must NOT be reparented by the attach below.
+      val existingChild = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id)))
+
+      val attached = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = anchor.id))
+
+      // The new step is a NEW sibling of existingChild -- position >= 1, same parent.
+      attached.parentStepId shouldBe Some(anchor.id)
+      attached.position should be >= 1
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      // existingChild is STILL anchor's direct child, at its original position-0 trunk slot --
+      // the defining difference from spliceInsertAtInternal, which would have reparented it
+      // onto `attached` instead. This is the assertion that fails if attachTailInternal
+      // regresses to spliceInsertAtInternal's reparenting behavior (proven below).
+      all.find(_.id == existingChild.id).get.parentStepId shouldBe Some(anchor.id)
+      all.find(_.id == existingChild.id).get.position shouldBe 0
+
+      // anchor now has TWO direct children: the pre-existing trunk continuation AND the
+      // new tail -- not one (which spliceInsertAtInternal would have produced).
+      stepRepo.childrenOf(all, Some(anchor.id)).map(_.id) should contain theSameElementsAs
+        Vector(existingChild.id, attached.id)
+
+      // executionOrder: the new tail is emitted as a genuine branch off anchor, and the
+      // trunk (root0 -> anchor -> existingChild) remains intact and unbroken.
+      val trunk = stepRepo.trunkOf(all)
+      trunk.map(_.id) shouldBe Vector(root0.id, anchor.id, existingChild.id)
+    }
+
+    "MUTATION PROOF: reparenting instead of attaching would falsify existingChild's parentStepId" in {
+      // Exercises spliceInsertAtInternal (the OLD/wrong primitive for this use case) on the
+      // identical shape used above, and confirms it DOES reparent existingChild -- i.e. the
+      // guard assertion above (`existingChild.parentStepId shouldBe Some(anchor.id)`) is not
+      // vacuous: it fails for real against the reparenting primitive.
+      val pid    = seedPipeline()
+      val root0  = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val anchor = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(root0.id)))
+      val existingChild = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id)))
+
+      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id)))
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      // Confirmed RED (for the attach-primitive's guard): under splice, existingChild's parent
+      // moved to the newly-spliced step, NOT anchor -- exactly the corruption attachTailInternal
+      // exists to avoid.
+      all.find(_.id == existingChild.id).get.parentStepId shouldBe Some(spliced.id)
+      all.find(_.id == existingChild.id).get.parentStepId should not be Some(anchor.id)
+    }
+
+    "attach onto a childless (leaf) anchor still lands at position 1, a real tail, NOT the trunk continuation (evaluation-1 cycle-2 CR1)" in {
+      // This is the common case: adding a tail off the pipeline's current LAST trunk step,
+      // which by definition has no children yet. Before the CR1 fix, this fell back to
+      // position 0, silently splicing the new step into the trunk 100% of the time here.
+      val pid      = seedPipeline()
+      val root0    = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val attached = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = root0.id))
+      attached.parentStepId shouldBe Some(root0.id)
+      attached.position shouldBe 1
+      // root0's trunk ends at root0 itself -- position 0 under it is deliberately left empty,
+      // not back-filled by the tail attach.
+      stepRepo.trunkOf(await(stepRepo.listByPipelineInternal(pid))).map(_.id) shouldBe Vector(root0.id)
+      stepRepo
+        .childrenOf(await(stepRepo.listByPipelineInternal(pid)), Some(root0.id))
+        .filter(_.position != 0)
+        .map(_.id) shouldBe Vector(attached.id)
+    }
+
+    "attach a second tail onto an anchor that already has one tail lands at position 2, after the first" in {
+      val pid    = seedPipeline()
+      val root0  = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val first  = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = root0.id))
+      val second = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = root0.id))
+      first.position shouldBe 1
+      second.position shouldBe 2
+      stepRepo.trunkOf(await(stepRepo.listByPipelineInternal(pid))).map(_.id) shouldBe Vector(root0.id)
+    }
+  }
+
+  // ── HEL-908 regression guard: spliceInsertAtInternal's trunk-insert
+  // (reparenting) behavior must be preserved EXACTLY -- it is load-bearing
+  // for every pipeline already in the DB. This duplicates the shape of the
+  // pre-existing "reparent BOTH..." case above as an explicit HEL-908-era
+  // guard, independently mutation-proven.
+
+  "spliceInsertAtInternal (regression guard -- HEL-908 must not alter this)" should {
+
+    "still reparents the anchor's existing trunk child onto the newly-spliced step" in {
+      val pid    = seedPipeline()
+      val root0  = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val anchor = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(root0.id)))
+      val existingChild = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id)))
+
+      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id)))
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      // This is the load-bearing trunk-insert behavior: existingChild's parent MUST move to
+      // the newly-spliced step (not stay on anchor) -- the opposite of attachTailInternal.
+      all.find(_.id == existingChild.id).get.parentStepId shouldBe Some(spliced.id)
+      stepRepo.trunkOf(all).map(_.id) shouldBe Vector(root0.id, anchor.id, spliced.id, existingChild.id)
+    }
+
+    "MUTATION PROOF: attaching instead of splicing would falsify the reparent-onto-new-step assertion" in {
+      // Exercises attachTailInternal (the branch-attach primitive) on the identical shape,
+      // confirming the regression guard above is not vacuous: it fails for real against the
+      // attach primitive, which deliberately does NOT reparent.
+      val pid    = seedPipeline()
+      val root0  = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val anchor = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(root0.id)))
+      val existingChild = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id)))
+
+      val attached = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = anchor.id))
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      // Confirmed RED (for the splice-guard): under attach, existingChild's parent stayed on
+      // anchor, NOT the new step -- so a splice-guard assertion of `Some(attached.id)` fails here.
+      all.find(_.id == existingChild.id).get.parentStepId should not be Some(attached.id)
+      all.find(_.id == existingChild.id).get.parentStepId shouldBe Some(anchor.id)
+    }
+  }
+
+  // ── HEL-908: reorderTrunkInternal (trunk-to-trunk reorder relink, design.md
+  // decision 15 / non-goal waiver #2) ───────────────────────────────────────
+  //
+  // "The tail follows its trunk step": a moved trunk node's tail travels
+  // with it (still attached by node id, never touched); the node that ends
+  // up occupying the moved node's OLD slot does NOT inherit that tail.
+  // Every assertion below is mutation-proven per the resume brief's bar.
+
+  "reorderTrunkInternal (trunk-to-trunk reorder relink -- HEL-908)" should {
+
+    "actually permutes trunk order (the core fix -- reorderInternal is a no-op for a pure trunk)" in {
+      val pid = seedPipeline()
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id)))
+      val c = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(b.id)))
+
+      // MUTATION PROOF (non-vacuous): the pre-existing reorderInternal, run on the identical
+      // permutation request, is confirmed a real no-op -- proving this test would fail against
+      // the old primitive, not just pass trivially.
+      val noopResult = await(stepRepo.reorderInternal(pid, Seq(c.id, a.id, b.id)))
+      stepRepo.trunkOf(noopResult).map(_.id) shouldBe Vector(a.id, b.id, c.id) // unchanged -- confirmed red
+
+      val Right(reordered) = await(stepRepo.reorderTrunkInternal(pid, Seq(b.id, a.id, c.id))): @unchecked
+      stepRepo.trunkOf(reordered).map(_.id) shouldBe Vector(b.id, a.id, c.id) // GREEN: actually permuted
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      stepRepo.trunkOf(all).map(_.id) shouldBe Vector(b.id, a.id, c.id) // persisted, not just returned
+    }
+
+    "a moved node's tail chain travels with it to its new position" in {
+      val pid = seedPipeline()
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id)))
+      val c = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(b.id)))
+      // tail_A hangs off A (a genuine branch attach, not a trunk continuation).
+      val tailA = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = a.id))
+      tailA.position should be >= 1
+
+      // Move A to sit after B: new trunk order B -> A -> C.
+      val Right(_) = await(stepRepo.reorderTrunkInternal(pid, Seq(b.id, a.id, c.id))): @unchecked
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      // tail_A is STILL a's direct child -- attached by A's id, never touched by the reorder.
+      all.find(_.id == tailA.id).get.parentStepId shouldBe Some(a.id)
+      stepRepo.trunkOf(all).map(_.id) shouldBe Vector(b.id, a.id, c.id)
+      stepRepo.childrenOf(all, Some(a.id)).filter(_.position != 0).map(_.id) shouldBe Vector(tailA.id)
+    }
+
+    "the old-slot occupant does NOT inherit the moved node's former tail" in {
+      val pid = seedPipeline()
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id)))
+      val c = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(b.id)))
+      val tailA = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = a.id))
+
+      // B now occupies A's OLD slot (directly after the root).
+      val Right(_) = await(stepRepo.reorderTrunkInternal(pid, Seq(b.id, a.id, c.id))): @unchecked
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      // B (the new occupant of A's old slot) has NO tail of its own -- it did not inherit tailA.
+      stepRepo.childrenOf(all, Some(b.id)).filter(_.position != 0) shouldBe empty
+      // tailA is unambiguously still A's, not B's.
+      all.find(_.id == tailA.id).get.parentStepId should not be Some(b.id)
+      all.find(_.id == tailA.id).get.parentStepId shouldBe Some(a.id)
+    }
+
+    "a reorder involving a node with no tail behaves exactly as before (regression guard)" in {
+      val pid = seedPipeline()
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id)))
+      val c = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(b.id)))
+      val d = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(c.id)))
+
+      val Right(reordered) = await(stepRepo.reorderTrunkInternal(pid, Seq(a.id, c.id, b.id, d.id))): @unchecked
+      stepRepo.trunkOf(reordered).map(_.id) shouldBe Vector(a.id, c.id, b.id, d.id)
+      // Every trunk node is a position-0 child of its (new) parent -- the ordinary invariant.
+      stepRepo.trunkOf(reordered).foreach(_.position shouldBe 0)
+
+      // MUTATION PROOF: an intentionally-wrong "identity" relink (parent chain in the OLD
+      // order instead of the requested one) would NOT reproduce the requested order --
+      // confirming this test's assertion is not vacuously true for any relink at all.
+      val wrongOrderTrunk = stepRepo.trunkOf(await(stepRepo.listByPipelineInternal(pid)))
+      wrongOrderTrunk.map(_.id) should not be Vector(a.id, b.id, c.id, d.id)
+    }
+
+    "rejects a request containing a tail id with a clear error, not a silent accept or no-op" in {
+      val pid = seedPipeline()
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id)))
+      val tailA = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = a.id))
+
+      val result = await(stepRepo.reorderTrunkInternal(pid, Seq(b.id, tailA.id)))
+      result.isLeft shouldBe true
+      result.left.getOrElse("") should include(tailA.id.value)
+
+      // Not silently accepted or no-op'd: structure is completely unchanged after the rejection.
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      stepRepo.trunkOf(all).map(_.id) shouldBe Vector(a.id, b.id)
+      all.find(_.id == tailA.id).get.parentStepId shouldBe Some(a.id)
+    }
+
+    "rejects a request missing a trunk id with a clear error" in {
+      val pid = seedPipeline()
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id)))
+      val c = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(b.id)))
+
+      val result = await(stepRepo.reorderTrunkInternal(pid, Seq(a.id, c.id))) // b missing
+      result.isLeft shouldBe true
+      result.left.getOrElse("") should include(b.id.value)
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      stepRepo.trunkOf(all).map(_.id) shouldBe Vector(a.id, b.id, c.id) // unchanged
+    }
+
+    "rejects a request with a duplicated trunk id" in {
+      val pid = seedPipeline()
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id)))
+
+      val result = await(stepRepo.reorderTrunkInternal(pid, Seq(a.id, a.id)))
+      result.isLeft shouldBe true
+      result.left.getOrElse("") should include("duplicate")
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      stepRepo.trunkOf(all).map(_.id) shouldBe Vector(a.id, b.id) // unchanged
+    }
+  }
 }

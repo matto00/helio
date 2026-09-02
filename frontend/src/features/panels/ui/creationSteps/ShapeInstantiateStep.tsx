@@ -213,10 +213,30 @@ export function ShapeInstantiateStep({ shape, onBack, onComplete }: ShapeInstant
     // Stage 3: add each expanded step, in order. No rollback of the already-
     // created pipeline on a mid-loop failure (design.md Decision 5) — it's
     // discoverable and fixable from /pipelines like any other pipeline.
+    // HEL-908 design.md decision 11 — `expand` now returns `{steps,
+    // outputs?}`, not a bare array; `steps[].clientId`/`parentStepId`
+    // reference each other within this one response, not real ids. This
+    // wizard flow always starts from a brand-new pipeline (zero pre-existing
+    // steps), so every step's `parentStepId` (a `clientId` reference, or
+    // absent for the response's own root) resolves purely within this
+    // loop's own clientId->real-id map — no anchor node, no `outputs` arm
+    // (this flow returns a `dataTypeId`, not an Output).
     setStage("steps");
-    for (const expansion of expansions) {
+    const clientIdToRealId = new Map<string, string>();
+    for (const expansion of expansions.steps) {
       try {
-        await createPipelineStep(pipelineId, expansion.kind, expansion.config);
+        const realParentId =
+          expansion.parentStepId !== undefined
+            ? clientIdToRealId.get(expansion.parentStepId)
+            : undefined;
+        const persisted = await createPipelineStep(
+          pipelineId,
+          expansion.kind,
+          expansion.config,
+          undefined,
+          realParentId,
+        );
+        clientIdToRealId.set(expansion.clientId, persisted.id);
       } catch (err: unknown) {
         setSubmitError(extractErrorMessage(err, "Failed to add a pipeline step."));
         setStage(null);

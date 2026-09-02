@@ -12,6 +12,7 @@ import { panelsReducer } from "../../panels/state/panelsSlice";
 import { dataTypesReducer } from "../../dataTypes/state/dataTypesSlice";
 import { toastsReducer } from "../../toasts/state/toastsSlice";
 import { pipelinesReducer } from "../state/pipelinesSlice";
+import { outputsReducer } from "../state/outputsSlice";
 import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
 import {
@@ -42,7 +43,10 @@ import type {
   PipelineSummary,
 } from "../types/pipelineStep";
 import type { PipelineSchedule } from "../types/pipelineSchedule";
-import type { PipelineShapeCatalogEntry, ShapeStepExpansion } from "../types/pipelineShape";
+import type {
+  ExpandPipelineShapeResponse,
+  PipelineShapeCatalogEntry,
+} from "../types/pipelineShape";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
@@ -119,7 +123,6 @@ const defaultPipeline: PipelineSummary = {
   name: "Test Pipeline",
   sourceDataSourceId: "src-1",
   sourceDataSourceName: "Test Source",
-  outputDataTypeName: "TestType",
   lastRunStatus: null,
   lastRunAt: null,
   lastRunRowCount: null,
@@ -167,6 +170,7 @@ function makeStore(
       dataTypes: dataTypesReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
+      outputs: outputsReducer,
       toasts: toastsReducer,
     } as never,
     preloadedState: {
@@ -324,6 +328,27 @@ describe("PipelineDetailPage", () => {
   it("renders when route is /pipelines/:id", async () => {
     renderDetailPage();
     expect(screen.getByText("Run pipeline")).toBeInTheDocument();
+  });
+
+  // Evaluation-1 cycle-2 CR6 -- the Steps/Outputs tab strip's ARIA tabs
+  // pattern must be complete: each tab has an id + aria-controls pointing at
+  // a real tabpanel with role="tabpanel" + aria-labelledby, and roving
+  // tabindex keeps exactly one tab focusable at a time.
+  it("Steps/Outputs tabs wire a complete ARIA tabs pattern (CR6)", () => {
+    renderDetailPage();
+    const stepsTab = screen.getByRole("tab", { name: "Steps" });
+    const outputsTab = screen.getByRole("tab", { name: /Outputs/ });
+
+    expect(stepsTab).toHaveAttribute("aria-selected", "true");
+    expect(stepsTab).toHaveAttribute("tabindex", "0");
+    expect(outputsTab).toHaveAttribute("aria-selected", "false");
+    expect(outputsTab).toHaveAttribute("tabindex", "-1");
+
+    const stepsPanelId = stepsTab.getAttribute("aria-controls");
+    expect(stepsPanelId).toBeTruthy();
+    const stepsPanel = document.getElementById(stepsPanelId!);
+    expect(stepsPanel).toHaveAttribute("role", "tabpanel");
+    expect(stepsPanel).toHaveAttribute("aria-labelledby", stepsTab.id);
   });
 
   // F-105 regression — opening a pipeline that already has persisted steps
@@ -857,11 +882,9 @@ describe("PipelineDetailPage", () => {
       expect(toasts[0].message).toMatch(/failed to disable step/i);
     });
 
-    it("duplicate splices the clone directly after the original", async () => {
-      duplicatePipelineStepMock.mockResolvedValueOnce({
-        ...persistedRename,
-        id: "x1-clone",
-      });
+    it("duplicate resyncs from the server with the clone directly after the original", async () => {
+      const duplicatedRename = { ...persistedRename, id: "x1-clone" };
+      duplicatePipelineStepMock.mockResolvedValueOnce(duplicatedRename);
       const { container } = renderDetailPage();
       await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 
@@ -871,6 +894,17 @@ describe("PipelineDetailPage", () => {
         );
       }
       expect(stepLabels()).toEqual(["Rename column", "Filter rows"]);
+
+      // CR10 fix — `handleDuplicateStep` now resyncs the full step list from
+      // the server after the create resolves (evaluation-3.md CR10), rather
+      // than splicing just the one new element in locally; queue the
+      // post-duplicate server truth for that follow-up `getPipelineSteps`
+      // call, exactly mirroring CR9's fix for the other three create paths.
+      getPipelineStepsMock.mockResolvedValueOnce([
+        persistedRename,
+        duplicatedRename,
+        persistedFilter,
+      ]);
 
       await act(async () => {
         fireEvent.click(screen.getAllByRole("button", { name: "Duplicate step" })[0]);
@@ -1079,6 +1113,12 @@ describe("PipelineDetailPage", () => {
       });
       const callsBeforeInsert = fetchStepPreviewMock.mock.calls.length;
 
+      // CR9 fix — `handleInsertStep` now resyncs the full step list from the
+      // server after the create resolves (evaluation-2.md CR9), rather than
+      // patching just the one new element; queue the post-insert server
+      // truth for that follow-up `getPipelineSteps` call.
+      getPipelineStepsMock.mockResolvedValueOnce([persistedRename, persistedCast, persistedFilter]);
+
       // Insert a new step before Filter (gap index 1) — Filter's stepIndex
       // shifts from 1 to 2, changing its `${stepIndex}:config` fingerprint.
       const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
@@ -1099,7 +1139,6 @@ describe("PipelineDetailPage", () => {
         name: "My Pipeline",
         sourceDataSourceId: "src-1",
         sourceDataSourceName: "Source",
-        outputDataTypeName: "Type",
         lastRunStatus: null,
         lastRunAt: null,
         lastRunRowCount: null,
@@ -1302,7 +1341,6 @@ describe("PipelineDetailPage", () => {
         name: "Test Pipeline",
         sourceDataSourceId: "src-1",
         sourceDataSourceName: "Test Source",
-        outputDataTypeName: "TestType",
         lastRunStatus: "succeeded",
         lastRunAt: "2026-05-01T10:00:00Z",
         lastRunRowCount: 42,
@@ -1320,7 +1358,6 @@ describe("PipelineDetailPage", () => {
         name: "Test Pipeline",
         sourceDataSourceId: "src-1",
         sourceDataSourceName: "Test Source",
-        outputDataTypeName: "TestType",
         lastRunStatus: "succeeded",
         lastRunAt: "2026-05-01T10:00:00Z",
         lastRunRowCount: 5678,
@@ -1404,20 +1441,20 @@ describe("PipelineDetailPage — pinned footer actions + header actions menu", (
     expect(screen.getByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
   });
 
-  it("Run history and Preview are not always-visible buttons — reachable only via the actions menu", () => {
+  it("Run history is not an always-visible button — reachable only via the actions menu", () => {
     renderDetailPage();
     expect(screen.queryByRole("button", { name: "Run history" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
     openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
   });
 
-  it("activating 'Preview' from the actions menu opens the pipeline preview modal", () => {
+  // HEL-908 task 8.2 — `PipelinePreviewModal` was deleted, superseded by
+  // per-Output previews (the Output editor sheet / Outputs rail thumbnails);
+  // "Preview" no longer exists as a header action.
+  it("does not offer a 'Preview' action -- PipelinePreviewModal was deleted", () => {
     renderDetailPage();
     openPipelineActionsMenu();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Preview" }));
-    expect(screen.getByRole("dialog", { name: /preview/i })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Preview" })).not.toBeInTheDocument();
   });
 });
 
@@ -2494,7 +2531,6 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     name: "Test Pipeline",
     sourceDataSourceId: "src-1",
     sourceDataSourceName: "Test Source",
-    outputDataTypeName: "TestType",
     outputDataTypeId: "dt-1",
     lastRunStatus: null,
     lastRunAt: null,
@@ -2539,37 +2575,21 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     expect(screen.queryByText("Sources Page")).not.toBeInTheDocument();
   });
 
-  it("Edit type menu item is present when the output type is in dataTypes.items", () => {
+  // HEL-908 task 8.1 — "Edit type" (DataType-bound) was retired from the
+  // header's actions menu, replaced by the Outputs-count/last-run-status
+  // group; not gated on `dataTypes.items` ownership at all any more.
+  it("does not offer an 'Edit type' action regardless of dataTypes.items ownership", () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
-    renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
-    expect(screen.getByRole("menuitem", { name: "Edit type" })).toBeInTheDocument();
-  });
-
-  it("Edit type menu item is absent when the output type is not in dataTypes.items", () => {
-    const store = makeStore([], { currentPipeline: pipelineWithOutputType }, []);
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Edit type" })).not.toBeInTheDocument();
   });
 
-  // Deep-links to the type itself now that `/registry/:id` exists. It used to
-  // set `dataTypes.selectedTypeId` and land on `/registry`, which is the
-  // section overview and no longer resolves a selection.
-  it("activating Edit type navigates to that type's detail route", () => {
-    const store = makeStore([], { currentPipeline: pipelineWithOutputType }, [ownedType]);
-    renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Edit type" }));
-    expect(screen.getByText("Type Detail Page")).toBeInTheDocument();
-    expect(screen.queryByText("Type Registry Page")).not.toBeInTheDocument();
-  });
-
   // Shared-pipeline scenario: the current user has a pipeline-sharing grant
   // (or otherwise reaches a pipeline they don't own) but does not own the
-  // bound source/type — both Edit menu items must be absent, since pipeline
-  // access confers no standing over the underlying DataSource/DataType.
-  it("shared pipeline without source/type ownership shows neither Edit menu item", () => {
+  // bound source — the Edit source menu item must be absent, since pipeline
+  // access confers no standing over the underlying DataSource.
+  it("shared pipeline without source ownership shows no Edit source menu item", () => {
     const sharedPipeline: PipelineSummary = {
       ...pipelineWithOutputType,
       ownerId: "someone-else",
@@ -2578,7 +2598,6 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     renderDetailPage("pipe-1", store);
     openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Edit type" })).not.toBeInTheDocument();
   });
 });
 
@@ -2671,7 +2690,7 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
   });
 });
 
-// ── HEL-402: "Start from a shape" affordance + instantiation flow ───────────
+// ── HEL-402: "Add Outputs from a shape" affordance + instantiation flow ───────────
 
 const singleRowCatalogEntry: PipelineShapeCatalogEntry = {
   id: "single-row",
@@ -2716,7 +2735,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
 
     expect(await screen.findByText(/^Add your first transformation step/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "+ Add step" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start from a shape" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeInTheDocument();
   });
 
   it("the add-step row offers 'Start from a shape' alongside the op picker once steps exist", async () => {
@@ -2736,14 +2755,14 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     expect(
       await screen.findByRole("button", { name: "+ Add transformation step" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start from a shape" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeInTheDocument();
   });
 
   it("selecting a shape, filling params, and submitting seeds a step card", async () => {
     getPipelineStepsMock.mockResolvedValue([]);
-    const expansions: ShapeStepExpansion[] = [
-      { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
-    ];
+    const expansions: ExpandPipelineShapeResponse = {
+      steps: [{ clientId: "step-0", kind: "aggregate", config: { groupBy: [], aggregations: [] } }],
+    };
     expandPipelineShapeMock.mockResolvedValueOnce(expansions);
     createPipelineStepMock.mockResolvedValueOnce({
       id: "seeded-step-1",
@@ -2756,7 +2775,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     });
     renderDetailPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start from a shape" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Outputs from a shape" }));
     fireEvent.click(await screen.findByText("Single row"));
     fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
       target: { value: "aggregate" },
@@ -2764,17 +2783,23 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add steps" }));
 
     await waitFor(() => {
-      expect(createPipelineStepMock).toHaveBeenCalledWith("pipe-1", "aggregate", {
-        groupBy: [],
-        aggregations: [],
-      });
+      expect(createPipelineStepMock).toHaveBeenCalledWith(
+        "pipe-1",
+        "aggregate",
+        { groupBy: [], aggregations: [] },
+        undefined,
+        undefined,
+        false,
+      );
     });
     // Seeded step renders through the unmodified StepCard/OP_TYPES machinery —
     // "Group & aggregate" is OP_TYPES' label for the "aggregate" kind.
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Group & aggregate/i })).toBeInTheDocument();
     });
-    expect(screen.queryByRole("dialog", { name: "Start from a shape" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Add Outputs from a shape" }),
+    ).not.toBeInTheDocument();
   });
 
   it("appends seeded steps after an existing hand-authored step", async () => {
@@ -2789,9 +2814,9 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
         updatedAt: "",
       },
     ]);
-    const expansions: ShapeStepExpansion[] = [
-      { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
-    ];
+    const expansions: ExpandPipelineShapeResponse = {
+      steps: [{ clientId: "step-0", kind: "aggregate", config: { groupBy: [], aggregations: [] } }],
+    };
     expandPipelineShapeMock.mockResolvedValueOnce(expansions);
     createPipelineStepMock.mockResolvedValueOnce({
       id: "seeded-step-1",
@@ -2809,7 +2834,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     // with it, avoiding a race with the async step-load re-render.
     await screen.findByRole("button", { name: /Select fields/i });
 
-    fireEvent.click(screen.getByRole("button", { name: "Start from a shape" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Outputs from a shape" }));
     fireEvent.click(await screen.findByText("Single row"));
     fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
       target: { value: "aggregate" },
@@ -2830,10 +2855,12 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
   // silent drop.
   it("a mid-loop step-create failure keeps already-created steps and pushes a partial-apply toast", async () => {
     getPipelineStepsMock.mockResolvedValue([]);
-    const expansions: ShapeStepExpansion[] = [
-      { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
-      { kind: "limit", config: { count: 1 } },
-    ];
+    const expansions: ExpandPipelineShapeResponse = {
+      steps: [
+        { clientId: "step-0", kind: "aggregate", config: { groupBy: [], aggregations: [] } },
+        { clientId: "step-1", kind: "limit", config: { count: 1 }, parentStepId: "step-0" },
+      ],
+    };
     expandPipelineShapeMock.mockResolvedValueOnce(expansions);
     createPipelineStepMock
       .mockResolvedValueOnce({
@@ -2850,7 +2877,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     const store = makeStore();
     renderDetailPage("pipe-1", store);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start from a shape" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Outputs from a shape" }));
     fireEvent.click(await screen.findByText("Single row"));
     fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
       target: { value: "aggregate" },
@@ -2868,11 +2895,13 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
       const toasts = store.getState().toasts.items;
       expect(toasts).toHaveLength(1);
       expect(toasts[0].variant).toBe("error");
-      expect(toasts[0].message).toMatch(/1 of 2 steps were added/i);
+      expect(toasts[0].message).toMatch(/1 of 2 entries were added/i);
     });
 
     // The picker closes even on a partial failure (design.md Decision 6).
-    expect(screen.queryByRole("dialog", { name: "Start from a shape" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Add Outputs from a shape" }),
+    ).not.toBeInTheDocument();
   });
 
   it("a 422 from expand is shown inline and the picker stays open with no steps created", async () => {
@@ -2886,7 +2915,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     });
     renderDetailPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start from a shape" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Outputs from a shape" }));
     fireEvent.click(await screen.findByText("Single row"));
     fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
       target: { value: "aggregate" },
@@ -2899,6 +2928,46 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
       ).toBeInTheDocument();
     });
     expect(createPipelineStepMock).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: "Start from a shape" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Add Outputs from a shape" })).toBeInTheDocument();
+  });
+
+  // skeptic-final-2 (round 1) CR1 — the trunk-last anchor already having a
+  // tail is exactly the state that made the old handler silently create a
+  // second, dead tail branch (server `trunkOf` never advancing past the
+  // anchor). The trigger must be disabled at the page level, not merely in
+  // PipelineRiverView isolation.
+  it("disables 'Add Outputs from a shape' once the trunk-last step already has a tail", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "trunk-1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "select",
+        config: { fields: [] },
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "tail-1",
+        pipelineId: "pipe-1",
+        position: 1,
+        parentStepId: "trunk-1",
+        type: "limit",
+        config: { count: 1 },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    renderDetailPage();
+
+    // Wait for the persisted trunk step to actually render before asserting
+    // on the shape-picker button's disabled state -- the button with this
+    // same accessible name exists in BOTH the empty-state and non-empty
+    // layouts (only its class differs), so a bare `findByRole` can resolve
+    // against the transient empty-state render before steps finish loading.
+    await screen.findByRole("button", { name: /Select fields/i });
+
+    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeDisabled();
+    expect(expandPipelineShapeMock).not.toHaveBeenCalled();
   });
 });

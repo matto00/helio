@@ -106,7 +106,10 @@ describe("CreatePipelineModal", () => {
 
   // F-041: creating a pipeline is impossible with zero sources — say so plainly instead of
   // leaving an empty picker as the only feedback.
-  it("shows a 'no data sources yet' notice with a link to /sources, and disables Create, when there are none", async () => {
+  // HEL-908 task 7.1 — "no sources yet" no longer hard-blocks the form: the
+  // picker is simply absent (nothing to pick from) and "Create a new source"
+  // is always available, so Create pipeline stays enabled.
+  it("hides the data source picker (nothing to pick) but still offers 'Create a new source' when there are none", async () => {
     fetchSourcesMock.mockResolvedValue([]);
     renderWithStore(<CreatePipelineModal onClose={jest.fn()} />, {
       sources: { items: [], status: "succeeded" },
@@ -115,14 +118,19 @@ describe("CreatePipelineModal", () => {
     await waitFor(() =>
       expect(screen.queryByRole("combobox", { name: "Data source" })).not.toBeInTheDocument(),
     );
-    expect(screen.getByText(/No data sources yet/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Add one first" })).toHaveAttribute("href", "/sources");
-    expect(screen.getByRole("button", { name: "Create pipeline" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Create a new source" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create pipeline" })).not.toBeDisabled();
   });
 
-  it("renders the output type name input", () => {
+  it("does not render an output type name input -- retired (DataType-bound)", () => {
     renderModal();
-    expect(screen.getByLabelText("Output type name")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Output type name")).not.toBeInTheDocument();
+  });
+
+  it("opens AddSourceModal when 'Create a new source' is activated, and pre-selects the created source on close", async () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Create a new source" }));
+    expect(screen.getByRole("dialog", { name: "Add data source" })).toBeInTheDocument();
   });
 
   it("populates the data source select with available sources when opened", () => {
@@ -149,21 +157,8 @@ describe("CreatePipelineModal", () => {
   it("shows inline error when data source is not selected on submit", async () => {
     renderModal();
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
-    fireEvent.change(screen.getByLabelText("Output type name"), {
-      target: { value: "SalesData" },
-    });
     fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
     await waitFor(() => expect(screen.getByText("Data source is required.")).toBeInTheDocument());
-  });
-
-  it("shows inline error when output type name is empty on submit", async () => {
-    renderModal();
-    fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
-    selectDataSource("Sales API");
-    fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
-    await waitFor(() =>
-      expect(screen.getByText("Output type name is required.")).toBeInTheDocument(),
-    );
   });
 
   it("does not submit when validation fails", async () => {
@@ -178,16 +173,12 @@ describe("CreatePipelineModal", () => {
 
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
     selectDataSource("Sales API");
-    fireEvent.change(screen.getByLabelText("Output type name"), {
-      target: { value: "SalesData" },
-    });
     fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
 
     await waitFor(() =>
       expect(createPipelineMock).toHaveBeenCalledWith({
         name: "My Pipeline",
         sourceDataSourceId: "ds-1",
-        outputDataTypeName: "SalesData",
       }),
     );
   });
@@ -199,9 +190,6 @@ describe("CreatePipelineModal", () => {
 
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
     selectDataSource("Sales API");
-    fireEvent.change(screen.getByLabelText("Output type name"), {
-      target: { value: "SalesData" },
-    });
     fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
@@ -224,9 +212,6 @@ describe("CreatePipelineModal", () => {
 
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
     selectDataSource("Sales API");
-    fireEvent.change(screen.getByLabelText("Output type name"), {
-      target: { value: "SalesData" },
-    });
     fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
 
     await waitFor(() =>
@@ -245,9 +230,6 @@ describe("CreatePipelineModal", () => {
 
     fireEvent.change(screen.getByLabelText("Pipeline name"), { target: { value: "My Pipeline" } });
     selectDataSource("Sales API");
-    fireEvent.change(screen.getByLabelText("Output type name"), {
-      target: { value: "SalesData" },
-    });
     fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());

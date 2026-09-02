@@ -43,14 +43,12 @@ interface OverrideProps {
   source?: DataSource | undefined;
   canEditSource?: boolean;
   onEditSource?: () => void;
-  outputTypeName?: string;
-  canEditType?: boolean;
-  onEditType?: () => void;
+  outputsCount?: number;
+  lastRunStatus?: "succeeded" | "failed" | null;
   schedule?: PipelineSchedule | null;
   onEditSchedule?: () => void;
   onToggleScheduleEnabled?: (enabled: boolean) => void;
   onOpenHistory?: () => void;
-  onOpenPreview?: () => void;
   isOwner?: boolean;
   onOpenShare?: () => void;
 }
@@ -62,14 +60,12 @@ function renderHeader(overrides: OverrideProps = {}) {
       source={overrides.source}
       canEditSource={overrides.canEditSource ?? false}
       onEditSource={overrides.onEditSource ?? jest.fn()}
-      outputTypeName={overrides.outputTypeName ?? "Test Type"}
-      canEditType={overrides.canEditType ?? false}
-      onEditType={overrides.onEditType ?? jest.fn()}
+      outputsCount={overrides.outputsCount ?? 0}
+      lastRunStatus={overrides.lastRunStatus ?? null}
       schedule={overrides.schedule ?? null}
       onEditSchedule={overrides.onEditSchedule ?? jest.fn()}
       onToggleScheduleEnabled={overrides.onToggleScheduleEnabled ?? jest.fn()}
       onOpenHistory={overrides.onOpenHistory ?? jest.fn()}
-      onOpenPreview={overrides.onOpenPreview ?? jest.fn()}
       isOwner={overrides.isOwner ?? false}
       onOpenShare={overrides.onOpenShare ?? jest.fn()}
     />,
@@ -110,30 +106,32 @@ describe("PipelineDetailHeader — bound source (ported from BoundSourceBar)", (
   });
 });
 
-describe("PipelineDetailHeader — bound output type (ported from BoundTypeBar)", () => {
-  it("renders the output type name", () => {
-    renderHeader({ outputTypeName: "Test Type" });
-    expect(screen.getByText("Test Type")).toBeInTheDocument();
+describe("PipelineDetailHeader — Outputs count + last run status (HEL-908 task 8.1)", () => {
+  it("renders the Outputs count as 'Outputs (N)'", () => {
+    renderHeader({ outputsCount: 3 });
+    expect(screen.getByText("Outputs (3)")).toBeInTheDocument();
   });
 
-  it("renders the Edit type menu item when canEditType is true", () => {
-    renderHeader({ canEditType: true });
-    openActionsMenu();
-    expect(screen.getByRole("menuitem", { name: "Edit type" })).toBeInTheDocument();
+  it("shows no status chip when lastRunStatus is null (no run yet)", () => {
+    renderHeader({ lastRunStatus: null });
+    expect(screen.queryByText("Succeeded")).not.toBeInTheDocument();
+    expect(screen.queryByText("Failed")).not.toBeInTheDocument();
   });
 
-  it("calls onEditType when the Edit type menu item is activated", () => {
-    const onEditType = jest.fn();
-    renderHeader({ canEditType: true, onEditType });
-    openActionsMenu();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Edit type" }));
-    expect(onEditType).toHaveBeenCalledTimes(1);
+  it("shows a Succeeded chip when lastRunStatus is succeeded", () => {
+    renderHeader({ lastRunStatus: "succeeded" });
+    expect(screen.getByText("Succeeded")).toBeInTheDocument();
   });
 
-  it("does not render the Edit type menu item when canEditType is false", () => {
-    renderHeader({ canEditType: false });
+  it("shows a Failed chip when lastRunStatus is failed", () => {
+    renderHeader({ lastRunStatus: "failed" });
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+  });
+
+  it("does not render an 'Edit type'/'Output type' action -- retired alongside the DataType-bound link", () => {
+    renderHeader({});
     openActionsMenu();
-    expect(screen.queryByRole("menuitem", { name: "Edit type" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /edit type/i })).not.toBeInTheDocument();
   });
 });
 
@@ -217,29 +215,22 @@ describe("PipelineDetailHeader — schedule (ported from PipelineScheduleBar)", 
   });
 });
 
-// This is the page's ONE actions menu: the three edit actions (design.md D5)
-// plus Run history / Preview / Share, which moved here from the footer's
-// former second `ActionsMenu`.
+// This is the page's ONE actions menu: the edit-source/edit-schedule actions
+// (design.md D5) plus Run history / Share. HEL-908 task 8.1/8.2 retired
+// "Edit type" (DataType-bound) and "Preview" (superseded `PipelinePreviewModal`,
+// deleted -- see per-Output previews instead).
 describe("PipelineDetailHeader — actions menu", () => {
   it("one trigger exposes every available action", () => {
     renderHeader({
       source: sqlSource,
       canEditSource: true,
-      canEditType: true,
       schedule: null,
       isOwner: true,
     });
     expect(screen.getAllByRole("button", { name: "Pipeline actions" })).toHaveLength(1);
     openActionsMenu();
-    expect(screen.getAllByRole("menuitem")).toHaveLength(6);
-    for (const name of [
-      "Edit source",
-      "Edit type",
-      "Set schedule",
-      "Run history",
-      "Preview",
-      "Share",
-    ]) {
+    expect(screen.getAllByRole("menuitem")).toHaveLength(4);
+    for (const name of ["Edit source", "Set schedule", "Run history", "Share"]) {
       expect(screen.getByRole("menuitem", { name })).toBeInTheDocument();
     }
   });
@@ -248,25 +239,22 @@ describe("PipelineDetailHeader — actions menu", () => {
     renderHeader({
       source: undefined,
       canEditSource: false,
-      canEditType: true,
       schedule: enabledSchedule,
       isOwner: false,
     });
     openActionsMenu();
-    expect(screen.getAllByRole("menuitem")).toHaveLength(4);
+    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
     // Owner-only, and this user is not the owner — the same gating the item
     // carried as a footer menu item before the merge.
     expect(screen.queryByRole("menuitem", { name: "Share" })).not.toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Edit type" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Edit schedule" })).toBeInTheDocument();
   });
 
   it("the view actions are always present, regardless of edit permissions", () => {
-    renderHeader({ canEditSource: false, canEditType: false, schedule: null, isOwner: false });
+    renderHeader({ canEditSource: false, schedule: null, isOwner: false });
     openActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
   });
 });
 

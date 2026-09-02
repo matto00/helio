@@ -11,6 +11,7 @@ import { metricsReducer } from "../features/metrics/state/metricsSlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { patchSetsReducer } from "../features/patchSets/state/patchSetsSlice";
+import { outputsReducer } from "../features/pipelines/state/outputsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { combinedProposalsReducer } from "../features/proposals/state/combinedProposalsSlice";
 import { settingsReducer } from "../features/settings/state/settingsSlice";
@@ -36,6 +37,7 @@ export const store = configureStore({
     metrics: metricsReducer,
     patchSets: patchSetsReducer,
     pipelines: pipelinesReducer,
+    outputs: outputsReducer,
     combinedProposals: combinedProposalsReducer,
     settings: settingsReducer,
     sources: sourcesReducer,

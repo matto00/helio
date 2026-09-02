@@ -1,0 +1,63 @@
+.outputs-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Evaluation-1 cycle-2 CR4: DESIGN.md requires >=16px gap between
+   * 28px expander-based (`tap-expand-44`) controls so their invisible 44px
+   * hit-expanders don't butt into a neighboring chip's own painted box and
+   * silently steal its taps. 8px (`--space-2`) was under that floor. */
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.outputs-rail__chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--app-radius-pill);
+  border: 1px solid var(--app-border-subtle);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: var(--app-transition);
+  /* HEL-676 (task 3.6) — required by `.tap-expand-44` (`shared/ui/
+   * tapTarget.css`): its absolutely-positioned hit-expander pseudo-element
+   * resolves against the nearest positioned ancestor, which must be this
+   * chip itself or the enlarged tap target silently lands elsewhere. */
+  position: relative;
+}
+
+.outputs-rail__chip:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+.outputs-rail__kind {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-tracking);
+  color: var(--app-text-muted);
+}
+
+.outputs-rail__name {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outputs-rail__thumbnail {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--app-text-muted);
+}
+
+.outputs-rail__add {
+  color: var(--app-accent);
+  border-style: dashed;
+}

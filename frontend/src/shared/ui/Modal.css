@@ -210,6 +210,20 @@
   background: var(--app-accent-strong);
 }
 
+/* Danger -- DESIGN.md §5: hairline color-mix(error 60%), error text; hover
+   `--app-error-surface`. Matches `.ui-icon-btn--danger`'s recipe. Added
+   skeptic-final-3 (round 1) CR1/CR2 for `OutputEditorSheet`'s Delete button,
+   the first `ui-modal-btn` consumer that needs a destructive footer action. */
+.ui-modal-btn--danger {
+  border: 1px solid color-mix(in srgb, var(--app-error) 60%, transparent);
+  background: transparent;
+  color: var(--app-error);
+}
+
+.ui-modal-btn--danger:hover:not(:disabled) {
+  background: var(--app-error-surface);
+}
+
 /* ── Mobile tap-target floor (HEL-319, following the HEL-308/314 convention) ──
    HEL-718: the close button's own 44px floor now lives in
    `shared/ui/IconButton.css` (`.ui-icon-btn`'s mobile block), guarded by

@@ -13,17 +13,26 @@
 
 import { TextField } from "../../../../shared/ui/TextField";
 import { Textarea } from "../../../../shared/ui/Textarea";
+import { Select } from "../../../../shared/ui/Select";
 import type { ShapeParamDescriptor } from "../../types/pipelineShape";
 
 import "./ShapeParamsFields.css";
 
-/** One widget per `dataType`, per design.md Decision 5 — never per-shape. */
-function widgetFor(dataType: string): "string" | "string[]" | "integer" | "object[]" {
-  switch (dataType) {
+/** One widget per `dataType`, per design.md Decision 5 — never per-shape.
+ *  HEL-908 design.md Decision 13 — `enum` (when present) takes priority
+ *  over `dataType`, rendering a `<select>` regardless of the underlying
+ *  `dataType`; `fieldRef` doesn't change the widget (still a text field —
+ *  no live descriptor supplies a capabilities-at-node source to pick from
+ *  yet) but is honored via a distinct placeholder/hint below. */
+function widgetFor(
+  field: ShapeParamDescriptor,
+): "string" | "string[]" | "integer" | "object[]" | "enum" {
+  if (field.enum && field.enum.length > 0) return "enum";
+  switch (field.dataType) {
     case "string[]":
     case "integer":
     case "object[]":
-      return dataType;
+      return field.dataType;
     default:
       return "string"; // fallback for "string" and any unrecognized dataType
   }
@@ -45,7 +54,7 @@ export function buildShapeParams(
   for (const field of paramsSchema) {
     const raw = values[field.name] ?? "";
     if (raw.trim() === "") continue;
-    const widget = widgetFor(field.dataType);
+    const widget = widgetFor(field);
     if (widget === "object[]") {
       try {
         params[field.name] = JSON.parse(raw);
@@ -88,7 +97,7 @@ export function ShapeParamsFields({
   return (
     <>
       {paramsSchema.map((field) => {
-        const widget = widgetFor(field.dataType);
+        const widget = widgetFor(field);
         const value = values[field.name] ?? "";
         const fieldId = `${idPrefix}-${field.name}`;
         return (
@@ -106,6 +115,14 @@ export function ShapeParamsFields({
                 onChange={(e) => onChange(field.name, e.target.value)}
                 aria-label={field.label}
               />
+            ) : widget === "enum" ? (
+              <Select
+                value={value}
+                options={(field.enum ?? []).map((v) => ({ value: v, label: v }))}
+                onChange={(v) => onChange(field.name, v)}
+                ariaLabel={field.label}
+                placeholder="Select a value…"
+              />
             ) : (
               <TextField
                 id={fieldId}
@@ -113,7 +130,13 @@ export function ShapeParamsFields({
                 value={value}
                 onChange={(e) => onChange(field.name, e.target.value)}
                 aria-label={field.label}
-                placeholder={widget === "string[]" ? "comma-separated values" : undefined}
+                placeholder={
+                  widget === "string[]"
+                    ? "comma-separated values"
+                    : field.fieldRef
+                      ? "column/field name"
+                      : undefined
+                }
               />
             )}
             {field.description && <p className="shape-params-fields__hint">{field.description}</p>}

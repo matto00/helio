@@ -163,13 +163,22 @@ final case class AssertStepResponse(
  *  placements `position` (a whole-pipeline slot index) cannot, most notably branching a NEW
  *  tail off any existing node. When present, takes precedence over `position` (validated to
  *  belong to this pipeline at the service layer; an unrelated/nonexistent id is a 422, nothing
- *  persisted). `None` with `position` also absent keeps the pre-existing trunk-append default. */
+ *  persisted). `None` with `position` also absent keeps the pre-existing trunk-append default.
+ *
+ *  `attachAsTail` (HEL-908, branch-attach primitive) is OPTIONAL and only meaningful alongside
+ *  `parentStepId`: when `true`, the new step is attached as a genuine NEW sibling of
+ *  `parentStepId`'s existing children (a `position >= 1` tail root) WITHOUT reparenting any of
+ *  them -- the counterpart to the default (`false`/absent) splice behavior, which inserts the
+ *  new step directly after the anchor and reparents everything the anchor used to own onto it
+ *  (see `PipelineStepRepository.spliceInsertAtInternal` vs. `attachTailInternal`). Absent/false
+ *  preserves the exact pre-existing splice semantics for every other caller. */
 final case class CreatePipelineStepRequest(
     `type`: String,
     config: JsObject,
     position: Option[Int] = None,
     enabled: Option[Boolean] = None,
-    parentStepId: Option[String] = None
+    parentStepId: Option[String] = None,
+    attachAsTail: Option[Boolean] = None
 )
 
 /** PATCH request — `type` is optional. If present and different from the
@@ -349,7 +358,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       }
   }
 
-  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat5(CreatePipelineStepRequest.apply)
+  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat6(CreatePipelineStepRequest.apply)
   implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat4(UpdatePipelineStepRequest.apply)
   implicit val reorderPipelineStepsRequestFormat: RootJsonFormat[ReorderPipelineStepsRequest] = jsonFormat1(ReorderPipelineStepsRequest.apply)
   implicit val deletePipelineStepResponseFormat: RootJsonFormat[DeletePipelineStepResponse] = jsonFormat1(DeletePipelineStepResponse.apply)

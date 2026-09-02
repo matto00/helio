@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/reorder-pipeline-steps-request.schema.json",
   "title": "ReorderPipelineStepsRequest",
-  "description": "PUT /api/pipelines/:id/steps/order body (HEL-407). `stepIds` is the pipeline's step ids in their new relative order and must be exactly a permutation of the pipeline's current step ids (missing ids, unknown ids, or duplicates all fail with 422). On success every step's position is set to its index in `stepIds` within a single transaction.",
+  "description": "PUT /api/pipelines/:id/steps/order body (HEL-407; contract narrowed to trunk-only by HEL-908, design.md decision 15 / non-goal waiver #2). `stepIds` is the pipeline's TRUNK step ids (the position-0 chain from the root) in their new relative order, and must be exactly a permutation of the pipeline's current trunk step ids -- a missing trunk id, an unexpected id (including any tail id, which this endpoint never accepts), or a duplicate all fail with 422. On success, `parentStepId` is relinked along the requested order (stepIds[0]'s parent becomes the pipeline root, stepIds[i]'s parent becomes stepIds[i-1] for i > 0) and every trunk step's position is written as 0, within a single transaction; a rejected request leaves every position and parentStepId unchanged. A moved trunk step's own tail (if any) follows it automatically, since a tail's parentStepId already references the trunk step's id rather than a positional slot.",
   "type": "object",
   "properties": {
     "stepIds": {

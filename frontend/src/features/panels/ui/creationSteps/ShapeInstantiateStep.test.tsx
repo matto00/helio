@@ -13,8 +13,8 @@ import {
   runPipeline,
 } from "../../../pipelines/services/pipelineService";
 import type {
+  ExpandPipelineShapeResponse,
   PipelineShapeCatalogEntry,
-  ShapeStepExpansion,
 } from "../../../pipelines/types/pipelineShape";
 import { ShapeInstantiateStep } from "./ShapeInstantiateStep";
 
@@ -40,9 +40,9 @@ const singleRowShape: PipelineShapeCatalogEntry = {
   outputContract: { rowCount: { kind: "exactly-one" }, description: "" },
 };
 
-const expansions: ShapeStepExpansion[] = [
-  { kind: "aggregate", config: { groupBy: [], aggregations: [] } },
-];
+const expansions: ExpandPipelineShapeResponse = {
+  steps: [{ clientId: "step-0", kind: "aggregate", config: { groupBy: [], aggregations: [] } }],
+};
 
 const storeWithSources = {
   dashboards: { items: [], selectedDashboardId: null },
@@ -93,7 +93,6 @@ describe("ShapeInstantiateStep — full chain", () => {
       name: "Sales ETL",
       sourceDataSourceId: "ds-1",
       sourceDataSourceName: "Sales API",
-      outputDataTypeName: "SalesMetrics",
       outputDataTypeId: "dt-new",
       lastRunStatus: null,
       lastRunAt: null,
@@ -124,10 +123,13 @@ describe("ShapeInstantiateStep — full chain", () => {
       sourceDataSourceId: "ds-1",
       outputDataTypeName: "SalesMetrics",
     });
-    expect(createPipelineStepMock).toHaveBeenCalledWith("p-1", "aggregate", {
-      groupBy: [],
-      aggregations: [],
-    });
+    expect(createPipelineStepMock).toHaveBeenCalledWith(
+      "p-1",
+      "aggregate",
+      { groupBy: [], aggregations: [] },
+      undefined,
+      undefined,
+    );
     expect(runPipelineMock).toHaveBeenCalledWith("p-1");
   });
 
@@ -179,7 +181,6 @@ describe("ShapeInstantiateStep — full chain", () => {
       name: "Sales ETL",
       sourceDataSourceId: "ds-1",
       sourceDataSourceName: "Sales API",
-      outputDataTypeName: "SalesMetrics",
       outputDataTypeId: "dt-new",
       lastRunStatus: null,
       lastRunAt: null,
@@ -205,7 +206,6 @@ describe("ShapeInstantiateStep — full chain", () => {
       name: "Sales ETL",
       sourceDataSourceId: "ds-1",
       sourceDataSourceName: "Sales API",
-      outputDataTypeName: "SalesMetrics",
       outputDataTypeId: "dt-new",
       lastRunStatus: null,
       lastRunAt: null,

@@ -617,7 +617,6 @@ const samplePipelineSummary: PipelineSummary = {
   name: "Sales Pipeline",
   sourceDataSourceId: "ds-sales",
   sourceDataSourceName: "Sales API",
-  outputDataTypeName: "SalesMetrics",
   lastRunStatus: null,
   lastRunAt: null,
   lastRunRowCount: null,

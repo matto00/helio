@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { createPipeline } from "../state/pipelinesSlice";
 import { fetchSources } from "../../sources/state/sourcesSlice";
@@ -8,12 +8,31 @@ import { Modal } from "../../../shared/ui/Modal";
 import { Select } from "../../../shared/ui/Select";
 import { TextField } from "../../../shared/ui/TextField";
 import { labelForKind } from "../../sources/utils/labelForKind";
+import { AddSourceModal } from "../../sources/ui/AddSourceModal";
 import "./CreatePipelineModal.css";
 
 interface CreatePipelineModalProps {
   onClose: () => void;
 }
 
+/** HEL-908 task 7.1/7.3 — "New pipeline" entry: pick an existing source, or
+ *  create a brand-new one (any kind `AddSourceModal` supports — paste-table/
+ *  static, CSV upload or URL, REST connector, or text/markdown upload or
+ *  URL) inline, then a single `POST /api/pipelines` with just
+ *  `{name, sourceDataSourceId}` (design.md decision 10 — the shipped
+ *  `CreatePipelineRequest` has no DataType-bound field at all; `steps`/
+ *  `outputs` default to empty, so a brand-new pipeline lands with zero steps
+ *  — its raw source is what `usePipelineDetailPage`'s unconditional
+ *  mount-time `analyzePipeline` call already previews, satisfying "land on
+ *  the page with root previewed" for free). The retired "Output type name"
+ *  field (DataType-bound, HEL-903 dropped that concept) is gone.
+ *
+ *  "Create a new source" nests `AddSourceModal` (the same component
+ *  `/sources` uses) rather than re-implementing per-kind source-creation
+ *  forms here — `AddSourceModal`'s new `onCreated` callback (added this
+ *  cycle) reports the created source's id back into `sourceDataSourceId`
+ *  once it closes, so this modal stays open with that source pre-selected
+ *  and the pipeline-name field intact, ready to submit. */
 export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -25,18 +44,22 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
 
   const [name, setName] = useState("");
   const [sourceDataSourceId, setSourceDataSourceId] = useState("");
-  const [outputDataTypeName, setOutputDataTypeName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [sourceError, setSourceError] = useState<string | null>(null);
-  const [outputTypeError, setOutputTypeError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [addSourceOpen, setAddSourceOpen] = useState(false);
 
   // Always refetch on mount — modal is opened infrequently and the list must
   // include sources added since the last navigation to /sources.
   useEffect(() => {
     void dispatch(fetchSources());
   }, [dispatch]);
+
+  function handleSourceCreated(createdSourceId: string) {
+    setSourceDataSourceId(createdSourceId);
+    setSourceError(null);
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -54,12 +77,6 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
     } else {
       setSourceError(null);
     }
-    if (!outputDataTypeName.trim()) {
-      setOutputTypeError("Output type name is required.");
-      hasError = true;
-    } else {
-      setOutputTypeError(null);
-    }
 
     if (hasError) return;
 
@@ -71,7 +88,6 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
         createPipeline({
           name: name.trim(),
           sourceDataSourceId,
-          outputDataTypeName: outputDataTypeName.trim(),
         }),
       ).unwrap();
 
@@ -115,7 +131,7 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
         type="submit"
         form="create-pipeline-form"
         className="ui-modal-btn ui-modal-btn--primary"
-        disabled={isSubmitting || noSourcesYet}
+        disabled={isSubmitting}
       >
         {isSubmitting ? "Creating…" : "Create pipeline"}
       </button>
@@ -123,95 +139,90 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
   );
 
   return (
-    <Modal
-      open
-      title="Create pipeline"
-      // F-161: sm tracks this form's content — 3 short fields, no reason to
-      // reserve more width. Not meant to match every other "create X" modal;
-      // each one's size should track its own field set (see CreateMetricModal.tsx).
-      size="sm"
-      ariaLabel="Create pipeline"
-      onClose={onClose}
-      footer={footer}
-    >
-      <form
-        id="create-pipeline-form"
-        className="create-pipeline-modal__form"
-        onSubmit={(e) => void handleSubmit(e)}
+    <>
+      <Modal
+        open
+        title="Create pipeline"
+        size="sm"
+        ariaLabel="Create pipeline"
+        onClose={onClose}
+        footer={footer}
       >
-        <div className="create-pipeline-modal__field">
-          <label className="create-pipeline-modal__label" htmlFor="pipeline-name">
-            Pipeline name
-          </label>
-          <TextField
-            id="pipeline-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Sales ETL"
-            aria-label="Pipeline name"
-          />
-          {nameError && (
-            <p className="create-pipeline-modal__field-error" role="alert">
-              {nameError}
-            </p>
-          )}
-        </div>
-
-        <div className="create-pipeline-modal__field">
-          <label className="create-pipeline-modal__label" htmlFor="pipeline-source">
-            Data source
-          </label>
-          {noSourcesYet ? (
-            // F-041: a pipeline can't be created against zero sources — say so plainly and link
-            // straight to where one gets added, instead of leaving an empty picker + a generic
-            // "required" error as the only feedback once Create is clicked.
-            <p className="create-pipeline-modal__field-notice">
-              No data sources yet.{" "}
-              <Link to="/sources" onClick={onClose}>
-                Add one first
-              </Link>
-              .
-            </p>
-          ) : (
-            <Select
-              value={sourceDataSourceId}
-              options={sourceOptions}
-              onChange={setSourceDataSourceId}
-              placeholder="Select a data source…"
-              ariaLabel="Data source"
+        <form
+          id="create-pipeline-form"
+          className="create-pipeline-modal__form"
+          onSubmit={(e) => void handleSubmit(e)}
+        >
+          <div className="create-pipeline-modal__field">
+            <label className="create-pipeline-modal__label" htmlFor="pipeline-name">
+              Pipeline name
+            </label>
+            <TextField
+              id="pipeline-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Sales ETL"
+              aria-label="Pipeline name"
             />
-          )}
-          {sourceError && (
-            <p className="create-pipeline-modal__field-error" role="alert">
-              {sourceError}
+            {nameError && (
+              <p className="create-pipeline-modal__field-error" role="alert">
+                {nameError}
+              </p>
+            )}
+          </div>
+
+          <div className="create-pipeline-modal__field">
+            <label className="create-pipeline-modal__label" htmlFor="pipeline-source">
+              Data source
+            </label>
+            {/* HEL-908 task 7.1 — a source can be picked from the existing
+             * list OR created fresh (any kind — paste-table/CSV/URL/REST/
+             * markdown, via the nested AddSourceModal) without leaving this
+             * modal. `noSourcesYet` used to hard-block the form with a "go
+             * add one first" link; now it just means the picker starts
+             * empty — "Create a new source" is always available. */}
+            {!noSourcesYet && (
+              <Select
+                value={sourceDataSourceId}
+                options={sourceOptions}
+                onChange={setSourceDataSourceId}
+                placeholder="Select a data source…"
+                ariaLabel="Data source"
+              />
+            )}
+            <button
+              type="button"
+              className="create-pipeline-modal__add-source-btn"
+              onClick={() => setAddSourceOpen(true)}
+            >
+              {sourceDataSourceId ? "Create a different source" : "Create a new source"}
+            </button>
+            {sourceDataSourceId && (
+              <p className="create-pipeline-modal__field-notice">
+                Using{" "}
+                {sourceOptions.find((o) => o.value === sourceDataSourceId)?.label ??
+                  "the newly created source"}
+                .
+              </p>
+            )}
+            {sourceError && (
+              <p className="create-pipeline-modal__field-error" role="alert">
+                {sourceError}
+              </p>
+            )}
+          </div>
+
+          {submitError && (
+            <p className="create-pipeline-modal__error" role="alert">
+              {submitError}
             </p>
           )}
-        </div>
+        </form>
+      </Modal>
 
-        <div className="create-pipeline-modal__field">
-          <label className="create-pipeline-modal__label" htmlFor="pipeline-output-type">
-            Output type name
-          </label>
-          <TextField
-            id="pipeline-output-type"
-            value={outputDataTypeName}
-            onChange={(e) => setOutputDataTypeName(e.target.value)}
-            placeholder="e.g. SalesMetrics"
-            aria-label="Output type name"
-          />
-          {outputTypeError && (
-            <p className="create-pipeline-modal__field-error" role="alert">
-              {outputTypeError}
-            </p>
-          )}
-        </div>
-
-        {submitError && (
-          <p className="create-pipeline-modal__error" role="alert">
-            {submitError}
-          </p>
-        )}
-      </form>
-    </Modal>
+      {addSourceOpen && (
+        <AddSourceModal onClose={() => setAddSourceOpen(false)} onCreated={handleSourceCreated} />
+      )}
+    </>
   );
 }

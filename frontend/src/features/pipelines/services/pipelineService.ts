@@ -12,7 +12,10 @@ import type {
   RunStatusResponse,
 } from "../types/pipelineStep";
 import type { PipelineSchedule, PutPipelineScheduleRequest } from "../types/pipelineSchedule";
-import type { PipelineShapeCatalogEntry, ShapeStepExpansion } from "../types/pipelineShape";
+import type {
+  ExpandPipelineShapeResponse,
+  PipelineShapeCatalogEntry,
+} from "../types/pipelineShape";
 import { httpClient } from "../../../services/httpClient";
 
 export async function getPipelines(): Promise<PipelineSummary[]> {
@@ -28,7 +31,14 @@ export async function fetchPipelines(): Promise<Pipeline[]> {
 export interface CreatePipelinePayload {
   name: string;
   sourceDataSourceId: string;
-  outputDataTypeName: string;
+  /** HEL-908 task 7.2 -- optional now: `CreatePipelineRequest` on the shipped
+   *  backend has no `outputDataTypeName` field at all (verified against
+   *  `PipelineProtocol.scala` -- HEL-903 dropped DataType-per-pipeline as
+   *  the panel-binding concept). Kept only for the still-live legacy
+   *  DataType-bound panel-creation wizard (`ShapeInstantiateStep.tsx`,
+   *  outside this ticket's scope) which still sends it; the new-pipeline
+   *  flow this ticket builds omits it entirely. */
+  outputDataTypeName?: string;
 }
 
 export async function createPipeline(payload: CreatePipelinePayload): Promise<PipelineSummary> {
@@ -70,17 +80,29 @@ export async function deletePipeline(id: string): Promise<void> {
  *
  *  HEL-410: `position` is an optional list index into the pipeline's current
  *  step order (0 = first, count = append). Omitted from the payload when
- *  undefined so the wire stays byte-identical for the existing append path. */
+ *  undefined so the wire stays byte-identical for the existing append path.
+ *
+ *  HEL-908 task 3.4: `parentStepId`, when passed, anchors the new step as a
+ *  tail off that step instead of extending the trunk (backend precedence —
+ *  `CreatePipelineStepRequest.parentStepId` wins over `position` when both
+ *  are present, so `position` is omitted whenever `parentStepId` is given). */
 export async function createPipelineStep(
   pipelineId: string,
   type: PipelineStepKind,
   config: PipelineStepConfig,
   position?: number,
+  parentStepId?: string,
+  // HEL-908: only meaningful alongside `parentStepId` — `true` attaches the new step as a
+  // genuine NEW branch (tail) off `parentStepId` without reparenting its existing children
+  // (backend `attachTailInternal`); absent/false preserves the pre-existing splice-insert
+  // behavior (insert-directly-after, reparenting the anchor's existing children).
+  attachAsTail?: boolean,
 ): Promise<PipelineStep> {
   const response = await httpClient.post<PipelineStep>(`/api/pipelines/${pipelineId}/steps`, {
     type,
     config,
-    ...(position === undefined ? {} : { position }),
+    ...(parentStepId !== undefined ? { parentStepId } : position === undefined ? {} : { position }),
+    ...(parentStepId !== undefined && attachAsTail ? { attachAsTail: true } : {}),
   });
   return normalizePipelineStep(response.data);
 }
@@ -300,17 +322,19 @@ export async function getPipelineShapeCatalog(): Promise<PipelineShapeCatalogEnt
   return response.data;
 }
 
-/** POST /api/pipeline-shapes/:id/expand — turns a shape id + params into an
- *  ordered list of step create-payloads. Lets a non-2xx response (422 invalid
- *  params, 404 unknown shape id) propagate as an axios rejection rather than
- *  swallowing it here, matching `getPipelineSchedule`'s "callers handle it"
- *  precedent — `ShapePickerModal` surfaces the message inline (design.md
- *  Decision 6 / HEL-336 defect guard). */
+/** POST /api/pipeline-shapes/:id/expand — turns a shape id + params into a
+ *  `{steps, outputs?}` payload (HEL-908 design.md Decision 11 — NOT a bare
+ *  step array; verified against `ExpandPipelineShapeResponse`). Lets a
+ *  non-2xx response (422 invalid params, 404 unknown shape id) propagate as
+ *  an axios rejection rather than swallowing it here, matching
+ *  `getPipelineSchedule`'s "callers handle it" precedent —
+ *  `ShapePickerModal` surfaces the message inline (design.md Decision 6 /
+ *  HEL-336 defect guard). */
 export async function expandPipelineShape(
   shapeId: string,
   params: Record<string, unknown>,
-): Promise<ShapeStepExpansion[]> {
-  const response = await httpClient.post<ShapeStepExpansion[]>(
+): Promise<ExpandPipelineShapeResponse> {
+  const response = await httpClient.post<ExpandPipelineShapeResponse>(
     `/api/pipeline-shapes/${shapeId}/expand`,
     { params },
   );

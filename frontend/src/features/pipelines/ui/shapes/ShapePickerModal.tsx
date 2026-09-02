@@ -18,17 +18,26 @@ import { Modal } from "../../../../shared/ui/Modal";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import { getPipelineShapeCatalog, expandPipelineShape } from "../../services/pipelineService";
 import { buildShapeParams, ShapeParamsFields } from "./ShapeParamsFields";
-import type { PipelineShapeCatalogEntry, ShapeStepExpansion } from "../../types/pipelineShape";
+import type {
+  ExpandPipelineShapeResponse,
+  PipelineShapeCatalogEntry,
+} from "../../types/pipelineShape";
 
 import "./ShapePickerModal.css";
 
 interface ShapePickerModalProps {
+  /** HEL-908 task 6.1 — the trunk/tail node this shape's steps/Outputs are
+   *  attached against; `undefined` seeds a brand-new trunk (empty pipeline).
+   *  Threaded straight through to `onSeedSteps` — this component has no
+   *  opinion on tail-vs-trunk semantics, that's `handleInstantiateShape`'s
+   *  job (design.md decision 11). */
+  anchorStepId?: string;
   onClose: () => void;
-  /** Performs the sequential `createPipelineStep` loop for the expanded steps
+  /** Performs the sequential create loop for the expanded steps/outputs
    *  (owned by the caller — `PipelineDetailPage.handleInstantiateShape` —
    *  since it already holds the pipeline id and local step state). Resolves
    *  once the loop finishes (fully or partially, see design.md Decision 6). */
-  onSeedSteps: (expansions: ShapeStepExpansion[]) => Promise<void>;
+  onSeedSteps: (expansion: ExpandPipelineShapeResponse, anchorStepId?: string) => Promise<void>;
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -52,7 +61,7 @@ function byShapeUsefulness(a: PipelineShapeCatalogEntry, b: PipelineShapeCatalog
   );
 }
 
-export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps) {
+export function ShapePickerModal({ anchorStepId, onClose, onSeedSteps }: ShapePickerModalProps) {
   const [catalog, setCatalog] = useState<PipelineShapeCatalogEntry[] | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [selectedShape, setSelectedShape] = useState<PipelineShapeCatalogEntry | null>(null);
@@ -111,11 +120,11 @@ export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps
     setIsSubmitting(true);
     setFormError(null);
     try {
-      const expansions = await expandPipelineShape(selectedShape.id, built.params);
+      const expansion = await expandPipelineShape(selectedShape.id, built.params);
       // Expand succeeded — hand off to the caller's step-create loop, then
       // close regardless of whether that loop fully or partially succeeds
       // (design.md Decision 6: the loop's own toast reports partial failure).
-      await onSeedSteps(expansions);
+      await onSeedSteps(expansion, anchorStepId);
       onClose();
     } catch (err: unknown) {
       // Non-2xx from /expand (422 invalid params, 404 unknown shape id) is
@@ -128,8 +137,8 @@ export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps
   }
 
   const title = selectedShape
-    ? `Start from a shape — ${selectedShape.label}`
-    : "Start from a shape";
+    ? `Add Outputs from a shape — ${selectedShape.label}`
+    : "Add Outputs from a shape";
   // F-158 — "shape" is internal jargon (defined only in backend code and
   // memory notes); clarify it in-context the first time it appears rather
   // than assuming the reader already knows the term. Only shown on the list
@@ -169,7 +178,7 @@ export function ShapePickerModal({ onClose, onSeedSteps }: ShapePickerModalProps
       title={title}
       description={description}
       size="sm"
-      ariaLabel="Start from a shape"
+      ariaLabel="Add Outputs from a shape"
       onClose={onClose}
       footer={footer}
     >

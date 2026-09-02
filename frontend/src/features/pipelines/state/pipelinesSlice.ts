@@ -269,7 +269,7 @@ export const fetchPipelineRunHistory = createAsyncThunk<
 
 export const createPipeline = createAsyncThunk<
   PipelineSummary,
-  { name: string; sourceDataSourceId: string; outputDataTypeName: string },
+  { name: string; sourceDataSourceId: string; outputDataTypeName?: string },
   { rejectValue: string }
 >("pipelines/createPipeline", async (payload, { rejectWithValue }) => {
   try {

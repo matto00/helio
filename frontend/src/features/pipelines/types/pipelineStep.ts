@@ -157,6 +157,14 @@ interface BasePipelineStep {
   // spray-json Option-omission precedent — normalized to a real boolean
   // (`enabled ?? true`) at the service boundary in `pipelineService.ts`.
   enabled?: boolean;
+  // HEL-908 task 3.4: mirrors the backend `PipelineStepProtocol.parentStepId`
+  // (HEL-904/HEL-906) — `None`/absent for the pipeline's root step, otherwise
+  // the id of the step this one is chained under. A step reached through its
+  // parent's position-0 child is a TRUNK continuation; any other child is a
+  // TAIL root (design.md decision 1). Never omitted by the backend for a
+  // persisted step, but stays optional here since a freshly created
+  // (not-yet-persisted) local `Step` may not have one yet.
+  parentStepId?: string | null;
 }
 
 export interface RenameStep extends BasePipelineStep {
@@ -458,7 +466,14 @@ export interface PipelineSummary {
   name: string;
   sourceDataSourceId: string;
   sourceDataSourceName: string;
-  outputDataTypeName: string;
+  // skeptic-final-1 (round 1) CR1 -- `outputDataTypeName` REMOVED (was
+  // never sent by the shipped backend at all; verified live against
+  // `GET /api/pipelines`, 0 of 52 dev-DB pipelines carried it). Kept
+  // `outputDataTypeId` optional: it's still read by the legacy
+  // DataType-bound panel-creation wizard's provenance map
+  // (`selectPipelineNameByOutputTypeId`, HEL-937), which is out of this
+  // ticket's scope and always resolves to an empty map today since the
+  // backend never populates the field either -- see HEL-937.
   outputDataTypeId?: string;
   lastRunStatus: "succeeded" | "failed" | null;
   lastRunAt: string | null;

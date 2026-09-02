@@ -169,6 +169,10 @@ class PipelineStepRoutesSpec
   private def reqWithParentStepId(base: JsObject, parentStepId: String): JsObject =
     JsObject(base.fields + ("parentStepId" -> JsString(parentStepId)))
 
+  // Evaluation-1 cycle-2 CR1: merge `attachAsTail: true` alongside an explicit `parentStepId`.
+  private def reqWithParentStepIdAsTail(base: JsObject, parentStepId: String): JsObject =
+    JsObject(base.fields + ("parentStepId" -> JsString(parentStepId)) + ("attachAsTail" -> JsBoolean(true)))
+
   // Exact request body the "+ Add transformation step" picker sends on lookup-step
   // creation — frontend/src/features/pipelines/state/stepNarrowing.ts's
   // defaultConfigFor("lookup"). HEL-386 change request 2 regression coverage.
@@ -410,6 +414,33 @@ class PipelineStepRoutesSpec
       }
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
         responseAs[Vector[PipelineStepResponse]] shouldBe empty
+      }
+    }
+
+    "POST with attachAsTail: true on a LEAF anchor (no existing children) still attaches at position >= 1, not the trunk (evaluation-1 cycle-2 CR1)" in {
+      val pid = seedPipeline()
+      var rootId = ""
+      Post(s"/pipelines/$pid/steps", castReq()) ~> routes ~> check {
+        rootId = responseAs[PipelineStepResponse].id
+      }
+      var tailId = ""
+      Post(s"/pipelines/$pid/steps", reqWithParentStepIdAsTail(castReq(), rootId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        tailId = responseAs[PipelineStepResponse].id
+      }
+      import PostgresProfile.api._
+      val (persistedParent, persistedPosition) = await(db.run(
+        sql"SELECT parent_step_id, position FROM pipeline_steps WHERE id = $tailId".as[(Option[String], Int)].head
+      ))
+      persistedParent shouldBe Some(rootId)
+      // This is the whole point of the fix: a leaf anchor must NOT fall back to position 0
+      // (which would silently make the "tail" the anchor's trunk continuation instead).
+      persistedPosition should be >= 1
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        // The route's own listing is trunk-order; a real tail must not appear as the
+        // second trunk entry -- only `rootId` belongs to the trunk here.
+        steps.map(_.id) should contain(tailId)
       }
     }
 
@@ -706,22 +737,32 @@ class PipelineStepRoutesSpec
     }
 
 
-    "PUT /pipelines/:id/steps/order reorders steps and reindexes positions 0..n-1" in {
+    // HEL-908 (design.md decision 15, cycle 9): `PUT /pipelines/:id/steps/order`'s
+    // request-shape contract is now TRUNK-ONLY -- `reorderSteps` is repointed
+    // at `reorderTrunkInternal`, which relinks the trunk's `parentStepId`
+    // chain (not `reorderInternal`'s sibling-scoped position renumber, which
+    // is a no-op for a pure trunk since every trunk step has a distinct
+    // parent). This test used to seed 3 flat ROOT SIBLINGS and exercise the
+    // old sibling-scoped renumber -- superseded: 3 root siblings are not a
+    // valid trunk permutation under the new contract (only the position-0
+    // root sibling is trunk; the other two are root-level tails), so it is
+    // rewritten here to seed a genuine parent-chained trunk and assert the
+    // real relink + persistence, end to end through the live route.
+    "PUT /pipelines/:id/steps/order reorders a genuine trunk, relinking parentStepId end to end" in {
       cleanSteps(); val pid = seedPipeline()
-      // HEL-904 cycle-9: seeded as flat ROOT siblings directly via SQL --
-      // `reorderInternal`'s sibling-scoped renumbering is only exercisable
-      // on a genuine sibling group, which `addStep` (no `position`) no
-      // longer produces (it now extends the trunk; see the cycle-9 fix).
-      val idA = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
-      val idB = seedRootStep(pid, "filter", """{"combinator":"AND","conditions":[]}""", 1)
-      val idC = seedRootStep(pid, "cast",   """{"casts":{}}""", 2)
+      var idA, idB, idC = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idB = responseAs[PipelineStepResponse].id }
+      Post(s"/pipelines/$pid/steps", castReq())   ~> routes ~> check { idC = responseAs[PipelineStepResponse].id }
 
       val body = JsObject("stepIds" -> JsArray(JsString(idC), JsString(idA), JsString(idB)))
       Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val steps = responseAs[Vector[PipelineStepResponse]]
+        // executionOrder-shaped response: the NEW trunk, c -> a -> b.
         steps.map(_.id) shouldBe Vector(idC, idA, idB)
-        steps.map(_.position) shouldBe Vector(0, 1, 2)
+        steps.map(_.parentStepId) shouldBe Vector(None, Some(idC), Some(idA))
+        steps.foreach(_.position shouldBe 0)
       }
 
       // Persists and survives reload — a subsequent GET reflects the new order.
@@ -806,24 +847,21 @@ class PipelineStepRoutesSpec
       }
     }
 
-    // ── HEL-904 follow-on ruling (2026-08-31): reorderInternal is sibling-scoped ──
+    // ── HEL-908 (design.md decision 15, cycle 9): trunk-only request-shape ──
     //
-    // Seeds a real multi-level, multi-sibling-group tree directly via raw SQL
-    // (the shape a V94-migrated pipeline with an aggregate tail has):
+    // Seeds a real multi-level tree via raw SQL (the shape a V94-migrated
+    // pipeline with an aggregate tail has):
     //   a (root, pos 0)
     //     -> b (pos 0, trunk continuation)  -> c (pos 0, further trunk)
-    //     -> t (pos 1, tail sibling of b)
-    // Exercises the REAL reorder route/reorderInternal (not a
-    // reimplementation) with a request that deliberately INTERLEAVES ids
-    // from every sibling group in one permutation ([t, a, c, b]) -- exactly
-    // the shape that broke under the old global `orderedIds.zipWithIndex`
-    // renumbering (which would have set `a`'s position to 1, destroying the
-    // root trunk-continuation invariant entirely). Confirms each sibling
-    // group is renumbered independently: `a` (the sole root-group member)
-    // keeps position 0 regardless of where it appears in the request, and
-    // `trunkOf` still finds a coherent, non-empty trunk starting at `a`
-    // afterward.
-    "PUT /pipelines/:id/steps/order renumbers each sibling group independently, even when the request interleaves ids across groups" in {
+    //     -> t (pos 1, tail sibling of b -- NOT part of the trunk)
+    // `reorderSteps` is now repointed at `reorderTrunkInternal`, whose
+    // request-shape contract is TRUNK-ONLY: exactly the pipeline's current
+    // trunk ids (here, {a, b, c}), no tail ids, no missing/duplicate ids.
+    // This supersedes the pre-cycle-9 sibling-scoped-renumber test that used
+    // to live here (which asserted 200 OK for a request interleaving a tail
+    // id across sibling groups) -- that request now correctly 422s, per the
+    // "reject rather than silently no-op" contract Decision 15 documents.
+    "PUT /pipelines/:id/steps/order rejects a request containing a tail id, naming it, and touches nothing" in {
       import PostgresProfile.api._
       cleanSteps(); val pid = seedPipeline()
       val aId = UUID.randomUUID().toString
@@ -841,60 +879,63 @@ class PipelineStepRoutesSpec
                VALUES ($cId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $bId)"""
       )))
 
-      // Full permutation of the pipeline's current step ids (required by
-      // reorderSteps' 422 check), deliberately out of trunk order and
-      // interleaving all 3 sibling groups (root={a}, a's children={b,t},
-      // b's children={c}).
+      // Interleaves the tail id (t) into the request -- rejected under the
+      // new trunk-only contract, not silently accepted or no-op'd.
       val body = JsObject("stepIds" -> JsArray(JsString(tId), JsString(aId), JsString(cId), JsString(bId)))
+      Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+
+      // Nothing touched: every row's position/parent is exactly as seeded.
+      val rows = await(db.run(
+        sql"SELECT id, position, parent_step_id FROM pipeline_steps WHERE pipeline_id = $pid".as[(String, Int, Option[String])]
+      )).map { case (id, pos, parent) => id -> (pos, parent) }.toMap
+      rows(aId) shouldBe (0, None)
+      rows(bId) shouldBe (0, Some(aId))
+      rows(tId) shouldBe (1, Some(aId))
+      rows(cId) shouldBe (0, Some(bId))
+
+      val steps = await(stepRepo.listByPipelineInternal(PipelineId(pid)))
+      stepRepo.trunkOf(steps).map(_.id.value) shouldBe Vector(aId, bId, cId)
+    }
+
+    "PUT /pipelines/:id/steps/order reorders the trunk-only subset of a tail-bearing pipeline, leaving the tail attached to its own node" in {
+      import PostgresProfile.api._
+      cleanSteps(); val pid = seedPipeline()
+      val aId = UUID.randomUUID().toString
+      val bId = UUID.randomUUID().toString
+      val tId = UUID.randomUUID().toString
+      val cId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($tId, $pid, 1, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($cId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $bId)"""
+      )))
+
+      // Trunk-only permutation, no tail id: b -> a -> c (b becomes root,
+      // a becomes b's trunk continuation, c stays a's -- wait, c is now a's
+      // continuation since a comes right before it in this order).
+      val body = JsObject("stepIds" -> JsArray(JsString(bId), JsString(aId), JsString(cId)))
       Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
         status shouldBe StatusCodes.OK
       }
 
+      // "The tail follows its trunk step": t's own parentStepId is still a,
+      // untouched by the reorder -- regardless of where a now sits.
       val rows = await(db.run(
         sql"SELECT id, position, parent_step_id FROM pipeline_steps WHERE pipeline_id = $pid".as[(String, Int, Option[String])]
       )).map { case (id, pos, parent) => id -> (pos, parent) }.toMap
+      rows(tId) shouldBe (1, Some(aId))
 
-      // `a` is the sole member of the root sibling group -- must stay
-      // position 0 regardless of its index in the shuffled request. Under
-      // the OLD global `zipWithIndex` renumbering, `a` (2nd in the request)
-      // would have landed at position 1, silently breaking the root trunk.
-      rows(aId)._1 shouldBe 0
-      rows(aId)._2 shouldBe None
-
-      // b and t (a's sibling group) occupy exactly {0, 1} between them --
-      // never leaking into or colliding with c's group.
-      Set(rows(bId)._1, rows(tId)._1) shouldBe Set(0, 1)
-      rows(bId)._2 shouldBe Some(aId)
-      rows(tId)._2 shouldBe Some(aId)
-
-      // c is the sole member of b's sibling group -- stays position 0.
-      rows(cId)._1 shouldBe 0
-      rows(cId)._2 shouldBe Some(bId)
-
-      // trunkOf, called on the post-reorder rows, walks a coherent,
-      // non-empty trunk starting at `a` (not empty/corrupted).
       val steps = await(stepRepo.listByPipelineInternal(PipelineId(pid)))
-      val trunk = stepRepo.trunkOf(steps).map(_.id.value)
-      trunk should not be empty
-      trunk.head shouldBe aId
-
-      // The REAL listByPipelineInternal's returned VECTOR ORDER (not just
-      // the set of rows) must be the tree-derived executionOrder, not a raw
-      // position sort -- a, c/b (whichever branch is now the tail, in
-      // parent-before-child order), then the other branch. Deliberately NOT
-      // hand-computed from `rows` above -- re-derives from the request's
-      // own within-group ordering so this stays correct regardless of which
-      // of {b, t} the caller's shuffled request happened to promote to
-      // position 0 within their sibling group.
-      val expectedExecuted =
-        if (rows(bId)._1 == 0)
-          // b stayed the trunk continuation: a -> b -> c, with t as a's tail.
-          Vector(aId, tId, bId, cId)
-        else
-          // t became the trunk continuation: a -> t, with b (and its own
-          // child c) as a's tail branch, executed right after a.
-          Vector(aId, bId, cId, tId)
-      steps.map(_.id.value) shouldBe expectedExecuted
+      stepRepo.trunkOf(steps).map(_.id.value) shouldBe Vector(bId, aId, cId)
+      // b (the new root, occupying a's old slot) has no tail of its own.
+      stepRepo.childrenOf(steps, Some(PipelineStepId(bId))).count(_.position != 0) shouldBe 0
     }
 
     // ── HEL-410: POST /pipelines/:id/steps with optional `position` (insert-at) ──
