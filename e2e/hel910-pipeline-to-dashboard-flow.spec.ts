@@ -29,11 +29,21 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 //     combobox -> choose "Table" -> "Save". Three Outputs alone cost 12 --
 //     the ticket's entire budget -- before a single click toward creating
 //     the pipeline/source or placing anything on a dashboard.
-// This spec still asserts a REAL, freshly-measured ceiling (not the
-// unreachable 12) so it acts as a genuine regression guard: a future UI
-// change that makes this flow MORE expensive still fails it. See this
-// change's PR description / final executor report for the full accounting
-// and the follow-up-ticket recommendation this finding earns.
+// DELIBERATE, HUMAN-APPROVED RELAXATION OF THE TICKET AC -- read this before
+// touching the assertion below. ticket.md's AC and design.md decision 8 both
+// state "<= 12 interactions" as the DESIGNED TARGET; that target is NOT what
+// this spec enforces. The orchestrator escalated this exact conflict (28
+// measured vs. <= 12 required, unreachable against the shipped UI per the
+// construction above) to the human coordinator, who ruled explicitly: ship
+// this spec asserting the real measured ceiling now, and track restoring
+// "<= 12" as its own acceptance criterion on the follow-up ticket, HEL-942
+// ("Streamline Output creation flow to meet the <=12-interaction budget").
+// So: `toBeLessThanOrEqual(30)` below is a REGRESSION GUARD against the
+// CURRENT UI's real cost, not the product's intended target -- a future
+// reader must not mistake 30 (or the measured 28) for the designed number,
+// which remains 12 until HEL-942 ships and tightens this assertion back
+// down. HEL-942's own AC requires updating this exact `toBeLessThanOrEqual`
+// call, not just streamlining the UI in isolation.
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
@@ -186,9 +196,10 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
     await expect(page.locator(".react-grid-item")).toHaveCount(3);
 
     console.log(`HEL-910 flow: ${io.count} interactions (see file header note on the budget).`);
-    // Real, measured ceiling -- NOT the ticket's unreachable "<= 12" (see
-    // header note). Still a genuine regression guard: a future change that
-    // makes this flow more expensive fails this assertion.
+    // 30 is a measured regression ceiling, NOT the design target -- see the
+    // file header's "DELIBERATE, HUMAN-APPROVED RELAXATION" note. Designed
+    // target remains <= 12 (ticket AC); HEL-942 owns tightening this exact
+    // assertion once the underlying OutputEditorSheet flow is streamlined.
     expect(io.count).toBeLessThanOrEqual(30);
   });
 });
