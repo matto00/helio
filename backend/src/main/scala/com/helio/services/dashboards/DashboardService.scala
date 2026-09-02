@@ -5,9 +5,13 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.dashboards.{DashboardSnapshotPayload, UpdateDashboardRequest}
+import com.helio.api.protocols.dashboards.DashboardSnapshotPanelEntry
 import com.helio.domain.model._
+import com.helio.domain.panels.PanelConfigCodec
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.services.dashboards.DashboardServiceValidation._
+import com.helio.services.panels.PanelServiceHelpers
 import spray.json._
 
 import java.time.Instant
@@ -39,7 +43,14 @@ final class DashboardService(
     // (see design.md Decision 3) — `null` in a fixture that never asserts on
     // audit rows behaves as "audit disabled", never a NullPointerException,
     // since every call site below guards on it via `audit(...)`.
-    auditService: AuditService = null
+    auditService: AuditService = null,
+    // HEL-910 task 2.1 (design.md Decision 5, Gap A): nullable-optional wiring mirrors
+    // `auditService` above -- a `null` outputRepo makes `importSnapshot`'s outputId-existence
+    // check a no-op (mirrors `PanelService.rejectMissingOutput`'s own existing `null`-skips
+    // convention). None of the 16 pre-existing test fixtures construct this with a real
+    // OutputRepository, so none of them exercise the new check -- only a fixture that passes
+    // one, deliberately, does.
+    outputRepo: OutputRepository = null
 )(implicit ec: ExecutionContext) {
 
   import DashboardService._
@@ -293,18 +304,81 @@ final class DashboardService(
       case Left(error) =>
         Future.successful(Left(ServiceError.BadRequest(error)))
       case Right(_) =>
-        dashboardRepo.importSnapshot(payload, user.id).map { case value @ (dashboard, panels) =>
-          // HEL-477 design.md Decision 9: a distinct dashboard.import action
-          // (not dashboard.create) — one row, no per-panel events.
-          audit(
-            "dashboard.import",
-            Some(dashboard.id.value),
-            user,
-            JsObject("panelCount" -> JsNumber(panels.size))
-          )
-          Right(value)
+        validateImportPanels(payload, user).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_) =>
+            dashboardRepo.importSnapshot(payload, user.id).map { case value @ (dashboard, panels) =>
+              // HEL-477 design.md Decision 9: a distinct dashboard.import action
+              // (not dashboard.create) — one row, no per-panel events.
+              audit(
+                "dashboard.import",
+                Some(dashboard.id.value),
+                user,
+                JsObject("panelCount" -> JsNumber(panels.size))
+              )
+              Right(value)
+            }
         }
     }
+
+  /** HEL-910 task 2.1/2.2 (design.md Decision 5). Two checks per entry, both BEFORE any repo
+   *  write so `DashboardSnapshotRepository.importSnapshot`'s own construction/id-minting logic
+   *  never runs on a payload this rejects:
+   *   - Gap B: decode `entry.config` via `PanelConfigCodec.decodeCreateConfig`, build the typed
+   *     `Panel` via `PanelServiceHelpers.buildNewPanel`, and call the panel's own
+   *     `.validateConfig` (the same method `PanelService.buildForCreate` calls) plus the
+   *     appearance decode/validate path (`PanelServiceHelpers.resolveCreateAppearance`) — closes
+   *     HEL-628 (import previously skipped both).
+   *   - Gap A: for an output-kind panel, confirm the bound `outputId` actually resolves via
+   *     `outputRepo.findByIdOwned` (a `null` outputRepo skips this, matching
+   *     `PanelService.rejectMissingOutput`'s existing null-skips convention).
+   *  Returns the first failing entry's error, labelled with its `snapshotId` (mirrors
+   *  `validatePanelEntries`'s own labelling convention). */
+  private def validateImportPanels(
+      payload: DashboardSnapshotPayload,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] = {
+    def validateOne(entry: DashboardSnapshotPanelEntry): Future[Either[ServiceError, Unit]] = {
+      val built = for {
+        createConfig <- PanelConfigCodec.decodeCreateConfig(entry.`type`, Some(entry.config))
+        appearance   <- PanelServiceHelpers.resolveCreateAppearance(Some(entry.appearance))
+      } yield (createConfig, appearance)
+
+      built match {
+        case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"panel '${entry.snapshotId}': $msg")))
+        case Right((createConfig, appearance)) =>
+          val now = Instant.now()
+          val panel = PanelServiceHelpers.buildNewPanel(
+            id           = PanelId(UUID.randomUUID().toString),
+            dashboardId  = DashboardId(""),
+            title        = entry.title,
+            meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
+            appearance   = appearance,
+            ownerId      = user.id,
+            createConfig = createConfig
+          )
+          panel.validateConfig match {
+            case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"panel '${entry.snapshotId}': $msg")))
+            case Right(_) =>
+              PanelServiceHelpers.outputIdFromCreateConfig(createConfig) match {
+                case Some(outputId) if outputRepo != null =>
+                  outputRepo.findByIdOwned(outputId, user).map {
+                    case None    => Left(ServiceError.BadRequest(s"panel '${entry.snapshotId}': outputId '${outputId.value}' not found"))
+                    case Some(_) => Right(())
+                  }
+                case _ => Future.successful(Right(()))
+              }
+          }
+      }
+    }
+
+    payload.panels.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, entry) =>
+      accF.flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(_)  => validateOne(entry)
+      }
+    }
+  }
 }
 
 object DashboardService {

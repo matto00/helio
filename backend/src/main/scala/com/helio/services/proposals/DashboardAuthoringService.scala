@@ -63,7 +63,7 @@ final class DashboardAuthoringService(
       "Run a pipeline first."
 
   /** Grounding context assembled once per FIRST-turn authoring call: the workspace snapshot, a
-   *  per-DataType panel-capability menu (keyed by `dataTypeId`, HEL-365), and any degrade-not-fail
+   *  per-DataType panel-capability menu (keyed by `outputId`, HEL-365), and any degrade-not-fail
    *  warnings collected while fetching it. Never re-assembled for a continued turn (design.md D3 —
    *  turn 2+ user messages are plain follow-up text only). */
   private final case class GroundedContext(
@@ -261,17 +261,17 @@ final class DashboardAuthoringService(
   /** One per-DataType capability fetch. A failure degrades to a warning for THAT type only —
    *  mirrors `WorkspaceContextService.buildPipeline`'s own per-item degrade-not-fail precedent;
    *  never fails the whole grounding assembly. */
-  private def fetchCapability(dataTypeId: String, user: AuthenticatedUser): Future[Either[String, (String, PanelCapabilitiesResponse)]] =
+  private def fetchCapability(outputId: String, user: AuthenticatedUser): Future[Either[String, (String, PanelCapabilitiesResponse)]] =
     panelCapabilityService
-      .getCapabilities(OutputId(dataTypeId), user)
+      .getCapabilities(OutputId(outputId), user)
       .map {
-        case Right(capabilities) => Right(dataTypeId -> capabilities)
-        case Left(err)           => Left(degradeMessage(dataTypeId, err.message))
+        case Right(capabilities) => Right(outputId -> capabilities)
+        case Left(err)           => Left(degradeMessage(outputId, err.message))
       }
-      .recover { case ex => Left(degradeMessage(dataTypeId, Option(ex.getMessage).getOrElse(ex.getClass.getName))) }
+      .recover { case ex => Left(degradeMessage(outputId, Option(ex.getMessage).getOrElse(ex.getClass.getName))) }
 
-  private def degradeMessage(dataTypeId: String, reason: String): String =
-    s"Could not load panel capabilities for data type $dataTypeId: $reason"
+  private def degradeMessage(outputId: String, reason: String): String =
+    s"Could not load panel capabilities for data type $outputId: $reason"
 
   // ── Shared parse -> validate core (unchanged since HEL-392) ────────────
 

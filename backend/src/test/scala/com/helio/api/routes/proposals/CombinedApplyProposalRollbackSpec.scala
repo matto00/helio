@@ -39,7 +39,7 @@ class CombinedApplyProposalRollbackSpec extends CombinedApplyProposalSpecBase {
           |}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[String].toLowerCase should include("datatypeid")
+        responseAs[String].toLowerCase should include("outputid")
       }
       allCounts() shouldBe before
     }

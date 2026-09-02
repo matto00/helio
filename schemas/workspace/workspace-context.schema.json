@@ -219,9 +219,9 @@
     },
     "JoinHint": {
       "type": "object",
-      "required": ["leftDataTypeId", "leftColumn", "rightDataTypeId", "rightColumn", "confidence"],
+      "required": ["leftOutputId", "leftColumn", "rightOutputId", "rightColumn", "confidence"],
       "properties": {
-        "leftDataTypeId": {
+        "leftOutputId": {
           "type": "string",
           "minLength": 1,
           "description": "The lexicographically smaller of the pair's two DataType ids — a canonical assignment so a given unordered pair produces exactly one hint, never two."
@@ -229,7 +229,7 @@
         "leftColumn": {
           "type": "string"
         },
-        "rightDataTypeId": {
+        "rightOutputId": {
           "type": "string",
           "minLength": 1
         },
@@ -344,8 +344,8 @@
         "name",
         "sourceDataSourceId",
         "sourceDataSourceName",
-        "outputDataTypeId",
-        "outputDataTypeName",
+        "outputId",
+        "outputName",
         "steps"
       ],
       "properties": {
@@ -362,10 +362,10 @@
         "sourceDataSourceName": {
           "type": "string"
         },
-        "outputDataTypeId": {
+        "outputId": {
           "type": "string"
         },
-        "outputDataTypeName": {
+        "outputName": {
           "type": "string"
         },
         "lastRunStatus": {

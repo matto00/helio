@@ -3,7 +3,7 @@
 **Helio turns raw data into dashboards you can build by asking.**
 
 Point it at a CSV, a SQL database, or a REST API. Shape the data with a visual
-pipeline. Bind the result to panels — charts, metrics, tables, timelines — and
+pipeline. Place any node's tail as an Output — a table, a metric, a chart — and
 arrange them on a responsive grid. Then keep going in plain language: describe a
 change, review the exact diff, and apply it.
 
@@ -21,14 +21,14 @@ and undo afterwards.
 
 ## How data flows
 
-Everything in Helio follows one path, and every panel is bound to the end of it:
+Everything in Helio follows one path, and every panel is a placement of an Output:
 
 ```
-Data source  →  Pipeline  →  Data type  →  Panel
-   CSV            filter       typed         chart
-   SQL            aggregate    schema        metric
-   REST           date bucket  +             table
-   files          join, pivot  rows          timeline
+Data source  →  Pipeline  →  Outputs  →  Dashboard
+   CSV            filter       table       panel
+   SQL            aggregate    metric      panel
+   REST           date bucket  chart       panel
+   files          join, pivot  ...         panel
 ```
 
 A **pipeline** is an ordered list of transformation steps over one source. Twenty-three operations ship today — filter, aggregate, join, pivot, window, unpivot, date
@@ -37,9 +37,10 @@ schema computed before you run it.
 
 ![The pipeline editor](docs/images/pipeline-editor.png)
 
-Pipelines produce **data types**: named, typed schemas that panels bind to. Because
-binding always goes through a pipeline output, a panel can never silently drift
-from the shape of its data.
+An **Output** places a live tail of the pipeline's node tree — the whole source, or
+any intermediate step — as a table, metric, chart, or other kind. A dashboard panel
+is a placement of one Output; because binding always goes through an Output, a
+panel can never silently drift from the shape of its data.
 
 ## What you can build
 
@@ -49,11 +50,12 @@ pipelines.
 
 ![Delivery analytics dashboard](docs/images/delivery-analytics.png)
 
-- **Panels** — chart (line, bar, pie, scatter), metric, table, timeline,
-  collection, markdown, text, image
+- **Panels** — a placement of an Output (chart, metric, table, timeline,
+  collection kind), plus markdown, text, image
 - **Pipelines** — 20 transformation ops, step-by-step preview, dry runs,
   cron/interval schedules, and assertions that flag untrustworthy runs
-- **Metrics layer** — define a measure once, reuse it across panels
+- **Outputs** — place any node's tail as a table, metric, chart, or other kind;
+  bind multiple panels to the same Output
 - **Alerts** — threshold rules over pipeline output, with snooze and resolve
 - **Connectors** — reusable, encrypted credentials shared across sources
 - **Mobile** — installable PWA with a layout built for phones

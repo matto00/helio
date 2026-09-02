@@ -20,22 +20,22 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
 
     // HEL-904: collection/chart/table config-passthrough tests removed -- those panel kinds no longer exist.
 
-    // D2: config must NOT be able to clobber the flat-field dataTypeId — the
+    // D2: config must NOT be able to clobber the flat-field outputId — the
     // pipeline-only binding rule (V41) is enforced against the FLAT field
-    // (preValidateBindings), so config's dataTypeId is silently ignored and the
+    // (preValidateBindings), so config's outputId is silently ignored and the
     // flat value remains authoritative on the created panel.
     // HEL-904 task 3.8/3.9: an "output"-kind panel's flat binding field is
-    // still named `dataTypeId` on the wire (schema stability), but its
+    // still named `outputId` on the wire (schema stability), but its
     // authoritative-after-merge key on the CREATED panel's config is
     // `outputId` — `fieldMapping` no longer exists on an Output panel (the
     // Output itself owns field mapping).
-    "keep the flat dataTypeId authoritative when config attempts to override it (HEL-316, V41)" in {
+    "keep the flat outputId authoritative when config attempts to override it (HEL-316, V41)" in {
       val before = dashboardCount()
       val body =
         s"""{
            |  "dashboardName": "Bypass Attempt",
            |  "panels": [
-           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputId",
+           |    {"title":"Total","type":"output","outputId":"$pipelineOutputId",
            |     "config":{"outputId":"$companionTypeId"}}
            |  ]
            |}""".stripMargin
@@ -58,7 +58,7 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "Flat Only",
            |  "panels": [
-           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputId"}
+           |    {"title":"Total","type":"output","outputId":"$pipelineOutputId"}
            |  ]
            |}""".stripMargin
       apply(body) ~> routes ~> check {

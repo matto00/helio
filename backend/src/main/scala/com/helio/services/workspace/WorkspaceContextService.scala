@@ -248,8 +248,8 @@ final class WorkspaceContextService(
       user: AuthenticatedUser
   ): Future[WorkspaceContextPipeline] = {
     // HEL-904 task 3.12: a pipeline no longer mints exactly one DataType (task 3.5) -- it can
-    // carry zero-to-many Outputs, potentially on different nodes. `outputDataTypeId`/
-    // `outputDataTypeName` are legacy wire field NAMES this ticket does not rename (that's
+    // carry zero-to-many Outputs, potentially on different nodes. `outputId`/
+    // `outputName` are legacy wire field NAMES this ticket does not rename (that's
     // section 5's schema-surface job); populated here with the pipeline's first Output by
     // `position` (an ACL-bypassing internal read -- `summary` itself already came from an
     // owner-scoped `listSummaries` call, so the pipeline's ownership is already established)
@@ -292,8 +292,8 @@ final class WorkspaceContextService(
       name                 = summary.name,
       sourceDataSourceId   = summary.sourceDataSourceId,
       sourceDataSourceName = summary.sourceDataSourceName,
-      outputDataTypeId     = representativeOutput.map(_.id.value).getOrElse(""),
-      outputDataTypeName   = representativeOutput.map(_.name).getOrElse(""),
+      outputId     = representativeOutput.map(_.id.value).getOrElse(""),
+      outputName   = representativeOutput.map(_.name).getOrElse(""),
       lastRunStatus        = summary.lastRunStatus,
       lastRunAt            = summary.lastRunAt,
       lastRunRowCount      = summary.lastRunRowCount,

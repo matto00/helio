@@ -25,7 +25,7 @@ object DashboardAuthoringPrompt {
       |    {
       |      "title": "string, required, 1-160 chars",
       |      "type": "one of: text | markdown | image | output",
-      |      "dataTypeId": "string — REQUIRED for output panels; must be one of the pipeline-output Output ids listed below (the field is named dataTypeId for wire-schema stability, but the value is actually an Output id)",
+      |      "outputId": "string — REQUIRED for output panels; must be one of the pipeline-output Output ids listed below (the field is named outputId for wire-schema stability, but the value is actually an Output id)",
       |      "content": "string — text/markdown panel body",
       |      "url": "string — image panel URL",
       |      "layout": { "x": "integer >= 0", "y": "integer >= 0", "w": "integer >= 1", "h": "integer >= 1" }
@@ -38,7 +38,7 @@ object DashboardAuthoringPrompt {
       "Respond with ONLY a single JSON object — no prose, no markdown code fences, nothing before " +
       "or after it — matching exactly this shape:\n\n" + ProposalShapeDescription + "\n\n" +
       "Rules:\n" +
-      "- Every output panel's dataTypeId MUST be one of the pipeline-output Output ids listed " +
+      "- Every output panel's outputId MUST be one of the pipeline-output Output ids listed " +
       "below. Never invent an id or bind to an Output not listed.\n" +
       "- Only use the output panel kind for an Output when its panel-capability entry below marks " +
       "it bindable.\n" +

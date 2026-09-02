@@ -111,8 +111,6 @@ const emptyAnalyzeResponse: PipelineAnalyzeResponse = {
   id: "pipe-1",
   name: "Test Pipeline",
   sourceDataSourceName: "Test Source",
-  outputDataTypeName: "TestType",
-  outputDataTypeId: "dt-1",
   sourceSchema: [],
   steps: [],
 };
@@ -1714,8 +1712,6 @@ describe("PipelineDetailPage select step config round-trip", () => {
       id: "pipe-1",
       name: "Test Pipeline",
       sourceDataSourceName: "Test Source",
-      outputDataTypeName: "TestType",
-      outputDataTypeId: "dt-1",
       sourceSchema: [
         { name: "id", type: "string" },
         { name: "name", type: "string" },
@@ -1784,8 +1780,6 @@ describe("PipelineDetailPage rename step config", () => {
     id: "pipe-1",
     name: "Test Pipeline",
     sourceDataSourceName: "Test Source",
-    outputDataTypeName: "TestType",
-    outputDataTypeId: "dt-1",
     sourceSchema: [
       { name: "id", type: "string" },
       { name: "name", type: "string" },
@@ -2512,7 +2506,6 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     name: "Test Pipeline",
     sourceDataSourceId: "src-1",
     sourceDataSourceName: "Test Source",
-    outputDataTypeId: "dt-1",
     lastRunStatus: null,
     lastRunAt: null,
     lastRunRowCount: null,

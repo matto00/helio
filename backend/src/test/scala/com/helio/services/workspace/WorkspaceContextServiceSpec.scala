@@ -202,9 +202,9 @@ class WorkspaceContextServiceSpec
   }
 
   /** Test-only shape mirroring the pre-3.5 `PipelineSummary` -- `id` and
-   *  `outputDataTypeId` are the only fields this spec's own assertions
+   *  `outputId` are the only fields this spec's own assertions
    *  read. */
-  private final case class SeededPipeline(id: String, outputDataTypeId: String)
+  private final case class SeededPipeline(id: String, outputId: String)
 
   /** A Pipeline over `sourceId` (+ its freshly-inserted output DataType,
    *  `sourceId` absent — the pipeline-output / panel-bindable case).
@@ -230,10 +230,10 @@ class WorkspaceContextServiceSpec
     // purely to satisfy `pipelines.output_data_type_id`'s FK) is removed
     // outright -- that column is dropped by this task, and this fixture step
     // had zero effect on anything `WorkspaceContextService.assemble` reads.
-    // Only the real Output created below (`SeededPipeline.outputDataTypeId`)
+    // Only the real Output created below (`SeededPipeline.outputId`)
     // is ever exercised by this file's call sites.
     val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table))
-    SeededPipeline(id = summary.id, outputDataTypeId = createdOutput.id.value)
+    SeededPipeline(id = summary.id, outputId = createdOutput.id.value)
   }
 
   private def createDashboard(user: AuthenticatedUser, name: String = s"dash-${UUID.randomUUID()}"): Dashboard = {
@@ -255,7 +255,7 @@ class WorkspaceContextServiceSpec
    *  sample against without running a real Spark job, so this sets it
    *  directly via the owner-scoped repo update, the same op `DataTypeService.update`
    *  itself performs. */
-  // HEL-904 task 3.12: `id` is now the Output's own id string (`SeededPipeline.outputDataTypeId`
+  // HEL-904 task 3.12: `id` is now the Output's own id string (`SeededPipeline.outputId`
   // holds an Output id post-rewire, see `createPipeline`'s own doc) -- this helper's NAME is kept
   // (minimizing the diff against this file's many call sites) but its implementation now updates
   // `outputs.schema` (`Vector[SchemaField]`) instead of `data_types.fields`
@@ -328,7 +328,7 @@ class WorkspaceContextServiceSpec
 
       resp.dataTypes.map(_.name) should not contain "classify-source"
 
-      val output = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val output = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
       output.pipelineOutput shouldBe true
       output.sourceId shouldBe None
     }
@@ -399,12 +399,12 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "samplerows-source")
       val pipeline = createPipeline(userA, source.id, "samplerows-pipeline", "samplerows-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("name", "Name", "string", nullable = false)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       val rows = (0 until 7).map(i => JsObject("name" -> JsString(s"row-$i")))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, rows))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       entry.sampleRows should have size 5
       entry.sampleRows.map(_.fields("name")) shouldBe (0 to 4).map(i => JsString(s"row-$i")).toVector
@@ -415,7 +415,7 @@ class WorkspaceContextServiceSpec
       val pipeline = createPipeline(userA, source.id, "norun-pipeline", "norun-output")
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       entry.sampleRows shouldBe empty
     }
@@ -436,7 +436,7 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "content-source")
       val pipeline = createPipeline(userA, source.id, "content-pipeline", "content-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(
+      setDataTypeFields(pipeline.outputId, Vector(
         DataField("title", "Title", "string", nullable = false),
         DataField("body", "Body", "string-body", nullable = true)
       ))
@@ -447,7 +447,7 @@ class WorkspaceContextServiceSpec
       ))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       entry.sampleRows should have size 1
       entry.sampleRows.head.fields.keySet should not contain "body"
@@ -461,21 +461,21 @@ class WorkspaceContextServiceSpec
     "never surface another user's sampleRows" in {
       val aSource   = createSource(userA, "scoped-a-source")
       val aPipeline = createPipeline(userA, aSource.id, "scoped-a-pipeline", "scoped-a-output")
-      setDataTypeFields(aPipeline.outputDataTypeId, Vector(DataField("name", "Name", "string", nullable = false)))
+      setDataTypeFields(aPipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(aPipeline.id, None, Seq(JsObject("name" -> JsString("secret-a")))))
 
       val bSource   = createSource(userB, "scoped-b-source")
       val bPipeline = createPipeline(userB, bSource.id, "scoped-b-pipeline", "scoped-b-output")
-      setDataTypeFields(bPipeline.outputDataTypeId, Vector(DataField("name", "Name", "string", nullable = false)))
+      setDataTypeFields(bPipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(bPipeline.id, None, Seq(JsObject("name" -> JsString("secret-b")))))
 
       val respB  = await(service.assemble(userB))
-      val entryB = respB.dataTypes.find(_.id == bPipeline.outputDataTypeId).getOrElse(fail("b output DataType missing"))
+      val entryB = respB.dataTypes.find(_.id == bPipeline.outputId).getOrElse(fail("b output DataType missing"))
       entryB.sampleRows.map(_.fields("name")) shouldBe Vector(JsString("secret-b"))
 
       // B's response doesn't even carry A's DataType entry — and even if it
       // did, no sampleRows cell anywhere in B's response may equal A's value.
-      respB.dataTypes.exists(_.id == aPipeline.outputDataTypeId) shouldBe false
+      respB.dataTypes.exists(_.id == aPipeline.outputId) shouldBe false
       respB.dataTypes.flatMap(_.sampleRows).flatMap(_.fields.values) should not contain JsString("secret-a")
     }
   }
@@ -487,7 +487,7 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "colstats-source")
       val pipeline = createPipeline(userA, source.id, "colstats-pipeline", "colstats-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(
+      setDataTypeFields(pipeline.outputId, Vector(
         DataField("status", "Status", "string", nullable = true),
         DataField("amount", "Amount", "float", nullable = false)
       ))
@@ -498,7 +498,7 @@ class WorkspaceContextServiceSpec
       )))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       val status = entry.columnStats("status")
       status.distinctCount shouldBe 2
@@ -518,14 +518,14 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "colstats-garbage-source")
       val pipeline = createPipeline(userA, source.id, "colstats-garbage-pipeline", "colstats-garbage-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("amount", "Amount", "float", nullable = false)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("amount", "Amount", "float", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("amount" -> JsString("n/a")),
         JsObject("amount" -> JsString("n/a"))
       )))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       val amount = entry.columnStats("amount")
       amount.min shouldBe None
@@ -537,14 +537,14 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "colstats-csv-source")
       val pipeline = createPipeline(userA, source.id, "colstats-csv-pipeline", "colstats-csv-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("amount", "Amount", "integer", nullable = false)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("amount", "Amount", "integer", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("amount" -> JsString("10")),
         JsObject("amount" -> JsString("20"))
       )))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       val amount = entry.columnStats("amount")
       amount.min shouldBe Some(10.0)
@@ -556,14 +556,14 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "colstats-allnull-source")
       val pipeline = createPipeline(userA, source.id, "colstats-allnull-pipeline", "colstats-allnull-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("notes", "Notes", "string", nullable = true)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("notes", "Notes", "string", nullable = true)))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("notes" -> JsNull),
         JsObject("notes" -> JsNull)
       )))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       val notes = entry.columnStats("notes")
       notes.nullRate shouldBe 1.0
@@ -576,10 +576,10 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "colstats-norun-source")
       val pipeline = createPipeline(userA, source.id, "colstats-norun-pipeline", "colstats-norun-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("id", "Id", "string", nullable = false)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("id", "Id", "string", nullable = false)))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       entry.columnStats.keySet shouldBe Set("id")
       entry.columnStats("id").nullRate shouldBe 0.0
@@ -591,10 +591,10 @@ class WorkspaceContextServiceSpec
       val pipeline = createPipeline(userA, source.id, "colstats-wide-pipeline", "colstats-wide-output")
 
       val wideFields = (0 until 45).map(i => DataField(s"col$i", s"col$i", "string", nullable = false)).toVector
-      setDataTypeFields(pipeline.outputDataTypeId, wideFields)
+      setDataTypeFields(pipeline.outputId, wideFields)
 
       val emptyResp  = await(service.assemble(userA))
-      val emptyEntry = emptyResp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val emptyEntry = emptyResp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
       emptyEntry.columnStats.keySet should have size 40
       emptyEntry.columnStats.keySet should contain("col39")
       emptyEntry.columnStats.keySet should not contain "col40"
@@ -602,7 +602,7 @@ class WorkspaceContextServiceSpec
       val wideRow = JsObject(wideFields.map(f => f.name -> JsString(f.name)).toMap)
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(wideRow)))
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
       entry.columnStats.keySet should have size 40
       entry.columnStats.keySet should contain("col39")
       entry.columnStats.keySet should not contain "col40"
@@ -612,12 +612,12 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "colstats-highcard-source")
       val pipeline = createPipeline(userA, source.id, "colstats-highcard-pipeline", "colstats-highcard-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("id", "Id", "string", nullable = false)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("id", "Id", "string", nullable = false)))
       val rows = (0 until 150).map(i => JsObject("id" -> JsString(s"id-$i")))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, rows))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       entry.columnStats("id").distinctCountCapped shouldBe true
       entry.columnStats("id").distinctCount shouldBe 100
@@ -627,7 +627,7 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "colstats-content-source")
       val pipeline = createPipeline(userA, source.id, "colstats-content-pipeline", "colstats-content-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(
+      setDataTypeFields(pipeline.outputId, Vector(
         DataField("title", "Title", "string", nullable = false),
         DataField("body", "Body", "string-body", nullable = true)
       ))
@@ -636,7 +636,7 @@ class WorkspaceContextServiceSpec
       )))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
 
       entry.columnStats.keySet should not contain "body"
       entry.columnStats.keySet should contain("title")
@@ -646,7 +646,7 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "colstats-determinism-source")
       val pipeline = createPipeline(userA, source.id, "colstats-determinism-pipeline", "colstats-determinism-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(
+      setDataTypeFields(pipeline.outputId, Vector(
         DataField("status", "Status", "string", nullable = false),
         DataField("amount", "Amount", "float", nullable = false)
       ))
@@ -656,8 +656,8 @@ class WorkspaceContextServiceSpec
         JsObject("status" -> JsString("a"), "amount" -> JsNumber(2))
       )))
 
-      val first  = await(service.assemble(userA)).dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("missing"))
-      val second = await(service.assemble(userA)).dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("missing"))
+      val first  = await(service.assemble(userA)).dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("missing"))
+      val second = await(service.assemble(userA)).dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("missing"))
 
       first.columnStats shouldBe second.columnStats
     }
@@ -667,19 +667,19 @@ class WorkspaceContextServiceSpec
     "never surface another user's columnStats" in {
       val aSource   = createSource(userA, "colstats-scoped-a-source")
       val aPipeline = createPipeline(userA, aSource.id, "colstats-scoped-a-pipeline", "colstats-scoped-a-output")
-      setDataTypeFields(aPipeline.outputDataTypeId, Vector(DataField("name", "Name", "string", nullable = false)))
+      setDataTypeFields(aPipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(aPipeline.id, None, Seq(JsObject("name" -> JsString("secret-a")))))
 
       val bSource   = createSource(userB, "colstats-scoped-b-source")
       val bPipeline = createPipeline(userB, bSource.id, "colstats-scoped-b-pipeline", "colstats-scoped-b-output")
-      setDataTypeFields(bPipeline.outputDataTypeId, Vector(DataField("name", "Name", "string", nullable = false)))
+      setDataTypeFields(bPipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(bPipeline.id, None, Seq(JsObject("name" -> JsString("secret-b")))))
 
       val respB  = await(service.assemble(userB))
-      val entryB = respB.dataTypes.find(_.id == bPipeline.outputDataTypeId).getOrElse(fail("b output DataType missing"))
+      val entryB = respB.dataTypes.find(_.id == bPipeline.outputId).getOrElse(fail("b output DataType missing"))
       entryB.columnStats("name").exampleValues shouldBe Vector(JsString("secret-b"))
 
-      respB.dataTypes.exists(_.id == aPipeline.outputDataTypeId) shouldBe false
+      respB.dataTypes.exists(_.id == aPipeline.outputId) shouldBe false
       respB.dataTypes.flatMap(_.columnStats.values).flatMap(_.exampleValues) should not contain JsString("secret-a")
     }
   }
@@ -691,7 +691,7 @@ class WorkspaceContextServiceSpec
       implicit val ec: ExecutionContext = routeEc
       val source   = createSource(userA, "schema-samplerows-source")
       val pipeline = createPipeline(userA, source.id, "schema-samplerows-pipeline", "schema-samplerows-output")
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("name", "Name", "string", nullable = false)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("name" -> JsString("x")))))
 
       val routes = new WorkspaceRoutes(None, service, userA).routes
@@ -699,7 +699,7 @@ class WorkspaceContextServiceSpec
       Get("/workspace/context") ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val body  = responseAs[WorkspaceContextResponse]
-        val entry = body.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+        val entry = body.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
         entry.sampleRows should not be empty
 
         schemaValidationErrors(body) shouldBe empty
@@ -792,11 +792,11 @@ class WorkspaceContextServiceSpec
       implicit val ec: ExecutionContext = routeEc
       val source   = createSource(userA, "schema-colstats-numeric-source")
       val pipeline = createPipeline(userA, source.id, "schema-colstats-numeric-pipeline", "schema-colstats-numeric-output")
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("amount", "Amount", "float", nullable = false)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("amount", "Amount", "float", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("amount" -> JsNumber(42)))))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
       entry.columnStats("amount").min shouldBe defined
 
       schemaValidationErrors(resp) shouldBe empty
@@ -806,11 +806,11 @@ class WorkspaceContextServiceSpec
       implicit val ec: ExecutionContext = routeEc
       val source   = createSource(userA, "schema-colstats-nonnumeric-source")
       val pipeline = createPipeline(userA, source.id, "schema-colstats-nonnumeric-pipeline", "schema-colstats-nonnumeric-output")
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("status", "Status", "string", nullable = false)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("status", "Status", "string", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("status" -> JsString("active")))))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
       entry.columnStats("status").min shouldBe None
 
       schemaValidationErrors(resp) shouldBe empty
@@ -830,7 +830,7 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "semrole-source")
       val pipeline = createPipeline(userA, source.id, "semrole-pipeline", "semrole-output")
 
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(
+      setDataTypeFields(pipeline.outputId, Vector(
         DataField("user_id", "User Id", "integer", nullable = false),
         DataField("created_at", "Created At", "timestamp", nullable = false),
         DataField("status", "Status", "string", nullable = true),
@@ -842,7 +842,7 @@ class WorkspaceContextServiceSpec
       )))
 
       val resp  = await(service.assemble(userA))
-      val entry = resp.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("output DataType missing"))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
       def role(name: String): String = entry.columns.find(_.name == name).getOrElse(fail(s"$name column missing")).semanticRole
 
       role("user_id") shouldBe "identifier"
@@ -862,7 +862,7 @@ class WorkspaceContextServiceSpec
       implicit val ec: ExecutionContext = routeEc
       val sourceOne   = createSource(userA, "joinhint-source-one")
       val pipelineOne = createPipeline(userA, sourceOne.id, "joinhint-pipeline-one", "joinhint-output-one")
-      setDataTypeFields(pipelineOne.outputDataTypeId, Vector(DataField("customer_id", "Customer Id", "integer", nullable = false)))
+      setDataTypeFields(pipelineOne.outputId, Vector(DataField("customer_id", "Customer Id", "integer", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipelineOne.id, None, Seq(
         JsObject("customer_id" -> JsNumber(1)),
         JsObject("customer_id" -> JsNumber(2)),
@@ -871,7 +871,7 @@ class WorkspaceContextServiceSpec
 
       val sourceTwo   = createSource(userA, "joinhint-source-two")
       val pipelineTwo = createPipeline(userA, sourceTwo.id, "joinhint-pipeline-two", "joinhint-output-two")
-      setDataTypeFields(pipelineTwo.outputDataTypeId, Vector(DataField("customer_id", "Customer Id", "integer", nullable = false)))
+      setDataTypeFields(pipelineTwo.outputId, Vector(DataField("customer_id", "Customer Id", "integer", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipelineTwo.id, None, Seq(
         JsObject("customer_id" -> JsNumber(2)),
         JsObject("customer_id" -> JsNumber(3)),
@@ -880,7 +880,7 @@ class WorkspaceContextServiceSpec
 
       val resp = await(service.assemble(userA))
       val hint = resp.joinHints.find(h =>
-        Set(h.leftDataTypeId, h.rightDataTypeId) == Set(pipelineOne.outputDataTypeId, pipelineTwo.outputDataTypeId)
+        Set(h.leftOutputId, h.rightOutputId) == Set(pipelineOne.outputId, pipelineTwo.outputId)
       )
 
       hint shouldBe defined
@@ -911,17 +911,17 @@ class WorkspaceContextServiceSpec
       implicit val ec: ExecutionContext = routeEc
       val aSource   = createSource(userA, "joinhint-scoped-a-source")
       val aPipeline = createPipeline(userA, aSource.id, "joinhint-scoped-a-pipeline", "joinhint-scoped-a-output")
-      setDataTypeFields(aPipeline.outputDataTypeId, Vector(DataField("order_id", "Order Id", "integer", nullable = false)))
+      setDataTypeFields(aPipeline.outputId, Vector(DataField("order_id", "Order Id", "integer", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(aPipeline.id, None, Seq(JsObject("order_id" -> JsNumber(1)), JsObject("order_id" -> JsNumber(2)))))
 
       val bSource   = createSource(userB, "joinhint-scoped-b-source")
       val bPipeline = createPipeline(userB, bSource.id, "joinhint-scoped-b-pipeline", "joinhint-scoped-b-output")
-      setDataTypeFields(bPipeline.outputDataTypeId, Vector(DataField("order_id", "Order Id", "integer", nullable = false)))
+      setDataTypeFields(bPipeline.outputId, Vector(DataField("order_id", "Order Id", "integer", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(bPipeline.id, None, Seq(JsObject("order_id" -> JsNumber(1)), JsObject("order_id" -> JsNumber(2)))))
 
       val respB = await(service.assemble(userB))
 
-      respB.joinHints.exists(h => h.leftDataTypeId == aPipeline.outputDataTypeId || h.rightDataTypeId == aPipeline.outputDataTypeId) shouldBe false
+      respB.joinHints.exists(h => h.leftOutputId == aPipeline.outputId || h.rightOutputId == aPipeline.outputId) shouldBe false
       // B alone has no second order_id-named pipeline-output DataType to pair
       // against — an empty joinHints here (rather than a hint against A's
       // DataType) is the whole point of the assertion above; this line just
@@ -1038,7 +1038,7 @@ class WorkspaceContextServiceSpec
       implicit val ec: ExecutionContext = routeEc
       val source   = createSource(userA, "budget-source")
       val pipeline = createPipeline(userA, source.id, "budget-pipeline", "budget-output")
-      setDataTypeFields(pipeline.outputDataTypeId, Vector(DataField("name", "Name", "string", nullable = false)))
+      setDataTypeFields(pipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("name" -> JsString("x")))))
 
       val routes = new WorkspaceRoutes(None, service, userA).routes
@@ -1054,7 +1054,7 @@ class WorkspaceContextServiceSpec
         body.joinHints shouldBe empty
         // Structural identity of resources is preserved even at the
         // tightest budget — the DataType itself is never dropped.
-        body.dataTypes.exists(_.id == pipeline.outputDataTypeId) shouldBe true
+        body.dataTypes.exists(_.id == pipeline.outputId) shouldBe true
 
         schemaValidationErrors(body) shouldBe empty
       }

@@ -21,7 +21,7 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
         s"""{
            |  "dashboardName": "Regional Sales",
            |  "panels": [
-           |    {"title":"Total","type":"output","dataTypeId":"$pipelineOutputId",
+           |    {"title":"Total","type":"output","outputId":"$pipelineOutputId",
            |     "layout":{"x":0,"y":0,"w":4,"h":3}},
            |    {"title":"Notes","type":"text"}
            |  ]
@@ -35,7 +35,7 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
         panels.map(_.fields("title").convertTo[String]) should contain allOf ("Total", "Notes")
         val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
         // HEL-904 task 3.8/3.9: an "output"-kind panel's config carries
-        // `outputId` (an Output id), not `dataTypeId`/`fieldMapping` — the
+        // `outputId` (an Output id), not `outputId`/`fieldMapping` — the
         // Output itself (not the panel) owns field mapping/visualization.
         metric.fields("config").asJsObject.fields("outputId").convertTo[String] shouldBe pipelineOutputId
       }
@@ -124,11 +124,11 @@ class DashboardApplyProposalSpec extends ApplyProposalSpecBase {
       dashboardCount() shouldBe before
     }
 
-    "reject a metric panel with no dataTypeId and create nothing" in {
+    "reject a metric panel with no outputId and create nothing" in {
       val before = dashboardCount()
       apply("""{"dashboardName":"Bad","panels":[{"title":"X","type":"output"}]}""") ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[String].toLowerCase should include("datatypeid")
+        responseAs[String].toLowerCase should include("outputid")
       }
       dashboardCount() shouldBe before
     }

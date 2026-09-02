@@ -72,9 +72,9 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     )
 
 
-  private def dashboardProposal(dataTypeId: String): DashboardProposal = {
+  private def dashboardProposal(outputId: String): DashboardProposal = {
     val panel = ProposalPanel(
-      title = "Total", `type` = "output", dataTypeId = Some(dataTypeId), metricId = None,
+      title = "Total", `type` = "output", outputId = Some(outputId),
       fieldMapping = Some(JsObject("value" -> JsString("amount"))), aggregation = None, content = None,
       url = None, orientation = None, chartType = None, xAxisLabel = None, yAxisLabel = None,
       seriesColors = None, label = None, unit = None, sort = None, layout = None, config = None
@@ -245,7 +245,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     "record only the eventual success when an earlier propose_dashboard attempt is rejected" in {
       val outputRepo = mock(classOf[OutputRepository])
       val dsRepo = mock(classOf[DataSourceRepository])
-      // The rejected attempt's dataTypeId resolves to nothing -> DashboardProposalService.validate
+      // The rejected attempt's outputId resolves to nothing -> DashboardProposalService.validate
       // rejects it (BadRequest), never touching the side channel.
       when(outputRepo.findByIdOwned(outputId, user)).thenReturn(Future.successful(None))
 

@@ -5,7 +5,7 @@ context: |
 
   **Frontend**: React 18, Redux Toolkit (createAsyncThunk for all API calls), TypeScript, Vite, React Grid Layout, React Router, Axios, Jest + React Testing Library
   **Backend**: Scala, Akka HTTP (routes + directives), Slick (database access layer), HikariCP, Flyway (migrations), Spray JSON (serialization), ScalaTest + Akka HTTP TestKit + EmbeddedPostgres
-  **Database**: PostgreSQL. Flyway migrations in `backend/src/main/resources/db/migration/`. Current schema: dashboards, panels, data_types, data_sources, data_source_schemas, users (V6), user_sessions (V7).
+  **Database**: PostgreSQL. Flyway migrations in `backend/src/main/resources/db/migration/`. Current schema: dashboards, panels, outputs, node_snapshots, data_sources, data_source_schemas, users (V6), user_sessions (V7). The pipelines-and-outputs remodel (HEL-903) deleted `data_types`/`metrics` wholesale — see V94 `outputs_model`.
 
   ## Architecture
 
@@ -14,9 +14,9 @@ context: |
   - `ApiRoutes.scala` composes all sub-routers. Sub-routers live in `api/routes/`.
   - `JsonProtocols.scala` holds all Spray JSON formatters.
   - `RequestValidation.scala` normalises and validates inputs before they reach repositories.
-  - Domain models: value-class ID wrappers (`DashboardId`, `PanelId`, `DataTypeId`, `DataSourceId`, `UserId`), immutable case classes, `ResourceMeta` for timestamps and `createdBy`.
+  - Domain models: value-class ID wrappers (`DashboardId`, `PanelId`, `OutputId`, `DataSourceId`, `UserId`), immutable case classes, `ResourceMeta` for timestamps and `createdBy`.
   - Infrastructure: one repository trait + Slick implementation per domain entity in `infrastructure/`.
-  - Frontend state: Redux slices per feature (`dashboardsSlice`, `panelsSlice`, `dataTypesSlice`, `dataSourcesSlice`). `markDashboardPanelsStale` pattern for cache invalidation.
+  - Frontend state: Redux slices per feature (`dashboardsSlice`, `panelsSlice`, `outputsSlice`, `dataSourcesSlice`). `markDashboardPanelsStale` pattern for cache invalidation.
 
   ## Conventions
 
@@ -32,8 +32,8 @@ context: |
 
   Public: `GET /health`
   Dashboards: `GET/POST /api/dashboards`, `PATCH/DELETE /api/dashboards/:id`, `POST /api/dashboards/:id/duplicate`, `GET /api/dashboards/:id/export`, `POST /api/dashboards/import`
-  Panels: `GET /api/dashboards/:id/panels`, `POST /api/panels`, `PATCH/DELETE /api/panels/:id`, `POST /api/panels/:id/duplicate`
-  DataTypes: `GET/POST /api/data-types`, `PATCH/DELETE /api/data-types/:id`
+  Panels: `GET /api/dashboards/:id/panels` (public/shared, optional-auth), `GET /api/dashboards/:dashboardId/panels/:panelId/rows` (public/shared, optional-auth), `POST /api/panels`, `PATCH/DELETE /api/panels/:id`, `POST /api/panels/:id/duplicate`
+  Pipelines & Outputs: `GET/POST /api/pipelines` (single-call source/steps/outputs), `GET/POST /api/pipelines/:id/outputs`, `GET/PATCH/DELETE /api/outputs/:id`, `GET /api/outputs/:id/rows`, `GET /api/outputs`
   DataSources: `GET/POST /api/data-sources`, `GET/DELETE /api/data-sources/:id`, `GET /api/data-sources/:id/sources`
   Auth (HEL-33, pending merge): `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`
 

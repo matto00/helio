@@ -49,7 +49,7 @@ private[protocols] trait AssistantProposalToolSchemas {
       // here either -- dropped from the proposal flow's agent-facing type set for parity with
       // create_panel, per that schema file's own description).
       "type" -> enumSchema("text", "markdown", "image", "output"),
-      "dataTypeId" -> JsObject(
+      "outputId" -> JsObject(
         "type" -> JsString("string"),
         "description" -> JsString(
           "Required for output panels; must be an existing pipeline-output DataType id returned by " +
@@ -57,7 +57,6 @@ private[protocols] trait AssistantProposalToolSchemas {
             "\"$pipelineOutput\"). Omitted for text/markdown/image."
         )
       ),
-      "metricId"     -> JsObject("type" -> JsString("string")),
       "fieldMapping" -> JsObject("type" -> JsString("object")),
       "aggregation"  -> JsObject("type" -> JsString("object")),
       "content"      -> JsObject("type" -> JsString("string")),
@@ -86,7 +85,7 @@ private[protocols] trait AssistantProposalToolSchemas {
         {
           "title": "Total Revenue",
           "type": "output",
-          "dataTypeId": "dt_example_from_find",
+          "outputId": "dt_example_from_find",
           "fieldMapping": { "value": "amount" },
           "aggregation": { "value": "amount", "agg": "sum" },
           "label": "Total",
@@ -228,7 +227,7 @@ private[protocols] trait AssistantProposalToolSchemas {
   // ── CombinedProposal (schemas/authoring/combined-proposal.schema.json) ───────────────────────────────────
 
   // HEL-700 design.md D2/D3 — the dashboard panel binds to THIS SAME call's pipeline via the literal
-  // sentinel "$pipelineOutput" in place of a real dataTypeId (the pipeline's output doesn't exist
+  // sentinel "$pipelineOutput" in place of a real outputId (the pipeline's output doesn't exist
   // yet). Decode-pinned against `combinedProposalFormat`; the sentinel must survive the round trip.
   private val CombinedProposalExample: JsValue =
     """{
@@ -250,7 +249,7 @@ private[protocols] trait AssistantProposalToolSchemas {
           {
             "title": "Weekly Signups",
             "type": "output",
-            "dataTypeId": "$pipelineOutput",
+            "outputId": "$pipelineOutput",
             "fieldMapping": { "value": "signups" },
             "aggregation": { "value": "signups", "agg": "sum" }
           }
@@ -413,8 +412,8 @@ private[protocols] trait AssistantProposalToolSchemas {
     name = "propose_combined",
     description =
       "Propose a new pipeline AND a dashboard bound to its not-yet-created output, in one atomic " +
-        "proposal. A dashboard panel binds to this call's own pipeline by setting its dataTypeId " +
-        "(or, for a non-data panel, config.dataTypeId) to the literal sentinel string " +
+        "proposal. A dashboard panel binds to this call's own pipeline by setting its outputId " +
+        "(or, for a non-data panel, config.outputId) to the literal sentinel string " +
         "\"$pipelineOutput\". Validated but NEVER created. Use instead of propose_pipeline alone " +
         "when the user also wants a dashboard built from the new pipeline's output in the same turn.",
     inputSchema = CombinedProposalSchema

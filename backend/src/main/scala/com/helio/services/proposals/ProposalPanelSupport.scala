@@ -32,8 +32,8 @@ object ProposalPanelSupport {
     for {
       _ <- PanelType.fromString(panel.`type`).left.map(msg => s"$where: $msg")
       _ <- if (panel.title.trim.isEmpty) Left(s"$where: title is required") else Right(())
-      _ <- if (DashboardProposalService.DataPanelKinds.contains(panel.`type`) && panel.dataTypeId.isEmpty)
-             Left(s"$where: a ${panel.`type`} panel requires a dataTypeId")
+      _ <- if (DashboardProposalService.DataPanelKinds.contains(panel.`type`) && panel.outputId.isEmpty)
+             Left(s"$where: an ${panel.`type`} panel requires an outputId")
            else Right(())
       _ <- if (panel.`type` == "divider")
              RequestValidation.validateDividerOrientation(panel.orientation).left.map(msg => s"$where: $msg")
@@ -44,14 +44,12 @@ object ProposalPanelSupport {
       // panel kinds (and `ChartPanel.rejectsAggregation`) no longer exist.
     } yield ()
 
-  /** Verify every panel's actual binding target — the flat `dataTypeId` for
+  /** Verify every panel's actual binding target — the flat `outputId` for
    *  `DataPanelKinds`, OR (HEL-316) a non-`DataPanelKinds` panel's
-   *  `config.dataTypeId` — resolves to a pipeline-output DataType owned by
-   *  the caller, THEN (HEL-549) that a panel carrying a `metricId` resolves
-   *  to a caller-owned, non-deprecated metric on a panel type that supports
-   *  it. Runs BEFORE any write (zero DB writes here — these are reads
-   *  only), so a bad binding never reaches the caller's transactional
-   *  write. */
+   *  `config.outputId` — resolves to a pipeline-output DataType owned by
+   *  the caller. Runs BEFORE any write (zero DB writes here — these are
+   *  reads only), so a bad binding never reaches the caller's
+   *  transactional write. */
   def preValidateBindings(
       panels: Vector[ProposalPanel],
       user: AuthenticatedUser,
@@ -70,10 +68,10 @@ object ProposalPanelSupport {
    *  Task 4.1: the non-`"output"` (Text/Markdown) branch, which used to
    *  validate against the now-deleted `DataTypeRepository`, is removed
    *  outright — `TextPanelConfig`/`MarkdownPanelConfig` no longer carry a
-   *  `dataTypeId` at all (the V94 migration converted every data-bound
+   *  `outputId` at all (the V94 migration converted every data-bound
    *  text/markdown panel into a `markdown`-kind Output + `OutputPanel`
    *  placement, design.md line 76/103), so a non-output panel's
-   *  `panel.dataTypeId` is never a real binding to validate. `outputRepo`
+   *  `panel.outputId` is never a real binding to validate. `outputRepo`
    *  is nullable, mirroring this file's other legacy-optional constructor
    *  params — a caller that never wires it (many test doubles, and any call
    *  site that doesn't yet construct output-kind panels) gets
@@ -98,27 +96,27 @@ object ProposalPanelSupport {
   // HEL-904 task 3.9: `validateMetricBinding` (HEL-549) removed outright —
   // metrics no longer exist.
 
-  /** The dataTypeId that will ACTUALLY end up bound on the created panel, for
+  /** The outputId that will ACTUALLY end up bound on the created panel, for
    *  pre-validation purposes: the flat field. HEL-904 task 4.1: the
-   *  non-`DataPanelKinds` (Text/Markdown) `config.dataTypeId` fallback is
+   *  non-`DataPanelKinds` (Text/Markdown) `config.outputId` fallback is
    *  removed outright — those kinds' data-bound "Source mode" no longer
-   *  exists, so a `config.dataTypeId` on a text/markdown proposal panel is
+   *  exists, so a `config.outputId` on a text/markdown proposal panel is
    *  inert (silently ignored by `TextPanelConfig.decodeCreate`/
    *  `MarkdownPanelConfig.decodeCreate`), never a real binding to validate. */
   private def bindingCandidate(panel: ProposalPanel): Option[String] =
-    panel.dataTypeId
+    panel.outputId
 
   /** Build the create-side typed `config` JSON from the proposal panel's
    *  fields and merge the generic `config` passthrough over it (HEL-316) —
    *  see `DashboardProposalService`'s original scaladoc (pre-extraction) for
    *  the full field-by-field rationale, preserved verbatim below. */
   def buildCreateRequest(dashboardId: DashboardId, panel: ProposalPanel): CreatePanelRequest = {
-    val derived: Option[JsObject] = panel.dataTypeId match {
+    val derived: Option[JsObject] = panel.outputId match {
       case Some(id) => Some(buildDataConfig(id, panel))
       case None     => buildNonDataConfig(panel).map(_.asJsObject)
     }
-    val bindingKey = if (panel.`type` == "output") "outputId" else "dataTypeId"
-    val configOpt: Option[JsValue] = mergeConfig(derived, panel.config, panel.dataTypeId, bindingKey)
+    val bindingKey = if (panel.`type` == "output") "outputId" else "outputId"
+    val configOpt: Option[JsValue] = mergeConfig(derived, panel.config, panel.outputId, bindingKey)
     CreatePanelRequest(
       dashboardId = Some(dashboardId.value),
       title       = Some(panel.title),
@@ -129,13 +127,13 @@ object ProposalPanelSupport {
 
   /** Merge the passthrough `config` over the derived flat-field config: on
    *  key conflict the explicit `config` wins — EXCEPT the panel's flat
-   *  `dataTypeId` (an Output id for an `"output"`-kind panel — HEL-904 task
+   *  `outputId` (an Output id for an `"output"`-kind panel — HEL-904 task
    *  3.8/3.9) is re-applied, under `bindingKey`, after the merge so it
    *  remains authoritative no matter what `config` supplies. */
   private def mergeConfig(
       derived: Option[JsObject],
       passthrough: Option[JsObject],
-      dataTypeId: Option[String],
+      outputId: Option[String],
       bindingKey: String
   ): Option[JsObject] = {
     val merged = (derived, passthrough) match {
@@ -144,7 +142,7 @@ object ProposalPanelSupport {
       case (None, Some(c))    => Some(c)
       case (None, None)       => None
     }
-    dataTypeId match {
+    outputId match {
       case Some(id) => merged.map(m => JsObject(m.fields + (bindingKey -> JsString(id))))
       case None     => merged
     }
@@ -152,30 +150,29 @@ object ProposalPanelSupport {
 
   // HEL-904 task 3.10: the Metric/Timeline literal-folding branches
   // (label/unit/aggregation/timelineOptions) were removed along with the
-  // bound panel kinds they targeted. `dataTypeId` remains meaningful ONLY
+  // bound panel kinds they targeted. `outputId` remains meaningful ONLY
   // for `"output"`-kind panels (it becomes `outputId`, per task 3.8/3.9
   // below). `fieldMapping` is NOT meaningful on any current panel kind --
   // corrected cycle-9 (round-6 skeptic Finding, deletion-sweep CR1):
   // `buildDataConfig` below emits only `{"outputId": ...}` for an `output`
   // panel, never `fieldMapping`; TextPanelConfig and MarkdownPanelConfig
-  // carry no data binding of any kind, so `dataTypeId`/`fieldMapping` on a
+  // carry no data binding of any kind, so `outputId`/`fieldMapping` on a
   // text/markdown proposal panel is inert, never a real binding.
   //
-  // HEL-904 task 3.8/3.9: an `"output"`-kind proposal panel's flat
-  // `dataTypeId` field NAME is unchanged (still `dataTypeId` on the wire —
-  // `ProposalPanel`/schema stability, same reasoning as `DataPanelKinds`),
-  // but its VALUE is now a real Output id (populated by
+  // HEL-904 task 3.8/3.9 (renamed HEL-910 task 3.2, dataTypeId -> outputId):
+  // an `"output"`-kind proposal panel's flat `outputId` field carries a real
+  // Output id (populated by
   // `PipelineProposalService.apply`'s Output creation, or by
   // `CombinedProposalService.resolveOutputRefs`'s `"$pipelineOutput"`
   // sentinel substitution). `OutputPanelConfig.decodeCreate` requires
-  // `outputId`, not `dataTypeId`/`fieldMapping`, so an output-kind panel's
+  // `outputId`, not `outputId`/`fieldMapping`, so an output-kind panel's
   // config must carry that key instead.
-  private def buildDataConfig(dataTypeId: String, panel: ProposalPanel): JsObject =
+  private def buildDataConfig(outputId: String, panel: ProposalPanel): JsObject =
     if (panel.`type` == "output")
-      JsObject(Map("outputId" -> JsString(dataTypeId)))
+      JsObject(Map("outputId" -> JsString(outputId)))
     else
       JsObject(Map(
-        "dataTypeId"   -> JsString(dataTypeId),
+        "outputId"   -> JsString(outputId),
         "fieldMapping" -> panel.fieldMapping.getOrElse(JsObject.empty)
       ))
 

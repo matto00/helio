@@ -29,7 +29,7 @@ const combined: CombinedProposal = {
       {
         title: "Total",
         type: "metric",
-        dataTypeId: "$pipelineOutput",
+        outputId: "$pipelineOutput",
         fieldMapping: { value: "amount" },
       },
     ],

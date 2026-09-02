@@ -61,7 +61,6 @@ const newPipeline = {
   sourceDataSourceId: "ds-1",
   sourceDataSourceName: "Sales API",
   outputDataTypeName: "SalesData",
-  outputDataTypeId: "dt-sales",
   lastRunStatus: null as null,
   lastRunAt: null,
   lastRunRowCount: null as null,

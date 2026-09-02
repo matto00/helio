@@ -36,12 +36,12 @@ class CombinedApplyProposalDanglingRefSpec extends CombinedApplyProposalSpecBase
       allCounts() shouldBe before
     }
 
-    "reject a sentinel in config.dataTypeId on a DataPanelKinds (output) panel, creating nothing" in {
+    "reject a sentinel in config.outputId on a DataPanelKinds (output) panel, creating nothing" in {
       val before = allCounts()
       val body =
         s"""{$unreachablePipeline,
            |"dashboard":{"dashboardName":"D","panels":[
-           |  {"title":"Bad Kind Mismatch","type":"output","config":{"dataTypeId":"$$pipelineOutput"}}
+           |  {"title":"Bad Kind Mismatch","type":"output","config":{"outputId":"$$pipelineOutput"}}
            |]}}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -56,7 +56,7 @@ class CombinedApplyProposalDanglingRefSpec extends CombinedApplyProposalSpecBase
         s"""{$unreachablePipeline,
            |"dashboard":{"dashboardName":"D","panels":[
            |  {"title":"Bad Duplicate","type":"text",
-           |   "config":{"dataTypeId":"$$pipelineOutput"},
+           |   "config":{"outputId":"$$pipelineOutput"},
            |   "fieldMapping":{"content":"$$pipelineOutput"}}
            |]}}""".stripMargin
       apply(body) ~> routes ~> check {
@@ -66,13 +66,13 @@ class CombinedApplyProposalDanglingRefSpec extends CombinedApplyProposalSpecBase
       allCounts() shouldBe before
     }
 
-    "reject a sentinel in config.dataTypeId shadowed by an already-set flat dataTypeId, creating nothing" in {
+    "reject a sentinel in config.outputId shadowed by an already-set flat outputId, creating nothing" in {
       val before = allCounts()
       val body =
         s"""{$unreachablePipeline,
            |"dashboard":{"dashboardName":"D","panels":[
-           |  {"title":"Bad Shadowed","type":"text","dataTypeId":"$pipelineOutputTypeId",
-           |   "config":{"dataTypeId":"$$pipelineOutput"}}
+           |  {"title":"Bad Shadowed","type":"text","outputId":"$pipelineOutputTypeId",
+           |   "config":{"outputId":"$$pipelineOutput"}}
            |]}}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest

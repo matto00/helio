@@ -95,15 +95,15 @@ final class RefinementGrounding(
   /** One per-DataType capability fetch. A failure degrades to a warning for THAT type only — mirrors
    *  `DashboardAuthoringService.fetchCapability`'s identical degrade-not-fail precedent; never fails
    *  the whole grounding assembly. */
-  private def fetchCapability(dataTypeId: String, user: AuthenticatedUser): Future[Either[String, (String, PanelCapabilitiesResponse)]] =
+  private def fetchCapability(outputId: String, user: AuthenticatedUser): Future[Either[String, (String, PanelCapabilitiesResponse)]] =
     panelCapabilityService
-      .getCapabilities(OutputId(dataTypeId), user)
+      .getCapabilities(OutputId(outputId), user)
       .map {
-        case Right(capabilities) => Right(dataTypeId -> capabilities)
-        case Left(err)           => Left(degradeMessage(dataTypeId, err.message))
+        case Right(capabilities) => Right(outputId -> capabilities)
+        case Left(err)           => Left(degradeMessage(outputId, err.message))
       }
-      .recover { case ex => Left(degradeMessage(dataTypeId, Option(ex.getMessage).getOrElse(ex.getClass.getName))) }
+      .recover { case ex => Left(degradeMessage(outputId, Option(ex.getMessage).getOrElse(ex.getClass.getName))) }
 
-  private def degradeMessage(dataTypeId: String, reason: String): String =
-    s"Could not load panel capabilities for data type $dataTypeId: $reason"
+  private def degradeMessage(outputId: String, reason: String): String =
+    s"Could not load panel capabilities for data type $outputId: $reason"
 }

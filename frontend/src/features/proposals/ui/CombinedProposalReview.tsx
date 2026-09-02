@@ -18,9 +18,9 @@ const DATA_PANEL_TYPES = new Set(["output"]);
 
 function boundOutputLabel(panel: ProposalPanel): string | null {
   if (!DATA_PANEL_TYPES.has(panel.type)) return null;
-  if (!panel.dataTypeId) return "—";
-  if (panel.dataTypeId === PIPELINE_OUTPUT_SENTINEL) return "This pipeline's own output";
-  return panel.dataTypeId;
+  if (!panel.outputId) return "—";
+  if (panel.outputId === PIPELINE_OUTPUT_SENTINEL) return "This pipeline's own output";
+  return panel.outputId;
 }
 
 function DashboardPanelRow({ panel }: { panel: ProposalPanel }) {

@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *      for that panel's kind and flat-field state.
  *   2. On success, `pipelineProposalService.apply` runs.
  *   3. `resolveOutputRefs` (design.md D3) substitutes the pipeline's real
- *      `outputDataTypeId` for the sentinel at that same one blessed slot,
+ *      `outputId` for the sentinel at that same one blessed slot,
  *      then `dashboardProposalService.apply` runs on the resolved copy.
  *   4. A dashboard-phase failure rolls back the already-applied pipeline
  *      (and its inline source, if any) via `pipelineProposalService.rollback`
@@ -44,7 +44,7 @@ final class CombinedProposalService(
    *  exact two checks — blank `dashboardName` AND [[ProposalPanelSupport.validatePanel]] per panel
    *  (design-gate round 1/2 fix: BOTH checks, not just one); (3) delegates the pipeline portion to
    *  `pipelineProposalService.validate`. Deliberately does NOT attempt `preValidateBindings`'s
-   *  DB-backed `dataTypeId` resolution: dashboard panels reference the `"$pipelineOutput"` sentinel,
+   *  DB-backed `outputId` resolution: dashboard panels reference the `"$pipelineOutput"` sentinel,
    *  not a real id, until the pipeline this same proposal creates is actually applied — mirrors
    *  `apply`'s own real sequencing (the pipeline is created before the dashboard is ever built). */
   def validate(combined: CombinedProposal, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
@@ -116,7 +116,7 @@ final class CombinedProposalService(
 
 object CombinedProposalService {
 
-  /** Reserved sentinel a dashboard panel's flat `dataTypeId`/`config.dataTypeId`
+  /** Reserved sentinel a dashboard panel's flat `outputId`/`config.outputId`
    *  may carry to mean "bind to the pipeline this same combined proposal
    *  creates" (design.md D1). `$` is never legal in a UUID, so collision with
    *  a real id is not a practical concern. */
@@ -152,40 +152,40 @@ object CombinedProposalService {
 
   /** design.md D2/D3's shared precedence, mirroring
    *  [[ProposalPanelSupport.bindingCandidate]]'s exact `Option.orElse`
-   *  short-circuit: the flat `dataTypeId` is the blessed slot if it literally
+   *  short-circuit: the flat `outputId` is the blessed slot if it literally
    *  equals the sentinel. */
   private def flatIsBlessed(panel: ProposalPanel): Boolean =
-    panel.dataTypeId.contains(OutputRefSentinel)
+    panel.outputId.contains(OutputRefSentinel)
 
-  /** `config.dataTypeId` is the blessed slot ONLY when BOTH (a) `panel.type`
+  /** `config.outputId` is the blessed slot ONLY when BOTH (a) `panel.type`
    *  is outside `DashboardProposalService.DataPanelKinds`, AND (b) the flat
-   *  `dataTypeId` is `isEmpty` (true absence, never merely "not the
+   *  `outputId` is `isEmpty` (true absence, never merely "not the
    *  sentinel") — `orElse` only falls through when the flat field is absent
-   *  entirely, so a non-`DataPanelKinds` panel whose flat `dataTypeId`
-   *  already holds some OTHER real value never has `config.dataTypeId`
+   *  entirely, so a non-`DataPanelKinds` panel whose flat `outputId`
+   *  already holds some OTHER real value never has `config.outputId`
    *  consulted at all. */
   private def configIsBlessed(panel: ProposalPanel): Boolean =
     !DashboardProposalService.DataPanelKinds.contains(panel.`type`) &&
-      panel.dataTypeId.isEmpty &&
-      panel.config.exists(_.fields.get("dataTypeId").contains(JsString(OutputRefSentinel)))
+      panel.outputId.isEmpty &&
+      panel.config.exists(_.fields.get("outputId").contains(JsString(OutputRefSentinel)))
 
   /** Returns a copy of `panel` with the ONE legitimate blessed occurrence (if
-   *  any) removed: the flat `dataTypeId` cleared to `None` if it holds the
+   *  any) removed: the flat `outputId` cleared to `None` if it holds the
    *  sentinel; else, only when `configIsBlessed`, the `config` object's
-   *  `"dataTypeId"` key removed. Otherwise returns `panel` unchanged — in
-   *  particular, a shadowed or kind-mismatched `config.dataTypeId` sentinel
+   *  `"outputId"` key removed. Otherwise returns `panel` unchanged — in
+   *  particular, a shadowed or kind-mismatched `config.outputId` sentinel
    *  is left in place so `validateOutputRefPositions`'s re-serialization
    *  check still finds it (task 4.2). */
   private def clearBlessedSlot(panel: ProposalPanel): ProposalPanel =
-    if (flatIsBlessed(panel)) panel.copy(dataTypeId = None)
+    if (flatIsBlessed(panel)) panel.copy(outputId = None)
     else if (configIsBlessed(panel))
-      panel.copy(config = panel.config.map(cfg => JsObject(cfg.fields - "dataTypeId")))
+      panel.copy(config = panel.config.map(cfg => JsObject(cfg.fields - "outputId")))
     else panel
 
   /** design.md D2: for each panel, clear its one blessed occurrence (if any)
    *  and re-serialize — if the sentinel still appears anywhere in that
    *  cleared panel's JSON, the panel has a kind-mismatched occurrence, a
-   *  flat-field-shadowed `config.dataTypeId` occurrence, or a duplicate
+   *  flat-field-shadowed `config.outputId` occurrence, or a duplicate
    *  alongside a legitimate one. Pure, no I/O; runs before
    *  `pipelineProposalService.apply` is ever called. */
   private def validateOutputRefPositions(panels: Vector[ProposalPanel]): Either[ServiceError, Unit] =
@@ -200,16 +200,16 @@ object CombinedProposalService {
         else Right(())
     }
 
-  /** design.md D3: substitutes `outputDataTypeId` for the sentinel at the
+  /** design.md D3: substitutes `outputId` for the sentinel at the
    *  same one blessed slot `validateOutputRefPositions` already confirmed is
    *  the panel's only occurrence — an unconditional substitution, never an
    *  ambiguous choice between two candidate slots. Every other panel is
    *  returned untouched. */
-  private def resolveOutputRefs(panels: Vector[ProposalPanel], outputDataTypeId: String): Vector[ProposalPanel] =
+  private def resolveOutputRefs(panels: Vector[ProposalPanel], outputId: String): Vector[ProposalPanel] =
     panels.map { panel =>
-      if (flatIsBlessed(panel)) panel.copy(dataTypeId = Some(outputDataTypeId))
+      if (flatIsBlessed(panel)) panel.copy(outputId = Some(outputId))
       else if (configIsBlessed(panel))
-        panel.copy(config = panel.config.map(cfg => JsObject(cfg.fields + ("dataTypeId" -> JsString(outputDataTypeId)))))
+        panel.copy(config = panel.config.map(cfg => JsObject(cfg.fields + ("outputId" -> JsString(outputId)))))
       else panel
     }
 }

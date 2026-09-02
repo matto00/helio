@@ -10,7 +10,7 @@ import java.util.UUID
  *  proposal path. Every rejection is atomic — nothing is created. Shares the
  *  fixture via ApplyProposalSpecBase.
  *
- *  HEL-904 task 4.1: the HEL-316 text/markdown `config.dataTypeId` binding
+ *  HEL-904 task 4.1: the HEL-316 text/markdown `config.outputId` binding
  *  scenarios are removed — Text/Markdown's data-bound "Source mode" no
  *  longer exists. */
 class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
@@ -27,7 +27,7 @@ class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
       val before = dashboardCount()
       val body =
         s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"X","type":"output","dataTypeId":"$companionTypeId"}
+           |  {"title":"X","type":"output","outputId":"$companionTypeId"}
            |]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -40,7 +40,7 @@ class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
       val before = dashboardCount()
       val body =
         s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"X","type":"chart","dataTypeId":"${UUID.randomUUID()}","fieldMapping":{}}
+           |  {"title":"X","type":"chart","outputId":"${UUID.randomUUID()}","fieldMapping":{}}
            |]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -52,7 +52,7 @@ class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
       val before = dashboardCount()
       val body =
         s"""{"dashboardName":"Bad","panels":[
-           |  {"title":"X","type":"output","dataTypeId":"$otherUserTypeId","fieldMapping":{}}
+           |  {"title":"X","type":"output","outputId":"$otherUserTypeId","fieldMapping":{}}
            |]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -61,20 +61,20 @@ class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
       dashboardCount() shouldBe before
     }
 
-    // HEL-904 task 4.1: the HEL-316 `config.dataTypeId` text/markdown binding
+    // HEL-904 task 4.1: the HEL-316 `config.outputId` text/markdown binding
     // scenarios (reject-companion x2, apply-valid x2, reject-unknown) are
     // removed outright — Text/Markdown's data-bound "Source mode" no longer
-    // exists, so `config.dataTypeId` on a text/markdown proposal panel is
+    // exists, so `config.outputId` on a text/markdown proposal panel is
     // now inert (silently ignored, never validated or echoed back).
 
-    "create a literal TEXT panel, silently ignoring an inert config.dataTypeId (no longer a binding)" in {
+    "create a literal TEXT panel, silently ignoring an inert config.outputId (no longer a binding)" in {
       val before = dashboardCount()
       val body =
         s"""{
            |  "dashboardName": "Text Binding",
            |  "panels": [
            |    {"title":"Literal Text","type":"text",
-           |     "config":{"dataTypeId":"$pipelineOutputTypeId","content":"Hello"}}
+           |     "config":{"outputId":"$pipelineOutputTypeId","content":"Hello"}}
            |  ]
            |}""".stripMargin
       apply(body) ~> routes ~> check {
@@ -83,7 +83,7 @@ class DashboardApplyProposalBindingSpec extends ApplyProposalSpecBase {
         val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
         val panel  = panels.find(_.fields("title").convertTo[String] == "Literal Text").get
         val config = panel.fields("config").asJsObject
-        config.fields.contains("dataTypeId") shouldBe false
+        config.fields.contains("outputId") shouldBe false
         config.fields("content").convertTo[String] shouldBe "Hello"
       }
       dashboardCount() shouldBe (before + 1)

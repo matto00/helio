@@ -2,7 +2,9 @@
 
 ## Purpose
 Defines how a collection panel renders one homogeneous item per row of its bound multi-row DataType, in grid or list layout, including empty/unbound states and overflow behavior.
+
 ## Requirements
+
 ### Requirement: One bound row renders one collection item
 A bound collection panel SHALL render one item per row of the bound DataType's fetched snapshot,
 each item produced by applying the shared `fieldMapping` to that row. With the `metric` base type,
@@ -42,7 +44,7 @@ divider between items. Both layouts SHALL use design tokens for spacing.
 - **THEN** the items appear in a single column separated by dividers
 
 ### Requirement: Collection empty and unbound states
-An unbound collection panel (no `dataTypeId`) SHALL render a placeholder state consistent with the
+An unbound collection panel (no `outputId`) SHALL render a placeholder state consistent with the
 other data-bound kinds. A bound collection whose snapshot has zero rows SHALL render a "No data"
 state rather than an empty body.
 
@@ -62,4 +64,3 @@ panel card.
 #### Scenario: Tall collection scrolls internally on desktop
 - **WHEN** a desktop collection panel's items exceed its grid height
 - **THEN** the collection body scrolls vertically inside the panel card
-

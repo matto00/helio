@@ -20,12 +20,14 @@ import scala.concurrent.{ExecutionContext, Future}
  * — `overwriteForNode` is the only writer.
  *
  * HEL-904 (task 3.4): re-keyed from `data_type_id` to `(pipeline_id,
- * node_step_id)` — the legacy `data_type_id` column stays in place,
- * unpopulated by new writes, until task 2.10 drops it alongside the rest of
- * the DataType infrastructure (same additive-first pattern as
+ * node_step_id)` (same additive-first pattern as
  * `AlertRuleRepository`/`AlertEventRepository`'s `target_output_id`
- * migration in task 3.1). `nodeStepId = None` means the pipeline's trunk
- * root, mirroring `NodeSnapshotRepository`'s own convention.
+ * migration in task 3.1); the legacy `data_type_id` column was itself
+ * dropped outright by V94 task 2.10 (`ALTER TABLE binary_refs DROP COLUMN
+ * data_type_id`) alongside the rest of the DataType infrastructure — this
+ * class no longer references it at all. `nodeStepId = None` means the
+ * pipeline's trunk root, mirroring `NodeSnapshotRepository`'s own
+ * convention.
  */
 class BinaryRefRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 

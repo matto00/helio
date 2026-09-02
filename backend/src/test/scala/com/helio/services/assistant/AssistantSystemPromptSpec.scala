@@ -41,7 +41,7 @@ class AssistantSystemPromptSpec extends AnyWordSpec with Matchers {
 
     "show well-formed propose_dashboard call structure via a mini-transcript" in {
       AssistantSystemPrompt.text should include("propose_dashboard({")
-      AssistantSystemPrompt.text should include("dataTypeId")
+      AssistantSystemPrompt.text should include("outputId")
     }
 
     // HEL-756 tasks.md 1.7/2.9 (design.md D2) — the tool is documented, the "verify before

@@ -466,13 +466,13 @@ export interface ProposalPanelLayout {
   h: number;
 }
 
-/** One proposed panel. No ids — an `output`-kind panel's `dataTypeId`
+/** One proposed panel. No ids — an `output`-kind panel's `outputId`
  *  (kept under that name for wire stability, HEL-907) is really an Output
  *  id. Matches dashboard-proposal.schema.json.
  *
  *  HEL-904 retired the metric/chart/table/collection/timeline panel kinds
  *  outright — `type` is one of text/markdown/image/output/divider now.
- *  `metricId`/`aggregation`/`chartType`/`xAxisLabel`/`yAxisLabel`/
+ *  `aggregation`/`chartType`/`xAxisLabel`/`yAxisLabel`/
  *  `seriesColors`/`label`/`unit`/`sort` are LEGACY fields kept on the wire
  *  shape for schema stability only (`dashboard-proposal.schema.json`'s own
  *  field descriptions: "decoded but never applied") — none of them do
@@ -485,8 +485,8 @@ export interface ProposalPanelLayout {
  *  `config` (HEL-316) is a generic passthrough merged over the config
  *  derived from the flat fields above, then decoded by the same
  *  panel-create path place_outputs/create_content_panel uses. An
- *  `output`-kind panel's flat `dataTypeId` always stays authoritative over
- *  `config`; a text/markdown panel's `config.dataTypeId` is silently
+ *  `output`-kind panel's flat `outputId` always stays authoritative over
+ *  `config`; a text/markdown panel's `config.outputId` is silently
  *  inert, NOT a real binding attempt (the data-bound "Source mode" those
  *  kinds used to support was removed outright by HEL-904 task 4.1). */
 export interface MetricAggregationSpec {
@@ -506,10 +506,7 @@ export interface ChartAggregationSpec {
 export interface ProposalPanel {
   title: string;
   type: string;
-  dataTypeId?: string;
-  /** Legacy, decoded-but-never-applied wire shape — the metric panel kind
-   *  it targeted was retired by HEL-904 (see `ProposalPanel`'s own doc). */
-  metricId?: string;
+  outputId?: string;
   fieldMapping?: Record<string, string>;
   aggregation?: MetricAggregationSpec | ChartAggregationSpec;
   content?: string;
@@ -802,8 +799,8 @@ export interface PipelineProposalApplyResponse {
 /** A combined proposal — the shared Proposal → Review → Apply artifact for
  *  `POST /api/proposals/apply`. `dashboard`'s panels may bind to `pipeline`'s
  *  not-yet-created output DataType via the reserved `"$pipelineOutput"`
- *  sentinel in the panel's `dataTypeId` (or, for a non-data panel,
- *  `config.dataTypeId`) — the exact same slot `DashboardProposal` already
+ *  sentinel in the panel's `outputId` (or, for a non-data panel,
+ *  `config.outputId`) — the exact same slot `DashboardProposal` already
  *  uses for a real DataType id. Reuses `PipelineProposal`/`DashboardProposal`
  *  verbatim (design.md D1) — no new panel-level shape. */
 export interface CombinedProposal {

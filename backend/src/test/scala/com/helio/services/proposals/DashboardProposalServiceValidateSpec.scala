@@ -50,12 +50,11 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private def newService(outputRepo: OutputRepository = mock(classOf[OutputRepository])): DashboardProposalService =
     new DashboardProposalService(null, null, outputRepo)
 
-  private def metricPanel(dataTypeId: String, `type`: String = "output"): ProposalPanel =
+  private def metricPanel(outputId: String, `type`: String = "output"): ProposalPanel =
     ProposalPanel(
       title        = "Total",
       `type`       = `type`,
-      dataTypeId   = Some(dataTypeId),
-      metricId     = None,
+      outputId   = Some(outputId),
       fieldMapping = Some(JsObject("value" -> JsString("region"))),
       aggregation  = None,
       content      = None,

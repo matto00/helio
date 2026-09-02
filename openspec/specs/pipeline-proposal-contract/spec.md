@@ -11,7 +11,7 @@ and atomic-apply work (HEL-342) builds on.
 ### Requirement: PipelineProposal schema shape
 `schemas/pipelines/pipeline-proposal.schema.json` SHALL define a `PipelineProposal` object requiring
 `pipelineName`, `source`, `outputDataTypeName`, and `steps`, carrying no id fields for any
-resource — no `sourceId`-for-a-new-source, no `pipelineId`, no `stepId`, no output `dataTypeId`.
+resource — no `sourceId`-for-a-new-source, no `pipelineId`, no `stepId`, no output `outputId`.
 
 #### Scenario: A minimal valid proposal validates
 - **WHEN** a JSON document supplies `pipelineName`, a `source` referencing an existing `sourceId`,

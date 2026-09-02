@@ -8,16 +8,16 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
  *  /api/dashboards/apply-proposal` and `POST /api/pipelines/apply-proposal`
  *  behave exactly as before this ticket, including that the sentinel string
  *  carries NO special meaning on either standalone path — it is treated as
- *  an ordinary (non-existent) dataTypeId. */
+ *  an ordinary (non-existent) outputId. */
 class CombinedApplyProposalRegressionSpec extends CombinedApplyProposalSpecBase {
 
   "POST /api/dashboards/apply-proposal (standalone, unaffected by HEL-387)" should {
 
-    "reject a panel dataTypeId literally equal to the sentinel as an ordinary not-found binding" in {
+    "reject a panel outputId literally equal to the sentinel as an ordinary not-found binding" in {
       val before = dashboardCount()
       val body =
         """{"dashboardName":"D","panels":[
-          |  {"title":"X","type":"output","dataTypeId":"$pipelineOutput","fieldMapping":{"value":"y"}}
+          |  {"title":"X","type":"output","outputId":"$pipelineOutput","fieldMapping":{"value":"y"}}
           |]}""".stripMargin
       Post("/api/dashboards/apply-proposal", json(body)).addHeader(sessionCookie).addHeader(csrfHeader) ~>
         routes ~> check {

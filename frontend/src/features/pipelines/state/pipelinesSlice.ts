@@ -590,19 +590,11 @@ const pipelinesSlice = createSlice({
   },
 });
 
-/** Maps each pipeline's `outputDataTypeId` → that pipeline's name, for deriving
- * "which pipeline produces this DataType" provenance in the Type Registry list
- * (HEL-270). Pipelines whose `outputDataTypeId` is absent are skipped, so the
- * map only ever holds resolvable DataType → pipeline pairs. Memoized on
- * `state.pipelines.items` so consumers (desktop sidebar + phone sheet) share one
- * stable reference. */
 /** Pipeline names grouped by the DataSource they READ FROM, for the `/sources`
- *  overview's "Used by" column. The inverse direction of
- *  [[selectPipelineNameByOutputTypeId]] below (which keys by the type a
- *  pipeline WRITES), and many-to-one rather than one-to-one: several pipelines
- *  can read the same source, so this maps to an array where that one maps to a
- *  single name. Memoized on `items` like its sibling, so the table doesn't
- *  rebuild the map on unrelated store activity. */
+ *  overview's "Used by" column. Many-to-one rather than one-to-one: several
+ *  pipelines can read the same source, so this maps to an array where that
+ *  one maps to a single name. Memoized on `items` like its sibling, so the
+ *  table doesn't rebuild the map on unrelated store activity. */
 export const selectPipelineNamesBySourceId = createSelector(
   (state: RootState) => state.pipelines.items,
   (items): Map<string, string[]> => {
@@ -613,19 +605,6 @@ export const selectPipelineNamesBySourceId = createSelector(
         map.set(pipeline.sourceDataSourceId, [pipeline.name]);
       } else {
         existing.push(pipeline.name);
-      }
-    }
-    return map;
-  },
-);
-
-export const selectPipelineNameByOutputTypeId = createSelector(
-  (state: RootState) => state.pipelines.items,
-  (items): Map<string, string> => {
-    const map = new Map<string, string>();
-    for (const pipeline of items) {
-      if (pipeline.outputDataTypeId !== undefined && pipeline.outputDataTypeId !== null) {
-        map.set(pipeline.outputDataTypeId, pipeline.name);
       }
     }
     return map;

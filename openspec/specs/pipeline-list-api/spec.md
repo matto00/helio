@@ -49,7 +49,7 @@ objects. Each object SHALL include: `id`, `name`, `sourceDataSourceName`. `lastR
 and SHALL be ABSENT from the response entirely (not present as `null`) for a pipeline that has
 never run — `PipelineSummaryResponse`'s fields are `Option[...]` serialized via `jsonFormat9` with
 no `NullOptions` mixed in, so spray-json omits a `None` field rather than writing `null`.
-`outputDataTypeName`/`outputDataTypeId` are no longer included — a pipeline's Outputs are fetched
+the retired `outputDataTypeName`/`output_data_type_id` fields are no longer included — a pipeline's Outputs are fetched
 via `GET /api/pipelines/:id/outputs`.
 
 #### Scenario: Returns empty array when no pipelines exist
@@ -59,7 +59,7 @@ via `GET /api/pipelines/:id/outputs`.
 #### Scenario: Returns pipeline summaries with joined names
 - **WHEN** one or more pipelines exist and `GET /api/pipelines` is called
 - **THEN** the response is `200 OK` with an array where each item includes `sourceDataSourceName`
-  from the joined data source and no `outputDataTypeName`/`outputDataTypeId` field
+  from the joined data source and none of the retired `outputDataTypeName`/`output_data_type_id` fields
 
 #### Scenario: Absent last-run fields for pipelines that have never run
 - **WHEN** a pipeline has never been run

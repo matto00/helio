@@ -443,12 +443,18 @@ export type AnalyzeStepResult =
   | LookupAnalyzeStep
   | AssertAnalyzeStep;
 
+// HEL-910 final sweep: `outputDataTypeName`/`outputDataTypeId` removed from
+// `PipelineAnalyzeResponse`, `Pipeline`, and `PipelineSummary` -- the
+// backend's real wire shapes (`PipelineAnalyzeProtocol.scala`,
+// `PipelineProtocol.scala`) have never carried these fields, and nothing in
+// this codebase read them off any of these types (the only reader,
+// `selectPipelineNameByOutputTypeId`, was itself dead -- zero non-test
+// consumers -- and was removed alongside these fields; see HEL-910
+// evaluation-1.md CR1).
 export interface PipelineAnalyzeResponse {
   id: string;
   name: string;
   sourceDataSourceName: string;
-  outputDataTypeName: string;
-  outputDataTypeId: string;
   sourceSchema: SchemaField[];
   steps: AnalyzeStepResult[];
 }
@@ -458,7 +464,6 @@ export interface PipelineAnalyzeResponse {
 export interface Pipeline {
   id: string;
   name: string;
-  outputDataTypeId?: string;
 }
 
 export interface PipelineSummary {
@@ -466,15 +471,6 @@ export interface PipelineSummary {
   name: string;
   sourceDataSourceId: string;
   sourceDataSourceName: string;
-  // skeptic-final-1 (round 1) CR1 -- `outputDataTypeName` REMOVED (was
-  // never sent by the shipped backend at all; verified live against
-  // `GET /api/pipelines`, 0 of 52 dev-DB pipelines carried it). Kept
-  // `outputDataTypeId` optional: it's still read by the legacy
-  // DataType-bound panel-creation wizard's provenance map
-  // (`selectPipelineNameByOutputTypeId`, HEL-937), which is out of this
-  // ticket's scope and always resolves to an empty map today since the
-  // backend never populates the field either -- see HEL-937.
-  outputDataTypeId?: string;
   lastRunStatus: "succeeded" | "failed" | null;
   lastRunAt: string | null;
   lastRunRowCount: number | null;

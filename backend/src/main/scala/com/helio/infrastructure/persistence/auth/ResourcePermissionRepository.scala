@@ -56,6 +56,17 @@ class ResourcePermissionRepository(ctx: DbContext)(implicit ec: ExecutionContext
         .delete
     ).map(_ > 0)
 
+  /** Deletes the public (grantee_id IS NULL) grant on a resource, if any.
+   *  `delete`'s `granteeId === UUID.fromString(...)` filter can never match a
+   *  NULL grantee_id column, so a public grant needs its own delete path — this
+   *  is that path (HEL-910 final-gate CR1). */
+  def deletePublic(resourceType: String, resourceId: String): Future[Boolean] =
+    ctx.withSystemContext(
+      table
+        .filter(r => r.resourceType === resourceType && r.resourceId === resourceId && r.granteeId.isEmpty)
+        .delete
+    ).map(_ > 0)
+
   def findByResource(resourceType: String, resourceId: String): Future[Vector[ResourcePermission]] =
     ctx.withSystemContext(
       table

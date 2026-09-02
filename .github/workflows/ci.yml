@@ -197,9 +197,12 @@ jobs:
         run: npx audit-ci --config .audit-ci.jsonc
 
   # HEL-813 design.md D5 — the ONLY spec run here is the new steady-state
-  # mobile touch-target guard (e2e/hel813-mobile-touch-target-floor.spec.ts).
-  # The other pre-existing e2e/ specs were never CI-gated; broadening this
-  # job to cover them is a natural follow-up, not bundled into this change.
+  # mobile touch-target guard (e2e/hel813-mobile-touch-target-floor.spec.ts),
+  # plus the HEL-910 pipelines/outputs remodel E2E proof
+  # (e2e/hel910-pipeline-to-dashboard-flow.spec.ts, ticket AC "Playwright
+  # interaction-count E2E in CI") added below. The other pre-existing e2e/
+  # specs were never CI-gated; broadening this job to cover them is a
+  # natural follow-up, not bundled into this change.
   e2e:
     runs-on: ubuntu-latest
     services:
@@ -297,6 +300,18 @@ jobs:
           exit 1
       - name: Run HEL-813 mobile touch-target floor guard
         run: npx playwright test e2e/hel813-mobile-touch-target-floor.spec.ts
+      - name: Run HEL-910 pipelines/outputs remodel E2E proof
+        run: npx playwright test e2e/hel910-pipeline-to-dashboard-flow.spec.ts
+      # HEL-910 task 6.3 note: the P1.4 Sleeper MCP rebuild acceptance test
+      # (`helio-mcp/e2e/sleeper-rebuild.ts`) is deliberately NOT wired in
+      # here. Correcting an assumption from the ticket brief: it does NOT
+      # need live Sleeper API credentials (its own header comment: it drives
+      # four representative STATIC sources shaped like Sleeper's domain, not
+      # a live API pull) — the real gap is that it's still a standalone
+      # ts-node-style script with no npm entry point and needs a HELIO_PAT
+      # minted against a running backend, neither of which this job
+      # currently provisions. Wiring it in is a real, scoped follow-up
+      # (npm script + PAT bootstrap step), not a live-credentials problem.
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v7

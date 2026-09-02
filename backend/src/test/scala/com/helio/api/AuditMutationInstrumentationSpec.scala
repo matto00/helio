@@ -629,7 +629,7 @@ class AuditMutationInstrumentationSpec
         dashboardId = responseAs[DashboardResponse].id
       }
       val panels = Vector(
-        ProposalPanel("Note", "markdown", None, None, None, None, Some("hello"), None, None, None, None, None, None, None, None, None, None, None)
+        ProposalPanel("Note", "markdown", None, None, None, Some("hello"), None, None, None, None, None, None, None, None, None, None, None)
       )
       Put(s"/api/dashboards/$dashboardId/contents", ReplaceDashboardContentsRequest(panels)) ~> routesFor() ~> check {
         status shouldBe StatusCodes.OK

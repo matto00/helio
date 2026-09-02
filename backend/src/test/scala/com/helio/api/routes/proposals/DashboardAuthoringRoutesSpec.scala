@@ -124,7 +124,7 @@ class DashboardAuthoringRoutesSpec
     // HEL-904 task 3.12: `DashboardAuthoringService.assembleGroundedContext`'s "empty workspace"
     // check now filters `WorkspaceContextService.assemble`'s Output-backed `dataTypes` -- a real
     // pipeline + Output is required for this fixture's workspace to read as non-empty.
-    // `pipelineOutputType` (used to bind an "output"-kind proposal panel's `dataTypeId` field,
+    // `pipelineOutputType` (used to bind an "output"-kind proposal panel's `outputId` field,
     // task 3.9's Output-id semantics) is just the real Output's own id string -- HEL-904 cycle 29
     // dropped the vestigial `DataType` wrapper this used to be built through (the retired
     // `DataType`/`DataTypeId` types no longer exist anywhere in `model.scala`).
@@ -183,7 +183,7 @@ class DashboardAuthoringRoutesSpec
 
     "return 200 with a proposal for a well-wired buffered call" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","outputId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
@@ -219,7 +219,7 @@ class DashboardAuthoringRoutesSpec
 
     "the response body carries an additive conversationId alongside proposal/warnings" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","outputId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       Post("/authoring/dashboard", jsonEntity(requestBody)) ~> routesFor(Some(service)) ~> check {
@@ -235,7 +235,7 @@ class DashboardAuthoringRoutesSpec
 
     "return 200 with the display-only view for a conversation the caller owns" in {
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","outputId":"${pipelineOutputType}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)))
 
       var conversationId: String = ""

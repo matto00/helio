@@ -57,9 +57,9 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
 
   private def joinHintFixture(i: Int): WorkspaceContextJoinHint =
     WorkspaceContextJoinHint(
-      leftDataTypeId = s"left-$i",
+      leftOutputId = s"left-$i",
       leftColumn = "value",
-      rightDataTypeId = s"right-$i",
+      rightOutputId = s"right-$i",
       rightColumn = "value",
       confidence = 0.9 - (i * 0.001)
     )
@@ -288,8 +288,8 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
           name = "orders-pipeline",
           sourceDataSourceId = "src-1",
           sourceDataSourceName = "source-1",
-          outputDataTypeId = "dt-1",
-          outputDataTypeName = "orders",
+          outputId = "dt-1",
+          outputName = "orders",
           lastRunStatus = Some("success"),
           lastRunAt = Some("2024-01-01T00:00:00Z"),
           lastRunRowCount = Some(100L),

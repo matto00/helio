@@ -57,7 +57,7 @@ that application.
 
 #### Scenario: A raw override on a metric-bound panel field IS treated as a conflict
 - **WHEN** `POST /api/patch-sets/:id/undo` is called and a touched `MetricPanel` (with `metricId`
-  unchanged since the original apply) had its raw `dataTypeId`/`fieldMapping`/`aggregation`/`unit`
+  unchanged since the original apply) had its raw `outputId`/`fieldMapping`/`aggregation`/`unit`
   independently changed since the original apply
 - **THEN** the call is rejected as a conflict — this is NOT the same excluded category as the bound
   metric's own current deprecated/effective state changing with no raw-field edit

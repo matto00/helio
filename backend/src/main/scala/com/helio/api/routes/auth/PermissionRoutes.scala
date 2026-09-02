@@ -41,6 +41,11 @@ final class PermissionRoutes(
             }
           )
         },
+        path("public") {
+          delete {
+            ServiceResponse.runNoContent(permissionService.revokePublic(dashboardId, user))
+          }
+        },
         path(UserIdSegment) { granteeId =>
           delete {
             ServiceResponse.runNoContent(permissionService.revoke(dashboardId, granteeId, user))

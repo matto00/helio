@@ -42,7 +42,6 @@ function buildPipeline(overrides: Partial<PipelineSummary>): PipelineSummary {
     name: "Revenue ETL",
     sourceDataSourceId: "src-1",
     sourceDataSourceName: "Profit",
-    outputDataTypeId: "type-1",
     lastRunStatus: "succeeded",
     lastRunAt: "2026-01-01T00:00:00Z",
     lastRunRowCount: 10,
@@ -170,12 +169,10 @@ describe("SidebarBody pipelines section — delete-dependency warning (F-144)", 
 
   // HEL-909: the warning's copy is retired from naming a specific DataType
   // (the DataType feature is gone) to a generic Output-impact warning, shown
-  // for any known pipeline regardless of `outputDataTypeId`.
+  // for any known pipeline.
   it("warns that deleting a pipeline may break panels bound to its Outputs", () => {
     renderAt("/pipelines", {
-      pipelineItems: [
-        buildPipeline({ id: "pipe-1", name: "Revenue ETL", outputDataTypeId: "type-1" }),
-      ],
+      pipelineItems: [buildPipeline({ id: "pipe-1", name: "Revenue ETL" })],
       pipelineStatus: "succeeded",
     });
 

@@ -234,7 +234,7 @@ export function ProposalReviewPage() {
 /** Build a valid demo proposal from the first Output in the workspace, so the
  *  fixture path is always applyable. Returns an empty-panel proposal when the
  *  workspace has no Output yet (the page then shows guidance). An `output`
- *  panel needs only `dataTypeId` (really the Output id, kept under that name
+ *  panel needs only `outputId` (really the Output id, kept under that name
  *  for wire stability) -- `fieldMapping` is not meaningful for it (the
  *  Output's own schema is already the grounding source), unlike the retired
  *  metric/chart/table panel kinds this fixture used to synthesize. */
@@ -248,7 +248,7 @@ function synthesizeDemoProposal(outputs: OutputSummary[]): DashboardProposal {
       {
         title: output.name,
         type: "output",
-        dataTypeId: output.id,
+        outputId: output.id,
         layout: { x: 0, y: 0, w: 12, h: 6 },
       },
     ],

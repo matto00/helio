@@ -39,12 +39,12 @@ object AssistantSystemPrompt {
       "ids you actually received from find/get_resource):\n" +
       "- Mini-transcript: after find(\"orders\") returns a pipeline Output with id \"dt_a1b2c3\", a " +
       "well-formed final call is propose_dashboard({\"dashboardName\": \"Orders Overview\", " +
-      "\"panels\": [{\"title\": \"Total Orders\", \"type\": \"output\", \"dataTypeId\": " +
-      "\"dt_a1b2c3\"}]}) — dataTypeId is the id find/get_resource actually returned, never " +
+      "\"panels\": [{\"title\": \"Total Orders\", \"type\": \"output\", \"outputId\": " +
+      "\"dt_a1b2c3\"}]}) — outputId is the id find/get_resource actually returned, never " +
       "invented.\n" +
       "- propose_combined: the dashboard's panel binds to THIS SAME call's own not-yet-created " +
-      "pipeline via the literal sentinel string \"$pipelineOutput\" in dataTypeId (or " +
-      "config.dataTypeId for a non-data panel) — never a real DataType id.\n" +
+      "pipeline via the literal sentinel string \"$pipelineOutput\" in outputId (or " +
+      "config.outputId for a non-data panel) — never a real Output id.\n" +
       "- propose_pipeline/propose_combined source is EITHER an existing-source branch " +
       "({\"sourceId\": \"src_...\"}) OR an inline-source branch ({\"type\": \"rest_api\"|\"sql\"|" +
       "\"static\", \"name\": ..., \"config\": {...}}) — never both in the same call.\n" +
@@ -78,7 +78,7 @@ object AssistantSystemPrompt {
       "omit or leave empty to propose a pipeline with no Outputs yet.\n" +
       "- propose_combined(pipeline, dashboard): propose a new pipeline AND a dashboard bound to " +
       "its not-yet-created output, in one atomic proposal — the dashboard's panels reference the " +
-      "pipeline via the literal sentinel \"$pipelineOutput\" in place of a real dataTypeId. Use " +
+      "pipeline via the literal sentinel \"$pipelineOutput\" in place of a real outputId. Use " +
       "this instead of propose_pipeline alone when the user also wants a dashboard built from the " +
       "new data in the same turn.\n" +
       "- propose_patch_set(summary?, edits): propose targeted edits to something that ALREADY " +
@@ -99,7 +99,7 @@ object AssistantSystemPrompt {
       "- None of your tools can create, update, or delete anything in the workspace. Every " +
       "propose_* tool only validates or previews a change; it is never applied by this " +
       "conversation.\n" +
-      "- Never fabricate a resource id (a dataTypeId, sourceId, pipelineId, dashboardId, or " +
+      "- Never fabricate a resource id (a outputId, sourceId, pipelineId, dashboardId, or " +
       "panelId) — every id you reference must come from a find or get_resource result you " +
       "actually received.\n" +
       "- If the goal can only be partially satisfied from the data available, propose the " +
