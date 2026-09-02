@@ -104,7 +104,7 @@ class AssistantProposalToolSchemasSpec
 
     "bind at least one dashboard panel via the literal \"$pipelineOutput\" sentinel, surviving decode" in {
       val decoded = examplesOf("propose_combined").head.convertTo[CombinedProposal]
-      decoded.dashboard.panels.map(_.dataTypeId) should contain(Some("$pipelineOutput"))
+      decoded.dashboard.panels.map(_.outputId) should contain(Some("$pipelineOutput"))
     }
 
     // HEL-904 cycle-8 (round-5 skeptic Finding D, wire-contract-diff-5.md):

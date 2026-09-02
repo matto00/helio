@@ -111,7 +111,7 @@ describe("ProposalHandoff", () => {
       },
       dashboard: {
         dashboardName: "Sales overview",
-        panels: [{ title: "Total", type: "output", dataTypeId: "$pipelineOutput" }],
+        panels: [{ title: "Total", type: "output", outputId: "$pipelineOutput" }],
       },
     };
 

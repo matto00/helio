@@ -237,7 +237,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val executor = newExecutor(outputRepo = outRepo)
 
       val panel    = ProposalPanel(
-        title = "Total", `type` = "output", dataTypeId = Some(outputId.value), metricId = None,
+        title = "Total", `type` = "output", outputId = Some(outputId.value),
         fieldMapping = Some(JsObject("value" -> JsString("amount"))), aggregation = None, content = None,
         url = None, orientation = None, chartType = None, xAxisLabel = None, yAxisLabel = None,
         seriesColors = None, label = None, unit = None, sort = None, layout = None, config = None
@@ -257,7 +257,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     }
 
     // HEL-700 tasks.md 3.3 (design.md D4) — a decodable but semantically-invalid proposal (its
-    // dataTypeId resolves to nothing) increments proposeValidationFailures, never
+    // outputId resolves to nothing) increments proposeValidationFailures, never
     // proposeDecodeFailures — decode already succeeded before validate ever ran.
     "increment proposeAttempts and proposeValidationFailures (not proposeDecodeFailures) when validate rejects a decodable proposal" in {
       val outRepo = mock(classOf[OutputRepository])
@@ -265,7 +265,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val executor = newExecutor(outputRepo = outRepo)
 
       val panel    = ProposalPanel(
-        title = "Total", `type` = "output", dataTypeId = Some(outputId.value), metricId = None,
+        title = "Total", `type` = "output", outputId = Some(outputId.value),
         fieldMapping = Some(JsObject("value" -> JsString("amount"))), aggregation = None, content = None,
         url = None, orientation = None, chartType = None, xAxisLabel = None, yAxisLabel = None,
         seriesColors = None, label = None, unit = None, sort = None, layout = None, config = None

@@ -31,7 +31,7 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
           |  "dashboard": {
           |    "dashboardName": "Combined Dashboard",
           |    "panels": [
-          |      {"title":"Total","type":"output","dataTypeId":"$pipelineOutput"}
+          |      {"title":"Total","type":"output","outputId":"$pipelineOutput"}
           |    ]
           |  }
           |}""".stripMargin
@@ -70,8 +70,8 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
            |  "dashboard": {
            |    "dashboardName": "Mixed Dashboard",
            |    "panels": [
-           |      {"title":"New","type":"output","dataTypeId":"$$pipelineOutput"},
-           |      {"title":"Existing","type":"output","dataTypeId":"$pipelineOutputId"}
+           |      {"title":"New","type":"output","outputId":"$$pipelineOutput"},
+           |      {"title":"Existing","type":"output","outputId":"$pipelineOutputId"}
            |    ]
            |  }
            |}""".stripMargin

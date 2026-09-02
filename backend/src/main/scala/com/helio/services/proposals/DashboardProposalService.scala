@@ -163,7 +163,7 @@ object DashboardProposalService {
   // enumeration to the ONE panel *kind* that requires an Output binding
   // (round-4 finding — this is a live validation predicate, not a passive
   // list; retargeting it to the wrong set would silently re-require
-  // `dataTypeId` on every proposal panel or silently stop requiring it on
+  // `outputId` (formerly `dataTypeId`) on every proposal panel or silently stop requiring it on
   // any). `MetricKind`/`TimelineKind`/`MetricIdSupportedKinds` (task 3.10a)
   // were deleted outright along with the code paths they guarded — metrics,
   // and the bound panel kinds that could carry a `metricId`, no longer exist.

@@ -168,7 +168,7 @@ function demoCombinedProposal(): CombinedProposal {
         {
           title: "Pipeline output",
           type: "output",
-          dataTypeId: "$pipelineOutput",
+          outputId: "$pipelineOutput",
           layout: { x: 0, y: 0, w: 12, h: 6 },
         },
       ],

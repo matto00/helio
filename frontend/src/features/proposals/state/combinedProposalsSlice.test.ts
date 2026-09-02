@@ -18,7 +18,7 @@ const sampleProposal: CombinedProposal = {
   },
   dashboard: {
     dashboardName: "Demo dashboard",
-    panels: [{ title: "Total", type: "output", dataTypeId: "$pipelineOutput" }],
+    panels: [{ title: "Total", type: "output", outputId: "$pipelineOutput" }],
   },
 };
 
@@ -35,7 +35,6 @@ const sampleApplyResponse: CombinedProposalApplyResponse = {
       name: "Demo pipeline",
       sourceDataSourceId: "ds-1",
       sourceDataSourceName: "Demo source",
-      outputDataTypeId: "dt-1",
       lastRunStatus: "succeeded",
       lastRunAt: "2026-01-01T00:00:00Z",
       lastRunRowCount: 2,

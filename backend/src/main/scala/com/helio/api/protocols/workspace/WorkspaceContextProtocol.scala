@@ -50,12 +50,12 @@ final case class WorkspaceContextComputedColumn(name: String, dataType: String, 
  *  small example-value set do NOT read as near-certain
  *  (`WorkspaceContextService.computeJoinHints`). A bounded heuristic over a
  *  small sample, never certainty — always advisory. The lexicographically
- *  smaller `dataTypeId` of the pair is always `left` — one hint per unordered
+ *  smaller `outputId` of the pair is always `left` — one hint per unordered
  *  pair, never two. */
 final case class WorkspaceContextJoinHint(
-    leftDataTypeId: String,
+    leftOutputId: String,
     leftColumn: String,
-    rightDataTypeId: String,
+    rightOutputId: String,
     rightColumn: String,
     confidence: Double
 )
@@ -123,8 +123,8 @@ final case class WorkspaceContextPipeline(
     name: String,
     sourceDataSourceId: String,
     sourceDataSourceName: String,
-    outputDataTypeId: String,
-    outputDataTypeName: String,
+    outputId: String,
+    outputName: String,
     lastRunStatus: Option[String],
     lastRunAt: Option[String],
     lastRunRowCount: Option[Long],

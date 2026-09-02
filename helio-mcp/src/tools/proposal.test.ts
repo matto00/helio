@@ -1,5 +1,5 @@
 /**
- * `propose_dashboard`'s dataTypeId (really Output id) binding-warning tests
+ * `propose_dashboard`'s outputId (really Output id) binding-warning tests
  * (HEL-223; formerly HEL-549's `metricId` coverage — metrics are deleted
  * wholesale by HEL-904 decision 11, so the metricId warning path was removed
  * outright from `proposalValidation.ts`, not disabled, and this suite was
@@ -36,7 +36,7 @@ function panelFixture(overrides: Partial<ProposalPanel> = {}): ProposalPanel {
   return {
     title: "Revenue",
     type: "output",
-    dataTypeId: "out-1",
+    outputId: "out-1",
     ...overrides,
   };
 }
@@ -50,20 +50,17 @@ function applyReadyFor(warnings: string[]): boolean {
   return warnings.length === 0;
 }
 
-describe("computeProposalWarnings — dataTypeId (Output id) (HEL-223/HEL-907)", () => {
-  it("warns and applyReady is false when an output panel has no dataTypeId", () => {
-    const warnings = computeProposalWarnings(
-      [panelFixture({ dataTypeId: undefined })],
-      outputsById,
-    );
+describe("computeProposalWarnings — outputId (Output id) (HEL-223/HEL-907)", () => {
+  it("warns and applyReady is false when an output panel has no outputId", () => {
+    const warnings = computeProposalWarnings([panelFixture({ outputId: undefined })], outputsById);
 
-    expect(warnings).toEqual([expect.stringContaining("a output panel needs a dataTypeId")]);
+    expect(warnings).toEqual([expect.stringContaining("a output panel needs a outputId")]);
     expect(applyReadyFor(warnings)).toBe(false);
   });
 
-  it("warns and applyReady is false when dataTypeId does not resolve to a real Output", () => {
+  it("warns and applyReady is false when outputId does not resolve to a real Output", () => {
     const warnings = computeProposalWarnings(
-      [panelFixture({ dataTypeId: "out-missing" })],
+      [panelFixture({ outputId: "out-missing" })],
       outputsById,
     );
 
@@ -80,9 +77,9 @@ describe("computeProposalWarnings — dataTypeId (Output id) (HEL-223/HEL-907)",
     expect(applyReadyFor(warnings)).toBe(true);
   });
 
-  it("omits the dataTypeId check entirely for non-data panel types (e.g. text)", () => {
+  it("omits the outputId check entirely for non-data panel types (e.g. text)", () => {
     const warnings = computeProposalWarnings(
-      [panelFixture({ type: "text", dataTypeId: undefined })],
+      [panelFixture({ type: "text", outputId: undefined })],
       outputsById,
     );
 
@@ -92,13 +89,13 @@ describe("computeProposalWarnings — dataTypeId (Output id) (HEL-223/HEL-907)",
 
   it("surfaces one warning per invalid panel across multiple panels", () => {
     const warnings = computeProposalWarnings(
-      [panelFixture({ dataTypeId: "out-missing" }), panelFixture({ dataTypeId: undefined })],
+      [panelFixture({ outputId: "out-missing" }), panelFixture({ outputId: undefined })],
       outputsById,
     );
 
     expect(warnings).toHaveLength(2);
     expect(warnings[0]).toContain("output out-missing not found in this workspace");
-    expect(warnings[1]).toContain("a output panel needs a dataTypeId");
+    expect(warnings[1]).toContain("a output panel needs a outputId");
     expect(applyReadyFor(warnings)).toBe(false);
   });
 });

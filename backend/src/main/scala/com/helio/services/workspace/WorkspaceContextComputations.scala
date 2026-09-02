@@ -76,12 +76,12 @@ trait WorkspaceContextComputations {
   /** `computeJoinHints`'s per-name-bucket candidate cap (HEL-374 design.md
    *  D2) — enforced AFTER the `columnStats`-membership candidacy restriction,
    *  so this bounds comparisons, not candidate gathering itself. Stable-sorted
-   *  by `(dataTypeId, column)` before truncation (deterministic). Self-approved
+   *  by `(outputId, column)` before truncation (deterministic). Self-approved
    *  tunable, no existing codebase precedent. */
   private val MaxColumnsPerNameBucket: Int = 50
 
   /** `computeJoinHints`'s output cap (HEL-374 design.md D2) — sorted by
-   *  confidence descending, `(leftDataTypeId, leftColumn, rightDataTypeId,
+   *  confidence descending, `(leftOutputId, leftColumn, rightOutputId,
    *  rightColumn)` ascending tie-break, before truncation. Self-approved
    *  tunable, no existing codebase precedent. */
   private val MaxJoinHints: Int = 50
@@ -405,7 +405,7 @@ trait WorkspaceContextComputations {
    *  DataType's id and the `columnStats` needed for the confidence
    *  computation. Not part of the wire shape, purely an internal grouping
    *  helper. */
-  private final case class JoinCandidate(dataTypeId: String, column: WorkspaceContextColumn, stats: WorkspaceContextColumnStats)
+  private final case class JoinCandidate(outputId: String, column: WorkspaceContextColumn, stats: WorkspaceContextColumnStats)
 
   /** Declared-type bucket for join-hint pairing (design.md D2): only columns
    *  in the SAME bucket are ever compared (numeric-ish vs. numeric-ish,
@@ -481,7 +481,7 @@ trait WorkspaceContextComputations {
    *  **Bounding the comparison work**: candidates are grouped by normalized
    *  name (`normalizedNameTokens`, reused verbatim from the semantic-role
    *  name heuristic — one implementation, not a forked copy); each bucket is
-   *  capped at `MaxColumnsPerNameBucket`, stable-sorted by `(dataTypeId,
+   *  capped at `MaxColumnsPerNameBucket`, stable-sorted by `(outputId,
    *  column name)` before truncation (deterministic, not iteration-order-
    *  dependent). Only cross-DataType, same-declared-type-bucket pairs are
    *  compared. Worst case: `Page.Default` (200) DataTypes × `SampleColumnLimit`
@@ -503,23 +503,23 @@ trait WorkspaceContextComputations {
       candidates.groupBy(c => normalizedNameTokens(c.column.name).mkString(""))
 
     val hints: Vector[WorkspaceContextJoinHint] = buckets.values.flatMap { bucket =>
-      val capped = bucket.sortBy(c => (c.dataTypeId, c.column.name)).take(MaxColumnsPerNameBucket)
+      val capped = bucket.sortBy(c => (c.outputId, c.column.name)).take(MaxColumnsPerNameBucket)
       for {
         i <- capped.indices
         j <- (i + 1) until capped.size
         a  = capped(i)
         b  = capped(j)
-        if a.dataTypeId != b.dataTypeId
+        if a.outputId != b.outputId
         if typeBucket(a.column.dataType) == typeBucket(b.column.dataType)
       } yield {
         // Canonical (left, right) assignment (design.md D2): the
-        // lexicographically smaller dataTypeId is always left — one hint per
+        // lexicographically smaller outputId is always left — one hint per
         // unordered pair, never two.
-        val (left, right) = if (a.dataTypeId < b.dataTypeId) (a, b) else (b, a)
+        val (left, right) = if (a.outputId < b.outputId) (a, b) else (b, a)
         WorkspaceContextJoinHint(
-          leftDataTypeId  = left.dataTypeId,
+          leftOutputId  = left.outputId,
           leftColumn      = left.column.name,
-          rightDataTypeId = right.dataTypeId,
+          rightOutputId = right.outputId,
           rightColumn     = right.column.name,
           confidence      = joinHintConfidence(left, right)
         )
@@ -527,7 +527,7 @@ trait WorkspaceContextComputations {
     }.toVector
 
     hints
-      .sortBy(h => (-h.confidence, h.leftDataTypeId, h.leftColumn, h.rightDataTypeId, h.rightColumn))
+      .sortBy(h => (-h.confidence, h.leftOutputId, h.leftColumn, h.rightOutputId, h.rightColumn))
       .take(MaxJoinHints)
   }
 

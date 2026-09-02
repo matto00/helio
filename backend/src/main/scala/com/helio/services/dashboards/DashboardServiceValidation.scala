@@ -45,9 +45,15 @@ object DashboardServiceValidation {
    *  is needed here (unlike the `PanelService`/`ProposalPanelSupport` sites):
    *  `entry.appearance.chart.chartType` and the decoded config's
    *  `aggregation` are already typed and are the exact values
-   *  `DashboardSnapshotRepository.importSnapshot` will persist. This does NOT
-   *  add general cross-field validation to import (e.g. the `chartType` enum)
-   *  — see design.md's Non-Goals. */
+   *  `DashboardSnapshotRepository.importSnapshot` will persist.
+   *
+   *  HEL-910 task 2.2 (design.md Decision 5, Gap B): general appearance/cross-field
+   *  validation (the same `Panel.validateConfig` + appearance-payload validate path
+   *  `PanelService.buildForCreate` runs) previously was skipped entirely on import — that gap
+   *  is now closed in `DashboardService.importSnapshot` via `validateImportPanels`, which runs
+   *  BEFORE `dashboardRepo.importSnapshot`'s write. This method here stays scoped to
+   *  type/config-shape decode + the one HEL-624 cross-field rule; the fuller check lives next
+   *  to the repo call it gates, not duplicated here. */
   private[services] def validatePanelEntries(panels: Vector[DashboardSnapshotPanelEntry]): Either[String, Unit] =
     panels.foldLeft[Either[String, Unit]](Right(())) {
       case (Left(err), _) => Left(err)

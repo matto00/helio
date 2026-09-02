@@ -8,7 +8,8 @@ import com.helio.api.http._
 import com.helio.domain.model._
 import com.helio.domain.panels.OutputPanel
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
+import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
@@ -35,7 +36,8 @@ final class PublicDashboardRoutes(
     aclDirective: AclDirective,
     userOpt: Option[AuthenticatedUser],
     outputRepoOpt: Option[OutputRepository] = None,
-    pipelineRepoOpt: Option[PipelineRepository] = None
+    pipelineRepoOpt: Option[PipelineRepository] = None,
+    nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -61,8 +63,62 @@ final class PublicDashboardRoutes(
       case _ => Future.successful(None)
     }
 
+  /** HEL-910 task 1.1: `GET /dashboards/:dashboardId/panels/:panelId/rows`. Resolves
+   *  `panelId -> outputId -> node_snapshot` for the public/optional-auth path. Reuses
+   *  `panelRepo.findAllByDashboardId` (the same lookup the panel-list route above already
+   *  uses) rather than `PanelRepository.findByIdInternal`, so the panel is proven to actually
+   *  belong to THIS dashboard before its rows are read -- the dashboard-level
+   *  `authorizeResourceWithSharing` gate below is only a valid authority for panels that are
+   *  really on the dashboard it was checked against. A panel of a non-`OutputPanel` kind, a
+   *  panel with no bound `outputId`, or an unresolvable Output/snapshot degrades to an empty
+   *  page rather than a 500 -- mirrors `resolveDataAsOf`'s own degrade-gracefully convention
+   *  above. */
+  private def resolveRows(dashboardId: String, panelId: String, page: Page): Future[Either[String, PagedResult[JsValue]]] =
+    panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, Page(offset = 0, limit = Page.MaxLimit)).flatMap { paged =>
+      paged.items.find(_.id.value == panelId) match {
+        case None => Future.successful(Left("Panel not found"))
+        case Some(op: OutputPanel) =>
+          (op.outputId, outputRepoOpt, nodeSnapshotRepoOpt) match {
+            case (Some(outputId), Some(outputRepo), Some(nodeSnapshotRepo)) =>
+              outputRepo.findByIdInternal(outputId).flatMap {
+                case None => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
+                case Some(output) =>
+                  nodeSnapshotRepo
+                    .listRowsPaged(output.node.pipelineId.value, output.node.stepId.map(_.value), page)
+                    .map(paged => Right(paged.copy(items = paged.items.map(identity[JsValue]))))
+              }
+            case _ => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
+          }
+        case Some(_) => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
+      }
+    }
+
   val routes: Route =
     pathPrefix("dashboards" / Segment / "panels") { dashboardId =>
+      pathPrefix(Segment / "rows") { panelId =>
+        pathEndOrSingleSlash {
+          get {
+            parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>
+              if (offsetRaw < 0)
+                complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
+              else {
+                val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
+                aclDirective.authorizeResourceWithSharing(
+                  "dashboard",
+                  dashboardId,
+                  userOpt,
+                  "Dashboard not found"
+                ) { _ =>
+                  onSuccess(resolveRows(dashboardId, panelId, page)) {
+                    case Left(err)     => complete(StatusCodes.NotFound, ErrorResponse(err))
+                    case Right(result) => complete(result)
+                  }
+                }
+              }
+            }
+          }
+        }
+      } ~
       pathEndOrSingleSlash {
         get {
           parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>

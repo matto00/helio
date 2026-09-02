@@ -22,7 +22,7 @@ export interface ProposalPanelLayout {
 export interface ProposalPanel {
   title: string;
   type: string;
-  dataTypeId?: string;
+  outputId?: string;
   fieldMapping?: Record<string, string>;
   content?: string;
   url?: string;

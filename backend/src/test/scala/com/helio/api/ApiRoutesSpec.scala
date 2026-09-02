@@ -1511,6 +1511,137 @@ class ApiRoutesSpec
       }
     }
 
+    // HEL-910 task 2.1 (design.md Decision 5, Gap A): `routes()` wires the real, production
+    // `ApiRoutes` (non-null `outputRepoOpt`) — this is deliberately NOT a fixture on the `null`
+    // default, so this assertion is not vacuous per the task's own verification requirement.
+    "reject import with an unresolvable outputId, creating nothing" in {
+      cleanDb()
+      val payload = DashboardSnapshotPayload(
+        version = DashboardSnapshotPayload.CurrentVersion,
+        dashboard = DashboardSnapshotDashboardEntry(
+          name = "Output Import Test",
+          appearance = DashboardAppearancePayload(Some("transparent"), Some("transparent")),
+          layout = DashboardLayoutPayload(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+        ),
+        panels = Vector(
+          DashboardSnapshotPanelEntry(
+            snapshotId = "snap-1",
+            id         = Some("snap-1"),
+            title      = "Panel",
+            `type`     = "output",
+            appearance = PanelAppearancePayload(None, None, None, None),
+            config     = JsObject("outputId" -> JsString("no-such-output"))
+          )
+        )
+      )
+      Post("/api/dashboards/import", payload) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("no-such-output")
+      }
+      Get("/api/dashboards") ~> routes() ~> check {
+        responseAs[DashboardsResponse].items.map(_.name) should not contain "Output Import Test"
+      }
+    }
+
+    // HEL-910 final-gate CR3: AC2's first half ("export -> import round trip of a migrated
+    // dashboard produces an identical dashboard — panels, layout, appearance — against the
+    // same pipelines") had no automated coverage for the NEW-world case: an `output` panel
+    // whose `config.outputId` must survive export and then satisfy this ticket's new
+    // `validateImportPanels` `findByIdOwned` check. The only prior round-trip tests used
+    // zero-panel or pre-remodel (divider) panels.
+    "export -> import round trip of a dashboard with an Output-bound panel is identical (panels, layout, appearance)" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+      var dashboardId = ""
+      var panelId     = ""
+
+      Post("/api/dashboards", CreateDashboardRequest(Some("Output Round Trip"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+
+      val dsId     = UUID.randomUUID().toString
+      val pidId    = UUID.randomUUID().toString
+      val outputId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+               VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $testUserId::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($pidId, 'pipe', $dsId, $testUserId::uuid, now(), now())""",
+        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+               VALUES ($outputId, $pidId, NULL, $testUserId::uuid, 'RT Output', 'table', '{}'::jsonb, '[]'::jsonb, 0, now(), now())"""
+      )))
+
+      Post(
+        "/api/panels",
+        CreatePanelRequest(Some(dashboardId), Some("Bound Panel"), Some("output"), Some(JsObject("outputId" -> JsString(outputId))))
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      Patch(
+        s"/api/dashboards/$dashboardId",
+        UpdateDashboardRequest(
+          name       = None,
+          appearance = None,
+          layout = Some(DashboardLayoutPayload(
+            lg = Vector(DashboardLayoutItemPayload(panelId, 1, 2, 5, 3)),
+            md = Vector.empty,
+            sm = Vector.empty,
+            xs = Vector.empty
+          ))
+        )
+      ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      var snapshot: DashboardSnapshotPayload = null
+      Get(s"/api/dashboards/$dashboardId/export") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        snapshot = responseAs[DashboardSnapshotPayload]
+        snapshot.panels should have size 1
+        snapshot.panels.head.`type` shouldBe "output"
+        snapshot.panels.head.config.asJsObject.fields("outputId") shouldBe JsString(outputId)
+      }
+
+      var importedDashboardId = ""
+      var importedPanelId     = ""
+      Post("/api/dashboards/import", snapshot) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        val result = responseAs[DuplicateDashboardResponse]
+        result.dashboard.id should not be dashboardId
+        result.panels should have size 1
+        importedDashboardId = result.dashboard.id
+        importedPanelId     = result.panels.head.id
+        // The importer must bind the same real Output — the `findByIdOwned` check this
+        // ticket adds is what could reject a legitimate round trip if it were wrong.
+        result.panels.head.config.asJsObject.fields("outputId") shouldBe JsString(outputId)
+      }
+
+      // Re-export the IMPORTED dashboard and compare, normalizing only the identifiers that
+      // are legitimately supposed to differ (dashboard/panel ids) — everything else (panel
+      // count, title, type, config/outputId, appearance, layout shape) must be identical.
+      var reExported: DashboardSnapshotPayload = null
+      Get(s"/api/dashboards/$importedDashboardId/export") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        reExported = responseAs[DashboardSnapshotPayload]
+      }
+
+      reExported.version shouldBe snapshot.version
+      reExported.dashboard.name shouldBe snapshot.dashboard.name
+      reExported.dashboard.appearance shouldBe snapshot.dashboard.appearance
+      reExported.panels should have size 1
+      val originalPanel  = snapshot.panels.head
+      val roundTripPanel = reExported.panels.head
+      roundTripPanel.title shouldBe originalPanel.title
+      roundTripPanel.`type` shouldBe originalPanel.`type`
+      roundTripPanel.appearance shouldBe originalPanel.appearance
+      roundTripPanel.config shouldBe originalPanel.config
+      reExported.dashboard.layout.lg.head.x shouldBe snapshot.dashboard.layout.lg.head.x
+      reExported.dashboard.layout.lg.head.y shouldBe snapshot.dashboard.layout.lg.head.y
+      reExported.dashboard.layout.lg.head.w shouldBe snapshot.dashboard.layout.lg.head.w
+      reExported.dashboard.layout.lg.head.h shouldBe snapshot.dashboard.layout.lg.head.h
+      reExported.dashboard.layout.lg.head.panelId shouldBe roundTripPanel.snapshotId
+      importedPanelId should not be panelId
+    }
+
     // HEL-624 task 5.8 — 5th enforcement site: import rejects a chart entry
     // combining `chartType: "scatter"` with a present `aggregation`, with
     // zero dashboard/panel rows created (DashboardServiceValidation.validatePanelEntries).
@@ -2858,6 +2989,53 @@ class ApiRoutesSpec
       }
       Delete(s"/api/dashboards/$dashboardId/permissions/$otherUserId") ~> routes() ~> check {
         status shouldBe StatusCodes.NoContent
+      }
+    }
+
+    // HEL-910 final-gate CR1: a public (grantee_id IS NULL) grant could never be
+    // revoked via the UUID-keyed DELETE .../permissions/:userId route, because
+    // ResourcePermissionRepository.delete filters granteeId === UUID.fromString(...),
+    // which never matches NULL. DELETE .../permissions/public is the dedicated fix.
+    // Full lifecycle proven against the live behavior: grant public access, verify
+    // it's anonymously readable, revoke it via the new route, verify it's no longer
+    // readable — not just that the DELETE call itself returns 204.
+    "revoke public access via DELETE .../permissions/public, and verify it actually un-shares" in {
+      cleanDb()
+      var dashboardId = ""
+      var panelId = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Public Revoke"))) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Public Revoke Panel"), None, None)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        panelId = responseAs[PanelResponse].id
+      }
+      // Grant public viewer access (no granteeId) — same shape as the pre-existing
+      // "return 200 for unauthenticated request on a public dashboard" test above.
+      val body = """{"role":"viewer"}"""
+      Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      // Confirm it's actually anonymously readable before revoking.
+      Get(s"/api/dashboards/$dashboardId/panels") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PagedResult[PanelResponse]]
+        resp.items should have size 1
+        resp.items.head.id shouldBe panelId
+      }
+      // Revoke via the dedicated public-grant route — must be 204, not the prior
+      // unhandled-UUID.fromString 500.
+      Delete(s"/api/dashboards/$dashboardId/permissions/public") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+      // Confirm the grant is actually gone: anonymous access is hidden again.
+      Get(s"/api/dashboards/$dashboardId/panels") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+      // A second revoke finds nothing left to delete.
+      Delete(s"/api/dashboards/$dashboardId/permissions/public") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
       }
     }
 

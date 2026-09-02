@@ -29,7 +29,7 @@ function makeProposal(overrides: Partial<CombinedProposal> = {}): CombinedPropos
         {
           title: "Total sales",
           type: "output",
-          dataTypeId: "$pipelineOutput",
+          outputId: "$pipelineOutput",
           fieldMapping: { value: "amount" },
         },
         {
@@ -73,19 +73,19 @@ describe("CombinedProposalReview", () => {
   });
 
   // design.md Risk 1 — a panel bound to the reserved "$pipelineOutput" sentinel must render as
-  // referencing this proposal's own pipeline output, never as an unresolved/invalid dataTypeId.
+  // referencing this proposal's own pipeline output, never as an unresolved/invalid outputId.
   it('special-cases a panel bound to the "$pipelineOutput" sentinel', () => {
     renderReview();
     expect(screen.getByText("This pipeline's own output")).toBeInTheDocument();
     expect(screen.queryByText("$pipelineOutput")).not.toBeInTheDocument();
   });
 
-  it("renders a real (non-sentinel) dataTypeId as-is for a data panel", () => {
+  it("renders a real (non-sentinel) outputId as-is for a data panel", () => {
     renderReview({
       proposal: makeProposal({
         dashboard: {
           dashboardName: "Sales overview",
-          panels: [{ title: "Total sales", type: "output", dataTypeId: "dt-real-id" }],
+          panels: [{ title: "Total sales", type: "output", outputId: "dt-real-id" }],
         },
       }),
     });

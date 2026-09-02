@@ -56,8 +56,7 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     ProposalPanel(
       title        = "Total",
       `type`       = "output",
-      dataTypeId   = Some(CombinedProposalService.OutputRefSentinel),
-      metricId     = None,
+      outputId   = Some(CombinedProposalService.OutputRefSentinel),
       fieldMapping = Some(JsObject("value" -> JsString("region"))),
       aggregation  = None,
       content      = None,

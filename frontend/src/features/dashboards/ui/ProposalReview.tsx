@@ -60,8 +60,8 @@ export function ProposalReview({
 
   const bindingIssue = (panel: ProposalPanel): string | null => {
     if (!DATA_PANEL_TYPES.has(panel.type)) return null;
-    if (!panel.dataTypeId) return "No Output bound";
-    if (!outputsById[panel.dataTypeId]) return "Bound Output not found in this workspace";
+    if (!panel.outputId) return "No Output bound";
+    if (!outputsById[panel.outputId]) return "Bound Output not found in this workspace";
     return null;
   };
 
@@ -121,8 +121,8 @@ export function ProposalReview({
             <ul className="proposal-review__panels">
               {panels.map((panel, index) => {
                 const issue = bindingIssue(panel);
-                const boundName = panel.dataTypeId
-                  ? (outputsById[panel.dataTypeId]?.name ?? panel.dataTypeId)
+                const boundName = panel.outputId
+                  ? (outputsById[panel.outputId]?.name ?? panel.outputId)
                   : null;
                 return (
                   <li key={index} className="proposal-review__panel">

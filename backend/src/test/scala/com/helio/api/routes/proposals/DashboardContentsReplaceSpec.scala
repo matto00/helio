@@ -45,7 +45,7 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
 
       val body =
         s"""{"panels":[
-           |  {"title":"New Metric","type":"output","dataTypeId":"$pipelineOutputId",
+           |  {"title":"New Metric","type":"output","outputId":"$pipelineOutputId",
            |   "layout":{"x":0,"y":0,"w":4,"h":3}},
            |  {"title":"New Text","type":"text"}
            |]}""".stripMargin
@@ -87,7 +87,7 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
         status shouldBe StatusCodes.BadRequest
         val msg = responseAs[String].toLowerCase
         msg should include("panel 2")
-        msg should include("datatypeid")
+        msg should include("outputid")
       }
 
       // Nothing deleted or created — the original panel set is untouched.
@@ -103,7 +103,7 @@ class DashboardContentsReplaceSpec extends ApplyProposalSpecBase {
 
       val body =
         s"""{"panels":[
-           |  {"title":"Bad","type":"output","dataTypeId":"$companionTypeId"}
+           |  {"title":"Bad","type":"output","outputId":"$companionTypeId"}
            |]}""".stripMargin
       putContents(dashboardId, body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest

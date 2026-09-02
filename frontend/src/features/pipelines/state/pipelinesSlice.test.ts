@@ -11,7 +11,6 @@ import {
   fetchPipelineSteps,
   pipelinesReducer,
   savePipelineSchedule,
-  selectPipelineNameByOutputTypeId,
   submitPipelineRun,
   updatePipeline,
 } from "./pipelinesSlice";
@@ -57,8 +56,6 @@ const testPipeline = {
   name: "Sales Pipeline",
   sourceDataSourceId: "ds-sales",
   sourceDataSourceName: "Sales API",
-  outputDataTypeName: "SalesMetrics",
-  outputDataTypeId: "dt-sales",
   lastRunStatus: "succeeded" as const,
   lastRunAt: "2026-05-01T10:00:00Z",
   lastRunRowCount: null as null,
@@ -69,8 +66,6 @@ const newPipeline = {
   name: "New Pipeline",
   sourceDataSourceId: "ds-csv",
   sourceDataSourceName: "CSV Source",
-  outputDataTypeName: "RawData",
-  outputDataTypeId: "dt-raw",
   lastRunStatus: null as null,
   lastRunAt: null,
   lastRunRowCount: null as null,
@@ -233,8 +228,6 @@ describe("fetchPipelines thunk", () => {
       name: "Never Run Pipeline",
       sourceDataSourceId: "ds-1",
       sourceDataSourceName: "Source",
-      outputDataTypeName: "Out",
-      outputDataTypeId: "dt-1",
     } as unknown as PipelineSummary;
     getPipelinesMock.mockResolvedValueOnce([neverRunWire]);
 
@@ -864,8 +857,6 @@ const sampleAnalyzeResponse: PipelineAnalyzeResponse = {
   id: "p-1",
   name: "Sales Pipeline",
   sourceDataSourceName: "Sales API",
-  outputDataTypeName: "SalesMetrics",
-  outputDataTypeId: "dt-sales",
   sourceSchema: [
     { name: "order_id", type: "string" },
     { name: "amount", type: "number" },
@@ -1170,42 +1161,6 @@ describe("pipelineSchedule reducers", () => {
       deletePipelineSchedule.fulfilled({ pipelineId: "p-1" }, "req-2", "p-1"),
     );
     expect(nextState.schedule["p-1"]).toBeNull();
-  });
-});
-
-describe("selectPipelineNameByOutputTypeId", () => {
-  function stateWith(items: PipelineSummary[]): RootState {
-    return { pipelines: { items } } as unknown as RootState;
-  }
-
-  it("maps outputDataTypeId → pipeline name for pipelines that carry one", () => {
-    const map = selectPipelineNameByOutputTypeId(
-      stateWith([
-        { ...testPipeline, outputDataTypeId: "dt-sales", name: "Sales Pipeline" },
-        { ...newPipeline, outputDataTypeId: "dt-raw", name: "Raw Ingest" },
-      ]),
-    );
-
-    expect(map.get("dt-sales")).toBe("Sales Pipeline");
-    expect(map.get("dt-raw")).toBe("Raw Ingest");
-    expect(map.size).toBe(2);
-  });
-
-  it("skips pipelines with an absent outputDataTypeId", () => {
-    const withoutOutput: PipelineSummary = { ...testPipeline };
-    delete withoutOutput.outputDataTypeId;
-
-    const map = selectPipelineNameByOutputTypeId(
-      stateWith([withoutOutput, { ...newPipeline, outputDataTypeId: "dt-raw" }]),
-    );
-
-    expect(map.has("dt-sales")).toBe(false);
-    expect(map.get("dt-raw")).toBe(newPipeline.name);
-    expect(map.size).toBe(1);
-  });
-
-  it("returns an empty map when there are no pipelines", () => {
-    expect(selectPipelineNameByOutputTypeId(stateWith([])).size).toBe(0);
   });
 });
 

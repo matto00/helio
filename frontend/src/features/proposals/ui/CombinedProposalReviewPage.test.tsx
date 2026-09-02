@@ -43,7 +43,7 @@ const proposal: CombinedProposal = {
   },
   dashboard: {
     dashboardName: "Sales overview",
-    panels: [{ title: "Total", type: "output", dataTypeId: "$pipelineOutput" }],
+    panels: [{ title: "Total", type: "output", outputId: "$pipelineOutput" }],
   },
 };
 
@@ -60,7 +60,6 @@ const appliedResponse: CombinedProposalApplyResponse = {
       name: "Sales pipeline",
       sourceDataSourceId: "src-1",
       sourceDataSourceName: "Demo source",
-      outputDataTypeId: "dt-1",
       lastRunStatus: "succeeded",
       lastRunAt: "2026-01-01T00:00:00Z",
       lastRunRowCount: 0,

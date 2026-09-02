@@ -34,17 +34,13 @@
           "enum": ["text", "markdown", "image", "output"],
           "description": "No `divider`: dropped from the proposal flow's agent-facing type set for parity with create_panel (HEL-249/HEL-315/HEL-316). The backend wire (PanelType.fromString) still accepts it on other paths."
         },
-        "dataTypeId": {
+        "outputId": {
           "type": "string",
-          "description": "Required for `output` panels, where the value is actually an Output id (not a DataType id despite the field name, kept for schema stability) bound to a pipeline-owned Output. Omitted for text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig no longer carry a data binding of any kind (pipelines-and-outputs remodel, HEL-903/904)."
-        },
-        "metricId": {
-          "type": "string",
-          "description": "Legacy field, decoded but never applied: the panel kinds that could carry a metricId (metric/chart/table) and the Metrics concept itself were deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only; no current panel type consumes it."
+          "description": "Required for `output` panels — the id of the pipeline-owned Output the panel binds to (renamed HEL-910 task 3.2 from the legacy `dataTypeId` name). Omitted for text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig no longer carry a data binding of any kind (pipelines-and-outputs remodel, HEL-903/904)."
         },
         "fieldMapping": {
           "type": "object",
-          "description": "Legacy field, decoded but never applied: buildDataConfig emits only {outputId} for an `output` panel (see the dataTypeId description above for the outputId/dataTypeId naming note) — fieldMapping is not passed through. Also not used by text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig carry no data binding to map fields against (pipelines-and-outputs remodel, HEL-903/904)."
+          "description": "Legacy field, decoded but never applied: buildDataConfig emits only {outputId} for an `output` panel (see the outputId description above) — fieldMapping is not passed through. Also not used by text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig carry no data binding to map fields against (pipelines-and-outputs remodel, HEL-903/904)."
         },
         "aggregation": {
           "type": "object",
@@ -101,7 +97,7 @@
         },
         "config": {
           "type": "object",
-          "description": "Optional generic passthrough merged over the config derived from the flat fields above, then decoded by the same panel-create path as POST /api/panels. Current surfaces: output {outputId}; text/markdown {content}; image {imageUrl}. On key conflict this wins over a derived flat field, EXCEPT an `output` panel's dataTypeId (really an Output id — see the dataTypeId description above), which always stays the flat-field value. text/markdown panels carry no dataTypeId/fieldMapping of any kind (TextPanelConfig/MarkdownPanelConfig, pipelines-and-outputs remodel HEL-903/904) — a `config.dataTypeId` on a text/markdown panel is silently inert, not a binding attempt. The collection/timeline/chart/table/metric config surfaces (baseType/layout, timelineOptions, chartOptions, density/columnOrder) were deleted by the pipelines-and-outputs remodel (HEL-903/904) along with the panel kinds that carried them."
+          "description": "Optional generic passthrough merged over the config derived from the flat fields above, then decoded by the same panel-create path as POST /api/panels. Current surfaces: output {outputId}; text/markdown {content}; image {imageUrl}. On key conflict this wins over a derived flat field, EXCEPT an `output` panel's outputId (see the outputId description above), which always stays the flat-field value. text/markdown panels carry no outputId/fieldMapping of any kind (TextPanelConfig/MarkdownPanelConfig, pipelines-and-outputs remodel HEL-903/904) — a `config.outputId` on a text/markdown panel is silently inert, not a binding attempt. The collection/timeline/chart/table/metric config surfaces (baseType/layout, timelineOptions, chartOptions, density/columnOrder) were deleted by the pipelines-and-outputs remodel (HEL-903/904) along with the panel kinds that carried them."
         }
       },
       "additionalProperties": false

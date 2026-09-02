@@ -229,8 +229,8 @@ class WorkspaceContextServiceComputeJoinHintsSpec extends AnyWordSpec with Match
       val hints = service.computeJoinHints((lowConfidenceTypes ++ highConfidenceTypesPastCap).toVector)
 
       hints.foreach { h =>
-        (h.leftDataTypeId < "dt-50") shouldBe true
-        (h.rightDataTypeId < "dt-50") shouldBe true
+        (h.leftOutputId < "dt-50") shouldBe true
+        (h.rightOutputId < "dt-50") shouldBe true
       }
     }
 
@@ -258,8 +258,8 @@ class WorkspaceContextServiceComputeJoinHintsSpec extends AnyWordSpec with Match
       val hints = service.computeJoinHints(Vector(a, b))
 
       hints should have size 1
-      hints.head.leftDataTypeId shouldBe "dt-a"
-      hints.head.rightDataTypeId shouldBe "dt-z"
+      hints.head.leftOutputId shouldBe "dt-a"
+      hints.head.rightOutputId shouldBe "dt-z"
     }
   }
 }

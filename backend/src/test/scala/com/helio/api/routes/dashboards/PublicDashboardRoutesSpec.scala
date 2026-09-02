@@ -8,7 +8,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -50,6 +50,7 @@ class PublicDashboardRoutesSpec
   private var dataSourceRepo: DataSourceRepository = _
   private var pipelineRepo: PipelineRepository     = _
   private var outputRepo: OutputRepository         = _
+  private var nodeSnapshotRepo: NodeSnapshotRepository = _
   private var permissionRepo: ResourcePermissionRepository = _
   private var aclDirective: AclDirective           = _
 
@@ -70,6 +71,7 @@ class PublicDashboardRoutesSpec
     dataSourceRepo = new DataSourceRepository(ctx)(routeEc)
     pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     outputRepo     = new OutputRepository(ctx)(routeEc)
+    nodeSnapshotRepo = new NodeSnapshotRepository(ctx)(routeEc)
     permissionRepo = new ResourcePermissionRepository(ctx)(routeEc)
 
     val registry = new ResourceTypeRegistry(
@@ -90,7 +92,7 @@ class PublicDashboardRoutesSpec
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   private def routes(): Route =
-    new PublicDashboardRoutes(panelRepo, aclDirective, userOpt = None, Some(outputRepo), Some(pipelineRepo))(typedSystem).routes
+    new PublicDashboardRoutes(panelRepo, aclDirective, userOpt = None, Some(outputRepo), Some(pipelineRepo), Some(nodeSnapshotRepo))(typedSystem).routes
 
   private def seedDashboardWithPublicGrant(): String = {
     import PostgresProfile.api._
@@ -186,6 +188,86 @@ class PublicDashboardRoutesSpec
         status shouldBe StatusCodes.OK
         val items = responseAs[JsObject].fields("items").convertTo[Vector[PanelResponse]]
         items.head.dataAsOf shouldBe None
+      }
+    }
+  }
+
+  /** HEL-910 task 1.1/1.2: `GET /dashboards/:dashboardId/panels/:panelId/rows` -- the public
+   *  path's row-data gap this ticket closes (see design.md Context). */
+  "GET /dashboards/:dashboardId/panels/:panelId/rows" should {
+    "return rows for a shared dashboard's output panel with no auth header" in {
+      val dashId     = seedDashboardWithPublicGrant()
+      val pipelineId = newPipelineWithLastRunAt(Instant.now())
+      val panelId    = seedOutputPanel(dashId, pipelineId)
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("a" -> JsString("1")))))
+
+      Get(s"/dashboards/$dashId/panels/$panelId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
+        items should have size 1
+        items.head.fields("a") shouldBe JsString("1")
+      }
+    }
+
+    "return an authorization error for a non-shared dashboard" in {
+      import PostgresProfile.api._
+      val dashId = UUID.randomUUID().toString
+      await(db.run(
+        sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
+                 VALUES ($dashId, 'Private Dashboard', $ownerId, now(), now(),
+                         '{"background":"transparent","gridBackground":"transparent"}',
+                         '{"lg":[],"md":[],"sm":[],"xs":[]}', ${ownerId}::uuid)"""
+      ))
+      val pipelineId = newPipelineWithLastRunAt(Instant.now())
+      val panelId    = seedOutputPanel(dashId, pipelineId)
+
+      Get(s"/dashboards/$dashId/panels/$panelId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // HEL-910 final-gate CR2: `resolveRows` deliberately uses `findAllByDashboardId` (which
+    // proves the panel belongs to THIS dashboard) rather than an unscoped `findByIdInternal`
+    // lookup -- but nothing previously asserted that a panel from a DIFFERENT dashboard is
+    // rejected. This is exactly the plausible future refactor that would silently open
+    // cross-tenant row leakage on an unauthenticated route with every other test still green.
+    "return not-found for a panelId that belongs to a DIFFERENT dashboard than the one in the URL" in {
+      val sharedDashId  = seedDashboardWithPublicGrant()
+      val otherDashId   = seedDashboardWithPublicGrant()
+      val pipelineId    = newPipelineWithLastRunAt(Instant.now())
+      val otherPanelId  = seedOutputPanel(otherDashId, pipelineId)
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("a" -> JsString("1")))))
+
+      // otherPanelId genuinely resolves rows on ITS OWN (also-shared) dashboard...
+      Get(s"/dashboards/$otherDashId/panels/$otherPanelId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
+        items should have size 1
+      }
+      // ...but requesting it against a DIFFERENT dashboard's URL must be rejected, not silently
+      // served -- proving cross-dashboard confinement rather than assuming it from the ACL check
+      // alone (the ACL only proves sharedDashId is visible, not that otherPanelId belongs to it).
+      Get(s"/dashboards/$sharedDashId/panels/$otherPanelId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[String] should include("Panel not found")
+      }
+    }
+
+    "return an empty rows result (not a 500) when the panel's Output/pipeline no longer resolves" in {
+      val dashId  = seedDashboardWithPublicGrant()
+      import PostgresProfile.api._
+      val panelId = UUID.randomUUID().toString
+      await(db.run(
+        sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
+                 VALUES ($panelId, $dashId, 'Text Panel', $ownerId, now(), now(),
+                         '{"background":"transparent","color":"inherit","transparency":0.0}',
+                         'text', ${ownerId}::uuid)"""
+      ))
+
+      Get(s"/dashboards/$dashId/panels/$panelId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
+        items shouldBe empty
       }
     }
   }

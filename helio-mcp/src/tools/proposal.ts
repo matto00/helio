@@ -17,7 +17,7 @@
  * `ProposalPanelSupport`) was already retargeted by HEL-904 (task 3.8-3.10,
  * already on `main` before this branch existed) -- `metric`/`chart`/`table`/
  * `collection`/`timeline` panel kinds no longer exist; `"output"` is the ONLY
- * kind with a real data binding, and `dataTypeId` (kept under that name for
+ * kind with a real data binding, and `outputId` (kept under that name for
  * wire stability) now holds an Output id. This file was the one piece of the
  * contract still calling `GET /api/types` (deleted outright by HEL-904) for
  * its own grounding fetch -- a dead route, so every `propose_dashboard` call
@@ -53,7 +53,7 @@ const layoutSchema = z.object({
 // Exported so `replace_dashboard_contents` (write.ts, HEL-363) can validate
 // its `panels` array with the exact same shape `propose_dashboard`/
 // `apply_proposal` use — the backend's `ProposalPanel` wire shape is shared
-// verbatim across all three (design.md D2). `metricId`/`aggregation`/
+// verbatim across all three (design.md D2). `aggregation`/
 // `chartType`/`xAxisLabel`/`yAxisLabel`/`seriesColors`/`label`/`unit`/`sort`
 // are kept on the wire shape for schema stability (dashboard-proposal.schema.json's
 // own field descriptions: "legacy field, decoded but never applied") but are
@@ -62,7 +62,7 @@ const layoutSchema = z.object({
 export const panelSchema = z.object({
   title: z.string().min(1),
   type: z.enum(PANEL_TYPES),
-  dataTypeId: z.string().optional(),
+  outputId: z.string().optional(),
   fieldMapping: z.record(z.string(), z.string()).optional(),
   aggregation: z.record(z.string(), z.unknown()).optional(),
   // Initial config for non-data panels, applied at create time.
@@ -136,17 +136,17 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "panel accepts a generic `config` passthrough on top of the flat fields below, merged over " +
         "the config those fields derive and decoded by the same panel-create path " +
         "place_outputs/create_content_panel uses:\n" +
-        "• output — bind with `dataTypeId` set to a real Output id (obtained from " +
+        "• output — bind with `outputId` set to a real Output id (obtained from " +
         "get_workspace_context's pipelines[].outputs[] or list_outputs) — despite the field name, " +
         "this is an Output id, kept under that name for wire stability. `fieldMapping` is NOT " +
         "meaningful for an output panel (an Output's own `schema` is already the grounding " +
         "source) — do not set it.\n" +
         "• text/markdown — `content` (literal/static text) seeds the initial body. There is no " +
-        'data-bound "Source mode" anymore — a `config.dataTypeId`/`dataTypeId` on a text/markdown ' +
+        'data-bound "Source mode" anymore — a `config.outputId`/`outputId` on a text/markdown ' +
         "panel is silently inert, never a real binding.\n" +
         "• image — `url` seeds the initial imageUrl (imageFit defaults to contain; use " +
         "config.imageFit to override).\n" +
-        "An output panel's `dataTypeId` always stays authoritative over anything `config` " +
+        "An output panel's `outputId` always stays authoritative over anything `config` " +
         "supplies.",
       inputSchema: {
         dashboardName: z.string().min(1),
@@ -177,7 +177,7 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
       description:
         "Apply an accepted proposal via POST /api/dashboards/apply-proposal — the server validates " +
         "and creates the dashboard + panels atomically through the existing services (an output " +
-        "panel's FLAT `dataTypeId` -- never `config.dataTypeId`, which is not consulted for " +
+        "panel's FLAT `outputId` -- never `config.outputId`, which is not consulted for " +
         "binding on ANY panel kind -- must resolve to a real, caller-owned Output; nothing is " +
         "created if any panel is invalid). Each panel's `config` (if any) is merged " +
         "over the config derived from its flat fields and decoded by the same panel-create path " +

@@ -62,16 +62,16 @@ export function registerCombinedProposalTools(server: McpServer, api: HelioApi):
         '"$pipelineOutput" (evaluator-final round 2: the real contract has TWO accepted slots, ' +
         "not one, but only ONE that produces a real binding — read from CombinedProposalService's " +
         "flatIsBlessed/configIsBlessed directly, not guessed):\n" +
-        "• REAL binding: the sentinel as the flat `dataTypeId` on an `output`-kind panel — the " +
+        "• REAL binding: the sentinel as the flat `outputId` on an `output`-kind panel — the " +
         "same field a real Output id would occupy.\n" +
         "• Accepted but INERT (no error, substituted, then silently ignored at panel-create — " +
         "text/markdown/image panels have no data binding of any kind): the sentinel as the flat " +
-        "`dataTypeId` on a text/markdown/image panel, OR as `config.dataTypeId` on a " +
-        "text/markdown/image panel whose flat `dataTypeId` is left unset.\n" +
+        "`outputId` on a text/markdown/image panel, OR as `config.outputId` on a " +
+        "text/markdown/image panel whose flat `outputId` is left unset.\n" +
         "• 400s the WHOLE call, creating nothing, before the pipeline is even applied: the " +
-        "sentinel as `config.dataTypeId` on an `output`-kind panel (kind mismatch — `output` " +
-        "panels are only ever blessed via the flat field); `config.dataTypeId` shadowed by an " +
-        "already-set flat `dataTypeId` on the same panel; the sentinel anywhere else entirely " +
+        "sentinel as `config.outputId` on an `output`-kind panel (kind mismatch — `output` " +
+        "panels are only ever blessed via the flat field); `config.outputId` shadowed by an " +
+        "already-set flat `outputId` on the same panel; the sentinel anywhere else entirely " +
         "(e.g. `fieldMapping`); or a duplicate occurrence alongside a legitimate blessed one.\n" +
         "A panel may instead bind to any pre-existing Output id exactly as apply_proposal already " +
         "accepts, and a dashboard may mix multiple kinds of panel in the same call.\n" +

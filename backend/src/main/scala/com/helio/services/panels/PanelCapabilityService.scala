@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *
  *  HEL-904 task 3.11 rewired this off `DataTypeRepository`/`DataTypeRowRepository` onto
  *  `OutputRepository`/`NodeSnapshotRepository`. Cycle 29 finishes the retarget: the public
- *  `getCapabilities` signature is now keyed by `OutputId` (not the retired `DataTypeId`, which no
+ *  `getCapabilities` signature is now keyed by `OutputId` (not the retired `OutputId`, which no
  *  longer exists anywhere in `model.scala`) — every caller (`RefinementGrounding`,
  *  `DashboardAuthoringService`, `AssistantToolExecutor`) now wraps its bare id string directly in
  *  `OutputId(...)` at the call site, matching what this class actually resolves. */

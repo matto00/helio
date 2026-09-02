@@ -168,7 +168,7 @@ class AuthoringTelemetrySpec
     // `userWithWorkspace` returns the real Output's own id string (HEL-904 cycle 29: the
     // vestigial `DataType`/`DataTypeId` wrapper this used to be built through is deleted --
     // neither type exists anywhere in `model.scala` anymore) -- used to bind an "output"-kind
-    // proposal panel's `dataTypeId` field (task 3.9's Output-id semantics).
+    // proposal panel's `outputId` field (task 3.9's Output-id semantics).
     (owner, createdOutput.id.value)
   }
 
@@ -336,7 +336,7 @@ class AuthoringTelemetrySpec
       val (user, dt) = userWithWorkspace()
       val modelId = s"model-${UUID.randomUUID()}"
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","outputId":"${dt}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(validJson)), modelId)
 
       var responseAuthoringRequestId: String = ""
@@ -436,7 +436,7 @@ class AuthoringTelemetrySpec
       val (user, dt) = userWithWorkspace()
       val modelId = s"model-${UUID.randomUUID()}"
       val validJson =
-        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","dataTypeId":"${dt}","fieldMapping":{"value":"revenue"}}]}"""
+        s"""{"dashboardName":"Sales","panels":[{"title":"Total","type":"output","outputId":"${dt}","fieldMapping":{"value":"revenue"}}]}"""
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(""), Seq(ClaudeStreamEvent.TextDelta(validJson), ClaudeStreamEvent.MessageStop)), modelId)
 
       var resultAuthoringRequestId: String = ""

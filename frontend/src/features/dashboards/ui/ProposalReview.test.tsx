@@ -28,7 +28,7 @@ function makeProposal(): DashboardProposal {
       {
         title: "Total Revenue",
         type: "output",
-        dataTypeId: outputTypeId,
+        outputId: outputTypeId,
         fieldMapping: { value: "revenue" },
         layout: { x: 0, y: 0, w: 4, h: 3 },
       },
@@ -98,7 +98,7 @@ describe("ProposalReview", () => {
   it("flags a panel bound to an Output id that does not resolve in this workspace", () => {
     const proposal: DashboardProposal = {
       dashboardName: "Bad",
-      panels: [{ title: "X", type: "output", dataTypeId: missingOutputId }],
+      panels: [{ title: "X", type: "output", outputId: missingOutputId }],
     };
     renderReview({ proposal });
     expect(screen.getByText(/Bound Output not found in this workspace/i)).toBeInTheDocument();

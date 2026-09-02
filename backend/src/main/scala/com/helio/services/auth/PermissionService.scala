@@ -59,4 +59,17 @@ final class PermissionService(
           case false => Left(ServiceError.NotFound("Permission not found"))
         }
     }
+
+  /** Revokes the public (grantee_id IS NULL) grant on a dashboard, if any.
+   *  Dedicated path because the NULL-grantee row can never be addressed by the
+   *  UUID-keyed [[revoke]] method (HEL-910 final-gate CR1). */
+  def revokePublic(dashboardId: String, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    accessChecker.requireOwnerOnly(ResourceType, dashboardId, user, "Dashboard not found").flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(_)  =>
+        permissionRepo.deletePublic(ResourceType, dashboardId).map {
+          case true  => Right(())
+          case false => Left(ServiceError.NotFound("Permission not found"))
+        }
+    }
 }

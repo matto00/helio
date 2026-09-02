@@ -87,7 +87,7 @@ React Component → Redux Thunk (createAsyncThunk) → Service Layer (axios)
 - **PostgreSQL** is the persistence layer, managed by **Flyway** (migrations in `backend/src/main/resources/db/migration/`). **Slick** is the database access layer with HikariCP connection pooling.
 - **`ApiRoutes.scala`** defines all REST routes and composes the sub-routers. Inputs are normalized by `RequestValidation` before reaching repositories.
 - **`JsonProtocols.scala`** provides Spray JSON implicit formatters for all request/response types.
-- Domain models use value-class ID wrappers (`DashboardId`, `PanelId`, `DataTypeId`, `DataSourceId`) and immutable case classes with `ResourceMeta` for timestamps.
+- Domain models use value-class ID wrappers (`DashboardId`, `PanelId`, `OutputId`, `DataSourceId`) and immutable case classes with `ResourceMeta` for timestamps.
 - **`DemoData`** seeds initial data on startup for development convenience; production data persists across restarts.
 
 ### Frontend (React/Redux/TypeScript)
@@ -108,13 +108,12 @@ Key endpoints:
 - `POST /api/dashboards/:id/duplicate`
 - `GET /api/dashboards/:id/export` / `POST /api/dashboards/import` — export carries the dashboard's panels (there is no authenticated `GET /api/dashboards/:id`)
 - `GET /api/dashboards/:id/panels` — **public/shared dashboards only** (`PublicDashboardRoutes`, optional-auth); not available on the authenticated route tree
+- `GET /api/dashboards/:dashboardId/panels/:panelId/rows` — **public/shared dashboards only** (`PublicDashboardRoutes`, optional-auth), resolves `panel → output → node_snapshot`; see HEL-910
 - `POST /api/panels` — requires `dashboardId` in body
 - `PATCH /api/panels/:id` — updates appearance
 - `POST /api/panels/:id/duplicate`
-- `GET /api/types`
-- `GET/PATCH/DELETE /api/types/:id`
-- `GET /api/types/:id/rows` — latest pipeline-run row snapshot
-- `GET/POST /api/pipelines`, `GET /api/pipelines/:id/analyze`, plus step/run/status sub-routes — pipelines are the only path that produces panel-bindable data types (source → pipeline → type → panel)
+- `GET/POST /api/pipelines/:id/outputs`, `GET/PATCH/DELETE /api/outputs/:id`, `GET /api/outputs/:id/rows` — latest materialized `node_snapshots` for that Output, `GET /api/outputs` — every Output the caller owns
+- `GET/POST /api/pipelines` (single-call: source/steps/outputs in one request), `GET /api/pipelines/:id/analyze`, plus step/run/status sub-routes — pipelines are the only path that produces panel-bindable Outputs (source → pipeline → Output → panel); `/api/types` and `/api/metrics` were retired outright by the pipelines-and-outputs remodel (HEL-903/904) and now 404
 - `GET/PUT/DELETE /api/pipelines/:id/schedule` — per-pipeline cron/interval schedule (data model + CRUD only; `PUT` upserts). No runtime firing yet — that's the sibling scheduler-runtime ticket (HEL-415)
 - `GET/POST /api/data-sources`
 - `GET/DELETE /api/data-sources/:id`
