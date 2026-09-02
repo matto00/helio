@@ -2,6 +2,7 @@ package com.helio.app
 
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.api.http.CookieConfig
 import com.helio.api.ApiRoutes
@@ -37,6 +38,43 @@ object Main {
 
   private def guardian(): Behavior[Nothing] =
     Behaviors.setup[Nothing] { context =>
+      // Startup-failure hygiene (v0.7.8 Cloud Run deploy incident): the
+      // ActorSystem is created and started ASYNCHRONOUSLY -- Behaviors.setup's
+      // body below runs on an actor thread, not on main()'s call stack, so an
+      // exception thrown here (e.g. Database.initApp's Flyway migrate() call)
+      // does NOT propagate to a try/catch wrapped around
+      // `ActorSystem[Nothing](guardian(), "helio")` in main(); it only fails
+      // this one (guardian) actor. Left unhandled, Pekko's default
+      // supervision for a failing top-level guardian actor STOPS the actor
+      // system as part of ordinary (non-exceptional) shutdown -- so
+      // `system.whenTerminated` in main() completes SUCCESSFULLY, `Await.result`
+      // returns without throwing, main() returns normally, no non-daemon
+      // threads remain, and the JVM exits 0. That is a silent, "successful"
+      // exit with zero application log output and no stack trace, even
+      // though startup genuinely failed -- and it happens before `logger`
+      // above (system.log) is safe/guaranteed to have flushed anything, since
+      // the actor-system logging infrastructure is itself mid-bootstrap.
+      //
+      // Fix: run the entire setup body inside this try, and on any escaping
+      // exception, print it directly to stderr (bypassing the actor-system
+      // logger) and hard-`halt` the JVM with a non-zero code -- `halt` (not
+      // `System.exit`) skips shutdown hooks/Pekko's own termination
+      // machinery entirely, so nothing downstream can rewrite this into a
+      // clean exit(0) again. This turns this whole bug class into a loud,
+      // diagnosable Cloud Run crash-loop instead of a mysteriously
+      // "successful" empty exit.
+      try {
+        guardianSetup(context)
+      } catch {
+        case e: Throwable =>
+          System.err.println("FATAL: helio backend failed to start")
+          e.printStackTrace(System.err)
+          Runtime.getRuntime.halt(1)
+          throw e // unreachable; satisfies the return type if halt somehow doesn't
+      }
+    }
+
+  private def guardianSetup(context: ActorContext[Nothing]): Behavior[Nothing] = {
       implicit val system: ActorSystem[Nothing] = context.system
       implicit val ec = context.executionContext
       val logger = system.log
@@ -218,5 +256,5 @@ object Main {
       }(context.executionContext)
 
       Behaviors.empty
-    }
+  }
 }
