@@ -453,205 +453,216 @@ export function OutputEditorSheet({
         </div>
       }
     >
-      <div className="output-editor-sheet__data-section">
-        <label className="output-editor-sheet__data-label" htmlFor="output-name">
-          Name
-        </label>
-        <TextField
-          id="output-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Untitled output"
-        />
-      </div>
-
-      {isCreate && (
+      <div className="output-editor-sheet__group">
         <div className="output-editor-sheet__data-section">
-          <label className="output-editor-sheet__data-label" htmlFor="output-step">
-            Step
+          <label className="output-editor-sheet__data-label" htmlFor="output-name">
+            Name
           </label>
-          <Select
-            ariaLabel="Target step"
-            value={nodeStepId ?? ""}
-            onChange={(v) => setNodeStepId(v === "" ? undefined : v)}
-            options={stepOptions}
+          <TextField
+            id="output-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Untitled output"
           />
         </div>
-      )}
 
-      <div className="output-editor-sheet__data-section">
-        <label className="output-editor-sheet__data-label" htmlFor="output-kind">
-          Kind
-        </label>
-        <Select
-          ariaLabel="Output kind"
-          value={kind}
-          onChange={(v) => setKind(v as OutputKind)}
-          options={KIND_OPTIONS}
-        />
-      </div>
-
-      {kind === "chart" && (
-        <ChartKindFields
-          fieldOptions={aggFieldOptions}
-          chartType={chartType}
-          onChartTypeChange={setChartType}
-          groupByValue={groupBy}
-          onGroupByChange={setGroupBy}
-          valueFieldValue={yField}
-          onValueFieldChange={setYField}
-          aggFnValue={chartAggFn}
-          onAggFnChange={setChartAggFn}
-          line={chartOptionsState.line ?? ({} as LineChartOptions)}
-          onLineChange={(patch) =>
-            setChartOptionsState((prev) => ({ ...prev, line: { ...prev.line, ...patch } }))
-          }
-          bar={chartOptionsState.bar ?? ({} as BarChartOptions)}
-          onBarChange={(patch) =>
-            setChartOptionsState((prev) => ({ ...prev, bar: { ...prev.bar, ...patch } }))
-          }
-          pie={chartOptionsState.pie ?? ({} as PieChartOptions)}
-          onPieChange={(patch) =>
-            setChartOptionsState((prev) => ({ ...prev, pie: { ...prev.pie, ...patch } }))
-          }
-          scatter={chartOptionsState.scatter ?? ({} as ScatterChartOptions)}
-          onScatterChange={(patch) =>
-            setChartOptionsState((prev) => ({ ...prev, scatter: { ...prev.scatter, ...patch } }))
-          }
-          annotationState={annotationState}
-        />
-      )}
-      {kind === "table" && (
-        <TableKindFields
-          columns={tableCols.columns}
-          onToggleVisible={tableCols.toggleVisible}
-          onMoveUp={tableCols.moveUp}
-          onMoveDown={tableCols.moveDown}
-          onMoveToTop={tableCols.moveToTop}
-          onMoveToBottom={tableCols.moveToBottom}
-        />
-      )}
-      {kind === "metric" && (
-        <MetricKindFields
-          fieldOptions={aggFieldOptions}
-          fieldValue={metricField}
-          onFieldChange={setMetricField}
-          reduceValue={metricAggFn}
-          onReduceChange={setMetricAggFn}
-          labelState={metricLabelState}
-          unitState={metricUnitState}
-          formatValue={metricFormat}
-          onFormatChange={setMetricFormat}
-        />
-      )}
-      {kind === "markdown" && (
-        <MarkdownKindFields fieldOptions={fieldOptions} contentState={markdownContentState} />
-      )}
-      {kind === "collection" && (
-        <>
-          <SimpleMappingFields
-            title="Item fields"
-            slots={[
-              { key: "value", label: "Value" },
-              { key: "label", label: "Label" },
-              { key: "unit", label: "Unit" },
-            ]}
-            fieldMapping={collectionFieldMapping}
-            onFieldChange={(k, v) => setCollectionFieldMapping((prev) => ({ ...prev, [k]: v }))}
-            fieldOptions={fieldOptions}
-          />
+        {isCreate && (
           <div className="output-editor-sheet__data-section">
-            <label className="output-editor-sheet__data-label" htmlFor="output-collection-format">
-              Format
+            <label className="output-editor-sheet__data-label" htmlFor="output-step">
+              Step
             </label>
             <Select
-              ariaLabel="Format"
-              value={collectionFormat}
-              onChange={setCollectionFormat}
-              options={METRIC_FORMAT_OPTIONS}
+              ariaLabel="Target step"
+              value={nodeStepId ?? ""}
+              onChange={(v) => setNodeStepId(v === "" ? undefined : v)}
+              options={stepOptions}
             />
           </div>
-        </>
-      )}
-      {kind === "timeline" && (
-        <SimpleMappingFields
-          title="Timeline fields"
-          slots={[
-            { key: "time", label: "Time" },
-            { key: "event", label: "Event" },
-          ]}
-          fieldMapping={timelineFieldMapping}
-          onFieldChange={(k, v) => setTimelineFieldMapping((prev) => ({ ...prev, [k]: v }))}
-          fieldOptions={fieldOptions}
-        />
-      )}
+        )}
 
-      {neverMaterialized && (
-        // HEL-946 Bug C(2) -- the preview below re-runs the node live and
-        // always shows current data, which is why it can look fine even
-        // though a dashboard panel bound to this SAVED Output currently
-        // shows "No data available": this node has never had a successful
-        // pipeline run since the Output was added, so nothing has been
-        // written to its saved snapshot yet. Distinct from a genuinely
-        // empty result (that case renders no banner at all).
-        <div className="output-editor-sheet__data-section" role="status">
-          <p className="output-editor-sheet__field-hint">
-            This output hasn&rsquo;t been included in a saved run yet, so any dashboard panel bound
-            to it currently shows &ldquo;No data available.&rdquo; Run the pipeline to populate it.
-          </p>
-          {onRunPipeline && (
-            <button
-              type="button"
-              className="ui-modal-btn ui-modal-btn--secondary"
-              onClick={onRunPipeline}
-            >
-              Run pipeline
-            </button>
-          )}
+        <div className="output-editor-sheet__data-section">
+          <label className="output-editor-sheet__data-label" htmlFor="output-kind">
+            Kind
+          </label>
+          <Select
+            ariaLabel="Output kind"
+            value={kind}
+            onChange={(v) => setKind(v as OutputKind)}
+            options={KIND_OPTIONS}
+          />
         </div>
-      )}
+      </div>
 
-      <h3 className="output-editor-sheet__edit-section-heading">Preview</h3>
-      <OutputPreviewPane
-        kind={kind}
-        rows={previewEntry.result}
-        loading={false}
-        chartType={chartType}
-        chartFieldMapping={chartFieldMapping}
-        chartGroupBy={groupBy}
-        chartAggFn={chartAggFn}
-        chartYField={yField}
-        chartOptions={chartOptionsState}
-        chartAnnotation={
-          annotationState.mode === "literal" ? annotationState.literalValue : undefined
-        }
-        tableColumns={tableCols.columns.filter((c) => c.visible).map((c) => c.key)}
-        metricField={metricField}
-        metricAggFn={metricAggFn}
-        metricLabel={
-          metricLabelState.mode === "literal" ? metricLabelState.literalValue : undefined
-        }
-        metricUnit={metricUnitState.mode === "literal" ? metricUnitState.literalValue : undefined}
-        metricFormat={metricFormat}
-        markdownContent={
-          markdownContentState.mode === "literal" ? markdownContentState.literalValue : undefined
-        }
-      />
+      <div className="output-editor-sheet__group output-editor-sheet__group--card">
+        <h3 className="output-editor-sheet__edit-section-heading">Configuration</h3>
+        {kind === "chart" && (
+          <ChartKindFields
+            fieldOptions={aggFieldOptions}
+            chartType={chartType}
+            onChartTypeChange={setChartType}
+            groupByValue={groupBy}
+            onGroupByChange={setGroupBy}
+            valueFieldValue={yField}
+            onValueFieldChange={setYField}
+            aggFnValue={chartAggFn}
+            onAggFnChange={setChartAggFn}
+            line={chartOptionsState.line ?? ({} as LineChartOptions)}
+            onLineChange={(patch) =>
+              setChartOptionsState((prev) => ({ ...prev, line: { ...prev.line, ...patch } }))
+            }
+            bar={chartOptionsState.bar ?? ({} as BarChartOptions)}
+            onBarChange={(patch) =>
+              setChartOptionsState((prev) => ({ ...prev, bar: { ...prev.bar, ...patch } }))
+            }
+            pie={chartOptionsState.pie ?? ({} as PieChartOptions)}
+            onPieChange={(patch) =>
+              setChartOptionsState((prev) => ({ ...prev, pie: { ...prev.pie, ...patch } }))
+            }
+            scatter={chartOptionsState.scatter ?? ({} as ScatterChartOptions)}
+            onScatterChange={(patch) =>
+              setChartOptionsState((prev) => ({ ...prev, scatter: { ...prev.scatter, ...patch } }))
+            }
+            annotationState={annotationState}
+          />
+        )}
+        {kind === "table" && (
+          <TableKindFields
+            columns={tableCols.columns}
+            onToggleVisible={tableCols.toggleVisible}
+            onMoveUp={tableCols.moveUp}
+            onMoveDown={tableCols.moveDown}
+            onMoveToTop={tableCols.moveToTop}
+            onMoveToBottom={tableCols.moveToBottom}
+          />
+        )}
+        {kind === "metric" && (
+          <MetricKindFields
+            fieldOptions={aggFieldOptions}
+            fieldValue={metricField}
+            onFieldChange={setMetricField}
+            reduceValue={metricAggFn}
+            onReduceChange={setMetricAggFn}
+            labelState={metricLabelState}
+            unitState={metricUnitState}
+            formatValue={metricFormat}
+            onFormatChange={setMetricFormat}
+          />
+        )}
+        {kind === "markdown" && (
+          <MarkdownKindFields fieldOptions={fieldOptions} contentState={markdownContentState} />
+        )}
+        {kind === "collection" && (
+          <>
+            <SimpleMappingFields
+              title="Item fields"
+              slots={[
+                { key: "value", label: "Value" },
+                { key: "label", label: "Label" },
+                { key: "unit", label: "Unit" },
+              ]}
+              fieldMapping={collectionFieldMapping}
+              onFieldChange={(k, v) => setCollectionFieldMapping((prev) => ({ ...prev, [k]: v }))}
+              fieldOptions={fieldOptions}
+            />
+            <div className="output-editor-sheet__data-section">
+              <label className="output-editor-sheet__data-label" htmlFor="output-collection-format">
+                Format
+              </label>
+              <Select
+                ariaLabel="Format"
+                value={collectionFormat}
+                onChange={setCollectionFormat}
+                options={METRIC_FORMAT_OPTIONS}
+              />
+            </div>
+          </>
+        )}
+        {kind === "timeline" && (
+          <SimpleMappingFields
+            title="Timeline fields"
+            slots={[
+              { key: "time", label: "Time" },
+              { key: "event", label: "Event" },
+            ]}
+            fieldMapping={timelineFieldMapping}
+            onFieldChange={(k, v) => setTimelineFieldMapping((prev) => ({ ...prev, [k]: v }))}
+            fieldOptions={fieldOptions}
+          />
+        )}
+      </div>
+
+      <div className="output-editor-sheet__group output-editor-sheet__group--card">
+        <h3 className="output-editor-sheet__edit-section-heading">Preview</h3>
+        {neverMaterialized && (
+          // HEL-946 Bug C(2) -- the preview below re-runs the node live and
+          // always shows current data, which is why it can look fine even
+          // though a dashboard panel bound to this SAVED Output currently
+          // shows "No data available": this node has never had a successful
+          // pipeline run since the Output was added, so nothing has been
+          // written to its saved snapshot yet. Distinct from a genuinely
+          // empty result (that case renders no banner at all).
+          <div className="output-editor-sheet__data-section" role="status">
+            <p className="output-editor-sheet__field-hint">
+              This output hasn&rsquo;t been included in a saved run yet, so any dashboard panel
+              bound to it currently shows &ldquo;No data available.&rdquo; Run the pipeline to
+              populate it.
+            </p>
+            {onRunPipeline && (
+              <button
+                type="button"
+                className="ui-modal-btn ui-modal-btn--secondary"
+                onClick={onRunPipeline}
+              >
+                Run pipeline
+              </button>
+            )}
+          </div>
+        )}
+        <OutputPreviewPane
+          kind={kind}
+          rows={previewEntry.result}
+          loading={false}
+          chartType={chartType}
+          chartFieldMapping={chartFieldMapping}
+          chartGroupBy={groupBy}
+          chartAggFn={chartAggFn}
+          chartYField={yField}
+          chartOptions={chartOptionsState}
+          chartAnnotation={
+            annotationState.mode === "literal" ? annotationState.literalValue : undefined
+          }
+          tableColumns={tableCols.columns.filter((c) => c.visible).map((c) => c.key)}
+          metricField={metricField}
+          metricAggFn={metricAggFn}
+          metricLabel={
+            metricLabelState.mode === "literal" ? metricLabelState.literalValue : undefined
+          }
+          metricUnit={metricUnitState.mode === "literal" ? metricUnitState.literalValue : undefined}
+          metricFormat={metricFormat}
+          markdownContent={
+            markdownContentState.mode === "literal" ? markdownContentState.literalValue : undefined
+          }
+        />
+      </div>
 
       {!isCreate && placements && (
-        <div className="output-editor-sheet__data-section">
-          <span className="output-editor-sheet__data-label">Placements ({placements.length})</span>
-          {placements.length === 0 ? (
-            <p className="output-editor-sheet__field-hint">Not placed on any dashboard yet.</p>
-          ) : (
-            <ul className="output-editor-sheet__placements">
-              {placements.map((p) => (
-                <li key={p.panelId}>
-                  <a href={`/dashboards/${p.dashboardId}`}>Dashboard {p.dashboardId}</a>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="output-editor-sheet__group">
+          <div className="output-editor-sheet__data-section">
+            <span className="output-editor-sheet__data-label">
+              Placements ({placements.length})
+            </span>
+            {placements.length === 0 ? (
+              <p className="output-editor-sheet__field-hint">Not placed on any dashboard yet.</p>
+            ) : (
+              <ul className="output-editor-sheet__placements">
+                {placements.map((p) => (
+                  <li key={p.panelId}>
+                    <a href={`/dashboards/${p.dashboardId}`}>Dashboard {p.dashboardId}</a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
