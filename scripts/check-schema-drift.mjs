@@ -163,8 +163,12 @@ function extractBetween(src, startMarker, endMarker, file) {
   return src.slice(startIdx, endIdx);
 }
 
+// HEL-928: widened from [a-zA-Z0-9] to also allow underscore — several assistant tool-schema
+// enums (e.g. "rest_api") use snake_case values that the original alnum-only pattern silently
+// dropped, which would have made the new AssistantProposalToolSchemas parity checks below
+// falsely report every snake_case enum value as missing.
 function extractQuoted(str) {
-  return [...str.matchAll(/"([a-zA-Z0-9]+)"/g)].map((m) => m[1]);
+  return [...str.matchAll(/"([a-zA-Z0-9_]+)"/g)].map((m) => m[1]);
 }
 
 function getEnumAt(schema, path, file) {
@@ -324,13 +328,339 @@ for (const { label, canonical, actual } of [...panelTypeSurfaces, ...dataPanelTy
   else panelTypeChecked += 1;
 }
 
+// --- AssistantProposalToolSchemas <-> tool-schema JSON Schema parity (HEL-928) ---
+// AssistantProposalToolSchemas.scala hand-rolls `JsObject` trees for each `propose_*`
+// ClaudeTool's `inputSchema` rather than declaring `case class`es, so the case-class scanner
+// above structurally cannot see it — this file drifted from the JSON Schemas it's meant to
+// mirror with nothing catching it (this whole gap is exactly what HEL-928 found: the checked-
+// surface list here is a hardcoded array, not something a new tool-schema file registers itself
+// into, so it's silently invisible to this gate until someone remembers to add it — the same way
+// AssistantProposalToolSchemas.scala itself was). This section walks the same hand-rolled
+// `JsObject(...)` literals with a paren-balanced parser and diffs their property/enum sets
+// against the corresponding schemas/**/*.schema.json files (following $ref within a file's own
+// $defs).
+//
+// HEL-928 audit of every other `.scala` file defining a `ClaudeTool` (`grep -rl "ClaudeTool(" `
+// `backend/src/main/scala`): `WorkspaceAssistantTools.scala` (`find`/`get_resource`) uses a
+// `ResourceTypeEnum` sourced from the internal `WorkspaceResourceType` domain enum, not from any
+// `schemas/**/*.schema.json` file — there's no JSON Schema counterpart for those two tools to
+// mirror, so this parity technique doesn't apply to it. Left unchecked here for that reason, not
+// an oversight; `ClaudeModels.scala` only declares the `ClaudeTool` case class itself, no tool
+// instances.
+const assistantToolSchemasScala = join(
+  repoRoot,
+  "backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala",
+);
+// Strip `//` and `/* */` comments before parsing — naive stripping would corrupt description
+// strings containing "://" (e.g. "https://dashboard.stripe.com/apikeys") or stray quotes inside
+// a doc comment, so this tracks string-literal state and only treats `/` `*` as comment markers
+// outside one.
+function stripComments(src) {
+  let out = "";
+  let inStr = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inStr) {
+      out += c;
+      if (c === "\\") out += src[++i] ?? "";
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+      out += c;
+      continue;
+    }
+    if (c === "/" && src[i + 1] === "/") {
+      const nl = src.indexOf("\n", i);
+      i = nl === -1 ? src.length : nl - 1;
+      continue;
+    }
+    if (c === "/" && src[i + 1] === "*") {
+      const end = src.indexOf("*/", i + 2);
+      i = end === -1 ? src.length : end + 1;
+      continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+const assistantSrc = stripComments(readFileSync(assistantToolSchemasScala, "utf8"));
+
+function findMatchingParen(src, openIdx) {
+  let depth = 0;
+  for (let i = openIdx; i < src.length; i++) {
+    if (src[i] === "(") depth++;
+    else if (src[i] === ")") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  throw new Error(`${assistantToolSchemasScala}: unbalanced parens from index ${openIdx}`);
+}
+
+// Split a JsObject(...)'s inner body on top-level commas only — commas nested inside a
+// parenthesized/bracketed value or a string literal don't count.
+function splitTopLevel(str) {
+  const parts = [];
+  let depth = 0;
+  let cur = "";
+  let inStr = false;
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if (inStr) {
+      cur += c;
+      if (c === "\\") cur += str[++i] ?? "";
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    if (c === "(" || c === "[") depth++;
+    if (c === ")" || c === "]") depth--;
+    if (c === "," && depth === 0) {
+      parts.push(cur);
+      cur = "";
+      continue;
+    }
+    cur += c;
+  }
+  if (cur.trim()) parts.push(cur);
+  return parts;
+}
+
+// Parse a JsObject(...) body's top-level `"key" -> <value>` entries into [key, valueSrc] pairs.
+function topLevelEntries(body) {
+  return splitTopLevel(body)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const m = /^"([^"]+)"\s*->\s*([\s\S]*)$/.exec(part);
+      return m ? [m[1], m[2].trim()] : null;
+    })
+    .filter(Boolean);
+}
+
+// Extract the body of `[private] val <name>: JsObject = JsObject(...)`.
+function extractValBody(name) {
+  const marker = new RegExp(`val\\s+${name}\\s*:\\s*JsObject\\s*=\\s*JsObject\\(`);
+  const m = marker.exec(assistantSrc);
+  if (!m) throw new Error(`${assistantToolSchemasScala}: could not find "val ${name}: JsObject"`);
+  const openIdx = m.index + m[0].length - 1;
+  const closeIdx = findMatchingParen(assistantSrc, openIdx);
+  return assistantSrc.slice(openIdx + 1, closeIdx);
+}
+
+// Resolve a top-level `"properties" -> JsObject(...)` entry's body from a schema val's body.
+function propertiesBody(valBody, name) {
+  const entry = topLevelEntries(valBody).find(([k]) => k === "properties");
+  if (!entry) throw new Error(`${name}: no top-level "properties" entry found`);
+  const openIdx = entry[1].indexOf("(");
+  return entry[1].slice(openIdx + 1, findMatchingParen(entry[1], openIdx));
+}
+
+function scalaSchemaPropertyNames(name) {
+  return new Set(topLevelEntries(propertiesBody(extractValBody(name), name)).map(([k]) => k));
+}
+
+// Read the enum values off a top-level `"<field>" -> enumSchema(...)` (helper call) or
+// `"<field>" -> JsObject(..., "enum" -> JsArray(...), ...)` (inline literal) property entry.
+// Scoped to the matched `enumSchema(...)`/`JsArray(...)` argument list only — extractQuoted over
+// the WHOLE property value would also pick up sibling keys like "type"/"description".
+function scalaSchemaEnumValues(name, field) {
+  const props = topLevelEntries(propertiesBody(extractValBody(name), name));
+  const entry = props.find(([k]) => k === field);
+  if (!entry) throw new Error(`${name}: no "${field}" property found`);
+  const valueSrc = entry[1];
+
+  const enumSchemaIdx = valueSrc.indexOf("enumSchema(");
+  if (enumSchemaIdx !== -1) {
+    const openIdx = enumSchemaIdx + "enumSchema".length;
+    return new Set(
+      extractQuoted(valueSrc.slice(openIdx + 1, findMatchingParen(valueSrc, openIdx))),
+    );
+  }
+
+  const enumKeyIdx = valueSrc.indexOf('"enum"');
+  if (enumKeyIdx !== -1) {
+    const arrayMarkerIdx = valueSrc.indexOf("JsArray(", enumKeyIdx);
+    const openIdx = arrayMarkerIdx + "JsArray".length;
+    return new Set(
+      extractQuoted(valueSrc.slice(openIdx + 1, findMatchingParen(valueSrc, openIdx))),
+    );
+  }
+
+  throw new Error(`${name}.${field}: no enumSchema(...) or "enum" -> JsArray(...) found`);
+}
+
+// Resolve a schema file's own top-level properties, or a `$defs.<Name>` fragment's properties,
+// within the SAME file (no cross-file $ref following needed for this parity check).
+function jsonSchemaPropertyNames(schemaFile, defName) {
+  const schema = JSON.parse(readFileSync(join(schemasDir, schemaFile), "utf8"));
+  const node = defName ? schema.$defs?.[defName] : schema;
+  if (!node) throw new Error(`${schemaFile}: no $defs.${defName} found`);
+  return new Set(Object.keys(node.properties ?? {}));
+}
+
+function jsonSchemaEnumValues(schemaFile, defName, field) {
+  const schema = JSON.parse(readFileSync(join(schemasDir, schemaFile), "utf8"));
+  const node = defName ? schema.$defs?.[defName] : schema;
+  const enumArr = node?.properties?.[field]?.enum;
+  if (!Array.isArray(enumArr))
+    throw new Error(`${schemaFile}: $defs.${defName ?? ""}.properties.${field}.enum missing`);
+  return new Set(enumArr);
+}
+
+// { label, scala: [scalaVal, field?], json: [schemaFile, defName?, field?] }
+// field present on both sides => compare enum values instead of property-name sets.
+const assistantToolParitySurfaces = [
+  {
+    label: "propose_dashboard: DashboardProposalSchema <-> dashboard-proposal.schema.json",
+    scala: scalaSchemaPropertyNames("DashboardProposalSchema"),
+    json: jsonSchemaPropertyNames("dashboards/dashboard-proposal.schema.json"),
+  },
+  {
+    label: "ProposalPanelSchema <-> dashboard-proposal.schema.json $defs.ProposalPanel",
+    scala: scalaSchemaPropertyNames("ProposalPanelSchema"),
+    json: jsonSchemaPropertyNames("dashboards/dashboard-proposal.schema.json", "ProposalPanel"),
+  },
+  {
+    label: "ProposalPanelSchema.type enum <-> $defs.ProposalPanel.properties.type.enum",
+    scala: scalaSchemaEnumValues("ProposalPanelSchema", "type"),
+    json: jsonSchemaEnumValues(
+      "dashboards/dashboard-proposal.schema.json",
+      "ProposalPanel",
+      "type",
+    ),
+  },
+  {
+    label: "propose_pipeline: PipelineProposalSchema <-> pipeline-proposal.schema.json",
+    scala: scalaSchemaPropertyNames("PipelineProposalSchema"),
+    json: jsonSchemaPropertyNames("pipelines/pipeline-proposal.schema.json"),
+  },
+  {
+    label:
+      "PipelineProposalSourceSchema <-> pipeline-proposal.schema.json $defs.PipelineProposalSource",
+    scala: scalaSchemaPropertyNames("PipelineProposalSourceSchema"),
+    json: jsonSchemaPropertyNames(
+      "pipelines/pipeline-proposal.schema.json",
+      "PipelineProposalSource",
+    ),
+  },
+  {
+    label:
+      "PipelineProposalSourceSchema.type enum <-> $defs.PipelineProposalSource.properties.type.enum",
+    scala: scalaSchemaEnumValues("PipelineProposalSourceSchema", "type"),
+    json: jsonSchemaEnumValues(
+      "pipelines/pipeline-proposal.schema.json",
+      "PipelineProposalSource",
+      "type",
+    ),
+  },
+  {
+    label: "PipelineProposalStepSchema <-> create-pipeline-transactional-step-request.schema.json",
+    scala: scalaSchemaPropertyNames("PipelineProposalStepSchema"),
+    json: jsonSchemaPropertyNames(
+      "pipelines/create-pipeline-transactional-step-request.schema.json",
+    ),
+  },
+  {
+    label:
+      "PipelineProposalOutputSchema <-> create-pipeline-transactional-output-request.schema.json",
+    scala: scalaSchemaPropertyNames("PipelineProposalOutputSchema"),
+    json: jsonSchemaPropertyNames(
+      "pipelines/create-pipeline-transactional-output-request.schema.json",
+    ),
+  },
+  {
+    label:
+      "PipelineProposalOutputSchema.kind enum <-> create-pipeline-transactional-output-request.schema.json properties.kind.enum",
+    scala: scalaSchemaEnumValues("PipelineProposalOutputSchema", "kind"),
+    json: new Set(
+      JSON.parse(
+        readFileSync(
+          join(schemasDir, "pipelines/create-pipeline-transactional-output-request.schema.json"),
+          "utf8",
+        ),
+      ).properties.kind.enum,
+    ),
+  },
+  {
+    label: "propose_combined: CombinedProposalSchema <-> combined-proposal.schema.json",
+    scala: scalaSchemaPropertyNames("CombinedProposalSchema"),
+    json: jsonSchemaPropertyNames("authoring/combined-proposal.schema.json"),
+  },
+  {
+    label: "propose_patch_set: PatchSetSchema <-> patch-set.schema.json",
+    scala: scalaSchemaPropertyNames("PatchSetSchema"),
+    json: jsonSchemaPropertyNames("patch-sets/patch-set.schema.json"),
+  },
+  {
+    label: "EditSchema <-> patch-set.schema.json $defs.Edit",
+    scala: scalaSchemaPropertyNames("EditSchema"),
+    json: jsonSchemaPropertyNames("patch-sets/patch-set.schema.json", "Edit"),
+  },
+  {
+    label: "EditTargetSchema <-> patch-set.schema.json $defs.EditTarget",
+    scala: scalaSchemaPropertyNames("EditTargetSchema"),
+    json: jsonSchemaPropertyNames("patch-sets/patch-set.schema.json", "EditTarget"),
+  },
+  {
+    label: "EditTargetSchema.kind enum <-> $defs.EditTarget.properties.kind.enum",
+    scala: scalaSchemaEnumValues("EditTargetSchema", "kind"),
+    json: jsonSchemaEnumValues("patch-sets/patch-set.schema.json", "EditTarget", "kind"),
+  },
+];
+
+// HEL-928 turned this parity check on for the first time and it immediately found two REAL
+// pre-existing drifts (verified by direct reading of both sides, not a checker false positive):
+// PipelineProposalStepSchema is missing the optional `enabled` field, and EditTargetSchema's
+// `kind` enum is missing `"output"`. HEL-928's author was scoped to this script only and barred
+// from editing backend Scala (parallel work was in flight on Output routes/services), so these
+// are narrowly allowed here — by exact surface label + exact missing value, not a blanket
+// skip — rather than fixed in place. Tracked by HEL-948; remove these two entries (and this
+// comment) once it ships, so this check goes back to full strict parity with zero exceptions.
+const KNOWN_PRE_EXISTING_DRIFT = new Map([
+  [
+    "PipelineProposalStepSchema <-> create-pipeline-transactional-step-request.schema.json",
+    { missingInScala: new Set(["enabled"]) },
+  ],
+  [
+    "EditTargetSchema.kind enum <-> $defs.EditTarget.properties.kind.enum",
+    { missingInScala: new Set(["output"]) },
+  ],
+]);
+
+let assistantToolSurfacesChecked = 0;
+for (const { label, scala, json } of assistantToolParitySurfaces) {
+  const allowed = KNOWN_PRE_EXISTING_DRIFT.get(label)?.missingInScala ?? new Set();
+  const missingInScala = [...json].filter((p) => !scala.has(p) && !allowed.has(p));
+  const missingInJson = [...scala].filter((p) => !json.has(p));
+  if (missingInScala.length || missingInJson.length) {
+    const parts = [`${label}:`];
+    if (missingInScala.length)
+      parts.push(
+        `  in JSON Schema, missing from AssistantProposalToolSchemas.scala: ${missingInScala.join(", ")}`,
+      );
+    if (missingInJson.length)
+      parts.push(
+        `  in AssistantProposalToolSchemas.scala, missing from JSON Schema: ${missingInJson.join(", ")}`,
+      );
+    errors.push(parts.join("\n"));
+  } else {
+    assistantToolSurfacesChecked += 1;
+  }
+}
+
 if (errors.length) {
   console.error("Schema/JsonProtocols drift detected:\n");
   for (const e of errors) console.error(e + "\n");
   console.error(
     "Update either the schema in schemas/ or the case class under backend/.../api/protocols/ so they agree.\n" +
       "For panel-type enum mismatches, widen the diverging surface to match the backend canonical set " +
-      "(PanelType.fromString / DataPanelKinds).",
+      "(PanelType.fromString / DataPanelKinds).\n" +
+      "For AssistantProposalToolSchemas.scala mismatches, update the tool's hand-rolled JsObject " +
+      "schema (or the schemas/ JSON Schema it mirrors) so they agree.",
   );
   process.exit(1);
 }
@@ -340,4 +670,7 @@ console.log(
 );
 console.log(
   `panel-type enums in sync with backend canonical sets (${panelTypeChecked} surfaces checked)`,
+);
+console.log(
+  `AssistantProposalToolSchemas.scala in sync with schemas/ (${assistantToolSurfacesChecked} surfaces checked)`,
 );
