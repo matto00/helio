@@ -864,8 +864,13 @@ final class PipelineService(
           }
           // Pre-flight ACL: UnionStep other-source must be caller-owned (HEL-384,
           // design.md Decision 9 — symmetric with joinCheckF above).
+          // Empty otherDataSourceId (the picker's own defaultConfigFor("union") seed
+          // value) is an incomplete draft, not a security violation — nothing to leak
+          // against an unset id. Only run the ownership check once a real id is
+          // present; the empty case falls through to the same allow-path as "no
+          // UnionConfig at all" (HEL-620, mirrors lookupCheckF's identical guard below).
           val unionCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
-            case uc: UnionConfig =>
+            case uc: UnionConfig if uc.otherDataSourceId.nonEmpty =>
               dataSourceRepo.findByIdOwned(DataSourceId(uc.otherDataSourceId), user).map {
                 case None    => Left(ServiceError.NotFound(s"Data source not found: ${uc.otherDataSourceId}"))
                 case Some(_) => Right(())
@@ -1098,8 +1103,11 @@ final class PipelineService(
                             }
                             // Pre-flight ACL: UnionStep other-source must be caller-owned
                             // (HEL-384, design.md Decision 9 — symmetric with joinCheckF above).
+                            // Empty otherDataSourceId is an incomplete draft, not a security
+                            // violation — see the identical guard + rationale in addStep above
+                            // (HEL-620).
                             val unionCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
-                              case uc: UnionConfig =>
+                              case uc: UnionConfig if uc.otherDataSourceId.nonEmpty =>
                                 dataSourceRepo.findByIdOwned(DataSourceId(uc.otherDataSourceId), user).map {
                                   case None    => Left(ServiceError.NotFound(s"Data source not found: ${uc.otherDataSourceId}"))
                                   case Some(_) => Right(())
