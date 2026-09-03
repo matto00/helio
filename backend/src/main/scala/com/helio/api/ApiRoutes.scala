@@ -221,15 +221,6 @@ final class ApiRoutes(
   private val traceContext = new TraceContextDirective()
 
   private val accessChecker     = new AccessCheckerImpl(permissionRepo, registry)
-  // HEL-906: mirrors alertRuleServiceOpt's nullable-optional wiring below —
-  // fixtures that don't pass a DbContext simply don't get
-  // /api/pipelines/:id/outputs or /api/outputs/:id mounted.
-  private val outputServiceOpt: Option[OutputService] =
-    // HEL-906 task 2.5: threads the same `pipelineRunRepo` constructor param ApiRoutes already
-    // takes (nullable, default `null`) -- fixtures that don't pass one simply get
-    // `assertionStatus`'s null-checked `invalid = false` fallback, matching every other
-    // nullable-optional collaborator in this file.
-    outputRepoOpt.map(new OutputService(_, panelRepo, accessChecker, auditService, pipelineRunRepo, nodeSnapshotRepoOpt.orNull))
   // HEL-703: read once, shared by authService (register/login/OAuth tier assignment) and
   // chatAccessServiceOpt (beta daily cap) below — mirrors cookieConfig's fromEnv-once convention.
   private val userTierConfig    = UserTierConfig.fromEnv()
@@ -304,6 +295,22 @@ final class ApiRoutes(
     outputRepo = outputRepoOpt.orNull,
     nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull
   )
+  // HEL-906: mirrors alertRuleServiceOpt's nullable-optional wiring below —
+  // fixtures that don't pass a DbContext simply don't get
+  // /api/pipelines/:id/outputs or /api/outputs/:id mounted.
+  // HEL-947: moved below `pipelineRunService`'s own definition (was previously constructed
+  // above it) so it can be threaded in here -- `OutputService.create`/`update` fire
+  // `pipelineRunService.backfillOutputNode` off the request path on a newly-Output-bound node
+  // that already has a materialized ancestor run (see OutputService.triggerBackfill's doc).
+  private val outputServiceOpt: Option[OutputService] =
+    // HEL-906 task 2.5: threads the same `pipelineRunRepo` constructor param ApiRoutes already
+    // takes (nullable, default `null`) -- fixtures that don't pass one simply get
+    // `assertionStatus`'s null-checked `invalid = false` fallback, matching every other
+    // nullable-optional collaborator in this file.
+    outputRepoOpt.map(new OutputService(
+      _, panelRepo, accessChecker, auditService, pipelineRunRepo, nodeSnapshotRepoOpt.orNull,
+      pipelineRunService = pipelineRunService
+    ))
   // HEL-383: atomic pipeline-proposal apply — composes sourceService/
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,
   // all already constructed above, plus dataSourceRepo/dataTypeRepo for the

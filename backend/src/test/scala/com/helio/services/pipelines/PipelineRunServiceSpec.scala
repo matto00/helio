@@ -1413,6 +1413,13 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     // /spec.md:41-45): only nodes with an attached Output are materialized -- a node with NO
     // Output must have zero node_snapshots rows after a successful run, even though the tree
     // walk evaluates and produces a NodeOutcome for it.
+    //
+    // HEL-947 (revised design, see PipelineRunService.backfillOutputNode's doc): this per-run
+    // gate is UNCHANGED from HEL-905 -- measured write-amplification against a realistic
+    // 14-step/10k-row pipeline (15x node_snapshots rows, ~14x table size, ~2x run wall-clock;
+    // see PR #525) ruled out making every run snapshot every node. HEL-947's backfill instead
+    // happens ONLY at Output create/edit time, targeted at the single node in question --
+    // covered by OutputRoutesSpec's "created AFTER its node already ran" test, not here.
     "only materialized nodes appear in node_snapshots after a run" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
