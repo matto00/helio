@@ -73,17 +73,35 @@ export async function assertFloor(
   { minPx = DEFAULT_MIN_PX }: { minPx?: number } = {},
 ): Promise<void> {
   const { width, height, visible } = await measureBox(locator);
-  expect(visible, "control must be rendered/visible to be measured").toBe(true);
+  const selector = describeLocatorForFailureMessage(locator);
+  const floor = minPx - RENDERED_BOX_EPSILON_PX;
+  expect(visible, `control must be rendered/visible to be measured (${selector})`).toBe(true);
   expect(
     height,
-    `rendered height must meet the mobile tap-target floor (epsilon-adjusted, see ` +
-      `RENDERED_BOX_EPSILON_PX — HEL-935/HEL-818 sub-pixel rendering allowance)`,
-  ).toBeGreaterThanOrEqual(minPx - RENDERED_BOX_EPSILON_PX);
+    `expected >= ${minPx}px (epsilon ${RENDERED_BOX_EPSILON_PX}, floor ${floor}px), ` +
+      `measured height ${height}px on ${selector} — rendered height must meet the mobile ` +
+      `tap-target floor (see RENDERED_BOX_EPSILON_PX — HEL-935/HEL-818 sub-pixel rendering allowance)`,
+  ).toBeGreaterThanOrEqual(floor);
   expect(
     width,
-    `rendered width must meet the mobile tap-target floor (epsilon-adjusted, see ` +
-      `RENDERED_BOX_EPSILON_PX — HEL-935/HEL-818 sub-pixel rendering allowance)`,
-  ).toBeGreaterThanOrEqual(minPx - RENDERED_BOX_EPSILON_PX);
+    `expected >= ${minPx}px (epsilon ${RENDERED_BOX_EPSILON_PX}, floor ${floor}px), ` +
+      `measured width ${width}px on ${selector} — rendered width must meet the mobile ` +
+      `tap-target floor (see RENDERED_BOX_EPSILON_PX — HEL-935/HEL-818 sub-pixel rendering allowance)`,
+  ).toBeGreaterThanOrEqual(floor);
+}
+
+/** Best-effort, synchronous description of a locator for failure messages —
+ *  Playwright locators stringify their own selector chain via `toString()`
+ *  (e.g. `locator('.ui-select__option')`), which is exactly what a reader
+ *  needs to identify which surface/selector failed without re-running
+ *  anything. Never throws: falls back to a fixed placeholder if a future
+ *  Playwright version changes that shape. */
+function describeLocatorForFailureMessage(locator: Locator): string {
+  try {
+    return locator.toString();
+  } catch {
+    return "<unknown locator>";
+  }
 }
 
 /** Asserts a control is genuinely NOT rendered at the current viewport —
