@@ -20,6 +20,18 @@ import scala.util.{Failure, Success, Try}
  *  content `DataFieldType` (`StringBodyType` for text, `BinaryRefType` for
  *  PDF/image); the per-connector extraction/storage logic (e.g. PDF text
  *  extraction, image binary storage) stays in each connector's own service. */
+/** HEL-879 cycle-3: the typed outcome of [[ContentSourceSupport.checkEgress]] — see that
+ *  method's doc comment for why this exists (distinguishing "unresolvable" from "resolves to a
+ *  disallowed address" for callers with different create-time vs. fetch-time dispositions,
+ *  without message-substring matching). */
+sealed trait EgressCheck
+object EgressCheck {
+  final case class Allowed(address: InetAddress) extends EgressCheck
+  final case class Invalid(message: String) extends EgressCheck
+  final case class Unresolvable(message: String) extends EgressCheck
+  final case class Disallowed(message: String) extends EgressCheck
+}
+
 object ContentSourceSupport {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -128,13 +140,45 @@ object ContentSourceSupport {
       resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
       isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr)
   ): Either[String, InetAddress] =
+    checkEgress(url, resolveHost, isBlocked) match {
+      case EgressCheck.Allowed(addr)      => Right(addr)
+      case EgressCheck.Invalid(msg)       => Left(msg)
+      case EgressCheck.Unresolvable(msg)  => Left(msg)
+      case EgressCheck.Disallowed(msg)    => Left(msg)
+    }
+
+  /** HEL-879 cycle-3 fix: a fetch-time caller (`fetchUrl`/`RestApiConnectorDriver`'s issuers)
+   *  and a write-time caller (`ConnectorEntityService.create`/`update`) need DIFFERENT
+   *  dispositions for the same "host does not resolve right now" outcome. Fetch-time must fail
+   *  closed on it (you cannot fetch an unresolvable host anyway, and treating it as `Allowed`
+   *  would be nonsensical — there is no address to pin to). Write-time must NOT fail on it: a
+   *  Connector naming a not-yet-provisioned internal host, or hitting a transiently flaky
+   *  resolver, must still be creatable — see `specs/connectors/connector-management/spec.md`
+   *  and ticket AC1, neither of which requires refusing a merely-unresolvable host, only one
+   *  "resolving to loopback, link-local, or private address space" (i.e. resolves to something
+   *  disallowed). `validateAndResolve`/`validateUrl` (unchanged behavior for their existing
+   *  text/pdf/image/csv/REST-fetch-time callers — always fail closed) collapse EVERY non-Allowed
+   *  case to the same curated `Left` as before this method existed. `ConnectorEntityService` is
+   *  the one caller that inspects this ADT directly, to tell "unresolvable" (acceptable at
+   *  create/update time) apart from "resolves to a disallowed address" / "bad scheme" / "bad
+   *  URL" (never acceptable, at any time) — WITHOUT resorting to message-substring matching
+   *  (the pattern `CsvUrlFetchError`'s introduction, cited in design.md Decision 8, exists
+   *  precisely to avoid: "only message-substring matching to recover the status, which nothing
+   *  authorises"). The address-class policy itself ([[isBlockedAddress]]) is neither duplicated
+   *  nor weakened here — this only reclassifies which OUTCOME of that one policy each caller
+   *  treats as fatal. */
+  def checkEgress(
+      url: String,
+      resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr)
+  ): EgressCheck =
     Try(new URI(url)).toOption match {
-      case None => Left(s"Invalid URL: $url")
+      case None => EgressCheck.Invalid(s"Invalid URL: $url")
       case Some(uri) =>
         Option(uri.getScheme).map(_.toLowerCase) match {
           case Some("http") | Some("https") =>
             Option(uri.getHost) match {
-              case None => Left(s"URL is missing a host: $url")
+              case None => EgressCheck.Invalid(s"URL is missing a host: $url")
               case Some(host) =>
                 resolveHost(host) match {
                   case Failure(e) =>
@@ -142,16 +186,16 @@ object ContentSourceSupport {
                     // and the (caller-supplied) hostname, drop the raw DNS
                     // resolver exception tail; log the cause.
                     log.warn(s"Could not resolve host '$host'", e)
-                    Left(s"Could not resolve host '$host'")
+                    EgressCheck.Unresolvable(s"Could not resolve host '$host'")
                   case Success(addresses) if addresses.isEmpty =>
-                    Left(s"Could not resolve host '$host': no addresses returned")
+                    EgressCheck.Unresolvable(s"Could not resolve host '$host': no addresses returned")
                   case Success(addresses) if addresses.exists(a => isBlocked(host, a)) =>
-                    Left(s"URL host '$host' resolves to a disallowed address")
-                  case Success(addresses) => Right(addresses.head)
+                    EgressCheck.Disallowed(s"URL host '$host' resolves to a disallowed address")
+                  case Success(addresses) => EgressCheck.Allowed(addresses.head)
                 }
             }
           case other =>
-            Left(s"Unsupported URL scheme: ${other.getOrElse("(none)")}. Only http/https are allowed.")
+            EgressCheck.Invalid(s"Unsupported URL scheme: ${other.getOrElse("(none)")}. Only http/https are allowed.")
         }
     }
 

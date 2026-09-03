@@ -66,8 +66,10 @@ final class ConnectorEntityService(
     else
       // HEL-879 design.md Decision 4: egress-validate baseUrl AFTER the
       // non-empty check, BEFORE anything is persisted -- a refusal here
-      // creates no row.
-      ContentSourceSupport.validateUrl(baseUrl, resolveHost, isBlocked) match {
+      // creates no row. HEL-879 cycle-3 fix: a merely-unresolvable host is
+      // NOT refused here (see checkCreateTimeEgress) -- only a disallowed
+      // address or a structurally bad URL/scheme is.
+      checkCreateTimeEgress(baseUrl) match {
         case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
         case Right(()) =>
           DataSourceKind.parseKind(kind) match {
@@ -114,8 +116,9 @@ final class ConnectorEntityService(
           Future.successful(Left(ServiceError.BadRequest("baseUrl must not be empty")))
         else
           // HEL-879 design.md Decision 4: same egress validation as create --
-          // a refusal leaves the stored row unchanged.
-          ContentSourceSupport.validateUrl(baseUrl, resolveHost, isBlocked) match {
+          // a refusal leaves the stored row unchanged. Same unresolvable-is-OK
+          // relaxation as create (HEL-879 cycle-3 fix).
+          checkCreateTimeEgress(baseUrl) match {
             case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
             case Right(()) =>
               connectorRepo.update(id, name, baseUrl, config, Instant.now(), user).flatMap {
@@ -161,6 +164,26 @@ final class ConnectorEntityService(
   /** Strips any client-supplied `implicit` key from `config` and sets the server-owned value
    *  explicitly (design.md Decision 1a revised, CR5) -- the ONE place both `create`/`update`
    *  funnel through, so the two call sites can never drift on how this is enforced. */
+  /** HEL-879 cycle-3 fix: create/update-time egress check, deliberately LESS strict than
+   *  fetch-time (`RestApiConnectorDriver`'s guarded issuers, which still fail closed on an
+   *  unresolvable host -- untouched by this method). Neither `specs/connectors/connector-
+   *  management/spec.md` nor ticket AC1 requires refusing a host that simply does not resolve
+   *  right now -- only one resolving to loopback/link-local/private address space. Refusing an
+   *  unresolvable host at write time made Connector creation depend on live DNS for a
+   *  not-yet-provisioned internal host or a flaky resolver, which is not a security property
+   *  this ticket asked for. `EgressCheck.Unresolvable` is therefore treated as acceptable here;
+   *  `EgressCheck.Disallowed` (resolves to a disallowed address) and `EgressCheck.Invalid` (bad
+   *  scheme / missing host / unparseable URL) are still refused, exactly as before. The
+   *  authoritative guard remains the fetch-time one -- see design.md Decision 4: this write-time
+   *  check was already documented as non-authoritative. */
+  private def checkCreateTimeEgress(baseUrl: String): Either[String, Unit] =
+    ContentSourceSupport.checkEgress(baseUrl, resolveHost, isBlocked) match {
+      case EgressCheck.Allowed(_)      => Right(())
+      case EgressCheck.Unresolvable(_) => Right(())
+      case EgressCheck.Invalid(msg)    => Left(msg)
+      case EgressCheck.Disallowed(msg) => Left(msg)
+    }
+
   private def withServerOwnedImplicit(config: JsObject, implicitFlag: Boolean): String =
     JsObject(config.fields - "implicit" + ("implicit" -> JsBoolean(implicitFlag))).compactPrint
 }

@@ -146,8 +146,28 @@ class RestConnectorEgressGuardSpec extends AnyWordSpec with Matchers with Scalat
     }
 
     "still create a Connector for a permitted baseUrl" in {
-      val svc    = connectorEntityService(ContentSourceSupport.defaultResolveHost)
-      val result = await(svc.create(createReq("https://example.com/"), user))
+      // HEL-879 cycle-3: fake-resolved to a real public address rather than depending on live
+      // DNS actually resolving the literal hostname (the final-gate reviewer's one follow-up on
+      // cycle 1) -- this is exactly the fake-resolver pattern `blockedClasses` above already uses,
+      // just resolving to an ALLOWED address instead of a disallowed one.
+      val svc    = connectorEntityService(resolverFor("permitted.egress-guard.test", "93.184.216.34"))
+      val result = await(svc.create(createReq("https://permitted.egress-guard.test/"), user))
+      result.isRight shouldBe true
+    }
+
+    // HEL-879 cycle-3 regression: a merely-unresolvable-right-now host is NOT a security
+    // property `specs/connectors/connector-management/spec.md`/ticket AC1 asks this ticket to
+    // enforce at create time (only "resolves to a disallowed address" is) -- refusing it made
+    // Connector creation depend on live DNS, breaking creation of a Connector naming a
+    // not-yet-provisioned internal host. `unresolvableResolver` fails EVERY hostname (simulating
+    // "does not resolve right now"), distinct from `blockedClasses`' fake resolvers, which
+    // succeed but return a disallowed address -- this test guards the DISTINCTION between the
+    // two outcomes, not just that a well-formed URL happens to work.
+    "create a Connector whose baseUrl is well-formed but currently unresolvable (not a disallowed-address refusal)" in {
+      val unresolvableResolver: String => Try[Array[InetAddress]] =
+        host => scala.util.Failure(new java.net.UnknownHostException(host))
+      val svc    = connectorEntityService(unresolvableResolver)
+      val result = await(svc.create(createReq("https://not-yet-provisioned.internal.egress-guard.test/"), user))
       result.isRight shouldBe true
     }
   }
@@ -155,8 +175,8 @@ class RestConnectorEgressGuardSpec extends AnyWordSpec with Matchers with Scalat
   "ConnectorEntityService.update" should {
     blockedClasses.foreach { case (label, host, addr) =>
       s"reject a baseUrl resolving to $label, leaving the stored row unchanged" in {
-        val svc       = connectorEntityService(ContentSourceSupport.defaultResolveHost)
-        val created   = await(svc.create(createReq("https://example.com/"), user)).getOrElse(fail("setup create failed"))
+        val svc       = connectorEntityService(resolverFor("permitted.egress-guard.test", "93.184.216.34"))
+        val created   = await(svc.create(createReq("https://permitted.egress-guard.test/"), user)).getOrElse(fail("setup create failed"))
         val badSvc    = connectorEntityService(resolverFor(host, addr))
         val result    = await(badSvc.update(created.id, UpdateConnectorRequest(name = None, baseUrl = Some(s"http://$host/"), config = None), user))
         result.isLeft shouldBe true
