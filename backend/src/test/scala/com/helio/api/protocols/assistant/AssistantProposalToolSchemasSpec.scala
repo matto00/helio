@@ -93,6 +93,29 @@ class AssistantProposalToolSchemasSpec
       decoded.source.restConfig shouldBe defined
       RestApiConfigPayload.toDomain(ProposalRestApiConfig.toRestApiConfigPayload(decoded.source.restConfig.get)) shouldBe a[Right[_, _]]
     }
+
+    // HEL-948: PipelineProposalStepSchema's inputSchema now advertises `enabled`
+    // (type: [boolean, null]), matching create-pipeline-transactional-step-request.schema.json.
+    // Decode-pin a step carrying `enabled: false` through the SAME PipelineProposal target type
+    // AssistantToolExecutor.decode applies to a real tool_use.input.
+    "decodes a step carrying enabled: false with no DeserializationException" in {
+      val json =
+        """{
+          "pipelineName": "Weekly Signups",
+          "source": {
+            "type": "static",
+            "name": "Inline",
+            "config": { "columns": [{ "name": "a", "type": "integer" }], "rows": [] }
+          },
+          "steps": [
+            { "clientId": "s1", "type": "cast", "config": { "casts": { "a": "integer" } }, "enabled": false }
+          ]
+        }""".parseJson
+
+      val decoded = json.convertTo[PipelineProposal]
+      decoded.steps should have size 1
+      decoded.steps.head.enabled shouldBe Some(false)
+    }
   }
 
   "propose_combined's schema examples" should {
@@ -157,6 +180,28 @@ class AssistantProposalToolSchemasSpec
       val decoded = examplesOf("propose_patch_set").head.convertTo[PatchSet]
       val update   = decoded.edits.find(_.op == "update").getOrElse(fail("no update edit in example"))
       update.target.id shouldBe defined
+    }
+
+    // HEL-948: EditTargetSchema's `kind` enum now advertises "output", matching
+    // $defs.EditTarget.properties.kind.enum in schemas/patch-sets/patch-set.schema.json.
+    // Decode-pin a patch-set edit targeting kind: "output" through the SAME PatchSet target
+    // type AssistantToolExecutor.decode applies to a real tool_use.input.
+    "decodes an edit targeting kind: \"output\" with no DeserializationException" in {
+      val json =
+        """{
+          "summary": "Rename an output",
+          "edits": [
+            {
+              "target": { "kind": "output", "id": "output_example_from_find" },
+              "op": "update",
+              "patch": { "name": "Renamed Output" }
+            }
+          ]
+        }""".parseJson
+
+      val decoded = json.convertTo[PatchSet]
+      decoded.edits should have size 1
+      decoded.edits.head.target.kind shouldBe "output"
     }
   }
 }
