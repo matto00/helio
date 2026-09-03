@@ -198,10 +198,11 @@ const panelsSlice = createSlice({
           hasMore: existing?.hasMore ?? true,
           isLoadingMore: true,
           rows: existing?.rows ?? [],
+          materialized: existing?.materialized ?? true,
         };
       })
       .addCase(fetchPanelPage.fulfilled, (state, action) => {
-        const { panelId, page, rows, hasMore } = action.payload;
+        const { panelId, page, rows, hasMore, materialized } = action.payload;
         const existing = state.paginationState[panelId];
         // Append rows on page > 0 (load more), replace on page 0 (initial/reset)
         const updatedRows = page > 0 && existing ? [...existing.rows, ...rows] : rows;
@@ -210,6 +211,7 @@ const panelsSlice = createSlice({
           hasMore,
           isLoadingMore: false,
           rows: updatedRows,
+          materialized,
         };
       })
       .addCase(fetchPanelPage.rejected, (state, action) => {

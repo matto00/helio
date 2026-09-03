@@ -257,7 +257,10 @@ describe("OutputPicker", () => {
     });
 
     await waitFor(() =>
-      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "output", undefined, "output-2"),
+      // HEL-946 Bug C(1): `placeOutput` now passes the Output's own name as
+      // `title` so a newly-created panel doesn't fall back to "Untitled
+      // Panel" — this was `undefined` before the fix.
+      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "output", "Signups", "output-2"),
     );
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });

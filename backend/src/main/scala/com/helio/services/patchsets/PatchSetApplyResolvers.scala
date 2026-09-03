@@ -11,7 +11,7 @@ import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSo
 import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
-import spray.json.JsonReader
+import spray.json.{JsObject, JsonReader}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -628,7 +628,11 @@ private[services] object PatchSetApplyResolvers {
           case Right(existing) =>
             Right(ResolvedEdit(
               index, "output", "delete",
-              Some(outputResponseFormat.write(outputResponseFrom(existing))),
+              // HEL-946: config is deliberately omitted here, not defaulted by
+              // a silent overload — this resolved-state snapshot is for a
+              // delete, so the Output's config is about to cease to exist and
+              // isn't needed by any consumer of this outcome.
+              Some(outputResponseFormat.write(outputResponseFrom(existing, JsObject.empty))),
               ResolvedAction.OutputDelete(outputId, existing)
             ))
         }

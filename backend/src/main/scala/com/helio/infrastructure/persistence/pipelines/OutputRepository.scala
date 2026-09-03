@@ -116,6 +116,22 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def findConfigById(id: OutputId, user: AuthenticatedUser): Future[Option[JsObject]] =
     ctx.withUserContext(user.id.value)(table.filter(_.id === id.value).map(_.config).result.headOption)
 
+  /** Batch read of `config` for a set of Output ids — ONE query, not an
+   *  N+1 per row (HEL-946: `GET /api/pipelines/:id/outputs`,
+   *  `GET /api/outputs` list, and the create response all need each
+   *  Output's real config, and this codebase already took an N+1
+   *  placement-count outage on this exact release, HEL-909 — do not repeat
+   *  that shape here). ACL-bypassing: safe only after the caller has
+   *  already scoped/authorized the id set (mirrors `insertInternal`'s
+   *  contract) — both call sites (`listByPipelineInternal`,
+   *  `findAllByOwner`) already ACL/owner-scope the ids before this runs. */
+  def findConfigsByIdsInternal(ids: Vector[String]): Future[Map[String, JsObject]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else
+      ctx.withSystemContext(
+        table.filter(_.id.inSet(ids)).map(r => (r.id, r.config)).result
+      ).map(_.toMap)
+
   /** Owner-scoped read (not merely sharing-aware) — used by
    *  `AlertRuleService.create` (task 3.1) to validate a rule's
    *  `targetOutputId` before persisting, mirroring the strict

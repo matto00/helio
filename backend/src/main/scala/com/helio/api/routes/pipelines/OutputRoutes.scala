@@ -34,15 +34,17 @@ class OutputRoutes(
         concat(
           get {
             parameter("nodeStepId".optional) { nodeStepId =>
-              ServiceResponse.run(outputService.listByPipeline(pipelineId, nodeStepId, user)) { outputs =>
-                OutputsResponse(outputs.map(outputResponseFrom(_)))
+              ServiceResponse.runWith(outputService.listByPipeline(pipelineId, nodeStepId, user)) { outputs =>
+                onSuccess(outputService.configsFor(outputs)) { configs =>
+                  complete(OutputsResponse(outputs.map(o => outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty)))))
+                }
               }
             }
           },
           post {
             entity(as[CreateOutputRequest]) { req =>
-              ServiceResponse.run(outputService.create(pipelineId, req, user)) { output =>
-                StatusCodes.Created -> outputResponseFrom(output)
+              ServiceResponse.run(outputService.create(pipelineId, req, user)) { case (output, config) =>
+                StatusCodes.Created -> outputResponseFrom(output, config)
               }
             }
           }
@@ -117,10 +119,12 @@ class OutputRoutes(
               val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
               onSuccess(outputService.listAll(user, page)) { result =>
                 onSuccess(outputService.panelCountsFor(result.items)) { counts =>
-                  val items = result.items.map(o =>
-                    outputResponseFrom(o, JsObject.empty, Some(counts.getOrElse(o.id.value, 0)))
-                  )
-                  complete(PagedResult(items, result.total, result.offset, result.limit))
+                  onSuccess(outputService.configsFor(result.items)) { configs =>
+                    val items = result.items.map(o =>
+                      outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty), Some(counts.getOrElse(o.id.value, 0)))
+                    )
+                    complete(PagedResult(items, result.total, result.offset, result.limit))
+                  }
                 }
               }
             }

@@ -191,6 +191,16 @@
   text-align: center;
 }
 
+/* HEL-946 Bug C(2) — the "never materialized" empty state's explanatory
+ * line, between the `__state-label` heading and the Run pipeline button. */
+.panel-content__state-detail {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  text-align: center;
+  max-width: 260px;
+  margin: 0;
+}
+
 .panel-content__text-live {
   font-size: var(--text-sm);
   color: inherit;

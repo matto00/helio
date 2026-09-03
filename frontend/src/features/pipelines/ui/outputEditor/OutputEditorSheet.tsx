@@ -43,7 +43,7 @@ import {
 } from "../../state/outputsSlice";
 import type { Output, OutputKind, OutputPanelPlacement } from "../../types/output";
 import type { AggregateConfig } from "../../types/pipelineStep";
-import { listOutputPanels } from "../../services/outputService";
+import { getOutputRows, listOutputPanels } from "../../services/outputService";
 import { useOutputPreview, useUnsavedStepPreview } from "../../hooks/usePipelinePreviewCache";
 import type { Step } from "../../types/step";
 import {
@@ -103,6 +103,10 @@ interface OutputEditorSheetProps {
     aggregateConfig: AggregateConfig,
     outputPayload: { kind: string; name: string; config: Record<string, unknown> },
   ) => Promise<Output>;
+  /** HEL-946 Bug C(2) — runs the pipeline from the never-materialized
+   *  warning banner's affordance. Omitted in contexts that don't wire it
+   *  (e.g. tests), same convention as `onAddAsTailWithAggregate`. */
+  onRunPipeline?: () => void;
 }
 
 const EMPTY_CHART_OPTIONS: ChartTypeOptionsMap = {};
@@ -115,6 +119,7 @@ export function OutputEditorSheet({
   createTargetStepId,
   steps,
   onAddAsTailWithAggregate,
+  onRunPipeline,
 }: OutputEditorSheetProps) {
   const dispatch = useAppDispatch();
   const isCreate = output === null;
@@ -128,6 +133,13 @@ export function OutputEditorSheet({
   const [saving, setSaving] = useState(false);
   const [placements, setPlacements] = useState<OutputPanelPlacement[] | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // HEL-946 Bug C(2) -- `null` while unknown/loading, `false` when the
+  // saved Output has never been materialized by a successful run (so a
+  // dashboard panel bound to it currently shows "No data available"),
+  // `true` once materialized (a stored-empty result is a legitimate empty
+  // result, not a warning). Only meaningful for an EXISTING Output -- a
+  // brand-new one has no saved rows to check yet.
+  const [neverMaterialized, setNeverMaterialized] = useState<boolean | null>(null);
 
   // Re-seed local state whenever a different Output/create-target opens
   // (the sheet instance is reused across opens rather than remounted).
@@ -159,6 +171,24 @@ export function OutputEditorSheet({
     let cancelled = false;
     void listOutputPanels(output.id).then((result) => {
       if (!cancelled) setPlacements(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isCreate, output]);
+
+  // HEL-946 Bug C(2) -- fetch the SAVED row-materialization status (distinct
+  // from the live preview below, which re-runs the node fresh every time and
+  // so never reflects whether a real pipeline run has ever persisted a
+  // snapshot for this node). One row is enough to know `materialized`.
+  useEffect(() => {
+    if (!open || isCreate || !output) {
+      setNeverMaterialized(null);
+      return;
+    }
+    let cancelled = false;
+    void getOutputRows(output.id, 0, 1).then((result) => {
+      if (!cancelled) setNeverMaterialized(!result.materialized);
     });
     return () => {
       cancelled = true;
@@ -554,6 +584,31 @@ export function OutputEditorSheet({
           onFieldChange={(k, v) => setTimelineFieldMapping((prev) => ({ ...prev, [k]: v }))}
           fieldOptions={fieldOptions}
         />
+      )}
+
+      {neverMaterialized && (
+        // HEL-946 Bug C(2) -- the preview below re-runs the node live and
+        // always shows current data, which is why it can look fine even
+        // though a dashboard panel bound to this SAVED Output currently
+        // shows "No data available": this node has never had a successful
+        // pipeline run since the Output was added, so nothing has been
+        // written to its saved snapshot yet. Distinct from a genuinely
+        // empty result (that case renders no banner at all).
+        <div className="output-editor-sheet__data-section" role="status">
+          <p className="output-editor-sheet__field-hint">
+            This output hasn&rsquo;t been included in a saved run yet, so any dashboard panel bound
+            to it currently shows &ldquo;No data available.&rdquo; Run the pipeline to populate it.
+          </p>
+          {onRunPipeline && (
+            <button
+              type="button"
+              className="ui-modal-btn ui-modal-btn--secondary"
+              onClick={onRunPipeline}
+            >
+              Run pipeline
+            </button>
+          )}
+        </div>
       )}
 
       <h3 className="output-editor-sheet__edit-section-heading">Preview</h3>

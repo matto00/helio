@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.auth.AccessChecker
-import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputRequest, DeleteOutputResponse, OutputPanelPlacementResponse, UpdateOutputRequest}
+import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputRequest, DeleteOutputResponse, OutputPanelPlacementResponse, OutputRowsResponse, UpdateOutputRequest}
 import com.helio.domain.model.{AuthenticatedUser, NodeRef, Output, OutputId, OutputKind, Page, PagedResult, PipelineId, PipelineRunId, PipelineStepId, ResourceAccess}
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRunRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -59,6 +59,13 @@ final class OutputService(
   def panelCountsFor(outputs: Vector[Output]): Future[Map[String, Int]] =
     panelRepo.countByOutputIdsInternal(outputs.map(_.id.value))
 
+  /** Batch config lookup for a page/list of Outputs (HEL-946) — a single
+   *  query via `OutputRepository.findConfigsByIdsInternal`, not a per-row
+   *  fetch. Missing ids (shouldn't happen — every persisted Output has a
+   *  config row) default to `JsObject.empty` by the caller. */
+  def configsFor(outputs: Vector[Output]): Future[Map[String, JsObject]] =
+    outputRepo.findConfigsByIdsInternal(outputs.map(_.id.value))
+
   /** List every Output on a pipeline (optionally scoped to one node), gated
    *  on any level of pipeline access (owner/editor/viewer). */
   def listByPipeline(pipelineId: PipelineId, nodeStepId: Option[String], user: AuthenticatedUser): Future[Either[ServiceError, Vector[Output]]] =
@@ -95,7 +102,7 @@ final class OutputService(
 
   /** Create an Output on a pipeline node. Requires Editor or Owner access on
    *  the parent pipeline — a Viewer grantee cannot add Outputs. */
-  def create(pipelineId: PipelineId, req: CreateOutputRequest, user: AuthenticatedUser): Future[Either[ServiceError, Output]] =
+  def create(pipelineId: PipelineId, req: CreateOutputRequest, user: AuthenticatedUser): Future[Either[ServiceError, (Output, JsObject)]] =
     if (req.name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name is required")))
     else OutputKind.fromString(req.kind) match {
@@ -118,7 +125,12 @@ final class OutputService(
                   config     = config
                 ).map { output =>
                   audit("output.create", Some(output.id.value), user)
-                  Right(output)
+                  // HEL-946: return the config we just wrote, not a re-fetch —
+                  // the caller (POST /api/pipelines/:id/outputs) previously
+                  // dropped it via the config-less `outputResponseFrom`
+                  // overload, so a freshly-created Output round-tripped as
+                  // `config: {}` even though the write itself was correct.
+                  Right((output, config))
                 }
             }
         }
@@ -250,14 +262,32 @@ final class OutputService(
    *  no separate check needed. A missing `nodeSnapshotRepo` (nullable-optional wiring) degrades
    *  to an empty page rather than an NPE, mirroring every other nullable dependency in this
    *  service. */
-  def rows(id: OutputId, page: Page, user: AuthenticatedUser): Future[Either[ServiceError, PagedResult[JsValue]]] =
+  def rows(id: OutputId, page: Page, user: AuthenticatedUser): Future[Either[ServiceError, OutputRowsResponse]] =
     outputRepo.findById(id, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
       case Some(_) if nodeSnapshotRepo == null =>
-        Future.successful(Right(PagedResult(Vector.empty, 0, page.offset, page.limit)))
+        Future.successful(Right(OutputRowsResponse(Vector.empty, 0, page.offset, page.limit, materialized = false)))
       case Some(output) =>
         nodeSnapshotRepo
           .listRowsPaged(output.node.pipelineId.value, output.node.stepId.map(_.value), page)
-          .map(paged => Right(paged.copy(items = paged.items.map(identity[JsValue]))))
+          .flatMap { paged =>
+            if (paged.total > 0)
+              // Non-empty snapshot -- unambiguously materialized, no need to
+              // consult run history.
+              Future.successful(Right(OutputRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = true)))
+            else if (pipelineRunRepo == null)
+              // No run-history dependency wired (nullable-optional, mirrors
+              // every other such fixture in this service) -- can't
+              // distinguish never-run from legitimately-empty, so default to
+              // the less alarming state (materialized = true, i.e. "this
+              // really is empty") rather than false-alarming every fixture
+              // that doesn't wire this repo.
+              Future.successful(Right(OutputRowsResponse(Vector.empty, paged.total, paged.offset, paged.limit, materialized = true)))
+            else
+              pipelineRunRepo.latestSuccessfulCompletedAtInternal(output.node.pipelineId).map { lastSuccess =>
+                val materialized = lastSuccess.exists(t => !t.isBefore(output.createdAt))
+                Right(OutputRowsResponse(Vector.empty, paged.total, paged.offset, paged.limit, materialized = materialized))
+              }
+          }
     }
 }

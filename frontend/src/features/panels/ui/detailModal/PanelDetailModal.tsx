@@ -1,6 +1,6 @@
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import "./PanelDetailModal.css";
 import "./PanelDetailModal.binding.css";
@@ -138,8 +138,25 @@ interface PanelDetailModalProps {
 export function PanelDetailModal({ panel, onClose, initialMode = "view" }: PanelDetailModalProps) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
-  const { data, rawRows, headers, isLoading, error, errorKind, noData, chartAggregate, refresh } =
-    usePanelData(panel);
+  const {
+    data,
+    rawRows,
+    headers,
+    isLoading,
+    error,
+    errorKind,
+    noData,
+    neverMaterialized,
+    chartAggregate,
+    refresh,
+  } = usePanelData(panel);
+  // HEL-946 Bug C(2) — the never-materialized empty state's "Run pipeline"
+  // link needs the bound Output's pipelineId, which the panel itself
+  // doesn't carry (only `config.outputId`) — same lookup `OutputPanelSection`
+  // below already makes for its own "Output" link.
+  const viewOutputId = isOutputPanel(panel) ? panel.config.outputId : null;
+  const { output: viewOutput } = useOutputMeta(viewOutputId);
+  const navigate = useNavigate();
 
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
   const [modalMode, setModalMode] = useState<"view" | "edit">(initialMode);
@@ -391,6 +408,10 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
               onRetry={refresh}
               retryVariant="button"
               noData={noData}
+              neverMaterialized={neverMaterialized}
+              onGoToPipeline={
+                viewOutput ? () => navigate(`/pipelines/${viewOutput.pipelineId}`) : undefined
+              }
               chartAggregate={chartAggregate}
             />
           </div>

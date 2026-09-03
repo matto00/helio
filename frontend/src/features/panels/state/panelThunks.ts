@@ -295,7 +295,13 @@ export const updatePanelsBatch = createAsyncThunk<
 // An output-kind panel reads rows from its bound Output
 // (`GET /api/outputs/:id/rows`); pagination is sliced on the client.
 export const fetchPanelPage = createAsyncThunk<
-  { panelId: string; page: number; rows: Record<string, unknown>[]; hasMore: boolean },
+  {
+    panelId: string;
+    page: number;
+    rows: Record<string, unknown>[];
+    hasMore: boolean;
+    materialized: boolean;
+  },
   { panelId: string; outputId: string; page: number; pageSize: number },
   { state: RootState; rejectValue: { message: string; kind: RequestErrorKind } }
 >("panels/fetchPanelPage", async ({ panelId, outputId, page, pageSize }, { rejectWithValue }) => {
@@ -303,7 +309,7 @@ export const fetchPanelPage = createAsyncThunk<
     const offset = page * pageSize;
     const result = await getOutputRows(outputId, offset, pageSize);
     const hasMore = offset + pageSize < result.total;
-    return { panelId, page, rows: result.items, hasMore };
+    return { panelId, page, rows: result.items, hasMore, materialized: result.materialized };
   } catch (err: unknown) {
     return rejectWithValue(classifyRequestError(err, "Failed to load panel data."));
   }

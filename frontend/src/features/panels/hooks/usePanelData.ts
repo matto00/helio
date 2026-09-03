@@ -15,6 +15,11 @@ export interface PanelDataResult {
   /** Classification of `error` — `null` when there is no error. */
   errorKind: RequestErrorKind | null;
   noData: boolean;
+  /** HEL-946 Bug C(2): true when `noData` is caused by the bound Output's
+   *  node never having been materialized by a successful pipeline run, as
+   *  opposed to a node that ran and legitimately returned zero rows.
+   *  Always `false` while `noData` is `false`. */
+  neverMaterialized: boolean;
   /** Retained for renderer-compatibility during the HEL-909 migration; the
    *  Output itself now owns any groupBy aggregation, so this is always
    *  `null`. */
@@ -98,6 +103,7 @@ export function usePanelData(panel: Panel): PanelDataResult {
       error: null,
       errorKind: null,
       noData: false,
+      neverMaterialized: false,
       chartAggregate: null,
       refresh,
     };
@@ -109,6 +115,11 @@ export function usePanelData(panel: Panel): PanelDataResult {
     paginationEntry == null || (paginationEntry.isLoadingMore === true && rows.length === 0);
   const noData =
     paginationEntry != null && !paginationEntry.isLoadingMore && rows.length === 0 && !error;
+  // HEL-946 Bug C(2) -- defaults to `true` (materialized) before the fetch
+  // resolves, so `neverMaterialized` never fires spuriously while loading;
+  // `paginationEntry.materialized` only becomes meaningful once `noData` is
+  // also true.
+  const neverMaterialized = noData && paginationEntry?.materialized === false;
 
   return {
     data: null,
@@ -118,6 +129,7 @@ export function usePanelData(panel: Panel): PanelDataResult {
     error,
     errorKind,
     noData,
+    neverMaterialized,
     chartAggregate: null,
     refresh,
   };

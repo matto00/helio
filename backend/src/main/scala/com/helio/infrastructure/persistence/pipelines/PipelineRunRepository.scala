@@ -216,6 +216,24 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         .result
     ).map(_.toVector)
 
+  /** ACL-bypassing lookup of the most recent SUCCESSFUL run's `completedAt`
+   *  for a pipeline (HEL-946 Bug C(2)). Used to distinguish "this node was
+   *  never materialized" from "this node ran and legitimately returned zero
+   *  rows": `onUnblockedRunSuccess` writes `node_snapshots` (even an empty
+   *  snapshot) for every node that already has an Output at the moment a
+   *  run completes, so if a successful run finished AFTER the Output's
+   *  `createdAt`, that node WAS materialized by that run regardless of the
+   *  stored row count -- an empty `node_snapshots` result in that case is a
+   *  genuine empty result set, not "never ran". */
+  def latestSuccessfulCompletedAtInternal(pipelineId: PipelineId): Future[Option[Instant]] =
+    ctx.withSystemContext(
+      runsTable
+        .filter(r => r.pipelineId === pipelineId.value && r.status === "succeeded" && r.completedAt.isDefined)
+        .map(_.completedAt)
+        .max
+        .result
+    )
+
   /** ACL-bypassing check for an in-flight run (`completed_at IS NULL`) for a
     * pipeline — the persisted half of `PipelineSchedulerService`'s overlap
     * guard (HEL-415). Catches a still-running run across a scheduler

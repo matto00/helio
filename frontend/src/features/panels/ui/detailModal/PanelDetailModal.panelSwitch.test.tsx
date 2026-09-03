@@ -108,6 +108,7 @@ describe("PanelDetailModal — direct panel switch (HEL-307)", () => {
       error: null,
       errorKind: null,
       noData: true,
+      neverMaterialized: false,
       chartAggregate: null,
       refresh: jest.fn(),
     });

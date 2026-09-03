@@ -23,6 +23,7 @@
 import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
 import { render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { ThemeProvider } from "../../../theme/ThemeProvider";
@@ -87,11 +88,13 @@ describe("PanelDetailModal — pre-dispatch frame (design.md D13)", () => {
     const panel = makeOutputPanel();
     const store = makeFrozenPaginationStore(panel);
     const { container } = render(
-      <Provider store={store}>
-        <ThemeProvider>
-          <PanelDetailModal panel={panel} onClose={jest.fn()} />
-        </ThemeProvider>
-      </Provider>,
+      <MemoryRouter>
+        <Provider store={store}>
+          <ThemeProvider>
+            <PanelDetailModal panel={panel} onClose={jest.fn()} />
+          </ThemeProvider>
+        </Provider>
+      </MemoryRouter>,
     );
 
     expect(container.querySelector(".panel-body-skeleton")).toBeInTheDocument();

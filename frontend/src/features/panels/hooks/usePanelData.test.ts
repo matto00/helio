@@ -66,6 +66,7 @@ describe("usePanelData", () => {
       total: 1,
       offset: 0,
       limit: 200,
+      materialized: true,
     });
     const panel = makeOutputPanel({ id: "p1", config: { outputId: "out-1" } });
     const store = makeStore(panel);
@@ -82,7 +83,13 @@ describe("usePanelData", () => {
   });
 
   it("reports noData when the Output has no rows", async () => {
-    mockGetOutputRows.mockResolvedValue({ items: [], total: 0, offset: 0, limit: 200 });
+    mockGetOutputRows.mockResolvedValue({
+      items: [],
+      total: 0,
+      offset: 0,
+      limit: 200,
+      materialized: true,
+    });
     const panel = makeOutputPanel({ id: "p1", config: { outputId: "out-1" } });
     const store = makeStore(panel);
 
@@ -108,6 +115,7 @@ describe("usePanelData", () => {
       total: 1,
       offset: 0,
       limit: 200,
+      materialized: true,
     });
     const panel = makeOutputPanel({ id: "p1", config: { outputId: "out-1" } });
     const store = makeStore(panel);
