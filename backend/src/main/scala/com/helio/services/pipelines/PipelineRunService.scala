@@ -5,7 +5,7 @@ import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, OutputId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
+import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Output, OutputId, Pipeline, PipelineId, PipelineRunId, PipelineStep, TruncatedRead, TruncationSink}
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
@@ -758,20 +758,35 @@ final class PipelineRunService(
   ): Future[Option[String]] = {
     publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
     val now = Instant.now()
-    // HEL-905 (design.md Decisions 3, 4): a materialized node is one carrying >= 1 `outputs`
-    // row. For each materialized node, `node_snapshots` is replaced atomically (per-node, via
-    // `overwriteRows`'s existing delete-then-insert-in-one-transaction), sequenced only after the
-    // whole tree walk has already completed successfully -- cross-node atomicity is explicitly
-    // NOT provided (see design.md Decision 3): a mid-sequence failure leaves earlier nodes
-    // updated and later ones untouched.
+    // HEL-905 (design.md Decisions 3, 4): every node the tree walk actually reached gets its
+    // `node_snapshots` row set replaced atomically (per-node, via `overwriteRows`'s existing
+    // delete-then-insert-in-one-transaction), sequenced only after the whole tree walk has
+    // already completed successfully -- cross-node atomicity is explicitly NOT provided (see
+    // design.md Decision 3): a mid-sequence failure leaves earlier nodes updated and later ones
+    // untouched.
+    //
+    // HEL-947: widened from "nodes with >= 1 `outputs` row" to every `nodeOutcomes` key --
+    // i.e. every node in the tree, whether or not it currently has an Output. `NodeOutcome` is
+    // never persisted anywhere else (verified: `pipeline_runs` stores only `row_count`, and
+    // `node_snapshots` itself is the only per-row store, keyed by `(pipeline_id, node_step_id)`
+    // with no `run_id` -- overwritten in place on the next run), so a node's last successful
+    // outcome only survives past this call if it is written here. Writing it unconditionally
+    // means an Output added (or edited without changing `nodeStepId`) against a node that has
+    // already run finds the row set already sitting in `node_snapshots` by the time
+    // `OutputService.rows` reads it -- no separate backfill trigger at Output create/edit time,
+    // no re-running the node's evaluation (the outcome is REUSED from the run that just
+    // completed, never recomputed), and no widening of the per-node transaction boundary above.
+    // A node that has never successfully run has no entry in `nodeOutcomes` at all, so it never
+    // gets a snapshot here -- `OutputService.rows`'s HEL-946 "not run yet" path is unaffected.
     val materializedWrites: Future[Unit] =
-      if (nodeSnapshotRepo != null && outputRepo != null)
-        outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
-          val outputsByNode = outputs.groupBy(_.node.stepId.map(_.value))
-          val materializedNodeKeys = outputsByNode.keySet.intersect(nodeOutcomes.keySet)
+      if (nodeSnapshotRepo != null) {
+        val outputsByNodeFut: Future[Map[Option[String], Vector[Output]]] =
+          if (outputRepo != null) outputRepo.listByPipelineInternal(pipelineId).map(_.groupBy(_.node.stepId.map(_.value)))
+          else Future.successful(Map.empty)
+        outputsByNodeFut.flatMap { outputsByNode =>
           // Sequenced (not parallel) so a later node's failure never races an earlier node's
           // write -- matches design.md's "sequenced only after... completed successfully".
-          materializedNodeKeys.foldLeft(Future.successful(())) { (accF, nodeKey) =>
+          nodeOutcomes.keySet.foldLeft(Future.successful(())) { (accF, nodeKey) =>
             accF.flatMap { _ =>
               val outcome = nodeOutcomes(nodeKey)
               val nodeJsRows = outcome.rows.map { rowMap =>
@@ -781,6 +796,7 @@ final class PipelineRunService(
                 // HEL-905 (design.md Decision 4): per-Output shallow-union schema derivation
                 // over this node's own row set. Two Outputs on the same node get independently
                 // derived (but identical) schemas -- no sharing/caching needed at this scale.
+                // A node with no Output yet has nothing to update here (empty sequence).
                 val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
                 val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
                 Future
@@ -790,7 +806,7 @@ final class PipelineRunService(
             }
           }
         }
-      else Future.successful(())
+      } else Future.successful(())
     // HEL-216: wire BinaryRefRepository.overwriteForNode into the one real
     // row-write call site, generically over row shape (not gated on source
     // kind) — see design.md Decision "BinaryRefRepository...wired into
