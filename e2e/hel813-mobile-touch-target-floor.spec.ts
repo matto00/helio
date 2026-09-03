@@ -210,7 +210,22 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       // specifically designed to catch (ticket.md's core point: computed
       // style/source text is not rendered geometry). Filed as a follow-up
       // per the ticket's scope note rather than fixed inline here — see
-      // this change's PR body / files-modified.md for the filed ticket id.
+      // this change's PR body / files-modified.md for the filed ticket id
+      // (HEL-818).
+      //
+      // HEL-935: the SAME class of sub-pixel gap intermittently affects
+      // `.ui-select__option` itself, not just the trigger — reproduced
+      // locally at 1/60 repeats of this exact case (768px), measuring a
+      // genuine, non-zero `43.87115478515625` against the `44px` declared
+      // in `inputs.css` (no border, no `calc()`). This is NOT the same
+      // mechanism as HEL-897's probe race (a Node<->browser round-trip gap
+      // in `bisectHitExtent`'s bisection walk, producing a flat,
+      // deterministic `extent 0` — a completely different code path this
+      // test never calls): this case measures a plausible, real,
+      // just-under-floor number via plain `boundingBox()`. Handled via a
+      // narrow, documented `RENDERED_BOX_EPSILON_PX` tolerance in
+      // `touchTargetProbe.ts`'s `assertFloor`, not a probe-race fix — see
+      // that constant's doc comment for the full evidence trail.
       test("surface 5: ui-select option list", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, `uiselect-${width}`);

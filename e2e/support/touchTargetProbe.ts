@@ -14,6 +14,33 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 export const DEFAULT_MIN_PX = 44;
 
+/** HEL-935/HEL-818 — narrow, documented tolerance for plain rendered-box
+ *  (`getBoundingClientRect()`) floor checks in `assertFloor`/`sweepSurface`.
+ *
+ *  Root cause (confirmed, not assumed): `.ui-select__trigger` and
+ *  `.ui-select__option` both declare a literal `min-height: 44px` with no
+ *  border and no `calc()` (see `frontend/src/shared/ui/inputs.css`), yet
+ *  intermittently render a hair under 44px — HEL-818 measured
+ *  `.ui-select__trigger` at ~43.5648–43.5650px (both 430px and 768px,
+ *  every run); this investigation reproduced the SAME class of gap on
+ *  `.ui-select__option` at 768px, but non-deterministically: 59/60 repeats
+ *  of `e2e/hel813-mobile-touch-target-floor.spec.ts`'s surface-5 case
+ *  measured exactly `44`, one measured `43.87115478515625`. That is a
+ *  genuine, non-zero, plausible-but-under-floor number — the opposite
+ *  signature from HEL-897's flat, deterministic `extent 0` (a Node<->browser
+ *  round-trip race in `bisectHitExtent`, a completely different code path
+ *  that this function does not use). Nothing here is a probe race: it is
+ *  sub-pixel layout/rasterization rounding on an already-correct `44px`
+ *  declaration, below any tap-target-relevant magnitude.
+ *
+ *  A blanket, unbounded tolerance would risk masking a real regression, so
+ *  this is deliberately tiny — smaller than the largest gap measured above
+ *  by a comfortable margin, and many multiples smaller than every known real
+ *  violation this guard exists to catch (HEL-781's 28px control is 16px
+ *  short of the floor; HEL-535's inert-floor cases measure 0 and are already
+ *  caught by the `visible` assertion above, never by this epsilon). */
+export const RENDERED_BOX_EPSILON_PX = 0.5;
+
 export interface BoxMeasurement {
   width: number;
   height: number;
@@ -46,13 +73,35 @@ export async function assertFloor(
   { minPx = DEFAULT_MIN_PX }: { minPx?: number } = {},
 ): Promise<void> {
   const { width, height, visible } = await measureBox(locator);
-  expect(visible, "control must be rendered/visible to be measured").toBe(true);
-  expect(height, "rendered height must meet the mobile tap-target floor").toBeGreaterThanOrEqual(
-    minPx,
-  );
-  expect(width, "rendered width must meet the mobile tap-target floor").toBeGreaterThanOrEqual(
-    minPx,
-  );
+  const selector = describeLocatorForFailureMessage(locator);
+  const floor = minPx - RENDERED_BOX_EPSILON_PX;
+  expect(visible, `control must be rendered/visible to be measured (${selector})`).toBe(true);
+  expect(
+    height,
+    `expected >= ${minPx}px (epsilon ${RENDERED_BOX_EPSILON_PX}, floor ${floor}px), ` +
+      `measured height ${height}px on ${selector} — rendered height must meet the mobile ` +
+      `tap-target floor (see RENDERED_BOX_EPSILON_PX — HEL-935/HEL-818 sub-pixel rendering allowance)`,
+  ).toBeGreaterThanOrEqual(floor);
+  expect(
+    width,
+    `expected >= ${minPx}px (epsilon ${RENDERED_BOX_EPSILON_PX}, floor ${floor}px), ` +
+      `measured width ${width}px on ${selector} — rendered width must meet the mobile ` +
+      `tap-target floor (see RENDERED_BOX_EPSILON_PX — HEL-935/HEL-818 sub-pixel rendering allowance)`,
+  ).toBeGreaterThanOrEqual(floor);
+}
+
+/** Best-effort, synchronous description of a locator for failure messages —
+ *  Playwright locators stringify their own selector chain via `toString()`
+ *  (e.g. `locator('.ui-select__option')`), which is exactly what a reader
+ *  needs to identify which surface/selector failed without re-running
+ *  anything. Never throws: falls back to a fixed placeholder if a future
+ *  Playwright version changes that shape. */
+function describeLocatorForFailureMessage(locator: Locator): string {
+  try {
+    return locator.toString();
+  } catch {
+    return "<unknown locator>";
+  }
 }
 
 /** Asserts a control is genuinely NOT rendered at the current viewport —
