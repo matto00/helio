@@ -123,6 +123,54 @@ lazy val root = (project in file("."))
       "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
       "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED"
     ),
+    // HEL-924: bound concurrent embedded-postgres instances during `sbt test`.
+    //
+    // Root cause (probe-confirmed via ~110 repeated `testOnly` runs against every
+    // EmbeddedPostgres-backed spec): with `Test / fork := true` and no custom
+    // `testGrouping`, sbt puts every test class into ONE forked-JVM group and
+    // dispatches suites from that group onto its default thread pool (sized to
+    // `Runtime.availableProcessors`). ~110 of this project's ~240 suites each start
+    // their own `EmbeddedPostgres` in `beforeAll`/`beforeEach`, so a full run can
+    // launch that many real Postgres server processes at once. Under load that
+    // saturates CPU/IO enough that unrelated requests blow ScalaTest/Pekko's 1s
+    // `RouteTestTimeout` ("Request was neither completed nor rejected within 1
+    // second") or hit Postgres-side races (e.g. "must be owner of sequence ..."
+    // from a concurrent `TRUNCATE ... RESTART IDENTITY`) — a different suite fails
+    // on every run, and each one is clean in isolation. See the HEL-924 PR
+    // description for the measured before/after failure rate and wall-clock cost.
+    //
+    // Fix: split tests into several forked-JVM groups (so each JVM still runs
+    // several suites, keeping most of today's parallelism) and cap how many of
+    // those JVMs run *concurrently* via `Tags.ForkedTestGroup`, instead of the
+    // two extremes the ticket weighed against — collapsing to one full instance
+    // (removes contention but serializes ~240 suites, multiplying wall-clock time
+    // agents pay on every delivery) or giving every suite a distinct port/data dir
+    // (ports are already random per `EmbeddedPostgres.builder().start()`; the
+    // actual bottleneck is concurrent CPU/IO/shared-memory load, which per-suite
+    // isolation does nothing to cap). Group count and concurrency are both
+    // overridable via env vars for machines with a different core count.
+    Global / concurrentRestrictions += Tags.limit(
+      Tags.ForkedTestGroup,
+      sys.env.get("HEL924_TEST_GROUP_CONCURRENCY").flatMap(s => scala.util.Try(s.toInt).toOption).getOrElse(4)
+    ),
+    Test / testGrouping := {
+      val groupCount =
+        sys.env.get("HEL924_TEST_GROUP_COUNT").flatMap(s => scala.util.Try(s.toInt).toOption).getOrElse(8)
+      val baseForkOptions = ForkOptions(
+        javaHome = (Test / javaHome).value,
+        outputStrategy = (Test / outputStrategy).value,
+        bootJars = Vector.empty,
+        workingDirectory = Some((Test / baseDirectory).value),
+        runJVMOptions = (Test / javaOptions).value.toVector,
+        connectInput = false,
+        envVars = (Test / envVars).value
+      )
+      val groups: Seq[(Int, Seq[TestDefinition])] =
+        (Test / definedTests).value.groupBy(t => java.lang.Math.floorMod(t.name.hashCode, groupCount)).toSeq
+      groups.map { case (idx, tests) =>
+        new Tests.Group(name = s"hel924-group-$idx", tests = tests, runPolicy = Tests.SubProcess(baseForkOptions))
+      }
+    },
     Compile / run / javaOptions ++= Seq(
       "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
       "--add-opens=java.base/java.lang=ALL-UNNAMED",

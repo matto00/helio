@@ -188,6 +188,14 @@ Backend tests are not in the Husky chain by default — run them yourself before
 cd backend && sbt test
 ```
 
+**Embedded-postgres test groups (HEL-924).** ~110 backend specs each start their own `EmbeddedPostgres` instance. `build.sbt` splits `Test / definedTests` into several forked-JVM groups (`hel924-group-N`) and caps how many run concurrently via `Global / concurrentRestrictions += Tags.limit(Tags.ForkedTestGroup, ...)`, so at most a handful of embedded Postgres instances start at once instead of one per suite in parallel — the earlier behavior could launch 100+ concurrently and produce spurious timeouts/failures unrelated to any code change (a different suite failing on every otherwise-identical re-run). Tune for a different machine via env vars before invoking `sbt test`:
+
+```bash
+HEL924_TEST_GROUP_COUNT=8 HEL924_TEST_GROUP_CONCURRENCY=4 sbt test   # defaults shown
+```
+
+If `sbt test` still produces a failure that a second, immediate, unchanged re-run does not reproduce, that is environmental flakiness, not a regression — re-run before trusting a red result, and consider lowering `HEL924_TEST_GROUP_CONCURRENCY` on a busier machine (e.g. several concurrent delivery worktrees).
+
 `git commit -n` (skip hooks) is available for emergencies only. Any bypassed checks must be fixed in the next commit.
 
 ## Pull Request Expectations
