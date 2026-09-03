@@ -186,6 +186,18 @@ class PipelineStepRoutesSpec
     )
   )
 
+  // Exact request body the "+ Add transformation step" picker sends on union-step
+  // creation — frontend/src/features/pipelines/state/stepNarrowing.ts's
+  // defaultConfigFor("union") ({ otherDataSourceId: "", mode: "byPosition" }).
+  // HEL-620 regression coverage.
+  private def unionDefaultReq(): JsObject = JsObject(
+    "type" -> JsString("union"),
+    "config" -> JsObject(
+      "otherDataSourceId" -> JsString(""),
+      "mode"              -> JsString("byPosition")
+    )
+  )
+
   // -- HEL-278 fixtures: seed a data source owned by ownerId, return its id --
   private def seedDataSource(ownerId: String): String = {
     import PostgresProfile.api._
@@ -557,6 +569,51 @@ class PipelineStepRoutesSpec
         val union = steps.collectFirst { case u: UnionStepResponse => u }
         union should not be empty
         union.get.config.otherDataSourceId shouldBe ownDsId
+      }
+    }
+
+    // HEL-620 (mirrors HEL-386 change request 2 regression, design.md Decision 1's "empty is
+    // a no-op, not an error" philosophy): the "+ Add transformation step" picker POSTs
+    // defaultConfigFor("union") — { otherDataSourceId: "", mode: "byPosition" }. This MUST
+    // succeed (201) with the other source left unset — an empty/unselected id is an
+    // incomplete draft, not a security violation (nothing to leak against an unset id).
+    // Before the fix, unionCheckF unconditionally called
+    // findByIdOwned(DataSourceId(""), user) => None => 404, so a union step could never be
+    // created via the primary UI flow.
+    "POST with union type and the picker's exact empty-default config succeeds (201), other source unset" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/${pid}/steps", unionDefaultReq()) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.pipelineId shouldBe pid
+        resp.`type` shouldBe "union"
+        val union = resp.asInstanceOf[UnionStepResponse]
+        union.config.otherDataSourceId shouldBe ""
+      }
+    }
+
+    // Same regression, PATCH half: clearing an already-set other source back to "" must stay
+    // allowed (it's un-setting a draft, not referencing a cross-user source).
+    "PATCH union step config to an empty otherDataSourceId stays allowed (200)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
+      var stepId = ""
+      Post(s"/pipelines/${pid}/steps", unionReq(ownDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        stepId = responseAs[PipelineStepResponse].id
+      }
+
+      val patchBody = JsObject(
+        "config" -> JsObject(
+          "otherDataSourceId" -> JsString(""),
+          "mode"              -> JsString("byPosition")
+        )
+      )
+      Patch(s"/pipeline-steps/$stepId", patchBody) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineStepResponse]
+        val union = resp.asInstanceOf[UnionStepResponse]
+        union.config.otherDataSourceId shouldBe ""
       }
     }
 

@@ -4,7 +4,9 @@
 The `union` pipeline op stacks rows from a second, independently-resolved `DataSource` onto the
 current pipeline (`byPosition` raw append or `byName` column-name alignment with null-backfill),
 enforcing the same caller-owned ACL check on the second source that `join` has (HEL-278 parity).
+
 ## Requirements
+
 ### Requirement: Union op stacks rows from a second DataSource
 The execution engine SHALL support the `union` op. The step config SHALL contain
 `otherDataSourceId` (string: id of the second `DataSource` to stack onto the current row set) and
@@ -105,7 +107,11 @@ owned by the authenticated caller, on both `POST /api/pipelines/:id/steps` (crea
 `PATCH /api/pipeline-steps/:id` (update), mirroring the check HEL-278 already added for
 `JoinConfig.rightDataSourceId`. If the source does not exist or is not owned by the caller, the
 response SHALL be `404 Not Found` (existence-not-leaked semantics) and the step SHALL NOT be
-persisted/updated.
+persisted/updated. An empty `otherDataSourceId` (the "+ Add transformation step" picker's own
+default seed value — `defaultConfigFor("union")`) is an incomplete draft, not a referenced-but-
+unowned source, and SHALL NOT trigger the ownership check or the `404` response — creation/update
+SHALL succeed with the second source left unset, matching `pipeline-lookup-op`'s identical
+`referenceDataSourceId` behavior and every other config type's `case _ => allow` fallback.
 
 #### Scenario: Cross-user union step creation returns 404
 - **WHEN** user A calls `POST /api/pipelines/:id/steps` with `type: "union"` and
@@ -124,6 +130,17 @@ persisted/updated.
 - **THEN** the response is `404 Not Found`
 - **THEN** the step's persisted config is unchanged
 
+#### Scenario: Empty otherDataSourceId union step creation succeeds (picker default)
+- **WHEN** user A calls `POST /api/pipelines/:id/steps` with `type: "union"` and
+  `config.otherDataSourceId` set to `""` (the picker's default seed value)
+- **THEN** the response is `201 Created` with the persisted step
+- **THEN** no ownership check is attempted against the empty id
+
+#### Scenario: Update to empty otherDataSourceId succeeds
+- **WHEN** user A calls `PATCH /api/pipeline-steps/:id` on their own union step with
+  `config.otherDataSourceId` set to `""`
+- **THEN** the response is `200 OK` with the step's `otherDataSourceId` persisted as empty
+
 ### Requirement: MCP add_pipeline_step tool supports the union op
 The `add_pipeline_step` MCP tool SHALL list `union` as a valid `op` value and document its config
 shape (`otherDataSourceId`, `mode` with its two supported values), so agent-driven pipeline
@@ -133,4 +150,3 @@ construction can add row-stacking steps without direct API knowledge.
 - **WHEN** an MCP client inspects the `add_pipeline_step` tool's input schema
 - **THEN** `union` appears among the allowed `op` values in the tool description, with its config
   shape documented
-
