@@ -2,6 +2,7 @@ package com.helio.domain.engine
 
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineStep, PipelineStepId, RestSource, SqlSource, StaticSource, TextSource, TruncatedRead, TruncationSink}
+import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
@@ -45,8 +46,23 @@ final case class SourceReadStats(truncated: Boolean, availableRowCount: Option[L
 /** HEL-905 (design.md Decision 8): the Phase-1 graph invariant was violated by the given step
  *  tree, identified by the offending node's id string (`"root"` for the virtual pipeline root)
  *  and a curated `message`. Never silently picks a child -- rejects the whole run before any
- *  step evaluates. */
+ *  step evaluates.
+ *
+ *  HEL-911 (design.md "Engine contract" item 1): the Phase-1 fence this error protected --
+ *  "at most one position=0 child" / "no position>=1 child below a tail" -- is deleted at all
+ *  three enforcement sites (this engine's own former `validateGraph` pre-flight,
+ *  `PipelineStepRepository.executionOrder`'s HEL-930 guard, and `PipelineService`'s mapping
+ *  arm). This type is KEPT, not removed, because it is still a live wire/API-error shape a
+ *  caller may be matching on; nothing in this codebase raises it any longer. */
 final case class InvalidGraph(message: String) extends Exception(message)
+
+/** HEL-911 (design.md Engine contract items 6a/7): a `lane`-kind `secondaryInput` formed a
+ *  cycle (referenced the referencing step itself or one of its own ancestors), or named a
+ *  step that does not exist or belongs to a DIFFERENT pipeline. Raised defensively at run
+ *  time -- `PipelineService` performs the same checks at write time with a 400 naming the
+ *  cycle/violation, so this is a backstop for data that reached the table by some other
+ *  path, per design.md's "both arms required" rule. */
+final case class LaneReferenceError(message: String) extends Exception(message)
 
 /** HEL-905 (design.md Decision 1/2): the result of a full tree walk -- `rows`/`stepCounts` mirror
  *  the pre-tree-walk engine's return shape exactly (trunk's terminal frame; per-step counts,
@@ -197,55 +213,67 @@ class InProcessPipelineEngine(
     }
   }
 
-  /** HEL-905 (design.md Decision 8): validate the Phase-1 graph invariant over the WHOLE tree
-   *  before any step evaluates -- (1) every node (including the virtual root) has at most one
-   *  `position == 0` child; (2) a "tail node" (any node reached via a `position >= 1` edge, and
-   *  everything below it) has no `position >= 1` children of its own. Returns the first violation
-   *  found, never silently picking a child.
-   *
-   *  **This is the ONLY layer that enforces this invariant** (HEL-930, design.md Decision 8
-   *  "Known gap"). `PipelineStepRepository.executionOrder`/`walk` does NOT -- it silently drops a
-   *  second position-0 sibling instead of raising `InvalidGraph`. Currently unreachable via any
-   *  live write path, but do not assume the repository layer rejects this shape; it does not. */
-  private[engine] def validateGraph(steps: Vector[PipelineStep], stepRepo: PipelineStepRepository): Either[InvalidGraph, Unit] = {
-    val byId = steps.map(s => s.id.value -> s).toMap
-
-    // A node is a "tail node" if it (or any ancestor on the path back to the trunk) was reached
-    // via a position >= 1 edge. The virtual root and every trunk step are never tail nodes.
-    def isTailNode(step: PipelineStep): Boolean =
-      if (step.position >= 1) true
-      else step.parentStepId.flatMap(p => byId.get(p.value)).exists(isTailNode)
-
-    val allNodeIds: Vector[Option[PipelineStepId]] = None +: steps.map(s => Some(s.id))
-
-    val trunkViolation = allNodeIds.iterator.map { nodeId =>
-      val children      = stepRepo.childrenOf(steps, nodeId)
-      val trunkChildren = children.count(_.position == 0)
-      if (trunkChildren > 1)
-        Some(InvalidGraph(s"InvalidGraph: node ${nodeId.map(_.value).getOrElse("root")} has $trunkChildren children at position 0"))
-      else None
-    }.collectFirst { case Some(v) => v }
-
-    trunkViolation match {
-      case Some(v) => Left(v)
-      case None    =>
-        steps.iterator.filter(isTailNode).map { tailStep =>
-          val childrenAtNonZero = stepRepo.childrenOf(steps, Some(tailStep.id)).count(_.position >= 1)
-          if (childrenAtNonZero > 0)
-            Some(InvalidGraph(s"InvalidGraph: node ${tailStep.id.value} is a tail with $childrenAtNonZero children at position >= 1"))
-          else None
-        }.collectFirst { case Some(v) => v } match {
-          case Some(v) => Left(v)
-          case None    => Right(())
-        }
-    }
+  /** HEL-911 (design.md Engine contract item 6): the `stepId` a `lane`-kind
+   *  `secondaryInput` on `step` names, if any. `None` for every other step kind and for
+   *  a `join`/`union`/`lookup` whose secondary input is `source`-kind. Centralizes the
+   *  per-op match so both the write-time check (`PipelineService`, via
+   *  `PipelineStepConfigCodec.secondaryLaneStepId`) and this engine's run-time walk read
+   *  the identical mapping. */
+  private[engine] def laneDependencyOf(step: PipelineStep): Option[String] = step match {
+    case j: JoinStep   => j.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
+    case u: UnionStep  => u.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
+    case l: LookupStep => l.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
+    case _             => None
   }
 
-  /** HEL-905 (design.md Decisions 2, 3, 5, 8, 9): tree-walk execution -- the real per-node engine
-   *  P1.2 introduces. Walks the pipeline's root node's own tails from the source frame, then the
-   *  trunk in order, evaluating every tail root at each trunk node (including the root) from that
-   *  node's own current frame before advancing. A disabled node (Decision 7) is skipped in place:
-   *  its incoming frame passes through unchanged to its own trunk child and tail roots.
+  /** HEL-911 (design.md Engine contract items 1-4): the pipeline's DAG evaluation order,
+   *  as a stable "structural rank" over parent->child edges ALONE (lane-reference edges
+   *  never affect it) -- pure and side-effect-free, no evaluation happens here.
+   *
+   *  Every node's children are visited in DESCENDING sibling `position` (highest first),
+   *  recursively, before returning to the next-lower sibling. This reproduces the P1.2
+   *  walk order EXACTLY for a trunk-plus-tails graph: what P1.2 called "evaluate this
+   *  node's tails, THEN continue the trunk" is exactly "visit the higher-position
+   *  siblings (tails), then the position-0 sibling (trunk continuation), each fully
+   *  before the next" -- i.e. this same descending-order preorder DFS, just not
+   *  previously named that way. Decision 2's "position ascending is the tiebreak" is the
+   *  SORT KEY fed to this traversal (children are compared ascending by position); the
+   *  DESCENDING visit order is this traversal's realization of that key, verified against
+   *  `InProcessPipelineEngineTreeWalkSpec`'s P1.2 parity fixtures (design.md's required
+   *  test) rather than asserted from prose alone. Position 0 is never treated specially
+   *  in code -- it is simply the lowest-ranked comparison key, per Engine contract item 2. */
+  private[engine] def structuralRank(steps: Vector[PipelineStep], stepRepo: PipelineStepRepository): Map[Option[PipelineStepId], Int] = {
+    val ranks = scala.collection.mutable.LinkedHashMap.empty[Option[PipelineStepId], Int]
+    var counter = 0
+    def visit(nodeId: Option[PipelineStepId]): Unit = {
+      ranks(nodeId) = counter
+      counter += 1
+      stepRepo.childrenOf(steps, nodeId).sortBy(s => -s.position).foreach(c => visit(Some(c.id)))
+    }
+    visit(None)
+    ranks.toMap
+  }
+
+  /** HEL-911 (design.md Engine contract, replaces P1.2's trunk/tail `executeTree`): a
+   *  general topological DAG walk. Any node may have any number of step children
+   *  (lanes); a `join`/`union`/`lookup` step whose `secondaryInput` is `lane`-kind adds
+   *  an extra dependency edge (referenced-node -> rejoin-step) alongside the ordinary
+   *  parent->child edge. A node is evaluated once BOTH its parent's frame is known AND
+   *  (if it has one) its lane dependency's frame is known; among nodes simultaneously
+   *  ready, the lowest `structuralRank` (Decision 2's position-ascending tiebreak,
+   *  realized as this ranking) goes first. This is Kahn's algorithm with `structuralRank`
+   *  as the tie-break priority: with no lane edges, dependencies are pure tree edges and
+   *  this reduces EXACTLY to `structuralRank`'s own order (the P1.2 parity requirement).
+   *
+   *  A disabled node (Decision 7, unchanged from P1.2) is transparent: never evaluated,
+   *  its incoming frame passes through unchanged, and it gets no `stepCounts` entry. A
+   *  lane reference to a disabled node resolves to that pass-through frame automatically,
+   *  since `nodeOutcomes` records it under the disabled node's own key regardless.
+   *
+   *  If no ready node remains while unevaluated nodes do, that is a cycle or a dangling/
+   *  foreign lane reference that reached the table by some path other than
+   *  `PipelineService`'s write-time check -- rejected defensively with [[LaneReferenceError]]
+   *  (Engine contract items 6a/7's run-time arm), never by silently picking a node.
    *
    *  `persist` has no effect here -- this method never writes anything; it exists purely to let
    *  `PipelineRunService` share ONE code path for both a live run and a dry run (Decision 5), the
@@ -258,103 +286,113 @@ class InProcessPipelineEngine(
       assertionSink: AssertionSink = new AssertionSink,
       truncationSink: TruncationSink = new TruncationSink,
       onNodeProgress: (Option[String], Long) => Unit = (_, _) => ()
-  ): Future[TreeWalkResult] =
-    validateGraph(steps, stepRepo) match {
-      case Left(invalid) => Future.failed(invalid)
-      case Right(())     =>
-        val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink)
+  ): Future[TreeWalkResult] = {
+    val ranks   = structuralRank(steps, stepRepo)
+    val laneDep: Map[String, Option[String]] = steps.map(s => s.id.value -> laneDependencyOf(s)).toMap
+    val byId: Map[String, PipelineStep] = steps.map(s => s.id.value -> s).toMap
 
-        // Follows position-0 children from `root` -- the straight chain that is a tail, per the
-        // Phase-1 invariant (validated above: a tail node has no position >= 1 children).
-        def expandChain(root: PipelineStep): Vector[PipelineStep] = {
-          def loop(current: PipelineStep, acc: Vector[PipelineStep]): Vector[PipelineStep] =
-            stepRepo.childrenOf(steps, Some(current.id)).find(_.position == 0) match {
-              case Some(next) => loop(next, acc :+ next)
-              case None       => acc
-            }
-          loop(root, Vector(root))
-        }
-
-        // Evaluate every tail root at `nodeId`, seeded from `frame` -- each tail is its OWN
-        // independent short fold, never threaded into the trunk's continuation, and independent
-        // of any sibling tail (Decision 2 step 4).
-        //
-        // HEL-905 (evaluation-1.md CR2): a NodeOutcome (and an onNodeProgress firing) is recorded
-        // for EVERY node in the chain, not just its terminal node -- an Output attached to a
-        // mid-tail node needs its own frame available for materialization/alert evaluation.
-        def evalTails(
-            nodeId: Option[PipelineStepId],
-            frame: Seq[Row],
-            counts: Map[String, Long],
-            nodeOutcomes: Map[Option[String], NodeOutcome]
-        ): Future[(Map[String, Long], Map[Option[String], NodeOutcome])] = {
-          val tailRoots = stepRepo.childrenOf(steps, nodeId).filter(_.position >= 1)
-          tailRoots.foldLeft(Future.successful((counts, nodeOutcomes))) { (accF, tailRoot) =>
-            accF.flatMap { case (accCounts, accOutcomes) =>
-              val chain = expandChain(tailRoot)
-              foldChain(chain, frame, accCounts, accOutcomes)
-            }
+    // HEL-911 (design.md Engine contract items 6a/7, run-time defensive arm): reject a
+    // dangling/foreign/self/ancestor lane reference BEFORE any step evaluates, never by
+    // silently dropping it or letting a plain Kahn's-cycle check catch it -- referencing
+    // one's own ancestor is not a graph-theoretic cycle in the dependency-edge sense (the
+    // ancestor is already guaranteed evaluated first via the ordinary parent chain), so it
+    // needs its own explicit check rather than relying on `loop`'s "no ready node remains"
+    // fallback below (which only catches a reference to one's own DESCENDANT). Same-pipeline
+    // membership is automatic here -- `steps` is already scoped to one pipeline by the
+    // caller -- so "does not exist" collapses to "not present in `byId`" for this defensive
+    // arm; `PipelineService.validateLaneReference` performs the real cross-pipeline check at
+    // write time, where a foreign id is actually reachable.
+    def ancestorIdsOf(s: PipelineStep): Set[String] = {
+      def loop(cur: Option[PipelineStepId], acc: Set[String]): Set[String] = cur match {
+        case None => acc
+        case Some(pid) =>
+          byId.get(pid.value) match {
+            case Some(p) => loop(p.parentStepId, acc + p.id.value)
+            case None    => acc
           }
-        }
-
-        // HEL-905 (evaluation-1.md CR2/CR5): folds `chain` from `seed`, recording a NodeOutcome +
-        // firing onNodeProgress for EVERY step in the chain (not merely the last), and updating
-        // `stepCounts` only for an ENABLED step -- a disabled node passes its frame through but
-        // never gets a stepCounts entry, preserving the pre-tree-walk wire shape
-        // (`RunResultResponse.stepRowCounts`) exactly.
-        def foldChain(
-            chain: Vector[PipelineStep],
-            seed: Seq[Row],
-            counts: Map[String, Long],
-            nodeOutcomes: Map[Option[String], NodeOutcome]
-        ): Future[(Map[String, Long], Map[Option[String], NodeOutcome])] =
-          chain.foldLeft(Future.successful((seed, counts, nodeOutcomes))) { (accF, step) =>
-            accF.flatMap { case (currentRows, accCounts, accOutcomes) =>
-              evalNode(step, currentRows).map { nextRows =>
-                val updatedCounts = if (step.enabled) accCounts.updated(step.id.value, nextRows.size.toLong) else accCounts
-                val key = Some(step.id.value)
-                onNodeProgress(key, nextRows.size.toLong)
-                (nextRows, updatedCounts, accOutcomes.updated(key, NodeOutcome(nextRows, nextRows.size.toLong)))
-              }
-            }
-          }.map { case (_, finalCounts, finalOutcomes) => (finalCounts, finalOutcomes) }
-
-        // HEL-905 (design.md Decision 7): a disabled node is transparent -- it is never
-        // evaluated; its incoming frame passes through unchanged.
-        def evalNode(step: PipelineStep, currentRows: Seq[Row]): Future[Seq[Row]] =
-          if (step.enabled) evalOneStep(currentRows, step, ctx) else Future.successful(currentRows)
-
-        // Walk the trunk from `nodeId`/`frame`, evaluating this node's own tails before
-        // advancing to its trunk child (Decision 2 steps 3-4).
-        def walkTrunk(
-            nodeId: Option[PipelineStepId],
-            frame: Seq[Row],
-            counts: Map[String, Long],
-            nodeOutcomes: Map[Option[String], NodeOutcome]
-        ): Future[(Seq[Row], Map[String, Long], Map[Option[String], NodeOutcome])] =
-          evalTails(nodeId, frame, counts, nodeOutcomes).flatMap { case (countsAfterTails, outcomesAfterTails) =>
-            val keyStr = nodeId.map(_.value)
-            onNodeProgress(keyStr, frame.size.toLong)
-            val outcomesWithSelf = outcomesAfterTails.updated(keyStr, NodeOutcome(frame, frame.size.toLong))
-            stepRepo.childrenOf(steps, nodeId).find(_.position == 0) match {
-              case None => Future.successful((frame, countsAfterTails, outcomesWithSelf))
-              case Some(trunkChild) =>
-                evalNode(trunkChild, frame).flatMap { nextFrame =>
-                  // HEL-905 (evaluation-1.md CR5): a disabled trunk child gets no stepCounts
-                  // entry -- restores the pre-tree-walk wire shape (RunResultResponse
-                  // .stepRowCounts never had an entry for a filtered-out disabled step).
-                  val countsWithChild =
-                    if (trunkChild.enabled) countsAfterTails.updated(trunkChild.id.value, nextFrame.size.toLong)
-                    else countsAfterTails
-                  walkTrunk(Some(trunkChild.id), nextFrame, countsWithChild, outcomesWithSelf)
-                }
-            }
-          }
-
-        walkTrunk(None, rows, Map.empty, Map.empty).map { case (finalRows, counts, nodeOutcomes) =>
-          TreeWalkResult(finalRows, counts, nodeOutcomes)
-        }
+      }
+      loop(s.parentStepId, Set.empty)
     }
+    val laneViolation: Option[LaneReferenceError] = steps.iterator.flatMap { s =>
+      laneDep.getOrElse(s.id.value, None).flatMap { dep =>
+        if (dep == s.id.value)
+          Some(LaneReferenceError(s"Step '${s.id.value}' cannot reference itself as a lane input."))
+        else if (!byId.contains(dep))
+          Some(LaneReferenceError(s"Step '${s.id.value}' references lane step '$dep', which does not exist in this pipeline."))
+        else if (ancestorIdsOf(s).contains(dep))
+          Some(LaneReferenceError(s"Step '${s.id.value}' references lane step '$dep', which is its own ancestor (cycle)."))
+        else None
+      }
+    }.nextOption()
+
+    if (laneViolation.isDefined) return Future.failed(laneViolation.get)
+
+    // Mutable per-run state, closed over by `resolveLane` below so a step's lane
+    // resolution always reads the CURRENT in-progress nodeOutcomes map (design.md Engine
+    // contract item 8) without re-evaluating anything and without threading it through
+    // every recursive call's argument list.
+    var nodeOutcomes: Map[Option[String], NodeOutcome] = Map(None -> NodeOutcome(rows, rows.size.toLong))
+    var evaluatedIds: Set[Option[String]] = Set(None)
+    var counts: Map[String, Long] = Map.empty
+
+    val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink, stepId => nodeOutcomes.get(Some(stepId)).map(_.rows))
+
+    onNodeProgress(None, rows.size.toLong)
+
+    // HEL-905 (design.md Decision 7): a disabled node is transparent -- it is never
+    // evaluated; its incoming frame passes through unchanged.
+    def evalNode(step: PipelineStep, currentRows: Seq[Row]): Future[Seq[Row]] =
+      if (step.enabled) evalOneStep(currentRows, step, ctx) else Future.successful(currentRows)
+
+    def parentKey(s: PipelineStep): Option[String] = s.parentStepId.map(_.value)
+
+    def isReady(s: PipelineStep): Boolean =
+      evaluatedIds.contains(parentKey(s)) &&
+        laneDep.getOrElse(s.id.value, None).forall(dep => evaluatedIds.contains(Some(dep)))
+
+    def loop(remaining: Vector[PipelineStep]): Future[Unit] =
+      if (remaining.isEmpty) Future.successful(())
+      else {
+        val ready = remaining.filter(isReady)
+        if (ready.isEmpty)
+          Future.failed(LaneReferenceError(
+            "Cyclic or unresolved lane reference among pipeline steps: " + remaining.map(_.id.value).mkString(", ")
+          ))
+        else {
+          val next = ready.minBy(s => ranks.getOrElse(Some(s.id), Int.MaxValue))
+          val rest = remaining.filterNot(_.id.value == next.id.value)
+          val parentFrame = parentKey(next).flatMap(k => nodeOutcomes.get(Some(k))).map(_.rows).getOrElse(rows)
+          evalNode(next, parentFrame).flatMap { nextFrame =>
+            val key = Some(next.id.value)
+            nodeOutcomes = nodeOutcomes.updated(key, NodeOutcome(nextFrame, nextFrame.size.toLong))
+            evaluatedIds = evaluatedIds + key
+            if (next.enabled) counts = counts.updated(next.id.value, nextFrame.size.toLong)
+            onNodeProgress(key, nextFrame.size.toLong)
+            loop(rest)
+          }
+        }
+      }
+
+    // HEL-911 evaluation-1.md CR1 (cycle 2): `rows` MUST keep meaning the trunk terminal's
+    // frame (P1.2's `walkTrunk` semantics), NOT "whatever was evaluated last in
+    // structuralRank order" (`lastFrame` above) -- those diverge the moment the trunk
+    // terminal has a tail (`structuralRank` visits the tail AFTER the position-0
+    // continuation it hangs off, so `lastFrame` becomes the TAIL's frame), and five
+    // call sites (PipelineRunService's SSE row count, `pipelines.last_run_row_count`,
+    // `pipeline_runs.row_count`, and -- critically -- `binaryRefRepo.overwriteForNode`
+    // keyed by `trunkOf(steps).lastOption`) depend on `rows` being the SAME node
+    // `trunkOf(steps).lastOption` identifies, or binary refs get keyed to one node and
+    // extracted from another. `trunkOf` (CR2) picks the first position-0 child at each
+    // level, exactly the "trunk" convention every one of those five call sites already
+    // shares -- this walk's `rows` must agree with it, not redefine it. An empty trunk
+    // (no position-0 root child) falls back to the untouched root frame, matching
+    // pre-HEL-911 `walkTrunk(None, rows, ...)`'s own base case.
+    val trunkTerminalId: Option[String] = stepRepo.trunkOf(steps).lastOption.map(_.id.value)
+    loop(steps).map { _ =>
+      val trunkRows = trunkTerminalId.flatMap(id => nodeOutcomes.get(Some(id))).map(_.rows).getOrElse(rows)
+      TreeWalkResult(trunkRows, counts, nodeOutcomes)
+    }
+  }
 
   /** HEL-814 D3: the step kind's required-config problems, derived from the
    *  step's own typed config re-encoded to raw text via its companion. Going
@@ -483,7 +521,12 @@ class InProcessPipelineEngine(
    *  needing the engine reference itself; a truncated secondary-source read (design D8 — `join`,
    *  `union`, `lookup` all re-enter through this one choke point) is appended to `truncationSink`
    *  so the run never asserts completeness it cannot support. */
-  private def makeContext(dataSourceRepo: DataSourceRepository, assertionSink: AssertionSink, truncationSink: TruncationSink): PipelineExecutionContext =
+  private def makeContext(
+      dataSourceRepo: DataSourceRepository,
+      assertionSink: AssertionSink,
+      truncationSink: TruncationSink,
+      resolveLane: String => Option[Seq[Row]] = (_: String) => None
+  ): PipelineExecutionContext =
     PipelineExecutionContext(
       dataSourceRepo = dataSourceRepo,
       loadSource = (ds: DataSource) =>
@@ -492,7 +535,8 @@ class InProcessPipelineEngine(
             truncationSink.record(TruncatedRead(ds.name, rows.size.toLong, stats.availableRowCount))
           rows
         },
-      assertionSink = assertionSink
+      assertionSink = assertionSink,
+      resolveLane = resolveLane
     )
 
   // ── Text loader (HEL-215): single-row loader, deliberately not shared with

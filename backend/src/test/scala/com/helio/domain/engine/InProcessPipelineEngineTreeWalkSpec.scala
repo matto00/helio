@@ -1,7 +1,7 @@
 package com.helio.domain.engine
 
 import com.helio.domain.model.{AssertionSink, DataSourceId, PipelineId, PipelineStep, PipelineStepId, TruncationSink, UserId}
-import com.helio.domain.steps.{FilterCondition, FilterConfig, FilterStep, RenameConfig, RenameStep, StringOpsConfig, StringOpsStep}
+import com.helio.domain.steps.{FilterCondition, FilterConfig, FilterStep, JoinConfig, JoinStep, RenameConfig, RenameStep, SecondaryInput, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -115,6 +115,32 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("renamed" -> "alice"))
     }
 
+    // HEL-911 evaluation-1.md CR1 (cycle 2): `result.rows` MUST stay the TRUNK TERMINAL's
+    // frame, never "whatever structuralRank visited last" -- these two shapes are exactly
+    // where they diverge (structuralRank visits a node's tails AFTER its own position-0
+    // continuation, so the trunk terminal's OWN tail is visited after it).
+
+    "result.rows is the trunk terminal's frame even when the trunk terminal itself has a tail" in {
+      // s1 (trunk terminal, rename name->finalName) has tail t1 hanging directly off IT
+      // (not off a mid-trunk node, unlike the "evaluate a tail from its parent" test above) --
+      // structuralRank visits t1 AFTER s1, so `result.rows` must still be s1's frame, not t1's.
+      val s1 = rename("s1", "name", "finalName", 0)
+      val t1 = filterEq("t1", "finalName", "alice", 1, parent = Some("s1"))
+      val result = run(Vector(s1, t1))
+      result.rows shouldBe Seq(Map("finalName" -> "alice"), Map("finalName" -> "bob"))
+      result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("finalName" -> "alice"))
+    }
+
+    "result.rows is the untouched source frame when the root has only a position>=1 child (no trunk at all)" in {
+      val t1 = filterEq("t1", "name", "alice", 1, parent = None)
+      val result = run(Vector(t1))
+      // No position-0 root child -- trunkOf(steps) is empty, so `rows` falls back to the
+      // pipeline's own source rows, exactly like pre-HEL-911 `walkTrunk(None, rows, ...)`'s
+      // base case, NOT t1's (the lone lane's) filtered frame.
+      result.rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"))
+      result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("name" -> "alice"))
+    }
+
     "record a NodeOutcome for the pipeline root and every trunk node" in {
       val s1 = rename("s1", "name", "renamed", 0)
       val result = run(Vector(s1))
@@ -137,20 +163,31 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       result.nodeOutcomes(Some("terminal")).rows shouldBe Seq(Map("finalName" -> "alice"))
     }
 
-    "reject a node with two position-0 children with a named InvalidGraph, never evaluating a step" in {
+    // HEL-911 (design.md Engine contract item 1): the Phase-1 fence is DELETED, not merely
+    // relaxed -- a node with two "position 0" children is no longer an error at all; both are
+    // ordinary lanes, each evaluated independently from the parent's own frame (item 3). This
+    // replaces the pre-HEL-911 `InvalidGraph`-expecting test with the behavior the contract now
+    // requires: BOTH children evaluate, neither silently dropped (the HEL-930 property).
+    "a node with two lane children (formerly 'two position-0 children') evaluates BOTH independently, never drops one" in {
       val s1 = rename("s1", "name", "a", 0)
-      val s2 = rename("s2", "name", "b", 0, parent = Some("s1"))
-      val s3 = rename("s3", "name", "c", 0, parent = Some("s1"))
-      val ex = intercept[InvalidGraph] { run(Vector(s1, s2, s3)) }
-      ex.message should include("has 2 children at position 0")
+      val s2 = rename("s2", "a", "b", 0, parent = Some("s1"))
+      val s3 = rename("s3", "a", "c", 0, parent = Some("s1"))
+      val result = run(Vector(s1, s2, s3))
+      result.nodeOutcomes.keySet should contain(Some("s2"))
+      result.nodeOutcomes.keySet should contain(Some("s3"))
+      result.nodeOutcomes(Some("s2")).rows shouldBe Seq(Map("b" -> "alice"), Map("b" -> "bob"))
+      result.nodeOutcomes(Some("s3")).rows shouldBe Seq(Map("c" -> "alice"), Map("c" -> "bob"))
     }
 
-    "reject a tail node with a position>=1 child of its own" in {
+    // HEL-911: likewise, a "tail with a position>=1 child of its own" (previously rejected) is
+    // now an ordinary lane nested another level deep -- no longer a structural violation.
+    "a lane node with its own further-nested lane child (formerly rejected as an illegal tail grandchild) evaluates the whole chain" in {
       val s1 = rename("s1", "name", "a", 0)
-      val tailRoot = rename("t1", "name", "b", 1, parent = Some("s1"))
-      val illegalGrandchild = rename("t2", "name", "c", 1, parent = Some("t1"))
-      val ex = intercept[InvalidGraph] { run(Vector(s1, tailRoot, illegalGrandchild)) }
-      ex.message should include("is a tail with 1 children at position >= 1")
+      val tailRoot = rename("t1", "a", "b", 1, parent = Some("s1"))
+      val grandchild = rename("t2", "b", "c", 1, parent = Some("t1"))
+      val result = run(Vector(s1, tailRoot, grandchild))
+      result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("b" -> "alice"), Map("b" -> "bob"))
+      result.nodeOutcomes(Some("t2")).rows shouldBe Seq(Map("c" -> "alice"), Map("c" -> "bob"))
     }
 
     "skip a disabled trunk step in place, chain unbroken" in {
@@ -169,6 +206,100 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       val t1 = filterEq("t1", "name", "alice", 1, parent = Some("s1"))
       val result = run(Vector(s1, t1))
       result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("name" -> "alice"))
+    }
+
+    // HEL-911 (design.md Engine contract, tasks 11.1/11.2/11.3/11.4/11.5/11.7/11.12/11.13): the
+    // multi-lane rejoin contract this ticket adds.
+
+    "two lanes off one node evaluate independently and rejoin via union (11.1)" in {
+      // root -> laneA (rename name->x) and root -> laneB (rename name->y), each a lane off the
+      // virtual root; unionStep (a THIRD lane off root) rejoins laneA via lane-kind
+      // secondaryInput, unioning laneA's frame onto its own (root's) frame byPosition.
+      val laneA = rename("laneA", "name", "x", 0)
+      val laneB = rename("laneB", "name", "y", 1)
+      val unionStep = UnionStep(
+        PipelineStepId("rejoin"), pipelineId, 2,
+        UnionConfig(SecondaryInput.Lane("laneA"), "byPosition"),
+        now, now, parentStepId = None
+      )
+      val result = run(Vector(laneA, laneB, unionStep))
+      // unionStep evaluates from root's OWN frame (name=alice/bob) unioned with laneA's frame
+      // (x=alice/bob) -- laneB (y=...) never threads in at all (lane independence, item 3).
+      result.nodeOutcomes(Some("rejoin")).rows shouldBe Seq(
+        Map("name" -> "alice"), Map("name" -> "bob"), Map("x" -> "alice"), Map("x" -> "bob")
+      )
+      result.nodeOutcomes(Some("laneB")).rows shouldBe Seq(Map("y" -> "alice"), Map("y" -> "bob"))
+    }
+
+    "join between two lanes produces the expected rows (11.2)" in {
+      val laneA = rename("laneA", "name", "id", 0)
+      val laneB = rename("laneB", "name", "id", 1)
+      val joinStep = JoinStep(
+        PipelineStepId("rejoin"), pipelineId, 0,
+        JoinConfig(SecondaryInput.Lane("laneB"), "id", "inner"),
+        now, now, parentStepId = Some(PipelineStepId("laneA"))
+      )
+      val result = run(Vector(laneA, laneB, joinStep))
+      // joinStep is laneA's own child, evaluated from laneA's frame ({id: alice}/{id: bob}),
+      // inner-joined on "id" against laneB's frame (also {id: alice}/{id: bob}) -- every row
+      // matches itself.
+      result.nodeOutcomes(Some("rejoin")).rows shouldBe Seq(Map("id" -> "alice"), Map("id" -> "bob"))
+    }
+
+    "diamond: one lane referenced by two separate rejoins is evaluated exactly once (11.3)" in {
+      val shared = rename("shared", "name", "s", 0)
+      val rejoinA = UnionStep(PipelineStepId("rejoinA"), pipelineId, 1, UnionConfig(SecondaryInput.Lane("shared"), "byPosition"), now, now, parentStepId = None)
+      val rejoinB = UnionStep(PipelineStepId("rejoinB"), pipelineId, 2, UnionConfig(SecondaryInput.Lane("shared"), "byPosition"), now, now, parentStepId = None)
+      val result = run(Vector(shared, rejoinA, rejoinB))
+      result.nodeOutcomes(Some("shared")).rows shouldBe Seq(Map("s" -> "alice"), Map("s" -> "bob"))
+      result.nodeOutcomes(Some("rejoinA")).rows should contain allOf (Map("s" -> "alice"), Map("s" -> "bob"))
+      result.nodeOutcomes(Some("rejoinB")).rows should contain allOf (Map("s" -> "alice"), Map("s" -> "bob"))
+    }
+
+    "a lane reference to a mid-lane, non-materialized node resolves to its post-evaluation frame (11.4)" in {
+      val laneRoot = rename("laneRoot", "name", "mid", 0)
+      val laneNext = rename("laneNext", "mid", "final", 0, parent = Some("laneRoot"))
+      val rejoin = UnionStep(PipelineStepId("rejoin"), pipelineId, 1, UnionConfig(SecondaryInput.Lane("laneRoot"), "byPosition"), now, now, parentStepId = None)
+      val result = run(Vector(laneRoot, laneNext, rejoin))
+      // References laneRoot (the mid-chain node), not laneNext (its own further descendant) --
+      // resolves to laneRoot's OWN post-evaluation frame ("mid"), not laneNext's ("final").
+      result.nodeOutcomes(Some("rejoin")).rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"), Map("mid" -> "alice"), Map("mid" -> "bob"))
+    }
+
+    "a cycle (lane referencing its own ancestor) is rejected at run time (11.5, run-time arm)" in {
+      val parent = rename("parent", "name", "x", 0)
+      // child's parent IS "parent"; child references "parent" as its lane input -- a cycle.
+      val child = UnionStep(PipelineStepId("child"), pipelineId, 0, UnionConfig(SecondaryInput.Lane("parent"), "byPosition"), now, now, parentStepId = Some(PipelineStepId("parent")))
+      val ex = intercept[LaneReferenceError] { run(Vector(parent, child)) }
+      ex.message should include("cycle")
+    }
+
+    "a lane reference naming a step that does not exist is rejected at run time (11.12, existence arm)" in {
+      val step = UnionStep(PipelineStepId("s1"), pipelineId, 0, UnionConfig(SecondaryInput.Lane("does-not-exist"), "byPosition"), now, now, parentStepId = None)
+      val ex = intercept[LaneReferenceError] { run(Vector(step)) }
+      ex.message should include("does not exist")
+    }
+
+    "determinism: the same graph run twice produces identical order and counts (11.7)" in {
+      val laneA = rename("laneA", "name", "x", 0)
+      val laneB = rename("laneB", "name", "y", 1)
+      val steps = Vector(laneA, laneB)
+      val r1 = run(steps)
+      val r2 = run(steps)
+      r1.stepCounts shouldBe r2.stepCounts
+      r1.nodeOutcomes.keySet shouldBe r2.nodeOutcomes.keySet
+    }
+
+    // HEL-911 design.md Engine contract item 9: a lane reference to a DISABLED node resolves to
+    // its pass-through incoming frame -- the existing Decision 7 semantics applied unchanged.
+    "a lane reference to a disabled node resolves to its pass-through incoming frame (item 9)" in {
+      val disabledLane = rename("disabledLane", "name", "shouldNeverAppear", 0, enabled = false)
+      val rejoin = UnionStep(PipelineStepId("rejoin"), pipelineId, 1, UnionConfig(SecondaryInput.Lane("disabledLane"), "byPosition"), now, now, parentStepId = None)
+      val result = run(Vector(disabledLane, rejoin))
+      // disabledLane never evaluates -- its frame is the untouched root frame (name=alice/bob).
+      result.nodeOutcomes(Some("rejoin")).rows shouldBe Seq(
+        Map("name" -> "alice"), Map("name" -> "bob"), Map("name" -> "alice"), Map("name" -> "bob")
+      )
     }
   }
 }

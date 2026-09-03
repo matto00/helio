@@ -180,3 +180,77 @@ describe("useStepCardState — persist debounce (F-005)", () => {
     expect(onConfigChange).toHaveBeenLastCalledWith("step-1", { count: 7 });
   });
 });
+
+// HEL-911 evaluation-1.md CR6 (cycle 2): `onUnionChange`/`onLookupChange` widen the
+// narrowed UI value (otherDataSourceId/referenceDataSourceId) back to the wire shape
+// (secondaryInput) before persisting -- `stepNarrowing.test.ts` only covers the READ
+// direction (unionConfigOf/lookupConfigOf). A regression here would ship a config the
+// backend now rejects outright (Decision 1a), with jest green everywhere else.
+describe("useStepCardState — union/lookup wire-shape widening (evaluation-1.md CR6)", () => {
+  const UNION_OP_TYPE = OP_TYPES.find((op) => op.id === "union")!;
+  const LOOKUP_OP_TYPE = OP_TYPES.find((op) => op.id === "lookup")!;
+
+  it("onUnionChange persists secondaryInput (not the narrowed otherDataSourceId) to the backend", () => {
+    updatePipelineStepMock.mockResolvedValue(
+      resolvedStep({
+        secondaryInput: { kind: "source", dataSourceId: "ds-2" },
+        mode: "byPosition",
+      }),
+    );
+    const step = makeStep({
+      id: "union-1",
+      opType: UNION_OP_TYPE,
+      config: { secondaryInput: { kind: "source", dataSourceId: "ds-1" }, mode: "byPosition" },
+    });
+    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
+
+    act(() => {
+      result.current.onUnionChange({ otherDataSourceId: "ds-2", mode: "byPosition" });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(updatePipelineStepMock).toHaveBeenCalledWith("union-1", {
+      secondaryInput: { kind: "source", dataSourceId: "ds-2" },
+      mode: "byPosition",
+    });
+  });
+
+  it("onLookupChange persists secondaryInput (not the narrowed referenceDataSourceId) to the backend", () => {
+    updatePipelineStepMock.mockResolvedValue(
+      resolvedStep({
+        secondaryInput: { kind: "source", dataSourceId: "ds-2" },
+        sourceKey: "code",
+        lookupKey: "code",
+        columns: ["label"],
+      }),
+    );
+    const step = makeStep({
+      id: "lookup-1",
+      opType: LOOKUP_OP_TYPE,
+      config: {
+        secondaryInput: { kind: "source", dataSourceId: "ds-1" },
+        sourceKey: "code",
+        lookupKey: "code",
+        columns: ["label"],
+      },
+    });
+    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
+
+    act(() => {
+      result.current.onLookupChange({
+        referenceDataSourceId: "ds-2",
+        sourceKey: "code",
+        lookupKey: "code",
+        columns: ["label"],
+      });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(updatePipelineStepMock).toHaveBeenCalledWith("lookup-1", {
+      secondaryInput: { kind: "source", dataSourceId: "ds-2" },
+      sourceKey: "code",
+      lookupKey: "code",
+      columns: ["label"],
+    });
+  });
+});

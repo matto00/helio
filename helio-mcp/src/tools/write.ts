@@ -278,28 +278,33 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "`separator`, treating a null/missing field as an empty string (never whole-output null) — " +
         "`field` is unused by concat. An unsupported `operation` fails at execute time naming the " +
         "six supported values; " +
-        "union → {otherDataSourceId, mode: 'byPosition'|'byName'} — the second async/repo-touching " +
-        "op (like join): resolves `otherDataSourceId` as a second DataSource (pipeline ACL is the " +
-        "gate, mirroring join) and stacks its rows onto the current row set. `byPosition` (default) " +
-        "appends rows as-is with no column reconciliation — use when both sources share identical " +
-        "columns. `byName` unions the two sides' column sets (derived from each side's first row) " +
-        "and backfills a column missing on either side with null for that side's rows. Row count is " +
-        "additive (current rows + other source's rows); output schema is a best-effort passthrough " +
-        "of the input schema (the other source's schema isn't resolved by analyze_pipeline) — " +
-        "verify the union's actual shape with preview/run rather than trusting the analyzed schema. " +
-        "A missing/unresolvable `otherDataSourceId` or an unrecognized `mode` fails at execute time " +
-        "naming the problem; " +
-        "lookup → {referenceDataSourceId, sourceKey, lookupKey, columns: string[]} — a constrained " +
-        "single-key left-join against a reference DataSource (pipeline ACL is the gate, mirroring " +
-        "join/union), bringing in only the named `columns` (every other reference-row field is " +
-        "dropped). For each row, `sourceKey`'s value is matched against `lookupKey` on the " +
-        "reference source's rows; a match brings in `columns`' values, overwriting any " +
-        "colliding field on the current row; multiple reference matches use only the first " +
-        "(no row multiplication); no match null-fills `columns` (row preserved — a true left " +
-        "join, row count never changes). `columns` DOES appear in analyze_pipeline's output " +
-        "schema, appended typed string as a documented best-effort (the reference source's real " +
-        "schema isn't resolved by analyze_pipeline — verify actual types with preview/run). A " +
-        "missing/unresolvable `referenceDataSourceId` fails at execute time naming the problem; " +
+        "union → {secondaryInput: {kind:'source',dataSourceId} | {kind:'lane',stepId}, " +
+        "mode: 'byPosition'|'byName'} — the second async/repo-touching op (like join): " +
+        "`secondaryInput.kind:'source'` resolves `dataSourceId` as a second DataSource (pipeline " +
+        "ACL is the gate, mirroring join); `kind:'lane'` resolves another step's already-evaluated " +
+        "rows within the SAME pipeline (no DataSource lookup, no ACL check — same-pipeline " +
+        "membership is the whole gate; a stepId belonging to another pipeline, or forming a cycle " +
+        "with this step's own ancestors, is rejected at write time). Either way the resolved rows " +
+        "stack onto the current row set. `byPosition` (default) appends rows as-is with no column " +
+        "reconciliation — use when both sides share identical columns. `byName` unions the two " +
+        "sides' column sets (derived from each side's first row) and backfills a column missing on " +
+        "either side with null for that side's rows. Row count is additive; output schema is a " +
+        "best-effort passthrough of the input schema — verify the union's actual shape with " +
+        "preview/run rather than trusting the analyzed schema. A missing/unresolvable " +
+        "`secondaryInput` or an unrecognized `mode` fails at execute time naming the problem. " +
+        "There is NO legacy flat `otherDataSourceId` field — a config carrying it is rejected " +
+        "outright, not silently upgraded; " +
+        "lookup → {secondaryInput: {kind:'source',dataSourceId} | {kind:'lane',stepId}, sourceKey, " +
+        "lookupKey, columns: string[]} — a constrained single-key left-join against the resolved " +
+        "second input (same `secondaryInput` semantics as union above), bringing in only the named " +
+        "`columns` (every other field from the second input is dropped). For each row, `sourceKey`'s " +
+        "value is matched against `lookupKey` on the second input's rows; a match brings in " +
+        "`columns`' values, overwriting any colliding field on the current row; multiple matches " +
+        "use only the first (no row multiplication); no match null-fills `columns` (row preserved " +
+        "— a true left join, row count never changes). `columns` DOES appear in analyze_pipeline's " +
+        "output schema, appended typed string as a documented best-effort. A missing/unresolvable " +
+        "`secondaryInput` fails at execute time naming the problem. There is NO legacy flat " +
+        "`referenceDataSourceId` field — a config carrying it is rejected outright; " +
         "assert → {rules: [{kind, field?, params, severity}]} — evaluates data-trustworthiness " +
         "rules against the rows at this step's position and records one pass/fail result per rule " +
         "(row data itself passes through unchanged; results surface later via " +

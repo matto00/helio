@@ -4,7 +4,6 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
 import com.helio.domain._
 import com.helio.domain.model._
-import com.helio.domain.engine.InvalidGraph
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -596,6 +595,27 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * `outputs.node_step_id ON DELETE CASCADE` once the step row itself is
     * gone.
     *
+    * HEL-911 evaluation-1.md CR2 (cycle 2, re-derived sweep): a THIRD single-child collapse
+    * site, found by the sweep and not one of the two the evaluator named --
+    * `childrenSorted.headOption` below picks exactly ONE child (the lowest-position one) to
+    * re-parent/splice, and every OTHER child's WHOLE SUBTREE IS DELETED, not merely dropped
+    * from a listing. Unlike `trunkOf`/`tailsOf` above, this is NOT a HEL-930-class regression
+    * introduced by removing the Phase-1 fence -- this exact "one continuation absorbed, every
+    * other child's subtree deleted" policy already existed pre-HEL-911 for a node with
+    * MULTIPLE tails (P1.2 already permitted several `position >= 1` children at one node, and
+    * this method already deleted all-but-the-lowest-position one of them; the doc comment's
+    * "Every OTHER child... is deleted outright" already said so, in the plural, before this
+    * ticket). What HEL-911 changes is only that the absorbed child need no longer be
+    * position-0 specifically -- but the SELECTION rule (lowest position survives, absorbed
+    * regardless of whether that position happens to be 0) was already position-agnostic, so
+    * its correctness never depended on the now-deleted "at most one position == 0" guarantee.
+    * This is therefore a genuine, DELIBERATE product policy (documented, not accidental) that
+    * predates this ticket -- flagged here rather than silently, per the sweep's own standard,
+    * but NOT changed by this ticket: redesigning delete to preserve every lane (rather than
+    * absorbing one and deleting the rest) is a product decision with its own migration/UX
+    * implications P2.2's editor work should make deliberately, not an incidental fix bundled
+    * into this engine ticket. Recorded as a spinoff candidate in the change record.
+    *
     * Returns `None` if the step does not exist, otherwise
     * `Some(removedPlacementCount)` -- the count of steps deleted from tail
     * subtrees (NOT counting the target step itself), so a future caller
@@ -679,7 +699,31 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * wrongly treat that sole, non-zero-position child as "the lowest" and
     * incorrectly extend the trunk into what is actually a tail. Requiring
     * `position == 0` exactly is what "a node with no position-0 child ends
-    * the trunk" (the spec's stated rule) actually means. */
+    * the trunk" (the spec's stated rule) actually means.
+    *
+    * HEL-911 evaluation-1.md CR2 (cycle 2, re-derived sweep): `.find(_.position == 0)`
+    * IS a single-child collapse of a now-possibly-plural child set (deleting the Phase-1
+    * fence permits 2+ `position == 0` siblings). This is DELIBERATELY KEPT, not converted
+    * to return every lane, because `trunkOf` has exactly ONE job -- naming "the" node a
+    * scalar, single-anchor caller should use -- and every one of its callers needs a
+    * scalar, not a set:
+    *
+    *   - `PipelineRunService.scala` (the binary-refs write key) and `PipelineService.scala`
+    *     (the default-append anchor, AND the lane-cycle-check ancestor-chain root) all need
+    *     ONE deterministic anchor step, not a set of candidates to choose among themselves.
+    *   - `InProcessPipelineEngine.executeTree`'s `rows` (CR1, restored above) is defined in
+    *     terms of THIS SAME `trunkOf(steps).lastOption` specifically so it never disagrees
+    *     with the binary-refs write key -- both read the identical function.
+    *   - `PipelineStepRepository.reorderInternal`'s `currentTrunk` (below) validates a
+    *     caller-supplied reorder request against exactly this same single chain.
+    *
+    * "First `position == 0` child, ties broken by DB/Vector order" is therefore a
+    * deliberate, documented LEGACY-COMPATIBILITY convention (never a claim that this is
+    * the pipeline's only or primary lane) -- a caller that needs to see EVERY lane uses
+    * `childrenOf`/`executionOrder` directly, never `trunkOf`. Nothing is silently dropped
+    * from the GRAPH by this choice (every step is still reachable via `childrenOf`); what
+    * IS narrowed, by design, is which ONE node these five specific scalar-anchor
+    * consumers agree to use. */
   def trunkOf(steps: Vector[PipelineStep]): Vector[PipelineStep] = {
     def loop(parent: Option[PipelineStepId], acc: Vector[PipelineStep]): Vector[PipelineStep] =
       childrenOf(steps, parent).find(_.position == 0) match {
@@ -707,16 +751,26 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * sibling) -- `drop(1)` on a single-element list drops it entirely,
     * silently losing that tail; `filter(_.position != 0)` correctly keeps
     * it, matching `trunkOf`'s companion fix (exact `position == 0`, not
-    * "lowest position", decides trunk-vs-tail). */
+    * "lowest position", decides trunk-vs-tail).
+    *
+    * HEL-911 evaluation-1.md CR2 (cycle 2, re-derived sweep): `expand`'s inner walk used
+    * to be `childrenOf(...).headOption`, a genuine second single-child collapse -- a node
+    * MID-tail with two of its own further children (now legal; the Phase-1 fence no longer
+    * forbids a `position >= 1` child below a tail) would silently lose every child but the
+    * lowest-position one from the returned Vector, with `tailsOf` itself having NO live
+    * production caller to notice (`V94OutputsMigrationSpec`/this file's own spec are the
+    * only current callers). Unlike `trunkOf` above, there is no "every caller needs exactly
+    * one scalar anchor" argument here to justify keeping the collapse -- `tailsOf`'s whole
+    * contract is "every tail, in full" -- so this is fixed outright: `flatMap` over ALL of
+    * a node's children rather than `headOption` on the lowest-position one. This can only
+    * ADD rows to an already-returned tail's Vector (a genuinely branching tail now reports
+    * every one of its own descendants, depth-first, still root-to-leaf per branch) --
+    * `PipelineStepRepositoryTreeOrderingSpec`'s existing single-chain-tail assertions are
+    * unaffected (a chain has exactly one child at each level, so `flatMap` and `headOption`
+    * agree there). */
   def tailsOf(steps: Vector[PipelineStep]): Vector[Vector[PipelineStep]] = {
-    def expand(root: PipelineStep): Vector[PipelineStep] = {
-      def loop(current: PipelineStep, acc: Vector[PipelineStep]): Vector[PipelineStep] =
-        childrenOf(steps, Some(current.id)).headOption match {
-          case Some(next) => loop(next, acc :+ next)
-          case None       => acc
-        }
-      loop(root, Vector(root))
-    }
+    def expand(root: PipelineStep): Vector[PipelineStep] =
+      root +: childrenOf(steps, Some(root.id)).flatMap(expand)
 
     val allParents = steps.map(_.parentStepId).distinct
     allParents.flatMap { parent =>
@@ -724,61 +778,45 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     }
   }
 
-  /** Whole-pipeline execution order (HEL-904 follow-on binding ruling,
-    * 2026-08-31): derived from the `parent_step_id` chain, NOT from a
-    * global `position` sort. The trunk's steps appear in order; each
-    * node's own tail branches (its `position != 0` children, each fully
-    * expanded depth-first) are emitted immediately after that node and
-    * before the trunk continues past it. `position` is a sibling-scoped
-    * tiebreaker only -- meaningful among children of the same parent, never
-    * as a whole-pipeline ordering key (see `reorderInternal`).
+  /** Whole-pipeline execution/listing order (HEL-911, design.md Engine contract items
+    * 1-2, generalizing the HEL-904 binding ruling above and the pre-HEL-911 shape
+    * verbatim below): every "position == 0 child" reference below is now PLURAL -- "the
+    * position-0 children" -- rather than singular, and none of them is picked over the
+    * others; every one is walked. This is a deliberate, narrower generalization than a
+    * from-scratch rewrite: this method is the LISTING/API-facing order (route
+    * position/duplicate/reorder semantics -- e.g. "a node's tails list immediately
+    * after it, before its trunk-continuation's own descendants" -- were already
+    * contractually documented behavior several route specs assert byte-for-byte), so it
+    * preserves the pre-HEL-911 emission SHAPE exactly for the common (<=1 position-0
+    * child per node) case, and extends it losslessly to 2+ position-0 children rather
+    * than inventing a new listing order this ticket's contract never asked for
+    * (design.md's Engine contract only binds `InProcessPipelineEngine`'s own walk,
+    * realized independently by `structuralRank`/`executeTree` -- not this listing
+    * helper). `position` remains a sibling-scoped tiebreaker only, never a
+    * whole-pipeline ordering key (see `reorderInternal`).
     *
-    * `PipelineStepRepository.listByPipelineInternal` (consumed by
-    * `PipelineRunService` and `PipelineService` for both run execution and
-    * step listing/reordering) and the owner-scoped `listByPipeline` both
-    * return this order. Any root-level tail branches (children of the
-    * virtual root, i.e. `parentStepId = None`, other than the single
-    * trunk-starting step) are appended at the very end -- real migrated
-    * data never produces these (every pipeline has exactly one root child),
-    * but the case is handled defensively rather than silently dropped.
-    *
-    * HEL-930 fix: a node (including the virtual root) with TWO OR MORE
-    * `position == 0` children is the same `InvalidGraph` arm-1 violation
-    * [[com.helio.domain.engine.InProcessPipelineEngine.validateGraph]] already
-    * rejects before a run -- this method used to resolve it via `.find`,
-    * silently keeping the first match and dropping every other position-0
-    * sibling (and its whole subtree) from the returned Vector with no error
-    * at all. That silent-drop shape is exactly what this scaladoc's previous
-    * wording incorrectly claimed didn't exist ("handled defensively rather
-    * than silently dropped") -- it did exist, right here, for this one shape.
-    * Fixed by raising [[InvalidGraph]] the moment more than one position-0
-    * child is found at any node, so a malformed graph now fails loudly
-    * instead of quietly executing with a step missing. */
+    * HEL-930's `InvalidGraph` guard against a node having two or more `position == 0`
+    * children is REMOVED, not merely relaxed (HEL-911 design.md Engine contract item 1
+    * deletes the Phase-1 fence at all three enforcement sites, this being one). The
+    * property that guard protected -- never silently drop a sibling by picking one
+    * arbitrary child via `.find`/`.headOption` -- is preserved here structurally: EVERY
+    * "position == 0" child is now walked via `flatMap` (plural), none singled out via
+    * `.find`/`.headOption` and dropped. */
   def executionOrder(steps: Vector[PipelineStep]): Vector[PipelineStep] = {
     def expandBranch(root: PipelineStep): Vector[PipelineStep] =
       root +: childrenOf(steps, Some(root.id)).flatMap(expandBranch)
 
-    // HEL-930: raises InvalidGraph instead of `.find`'s silent first-match
-    // whenever a node has more than one position-0 child -- `nodeLabel` is
-    // only used to build that error's message.
-    def trunkChildOf(nodeLabel: => String, children: Vector[PipelineStep]): Option[PipelineStep] = {
-      val trunkChildren = children.filter(_.position == 0)
-      if (trunkChildren.size > 1)
-        throw InvalidGraph(s"InvalidGraph: node $nodeLabel has ${trunkChildren.size} children at position 0")
-      trunkChildren.headOption
-    }
-
     def walk(node: PipelineStep): Vector[PipelineStep] = {
-      val children    = childrenOf(steps, Some(node.id))
-      val tails       = children.filter(_.position != 0).flatMap(expandBranch)
-      val trunkChild  = trunkChildOf(node.id.value, children)
-      node +: (tails ++ trunkChild.toVector.flatMap(walk))
+      val children      = childrenOf(steps, Some(node.id))
+      val tails         = children.filter(_.position != 0).flatMap(expandBranch)
+      val trunkChildren = children.filter(_.position == 0)
+      node +: (tails ++ trunkChildren.flatMap(walk))
     }
 
     val rootChildren = childrenOf(steps, None)
-    val rootTrunk     = trunkChildOf("root", rootChildren)
-    val rootTails      = rootChildren.filter(_.position != 0).flatMap(expandBranch)
-    rootTrunk.toVector.flatMap(walk) ++ rootTails
+    val rootTrunk     = rootChildren.filter(_.position == 0)
+    val rootTails     = rootChildren.filter(_.position != 0).flatMap(expandBranch)
+    rootTrunk.flatMap(walk) ++ rootTails
   }
 
   private def rowToDomain(row: PipelineStepRow): PipelineStep = {

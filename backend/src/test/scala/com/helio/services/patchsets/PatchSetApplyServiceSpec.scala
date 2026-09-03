@@ -496,20 +496,20 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // (Text/Markdown's data-bound "Source mode" and metrics are both
     // removed).
 
-    "reject a pipelineStep-update edit referencing a foreign-owned JoinConfig rightDataSourceId (7.9d)" in {
+    "reject a pipelineStep-update edit referencing a foreign-owned JoinConfig secondaryInput dataSourceId (7.9d)" in {
       val sourceId = seedStaticSource(userA, "Pipeline source")
       val rightSourceId = seedStaticSource(userA, "Right source")
       val foreignSourceId = seedStaticSource(userB, "Foreign source")
       val pipeline              = seedPipeline(userA, sourceId, "Join pipeline")
       val joinConfig = JsObject(
-        "rightDataSourceId" -> JsString(rightSourceId.value),
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(rightSourceId.value)),
         "joinKey"            -> JsString("value"),
         "joinType"           -> JsString("inner")
       )
       val step = seedPipelineStep(PipelineId(pipeline.id), userA, "join", joinConfig)
 
       val updatedJoinConfig = JsObject(
-        "rightDataSourceId" -> JsString(foreignSourceId.value),
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(foreignSourceId.value)),
         "joinKey"            -> JsString("value"),
         "joinType"           -> JsString("inner")
       )
@@ -527,19 +527,19 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // succeed with the second source left unset, mirroring lookup's pre-existing behavior
     // (this file had NO existing test asserting an empty second-source id per the design
     // gate's grep, so this is new coverage, not a modified assertion).
-    "accept a pipelineStep-update edit clearing JoinConfig.rightDataSourceId to empty (HEL-950)" in {
+    "accept a pipelineStep-update edit clearing JoinConfig.secondaryInput dataSourceId to empty (HEL-950)" in {
       val sourceId = seedStaticSource(userA, "Pipeline source")
       val rightSourceId = seedStaticSource(userA, "Right source")
       val pipeline = seedPipeline(userA, sourceId, "Join pipeline")
       val joinConfig = JsObject(
-        "rightDataSourceId" -> JsString(rightSourceId.value),
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(rightSourceId.value)),
         "joinKey"           -> JsString("value"),
         "joinType"          -> JsString("inner")
       )
       val step = seedPipelineStep(PipelineId(pipeline.id), userA, "join", joinConfig)
 
       val emptiedJoinConfig = JsObject(
-        "rightDataSourceId" -> JsString(""),
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
         "joinKey"           -> JsString("value"),
         "joinType"          -> JsString("inner")
       )
@@ -551,19 +551,19 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
-    "reject a pipelineStep-update edit referencing a foreign-owned UnionConfig.otherDataSourceId (HEL-950, the cell HEL-620 missed)" in {
+    "reject a pipelineStep-update edit referencing a foreign-owned UnionConfig.secondaryInput dataSourceId (HEL-950, the cell HEL-620 missed)" in {
       val sourceId = seedStaticSource(userA, "Pipeline source")
       val otherSourceId = seedStaticSource(userA, "Other source")
       val foreignSourceId = seedStaticSource(userB, "Foreign source")
       val pipeline = seedPipeline(userA, sourceId, "Union pipeline")
       val unionConfig = JsObject(
-        "otherDataSourceId" -> JsString(otherSourceId.value),
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(otherSourceId.value)),
         "mode"              -> JsString("byPosition")
       )
       val step = seedPipelineStep(PipelineId(pipeline.id), userA, "union", unionConfig)
 
       val updatedUnionConfig = JsObject(
-        "otherDataSourceId" -> JsString(foreignSourceId.value),
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(foreignSourceId.value)),
         "mode"              -> JsString("byPosition")
       )
       val edit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
@@ -574,18 +574,18 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
-    "accept a pipelineStep-update edit clearing UnionConfig.otherDataSourceId to empty (HEL-950, the cell HEL-620 missed)" in {
+    "accept a pipelineStep-update edit clearing UnionConfig.secondaryInput dataSourceId to empty (HEL-950, the cell HEL-620 missed)" in {
       val sourceId = seedStaticSource(userA, "Pipeline source")
       val otherSourceId = seedStaticSource(userA, "Other source")
       val pipeline = seedPipeline(userA, sourceId, "Union pipeline")
       val unionConfig = JsObject(
-        "otherDataSourceId" -> JsString(otherSourceId.value),
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(otherSourceId.value)),
         "mode"              -> JsString("byPosition")
       )
       val step = seedPipelineStep(PipelineId(pipeline.id), userA, "union", unionConfig)
 
       val emptiedUnionConfig = JsObject(
-        "otherDataSourceId" -> JsString(""),
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
         "mode"              -> JsString("byPosition")
       )
       val edit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",

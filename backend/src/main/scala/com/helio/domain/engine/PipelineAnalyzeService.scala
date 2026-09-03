@@ -3,8 +3,8 @@ package com.helio.domain.engine
 import com.helio.domain.model.{DataFieldType, PipelineStep}
 import com.helio.domain.steps.{
   AggregateConfig, AggregateStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
-  JoinConfig, JoinStep, PivotConfig, PivotStep, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep,
-  WindowConfig, WindowStep
+  JoinConfig, JoinStep, LookupConfig, PivotConfig, PivotStep, SecondaryInput, StringOpsConfig, StringOpsStep,
+  UnionConfig, UnionStep, WindowConfig, WindowStep
 }
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -173,41 +173,90 @@ object PipelineAnalyzeService {
    *  directly, mirroring `NodeRef.stepId = None` meaning "the source" (see
    *  `com.helio.domain.model.NodeRef`).
    *
-   *  Deliberately does NOT replicate `InProcessPipelineEngine`'s
-   *  `InvalidGraph` structural validation (single trunk child at position 0,
-   *  no tail branching past a tail root) — that is an execution-time
-   *  invariant on the STORED graph; this is a pure schema-propagation
-   *  function that tolerates whatever `steps` shape it is given (a step
-   *  with an unresolvable `parentStepId` is simply never reached and is
-   *  absent from the result map, which the `capabilities?stepId=` route
-   *  reports as its own "unknown stepId" 404 rather than a crash here). */
+   *  HEL-911: this is a pure schema-propagation function that tolerates
+   *  whatever `steps` shape it is given -- a step with an unresolvable
+   *  `parentStepId`, or (since this ticket) an unresolvable/cyclic `lane`-kind
+   *  `secondaryInput.stepId`, is simply never reached (see `isReady` below)
+   *  and is absent from the result map, which the `capabilities?stepId=`
+   *  route reports as its own "unknown stepId" 404 rather than a crash here. */
+  /** HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3): a `join`/`union`/
+   *  `lookup` node whose `secondaryInput` is `lane`-kind names ANOTHER node in this same
+   *  `steps` list -- and unlike a `source`-kind secondary input (a `DataSource` this layer
+   *  genuinely cannot resolve, no repo access), that referenced node's projected schema IS
+   *  computable here, from the very same `steps` this call already has. Decoded from the
+   *  raw config text (mirroring `validateStepConfig`'s own raw-text dispatch) rather than
+   *  the typed config, so a malformed config degrades to `None` (no secondary-schema
+   *  derivation) instead of throwing -- `inferOutputSchema`'s existing `parseConfig` /
+   *  `validateStepConfig` machinery is still what reports a malformed config as an error;
+   *  this helper only ever WIDENS what a well-formed config can additionally project. */
+  private def laneDependencyOf(op: String, config: String): Option[String] = {
+    def laneId(si: SecondaryInput): Option[String] = si match {
+      case SecondaryInput.Lane(id) => Some(id)
+      case _                       => None
+    }
+    scala.util.Try(op match {
+      case "union"  => laneId(UnionConfig.decode(config).secondaryInput)
+      case "join"   => laneId(JoinConfig.decode(config).secondaryInput)
+      case "lookup" => laneId(LookupConfig.decode(config).secondaryInput)
+      case _        => None
+    }).getOrElse(None)
+  }
+
+  /** Per-node (trunk + every tail) schema projection -- see the class doc above.
+   *
+   *  HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3, cycle 2): generalized
+   *  from a single top-down `parentStepId` walk into a topological pass that ALSO honors
+   *  each `join`/`union`/`lookup` node's `lane`-kind dependency edge (mirrors
+   *  `InProcessPipelineEngine.executeTree`'s own Kahn's-algorithm structure, at the schema
+   *  layer rather than the row layer) -- a rejoin node's projection is deferred until its
+   *  referenced lane node's OWN projection is available, so `inferOutputSchema` can derive
+   *  the rejoin's schema from BOTH inputs (the parent lane's projected schema and the
+   *  resolved secondary schema), not the parent lane alone. A node whose parent AND/or lane
+   *  dependency never resolves (an unknown `parentStepId`, a dangling/cyclic lane
+   *  reference) is simply never reached and is absent from the result map -- unchanged from
+   *  this method's pre-existing tolerance, now extended to the lane dependency too, so a
+   *  malformed graph degrades gracefully here rather than looping or throwing (this is a
+   *  pure schema-propagation function, not the write-time/run-time cycle rejection --
+   *  `PipelineService`/`InProcessPipelineEngine` own that). */
   def analyzeNodes(steps: Vector[NodeStepInput], sourceSchema: Vector[SchemaField]): Map[String, AnalyzedStep] = {
-    val byParent: Map[Option[String], Vector[NodeStepInput]] = steps.groupBy(_.parentStepId)
-    val results  = scala.collection.mutable.LinkedHashMap.empty[String, AnalyzedStep]
+    val results = scala.collection.mutable.LinkedHashMap.empty[String, AnalyzedStep]
 
     def schemaAt(parentId: Option[String]): Vector[SchemaField] =
       parentId.flatMap(results.get).map(_.outputSchema).getOrElse(sourceSchema)
 
-    def walk(parentId: Option[String]): Unit =
-      byParent.getOrElse(parentId, Vector.empty).sortBy(_.position).foreach { step =>
-        val inputSchema = schemaAt(parentId)
-        val (output, err) = validateStepConfig(step.op, step.config) match {
-          case Some(msg) => (inputSchema, Some(msg))
-          case None      => inferOutputSchema(step.op, step.config, inputSchema)
-        }
-        results(step.id) = AnalyzedStep(
-          id              = step.id,
-          position        = step.position,
-          op              = step.op,
-          config          = step.config,
-          inputSchema     = inputSchema,
-          outputSchema    = output,
-          validationError = err
-        )
-        walk(Some(step.id))
-      }
+    def isReady(step: NodeStepInput): Boolean =
+      step.parentStepId.forall(results.contains) &&
+        laneDependencyOf(step.op, step.config).forall(results.contains)
 
-    walk(None)
+    def processNode(step: NodeStepInput): Unit = {
+      val inputSchema     = schemaAt(step.parentStepId)
+      val secondarySchema = laneDependencyOf(step.op, step.config).flatMap(results.get).map(_.outputSchema)
+      val (output, err) = validateStepConfig(step.op, step.config) match {
+        case Some(msg) => (inputSchema, Some(msg))
+        case None      => inferOutputSchema(step.op, step.config, inputSchema, secondarySchema)
+      }
+      results(step.id) = AnalyzedStep(
+        id              = step.id,
+        position        = step.position,
+        op              = step.op,
+        config          = step.config,
+        inputSchema     = inputSchema,
+        outputSchema    = output,
+        validationError = err
+      )
+    }
+
+    var remaining  = steps
+    var progressed = true
+    while (remaining.nonEmpty && progressed) {
+      val (ready, notReady) = remaining.partition(isReady)
+      if (ready.isEmpty) progressed = false
+      else {
+        ready.sortBy(_.position).foreach(processNode)
+        remaining = notReady
+      }
+    }
+
     results.toMap
   }
 
@@ -350,18 +399,26 @@ object PipelineAnalyzeService {
 
 
   private def inferOutputSchema(
-      op:          String,
-      config:      String,
-      inputSchema: Vector[SchemaField]
+      op:              String,
+      config:          String,
+      inputSchema:     Vector[SchemaField],
+      secondarySchema: Option[Vector[SchemaField]] = None
   ): (Vector[SchemaField], Option[String]) =
     op match {
-      // "union" (HEL-384, design.md Decision 6): documented best-effort
-      // passthrough — the other source's schema isn't resolvable here (this
-      // layer has no repo access), so output schema = input schema
-      // unchanged. A real dispatch case, not the unknown-op fallback below,
-      // so analyze_pipeline never emits a false validationError for a union
-      // step (unlike JoinStep, which has no case here at all).
-      case "filter" | "limit" | "sort" | "dedupe" | "fillnull" | "union" => (inputSchema, None)
+      case "filter" | "limit" | "sort" | "dedupe" | "fillnull" => (inputSchema, None)
+      // HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3): `union`/`join`
+      // project a schema derived from BOTH inputs when the secondary input is `lane`-kind
+      // and its schema was resolvable (see `analyzeNodes`/`laneDependencyOf`). For a
+      // `source`-kind secondary input, `secondarySchema` is always `None` here (this layer
+      // has no repo access to resolve a `DataSource`'s schema) -- both fall back to the
+      // pre-existing documented best-effort passthrough in that case, unchanged. `join` is
+      // a REAL dispatch case now (it had none before this ticket, silently falling to the
+      // `unknown`-op arm below and reporting a spurious "Unknown op: 'join'" on every
+      // analyze call for a join step -- fixed here as part of implementing this contract
+      // item, since design.md's Engine contract item 12 names `join` alongside `union`/
+      // `lookup` explicitly).
+      case "union"                      => inferUnion(inputSchema, secondarySchema)
+      case "join"                       => inferJoin(inputSchema, secondarySchema)
       case "select"                     => inferSelect(config, inputSchema)
       case "rename"                     => inferRename(config, inputSchema)
       case "cast"                       => inferCast(config, inputSchema)
@@ -375,7 +432,7 @@ object PipelineAnalyzeService {
       case "window"                     => inferWindow(config, inputSchema)
       case "unpivot"                    => inferUnpivot(config, inputSchema)
       case "stringops"                  => inferStringOps(config, inputSchema)
-      case "lookup"                     => inferLookup(config, inputSchema)
+      case "lookup"                     => inferLookup(config, inputSchema, secondarySchema)
       case "assert"                     => inferAssert(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
@@ -769,13 +826,65 @@ object PipelineAnalyzeService {
    *  performed on `sourceKey` — like `stringops`/`datebucket`, `lookup`
    *  accepts any field name and null-coerces at execute time — so this
    *  dedicated dispatch case never emits a false `validationError`. */
-  private def inferLookup(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+  private def inferLookup(
+      config:          String,
+      inputSchema:     Vector[SchemaField],
+      secondarySchema: Option[Vector[SchemaField]] = None
+  ): (Vector[SchemaField], Option[String]) =
     parseConfig("lookup", config) { json =>
       val columns = json.fields.get("columns").map(_.convertTo[Vector[String]]).getOrElse(Vector.empty[String])
+      // HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3): when the secondary
+      // input is `lane`-kind and its schema was resolved, type each requested column from
+      // the REAL referenced-node field of the same name (both inputs, not the parent lane
+      // alone). A requested column absent from the resolved secondary schema, or a
+      // `source`-kind secondary input (unresolved -- no repo access), falls back to the
+      // pre-existing documented "string" placeholder, unchanged.
+      val secondaryTypes: Map[String, String] =
+        secondarySchema.map(_.map(f => f.name -> f.`type`).toMap).getOrElse(Map.empty)
       columns.foldLeft(inputSchema) { (schema, col) =>
-        schema.filterNot(_.name == col) :+ SchemaField(name = col, `type` = "string")
+        val fieldType = secondaryTypes.getOrElse(col, "string")
+        schema.filterNot(_.name == col) :+ SchemaField(name = col, `type` = fieldType)
       }
     } (inputSchema)
+
+  /** union (HEL-384, design.md Decision 6) — HEL-911 (design.md Engine contract item 12,
+   *  evaluation-1.md CR3): when the secondary input is `lane`-kind and its schema was
+   *  resolved (`analyzeNodes`/`laneDependencyOf`), the projected schema is the UNION of
+   *  both sides' field names (parent lane's own type wins on a name collision -- runtime
+   *  row VALUES carry no notion of a "winning type" either, since `Map[String, Any]` values
+   *  are untyped at execution; this is a schema-layer-only convention). For a `source`-kind
+   *  secondary input (unresolved -- no repo access to a `DataSource`'s schema), this
+   *  degrades to the pre-existing documented best-effort passthrough, unchanged. */
+  private def inferUnion(
+      inputSchema:     Vector[SchemaField],
+      secondarySchema: Option[Vector[SchemaField]]
+  ): (Vector[SchemaField], Option[String]) =
+    secondarySchema match {
+      case Some(secondary) =>
+        val existingNames = inputSchema.map(_.name).toSet
+        (inputSchema ++ secondary.filterNot(f => existingNames.contains(f.name)), None)
+      case None => (inputSchema, None)
+    }
+
+  /** join — HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3): `join` had NO
+   *  dispatch case at all before this ticket (every analyze call for a `join` step fell to
+   *  the `unknown`-op arm below, reporting a spurious "Unknown op: 'join'"). When the
+   *  secondary input is `lane`-kind and its schema was resolved, the projected schema
+   *  mirrors `JoinStep.evaluate`'s own runtime row shape (`leftRow ++ rightRow`): the union
+   *  of both sides' fields, with the SECONDARY (right-hand) side's type winning on a name
+   *  collision -- the same "right-hand wins" rule the runtime row merge uses. For a
+   *  `source`-kind secondary input (unresolved), this is the same documented best-effort
+   *  passthrough every other op in this file uses when it cannot see the second input. */
+  private def inferJoin(
+      inputSchema:     Vector[SchemaField],
+      secondarySchema: Option[Vector[SchemaField]]
+  ): (Vector[SchemaField], Option[String]) =
+    secondarySchema match {
+      case Some(secondary) =>
+        val secondaryNames = secondary.map(_.name).toSet
+        (inputSchema.filterNot(f => secondaryNames.contains(f.name)) ++ secondary, None)
+      case None => (inputSchema, None)
+    }
 
   /** assert (HEL-454 / 419-A) — design.md Decision 5: a dedicated dispatch
    *  case (not the blanket identity group `filter`/`limit`/`sort`/`dedupe`/

@@ -99,7 +99,16 @@ final case class PipelineExecutionContext(
      *  [[AssertionResult]]s into (HEL-509 / 419-B, design.md Decision 4).
      *  Defaults to a fresh, unread sink so every existing direct construction
      *  of this context is unaffected. */
-    assertionSink: AssertionSink = new AssertionSink
+    assertionSink: AssertionSink = new AssertionSink,
+    /** HEL-911 (design.md Engine contract item 8): resolves a `lane`-kind
+     *  `secondaryInput`'s referenced step id to that node's already-evaluated
+     *  post-evaluation frame, WITHOUT re-evaluating it -- used by
+     *  [[steps.JoinStep]] / [[steps.UnionStep]] / [[steps.LookupStep]]. Defaults to
+     *  a function returning `None` so every existing direct construction of this
+     *  context (tests, `previewStep` before this ticket) keeps compiling;
+     *  `InProcessPipelineEngine.executeTree` supplies the real implementation,
+     *  backed by the in-progress `nodeOutcomes` map. */
+    resolveLane: String => Option[Seq[Map[String, Any]]] = (_: String) => None
 )
 
 object PipelineStep {

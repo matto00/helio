@@ -1,0 +1,49 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence)
+
+Read as claims, then checked against the tree: `ticket.md`, `proposal.md`, `design.md`, `tasks.md`, all 16 spec deltas under `specs/`, and spec line 160 of `docs/superpowers/specs/2026-08-30-pipelines-outputs-remodel-design.md`.
+
+Ground-truth claims in design.md that I confirmed TRUE:
+
+- **Three enforcement sites, exactly as stated.** `InProcessPipelineEngine.validateGraph` (its scaladoc does claim "This is the ONLY layer that enforces this invariant", and that claim is indeed stale); `PipelineStepRepository.executionOrder`'s `trunkChildOf` throw (HEL-930); `PipelineService.classifyDbError`'s `case invalid: InvalidGraph => UnprocessableEntity`. The premise-validation correction holds.
+- **`nodeOutcomes` already retains every node's post-evaluation frame**, keyed `Option[String]`, including disabled nodes (`foldChain` updates outcomes after `evalNode`, which is pass-through when `!enabled`; `walkTrunk` records its own frame). Contract items 8 and 9 are consistent with the code — Decision 3 really is free at runtime.
+- **`pipeline_steps.config` is TEXT** (`V23__pipeline_steps.sql`), and `pipeline_steps` is FORCE RLS with a non-`missing_ok` policy (`V35`).
+- **V96 is exactly the bracket pattern described**, and V97 is the correct next version (highest present is V96).
+- **`FlywayNonSuperuserMigrationSpec` runs the whole chain** against `db/fixtures/hel904-real-dump.sql` as a genuine non-superuser table-owner role — so real dump-shaped data for task 2.7 is obtainable, and the spec's own header documents the exact "DDL green, DML never reached" trap.
+
+Independent checks that contradict the plan (each re-run/verified from the file itself, not inferred):
+
+- `grep` for all three legacy field names across the live tree (archive excluded) returns **43 files**, including two non-test surfaces absent from design.md's enumerated list: `backend/scripts/repair-dev-db.sql` and `backend/README.md`, plus 17 backend/frontend test files.
+- `schemas/pipelines/create-pipeline-step-request.schema.json` types `config` as `{"type": "object"}` — **step configs are not modelled in `schemas/` at all**; no file under `schemas/` mentions any of the three field names or `lookupKey`.
+- The real dump fixture carries **6 legacy-shaped `pipeline_steps` rows**, two of which are `"referenceDataSourceId":""` (lines 10163, 10230) — real empty-id incomplete drafts.
+- No `JoinConfig.tsx` exists under `frontend/src/features/pipelines/ui/stepConfigs/`.
+- No spec delta directory exists for `patch-set-apply` or `conversational-refinement`.
+
+**Assessment of the "Engine contract" section as a deliverable.** It is genuinely good — items 1–4, 6, 8, 9, 11, 12 are precise, mechanism-constraining (not merely outcome-constraining), and correctly grounded in code I checked myself. Decisions 1/1a/2/3 faithfully record what the owner decided, including the two deliberate overrides, and the migration constraints, the V96 bracket, the TEXT/JSONB hazard and the "green local run proves nothing" framing are all correct and load-bearing. But two of the twelve contract items (5 and 10) are not yet plannable by HEL-912/913/914 without guessing, and one of them contradicts this change's own spec deltas. That is a REFUTE at this gate by the stated bar.
+
+### Verdict: REFUTE
+
+### Change Requests
+
+1. **Decision 1a contradicts this change's own spec deltas on the empty id — and real user data forces the question.** `design.md:55` says a strict decoder must produce a hard named error and "**not** an empty id, and **not** a silent `{kind:"source"}` coercion", and that "the shape that made [HEL-950] necessary is gone"; `tasks.md:1.3` repeats "no empty id". But `specs/pipeline-lane-rejoin-input/spec.md` ("An unset source-kind draft is still permitted") and `specs/pipeline-joinstep-right-source-acl/spec.md` ("Empty source-kind id is an incomplete draft") both **require** `{"kind":"source","dataSourceId":""}` to be accepted. Both readings are defensible from the artifacts; they cannot both be implemented. This is decisive rather than academic: the real dump fixture contains two rows with `"referenceDataSourceId":""` (`hel904-real-dump.sql:10163`, `:10230`), so V97 must emit *some* shape for them, and with no legacy read path the wrong choice is a hard read-time failure on existing user drafts. Resolve it in writing: state explicitly that `{"kind":"source","dataSourceId":""}` is a legal incomplete draft (distinct from a *legacy flat* field, which is the thing that errors), correct `design.md:55`'s false claim that the empty-id shape is gone, and state V97's mapping for an empty legacy id as an explicit rule.
+
+2. **The contract does not say what happens when a `lane` `stepId` is not a node of this pipeline.** Contract item 10 *asserts* "the referenced node belongs to the same pipeline" as the justification for applying no ACL, and item 6 says "any node in the graph" — but no requirement, task or spec delta validates membership, and cycle detection cannot catch a dangling or foreign id. With the data-source ACL deliberately switched off on this branch, an unvalidated `stepId` from the MCP/proposal surface (HEL-914, planned from this document) is a cross-tenant read shape. Add to the contract and to `specs/pipeline-lane-rejoin-input`: a `lane` `stepId` naming a step that is not in the same pipeline (nonexistent, or belonging to another pipeline, including another user's) is rejected at write time with a named error, and defensively at run time — plus tasks and tests for both arms, mirroring §5.
+
+3. **Task 1.5 and contract item 5 rest on a false premise about `schemas/`.** `config` is an opaque `{"type":"object"}` in `create-pipeline-step-request.schema.json`, and no file under `schemas/` models step configs. "Update `schemas/pipelines/*` for the three step configs" is therefore either a no-op an executor will tick while changing nothing (lesson 4: a cited gate that scans nothing), or an invitation to invent a new contract surface that three downstream tickets would then be planned against — scope drift, unbid. Decide and state which: either drop `schemas/` from contract item 5's enforcement list and from task 1.5 (naming `check:schemas`/schema-drift as not covering step configs today), or scope the new schema files explicitly.
+
+4. **Missing spec deltas for two capabilities the change admits it touches.** `design.md:74` names `openspec/specs/patch-set-apply/spec.md` as a surface that must accept only the new shape and task 9.1 converts `RefinementEditShape.scala`, yet there is no `specs/patch-set-apply/` delta and `patch-set-apply` is absent from proposal.md's Modified Capabilities. `openspec/specs/conversational-refinement/spec.md` also carries the legacy field names and appears nowhere. Add both deltas (or state why the spec text needs no change).
+
+5. **Two live non-test surfaces are missing from the Decision-1a enumeration.** `backend/scripts/repair-dev-db.sql` **writes** the legacy flat shape into the dev DB — post-V97 it would re-create rows no read path can decode — and `backend/README.md` documents the flat shape. Neither appears in the design's list or in §9. Add them as tasks, per §9.6's own "converted here or named explicitly as a defect".
+
+6. **The silent-first-match property exists in the engine too, not only in the HEL-930 repository site.** `InProcessPipelineEngine.expandChain` and `walkTrunk` both use `childrenOf(...).find(_.position == 0)` — the same silent-drop shape the risk section (`design.md:121`) attributes solely to `PipelineStepRepository`, and the same shape task 3.2 guards only there. Since `validateGraph` (the thing that currently makes those `.find`s safe) is being deleted in 3.1, the engine's `.find` sites must be named in 3.2/4.1 and covered by the same "must not restore the silent drop" test obligation. Key the guard on the property, not on the HEL-930 site (lesson 6).
+
+7. **No task governs the ~17 existing test files that construct the legacy shape**, including `PipelineStepSecondSourceGuardSpec` (the HEL-950 empty-seed-id guard), `PipelineStepRequiredConfigSpec`, `PipelineStepConfigCodecSpec` and the patch-set specs. A hard cutover forces a mass rewrite of exactly the suites that encode the guarantees this change must preserve, which is the precise conditions for lessons 1 and 5. Add a task requiring each converted assertion to be justified ("why did this datum need to change?") and requiring HEL-950's guard to be re-proved by breaking each leg independently after conversion, not merely to still compile and pass.
+
+8. **Task 2.6 must specify what V97 coverage means in that spec.** `FlywayNonSuperuserMigrationSpec` already migrates the entire chain, so V97 will be "covered" by it the moment the file lands, with zero new assertions — a green gate that proves only DDL applied, which is verbatim the round-1 blind spot documented in that spec's own header. Require the spec to assert, post-chain, that the fixture's six legacy rows (all three field names) are rewritten and that a non-matching config is byte-identical, i.e. the §2.3/2.5 evidence is asserted *inside the non-superuser spec*, not only in a superuser-connected one.
+
+### Non-blocking notes
+
+- Task 9.4 names "the join/lookup editors"; there is no `JoinConfig.tsx` in `frontend/src/features/pipelines/ui/stepConfigs/`. Say so rather than leaving the executor to look for a phantom file.
+- `PipelineService.scala` is in proposal.md's Impact but not in design.md's Decision-1a enumerated surface list, though it matches all three field names. Harmless (it is covered by §3.3/§6) but the list reads as exhaustive and is not.
+- Contract item 11 ("a failing step names its lane path") does not define what a "lane path" string is. HEL-912 will render it. Worth pinning a format before that ticket is planned, though it is not blocking here.

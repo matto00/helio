@@ -46,14 +46,25 @@ edit's `patch`/`createPatch`, wherever its real create/update path also authoriz
 that check to forward-apply time. This covers: `panel` `create` (`dashboardId`), `pipeline`
 `create` (`sourceDataSourceId`), `panel` `update`/`create` (`outputId`/`metricId`, when present
 in the config patch), and `pipelineStep` `update` (a `JoinConfig`/`UnionConfig`/`LookupConfig`'s
-referenced `DataSource`, when present).
+`secondaryInput`, when it is `source`-kind and present).
 
-For a `pipelineStep` `update`, "present" SHALL mean a non-empty id, uniformly across all three
-config types. An empty second-source id is an incomplete draft rather than a reference to an
-inaccessible resource, and SHALL NOT trigger the ownership lookup or its `404` — matching the
-create/update route behavior these checks exist to mirror. This makes explicit for
-`JoinConfig.rightDataSourceId` and `UnionConfig.otherDataSourceId` what
-`LookupConfig.referenceDataSourceId` already did.
+For a `pipelineStep` `update`, "present" SHALL mean a `source`-kind `secondaryInput` with a non-empty `dataSourceId`, uniformly across all three config types. An empty `dataSourceId` is an incomplete draft rather than a reference to an inaccessible resource, and SHALL NOT trigger the ownership lookup or its `404` — matching the create/update route behavior these checks exist to mirror. A `lane`-kind `secondaryInput` references a node in the same pipeline and SHALL NOT trigger a data-source ownership lookup at all; it SHALL instead be validated for same-pipeline membership and acyclicity. The legacy flat fields SHALL NOT appear in this contract, and a patch set supplying one SHALL be rejected with a named error rather than coerced.
+
+#### Scenario: A pipelineStep-update edit referencing a foreign-owned source-kind input is rejected
+- **WHEN** a patch set includes a `pipelineStep` update edit whose `secondaryInput` is `source`-kind naming a data source the caller does not own
+- **THEN** pre-validation rejects the whole patch set before any edit mutates anything
+
+#### Scenario: A pipelineStep-update edit with an empty dataSourceId is not rejected
+- **WHEN** a patch set includes a `pipelineStep` update edit whose `source`-kind `secondaryInput` has an empty `dataSourceId`
+- **THEN** pre-validation performs no ownership lookup for that id and does not reject the patch set on its account
+
+#### Scenario: A lane-kind secondary input performs no data-source lookup
+- **WHEN** a patch set includes a `pipelineStep` update edit whose `secondaryInput` is `lane`-kind naming a step in the same pipeline
+- **THEN** pre-validation performs no data-source ownership lookup and does not reject the patch set on that account
+
+#### Scenario: A patch set carrying a legacy flat field is rejected
+- **WHEN** a patch set supplies a `pipelineStep` edit whose config contains `rightDataSourceId`
+- **THEN** apply fails with a named error identifying the invalid config shape, and no step is created or updated
 
 #### Scenario: A panel-create edit referencing an inaccessible dashboard is rejected pre-apply
 - **WHEN** a patch set includes a panel-create edit whose decoded `dashboardId` names a dashboard
@@ -76,13 +87,13 @@ create/update route behavior these checks exist to mirror. This makes explicit f
   `outputId`, `rejectUnresolvableMetric` DOES actively reject a foreign/nonexistent reference
 
 #### Scenario: A pipelineStep-update edit referencing a foreign-owned join right-source is rejected
-- **WHEN** a patch set includes a `pipelineStep` update edit whose `JoinConfig.rightDataSourceId`
-  names a data source the caller does not own
+- **WHEN** a patch set includes a `pipelineStep` update edit whose `JoinConfig.secondaryInput` is source-kind
+  naming a data source the caller does not own
 - **THEN** pre-validation rejects the whole patch set before any edit mutates anything
 
 #### Scenario: A pipelineStep-update edit with an empty second-source id is not rejected
-- **WHEN** a patch set includes a `pipelineStep` update edit whose `JoinConfig.rightDataSourceId`
-  (or `UnionConfig.otherDataSourceId`, or `LookupConfig.referenceDataSourceId`) is the empty string
+- **WHEN** a patch set includes a `pipelineStep` update edit whose `JoinConfig`/`UnionConfig`/`LookupConfig`
+  `secondaryInput` is source-kind with an empty `dataSourceId`
 - **THEN** pre-validation performs no ownership lookup for that id and does not reject the patch
   set on its account
 

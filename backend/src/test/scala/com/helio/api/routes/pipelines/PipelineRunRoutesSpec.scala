@@ -35,6 +35,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import com.helio.domain.steps.SecondaryInput
 
 /** Route-layer integration tests for the four CS2c-3a run route files
  *  (Submit / Status / History / Stream). The pre-CS2c-3a single
@@ -599,7 +600,7 @@ class PipelineRunRoutesSpec
       val pid              = seedPipeline(dsId)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
       val joinStep = await(stepRepo.insertRootStep(pid, "join",
-        JoinConfig(missingSourceId, "name", "inner"), dummyUser))
+        JoinConfig(SecondaryInput.Source(missingSourceId), "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
@@ -715,7 +716,7 @@ class PipelineRunRoutesSpec
       val pid            = seedPipeline(dsId)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
       val joinStep = await(stepRepo.insertRootStep(pid, "join",
-        JoinConfig(missingSourceId, "name", "inner"), dummyUser))
+        JoinConfig(SecondaryInput.Source(missingSourceId), "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
@@ -875,7 +876,7 @@ class PipelineRunRoutesSpec
       val reg              = new PipelineRunRegistry()(typedSystem)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
       val joinStep = await(stepRepo.insertRootStep(pid, "join",
-        JoinConfig(missingSourceId, "name", "inner"), dummyUser))
+        JoinConfig(SecondaryInput.Source(missingSourceId), "name", "inner"), dummyUser))
 
       val eventsFuture = reg
         .subscribe(pid.value)
@@ -950,7 +951,7 @@ class PipelineRunRoutesSpec
       val pid              = seedPipeline(dsId)
       val ruleId           = seedAlertRule(pid, "score", "gt", 0)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
-      await(stepRepo.insertRootStep(pid, "join", JoinConfig(missingSourceId, "name", "inner"), dummyUser))
+      await(stepRepo.insertRootStep(pid, "join", JoinConfig(SecondaryInput.Source(missingSourceId), "name", "inner"), dummyUser))
       val alertEvalSvc = new AlertEvaluationService(alertRuleRepo, alertEventRepo)(routeEc)
 
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, alertEvalSvc = alertEvalSvc) ~> check {

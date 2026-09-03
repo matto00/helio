@@ -7,27 +7,15 @@ committing to a real run, without persisting any node snapshot changes.
 ## Requirements
 
 ### Requirement: POST /api/pipelines/:id/preview returns per-Output preview rows, outputId optional
-The backend SHALL expose `POST /api/pipelines/:id/preview?outputId=<id>` — `outputId` is an
-OPTIONAL query parameter, matching P1.4's `preview_outputs(pipelineId, outputId?)` MCP tool
-contract. Both arms return the SAME envelope shape, `{ outputs: [{ outputId, preview }] }`, where
-`preview` is the pre-existing single-node preview shape (`rows`, `rowCount`, `stepRowCounts`,
-`sourceRowCount`, `sourceTruncated`, `sourceAvailableRowCount`, `truncationNotice`,
-`truncatedReads`) — so a caller has exactly one response shape to parse regardless of which arm
-ran:
+The endpoint SHALL perform a dry run over the whole graph and return preview rows for every Output, including Outputs attached to nodes in any lane and to rejoin steps. Scoping by `outputId` SHALL continue to work for an Output in any lane.
 
-- **`outputId` present**: the envelope's `outputs` array has exactly one entry, for that Output's
-  own node (`output.node.stepId`, `None` meaning the pipeline's raw source). `outputId` is
-  resolved via the SAME sharing-aware `outputRepo.findById` select `GET /api/outputs/:id` uses,
-  and is rejected (404) if it belongs to a DIFFERENT pipeline than the one in the path.
-- **`outputId` absent**: the envelope's `outputs` array has one entry per Output on the pipeline
-  (ACL gated at the pipeline level, via `pipelineRepo.findByIdShared`, since there is no single
-  Output to resolve ACL through). Outputs sharing the same node are computed ONCE, not once per
-  Output. If ANY node's preview computation fails, the whole call fails (the first failure
-  encountered) rather than returning a partial envelope. A pipeline with zero Outputs returns
-  `{ outputs: [] }`, not an error.
+#### Scenario: Preview covers Outputs in several lanes
+- **WHEN** a preview is requested for a pipeline with Outputs attached in two sibling lanes
+- **THEN** preview rows are returned for the Outputs in both lanes
 
-The dry run SHALL NOT write any `node_snapshots` rows, and SHALL NOT mutate
-`pipelines.last_run_status`/`last_run_at`, in EITHER arm.
+#### Scenario: Preview of a rejoin Output reflects both inputs
+- **WHEN** a preview is requested for an Output attached to a rejoin step
+- **THEN** the preview rows reflect the rejoined result, not the parent lane alone
 
 #### Scenario: Preview scoped to one Output
 - **WHEN** `POST /api/pipelines/:id/preview?outputId=<id>` is called

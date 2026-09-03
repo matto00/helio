@@ -1,6 +1,7 @@
 package com.helio.spark
 
 import com.helio.domain.{AggregateStep, CastStep, ComputeStep, FilterStep, GroupByStep, JoinStep, LimitStep, RenameStep, SelectStep, SortStep}
+import com.helio.domain.steps.SecondaryInput
 import com.helio.domain.engine.{PipelineExecutionBackend, PipelineExecutionOutcome, SourceReadStats}
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, Pipeline, PipelineRunId, PipelineStep, StaticSource, TruncationSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -236,13 +237,25 @@ class SparkJobSubmitter(
       }
 
     case s: JoinStep =>
-      // Privileged: Spark batch driver runs outside request context; pipeline ACL
-      // gated submission. findByIdInternal is correct for the background path.
-      val rightDs = Await
-        .result(dataSourceRepo.findByIdInternal(DataSourceId(s.config.rightDataSourceId)), 30.seconds)
-        .getOrElse(throw new IllegalArgumentException(s"DataSource not found for join: ${s.config.rightDataSourceId}"))
-      val rightDf = loadDataFrame(rightDs)
-      df.join(rightDf, Seq(s.config.joinKey), if (s.config.joinType.toLowerCase == "left") "left" else "inner")
+      // HEL-911 (design.md Engine contract item 5, task 9.2): `secondaryInput` replaces
+      // the flat `rightDataSourceId` field. Only `source`-kind is supported here --
+      // implementing the multi-lane walk (`lane`-kind resolution) on Spark stays with
+      // HEL-238; a `lane` reference fails loudly rather than being silently mis-serialized.
+      s.config.secondaryInput match {
+        case SecondaryInput.Source(rightDsId) =>
+          // Privileged: Spark batch driver runs outside request context; pipeline ACL
+          // gated submission. findByIdInternal is correct for the background path.
+          val rightDs = Await
+            .result(dataSourceRepo.findByIdInternal(DataSourceId(rightDsId)), 30.seconds)
+            .getOrElse(throw new IllegalArgumentException(s"DataSource not found for join: $rightDsId"))
+          val rightDf = loadDataFrame(rightDs)
+          df.join(rightDf, Seq(s.config.joinKey), if (s.config.joinType.toLowerCase == "left") "left" else "inner")
+        case SecondaryInput.Lane(stepId) =>
+          throw new IllegalArgumentException(
+            s"join step '${s.id.value}': lane-kind secondaryInput (referencing '$stepId') is not " +
+              "yet supported on the Spark execution path (HEL-238). Run via the in-process engine."
+          )
+      }
 
     case _: SelectStep | _: LimitStep | _: SortStep | _: AggregateStep =>
       throw new IllegalArgumentException(

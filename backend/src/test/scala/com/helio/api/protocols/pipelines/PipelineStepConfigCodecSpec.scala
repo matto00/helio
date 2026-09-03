@@ -8,6 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
 import scala.util.Failure
+import com.helio.domain.steps.{SecondaryInput, StepConfigTypeMismatch}
 
 /** Round-trip + tolerance coverage for the codec that bridges the typed
  *  domain configs and the JSON text stored on `pipeline_steps.config`. */
@@ -28,8 +29,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
     }
 
     "preserve join config" in {
-      val raw = """{"rightDataSourceId":"ds-1","joinKey":"id","joinType":"inner"}"""
-      PipelineStepConfigCodec.decode("join", raw).get shouldBe JoinConfig("ds-1", "id", "inner")
+      val raw = """{"secondaryInput":{"kind":"source","dataSourceId":"ds-1"},"joinKey":"id","joinType":"inner"}"""
+      PipelineStepConfigCodec.decode("join", raw).get shouldBe JoinConfig(SecondaryInput.Source("ds-1"), "id", "inner")
     }
 
     "preserve compute config with optional type" in {
@@ -155,21 +156,21 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
     }
 
     "preserve union config for byPosition" in {
-      val raw = """{"otherDataSourceId":"ds-2","mode":"byPosition"}"""
+      val raw = """{"secondaryInput":{"kind":"source","dataSourceId":"ds-2"},"mode":"byPosition"}"""
       PipelineStepConfigCodec.decode("union", raw).get shouldBe
-        UnionConfig("ds-2", "byPosition")
+        UnionConfig(SecondaryInput.Source("ds-2"), "byPosition")
     }
 
     "preserve union config for byName" in {
-      val raw = """{"otherDataSourceId":"ds-2","mode":"byName"}"""
+      val raw = """{"secondaryInput":{"kind":"source","dataSourceId":"ds-2"},"mode":"byName"}"""
       PipelineStepConfigCodec.decode("union", raw).get shouldBe
-        UnionConfig("ds-2", "byName")
+        UnionConfig(SecondaryInput.Source("ds-2"), "byName")
     }
 
     "preserve lookup config" in {
-      val raw = """{"referenceDataSourceId":"ds-2","sourceKey":"code","lookupKey":"code","columns":["label","price"]}"""
+      val raw = """{"secondaryInput":{"kind":"source","dataSourceId":"ds-2"},"sourceKey":"code","lookupKey":"code","columns":["label","price"]}"""
       PipelineStepConfigCodec.decode("lookup", raw).get shouldBe
-        LookupConfig("ds-2", "code", "code", Vector("label", "price"))
+        LookupConfig(SecondaryInput.Source("ds-2"), "code", "code", Vector("label", "price"))
     }
 
     "preserve assert config" in {
@@ -212,7 +213,7 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
     }
 
     "join — decode({}) yields empty ids and inner default" in {
-      PipelineStepConfigCodec.decode("join", "{}").get shouldBe JoinConfig("", "", "inner")
+      PipelineStepConfigCodec.decode("join", "{}").get shouldBe JoinConfig(SecondaryInput.Source(""), "", "inner")
     }
 
     "groupby — decode({}) yields empty groupBy / empty aggColumn / sum default" in {
@@ -291,14 +292,14 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         StringOpsConfig("", "", "", None, None, None, None)
     }
 
-    "union — decode({}) yields empty otherDataSourceId and byPosition default" in {
+    "union — decode({}) yields empty secondaryInput and byPosition default" in {
       PipelineStepConfigCodec.decode("union", "{}").get shouldBe
-        UnionConfig("", "byPosition")
+        UnionConfig(SecondaryInput.Source(""), "byPosition")
     }
 
     "lookup — decode({}) yields empty ids/keys and an empty columns vector" in {
       PipelineStepConfigCodec.decode("lookup", "{}").get shouldBe
-        LookupConfig("", "", "", Vector.empty)
+        LookupConfig(SecondaryInput.Source(""), "", "", Vector.empty)
     }
 
     "assert — decode({}) yields an empty rules vector" in {
@@ -333,12 +334,71 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  // HEL-911 evaluation-1.md CR4 (cycle 2): Decision 1a's headline behaviour -- a legacy
+  // flat second-source field is a hard, NAMED error -- had zero test coverage. Every case
+  // here is verified (change record) to have FAILED against the pre-fix `decodeStrict`
+  // (which silently accepted the legacy field as an incomplete draft, `Default`); see the
+  // change record for the exact revert-and-rerun evidence.
+  "Decision 1a: legacy flat second-source field is a hard, named error (evaluation-1.md CR4)" should {
+    "union: legacy otherDataSourceId present -> named StepConfigTypeMismatch (CR4a)" in {
+      val ex = PipelineStepConfigCodec.decode("union", """{"otherDataSourceId":"ds-1","mode":"byPosition"}""")
+      ex shouldBe a [Failure[_]]
+      ex.failed.get shouldBe a [StepConfigTypeMismatch]
+      ex.failed.get.getMessage should include ("otherDataSourceId")
+      ex.failed.get.getMessage should include ("no longer a valid config field")
+    }
+
+    "join: legacy rightDataSourceId present -> named StepConfigTypeMismatch (CR4a)" in {
+      val ex = PipelineStepConfigCodec.decode("join", """{"rightDataSourceId":"ds-1","joinKey":"id","joinType":"inner"}""")
+      ex shouldBe a [Failure[_]]
+      ex.failed.get shouldBe a [StepConfigTypeMismatch]
+      ex.failed.get.getMessage should include ("rightDataSourceId")
+    }
+
+    "lookup: legacy referenceDataSourceId present -> named StepConfigTypeMismatch (CR4a)" in {
+      val ex = PipelineStepConfigCodec.decode("lookup", """{"referenceDataSourceId":"ds-1","sourceKey":"a","lookupKey":"b","columns":[]}""")
+      ex shouldBe a [Failure[_]]
+      ex.failed.get shouldBe a [StepConfigTypeMismatch]
+      ex.failed.get.getMessage should include ("referenceDataSourceId")
+    }
+
+    "union: unrecognised secondaryInput.kind -> named error (CR4b)" in {
+      val ex = PipelineStepConfigCodec.decode("union", """{"secondaryInput":{"kind":"bogus"},"mode":"byPosition"}""")
+      ex shouldBe a [Failure[_]]
+      ex.failed.get.getMessage should include ("kind")
+      ex.failed.get.getMessage should include ("bogus")
+    }
+
+    "join: secondaryInput.kind = lane with no stepId -> named error (CR4c)" in {
+      val ex = PipelineStepConfigCodec.decode("join", """{"secondaryInput":{"kind":"lane"},"joinKey":"id","joinType":"inner"}""")
+      ex shouldBe a [Failure[_]]
+      ex.failed.get.getMessage should include ("lane")
+      ex.failed.get.getMessage should include ("stepId")
+    }
+
+    "lookup: secondaryInput.kind = source with no dataSourceId -> named error (CR4c, the source-kind mirror)" in {
+      val ex = PipelineStepConfigCodec.decode("lookup", """{"secondaryInput":{"kind":"source"},"sourceKey":"a","lookupKey":"b","columns":[]}""")
+      ex shouldBe a [Failure[_]]
+      ex.failed.get.getMessage should include ("dataSourceId")
+    }
+
+    "union: legacy field present ALONGSIDE a valid secondaryInput is STILL a hard error (CR4d, decodeStrict's legacy-check-first ordering)" in {
+      val ex = PipelineStepConfigCodec.decode(
+        "union",
+        """{"otherDataSourceId":"ds-1","secondaryInput":{"kind":"source","dataSourceId":"ds-2"},"mode":"byPosition"}"""
+      )
+      ex shouldBe a [Failure[_]]
+      ex.failed.get shouldBe a [StepConfigTypeMismatch]
+      ex.failed.get.getMessage should include ("otherDataSourceId")
+    }
+  }
+
   "encode" should {
     "round-trip through encodeConfig for every typed config" in {
       val cases: Seq[(String, Any)] = Seq(
         "rename"    -> RenameConfig(Map("a" -> "b")),
         "filter"    -> FilterConfig("AND", Vector(FilterCondition("x", "=", Some("y")))),
-        "join"      -> JoinConfig("ds-1", "k", "inner"),
+        "join"      -> JoinConfig(SecondaryInput.Source("ds-1"), "k", "inner"),
         "compute"   -> ComputeConfig("c", "expr", Some("number")),
         "groupby"   -> GroupByConfig(Vector("g"), "c", "sum"),
         "cast"      -> CastConfig(Map("x" -> "integer")),
@@ -356,8 +416,8 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         "dedupe"     -> DedupeConfig(Vector("id"), "last"),
         "fillnull"   -> FillNullConfig(Vector("price"), "mean", None),
         "stringops"  -> StringOpsConfig("extractRegex", "email", "localPart", Some("^([^@]+)@"), None, None, None),
-        "union"      -> UnionConfig("ds-2", "byName"),
-        "lookup"     -> LookupConfig("ds-2", "code", "code", Vector("label")),
+        "union"      -> UnionConfig(SecondaryInput.Source("ds-2"), "byName"),
+        "lookup"     -> LookupConfig(SecondaryInput.Source("ds-2"), "code", "code", Vector("label")),
         "assert"     -> AssertConfig(Vector(AssertRule("range", Some("amount"), JsObject("min" -> JsNumber(0)), "warn")))
       )
       cases.foreach { case (kind, cfg) =>
@@ -382,35 +442,35 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.secondaryDataSourceId(RenameConfig(Map("a" -> "b"))) shouldBe None
     }
 
-    "return None for JoinConfig with an empty rightDataSourceId" in {
-      PipelineStepConfigCodec.secondaryDataSourceId(JoinConfig("", "id", "inner")) shouldBe None
+    "return None for JoinConfig with an empty secondaryInput dataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(JoinConfig(SecondaryInput.Source(""), "id", "inner")) shouldBe None
     }
 
-    "return Some(id) for JoinConfig with a non-empty rightDataSourceId" in {
-      PipelineStepConfigCodec.secondaryDataSourceId(JoinConfig("ds-1", "id", "inner")) shouldBe Some("ds-1")
+    "return Some(id) for JoinConfig with a non-empty secondaryInput dataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(JoinConfig(SecondaryInput.Source("ds-1"), "id", "inner")) shouldBe Some("ds-1")
     }
 
-    "return None for UnionConfig with an empty otherDataSourceId" in {
-      PipelineStepConfigCodec.secondaryDataSourceId(UnionConfig("", "byPosition")) shouldBe None
+    "return None for UnionConfig with an empty secondaryInput dataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(UnionConfig(SecondaryInput.Source(""), "byPosition")) shouldBe None
     }
 
-    "return Some(id) for UnionConfig with a non-empty otherDataSourceId" in {
-      PipelineStepConfigCodec.secondaryDataSourceId(UnionConfig("ds-2", "byPosition")) shouldBe Some("ds-2")
+    "return Some(id) for UnionConfig with a non-empty secondaryInput dataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(UnionConfig(SecondaryInput.Source("ds-2"), "byPosition")) shouldBe Some("ds-2")
     }
 
-    "return None for LookupConfig with an empty referenceDataSourceId" in {
-      PipelineStepConfigCodec.secondaryDataSourceId(LookupConfig("", "code", "code", Vector("label"))) shouldBe None
+    "return None for LookupConfig with an empty secondaryInput dataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(LookupConfig(SecondaryInput.Source(""), "code", "code", Vector("label"))) shouldBe None
     }
 
-    "return Some(id) for LookupConfig with a non-empty referenceDataSourceId" in {
-      PipelineStepConfigCodec.secondaryDataSourceId(LookupConfig("ds-3", "code", "code", Vector("label"))) shouldBe Some("ds-3")
+    "return Some(id) for LookupConfig with a non-empty secondaryInput dataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(LookupConfig(SecondaryInput.Source("ds-3"), "code", "code", Vector("label"))) shouldBe Some("ds-3")
     }
 
     // Decision 4: `.nonEmpty` on the raw string, never `.trim.nonEmpty` -- a whitespace-only
     // id is not a state the picker can produce, and treating it as absent would be looser
     // than the union/lookup guards this change makes uniform.
     "treat a whitespace-only id as present (NOT trimmed), matching Decision 4" in {
-      PipelineStepConfigCodec.secondaryDataSourceId(JoinConfig(" ", "id", "inner")) shouldBe Some(" ")
+      PipelineStepConfigCodec.secondaryDataSourceId(JoinConfig(SecondaryInput.Source(" "), "id", "inner")) shouldBe Some(" ")
     }
   }
 }

@@ -8,27 +8,32 @@ import spray.json.DefaultJsonProtocol._
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Typed config for the `join` step. */
-final case class JoinConfig(rightDataSourceId: String, joinKey: String, joinType: String)
+/** Typed config for the `join` step.
+ *
+ *  HEL-911 (design.md Decisions 1/1a): `rightDataSourceId: String` is replaced by the
+ *  discriminated [[SecondaryInput]] -- `Source(dataSourceId)` (today's behaviour) or
+ *  `Lane(stepId)` (rejoin a sibling lane). No legacy read path. */
+final case class JoinConfig(secondaryInput: SecondaryInput, joinKey: String, joinType: String)
 
 object JoinConfig {
   implicit val format: RootJsonFormat[JoinConfig] = jsonFormat3(JoinConfig.apply)
 
-  /** Tolerant decoder — missing keys default to empty ids + inner. */
+  /** Tolerant decoder — missing keys default to `SecondaryInput.Default` + inner. Legacy
+   *  flat `rightDataSourceId` PRESENT is a hard named error (Decision 1a). */
   def decode(raw: String): JoinConfig = {
-    val obj  = StepCodecUtil.asObject(raw)
-    val rId  = StepCodecUtil.str(obj, "rightDataSourceId", "")
-    val key  = StepCodecUtil.str(obj, "joinKey", "")
-    val jt   = StepCodecUtil.str(obj, "joinType", "inner")
-    JoinConfig(rId, key, jt)
+    val obj = StepCodecUtil.asObject(raw)
+    val si  = SecondaryInput.decodeStrict(obj, "rightDataSourceId")
+    val key = StepCodecUtil.str(obj, "joinKey", "")
+    val jt  = StepCodecUtil.str(obj, "joinType", "inner")
+    JoinConfig(si, key, jt)
   }
 }
 
-/** Join step — the one async / repo-touching step in the engine. Resolves
- *  the right-side DataSource via `ctx.dataSourceRepo`, loads its rows via
- *  `ctx.loadSource`, then joins with the left-side rows on `joinKey`.
- *  Supports `inner` and `left` join types; any other value raises at execute
- *  time. */
+/** Join step — the one async / repo-touching step in the engine. Resolves the second
+ *  input's rows -- either a `DataSource` (`kind: "source"`) or another lane's
+ *  already-evaluated frame (`kind: "lane"`, HEL-911, via `ctx.resolveLane`, no
+ *  re-evaluation) -- then joins with the left-side rows on `joinKey`. Supports `inner`
+ *  and `left` join types; any other value raises at execute time. */
 final case class JoinStep(
     id: PipelineStepId,
     pipelineId: PipelineId,
@@ -46,40 +51,51 @@ final case class JoinStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] = {
-    val rightDsId = config.rightDataSourceId
-    val joinKey   = config.joinKey
-    val joinType  = config.joinType
-    // Privileged: the pipeline ACL is the gate; JoinStep resolves the right-side
-    // source (which may belong to a different user per design.md Q1 spinoff).
-    ctx.dataSourceRepo.findByIdInternal(DataSourceId(rightDsId)).flatMap {
-      case None =>
-        Future.failed(
-          new IllegalArgumentException("DataSource not found for join: " + rightDsId)
+    val joinKey  = config.joinKey
+    val joinType = config.joinType
+
+    def apply(rightRows: Seq[Map[String, Any]]): Seq[Map[String, Any]] = {
+      val rightIndex: Map[Any, Seq[PipelineRowJson.Row]] =
+        rightRows.groupBy(_.getOrElse(joinKey, null))
+      val normalizedType = joinType.toLowerCase
+      if (!JoinStep.SupportedJoinTypes.contains(normalizedType))
+        throw new IllegalArgumentException(
+          "Unsupported join type: " + normalizedType + ". Supported: " + JoinStep.SupportedJoinTypes.mkString(", ")
         )
-      case Some(rightDs) =>
-        ctx.loadSource(rightDs).map { rightRows =>
-          val rightIndex: Map[Any, Seq[PipelineRowJson.Row]] =
-            rightRows.groupBy(_.getOrElse(joinKey, null))
-          val normalizedType = joinType.toLowerCase
-          if (!JoinStep.SupportedJoinTypes.contains(normalizedType))
-            throw new IllegalArgumentException(
-              "Unsupported join type: " + normalizedType + ". Supported: " + JoinStep.SupportedJoinTypes.mkString(", ")
-            )
-          normalizedType match {
-            case "inner" =>
-              rows.flatMap { leftRow =>
-                val key     = leftRow.getOrElse(joinKey, null)
-                val matches = rightIndex.getOrElse(key, Seq.empty)
-                matches.map(rightRow => leftRow ++ rightRow)
-              }
-            case "left" =>
-              rows.flatMap { leftRow =>
-                val key     = leftRow.getOrElse(joinKey, null)
-                val matches = rightIndex.getOrElse(key, Seq.empty)
-                if (matches.isEmpty) Seq(leftRow)
-                else matches.map(rightRow => leftRow ++ rightRow)
-              }
+      normalizedType match {
+        case "inner" =>
+          rows.flatMap { leftRow =>
+            val key     = leftRow.getOrElse(joinKey, null)
+            val matches = rightIndex.getOrElse(key, Seq.empty)
+            matches.map(rightRow => leftRow ++ rightRow)
           }
+        case "left" =>
+          rows.flatMap { leftRow =>
+            val key     = leftRow.getOrElse(joinKey, null)
+            val matches = rightIndex.getOrElse(key, Seq.empty)
+            if (matches.isEmpty) Seq(leftRow)
+            else matches.map(rightRow => leftRow ++ rightRow)
+          }
+      }
+    }
+
+    config.secondaryInput match {
+      case SecondaryInput.Lane(stepId) =>
+        ctx.resolveLane(stepId) match {
+          case Some(rightRows) => Future.successful(apply(rightRows))
+          case None =>
+            Future.failed(new IllegalArgumentException("Lane reference not found for join: " + stepId))
+        }
+      case SecondaryInput.Source(rightDsId) =>
+        // Privileged: the pipeline ACL is the gate; JoinStep resolves the right-side
+        // source (which may belong to a different user per design.md Q1 spinoff).
+        ctx.dataSourceRepo.findByIdInternal(DataSourceId(rightDsId)).flatMap {
+          case None =>
+            Future.failed(
+              new IllegalArgumentException("DataSource not found for join: " + rightDsId)
+            )
+          case Some(rightDs) =>
+            ctx.loadSource(rightDs).map(apply)
         }
     }
   }
@@ -102,8 +118,9 @@ object JoinStep {
     /** HEL-814 D3. An empty `joinKey` makes both sides index on
      *  `getOrElse("", null)`, so every row keys to `null`: an inner join
      *  becomes a cross-product-by-null and a left join silently mis-matches.
-     *  `rightDataSourceId` is NOT re-declared — `JoinStep.evaluate` already
-     *  fails the run with "DataSource not found for join: " for an empty id. */
+     *  `secondaryInput` is NOT re-declared — `JoinStep.evaluate` already
+     *  fails the run with "DataSource not found for join: " / "Lane
+     *  reference not found for join: " for an unresolved second input. */
     override def requiredConfigProblems(raw: String): Vector[String] =
       StepCodecUtil.missingRequired(Kind, "joinKey" -> JoinConfig.decode(raw).joinKey)
   }

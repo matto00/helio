@@ -146,7 +146,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     // JoinStep, which has no case here at all — this is a real dispatch case,
     // so no validationError is emitted.
     "union — identity passthrough: outputSchema equals inputSchema, no validationError" in {
-      val steps  = Vector(step("union", """{"otherDataSourceId":"ds-2","mode":"byName"}"""))
+      val steps  = Vector(step("union", """{"secondaryInput":{"kind":"source","dataSourceId":"ds-2"},"mode":"byName"}"""))
       val result = analyze(steps, baseSchema)
       result(0).outputSchema shouldBe baseSchema
       result(0).validationError shouldBe None
@@ -157,7 +157,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     // requested `columns` entry is appended typed string, and this is a real
     // dispatch case — no validationError is emitted.
     "lookup — appends the requested columns typed string, no validationError" in {
-      val cfg = """{"referenceDataSourceId":"ds-2","sourceKey":"order_id","lookupKey":"code","columns":["label","category"]}"""
+      val cfg = """{"secondaryInput":{"kind":"source","dataSourceId":"ds-2"},"sourceKey":"order_id","lookupKey":"code","columns":["label","category"]}"""
       val steps  = Vector(step("lookup", cfg))
       val result = analyze(steps, baseSchema)
       result(0).outputSchema shouldBe (baseSchema :+ field("label", "string") :+ field("category", "string"))
@@ -165,7 +165,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     }
 
     "lookup — replaces an existing same-named field in place rather than duplicating it" in {
-      val cfg = """{"referenceDataSourceId":"ds-2","sourceKey":"order_id","lookupKey":"code","columns":["amount"]}"""
+      val cfg = """{"secondaryInput":{"kind":"source","dataSourceId":"ds-2"},"sourceKey":"order_id","lookupKey":"code","columns":["amount"]}"""
       val steps  = Vector(step("lookup", cfg))
       val result = analyze(steps, baseSchema)
       result(0).outputSchema shouldBe Vector(
@@ -175,7 +175,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     }
 
     "lookup — empty columns is a no-op, outputSchema equals inputSchema" in {
-      val cfg = """{"referenceDataSourceId":"ds-2","sourceKey":"order_id","lookupKey":"code","columns":[]}"""
+      val cfg = """{"secondaryInput":{"kind":"source","dataSourceId":"ds-2"},"sourceKey":"order_id","lookupKey":"code","columns":[]}"""
       val steps  = Vector(step("lookup", cfg))
       val result = analyze(steps, baseSchema)
       result(0).outputSchema shouldBe baseSchema
@@ -968,6 +968,113 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
 
     "returns an empty map for an empty step list" in {
       analyzeNodes(Vector.empty, baseSchema) shouldBe empty
+    }
+
+    // HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3, cycle 2): the
+    // shipped `pipeline-analyze-api` delta's own scenario, exercised for real -- "Rejoin
+    // schema is projected from both lanes", asserting the MERGED schema, not the parent
+    // lane alone (which is what `secondarySchema = None`'s best-effort passthrough would
+    // have produced pre-fix).
+    "union rejoin: a lane-kind secondaryInput's schema is projected alongside the parent lane's (both inputs, not the parent alone)" in {
+      // laneA (parent lane): baseSchema unchanged. laneB: select projects only order_id +
+      // created_at (drops amount) -- a genuinely DIFFERENT schema from laneA's.
+      val laneA = nodeStep("laneA", None, "rename", """{"mapping":{"order_id":"order_id"}}""", position = 0)
+      val laneB = nodeStep("laneB", None, "select", """{"fields":["order_id","created_at"]}""", position = 1)
+      val rejoin = nodeStep(
+        "rejoin", Some("laneA"), "union",
+        """{"mode":"byName","secondaryInput":{"kind":"lane","stepId":"laneB"}}""",
+        position = 0
+      )
+
+      val result = analyzeNodes(Vector(laneA, laneB, rejoin), baseSchema)
+
+      result("laneB").outputSchema shouldBe Vector(field("order_id", "string"), field("created_at", "string"))
+      // Parent lane alone (laneA's own outputSchema) is baseSchema (order_id/amount/created_at)
+      // -- laneB adds nothing new by name (all three of its fields already exist on laneA), so
+      // the union is exactly laneA's own schema. The NEXT test proves a genuinely NEW field
+      // gets pulled in, which this one alone can't distinguish from "ignored the secondary
+      // entirely".
+      result("rejoin").outputSchema shouldBe result("laneA").outputSchema
+    }
+
+    "union rejoin genuinely merges a field the parent lane does not have (proves both-input derivation, not passthrough)" in {
+      val laneA = nodeStep("laneA", None, "select", """{"fields":["order_id"]}""", position = 0)
+      val laneB = nodeStep(
+        "laneB", None, "compute", """{"column":"discount","expression":"1","type":"integer"}""", position = 1
+      )
+      val rejoin = nodeStep(
+        "rejoin", Some("laneA"), "union",
+        """{"mode":"byName","secondaryInput":{"kind":"lane","stepId":"laneB"}}""",
+        position = 0
+      )
+
+      val result = analyzeNodes(Vector(laneA, laneB, rejoin), baseSchema)
+
+      // laneA alone projects only order_id. If the rejoin ignored the secondary input (the
+      // pre-fix behavior), its outputSchema would be identical to laneA's. It is not:
+      // laneB's own fields (including "discount", which laneA never had) are merged in.
+      result("laneA").outputSchema shouldBe Vector(field("order_id", "string"))
+      result("rejoin").outputSchema.map(_.name) should contain("discount")
+      result("rejoin").outputSchema should not equal result("laneA").outputSchema
+    }
+
+    "join rejoin: schema is the union of both inputs, secondary side wins on a name collision (mirrors runtime right-hand-wins)" in {
+      val laneA = nodeStep("laneA", None, "rename", """{"mapping":{"order_id":"order_id"}}""", position = 0)
+      // laneB redeclares "amount" (present on laneA too, as float) as a string-typed field
+      // via a cast step -- proves the SECONDARY side's type wins on the collision, not the
+      // parent's.
+      val laneB = nodeStep(
+        "laneB", None, "cast", """{"casts":{"amount":"string"}}""", position = 1
+      )
+      val rejoin = nodeStep(
+        "rejoin", Some("laneA"), "join",
+        """{"joinKey":"order_id","joinType":"inner","secondaryInput":{"kind":"lane","stepId":"laneB"}}""",
+        position = 0
+      )
+
+      val result = analyzeNodes(Vector(laneA, laneB, rejoin), baseSchema)
+
+      val rejoinFields = result("rejoin").outputSchema.map(f => f.name -> f.`type`).toMap
+      rejoinFields("order_id") shouldBe "string"
+      rejoinFields("created_at") shouldBe "string" // carried through from laneA, untouched
+      rejoinFields("amount") shouldBe "string" // secondary (laneB) wins the collision
+    }
+
+    "join with no dispatch case before this ticket now projects a schema instead of 'Unknown op' (evaluation-1.md CR3)" in {
+      val laneA = nodeStep("laneA", None, "select", """{"fields":["order_id"]}""", position = 0)
+      val join  = nodeStep(
+        "join1", Some("laneA"), "join",
+        """{"joinKey":"order_id","joinType":"inner","secondaryInput":{"kind":"source","dataSourceId":""}}""",
+        position = 0
+      )
+      val result = analyzeNodes(Vector(laneA, join), baseSchema)
+      result("join1").validationError shouldBe None
+      result("join1").outputSchema shouldBe result("laneA").outputSchema
+    }
+
+    "lookup rejoin: a requested column's REAL type is pulled from the resolved lane schema, not the 'string' placeholder" in {
+      val laneA  = nodeStep("laneA", None, "rename", """{"mapping":{"order_id":"order_id"}}""", position = 0)
+      val laneB  = nodeStep("laneB", None, "select", """{"fields":["amount"]}""", position = 1) // amount: float
+      val rejoin = nodeStep(
+        "rejoin", Some("laneA"), "lookup",
+        """{"sourceKey":"order_id","lookupKey":"order_id","columns":["amount"],"secondaryInput":{"kind":"lane","stepId":"laneB"}}""",
+        position = 0
+      )
+
+      val result = analyzeNodes(Vector(laneA, laneB, rejoin), baseSchema)
+
+      result("rejoin").outputSchema.find(_.name == "amount").map(_.`type`) shouldBe Some("float")
+    }
+
+    "a lane reference the config never resolves (source-kind secondaryInput) still degrades to the documented best-effort passthrough" in {
+      val laneA = nodeStep("laneA", None, "select", """{"fields":["order_id"]}""", position = 0)
+      val union = nodeStep(
+        "union1", Some("laneA"), "union",
+        """{"mode":"byName","secondaryInput":{"kind":"source","dataSourceId":"ds-1"}}""",
+        position = 0
+      )
+      val result = analyzeNodes(Vector(laneA, union), baseSchema)
+      result("union1").outputSchema shouldBe result("laneA").outputSchema
     }
   }
 }

@@ -3,7 +3,7 @@
 -- Fixes four drift issues in an existing dev DB:
 --   1. Six pre-V15 DataType rows with owner_id IS NULL
 --   2. ProfitAgg output DataType owned by wrong user (Google OAuth account)
---   3. ProfitAgg join step config is empty (rightDataSourceId defaults to "")
+--   3. ProfitAgg join step config is empty (secondaryInput defaults to Source(""))
 --   4. ProfitAgg pipeline owned by SystemUser (00000000-…-0001)
 --
 -- Target user: matt@helio.dev (UUID 9532cfcf-9882-45ba-8247-23706bc00113)
@@ -68,9 +68,13 @@ AND owner_id != '9532cfcf-9882-45ba-8247-23706bc00113';
 
 -- ── 3. Fix ProfitAgg join step config ────────────────────────────────────────
 -- The join step config is currently {} (empty). JoinConfig.decode defaults
--- rightDataSourceId to "", so JoinStep.evaluate calls
+-- secondaryInput to Source(""), so JoinStep.evaluate calls
 -- dataSourceRepo.findByIdInternal("") which returns None and raises
 -- "DataSource not found for join" → 422.
+--
+-- HEL-911: secondaryInput is the discriminated shape post-V97 -- the flat
+-- rightDataSourceId field is no longer a valid config key at all (a hard
+-- named decode error if written).
 --
 -- Correct right-side DataSource: Profit static source
 --   id:   339018f2-3760-415d-baeb-35d2e3061992
@@ -86,7 +90,7 @@ AND owner_id != '9532cfcf-9882-45ba-8247-23706bc00113';
 \echo '3. Fixing ProfitAgg join step config...'
 
 UPDATE pipeline_steps
-SET config = '{"rightDataSourceId":"339018f2-3760-415d-baeb-35d2e3061992","joinKey":"month","joinType":"inner"}'
+SET config = '{"secondaryInput":{"kind":"source","dataSourceId":"339018f2-3760-415d-baeb-35d2e3061992"},"joinKey":"month","joinType":"inner"}'
 WHERE id = '9607c209-421c-48b9-b4f2-1cb72b103092'
 AND config = '{}';
 
@@ -118,7 +122,7 @@ SELECT COUNT(*) AS null_owner_data_types FROM data_types WHERE owner_id IS NULL;
 \echo '  ProfitAgg output DataType owner (expect 9532cfcf-...):'
 SELECT id, name, owner_id FROM data_types WHERE id = 'c1005183-0cbe-4631-ac62-95421e18f0a5';
 
-\echo '  ProfitAgg join step config (expect rightDataSourceId set):'
+\echo '  ProfitAgg join step config (expect secondaryInput set):'
 SELECT id, config FROM pipeline_steps WHERE id = '9607c209-421c-48b9-b4f2-1cb72b103092';
 
 \echo '  ProfitAgg pipeline owner (expect 9532cfcf-...):'

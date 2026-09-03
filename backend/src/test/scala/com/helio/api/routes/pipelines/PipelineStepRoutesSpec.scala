@@ -25,6 +25,7 @@ import spray.json._
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import com.helio.domain.steps.SecondaryInput
 
 class PipelineStepRoutesSpec
     extends AnyWordSpec
@@ -129,7 +130,7 @@ class PipelineStepRoutesSpec
   private def joinReq(rightDsId: String): JsObject = JsObject(
     "type" -> JsString("join"),
     "config" -> JsObject(
-      "rightDataSourceId" -> JsString(rightDsId),
+      "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(rightDsId)),
       "joinKey"           -> JsString("id"),
       "joinType"          -> JsString("inner")
     )
@@ -137,14 +138,14 @@ class PipelineStepRoutesSpec
   private def unionReq(otherDsId: String): JsObject = JsObject(
     "type" -> JsString("union"),
     "config" -> JsObject(
-      "otherDataSourceId" -> JsString(otherDsId),
+      "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(otherDsId)),
       "mode"              -> JsString("byPosition")
     )
   )
   private def lookupReq(referenceDsId: String): JsObject = JsObject(
     "type" -> JsString("lookup"),
     "config" -> JsObject(
-      "referenceDataSourceId" -> JsString(referenceDsId),
+      "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(referenceDsId)),
       "sourceKey"             -> JsString("code"),
       "lookupKey"             -> JsString("code"),
       "columns"               -> JsArray(JsString("label"))
@@ -179,7 +180,7 @@ class PipelineStepRoutesSpec
   private def lookupDefaultReq(): JsObject = JsObject(
     "type" -> JsString("lookup"),
     "config" -> JsObject(
-      "referenceDataSourceId" -> JsString(""),
+      "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
       "sourceKey"             -> JsString(""),
       "lookupKey"             -> JsString(""),
       "columns"               -> JsArray()
@@ -192,7 +193,7 @@ class PipelineStepRoutesSpec
   private def joinDefaultReq(): JsObject = JsObject(
     "type" -> JsString("join"),
     "config" -> JsObject(
-      "rightDataSourceId" -> JsString(""),
+      "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
       "joinKey"           -> JsString(""),
       "joinType"          -> JsString("inner")
     )
@@ -200,12 +201,12 @@ class PipelineStepRoutesSpec
 
   // Exact request body the "+ Add transformation step" picker sends on union-step
   // creation — frontend/src/features/pipelines/state/stepNarrowing.ts's
-  // defaultConfigFor("union") ({ otherDataSourceId: "", mode: "byPosition" }).
+  // defaultConfigFor("union") ({ secondaryInput: {kind:"source",dataSourceId:""}, mode: "byPosition" }).
   // HEL-620 regression coverage.
   private def unionDefaultReq(): JsObject = JsObject(
     "type" -> JsString("union"),
     "config" -> JsObject(
-      "otherDataSourceId" -> JsString(""),
+      "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
       "mode"              -> JsString("byPosition")
     )
   )
@@ -544,13 +545,67 @@ class PipelineStepRoutesSpec
         resp.pipelineId shouldBe pid
         resp.`type` shouldBe "join"
         val join = resp.asInstanceOf[JoinStepResponse]
-        join.config.rightDataSourceId shouldBe ""
+        join.config.secondaryInput shouldBe SecondaryInput.Source("")
+      }
+    }
+
+    // HEL-911 evaluation-1.md CR4a (cycle 2): Decision 1a's headline behaviour, exercised
+    // at the ROUTE layer (422, not just a codec-layer Failure) -- a legacy flat
+    // secondary-source field is a hard, named error, never a silently-accepted config.
+    "POST with join type and a legacy flat rightDataSourceId config returns 422, creating nothing" in {
+      cleanSteps(); val pid = seedPipeline()
+      val legacyReq = JsObject(
+        "type" -> JsString("join"),
+        "config" -> JsObject(
+          "rightDataSourceId" -> JsString("ds-1"),
+          "joinKey"           -> JsString("id"),
+          "joinType"          -> JsString("inner")
+        )
+      )
+      Post(s"/pipelines/${pid}/steps", legacyReq) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include ("rightDataSourceId")
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        responseAs[Vector[PipelineStepResponse]] shouldBe empty
+      }
+    }
+
+    "POST with union type and a legacy flat otherDataSourceId config returns 422, creating nothing" in {
+      cleanSteps(); val pid = seedPipeline()
+      val legacyReq = JsObject(
+        "type" -> JsString("union"),
+        "config" -> JsObject(
+          "otherDataSourceId" -> JsString("ds-1"),
+          "mode"              -> JsString("byPosition")
+        )
+      )
+      Post(s"/pipelines/${pid}/steps", legacyReq) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include ("otherDataSourceId")
+      }
+    }
+
+    "POST with lookup type and a legacy flat referenceDataSourceId config returns 422, creating nothing" in {
+      cleanSteps(); val pid = seedPipeline()
+      val legacyReq = JsObject(
+        "type" -> JsString("lookup"),
+        "config" -> JsObject(
+          "referenceDataSourceId" -> JsString("ds-1"),
+          "sourceKey"             -> JsString("a"),
+          "lookupKey"             -> JsString("b"),
+          "columns"               -> JsArray()
+        )
+      )
+      Post(s"/pipelines/${pid}/steps", legacyReq) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include ("referenceDataSourceId")
       }
     }
 
     // Same regression, PATCH half: clearing an already-set right source back to "" must
     // stay allowed (it's un-setting a draft, not referencing a cross-user source).
-    "PATCH join step config to an empty rightDataSourceId stays allowed (200)" in {
+    "PATCH join step config to an empty secondaryInput stays allowed (200)" in {
       cleanSteps(); val pid = seedPipeline()
       val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
       var stepId = ""
@@ -561,7 +616,7 @@ class PipelineStepRoutesSpec
 
       val patchBody = JsObject(
         "config" -> JsObject(
-          "rightDataSourceId" -> JsString(""),
+          "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
           "joinKey"           -> JsString("id"),
           "joinType"          -> JsString("inner")
         )
@@ -570,7 +625,7 @@ class PipelineStepRoutesSpec
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineStepResponse]
         val join = resp.asInstanceOf[JoinStepResponse]
-        join.config.rightDataSourceId shouldBe ""
+        join.config.secondaryInput shouldBe SecondaryInput.Source("")
       }
     }
 
@@ -590,7 +645,7 @@ class PipelineStepRoutesSpec
       val otherUserDsId = seedDataSource("00000000-0000-0000-0000-000000000002")
       val patchBody = JsObject(
         "config" -> JsObject(
-          "rightDataSourceId" -> JsString(otherUserDsId),
+          "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(otherUserDsId)),
           "joinKey"           -> JsString("id"),
           "joinType"          -> JsString("inner")
         )
@@ -604,7 +659,7 @@ class PipelineStepRoutesSpec
         val steps = responseAs[Vector[PipelineStepResponse]]
         val join = steps.collectFirst { case j: JoinStepResponse => j }
         join should not be empty
-        join.get.config.rightDataSourceId shouldBe ownDsId
+        join.get.config.secondaryInput shouldBe SecondaryInput.Source(ownDsId)
       }
     }
 
@@ -646,7 +701,7 @@ class PipelineStepRoutesSpec
       val otherUserDsId = seedDataSource("00000000-0000-0000-0000-000000000002")
       val patchBody = JsObject(
         "config" -> JsObject(
-          "otherDataSourceId" -> JsString(otherUserDsId),
+          "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(otherUserDsId)),
           "mode"              -> JsString("byPosition")
         )
       )
@@ -659,13 +714,13 @@ class PipelineStepRoutesSpec
         val steps = responseAs[Vector[PipelineStepResponse]]
         val union = steps.collectFirst { case u: UnionStepResponse => u }
         union should not be empty
-        union.get.config.otherDataSourceId shouldBe ownDsId
+        union.get.config.secondaryInput shouldBe SecondaryInput.Source(ownDsId)
       }
     }
 
     // HEL-620 (mirrors HEL-386 change request 2 regression, design.md Decision 1's "empty is
     // a no-op, not an error" philosophy): the "+ Add transformation step" picker POSTs
-    // defaultConfigFor("union") — { otherDataSourceId: "", mode: "byPosition" }. This MUST
+    // defaultConfigFor("union") — { secondaryInput: {kind:"source",dataSourceId:""}, mode: "byPosition" }. This MUST
     // succeed (201) with the other source left unset — an empty/unselected id is an
     // incomplete draft, not a security violation (nothing to leak against an unset id).
     // Before the fix, unionCheckF unconditionally called
@@ -679,13 +734,13 @@ class PipelineStepRoutesSpec
         resp.pipelineId shouldBe pid
         resp.`type` shouldBe "union"
         val union = resp.asInstanceOf[UnionStepResponse]
-        union.config.otherDataSourceId shouldBe ""
+        union.config.secondaryInput shouldBe SecondaryInput.Source("")
       }
     }
 
     // Same regression, PATCH half: clearing an already-set other source back to "" must stay
     // allowed (it's un-setting a draft, not referencing a cross-user source).
-    "PATCH union step config to an empty otherDataSourceId stays allowed (200)" in {
+    "PATCH union step config to an empty secondaryInput stays allowed (200)" in {
       cleanSteps(); val pid = seedPipeline()
       val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
       var stepId = ""
@@ -696,7 +751,7 @@ class PipelineStepRoutesSpec
 
       val patchBody = JsObject(
         "config" -> JsObject(
-          "otherDataSourceId" -> JsString(""),
+          "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
           "mode"              -> JsString("byPosition")
         )
       )
@@ -704,7 +759,7 @@ class PipelineStepRoutesSpec
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineStepResponse]
         val union = resp.asInstanceOf[UnionStepResponse]
-        union.config.otherDataSourceId shouldBe ""
+        union.config.secondaryInput shouldBe SecondaryInput.Source("")
       }
     }
 
@@ -744,7 +799,7 @@ class PipelineStepRoutesSpec
       val otherUserDsId = seedDataSource("00000000-0000-0000-0000-000000000002")
       val patchBody = JsObject(
         "config" -> JsObject(
-          "referenceDataSourceId" -> JsString(otherUserDsId),
+          "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(otherUserDsId)),
           "sourceKey"             -> JsString("code"),
           "lookupKey"             -> JsString("code"),
           "columns"               -> JsArray(JsString("label"))
@@ -759,13 +814,13 @@ class PipelineStepRoutesSpec
         val steps = responseAs[Vector[PipelineStepResponse]]
         val lookup = steps.collectFirst { case l: LookupStepResponse => l }
         lookup should not be empty
-        lookup.get.config.referenceDataSourceId shouldBe ownDsId
+        lookup.get.config.secondaryInput shouldBe SecondaryInput.Source(ownDsId)
       }
     }
 
     // HEL-386 evaluation-1.md change request 1+2 (regression): the "+ Add transformation
     // step" picker POSTs defaultConfigFor("lookup") — an entirely empty config, including
-    // referenceDataSourceId: "". This MUST succeed (201) with the reference source left
+    // secondaryInput: {kind:"source",dataSourceId:""}. This MUST succeed (201) with the reference source left
     // unset — an empty/unselected reference id is an incomplete draft, not a security
     // violation (nothing to leak against an unset id), matching design.md Decision 1's
     // "empty is a no-op, not an error" philosophy and Decision 6's execute-time-only
@@ -780,13 +835,13 @@ class PipelineStepRoutesSpec
         resp.pipelineId shouldBe pid
         resp.`type` shouldBe "lookup"
         val lookup = resp.asInstanceOf[LookupStepResponse]
-        lookup.config.referenceDataSourceId shouldBe ""
+        lookup.config.secondaryInput shouldBe SecondaryInput.Source("")
       }
     }
 
     // Same regression, PATCH half: clearing an already-set reference source back to "" must
     // stay allowed (it's un-setting a draft, not referencing a cross-user source).
-    "PATCH lookup step config to an empty referenceDataSourceId stays allowed (200)" in {
+    "PATCH lookup step config to an empty secondaryInput stays allowed (200)" in {
       cleanSteps(); val pid = seedPipeline()
       val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
       var stepId = ""
@@ -797,7 +852,7 @@ class PipelineStepRoutesSpec
 
       val patchBody = JsObject(
         "config" -> JsObject(
-          "referenceDataSourceId" -> JsString(""),
+          "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
           "sourceKey"             -> JsString("code"),
           "lookupKey"             -> JsString("code"),
           "columns"               -> JsArray(JsString("label"))
@@ -807,7 +862,7 @@ class PipelineStepRoutesSpec
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineStepResponse]
         val lookup = resp.asInstanceOf[LookupStepResponse]
-        lookup.config.referenceDataSourceId shouldBe ""
+        lookup.config.secondaryInput shouldBe SecondaryInput.Source("")
       }
     }
 
@@ -1759,6 +1814,107 @@ class PipelineStepRoutesSpec
         status shouldBe StatusCodes.OK
         val resp = responseAs[Vector[PipelineStepResponse]].head.asInstanceOf[CastStepResponse]
         resp.config.casts shouldBe empty
+      }
+    }
+  }
+
+  // HEL-911 evaluation-1.md CR5 (cycle 2): the write-time lane-reference arm -- contract
+  // item 6a's security boundary -- was entirely untested at the route layer. Every case
+  // here is verified (change record) to have FAILED against the pre-existing code (the
+  // `laneCheckF`/`validateLaneReference` wiring added in cycle 1 had no direct test).
+  private def laneUnionReq(parentStepId: String, laneStepId: String): JsObject =
+    reqWithParentStepId(
+      JsObject(
+        "type" -> JsString("union"),
+        "config" -> JsObject(
+          "secondaryInput" -> JsObject("kind" -> JsString("lane"), "stepId" -> JsString(laneStepId)),
+          "mode"           -> JsString("byPosition")
+        )
+      ),
+      parentStepId
+    )
+
+  "PipelineStepRoutes -- lane-kind secondaryInput write-time validation (evaluation-1.md CR5)" should {
+
+    "POST rejects a lane stepId belonging to ANOTHER user's pipeline, naming it (CR5a)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val rootId = { val id = seedRootStep(pid, "rename", """{"renames":{}}""", 0); id }
+
+      // A second pipeline, owned by a DIFFERENT user, with its own step.
+      import PostgresProfile.api._
+      val foreignPid = UUID.randomUUID().toString
+      val foreignDs  = UUID.randomUUID().toString
+      val foreignStepId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO users (id, email, created_at)
+               VALUES ('00000000-0000-0000-0000-000000000002'::uuid, 'viewer@test.local', now())
+               ON CONFLICT DO NOTHING""",
+        sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+               VALUES ($foreignDs, 'ds', 'rest_api', '{}', '00000000-0000-0000-0000-000000000002', now(), now())""",
+        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
+               VALUES ($foreignPid, 'p2', $foreignDs, '00000000-0000-0000-0000-000000000002', now(), now())""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
+               VALUES ($foreignStepId, $foreignPid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)"""
+      )))
+
+      Post(s"/pipelines/$pid/steps", laneUnionReq(rootId, foreignStepId)) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include (foreignStepId)
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        responseAs[Vector[PipelineStepResponse]].map(_.id) should not contain foreignStepId
+        responseAs[Vector[PipelineStepResponse]] should have size 1 // only rootId; the union was NOT persisted
+      }
+    }
+
+    "POST rejects a lane stepId that does not exist, naming it (CR5a)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val rootId = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      Post(s"/pipelines/$pid/steps", laneUnionReq(rootId, "does-not-exist")) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include ("does-not-exist")
+      }
+    }
+
+    "POST rejects a lane stepId naming the new step's own ancestor, 400 naming the cycle (CR5a)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val rootId = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      // The new union step's parent IS rootId -- referencing rootId as its own lane input is
+      // a cycle (rootId is its ancestor).
+      Post(s"/pipelines/$pid/steps", laneUnionReq(rootId, rootId)) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String].toLowerCase should include ("cycle")
+      }
+    }
+
+    "POST accepts a lane stepId naming a valid sibling-lane node in THIS pipeline (201) (CR5a)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val rootId = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      val laneBId = seedRootStep(pid, "rename", """{"renames":{}}""", 1) // sibling lane, not an ancestor
+      Post(s"/pipelines/$pid/steps", laneUnionReq(rootId, laneBId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse].asInstanceOf[UnionStepResponse]
+        resp.config.secondaryInput shouldBe SecondaryInput.Lane(laneBId)
+      }
+    }
+
+    "PATCH rejects a lane stepId naming a nonexistent step, naming it (CR5a, updateStep arm)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val rootId = seedRootStep(pid, "rename", """{"renames":{}}""", 0)
+      var unionId = ""
+      val laneBId = seedRootStep(pid, "rename", """{"renames":{}}""", 1)
+      Post(s"/pipelines/$pid/steps", laneUnionReq(rootId, laneBId)) ~> routes ~> check {
+        unionId = responseAs[PipelineStepResponse].id
+      }
+      val patchBody = JsObject(
+        "config" -> JsObject(
+          "secondaryInput" -> JsObject("kind" -> JsString("lane"), "stepId" -> JsString("does-not-exist")),
+          "mode"           -> JsString("byPosition")
+        )
+      )
+      Patch(s"/pipeline-steps/$unionId", patchBody) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include ("does-not-exist")
       }
     }
   }

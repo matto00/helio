@@ -6,6 +6,7 @@ import com.helio.domain._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
+import com.helio.domain.steps.SecondaryInput
 
 /** Discriminated-union round-trip coverage for the CS2c-3a PipelineStep wire
  *  shape — every subtype writes / reads with the `type` field, the per-subtype
@@ -18,7 +19,7 @@ class PipelineStepProtocolSpec extends AnyWordSpec with Matchers with JsonProtoc
   private val subtypes: Seq[PipelineStepResponse] = Seq(
     RenameStepResponse("s", "p", 0, now, now, RenameConfig(Map("a" -> "b"))),
     FilterStepResponse("s", "p", 0, now, now, FilterConfig("AND", Vector(FilterCondition("x", "=", Some("y"))))),
-    JoinStepResponse("s", "p", 0, now, now, JoinConfig("ds", "k", "inner")),
+    JoinStepResponse("s", "p", 0, now, now, JoinConfig(SecondaryInput.Source("ds"), "k", "inner")),
     ComputeStepResponse("s", "p", 0, now, now, ComputeConfig("c", "e", None)),
     GroupByStepResponse("s", "p", 0, now, now, GroupByConfig(Vector("g"), "c", "sum")),
     CastStepResponse("s", "p", 0, now, now, CastConfig(Map("x" -> "integer"))),

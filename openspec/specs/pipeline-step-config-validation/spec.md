@@ -6,60 +6,19 @@ Validate step configuration values at analyze time, not only during execution, s
 ## Requirements
 
 ### Requirement: Step configuration is validated at analyze time, not only at execution
-The pipeline analyze surface SHALL validate each step's configuration values that are decidable from the
-configuration alone, and SHALL report any failure through that step's existing `validationError` field.
-Validation SHALL run before schema inference for that step; when validation fails, the step's
-`outputSchema` SHALL equal its `inputSchema` (the identity fallback already used for steps with a
-validation error), and no new response field or shape SHALL be introduced.
+Validation of a `join`, `union` or `lookup` step config at analyze time SHALL report, as named config problems, a `secondaryInput` that is absent, carries an unrecognised `kind`, or pairs a `kind` with the wrong field — via the same validation path the run-time completeness check uses, so the two cannot disagree. A `source`-kind input with an empty `dataSourceId` SHALL be reported as an incomplete configuration in the same manner as any other unset required field, not as an invalid one. A `lane`-kind input naming a step outside the pipeline, or forming a cycle, SHALL be reported as a named problem.
 
-The set of validated configuration values SHALL be exactly those enum-valued options for which the
-executing step already performs the same check at run time — `stringops.operation`, `fillnull.strategy`
-(including `constant` requiring `value`), `window.function` (including its per-function `field` and
-`offset` requirements), `aggregate` / `groupby` / `pivot` aggregation functions, `union.mode`, and
-`join.type` — together with the additional enum-valued options `filter.combinator`, `dedupe.keep`,
-`splittext.mode` and `chunkbytokencount.encoding`, and each step kind's required configuration values.
+#### Scenario: Unrecognised kind is reported
+- **WHEN** a config carries `{"secondaryInput": {"kind": "other", "stepId": "x"}}`
+- **THEN** analyze reports a named problem identifying the invalid `kind`
 
-Each validator SHALL derive its accepted values from the executing step's own supported-value set rather
-than from a copy, so the analyze surface can never reject a value the engine accepts.
+#### Scenario: Mismatched field for the declared kind is reported
+- **WHEN** a config carries `{"secondaryInput": {"kind": "lane", "dataSourceId": "x"}}`
+- **THEN** analyze reports a named problem
 
-An enum-valued option SHALL be matched case-insensitively: a supplied value that differs from a supported
-member only by letter case SHALL be accepted and treated as that member. A supplied value that does not
-match any supported member under that comparison SHALL be reported as a validation failure naming the
-unsupported value and listing the supported set. An unsupported enum value SHALL NEVER be silently
-replaced by a default, because substituting a default changes which rows survive or which row wins while
-reporting success.
-
-A bounded numeric option SHALL be reported as a validation failure when the supplied value cannot be
-represented as that option's numeric type, rather than being narrowed or replaced by a default. This
-SHALL specifically include `limit.count`, for which a substituted default is indistinguishable from an
-instruction to apply no limit at all.
-
-A required configuration value that is missing or empty SHALL be reported as a validation failure naming
-the step and that value. Storing such a configuration remains permitted, so a step may be added and
-configured later; this requirement governs only what analyze reports about it.
-
-Conditions that are not decidable from configuration alone SHALL NOT be reported at analyze time: data
-conditions such as `datebucket` finding no parseable timestamp, referenced-DataSource existence for
-`union` / `join` / `lookup`, and field existence against the inferred input schema.
-
-When more than one validation failure applies to a single step, the messages SHALL be combined into that
-step's single `validationError` value rather than any one failure silently taking precedence.
-
-The **proposal** analyze surface SHALL be driven from the caller-supplied RAW configuration text rather
-than from a decoded typed configuration, so that it reports configuration keys which a step's tolerant
-persistence decoder would silently reduce to an empty default. This property SHALL be demonstrable through
-that surface's own observable output: for a configuration the typed decoder reduces to an empty value, the
-proposal analyze surface SHALL still report a non-empty `validationError` for that step.
-
-This property SHALL NOT be claimed of the stored-pipeline analyze surface for a wrong-typed key. Because a
-present key of the wrong JSON type now fails to decode, a stored configuration carrying one cannot be read at
-all, so that surface has no decoded step to report against. A wrong-typed configuration is therefore prevented
-at write time and by read strictness, not reported at analyze time. A missing or empty required value, by
-contrast, decodes successfully and SHALL be reported by both analyze surfaces.
-
-Every validator in the validated set, and the combining of multiple failures into one message, SHALL be
-observable through the analyze surface a caller actually uses, rather than only through an internal
-stand-in.
+#### Scenario: An unset source-kind input is reported as incomplete, not invalid
+- **WHEN** a config carries `{"secondaryInput": {"kind": "source", "dataSourceId": ""}}`
+- **THEN** analyze reports it as an incomplete configuration, consistent with other unset required fields
 
 #### Scenario: Unsupported stringops operation is reported before any run
 - **GIVEN** a pipeline containing a `stringops` step with `operation` set to `"regexExtract"`
