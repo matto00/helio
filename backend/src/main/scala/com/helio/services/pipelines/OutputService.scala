@@ -34,10 +34,27 @@ final class OutputService(
     // HEL-906 cycle 7 (`GET /api/outputs/:id/rows`): nullable-optional wiring mirrors
     // `pipelineRunRepo`/`auditService` above -- a fixture that doesn't pass a
     // `NodeSnapshotRepository` simply gets an empty page from `rows` rather than an NPE.
-    nodeSnapshotRepo: NodeSnapshotRepository = null
+    nodeSnapshotRepo: NodeSnapshotRepository = null,
+    // HEL-947: nullable-optional wiring mirrors nodeSnapshotRepo/pipelineRunRepo above -- a
+    // fixture that doesn't pass a PipelineRunService simply skips the fire-and-forget
+    // backfill kicked off by create/update below (never blocks, never fails the caller either
+    // way -- see PipelineRunService.backfillOutputNode's own doc for why this is a targeted,
+    // single-node call rather than PipelineRunService's own per-run write).
+    pipelineRunService: PipelineRunService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
+
+  /** HEL-947: fires `PipelineRunService.backfillOutputNode` off the request path -- NOT
+   *  awaited, NOT flatMapped into the `create`/`update` response Future. The route's HTTP
+   *  response returns as soon as the Output row itself is written; this runs concurrently and,
+   *  per `backfillOutputNode`'s own contract, degrades to a complete no-op (never throws into
+   *  this call site) whether it succeeds, finds nothing to backfill, or fails outright. A
+   *  missing `pipelineRunService` (nullable-optional wiring, mirrors every other such fixture in
+   *  this file) is a no-op too. */
+  private def triggerBackfill(output: Output, user: AuthenticatedUser): Unit =
+    if (pipelineRunService != null)
+      pipelineRunService.backfillOutputNode(output.node.pipelineId, output.node.stepId, user)
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
@@ -125,6 +142,7 @@ final class OutputService(
                   config     = config
                 ).map { output =>
                   audit("output.create", Some(output.id.value), user)
+                  triggerBackfill(output, user)
                   // HEL-946: return the config we just wrote, not a re-fetch —
                   // the caller (POST /api/pipelines/:id/outputs) previously
                   // dropped it via the config-less `outputResponseFrom`
@@ -169,6 +187,13 @@ final class OutputService(
                   case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
                   case Some(updated) =>
                     audit("output.update", Some(updated.id.value), user)
+                    // HEL-947: `nodeStepId` is not part of `UpdateOutputRequest` -- an edit can
+                    // never move an Output to a different node today -- but this call is still
+                    // wired here (not only in `create`) so a future request shape that adds
+                    // repointing does not silently regress the backfill guarantee. Idempotent
+                    // and cheap when the node is already snapshotted (backfillOutputNode's own
+                    // first check).
+                    triggerBackfill(updated, user)
                     outputRepo.findConfigById(id, user).map(cfg => Right((updated, cfg.getOrElse(JsObject.empty))))
                 }
             }

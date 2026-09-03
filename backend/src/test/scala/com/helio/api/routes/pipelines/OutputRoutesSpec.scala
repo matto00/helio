@@ -28,6 +28,7 @@ import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
@@ -47,7 +48,8 @@ class OutputRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with Eventually {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
@@ -66,6 +68,7 @@ class OutputRoutesSpec
   private var permissionRepo: ResourcePermissionRepository = _
   private var accessChecker: AccessChecker                 = _
   private var outputService: OutputService                 = _
+  private var sharedRunService: PipelineRunService          = _
   private var dashboardService: DashboardService            = _
   private var panelService: PanelService                    = _
 
@@ -126,7 +129,18 @@ class OutputRoutesSpec
     accessChecker = new AccessCheckerImpl(permissionRepo, registry)
     pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
-    outputService = new OutputService(outputRepo, panelRepo, accessChecker, auditService = null, pipelineRunRepo, nodeSnapshotRepo)(routeEc)
+    // HEL-947: shared across every `routesFor(user)` call below (a fresh `PipelineRunService`
+    // per request would work too -- `backfillOutputNode` is stateless -- but one instance mirrors
+    // how the real `ApiRoutes` wiring shares a single service instance across requests).
+    sharedRunService = new PipelineRunService(
+      pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
+      new PipelineRunCache(), null, new LocalFileSystem(java.nio.file.Files.createTempDirectory("output-routes-shared")),
+      outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo
+    )(routeEc)
+    outputService = new OutputService(
+      outputRepo, panelRepo, accessChecker, auditService = null, pipelineRunRepo, nodeSnapshotRepo,
+      pipelineRunService = sharedRunService
+    )(routeEc)
     dashboardService = new DashboardService(dashboardRepo, accessChecker)(routeEc)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, null, outputRepo)(routeEc)
 
@@ -149,18 +163,9 @@ class OutputRoutesSpec
   }
 
   private def routesFor(user: AuthenticatedUser): Route = {
-    val runService = new PipelineRunService(
-      pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
-      new PipelineRunCache(), null, new LocalFileSystem(java.nio.file.Files.createTempDirectory("output-routes-preview")),
-      outputRepo = outputRepo,
-      // HEL-947: wired so `onUnblockedRunSuccess` actually writes `node_snapshots` in this
-      // fixture's runs -- needed for the backfill-on-create tests below, which read those rows
-      // back through `outputService.rows`.
-      nodeSnapshotRepo = nodeSnapshotRepo
-    )(routeEc)
     concat(
       new OutputRoutes(outputService, user)(routeEc).routes,
-      new PipelineRunStatusRoutes(runService, user)(routeEc).routes
+      new PipelineRunStatusRoutes(sharedRunService, user)(routeEc).routes
     )
   }
 
@@ -608,11 +613,14 @@ class OutputRoutesSpec
       }
     }
 
-    // HEL-947 (backfill for an Output added to an already-run node): the pipeline's trunk-last
-    // node runs successfully with NO Output attached yet, then an Output is created against it
-    // afterwards -- with no second run in between. Regression guard for the ticket; observed RED
-    // before `PipelineRunService.onUnblockedRunSuccess` was widened to snapshot every node the
-    // tree walk reaches (not only nodes that already have >= 1 Output at run time).
+    // HEL-947 (backfill for an Output added to an already-run node): the pipeline's only node
+    // (its raw source) runs successfully with NO Output attached yet, then an Output is created
+    // against it afterwards through the real HTTP create route -- with no second run in between.
+    // Regression guard for the ticket; observed RED before `OutputService.create` was wired to
+    // fire `PipelineRunService.backfillOutputNode`. The create response itself does not carry
+    // the backfilled rows (`backfillOutputNode` runs off the request path, per the write-
+    // amplification measurement in PipelineRunService's own doc -- see PR #525), so this polls
+    // `GET .../rows` with `eventually` rather than asserting on the create response.
     "200 with real rows and materialized=true for an Output created AFTER its node already ran successfully, with no re-run" in {
       import PostgresProfile.api._
       val dsId = UUID.randomUUID().toString
@@ -624,26 +632,52 @@ class OutputRoutesSpec
         throw new IllegalStateException("backfill fixture: pipeline create failed")
       )
       val pipelineId = PipelineId(pipeline.id)
-      val runService = new PipelineRunService(
-        pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
-        new PipelineRunCache(), null, new LocalFileSystem(java.nio.file.Files.createTempDirectory("output-routes-backfill")),
-        outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo
-      )(routeEc)
 
       // Run the pipeline BEFORE any Output exists on its (only) node.
-      val runResult = await(runService.submit(pipelineId, isDry = false, owner))
+      val runResult = await(sharedRunService.submit(pipelineId, isDry = false, owner))
       runResult shouldBe a[Right[_, _]]
 
       // Only now attach an Output to the trunk root (the pipeline has a source but no steps, so
-      // the trunk root is the source node itself -- `nodeStepId = None`).
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "backfilled-output", OutputKind.Table))
+      // the trunk root is the source node itself -- `nodeStepId = None`) via the REAL create
+      // route, so `OutputService.create`'s `triggerBackfill` actually fires.
+      var outputId = ""
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "table", "backfilled-output", None)) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.Created
+        outputId = responseAs[JsObject].fields("id").convertTo[String]
+      }
 
-      // No second run. The node's last successful outcome must already be in node_snapshots.
-      Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
+      // No second run. The backfill fires off the request path -- poll until it lands.
+      eventually {
+        Get(s"/outputs/$outputId/rows") ~> routesFor(owner) ~> check {
+          status shouldBe StatusCodes.OK
+          val paged = responseAs[JsObject]
+          paged.fields("materialized") shouldBe JsBoolean(true)
+          paged.fields("items").convertTo[Vector[JsValue]] should not be empty
+        }
+      }
+    }
+
+    // HEL-947: an Output created on a node that has NEVER had a successful run must NOT be
+    // backfilled -- `backfillOutputNode` must see no `latestSuccessfulCompletedAtInternal` and
+    // no-op, leaving the HEL-946 "not run yet" (`materialized: false`) state exactly as it was
+    // pre-HEL-947. Guards against a regression where the fire-and-forget trigger fires
+    // unconditionally regardless of run history.
+    "does not backfill and stays materialized=false for an Output created on a node that has never run" in {
+      val pipelineId = newSharedPipeline()
+      var outputId = ""
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "table", "never-run-output", None)) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.Created
+        outputId = responseAs[JsObject].fields("id").convertTo[String]
+      }
+
+      // Give the fire-and-forget trigger a moment to have run (it must find nothing to do).
+      Thread.sleep(200)
+
+      Get(s"/outputs/$outputId/rows") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[JsObject]
-        paged.fields("materialized") shouldBe JsBoolean(true)
-        paged.fields("items").convertTo[Vector[JsValue]] should not be empty
+        paged.fields("materialized") shouldBe JsBoolean(false)
+        paged.fields("items").convertTo[Vector[JsValue]] shouldBe empty
       }
     }
   }
