@@ -343,16 +343,24 @@ class WorkspaceContextServiceSpec
 
       // Companion source schema is [value] (from createSource's static payload).
       // A select then a rename step give distinct, order-verifiable outputs.
-      await(pipelineStepRepo.insert(PipelineId(pipeline.id), "select", SelectConfig(Vector("value")), userA))
-      await(pipelineStepRepo.insert(PipelineId(pipeline.id), "rename", RenameConfig(Map("value" -> "renamed")), userA))
+      val selectStep = await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "select", SelectConfig(Vector("value")), enabled = true))
+      await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "rename", RenameConfig(Map("value" -> "renamed")), enabled = true, parentStepId = Some(selectStep.id)))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.pipelines.find(_.id == pipeline.id).getOrElse(fail("pipeline missing"))
 
       entry.stepsError shouldBe None
-      entry.steps.map(_.position) shouldBe Vector(0, 1)
-      entry.steps(0).outputColumns shouldBe Vector("value")
-      entry.steps(1).outputColumns shouldBe Vector("renamed")
+      // HEL-949: under a genuine trunk, `position` is scoped to siblings-under-the-same-parent
+      // (PipelineStepRepository.insertInternalAction), so a two-step trunk is positions (0, 0),
+      // not (0, 1) -- that value never carried step ORDER even before this fix. Order comes from
+      // `executionOrder`'s tree traversal (PipelineStepRepository.scala:747-772: walk the trunk
+      // child before appending tails), which WorkspaceContextService inherits via
+      // `PipelineService.analyze` -> `PipelineAnalyzeService.analyze`'s sequential
+      // inputSchema(N) == outputSchema(N-1) threading over that same order. So the ordering claim
+      // is re-expressed against `outputColumns`, the property this test can actually observe,
+      // rather than against `position`, which was never the order-bearing field.
+      entry.steps.map(_.position) shouldBe Vector(0, 0)
+      entry.steps.map(_.outputColumns) shouldBe Vector(Vector("value"), Vector("renamed"))
     }
   }
 

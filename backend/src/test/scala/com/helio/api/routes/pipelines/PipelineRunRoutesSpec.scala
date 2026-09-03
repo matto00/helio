@@ -421,7 +421,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
+      val step  = await(stepRepo.insertRootStep(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -452,7 +452,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithConfig("rest_api", s"""{"connectorId":"$RestSuccessUrl"}""")
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name")), dummyUser))
+      val step  = await(stepRepo.insertRootStep(pid, "select", SelectConfig(Vector("name")), dummyUser))
       Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -465,8 +465,8 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val selectStep = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
-      await(stepRepo.insert(pid, "limit", LimitConfig(1), dummyUser))
+      val selectStep = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector("name", "score")), enabled = true))
+      await(stepRepo.insertInternal(pid, "limit", LimitConfig(1), enabled = true, parentStepId = Some(selectStep.id)))
       Get(s"/pipelines/${pid.value}/steps/${selectStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -484,10 +484,11 @@ class PipelineRunRoutesSpec
     // parsing the real response body, not by reading `RunResultResponse` off a service call.
     // The second step is chained onto the first via `insertInternal(..., parentStepId = ...)`
     // (position 0 under its parent) so this is a genuine TRUNK, not two independent root
-    // branches -- `stepRepo.insert` (used elsewhere in this file) never sets `parentStepId`,
-    // which makes each call a separate root-level branch reading straight from source, not a
-    // pipe from one step's output into the next; that shape would NOT exercise the trunk walk
-    // this ticket's `previewAtNode`/`pathToRoot` code path is actually about.
+    // branches -- `stepRepo.insertRootStep` (used elsewhere in this file, HEL-949) is
+    // deliberately root-only and cannot set `parentStepId`, so each call is a separate
+    // root-level branch reading straight from source, not a pipe from one step's output
+    // into the next; that shape would NOT exercise the trunk walk this ticket's
+    // `previewAtNode`/`pathToRoot` code path is actually about.
     // Two steps with DIFFERENT row counts (filter score > 40: 2 rows -> 1; limit(5): 1 -> 1,
     // a no-op on that 1 row) prove the map is keyed per-step and not just a single collapsed
     // total -- a mutation dropping the filter's entry, swapping the two counts, or zeroing the
@@ -541,8 +542,8 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      await(stepRepo.insert(pid, "limit", LimitConfig(1), dummyUser, enabled = false))
-      val selectStep = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
+      val limitStep = await(stepRepo.insertInternal(pid, "limit", LimitConfig(1), enabled = false))
+      val selectStep = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector("name", "score")), enabled = true, parentStepId = Some(limitStep.id)))
       Get(s"/pipelines/${pid.value}/steps/${selectStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -556,7 +557,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val step  = await(stepRepo.insert(pid, "select", SelectConfig(Vector("name", "score")), dummyUser, enabled = false))
+      val step  = await(stepRepo.insertRootStep(pid, "select", SelectConfig(Vector("name", "score")), dummyUser, enabled = false))
       Get(s"/pipelines/${pid.value}/steps/${step.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
@@ -597,7 +598,7 @@ class PipelineRunRoutesSpec
       val dsId             = seedDsWithData()
       val pid              = seedPipeline(dsId)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
-      val joinStep = await(stepRepo.insert(pid, "join",
+      val joinStep = await(stepRepo.insertRootStep(pid, "join",
         JoinConfig(missingSourceId, "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
@@ -620,7 +621,7 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val badStep = await(stepRepo.insert(pid, "stringops",
+      val badStep = await(stepRepo.insertRootStep(pid, "stringops",
         StringOpsConfig("regexExtract", "name", "extracted", None, None, None, None), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
@@ -713,7 +714,7 @@ class PipelineRunRoutesSpec
       val dsId           = seedDsWithData()
       val pid            = seedPipeline(dsId)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
-      val joinStep = await(stepRepo.insert(pid, "join",
+      val joinStep = await(stepRepo.insertRootStep(pid, "join",
         JoinConfig(missingSourceId, "name", "inner"), dummyUser))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
@@ -873,7 +874,7 @@ class PipelineRunRoutesSpec
       val pid              = seedPipeline(dsId)
       val reg              = new PipelineRunRegistry()(typedSystem)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
-      val joinStep = await(stepRepo.insert(pid, "join",
+      val joinStep = await(stepRepo.insertRootStep(pid, "join",
         JoinConfig(missingSourceId, "name", "inner"), dummyUser))
 
       val eventsFuture = reg
@@ -949,7 +950,7 @@ class PipelineRunRoutesSpec
       val pid              = seedPipeline(dsId)
       val ruleId           = seedAlertRule(pid, "score", "gt", 0)
       val missingSourceId = "00000000-0000-0000-0000-000000000099"
-      await(stepRepo.insert(pid, "join", JoinConfig(missingSourceId, "name", "inner"), dummyUser))
+      await(stepRepo.insertRootStep(pid, "join", JoinConfig(missingSourceId, "name", "inner"), dummyUser))
       val alertEvalSvc = new AlertEvaluationService(alertRuleRepo, alertEventRepo)(routeEc)
 
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, alertEvalSvc = alertEvalSvc) ~> check {

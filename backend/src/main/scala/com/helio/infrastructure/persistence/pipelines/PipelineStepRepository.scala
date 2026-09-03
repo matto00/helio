@@ -54,7 +54,14 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map(rowToDomain))
   }
 
-  /** Insert a new step into the pipeline in user context.
+  /** Insert a new ROOT step into the pipeline in user context.
+    *
+    * HEL-949: deliberately root-only -- it has no `parentStepId` parameter and
+    * cannot chain. To build a trunk/tail step under an existing step, use
+    * `insertInternal(..., parentStepId = Some(...))` instead. This method was
+    * previously named `insert`, which read as "add the next step" and caused
+    * every test written on that assumption to silently exercise a
+    * parallel-root topology instead of the chained one it intended.
     *
     * Gated by the caller having proven pipeline ownership at the service layer;
     * the repo itself only writes — the parent pipeline FK guards against the
@@ -64,7 +71,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * `pipelines.owner_id`. Running inside `withUserContext` means the policy
     * evaluates correctly: the new step is only insertable if the parent pipeline
     * is owned by the caller. */
-  def insert(pipelineId: PipelineId, kind: String, config: Any, user: AuthenticatedUser, enabled: Boolean = true): Future[PipelineStep] = {
+  def insertRootStep(pipelineId: PipelineId, kind: String, config: Any, user: AuthenticatedUser, enabled: Boolean = true): Future[PipelineStep] = {
     val now = Instant.now()
     val configJson = encodeConfig(kind, config)
     val action = for {
@@ -176,9 +183,12 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * HEL-904 task 1.6 (DB-backed remainder): `position` is scoped to
     * siblings sharing `parentStepId` (`None` = root), not the whole
     * pipeline -- appends after the highest-positioned existing sibling in
-    * that same group. No live caller passes a non-`None` `parentStepId`
-    * yet (P1.2 wires branch creation); the default preserves today's
-    * flat/root-appended behavior exactly. */
+    * that same group. No PRODUCTION caller passes a non-`None`
+    * `parentStepId` yet (P1.2 wires branch creation); the default
+    * preserves today's flat/root-appended behavior exactly. HEL-949's test
+    * tree now calls this with an explicit `parentStepId` to build real
+    * trunks -- "no live caller" above means no production route, not "this
+    * parameter goes untested." */
   def insertInternal(
       pipelineId: PipelineId,
       kind: String,

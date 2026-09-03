@@ -148,7 +148,7 @@ class PipelineAnalyzeRoutesSpec
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
       // Insert a select step via the repo (CS2c-3a typed config)
-      await(pipelineStepRepo.insert(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), dummyUser))
+      await(pipelineStepRepo.insertRootStep(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), dummyUser))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -168,7 +168,7 @@ class PipelineAnalyzeRoutesSpec
       val sourceFields = """[{"name":"content","displayName":"Content","dataType":"string-body","nullable":false},{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
-      await(pipelineStepRepo.insert(PipelineId(pid), "splittext", SplitTextConfig(field = "content", mode = "paragraph"), dummyUser))
+      await(pipelineStepRepo.insertRootStep(PipelineId(pid), "splittext", SplitTextConfig(field = "content", mode = "paragraph"), dummyUser))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -188,7 +188,7 @@ class PipelineAnalyzeRoutesSpec
       val sourceFields = """[{"name":"content","displayName":"Content","dataType":"string-body","nullable":false},{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
-      await(pipelineStepRepo.insert(PipelineId(pid), "extractheadings", ExtractHeadingsConfig(field = "content"), dummyUser))
+      await(pipelineStepRepo.insertRootStep(PipelineId(pid), "extractheadings", ExtractHeadingsConfig(field = "content"), dummyUser))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -208,7 +208,7 @@ class PipelineAnalyzeRoutesSpec
       val sourceFields = """[{"name":"content","displayName":"Content","dataType":"string-body","nullable":false},{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
-      await(pipelineStepRepo.insert(PipelineId(pid), "chunkbytokencount", ChunkByTokenCountConfig(field = "content"), dummyUser))
+      await(pipelineStepRepo.insertRootStep(PipelineId(pid), "chunkbytokencount", ChunkByTokenCountConfig(field = "content"), dummyUser))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -231,8 +231,8 @@ class PipelineAnalyzeRoutesSpec
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
-      await(pipelineStepRepo.insert(PipelineId(pid), "rename", RenameConfig(Map("order_id" -> "id")), dummyUser, enabled = false))
-      await(pipelineStepRepo.insert(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), dummyUser))
+      val renameStep = await(pipelineStepRepo.insertInternal(PipelineId(pid), "rename", RenameConfig(Map("order_id" -> "id")), enabled = false))
+      await(pipelineStepRepo.insertInternal(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), enabled = true, parentStepId = Some(renameStep.id)))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -338,7 +338,7 @@ class PipelineAnalyzeRoutesSpec
       cleanPipelines()
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
-      await(pipelineStepRepo.insert(
+      await(pipelineStepRepo.insertRootStep(
         PipelineId(pid), "aggregate",
         AggregateConfig(Vector(AggregateField("order_id", "string")), Vector(Aggregation("total", "bogus_fn", "amount"))),
         dummyUser
@@ -357,7 +357,7 @@ class PipelineAnalyzeRoutesSpec
       cleanPipelines()
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
-      await(pipelineStepRepo.insert(
+      await(pipelineStepRepo.insertRootStep(
         PipelineId(pid), "groupby",
         GroupByConfig(Vector("order_id"), "amount", "bogus_fn"),
         dummyUser
@@ -376,7 +376,7 @@ class PipelineAnalyzeRoutesSpec
       cleanPipelines()
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
-      await(pipelineStepRepo.insert(
+      await(pipelineStepRepo.insertRootStep(
         PipelineId(pid), "pivot",
         PivotConfig(Vector("order_id"), "amount", "amount", "bogus_agg"),
         dummyUser
@@ -395,7 +395,7 @@ class PipelineAnalyzeRoutesSpec
       cleanPipelines()
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
       val (pid, dsId) = seedPipelineWithSchema(sourceFields)
-      await(pipelineStepRepo.insert(
+      await(pipelineStepRepo.insertRootStep(
         PipelineId(pid), "union",
         UnionConfig(dsId, "bogus_mode"),
         dummyUser
@@ -414,7 +414,7 @@ class PipelineAnalyzeRoutesSpec
       cleanPipelines()
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
       val (pid, dsId) = seedPipelineWithSchema(sourceFields)
-      await(pipelineStepRepo.insert(
+      await(pipelineStepRepo.insertRootStep(
         PipelineId(pid), "join",
         JoinConfig(dsId, "order_id", "bogus_type"),
         dummyUser
@@ -446,7 +446,7 @@ class PipelineAnalyzeRoutesSpec
       // window: unsupported function AND (for lag/lead) a non-positive offset
       // — WindowConfig.decode both go through validateWindow's two independent
       // problem checks (function support, offset positivity for lag/lead).
-      await(pipelineStepRepo.insert(
+      await(pipelineStepRepo.insertRootStep(
         PipelineId(pid), "window",
         WindowConfig(
           partitionBy = Vector.empty, orderBy = Vector.empty, function = "lag",
