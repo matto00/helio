@@ -176,7 +176,15 @@ final class PipelineProposalService(
    *  mirrors `PipelineService.buildStepsAction`'s own transactional-create
    *  validation, kept in sync deliberately: both reject the same shapes, so
    *  a proposal that validates here is guaranteed to also pass
-   *  `pipelineService.create`'s own re-validation at apply time). */
+   *  `pipelineService.create`'s own re-validation at apply time).
+   *
+   *  Deliberately does NOT itself check second-source ownership for
+   *  join/union/lookup configs: `apply` funnels into `pipelineService.create`,
+   *  whose `validateStepCrossOwnerRefs` performs that ACL check (and, since
+   *  HEL-950, skips it for an empty id via
+   *  `PipelineStepConfigCodec.secondaryDataSourceId`). Recorded because that
+   *  reliance was previously silent -- a reader adding an ownership check here
+   *  would be duplicating one that already runs one layer down. */
   private def validateSteps(steps: Vector[CreatePipelineTransactionalStepRequest]): Either[ServiceError, Unit] =
     steps.zipWithIndex.foldLeft[Either[ServiceError, (Set[String], Unit)]](Right((Set.empty[String], ()))) {
       case (Left(err), _) => Left(err)

@@ -11,7 +11,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.api._
-import com.helio.api.protocols.pipelines.{CastStepResponse, ComputeStepResponse, DeletePipelineStepResponse, LookupStepResponse, PipelineStepResponse, RenameStepResponse, SelectStepResponse, UnionStepResponse}
+import com.helio.api.protocols.pipelines.{CastStepResponse, ComputeStepResponse, DeletePipelineStepResponse, JoinStepResponse, LookupStepResponse, PipelineStepResponse, RenameStepResponse, SelectStepResponse, UnionStepResponse}
 import com.helio.api.routes.pipelines.PipelineStepRoutes
 import com.helio.services.pipelines.PipelineService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -183,6 +183,18 @@ class PipelineStepRoutesSpec
       "sourceKey"             -> JsString(""),
       "lookupKey"             -> JsString(""),
       "columns"               -> JsArray()
+    )
+  )
+
+  // HEL-950: `defaultConfigFor("join")` seed shape (join is picker-excluded per
+  // ticket.md CORRECTION, but the seed shape is still what agent/MCP and patch-set
+  // callers reach the addStep/updateStep path with).
+  private def joinDefaultReq(): JsObject = JsObject(
+    "type" -> JsString("join"),
+    "config" -> JsObject(
+      "rightDataSourceId" -> JsString(""),
+      "joinKey"           -> JsString(""),
+      "joinType"          -> JsString("inner")
     )
   )
 
@@ -514,6 +526,85 @@ class PipelineStepRoutesSpec
         val resp = responseAs[PipelineStepResponse]
         resp.pipelineId shouldBe pid
         resp.`type` shouldBe "join"
+      }
+    }
+
+    // HEL-950 (design.md Decision 6, ticket.md AC4/AC6a): the empty-id join body reaches
+    // addStep from the agent/MCP surface, not the picker (join is picker-excluded). This
+    // MUST succeed (201) with the right source left unset -- an empty/unselected id is an
+    // incomplete draft, not a security violation. Before the fix, joinCheckF unconditionally
+    // called findByIdOwned(DataSourceId(""), user) => None => 404 for EVERY join create,
+    // including a fully-specified one whose id happened to decode alongside an empty one --
+    // this is the primary regression this change closes.
+    "POST with join type and the picker's exact empty-default config succeeds (201), right source unset" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/${pid}/steps", joinDefaultReq()) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.pipelineId shouldBe pid
+        resp.`type` shouldBe "join"
+        val join = resp.asInstanceOf[JoinStepResponse]
+        join.config.rightDataSourceId shouldBe ""
+      }
+    }
+
+    // Same regression, PATCH half: clearing an already-set right source back to "" must
+    // stay allowed (it's un-setting a draft, not referencing a cross-user source).
+    "PATCH join step config to an empty rightDataSourceId stays allowed (200)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
+      var stepId = ""
+      Post(s"/pipelines/${pid}/steps", joinReq(ownDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        stepId = responseAs[PipelineStepResponse].id
+      }
+
+      val patchBody = JsObject(
+        "config" -> JsObject(
+          "rightDataSourceId" -> JsString(""),
+          "joinKey"           -> JsString("id"),
+          "joinType"          -> JsString("inner")
+        )
+      )
+      Patch(s"/pipeline-steps/$stepId", patchBody) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineStepResponse]
+        val join = resp.asInstanceOf[JoinStepResponse]
+        join.config.rightDataSourceId shouldBe ""
+      }
+    }
+
+    // HEL-278 (design.md Decision 9): cross-user JoinStep right-source on PATCH must return
+    // 404 with the persisted config left unchanged -- the updateStep half of the ACL check,
+    // mirroring union's/lookup's equivalent tests. Proves the shared-extractor rewrite did
+    // not weaken updateStep's cross-user check for join.
+    "PATCH join step config to cross-user right-source returns 404 and leaves config unchanged" in {
+      cleanSteps(); val pid = seedPipeline()
+      val ownDsId = seedDataSource("00000000-0000-0000-0000-000000000001")
+      var stepId = ""
+      Post(s"/pipelines/${pid}/steps", joinReq(ownDsId)) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        stepId = responseAs[PipelineStepResponse].id
+      }
+
+      val otherUserDsId = seedDataSource("00000000-0000-0000-0000-000000000002")
+      val patchBody = JsObject(
+        "config" -> JsObject(
+          "rightDataSourceId" -> JsString(otherUserDsId),
+          "joinKey"           -> JsString("id"),
+          "joinType"          -> JsString("inner")
+        )
+      )
+      Patch(s"/pipeline-steps/$stepId", patchBody) ~> routes ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        val join = steps.collectFirst { case j: JoinStepResponse => j }
+        join should not be empty
+        join.get.config.rightDataSourceId shouldBe ownDsId
       }
     }
 

@@ -521,6 +521,81 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
+    // HEL-950 (ticket.md AC6a, RED-first live probe recorded verbatim in
+    // execution-progress.md): the patch-set surface is where the empty-id join/union bug is
+    // actually reachable today -- HEL-620's union fix never reached this file. This MUST
+    // succeed with the second source left unset, mirroring lookup's pre-existing behavior
+    // (this file had NO existing test asserting an empty second-source id per the design
+    // gate's grep, so this is new coverage, not a modified assertion).
+    "accept a pipelineStep-update edit clearing JoinConfig.rightDataSourceId to empty (HEL-950)" in {
+      val sourceId = seedStaticSource(userA, "Pipeline source")
+      val rightSourceId = seedStaticSource(userA, "Right source")
+      val pipeline = seedPipeline(userA, sourceId, "Join pipeline")
+      val joinConfig = JsObject(
+        "rightDataSourceId" -> JsString(rightSourceId.value),
+        "joinKey"           -> JsString("value"),
+        "joinType"          -> JsString("inner")
+      )
+      val step = seedPipelineStep(PipelineId(pipeline.id), userA, "join", joinConfig)
+
+      val emptiedJoinConfig = JsObject(
+        "rightDataSourceId" -> JsString(""),
+        "joinKey"           -> JsString("value"),
+        "joinType"          -> JsString("inner")
+      )
+      val edit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(emptiedJoinConfig), None)), None)
+      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Right(_)  => succeed
+        case Left(err) => fail(s"expected success (empty id skips the ACL check), got Left($err)")
+      }
+    }
+
+    "reject a pipelineStep-update edit referencing a foreign-owned UnionConfig.otherDataSourceId (HEL-950, the cell HEL-620 missed)" in {
+      val sourceId = seedStaticSource(userA, "Pipeline source")
+      val otherSourceId = seedStaticSource(userA, "Other source")
+      val foreignSourceId = seedStaticSource(userB, "Foreign source")
+      val pipeline = seedPipeline(userA, sourceId, "Union pipeline")
+      val unionConfig = JsObject(
+        "otherDataSourceId" -> JsString(otherSourceId.value),
+        "mode"              -> JsString("byPosition")
+      )
+      val step = seedPipelineStep(PipelineId(pipeline.id), userA, "union", unionConfig)
+
+      val updatedUnionConfig = JsObject(
+        "otherDataSourceId" -> JsString(foreignSourceId.value),
+        "mode"              -> JsString("byPosition")
+      )
+      val edit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(updatedUnionConfig), None)), None)
+      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Left(ServiceError.NotFound(_)) => succeed
+        case other                            => fail(s"expected NotFound (data source not found), got $other")
+      }
+    }
+
+    "accept a pipelineStep-update edit clearing UnionConfig.otherDataSourceId to empty (HEL-950, the cell HEL-620 missed)" in {
+      val sourceId = seedStaticSource(userA, "Pipeline source")
+      val otherSourceId = seedStaticSource(userA, "Other source")
+      val pipeline = seedPipeline(userA, sourceId, "Union pipeline")
+      val unionConfig = JsObject(
+        "otherDataSourceId" -> JsString(otherSourceId.value),
+        "mode"              -> JsString("byPosition")
+      )
+      val step = seedPipelineStep(PipelineId(pipeline.id), userA, "union", unionConfig)
+
+      val emptiedUnionConfig = JsObject(
+        "otherDataSourceId" -> JsString(""),
+        "mode"              -> JsString("byPosition")
+      )
+      val edit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
+        None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(emptiedUnionConfig), None)), None)
+      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Right(_)  => succeed
+        case Left(err) => fail(s"expected success (empty id skips the ACL check), got Left($err)")
+      }
+    }
+
 
     "populate a panel-update edit's priorState with the existing PanelResponse shape, field-for-field (7.10a)" in {
       val dashboard = seedDashboard(userA)
