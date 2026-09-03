@@ -5,6 +5,14 @@
 # Set DRY_RUN=1 to print the plan and changelog and exit 0 without running
 # any of the git push / git tag / gh release create commands, and without
 # prompting for confirmation.
+#
+# Set RELEASE_HEADLINE to prepend hand-written prose above the generated
+# changelog (a title line, then any explanatory paragraphs). Use this when a
+# release needs narrative -- a diagnostic build, an incident fix, a milestone.
+# It exists so there is never a reason to hand-roll `git tag -a -m`: doing that
+# skips the release-branch fast-forward and the GitHub Release, which is how
+# v0.7.8-v0.7.11 ended up tagged and deployed but absent from the Releases
+# page with release/v0.7 left 26 commits behind main.
 set -euo pipefail
 
 # Every network call is announced and bounded. A blackholed connection to
@@ -46,6 +54,10 @@ NOTES=$(mktemp)
 {
   echo "## ${NEXT}"
   echo
+  if [ -n "${RELEASE_HEADLINE:-}" ]; then
+    printf '%s\n' "$RELEASE_HEADLINE"
+    echo
+  fi
   echo "Released from \`${SHA8}\`."
   echo
   echo "### Changes"
