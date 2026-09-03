@@ -474,6 +474,68 @@ class PipelineRunRoutesSpec
       }
     }
 
+    // HEL-922: `stepRowCounts` is computed at the engine layer and threaded through
+    // `PipelineRunService`/`RunResultResponse`, but no test previously asserted the value at the
+    // route-response (parsed-JSON) level -- only `PipelineRunServiceSpec`'s Scala-level asserts
+    // and the HEL-330 engine-adapter unit test covered it, neither of which crosses the
+    // serialization boundary. `stepRowCounts: Map[String, Long] = Map.empty` is a non-`Option`
+    // field in a macro-derived `jsonFormat11`, so spray-json's map writer always emits it as a
+    // JSON object (never omits it the way `Option = None` would) -- this test proves that by
+    // parsing the real response body, not by reading `RunResultResponse` off a service call.
+    // The second step is chained onto the first via `insertInternal(..., parentStepId = ...)`
+    // (position 0 under its parent) so this is a genuine TRUNK, not two independent root
+    // branches -- `stepRepo.insert` (used elsewhere in this file) never sets `parentStepId`,
+    // which makes each call a separate root-level branch reading straight from source, not a
+    // pipe from one step's output into the next; that shape would NOT exercise the trunk walk
+    // this ticket's `previewAtNode`/`pathToRoot` code path is actually about.
+    // Two steps with DIFFERENT row counts (filter score > 40: 2 rows -> 1; limit(5): 1 -> 1,
+    // a no-op on that 1 row) prove the map is keyed per-step and not just a single collapsed
+    // total -- a mutation dropping the filter's entry, swapping the two counts, or zeroing the
+    // map fails this.
+    "GET /pipelines/:id/steps/:stepId/preview returns per-step row counts keyed by step id" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      val selectStep = await(stepRepo.insertInternal(
+        pid, "select", SelectConfig(Vector("name", "score")), enabled = true
+      ))
+      val filterStep = await(stepRepo.insertInternal(
+        pid, "filter", FilterConfig("and", Vector(FilterCondition("score", ">", Some("40")))), enabled = true,
+        parentStepId = Some(selectStep.id)
+      ))
+      Get(s"/pipelines/${pid.value}/steps/${filterStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 1
+        resp.stepRowCounts shouldBe Map(selectStep.id.value -> 2L, filterStep.id.value -> 1L)
+      }
+    }
+
+    // HEL-922: same assertion at the `POST /run` (non-dry) route, the OTHER wire-response call
+    // site that constructs `RunResultResponse` from `outcome.stepCounts` (PipelineRunService.scala,
+    // the run-path construction site, not the preview-path one exercised above) -- covering both
+    // call sites closes the gap the ticket's mutation-testing finding identified (94/94 green with
+    // a wrong `stepCounts` because NEITHER route-level suite asserted the value). Same chained
+    // trunk shape as the preview test above (`insertInternal(..., parentStepId = ...)`).
+    "POST /pipelines/:id/run returns per-step row counts keyed by step id in the wire response" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      val selectStep = await(stepRepo.insertInternal(
+        pid, "select", SelectConfig(Vector("name", "score")), enabled = true
+      ))
+      val filterStep = await(stepRepo.insertInternal(
+        pid, "filter", FilterConfig("and", Vector(FilterCondition("score", ">", Some("40")))), enabled = true,
+        parentStepId = Some(selectStep.id)
+      ))
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RunResultResponse]
+        resp.rowCount shouldBe 1
+        resp.stepRowCounts shouldBe Map(selectStep.id.value -> 2L, filterStep.id.value -> 1L)
+      }
+    }
+
     // HEL-412 (design.md Decision 3): the preview prefix skips disabled steps.
     "GET /pipelines/:id/steps/:stepId/preview excludes a disabled step from the executed prefix" in {
       val cache = new PipelineRunCache()
