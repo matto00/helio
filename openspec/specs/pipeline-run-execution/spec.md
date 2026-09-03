@@ -6,34 +6,19 @@ TBD - created by archiving change pipeline-step-execution. Update Purpose after 
 ## Requirements
 
 ### Requirement: POST /api/pipelines/:id/run executes steps and returns a result
-The backend SHALL expose `POST /api/pipelines/:id/run` that fetches the pipeline's steps as a tree
-(trunk plus tails, per `pipeline-step-tree`), walks the trunk in order while evaluating each node's
-tails from that node's own frame before advancing, applying each un-disabled step to an in-memory row
-set loaded from the pipeline's source DataSource, and returns the trunk's terminal result. For
-non-dry runs the response SHALL be `200 OK` with `{ rows: [...], rowCount: N }` regardless of whether
-the run is subsequently blocked by an error-severity assertion failure (see
-`pipeline-assert-fail-policy`) — step execution itself completed without exception, so the HTTP
-response contract is unaffected by the fail-policy decision. `pipelines.last_run_status` SHALL be set
-to `"succeeded"` and `pipelines.last_run_at` SHALL be set to the current timestamp on success, UNLESS
-the run is blocked by an error-severity assertion failure, in which case `last_run_status` SHALL be
-set to `"failed"` instead, exactly as it would be for a step execution failure. On step execution
-failure the response SHALL be `422 Unprocessable Entity` with an error message, and `last_run_status`
-SHALL be set to `"failed"`. A step tree violating the Phase-1 graph invariant (see
-`pipeline-step-tree`) SHALL be rejected with `422 Unprocessable Entity` naming the offending node,
-before any step evaluates.
+The run endpoint SHALL execute the pipeline's graph and return a result reporting per-node row counts for **every** evaluated node across **all** lanes, keyed by node id. When a step fails, the reported error SHALL identify the failing step and its reason, and SHALL additionally identify the **lane path** leading to that step, so a failure in one of several sibling lanes is unambiguous. The lane path SHALL be the ordered list of step ids from the source root to the failing step inclusive, joined by `" > "`, with the virtual root rendered as `root` (for example `root > s1 > s4 > s7`).
 
-When the failure originates inside a step of a run executed by the in-process pipeline engine, the error
-message SHALL begin with the literal prefix
-`Pipeline execution failed` and SHALL additionally name the failing step's id, the step's kind, and a
-reason. The reason SHALL be the message of the underlying exception when and only when that exception is
-an `IllegalArgumentException` — the type used by every step's own hand-written configuration validation.
-For any other throwable the reason SHALL be a fixed, non-descriptive string; the step id and kind SHALL
-still be reported. The client-facing message SHALL NOT contain a stack trace, a package-qualified class
-name, or any other internal detail. The full throwable SHALL continue to be logged server-side.
+#### Scenario: Row counts are returned for nodes in every lane
+- **WHEN** a pipeline with two sibling lanes is run
+- **THEN** the result carries a row count for every evaluated node in both lanes
 
-This message is used identically on all three client-visible surfaces it already reaches: the SSE
-`errorLog` event, `RunStatusResponse.error`, and the persisted `PipelineRunRecord.errorLog`. Step preview
-(`previewStep`) SHALL report failures the same way.
+#### Scenario: A failure in the second of two lanes names that lane's path
+- **WHEN** a step in the second of two sibling lanes raises during a run
+- **THEN** the result names the failing step, its reason, and the lane path leading to it, in the specified format
+
+#### Scenario: A failure in a non-branching pipeline is unchanged in substance
+- **WHEN** a step fails in a pipeline with no branching
+- **THEN** the failing step and its reason are reported as before, with the lane path being the single chain to that step
 
 #### Scenario: Run with no steps returns source rows unchanged
 - **WHEN** `POST /api/pipelines/:id/run` is called on a pipeline that has no steps
@@ -144,14 +129,19 @@ to the target type; rows where coercion fails SHALL use `null`.
 - **THEN** the result rows have `qty` as integer values
 
 ### Requirement: Join step merges two data sources on a key column
-The execution engine SHALL support the `join` op with inner and left join semantics. The config
-SHALL contain `rightDataSourceId` (id of the right-hand DataSource), `joinKey` (column present in
-both sources), and `joinType` (`"inner"` or `"left"`). The result SHALL contain all columns from
-both sources (right-side duplicate key column excluded).
+The execution engine SHALL support the `join` op with inner and left join semantics. The config SHALL contain `secondaryInput` (the discriminated object, exactly one of `{"kind": "source", "dataSourceId": "<id>"}` or `{"kind": "lane", "stepId": "<id>"}`), `joinKey` (a column present in both inputs), and `joinType` (`"inner"` or `"left"`). The legacy flat `rightDataSourceId` field SHALL NOT be accepted. The result SHALL contain all columns from both inputs (right-side duplicate key column excluded), identically whether the right-hand rows come from a data source or from a referenced lane node's post-evaluation frame.
 
 #### Scenario: Inner join returns only matching rows
-- **WHEN** a join step with `joinType: "inner"` is applied and some left-side rows have no match in the right source
-- **THEN** only rows with a matching `joinKey` in both sources appear in the result
+- **WHEN** a `join` step with `{"secondaryInput": {"kind": "source", "dataSourceId": "<id>"}, "joinType": "inner"}` is executed
+- **THEN** only rows matching on `joinKey` are returned, with all columns from both sides and the right-side duplicate key column excluded
+
+#### Scenario: Left join preserves unmatched left rows
+- **WHEN** the same step is executed with `"joinType": "left"`
+- **THEN** unmatched left rows are preserved with null-filled right-side columns
+
+#### Scenario: A lane-kind join produces the same shape
+- **WHEN** a `join` step's right-hand rows come from a `lane`-kind secondary input instead of a data source
+- **THEN** the joined result has the same columns and semantics as the equivalent source-kind join
 
 #### Scenario: Left join retains all left rows
 - **WHEN** a join step with `joinType: "left"` is applied and some left-side rows have no match

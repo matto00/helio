@@ -6,41 +6,29 @@ Reject a step configuration the caller supplied but the system cannot represent,
 ## Requirements
 
 ### Requirement: A supplied step configuration that cannot be understood is rejected, never stored as a no-op
-When a caller supplies a step configuration whose shape the step's typed configuration cannot represent,
-the step-create and step-update surfaces SHALL reject the request with **422 Unprocessable Entity** and
-SHALL NOT create or modify any step. The rejection message SHALL name the offending configuration key and
-SHALL describe the expected shape for that key.
+A supplied `join`, `union` or `lookup` configuration carrying a legacy flat secondary-source field (`rightDataSourceId`, `otherDataSourceId` or `referenceDataSourceId`) SHALL be rejected with a hard, named error identifying the invalid shape. It SHALL NOT be coerced into a `source`-kind `secondaryInput`, SHALL NOT be defaulted, and SHALL NOT be stored as a no-op. No read path SHALL remain that understands the legacy shape. An unrecognised `secondaryInput.kind`, or a `kind` paired with the wrong field, SHALL be rejected the same way.
 
-A configuration key that the caller supplied and the system could not understand SHALL be treated as an
-error, never as an empty default. Rejection SHALL be decided from the raw supplied configuration, so a key
-whose value the step's tolerant persistence decoder would silently reduce to an empty default is still
-rejected.
+This SHALL NOT be confused with an unset second input: `{"kind": "source", "dataSourceId": ""}` is a well-formed incomplete draft and SHALL be accepted. What is rejected is the legacy *field*, never an unset id inside the discriminated shape.
 
-This requirement SHALL apply to **every** step kind and every configuration key that kind declares, not only
-to the `cast` step's `casts` key and the `rename` step's `renames` key. Each step kind SHALL declare the
-expected shape of each of its keys, and a supplied value whose JSON type cannot represent the declared shape
-SHALL be rejected, naming that key and its expected shape.
+#### Scenario: Legacy union config is rejected
+- **WHEN** a config `{"otherDataSourceId": "abc", "mode": "byPosition"}` is supplied
+- **THEN** it is rejected with a named error identifying the invalid shape and is not stored
 
-Rejection SHALL be applied by every surface that accepts a caller-supplied step configuration, not only the
-step-create and step-update surfaces. This SHALL include the change-preview and change-apply surfaces and the
-proposal-apply surface, so a wrong-shape configuration cannot enter through a surface that merely checked
-whether the configuration decoded.
+#### Scenario: Legacy join config is rejected
+- **WHEN** a config carrying `rightDataSourceId` is supplied
+- **THEN** it is rejected with a named error and is not stored
 
-Absence of a key SHALL NOT be rejected: an omitted key retains its existing default, so partial drafts and
-previously-stored rows remain valid. A key present but holding an empty value of the correct type SHALL NOT be
-rejected either. Rejection SHALL apply only to a key that is present but whose JSON type cannot represent the
-declared shape. Completeness of a draft is instead enforced when the pipeline is run or analyzed.
+#### Scenario: Legacy lookup config is rejected
+- **WHEN** a config carrying `referenceDataSourceId` is supplied
+- **THEN** it is rejected with a named error and is not stored
 
-The read path SHALL remain tolerant for absent and empty keys: decoding an already-stored configuration that
-omits a key, or holds an empty value, SHALL continue to succeed, so rows persisted before this requirement
-continue to decode with no migration.
+#### Scenario: An empty dataSourceId in the new shape is NOT rejected
+- **WHEN** a config `{"secondaryInput": {"kind": "source", "dataSourceId": ""}, "mode": "byPosition"}` is supplied
+- **THEN** it is accepted and stored as a legal incomplete draft
 
-The read path SHALL NOT remain tolerant for a stored key that is present but whose JSON type cannot represent
-the declared shape. Such a stored configuration SHALL fail to decode rather than yield a degraded value. This
-narrows an earlier guarantee that the read path was unchanged for all stored configurations, and it is
-deliberate: a degraded value read from storage is indistinguishable from a correct one downstream, which is the
-defect being closed. It is safe to narrow because no stored configuration of that shape exists in any measured
-environment, whereas absent and empty keys occur routinely and remain tolerated.
+#### Scenario: An unrecognised kind is rejected
+- **WHEN** a config carrying `{"secondaryInput": {"kind": "other", "stepId": "x"}}` is supplied
+- **THEN** it is rejected with a named error identifying the invalid `kind`
 
 #### Scenario: A list-shaped cast config is rejected with 422
 - **GIVEN** a pipeline owned by the caller

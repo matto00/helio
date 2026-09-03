@@ -118,11 +118,15 @@ server-side.
   with stack trace is logged server-side
 
 ### Requirement: Run-status events carry per-node identity and row counts
+The run SSE stream SHALL emit a row count for every evaluated node in the graph, keyed by node id, including nodes in every lane and rejoin steps. A disabled node SHALL continue to receive no row-count entry, unchanged. A failure event SHALL carry the failing node's lane path in the format specified by `pipeline-run-execution`.
 
-Each `node-progress` SSE event emitted while a pipeline runs SHALL include a `nodeId` field
-identifying which step-tree node the event describes (or its absence for the pipeline root), and a
-`rowCount` field for that node's frame at the point the event was emitted. This applies to trunk nodes
-and tail nodes alike.
+#### Scenario: Counts are emitted for nodes in both lanes
+- **WHEN** a pipeline with two sibling lanes is run
+- **THEN** the stream carries a row count for every evaluated node in both lanes
+
+#### Scenario: A disabled node in a lane gets no count entry
+- **WHEN** a lane contains a disabled node
+- **THEN** no row-count entry is emitted for it and its incoming frame passes through unchanged
 
 #### Scenario: A tail node's progress is reported by node id
 

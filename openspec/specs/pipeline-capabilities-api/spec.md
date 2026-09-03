@@ -7,10 +7,16 @@ so the frontend and helio-mcp can offer only valid choices instead of failing at
 ## Requirements
 
 ### Requirement: GET /api/pipelines/:id/capabilities?stepId= reports bindable Output kinds/slots
-The backend SHALL expose `GET /api/pipelines/:id/capabilities?stepId=` (stepId absent = pipeline
-root), returning every Output kind whose `OutputBindingSpec` is satisfiable against the node's
-projected schema, and for each kind the list of fillable field-mapping slots with the schema
-columns eligible for each slot.
+The endpoint SHALL return the bindable Output kinds and slots for any node in the graph, evaluated against that node's projected schema, regardless of which lane the node belongs to. For a rejoin step, eligibility SHALL be evaluated against the schema projected from both of its inputs.
+
+#### Scenario: Capabilities at a node inside a lane
+- **WHEN** capabilities are requested for a node in a lane hanging off a multi-child parent
+- **THEN** the response describes the Output kinds bindable at that node
+- **THEN** no structural-validation error is raised
+
+#### Scenario: Capabilities at a rejoin node reflect the rejoined schema
+- **WHEN** capabilities are requested for a rejoin step
+- **THEN** eligibility is evaluated against the schema projected from both of its inputs
 
 #### Scenario: Node with only numeric columns supports metric and chart Outputs
 - **WHEN** the projected schema at a node has two numeric columns and no string columns

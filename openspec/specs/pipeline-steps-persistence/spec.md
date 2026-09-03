@@ -91,44 +91,25 @@ shape is determined by `type`), `createdAt` (ISO-8601), `updatedAt` (ISO-8601).
 - **THEN** the response is `404 Not Found`
 
 ### Requirement: POST /api/pipelines/:id/steps appends a new step
-
-The backend SHALL expose `POST /api/pipelines/:id/steps` that accepts
-`{ type, config, position?, enabled? }` in the request body (where `config` is a typed object
-whose shape is determined by `type`, `position` is an OPTIONAL integer index into the pipeline's
-current whole-pipeline execution order, and `enabled` is an OPTIONAL boolean defaulting to true
-when absent). Behavior:
-
-- **`position` absent (default — trunk continuation):** the step is spliced onto the pipeline as
-  the current trunk-last step's sole new child. It becomes the sole member of a fresh sibling
-  group and its persisted `position` is always `0`, never `MAX(position)+1` — placement in
-  execution order is carried by `parent_step_id`, not by a whole-pipeline-incrementing
-  `position`. If the trunk-last step already has children (tail steps), those existing children
-  are re-parented onto the new step, per `pipeline-step-tree`'s splice semantics, so the new step
-  becomes the new trunk-last and the pre-existing tails are re-attached after it in execution
-  order.
-- **`position` present:** the value SHALL be validated as `0 ≤ position ≤ count` (where `count`
-  is the pipeline's current step count, counted in whole-pipeline execution order); out-of-range
-  values SHALL return `422 Unprocessable Entity` with no step persisted. On success the requested
-  execution-order index is translated to a splice anchor (the step currently occupying that
-  execution-order position becomes the new step's parent, per `pipeline-step-tree`'s splice
-  semantics) and the new step's persisted `position` reflects its resulting sibling-group slot,
-  not a whole-pipeline renumbering. `position = count` is equivalent to trunk continuation
-  (append) ONLY when the trunk-last step has no existing tail steps — `executionOrder` emits a
-  node's tails immediately after that node and before its trunk continuation, so on a pipeline
-  whose trunk-last step already has tails, `position = count` anchors on that trunk-last step's
-  last tail, not on trunk-last itself.
-- **`enabled` absent:** the step is created enabled; **`enabled: false`:** the step is created
-  disabled.
-
-The endpoint SHALL persist the step and return the created step object (including its `enabled`
-value) with `201 Created`. When `type` is `"join"`, the backend SHALL additionally verify that
-`config.rightDataSourceId` is owned by the authenticated caller; if the source is inaccessible,
-the response SHALL be `404 Not Found` and the step SHALL NOT be persisted.
+The endpoint SHALL persist the step and return the created step object (including its `enabled` value) with `201 Created`. When `type` is `"join"`, `"union"` or `"lookup"`, the backend SHALL additionally verify that `config.secondaryInput` — **when and only when it is `source`-kind with a non-empty `dataSourceId`** — is owned by the authenticated caller; if the source is inaccessible, the response SHALL be `404 Not Found` and the step SHALL NOT be persisted. The legacy flat fields (`rightDataSourceId`, `otherDataSourceId`, `referenceDataSourceId`) SHALL NOT appear in this contract. A `lane`-kind `secondaryInput` SHALL NOT be routed into the ownership check; it SHALL instead be validated for same-pipeline membership and acyclicity per `pipeline-lane-rejoin-input`. A step MAY be created with a `parentStepId` naming a node that already has one or more children, at any position.
 
 #### Scenario: First step gets position 0
 
-- **WHEN** `POST /api/pipelines/:id/steps` is called and the pipeline has no existing steps
-- **THEN** the created step has `position: 0` and the response is `201 Created`
+- **WHEN** `POST /api/pipelines/:id/steps` is called on a pipeline with no steps
+- **THEN** the created step has `position` 0
+
+#### Scenario: Cross-user source-kind secondary input returns 404
+- **WHEN** `POST /api/pipelines/:id/steps` is called with `type: "join"` and `config.secondaryInput` of `{"kind": "source", "dataSourceId": "<a source the caller does not own>"}`
+- **THEN** the response is `404 Not Found`
+- **THEN** no step row is inserted
+
+#### Scenario: Lane-kind secondary input triggers no ownership check
+- **WHEN** the same endpoint is called with a `lane`-kind `secondaryInput` naming a step in the same pipeline
+- **THEN** the step is persisted and no data-source ownership lookup is performed
+
+#### Scenario: A sibling may be created alongside an existing child
+- **WHEN** a step is created with a `parentStepId` naming a node that already has a child
+- **THEN** the step is created successfully and both children are returned as children of that node
 
 #### Scenario: Subsequent steps get incrementing positions
 
@@ -203,7 +184,7 @@ the response SHALL be `404 Not Found` and the step SHALL NOT be persisted.
 #### Scenario: Returns 404 when join right-source is not caller-owned
 
 - **WHEN** `POST /api/pipelines/:id/steps` is called with `type: "join"` and
-  `config.rightDataSourceId` referring to a data source the caller does not own
+  `config.secondaryInput` source-kind, referring to a data source the caller does not own
 - **THEN** the response is `404 Not Found`
 - **THEN** no step row is inserted
 
