@@ -17,8 +17,17 @@ export interface FilterConfig {
   combinator: string;
   conditions: FilterCondition[];
 }
+// HEL-911 (design.md Decisions 1/1a): the discriminated secondary input shared by
+// join/union/lookup, replacing each op's flat second-source id field
+// (rightDataSourceId/otherDataSourceId/referenceDataSourceId). No legacy shape --
+// a config still carrying the flat field is rejected by the backend, not silently
+// upgraded.
+export type SecondaryInput =
+  | { kind: "source"; dataSourceId: string }
+  | { kind: "lane"; stepId: string };
+
 export interface JoinConfig {
-  rightDataSourceId: string;
+  secondaryInput: SecondaryInput;
   joinKey: string;
   joinType: string;
 }
@@ -127,11 +136,11 @@ export interface StringOpsConfig {
 }
 export type UnionMode = "byPosition" | "byName";
 export interface UnionConfig {
-  otherDataSourceId: string;
+  secondaryInput: SecondaryInput;
   mode: UnionMode;
 }
 export interface LookupConfig {
-  referenceDataSourceId: string;
+  secondaryInput: SecondaryInput;
   sourceKey: string;
   lookupKey: string;
   columns: string[];

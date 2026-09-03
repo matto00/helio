@@ -27,6 +27,7 @@ import spray.json._
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import com.helio.domain.steps.SecondaryInput
 
 class PipelineAnalyzeRoutesSpec
     extends AnyWordSpec
@@ -397,7 +398,7 @@ class PipelineAnalyzeRoutesSpec
       val (pid, dsId) = seedPipelineWithSchema(sourceFields)
       await(pipelineStepRepo.insertRootStep(
         PipelineId(pid), "union",
-        UnionConfig(dsId, "bogus_mode"),
+        UnionConfig(SecondaryInput.Source(dsId), "bogus_mode"),
         dummyUser
       ))
 
@@ -416,7 +417,7 @@ class PipelineAnalyzeRoutesSpec
       val (pid, dsId) = seedPipelineWithSchema(sourceFields)
       await(pipelineStepRepo.insertRootStep(
         PipelineId(pid), "join",
-        JoinConfig(dsId, "order_id", "bogus_type"),
+        JoinConfig(SecondaryInput.Source(dsId), "order_id", "bogus_type"),
         dummyUser
       ))
 

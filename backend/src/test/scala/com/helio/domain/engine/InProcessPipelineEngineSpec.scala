@@ -898,7 +898,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-right") Some(rightConfigJson) else None)
       }
       val step = makeStep("join",
-        """{ "rightDataSourceId": "ds-right", "joinKey": "id", "joinType": "inner" }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-right" }, "joinKey": "id", "joinType": "inner" }""")
       val result = Await.result(engine.execute(leftRows, Seq(step), mockRepo), 5.seconds)
 
       result should have size 2
@@ -930,7 +930,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-right-left") Some(rightConfigJson) else None)
       }
       val step = makeStep("join",
-        """{ "rightDataSourceId": "ds-right-left", "joinKey": "id", "joinType": "left" }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-right-left" }, "joinKey": "id", "joinType": "left" }""")
       val result = Await.result(engine.execute(leftRows, Seq(step), mockRepo), 5.seconds)
 
       result should have size 2  // orphan row retained
@@ -960,7 +960,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-union-position") Some(otherConfigJson) else None)
       }
       val step = makeStep("union",
-        """{ "otherDataSourceId": "ds-union-position", "mode": "byPosition" }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-union-position" }, "mode": "byPosition" }""")
       val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
 
       result shouldBe Seq(
@@ -990,7 +990,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-union-name") Some(otherConfigJson) else None)
       }
       val step = makeStep("union",
-        """{ "otherDataSourceId": "ds-union-name", "mode": "byName" }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-union-name" }, "mode": "byName" }""")
       val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
 
       result shouldBe Seq(
@@ -1020,7 +1020,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-union-name-same") Some(otherConfigJson) else None)
       }
       val step = makeStep("union",
-        """{ "otherDataSourceId": "ds-union-name-same", "mode": "byName" }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-union-name-same" }, "mode": "byName" }""")
       val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
 
       result shouldBe Seq(
@@ -1029,7 +1029,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       )
     }
 
-    "union op: missing otherDataSourceId fails at execute time" in {
+    "union op: missing secondaryInput dataSourceId fails at execute time" in {
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(None)
@@ -1041,13 +1041,13 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       ex.getMessage should include ("DataSource not found for union")
     }
 
-    "union op: unresolvable otherDataSourceId fails at execute time, naming the id" in {
+    "union op: unresolvable secondaryInput dataSourceId fails at execute time, naming the id" in {
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(None)
       }
       val step = makeStep("union",
-        """{ "otherDataSourceId": "does-not-exist", "mode": "byPosition" }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "does-not-exist" }, "mode": "byPosition" }""")
       val ex = intercept[StepExecutionException] {
         Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
       }
@@ -1070,7 +1070,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-union-badmode") Some(otherConfigJson) else None)
       }
       val step = makeStep("union",
-        """{ "otherDataSourceId": "ds-union-badmode", "mode": "byColumn" }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-union-badmode" }, "mode": "byColumn" }""")
       val ex = intercept[StepExecutionException] {
         Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
       }
@@ -1103,7 +1103,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-lookup-match") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
-        """{ "referenceDataSourceId": "ds-lookup-match", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-lookup-match" }, "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
       val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
 
       result shouldBe Seq(Map[String, Any]("code" -> "A", "qty" -> 5, "label" -> "Apple"))
@@ -1130,7 +1130,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-lookup-nomatch") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
-        """{ "referenceDataSourceId": "ds-lookup-nomatch", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-lookup-nomatch" }, "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
       val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
 
       result shouldBe Seq(Map[String, Any]("code" -> "B", "qty" -> 2, "label" -> null))
@@ -1160,7 +1160,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-lookup-multi") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
-        """{ "referenceDataSourceId": "ds-lookup-multi", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-lookup-multi" }, "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
       val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
 
       result should have size 1
@@ -1188,7 +1188,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-lookup-collision") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
-        """{ "referenceDataSourceId": "ds-lookup-collision", "sourceKey": "code", "lookupKey": "code", "columns": ["qty"] }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-lookup-collision" }, "sourceKey": "code", "lookupKey": "code", "columns": ["qty"] }""")
       val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
 
       result shouldBe Seq(Map[String, Any]("code" -> "A", "qty" -> 99))
@@ -1215,13 +1215,13 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Future.successful(if (dsId.value == "ds-lookup-onlynamed") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
-        """{ "referenceDataSourceId": "ds-lookup-onlynamed", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-lookup-onlynamed" }, "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
       val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
 
       result.head.keys should not contain "price"
     }
 
-    "lookup op: missing referenceDataSourceId fails at execute time" in {
+    "lookup op: missing secondaryInput dataSourceId fails at execute time" in {
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(None)
@@ -1233,13 +1233,13 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       ex.getMessage should include ("DataSource not found for lookup")
     }
 
-    "lookup op: unresolvable referenceDataSourceId fails at execute time, naming the id" in {
+    "lookup op: unresolvable secondaryInput dataSourceId fails at execute time, naming the id" in {
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(None)
       }
       val step = makeStep("lookup",
-        """{ "referenceDataSourceId": "does-not-exist", "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
+        """{ "secondaryInput": { "kind": "source", "dataSourceId": "does-not-exist" }, "sourceKey": "code", "lookupKey": "code", "columns": ["label"] }""")
       val ex = intercept[StepExecutionException] {
         Await.result(engine.execute(sampleRows, Seq(step), mockRepo), 5.seconds)
       }
@@ -2581,7 +2581,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-union-truncated") Some(secondaryDs) else None)
       }
-      val step = makeStep("union", """{ "otherDataSourceId": "ds-union-truncated", "mode": "byPosition" }""")
+      val step = makeStep("union", """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-union-truncated" }, "mode": "byPosition" }""")
       val truncationSink = new TruncationSink
       val (result, _) = Await.result(
         bigUnionEngine.executeWithStepCounts(primaryRows, Seq(step), mockRepo, truncationSink = truncationSink),

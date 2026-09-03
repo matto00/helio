@@ -82,13 +82,18 @@ object RefinementEditShape {
   // edit for any of the four kinds — but per skeptic-final-1.md CR-3, that is only "these specific,
   // non-ablated prompts didn't trigger it," not proof the prompt rule below is load-bearing (no trial
   // ran with the rule/examples absent to distinguish the two).
+  // HEL-911 (design.md Decisions 1/1a): `rightDataSourceId` (flat string) is replaced by
+  // `secondaryInput`, a discriminated object -- `{"kind":"source","dataSourceId":...}` (shown
+  // here) or `{"kind":"lane","stepId":...}` (rejoin another lane; out of scope for this worked
+  // example, which stays a source-kind join per the file's pre-existing convention). The flat
+  // field is no longer a valid config key at all -- present, it is a hard decode error.
   private[services] val JoinStepExample: String =
     """{
       |  "target": { "kind": "pipelineStep", "id": "step_mno" },
       |  "op": "update",
       |  "patch": {
       |    "config": {
-      |      "rightDataSourceId": "src_456",
+      |      "secondaryInput": { "kind": "source", "dataSourceId": "src_456" },
       |      "joinKey": "customerId",
       |      "joinType": "left"
       |    }
@@ -157,8 +162,9 @@ object RefinementEditShape {
       "{alias,fn,field} objects — fn is one of sum|avg|min|max|count):\n" + AggregateStepExample +
       "\n\ngroupby (a DIFFERENT, single-aggregation shape from aggregate — groupBy is a list of PLAIN\n" +
       "STRINGS, not objects; aggColumn/aggFunction are single top-level fields, not a list):\n" + GroupByStepExample +
-      "\n\njoin (rightDataSourceId/joinKey/joinType are all single top-level STRING fields, never lists\n" +
-      "or objects; joinType is one of inner|left):\n" + JoinStepExample +
+      "\n\njoin (secondaryInput is a discriminated object -- {\"kind\":\"source\",\"dataSourceId\":...}\n" +
+      "or {\"kind\":\"lane\",\"stepId\":...} -- never a flat rightDataSourceId string; joinKey/joinType\n" +
+      "are single top-level STRING fields; joinType is one of inner|left):\n" + JoinStepExample +
       "\n\npivot (index is a list of PLAIN STRINGS, not a single string or a list of objects;\n" +
       "column/values/agg are single top-level string fields; agg is one of sum|count|avg|min|max|first):\n" + PivotStepExample +
       "\n\nunpivot (idVars/valueVars are BOTH lists of plain strings; varName/valueName are single\n" +

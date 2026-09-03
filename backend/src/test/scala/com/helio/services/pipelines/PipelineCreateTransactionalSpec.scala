@@ -1,11 +1,13 @@
 package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest}
-import com.helio.domain.engine.SchemaField
+import com.helio.domain.engine.{InProcessPipelineEngine, SchemaField}
 import com.helio.domain.model._
+import com.helio.domain.steps.{RenameStep, SecondaryInput, UnionStep}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.storage.LocalFileSystem
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -289,7 +291,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       result.swap.toOption.get.message should include("does_not_exist")
     }
 
-    "reject (with nothing persisted) a join step whose rightDataSourceId references another owner's data source" in {
+    "reject (with nothing persisted) a join step whose secondaryInput dataSourceId references another owner's data source" in {
       val sourceId = newSource()
       val foreignId = newForeignSource()
       val req = CreatePipelineRequest(
@@ -298,7 +300,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
         steps = Vector(
           CreatePipelineTransactionalStepRequest(
             "s1", "join",
-            JsObject("rightDataSourceId" -> JsString(foreignId.value), "joinKey" -> JsString("amount"), "joinType" -> JsString("inner"))
+            JsObject("secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(foreignId.value)), "joinKey" -> JsString("amount"), "joinType" -> JsString("inner"))
           )
         )
       )
@@ -313,7 +315,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       rawCount shouldBe 0
     }
 
-    "accept a join step whose rightDataSourceId references the caller's OWN data source" in {
+    "accept a join step whose secondaryInput dataSourceId references the caller's OWN data source" in {
       val sourceId = newSource()
       val ownSecondSource = newSource()
       val req = CreatePipelineRequest(
@@ -322,13 +324,141 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
         steps = Vector(
           CreatePipelineTransactionalStepRequest(
             "s1", "join",
-            JsObject("rightDataSourceId" -> JsString(ownSecondSource.value), "joinKey" -> JsString("amount"), "joinType" -> JsString("inner"))
+            JsObject("secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(ownSecondSource.value)), "joinKey" -> JsString("amount"), "joinType" -> JsString("inner"))
           )
         )
       )
 
       val result = await(service.create(req, owner))
       result shouldBe a[Right[_, _]]
+    }
+
+    // HEL-911 evaluation-1.md CR5b (cycle 2): the single-call transactional create path had
+    // NO lane-reference validation at all -- `validateStepCrossOwnerRefs` only ever checked
+    // `secondaryDataSourceId` (source-kind). A `lane`-kind `stepId` naming a nonexistent
+    // clientId, or the referencing step's own ancestor, persisted silently.
+    "reject (with nothing persisted) a union step whose lane secondaryInput names a clientId absent from this same request" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name               = "Dangling lane reference rejection",
+        sourceDataSourceId = sourceId.value,
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest(
+            "s1", "union",
+            JsObject("secondaryInput" -> JsObject("kind" -> JsString("lane"), "stepId" -> JsString("does-not-exist")), "mode" -> JsString("byPosition"))
+          )
+        )
+      )
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      val summaries = await(pipelineRepo.listSummaries(owner, None))
+      summaries.map(_.name) should not contain "Dangling lane reference rejection"
+    }
+
+    // HEL-911 skeptic-final-2.md (cycle 4): pins the FORWARD-lane-reference rejection --
+    // design.md's cycle-3 change record documents `rewriteLaneClientId`'s `Left` arm as the
+    // guard against this shape (a `lane` `stepId` naming a LATER clientId, not yet in
+    // `clientIdMap` when `buildStepsAction`'s left-to-right fold reaches the referencing
+    // step). Simplifying that `Left` arm back to `Right(typedConfig)` would silently
+    // re-introduce the unresolved-clientId-persisted-verbatim bug this ticket already
+    // shipped once (cycle 3) -- an untested rejection branch is exactly how that one
+    // survived. Verified (change record) to fail RED against a temporarily simplified
+    // `Right(typedConfig)` arm before being accepted.
+    "reject (with nothing persisted) a union step whose lane secondaryInput names a LATER clientId in the same request (forward reference, not yet supported)" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name               = "Forward lane reference rejection",
+        sourceDataSourceId = sourceId.value,
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest(
+            "rejoin", "union",
+            JsObject("secondaryInput" -> JsObject("kind" -> JsString("lane"), "stepId" -> JsString("laneB")), "mode" -> JsString("byPosition"))
+          ),
+          CreatePipelineTransactionalStepRequest("laneB", "rename", JsObject("renames" -> JsObject()))
+        )
+      )
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get.message should include ("laneB")
+      val summaries = await(pipelineRepo.listSummaries(owner, None))
+      summaries.map(_.name) should not contain "Forward lane reference rejection"
+    }
+
+    "reject (with nothing persisted) a union step whose lane secondaryInput names its own ancestor (a cycle)" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name               = "Cyclic lane reference rejection",
+        sourceDataSourceId = sourceId.value,
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest("s1", "rename", JsObject("renames" -> JsObject())),
+          CreatePipelineTransactionalStepRequest(
+            "s2", "union",
+            JsObject("secondaryInput" -> JsObject("kind" -> JsString("lane"), "stepId" -> JsString("s1")), "mode" -> JsString("byPosition")),
+            parentStepId = Some("s1")
+          )
+        )
+      )
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      val summaries = await(pipelineRepo.listSummaries(owner, None))
+      summaries.map(_.name) should not contain "Cyclic lane reference rejection"
+    }
+
+    // HEL-911 skeptic-final-1.md (cycle 3): the pre-fix version of this test asserted ONLY
+    // that `create` returned `Right` -- which is exactly why it certified the actual defect
+    // (`buildStepsAction` persisting the clientId "laneB" itself, verbatim, into
+    // `secondaryInput.stepId`, instead of resolving it through `clientIdMap` to the real
+    // `PipelineStepId`) as correct. A test asserting only that a call succeeded, never what
+    // it produced, is not coverage -- this is the same species of gap CR1's `TreeWalkResult
+    // .rows` corruption hid behind. Replaced with two INDEPENDENT assertions on persisted
+    // state and behaviour, so neither can pass by conjunction while guarding the other:
+    // (a) the persisted `secondaryInput.stepId` is a real step id, not the literal clientId;
+    // (b) the created pipeline ACTUALLY RUNS (via the real engine, not merely returns 2xx).
+    "accept a union step whose lane secondaryInput names a valid sibling clientId, persist the REAL step id (not the clientId), and the pipeline actually runs" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name               = "Valid lane reference accepted",
+        sourceDataSourceId = sourceId.value,
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest("laneA", "rename", JsObject("renames" -> JsObject())),
+          // laneB is distinguished from laneA by its OWN config (renames "amount" ->
+          // "laneBMarker") so the persisted rows can be matched back to "laneB" specifically,
+          // not merely "some rename step that isn't laneA".
+          CreatePipelineTransactionalStepRequest("laneB", "rename", JsObject("renames" -> JsObject("amount" -> JsString("laneBMarker")))),
+          CreatePipelineTransactionalStepRequest(
+            "rejoin", "union",
+            JsObject("secondaryInput" -> JsObject("kind" -> JsString("lane"), "stepId" -> JsString("laneB")), "mode" -> JsString("byPosition")),
+            parentStepId = Some("laneA")
+          )
+        )
+      )
+      val result = await(service.create(req, owner))
+      result shouldBe a[Right[_, _]]
+      val pipelineId = PipelineId(result.getOrElse(fail("expected Right")).id)
+
+      val steps  = await(pipelineStepRepo.listByPipelineInternal(pipelineId))
+      val laneBStep = steps.collectFirst { case s: RenameStep if s.config.renames.contains("amount") => s }
+        .getOrElse(fail("expected laneB (the rename step with the amount->laneBMarker marker)"))
+      val rejoinStep = steps.find(_.kind == "union").getOrElse(fail("expected the rejoin union step")).asInstanceOf[UnionStep]
+
+      // (a) persisted state: the stored secondaryInput.stepId is a REAL step id (matches
+      // laneB's actual persisted id, identified above by its distinguishing config, not by
+      // guessing), and is NOT the literal clientId "laneB" -- this leg is broken
+      // independently of (b) below (a real id that happens to be wrong would still pass (b)
+      // if it accidentally pointed at some other real, resolvable node; asserted exactly,
+      // not just "is a UUID", to close that gap).
+      rejoinStep.config.secondaryInput shouldBe SecondaryInput.Lane(laneBStep.id.value)
+      rejoinStep.config.secondaryInput should not be SecondaryInput.Lane("laneB")
+
+      // (b) behaviour: the persisted pipeline ACTUALLY RUNS through the real engine -- this
+      // leg is broken independently of (a): a stub/mocked "it resolved to some real-looking
+      // id" could still pass (a) while the graph is unrunnable for an unrelated reason: this
+      // proves the specific `LaneReferenceError` this defect caused (secondaryInput.stepId ==
+      // the clientId, unresolvable against the persisted graph's real ids) does NOT occur.
+      val engine = new InProcessPipelineEngine(new LocalFileSystem(java.nio.file.Paths.get("/")))
+      val sourceRows = Seq(Map("amount" -> 1.0, "label" -> "x"))
+      val runResult = await(engine.executeTree(sourceRows, steps, pipelineStepRepo, dataSourceRepo))
+      runResult.nodeOutcomes.keySet should contain(Some(rejoinStep.id.value))
     }
 
     // HEL-950 (evaluation-1.md CR1): validateStepCrossOwnerRefs -- the cross-owner pre-check
@@ -340,7 +470,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     // patch-set callers -- NOT from the op picker, which excludes join entirely (HEL-958).
     // Mirrors the empty-default coverage already added to
     // PipelineStepRoutesSpec/PatchSetApplyServiceSpec.
-    "accept a join step whose rightDataSourceId is empty without a spurious cross-owner rejection" in {
+    "accept a join step whose secondaryInput dataSourceId is empty without a spurious cross-owner rejection" in {
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Empty join right-source succeeds",
@@ -348,7 +478,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
         steps = Vector(
           CreatePipelineTransactionalStepRequest(
             "s1", "join",
-            JsObject("rightDataSourceId" -> JsString(""), "joinKey" -> JsString(""), "joinType" -> JsString("inner"))
+            JsObject("secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")), "joinKey" -> JsString(""), "joinType" -> JsString("inner"))
           )
         )
       )

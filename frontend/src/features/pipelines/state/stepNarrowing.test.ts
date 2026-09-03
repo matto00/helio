@@ -33,11 +33,17 @@ describe("stepNarrowing — union", () => {
   });
 
   it("defaultConfigFor('union') seeds an empty otherDataSourceId and byPosition mode", () => {
-    expect(defaultConfigFor("union")).toEqual({ otherDataSourceId: "", mode: "byPosition" });
+    expect(defaultConfigFor("union")).toEqual({
+      secondaryInput: { kind: "source", dataSourceId: "" },
+      mode: "byPosition",
+    });
   });
 
   it("unionConfigOf narrows a union step's config", () => {
-    const step = makeUnionStep({ otherDataSourceId: "ds-2", mode: "byName" });
+    const step = makeUnionStep({
+      secondaryInput: { kind: "source", dataSourceId: "ds-2" },
+      mode: "byName",
+    });
     expect(unionConfigOf(step)).toEqual({ otherDataSourceId: "ds-2", mode: "byName" });
   });
 
@@ -56,7 +62,7 @@ describe("stepNarrowing — union", () => {
 
   it("unionConfigOf falls back to byPosition for an unrecognized mode value", () => {
     const step = makeUnionStep({
-      otherDataSourceId: "ds-2",
+      secondaryInput: { kind: "source", dataSourceId: "ds-2" },
       mode: "byColumn" as UnionConfig["mode"],
     });
     expect(unionConfigOf(step)).toEqual({ otherDataSourceId: "ds-2", mode: "byPosition" });
@@ -70,7 +76,7 @@ describe("stepNarrowing — lookup", () => {
 
   it("defaultConfigFor('lookup') seeds empty ids/keys and an empty columns list", () => {
     expect(defaultConfigFor("lookup")).toEqual({
-      referenceDataSourceId: "",
+      secondaryInput: { kind: "source", dataSourceId: "" },
       sourceKey: "",
       lookupKey: "",
       columns: [],
@@ -79,7 +85,7 @@ describe("stepNarrowing — lookup", () => {
 
   it("lookupConfigOf narrows a lookup step's config", () => {
     const step = makeLookupStep({
-      referenceDataSourceId: "ds-2",
+      secondaryInput: { kind: "source", dataSourceId: "ds-2" },
       sourceKey: "code",
       lookupKey: "code",
       columns: ["label"],

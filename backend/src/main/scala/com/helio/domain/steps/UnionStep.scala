@@ -7,29 +7,35 @@ import spray.json.DefaultJsonProtocol._
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Typed config for the `union` step. */
-final case class UnionConfig(otherDataSourceId: String, mode: String)
+/** Typed config for the `union` step.
+ *
+ *  HEL-911 (design.md Decisions 1/1a): `otherDataSourceId: String` is replaced by the
+ *  discriminated [[SecondaryInput]] -- `Source(dataSourceId)` (today's behaviour) or
+ *  `Lane(stepId)` (rejoin a sibling lane). There is no legacy read path -- V97 rewrites
+ *  every persisted row before this decoder is ever asked to read one. */
+final case class UnionConfig(secondaryInput: SecondaryInput, mode: String)
 
 object UnionConfig {
   implicit val format: RootJsonFormat[UnionConfig] = jsonFormat2(UnionConfig.apply)
 
-  /** Tolerant decoder — missing keys default to an empty id + byPosition
-   *  (design.md Decision 1 — the simpler, no-reconciliation mode, matching
-   *  `JoinConfig.decode`'s "default to the least-surprising behavior"
-   *  pattern). */
+  /** HEL-911: `secondaryInput` absent -> [[SecondaryInput.Default]] (Decision 1b); the
+   *  legacy flat `otherDataSourceId` PRESENT is a hard named error (Decision 1a), never
+   *  silently coerced. `mode` keeps its pre-existing tolerant default. */
   def decode(raw: String): UnionConfig = {
     val obj  = StepCodecUtil.asObject(raw)
-    val dsId = StepCodecUtil.str(obj, "otherDataSourceId", "")
+    val si   = SecondaryInput.decodeStrict(obj, "otherDataSourceId")
     val mode = StepCodecUtil.str(obj, "mode", "byPosition")
-    UnionConfig(dsId, mode)
+    UnionConfig(si, mode)
   }
 }
 
 /** Union step — the second async / repo-touching step in the engine (after
- *  `JoinStep`), modeled directly on its resolution shape. Resolves the other
- *  DataSource via `ctx.dataSourceRepo`, loads its rows via `ctx.loadSource`,
- *  then stacks (appends) them onto the current row set instead of joining on
- *  a key. Supports two modes:
+ *  `JoinStep`), modeled directly on its resolution shape. Resolves the second input's
+ *  rows -- either a `DataSource` (via `ctx.dataSourceRepo`/`ctx.loadSource`, `kind:
+ *  "source"`) or another lane's already-evaluated frame (via `ctx.resolveLane`, `kind:
+ *  "lane"`, HEL-911 design.md Engine contract item 8, no re-evaluation) -- then stacks
+ *  (appends) them onto the current row set instead of joining on a key. Supports two
+ *  modes:
  *
  *    - `byPosition` (design.md Decision 2): raw append, no column
  *      reconciliation. Trusts the caller's config over validating
@@ -58,30 +64,42 @@ final case class UnionStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] = {
-    val otherDsId = config.otherDataSourceId
-    val mode      = config.mode
-    // Privileged: the pipeline ACL is the gate, mirroring JoinStep — the
-    // creation/update-time findByIdOwned pre-flight in PipelineService is
-    // what scopes otherDataSourceId to the caller (design.md Decision 9);
-    // this runtime lookup stays privileged so already-authored steps keep
-    // working, per HEL-278's "pre-flight + runtime internal" model.
-    ctx.dataSourceRepo.findByIdInternal(DataSourceId(otherDsId)).flatMap {
-      case None =>
-        Future.failed(
-          new IllegalArgumentException("DataSource not found for union: " + otherDsId)
+    val mode = config.mode
+    def apply(otherRows: Seq[Map[String, Any]]): Seq[Map[String, Any]] = {
+      if (!UnionStep.SupportedModes.contains(mode))
+        throw new IllegalArgumentException(
+          "Unsupported union mode: " + mode + ". Supported: " + UnionStep.SupportedModes.mkString(", ")
         )
-      case Some(otherDs) =>
-        ctx.loadSource(otherDs).map { otherRows =>
-          if (!UnionStep.SupportedModes.contains(mode))
-            throw new IllegalArgumentException(
-              "Unsupported union mode: " + mode + ". Supported: " + UnionStep.SupportedModes.mkString(", ")
+      mode match {
+        case "byPosition" => rows ++ otherRows
+        case "byName"     => unionByName(rows, otherRows)
+      }
+    }
+
+    config.secondaryInput match {
+      case SecondaryInput.Lane(stepId) =>
+        // HEL-911 design.md Engine contract item 8: the referenced lane's frame is
+        // already retained in nodeOutcomes by the time this step evaluates -- resolved,
+        // never re-evaluated. Item 6a: membership/existence is validated at write time
+        // and defensively at run time by the engine BEFORE this step is reached.
+        ctx.resolveLane(stepId) match {
+          case Some(otherRows) => Future.successful(apply(otherRows))
+          case None =>
+            Future.failed(new IllegalArgumentException("Lane reference not found for union: " + stepId))
+        }
+      case SecondaryInput.Source(otherDsId) =>
+        // Privileged: the pipeline ACL is the gate, mirroring JoinStep — the
+        // creation/update-time findByIdOwned pre-flight in PipelineService is
+        // what scopes otherDataSourceId to the caller (design.md Decision 9);
+        // this runtime lookup stays privileged so already-authored steps keep
+        // working, per HEL-278's "pre-flight + runtime internal" model.
+        ctx.dataSourceRepo.findByIdInternal(DataSourceId(otherDsId)).flatMap {
+          case None =>
+            Future.failed(
+              new IllegalArgumentException("DataSource not found for union: " + otherDsId)
             )
-          mode match {
-            case "byPosition" =>
-              rows ++ otherRows
-            case "byName" =>
-              unionByName(rows, otherRows)
-          }
+          case Some(otherDs) =>
+            ctx.loadSource(otherDs).map(apply)
         }
     }
   }

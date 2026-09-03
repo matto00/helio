@@ -32,6 +32,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
+import com.helio.domain.steps.SecondaryInput
 
 /** HEL-509 (419-B): `PipelineRunService.executeRun`'s assertion-persistence
  *  wiring — real run / dry run, success / failure, owner / editor-grantee.
@@ -1273,7 +1274,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val pid          = seedPipeline(primaryDsId)
       val secondaryDsId = seedRestDs(RestBigUrl) // secondary is OVER the cap
       val step = await(insertStep(
-        pid, "union", UnionConfig(otherDataSourceId = secondaryDsId, mode = "byPosition"), dummyUser
+        pid, "union", UnionConfig(secondaryInput = SecondaryInput.Source(secondaryDsId), mode = "byPosition"), dummyUser
       ))
 
       val result = await(service.previewStep(pid, step.id.value, dummyUser))
@@ -1294,11 +1295,11 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val unionSecondaryDsId  = seedRestDsNamed(RestBigUrl, "union-secondary")
       val lookupSecondaryDsId = seedRestDsNamed(RestBigUrl, "lookup-secondary")
       await(insertStep(
-        pid, "union", UnionConfig(otherDataSourceId = unionSecondaryDsId, mode = "byPosition"), dummyUser
+        pid, "union", UnionConfig(secondaryInput = SecondaryInput.Source(unionSecondaryDsId), mode = "byPosition"), dummyUser
       ))
       await(insertStep(
         pid, "lookup",
-        LookupConfig(referenceDataSourceId = lookupSecondaryDsId, sourceKey = "id", lookupKey = "id", columns = Vector.empty),
+        LookupConfig(secondaryInput = SecondaryInput.Source(lookupSecondaryDsId), sourceKey = "id", lookupKey = "id", columns = Vector.empty),
         dummyUser
       ))
 

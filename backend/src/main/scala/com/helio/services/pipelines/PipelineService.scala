@@ -9,9 +9,10 @@ import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapa
 import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}
 import com.helio.domain.panels.OutputBindingSpec
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, OutputKind, Pipeline, PipelineId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift}
-import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, PipelineAnalyzeService, SchemaField}
+import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
+import com.helio.domain.steps.SecondaryInput
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
@@ -194,13 +195,52 @@ final class PipelineService(
    *  each step's config the same way `buildStepsAction` will re-decode it a moment later --
    *  duplicated decode work, never duplicated behavior (both call sites route through the same
    *  `PipelineStepConfigCodec.decode`), so a config `buildStepsAction` would itself reject never
-   *  reaches a cross-owner check with a bogus decoded value. Empty `LookupConfig.referenceDataSourceId`
-   *  is a no-op here too, mirroring `addStep`'s own "an incomplete draft, not a security violation"
-   *  carve-out. */
+   *  reaches a cross-owner check with a bogus decoded value. An empty `Source("")`
+   *  `LookupConfig.secondaryInput` (HEL-911) is a no-op here too, mirroring `addStep`'s own "an
+   *  incomplete draft, not a security violation" carve-out. */
   private def validateStepCrossOwnerRefs(
       steps: Vector[CreatePipelineTransactionalStepRequest],
       user: AuthenticatedUser
-  ): Future[Either[ServiceError, Unit]] =
+  ): Future[Either[ServiceError, Unit]] = {
+    // HEL-911 evaluation-1.md CR5 (cycle 2): this single-call create path never validated a
+    // `lane`-kind secondaryInput's `stepId` at all -- a dangling id, an id from an EARLIER
+    // clientId that isn't actually in this same request, or an id naming the step's own
+    // ancestor (a cycle) all persisted silently. `PipelineService.validateLaneReference`/
+    // `ancestorChainOf` operate on persisted `PipelineStep`s with real ids; this request has
+    // only `clientId`s and hasn't been persisted yet, so this is a lightweight, request-scoped
+    // mirror of the same three checks (exists in THIS request / not self / not an ancestor),
+    // not a call-through -- the run-time defensive arm in `InProcessPipelineEngine.executeTree`
+    // still backstops this once the steps ARE persisted, exactly as documented at contract
+    // item 7 ("both arms required").
+    val byClientId: Map[String, CreatePipelineTransactionalStepRequest] =
+      steps.map(s => s.clientId -> s).toMap
+
+    def ancestorClientIds(step: CreatePipelineTransactionalStepRequest): Set[String] = {
+      def loop(cur: Option[String], acc: Set[String]): Set[String] = cur match {
+        case None => acc
+        case Some(parentClientId) =>
+          byClientId.get(parentClientId) match {
+            case Some(p) => loop(p.parentStepId, acc + parentClientId)
+            case None    => acc
+          }
+      }
+      loop(step.parentStepId, Set.empty)
+    }
+
+    def validateLane(step: CreatePipelineTransactionalStepRequest, typedConfig: Any): Either[ServiceError, Unit] =
+      PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
+        case None => Right(())
+        case Some(dep) =>
+          if (dep == step.clientId)
+            Left(ServiceError.BadRequest(s"Lane reference '$dep' cannot reference the step itself."))
+          else if (!byClientId.contains(dep))
+            Left(ServiceError.UnprocessableEntity(s"Lane reference '$dep' does not exist in this request."))
+          else if (ancestorClientIds(step).contains(dep))
+            Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it is an ancestor of this step)."))
+          else
+            Right(())
+      }
+
     steps.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, step) =>
       accF.flatMap {
         case Left(err) => Future.successful(Left(err))
@@ -208,23 +248,56 @@ final class PipelineService(
           PipelineStepConfigCodec.decode(step.`type`, step.config.compactPrint) match {
             case Failure(_) => Future.successful(Right(())) // buildStepsAction will reject this; not this check's job.
             case Success(typedConfig) =>
-              // HEL-950: was three hand-copied per-op arms (join unconditional -- the same
-              // unguarded-empty-id bug this change closes elsewhere -- union/lookup already
-              // `.nonEmpty`-guarded); now driven by the one shared extractor so this call site
-              // cannot drift from PipelineService.addStep/updateStep the way it already had.
-              PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
-                case Some(id) => checkOwnedSource(id, user)
-                case None     => Future.successful(Right(()))
+              validateLane(step, typedConfig) match {
+                case Left(err) => Future.successful(Left(err))
+                case Right(()) =>
+                  // HEL-950: was three hand-copied per-op arms (join unconditional -- the same
+                  // unguarded-empty-id bug this change closes elsewhere -- union/lookup already
+                  // `.nonEmpty`-guarded); now driven by the one shared extractor so this call site
+                  // cannot drift from PipelineService.addStep/updateStep the way it already had.
+                  PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
+                    case Some(id) => checkOwnedSource(id, user)
+                    case None     => Future.successful(Right(()))
+                  }
               }
           }
       }
     }
+  }
 
   private def checkOwnedSource(dataSourceId: String, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     dataSourceRepo.findByIdOwned(DataSourceId(dataSourceId), user).map {
       case None    => Left(ServiceError.NotFound(s"Data source not found: $dataSourceId"))
       case Some(_) => Right(())
     }
+
+  /** HEL-911 skeptic-final-1.md cycle 3: `buildStepsAction`'s counterpart to its own
+   *  `parentClientIdOpt.map(clientIdMap(_))` line -- a decoded `join`/`union`/`lookup` config
+   *  whose `secondaryInput` is `lane`-kind carries a REQUEST-scoped `clientId` (validated
+   *  against `byClientId` by `validateStepCrossOwnerRefs`'s `validateLane`, before this
+   *  action ever runs), which must be rewritten to the real, persisted `PipelineStepId`
+   *  before the config is stored -- otherwise the row persists the clientId itself, which no
+   *  read path can ever resolve back to a real step. `Right(typedConfig)` unchanged for every
+   *  other config shape (no lane-kind secondaryInput at all). `Left(clientId)` when the
+   *  referenced clientId is not yet in `clientIdMap` -- see the call site's comment for why
+   *  this can legitimately happen (a forward lane reference) and why it is reported as a named
+   *  failure here rather than resolved. */
+  private def rewriteLaneClientId(typedConfig: Any, clientIdMap: Map[String, PipelineStepId]): Either[String, Any] = {
+    def rewrite(si: SecondaryInput): Either[String, SecondaryInput] = si match {
+      case SecondaryInput.Lane(clientId) =>
+        clientIdMap.get(clientId) match {
+          case Some(realId) => Right(SecondaryInput.Lane(realId.value))
+          case None         => Left(clientId)
+        }
+      case source => Right(source)
+    }
+    typedConfig match {
+      case c: JoinConfig   => rewrite(c.secondaryInput).map(si => c.copy(secondaryInput = si))
+      case c: UnionConfig  => rewrite(c.secondaryInput).map(si => c.copy(secondaryInput = si))
+      case c: LookupConfig => rewrite(c.secondaryInput).map(si => c.copy(secondaryInput = si))
+      case other            => Right(other)
+    }
+  }
 
   /** Builds `steps` (in array order, resolving `parentStepId` against earlier `clientId`s in
    *  the SAME request) as one composed `DBIO` chain -- every insert in this chain runs inside
@@ -258,8 +331,39 @@ final class PipelineService(
                 DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(s"Invalid '${spec.`type`}' config")))
               case Success(typedConfig) =>
                 val parentStepId = parentClientIdOpt.map(clientIdMap(_))
-                pipelineStepRepo.insertInternalAction(pipelineId, spec.`type`, typedConfig, spec.enabled.getOrElse(true), parentStepId)
-                  .map(step => clientIdMap + (spec.clientId -> step.id))
+                // HEL-911 skeptic-final-1.md cycle 3: mirrors the parentStepId rewrite one
+                // line above -- `validateLane` (in `validateStepCrossOwnerRefs`, run before
+                // this action) validates a `lane`-kind `secondaryInput.stepId` against
+                // `byClientId` (the REQUEST's clientIds), but this line used to pass
+                // `typedConfig` through UNMODIFIED, persisting the clientId itself instead of
+                // resolving it to the real, just-inserted `PipelineStepId` -- a pipeline that
+                // validated successfully and persisted a permanently unrunnable lane reference
+                // (every run 422s with `LaneReferenceError`, unrepairable since lane authoring
+                // is P2.2). Rewritten here through the SAME `clientIdMap` `parentStepId` uses.
+                //
+                // Unlike `parentStepId` (whose own guard above already REQUIRES it to be an
+                // earlier clientId, so it is always in `clientIdMap` by this point), a lane
+                // reference's write-time check (`validateLane`) does NOT require the referenced
+                // clientId to be earlier in the request -- contract item 6 permits naming ANY
+                // node. A forward-referencing lane `stepId` therefore is NOT YET in
+                // `clientIdMap` when this fold reaches it, since `buildStepsAction` inserts
+                // steps strictly in request order. Rather than silently persist the unresolved
+                // clientId again (the exact defect being fixed) or crash on a missing-key
+                // lookup, that case fails loudly and by name -- a genuine, narrower limitation
+                // than the full contract, reported rather than fixed here (out of this cycle's
+                // tightly-scoped fix; forward lane references through this single-call path
+                // would need a two-pass build, which is a real restructure).
+                rewriteLaneClientId(typedConfig, clientIdMap) match {
+                  case Left(unresolvedClientId) =>
+                    DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(
+                      s"Step '${spec.clientId}' has a lane secondaryInput referencing '$unresolvedClientId', " +
+                        "which is not an earlier step's clientId in this same request -- a forward lane " +
+                        "reference is not yet supported via this single-call create path"
+                    )))
+                  case Right(rewrittenConfig) =>
+                    pipelineStepRepo.insertInternalAction(pipelineId, spec.`type`, rewrittenConfig, spec.enabled.getOrElse(true), parentStepId)
+                      .map(step => clientIdMap + (spec.clientId -> step.id))
+                }
             }
         }
       }
@@ -825,9 +929,11 @@ final class PipelineService(
         // RLS owner-JOIN policy.
         pipelineStepRepo.listByPipelineInternal(pipelineId)
           .map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
-          // HEL-930: listByPipelineInternal can now fail with InvalidGraph (executionOrder
-          // rejecting a malformed step graph) -- classifyDbError maps that to a 422 instead of
-          // letting it fall through to the top-level handler's generic 500.
+          // HEL-911: executionOrder no longer raises InvalidGraph (the Phase-1 fence it
+          // enforced is deleted) -- classifyDbError still runs here as a general DB-exception
+          // classifier (PSQLException etc.), mapping an unexpected failure to a curated
+          // ServiceError instead of letting it fall through to the top-level handler's
+          // generic 500.
           .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
     }
 
@@ -872,24 +978,54 @@ final class PipelineService(
                 }
               case None => Future.successful(Right(()))
             }
+          // HEL-911 (design.md Engine contract items 6a/7, write-time arm): a `lane`-kind
+          // secondaryInput must name an existing step of THIS pipeline that is not this
+          // new step's own prospective ancestor. Computed against the current step list --
+          // `req.parentStepId` takes precedence (mirrors `persistNewStep`'s own anchor
+          // resolution) else falls back to trunk-last, the same default `persistNewStep`
+          // uses for a bare append. `selfId = None`: the new step has no id yet.
+          val laneCheckF: Future[Either[ServiceError, Unit]] =
+            PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
+              case None => Future.successful(Right(()))
+              case Some(_) =>
+                pipelineStepRepo.listByPipelineInternal(pipelineId).map { current =>
+                  // HEL-911 evaluation-1.md CR2 (cycle 2): `trunkOf(current).lastOption` is
+                  // the SAME deterministic "first position-0 child at each level" anchor
+                  // `trunkOf`'s own scaladoc documents -- used here ONLY as the fallback when
+                  // `req.parentStepId` is absent, exactly mirroring `persistNewStep`'s real
+                  // placement logic below (`spliceInsertAtInternal`'s own no-explicit-parent
+                  // branch), so the ancestor chain this cycle-check is computed against is
+                  // always the SAME node the step will actually be anchored to -- never a
+                  // silently different one.
+                  val prospectiveParent: Option[PipelineStepId] =
+                    req.parentStepId.map(PipelineStepId(_))
+                      .orElse(pipelineStepRepo.trunkOf(current).lastOption.map(_.id))
+                  val ancestors = PipelineService.ancestorChainOf(prospectiveParent, current)
+                  PipelineService.validateLaneReference(typedConfig, current, ancestors, selfId = None)
+                }
+            }
           aclCheckF.flatMap {
             case Left(err) => Future.successful(Left(err))
             case Right(_)  =>
-              pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
-                case None =>
-                  Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
-                case Some(pipeline) if pipeline.ownerId.value != user.id.value =>
-                  // Grantee path — findByIdShared returned Some, so caller has viewer or editor access.
-                  // Distinguish editor from viewer via requireEditorAccess before allowing mutation.
-                  requireEditorAccess(pipelineId, user).flatMap {
-                    case Left(err) => Future.successful(Left(err))
-                    case Right(_) =>
-                      // Safe: editor access confirmed. Use internal insert (no owner-JOIN).
+              laneCheckF.flatMap {
+                case Left(err) => Future.successful(Left(err))
+                case Right(_)  =>
+                  pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+                    case None =>
+                      Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+                    case Some(pipeline) if pipeline.ownerId.value != user.id.value =>
+                      // Grantee path — findByIdShared returned Some, so caller has viewer or editor access.
+                      // Distinguish editor from viewer via requireEditorAccess before allowing mutation.
+                      requireEditorAccess(pipelineId, user).flatMap {
+                        case Left(err) => Future.successful(Left(err))
+                        case Right(_) =>
+                          // Safe: editor access confirmed. Use internal insert (no owner-JOIN).
+                          persistNewStep(pipelineId, req, typedConfig, user)
+                      }
+                    case Some(_) =>
+                      // Owner path — use internal insert (same as before, owner already confirmed)
                       persistNewStep(pipelineId, req, typedConfig, user)
                   }
-                case Some(_) =>
-                  // Owner path — use internal insert (same as before, owner already confirmed)
-                  persistNewStep(pipelineId, req, typedConfig, user)
               }
           }
       }
@@ -1078,18 +1214,34 @@ final class PipelineService(
                                   }
                                 case None => Future.successful(Right(()))
                               }
+                            // HEL-911 (design.md Engine contract items 6a/7, write-time arm):
+                            // same check as `addStep`, but against the EXISTING step's actual
+                            // parent chain and its own id (a step cannot reference itself).
+                            val laneCheckF: Future[Either[ServiceError, Unit]] =
+                              PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
+                                case None => Future.successful(Right(()))
+                                case Some(_) =>
+                                  pipelineStepRepo.listByPipelineInternal(PipelineId(existing.pipelineId.value)).map { current =>
+                                    val ancestors = PipelineService.ancestorChainOf(existing.parentStepId, current)
+                                    PipelineService.validateLaneReference(typedConfig, current, ancestors, selfId = Some(existing.id.value))
+                                  }
+                              }
                             aclCheckF.flatMap {
                               case Left(err) => Future.successful(Left(err))
                               case Right(_)  =>
-                                // Safe: editor/owner access confirmed. Use internal update.
-                                pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled)
-                                  .map {
-                                    case Some(step) =>
-                                      audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
-                                      Right(PipelineStepResponse.fromDomain(step))
-                                    case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
-                                  }
-                                  .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                                laneCheckF.flatMap {
+                                  case Left(err) => Future.successful(Left(err))
+                                  case Right(_)  =>
+                                    // Safe: editor/owner access confirmed. Use internal update.
+                                    pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled)
+                                      .map {
+                                        case Some(step) =>
+                                          audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
+                                          Right(PipelineStepResponse.fromDomain(step))
+                                        case None       => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
+                                      }
+                                      .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                                }
                             }
                         }
                     }
@@ -1290,25 +1442,84 @@ object PipelineService {
    *  server-side; only a generic, curated message per category is returned.
    */
   private[services] def classifyDbError(ex: Throwable): ServiceError = ex match {
-    // HEL-930: PipelineStepRepository.executionOrder raises this when a pipeline's step graph
-    // has more than one position-0 child at some node -- an invariant violation, not a DB/infra
-    // fault, so it's classified as UnprocessableEntity (422), the same status the run/preview
-    // paths already use for a rejected pipeline (PipelineRunService's StepExecutionException
-    // handling), rather than falling through to the generic InternalError (500) below.
+    // HEL-911 (design.md Engine contract items 6a/7): the run-time defensive arm of
+    // cycle/membership rejection -- `PipelineService.validateLaneReference` already
+    // rejects a bad lane reference at write time with a 400, so this only fires for
+    // data that reached the table by some other path (e.g. a pre-this-ticket row, or a
+    // future direct-DB write). Classified 422, mirroring the (now-unreachable, kept for
+    // wire-shape compatibility per `InvalidGraph`'s own doc) invariant-violation arm
+    // this repurposes.
+    case invalid: LaneReferenceError =>
+      log.warn(s"Pipeline lane reference is invalid: ${invalid.message}")
+      ServiceError.UnprocessableEntity(invalid.message)
     case invalid: InvalidGraph =>
       log.warn(s"Pipeline step graph is invalid: ${invalid.message}")
       ServiceError.UnprocessableEntity(invalid.message)
     case e: PSQLException =>
-      val msg = Option(e.getMessage).getOrElse(e.getClass.getName)
-      log.error("Pipeline step DB operation failed", e)
-      if (msg.contains("violates foreign key constraint"))
-        ServiceError.NotFound("Referenced resource not found")
-      else if (msg.contains("violates check constraint"))
-        ServiceError.BadRequest("Request violates a data constraint")
-      else
-        ServiceError.InternalError("Internal server error")
+      classifyPsqlException(e)
     case other =>
-      log.error("Pipeline step DB operation failed", other)
+      log.error("Pipeline step operation failed with unexpected error", other)
+      ServiceError.InternalError("Internal server error")
+  }
+
+  /** HEL-911 (design.md Engine contract items 6a/7, write-time arm): reject a
+   *  `lane`-kind `secondaryInput` naming a step that does not exist, belongs to a
+   *  DIFFERENT pipeline (including another user's -- this is the security boundary
+   *  Engine contract item 10's ACL skip is justified by, per round-1 skeptic CR2), or
+   *  is the referencing step itself / one of its own ancestors (a cycle, item 7). `None`
+   *  means the config has no lane reference to validate (every other step kind, or a
+   *  `source`-kind secondary input) -- nothing to check.
+   *
+   *  `pipelineSteps` MUST already be scoped to the referencing pipeline (callers pass
+   *  `pipelineStepRepo.listByPipelineInternal(pipelineId)`'s result) -- membership is
+   *  then simply "present in this list", the same shape the run-time defensive check in
+   *  `InProcessPipelineEngine.executeTree` uses. `ancestorChainIds` is the set of step
+   *  ids on the referencing step's own path back to the pipeline root (its OWN id
+   *  included only when validating an update to an EXISTING step, via `selfId`). */
+  private[pipelines] def validateLaneReference(
+      typedConfig: Any,
+      pipelineSteps: Vector[PipelineStep],
+      ancestorChainIds: Set[String],
+      selfId: Option[String]
+  ): Either[ServiceError, Unit] =
+    PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
+      case None => Right(())
+      case Some(dep) =>
+        if (selfId.contains(dep))
+          Left(ServiceError.BadRequest(s"Lane reference '$dep' cannot reference the step itself."))
+        else if (!pipelineSteps.exists(_.id.value == dep))
+          Left(ServiceError.UnprocessableEntity(s"Lane reference '$dep' does not exist in this pipeline."))
+        else if (ancestorChainIds.contains(dep))
+          Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it is an ancestor of this step)."))
+        else
+          Right(())
+    }
+
+  /** The ancestor-id chain (root-ward) starting at `parentStepId`, walked via
+   *  `pipelineSteps`' own `parentStepId` links. Pure -- shared by both `addStep` (the
+   *  new step's PROSPECTIVE parent, since it has no id yet) and `updateStep` (the
+   *  existing step's actual parent). */
+  private[pipelines] def ancestorChainOf(parentStepId: Option[PipelineStepId], pipelineSteps: Vector[PipelineStep]): Set[String] = {
+    val byId = pipelineSteps.map(s => s.id.value -> s).toMap
+    def loop(cur: Option[PipelineStepId], acc: Set[String]): Set[String] = cur match {
+      case None => acc
+      case Some(pid) =>
+        byId.get(pid.value) match {
+          case Some(p) => loop(p.parentStepId, acc + p.id.value)
+          case None    => acc
+        }
+    }
+    loop(parentStepId, Set.empty)
+  }
+
+  private def classifyPsqlException(e: PSQLException): ServiceError = {
+    val msg = Option(e.getMessage).getOrElse(e.getClass.getName)
+    log.error("Pipeline step DB operation failed", e)
+    if (msg.contains("violates foreign key constraint"))
+      ServiceError.NotFound("Referenced resource not found")
+    else if (msg.contains("violates check constraint"))
+      ServiceError.BadRequest("Request violates a data constraint")
+    else
       ServiceError.InternalError("Internal server error")
   }
 }

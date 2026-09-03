@@ -364,12 +364,25 @@ export function useStepCardState(
 
   function onUnionChange(newConfig: UnionConfigValue) {
     setUnionConfig(newConfig);
-    persist(newConfig);
+    // HEL-911: the narrowed UI value (otherDataSourceId) is widened to the wire shape
+    // (secondaryInput) here, at the one seam that persists -- UnionConfig.tsx / this
+    // hook's own local state stay on the pre-existing narrowed shape (source-kind only;
+    // authoring a lane-kind secondaryInput is the editor-lanes work, P2.2/HEL-912).
+    persist({
+      secondaryInput: { kind: "source", dataSourceId: newConfig.otherDataSourceId },
+      mode: newConfig.mode,
+    });
   }
 
   function onLookupChange(newConfig: LookupConfigValue) {
     setLookupConfig(newConfig);
-    persist(newConfig);
+    // HEL-911: same widening as onUnionChange above.
+    persist({
+      secondaryInput: { kind: "source", dataSourceId: newConfig.referenceDataSourceId },
+      sourceKey: newConfig.sourceKey,
+      lookupKey: newConfig.lookupKey,
+      columns: newConfig.columns,
+    });
   }
 
   function onAssertChange(newConfig: AssertConfigValue) {

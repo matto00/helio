@@ -237,7 +237,7 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val body =
         s"""{"pipelineName":"Static AddStep Fail","source":{"type":"static","name":"Static For Union",
            |"config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}},
-           |"steps":[{"clientId":"s1","type":"union","config":{"otherDataSourceId":"$otherUserSourceId","mode":"byPosition"}}]}""".stripMargin
+           |"steps":[{"clientId":"s1","type":"union","config":{"secondaryInput":{"kind":"source","dataSourceId":"${otherUserSourceId}"},"mode":"byPosition"}}]}""".stripMargin
       apply(body) ~> routes ~> check {
         // union's right-source ownership pre-flight (PipelineService.addStep) rejects
         // a source the caller doesn't own — otherUserSourceId is owned by otherId.

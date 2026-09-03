@@ -9,6 +9,7 @@ import com.helio.domain.steps.{AggregateConfig, GroupByConfig, JoinConfig, Pivot
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
+import com.helio.domain.steps.SecondaryInput
 
 /** Regression coverage for `RefinementEditShape`'s worked JSON examples (evaluation-1.md cycle-1 +
  *  evaluation-2.md cycle-3 findings, design.md D2a) — each panel-update/-create example is REAL,
@@ -79,15 +80,14 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
     // assertion (that assertion shape would NOT catch a wrong-shape edit that silently decodes to a
     // degraded/defaulted config).
 
-    "join: config round-trips through the REAL JoinConfig.decode with non-empty rightDataSourceId/joinKey/joinType matching the example's own values" in {
+    "join: config round-trips through the REAL JoinConfig.decode with non-empty secondaryInput/joinKey/joinType matching the example's own values" in {
       val edit = parseEdit(RefinementEditShape.JoinStepExample)
       edit.op shouldBe "update"
 
       val request = edit.pipelineStepPatch.get
       val decoded = JoinConfig.decode(request.config.get.compactPrint)
 
-      decoded.rightDataSourceId should not be empty
-      decoded.rightDataSourceId shouldBe "src_456"
+      decoded.secondaryInput shouldBe SecondaryInput.Source("src_456")
       decoded.joinKey should not be empty
       decoded.joinKey shouldBe "customerId"
       decoded.joinType shouldBe "left"
@@ -277,10 +277,10 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
     // Failable by mutation, not by reverting the fix: make `StepCodecUtil.str`
     // raise on an absent key and this goes red.
     "GUARD: join — an edit OMITTING joinKey still decodes to joinKey = \"\" (absence is deliberately tolerant on read)" in {
-      val absentKey = """{"rightDataSourceId": "src_456", "joinType": "inner"}"""
+      val absentKey = """{"secondaryInput": {"kind": "source", "dataSourceId": "src_456"}, "joinType": "inner"}"""
       val decoded = JoinConfig.decode(absentKey)
 
-      decoded.rightDataSourceId shouldBe "src_456"
+      decoded.secondaryInput shouldBe SecondaryInput.Source("src_456")
       decoded.joinKey shouldBe ""
       decoded.joinType shouldBe "inner"
     }

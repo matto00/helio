@@ -511,12 +511,12 @@ class PatchSetPreviewServiceSpec
       val pipeline = seedPipeline(userA, leftSourceId, "Join pipeline")
       val step = seedPipelineStep(
         PipelineId(pipeline.id), userA, "join",
-        JsObject("rightDataSourceId" -> JsString(rightSourceId.value), "joinKey" -> JsString("id"), "joinType" -> JsString("inner"))
+        JsObject("secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(rightSourceId.value)), "joinKey" -> JsString("id"), "joinType" -> JsString("inner"))
       )
 
       // Hand-constructed config: joinKey is OMITTED entirely (never "" explicitly) — this is the
       // ABSENCE case, which stays tolerant on both the read and the write path by design.
-      val wrongShapeConfig = JsObject("rightDataSourceId" -> JsString(rightSourceId.value), "joinType" -> JsString("inner"))
+      val wrongShapeConfig = JsObject("secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(rightSourceId.value)), "joinType" -> JsString("inner"))
       val updateEdit = Edit(EditTarget("pipelineStep", Some(step.id)), "update",
         None, None, None, None, Some(UpdatePipelineStepRequest(None, Some(wrongShapeConfig), None)), None)
 
@@ -542,11 +542,11 @@ class PatchSetPreviewServiceSpec
       val pipeline = seedPipeline(userA, leftSourceId, "Join type pipeline")
       val step = seedPipelineStep(
         PipelineId(pipeline.id), userA, "join",
-        JsObject("rightDataSourceId" -> JsString(rightSourceId.value), "joinKey" -> JsString("id"), "joinType" -> JsString("inner"))
+        JsObject("secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(rightSourceId.value)), "joinKey" -> JsString("id"), "joinType" -> JsString("inner"))
       )
 
       val mistypedConfig = JsObject(
-        "rightDataSourceId" -> JsString(rightSourceId.value),
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(rightSourceId.value)),
         "joinKey"           -> JsNumber(123),
         "joinType"          -> JsString("inner")
       )
@@ -661,11 +661,11 @@ class PatchSetPreviewServiceSpec
       // `pipeline-lookup-op` explicitly blesses on the write path.
       val lookupStep = seedPipelineStep(
         PipelineId(pipeline.id), userA, "lookup",
-        JsObject("referenceDataSourceId" -> JsString(""), "sourceKey" -> JsString(""), "lookupKey" -> JsString(""), "columns" -> JsArray())
+        JsObject("secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")), "sourceKey" -> JsString(""), "lookupKey" -> JsString(""), "columns" -> JsArray())
       )
       val lookupEdit = Edit(EditTarget("pipelineStep", Some(lookupStep.id)), "update",
         None, None, None, None,
-        Some(UpdatePipelineStepRequest(None, Some(JsObject("referenceDataSourceId" -> JsString(""), "sourceKey" -> JsString(""), "lookupKey" -> JsString(""), "columns" -> JsArray())), None)), None)
+        Some(UpdatePipelineStepRequest(None, Some(JsObject("secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")), "sourceKey" -> JsString(""), "lookupKey" -> JsString(""), "columns" -> JsArray())), None)), None)
 
       preview(Vector(lookupEdit), userA) match {
         case Right(_)  => succeed

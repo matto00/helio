@@ -1,6 +1,7 @@
 package com.helio.api.protocols.pipelines
 
 import com.helio.domain.model.{PipelineStep, PipelineStepKind}
+import com.helio.domain.steps.SecondaryInput
 import com.helio.domain.{AggregateConfig, AggregateStep, AssertConfig, AssertStep, CastConfig, CastStep, ChunkByTokenCountConfig, ChunkByTokenCountStep, ComputeConfig, ComputeStep, DateBucketConfig, DedupeConfig, DedupeStep, DateBucketStep, ExtractHeadingsConfig, ExtractHeadingsStep, FillNullConfig, FillNullStep, FilterConfig, FilterStep, GroupByConfig, GroupByStep, JoinConfig, JoinStep, LimitConfig, LimitStep, LookupConfig, LookupStep, PivotConfig, PivotStep, RenameConfig, RenameStep, SelectConfig, SelectStep, SortConfig, SortStep, SplitTextConfig, SplitTextStep, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep, UnpivotConfig, UnpivotStep, WindowConfig, WindowStep}
 import spray.json._
 
@@ -100,10 +101,33 @@ object PipelineStepConfigCodec {
    *  `.nonEmpty` on the raw string, deliberately never `.trim.nonEmpty`: the picker's seed
    *  is exactly `""`, and a whitespace-only id is not a state the picker can produce. */
   def secondaryDataSourceId(config: Any): Option[String] = config match {
-    case jc: JoinConfig if jc.rightDataSourceId.nonEmpty       => Some(jc.rightDataSourceId)
-    case uc: UnionConfig if uc.otherDataSourceId.nonEmpty      => Some(uc.otherDataSourceId)
-    case lc: LookupConfig if lc.referenceDataSourceId.nonEmpty => Some(lc.referenceDataSourceId)
-    case _                                                     => None
+    case jc: JoinConfig   => sourceIdOf(jc.secondaryInput)
+    case uc: UnionConfig  => sourceIdOf(uc.secondaryInput)
+    case lc: LookupConfig => sourceIdOf(lc.secondaryInput)
+    case _                => None
+  }
+
+  private def sourceIdOf(si: SecondaryInput): Option[String] = si match {
+    case SecondaryInput.Source(id) if id.nonEmpty => Some(id)
+    case _                                        => None
+  }
+
+  /** HEL-911 (design.md Engine contract item 6a): the `lane`-kind secondary input's
+   *  referenced `stepId`, if the decoded config carries one. Used by
+   *  `PipelineService` to validate same-pipeline membership and reject cycles at
+   *  write time -- the security-boundary counterpart to [[secondaryDataSourceId]]'s
+   *  ACL pre-flight. Mirrors that method's per-config match rather than sharing it,
+   *  since exactly one of the two ever applies to a given decoded config. */
+  def secondaryLaneStepId(config: Any): Option[String] = config match {
+    case jc: JoinConfig   => laneIdOf(jc.secondaryInput)
+    case uc: UnionConfig  => laneIdOf(uc.secondaryInput)
+    case lc: LookupConfig => laneIdOf(lc.secondaryInput)
+    case _                => None
+  }
+
+  private def laneIdOf(si: SecondaryInput): Option[String] = si match {
+    case SecondaryInput.Lane(id) => Some(id)
+    case _                       => None
   }
 
   /** Pull the typed config out of a `PipelineStep` subtype.

@@ -157,7 +157,7 @@ Interactions:
 
 "New pipeline" (decision 4) offers: pick an existing source · paste a table · upload CSV · REST via a connector + endpoint. It creates the source if needed and lands on the pipeline page with the root previewed.
 
-Phase 2 adds parallel lanes: a trunk step may have multiple step children rendered side by side; `join` / `union` / `lookup` accept "other lane" as an input alongside "other source". No data-model change.
+Phase 2 adds parallel lanes: a trunk step may have multiple step children rendered side by side; `join` / `union` / `lookup` accept "other lane" as an input alongside "other source". **Corrected (HEL-911):** this DOES change the data model -- `join`/`union`/`lookup` configs replace their flat second-source field (`rightDataSourceId` / `otherDataSourceId` / `referenceDataSourceId`) with a discriminated `secondaryInput` (`{kind:"source",...}` | `{kind:"lane",...}`), cut over by Flyway migration V97 with no legacy read path. See `openspec/changes/multi-lane-pipeline-engine/design.md` Decision 1.
 
 ## Dashboard UX
 

@@ -146,7 +146,11 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
     case "sort":
       return { sortBy: [] } as SortConfigType;
     case "join":
-      return { rightDataSourceId: "", joinKey: "", joinType: "inner" };
+      return {
+        secondaryInput: { kind: "source", dataSourceId: "" },
+        joinKey: "",
+        joinType: "inner",
+      };
     case "groupby":
       return { groupBy: [], aggColumn: "", aggFunction: "sum" };
     case "splittext":
@@ -203,10 +207,13 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
         fields: null,
       } as StringOpsConfigType;
     case "union":
-      return { otherDataSourceId: "", mode: "byPosition" } as UnionConfigType;
+      return {
+        secondaryInput: { kind: "source", dataSourceId: "" },
+        mode: "byPosition",
+      } as UnionConfigType;
     case "lookup":
       return {
-        referenceDataSourceId: "",
+        secondaryInput: { kind: "source", dataSourceId: "" },
         sourceKey: "",
         lookupKey: "",
         columns: [],
@@ -492,8 +499,13 @@ export function unionConfigOf(step: Step): UnionConfigValue {
   const empty: UnionConfigValue = { otherDataSourceId: "", mode: "byPosition" };
   if (step.opType.id !== "union") return empty;
   const cfg = step.config as UnionConfigType;
+  // HEL-911: secondaryInput replaces the flat otherDataSourceId. This UI-facing narrowed
+  // value still exposes a single dataSourceId string (a lane-kind secondaryInput is
+  // authored by the editor lanes work, P2.2/HEL-912 -- out of scope here) so it degrades
+  // to "" rather than throwing when the config is lane-kind.
   return {
-    otherDataSourceId: cfg.otherDataSourceId ?? "",
+    otherDataSourceId:
+      cfg.secondaryInput?.kind === "source" ? (cfg.secondaryInput.dataSourceId ?? "") : "",
     mode: cfg.mode === "byName" ? "byName" : "byPosition",
   };
 }
@@ -507,8 +519,11 @@ export function lookupConfigOf(step: Step): LookupConfigValue {
   };
   if (step.opType.id !== "lookup") return empty;
   const cfg = step.config as LookupConfigType;
+  // HEL-911: secondaryInput replaces the flat referenceDataSourceId -- see unionConfigOf's
+  // note above (same UI-narrowing / lane-authoring-is-P2.2 rationale).
   return {
-    referenceDataSourceId: cfg.referenceDataSourceId ?? "",
+    referenceDataSourceId:
+      cfg.secondaryInput?.kind === "source" ? (cfg.secondaryInput.dataSourceId ?? "") : "",
     sourceKey: cfg.sourceKey ?? "",
     lookupKey: cfg.lookupKey ?? "",
     columns: Array.isArray(cfg.columns) ? cfg.columns : [],

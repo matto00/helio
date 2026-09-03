@@ -7,6 +7,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
+import spray.json._
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -159,6 +160,20 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
               s"""INSERT INTO alert_events (id, alert_rule_id, owner_id, target_data_type_id, value, severity, state, first_fired_at, last_evaluated_at)
                  |VALUES ('hel943-gate-event', 'hel943-gate-rule', '$alertPipelineOwnerId'::uuid, '$alertPipelineTypeId', '{}', 'info', 'firing', now(), now())""".stripMargin
             )
+            // HEL-911 task 2.6/2.7: the dump carries six legacy `secondaryInput` rows across
+            // `union`/`lookup` (enumerated in design.md's change record, and asserted against
+            // directly below via the two known empty-id lookup drafts) but ZERO `join` rows --
+            // `rightDataSourceId` never appears in `hel904-real-dump.sql`.
+            // Seeded here (attached to the same pipeline an existing `union` row already uses,
+            // `96c98ec8-...`, so the FK is real dump data, not invented) so ALL THREE legacy field
+            // names are exercised by this non-superuser gate, per design.md's "all three field
+            // names, not one" requirement -- not merely the two the dump happens to carry.
+            seedStmt.execute(
+              """INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, created_at, updated_at, enabled)
+                |VALUES ('hel911-gate-join-legacy', '96c98ec8-bb6c-44d2-bc04-69891091b5a6', 50, 'join',
+                |        '{"rightDataSourceId":"5d78ec26-b623-419a-bb9e-a71f821d7063","joinKey":"id","joinType":"inner"}',
+                |        now(), now(), true)""".stripMargin
+            )
           } finally seedStmt.close()
         } finally rawConn.close()
 
@@ -166,6 +181,13 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
         // ever goes to zero (e.g. the fixture file changes shape), the gate above would silently
         // stop testing the DML path again, exactly like round 1. Asserting it here makes that
         // regression visible in THIS spec rather than requiring a second incident to notice.
+        // HEL-911 task 2.5/2.6/2.3: captured pre-migration below, asserted against post-migration
+        // in the `migratedDb` block after the full chain (including V97) has run.
+        var otherLegacyCountBefore = 0
+        var rightLegacyCountBefore = 0
+        var refLegacyCountBefore   = 0
+        var untouchedConfigBefore  = ""
+
         val superDbPreV94 = JdbcBackend.Database.forDataSource(superDs, Some(2))
         try {
           val pipelineCount = await(superDbPreV94.run(sql"SELECT count(*) FROM pipelines".as[Int].head))
@@ -209,6 +231,25 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
           withClue("Fixture sanity -- patch_set_applications with non-empty edits (drives section 15's UPDATE/DELETE): ") {
             nonEmptyPatchSetCount should be > 0
           }
+
+          // HEL-911 task 2.5/2.6: before/after row counts for ALL THREE legacy secondary-input
+          // field names, on real dump-shaped data (task 2.7) -- not a mere "V97 was present in the
+          // classpath" pass. `otherLegacyCountBefore` is the union field, `rightLegacyCountBefore`
+          // the join field (the synthetic seed row above), `refLegacyCountBefore` the lookup field
+          // (which alone covers the two known empty-id drafts, hel904-real-dump.sql:10163/:10230).
+          otherLegacyCountBefore = await(superDbPreV94.run(sql"SELECT count(*) FROM pipeline_steps WHERE jsonb_exists(config::jsonb, 'otherDataSourceId')".as[Int].head))
+          rightLegacyCountBefore = await(superDbPreV94.run(sql"SELECT count(*) FROM pipeline_steps WHERE jsonb_exists(config::jsonb, 'rightDataSourceId')".as[Int].head))
+          refLegacyCountBefore   = await(superDbPreV94.run(sql"SELECT count(*) FROM pipeline_steps WHERE jsonb_exists(config::jsonb, 'referenceDataSourceId')".as[Int].head))
+          withClue("Fixture sanity -- union rows carrying legacy otherDataSourceId (drives V97's union UPDATE): ") { otherLegacyCountBefore should be > 0 }
+          withClue("Fixture sanity -- join rows carrying legacy rightDataSourceId (the seeded row; drives V97's join UPDATE): ") { rightLegacyCountBefore should be > 0 }
+          withClue("Fixture sanity -- lookup rows carrying legacy referenceDataSourceId, including the two empty-id drafts (drives V97's lookup UPDATE): ") { refLegacyCountBefore should be > 0 }
+
+          // HEL-911 task 2.3: byte-identical passthrough control -- a config V97 must NEVER touch
+          // (a `compute` step, real dump row `bf7d6301-...`, no secondaryInput field at all).
+          // Captured here, pre-migration, and compared byte-for-byte post-migration below.
+          untouchedConfigBefore = await(
+            superDbPreV94.run(sql"SELECT config FROM pipeline_steps WHERE id = 'bf7d6301-c5d1-48ea-8d42-0f83cc07c75a'".as[String].head)
+          )
         } finally superDbPreV94.close()
 
         // ── Migrate to latest (applies V94) as the SAME non-superuser role. This is the
@@ -265,6 +306,65 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
             withClue(s"Table '$tableName' should have FORCE ROW LEVEL SECURITY set after V94: ") {
               forced shouldBe true
             }
+          }
+
+          // HEL-911 task 2.5/2.6: after-counts for all three legacy field names MUST be zero --
+          // "a skipped row is a hard read-time failure, not a graceful degradation" (design.md).
+          // This is what actually distinguishes "V97 was on the classpath" from "V97's own UPDATE
+          // statements ran, under RLS, as the non-superuser role" -- the round-1 blind spot this
+          // whole spec exists to close, applied to this migration specifically.
+          val otherLegacyCountAfter = await(migratedDb.run(sql"SELECT count(*) FROM pipeline_steps WHERE jsonb_exists(config::jsonb, 'otherDataSourceId')".as[Int].head))
+          val rightLegacyCountAfter = await(migratedDb.run(sql"SELECT count(*) FROM pipeline_steps WHERE jsonb_exists(config::jsonb, 'rightDataSourceId')".as[Int].head))
+          val refLegacyCountAfter   = await(migratedDb.run(sql"SELECT count(*) FROM pipeline_steps WHERE jsonb_exists(config::jsonb, 'referenceDataSourceId')".as[Int].head))
+          withClue(s"union rows still carrying legacy otherDataSourceId after V97 (before=$otherLegacyCountBefore): ") { otherLegacyCountAfter shouldBe 0 }
+          withClue(s"join rows still carrying legacy rightDataSourceId after V97 (before=$rightLegacyCountBefore): ") { rightLegacyCountAfter shouldBe 0 }
+          withClue(s"lookup rows still carrying legacy referenceDataSourceId after V97 (before=$refLegacyCountBefore, includes the two empty-id drafts): ") {
+            refLegacyCountAfter shouldBe 0
+          }
+
+          // HEL-911 task 2.1a: the two known empty-id lookup drafts (hel904-real-dump.sql
+          // :10163/:10230) are preserved as a legal Source("") draft, never dropped or errored --
+          // both rows must still exist, post-migration, with secondaryInput.dataSourceId == "".
+          for (id <- Seq("7a16cc84-826c-45a9-87cf-611f31119c37", "33f0591c-6e2e-4793-a5cb-d5866bb6704d")) {
+            val cfg = await(migratedDb.run(sql"SELECT config FROM pipeline_steps WHERE id = $id".as[String].head))
+            // Parsed as JSON rather than a literal substring match -- the `- '...' || jsonb_build_object`
+            // rewrite in V97 produces valid but not byte-for-byte-predictable jsonb text (key order,
+            // internal spacing), which is fine: only NON-matching rows have a byte-identical
+            // obligation (task 2.3). What matters here is the DECODED shape.
+            val parsed = cfg.parseJson.asJsObject
+            withClue(s"empty-id lookup draft '$id' should decode to a Source(\"\") secondaryInput after V97, got: $cfg") {
+              parsed.fields.get("secondaryInput") shouldBe Some(
+                JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(""))
+              )
+            }
+          }
+
+          // HEL-911 task 2.4/2.6: re-running V97's UPDATE statements is a no-op (idempotence) --
+          // after the migration chain, zero rows match any legacy field, so a manual re-run of the
+          // exact same statements affects zero rows.
+          val idempotentConn = embeddedPostgres.getPostgresDatabase.getConnection
+          try {
+            val idemStmt = idempotentConn.createStatement()
+            try {
+              val opsAndFields = Seq("union" -> "otherDataSourceId", "join" -> "rightDataSourceId", "lookup" -> "referenceDataSourceId")
+              for ((op, field) <- opsAndFields) {
+                val updated = idemStmt.executeUpdate(
+                  s"""UPDATE pipeline_steps
+                     |SET config = ((config::jsonb - '$field') || jsonb_build_object('secondaryInput', jsonb_build_object('kind','source','dataSourceId', COALESCE(config::jsonb ->> '$field', ''))))::text
+                     |WHERE op = '$op' AND config::jsonb ? '$field'""".stripMargin
+                )
+                withClue(s"Re-running V97's $op UPDATE should be a no-op (idempotent): ") { updated shouldBe 0 }
+              }
+            } finally idemStmt.close()
+          } finally idempotentConn.close()
+
+          // HEL-911 task 2.3: byte-identical passthrough -- a config V97's WHERE clause never
+          // matched must come back EXACTLY as it went in (no ::jsonb key-reorder/whitespace drift).
+          val untouchedConfigAfter = await(
+            migratedDb.run(sql"SELECT config FROM pipeline_steps WHERE id = 'bf7d6301-c5d1-48ea-8d42-0f83cc07c75a'".as[String].head)
+          )
+          withClue("A config V97 never touches must be byte-identical before/after: ") {
+            untouchedConfigAfter shouldBe untouchedConfigBefore
           }
         } finally migratedDb.close()
       } finally embeddedPostgres.close()

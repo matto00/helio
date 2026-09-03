@@ -7,6 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import spray.json.JsObject
 
 import java.time.Instant
+import com.helio.domain.steps.SecondaryInput
 
 /** ADT-shape tests for the CS2c-3a PipelineStep sealed trait. Per-step
  *  behavior is exercised by [[InProcessPipelineEngineSpec]]; this spec
@@ -20,7 +21,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
 
   private val rename    = RenameStep(id, pid, 0, RenameConfig(Map.empty), now, now)
   private val filter    = FilterStep(id, pid, 0, FilterConfig("AND", Vector.empty), now, now)
-  private val join      = JoinStep(id, pid, 0, JoinConfig("ds-1", "k", "inner"), now, now)
+  private val join      = JoinStep(id, pid, 0, JoinConfig(SecondaryInput.Source("ds-1"), "k", "inner"), now, now)
   private val compute   = ComputeStep(id, pid, 0, ComputeConfig("c", "1+1", None), now, now)
   private val groupBy   = GroupByStep(id, pid, 0, GroupByConfig(Vector("g"), "x", "sum"), now, now)
   private val cast      = CastStep(id, pid, 0, CastConfig(Map.empty), now, now)
@@ -38,8 +39,8 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
   private val dedupe = DedupeStep(id, pid, 0, DedupeConfig(Vector("id"), "first"), now, now)
   private val fillNull = FillNullStep(id, pid, 0, FillNullConfig(Vector("price"), "mean", None), now, now)
   private val stringOps = StringOpsStep(id, pid, 0, StringOpsConfig("trim", "name", "name", None, None, None, None), now, now)
-  private val union = UnionStep(id, pid, 0, UnionConfig("ds-2", "byPosition"), now, now)
-  private val lookup = LookupStep(id, pid, 0, LookupConfig("ds-3", "code", "code", Vector("label")), now, now)
+  private val union = UnionStep(id, pid, 0, UnionConfig(SecondaryInput.Source("ds-2"), "byPosition"), now, now)
+  private val lookup = LookupStep(id, pid, 0, LookupConfig(SecondaryInput.Source("ds-3"), "code", "code", Vector("label")), now, now)
   private val assertStep = AssertStep(id, pid, 0, AssertConfig(Vector(AssertRule("notNull", Some("id"), JsObject.empty, "error"))), now, now)
 
   private val allSubtypes: Seq[PipelineStep] =

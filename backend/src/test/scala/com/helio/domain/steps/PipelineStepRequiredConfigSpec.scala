@@ -10,6 +10,7 @@ import java.nio.file.Paths
 import java.time.Instant
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
+import com.helio.domain.steps.SecondaryInput
 
 /** HEL-814 sections 4, 5 and 7 — the RUN and ANALYZE surfaces of D3/D4.
  *
@@ -168,7 +169,7 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
     "fail a join step whose joinKey is empty, naming the step and the field" in {
       val step = JoinStep(
         PipelineStepId("join-1"), PipelineId("p"), 0,
-        JoinConfig(rightDataSourceId = "ds-1", joinKey = "", joinType = "inner"), now, now
+        JoinConfig(secondaryInput = SecondaryInput.Source("ds-1"), joinKey = "", joinType = "inner"), now, now
       )
       val thrown = runFailure(step)
       thrown.stepKind shouldBe "join"
@@ -235,7 +236,7 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
     }
 
     "report a join step whose joinKey is empty" in {
-      analyzeError("join", """{"rightDataSourceId":"ds-1","joinKey":"","joinType":"inner"}""").get should include("joinKey")
+      analyzeError("join", """{"secondaryInput":{"kind":"source","dataSourceId":"ds-1"},"joinKey":"","joinType":"inner"}""").get should include("joinKey")
     }
 
     // PROOF (task 3.5). Design.md Decision 4: analyze reaches an unparseable

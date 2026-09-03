@@ -14,6 +14,7 @@ import slick.jdbc.{JdbcBackend, PostgresProfile}
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import com.helio.domain.steps.SecondaryInput
 
 /** End-to-end repo round-trip coverage for the read-path tolerance regression
  *  the cycle-1 evaluator caught: a persisted pipeline step row with a partial
@@ -94,7 +95,7 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
       step.id.value shouldBe stepId
       step shouldBe a [JoinStep]
       val join = step.asInstanceOf[JoinStep]
-      join.config.rightDataSourceId shouldBe ""
+      join.config.secondaryInput shouldBe SecondaryInput.Source("")
       join.config.joinKey           shouldBe ""
       join.config.joinType          shouldBe "inner"
     }
@@ -113,7 +114,7 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
 
     "preserve full typed configs round-tripping through insert + listByPipeline" in {
       val pid = seedPipeline()
-      val joinConfig = JoinConfig("ds-right", "id", "left")
+      val joinConfig = JoinConfig(SecondaryInput.Source("ds-right"), "id", "left")
       await(stepRepo.insertRootStep(pid, PipelineStepKind.Join, joinConfig, systemUser))
 
       val steps = await(stepRepo.listByPipeline(pid, systemUser))
