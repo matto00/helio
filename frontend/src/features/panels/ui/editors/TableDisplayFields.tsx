@@ -3,9 +3,17 @@
 // Purely presentational; state + save/dirty/reset plumbing now lives on the
 // Output editor side (`useOutputTableColumns`), not on a panel — a table's
 // display config belongs to the Output, not the placement (HEL-909).
+//
+// HEL-944 — the reorder buttons now render through the shared `IconButton`
+// primitive (DESIGN.md's ghost/secondary/danger recipe + built-in 44px
+// mobile tap-target expander) instead of a bare `<button>`, and the Columns
+// list sits in its own bounded container (`TableDisplayFields.css`) so a
+// dynamic, variable-length collection reads as nested rather than as more
+// inline form fields.
 
-import { Select, type SelectOption } from "../../../../shared/ui/index";
+import { IconButton, Select, type SelectOption } from "../../../../shared/ui/index";
 import type { TableColumnRow } from "../../../pipelines/ui/outputEditor/useOutputTableColumns";
+import "./TableDisplayFields.css";
 
 export type TableDensity = "condensed" | "normal" | "spacious";
 
@@ -52,9 +60,9 @@ export function TableDisplayFields({
   const showJumpControls = columns.length > 8;
   return (
     <>
-      <div className="panel-detail-modal__data-section">
-        <div className="panel-detail-modal__mapping-row">
-          <label className="panel-detail-modal__mapping-label" htmlFor="table-density">
+      <div className="table-display-fields__section">
+        <div className="table-display-fields__row">
+          <label className="table-display-fields__label" htmlFor="table-density">
             Cell density
           </label>
           <Select
@@ -69,71 +77,69 @@ export function TableDisplayFields({
       </div>
 
       {columns.length > 0 && (
-        <div className="panel-detail-modal__data-section">
-          <span className="panel-detail-modal__data-label">Columns</span>
-          <ul className="panel-detail-modal__column-list">
-            {columns.map((column, index) => (
-              <li key={column.key} className="panel-detail-modal__column-row">
-                <label className="panel-detail-modal__column-visibility">
-                  <input
-                    type="checkbox"
-                    checked={column.visible}
-                    onChange={() => onToggleVisible(column.key)}
-                  />
-                  <span className="panel-detail-modal__column-key">{column.key}</span>
-                </label>
-                <div className="panel-detail-modal__column-move">
-                  {showJumpControls && (
-                    <button
-                      type="button"
-                      className="panel-detail-modal__column-move-btn"
-                      aria-label={`Move ${column.key} to top`}
-                      onClick={() => onMoveToTop(index)}
+        <div className="table-display-fields__section">
+          <span className="table-display-fields__label">Columns</span>
+          <div className="table-display-fields__column-list-container">
+            <ul className="table-display-fields__column-list">
+              {columns.map((column, index) => (
+                <li key={column.key} className="table-display-fields__column-row">
+                  <label className="table-display-fields__column-visibility">
+                    <input
+                      type="checkbox"
+                      checked={column.visible}
+                      onChange={() => onToggleVisible(column.key)}
+                    />
+                    <span className="table-display-fields__column-key">{column.key}</span>
+                  </label>
+                  <div className="table-display-fields__column-move">
+                    {showJumpControls && (
+                      <IconButton
+                        icon="⤒"
+                        aria-label={`Move ${column.key} to top`}
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onMoveToTop(index)}
+                        disabled={index === 0}
+                      />
+                    )}
+                    <IconButton
+                      icon="↑"
+                      aria-label={`Move ${column.key} up`}
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onMoveUp(index)}
                       disabled={index === 0}
-                    >
-                      ⤒
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="panel-detail-modal__column-move-btn"
-                    aria-label={`Move ${column.key} up`}
-                    onClick={() => onMoveUp(index)}
-                    disabled={index === 0}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="panel-detail-modal__column-move-btn"
-                    aria-label={`Move ${column.key} down`}
-                    onClick={() => onMoveDown(index)}
-                    disabled={index === columns.length - 1}
-                  >
-                    ↓
-                  </button>
-                  {showJumpControls && (
-                    <button
-                      type="button"
-                      className="panel-detail-modal__column-move-btn"
-                      aria-label={`Move ${column.key} to bottom`}
-                      onClick={() => onMoveToBottom(index)}
+                    />
+                    <IconButton
+                      icon="↓"
+                      aria-label={`Move ${column.key} down`}
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onMoveDown(index)}
                       disabled={index === columns.length - 1}
-                    >
-                      ⤓
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+                    />
+                    {showJumpControls && (
+                      <IconButton
+                        icon="⤓"
+                        aria-label={`Move ${column.key} to bottom`}
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onMoveToBottom(index)}
+                        disabled={index === columns.length - 1}
+                      />
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 
-      <div className="panel-detail-modal__data-section">
+      <div className="table-display-fields__section">
         <button
           type="button"
-          className="panel-detail-modal__reset-widths-btn"
+          className="table-display-fields__reset-widths-btn"
           onClick={onResetWidths}
           disabled={!hasStoredWidths || resetWidthsPending}
         >
