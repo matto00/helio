@@ -1,3 +1,0 @@
-- `backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala` — add `enabled` (`[boolean, null]`) to `PipelineProposalStepSchema`; add `"output"` to `EditTargetSchema`'s `kind` enum
-- `scripts/check-schema-drift.mjs` — remove the two now-satisfied `KNOWN_PRE_EXISTING_DRIFT` entries
-- `backend/src/test/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemasSpec.scala` — round-trip decode coverage for a pipeline step with `enabled: false` and a patch-set edit targeting `kind: "output"`
