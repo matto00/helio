@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import { buildWorkspaceContext } from "../context.js";
+import type { ConnectorSummary } from "../types.js";
 
 /** Serialize any value as a single pretty-printed JSON text block. */
 function jsonResult(value: unknown): CallToolResult {
@@ -30,6 +31,29 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
         : `${(err as Error)?.name ?? "Error"}: ${(err as Error)?.message ?? String(err)}`;
     return { content: [{ type: "text", text: message }], isError: true };
   }
+}
+
+/** HEL-886 design.md Decision 5: builds `list_connectors`' result -- the JSON payload stays a
+ *  bare `ConnectorSummary[]` array (unchanged, so the existing "empty list" spec scenario and
+ *  every consumer of the shape are unaffected); when the list is empty a SECOND text content
+ *  block is appended naming `create_connector`, never merged into the JSON block. Exported and
+ *  pure (no `guarded`/HTTP concern) so a unit test can exercise it directly. */
+export function buildListConnectorsResult(items: ConnectorSummary[]): CallToolResult {
+  const result = jsonResult(items);
+  if (items.length !== 0) return result;
+  return {
+    ...result,
+    content: [
+      ...result.content,
+      {
+        type: "text",
+        text:
+          "No Connectors exist yet. Call create_connector to create one — it creates " +
+          "unauthenticated (authType: none) Connectors only; a credentialed host is " +
+          "completed by a human at the in-app /connectors page.",
+      },
+    ],
+  };
 }
 
 export function registerReadTools(server: McpServer, api: HelioApi): void {
@@ -169,10 +193,21 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "Distinct from list_connector_types, which lists connector KIND capability metadata, not " +
         "instances. Credentials are NEVER returned by this or any tool, in any form, including " +
         "partially masked — do not waste turns trying to retrieve one. Call this before " +
-        "create_rest_data_source to obtain a connectorId to author against.",
+        "create_rest_data_source to obtain a connectorId to author against. If this returns " +
+        "empty, call create_connector to create one (unauthenticated hosts only).",
       inputSchema: {},
     },
-    () => guarded(() => api.listConnectorInstances()),
+    async () => {
+      try {
+        return buildListConnectorsResult(await api.listConnectorInstances());
+      } catch (err) {
+        const message =
+          err instanceof HelioApiError
+            ? `${err.name} (status ${err.status}) for ${err.url}: ${err.message}`
+            : `${(err as Error)?.name ?? "Error"}: ${(err as Error)?.message ?? String(err)}`;
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
+    },
   );
 
   server.registerTool(

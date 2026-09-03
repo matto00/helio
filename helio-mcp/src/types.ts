@@ -597,6 +597,18 @@ export interface ConnectorSummary {
   host: string;
 }
 
+/** HEL-886 design.md Decision 1: `POST /api/connectors`' response, mapped into the same
+ *  allow-listed shape as `ConnectorSummary` -- id/name/kind/host ONLY, never `config` or a
+ *  credential field in any form. Distinct type (not a reuse of `ConnectorSummary`) so a
+ *  future divergence between "list" and "create" projections doesn't have to fight a shared
+ *  name. */
+export interface CreateConnectorResult {
+  id: string;
+  name: string;
+  kind: string;
+  host: string;
+}
+
 // ── Pipeline shape catalog (HEL-391/402) — mirrors
 // `backend/.../api/protocols/PipelineShapeProtocol.scala` ──────────────────
 

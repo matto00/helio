@@ -14,6 +14,11 @@ import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { ProposalPanel } from "../types.js";
 import { addPipelineStepHandler } from "./assertSchemas.js";
+import { createConnectorSchema } from "./connectorSchema.js";
+import {
+  augmentFetchErrorWithConnectorsHint,
+  createConnectorHandler,
+} from "./connectorHandlers.js";
 import { assertExactlyOneCsvInput } from "./csvDataSourceSchema.js";
 import { panelSchema } from "./proposal.js";
 import { createRestDataSourceSchema } from "./restDataSourceSchema.js";
@@ -109,19 +114,43 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "create_connector",
+    {
+      title: "Create connector (unauthenticated hosts only)",
+      description:
+        "Create a Connector for an UNAUTHENTICATED host only (authType: none) — the one gap that " +
+        "blocks an MCP-only client from authoring a REST source from a clean workspace (HEL-886). " +
+        "This tool accepts NO credential under any key: `auth`/`apiKey`/`token`/`password`/" +
+        "`credential` are all REJECTED with a validation error, and credentials are never returned " +
+        'by this or any tool. If the host actually needs a credential, pass `authType: "bearer"` ' +
+        'or `"api_key"` to get an actionable refusal naming the human-completed path — no ' +
+        "Connector is created in that case. `kind` defaults to `rest_api`. On success the result " +
+        "carries a constant `note`: if the host in fact requires authentication, requests through " +
+        "it will fail with 401/403 and a human must create a credentialed Connector at " +
+        "/connectors — this applies even when `authType` was omitted and defaulted to `none`. " +
+        "Use the returned `id` as `connectorId` for create_rest_data_source.",
+      inputSchema: createConnectorSchema,
+    },
+    (input) => createConnectorHandler(api, input),
+  );
+
+  server.registerTool(
     "create_rest_data_source",
     {
       title: "Create data source (REST API)",
       description:
         "Create a `rest_api` data source against an existing Connector — call list_connectors first " +
-        "to obtain a connectorId. This tool accepts NO url or auth/credential field of any kind — " +
+        "to obtain a connectorId, or create_connector if none exist yet (unauthenticated hosts " +
+        "only). This tool accepts NO url or auth/credential field of any kind — " +
         "the Connector's configured auth is resolved and applied server-side, never passed through " +
         "this call, and credentials are never returned by this or any tool. An `auth`/`apiKey`/`token`/" +
         "`password`/`credential` field is REJECTED with a validation error naming connectorId, not " +
         "silently dropped. The backend attempts an " +
         "initial fetch at creation time: on success the response includes the re-inferred " +
         "`inferredSchema`; on failure it returns `inferredSchema: null` and a fetchError message " +
-        "instead of an opaque error, so a bad endpoint can be diagnosed and retried. Build a " +
+        "instead of an opaque error (a 401/403 fetchError additionally names the /connectors " +
+        "out-of-band path, since it means the Connector needs a credential a human must supply), " +
+        "so a bad endpoint can be diagnosed and retried. Build a " +
         "pipeline over the returned source id (create_pipeline, with an `outputs[]` entry) to " +
         "produce a panel-bindable Output.",
       inputSchema: createRestDataSourceSchema,
@@ -137,8 +166,8 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       bodyContentType,
       rootSelector,
     }) =>
-      guarded(() =>
-        api.createRestDataSource({
+      guarded(async () => {
+        const result = await api.createRestDataSource({
           name,
           connectorId,
           endpoint,
@@ -148,8 +177,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
           body,
           bodyContentType,
           rootSelector,
-        }),
-      ),
+        });
+        return { ...result, fetchError: augmentFetchErrorWithConnectorsHint(result.fetchError) };
+      }),
   );
 
   server.registerTool(
