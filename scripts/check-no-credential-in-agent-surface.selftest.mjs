@@ -86,7 +86,7 @@ try {
   console.log("case: planted real-looking email under backend/src/test/resources -> FAIL");
   plant(
     "INSERT INTO public.users VALUES " +
-      "('22222222-2222-2222-2222-222222222222', 'matt.orr@gmail.com', NULL, 'Planted User');\n",
+      "('22222222-2222-2222-2222-222222222222', 'qa-fixture@examplecorp.com', NULL, 'Planted User');\n",
   );
   const emailRed = runScript();
   check("planted non-placeholder email fails the gate", emailRed.status === 1, emailRed.stderr);
