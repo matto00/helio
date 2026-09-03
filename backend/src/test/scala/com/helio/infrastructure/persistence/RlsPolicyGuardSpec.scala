@@ -38,6 +38,21 @@ import scala.concurrent.{Await, ExecutionContext}
  *  - HEL-842: a dedicated non-vacuousness probe test (below) proves the
  *    per-table check actually fails when a required policy is dropped,
  *    against a second, disposable EmbeddedPostgres+Flyway instance.
+ *  - HEL-923: a completeness check (below) closes the gap HEL-842 found
+ *    twice (`audit_events` V91, `connector_credentials` V92 both silently
+ *    missing from `rlsTables` for a time). The per-table loop above only
+ *    ever iterates `rlsTables`' OWN keys, so it is structurally incapable of
+ *    catching a migration that flips `relrowsecurity` on for a table nobody
+ *    added to the map — a same-PR omission there was, and would again be,
+ *    invisible to every test above it. This check instead reads the actual
+ *    post-migration catalog state (every `public`-schema table with
+ *    `relrowsecurity = true`) and asserts it is EXACTLY `rlsTables.keySet` —
+ *    catching both a missing entry (new RLS table, map not updated) and a
+ *    stale one (map lists a table that no longer has RLS). It runs against
+ *    the same superuser-migrated `beforeAll` instance as the loop above;
+ *    that is fine here because `relrowsecurity` is catalog metadata, not
+ *    data behind a policy — reading it is not something BYPASSRLS/superuser
+ *    status affects.
  *
  *  This spec does NOT verify correctness of individual policy predicates —
  *  that is the job of RlsOwnerTablesSpec (V35) and RlsSharingAwareTablesSpec
@@ -234,6 +249,34 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
               checkPolicies(tableName, Some(expected))(db) shouldBe Right(())
             }
           }
+      }
+    }
+  }
+
+  "RLS-table allowlist completeness (HEL-923)" should {
+
+    "matches exactly the set of public-schema tables with relrowsecurity = true" in {
+      val actualRlsTables = run(
+        sql"""SELECT c.relname
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+              WHERE c.relkind = 'r' AND n.nspname = 'public' AND c.relrowsecurity = true"""
+          .as[String]
+      )(db).toSet
+
+      val allowlisted = rlsTables.keySet
+
+      withClue(
+        "A table has RLS enabled in the schema but is missing from RlsPolicyGuardSpec.rlsTables " +
+          "(add it in the SAME PR as the migration that enables RLS on it): "
+      ) {
+        (actualRlsTables -- allowlisted) shouldBe empty
+      }
+      withClue(
+        "RlsPolicyGuardSpec.rlsTables lists a table that no longer has RLS enabled in the schema " +
+          "(remove the stale entry): "
+      ) {
+        (allowlisted -- actualRlsTables) shouldBe empty
       }
     }
   }
