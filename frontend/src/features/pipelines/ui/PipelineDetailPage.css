@@ -348,25 +348,39 @@
   cursor: not-allowed;
 }
 
-/* ── "+ tail" create affordance (HEL-908 tasks 3.4/5.6) — small text button
+/* ── "Branch" create affordance (HEL-908 tasks 3.4/5.6) — small button
  * beneath a trunk card's own actions, only rendered when that node has no
- * tail yet (single-tail-per-node invariant enforced by the caller). Mirrors
- * the gap-insert button's token usage, sized for a text label rather than a
- * bare icon. ── */
+ * tail yet (single-tail-per-node invariant enforced by the caller).
+ *
+ * HEL-943 — this and the rail's "+ Output" chip (`OutputsRail.css`) are the
+ * two primary ways a pipeline step turns into something a dashboard can use;
+ * both previously read as afterthoughts (hairline-muted dashed text at
+ * `--text-xs`, indistinguishable from a disabled control). Recipe now
+ * matches `.pipeline-detail-page__add-step-dashed-btn`'s accent-dashed
+ * treatment elsewhere on this same page, so "add a thing here" reads as one
+ * consistent visual language rather than each affordance inventing its own
+ * weight. `position: relative` is required by `.tap-expand-44` (see
+ * `OutputsRail.css`'s identical note) — its invisible 44px hit-expander
+ * resolves against the nearest positioned ancestor. ── */
 .pipeline-detail-page__add-tail-row {
-  margin: var(--space-1) 0 0 var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0 var(--space-6);
 }
 
 .pipeline-detail-page__add-tail-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border: 1px dashed var(--app-border-subtle);
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-text-muted);
-  font-size: var(--text-xs);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed var(--app-accent-mid);
+  border-radius: var(--app-radius-md);
+  background: var(--app-accent-surface);
+  color: var(--app-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   cursor: pointer;
   transition:
     background-color var(--app-transition),
@@ -376,9 +390,18 @@
 
 .pipeline-detail-page__add-tail-btn:hover,
 .pipeline-detail-page__add-tail-btn:focus-visible {
-  background: var(--app-accent-surface);
-  border-color: var(--app-accent-mid);
-  color: var(--app-accent);
+  background: var(--app-accent-dim);
+  border-color: var(--app-accent);
+  border-style: solid;
+}
+
+/* HEL-943 — always-visible, non-hover explanation of what "Branch" does.
+ * A `title` tooltip alone is invisible to touch users (no hover state), and
+ * the acceptance bar here is "a user who hasn't read the spec can tell what
+ * this does BEFORE clicking it" on every input device, not just a mouse. */
+.pipeline-detail-page__add-tail-hint {
+  font-size: var(--text-micro);
+  color: var(--app-text-muted);
 }
 
 /* ── Tail chain (HEL-908 task 3.4) — indented, dashed-connector sub-list
