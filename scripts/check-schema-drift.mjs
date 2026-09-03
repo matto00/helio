@@ -620,16 +620,7 @@ const assistantToolParitySurfaces = [
 // are narrowly allowed here — by exact surface label + exact missing value, not a blanket
 // skip — rather than fixed in place. Tracked by HEL-948; remove these two entries (and this
 // comment) once it ships, so this check goes back to full strict parity with zero exceptions.
-const KNOWN_PRE_EXISTING_DRIFT = new Map([
-  [
-    "PipelineProposalStepSchema <-> create-pipeline-transactional-step-request.schema.json",
-    { missingInScala: new Set(["enabled"]) },
-  ],
-  [
-    "EditTargetSchema.kind enum <-> $defs.EditTarget.properties.kind.enum",
-    { missingInScala: new Set(["output"]) },
-  ],
-]);
+const KNOWN_PRE_EXISTING_DRIFT = new Map([]);
 
 let assistantToolSurfacesChecked = 0;
 for (const { label, scala, json } of assistantToolParitySurfaces) {

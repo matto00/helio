@@ -163,6 +163,12 @@ private[protocols] trait AssistantProposalToolSchemas {
             "extends the trunk (parented off the previous trunk step, or the source if this is the " +
             "first step)."
         )
+      ),
+      "enabled" -> JsObject(
+        "type" -> JsArray(Vector(JsString("boolean"), JsString("null"))),
+        "description" -> JsString(
+          "Optional -- whether this step is active in the pipeline. Absent/null defaults to enabled."
+        )
       )
     ),
     "required" -> JsArray(Vector(JsString("clientId"), JsString("type"), JsString("config")))
@@ -272,7 +278,7 @@ private[protocols] trait AssistantProposalToolSchemas {
   private val EditTargetSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
-      "kind" -> enumSchema("panel", "dashboard", "dataSource", "pipeline", "pipelineStep"),
+      "kind" -> enumSchema("panel", "dashboard", "dataSource", "pipeline", "pipelineStep", "output"),
       "id"   -> JsObject("type" -> JsString("string"))
     ),
     "required" -> JsArray(Vector(JsString("kind")))
