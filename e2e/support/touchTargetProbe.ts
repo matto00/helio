@@ -39,7 +39,7 @@ export const DEFAULT_MIN_PX = 44;
  *  violation this guard exists to catch (HEL-781's 28px control is 16px
  *  short of the floor; HEL-535's inert-floor cases measure 0 and are already
  *  caught by the `visible` assertion above, never by this epsilon). */
-export const RENDERED_BOX_EPSILON_PX = 0.5;
+export const RENDERED_BOX_EPSILON_PX = 0;
 
 export interface BoxMeasurement {
   width: number;
