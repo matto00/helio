@@ -4,6 +4,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
 import com.helio.domain._
 import com.helio.domain.model._
+import com.helio.domain.engine.InvalidGraph
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -729,20 +730,43 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * virtual root, i.e. `parentStepId = None`, other than the single
     * trunk-starting step) are appended at the very end -- real migrated
     * data never produces these (every pipeline has exactly one root child),
-    * but the case is handled defensively rather than silently dropped. */
+    * but the case is handled defensively rather than silently dropped.
+    *
+    * HEL-930 fix: a node (including the virtual root) with TWO OR MORE
+    * `position == 0` children is the same `InvalidGraph` arm-1 violation
+    * [[com.helio.domain.engine.InProcessPipelineEngine.validateGraph]] already
+    * rejects before a run -- this method used to resolve it via `.find`,
+    * silently keeping the first match and dropping every other position-0
+    * sibling (and its whole subtree) from the returned Vector with no error
+    * at all. That silent-drop shape is exactly what this scaladoc's previous
+    * wording incorrectly claimed didn't exist ("handled defensively rather
+    * than silently dropped") -- it did exist, right here, for this one shape.
+    * Fixed by raising [[InvalidGraph]] the moment more than one position-0
+    * child is found at any node, so a malformed graph now fails loudly
+    * instead of quietly executing with a step missing. */
   def executionOrder(steps: Vector[PipelineStep]): Vector[PipelineStep] = {
     def expandBranch(root: PipelineStep): Vector[PipelineStep] =
       root +: childrenOf(steps, Some(root.id)).flatMap(expandBranch)
 
+    // HEL-930: raises InvalidGraph instead of `.find`'s silent first-match
+    // whenever a node has more than one position-0 child -- `nodeLabel` is
+    // only used to build that error's message.
+    def trunkChildOf(nodeLabel: => String, children: Vector[PipelineStep]): Option[PipelineStep] = {
+      val trunkChildren = children.filter(_.position == 0)
+      if (trunkChildren.size > 1)
+        throw InvalidGraph(s"InvalidGraph: node $nodeLabel has ${trunkChildren.size} children at position 0")
+      trunkChildren.headOption
+    }
+
     def walk(node: PipelineStep): Vector[PipelineStep] = {
       val children    = childrenOf(steps, Some(node.id))
       val tails       = children.filter(_.position != 0).flatMap(expandBranch)
-      val trunkChild  = children.find(_.position == 0)
+      val trunkChild  = trunkChildOf(node.id.value, children)
       node +: (tails ++ trunkChild.toVector.flatMap(walk))
     }
 
     val rootChildren = childrenOf(steps, None)
-    val rootTrunk     = rootChildren.find(_.position == 0)
+    val rootTrunk     = trunkChildOf("root", rootChildren)
     val rootTails      = rootChildren.filter(_.position != 0).flatMap(expandBranch)
     rootTrunk.toVector.flatMap(walk) ++ rootTails
   }
