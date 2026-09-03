@@ -25,23 +25,26 @@
  */
 
 import { z } from "zod";
+import { rejectCredentialField } from "./credentialDenylist.js";
 
-/** A field that is always rejected when present (any type never survives past `undefined`) —
- *  never merely stripped. The error message names `connectorId` explicitly. */
-function rejectCredentialField(field: string) {
-  return z
-    .any()
-    .optional()
-    .refine((value) => value === undefined, {
-      message:
-        `${field} is not accepted by create_rest_data_source — credentials live on the ` +
-        "referenced Connector, never on this call. Pass connectorId instead.",
-    });
-}
+const CREDENTIAL_REJECT_OPTS = {
+  toolName: "create_rest_data_source",
+  alternative: "Pass connectorId instead.",
+};
 
 export const createRestDataSourceInputSchema = {
   name: z.string().min(1),
-  connectorId: z.string().min(1),
+  connectorId: z
+    .string({
+      required_error:
+        "connectorId is required — call list_connectors to obtain one, or create_connector " +
+        "if none exist yet.",
+    })
+    .min(1, {
+      message:
+        "connectorId is required — call list_connectors to obtain one, or create_connector " +
+        "if none exist yet.",
+    }),
   endpoint: z.string().optional(),
   method: z.string().optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
@@ -51,11 +54,11 @@ export const createRestDataSourceInputSchema = {
   rootSelector: z.string().optional(),
   // Explicit, always-rejecting fields (evaluation-1.md cycle 2) — loud, not silent, with a
   // connectorId-naming message better than .strict()'s generic unrecognized-key error.
-  auth: rejectCredentialField("auth"),
-  apiKey: rejectCredentialField("apiKey"),
-  token: rejectCredentialField("token"),
-  password: rejectCredentialField("password"),
-  credential: rejectCredentialField("credential"),
+  auth: rejectCredentialField("auth", CREDENTIAL_REJECT_OPTS),
+  apiKey: rejectCredentialField("apiKey", CREDENTIAL_REJECT_OPTS),
+  token: rejectCredentialField("token", CREDENTIAL_REJECT_OPTS),
+  password: rejectCredentialField("password", CREDENTIAL_REJECT_OPTS),
+  credential: rejectCredentialField("credential", CREDENTIAL_REJECT_OPTS),
 };
 
 // .strict() (skeptic-final-1.md round 1): closes the gap the 5-name denylist above leaves open

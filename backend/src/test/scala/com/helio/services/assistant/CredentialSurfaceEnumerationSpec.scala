@@ -76,9 +76,15 @@ class CredentialSurfaceEnumerationSpec extends AnyWordSpec with Matchers {
       "helio-mcp/src/tools/write.ts"                       -> "references the rejectCredentialField guard",
       "helio-mcp/src/tools/restDataSourceSchema.ts"        -> "implements the rejectCredentialField guard (rejects, never carries)",
       "helio-mcp/src/tools/restDataSourceSchema.test.ts"   -> "tests the rejectCredentialField guard's rejection case",
+      "helio-mcp/src/tools/credentialDenylist.ts"          -> "defines rejectCredentialField itself, whose refine asserts the parsed value === undefined before any downstream use -- a supplied value fails the parse and never survives to reach a caller or an HTTP call",
+      "helio-mcp/src/tools/connectorSchema.ts"             -> "rejects all five credential-shaped keys plus any other unrecognized key via .strict() -- no credential-shaped input can parse successfully at all, so nothing is ever forwarded to the handler",
+      "helio-mcp/src/tools/connectorSchema.test.ts"        -> "asserts, for each denylisted field, both that the parse fails AND that the bait string 'sk-should-never-be-accepted' never appears anywhere in the resulting Zod issues -- proving the value is never echoed, not just that the key is rejected",
+      "helio-mcp/src/tools/connectorHandlers.ts"           -> "refuses any authType other than \"none\" BEFORE api.createConnector is ever called, and that call itself carries no user-suppliable credential parameter -- every 'credential' occurrence here is refusal/pointer prose, never a value in transit",
+      "helio-mcp/src/helioApi.createConnector.test.ts"     -> "asserts the actual POST body carries a hardcoded credential: \"\" and no other credential-shaped key, by inspecting the wire payload directly rather than trusting the method's type signature",
+      "helio-mcp/src/server.test.ts"                       -> "only enumerates the five credential-shaped PARAMETER NAMES the tool's advertised schema must still expose as always-rejecting properties -- asserts on property presence, never a secret value",
     )
 
-    "match exactly the seven allow-listed files, each for its documented reason" in {
+    "match exactly the thirteen allow-listed files, each for its documented reason" in {
       val actual = filesContainingToken(new File(root, "helio-mcp/src"), "credential").toSet
       actual shouldBe allowedMatches.keySet
 

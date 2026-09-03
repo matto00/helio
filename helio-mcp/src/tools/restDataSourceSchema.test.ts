@@ -123,4 +123,15 @@ describe("createRestDataSourceSchema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("rejects a request missing connectorId with a message naming list_connectors and create_connector", () => {
+    const result = createRestDataSourceSchema.safeParse({ name: "Widgets" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((issue) => issue.message).join(" ");
+      expect(messages).toContain("list_connectors");
+      expect(messages).toContain("create_connector");
+    }
+  });
 });

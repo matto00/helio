@@ -25,6 +25,7 @@ import type {
   CombinedProposalApplyResponse,
   ConnectorMetadataResponse,
   ConnectorSummary,
+  CreateConnectorResult,
   CreateSourceResult,
   CsvPreview,
   DashboardProposal,
@@ -307,6 +308,30 @@ export class HelioApi {
       .then((res) =>
         res.items.map((c) => ({ id: c.id, name: c.name, kind: c.kind, host: c.baseUrl })),
       );
+  }
+
+  /** HEL-886 design.md Decision 1: Create a credential-less Connector (`authType: "none"`
+   *  ONLY -- `create_connector`'s handler refuses any other `authType` before this method is
+   *  ever called, see `write.ts`). `credential: ""` is a hardcoded LITERAL here -- never a
+   *  parameter, never defaulted from `input`, and no code path can populate it -- so "no
+   *  secret passes through a model context" is a structural property of this call site, not a
+   *  validation rule that could be bypassed upstream. Maps the backend's Connector response by
+   *  field into `CreateConnectorResult` (id/name/kind/host only), never by spreading --
+   *  the backend's full row carries `config`/`ownerId`/timestamps this surface never exposes. */
+  createConnector(input: {
+    name: string;
+    kind: string;
+    baseUrl: string;
+  }): Promise<CreateConnectorResult> {
+    return this.http
+      .post<{ id: string; name: string; kind: string; baseUrl: string }>("/api/connectors", {
+        name: input.name,
+        kind: input.kind,
+        baseUrl: input.baseUrl,
+        config: { authType: "none" },
+        credential: "",
+      })
+      .then((c) => ({ id: c.id, name: c.name, kind: c.kind, host: c.baseUrl }));
   }
 
   /** List every registered smart pipeline shape with its catalog metadata (HEL-391/402) —

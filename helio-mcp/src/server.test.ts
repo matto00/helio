@@ -63,6 +63,7 @@ const EXPECTED_TOOL_NAMES = [
   "apply_pipeline_proposal",
   "apply_proposal",
   "auto_layout_dashboard",
+  "create_connector",
   "create_content_panel",
   "create_csv_data_source",
   "create_dashboard",
@@ -131,6 +132,25 @@ async function listRegisteredToolNames(): Promise<string[]> {
   }
 }
 
+/** Full `listTools()` records, not just names — for asserting on the advertised
+ *  `inputSchema` itself (skeptic-final-2.md CR1: distinct from `callTool`, which never reads
+ *  the advertised schema and so cannot catch a normalization regression like this one). */
+async function listRegisteredTools(): Promise<Awaited<ReturnType<Client["listTools"]>>["tools"]> {
+  const fakeApi = {} as HelioApi; // never called -- this test only lists tools, never invokes one.
+  const server = createServer(fakeApi);
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "test-client", version: "0.0.0" });
+
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  try {
+    const { tools } = await client.listTools();
+    return tools;
+  } finally {
+    await client.close();
+    await server.close();
+  }
+}
+
 describe("registered tool set (HEL-907 tasks.md 3.9/5.3)", () => {
   it("does not register any removed tool (no alias left behind)", async () => {
     const names = await listRegisteredToolNames();
@@ -177,5 +197,36 @@ describe("registered tool set (HEL-907 tasks.md 3.9/5.3)", () => {
     const names = await listRegisteredToolNames();
 
     expect([...names].sort()).toEqual([...EXPECTED_TOOL_NAMES].sort());
+  });
+});
+
+// skeptic-final-2.md CR1: `create_connector`'s schema regressed from a `ZodObject` to a
+// `ZodEffects` (via `.passthrough()` + `.superRefine`) in an earlier revision of this change,
+// which the MCP SDK's `normalizeObjectSchema` cannot unwrap (it only handles a `.shape`) --
+// the tool silently advertised `{"type":"object","properties":{}}` to every `listTools()`
+// caller, losing the required-field AND denylist-field advertisement entirely, even though
+// runtime `callTool` enforcement still held. `callTool` never reads the advertised schema, so
+// no test exercising only `callTool` could have caught this -- this MUST assert on
+// `listTools()`'s own output.
+describe("create_connector's advertised input schema (HEL-886, skeptic-final-2.md CR1)", () => {
+  it("advertises a non-empty JSON Schema with the required fields and denylist keys", async () => {
+    const tools = await listRegisteredTools();
+    const createConnector = tools.find((t) => t.name === "create_connector");
+
+    expect(createConnector).toBeDefined();
+    const schema = createConnector?.inputSchema as {
+      type?: string;
+      properties?: Record<string, unknown>;
+      required?: string[];
+      additionalProperties?: boolean;
+    };
+
+    expect(schema.type).toBe("object");
+    expect(Object.keys(schema.properties ?? {}).length).toBeGreaterThan(0);
+    expect(schema.required).toEqual(expect.arrayContaining(["name", "baseUrl"]));
+    expect(schema.additionalProperties).toBe(false);
+    for (const denylisted of ["auth", "apiKey", "token", "password", "credential"]) {
+      expect(schema.properties).toHaveProperty(denylisted);
+    }
   });
 });
