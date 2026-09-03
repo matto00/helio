@@ -469,7 +469,14 @@ final class ApiRoutes(
   // above, alongside `sourceService`) instead of building a second `ConnectorRepository`.
   private val connectorEntityServiceOpt: Option[ConnectorEntityService] =
     connectorRepoOpt.map { connectorRepo =>
-      new ConnectorEntityService(connectorRepo, dependentCount = (id: ConnectorId) => dataSourceRepo.countRestSourcesReferencing(id))
+      // HEL-879 design.md Decision 5: reuses the existing dataSourceUrl*
+      // seam/defaults rather than adding a second one.
+      new ConnectorEntityService(
+        connectorRepo,
+        dependentCount = (id: ConnectorId) => dataSourceRepo.countRestSourcesReferencing(id),
+        resolveHost = dataSourceUrlResolveHost,
+        isBlocked = dataSourceUrlIsBlocked
+      )
     }
   // HEL-371: unconditional (not Option-guarded, unlike workspaceTeardownServiceOpt
   // above) — every dependency (dashboardService/dataSourceService/dataTypeService/

@@ -7,8 +7,10 @@ import com.helio.infrastructure.persistence.sources.{ConnectorHasDependents, Con
 import com.helio.services.ServiceError
 import spray.json._
 
+import java.net.InetAddress
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** Business logic for `/api/connectors` (HEL-821). Thin, mirrors
  *  `AlertRuleService`'s shape -- validation + ACL dispatch, everything else
@@ -17,7 +19,17 @@ import scala.concurrent.{ExecutionContext, Future}
  *  only by the AC5 outbound-auth integration test (design.md Decision 6a). */
 final class ConnectorEntityService(
     connectorRepo: ConnectorRepository,
-    dependentCount: ConnectorId => Future[Int] = _ => Future.successful(0)
+    dependentCount: ConnectorId => Future[Int] = _ => Future.successful(0),
+    // HEL-879 design.md Decision 4/5: same injected seam as
+    // `RestApiConnectorDriver`, wired separately -- this class is
+    // constructed in `ApiRoutes` (unlike the driver), so its real defaults
+    // are wired there alongside the existing `dataSourceUrl*` params.
+    // Non-authoritative (Decision 4): a host resolving publicly at
+    // create/update time can resolve internally later, so this only stops a
+    // hostile value at write time -- the fetch-time guard in the driver is
+    // what's actually authoritative.
+    resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+    isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
 )(implicit ec: ExecutionContext) {
 
   /** Returns `(Connector, dependentCount)` pairs -- HEL-824 design.md Decision 1b. Deliberately
@@ -52,24 +64,31 @@ final class ConnectorEntityService(
     else if (cred.isEmpty && authType != "none")
       Future.successful(Left(ServiceError.BadRequest("credential is required")))
     else
-      DataSourceKind.parseKind(kind) match {
+      // HEL-879 design.md Decision 4: egress-validate baseUrl AFTER the
+      // non-empty check, BEFORE anything is persisted -- a refusal here
+      // creates no row.
+      ContentSourceSupport.validateUrl(baseUrl, resolveHost, isBlocked) match {
         case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-        case Right(validKind) =>
-          // HEL-822 design.md Decision 1a revised (CR5): `implicit` is server-owned -- strip
-          // any client-supplied value and set it explicitly (false: this is a direct,
-          // user-initiated POST /api/connectors call, never the synthesis helper's own path).
-          val configJson = withServerOwnedImplicit(configJObj, implicitFlag = false)
-          connectorRepo
-            .create(
-              ownerId             = user.id,
-              name                = name,
-              kind                = validKind,
-              baseUrl             = baseUrl,
-              config              = configJson,
-              credentialPlaintext = cred,
-              credentialName      = s"$name (Connector credential)"
-            )
-            .map(Right(_))
+        case Right(()) =>
+          DataSourceKind.parseKind(kind) match {
+            case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+            case Right(validKind) =>
+              // HEL-822 design.md Decision 1a revised (CR5): `implicit` is server-owned -- strip
+              // any client-supplied value and set it explicitly (false: this is a direct,
+              // user-initiated POST /api/connectors call, never the synthesis helper's own path).
+              val configJson = withServerOwnedImplicit(configJObj, implicitFlag = false)
+              connectorRepo
+                .create(
+                  ownerId             = user.id,
+                  name                = name,
+                  kind                = validKind,
+                  baseUrl             = baseUrl,
+                  config              = configJson,
+                  credentialPlaintext = cred,
+                  credentialName      = s"$name (Connector credential)"
+                )
+                .map(Right(_))
+          }
       }
   }
 
@@ -94,9 +113,15 @@ final class ConnectorEntityService(
         else if (baseUrl.isEmpty)
           Future.successful(Left(ServiceError.BadRequest("baseUrl must not be empty")))
         else
-          connectorRepo.update(id, name, baseUrl, config, Instant.now(), user).flatMap {
-            case Some(updated) => dependentCount(id).map(n => Right((updated, n)))
-            case None          => Future.successful(Left(ServiceError.NotFound("Connector not found")))
+          // HEL-879 design.md Decision 4: same egress validation as create --
+          // a refusal leaves the stored row unchanged.
+          ContentSourceSupport.validateUrl(baseUrl, resolveHost, isBlocked) match {
+            case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+            case Right(()) =>
+              connectorRepo.update(id, name, baseUrl, config, Instant.now(), user).flatMap {
+                case Some(updated) => dependentCount(id).map(n => Right((updated, n)))
+                case None          => Future.successful(Left(ServiceError.NotFound("Connector not found")))
+              }
           }
     }
 

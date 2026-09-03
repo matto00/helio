@@ -4,17 +4,19 @@ import com.helio.domain.engine.SchemaInferenceEngine
 import com.helio.domain.model.{ApiKeyPlacement, Connector, ConnectorId, EphemeralRestConfig, InferredSchema, RestApiConfig}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
+import com.helio.services.sources.ContentSourceSupport
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken, RawHeader}
-import org.apache.pekko.http.scaladsl.settings.{ClientConnectionSettings, ConnectionPoolSettings}
+import org.apache.pekko.http.scaladsl.settings.ConnectionPoolSettings
 import org.apache.pekko.stream.Materializer
 import org.slf4j.LoggerFactory
 import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import scala.util.Try
 
@@ -44,7 +46,14 @@ class RestApiConnectorDriver(
     // fetchOverride-based test construction keeps compiling unchanged.
     fetchOverride: Option[RestApiConfig => Future[Either[String, JsValue]]] = None,
     connectorRepoOpt: Option[ConnectorRepository] = None,
-    credentialRepoOpt: Option[ConnectorCredentialRepository] = None
+    credentialRepoOpt: Option[ConnectorCredentialRepository] = None,
+    // HEL-879 design.md Decision 2/5: appended LAST so every existing
+    // positional construction (~20 fetchOverride-based test fixtures) keeps
+    // compiling unchanged. Real defaults are wired at the sole production
+    // construction site, `Main.scala`; a test builds its own driver with an
+    // `isBlocked` keyed on a known-safe hostname (never widening a class).
+    resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+    isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
 )(implicit system: ActorSystem[_])
     extends ConnectorDriver[RestApiConfig] {
 
@@ -54,15 +63,6 @@ class RestApiConnectorDriver(
 
   private implicit val ec: ExecutionContext = system.executionContext
   private implicit val mat: Materializer    = Materializer(system)
-
-  private val poolSettings: ConnectionPoolSettings =
-    ConnectionPoolSettings(system.classicSystem)
-      .withConnectionSettings(
-        ClientConnectionSettings(system.classicSystem)
-          .withConnectingTimeout(10.seconds)
-          .withIdleTimeout(30.seconds)
-      )
-
 
   /** Resolves `config.connectorId` per `resolveContext` (design.md Decision 11): `Owned`
    *  scopes to the caller (`findByIdOwned`), `Internal` bypasses ownership
@@ -276,46 +276,76 @@ class RestApiConnectorDriver(
       case Right(request) => issueAndParse(request)
     }
 
+  /** HEL-879 design.md Decision 2: the SSRF guard sits HERE — the request-
+   *  ISSUING choke point both `doFetch` (resolved-Connector path) and
+   *  `fetchEphemeral` (bare-URL path) funnel through — keyed on
+   *  `request.uri.toString`, the final, post-templating, post-`joinUrl` URI.
+   *  A request not issued through `issueAndParse`/`issueTest` is not issued
+   *  at all, so any future REST entry point is covered automatically. Runs
+   *  BEFORE any connection is opened; on success, pins the actual TCP
+   *  connection to the validated `InetAddress` (design.md Decision 1/HEL-215
+   *  cycle-3 DNS-rebinding fix) instead of using the shared, unpinned
+   *  `poolSettings`. */
+  private def guardedPoolSettings(request: HttpRequest): Either[String, ConnectionPoolSettings] =
+    ContentSourceSupport.validateAndResolve(request.uri.toString, resolveHost, isBlocked).map { pinnedAddress =>
+      ContentSourceSupport.pinnedPoolSettings(pinnedAddress)
+    }
+
   private def issueAndParse(request: HttpRequest): Future[Either[String, JsValue]] =
-    Http(system.classicSystem)
-      .singleRequest(request, settings = poolSettings)
-      .flatMap { response =>
-        response.entity.toStrict(30.seconds).map { entity =>
-          val body = entity.data.utf8String
-          if (response.status.isSuccess()) {
-            Try(body.parseJson).toEither.left.map { e =>
-              // HEL-311: keep the curated category prefix, drop the raw
-              // parser-exception tail; log the cause.
-              log.error("Failed to parse JSON response from REST source", e)
-              "Failed to parse JSON response"
+    guardedPoolSettings(request) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(settings) =>
+        Http(system.classicSystem)
+          .singleRequest(request, settings = settings)
+          .flatMap { response =>
+            response.entity.toStrict(30.seconds).map { entity =>
+              val body = entity.data.utf8String
+              // HEL-879 design.md Decision 3: explicit 2xx-range check, matching
+              // ContentSourceSupport.fetchUrl's idiom -- `StatusCode.isSuccess()`
+              // is `true` for 3xx too (`Redirection` extends the same
+              // `HttpSuccess` marker as `Success`), which would otherwise parse
+              // a redirect stub's body as though it were the real response.
+              val code = response.status.intValue()
+              if (code >= 200 && code < 300) {
+                Try(body.parseJson).toEither.left.map { e =>
+                  // HEL-311: keep the curated category prefix, drop the raw
+                  // parser-exception tail; log the cause.
+                  log.error("Failed to parse JSON response from REST source", e)
+                  "Failed to parse JSON response"
+                }
+              } else {
+                Left(s"HTTP $code: $body")
+              }
             }
-          } else {
-            Left(s"HTTP ${response.status.intValue()}: $body")
           }
-        }
-      }
-      .recover { case e =>
-        // HEL-311: keep the "Request failed" category prefix, drop the raw
-        // exception tail; log the cause.
-        log.error("REST source request failed", e)
-        Left("Request failed")
-      }
+          .recover { case e =>
+            // HEL-311: keep the "Request failed" category prefix, drop the raw
+            // exception tail; log the cause.
+            log.error("REST source request failed", e)
+            Left("Request failed")
+          }
+    }
 
   private def issueTest(request: HttpRequest): Future[Either[String, Unit]] =
-    Http(system.classicSystem)
-      .singleRequest(request, settings = poolSettings)
-      .flatMap { response =>
-        response.entity.toStrict(30.seconds).map { entity =>
-          if (response.status.isSuccess())
-            Right(())
-          else
-            Left(s"HTTP ${response.status.intValue()}: ${entity.data.utf8String}")
-        }
-      }
-      .recover { case e =>
-        log.error("REST source request failed", e)
-        Left("Request failed")
-      }
+    guardedPoolSettings(request) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(settings) =>
+        Http(system.classicSystem)
+          .singleRequest(request, settings = settings)
+          .flatMap { response =>
+            response.entity.toStrict(30.seconds).map { entity =>
+              val code = response.status.intValue()
+              if (code >= 200 && code < 300)
+                Right(())
+              else
+                Left(s"HTTP $code: ${entity.data.utf8String}")
+            }
+          }
+          .recover { case e =>
+            log.error("REST source request failed", e)
+            Left("Request failed")
+          }
+    }
 
 
   /** Issues the same request/auth/header pipeline as `fetch`, but only inspects the response

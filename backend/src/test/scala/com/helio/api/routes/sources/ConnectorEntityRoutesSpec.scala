@@ -130,7 +130,7 @@ class ConnectorEntityRoutesSpec
       val body = JsObject(
         "name"    -> JsString("No cred"),
         "kind"    -> JsString(DataSourceKind.RestApi),
-        "baseUrl" -> JsString("https://api.example.com"),
+        "baseUrl" -> JsString("https://example.com"),
         "config"  -> JsObject.empty,
         "credential" -> JsString("")
       )
@@ -145,7 +145,7 @@ class ConnectorEntityRoutesSpec
       val body = JsObject(
         "name"       -> JsString("No-auth"),
         "kind"       -> JsString(DataSourceKind.RestApi),
-        "baseUrl"    -> JsString("https://api.example.com"),
+        "baseUrl"    -> JsString("https://example.com"),
         "config"     -> JsObject("authType" -> JsString("none")),
         "credential" -> JsString("")
       )
@@ -158,7 +158,7 @@ class ConnectorEntityRoutesSpec
       val body = JsObject(
         "name"       -> JsString("Bearer no cred"),
         "kind"       -> JsString(DataSourceKind.RestApi),
-        "baseUrl"    -> JsString("https://api.example.com"),
+        "baseUrl"    -> JsString("https://example.com"),
         "config"     -> JsObject("authType" -> JsString("bearer")),
         "credential" -> JsString("")
       )
@@ -174,7 +174,7 @@ class ConnectorEntityRoutesSpec
       val body = JsObject(
         "name"       -> JsString("Implicit spoof attempt"),
         "kind"       -> JsString(DataSourceKind.RestApi),
-        "baseUrl"    -> JsString("https://api.example.com"),
+        "baseUrl"    -> JsString("https://example.com"),
         "config"     -> JsObject("authType" -> JsString("none"), "implicit" -> JsBoolean(true)),
         "credential" -> JsString("")
       )

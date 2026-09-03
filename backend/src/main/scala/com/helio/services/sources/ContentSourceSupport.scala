@@ -110,19 +110,23 @@ object ContentSourceSupport {
       resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
       isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr)
   ): Either[String, Unit] =
-    resolveValidated(url, resolveHost, isBlocked).map(_ => ())
+    validateAndResolve(url, resolveHost, isBlocked).map(_ => ())
 
-  /** Shared validation core for [[validateUrl]] and [[fetchUrl]]. Resolves
-   *  the host *once* and returns the validated [[InetAddress]] alongside the
-   *  `Either` result, so `fetchUrl` can pin the actual TCP connection to
-   *  exactly the address that was checked against the denylist — see
-   *  `fetchUrl`'s doc comment for why returning `Unit` (as the pre-cycle-3
-   *  `validateUrl` did, forcing callers to re-resolve for the connection) was
-   *  the root cause of the DNS-rebinding TOCTOU gap. */
-  private def resolveValidated(
+  /** Shared validation core for [[validateUrl]] and [[fetchUrl]] — and, as of
+   *  HEL-879, `RestApiConnectorDriver`'s `issueAndParse`/`issueTest` and
+   *  `ConnectorEntityService.create`/`update` (design.md Decision 1: widen
+   *  the seam by publishing this core, rather than making REST call
+   *  [[fetchUrl]], which cannot build a REST request's method/headers/body/
+   *  auth). Resolves the host *once* and returns the validated
+   *  [[InetAddress]] alongside the `Either` result, so a caller can pin the
+   *  actual TCP connection to exactly the address that was checked against
+   *  the denylist — see `fetchUrl`'s doc comment for why returning `Unit`
+   *  (as the pre-cycle-3 `validateUrl` did, forcing callers to re-resolve for
+   *  the connection) was the root cause of the DNS-rebinding TOCTOU gap. */
+  def validateAndResolve(
       url: String,
-      resolveHost: String => Try[Array[InetAddress]],
-      isBlocked: (String, InetAddress) => Boolean
+      resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr)
   ): Either[String, InetAddress] =
     Try(new URI(url)).toOption match {
       case None => Left(s"Invalid URL: $url")
@@ -176,10 +180,26 @@ object ContentSourceSupport {
    *  independently from the request's `Uri`/`ConnectionContext` and are
    *  untouched by this transport, so they still carry the original
    *  hostname. */
-  private def pinnedTransport(pinnedAddress: InetAddress): ClientTransport =
+  def pinnedTransport(pinnedAddress: InetAddress): ClientTransport =
     ClientTransport.withCustomResolver { (_, port) =>
       Future.successful(new InetSocketAddress(pinnedAddress, port))
     }
+
+  /** Task 1.2: pinned-connection accessor for a caller (e.g.
+   *  `RestApiConnectorDriver`) that builds its own request/method/headers/
+   *  body/auth and cannot reuse [[fetchUrl]] wholesale — takes the validated
+   *  [[InetAddress]] from [[validateAndResolve]] and returns
+   *  `ConnectionPoolSettings` carrying [[pinnedTransport]], with the same
+   *  connect/idle timeouts [[fetchUrl]] uses, so the caller's own
+   *  `singleRequest` call connects to exactly the validated address. */
+  def pinnedPoolSettings(pinnedAddress: InetAddress)(implicit system: ActorSystem[_]): ConnectionPoolSettings =
+    ConnectionPoolSettings(system.classicSystem)
+      .withConnectionSettings(
+        ClientConnectionSettings(system.classicSystem)
+          .withConnectingTimeout(10.seconds)
+          .withIdleTimeout(30.seconds)
+      )
+      .withTransport(pinnedTransport(pinnedAddress))
 
   /** Raw-bytes HTTP GET for URL-based content ingestion. Mirrors
    *  `RestApiConnectorDriver.doFetch`'s pooled-connection settings pattern, but
@@ -208,17 +228,10 @@ object ContentSourceSupport {
     implicit val ec: ExecutionContext = system.executionContext
     implicit val mat: Materializer    = Materializer(system)
 
-    resolveValidated(url, resolveHost, isBlocked) match {
+    validateAndResolve(url, resolveHost, isBlocked) match {
       case Left(err) => Future.successful(Left(err))
       case Right(pinnedAddress) =>
-        val poolSettings: ConnectionPoolSettings =
-          ConnectionPoolSettings(system.classicSystem)
-            .withConnectionSettings(
-              ClientConnectionSettings(system.classicSystem)
-                .withConnectingTimeout(10.seconds)
-                .withIdleTimeout(30.seconds)
-            )
-            .withTransport(pinnedTransport(pinnedAddress))
+        val poolSettings: ConnectionPoolSettings = pinnedPoolSettings(pinnedAddress)
 
         Http(system.classicSystem)
           .singleRequest(HttpRequest(uri = url), settings = poolSettings)

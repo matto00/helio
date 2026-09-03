@@ -1,5 +1,7 @@
 package com.helio.domain.connectors
 
+import com.helio.services.sources.ContentSourceSupport
+import java.net.InetAddress
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
@@ -52,6 +54,14 @@ class RestApiConnectorDriverConnectorResolutionSpec extends AnyWordSpec with Mat
   private var testServerPort: Int                   = _
   private def urlFor: String = s"http://localhost:$testServerPort"
 
+  // HEL-879: this spec's local test server binds to "localhost", which real DNS resolves to a
+  // loopback address the SSRF guard added here would otherwise reject by default. Admit ONLY
+  // this hostname (keyed on the hostname string, per design.md Decision 5 -- never widen the
+  // loopback address CLASS) so the guard runs for real (`resolveHost` is still real DNS) without
+  // breaking this fixture.
+  private val admitLocalhost: (String, InetAddress) => Boolean =
+    (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
+
   private def randomKeyB64(): String = {
     val bytes = new Array[Byte](32)
     new SecureRandom().nextBytes(bytes)
@@ -71,7 +81,7 @@ class RestApiConnectorDriverConnectorResolutionSpec extends AnyWordSpec with Mat
       Map("CONNECTOR_MASTER_KEY" -> randomKeyB64(), "CONNECTOR_MASTER_KEY_ID" -> "resolution-spec-key")
     )))
     connectorRepo = new ConnectorRepository(ctx, credRepo)
-    driver        = new RestApiConnectorDriver(connectorRepoOpt = Some(connectorRepo), credentialRepoOpt = Some(credRepo))
+    driver        = new RestApiConnectorDriver(connectorRepoOpt = Some(connectorRepo), credentialRepoOpt = Some(credRepo), isBlocked = admitLocalhost)
 
     // Echoes every received header back as a JSON object — the assertion surface for the
     // header-precedence scenarios; also used to prove real bearer-token application.

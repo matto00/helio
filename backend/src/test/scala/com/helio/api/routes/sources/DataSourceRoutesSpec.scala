@@ -166,8 +166,17 @@ class DataSourceRoutesSpec
     await(db.run(sqlu"TRUNCATE TABLE data_sources RESTART IDENTITY CASCADE"))
   }
 
+  // HEL-879: `testConnectionEphemeral` deliberately does NOT consult `fetchOverride` (design.md
+  // Decision 2's asymmetry note), so the "POST /api/sources/test" REST cases below hit the
+  // real guarded issuer against this spec's local "localhost" test server. Admit ONLY that
+  // hostname via the hostname-keyed `isBlocked` seam (design.md Decision 5) -- never widen the
+  // loopback address class -- so those pre-existing (non-egress) test-connection specs keep
+  // passing without weakening the guard.
+  private val admitLocalhost: (String, InetAddress) => Boolean =
+    (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
+
   private val stubConnector: RestApiConnectorDriver =
-    new RestApiConnectorDriver(Some(_ => Future.successful(Left("no real HTTP in tests"))))
+    new RestApiConnectorDriver(Some(_ => Future.successful(Left("no real HTTP in tests"))), isBlocked = admitLocalhost)
 
   private def successConnector(json: JsValue): RestApiConnectorDriver =
     new RestApiConnectorDriver(Some(_ => Future.successful(Right(json))))
