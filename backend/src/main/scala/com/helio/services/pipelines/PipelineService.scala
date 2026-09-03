@@ -9,7 +9,7 @@ import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapa
 import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}
 import com.helio.domain.panels.OutputBindingSpec
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, OutputKind, Pipeline, PipelineId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift}
-import com.helio.domain.engine.{ExpressionEvaluator, PipelineAnalyzeService, SchemaField}
+import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, PipelineAnalyzeService, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
@@ -821,7 +821,12 @@ final class PipelineService(
         // Safe: access confirmed by findByIdShared above. Use internal variant
         // so editor/viewer grantees are not blocked by the V35 pipeline_steps
         // RLS owner-JOIN policy.
-        pipelineStepRepo.listByPipelineInternal(pipelineId).map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
+        pipelineStepRepo.listByPipelineInternal(pipelineId)
+          .map(steps => Right(steps.map(PipelineStepResponse.fromDomain)))
+          // HEL-930: listByPipelineInternal can now fail with InvalidGraph (executionOrder
+          // rejecting a malformed step graph) -- classifyDbError maps that to a 422 instead of
+          // letting it fall through to the top-level handler's generic 500.
+          .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
     }
 
   /** Step creation — requires Editor or Owner. Viewer grantees get 403. */
@@ -1333,6 +1338,14 @@ object PipelineService {
    *  server-side; only a generic, curated message per category is returned.
    */
   private[services] def classifyDbError(ex: Throwable): ServiceError = ex match {
+    // HEL-930: PipelineStepRepository.executionOrder raises this when a pipeline's step graph
+    // has more than one position-0 child at some node -- an invariant violation, not a DB/infra
+    // fault, so it's classified as UnprocessableEntity (422), the same status the run/preview
+    // paths already use for a rejected pipeline (PipelineRunService's StepExecutionException
+    // handling), rather than falling through to the generic InternalError (500) below.
+    case invalid: InvalidGraph =>
+      log.warn(s"Pipeline step graph is invalid: ${invalid.message}")
+      ServiceError.UnprocessableEntity(invalid.message)
     case e: PSQLException =>
       val msg = Option(e.getMessage).getOrElse(e.getClass.getName)
       log.error("Pipeline step DB operation failed", e)

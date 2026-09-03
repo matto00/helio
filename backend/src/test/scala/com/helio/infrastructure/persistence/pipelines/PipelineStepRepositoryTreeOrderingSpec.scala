@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.domain._
 import com.helio.domain.model._
+import com.helio.domain.engine.InvalidGraph
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -100,6 +101,40 @@ class PipelineStepRepositoryTreeOrderingSpec extends AnyWordSpec with Matchers {
         Vector("tail1", "tail1-child"),
         Vector("tail2")
       )
+    }
+  }
+
+  // HEL-930: two children of the same parent both at position == 0 is an InvalidGraph
+  // violation (per HEL-905's design.md Decision 8, arm 1) that no live write path can
+  // currently produce -- but `executionOrder` must reject it loudly rather than pick one
+  // via `.find` and silently drop the other's entire subtree.
+  "executionOrder" should {
+
+    "raise InvalidGraph, not silently drop one, when a node has two position-0 children" in {
+      val a  = step("a", 0, None)
+      val b1 = step("b1", 0, Some("a"))
+      val b2 = step("b2", 0, Some("a")) // malformed sibling: same parent, same position
+
+      // Confirm the actual wrong behavior this ticket reports, not merely that an
+      // exception type is missing: the pre-fix `.find(_.position == 0)` returns
+      // ONE of {b1, b2} and walks only that branch -- the other step vanishes from
+      // the returned Vector with no error signal at all.
+      val thrown = intercept[InvalidGraph] {
+        repo.executionOrder(Vector(a, b1, b2))
+      }
+      thrown.message should include("a")
+      thrown.message should include("2 children at position 0")
+    }
+
+    "raise InvalidGraph when the virtual root has two position-0 children" in {
+      val a1 = step("a1", 0, None)
+      val a2 = step("a2", 0, None) // malformed: two root-level trunk starts
+
+      val thrown = intercept[InvalidGraph] {
+        repo.executionOrder(Vector(a1, a2))
+      }
+      thrown.message should include("root")
+      thrown.message should include("2 children at position 0")
     }
   }
 }
