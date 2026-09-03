@@ -207,13 +207,15 @@ final class PipelineService(
         case Right(()) =>
           PipelineStepConfigCodec.decode(step.`type`, step.config.compactPrint) match {
             case Failure(_) => Future.successful(Right(())) // buildStepsAction will reject this; not this check's job.
-            case Success(jc: JoinConfig) =>
-              checkOwnedSource(jc.rightDataSourceId, user)
-            case Success(uc: UnionConfig) =>
-              checkOwnedSource(uc.otherDataSourceId, user)
-            case Success(lc: LookupConfig) if lc.referenceDataSourceId.nonEmpty =>
-              checkOwnedSource(lc.referenceDataSourceId, user)
-            case Success(_) => Future.successful(Right(()))
+            case Success(typedConfig) =>
+              // HEL-950: was three hand-copied per-op arms (join unconditional -- the same
+              // unguarded-empty-id bug this change closes elsewhere -- union/lookup already
+              // `.nonEmpty`-guarded); now driven by the one shared extractor so this call site
+              // cannot drift from PipelineService.addStep/updateStep the way it already had.
+              PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
+                case Some(id) => checkOwnedSource(id, user)
+                case None     => Future.successful(Right(()))
+              }
           }
       }
     }
@@ -853,55 +855,22 @@ final class PipelineService(
             s"Invalid '${req.`type`}' config"
           )))
         case Success(typedConfig) =>
-          // Pre-flight ACL: JoinStep right-source must be caller-owned (HEL-278).
-          val joinCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
-            case jc: JoinConfig =>
-              dataSourceRepo.findByIdOwned(DataSourceId(jc.rightDataSourceId), user).map {
-                case None    => Left(ServiceError.NotFound(s"Data source not found: ${jc.rightDataSourceId}"))
-                case Some(_) => Right(())
-              }
-            case _ => Future.successful(Right(()))
-          }
-          // Pre-flight ACL: UnionStep other-source must be caller-owned (HEL-384,
-          // design.md Decision 9 — symmetric with joinCheckF above).
-          // Empty otherDataSourceId (the picker's own defaultConfigFor("union") seed
-          // value) is an incomplete draft, not a security violation — nothing to leak
-          // against an unset id. Only run the ownership check once a real id is
-          // present; the empty case falls through to the same allow-path as "no
-          // UnionConfig at all" (HEL-620, mirrors lookupCheckF's identical guard below).
-          val unionCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
-            case uc: UnionConfig if uc.otherDataSourceId.nonEmpty =>
-              dataSourceRepo.findByIdOwned(DataSourceId(uc.otherDataSourceId), user).map {
-                case None    => Left(ServiceError.NotFound(s"Data source not found: ${uc.otherDataSourceId}"))
-                case Some(_) => Right(())
-              }
-            case _ => Future.successful(Right(()))
-          }
-          // Pre-flight ACL: LookupStep reference-source must be caller-owned
-          // (HEL-386, design.md Decision 9 — symmetric with joinCheckF/unionCheckF above).
-          // Empty referenceDataSourceId (the picker's own defaultConfigFor("lookup")
-          // seed value) is an incomplete draft, not a security violation — nothing
-          // to leak against an unset id. Only run the ownership check once a real
-          // id is present; the empty case falls through to the same allow-path as
-          // "no LookupConfig at all" (design.md Decision 1's "empty is a no-op, not
-          // an error" philosophy, extended to referenceDataSourceId; Decision 6
-          // already scopes the "missing/invalid reference id" failure to execute
-          // time via LookupStep.evaluate's None case).
-          val lookupCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
-            case lc: LookupConfig if lc.referenceDataSourceId.nonEmpty =>
-              dataSourceRepo.findByIdOwned(DataSourceId(lc.referenceDataSourceId), user).map {
-                case None    => Left(ServiceError.NotFound(s"Data source not found: ${lc.referenceDataSourceId}"))
-                case Some(_) => Right(())
-              }
-            case _ => Future.successful(Right(()))
-          }
+          // Pre-flight ACL: the second, separately-owned DataSource a join/union/lookup
+          // config references must be caller-owned (HEL-278/HEL-384/HEL-386). An EMPTY
+          // second-source id (the picker's own defaultConfigFor seed value) is an
+          // incomplete draft, not a security violation — nothing to leak against an
+          // unset id, so `secondaryDataSourceId` returns `None` for it and the check is
+          // skipped, same as for a config kind with no second source at all (HEL-620,
+          // HEL-950: one shared extractor for all three ops, replacing three
+          // hand-copied per-op blocks that had drifted out of sync).
           val aclCheckF: Future[Either[ServiceError, Unit]] =
-            joinCheckF.flatMap {
-              case Left(err) => Future.successful(Left(err))
-              case Right(_)  => unionCheckF
-            }.flatMap {
-              case Left(err) => Future.successful(Left(err))
-              case Right(_)  => lookupCheckF
+            PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
+              case Some(id) =>
+                dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
+                  case None    => Left(ServiceError.NotFound(s"Data source not found: $id"))
+                  case Some(_) => Right(())
+                }
+              case None => Future.successful(Right(()))
             }
           aclCheckF.flatMap {
             case Left(err) => Future.successful(Left(err))
@@ -1093,46 +1062,21 @@ final class PipelineService(
                               s"Invalid '${existing.kind}' config"
                             )))
                           case Success(typedConfig) =>
-                            val joinCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
-                              case jc: JoinConfig =>
-                                dataSourceRepo.findByIdOwned(DataSourceId(jc.rightDataSourceId), user).map {
-                                  case None    => Left(ServiceError.NotFound(s"Data source not found: ${jc.rightDataSourceId}"))
-                                  case Some(_) => Right(())
-                                }
-                              case _ => Future.successful(Right(()))
-                            }
-                            // Pre-flight ACL: UnionStep other-source must be caller-owned
-                            // (HEL-384, design.md Decision 9 — symmetric with joinCheckF above).
-                            // Empty otherDataSourceId is an incomplete draft, not a security
-                            // violation — see the identical guard + rationale in addStep above
-                            // (HEL-620).
-                            val unionCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
-                              case uc: UnionConfig if uc.otherDataSourceId.nonEmpty =>
-                                dataSourceRepo.findByIdOwned(DataSourceId(uc.otherDataSourceId), user).map {
-                                  case None    => Left(ServiceError.NotFound(s"Data source not found: ${uc.otherDataSourceId}"))
-                                  case Some(_) => Right(())
-                                }
-                              case _ => Future.successful(Right(()))
-                            }
-                            // Pre-flight ACL: LookupStep reference-source must be caller-owned
-                            // (HEL-386, design.md Decision 9 — symmetric with joinCheckF/unionCheckF above).
-                            // Empty referenceDataSourceId is an incomplete draft, not a security
-                            // violation — see the identical guard + rationale in addStep above.
-                            val lookupCheckF: Future[Either[ServiceError, Unit]] = typedConfig match {
-                              case lc: LookupConfig if lc.referenceDataSourceId.nonEmpty =>
-                                dataSourceRepo.findByIdOwned(DataSourceId(lc.referenceDataSourceId), user).map {
-                                  case None    => Left(ServiceError.NotFound(s"Data source not found: ${lc.referenceDataSourceId}"))
-                                  case Some(_) => Right(())
-                                }
-                              case _ => Future.successful(Right(()))
-                            }
+                            // Pre-flight ACL: the second, separately-owned DataSource a
+                            // join/union/lookup config references must be caller-owned
+                            // (HEL-278/HEL-384/HEL-386). An EMPTY second-source id is an
+                            // incomplete draft, not a security violation — see the
+                            // identical guard + rationale in addStep above (HEL-620,
+                            // HEL-950: one shared extractor replacing three hand-copied
+                            // per-op blocks).
                             val aclCheckF: Future[Either[ServiceError, Unit]] =
-                              joinCheckF.flatMap {
-                                case Left(err) => Future.successful(Left(err))
-                                case Right(_)  => unionCheckF
-                              }.flatMap {
-                                case Left(err) => Future.successful(Left(err))
-                                case Right(_)  => lookupCheckF
+                              PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
+                                case Some(id) =>
+                                  dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
+                                    case None    => Left(ServiceError.NotFound(s"Data source not found: $id"))
+                                    case Some(_) => Right(())
+                                  }
+                                case None => Future.successful(Right(()))
                               }
                             aclCheckF.flatMap {
                               case Left(err) => Future.successful(Left(err))

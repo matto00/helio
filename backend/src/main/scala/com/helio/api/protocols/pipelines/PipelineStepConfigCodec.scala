@@ -84,6 +84,27 @@ object PipelineStepConfigCodec {
   def encodeJsObject(kind: String, configJson: JsObject): Try[String] =
     decode(kind, configJson.compactPrint).map(_ => configJson.compactPrint)
 
+  /** The second, separately-owned DataSource a decoded step config references, if it
+   *  references one at all. Returns `None` for a config kind with no second source AND
+   *  for a config whose second-source id is empty -- the pipeline op picker's own seed
+   *  value (`defaultConfigFor`), an incomplete draft rather than a reference to an
+   *  inaccessible resource. HEL-386/HEL-620/HEL-950.
+   *
+   *  Takes `Any` because `decode` above returns `Try[Any]`: the 23 `*Config` case classes
+   *  share no sealed parent (`PipelineStepConfig` is a frontend TypeScript type, not a
+   *  Scala one). `PipelineStep.Registry`-driven structural guard tests (see
+   *  `PipelineStepSecondSourceGuardSpec`) substitute for the compile-time exhaustiveness
+   *  this therefore cannot have -- a future op adding a second-source id and forgetting to
+   *  extend this match is caught at test time, not by the compiler.
+   *
+   *  `.nonEmpty` on the raw string, deliberately never `.trim.nonEmpty`: the picker's seed
+   *  is exactly `""`, and a whitespace-only id is not a state the picker can produce. */
+  def secondaryDataSourceId(config: Any): Option[String] = config match {
+    case jc: JoinConfig if jc.rightDataSourceId.nonEmpty       => Some(jc.rightDataSourceId)
+    case uc: UnionConfig if uc.otherDataSourceId.nonEmpty      => Some(uc.otherDataSourceId)
+    case lc: LookupConfig if lc.referenceDataSourceId.nonEmpty => Some(lc.referenceDataSourceId)
+    case _                                                     => None
+  }
 
   /** Pull the typed config out of a `PipelineStep` subtype.
    *

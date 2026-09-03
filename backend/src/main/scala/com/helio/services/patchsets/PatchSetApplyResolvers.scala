@@ -8,7 +8,6 @@ import com.helio.api.protocols.pipelines.{CreatePipelineRequest, OutputResponse,
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest}
 import com.helio.api.protocols.patchsets.Edit
 import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, Output, OutputId, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
-import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
 import spray.json.{JsObject, JsonReader}
@@ -190,22 +189,19 @@ private[services] object PatchSetApplyResolvers {
         PipelineStepConfigCodec.decode(existing.kind, cfgJson.compactPrint) match {
           case Failure(_) =>
             Future.successful(Left(ServiceError.BadRequest(s"edit $index: invalid '${existing.kind}' config")))
-          case Success(jc: JoinConfig) =>
-            ctx.dataSourceRepo.findByIdOwned(DataSourceId(jc.rightDataSourceId), user).map {
-              case None    => Left(ServiceError.NotFound(s"edit $index: data source not found: ${jc.rightDataSourceId}"))
-              case Some(_) => Right(())
+          case Success(typedConfig) =>
+            // HEL-950: was three hand-copied arms (join and union both unconditional --
+            // HEL-620's union fix never reached this file -- lookup already `.nonEmpty`-
+            // guarded); now driven by the same shared extractor PipelineService.addStep/
+            // updateStep use, so this surface cannot independently drift again.
+            PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
+              case Some(id) =>
+                ctx.dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
+                  case None    => Left(ServiceError.NotFound(s"edit $index: data source not found: $id"))
+                  case Some(_) => Right(())
+                }
+              case None => Future.successful(Right(()))
             }
-          case Success(uc: UnionConfig) =>
-            ctx.dataSourceRepo.findByIdOwned(DataSourceId(uc.otherDataSourceId), user).map {
-              case None    => Left(ServiceError.NotFound(s"edit $index: data source not found: ${uc.otherDataSourceId}"))
-              case Some(_) => Right(())
-            }
-          case Success(lc: LookupConfig) if lc.referenceDataSourceId.nonEmpty =>
-            ctx.dataSourceRepo.findByIdOwned(DataSourceId(lc.referenceDataSourceId), user).map {
-              case None    => Left(ServiceError.NotFound(s"edit $index: data source not found: ${lc.referenceDataSourceId}"))
-              case Some(_) => Right(())
-            }
-          case Success(_) => Future.successful(Right(()))
         }
         }
     }

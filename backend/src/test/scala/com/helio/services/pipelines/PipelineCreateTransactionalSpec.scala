@@ -330,5 +330,31 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val result = await(service.create(req, owner))
       result shouldBe a[Right[_, _]]
     }
+
+    // HEL-950 (evaluation-1.md CR1): validateStepCrossOwnerRefs -- the cross-owner pre-check
+    // this transactional single-call path runs BEFORE buildStepsAction -- had an unconditional
+    // join arm identical to the addStep/updateStep/patch-set defect this ticket closes
+    // elsewhere. Reverting ITS guard alone left the whole suite green, because nothing here
+    // asserted the empty-id case; this is that missing assertion. The empty value is the
+    // frontend's defaultConfigFor("join") seed shape, reaching this path from agent/MCP and
+    // patch-set callers -- NOT from the op picker, which excludes join entirely (HEL-958).
+    // Mirrors the empty-default coverage already added to
+    // PipelineStepRoutesSpec/PatchSetApplyServiceSpec.
+    "accept a join step whose rightDataSourceId is empty without a spurious cross-owner rejection" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name               = "Empty join right-source succeeds",
+        sourceDataSourceId = sourceId.value,
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest(
+            "s1", "join",
+            JsObject("rightDataSourceId" -> JsString(""), "joinKey" -> JsString(""), "joinType" -> JsString("inner"))
+          )
+        )
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Right[_, _]]
+    }
   }
 }

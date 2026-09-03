@@ -372,4 +372,45 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
       PipelineStepConfigCodec.encodeJsObject("rename", ok).get shouldBe ok.compactPrint
     }
   }
+
+  // HEL-950 task 2.2: direct unit coverage of the shared extractor, independent of any
+  // call-site ACL logic -- None for a config kind with no second source, None for each of
+  // the three second-source kinds when the id is empty (the picker's own defaultConfigFor
+  // seed), Some(id) for each of the three when a real id is present.
+  "secondaryDataSourceId" should {
+    "return None for a config kind with no second source (rename)" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(RenameConfig(Map("a" -> "b"))) shouldBe None
+    }
+
+    "return None for JoinConfig with an empty rightDataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(JoinConfig("", "id", "inner")) shouldBe None
+    }
+
+    "return Some(id) for JoinConfig with a non-empty rightDataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(JoinConfig("ds-1", "id", "inner")) shouldBe Some("ds-1")
+    }
+
+    "return None for UnionConfig with an empty otherDataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(UnionConfig("", "byPosition")) shouldBe None
+    }
+
+    "return Some(id) for UnionConfig with a non-empty otherDataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(UnionConfig("ds-2", "byPosition")) shouldBe Some("ds-2")
+    }
+
+    "return None for LookupConfig with an empty referenceDataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(LookupConfig("", "code", "code", Vector("label"))) shouldBe None
+    }
+
+    "return Some(id) for LookupConfig with a non-empty referenceDataSourceId" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(LookupConfig("ds-3", "code", "code", Vector("label"))) shouldBe Some("ds-3")
+    }
+
+    // Decision 4: `.nonEmpty` on the raw string, never `.trim.nonEmpty` -- a whitespace-only
+    // id is not a state the picker can produce, and treating it as absent would be looser
+    // than the union/lookup guards this change makes uniform.
+    "treat a whitespace-only id as present (NOT trimmed), matching Decision 4" in {
+      PipelineStepConfigCodec.secondaryDataSourceId(JoinConfig(" ", "id", "inner")) shouldBe Some(" ")
+    }
+  }
 }

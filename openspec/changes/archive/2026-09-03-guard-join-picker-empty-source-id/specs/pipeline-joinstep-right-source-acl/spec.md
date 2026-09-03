@@ -1,9 +1,4 @@
-# pipeline-joinstep-right-source-acl Specification
-
-## Purpose
-TBD - created by archiving change restrict-joinstep-right-source. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: JoinStep right-source must be caller-owned on creation
 When `POST /api/pipelines/:id/steps` is called with `type: "join"`, the backend SHALL verify that
@@ -70,20 +65,3 @@ left unset.
   `config.rightDataSourceId` set to `""`
 - **THEN** the response is `200 OK` with the updated step config
 - **THEN** no ownership lookup is performed against the empty id
-
-### Requirement: Existing join steps evaluate regardless of right-source accessibility
-The runtime pipeline evaluation engine SHALL continue to use the privileged (unscoped) data source
-lookup when resolving the right-side source during `JoinStep.evaluate` and Spark batch execution.
-This ensures that steps that were valid at authoring time continue to function; if the right source
-has been deleted, the engine raises a clear "DataSource not found" error rather than silently
-returning empty results.
-
-#### Scenario: Pipeline with a valid join step evaluates successfully
-- **WHEN** a pipeline owner runs a pipeline that includes a join step whose right-source they own
-- **THEN** the engine resolves the right source and returns joined rows
-
-#### Scenario: Pipeline with a deleted right-source fails with a clear error
-- **WHEN** the right-source of a join step is deleted after the step was created, and the pipeline
-  owner triggers a run
-- **THEN** the run fails with an error message indicating the data source was not found
-- **THEN** no silent data loss or empty-row substitution occurs
