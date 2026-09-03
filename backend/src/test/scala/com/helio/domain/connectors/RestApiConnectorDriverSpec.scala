@@ -1,5 +1,7 @@
 package com.helio.domain.connectors
 
+import com.helio.services.sources.ContentSourceSupport
+import java.net.InetAddress
 import com.helio.domain.connectors.ConnectorFieldDescriptor
 import com.helio.domain.connectors.ConnectorMetadata
 import com.helio.domain.connectors.{ConnectorDriver, RestApiConnectorDriver}
@@ -76,7 +78,15 @@ class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRoute
   private def config(path: String): EphemeralRestConfig =
     EphemeralRestConfig(url = urlFor(path), method = "GET", headers = Map.empty)
 
-  private val connector: RestApiConnectorDriver = new RestApiConnectorDriver()
+  // HEL-879: this spec's local test server binds to "localhost", which real DNS resolves to a
+  // loopback address the SSRF guard added here would otherwise reject by default. Admit ONLY
+  // this hostname (keyed on the hostname string, per design.md Decision 5 -- never widen the
+  // loopback address CLASS) so the guard runs for real (`resolveHost` is still real DNS) without
+  // breaking this fixture.
+  private val admitLocalhost: (String, InetAddress) => Boolean =
+    (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
+
+  private val connector: RestApiConnectorDriver = new RestApiConnectorDriver(isBlocked = admitLocalhost)
 
   "RestApiConnectorDriver.metadata" should {
     // HEL-822 design.md Decision 10: requiredFields now advertises the primary (new) required

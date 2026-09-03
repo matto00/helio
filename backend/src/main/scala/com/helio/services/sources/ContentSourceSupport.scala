@@ -13,6 +13,18 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
+/** HEL-879 cycle-3: the typed outcome of [[ContentSourceSupport.checkEgress]] — see that
+ *  method's doc comment for why this exists (distinguishing "unresolvable" from "resolves to a
+ *  disallowed address" for callers with different create-time vs. fetch-time dispositions,
+ *  without message-substring matching). */
+sealed trait EgressCheck
+object EgressCheck {
+  final case class Allowed(address: InetAddress) extends EgressCheck
+  final case class Invalid(message: String) extends EgressCheck
+  final case class Unresolvable(message: String) extends EgressCheck
+  final case class Disallowed(message: String) extends EgressCheck
+}
+
 /** Reusable seam for content connectors (HEL-215 text/Markdown, first
  *  consumer; HEL-214 PDF and HEL-216 image extend the same helpers rather
  *  than reimplementing metadata-field construction or URL fetch-and-store
@@ -110,27 +122,63 @@ object ContentSourceSupport {
       resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
       isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr)
   ): Either[String, Unit] =
-    resolveValidated(url, resolveHost, isBlocked).map(_ => ())
+    validateAndResolve(url, resolveHost, isBlocked).map(_ => ())
 
-  /** Shared validation core for [[validateUrl]] and [[fetchUrl]]. Resolves
-   *  the host *once* and returns the validated [[InetAddress]] alongside the
-   *  `Either` result, so `fetchUrl` can pin the actual TCP connection to
-   *  exactly the address that was checked against the denylist — see
-   *  `fetchUrl`'s doc comment for why returning `Unit` (as the pre-cycle-3
-   *  `validateUrl` did, forcing callers to re-resolve for the connection) was
-   *  the root cause of the DNS-rebinding TOCTOU gap. */
-  private def resolveValidated(
+  /** Shared validation core for [[validateUrl]] and [[fetchUrl]] — and, as of
+   *  HEL-879, `RestApiConnectorDriver`'s `issueAndParse`/`issueTest` and
+   *  `ConnectorEntityService.create`/`update` (design.md Decision 1: widen
+   *  the seam by publishing this core, rather than making REST call
+   *  [[fetchUrl]], which cannot build a REST request's method/headers/body/
+   *  auth). Resolves the host *once* and returns the validated
+   *  [[InetAddress]] alongside the `Either` result, so a caller can pin the
+   *  actual TCP connection to exactly the address that was checked against
+   *  the denylist — see `fetchUrl`'s doc comment for why returning `Unit`
+   *  (as the pre-cycle-3 `validateUrl` did, forcing callers to re-resolve for
+   *  the connection) was the root cause of the DNS-rebinding TOCTOU gap. */
+  def validateAndResolve(
       url: String,
-      resolveHost: String => Try[Array[InetAddress]],
-      isBlocked: (String, InetAddress) => Boolean
+      resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr)
   ): Either[String, InetAddress] =
+    checkEgress(url, resolveHost, isBlocked) match {
+      case EgressCheck.Allowed(addr)      => Right(addr)
+      case EgressCheck.Invalid(msg)       => Left(msg)
+      case EgressCheck.Unresolvable(msg)  => Left(msg)
+      case EgressCheck.Disallowed(msg)    => Left(msg)
+    }
+
+  /** HEL-879 cycle-3 fix: a fetch-time caller (`fetchUrl`/`RestApiConnectorDriver`'s issuers)
+   *  and a write-time caller (`ConnectorEntityService.create`/`update`) need DIFFERENT
+   *  dispositions for the same "host does not resolve right now" outcome. Fetch-time must fail
+   *  closed on it (you cannot fetch an unresolvable host anyway, and treating it as `Allowed`
+   *  would be nonsensical — there is no address to pin to). Write-time must NOT fail on it: a
+   *  Connector naming a not-yet-provisioned internal host, or hitting a transiently flaky
+   *  resolver, must still be creatable — see `specs/connectors/connector-management/spec.md`
+   *  and ticket AC1, neither of which requires refusing a merely-unresolvable host, only one
+   *  "resolving to loopback, link-local, or private address space" (i.e. resolves to something
+   *  disallowed). `validateAndResolve`/`validateUrl` (unchanged behavior for their existing
+   *  text/pdf/image/csv/REST-fetch-time callers — always fail closed) collapse EVERY non-Allowed
+   *  case to the same curated `Left` as before this method existed. `ConnectorEntityService` is
+   *  the one caller that inspects this ADT directly, to tell "unresolvable" (acceptable at
+   *  create/update time) apart from "resolves to a disallowed address" / "bad scheme" / "bad
+   *  URL" (never acceptable, at any time) — WITHOUT resorting to message-substring matching
+   *  (the pattern `CsvUrlFetchError`'s introduction, cited in design.md Decision 8, exists
+   *  precisely to avoid: "only message-substring matching to recover the status, which nothing
+   *  authorises"). The address-class policy itself ([[isBlockedAddress]]) is neither duplicated
+   *  nor weakened here — this only reclassifies which OUTCOME of that one policy each caller
+   *  treats as fatal. */
+  def checkEgress(
+      url: String,
+      resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr)
+  ): EgressCheck =
     Try(new URI(url)).toOption match {
-      case None => Left(s"Invalid URL: $url")
+      case None => EgressCheck.Invalid(s"Invalid URL: $url")
       case Some(uri) =>
         Option(uri.getScheme).map(_.toLowerCase) match {
           case Some("http") | Some("https") =>
             Option(uri.getHost) match {
-              case None => Left(s"URL is missing a host: $url")
+              case None => EgressCheck.Invalid(s"URL is missing a host: $url")
               case Some(host) =>
                 resolveHost(host) match {
                   case Failure(e) =>
@@ -138,16 +186,16 @@ object ContentSourceSupport {
                     // and the (caller-supplied) hostname, drop the raw DNS
                     // resolver exception tail; log the cause.
                     log.warn(s"Could not resolve host '$host'", e)
-                    Left(s"Could not resolve host '$host'")
+                    EgressCheck.Unresolvable(s"Could not resolve host '$host'")
                   case Success(addresses) if addresses.isEmpty =>
-                    Left(s"Could not resolve host '$host': no addresses returned")
+                    EgressCheck.Unresolvable(s"Could not resolve host '$host': no addresses returned")
                   case Success(addresses) if addresses.exists(a => isBlocked(host, a)) =>
-                    Left(s"URL host '$host' resolves to a disallowed address")
-                  case Success(addresses) => Right(addresses.head)
+                    EgressCheck.Disallowed(s"URL host '$host' resolves to a disallowed address")
+                  case Success(addresses) => EgressCheck.Allowed(addresses.head)
                 }
             }
           case other =>
-            Left(s"Unsupported URL scheme: ${other.getOrElse("(none)")}. Only http/https are allowed.")
+            EgressCheck.Invalid(s"Unsupported URL scheme: ${other.getOrElse("(none)")}. Only http/https are allowed.")
         }
     }
 
@@ -176,10 +224,26 @@ object ContentSourceSupport {
    *  independently from the request's `Uri`/`ConnectionContext` and are
    *  untouched by this transport, so they still carry the original
    *  hostname. */
-  private def pinnedTransport(pinnedAddress: InetAddress): ClientTransport =
+  def pinnedTransport(pinnedAddress: InetAddress): ClientTransport =
     ClientTransport.withCustomResolver { (_, port) =>
       Future.successful(new InetSocketAddress(pinnedAddress, port))
     }
+
+  /** Task 1.2: pinned-connection accessor for a caller (e.g.
+   *  `RestApiConnectorDriver`) that builds its own request/method/headers/
+   *  body/auth and cannot reuse [[fetchUrl]] wholesale — takes the validated
+   *  [[InetAddress]] from [[validateAndResolve]] and returns
+   *  `ConnectionPoolSettings` carrying [[pinnedTransport]], with the same
+   *  connect/idle timeouts [[fetchUrl]] uses, so the caller's own
+   *  `singleRequest` call connects to exactly the validated address. */
+  def pinnedPoolSettings(pinnedAddress: InetAddress)(implicit system: ActorSystem[_]): ConnectionPoolSettings =
+    ConnectionPoolSettings(system.classicSystem)
+      .withConnectionSettings(
+        ClientConnectionSettings(system.classicSystem)
+          .withConnectingTimeout(10.seconds)
+          .withIdleTimeout(30.seconds)
+      )
+      .withTransport(pinnedTransport(pinnedAddress))
 
   /** Raw-bytes HTTP GET for URL-based content ingestion. Mirrors
    *  `RestApiConnectorDriver.doFetch`'s pooled-connection settings pattern, but
@@ -208,17 +272,10 @@ object ContentSourceSupport {
     implicit val ec: ExecutionContext = system.executionContext
     implicit val mat: Materializer    = Materializer(system)
 
-    resolveValidated(url, resolveHost, isBlocked) match {
+    validateAndResolve(url, resolveHost, isBlocked) match {
       case Left(err) => Future.successful(Left(err))
       case Right(pinnedAddress) =>
-        val poolSettings: ConnectionPoolSettings =
-          ConnectionPoolSettings(system.classicSystem)
-            .withConnectionSettings(
-              ClientConnectionSettings(system.classicSystem)
-                .withConnectingTimeout(10.seconds)
-                .withIdleTimeout(30.seconds)
-            )
-            .withTransport(pinnedTransport(pinnedAddress))
+        val poolSettings: ConnectionPoolSettings = pinnedPoolSettings(pinnedAddress)
 
         Http(system.classicSystem)
           .singleRequest(HttpRequest(uri = url), settings = poolSettings)

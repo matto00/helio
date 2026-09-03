@@ -1,5 +1,7 @@
 package com.helio.services.sources
 
+import com.helio.services.sources.ContentSourceSupport
+import java.net.InetAddress
 import com.helio.api.protocols.sources.DataSourceConfigCodec
 import com.helio.domain.connectors.{ConnectorAuthShape, ConnectorResolveContext, RestApiConnectorDriver}
 import com.helio.domain.model._
@@ -53,6 +55,15 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with Sc
   private var testServerPort: Int                   = _
   private def urlFor(path: String): String = s"http://localhost:$testServerPort/$path"
 
+  // HEL-879: this spec's local test server binds to "localhost", which real DNS resolves to a
+  // loopback address the SSRF guard added here would otherwise reject by default. Admit ONLY
+  // this hostname (keyed on the hostname string, per design.md Decision 5 -- never widen the
+  // loopback address CLASS) so the guard runs for real (`resolveHost` is still real DNS) without
+  // breaking this fixture.
+  private val admitLocalhost: (String, InetAddress) => Boolean =
+    (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
+
+
   private def randomKeyB64(): String = {
     val bytes = new Array[Byte](32)
     new SecureRandom().nextBytes(bytes)
@@ -73,7 +84,7 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with Sc
       Map("CONNECTOR_MASTER_KEY" -> randomKeyB64(), "CONNECTOR_MASTER_KEY_ID" -> "migration-spec-key")
     )))
     connectorRepo = new ConnectorRepository(ctx, credRepo)
-    driver        = new RestApiConnectorDriver(connectorRepoOpt = Some(connectorRepo), credentialRepoOpt = Some(credRepo))
+    driver        = new RestApiConnectorDriver(connectorRepoOpt = Some(connectorRepo), credentialRepoOpt = Some(credRepo), isBlocked = admitLocalhost)
 
     val testRoutes = concat(
       path("bearer-endpoint") {

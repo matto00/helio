@@ -19,7 +19,7 @@ import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
-import com.helio.services.sources.RestSourceConnectorMigration
+import com.helio.services.sources.{ContentSourceSupport, RestSourceConnectorMigration}
 import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.services.pipelines.PipelineSchedulerService
@@ -162,9 +162,15 @@ object Main {
       val connectorSecretBackend     = new EncryptedSecretBackend(connectorMasterKeyProvider)
       val connectorCredentialRepo    = new ConnectorCredentialRepository(ctx, connectorSecretBackend)
       val connectorRepo              = new ConnectorRepository(ctx, connectorCredentialRepo)
+      // HEL-879 design.md Decision 5: the driver's resolveHost/isBlocked
+      // egress guard is wired HERE, its sole production construction site --
+      // ApiRoutes receives a ready-made driver as a constructor param and
+      // cannot reach this seam.
       val connector = new RestApiConnectorDriver(
         connectorRepoOpt = Some(connectorRepo),
-        credentialRepoOpt = Some(connectorCredentialRepo)
+        credentialRepoOpt = Some(connectorCredentialRepo),
+        resolveHost = ContentSourceSupport.defaultResolveHost,
+        isBlocked = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
       )
 
       // HEL-822 design.md Decision 7: idempotent startup migration, after Flyway
