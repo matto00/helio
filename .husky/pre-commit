@@ -15,6 +15,7 @@ npm run check:dependabot
 npm run check:dependabot:selftest
 npm run check:scala-quality
 npm run check:no-credential-leak
+npm run check:no-credential-leak:selftest
 npm test
 
 # npm run selftest:concertino-git-env is intentionally NOT run here. It is

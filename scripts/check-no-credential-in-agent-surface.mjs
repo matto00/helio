@@ -3,17 +3,34 @@
 // "demonstrated red" enforcement that the credential-carrying components/
 // values can never structurally reach the agent/chat surface.
 //
-// Two independent checks, both scoped to every module under
-// `frontend/src/features/assistant/**` (excluding its own test files, which
-// intentionally exercise fixtures and are not agent-facing runtime code):
+// HEL-927 added a third, independent check (see below) after HEL-904's
+// delivery committed a real `pg_dump` fixture
+// (`backend/src/test/resources/db/fixtures/hel904-real-dump.sql`) carrying
+// 594 real bcrypt password hashes and real email addresses — this script
+// was scoped only to the frontend assistant surface and reported green
+// throughout. HEL-927 is deliberately scoped to bcrypt-hash-shaped and
+// bulk-PII-shaped (real-looking email) content in fixture/dump directories;
+// generic token-shaped secret strings (`helio_pat_`, `sk-ant-`,
+// `*_KEY`/`*_SECRET`/`*_TOKEN` assignments) anywhere agents write files
+// during delivery are HEL-846's guard, not this one — see that ticket for
+// the complementary scope.
 //
-//   1. Import-graph walk: fails if any assistant-surface module transitively
+// Three independent checks:
+//
+//   1. Import-graph walk (frontend/src/features/assistant/**, excluding its
+//      own test files): fails if any assistant-surface module transitively
 //      imports `ConnectorCredentialField`/`ConnectorCredentialFieldValue`/
 //      `InlineConnectorSetup` (the credential-carrying components).
-//   2. Text-pattern scan: fails if any assistant-surface module declares an
-//      object-literal/type/interface property literally named `credential`
-//      (case-insensitive; exact-word match only — `apiCredential`,
-//      `credentialId` etc. do not match) outside `ALLOWED_CREDENTIAL_PROPS`.
+//   2. Text-pattern scan (same scope as #1): fails if any assistant-surface
+//      module declares an object-literal/type/interface property literally
+//      named `credential` (case-insensitive; exact-word match only —
+//      `apiCredential`, `credentialId` etc. do not match) outside
+//      `ALLOWED_CREDENTIAL_PROPS`.
+//   3. Fixture scan (`FIXTURE_ROOTS`, currently
+//      `backend/src/test/resources/**`): fails if any fixture file contains
+//      a real-shaped bcrypt hash (`\$2[aby]\$NN\$...`) other than the
+//      repo's established dummy value, or an email address whose domain
+//      isn't in `ALLOWED_EMAIL_DOMAINS`. This is the check HEL-927 added.
 //
 // Run standalone first against the pre-existing tree (before wiring into
 // Husky) to confirm zero false positives — design.md's Gate-Chain
@@ -27,14 +44,60 @@
 //   - `extractRelativeImports` only walks RELATIVE import specifiers
 //     (`./x`/`../y/z`); a non-relative (bare package / alias) specifier is
 //     never resolved or followed.
+//   - The fixture scan (#3) only walks `FIXTURE_ROOTS` — a credential-shaped
+//     value committed outside those directories is not caught by this
+//     script at all (HEL-846's generic scanner is the intended backstop for
+//     that).
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const frontendSrc = join(repoRoot, "frontend/src");
 const assistantRoot = join(frontendSrc, "features/assistant");
+
+// Directories scanned by the fixture check (#3). Currently just the one
+// fixture/dump location that exists in this repo today; add more paths here
+// if/when other fixture directories accumulate credential-shaped content.
+const FIXTURE_ROOTS = [join(repoRoot, "backend/src/test/resources")];
+
+// The repo's established dummy bcrypt value (see HEL-904's scrub of
+// `hel904-real-dump.sql`) — a fixed, obviously-synthetic all-zero hash that
+// a legitimately-scrubbed fixture is allowed to carry.
+const ALLOWED_BCRYPT_HASHES = new Set([
+  "$2a$12$0000000000000000000000000000000000000000000000000000",
+]);
+
+// Email domains a fixture is allowed to use for placeholder addresses (see
+// HEL-904's scrub, which standardized on `example.invalid`).
+const ALLOWED_EMAIL_DOMAINS = new Set([
+  "example.com",
+  "example.org",
+  "example.net",
+  "example.invalid",
+]);
+
+const BCRYPT_HASH_REGEX = /\$2[aby]\$\d{2}\$[A-Za-z0-9./]{53}/g;
+const EMAIL_REGEX = /[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
+
+// File extensions the fixture scan skips outright — binary formats where a
+// naive utf8 read would either throw or produce false-positive garbage
+// matches.
+const BINARY_FIXTURE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".pdf",
+  ".zip",
+  ".gz",
+  ".jar",
+  ".class",
+]);
+
+/** @type {string[]} */
+const fixtureErrors = [];
 
 // Module basenames (no extension) that must never be transitively imported
 // by anything under `frontend/src/features/assistant/**`.
@@ -72,6 +135,58 @@ function walk(dir, out = []) {
     }
   }
   return out;
+}
+
+/** Recursively collects every non-binary file under `dir` (unlike `walk`,
+ *  not restricted to `.ts`/`.tsx` — fixture directories hold `.sql`, `.json`,
+ *  `.csv`, etc). Missing directories are tolerated (returns `[]`) so
+ *  `FIXTURE_ROOTS` can list a path that doesn't exist in every checkout. */
+function walkAllFiles(dir, out = []) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    const full = join(dir, entry);
+    const stat = statSync(full);
+    if (stat.isDirectory()) {
+      walkAllFiles(full, out);
+    } else if (!BINARY_FIXTURE_EXTENSIONS.has(extname(full).toLowerCase())) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+/** Scans one fixture file's text for a real-shaped bcrypt hash (outside the
+ *  allow-listed dummy value) or an email address on a non-placeholder
+ *  domain, appending any findings to `fixtureErrors`. */
+function checkFixtureFile(file, text) {
+  BCRYPT_HASH_REGEX.lastIndex = 0;
+  let bcryptMatch;
+  while ((bcryptMatch = BCRYPT_HASH_REGEX.exec(text)) !== null) {
+    if (ALLOWED_BCRYPT_HASHES.has(bcryptMatch[0])) continue;
+    const line = text.slice(0, bcryptMatch.index).split("\n").length;
+    fixtureErrors.push(
+      `${relative(repoRoot, file)}:${line}: contains a real-shaped bcrypt hash — ` +
+        "fixture data must use the repo's dummy bcrypt value, not a real-looking hash",
+    );
+  }
+
+  EMAIL_REGEX.lastIndex = 0;
+  let emailMatch;
+  while ((emailMatch = EMAIL_REGEX.exec(text)) !== null) {
+    const domain = emailMatch[1].toLowerCase();
+    if (ALLOWED_EMAIL_DOMAINS.has(domain)) continue;
+    const line = text.slice(0, emailMatch.index).split("\n").length;
+    fixtureErrors.push(
+      `${relative(repoRoot, file)}:${line}: contains an email address on a non-placeholder domain ` +
+        `("${domain}") — fixture data must use an allow-listed placeholder domain ` +
+        `(${[...ALLOWED_EMAIL_DOMAINS].join(", ")})`,
+    );
+  }
 }
 
 /** Extracts every relative-import specifier from a source file's text —
@@ -185,7 +300,20 @@ for (const file of assistantFiles) {
   checkTextPatterns(file, text);
 }
 
-const allErrors = [...importGraphErrors, ...textPatternErrors];
+const fixtureFiles = FIXTURE_ROOTS.flatMap((root) => walkAllFiles(root));
+
+for (const file of fixtureFiles) {
+  let text;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    continue;
+  }
+  checkFixtureFile(file, text);
+}
+
+const allErrors = [...importGraphErrors, ...textPatternErrors, ...fixtureErrors];
+const totalFilesScanned = assistantFiles.length + fixtureFiles.length;
 
 if (allErrors.length > 0) {
   console.error("check-no-credential-in-agent-surface: FAIL\n");
@@ -193,11 +321,14 @@ if (allErrors.length > 0) {
   console.error(
     `\n${allErrors.length} violation(s). The agent/chat surface (frontend/src/features/assistant/**) ` +
       "must never import a credential-carrying component or declare a field literally named " +
-      '"credential" — see HEL-829 design.md Decision 4.',
+      '"credential" (HEL-829 design.md Decision 4), and fixture/dump directories ' +
+      `(${FIXTURE_ROOTS.map((r) => relative(repoRoot, r)).join(", ")}) ` +
+      "must never carry a real-shaped bcrypt hash or a non-placeholder-domain email address (HEL-927).",
   );
   process.exit(1);
 } else {
   console.log(
-    `check-no-credential-in-agent-surface: OK (${assistantFiles.length} files scanned, 0 violations)`,
+    `check-no-credential-in-agent-surface: OK (${totalFilesScanned} files scanned: ` +
+      `${assistantFiles.length} assistant-surface, ${fixtureFiles.length} fixture, 0 violations)`,
   );
 }
