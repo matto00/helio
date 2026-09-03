@@ -10,10 +10,22 @@ module.exports = {
     "/e2e/",
     "/helio-mcp/dist/",
     // Concertino delivery worktrees live under `.claude/worktrees/`. Each is a
-    // full checkout, so without this the root suite runs every in-flight
-    // worktree's tests alongside the real ones — making results depend on which
-    // deliveries happen to be running.
-    "/.claude/worktrees/",
+    // full checkout, so without this the root suite (run from the MAIN
+    // checkout) runs every in-flight worktree's tests alongside the real
+    // ones — making results depend on which deliveries happen to be running.
+    // HEL-880: this MUST be anchored to `<rootDir>` (mirroring
+    // `modulePathIgnorePatterns` below), not a bare substring. Jest matches
+    // `testPathIgnorePatterns` unanchored against each test's absolute path,
+    // and a delivery worktree's own rootDir is itself nested under
+    // `.claude/worktrees/<name>/...` — a bare "/.claude/worktrees/" pattern
+    // matches every path when run from INSIDE a worktree, silently
+    // discarding all of that worktree's own tests (0 collected, exits green
+    // with `--passWithNoTests`). Anchoring to `<rootDir>` makes the pattern
+    // only ever match a worktrees directory nested below wherever jest was
+    // actually invoked from, so it excludes worktrees from the main
+    // checkout's run without excluding a worktree's own tests from its own
+    // run.
+    "<rootDir>/.claude/worktrees/",
   ],
   // `testPathIgnorePatterns` stops those tests executing, but jest-haste-map
   // still crawls the worktrees and reports naming collisions on the duplicate
