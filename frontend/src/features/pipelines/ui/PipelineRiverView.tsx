@@ -395,18 +395,34 @@ export function PipelineRiverView({
                   {/* HEL-908 tasks 3.4/5.6 — "+ tail" affordance: single-tail-per-node
                    * (design.md's Phase-1 invariant) enforced here by only rendering the
                    * button when this trunk node has NO existing tail yet
-                   * (`stepTree.tailsByStepId[step.id]` absent). */}
+                   * (`stepTree.tailsByStepId[step.id]` absent).
+                   *
+                   * HEL-943 — "tail" is internal trunk/tail vocabulary a
+                   * first-time user has no way to know; renamed the visible
+                   * label and `aria-label` to describe the OUTCOME ("Branch
+                   * this step" / "a second output from the same step") and
+                   * kept `title` as the same sentence, one click longer, so a
+                   * hovering mouse user gets the full explanation before
+                   * clicking. Swapped the bare `faPlus` for `faCodeBranch`
+                   * (already used for the empty-state icon above) so the
+                   * glyph itself reinforces "branch" rather than a generic
+                   * add. A muted inline caption sits alongside the button so
+                   * touch users — who never see a hover title — get the same
+                   * explanation without needing to tap first. */}
                   {!stepTree.tailsByStepId[step.id] && (
                     <div className="pipeline-detail-page__add-tail-row">
                       <button
                         type="button"
-                        className="pipeline-detail-page__add-tail-btn"
-                        aria-label="Add tail step"
-                        title="Add tail step"
+                        className="pipeline-detail-page__add-tail-btn tap-expand-44"
+                        aria-label="Branch this step to build a second output, without changing the main pipeline"
+                        title="Branch this step to build a second output, without changing the main pipeline"
                         onClick={(e) => openTailDropdown(step.id, e.currentTarget)}
                       >
-                        <FontAwesomeIcon icon={faPlus} aria-hidden="true" /> tail
+                        <FontAwesomeIcon icon={faCodeBranch} aria-hidden="true" /> Branch
                       </button>
+                      <span className="pipeline-detail-page__add-tail-hint" aria-hidden="true">
+                        for a second output
+                      </span>
                       {tailDropdownForStepId === step.id && (
                         <OpDropdown
                           anchorRef={{ current: tailAnchorEl }}

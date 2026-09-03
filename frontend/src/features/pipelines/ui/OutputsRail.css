@@ -57,7 +57,28 @@
   color: var(--app-text-muted);
 }
 
+/* HEL-943 — Outputs are the only way a pipeline step reaches a dashboard, so
+ * this trailing "+ Output" chip is a primary action, not a peer of the read-
+ * only Output chips it sits beside. It previously inherited `.outputs-rail__
+ * chip`'s fixed 28px height with 0 vertical padding (`padding: 0 var(--space-
+ * 3)`) — technically on-scale, but a flat, thin dashed pill that read as
+ * recessed rather than as the row's one actionable control. Switched to an
+ * auto height with real two-axis padding (mirrors `.pipeline-detail-page__
+ * add-step-dashed-btn` and `.pipeline-detail-page__add-tail-btn`'s recipe,
+ * so every "+ add a thing" affordance on this page now shares one visual
+ * language) and a filled accent-surface background so it reads as the row's
+ * CTA at a glance instead of blending into the Output chips beside it. */
 .outputs-rail__add {
-  color: var(--app-accent);
+  height: auto;
+  padding: var(--space-2) var(--space-4);
   border-style: dashed;
+  background: var(--app-accent-surface);
+  color: var(--app-accent);
+  font-weight: var(--weight-medium);
+}
+
+.outputs-rail__add:hover {
+  background: var(--app-accent-dim);
+  border-color: var(--app-accent);
+  border-style: solid;
 }
