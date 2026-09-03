@@ -1,10 +1,17 @@
+/* HEL-945 -- the gallery's whole point is to let an Output's preview read as
+ * the dominant element on the tab, so this card grew a full radius-lg "card"
+ * treatment (DESIGN.md §4: radius-lg is for cards/modals, not radius-md's
+ * "small cards" rung) with a much taller thumbnail well and a legible kind
+ * badge, row-count, step, and placement count -- all at a glance, without
+ * opening the card. Tiling with 8-12 cards was checked via the auto-fill
+ * grid in OutputsGalleryTab.css; nothing here assumes a single card. */
 .output-gallery-card {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--app-radius-md);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--app-radius-lg);
   border: 1px solid var(--app-border-subtle);
   background: var(--app-surface);
   color: var(--app-text);
@@ -20,19 +27,43 @@
 }
 
 .output-gallery-card__thumbnail {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  height: 72px;
-  border-radius: var(--app-radius-sm);
+  height: 148px;
+  border-radius: var(--app-radius-md);
   /* skeptic-final-3 (round 1) CR4 — `--app-surface-sunken` was invented and
      defined nowhere, so it always fell back to `--app-surface-raised` (the
      HOVER rung), painting this "recessed" well LIGHTER than the card it
      sits inside. `--app-surface-soft` is the real recessed-well token. */
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
-  font-size: var(--text-sm);
+}
+
+.output-gallery-card__kind {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-tracking);
+  color: var(--app-text-muted);
+}
+
+.output-gallery-card__thumbnail-icon {
+  font-size: var(--text-xl);
+}
+
+.output-gallery-card__thumbnail-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
 }
 
 .output-gallery-card__body {
@@ -42,9 +73,12 @@
 }
 
 .output-gallery-card__name {
-  font-weight: var(--weight-medium);
-  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-base);
   color: var(--app-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .output-gallery-card__meta {

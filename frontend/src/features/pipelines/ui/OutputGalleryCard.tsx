@@ -27,6 +27,10 @@ function thumbnailText(output: Output, rowCount: number | undefined): string {
   return `${rowCount} row${rowCount === 1 ? "" : "s"}`;
 }
 
+function kindLabel(kind: Output["kind"]): string {
+  return kind === "chart" ? "Chart" : kind === "metric" ? "Metric" : "Table";
+}
+
 interface OutputGalleryCardProps {
   output: Output;
   stepLabel: string;
@@ -62,8 +66,14 @@ export function OutputGalleryCard({ output, stepLabel, rowCount, onOpen }: Outpu
       aria-label={`Open ${output.name} output`}
     >
       <div className="output-gallery-card__thumbnail">
-        <FontAwesomeIcon icon={output.kind === "chart" ? faChartLine : faTable} />
-        <span>{thumbnailText(output, rowCount)}</span>
+        <span className="output-gallery-card__kind">{kindLabel(output.kind)}</span>
+        <FontAwesomeIcon
+          className="output-gallery-card__thumbnail-icon"
+          icon={output.kind === "chart" ? faChartLine : faTable}
+        />
+        <span className="output-gallery-card__thumbnail-value">
+          {thumbnailText(output, rowCount)}
+        </span>
       </div>
       <div className="output-gallery-card__body">
         <span className="output-gallery-card__name">{output.name}</span>

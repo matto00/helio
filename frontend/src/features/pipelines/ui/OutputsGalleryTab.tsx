@@ -44,31 +44,41 @@ export function OutputsGalleryTab({
           cta={{ label: "+ New output", onClick: onAddOutput }}
         />
       ) : (
-        <div className="outputs-gallery-tab__grid">
-          {outputs.map((output) => (
-            <OutputGalleryCard
-              key={output.id}
-              output={output}
-              stepLabel={
-                output.nodeStepId !== undefined
-                  ? (stepLabelById.get(output.nodeStepId) ?? "an unknown step")
-                  : "the pipeline root"
-              }
-              rowCount={previewRowCountByOutputId[output.id]}
-              onOpen={onOpenOutput}
-            />
-          ))}
-        </div>
-      )}
-      {outputs.length > 0 && (
-        <button
-          type="button"
-          className="outputs-gallery-tab__add tap-expand-44"
-          onClick={onAddOutput}
-        >
-          <FontAwesomeIcon icon={faPlus} />
-          <span>New output</span>
-        </button>
+        <>
+          {/* HEL-945 -- the gallery reads "here are your Outputs, and you can
+           * add another" rather than "here is a big button, and incidentally
+           * some small cards": the add affordance drops to a small ghost
+           * action next to the count once there's at least one Output to
+           * look at, so the cards below carry the visual weight. */}
+          <div className="outputs-gallery-tab__header">
+            <span className="outputs-gallery-tab__count">
+              {outputs.length} output{outputs.length === 1 ? "" : "s"}
+            </span>
+            <button
+              type="button"
+              className="outputs-gallery-tab__add tap-expand-44"
+              onClick={onAddOutput}
+            >
+              <FontAwesomeIcon icon={faPlus} />
+              <span>New output</span>
+            </button>
+          </div>
+          <div className="outputs-gallery-tab__grid">
+            {outputs.map((output) => (
+              <OutputGalleryCard
+                key={output.id}
+                output={output}
+                stepLabel={
+                  output.nodeStepId !== undefined
+                    ? (stepLabelById.get(output.nodeStepId) ?? "an unknown step")
+                    : "the pipeline root"
+                }
+                rowCount={previewRowCountByOutputId[output.id]}
+                onOpen={onOpenOutput}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
