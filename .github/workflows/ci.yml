@@ -196,13 +196,29 @@ jobs:
         working-directory: frontend
         run: npx audit-ci --config .audit-ci.jsonc
 
-  # HEL-813 design.md D5 — the ONLY spec run here is the new steady-state
-  # mobile touch-target guard (e2e/hel813-mobile-touch-target-floor.spec.ts),
-  # plus the HEL-910 pipelines/outputs remodel E2E proof
-  # (e2e/hel910-pipeline-to-dashboard-flow.spec.ts, ticket AC "Playwright
-  # interaction-count E2E in CI") added below. The other pre-existing e2e/
-  # specs were never CI-gated; broadening this job to cover them is a
-  # natural follow-up, not bundled into this change.
+  # HEL-951 — this job runs Playwright by GLOB (`npx playwright test`, no
+  # per-file arguments), so discovery is governed entirely by
+  # `playwright.config.ts` (`testDir: "./e2e"`, `testIgnore`). This
+  # replaces the previous individual-spec allowlist
+  # (e2e/hel813-mobile-touch-target-floor.spec.ts +
+  # e2e/hel910-pipeline-to-dashboard-flow.spec.ts only), which had silently
+  # left eleven other e2e/ specs never CI-gated — see
+  # openspec/changes/wire-orphaned-e2e-specs/ for the investigation and
+  # orphan-status-report.md for the per-spec disposition.
+  #
+  # `**/*.regression.spec.ts` (currently only
+  # e2e/hel813-mobile-touch-target-floor.regression.spec.ts) is excluded
+  # from this glob DELIBERATELY, via `playwright.config.ts`'s own
+  # `testIgnore`, and must never be added here: it temporarily patches REAL
+  # component source on disk (self-reverting, but still a job that rewrites
+  # tracked files has no business running unattended in CI) to prove the
+  # steady-state guard is sensitive to two known-bad shapes. See
+  # `e2e/README.md` for what it does, why it's excluded, and how to run it
+  # on demand.
+  #
+  # Any orphan found red or flaky as of HEL-951 is quarantined via its own
+  # `testIgnore` entry in `playwright.config.ts`, each carrying a comment
+  # naming its follow-up ticket — see that file for the current list.
   e2e:
     runs-on: ubuntu-latest
     services:
@@ -298,10 +314,8 @@ jobs:
           echo "frontend did not become healthy" >&2
           cat /tmp/frontend.log
           exit 1
-      - name: Run HEL-813 mobile touch-target floor guard
-        run: npx playwright test e2e/hel813-mobile-touch-target-floor.spec.ts
-      - name: Run HEL-910 pipelines/outputs remodel E2E proof
-        run: npx playwright test e2e/hel910-pipeline-to-dashboard-flow.spec.ts
+      - name: Run e2e suite (glob, honours playwright.config.ts testIgnore)
+        run: npx playwright test
       # HEL-910 task 6.3 note: the P1.4 Sleeper MCP rebuild acceptance test
       # (`helio-mcp/e2e/sleeper-rebuild.ts`) is deliberately NOT wired in
       # here. Correcting an assumption from the ticket brief: it does NOT

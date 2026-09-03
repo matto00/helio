@@ -3,7 +3,14 @@ import * as path from "node:path";
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-import { assertFloor, measureBox } from "./support/touchTargetProbe";
+import {
+  assertFloor,
+  measureBox,
+  DEFAULT_MIN_PX,
+  RENDERED_BOX_EPSILON_PX,
+} from "./support/touchTargetProbe";
+
+const FLOOR = DEFAULT_MIN_PX - RENDERED_BOX_EPSILON_PX;
 
 // HEL-813 — one-shot demonstrated-RED regression harness (design.md D1).
 // NOT part of the CI guard (playwright.config.ts's `testIgnore`) and
@@ -55,9 +62,41 @@ async function reloadAndSettle(page: Page): Promise<void> {
 }
 
 const TOAST_CSS = path.resolve(__dirname, "../frontend/src/shared/ui/toast.css");
-const PANEL_LIST_CSS = path.resolve(__dirname, "../frontend/src/features/panels/ui/PanelList.css");
+// HEL-951 — Case B's original anchor, `.panel-list__add`, no longer exists
+// (removed when the panel-list header bar was retired; "Add panel" moved to
+// the command bar's `.actions-menu__trigger`, an expander-mechanism control
+// P1 excludes as a candidate). See design.md D5/D6 and
+// openspec/changes/wire-orphaned-e2e-specs/caseb-search-and-mutation-proof.md
+// for the full four-precondition search: `.mobile-nav-sheet__item`
+// (MobileNavSheet.css) is the replacement — a full-width sheet row whose
+// mobile-only `min-height: 44px` is declared on its own (not comma-shared)
+// rule, with no width floor (its width is driven entirely by the sheet's
+// own width, measured 404px at 430px).
+const NAV_SHEET_CSS = path.resolve(__dirname, "../frontend/src/shared/chrome/MobileNavSheet.css");
 
-const TOAST_BASE_RULE_MARKER = "/* Close button */\n.toast__close {";
+// HEL-951 — anchored on the RULE, not on prose: HEL-851's comment sweep
+// deleted the `/* Close button */` comment this marker used to key on,
+// silently breaking this harness (the marker never triggered a "source
+// drifted" error — it simply stopped matching, and the whole test skipped
+// straight to a false "not found" throw). A decorative comment can be
+// deleted by any future sweep; the base rule itself is the only thing this
+// harness actually depends on. The leading newline + zero indentation is
+// what disambiguates the base rule from the mobile media block's own
+// (two-space-indented) `.toast__close {` copy — count uniqueness is
+// asserted at runtime below rather than assumed, so a FUTURE drift (e.g. a
+// second unindented `.toast__close {` appearing anywhere in the file)
+// fails loudly instead of silently mutating the wrong rule.
+const TOAST_BASE_RULE_MARKER = "\n.toast__close {";
+
+function assertToastBaseRuleMarkerUnique(original: string): void {
+  const matches = original.split(TOAST_BASE_RULE_MARKER).length - 1;
+  if (matches !== 1) {
+    throw new Error(
+      `regression harness: expected exactly 1 unindented ".toast__close {" base rule in ` +
+        `toast.css, found ${matches} — source drifted from the expected shape`,
+    );
+  }
+}
 
 const TOAST_MEDIA_BLOCK = `@media (max-width: 768px) {
   .toast__close {
@@ -80,6 +119,11 @@ const TOAST_MEDIA_BLOCK = `@media (max-width: 768px) {
  *  `min-height`-equivalent (`width`/`height: 44px`) is still present in the
  *  file, unmoved and unedited otherwise. */
 function reorderToastMediaAboveBaseRule(original: string): string {
+  // HEL-951 — assert uniqueness of the RULE anchor at runtime, every call,
+  // so a future comment sweep (or any other drift) that introduces a
+  // second unindented `.toast__close {` fails loudly instead of silently
+  // mutating whichever one `indexOf` happens to find first.
+  assertToastBaseRuleMarkerUnique(original);
   const mediaIndex = original.indexOf(TOAST_MEDIA_BLOCK);
   if (mediaIndex === -1) {
     throw new Error("regression harness: toast.css media block marker not found — source drifted");
@@ -104,30 +148,31 @@ function reorderToastMediaAboveBaseRule(original: string): string {
   );
 }
 
-const PANEL_LIST_ADD_MOBILE_RULE = `  .panel-list__add {
+const NAV_SHEET_ITEM_MOBILE_RULE = `  .mobile-nav-sheet__item {
     min-height: 44px;
   }`;
 
-const PANEL_LIST_ADD_MOBILE_RULE_WIDTH_MUTATED = `  .panel-list__add {
+const NAV_SHEET_ITEM_MOBILE_RULE_WIDTH_MUTATED = `  .mobile-nav-sheet__item {
     min-height: 44px;
-    /* HEL-813 regression harness: temporary fixed width below the floor —
+    /* HEL-951 regression harness: temporary fixed width below the floor —
        reproduces HEL-781's "height-only floor on a fixed-width control"
        failure mode. Self-reverting; never committed. */
     width: 20px;
   }`;
 
 /** Case B: a height-only floor on a control that ALSO declares a fixed
- *  width below 44px — `.panel-list__add` currently only carries
- *  `min-height: 44px` at mobile widths (no width floor), so adding a fixed
- *  sub-44px `width` reproduces HEL-781's wrong-axis failure mode without
- *  touching the height declaration at all. */
+ *  width below 44px — `.mobile-nav-sheet__item` currently only carries
+ *  `min-height: 44px` at mobile widths (no width floor; its width is
+ *  driven entirely by the sheet's own width), so adding a fixed sub-44px
+ *  `width` reproduces HEL-781's wrong-axis failure mode without touching
+ *  the height declaration at all. */
 function addFixedWidthBelowFloor(original: string): string {
-  if (!original.includes(PANEL_LIST_ADD_MOBILE_RULE)) {
+  if (!original.includes(NAV_SHEET_ITEM_MOBILE_RULE)) {
     throw new Error(
-      "regression harness: PanelList.css .panel-list__add mobile rule not found — source drifted",
+      "regression harness: MobileNavSheet.css .mobile-nav-sheet__item mobile rule not found — source drifted",
     );
   }
-  return original.replace(PANEL_LIST_ADD_MOBILE_RULE, PANEL_LIST_ADD_MOBILE_RULE_WIDTH_MUTATED);
+  return original.replace(NAV_SHEET_ITEM_MOBILE_RULE, NAV_SHEET_ITEM_MOBILE_RULE_WIDTH_MUTATED);
 }
 
 test.describe("HEL-813 demonstrated-RED regression harness", () => {
@@ -208,64 +253,72 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
     request,
   }) => {
     test.setTimeout(60_000);
-    const original = await fs.readFile(PANEL_LIST_CSS, "utf8");
+    const original = await fs.readFile(NAV_SHEET_CSS, "utf8");
     let mutated = false;
 
     try {
       await page.setViewportSize({ width: 430, height: 900 });
       await registerAndLogin(page, request, "caseB");
       const dashboardRes = await page.request.post("/api/dashboards", {
-        data: { name: "HEL-813 Regression PanelList" },
+        data: { name: "HEL-813 Regression Nav" },
         headers: { [CSRF_HEADER]: "1" },
       });
       expect(dashboardRes.status()).toBe(201);
       await page.goto("/");
-      await expect(
-        page.getByRole("heading", { name: /HEL-813 Regression PanelList/ }),
-      ).toBeVisible();
-      const addBtn = page.locator(".panel-list__add");
+      await page.getByRole("button", { name: /Switch dashboards/i }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await page.waitForTimeout(400);
+      const navItem = dialog.locator(".mobile-nav-sheet__item").first();
 
-      await assertFloor(addBtn);
-      const baselineBox = await measureBox(addBtn);
+      await assertFloor(navItem);
+      const baselineBox = await measureBox(navItem);
       console.log(`[hel813-regression][Case B][baseline PASS] ${JSON.stringify(baselineBox)}`);
 
       // 2. Mutate: add a fixed sub-44px width alongside the existing
       // (unedited) min-height: 44px floor.
-      await writeAndSettle(PANEL_LIST_CSS, addFixedWidthBelowFloor(original));
+      await writeAndSettle(NAV_SHEET_CSS, addFixedWidthBelowFloor(original));
       mutated = true;
       await reloadAndSettle(page);
-      await expect(
-        page.getByRole("heading", { name: /HEL-813 Regression PanelList/ }),
-      ).toBeVisible();
+      await page.getByRole("button", { name: /Switch dashboards/i }).click();
+      const dialogAfterMutation = page.getByRole("dialog");
+      await expect(dialogAfterMutation).toBeVisible();
+      await page.waitForTimeout(400);
+      const navItemAfterMutation = dialogAfterMutation.locator(".mobile-nav-sheet__item").first();
 
-      // 3. Confirm RED on the width axis specifically (height stays clear).
+      // 3. Confirm RED on the width axis specifically (height stays clear,
+      // per the EPSILON-adjusted floor — never a re-typed bare 44, since a
+      // legitimate sub-pixel measurement like 43.6 must not read as red on
+      // the axis this case is supposed to leave clear — design.md D5).
       let redError: unknown = null;
       try {
-        await assertFloor(page.locator(".panel-list__add"));
+        await assertFloor(navItemAfterMutation);
       } catch (err) {
         redError = err;
       }
-      const mutatedBox = await measureBox(page.locator(".panel-list__add"));
+      const mutatedBox = await measureBox(navItemAfterMutation);
       console.log(
         `[hel813-regression][Case B][mutated FAIL] box=${JSON.stringify(mutatedBox)} threw=${redError !== null}`,
       );
       expect(redError, "assertFloor must fail on the width axis").not.toBeNull();
-      expect(mutatedBox.width).toBeLessThan(44);
-      expect(mutatedBox.height).toBeGreaterThanOrEqual(44);
+      expect(mutatedBox.width).toBeLessThan(FLOOR);
+      expect(mutatedBox.height).toBeGreaterThanOrEqual(FLOOR);
 
-      await writeAndSettle(PANEL_LIST_CSS, original);
+      await writeAndSettle(NAV_SHEET_CSS, original);
       mutated = false;
       await reloadAndSettle(page);
-      await expect(
-        page.getByRole("heading", { name: /HEL-813 Regression PanelList/ }),
-      ).toBeVisible();
+      await page.getByRole("button", { name: /Switch dashboards/i }).click();
+      const dialogAfterRevert = page.getByRole("dialog");
+      await expect(dialogAfterRevert).toBeVisible();
+      await page.waitForTimeout(400);
+      const navItemAfterRevert = dialogAfterRevert.locator(".mobile-nav-sheet__item").first();
 
-      await assertFloor(page.locator(".panel-list__add"));
-      const revertedBox = await measureBox(page.locator(".panel-list__add"));
+      await assertFloor(navItemAfterRevert);
+      const revertedBox = await measureBox(navItemAfterRevert);
       console.log(`[hel813-regression][Case B][reverted PASS] ${JSON.stringify(revertedBox)}`);
     } finally {
       if (mutated) {
-        await fs.writeFile(PANEL_LIST_CSS, original, "utf8");
+        await fs.writeFile(NAV_SHEET_CSS, original, "utf8");
       }
     }
   });
