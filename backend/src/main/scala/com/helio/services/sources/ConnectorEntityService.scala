@@ -161,9 +161,6 @@ final class ConnectorEntityService(
       case Right(true)  => Right(())
     }
 
-  /** Strips any client-supplied `implicit` key from `config` and sets the server-owned value
-   *  explicitly (design.md Decision 1a revised, CR5) -- the ONE place both `create`/`update`
-   *  funnel through, so the two call sites can never drift on how this is enforced. */
   /** HEL-879 cycle-3 fix: create/update-time egress check, deliberately LESS strict than
    *  fetch-time (`RestApiConnectorDriver`'s guarded issuers, which still fail closed on an
    *  unresolvable host -- untouched by this method). Neither `specs/connectors/connector-
@@ -184,6 +181,9 @@ final class ConnectorEntityService(
       case EgressCheck.Disallowed(msg) => Left(msg)
     }
 
+  /** Strips any client-supplied `implicit` key from `config` and sets the server-owned value
+   *  explicitly (design.md Decision 1a revised, CR5) -- the ONE place both `create`/`update`
+   *  funnel through, so the two call sites can never drift on how this is enforced. */
   private def withServerOwnedImplicit(config: JsObject, implicitFlag: Boolean): String =
     JsObject(config.fields - "implicit" + ("implicit" -> JsBoolean(implicitFlag))).compactPrint
 }

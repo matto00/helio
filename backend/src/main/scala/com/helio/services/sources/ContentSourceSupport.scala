@@ -13,13 +13,6 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-/** Reusable seam for content connectors (HEL-215 text/Markdown, first
- *  consumer; HEL-214 PDF and HEL-216 image extend the same helpers rather
- *  than reimplementing metadata-field construction or URL fetch-and-store
- *  plumbing). Deliberately content-agnostic — callers supply their own
- *  content `DataFieldType` (`StringBodyType` for text, `BinaryRefType` for
- *  PDF/image); the per-connector extraction/storage logic (e.g. PDF text
- *  extraction, image binary storage) stays in each connector's own service. */
 /** HEL-879 cycle-3: the typed outcome of [[ContentSourceSupport.checkEgress]] — see that
  *  method's doc comment for why this exists (distinguishing "unresolvable" from "resolves to a
  *  disallowed address" for callers with different create-time vs. fetch-time dispositions,
@@ -32,6 +25,13 @@ object EgressCheck {
   final case class Disallowed(message: String) extends EgressCheck
 }
 
+/** Reusable seam for content connectors (HEL-215 text/Markdown, first
+ *  consumer; HEL-214 PDF and HEL-216 image extend the same helpers rather
+ *  than reimplementing metadata-field construction or URL fetch-and-store
+ *  plumbing). Deliberately content-agnostic — callers supply their own
+ *  content `DataFieldType` (`StringBodyType` for text, `BinaryRefType` for
+ *  PDF/image); the per-connector extraction/storage logic (e.g. PDF text
+ *  extraction, image binary storage) stays in each connector's own service. */
 object ContentSourceSupport {
 
   private val log = LoggerFactory.getLogger(getClass)
