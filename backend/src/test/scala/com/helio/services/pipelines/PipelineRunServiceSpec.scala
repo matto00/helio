@@ -1409,28 +1409,32 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       schemaA shouldBe schemaB
     }
 
-    // HEL-905 (skeptic-final-2.md CR2 / tasks.md 4.4, ticket.md AC, specs/pipeline-execution
-    // /spec.md:41-45): only nodes with an attached Output are materialized -- a node with NO
-    // Output must have zero node_snapshots rows after a successful run, even though the tree
-    // walk evaluates and produces a NodeOutcome for it.
-    "only materialized nodes appear in node_snapshots after a run" in {
+    // HEL-947 (backfill for an Output added to an already-run node): every node the tree walk
+    // reaches now gets a `node_snapshots` row set, whether or not it currently has an Output --
+    // widened from the prior "only nodes with >= 1 `outputs` row" gate. `NodeOutcome` is never
+    // persisted anywhere else a later request could read it back from (verified: `pipeline_runs`
+    // stores only `row_count`; `node_snapshots` is the only per-row store and is overwritten in
+        // place with no `run_id`), so writing every node's outcome here is what lets an Output
+    // created later against an already-run node find real data immediately, with no re-run.
+    "every node reached by the tree walk appears in node_snapshots after a run, whether or not it currently has an Output" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
-      // Intermediate trunk step: NO Output attached -- must stay unmaterialized.
+      // Intermediate trunk step: NO Output attached yet.
       val unmaterializedStep = await(insertStep(pid, "rename", RenameConfig(Map("name" -> "renamed")), dummyUser))
-      // Trunk-last step: the ONLY materialized node (has an Output).
+      // Trunk-last step: has an Output.
       val materializedStep = await(insertStep(pid, "rename", RenameConfig(Map("score" -> "finalScore")), dummyUser))
       await(outputRepo.insertInternal(pid, Some(materializedStep.id), dummyUser.id, "final-output", OutputKind.Table))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
-      // The materialized node has rows.
+      // The Output-bound node has rows, as before.
       await(nodeSnapshotRepo.listRows(pid.value, Some(materializedStep.id.value))) should have size 2
-      // The root (no Output) and the intermediate trunk step (no Output) both have NONE --
-      // even though the tree walk evaluated them and produced a NodeOutcome for each.
-      await(nodeSnapshotRepo.listRows(pid.value, None)) shouldBe empty
-      await(nodeSnapshotRepo.listRows(pid.value, Some(unmaterializedStep.id.value))) shouldBe empty
+      // The intermediate trunk step, which has NO Output, is now ALSO snapshotted -- this is the
+      // HEL-947 change. The source root (`None`) is likewise snapshotted since the tree walk
+      // records a NodeOutcome for it too.
+      await(nodeSnapshotRepo.listRows(pid.value, Some(unmaterializedStep.id.value))) should have size 2
+      await(nodeSnapshotRepo.listRows(pid.value, None)) should have size 2
     }
 
     // HEL-905 (evaluation-1.md CR1): previewing a step ON A TAIL must return the TAIL's own

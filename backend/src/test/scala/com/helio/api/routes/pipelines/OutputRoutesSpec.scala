@@ -152,7 +152,11 @@ class OutputRoutesSpec
     val runService = new PipelineRunService(
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
       new PipelineRunCache(), null, new LocalFileSystem(java.nio.file.Files.createTempDirectory("output-routes-preview")),
-      outputRepo = outputRepo
+      outputRepo = outputRepo,
+      // HEL-947: wired so `onUnblockedRunSuccess` actually writes `node_snapshots` in this
+      // fixture's runs -- needed for the backfill-on-create tests below, which read those rows
+      // back through `outputService.rows`.
+      nodeSnapshotRepo = nodeSnapshotRepo
     )(routeEc)
     concat(
       new OutputRoutes(outputService, user)(routeEc).routes,
@@ -601,6 +605,45 @@ class OutputRoutesSpec
         val paged = responseAs[JsObject]
         paged.fields("total") shouldBe JsNumber(0)
         paged.fields("materialized") shouldBe JsBoolean(true)
+      }
+    }
+
+    // HEL-947 (backfill for an Output added to an already-run node): the pipeline's trunk-last
+    // node runs successfully with NO Output attached yet, then an Output is created against it
+    // afterwards -- with no second run in between. Regression guard for the ticket; observed RED
+    // before `PipelineRunService.onUnblockedRunSuccess` was widened to snapshot every node the
+    // tree walk reaches (not only nodes that already have >= 1 Output at run time).
+    "200 with real rows and materialized=true for an Output created AFTER its node already ran successfully, with no re-run" in {
+      import PostgresProfile.api._
+      val dsId = UUID.randomUUID().toString
+      val dsConfig = """{"columns":[{"name":"name","type":"string"}],"rows":[["alice"],["bob"]]}"""
+      await(db.run(sqlu"""INSERT INTO data_sources
+        (id, name, source_type, config, owner_id, created_at, updated_at)
+        VALUES ($dsId, 'ds-backfill', 'static', $dsConfig, $ownerId::uuid, now(), now())"""))
+      val pipeline = await(pipelineRepo.create("backfill-pipe", DataSourceId(dsId), owner)).getOrElse(
+        throw new IllegalStateException("backfill fixture: pipeline create failed")
+      )
+      val pipelineId = PipelineId(pipeline.id)
+      val runService = new PipelineRunService(
+        pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
+        new PipelineRunCache(), null, new LocalFileSystem(java.nio.file.Files.createTempDirectory("output-routes-backfill")),
+        outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo
+      )(routeEc)
+
+      // Run the pipeline BEFORE any Output exists on its (only) node.
+      val runResult = await(runService.submit(pipelineId, isDry = false, owner))
+      runResult shouldBe a[Right[_, _]]
+
+      // Only now attach an Output to the trunk root (the pipeline has a source but no steps, so
+      // the trunk root is the source node itself -- `nodeStepId = None`).
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "backfilled-output", OutputKind.Table))
+
+      // No second run. The node's last successful outcome must already be in node_snapshots.
+      Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("materialized") shouldBe JsBoolean(true)
+        paged.fields("items").convertTo[Vector[JsValue]] should not be empty
       }
     }
   }
