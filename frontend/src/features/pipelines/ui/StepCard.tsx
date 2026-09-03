@@ -28,6 +28,13 @@ import type { Output } from "../types/output";
 
 interface StepCardProps {
   step: Step;
+  /** HEL-912 task 5.3 — every step in the pipeline (across every lane), so
+   *  `union`/`lookup`'s `SecondaryInputPicker` can offer "other lane" node
+   *  options. Not filtered/derived per-card — the picker itself computes
+   *  eligibility (design.md Decision 3). Optional/defaults to `[]` so every
+   *  pre-existing non-union/lookup test site (which never exercises this
+   *  path) doesn't need updating just to satisfy this prop. */
+  allSteps?: Step[];
   /** HEL-407 — this step's index in the editor's step list. Threaded down so
    *  the Move up/down buttons know when to disable (design.md Decision 6),
    *  the drag handle can report which step is being dragged (Decision 5),
@@ -106,8 +113,11 @@ interface StepCardProps {
 // `memo`'s shallow prop comparison actually holds for the steps an edit
 // didn't touch, instead of every prop being a fresh reference every render
 // regardless of this wrapper.
+const EMPTY_ALL_STEPS: Step[] = [];
+
 export const StepCard = React.memo(function StepCard({
   step,
+  allSteps = EMPTY_ALL_STEPS,
   stepIndex,
   pipelineId,
   onRemove,
@@ -313,6 +323,7 @@ export const StepCard = React.memo(function StepCard({
           {step.opType.id !== "compute" && <InlineError error={validationError ?? null} />}
           <StepOpEditor
             step={step}
+            allSteps={allSteps}
             analyzeColumns={analyzeColumns}
             analyzeSchema={analyzeSchema}
             validationError={validationError}

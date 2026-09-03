@@ -8,6 +8,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChartLine, faPlus } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { laneOutputSubtitle } from "../state/laneLayout";
+import { buildLaneGraph } from "../state/stepTree";
+import type { LaneGraph } from "../state/stepTree";
 import type { Output } from "../types/output";
 import type { Step } from "../types/step";
 import { OutputGalleryCard } from "./OutputGalleryCard";
@@ -16,6 +19,11 @@ import "./OutputsGalleryTab.css";
 interface OutputsGalleryTabProps {
   outputs: Output[];
   steps: Step[];
+  /** HEL-912 task 6.1 — the lane graph, so a non-primary-lane Output's
+   *  subtitle gains a "lane N" segment built from the SAME structure the
+   *  river renders, not a second traversal. Optional — derived from `steps`
+   *  when the caller (or a pre-existing test) doesn't have one to hand. */
+  laneGraph?: LaneGraph;
   previewRowCountByOutputId: Record<string, number>;
   onOpenOutput: (output: Output) => void;
   onAddOutput: () => void;
@@ -24,10 +32,12 @@ interface OutputsGalleryTabProps {
 export function OutputsGalleryTab({
   outputs,
   steps,
+  laneGraph,
   previewRowCountByOutputId,
   onOpenOutput,
   onAddOutput,
 }: OutputsGalleryTabProps) {
+  const effectiveLaneGraph = laneGraph ?? buildLaneGraph(steps);
   const stepLabelById = new Map(steps.map((step) => [step.id, step.label]));
 
   return (
@@ -70,7 +80,7 @@ export function OutputsGalleryTab({
                 output={output}
                 stepLabel={
                   output.nodeStepId !== undefined
-                    ? (stepLabelById.get(output.nodeStepId) ?? "an unknown step")
+                    ? laneOutputSubtitle(effectiveLaneGraph, stepLabelById, output.nodeStepId)
                     : "the pipeline root"
                 }
                 rowCount={previewRowCountByOutputId[output.id]}

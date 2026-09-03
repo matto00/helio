@@ -47,6 +47,7 @@ import type {
   PipelineStepConfig,
   PivotConfig as PivotConfigType,
   RenameConfig as RenameConfigType,
+  SecondaryInput,
   SelectConfig as SelectConfigType,
   SortConfig as SortConfigType,
   SplitTextConfig as SplitTextConfigType,
@@ -495,35 +496,35 @@ export function windowConfigOf(step: Step): WindowConfigValue {
   };
 }
 
+const DEFAULT_SECONDARY_INPUT: SecondaryInput = { kind: "source", dataSourceId: "" };
+
 export function unionConfigOf(step: Step): UnionConfigValue {
-  const empty: UnionConfigValue = { otherDataSourceId: "", mode: "byPosition" };
+  const empty: UnionConfigValue = { secondary: DEFAULT_SECONDARY_INPUT, mode: "byPosition" };
   if (step.opType.id !== "union") return empty;
   const cfg = step.config as UnionConfigType;
-  // HEL-911: secondaryInput replaces the flat otherDataSourceId. This UI-facing narrowed
-  // value still exposes a single dataSourceId string (a lane-kind secondaryInput is
-  // authored by the editor lanes work, P2.2/HEL-912 -- out of scope here) so it degrades
-  // to "" rather than throwing when the config is lane-kind.
+  // HEL-912: the narrowed UI value now carries the full discriminated
+  // `secondary` arm straight through (source OR lane) -- the HEL-911
+  // "degrade lane-kind to empty string" branch this replaced silently
+  // DISCARDED a stored lane reference on any subsequent edit; see
+  // design.md Decision 4.
   return {
-    otherDataSourceId:
-      cfg.secondaryInput?.kind === "source" ? (cfg.secondaryInput.dataSourceId ?? "") : "",
+    secondary: cfg.secondaryInput ?? DEFAULT_SECONDARY_INPUT,
     mode: cfg.mode === "byName" ? "byName" : "byPosition",
   };
 }
 
 export function lookupConfigOf(step: Step): LookupConfigValue {
   const empty: LookupConfigValue = {
-    referenceDataSourceId: "",
+    secondary: DEFAULT_SECONDARY_INPUT,
     sourceKey: "",
     lookupKey: "",
     columns: [],
   };
   if (step.opType.id !== "lookup") return empty;
   const cfg = step.config as LookupConfigType;
-  // HEL-911: secondaryInput replaces the flat referenceDataSourceId -- see unionConfigOf's
-  // note above (same UI-narrowing / lane-authoring-is-P2.2 rationale).
+  // HEL-912: same full-passthrough widening as unionConfigOf above.
   return {
-    referenceDataSourceId:
-      cfg.secondaryInput?.kind === "source" ? (cfg.secondaryInput.dataSourceId ?? "") : "",
+    secondary: cfg.secondaryInput ?? DEFAULT_SECONDARY_INPUT,
     sourceKey: cfg.sourceKey ?? "",
     lookupKey: cfg.lookupKey ?? "",
     columns: Array.isArray(cfg.columns) ? cfg.columns : [],

@@ -205,7 +205,10 @@ describe("useStepCardState — union/lookup wire-shape widening (evaluation-1.md
     const { result } = renderHook(() => useStepCardState(step, jest.fn()));
 
     act(() => {
-      result.current.onUnionChange({ otherDataSourceId: "ds-2", mode: "byPosition" });
+      result.current.onUnionChange({
+        secondary: { kind: "source", dataSourceId: "ds-2" },
+        mode: "byPosition",
+      });
       jest.advanceTimersByTime(400);
     });
 
@@ -238,7 +241,7 @@ describe("useStepCardState — union/lookup wire-shape widening (evaluation-1.md
 
     act(() => {
       result.current.onLookupChange({
-        referenceDataSourceId: "ds-2",
+        secondary: { kind: "source", dataSourceId: "ds-2" },
         sourceKey: "code",
         lookupKey: "code",
         columns: ["label"],
@@ -251,6 +254,86 @@ describe("useStepCardState — union/lookup wire-shape widening (evaluation-1.md
       sourceKey: "code",
       lookupKey: "code",
       columns: ["label"],
+    });
+  });
+
+  // HEL-912 (design.md Decision 4) — a lane-kind secondary input widens
+  // straight through too, not just source-kind: the HEL-911 unconditional
+  // `{kind:"source"}` this replaced would silently overwrite a stored lane
+  // reference on any subsequent edit.
+  it("onUnionChange persists a lane-kind secondaryInput straight through", () => {
+    updatePipelineStepMock.mockResolvedValue(
+      resolvedStep({ secondaryInput: { kind: "lane", stepId: "step-7" }, mode: "byPosition" }),
+    );
+    const step = makeStep({
+      id: "union-1",
+      opType: UNION_OP_TYPE,
+      config: { secondaryInput: { kind: "source", dataSourceId: "ds-1" }, mode: "byPosition" },
+    });
+    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
+
+    act(() => {
+      result.current.onUnionChange({
+        secondary: { kind: "lane", stepId: "step-7" },
+        mode: "byPosition",
+      });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(updatePipelineStepMock).toHaveBeenCalledWith("union-1", {
+      secondaryInput: { kind: "lane", stepId: "step-7" },
+      mode: "byPosition",
+    });
+  });
+
+  // HEL-912 task 5.6 — the round-trip proof CR2 of evaluation-1.md requires:
+  // a step PERSISTED with `secondaryInput = {kind:"lane", stepId}` (a) loads
+  // with that lane node already selected (`unionConfigOf` narrowing, read
+  // through the hook's own initial state -- not re-derived here), and (b)
+  // changing an UNRELATED field on the same step (mode byPosition -> byName)
+  // still persists the SAME lane reference, not a source-kind default.
+  //
+  // Manually verified RED against the pre-`22ed8642`/pre-HEL-912 narrowing:
+  // reverting `unionConfigOf` to its old "degrade lane-kind to \"\"" branch
+  // (`stepNarrowing.ts`'s deleted HEL-911 behaviour) makes assertion (a) fail
+  // immediately (`unionConfig.secondary` would be `{kind:"source",
+  // dataSourceId:""}`, not the stored lane), and reverting `onUnionChange`
+  // to its old unconditional `{kind:"source"}` widening makes assertion (b)
+  // fail (the PATCH would send `{kind:"source",dataSourceId:""}` instead of
+  // preserving the lane) -- both reverts were applied locally, observed
+  // failing, then discarded; this is the same data-loss branch task 5.1
+  // deleted, not re-pinned in new clothes.
+  it("round-trips a stored lane-kind secondaryInput: loads selected, survives an unrelated-field edit", () => {
+    const step = makeStep({
+      id: "union-2",
+      opType: UNION_OP_TYPE,
+      config: { secondaryInput: { kind: "lane", stepId: "step-9" }, mode: "byPosition" },
+    });
+    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
+
+    // (a) loads with the stored lane node already selected.
+    expect(result.current.unionConfig).toEqual({
+      secondary: { kind: "lane", stepId: "step-9" },
+      mode: "byPosition",
+    });
+
+    updatePipelineStepMock.mockResolvedValue(
+      resolvedStep({ secondaryInput: { kind: "lane", stepId: "step-9" }, mode: "byName" }),
+    );
+
+    // (b) change an UNRELATED field (mode) on the same step, preserving the
+    // already-selected lane reference exactly as onUnionChange received it.
+    act(() => {
+      result.current.onUnionChange({
+        secondary: result.current.unionConfig.secondary,
+        mode: "byName",
+      });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(updatePipelineStepMock).toHaveBeenCalledWith("union-2", {
+      secondaryInput: { kind: "lane", stepId: "step-9" },
+      mode: "byName",
     });
   });
 });

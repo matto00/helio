@@ -2905,12 +2905,11 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     expect(screen.getByRole("dialog", { name: "Add Outputs from a shape" })).toBeInTheDocument();
   });
 
-  // skeptic-final-2 (round 1) CR1 — the trunk-last anchor already having a
-  // tail is exactly the state that made the old handler silently create a
-  // second, dead tail branch (server `trunkOf` never advancing past the
-  // anchor). The trigger must be disabled at the page level, not merely in
-  // PipelineRiverView isolation.
-  it("disables 'Add Outputs from a shape' once the trunk-last step already has a tail", async () => {
+  // HEL-912 (design.md Decision 1) — the skeptic-final-2 trunk-last-tail
+  // gate this used to test is GONE at the page level too: a node with
+  // several children just roots several lanes now, so the trigger stays
+  // enabled even when the last primary-lane step already has a lane.
+  it("'Add Outputs from a shape' stays enabled at the page level even once the last primary-lane step already has a lane", async () => {
     getPipelineStepsMock.mockResolvedValue([
       {
         id: "trunk-1",
@@ -2941,7 +2940,6 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     // against the transient empty-state render before steps finish loading.
     await screen.findByRole("button", { name: /Select fields/i });
 
-    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeDisabled();
-    expect(expandPipelineShapeMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeEnabled();
   });
 });

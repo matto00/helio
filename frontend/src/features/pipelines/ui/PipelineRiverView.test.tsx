@@ -11,8 +11,27 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import { PipelineRiverView } from "./PipelineRiverView";
 import { OP_TYPES } from "../state/stepNarrowing";
-import { buildStepTree } from "../state/stepTree";
+import { buildLaneGraph } from "../state/stepTree";
 import type { Step } from "../types/step";
+
+/** HEL-912 — this file's fixtures historically had no `parentStepId` at
+ *  all, relying on the OLD `buildStepTree`'s "append any parentless step
+ *  after the first to the trunk in array order" fallback. `buildLaneGraph`
+ *  generalizes that fallback into a totality sweep that gives each
+ *  unreached parentless step its OWN singleton lane instead (task 1.2) --
+ *  correct for real orphaned data, but no longer flattens multiple
+ *  intentionally-sequential fixture steps into one lane. Auto-link each
+ *  step (that doesn't already carry an explicit `parentStepId`) to the
+ *  PREVIOUS step in array order, reproducing the old flat single-lane
+ *  shape these reorder/Move tests actually exercise. */
+function linkChain(steps: Step[]): Step[] {
+  const linked: Step[] = [];
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    linked.push(s.parentStepId !== undefined ? s : { ...s, parentStepId: linked[i - 1]?.id });
+  }
+  return linked;
+}
 
 const FILTER_OP = OP_TYPES.find((op) => op.id === "filter")!;
 const LIMIT_OP = OP_TYPES.find((op) => op.id === "limit")!;
@@ -51,22 +70,21 @@ const stepD: Step = {
 };
 
 function baseProps(overrides: Partial<ComponentProps<typeof PipelineRiverView>> = {}) {
-  // HEL-908 task 3.4 — none of this file's fixture steps carry a
-  // `parentStepId`, so `buildStepTree` degrades to the old flat trunk-only
-  // behavior these pre-existing tests assert on (see `stepTree.ts`'s orphan
-  // sweep). Derived from `overrides.steps` when present so an override that
-  // swaps in a different fixture array still gets a matching tree.
-  const resolvedSteps = overrides.steps ?? [stepA, stepB, stepC];
+  // HEL-912 — `linkChain` (see top of file) auto-links this file's
+  // fixture steps into one primary lane. Derived from `overrides.steps`
+  // when present so an override that swaps in a different fixture array
+  // still gets a matching graph.
+  const resolvedSteps = linkChain(overrides.steps ?? [stepA, stepB, stepC]);
   return {
     steps: resolvedSteps,
-    stepTree: buildStepTree(resolvedSteps),
+    laneGraph: buildLaneGraph(resolvedSteps),
     pipelineId: "pipe-1",
     dropdownOpen: false,
     openDropdown: jest.fn(),
     closeDropdown: jest.fn(),
     onAddStep: jest.fn(),
     onInsertStep: jest.fn(),
-    onAddTailStep: jest.fn(),
+    onAddLaneStep: jest.fn(),
     onRemoveStep: jest.fn(),
     getAnalyzeColumns: () => [],
     getAnalyzeSchema: () => [],
@@ -311,28 +329,95 @@ describe("PipelineRiverView disable/duplicate delegation (HEL-412)", () => {
   });
 });
 
-// skeptic-final-2 (round 1) CR1 — the bottom "Add Outputs from a shape"
-// trigger always anchors on the trunk-last step; that anchor already having
-// a tail is exactly the state that made the OLD handler create a second,
-// dead tail branch (see usePipelineDetailPage.ts's handleInstantiateShape
-// doc comment). The trigger must be disabled in that state, not merely
-// "handled" post-hoc by the handler.
-describe("PipelineRiverView shape-picker trunk-last-tail gate (skeptic-final-2 round 1 CR1)", () => {
-  it("enables 'Add Outputs from a shape' when the trunk-last step has no tail", () => {
-    render(<PipelineRiverView {...baseProps()} />);
-    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeEnabled();
-  });
-
-  it("disables 'Add Outputs from a shape' when the trunk-last step already has a tail", () => {
-    // Unlike this file's default flat fixture (no `parentStepId` at all —
-    // see `baseProps`'s doc comment), a real trunk chain must be linked via
-    // `parentStepId` for `buildStepTree` to derive a tail at all.
+// HEL-912 (design.md Decision 1) — the skeptic-final-2 trunk-last-tail gate
+// this used to test is GONE: a node with several children just roots
+// several lanes now, so "Add Outputs from a shape" is never disabled by an
+// existing lane off the anchor.
+describe("PipelineRiverView shape-picker (HEL-912 — single-tail gate removed)", () => {
+  it("'Add Outputs from a shape' stays enabled even when the last primary-lane step already has a lane", () => {
     const linkedA: Step = { ...stepA, parentStepId: undefined };
     const linkedB: Step = { ...stepB, parentStepId: "a", position: 0 };
     const linkedC: Step = { ...stepC, parentStepId: "b", position: 0 };
-    const tail: Step = { ...stepD, id: "t", parentStepId: "c", position: 1 };
-    const steps = [linkedA, linkedB, linkedC, tail];
-    render(<PipelineRiverView {...baseProps({ steps, stepTree: buildStepTree(steps) })} />);
-    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeDisabled();
+    const lane: Step = { ...stepD, id: "t", parentStepId: "c", position: 1 };
+    const steps = [linkedA, linkedB, linkedC, lane];
+    render(<PipelineRiverView {...baseProps({ steps, laneGraph: buildLaneGraph(steps) })} />);
+    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeEnabled();
+  });
+});
+
+// HEL-912 task 3.3/3.5 — pins the two properties `pipeline-tails-ui` states
+// for a one-step lane's compact rendering (there are no frontend Jest
+// snapshots, per design.md's Risks/Trade-offs): the indented dashed
+// `.pipeline-detail-page__tail-chain-item` connector, and its termination
+// in the step's own card. This is a GUARD, not a proof of pixel identity —
+// see `files-modified.md` for the mutation that makes it fail (lesson 5:
+// one mutation, not a conjunction).
+describe("PipelineRiverView one-step lane compact rendering (HEL-912 task 3.3)", () => {
+  it("a one-step lane off a primary step renders via .pipeline-detail-page__tail-chain-item, nested under that step's section", () => {
+    // `a` needs TWO children for either to root its own lane (design.md
+    // Decision 1 — a lane continues through single-child edges, so a
+    // single child never splits off on its own); `stepC` is the primary
+    // lane's own continuation, `stepB` roots a one-step lane off `a`.
+    const linkedA: Step = { ...stepA, parentStepId: undefined };
+    const primaryContinuation: Step = { ...stepC, parentStepId: "a", position: 0 };
+    const lane: Step = { ...stepB, parentStepId: "a", position: 1 };
+    const steps = [linkedA, primaryContinuation, lane];
+    render(<PipelineRiverView {...baseProps({ steps, laneGraph: buildLaneGraph(steps) })} />);
+
+    const aSection = sectionFor("Filter rows");
+    const tailItems = within(aSection).getAllByRole("button", { name: "Limit rows" });
+    expect(tailItems).toHaveLength(1);
+    const tailItemEl = tailItems[0].closest(".pipeline-detail-page__tail-chain-item");
+    expect(tailItemEl).not.toBeNull();
+    expect(tailItemEl!.querySelector(".pipeline-detail-page__tail-chain-connector")).not.toBeNull();
+  });
+});
+
+// HEL-912 task 4.3 — "+ lane" (formerly "+ tail") is now unconditional: a
+// step can gain a second AND third lane, with no refusal message.
+describe("PipelineRiverView '+ lane' affordance (HEL-912 task 4.3)", () => {
+  it("adding a second lane to the same step succeeds and renders, no refusal message", () => {
+    const onAddLaneStep = jest.fn();
+    const linkedA: Step = { ...stepA, parentStepId: undefined };
+    const laneOne: Step = { ...stepB, parentStepId: "a", position: 1 };
+    const steps = [linkedA, laneOne];
+    render(
+      <PipelineRiverView
+        {...baseProps({ steps, laneGraph: buildLaneGraph(steps), onAddLaneStep })}
+      />,
+    );
+
+    const branchButtons = screen.getAllByRole("button", { name: /Branch this step/i });
+    // One "+ lane" affordance per step (A's own, and B's own inside its
+    // compact lane rendering) — click A's.
+    fireEvent.click(branchButtons[0]);
+    fireEvent.click(screen.getByRole("menuitem", { name: /Sort rows/i }));
+
+    expect(onAddLaneStep).toHaveBeenCalledTimes(1);
+    const [opType, parentStepId] = onAddLaneStep.mock.calls[0];
+    expect(opType.id).toBe("sort");
+    expect(parentStepId).toBe("a");
+    expect(screen.queryByText(/already has a tail/i)).not.toBeInTheDocument();
+  });
+
+  it("adding a third lane to the same step also succeeds, no refusal message", () => {
+    const onAddLaneStep = jest.fn();
+    const linkedA: Step = { ...stepA, parentStepId: undefined };
+    const laneOne: Step = { ...stepB, parentStepId: "a", position: 1 };
+    const laneTwo: Step = { ...stepC, parentStepId: "a", position: 2 };
+    const steps = [linkedA, laneOne, laneTwo];
+    render(
+      <PipelineRiverView
+        {...baseProps({ steps, laneGraph: buildLaneGraph(steps), onAddLaneStep })}
+      />,
+    );
+
+    const branchButtons = screen.getAllByRole("button", { name: /Branch this step/i });
+    fireEvent.click(branchButtons[0]);
+    fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+
+    expect(onAddLaneStep).toHaveBeenCalledTimes(1);
+    expect(onAddLaneStep.mock.calls[0][1]).toBe("a");
+    expect(screen.queryByText(/already has a tail/i)).not.toBeInTheDocument();
   });
 });
