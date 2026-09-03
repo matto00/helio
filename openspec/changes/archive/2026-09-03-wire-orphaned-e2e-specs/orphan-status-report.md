@@ -24,19 +24,23 @@ the outcome recorded here.
 | 6 | `hel666-single-assistant-entry.spec.ts` | Orphan → FAIL → quarantined (HEL-960) |
 | 7 | `hel716-panel-detail-tall-viewport-footer.spec.ts` | Orphan → FAIL → quarantined (HEL-961) |
 | 8 | `hel773-top-anchored-mobile-nav-sheet.spec.ts` | Orphan → PASS → globbed in |
-| 9 | `hel908-full-flow.spec.ts` | Orphan → PASS → globbed in |
+| 9 | `hel908-full-flow.spec.ts` | Orphan → PASS locally, FLAKY in CI → quarantined (HEL-964) |
 | 10 | `hel908-step-card-split.spec.ts` | Orphan → PASS → globbed in |
 | 11 | `hel908-tail-attach.spec.ts` | Orphan → FAIL → quarantined (HEL-962) |
 | 12 | `hel908-trunk-reorder-drag.spec.ts` | Orphan → PASS → globbed in |
 | 13 | `hel908-trunk-reorder-order.spec.ts` | Orphan → PASS → globbed in |
 | 14 | `hel909-output-picker-panel-sheet.spec.ts` | Orphan → FAIL → quarantined (HEL-963) |
 
-11 orphans total: 6 pass, 5 fail. None flaked between the two samples taken
-of the 6 passers.
+11 orphans total: 6 pass, 5 fail locally. None flaked between the two local
+samples taken of the 6 passers. **Post-merge correction (see "CI-observed
+flake" below): one of the 6 local passers, `hel908-full-flow.spec.ts`,
+proved flaky in real CI and was quarantined under HEL-964 after landing —
+so the shipped, current disposition is 5 of 11 orphans enabled via the glob,
+6 quarantined (5 originally red + this one flaky pass).**
 
 ## Per-spec detail
 
-### PASS (recommend: glob in, task 3)
+### PASS (recommend: glob in, task 3) — as measured at the time (local only; see correction above)
 
 | Spec | Run 1 | Run 2 | Notes |
 |------|-------|-------|-------|
@@ -68,9 +72,10 @@ Four follow-up tickets total (2.2): one shared for Group 1, one each for Groups 
 
 ## `testIgnore` entry audit (task 4.4)
 
-All five quarantine entries in `playwright.config.ts` carry a comment naming
-their follow-up ticket (HEL-960/961/962/963 — real, filed Linear ids, not
-placeholders), and the pre-existing `**/*.regression.spec.ts` entry's comment
+All six quarantine entries in `playwright.config.ts` carry a comment naming
+their follow-up ticket (HEL-960/961/962/963/964 — real, filed Linear ids,
+not placeholders — HEL-964 added post-merge, see "CI-observed flake"
+below), and the pre-existing `**/*.regression.spec.ts` entry's comment
 names the on-disk-source-mutation reason. No `testIgnore` entry is without a
 reason.
 
@@ -86,3 +91,21 @@ up to 12"); the actual measured number for the resulting 8 wired files
 (2 pre-existing + 6 newly globbed) is under a minute. Nothing was red only in
 the combined run, so no additional quarantine entries were needed beyond the
 five from task 1/4. See `final-whole-suite-run.log` (persisted).
+
+**Post-merge correction — CI-observed flake (HEL-964).** The measurements
+above were true of the local runs made at the time. Real CI later found
+`hel908-full-flow.spec.ts` — one of the "8 wired files"/"6 newly globbed"
+counted here — flaky: PR #539's CI run failed it once, an immediate re-run
+of the identical commit passed. Local individual (2/2) and local whole-suite
+runs never observed this, which is itself the point: per design.md D3, a
+spec producing two different verdicts across runs is not trustworthy as a
+gate regardless of what local measurement shows, and CI's environment/timing
+is not guaranteed to reproduce what local measured. `hel908-full-flow.spec.ts`
+was quarantined under HEL-964 as a result — see the updated row above and
+the enumeration table. The historical "8 wired files"/"39 tests" numbers in
+this section describe that one specific run and are not restated; the
+current wired count is 7 files / 38 tests (confirmed via
+`npx playwright test --list`).
+
+- CI fail: https://github.com/matto00/helio/actions/runs/33767648152/job/100689501853
+- CI re-run pass: https://github.com/matto00/helio/actions/runs/33767648152/job/100693318761
