@@ -233,12 +233,16 @@ describe("panelsSlice", () => {
       const rows = [{ n: 1 }, { n: 2 }];
       const nextState = panelsReducer(
         undefined,
-        fetchPanelPage.fulfilled({ panelId: "panel-1", page: 0, rows, hasMore: true }, "req", {
-          panelId: "panel-1",
-          outputId: "output-1",
-          page: 0,
-          pageSize: 50,
-        }),
+        fetchPanelPage.fulfilled(
+          { panelId: "panel-1", page: 0, rows, hasMore: true, materialized: true },
+          "req",
+          {
+            panelId: "panel-1",
+            outputId: "output-1",
+            page: 0,
+            pageSize: 50,
+          },
+        ),
       );
 
       expect(nextState.paginationState["panel-1"]).toEqual({
@@ -246,6 +250,7 @@ describe("panelsSlice", () => {
         hasMore: true,
         isLoadingMore: false,
         rows,
+        materialized: true,
       });
     });
 
@@ -256,7 +261,7 @@ describe("panelsSlice", () => {
       const afterFirstPage = panelsReducer(
         undefined,
         fetchPanelPage.fulfilled(
-          { panelId: "panel-1", page: 0, rows: firstRows, hasMore: true },
+          { panelId: "panel-1", page: 0, rows: firstRows, hasMore: true, materialized: true },
           "req-1",
           { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 2 },
         ),
@@ -265,7 +270,7 @@ describe("panelsSlice", () => {
       const afterSecondPage = panelsReducer(
         afterFirstPage,
         fetchPanelPage.fulfilled(
-          { panelId: "panel-1", page: 1, rows: moreRows, hasMore: false },
+          { panelId: "panel-1", page: 1, rows: moreRows, hasMore: false, materialized: true },
           "req-2",
           { panelId: "panel-1", outputId: "output-1", page: 1, pageSize: 2 },
         ),
@@ -296,7 +301,7 @@ describe("panelsSlice", () => {
       const withPagination = panelsReducer(
         undefined,
         fetchPanelPage.fulfilled(
-          { panelId: "panel-1", page: 0, rows: [{ n: 1 }], hasMore: false },
+          { panelId: "panel-1", page: 0, rows: [{ n: 1 }], hasMore: false, materialized: true },
           "req",
           { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 50 },
         ),
@@ -313,7 +318,7 @@ describe("panelsSlice", () => {
       let state = panelsReducer(
         undefined,
         fetchPanelPage.fulfilled(
-          { panelId: "panel-1", page: 0, rows: [{ n: 1 }], hasMore: false },
+          { panelId: "panel-1", page: 0, rows: [{ n: 1 }], hasMore: false, materialized: true },
           "req-1",
           { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 50 },
         ),
@@ -321,7 +326,7 @@ describe("panelsSlice", () => {
       state = panelsReducer(
         state,
         fetchPanelPage.fulfilled(
-          { panelId: "panel-2", page: 0, rows: [{ n: 2 }], hasMore: false },
+          { panelId: "panel-2", page: 0, rows: [{ n: 2 }], hasMore: false, materialized: true },
           "req-2",
           { panelId: "panel-2", outputId: "output-2", page: 0, pageSize: 50 },
         ),

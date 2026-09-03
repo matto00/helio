@@ -18,6 +18,7 @@ jest.mock("../hooks/usePanelData", () => ({
     error: null,
     errorKind: null,
     noData: true,
+    neverMaterialized: false,
     chartAggregate: null,
     refresh: jest.fn(),
   })),
@@ -226,6 +227,7 @@ describe("PanelCard — error state retry (HEL-539)", () => {
       error: "Failed to load panel data.",
       errorKind: "error",
       noData: false,
+      neverMaterialized: false,
       chartAggregate: null,
       refresh,
     });
@@ -248,6 +250,7 @@ describe("PanelCard — error state retry (HEL-539)", () => {
       error: "You don't have access to this panel's data.",
       errorKind: "forbidden",
       noData: false,
+      neverMaterialized: false,
       chartAggregate: null,
       refresh: jest.fn(),
     });

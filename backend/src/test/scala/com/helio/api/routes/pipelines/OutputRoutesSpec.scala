@@ -227,6 +227,19 @@ class OutputRoutesSpec
         status shouldBe StatusCodes.Created
       }
     }
+
+    // HEL-946 Bug B: the create response used to hardcode `config: {}` via
+    // `outputResponseFrom`'s defaulting single-arg overload, even though the
+    // request body carried a real config and the DB write itself was
+    // correct — a save "vanished" on the very response that confirmed it.
+    "returns the config the request body carried, not an empty object (HEL-946)" in {
+      val pipelineId = newSharedPipeline()
+      val config = JsObject("legend" -> JsObject("show" -> JsBoolean(true)))
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "chart", "Chart Output", Some(config))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[OutputResponse].config shouldBe config
+      }
+    }
   }
 
   "GET /pipelines/:id/outputs" should {
@@ -244,6 +257,26 @@ class OutputRoutesSpec
       }
       Get(s"/pipelines/${pipelineId.value}/outputs") ~> routesFor(other) ~> check {
         status shouldBe StatusCodes.Forbidden
+      }
+    }
+
+    // HEL-946 Bug B: this is the route the Pipeline page hits on EVERY mount
+    // -- it used to hardcode `config: {}` for every Output regardless of what
+    // was actually persisted, via `outputResponseFrom`'s defaulting
+    // single-arg overload, so a saved edit appeared to "vanish" on refresh.
+    // Batched (`OutputService.configsFor`), not fetched per-row.
+    "returns each Output's real persisted config, batched (HEL-946)" in {
+      val pipelineId = newSharedPipeline()
+      val config1 = JsObject("legend" -> JsObject("show" -> JsBoolean(true)))
+      val config2 = JsObject("format" -> JsString("percent"))
+      val out1 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Chart, config1))
+      val out2 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-2", OutputKind.Metric, config2))
+
+      Get(s"/pipelines/${pipelineId.value}/outputs") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val byId = responseAs[OutputsResponse].items.map(o => o.id -> o.config).toMap
+        byId(out1.id.value) shouldBe config1
+        byId(out2.id.value) shouldBe config2
       }
     }
   }
@@ -499,6 +532,8 @@ class OutputRoutesSpec
         val paged = responseAs[JsObject]
         paged.fields("total") shouldBe JsNumber(3)
         paged.fields("items").convertTo[Vector[JsValue]] should have size 3
+        // HEL-946 Bug C(2): non-empty rows are unambiguously materialized.
+        paged.fields("materialized") shouldBe JsBoolean(true)
       }
       Get(s"/outputs/${output.id.value}/rows") ~> routesFor(grantee) ~> check {
         status shouldBe StatusCodes.OK
@@ -533,7 +568,11 @@ class OutputRoutesSpec
       }
     }
 
-    "200 with an empty page for an Output with no snapshot written yet" in {
+    // HEL-946 Bug C(2): a node with NO successful run at all since the
+    // Output was added has never been materialized -- this is the
+    // "no data available, but the panel is actionable" case, distinct from
+    // a node that ran and legitimately returned zero rows (next test).
+    "200 with an empty page and materialized=false for an Output that has never had a successful run" in {
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-4", OutputKind.Table))
       Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
@@ -541,6 +580,27 @@ class OutputRoutesSpec
         val paged = responseAs[JsObject]
         paged.fields("total") shouldBe JsNumber(0)
         paged.fields("items").convertTo[Vector[JsValue]] shouldBe empty
+        paged.fields("materialized") shouldBe JsBoolean(false)
+      }
+    }
+
+    // HEL-946 Bug C(2): a successful run AFTER the Output was created means
+    // `onUnblockedRunSuccess` DID process this node (writing an empty
+    // snapshot is still a write) -- an empty result here is genuine, not a
+    // "never run" state, so `materialized` must be `true` and no misleading
+    // "run the pipeline" prompt should render.
+    "200 with an empty page and materialized=true when a successful run completed after the Output was created" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-5", OutputKind.Table))
+      val runId = PipelineRunId(java.util.UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(runId, pipelineId, Instant.now()))
+      await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now().plusSeconds(1), Some(0)))
+
+      Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("total") shouldBe JsNumber(0)
+        paged.fields("materialized") shouldBe JsBoolean(true)
       }
     }
   }
@@ -578,6 +638,22 @@ class OutputRoutesSpec
     "400 a negative offset" in {
       Get("/outputs?offset=-1") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    // HEL-946 Bug B: this list feeds the Output picker -- it used to
+    // hardcode `config: {}` for every item via `outputResponseFrom`'s
+    // defaulting single-arg overload. Batched alongside panelCount, not an
+    // additional N+1.
+    "returns each Output's real persisted config, batched (HEL-946)" in {
+      val pipelineId = newSharedPipeline()
+      val config = JsObject("legend" -> JsObject("show" -> JsBoolean(true)))
+      val out = await(outputRepo.insertInternal(pipelineId, None, owner.id, "configured-out", OutputKind.Chart, config))
+
+      Get("/outputs") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[OutputResponse]]
+        items.find(_.id == out.id.value).map(_.config) shouldBe Some(config)
       }
     }
 

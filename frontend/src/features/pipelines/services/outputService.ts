@@ -99,6 +99,12 @@ export interface FetchOutputRowsResult {
   total: number;
   offset: number;
   limit: number;
+  /** HEL-946 Bug C(2): `false` means this node has never had a successful
+   *  pipeline run since the Output was added (`node_snapshots` was never
+   *  written) — distinct from a genuine empty result set (`materialized:
+   *  true`, `items` still empty). Consumers should show a "run the
+   *  pipeline" affordance only when this is `false`. */
+  materialized: boolean;
 }
 
 export async function getOutputRows(

@@ -290,4 +290,10 @@ export interface PanelPaginationState {
   hasMore: boolean;
   isLoadingMore: boolean;
   rows: Record<string, unknown>[];
+  /** HEL-946 Bug C(2): `false` means the bound Output's node has never had a
+   *  successful pipeline run since the Output was added — distinct from a
+   *  genuine empty result (`materialized: true`, `rows` still empty).
+   *  Defaults to `true` before the first fetch resolves, so nothing flashes
+   *  a "run the pipeline" prompt while loading. */
+  materialized: boolean;
 }

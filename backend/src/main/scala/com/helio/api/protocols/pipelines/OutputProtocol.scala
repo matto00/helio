@@ -53,6 +53,15 @@ final case class CreateOutputRequest(
  *  replacing `config` wholesale — see `OutputService.mergeConfig`. */
 final case class UpdateOutputRequest(name: Option[String], config: Option[JsObject])
 
+/** `GET /api/outputs/:id/rows` response (HEL-946 Bug C(2)). `materialized:
+ *  false` distinguishes "this node has never had a successful run since the
+ *  Output was added — `node_snapshots` was never written for it" from a
+ *  genuine empty result set (`materialized: true`, `items` still empty) — a
+ *  node that ran and legitimately produced zero rows. See
+ *  `PipelineRunRepository.latestSuccessfulCompletedAtInternal` for the
+ *  derivation. */
+final case class OutputRowsResponse(items: Vector[JsValue], total: Int, offset: Int, limit: Int, materialized: Boolean)
+
 final case class OutputPanelPlacementResponse(panelId: String, dashboardId: String)
 
 final case class DeleteOutputResponse(removedPanelIds: Vector[String])
@@ -62,12 +71,19 @@ trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat11(OutputResponse)
   implicit val outputsResponseFormat: RootJsonFormat[OutputsResponse]                     = jsonFormat1(OutputsResponse)
   implicit val createOutputRequestFormat: RootJsonFormat[CreateOutputRequest]             = jsonFormat4(CreateOutputRequest)
+  implicit val outputRowsResponseFormat: RootJsonFormat[OutputRowsResponse]               = jsonFormat5(OutputRowsResponse)
   implicit val outputPanelPlacementResponseFormat: RootJsonFormat[OutputPanelPlacementResponse] = jsonFormat2(OutputPanelPlacementResponse)
   implicit val deleteOutputResponseFormat: RootJsonFormat[DeleteOutputResponse]           = jsonFormat1(DeleteOutputResponse)
 
   implicit val updateOutputRequestFormat: RootJsonFormat[UpdateOutputRequest] = jsonFormat2(UpdateOutputRequest)
 
-  def outputResponseFrom(output: Output): OutputResponse = outputResponseFrom(output, JsObject.empty)
+  // HEL-946: the single-arg overload that used to live here hardcoded
+  // `config = JsObject.empty` — three call sites (list-by-pipeline, create,
+  // and the top-level list-all) used it by omission and silently returned
+  // an empty config on every read, even though the DB write was correct.
+  // Deleted rather than kept as a documented default: every caller must now
+  // name the config it's passing (even `JsObject.empty`, explicitly) so this
+  // trap can't be re-entered by a future call site forgetting the argument.
 
   def outputResponseFrom(output: Output, config: JsObject): OutputResponse =
     outputResponseFrom(output, config, panelCount = None)

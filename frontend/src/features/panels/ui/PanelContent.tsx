@@ -49,6 +49,15 @@ export interface PanelContentProps {
    *  panel detail modal); "icon-only" for compact surfaces (a grid card). */
   retryVariant?: "button" | "icon-only";
   noData?: boolean;
+  /** HEL-946 Bug C(2) — when `noData` is true AND this is also true, the
+   *  bound Output's node has never had a successful pipeline run since it
+   *  was added (no saved snapshot yet), distinct from a node that ran and
+   *  legitimately returned zero rows. Drives a "run the pipeline" message
+   *  instead of the generic "No data available" one. */
+  neverMaterialized?: boolean;
+  /** Navigates to the pipeline so the user can run it, from the
+   *  never-materialized empty state (HEL-946). */
+  onGoToPipeline?: () => void;
   /** Optional appearance override (defaults to `panel.appearance`). */
   appearance?: PanelAppearance;
   /** Rows from the paginated execute endpoint for table panels. */
@@ -204,6 +213,8 @@ export function PanelContent({
   retrying,
   retryVariant,
   noData,
+  neverMaterialized,
+  onGoToPipeline,
   appearance,
   paginationRows,
   paginationHasMore,
@@ -237,6 +248,30 @@ export function PanelContent({
           retryVariant={retryVariant}
           announced={false}
         />
+      </div>
+    );
+  }
+
+  if (noData && neverMaterialized) {
+    // HEL-946 Bug C(2): this node has never had a successful pipeline run
+    // since the Output was added — an ACTIONABLE state, distinct from a
+    // node that ran and legitimately returned zero rows (handled by the
+    // plain "No data available" branch below).
+    return (
+      <div className="panel-content panel-content--state" role="status">
+        <span className="panel-content__state-label">Not run yet</span>
+        <p className="panel-content__state-detail">
+          This panel&rsquo;s output hasn&rsquo;t been included in a saved pipeline run yet.
+        </p>
+        {onGoToPipeline && (
+          <button
+            type="button"
+            className="ui-modal-btn ui-modal-btn--secondary"
+            onClick={onGoToPipeline}
+          >
+            Run pipeline
+          </button>
+        )}
       </div>
     );
   }

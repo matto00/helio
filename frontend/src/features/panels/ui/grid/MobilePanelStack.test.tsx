@@ -74,6 +74,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
       error: null,
       errorKind: null,
       noData: true,
+      neverMaterialized: false,
       chartAggregate: null,
       refresh: jest.fn(),
     });
@@ -211,6 +212,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
       error: null,
       errorKind: null,
       noData: false,
+      neverMaterialized: false,
       chartAggregate: null,
       refresh: jest.fn(),
     });

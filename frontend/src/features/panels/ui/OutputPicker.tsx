@@ -105,7 +105,7 @@ export function OutputPicker({
     return items;
   }, [filteredGroups, mode]);
 
-  async function placeOutput(outputId: string) {
+  async function placeOutput(outputId: string, outputName: string) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setSubmitError(null);
@@ -117,7 +117,12 @@ export function OutputPicker({
         // CR4) rather than the Output resource itself.
         await dispatch(swapPanelOutput({ panelId: swapPanelId, outputId, dashboardId })).unwrap();
       } else {
-        await dispatch(createPanel({ dashboardId, type: "output", outputId })).unwrap();
+        // HEL-946 Bug C(1): title was previously omitted, so every
+        // Output-bound panel fell back to `RequestValidation.DefaultPanelTitle`
+        // ("Untitled Panel") instead of taking the Output's own name.
+        await dispatch(
+          createPanel({ dashboardId, type: "output", title: outputName, outputId }),
+        ).unwrap();
       }
       onClose();
     } catch {
@@ -144,7 +149,7 @@ export function OutputPicker({
   }
 
   function activate(item: FlatItem) {
-    if (item.type === "output") void placeOutput(item.entry.output.id);
+    if (item.type === "output") void placeOutput(item.entry.output.id, item.entry.output.name);
     else void placeContentPanel(item.kind);
   }
 
@@ -283,7 +288,7 @@ export function OutputPicker({
                         aria-label={`${entry.output.name} (${group.pipelineName})${
                           entry.onThisBoard ? ", already on this board" : ""
                         }`}
-                        onClick={() => void placeOutput(entry.output.id)}
+                        onClick={() => void placeOutput(entry.output.id, entry.output.name)}
                         onMouseEnter={() => setHoveredIndex(index)}
                         onMouseLeave={() => setHoveredIndex((i) => (i === index ? null : i))}
                         tabIndex={-1}

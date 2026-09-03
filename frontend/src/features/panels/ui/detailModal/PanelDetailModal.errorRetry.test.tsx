@@ -74,6 +74,7 @@ describe("PanelDetailModal — error state retry (HEL-539)", () => {
       total: 1,
       offset: 0,
       limit: 200,
+      materialized: true,
     });
     fireEvent.click(retryBtn);
 

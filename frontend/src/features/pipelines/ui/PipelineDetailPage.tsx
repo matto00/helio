@@ -234,6 +234,7 @@ export function PipelineDetailPage() {
           role="tabpanel"
           id="pipeline-detail-page__tabpanel-steps"
           aria-labelledby="pipeline-detail-page__tab-steps"
+          className="pipeline-detail-page__tabpanel"
         >
           <PipelineRiverView
             steps={steps}
@@ -273,6 +274,7 @@ export function PipelineDetailPage() {
           role="tabpanel"
           id="pipeline-detail-page__tabpanel-outputs"
           aria-labelledby="pipeline-detail-page__tab-outputs"
+          className="pipeline-detail-page__tabpanel"
         >
           {/* task 4.4 -- "+ New output" should ask which step the Output binds
             to; that step-picker (and the Output sheet it opens into) is task
@@ -301,6 +303,7 @@ export function PipelineDetailPage() {
           createTargetStepId={outputSheet.createTargetStepId}
           steps={steps}
           onAddAsTailWithAggregate={handleAddOutputViaAggregateTail}
+          onRunPipeline={() => void handleRunPipeline()}
         />
       )}
 

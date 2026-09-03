@@ -32,6 +32,22 @@
   color: var(--app-text-muted);
 }
 
+/* HEL-946: the two tabpanels (steps/outputs) sit between the tab strip and
+ * the footer inside `.pipeline-detail-page`'s flex column. Each panel must
+ * itself be a flex child (`flex: 1; min-height: 0`) so the scrollable
+ * content it wraps (`.pipeline-detail-page__river`'s own `flex: 1;
+ * overflow-y: auto`, or the outputs gallery) can actually claim the
+ * remaining height instead of being sized to content and silently clipped
+ * by this container's `overflow: hidden`. Without this, the tabpanel is an
+ * unstyled block box with no scroll affordance and no visible scrollbar. */
+.pipeline-detail-page__tabpanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .pipeline-detail-page__river {
   flex: 1;
   overflow-y: auto;
