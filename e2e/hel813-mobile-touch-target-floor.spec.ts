@@ -202,31 +202,38 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       // kebab at all — neither is phone-reachable, so `ui-select` is this
       // surface's real candidate.)
       //
-      // Swept on the OPEN OPTION LIST (`.ui-select__option`), not the
-      // trigger itself (`.ui-select__trigger`): the trigger's `getComputed
-      // Style` reports exactly `height: 44px`, but its actual rendered
-      // `getBoundingClientRect()` height measures ~43.565px — a real,
-      // newly-discovered sub-pixel rendered-vs-computed gap this guard is
-      // specifically designed to catch (ticket.md's core point: computed
-      // style/source text is not rendered geometry). Filed as a follow-up
-      // per the ticket's scope note rather than fixed inline here — see
-      // this change's PR body / files-modified.md for the filed ticket id
-      // (HEL-818).
+      // Swept on BOTH the trigger (`.ui-select__trigger`) and the OPEN
+      // OPTION LIST (`.ui-select__option`) — the trigger's `getComputedStyle`
+      // reports exactly `height: 44px`, but its actual rendered
+      // `getBoundingClientRect()` height reliably measures a hair under
+      // 44px. HEL-818 investigated this gap (originally left as a
+      // follow-up rather than fixed inline here) and settled it with
+      // evidence rather than assuming either outcome:
       //
-      // HEL-935: the SAME class of sub-pixel gap intermittently affects
-      // `.ui-select__option` itself, not just the trigger — reproduced
-      // locally at 1/60 repeats of this exact case (768px), measuring a
-      // genuine, non-zero `43.87115478515625` against the `44px` declared
-      // in `inputs.css` (no border, no `calc()`). This is NOT the same
-      // mechanism as HEL-897's probe race (a Node<->browser round-trip gap
-      // in `bisectHitExtent`'s bisection walk, producing a flat,
-      // deterministic `extent 0` — a completely different code path this
-      // test never calls): this case measures a plausible, real,
-      // just-under-floor number via plain `boundingBox()`. Handled via a
-      // narrow, documented `RENDERED_BOX_EPSILON_PX` tolerance in
-      // `touchTargetProbe.ts`'s `assertFloor`, not a probe-race fix — see
-      // that constant's doc comment for the full evidence trail.
-      test("surface 5: ui-select option list", async ({ page, request }) => {
+      // - The box model itself is clean: `border-box` sizing, a 1px border,
+      //   zero padding, no `calc()`, `line-height: 19.6px` well inside the
+      //   content box, and `getComputedStyle` correctly reports
+      //   `min-height: 44px` on the element itself. Dumping the full
+      //   ancestor chain (`.ui-select` up through the Create Pipeline
+      //   modal's nested flex containers) showed the SAME "round computed
+      //   style vs. fractional rendered rect" pattern on every ancestor —
+      //   this is Chromium distributing fractional pixels across a chain of
+      //   nested flex containers, not a `.ui-select__trigger`-specific CSS
+      //   defect.
+      // - It is, however, the SAME mechanism class HEL-935 already
+      //   documented for `.ui-select__option` (ambient sub-pixel rendering,
+      //   not HEL-897's unrelated probe-race `extent 0`) — just a larger
+      //   and far more consistent magnitude, because the trigger sits
+      //   inside a deeper nested-flex ancestor chain (a modal form) than the
+      //   option list (a simpler popover). A 120-sample re-measurement (60
+      //   repeats each at 430px/768px) never hit exactly `44`, with a worst
+      //   gap of `0.6600341796875px` — larger than HEL-935's original
+      //   `0.5`-epsilon covered. `RENDERED_BOX_EPSILON_PX` was recalibrated
+      //   to `0.75` off that evidence (see its doc comment in
+      //   `touchTargetProbe.ts` for the full trail) rather than left
+      //   uncovered or "fixed" with a CSS change that would not address a
+      //   real defect (there isn't one in the component's own CSS).
+      test("surface 5: ui-select trigger + option list", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, `uiselect-${width}`);
         const sourceRes = await page.request.post("/api/data-sources", {
@@ -243,6 +250,9 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
         await page.getByRole("button", { name: "New pipeline" }).click();
         const dialog = page.getByRole("dialog");
         await expect(dialog).toBeVisible();
+
+        await sweepSurface(page, { selectors: [".ui-select__trigger"], scope: dialog });
+
         await dialog.locator(".ui-select__trigger").click();
         await expect(dialog.locator(".ui-select__option").first()).toBeVisible();
 

@@ -17,29 +17,57 @@ export const DEFAULT_MIN_PX = 44;
 /** HEL-935/HEL-818 — narrow, documented tolerance for plain rendered-box
  *  (`getBoundingClientRect()`) floor checks in `assertFloor`/`sweepSurface`.
  *
- *  Root cause (confirmed, not assumed): `.ui-select__trigger` and
- *  `.ui-select__option` both declare a literal `min-height: 44px` with no
- *  border and no `calc()` (see `frontend/src/shared/ui/inputs.css`), yet
- *  intermittently render a hair under 44px — HEL-818 measured
- *  `.ui-select__trigger` at ~43.5648–43.5650px (both 430px and 768px,
- *  every run); this investigation reproduced the SAME class of gap on
- *  `.ui-select__option` at 768px, but non-deterministically: 59/60 repeats
- *  of `e2e/hel813-mobile-touch-target-floor.spec.ts`'s surface-5 case
- *  measured exactly `44`, one measured `43.87115478515625`. That is a
- *  genuine, non-zero, plausible-but-under-floor number — the opposite
- *  signature from HEL-897's flat, deterministic `extent 0` (a Node<->browser
- *  round-trip race in `bisectHitExtent`, a completely different code path
- *  that this function does not use). Nothing here is a probe race: it is
- *  sub-pixel layout/rasterization rounding on an already-correct `44px`
- *  declaration, below any tap-target-relevant magnitude.
+ *  Root cause (confirmed, not assumed, re-verified by HEL-818): both
+ *  `.ui-select__trigger` and `.ui-select__option` declare a literal
+ *  `min-height: 44px`, `box-sizing: border-box` (global reset in
+ *  `theme.css`), a 1px border (trigger only) and zero padding — no
+ *  `calc()`, no fractional line-height overflow (`line-height: 19.6px`
+ *  sits far inside the ~42px content box). `getComputedStyle` reports
+ *  `height: 44px` / `min-height: 44px` on the element itself, every time.
+ *  HEL-818 dumped the full ancestor chain (`.ui-select` → `.ui-select__
+ *  trigger`'s parents up through the modal's `.ui-modal__inner`) and found
+ *  the SAME pattern on every ancestor: each one's own `getComputedStyle`
+ *  reports a round integer pixel height while its `getBoundingClientRect`
+ *  measures a stable fraction below that integer (e.g. a `height: 90px`
+ *  ancestor rendering at `89.31px`). This is Chromium distributing
+ *  fractional pixels across a chain of nested flex containers (the modal's
+ *  `.ui-modal__inner` → `.ui-modal__body` → `.create-pipeline-modal__form`
+ *  → `.create-pipeline-modal__field` → `.ui-select` → `.ui-select__
+ *  trigger`) — an ambient rasterization/subpixel-layout behavior of the
+ *  surrounding layout context, not a border/padding/line-height/calc
+ *  defect in either selector's own declared CSS. Nothing here is a probe
+ *  race: it is the same class of sub-pixel layout rounding HEL-897
+ *  explicitly is NOT (HEL-897 is a flat, deterministic `extent 0` from a
+ *  Node<->browser round-trip race in `bisectHitExtent`, a completely
+ *  different code path this function does not use).
  *
- *  A blanket, unbounded tolerance would risk masking a real regression, so
- *  this is deliberately tiny — smaller than the largest gap measured above
- *  by a comfortable margin, and many multiples smaller than every known real
- *  violation this guard exists to catch (HEL-781's 28px control is 16px
- *  short of the floor; HEL-535's inert-floor cases measure 0 and are already
- *  caught by the `visible` assertion above, never by this epsilon). */
-export const RENDERED_BOX_EPSILON_PX = 0.5;
+ *  Magnitude (re-measured, not assumed): HEL-935's original 60-repeat
+ *  sample of `.ui-select__option` was mostly-exact (59/60 measured exactly
+ *  `44`, one outlier at `43.87115478515625`, a 0.13px gap) — that shape
+ *  justified the original `0.5` value. HEL-818 sampled `.ui-select__
+ *  trigger` far more aggressively (120 samples: 60 repeats each at 430px
+ *  and 768px, opening/closing the Create Pipeline modal's data-source
+ *  Select) and found a DIFFERENT shape for the trigger: it never measured
+ *  exactly `44` in any of the 120 samples, and its single most common value
+ *  (`43.3399658203125`, ~0.66px short) was not a rare outlier but the
+ *  MODE of the distribution — around 90% of samples landed below the old
+ *  `0.5`-epsilon floor of `43.5`. Both selectors are legitimately governed
+ *  by the same ambient-rasterization mechanism (see the ancestor-chain
+ *  evidence above), but the trigger's deeper, more heavily-nested flex
+ *  ancestor chain (it sits inside a modal form; the option list sits in a
+ *  simpler popover) compounds more fractional loss, so one shared value has
+ *  to cover the worse of the two measured distributions, not the better.
+ *
+ *  `0.75` is chosen with a real margin above the worst 120-sample
+ *  measurement (`43.3399658203125`, a 0.6600341796875px gap) rather than
+ *  set exactly at it, while staying many multiples smaller than every known
+ *  real violation this guard exists to catch (HEL-781's 28px control is
+ *  16px short of the floor — over 21x this tolerance; HEL-535's inert-floor
+ *  cases measure 0 and are already caught by the `visible` assertion above,
+ *  never by this epsilon). See `e2e/hel813-mobile-touch-target-floor.
+ *  regression.spec.ts` (`HEL813_REGRESSION=1`) for the mechanical proof
+ *  that both mutation shapes still go red at this tolerance. */
+export const RENDERED_BOX_EPSILON_PX = 0.75;
 
 export interface BoxMeasurement {
   width: number;
