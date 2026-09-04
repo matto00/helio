@@ -57,24 +57,27 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
       title: "Add an Output to a pipeline node",
       description:
         "Create an Output on a pipeline (POST /api/pipelines/:id/outputs) — a panel-bindable " +
-        "projection of one pipeline node. `nodeStepId` absent means the pipeline's raw source " +
-        "(before any step); present, it must be a real step id on this pipeline. `kind` selects " +
+        "projection of one pipeline node. `nodeStepId` absent means a root-bound Output; " +
+        "present, it must be a real step id on this pipeline. `kind` selects " +
         "which of the bindable shapes this Output represents (table/metric/chart/collection/" +
         "timeline/markdown); `config.fieldMapping`, when the kind requires one, MUST use slot " +
         "names get_output_capabilities marks bindable for this node, and each mapped value MUST " +
         "be a column that actually exists at THIS node (not the trunk's schema, not a sibling " +
-        "tail's) — check get_output_capabilities first. Requires editor or owner access on the " +
-        "pipeline. Returns the created Output.",
+        "tail's) — check get_output_capabilities first. `rootId` (HEL-913, multi-root only) " +
+        "names WHICH root a root-bound Output attaches to — mutually exclusive with " +
+        "`nodeStepId`; omit it on a single-root pipeline (the backend auto-resolves the one " +
+        "root). Requires editor or owner access on the pipeline. Returns the created Output.",
       inputSchema: {
         pipelineId: z.string().min(1),
         nodeStepId: z.string().min(1).optional(),
         kind: outputKindSchema,
         name: z.string().min(1),
         config: z.record(z.string(), z.unknown()).optional(),
+        rootId: z.string().min(1).optional(),
       },
     },
-    ({ pipelineId, nodeStepId, kind, name, config }) =>
-      guarded(() => addOutputHandler(api, { pipelineId, nodeStepId, kind, name, config })),
+    ({ pipelineId, nodeStepId, kind, name, config, rootId }) =>
+      guarded(() => addOutputHandler(api, { pipelineId, nodeStepId, kind, name, config, rootId })),
   );
 
   server.registerTool(

@@ -117,7 +117,7 @@ class PublicDashboardRoutesSpec
     val now    = Instant.now()
     val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
     val createdSource = await(dataSourceRepo.insert(source, owner))
-    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, owner)).getOrElse(
+    val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), owner)).getOrElse(
       throw new IllegalStateException("newPipelineWithLastRunAt fixture: pipeline create failed")
     )
     val pipelineId = PipelineId(pipeline.id)
@@ -127,7 +127,7 @@ class PublicDashboardRoutesSpec
   }
 
   private def seedOutputPanel(dashId: String, pipelineId: PipelineId): String = {
-    val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "Public Output", OutputKind.Table))
+    val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "Public Output", OutputKind.Table, explicitRootId = None))
     import PostgresProfile.api._
     val panelId = UUID.randomUUID().toString
     await(db.run(
@@ -179,7 +179,7 @@ class PublicDashboardRoutesSpec
       val now        = Instant.now()
       val source     = StaticSource(DataSourceId(UUID.randomUUID().toString), "src2", owner.id, now, now)
       val createdSrc = await(dataSourceRepo.insert(source, owner))
-      val pipeline   = await(pipelineRepo.create("pipe-no-run", createdSrc.id, owner)).getOrElse(
+      val pipeline   = await(pipelineRepo.create("pipe-no-run", Vector(createdSrc.id), owner)).getOrElse(
         throw new IllegalStateException("fixture: pipeline create failed")
       )
       seedOutputPanel(dashId, PipelineId(pipeline.id))
@@ -199,7 +199,7 @@ class PublicDashboardRoutesSpec
       val dashId     = seedDashboardWithPublicGrant()
       val pipelineId = newPipelineWithLastRunAt(Instant.now())
       val panelId    = seedOutputPanel(dashId, pipelineId)
-      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("a" -> JsString("1")))))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("a" -> JsString("1"))), explicitRootId = None))
 
       Get(s"/dashboards/$dashId/panels/$panelId/rows") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
@@ -236,7 +236,7 @@ class PublicDashboardRoutesSpec
       val otherDashId   = seedDashboardWithPublicGrant()
       val pipelineId    = newPipelineWithLastRunAt(Instant.now())
       val otherPanelId  = seedOutputPanel(otherDashId, pipelineId)
-      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("a" -> JsString("1")))))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("a" -> JsString("1"))), explicitRootId = None))
 
       // otherPanelId genuinely resolves rows on ITS OWN (also-shared) dashboard...
       Get(s"/dashboards/$otherDashId/panels/$otherPanelId/rows") ~> routes() ~> check {

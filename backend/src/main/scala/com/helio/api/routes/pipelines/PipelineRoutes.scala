@@ -6,8 +6,8 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{CreatePipelineRequest, JsonProtocols, UpdatePipelineRequest}
 import com.helio.api.protocols.IdParsing.PipelineIdSegment
-import com.helio.api.protocols.pipelines.{PipelineProposal, ValidateExpressionRequest}
-import com.helio.domain.model.{AuthenticatedUser, PipelineStepId}
+import com.helio.api.protocols.pipelines.{CreatePipelineRootRequest, PipelineProposal, ValidateExpressionRequest}
+import com.helio.domain.model.{AuthenticatedUser, PipelineRootId, PipelineStepId}
 import com.helio.services.pipelines.PipelineService
 
 import scala.concurrent.ExecutionContext
@@ -72,6 +72,26 @@ class PipelineRoutes(
                 ServiceResponse.run(pipelineService.validateExpression(pipelineId, stepId.map(PipelineStepId(_)), req.expression, user))(identity)
               }
             }
+          }
+        },
+        // HEL-913 task 7.4: roots CRUD (R6 -- same element shape as `roots[]` at create time).
+        // Registered BEFORE the bare PipelineIdSegment branch below for the same reason as
+        // "analyze-proposal" above -- PipelineIdSegment / "roots" would otherwise be swallowed
+        // by the unconstrained single-segment PipelineIdSegment matcher if ordering were reversed
+        // (it is not, since this is nested one level deeper, but kept adjacent to the other
+        // pipeline-scoped sub-routes for readability).
+        path(PipelineIdSegment / "roots") { pipelineId =>
+          post {
+            entity(as[CreatePipelineRootRequest]) { req =>
+              ServiceResponse.run(pipelineService.addRoot(pipelineId, req, user)) { root =>
+                StatusCodes.Created -> root
+              }
+            }
+          }
+        },
+        path(PipelineIdSegment / "roots" / Segment) { (pipelineId, rootIdStr) =>
+          delete {
+            ServiceResponse.run(pipelineService.removeRoot(pipelineId, PipelineRootId(rootIdStr), user))(identity)
           }
         },
         path(PipelineIdSegment) { pipelineId =>

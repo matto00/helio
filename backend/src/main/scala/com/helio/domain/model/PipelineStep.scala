@@ -53,12 +53,20 @@ trait PipelineStep {
   def enabled: Boolean
 
   /** HEL-904 (Outputs remodel, additive step 1.2): the sibling-scoped parent
-   *  this step branches from. `None` means "trunk step, parented off the
-   *  pipeline's source" — mirrors today's flat `position`-ordered trunk until
+   *  this step branches from. `None` means "trunk step, parented off a
+   *  pipeline root" — mirrors today's flat `position`-ordered trunk until
    *  the V94 migration backfills this from `position` (tasks.md §2.2) and
    *  `PipelineStepRepository` starts reading tree order instead of flat
    *  position (§1.6). Defaults `None` so every pre-existing positional call
-   *  site keeps compiling. */
+   *  site keeps compiling.
+   *
+   *  HEL-913: this trait carries NO root reference of its own — a `None`
+   *  here is NOT self-sufficiently "the pipeline's raw root" under
+   *  multi-root. The step's root is paired externally via [[NodeRef]]
+   *  (`model.scala`, `rootId: Option[PipelineRootId]`) and persisted on
+   *  `PipelineStepRow.rootId` (`pipeline_steps.root_id`, V98's CHECK:
+   *  `(parent_step_id IS NULL) = (root_id IS NOT NULL)`), never inferred
+   *  from this field's absence alone. */
   def parentStepId: Option[PipelineStepId]
 
   /** Apply this step to the input rows.

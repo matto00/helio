@@ -169,6 +169,14 @@ private[protocols] trait AssistantProposalToolSchemas {
         "description" -> JsString(
           "Optional -- whether this step is active in the pipeline. Absent/null defaults to enabled."
         )
+      ),
+      "rootClientId" -> JsObject(
+        "type" -> JsArray(Vector(JsString("string"), JsString("null"))),
+        "description" -> JsString(
+          "HEL-913: names WHICH root (by its OWN clientId) a PARENTLESS step attaches to -- " +
+            "required (and validated) only when the proposal names more than one root; " +
+            "meaningless alongside a non-absent parentStepId."
+        )
       )
     ),
     "required" -> JsArray(Vector(JsString("clientId"), JsString("type"), JsString("config")))
@@ -191,7 +199,15 @@ private[protocols] trait AssistantProposalToolSchemas {
         "enum" -> JsArray(Vector("table", "metric", "chart", "collection", "timeline", "markdown").map(JsString(_)))
       ),
       "name"   -> JsObject("type" -> JsString("string")),
-      "config" -> JsObject("type" -> JsString("object"))
+      "config" -> JsObject("type" -> JsString("object")),
+      "rootClientId" -> JsObject(
+        "type" -> JsArray(Vector(JsString("string"), JsString("null"))),
+        "description" -> JsString(
+          "HEL-913: names WHICH root a root-bound Output (nodeStepClientId absent) attaches to " +
+            "-- required (and validated) only when the proposal names more than one root; " +
+            "meaningless alongside a non-absent nodeStepClientId."
+        )
+      )
     ),
     "required" -> JsArray(Vector(JsString("kind"), JsString("name")))
   )

@@ -3,7 +3,7 @@
   "$id": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json",
   "title": "PipelineAnalyzeResponse",
   "type": "object",
-  "required": ["id", "name", "sourceDataSourceName", "sourceSchema", "steps"],
+  "required": ["id", "name", "sourceSchemas", "steps"],
   "properties": {
     "id": {
       "type": "string",
@@ -13,13 +13,11 @@
       "type": "string",
       "minLength": 1
     },
-    "sourceDataSourceName": {
-      "type": "string"
-    },
-    "sourceSchema": {
+    "sourceSchemas": {
+      "description": "HEL-913 task 7.2c (pipeline-analyze-api spec delta): one entry per pipeline root, keyed by root id -- REPLACES the retired scalar sourceDataSourceName/sourceSchema pair outright (decision 11, no dual-read path).",
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SchemaField"
+        "$ref": "#/$defs/RootSourceSchema"
       }
     },
     "steps": {
@@ -34,6 +32,26 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "RootSourceSchema": {
+      "type": "object",
+      "required": ["rootId", "sourceDataSourceName", "sourceSchema"],
+      "properties": {
+        "rootId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceDataSourceName": {
+          "type": "string"
+        },
+        "sourceSchema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SchemaField"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "SchemaField": {
       "type": "object",
       "required": ["name", "type"],

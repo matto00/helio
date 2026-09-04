@@ -157,7 +157,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private def insertStep(pipelineId: PipelineId, kind: String, config: Any, user: AuthenticatedUser, enabled: Boolean = true): Future[PipelineStep] = {
     val existing = await(stepRepo.listByPipelineInternal(pipelineId))
     val parent   = stepRepo.trunkOf(existing).lastOption.map(_.id)
-    stepRepo.insertInternal(pipelineId, kind, config, enabled, parent)
+    stepRepo.insertInternal(pipelineId, kind, config, enabled, parent, explicitRootId = None)
   }
 
   /** HEL-905: seeds an Output at the pipeline's CURRENT trunk-last node (or root, if no steps
@@ -169,7 +169,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private def seedOutputAtTrunkLast(pipelineId: PipelineId): OutputId = {
     val existing = await(stepRepo.listByPipelineInternal(pipelineId))
     val nodeId   = stepRepo.trunkOf(existing).lastOption.map(_.id)
-    await(outputRepo.insertInternal(pipelineId, nodeId, dummyUser.id, "test-output", OutputKind.Table)).id
+    await(outputRepo.insertInternal(pipelineId, nodeId, dummyUser.id, "test-output", OutputKind.Table, explicitRootId = None)).id
   }
 
   /** HEL-904 task 4.1: the surviving row-materialization read -- `node_snapshots`
@@ -181,7 +181,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private def snapshotRows(pid: PipelineId): Vector[JsObject] = {
     val steps = await(stepRepo.listByPipelineInternal(pid))
     val trunkLastStepId = stepRepo.trunkOf(steps).lastOption.map(_.id.value)
-    await(nodeSnapshotRepo.listRows(pid.value, trunkLastStepId))
+    await(nodeSnapshotRepo.listRows(pid.value, trunkLastStepId, explicitRootId = None))
   }
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
@@ -262,15 +262,40 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     dsId
   }
 
+  // HEL-913 task 5.8: a second, genuinely different DataSource (different columns/rows/row
+  // count from `seedDsWithData`'s alice/bob) -- proving root isolation needs two roots whose
+  // data can't accidentally look alike.
+  private def seedDsWithOtherData(): String = {
+    import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
+    val dsConfig = """{"columns":[{"name":"city","type":"string"}],"rows":[["berlin"],["madrid"],["oslo"]]}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-other-data', 'static', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
+  }
+
+  // HEL-913 task 5.8: appends a second root to an already-seeded pipeline (`seedPipeline`
+  // always creates exactly root 0). Raw SQL against the embedded superuser connection (bypasses
+  // RLS, matching every other raw-SQL seed helper in this file) rather than
+  // `PipelineRootRepository.add`, since these fixture pipelines carry no real owner ACL setup.
+  private def addSecondRoot(pipelineId: PipelineId, dsId: String): String = {
+    import PostgresProfile.api._
+    val rootId = UUID.randomUUID().toString
+    await(db.run(sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position)
+      VALUES ($rootId, ${pipelineId.value}, $dsId, 1)"""))
+    rootId
+  }
+
   private def seedPipeline(dsId: String): PipelineId = {
     import PostgresProfile.api._
     val pid  = UUID.randomUUID().toString
     val dtId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       
-      sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     PipelineId(pid)
   }
@@ -464,7 +489,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       firstRun shouldBe a[Right[_, _]]
       firstRun.toOption.get.blocked shouldBe false
 
-      val priorRows = await(nodeSnapshotRepo.listRows(pid.value, None))
+      val priorRows = await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None))
       priorRows should not be empty
 
       await(insertStep(pid, "assert", AssertConfig(Vector(blockingErrorRule)), dummyUser))
@@ -477,7 +502,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
       // Blocked runs never call the node_snapshots write -- the pre-assert-step
       // key (None) is untouched.
-      await(nodeSnapshotRepo.listRows(pid.value, None)) shouldBe priorRows
+      await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None)) shouldBe priorRows
     }
 
     "completes normally and updates node_snapshots when only a warn-severity assertion fails" in {
@@ -962,8 +987,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val cId = UUID.randomUUID().toString
       val tId = UUID.randomUUID().toString
       await(db.run(DBIO.seq(
-        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
-               VALUES ($aId, ${pid.value}, 0, 'limit', '{"count":10}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id, root_id)
+               VALUES ($aId, ${pid.value}, 0, 'limit', '{"count":10}', true, now(), now(), NULL, ${pid.value})""",
         // `t` inserted BEFORE `b`/`c` -- deliberately out of executionOrder,
         // though still satisfying the parent_step_id FK (which requires
         // each row's parent to already exist).
@@ -997,7 +1022,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
       val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
-      val output = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "preview-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "preview-out", OutputKind.Table, explicitRootId = None))
 
       val result = await(service.previewOutputs(pid, Some(output.id), dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1010,7 +1035,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "previews a SOURCE-bound Output (node.stepId = None) as the raw source rows" in {
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
-      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "source-preview-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "source-preview-out", OutputKind.Table, explicitRootId = None))
 
       val result = await(service.previewOutputs(pid, Some(output.id), dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1029,7 +1054,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val pid1  = seedPipeline(dsId1)
       val dsId2 = seedRestDs(RestSuccessUrl)
       val pid2  = seedPipeline(dsId2)
-      val outputOnPid2 = await(outputRepo.insertInternal(pid2, None, dummyUser.id, "wrong-pipeline-out", OutputKind.Table))
+      val outputOnPid2 = await(outputRepo.insertInternal(pid2, None, dummyUser.id, "wrong-pipeline-out", OutputKind.Table, explicitRootId = None))
 
       val result = await(service.previewOutputs(pid1, Some(outputOnPid2.id), dummyUser))
       result shouldBe a[Left[_, _]]
@@ -1044,7 +1069,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "does not mutate last_run_status/last_run_at (single-Output arm) -- a REAL run on a different pipeline in between proves the assertion mechanism can detect a mutation" in {
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
-      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out", OutputKind.Table, explicitRootId = None))
 
       val before = await(pipelineRepo.findByIdInternal(pid)).get
       before.lastRunStatus shouldBe None
@@ -1074,8 +1099,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
       val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
-      val sourceOutput = await(outputRepo.insertInternal(pid, None, dummyUser.id, "src-out", OutputKind.Table))
-      val stepOutput   = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "step-out", OutputKind.Table))
+      val sourceOutput = await(outputRepo.insertInternal(pid, None, dummyUser.id, "src-out", OutputKind.Table, explicitRootId = None))
+      val stepOutput   = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "step-out", OutputKind.Table, explicitRootId = None))
 
       val result = await(service.previewOutputs(pid, None, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1088,8 +1113,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
       val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
-      val outputA = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-a", OutputKind.Table))
-      val outputB = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-b", OutputKind.Table))
+      val outputA = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-a", OutputKind.Table, explicitRootId = None))
+      val outputB = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-b", OutputKind.Table, explicitRootId = None))
 
       val result = await(service.previewOutputs(pid, None, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1117,8 +1142,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
       val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
-      await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out-1", OutputKind.Table))
-      await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "unchanged-out-2", OutputKind.Table))
+      await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out-1", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "unchanged-out-2", OutputKind.Table, explicitRootId = None))
 
       val before = await(pipelineRepo.findByIdInternal(pid)).get
       before.lastRunStatus shouldBe None
@@ -1326,21 +1351,21 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val tail = await(stepRepo.insertInternal(
         pid, "filter", FilterConfig("AND", Vector(FilterCondition("name", "=", Some("alice")))),
         enabled = true, parentStepId = None
-      ))
+      , explicitRootId = None))
       seedOutputAtTrunkLast(pid) // materializes the trunk-last node (the rename step)
-      val tailOutput = await(outputRepo.insertInternal(pid, Some(tail.id), dummyUser.id, "tail-output", OutputKind.Table))
+      val tailOutput = await(outputRepo.insertInternal(pid, Some(tail.id), dummyUser.id, "tail-output", OutputKind.Table, explicitRootId = None))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
       // Trunk node: both rows, renamed.
-      val trunkRows = await(nodeSnapshotRepo.listRows(pid.value, Some(trunkStep.id.value)))
+      val trunkRows = await(nodeSnapshotRepo.listRows(pid.value, Some(trunkStep.id.value), explicitRootId = None))
       trunkRows should have size 2
       trunkRows.foreach(_.fields.keySet should contain("renamed"))
 
       // Tail node: only "alice", evaluated from the ROOT's frame (never renamed -- the tail
       // seeded from the root, not from the trunk's rename output).
-      val tailRows = await(nodeSnapshotRepo.listRows(pid.value, Some(tail.id.value)))
+      val tailRows = await(nodeSnapshotRepo.listRows(pid.value, Some(tail.id.value), explicitRootId = None))
       tailRows should have size 1
       tailRows.head.fields.keySet should contain("name")
       tailRows.head.fields.keySet should not contain "renamed"
@@ -1359,24 +1384,24 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val midTail = await(stepRepo.insertInternal(
         pid, "filter", FilterConfig("AND", Vector(FilterCondition("name", "=", Some("alice")))),
         enabled = true, parentStepId = None
-      ))
+      , explicitRootId = None))
       val terminalTail = await(stepRepo.insertInternal(
         pid, "rename", RenameConfig(Map("score" -> "finalScore")),
         enabled = true, parentStepId = Some(midTail.id)
-      ))
+      , explicitRootId = None))
       seedOutputAtTrunkLast(pid)
-      val midOutput = await(outputRepo.insertInternal(pid, Some(midTail.id), dummyUser.id, "mid-output", OutputKind.Table))
-      val terminalOutput = await(outputRepo.insertInternal(pid, Some(terminalTail.id), dummyUser.id, "terminal-output", OutputKind.Table))
+      val midOutput = await(outputRepo.insertInternal(pid, Some(midTail.id), dummyUser.id, "mid-output", OutputKind.Table, explicitRootId = None))
+      val terminalOutput = await(outputRepo.insertInternal(pid, Some(terminalTail.id), dummyUser.id, "terminal-output", OutputKind.Table, explicitRootId = None))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
-      val midRows = await(nodeSnapshotRepo.listRows(pid.value, Some(midTail.id.value)))
+      val midRows = await(nodeSnapshotRepo.listRows(pid.value, Some(midTail.id.value), explicitRootId = None))
       midRows should have size 1
       midRows.head.fields.keySet should contain("score")
       midRows.head.fields.keySet should not contain "finalScore"
 
-      val terminalRows = await(nodeSnapshotRepo.listRows(pid.value, Some(terminalTail.id.value)))
+      val terminalRows = await(nodeSnapshotRepo.listRows(pid.value, Some(terminalTail.id.value), explicitRootId = None))
       terminalRows should have size 1
       terminalRows.head.fields.keySet should contain("finalScore")
 
@@ -1392,14 +1417,14 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
       val trunkStep = await(insertStep(pid, "rename", RenameConfig(Map("name" -> "renamed")), dummyUser))
-      val outputA = await(outputRepo.insertInternal(pid, Some(trunkStep.id), dummyUser.id, "output-a", OutputKind.Table))
-      val outputB = await(outputRepo.insertInternal(pid, Some(trunkStep.id), dummyUser.id, "output-b", OutputKind.Table))
+      val outputA = await(outputRepo.insertInternal(pid, Some(trunkStep.id), dummyUser.id, "output-a", OutputKind.Table, explicitRootId = None))
+      val outputB = await(outputRepo.insertInternal(pid, Some(trunkStep.id), dummyUser.id, "output-b", OutputKind.Table, explicitRootId = None))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
       // One row set for the node -- not doubled by having two Outputs attached to it.
-      val nodeRows = await(nodeSnapshotRepo.listRows(pid.value, Some(trunkStep.id.value)))
+      val nodeRows = await(nodeSnapshotRepo.listRows(pid.value, Some(trunkStep.id.value), explicitRootId = None))
       nodeRows should have size 2
       nodeRows.foreach(_.fields.keySet should contain("renamed"))
 
@@ -1408,6 +1433,49 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val schemaB = await(outputRepo.findByIdInternal(outputB.id)).get.schema
       schemaA should not be empty
       schemaA shouldBe schemaB
+    }
+
+    // HEL-913 task 5.8 (R12 runtime half, the REAL end-to-end proof -- MultiRootIsolationSpec
+    // (task 5.8c) only proves the repository layer in isolation; this drives an actual
+    // two-root pipeline through the real `PipelineRunService.submit` run path and asserts a
+    // root-bound Output on EACH root refreshes from its OWN root's data, not the other's or a
+    // "first root wins" default.
+    "a root-bound Output on a two-root pipeline refreshes from its OWN root on a real run" in {
+      val ds0 = seedDsWithData()      // root 0: alice/bob (name, score)
+      val ds1 = seedDsWithOtherData() // root 1: berlin/madrid/oslo (city)
+      val pid = seedPipeline(ds0)
+      val root1Id = addSecondRoot(pid, ds1)
+
+      val output0 = await(outputRepo.insertInternal(pid, nodeStepId = None, dummyUser.id, "root0-output", OutputKind.Table, explicitRootId = None))
+      val output1 = await(outputRepo.insertInternal(pid, nodeStepId = None, dummyUser.id, "root1-output", OutputKind.Table, explicitRootId = Some(PipelineRootId(root1Id))))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+
+      // Root 0's snapshot: alice/bob, `name`/`score` columns -- never berlin/madrid/oslo.
+      // `explicitRootId = Some(pid.value)`, NOT `None`: `seedPipeline`'s V98-backfill convention
+      // makes root 0's own id equal the pipeline's id, and this test deliberately does NOT rely
+      // on the unscoped `(None, None)` fallback -- that fallback mixes every root's rows
+      // together under multi-root (task 5.8b-iv's own point), so a correct multi-root caller
+      // must always name its root explicitly once more than one exists.
+      val root0Rows = await(nodeSnapshotRepo.listRows(pid.value, nodeStepId = None, explicitRootId = Some(pid.value)))
+      root0Rows should have size 2
+      root0Rows.foreach(_.fields.keySet should contain("name"))
+      root0Rows.foreach(_.fields.keySet should not contain "city")
+
+      // Root 1's snapshot: berlin/madrid/oslo, `city` column -- never alice/bob's fields, and
+      // NOT collapsed into root 0's row set (proves isolation, not just "a" root's write).
+      val root1Rows = await(nodeSnapshotRepo.listRows(pid.value, nodeStepId = None, explicitRootId = Some(root1Id)))
+      root1Rows should have size 3
+      root1Rows.foreach(_.fields.keySet should contain("city"))
+      root1Rows.foreach(_.fields.keySet should not contain "name")
+
+      // Each Output's schema was refreshed from its OWN root's row set.
+      val schema0 = await(outputRepo.findByIdInternal(output0.id)).get.schema
+      val schema1 = await(outputRepo.findByIdInternal(output1.id)).get.schema
+      schema0.map(_.name) should contain("name")
+      schema1.map(_.name) should contain("city")
+      schema1.map(_.name) should not contain "name"
     }
 
     // HEL-905 (skeptic-final-2.md CR2 / tasks.md 4.4, ticket.md AC, specs/pipeline-execution
@@ -1428,17 +1496,17 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val unmaterializedStep = await(insertStep(pid, "rename", RenameConfig(Map("name" -> "renamed")), dummyUser))
       // Trunk-last step: the ONLY materialized node (has an Output).
       val materializedStep = await(insertStep(pid, "rename", RenameConfig(Map("score" -> "finalScore")), dummyUser))
-      await(outputRepo.insertInternal(pid, Some(materializedStep.id), dummyUser.id, "final-output", OutputKind.Table))
+      await(outputRepo.insertInternal(pid, Some(materializedStep.id), dummyUser.id, "final-output", OutputKind.Table, explicitRootId = None))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
 
       // The materialized node has rows.
-      await(nodeSnapshotRepo.listRows(pid.value, Some(materializedStep.id.value))) should have size 2
+      await(nodeSnapshotRepo.listRows(pid.value, Some(materializedStep.id.value), explicitRootId = None)) should have size 2
       // The root (no Output) and the intermediate trunk step (no Output) both have NONE --
       // even though the tree walk evaluated them and produced a NodeOutcome for each.
-      await(nodeSnapshotRepo.listRows(pid.value, None)) shouldBe empty
-      await(nodeSnapshotRepo.listRows(pid.value, Some(unmaterializedStep.id.value))) shouldBe empty
+      await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None)) shouldBe empty
+      await(nodeSnapshotRepo.listRows(pid.value, Some(unmaterializedStep.id.value), explicitRootId = None)) shouldBe empty
     }
 
     // HEL-905 (evaluation-1.md CR1): previewing a step ON A TAIL must return the TAIL's own
@@ -1450,7 +1518,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val tailStep = await(stepRepo.insertInternal(
         pid, "filter", FilterConfig("AND", Vector(FilterCondition("name", "=", Some("alice")))),
         enabled = true, parentStepId = None
-      ))
+      , explicitRootId = None))
 
       val result = await(service.previewStep(pid, tailStep.id.value, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1490,7 +1558,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(service.submit(pid, isDry = true, dummyUser))
       result shouldBe a[Right[_, _]]
 
-      await(nodeSnapshotRepo.listRows(pid.value, None)) shouldBe empty
+      await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None)) shouldBe empty
     }
 
     // NOTE (HEL-905 finding, not this ticket's regression): a genuinely violating graph (two

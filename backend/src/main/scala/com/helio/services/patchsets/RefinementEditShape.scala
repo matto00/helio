@@ -243,7 +243,13 @@ object RefinementEditShape {
   private[services] val OutputUpdateExample: String =
     """{ "target": { "kind": "output", "id": "output_789" }, "op": "update", "patch": { "name": "Weekly Revenue" } }"""
 
-  private val CreateExample: String =
+  // HEL-913 (skeptic-final-1.md CR1): widened from `private` to `private[services]`, matching
+  // every other example val in this file, so `RefinementEditShapeSpec` can assert its CONTENT
+  // (not just that `Description` includes it structurally) -- this exact string went stale once
+  // already (the `sourceDataSourceId` prompt-literal instructing the model to emit a body the
+  // API hard-400s) with zero test coverage catching it. A future shape change must fail a test,
+  // not rot silently again.
+  private[services] val CreateExample: String =
     "panel create (patch reuses CreatePanelRequest \u2014 dashboardId/type/config required, title/appearance\n" +
       "optional; target.id is OMITTED \u2014 the resource does not exist yet). An output-kind panel's\n" +
       "config.outputId MUST reference an Output that ALREADY EXISTS BEFORE this patch set runs \u2014 never\n" +
@@ -255,8 +261,11 @@ object RefinementEditShape {
       "example above; output has NO create op of its own):\n" + OutputUpdateExample +
       "\n\ncreate is ALSO supported for dashboard (patch: { \"name\": string }), dataSource (patch reuses\n" +
       "StaticDataSourceRequest \u2014 { \"name\", \"type\": \"static\", \"columns\": [...], \"rows\": [...] }, static\n" +
-      "only), and pipeline (patch reuses CreatePipelineRequest \u2014 { \"name\", \"sourceDataSourceId\" }\n" +
-      "required, \"tag\"/\"steps\"/\"outputs\" optional). create is NEVER supported for pipelineStep or\n" +
+      "only), and pipeline (patch reuses CreatePipelineRequest \u2014 { \"name\", \"roots\": [{ \"sourceId\" }] }\n" +
+      "required \u2014 \"roots\" is a NON-EMPTY array, one element per pipeline root, each EITHER an existing\n" +
+      "\"sourceId\" OR an inline source spec (\"type\"/\"name\"/one of \"sqlConfig\"/\"restConfig\"/\"staticConfig\");\n" +
+      "\"sourceDataSourceId\" is RETIRED and hard-rejected (HEL-913, no alias, no default) \u2014 never emit it;\n" +
+      "\"tag\"/\"steps\"/\"outputs\" optional). create is NEVER supported for pipelineStep or\n" +
       "output (neither has a direct create API reachable from a patch-set edit \u2014 never emit one of\n" +
       "those). \"dataType\" is not a valid target.kind at all anymore \u2014 never emit any edit targeting\n" +
       "it."

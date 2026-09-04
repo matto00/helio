@@ -74,6 +74,9 @@ export const pipelineProposalStepSchema = z.object({
   config: z.record(z.string(), z.unknown()).default({}),
   parentStepId: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
+  // HEL-913 task 9.1: names WHICH roots[] element (by its own clientId) a PARENTLESS step's
+  // trunk extends -- mutually exclusive with parentStepId; unnecessary with one root.
+  rootClientId: z.string().min(1).optional(),
 });
 
 export const pipelineProposalOutputSchema = z.object({
@@ -81,6 +84,9 @@ export const pipelineProposalOutputSchema = z.object({
   kind: z.enum(["table", "metric", "chart", "collection", "timeline", "markdown"]),
   name: z.string().min(1),
   config: z.record(z.string(), z.unknown()).optional(),
+  // HEL-913 task 9.1: names WHICH roots[] element (by its own clientId) a root-bound Output
+  // (nodeStepClientId absent) attaches to; unnecessary with one root.
+  rootClientId: z.string().min(1).optional(),
 });
 
 // Shared by all three tools below — the proposal `propose_pipeline` returns

@@ -3,6 +3,7 @@ package com.helio.services.workspace
 import com.helio.api.protocols.sources.ConnectorSummary
 import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextPipelineStep}
 import com.helio.api.protocols.workspace.{WorkspaceContextDashboard, WorkspaceContextOutput, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextProtocol, WorkspaceContextResponse}
+import com.helio.api.protocols.pipelines.PipelineRootSummaryResponse
 import com.helio.services.workspace.WorkspaceContextBudget
 import com.helio.domain.model.PagedResult
 import org.scalatest.matchers.should.Matchers
@@ -286,8 +287,7 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
         WorkspaceContextPipeline(
           id = "p1",
           name = "orders-pipeline",
-          sourceDataSourceId = "src-1",
-          sourceDataSourceName = "source-1",
+          roots = Vector(PipelineRootSummaryResponse("root-1", "src-1", "source-1")),
           outputId = "dt-1",
           outputName = "orders",
           lastRunStatus = Some("success"),

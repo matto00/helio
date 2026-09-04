@@ -944,8 +944,8 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       val ownerId = await(superDb.run(sql"SELECT owner_id::text FROM pipelines WHERE id = $manyStepsPipelineId".as[String].head))
 
       await(privilegedDb.run(
-        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind)
-               VALUES ('hel904-rls-output-1', $manyStepsPipelineId, NULL, $ownerId::uuid, 'Table', 'table')"""
+        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, root_id)
+               VALUES ('hel904-rls-output-1', $manyStepsPipelineId, NULL, $ownerId::uuid, 'Table', 'table', $manyStepsPipelineId)"""
       ))
 
       val asOwner = await(liveCtx.withUserContext(ownerId)(

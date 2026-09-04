@@ -10,7 +10,7 @@ import com.helio.api.protocols.sources.RestApiConfigPayload
 import com.helio.api.protocols.auth.{AuthResponse, PermissionResponse}
 import com.helio.api.protocols.dashboards.{DashboardResponse, DashboardSnapshotPayload}
 import com.helio.api.protocols.panels.PanelResponse
-import com.helio.api.protocols.pipelines.{PipelineSummaryResponse, RunResultResponse, RunStatusResponse}
+import com.helio.api.protocols.pipelines.{PipelineRootSummaryResponse, PipelineSummaryResponse, RunResultResponse, RunStatusResponse}
 import com.helio.api.protocols.sources.{DataSourceResponse, RestSourceResponse}
 import com.helio.api.JsonProtocols
 import org.scalatest.matchers.should.Matchers
@@ -93,8 +93,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
       val original = PipelineSummaryResponse(
         id                   = "pl-1",
         name                 = "Pipeline 1",
-        sourceDataSourceId   = "ds-1",
-        sourceDataSourceName = "Source 1",
+        roots                = Vector(PipelineRootSummaryResponse("root-1", "ds-1", "Source 1")),
         lastRunStatus        = Some("succeeded"),
         lastRunAt            = Some("2026-01-02T00:00:00Z"),
         lastRunRowCount      = Some(42L)

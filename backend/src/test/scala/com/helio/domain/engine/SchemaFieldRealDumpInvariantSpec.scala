@@ -108,10 +108,13 @@ class SchemaFieldRealDumpInvariantSpec extends AnyWordSpec with Matchers with Be
       // through the SAME tolerant `schemaFieldJsonFormat` the production code path uses
       // (`PipelineService`/`PipelineRunService`), so a genuinely poisoned persisted row would
       // be caught here exactly the way it would in production.
+      // HEL-913: `pipelines.source_data_source_id` is dropped by V98 -- the binding now lives
+      // on `pipeline_roots` (this pipeline's lowest-positioned root, single-root-compatible).
       val (sourceDataSourceId, rawSchema) = await(db.run(
         sql"""SELECT ds.id, ds.inferred_schema::text
-              FROM pipelines p JOIN data_sources ds ON ds.id = p.source_data_source_id
-              WHERE p.id = $manyStepsPipelineId"""
+              FROM pipeline_roots r JOIN data_sources ds ON ds.id = r.data_source_id
+              WHERE r.pipeline_id = $manyStepsPipelineId
+              ORDER BY r.position LIMIT 1"""
           .as[(String, String)].head
       ))
       sourceDataSourceId should not be empty

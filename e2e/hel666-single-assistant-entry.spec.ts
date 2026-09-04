@@ -105,7 +105,7 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     const pipelineRes = await page.request.post("/api/pipelines", {
       data: {
         name: "HEL-666 Sales Pipeline",
-        sourceDataSourceId: source.id,
+        roots: [{ sourceId: source.id }],
         outputDataTypeName: "Hel666SalesTotal",
       },
       headers: { [CSRF_HEADER]: "1" },

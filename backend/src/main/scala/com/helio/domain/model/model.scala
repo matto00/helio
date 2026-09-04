@@ -729,10 +729,24 @@ final case class ResourcePermission(
     createdAt: Instant
 )
 
+/** HEL-913 (multi-root pipelines): a pipeline no longer has exactly one source
+ *  -- it has N roots, each independently loaded from `dataSourceId` and
+ *  ordered by `position` (the cross-root tiebreak, R3). `Pipeline` itself no
+ *  longer carries a source reference at all; every source binding lives on
+ *  its own `PipelineRoot` row, resolved via [[PipelineRootRepository]]. */
+final case class PipelineRootId(value: String) extends AnyVal
+
+final case class PipelineRoot(
+    id: PipelineRootId,
+    pipelineId: PipelineId,
+    dataSourceId: DataSourceId,
+    position: Int,
+    createdAt: Instant
+)
+
 final case class Pipeline(
     id: PipelineId,
     name: String,
-    sourceDataSourceId: DataSourceId,
     lastRunStatus: Option[String],
     lastRunAt: Option[Instant],
     createdAt: Instant,
@@ -752,11 +766,18 @@ final case class PipelineRunId(value: String) extends AnyVal
  *  tasks (§1.5, §3.5). */
 final case class OutputId(value: String) extends AnyVal
 
-/** A reference to the pipeline node (a step, or the pipeline's own source)
- *  this Output/NodeSnapshot projects. `stepId = None` means "the pipeline's
- *  raw source rows, before any step" — mirrors `PipelineStep.parentStepId`'s
- *  `None` = "trunk root" convention. */
-final case class NodeRef(pipelineId: PipelineId, stepId: Option[PipelineStepId])
+/** A reference to the pipeline node (a step, or one of the pipeline's roots)
+ *  this Output/NodeSnapshot projects. `stepId = None` means "one of the
+ *  pipeline's raw root rows, before any step" — mirrors
+ *  `PipelineStep.parentStepId`'s `None` = "trunk root" convention.
+ *
+ *  HEL-913 (design.md R12): `rootId` names WHICH root when `stepId` is
+ *  `None` -- under multi-root, `stepId = None` alone is ambiguous ("every
+ *  root", not "the root"). Defaulted to `None` so every pre-existing
+ *  construction site keeps compiling; `OutputRepository.rowToDomain`
+ *  populates it from the persisted `root_id` column (V98's CHECK guarantees
+ *  it is `Some` whenever `stepId` is `None`, for a row written after V98). */
+final case class NodeRef(pipelineId: PipelineId, stepId: Option[PipelineStepId], rootId: Option[PipelineRootId] = None)
 
 /** The shape an Output's bound data takes — mirrors the `Severity`/
  *  `Comparator` enum pattern used elsewhere in this file. */

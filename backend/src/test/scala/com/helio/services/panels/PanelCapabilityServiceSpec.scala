@@ -105,8 +105,10 @@ class PanelCapabilityServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     import slick.jdbc.PostgresProfile.api._
     val id  = UUID.randomUUID().toString
     val dsId = insertSource(owner)
-    await(db.run(sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-      VALUES ($id, 'Test Pipeline', ${dsId.value}, ${owner.value}::uuid, now(), now())"""))
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($id, 'Test Pipeline', ${owner.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($id, $id, ${dsId.value}, 0)"""
+    )))
     PipelineId(id)
   }
 
@@ -116,10 +118,10 @@ class PanelCapabilityServiceSpec extends AnyWordSpec with Matchers with BeforeAn
       owner: UserId = ownerA,
       name: String = "MyOutput"
   ): Output =
-    await(outputRepo.insertInternal(pipelineId, nodeStepId = None, ownerId = owner, name = name, kind = OutputKind.Table, schema = schema))
+    await(outputRepo.insertInternal(pipelineId, nodeStepId = None, ownerId = owner, name = name, kind = OutputKind.Table, schema = schema, explicitRootId = None))
 
   private def writeRows(pipelineId: PipelineId, count: Int): Unit =
-    await(nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepId = None, Vector.fill(count)(JsObject.empty)))
+    await(nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepId = None, Vector.fill(count)(JsObject.empty), explicitRootId = None))
 
   "PanelCapabilityService.getCapabilities" should {
 

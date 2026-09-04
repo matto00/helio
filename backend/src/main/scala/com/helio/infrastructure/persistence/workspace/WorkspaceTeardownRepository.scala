@@ -107,17 +107,18 @@ class WorkspaceTeardownRepository(
   }
 
   /** design.md Decision 2 / tasks.md 3.3, DataSource→Pipeline direction:
-   *  blocks when a Pipeline exists whose `source_data_source_id` is this
-   *  tagged DataSource's id AND that Pipeline's `tag IS DISTINCT FROM` the
-   *  tag being torn down (covers both an untagged dependent and one tagged
-   *  into a different, live batch — never narrowed to a bare `tag IS NULL`
-   *  check). */
+   *  blocks when a Pipeline exists with a root bound to this tagged DataSource's id (HEL-913:
+   *  `pipelines.source_data_source_id` is dropped -- the binding now lives on `pipeline_roots`,
+   *  joined here rather than read off `pipelines` directly) AND that Pipeline's
+   *  `tag IS DISTINCT FROM` the tag being torn down (covers both an untagged dependent and one
+   *  tagged into a different, live batch — never narrowed to a bare `tag IS NULL` check). */
   private def sourceDependentPipelineConflict(
       source: DataSourceRepository.DataSourceRow,
       tag: String
   ): DBIO[Option[TeardownConflict]] =
-    sql"""SELECT id, name FROM pipelines
-          WHERE source_data_source_id = ${source.id} AND tag IS DISTINCT FROM $tag
+    sql"""SELECT DISTINCT p.id, p.name FROM pipelines p
+          JOIN pipeline_roots r ON r.pipeline_id = p.id
+          WHERE r.data_source_id = ${source.id} AND p.tag IS DISTINCT FROM $tag
           LIMIT 1"""
       .as[(String, String)].headOption.map(_.map { case (pipelineId, pipelineName) =>
         TeardownConflict(

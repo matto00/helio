@@ -290,8 +290,7 @@ final class WorkspaceContextService(
     WorkspaceContextPipeline(
       id                   = summary.id,
       name                 = summary.name,
-      sourceDataSourceId   = summary.sourceDataSourceId,
-      sourceDataSourceName = summary.sourceDataSourceName,
+      roots                = summary.roots,
       outputId     = representativeOutput.map(_.id.value).getOrElse(""),
       outputName   = representativeOutput.map(_.name).getOrElse(""),
       lastRunStatus        = summary.lastRunStatus,
@@ -357,7 +356,7 @@ final class WorkspaceContextService(
         case Some(nodeSnapshotRepo) =>
           val excludeKeys = contentFieldNames(fields) ++ overflowStructuredFieldNames(fields, SampleColumnLimit)
           nodeSnapshotRepo
-            .listRows(output.node.pipelineId.value, output.node.stepId.map(_.value), limit = Some(StatsRowLimit), excludeKeys = excludeKeys)
+            .listRows(output.node.pipelineId.value, output.node.stepId.map(_.value), limit = Some(StatsRowLimit), excludeKeys = excludeKeys, explicitRootId = output.node.rootId.map(_.value))
             .map { rawRows =>
               // Both outputs derived from `rawRows` in this SAME step, so `rawRows`
               // goes out of scope here — never retained beyond this map (design.md

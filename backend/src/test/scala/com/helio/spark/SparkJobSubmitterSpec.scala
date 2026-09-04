@@ -144,7 +144,6 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       val pip = Pipeline(
         id                 = pipeId,
         name               = "pipe",
-        sourceDataSourceId = ds.id,
         lastRunStatus      = None,
         lastRunAt          = None,
         createdAt          = Instant.now(),
@@ -157,7 +156,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       val fakePipelineRepo = new PipelineRepository(null, null)
       val submitterForExecute = new SparkJobSubmitter("local[*]", mockDsRepo, fakePipelineRepo)
       val outcome = Await.result(
-        submitterForExecute.execute(pip, ds, Vector.empty, mockDsRepo, new AssertionSink, new TruncationSink),
+        submitterForExecute.execute(pip, Vector((pip.id.value, ds)), Vector.empty, mockDsRepo, new AssertionSink, new TruncationSink),
         30.seconds
       )
       outcome.rows should have size 2
@@ -314,9 +313,8 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
                  (id, name, source_type, config, owner_id, created_at, updated_at)
                  VALUES ($dsId, 'ds', 'static', '{"columns":[{"name":"x","type":"string"}],"rows":[["a"]]}', $ownerId::uuid, now(), now())""",
         
-        sqlu"""INSERT INTO pipelines
-                 (id, name, source_data_source_id, created_at, updated_at)
-                 VALUES ($pid, 'pipe', $dsId, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
       )))
       pid
     }
@@ -325,7 +323,6 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       Pipeline(
         id                 = PipelineId(pid),
         name               = "pipe",
-        sourceDataSourceId = DataSourceId(dsId),
         lastRunStatus      = None,
         lastRunAt          = None,
         createdAt          = Instant.now(),

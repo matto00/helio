@@ -84,7 +84,10 @@ final class PublicDashboardRoutes(
                 case None => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
                 case Some(output) =>
                   nodeSnapshotRepo
-                    .listRowsPaged(output.node.pipelineId.value, output.node.stepId.map(_.value), page)
+                    // HEL-913 R12/5.8b-iv-a: scope a root-bound read (`stepId = None`) to THIS
+                    // Output's own root -- `output.node.rootId` is exactly that, already
+                    // resolved at write time.
+                    .listRowsPaged(output.node.pipelineId.value, output.node.stepId.map(_.value), page, explicitRootId = output.node.rootId.map(_.value))
                     .map(paged => Right(paged.copy(items = paged.items.map(identity[JsValue]))))
               }
             case _ => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))

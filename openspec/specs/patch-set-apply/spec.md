@@ -9,13 +9,11 @@ primitive the conversational-refinement diff-preview and undo work builds on.
 ## Requirements
 
 ### Requirement: PatchSetApplyService applies edits atomically
-`PatchSetApplyService.apply(patchSet, user)` SHALL pre-validate every edit (target exists and is
-accessible per the SAME access rule its own kind's real update/delete path enforces for that
-SPECIFIC op — not merely a same-named repository lookup, and not assumed identical between update
-and delete for a kind where the two genuinely diverge — and `patch` decodes to the shape its
-`(kind, op)` requires) before mutating anything. If any edit fails pre-validation, NOTHING is
-mutated. Edits SHALL apply in the caller's given order via existing per-resource services only —
-no direct repository writes.
+A pipeline `create` edit target SHALL carry `roots` in place of a scalar `sourceDataSourceId`. Prior-state and resulting-state capture for such an edit SHALL record the full root set, so an undo restores every root rather than a single source binding.
+
+#### Scenario: Undo of a two-root pipeline create removes both roots
+- **WHEN** a patch set that created a two-root pipeline is undone
+- **THEN** the pipeline, both roots, and their steps and Outputs are removed
 
 #### Scenario: A mixed patch set applies cleanly
 - **WHEN** `apply` is called with a panel-update edit, a panel-delete edit, and a dashboard-update

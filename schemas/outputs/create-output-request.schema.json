@@ -2,11 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/outputs/create-output-request.schema.json",
   "title": "CreateOutputRequest",
-  "description": "Body of `POST /api/pipelines/:id/outputs`. `nodeStepId` absent/null targets the pipeline's raw source; a step id targets that step's tail projection.",
+  "description": "Body of `POST /api/pipelines/:id/outputs`. `nodeStepId` and `rootId` are mutually exclusive (HEL-913): a step id targets that step's tail projection; `rootId` targets a specific pipeline root (naming WHICH root when the Output is root-bound, since a pipeline may have more than one). Both absent keeps the pre-multi-root convention of binding to the pipeline's (only) root.",
   "type": "object",
   "required": ["kind", "name"],
   "properties": {
     "nodeStepId": { "type": ["string", "null"] },
+    "rootId": { "type": ["string", "null"] },
     "kind": {
       "type": "string",
       "enum": ["table", "metric", "chart", "collection", "timeline", "markdown"]

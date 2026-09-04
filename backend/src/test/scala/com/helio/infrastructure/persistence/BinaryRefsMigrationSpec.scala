@@ -68,7 +68,9 @@ class BinaryRefsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         "size_bytes",
         "created_at",
         "pipeline_id",
-        "node_step_id"
+        "node_step_id",
+        // HEL-913: V98 adds `root_id` (R12 rebind) -- see that migration's header.
+        "root_id"
       )
     }
 

@@ -17,15 +17,15 @@ import type { PipelineSummaryResponse, RunResultResponse } from "./types.js";
 // field that has not existed on `PipelineSummaryResponse` since HEL-904 -- an "evidence-shaped
 // non-evidence" fixture drift that let three separate places (types.ts, helioApi.ts, write.ts)
 // keep promising/mapping a field the backend has never sent under this model, undetected, because
-// nothing in this suite's own fixture matched the REAL nine-field wire shape closely enough to
-// notice the gap. Mirrors `PipelineProtocol.scala`'s `PipelineSummaryResponse`/`jsonFormat9`
-// exactly (nine fields) so a future field addition/removal on either side has a real chance of
-// being caught here, not just asserted to match by convention.
+// nothing in this suite's own fixture matched the REAL wire shape closely enough to
+// notice the gap. Mirrors `PipelineProtocol.scala`'s `PipelineSummaryResponse`/`jsonFormat8`
+// exactly (HEL-913 tasks 7.2a/9.1: `roots[]` replaces the removed `sourceDataSourceId`/
+// `sourceDataSourceName` scalar pair) so a future field addition/removal on either side has a
+// real chance of being caught here, not just asserted to match by convention.
 const fakeSummary: PipelineSummaryResponse = {
   id: "p1",
   name: "pipeline",
-  sourceDataSourceId: "src-1",
-  sourceDataSourceName: "src",
+  roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "src" }],
   lastRunStatus: "succeeded",
   lastRunAt: null,
   lastRunRowCount: null,

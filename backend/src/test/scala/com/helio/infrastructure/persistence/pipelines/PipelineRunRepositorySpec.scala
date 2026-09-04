@@ -51,9 +51,8 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       sqlu"""INSERT INTO data_sources
                (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     PipelineId(pid)
   }

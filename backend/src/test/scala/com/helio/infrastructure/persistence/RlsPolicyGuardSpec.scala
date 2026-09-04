@@ -84,6 +84,8 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V94 — outputs, node_snapshots, sharing-aware (mirrors pipelines) (HEL-904)
     "outputs" -> None,
     "node_snapshots" -> None,
+    // V98 — pipeline_roots, sharing-aware SELECT / owner-only write (HEL-913)
+    "pipeline_roots" -> None,
     // V36 — sharing-aware tables
     "dashboards" -> None,
     "panels" -> None,

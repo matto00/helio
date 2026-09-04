@@ -23,6 +23,16 @@ CHECK constraint SHALL be extended to include `'select'` via Flyway migration V2
 `NOT NULL DEFAULT true`, so existing rows remain enabled and behavior is unchanged for existing
 pipelines.
 
+The table SHALL additionally carry a `root_id` column referencing `pipeline_roots(id)` with `ON DELETE CASCADE`, added via Flyway migration V98. A step with no parent step SHALL have a non-null `root_id`; a step with a parent step SHALL derive its root from that parent and SHALL NOT rely on its own `root_id`.
+
+#### Scenario: A root-level step records its root
+- **WHEN** a step is appended with no parent step against a named root
+- **THEN** the stored row carries that root's id in `root_id`
+
+#### Scenario: Deleting a root cascades to its root-level steps
+- **WHEN** a root with root-level steps is deleted
+- **THEN** those steps are removed
+
 #### Scenario: Pipeline steps table is created on migration
 
 - **WHEN** the backend starts and Flyway runs pending migrations
@@ -262,3 +272,22 @@ parse the response body and DO break — see the `pipeline-shape-registry` delta
 
 - **WHEN** `DELETE /api/pipeline-steps/:id` is called with a step id that does not exist
 - **THEN** the response is `404 Not Found`
+
+### Requirement: POST /api/pipelines/:id/steps appends a step against a parent or a root
+Appending a step SHALL require exactly one of `parentStepId` or `rootId`. Supplying neither, both, or a `rootId` naming a root of another pipeline SHALL fail with a named error. The database SHALL enforce that a step has a root id if and only if it has no parent step, so a step cannot be persisted in a state the walk would silently skip.
+
+#### Scenario: Appending a root-level step names its root
+- **WHEN** a step is appended with `rootId` naming a root of that pipeline and no `parentStepId`
+- **THEN** the step is created with that root id and appears in that root's lane
+
+#### Scenario: Appending with neither parent nor root is rejected
+- **WHEN** a step is appended with neither `parentStepId` nor `rootId`
+- **THEN** the request fails with a named error and no step is created
+
+#### Scenario: Appending with a root of another pipeline is rejected
+- **WHEN** a step is appended with a `rootId` belonging to a different pipeline
+- **THEN** the request fails with a named error and no step is created
+
+#### Scenario: A parentless step with no root cannot be persisted
+- **WHEN** a write would persist a step with both a null parent step id and a null root id
+- **THEN** the database rejects it

@@ -1,5 +1,6 @@
 package com.helio.api.protocols.pipelines
 
+import com.helio.api.protocols.sources.{DataSourceProtocol, RestApiConfigPayload, SqlSourceConfigPayload, StaticDataPayload}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
@@ -20,32 +21,93 @@ import spray.json._
  *  compensating-delete of the just-created pipeline row. The compensating-delete approach was
  *  an earlier cycle's implementation and was deleted outright once the real transaction
  *  shipped -- see `PipelineService.createTransactional`'s doc. */
+/** `rootClientId` (HEL-913 task 7.3a, R13): names WHICH `roots[]` element (by ITS `clientId`)
+ *  this PARENTLESS step attaches to, when the request carries more than one root. Meaningless
+ *  (and rejected, see `PipelineService.buildStepsAction`) alongside a non-absent `parentStepId`
+ *  -- a step with a parent inherits its root implicitly. With a single root, both absent still
+ *  resolves unambiguously to that one root (unchanged pre-multi-root behavior). With more than
+ *  one root, a parentless step naming NEITHER, or naming an unresolvable `rootClientId`, is each
+ *  a named `BadRequest` -- never a silent default to `roots[0]` (the HEL-620 defect class). */
 final case class CreatePipelineTransactionalStepRequest(
     clientId: String,
     `type`: String,
     config: JsObject,
     parentStepId: Option[String] = None,
-    enabled: Option[Boolean] = None
+    enabled: Option[Boolean] = None,
+    rootClientId: Option[String] = None
 )
+/** `rootClientId` (HEL-913 task 7.3a-i, R13 extended to Outputs): names WHICH `roots[]` element
+ *  this root-bound (`nodeStepClientId` absent) Output attaches to, under the identical rules
+ *  `CreatePipelineTransactionalStepRequest.rootClientId` documents -- meaningless (rejected)
+ *  alongside a non-absent `nodeStepClientId`, required (named `BadRequest` if absent OR
+ *  unresolvable) when the request carries more than one root, and unambiguous when it carries
+ *  exactly one. */
 final case class CreatePipelineTransactionalOutputRequest(
     nodeStepClientId: Option[String],
     kind: String,
     name: String,
-    config: Option[JsObject] = None
+    config: Option[JsObject] = None,
+    rootClientId: Option[String] = None
 )
+/** One element of `CreatePipelineRequest.roots` (HEL-913 R8/R13), and the `add_root`/`POST
+ *  /api/pipelines/:id/roots` request body -- the SAME shape for both (R6: "one shape, not
+ *  two"). `sourceId` names an EXISTING caller-owned DataSource. Task 7.1a: the OTHER branch,
+ *  an inline source spec, mirrors `PipelineProposalSource`'s Option-per-kind pattern -- `type`
+ *  (`sql`/`rest_api`/`static`; `csv` is deliberately NOT supported inline, mirroring
+ *  `PipelineProposalService.resolveSource`'s own documented gap: no bytes channel exists in a
+ *  JSON body for the upload path), `name` for the new source, and exactly one of
+ *  `sqlConfig`/`restConfig`/`staticConfig` populated matching `type`. Exactly one of `sourceId`
+ *  or `type` must be given (`PipelineService.resolveInlineOrExistingRoot`'s D1-style mutual-
+ *  exclusivity check); neither or both is a named 400. `clientId` (R13) is OPTIONAL and lets a
+ *  `steps[]`/`outputs[]` entry in the SAME request name this root via `rootClientId`. */
+final case class CreatePipelineRootRequest(
+    sourceId: Option[String] = None,
+    `type`: Option[String] = None,
+    name: Option[String] = None,
+    sqlConfig: Option[SqlSourceConfigPayload] = None,
+    restConfig: Option[RestApiConfigPayload] = None,
+    staticConfig: Option[StaticDataPayload] = None,
+    clientId: Option[String] = None
+)
+/** HEL-913 task 7.1 (design.md decision 11, "no deprecation"): `roots` REPLACES the scalar
+ *  `sourceDataSourceId` outright -- there is no accepted alias and no default. A caller omitting
+ *  `roots` or supplying the legacy scalar field gets a named 400
+ *  (`PipelineService.create`/`RequestValidation`), never a silently-empty pipeline and never a
+ *  tolerated legacy branch. See `specs/pipeline-create-api/spec.md`'s "A legacy scalar
+ *  sourceDataSourceId body is rejected" scenario. */
 final case class CreatePipelineRequest(
     name: String,
-    sourceDataSourceId: String,
+    roots: Vector[CreatePipelineRootRequest],
     tag: Option[String] = None,
     steps: Vector[CreatePipelineTransactionalStepRequest] = Vector.empty,
     outputs: Vector[CreatePipelineTransactionalOutputRequest] = Vector.empty
 )
 final case class UpdatePipelineRequest(name: String)
+/** `id`/`dataSourceId`/`dataSourceName` per root, in `position` order (HEL-913 task 7.2). */
+final case class PipelineRootSummaryResponse(
+    id: String,
+    dataSourceId: String,
+    dataSourceName: String
+)
+/** `DELETE /api/pipelines/:id/roots/:rootId` response (HEL-913 task 7.4/7.5, R7 phase 2 step 3 --
+ *  "report the placement count of the Outputs about to be deleted", mirroring
+ *  `DeletePipelineStepResponse`'s report-what-was-removed convention). `removedStepCount` is
+ *  every step deleted with this root (its root-level step and its full descendant subtree, not
+ *  just the trunk); `removedOutputCount` is every Output deleted as a consequence (step-bound
+ *  Outputs on a doomed step, or root-bound Outputs on this root), computed BEFORE the delete so
+ *  a DB-level cascade never produces a report that undercounts. */
+final case class RemovePipelineRootResponse(removedStepCount: Int, removedOutputCount: Int)
 final case class PipelineSummaryResponse(
     id: String,
     name: String,
-    sourceDataSourceId: String,
-    sourceDataSourceName: String,
+    // HEL-913 task 7.2a: `sourceDataSourceId`/`sourceDataSourceName` REMOVED outright (the
+    // Stage-1 scalar convenience pair, "the lowest-positioned root's source") -- proposal.md's
+    // "the single-source read path is deleted, not kept as a fallback" and R3's ban on a
+    // response shape re-encoding "position means something" (the lowest-positioned root is not
+    // one of R3's three permitted deterministic tiebreaks). `roots[]` is the only source-list
+    // shape now; a caller wanting "the first root's source" reads `roots.head` explicitly, which
+    // states the assumption instead of hiding it in a field name.
+    roots: Vector[PipelineRootSummaryResponse],
     lastRunStatus: Option[String],
     lastRunAt: Option[String],
     lastRunRowCount: Option[Long],
@@ -176,23 +238,34 @@ trait PipelineProtocol
     extends SprayJsonSupport
     with DefaultJsonProtocol
     with PipelineStepProtocol
-    with PipelineAnalyzeProtocol {
+    with PipelineAnalyzeProtocol
+    // HEL-913 task 7.1a: needed for `CreatePipelineRootRequest`'s inline-source fields
+    // (`sqlConfig`/`restConfig`/`staticConfig`) -- mirrors PipelineProposalProtocol's existing
+    // `extends DataSourceProtocol` for the identical reason (JsonProtocols.scala:33).
+    with DataSourceProtocol {
 
   implicit val createPipelineTransactionalStepRequestFormat: RootJsonFormat[CreatePipelineTransactionalStepRequest] =
-    jsonFormat5(CreatePipelineTransactionalStepRequest.apply)
+    jsonFormat6(CreatePipelineTransactionalStepRequest.apply)
   implicit val createPipelineTransactionalOutputRequestFormat: RootJsonFormat[CreatePipelineTransactionalOutputRequest] =
-    jsonFormat4(CreatePipelineTransactionalOutputRequest.apply)
+    jsonFormat5(CreatePipelineTransactionalOutputRequest.apply)
+  implicit val createPipelineRootRequestFormat: RootJsonFormat[CreatePipelineRootRequest] =
+    jsonFormat7(CreatePipelineRootRequest.apply)
   // Hand-rolled (not jsonFormat5): spray-json's macro-generated format does NOT apply a case
   // class's Scala default value for a missing non-`Option` field (only `Option` fields default
-  // to `None` when absent) -- `steps`/`outputs` being `Vector[...] = Vector.empty` would
-  // otherwise make every pre-existing `{name, sourceDataSourceId, tag}` request body (with no
-  // `steps`/`outputs` key at all) fail to decode, breaking every existing caller of the simple
-  // create shape. This reader explicitly defaults an absent `steps`/`outputs` key to `Vector
-  // .empty`, preserving the pre-HEL-906 wire contract exactly for that shape.
+  // to `None` when absent) -- `steps`/`outputs` being `Vector[...] = Vector.empty` preserves the
+  // pre-HEL-906 "no steps/outputs key at all" simple-create shape for THOSE two fields.
+  // `roots` is deliberately NOT given the same treatment (HEL-913 task 7.1, design.md decision
+  // 11 "no deprecation"): an absent `roots` key must fail to decode -- `obj.fields("roots")`
+  // (not `.get`) throws `DeserializationException` on a missing key, which
+  // `RejectionHandler`/`ExceptionHandler` converts to the named 400 the spec's "A legacy scalar
+  // sourceDataSourceId body is rejected" scenario requires. A LEGACY body supplying the old
+  // scalar `sourceDataSourceId` and omitting `roots` therefore 400s exactly the same way as one
+  // omitting `roots` for any other reason -- there is no separate legacy-detection branch,
+  // because there is no accepted legacy shape to detect. */
   implicit val createPipelineRequestFormat: RootJsonFormat[CreatePipelineRequest] = new RootJsonFormat[CreatePipelineRequest] {
     override def write(r: CreatePipelineRequest): JsValue = JsObject(
       "name" -> JsString(r.name),
-      "sourceDataSourceId" -> JsString(r.sourceDataSourceId),
+      "roots" -> r.roots.toJson,
       "tag" -> r.tag.map(JsString(_)).getOrElse(JsNull),
       "steps" -> r.steps.toJson,
       "outputs" -> r.outputs.toJson
@@ -200,9 +273,9 @@ trait PipelineProtocol
     override def read(json: JsValue): CreatePipelineRequest = {
       val obj = json.asJsObject
       CreatePipelineRequest(
-        name               = obj.fields("name").convertTo[String],
-        sourceDataSourceId = obj.fields("sourceDataSourceId").convertTo[String],
-        tag                = obj.fields.get("tag").flatMap {
+        name  = obj.fields("name").convertTo[String],
+        roots = obj.fields("roots").convertTo[Vector[CreatePipelineRootRequest]],
+        tag   = obj.fields.get("tag").flatMap {
           case JsNull => None
           case other  => Some(other.convertTo[String])
         },
@@ -211,8 +284,12 @@ trait PipelineProtocol
       )
     }
   }
-  implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest]     = jsonFormat1(UpdatePipelineRequest.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat9(PipelineSummaryResponse.apply)
+  implicit val updatePipelineRequestFormat: RootJsonFormat[UpdatePipelineRequest] = jsonFormat1(UpdatePipelineRequest.apply)
+  implicit val pipelineRootSummaryResponseFormat: RootJsonFormat[PipelineRootSummaryResponse] =
+    jsonFormat3(PipelineRootSummaryResponse.apply)
+  implicit val removePipelineRootResponseFormat: RootJsonFormat[RemovePipelineRootResponse] =
+    jsonFormat2(RemovePipelineRootResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat8(PipelineSummaryResponse.apply)
 
   implicit val assertionFailureDetailFormat: RootJsonFormat[AssertionFailureDetail] =
     jsonFormat4(AssertionFailureDetail.apply)

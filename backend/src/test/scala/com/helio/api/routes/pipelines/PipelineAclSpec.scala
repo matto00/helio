@@ -110,9 +110,8 @@ class PipelineAclSpec
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($dsId, 'ds', 'static', $cfg, $ownerId::uuid, now(), now())""",
       
-      sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, $ownerId::uuid, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $ownerId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     PipelineId(pid)
   }
@@ -344,7 +343,7 @@ class PipelineAclSpec
       val dsIdOwnedByA = seedOwnedDataSource(userAId)
       val body = JsObject(
         "name"               -> JsString("hijacked-pipeline"),
-        "sourceDataSourceId" -> JsString(dsIdOwnedByA),
+        "roots"              -> JsArray(JsObject("sourceId" -> JsString(dsIdOwnedByA))),
         "outputDataTypeName" -> JsString("hijacked-dt")
       )
       Post("/pipelines", body) ~> routesFor(userB) ~> check {
@@ -356,12 +355,47 @@ class PipelineAclSpec
       val dsIdOwnedByA = seedOwnedDataSource(userAId)
       val body = JsObject(
         "name"               -> JsString("owned-pipeline"),
-        "sourceDataSourceId" -> JsString(dsIdOwnedByA),
+        "roots"              -> JsArray(JsObject("sourceId" -> JsString(dsIdOwnedByA))),
         "outputDataTypeName" -> JsString("owned-dt")
       )
       Post("/pipelines", body) ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.Created
         responseAs[PipelineSummaryResponse].name shouldBe "owned-pipeline"
+      }
+    }
+
+    // HEL-913 task 7.1 (design.md decision 11, "no deprecation"; specs/pipeline-create-api
+    // /spec.md's "A legacy scalar sourceDataSourceId body is rejected" scenario): the OLD scalar
+    // field is not a tolerated alias -- a body naming it (and omitting `roots`) 400s exactly like
+    // any other body missing `roots`, with no separate legacy-detection branch to bypass.
+    "reject a legacy scalar sourceDataSourceId body with 400 (no roots key at all)" in {
+      val dsIdOwnedByA = seedOwnedDataSource(userAId)
+      val body = JsObject(
+        "name"               -> JsString("legacy-shape-pipeline"),
+        "sourceDataSourceId" -> JsString(dsIdOwnedByA)
+      )
+      Post("/pipelines", body) ~> Route.seal(routesFor(userA)) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    // HEL-913 task 7.1/R8: an empty `roots` array is a 400, never a silently-empty pipeline.
+    "reject an empty roots array with 400" in {
+      val body = JsObject("name" -> JsString("no-roots-pipeline"), "roots" -> JsArray())
+      Post("/pipelines", body) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    // HEL-913 R8: a blank/whitespace root sourceId is a 400 -- explicitly with NO ownership
+    // lookup performed for that root (the HEL-950 empty-seed-id guard does not extend to roots).
+    "reject a root with a blank sourceId with 400" in {
+      val body = JsObject(
+        "name"  -> JsString("blank-root-pipeline"),
+        "roots" -> JsArray(JsObject("sourceId" -> JsString("   ")))
+      )
+      Post("/pipelines", body) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.BadRequest
       }
     }
   }

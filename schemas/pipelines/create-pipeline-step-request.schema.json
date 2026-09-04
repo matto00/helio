@@ -25,6 +25,10 @@
     "attachAsTail": {
       "type": "boolean",
       "description": "HEL-908: only meaningful alongside `parentStepId`. `true` attaches the new step as a genuine NEW sibling of `parentStepId`'s existing children (a `position >= 1` tail root) WITHOUT reparenting any of them, via the `attachTailInternal` primitive. Absent/`false` preserves the pre-existing splice-insert default (insert directly after the anchor, reparenting the anchor's existing children onto the new step)."
+    },
+    "rootId": {
+      "type": ["string", "null"],
+      "description": "HEL-913 task 7.3b: names WHICH root a PARENTLESS new step attaches to as a trunk continuation of THAT root -- an alternative anchor to `parentStepId`; exactly one of the two may be present (naming both is a 400). With more than one root and both absent, which root's trunk to extend is ambiguous -- a named 400, never a silent default to the pipeline's first root. A `rootId` naming a root of another pipeline (or no root at all) is a named error."
     }
   },
   "required": ["type", "config"],

@@ -61,9 +61,8 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
                (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
       
-      sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     PipelineId(pid)
   }
@@ -77,8 +76,8 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
     val id = UUID.randomUUID().toString
     await(db.run(
       sqlu"""INSERT INTO pipeline_steps
-               (id, pipeline_id, position, op, config, created_at, updated_at)
-               VALUES ($id, ${pid.value}, $position, $op, $configJson::text, now(), now())"""
+               (id, pipeline_id, position, op, config, created_at, updated_at, root_id)
+               VALUES ($id, ${pid.value}, $position, $op, $configJson::text, now(), now(), ${pid.value})"""
     ))
     id
   }

@@ -102,9 +102,10 @@ class PipelineRepositoryRunTransactionallyRlsSpec extends AnyWordSpec with Match
       val createdSource = await(dataSourceRepo.insert(source, owner))
 
       val action = for {
-        summary <- pipelineRepo.createAction("real-rls-pipeline", createdSource.id, createdSource.name, owner, None)
-        _       <- pipelineStepRepo.insertInternalAction(PipelineId(summary.id), "rename", RenameConfig(Map("a" -> "b")))
-        _       <- outputRepo.insertInternalAction(PipelineId(summary.id), None, owner.id, "out1", OutputKind.Table)
+        createResult      <- pipelineRepo.createAction("real-rls-pipeline", Vector((createdSource.id, createdSource)), owner, None)
+        (summary, _)       = createResult
+        _                 <- pipelineStepRepo.insertInternalAction(PipelineId(summary.id), "rename", RenameConfig(Map("a" -> "b")), explicitRootId = None)
+        _                 <- outputRepo.insertInternalAction(PipelineId(summary.id), None, owner.id, "out1", OutputKind.Table, explicitRootId = None)
       } yield summary
 
       val summary = await(pipelineRepo.runTransactionally(owner.id.value)(action))

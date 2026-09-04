@@ -2618,7 +2618,6 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val pipeline = Pipeline(
         id                 = PipelineId("pipeline-parity"),
         name               = "pipe",
-        sourceDataSourceId = ds.id,
         lastRunStatus      = None,
         lastRunAt          = None,
         createdAt          = Instant.now(),
@@ -2628,7 +2627,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val stepRepo = new PipelineStepRepository(null)(ec)
       val backend = new InProcessExecutionBackend(engine, stepRepo)
       val backendOutcome = Await.result(
-        backend.execute(pipeline, ds, Vector(step), mockRepo, new AssertionSink, new TruncationSink),
+        backend.execute(pipeline, Vector((pipeline.id.value, ds)), Vector(step), mockRepo, new AssertionSink, new TruncationSink),
         5.seconds
       )
 

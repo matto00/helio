@@ -94,10 +94,10 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     val user   = AuthenticatedUser(ownerId)
     val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
     val createdSource = await(dataSourceRepo.insert(source, user))
-    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, user)).getOrElse(
+    val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), user)).getOrElse(
       throw new IllegalStateException("insertDataType fixture: pipeline create failed")
     )
-    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table))
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table, explicitRootId = None))
   }
 
   private val validCondition: JsValue =

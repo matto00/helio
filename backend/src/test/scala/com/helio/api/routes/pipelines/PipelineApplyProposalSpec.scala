@@ -62,7 +62,8 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
         status shouldBe StatusCodes.Created
         val obj = responseAs[String].parseJson.asJsObject
         obj.fields.get("source") shouldBe None
-        obj.fields("pipeline").asJsObject.fields("sourceDataSourceId").convertTo[String] shouldBe existingSourceId
+        val roots = obj.fields("pipeline").asJsObject.fields("roots").convertTo[Vector[JsObject]]
+        roots.map(_.fields("dataSourceId").convertTo[String]) shouldBe Vector(existingSourceId)
       }
       dataSourceCount() shouldBe beforeSources
     }

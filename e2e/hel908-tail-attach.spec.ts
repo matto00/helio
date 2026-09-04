@@ -41,7 +41,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
     const pipelineRes = await page.request.post("/api/pipelines", {
       data: {
         name: "HEL-908 Tail Attach Verification",
-        sourceDataSourceId: source.id,
+        roots: [{ sourceId: source.id }],
         outputDataTypeName: "HEL-908 Tail Attach Output",
       },
       headers: { [CSRF_HEADER]: "1" },
@@ -150,7 +150,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
     const pipelineRes = await page.request.post("/api/pipelines", {
       data: {
         name: "HEL-908 CR9 Verification",
-        sourceDataSourceId: source.id,
+        roots: [{ sourceId: source.id }],
         outputDataTypeName: "HEL-908 CR9 Output",
       },
       headers: { [CSRF_HEADER]: "1" },
@@ -224,7 +224,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
     const pipelineRes = await page.request.post("/api/pipelines", {
       data: {
         name: "HEL-908 CR10 Verification",
-        sourceDataSourceId: source.id,
+        roots: [{ sourceId: source.id }],
         outputDataTypeName: "HEL-908 CR10 Output",
       },
       headers: { [CSRF_HEADER]: "1" },
@@ -308,7 +308,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
     const pipelineRes = await page.request.post("/api/pipelines", {
       data: {
         name: "HEL-908 CR11 Verification",
-        sourceDataSourceId: source.id,
+        roots: [{ sourceId: source.id }],
         outputDataTypeName: "HEL-908 CR11 Output",
       },
       headers: { [CSRF_HEADER]: "1" },

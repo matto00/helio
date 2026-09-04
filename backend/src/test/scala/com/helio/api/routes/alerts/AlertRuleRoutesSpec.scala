@@ -90,10 +90,10 @@ class AlertRuleRoutesSpec
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($dsId, 'src', 'static', '{}', $ownerId::uuid, now(), now())""",
       
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-             VALUES ($pId, 'pipe', $dsId, $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO outputs (id, pipeline_id, owner_id, name, kind, created_at, updated_at)
-             VALUES ($outId, $pId, $ownerId::uuid, 'out', 'table', now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pId, 'pipe', $ownerId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pId, $pId, $dsId, 0)""",
+      sqlu"""INSERT INTO outputs (id, pipeline_id, owner_id, name, kind, created_at, updated_at, root_id)
+             VALUES ($outId, $pId, $ownerId::uuid, 'out', 'table', now(), now(), $pId)"""
     )))
     outId
   }

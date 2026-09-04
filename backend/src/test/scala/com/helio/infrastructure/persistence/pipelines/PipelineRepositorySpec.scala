@@ -58,9 +58,8 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
                (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
       
-      sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     PipelineId(pid)
   }
@@ -163,9 +162,9 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       )))
 
       val result = await(pipelineRepo.create(
-        name               = "owned-pipeline",
-        sourceDataSourceId = DataSourceId(dsId),
-        user               = AuthenticatedUser(UserId(customOwner))
+        name                 = "owned-pipeline",
+        sourceDataSourceIds  = Vector(DataSourceId(dsId)),
+        user                 = AuthenticatedUser(UserId(customOwner))
       ))
       result.isRight shouldBe true
       val summary = result.toOption.get
@@ -305,11 +304,11 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
                          '{"columns":[],"rows":[]}', $ownerA::uuid, now(), now())"""
       )))
       val result = await(pipelineRepo.create(
-        name               = "hijack-attempt",
-        sourceDataSourceId = DataSourceId(dsId),
-        user               = AuthenticatedUser(UserId(ownerB))
+        name                 = "hijack-attempt",
+        sourceDataSourceIds  = Vector(DataSourceId(dsId)),
+        user                 = AuthenticatedUser(UserId(ownerB))
       ))
-      result shouldBe Left("Data source not found")
+      result shouldBe Left(s"Data source not found: $dsId")
     }
   }
 

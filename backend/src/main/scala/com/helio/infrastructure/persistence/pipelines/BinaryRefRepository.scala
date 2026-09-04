@@ -39,42 +39,70 @@ class BinaryRefRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *
    * Calling with an empty `refs` sequence clears the snapshot (DELETE only).
    */
-  def overwriteForNode(pipelineId: String, nodeStepId: Option[String], refs: Vector[BinaryRef]): Future[Unit] = {
-    val deleteAction = nodeStepId match {
-      case Some(stepId) => sqlu"DELETE FROM binary_refs WHERE pipeline_id = $pipelineId AND node_step_id = $stepId"
-      case None         => sqlu"DELETE FROM binary_refs WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"
+  /** `explicitRootId` (HEL-913 design.md R12/5.8c) -- see `NodeSnapshotRepository.overwriteRows`'s
+   *  identical parameter for the full rationale: without it, two roots' `node_step_id IS NULL`
+   *  refs collide on the same delete predicate and whichever root writes second wipes the other. */
+  def overwriteForNode(pipelineId: String, nodeStepId: Option[String], refs: Vector[BinaryRef], explicitRootId: Option[String]): Future[Unit] = {
+    val deleteAction = (nodeStepId, explicitRootId) match {
+      case (Some(stepId), _)  => sqlu"DELETE FROM binary_refs WHERE pipeline_id = $pipelineId AND node_step_id = $stepId"
+      case (None, Some(rid))  => sqlu"DELETE FROM binary_refs WHERE pipeline_id = $pipelineId AND node_step_id IS NULL AND root_id = $rid"
+      case (None, None)       => sqlu"DELETE FROM binary_refs WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"
     }
-    val insertActions = refs.map { ref =>
-      val createdAt = Timestamp.from(ref.createdAt)
-      sqlu"""INSERT INTO binary_refs
-               (id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at)
-             VALUES
-               (${ref.id}, ${ref.pipelineId}, ${ref.nodeStepId}, ${ref.rowIndex}, ${ref.fieldName}, ${ref.storageKey},
-                ${ref.mimeType}, ${ref.filename}, ${ref.sizeBytes}, $createdAt)"""
+    // HEL-913: a root-bound (`nodeStepId = None`) ref needs `root_id` set (V98's CHECK
+    // `(node_step_id IS NULL) <> (root_id IS NULL)`).
+    val rootIdAction: DBIO[Option[String]] = (nodeStepId, explicitRootId) match {
+      case (Some(_), _)      => DBIO.successful(None)
+      case (None, Some(rid)) => DBIO.successful(Some(rid))
+      case (None, None)      => sql"SELECT id FROM pipeline_roots WHERE pipeline_id = $pipelineId ORDER BY position LIMIT 1".as[String].headOption
     }
-    val allActions = deleteAction +: insertActions
-    ctx.withSystemContext(DBIO.seq(allActions: _*).transactionally)
+    val action = rootIdAction.flatMap { rootIdOpt =>
+      val insertActions = refs.map { ref =>
+        val createdAt = Timestamp.from(ref.createdAt)
+        (nodeStepId, rootIdOpt) match {
+          case (None, Some(rootId)) =>
+            sqlu"""INSERT INTO binary_refs
+                     (id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at, root_id)
+                   VALUES
+                     (${ref.id}, ${ref.pipelineId}, ${ref.nodeStepId}, ${ref.rowIndex}, ${ref.fieldName}, ${ref.storageKey},
+                      ${ref.mimeType}, ${ref.filename}, ${ref.sizeBytes}, $createdAt, $rootId)"""
+          case _ =>
+            sqlu"""INSERT INTO binary_refs
+                     (id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at)
+                   VALUES
+                     (${ref.id}, ${ref.pipelineId}, ${ref.nodeStepId}, ${ref.rowIndex}, ${ref.fieldName}, ${ref.storageKey},
+                      ${ref.mimeType}, ${ref.filename}, ${ref.sizeBytes}, $createdAt)"""
+        }
+      }
+      DBIO.seq((deleteAction +: insertActions): _*)
+    }
+    ctx.withSystemContext(action.transactionally)
   }
 
   /**
    * Return all `BinaryRef` records for `(pipelineId, nodeStepId)`. Returns
    * an empty Vector if no snapshot has been written yet.
    */
-  def findByNode(pipelineId: String, nodeStepId: Option[String]): Future[Vector[BinaryRef]] =
-    ctx.withSystemContext(selectQuery(pipelineId, nodeStepId)).map(_.map(rowToBinaryRef))
+  def findByNode(pipelineId: String, nodeStepId: Option[String], explicitRootId: Option[String]): Future[Vector[BinaryRef]] =
+    ctx.withSystemContext(selectQuery(pipelineId, nodeStepId, explicitRootId)).map(_.map(rowToBinaryRef))
 
   /**
    * Return the `BinaryRef` records for `(pipelineId, nodeStepId)` scoped to
-   * a single `rowIndex`.
+   * a single `rowIndex`. `explicitRootId` (HEL-913 R12) names WHICH root when `nodeStepId` is
+   * `None` -- see `findByNode`'s doc / `NodeSnapshotRepository.listRows`'s identical parameter.
    */
-  def findByNodeAndRow(pipelineId: String, nodeStepId: Option[String], rowIndex: Int): Future[Vector[BinaryRef]] = {
-    val query = nodeStepId match {
-      case Some(stepId) =>
+  def findByNodeAndRow(pipelineId: String, nodeStepId: Option[String], rowIndex: Int, explicitRootId: Option[String]): Future[Vector[BinaryRef]] = {
+    val query = (nodeStepId, explicitRootId) match {
+      case (Some(stepId), _) =>
         sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
               FROM binary_refs
               WHERE pipeline_id = $pipelineId AND node_step_id = $stepId AND row_index = $rowIndex"""
           .as[(String, String, Option[String], Int, String, String, String, String, Long, Timestamp)]
-      case None =>
+      case (None, Some(rid)) =>
+        sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
+              FROM binary_refs
+              WHERE pipeline_id = $pipelineId AND node_step_id IS NULL AND root_id = $rid AND row_index = $rowIndex"""
+          .as[(String, String, Option[String], Int, String, String, String, String, Long, Timestamp)]
+      case (None, None) =>
         sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
               FROM binary_refs
               WHERE pipeline_id = $pipelineId AND node_step_id IS NULL AND row_index = $rowIndex"""
@@ -83,13 +111,18 @@ class BinaryRefRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(query).map(_.map(rowToBinaryRef))
   }
 
-  private def selectQuery(pipelineId: String, nodeStepId: Option[String]) = nodeStepId match {
-    case Some(stepId) =>
+  private def selectQuery(pipelineId: String, nodeStepId: Option[String], explicitRootId: Option[String]) = (nodeStepId, explicitRootId) match {
+    case (Some(stepId), _) =>
       sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
             FROM binary_refs
             WHERE pipeline_id = $pipelineId AND node_step_id = $stepId"""
         .as[(String, String, Option[String], Int, String, String, String, String, Long, Timestamp)]
-    case None =>
+    case (None, Some(rid)) =>
+      sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
+            FROM binary_refs
+            WHERE pipeline_id = $pipelineId AND node_step_id IS NULL AND root_id = $rid"""
+        .as[(String, String, Option[String], Int, String, String, String, String, Long, Timestamp)]
+    case (None, None) =>
       sql"""SELECT id, pipeline_id, node_step_id, row_index, field_name, storage_key, mime_type, filename, size_bytes, created_at
             FROM binary_refs
             WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"""

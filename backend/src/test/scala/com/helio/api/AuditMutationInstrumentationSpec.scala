@@ -11,7 +11,7 @@ import com.helio.api.protocols.auth.{AuthResponse, LoginRequest, MfaConfirmReque
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse, DashboardSnapshotPayload, DuplicateDashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelBatchItem, CreatePanelRequest, CreatePanelsBatchRequest, CreatePanelsBatchResponse, PanelBatchItem, PanelResponse, UpdatePanelsBatchRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel, ReplaceDashboardContentsRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, AuthenticatedUser, CsvSource, DataField, DataSource, DataSourceId, DataSourceKind, UserId, UserSession}
@@ -653,7 +653,7 @@ class AuditMutationInstrumentationSpec
         dataSourceId = responseAs[DataSourceResponse].id
       }
       var pipelineId = ""
-      Post("/api/pipelines", CreatePipelineRequest("DupStepPipeline", dataSourceId)) ~> routesFor() ~> check {
+      Post("/api/pipelines", CreatePipelineRequest("DupStepPipeline", Vector(CreatePipelineRootRequest(Some(dataSourceId))))) ~> routesFor() ~> check {
         status shouldBe StatusCodes.Created
         pipelineId = responseAs[PipelineSummaryResponse].id
       }
@@ -684,7 +684,7 @@ class AuditMutationInstrumentationSpec
         dataSourceId = responseAs[DataSourceResponse].id
       }
       var pipelineId = ""
-      Post("/api/pipelines", CreatePipelineRequest("ReorderStepPipeline", dataSourceId)) ~> routesFor() ~> check {
+      Post("/api/pipelines", CreatePipelineRequest("ReorderStepPipeline", Vector(CreatePipelineRootRequest(Some(dataSourceId))))) ~> routesFor() ~> check {
         status shouldBe StatusCodes.Created
         pipelineId = responseAs[PipelineSummaryResponse].id
       }
@@ -954,7 +954,7 @@ class AuditMutationInstrumentationSpec
       val srcId       = createTaggedSource("TeardownBlockedSource", blockedTag)
       // An untagged dependent pipeline over the tagged source blocks the
       // whole call (mirrors WorkspaceTeardownServiceSpec 6.4).
-      Post("/api/pipelines", CreatePipelineRequest("TeardownBlockedPipeline", srcId)) ~> routesFor() ~> check {
+      Post("/api/pipelines", CreatePipelineRequest("TeardownBlockedPipeline", Vector(CreatePipelineRootRequest(Some(srcId))))) ~> routesFor() ~> check {
         status shouldBe StatusCodes.Created
       }
 

@@ -153,7 +153,7 @@ class WorkspaceSearchServiceSpec
       name: String = s"pipe-${UUID.randomUUID()}",
       outputName: String = s"out-${UUID.randomUUID()}"
   ): SeededPipeline = {
-    val summary = await(pipelineRepo.create(name, sourceId, user)) match {
+    val summary = await(pipelineRepo.create(name, Vector(sourceId), user)) match {
       case Right(s)  => s
       case Left(err) => fail(s"pipeline create failed: $err")
     }
@@ -162,7 +162,7 @@ class WorkspaceSearchServiceSpec
     // `WorkspaceContextServiceSpec`'s identical rewire) -- `outputDataTypeId`
     // (name kept for this file's own diff-minimization) holds the real
     // Output's id created below, not a legacy companion DataType's.
-    val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table))
+    val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table, explicitRootId = None))
     SeededPipeline(
       id                   = summary.id,
       sourceDataSourceName = summary.sourceDataSourceName,
@@ -317,7 +317,7 @@ class WorkspaceSearchServiceSpec
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("status" -> JsString("active"), "amount" -> JsNumber(10)),
         JsObject("status" -> JsString("inactive"), "amount" -> JsNumber(20))
-      )))
+      ), explicitRootId = None))
 
       val assembled  = await(workspaceContextService.assemble(userA))
       val fromAssemble = assembled.dataTypes.find(_.id == pipeline.outputDataTypeId).getOrElse(fail("assemble entry missing"))

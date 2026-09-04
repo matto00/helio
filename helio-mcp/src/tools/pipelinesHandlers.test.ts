@@ -6,13 +6,18 @@
 import { HelioApiError } from "../httpClient.js";
 import type { HelioApi } from "../helioApi.js";
 import type { OutputResponse, OutputsResponse, PipelineSummaryResponse } from "../types.js";
-import { addOutputsFromShapeHandler, createPipelineHandler } from "./pipelinesHandlers.js";
+import {
+  addOutputsFromShapeHandler,
+  addPipelineRootHandler,
+  createPipelineHandler,
+  removePipelineRootHandler,
+} from "./pipelinesHandlers.js";
+import type { PipelineRootSummaryResponse, RemovePipelineRootResponse } from "../types.js";
 
 const summary: PipelineSummaryResponse = {
   id: "pipeline-1",
   name: "Revenue pipeline",
-  sourceDataSourceId: "source-1",
-  sourceDataSourceName: "Source 1",
+  roots: [{ id: "root-1", dataSourceId: "source-1", dataSourceName: "Source 1" }],
   lastRunStatus: null,
   lastRunAt: null,
   lastRunRowCount: null,
@@ -31,13 +36,19 @@ function makeFakeApi(overrides: Partial<Record<keyof HelioApi, unknown>> = {}): 
       throw new Error("createSqlDataSource not stubbed");
     },
     listOutputsByPipeline: async (): Promise<OutputsResponse> => ({ items: [] }),
+    addPipelineRoot: async () => {
+      throw new Error("addPipelineRoot not stubbed");
+    },
+    removePipelineRoot: async () => {
+      throw new Error("removePipelineRoot not stubbed");
+    },
     ...overrides,
   };
   return fake as unknown as HelioApi;
 }
 
 describe("createPipelineHandler", () => {
-  it("calls api.createPipeline with sourceDataSourceId set from source.sourceId when an existing source is referenced", async () => {
+  it("calls api.createPipeline with roots: [{sourceId}] set from source.sourceId when an existing source is referenced", async () => {
     let calledWith: unknown;
     const api = makeFakeApi({
       createPipeline: async (req: unknown) => {
@@ -48,19 +59,97 @@ describe("createPipelineHandler", () => {
 
     const result = await createPipelineHandler(api, {
       name: "Revenue pipeline",
-      source: { sourceId: "source-1" },
+      roots: [{ sourceId: "source-1" }],
       steps: [],
       outputs: [],
     });
 
     expect(calledWith).toEqual({
       name: "Revenue pipeline",
-      sourceDataSourceId: "source-1",
+      roots: [{ sourceId: "source-1" }],
       tag: undefined,
       steps: [],
       outputs: [],
     });
     expect(result).toEqual(summary);
+  });
+
+  // HEL-913 task 9.1/9.2 -- the widening this ticket's own R6/HEL-914 acceptance criterion
+  // depends on: one create_pipeline call resolves MULTIPLE roots, in order, and sends them all
+  // as one roots[] array (never a single scalar, never a truncated array).
+  it("resolves MULTIPLE roots, in order, sending all of them as one roots[] array", async () => {
+    let calledWith: unknown;
+    let createDataSourceCalledWith: unknown;
+    const api = makeFakeApi({
+      createDataSource: async (req: unknown) => {
+        createDataSourceCalledWith = req;
+        return { id: "new-source-2", name: "Inline Static Root", type: "static", tag: null };
+      },
+      createPipeline: async (req: unknown) => {
+        calledWith = req;
+        return summary;
+      },
+    });
+
+    await createPipelineHandler(api, {
+      name: "Two-Root Pipeline",
+      roots: [
+        { sourceId: "source-1", clientId: "rootA" },
+        {
+          type: "static",
+          name: "Inline Static Root",
+          clientId: "rootB",
+          config: { columns: [{ name: "v", type: "string" }], rows: [["x"]] },
+        },
+      ],
+      steps: [],
+      outputs: [],
+    });
+
+    expect(createDataSourceCalledWith).toEqual({
+      name: "Inline Static Root",
+      columns: [{ name: "v", type: "string" }],
+      rows: [["x"]],
+    });
+    expect(calledWith).toEqual({
+      name: "Two-Root Pipeline",
+      roots: [
+        { sourceId: "source-1", clientId: "rootA" },
+        { sourceId: "new-source-2", clientId: "rootB" },
+      ],
+      tag: undefined,
+      steps: [],
+      outputs: [],
+    });
+  });
+
+  it("reports EVERY earlier root's orphaned inline source when a LATER root's resolution fails", async () => {
+    let createDataSourceCallCount = 0;
+    const api = makeFakeApi({
+      createDataSource: async () => {
+        createDataSourceCallCount += 1;
+        return {
+          id: `new-source-${createDataSourceCallCount}`,
+          name: "x",
+          type: "static",
+          tag: null,
+        };
+      },
+    });
+
+    await expect(
+      createPipelineHandler(api, {
+        name: "X",
+        roots: [
+          { type: "static", config: { columns: [], rows: [] } },
+          { type: "static", config: { columns: [], rows: [] } },
+          // third root: neither sourceId nor a recognized type -- fails resolution
+          {},
+        ],
+        steps: [],
+        outputs: [],
+      }),
+    ).rejects.toThrow(/orphaned DataSource ids: new-source-1, new-source-2/);
   });
 
   it("creates a static inline source first, then the pipeline, using the freshly-created source's id", async () => {
@@ -85,11 +174,13 @@ describe("createPipelineHandler", () => {
 
     await createPipelineHandler(api, {
       name: "Revenue pipeline",
-      source: {
-        type: "static",
-        name: "Inline Static",
-        config: { columns: [{ name: "amount", type: "float" }], rows: [[1]] },
-      },
+      roots: [
+        {
+          type: "static",
+          name: "Inline Static",
+          config: { columns: [{ name: "amount", type: "float" }], rows: [[1]] },
+        },
+      ],
       steps: [],
       outputs: [],
     });
@@ -99,7 +190,7 @@ describe("createPipelineHandler", () => {
       columns: [{ name: "amount", type: "float" }],
       rows: [[1]],
     });
-    expect(createPipelineCalledWith).toMatchObject({ sourceDataSourceId: "new-source-1" });
+    expect(createPipelineCalledWith).toMatchObject({ roots: [{ sourceId: "new-source-1" }] });
   });
 
   it("reports the orphaned inline source id in the thrown error when the pipeline-create call fails", async () => {
@@ -119,7 +210,7 @@ describe("createPipelineHandler", () => {
     await expect(
       createPipelineHandler(api, {
         name: "X",
-        source: { type: "static", config: { columns: [], rows: [] } },
+        roots: [{ type: "static", config: { columns: [], rows: [] } }],
         steps: [],
         outputs: [],
       }),
@@ -136,7 +227,7 @@ describe("createPipelineHandler", () => {
     await expect(
       createPipelineHandler(api, {
         name: "X",
-        source: { sourceId: "source-1" },
+        roots: [{ sourceId: "source-1" }],
         steps: [],
         outputs: [],
       }),
@@ -150,7 +241,7 @@ describe("createPipelineHandler", () => {
       createPipelineHandler(api, {
         name: "X",
         // @ts-expect-error -- csv is deliberately not in the accepted inline-type union
-        source: { type: "csv", config: {} },
+        roots: [{ type: "csv", config: {} }],
         steps: [],
         outputs: [],
       }),
@@ -176,7 +267,7 @@ describe("createPipelineHandler", () => {
 
     const result = await createPipelineHandler(api, {
       name: "Revenue pipeline",
-      source: { sourceId: "source-1" },
+      roots: [{ sourceId: "source-1" }],
       steps: [],
       outputs: [{ kind: "table", name: "Weekly Revenue" }],
     });
@@ -195,7 +286,7 @@ describe("createPipelineHandler", () => {
 
     const result = await createPipelineHandler(api, {
       name: "Revenue pipeline",
-      source: { sourceId: "source-1" },
+      roots: [{ sourceId: "source-1" }],
       steps: [],
       outputs: [],
     });
@@ -401,5 +492,103 @@ describe("addOutputsFromShapeHandler", () => {
     });
 
     expect(createOutputCalledWith).toMatchObject({ nodeStepId: "anchor-step" });
+  });
+});
+
+describe("addPipelineRootHandler", () => {
+  it("calls api.addPipelineRoot with {sourceId} set from source.sourceId when an existing source is referenced", async () => {
+    let calledWith: [string, unknown] | undefined;
+    const newRoot: PipelineRootSummaryResponse = {
+      id: "root-2",
+      dataSourceId: "source-2",
+      dataSourceName: "Source 2",
+    };
+    const api = makeFakeApi({
+      addPipelineRoot: async (pipelineId: string, req: unknown) => {
+        calledWith = [pipelineId, req];
+        return newRoot;
+      },
+    });
+
+    const result = await addPipelineRootHandler(api, {
+      pipelineId: "pipeline-1",
+      source: { sourceId: "source-2" },
+    });
+
+    expect(calledWith).toEqual(["pipeline-1", { sourceId: "source-2" }]);
+    expect(result).toEqual(newRoot);
+  });
+
+  it("creates a static inline source first, then the root, using the freshly-created source's id", async () => {
+    let createDataSourceCalledWith: unknown;
+    let addRootCalledWith: unknown;
+    const api = makeFakeApi({
+      createDataSource: async (req: unknown) => {
+        createDataSourceCalledWith = req;
+        return { id: "new-source-1", name: "Inline Static", type: "static", tag: null };
+      },
+      addPipelineRoot: async (_pipelineId: string, req: unknown) => {
+        addRootCalledWith = req;
+        return { id: "root-2", dataSourceId: "new-source-1", dataSourceName: "Inline Static" };
+      },
+    });
+
+    await addPipelineRootHandler(api, {
+      pipelineId: "pipeline-1",
+      source: {
+        type: "static",
+        name: "Inline Static",
+        config: { columns: [{ name: "amount", type: "float" }], rows: [[1]] },
+      },
+    });
+
+    expect(createDataSourceCalledWith).toEqual({
+      name: "Inline Static",
+      columns: [{ name: "amount", type: "float" }],
+      rows: [[1]],
+    });
+    expect(addRootCalledWith).toEqual({ sourceId: "new-source-1" });
+  });
+
+  it("reports the orphaned inline source id in the thrown error when the add-root call fails", async () => {
+    const api = makeFakeApi({
+      createDataSource: async () => ({
+        id: "new-source-1",
+        name: "Inline Static",
+        type: "static",
+        tag: null,
+      }),
+      addPipelineRoot: async () => {
+        throw new Error("backend 400");
+      },
+    });
+
+    await expect(
+      addPipelineRootHandler(api, {
+        pipelineId: "pipeline-1",
+        source: { type: "static", name: "Inline Static", config: { columns: [], rows: [] } },
+      }),
+    ).rejects.toThrow(/orphaned DataSource id: new-source-1/);
+  });
+});
+
+describe("removePipelineRootHandler", () => {
+  it("calls api.removePipelineRoot with the given pipelineId/rootId and returns its result", async () => {
+    let calledWith: [string, string] | undefined;
+    const response: RemovePipelineRootResponse = { removedStepCount: 3, removedOutputCount: 1 };
+    const api = makeFakeApi({
+      removePipelineRoot: async (pipelineId: string, rootId: string) => {
+        calledWith = [pipelineId, rootId];
+        return response;
+      },
+    });
+
+    const result = await removePipelineRootHandler(api, {
+      pipelineId: "pipeline-1",
+      rootId: "root-2",
+    });
+
+    expect(calledWith).toEqual(["pipeline-1", "root-2"]);
+    expect(result).toEqual(response);
   });
 });

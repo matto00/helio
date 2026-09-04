@@ -51,7 +51,7 @@ test.describe("HEL-908 PipelineDetailPage/StepCard split live verification", () 
     const pipelineRes = await page.request.post("/api/pipelines", {
       data: {
         name: "HEL-908 Split Verification",
-        sourceDataSourceId: source.id,
+        roots: [{ sourceId: source.id }],
         outputDataTypeName: "HEL-908 Split Output",
       },
       headers: { [CSRF_HEADER]: "1" },

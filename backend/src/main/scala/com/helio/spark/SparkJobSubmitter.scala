@@ -2,7 +2,7 @@ package com.helio.spark
 
 import com.helio.domain.{AggregateStep, CastStep, ComputeStep, FilterStep, GroupByStep, JoinStep, LimitStep, RenameStep, SelectStep, SortStep}
 import com.helio.domain.steps.SecondaryInput
-import com.helio.domain.engine.{PipelineExecutionBackend, PipelineExecutionOutcome, SourceReadStats}
+import com.helio.domain.engine.{NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome, SourceReadStats}
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, Pipeline, PipelineRunId, PipelineStep, StaticSource, TruncationSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
@@ -117,9 +117,16 @@ class SparkJobSubmitter(
    *  nor truncation tracking. `stepCounts`/`sourceRowCount` (pre-step)/`primaryStats` (always
    *  untruncated) are documented approximations (design.md Risks/Trade-offs): this path has zero
    *  production callers today and exists solely to demonstrate the trait admits a second impl. */
+  /** HEL-913 (design.md task 5.6): the trait's `roots` parameter is accepted here so the
+   *  contract still compiles for Spark, but this path uses ONLY `roots.head` (the lowest-
+   *  positioned root) -- implementing the actual multi-root walk on Spark stays HEL-238's job,
+   *  unchanged in scope by this ticket (design.md explicitly rules this out of scope here). This
+   *  is a documented approximation, not a silent one: a Spark-backed pipeline with more than one
+   *  root would silently ignore every root but the first, same "zero production callers today"
+   *  caveat the rest of this method's header already states. */
   def execute(
       pipeline: Pipeline,
-      dataSource: DataSource,
+      roots: Vector[(String, DataSource)],
       steps: Vector[PipelineStep],
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink,
@@ -127,9 +134,10 @@ class SparkJobSubmitter(
       // HEL-905 (design.md Decision 6): no per-node concept in the Spark path -- accepted per
       // the trait contract and never invoked, same "leave untouched" convention as
       // assertionSink/truncationSink above.
-      onNodeProgress: (Option[String], Long) => Unit = (_, _) => ()
+      onNodeProgress: (NodeKey, Long) => Unit
   )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] =
     Future {
+      val dataSource = roots.head._2
       val df       = loadDataFrame(dataSource)
       val resultDf = steps.foldLeft(df)((cur, step) => applyStep(cur, step))
       val rows     = collectRows(resultDf)

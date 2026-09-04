@@ -6,7 +6,11 @@ TBD - created by archiving change pipeline-step-execution. Update Purpose after 
 ## Requirements
 
 ### Requirement: POST /api/pipelines/:id/run executes steps and returns a result
-The run endpoint SHALL execute the pipeline's graph and return a result reporting per-node row counts for **every** evaluated node across **all** lanes, keyed by node id. When a step fails, the reported error SHALL identify the failing step and its reason, and SHALL additionally identify the **lane path** leading to that step, so a failure in one of several sibling lanes is unambiguous. The lane path SHALL be the ordered list of step ids from the source root to the failing step inclusive, joined by `" > "`, with the virtual root rendered as `root` (for example `root > s1 > s4 > s7`).
+The run endpoint SHALL execute the pipeline's graph and return a result reporting per-node row counts for **every** evaluated node across **all** lanes and **all** roots, keyed by node id. When a step fails, the reported error SHALL identify the failing step, its reason, and the **lane path** leading to that step, so a failure in one of several sibling lanes is unambiguous.
+
+The lane path SHALL be the ordered list of ids from the originating root to the failing step inclusive, joined by `" > "`, with the root rendered as `root:<rootId>` (for example `root:r_7a2f > s1 > s4 > s7`). Where a node is reachable from more than one root, the canonical path SHALL be the one through the lowest-positioned originating root.
+
+The engine SHALL emit this lane path; a specification of the format alone SHALL NOT be treated as satisfying this requirement.
 
 #### Scenario: Row counts are returned for nodes in every lane
 - **WHEN** a pipeline with two sibling lanes is run
@@ -14,15 +18,26 @@ The run endpoint SHALL execute the pipeline's graph and return a result reportin
 
 #### Scenario: A failure in the second of two lanes names that lane's path
 - **WHEN** a step in the second of two sibling lanes raises during a run
-- **THEN** the result names the failing step, its reason, and the lane path leading to it, in the specified format
+- **THEN** the reported error names the failing step, its reason, and the lane path leading to it, in the specified format
 
-#### Scenario: A failure in a non-branching pipeline is unchanged in substance
-- **WHEN** a step fails in a pipeline with no branching
-- **THEN** the failing step and its reason are reported as before, with the lane path being the single chain to that step
+#### Scenario: A failure in a lane of the second root names that root
+- **WHEN** a step fails in a lane originating at the second of two roots
+- **THEN** the lane path begins with that root's id, not the first root's
 
 #### Scenario: Run with no steps returns source rows unchanged
-- **WHEN** `POST /api/pipelines/:id/run` is called on a pipeline that has no steps
-- **THEN** the response is `200 OK` with all source rows returned and `last_run_status` is `"succeeded"`
+- **WHEN** `POST /api/pipelines/:id/run` is called on a single-root pipeline that has no steps
+- **THEN** the response is `200 OK` with all of that root's source rows returned and `last_run_status` is `"succeeded"`
+
+#### Scenario: Run with no steps on a multi-root pipeline returns the lowest-positioned root's rows
+- **WHEN** `POST /api/pipelines/:id/run` is called on a two-root pipeline that has no steps
+- **THEN** the response is `200 OK` and `last_run_status` is `"succeeded"`
+- **THEN** the returned rows are the lowest-positioned root's source rows, not the concatenation of both roots' rows
+- **THEN** every root's per-node row count is still reported
+
+#### Scenario: A failure in a non-branching pipeline is unchanged in substance
+- **WHEN** a step fails in a single-root pipeline with no branching
+- **THEN** the failing step and its reason are reported as before
+- **THEN** the lane path is the single chain to that step, beginning `root:<rootId>` for that pipeline's only root
 
 #### Scenario: Run with multiple steps applies them in position order
 - **WHEN** `POST /api/pipelines/:id/run` is called on a pipeline whose trunk has steps at positions
@@ -290,14 +305,11 @@ engine starts, and `succeeded` or `failed` on completion (a blocked run publishe
   naming the failing rule's kind and field — not the generic execution-exception message
 
 ### Requirement: POST /api/pipelines/:id/run executes a rest_api or sql base source
-The backend SHALL execute a pipeline whose resolved base `sourceDataSourceId` is a `rest_api` or
-`sql` `DataSource` using the in-process execution engine, the same way it already executes `static`/
-`csv`/`text`/`pdf`/`image` sources — fetching rows via the source kind's existing connector
-(`RestApiConnectorDriver`/`SqlConnectorDriver`) up to a bounded row count, then applying pipeline steps in
-sequence. This SHALL NOT be rejected as an unsupported source type. A connector-level fetch failure
-(unreachable endpoint, auth failure, query error) SHALL surface as the existing generic execution
-failure (`422 Unprocessable Entity`, `last_run_status = "failed"`) — the same outcome any other
-source-kind read failure already produces.
+The run endpoint SHALL load rows for every root of the pipeline, whatever source kind each root binds, before the walk begins. A root binding a `rest_api` or `sql` source SHALL be fetched exactly as a single-source pipeline fetches it today.
+
+#### Scenario: Two roots of different source kinds both load
+- **WHEN** a pipeline has one `static` root and one `rest_api` root
+- **THEN** both roots' rows are loaded and each root's lane evaluates from its own frame
 
 #### Scenario: A healthy rest_api source completes a real run
 - **WHEN** `POST /api/pipelines/:id/run` is called on a pipeline whose base source is a reachable

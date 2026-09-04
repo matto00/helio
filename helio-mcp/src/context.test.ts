@@ -123,8 +123,7 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
   const summary: PipelineSummaryResponse = {
     id: "pipe-1",
     name: "Orders Pipeline",
-    sourceDataSourceId: "src-1",
-    sourceDataSourceName: "Orders",
+    roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Orders" }],
     lastRunStatus: "success",
     lastRunAt: "2026-01-02T00:00:00Z",
     lastRunRowCount: 10,
@@ -133,8 +132,7 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
   const analyzeResponse: PipelineAnalyzeResponse = {
     id: "pipe-1",
     name: "Orders Pipeline",
-    sourceDataSourceName: "Orders",
-    sourceSchema: [],
+    sourceSchemas: [{ rootId: "root-1", sourceDataSourceName: "Orders", sourceSchema: [] }],
     steps: [
       {
         id: "step-1",
@@ -190,6 +188,7 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
         name: "Orders Table",
         kind: "table",
         nodeStepId: "step-1",
+        rootId: null,
         schema: [{ name: "orderId", type: "string" }],
         placements: [{ dashboardId: "dash-1", panelId: "panel-1" }],
       },
@@ -205,6 +204,25 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
     );
 
     expect(context.pipelines[0]?.outputs[0]?.nodeStepId).toBeNull();
+  });
+
+  // HEL-913 task 9.9/R12: a root-bound Output's rootId must be threaded through, never dropped
+  // -- nodeStepId: null alone (the previous test) does not say WHICH root under multi-root.
+  it("reports the real rootId (not null) for a root-bound Output on a named root", async () => {
+    const rootBoundOutput: OutputResponse = {
+      ...output,
+      id: "out-3",
+      nodeStepId: undefined,
+      rootId: "root-42",
+    };
+    const context = await buildWorkspaceContext(
+      fakeApiWithPipeline({
+        listAllOutputs: async () => page([rootBoundOutput]),
+      }) as unknown as HelioApi,
+    );
+
+    expect(context.pipelines[0]?.outputs[0]?.nodeStepId).toBeNull();
+    expect(context.pipelines[0]?.outputs[0]?.rootId).toBe("root-42");
   });
 
   it("reports [] for outputs on a pipeline with none yet", async () => {
@@ -270,6 +288,7 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
         name: "Orders Table",
         kind: "table",
         nodeStepId: "step-1",
+        rootId: null,
         schema: [{ name: "orderId", type: "string" }],
         placements: [{ dashboardId: "dash-1", panelId: "panel-1" }],
       },
@@ -408,8 +427,9 @@ describe("buildWorkspaceContext — 25-source/43-pipeline fixture (HEL-857/HEL-9
     const pipelines: PipelineSummaryResponse[] = Array.from({ length: 43 }, (_, i) => ({
       id: `pipe-${i}`,
       name: `Pipeline ${i}`,
-      sourceDataSourceId: `src-${i % 25}`,
-      sourceDataSourceName: `Source ${i % 25}`,
+      roots: [
+        { id: `root-${i}`, dataSourceId: `src-${i % 25}`, dataSourceName: `Source ${i % 25}` },
+      ],
       lastRunStatus: "success",
       lastRunAt: "2026-01-02T00:00:00Z",
       lastRunRowCount: 100,
@@ -434,8 +454,13 @@ describe("buildWorkspaceContext — 25-source/43-pipeline fixture (HEL-857/HEL-9
         {
           id: p.id,
           name: p.name,
-          sourceDataSourceName: p.sourceDataSourceName,
-          sourceSchema: [],
+          sourceSchemas: [
+            {
+              rootId: p.roots[0]!.id,
+              sourceDataSourceName: p.roots[0]!.dataSourceName,
+              sourceSchema: [],
+            },
+          ],
           steps: [
             {
               id: `${p.id}-step-1`,

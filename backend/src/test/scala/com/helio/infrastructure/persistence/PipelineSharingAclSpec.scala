@@ -147,9 +147,8 @@ class PipelineSharingAclSpec extends AnyWordSpec with Matchers with BeforeAndAft
                VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}',
                       ${ownerId.value}::uuid, now(), now())""",
       
-      sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($id, 'pipeline', $dsId, ${ownerId.value}::uuid, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($id, 'pipeline', ${ownerId.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($id, $id, $dsId, 0)"""
     )))
     id
   }

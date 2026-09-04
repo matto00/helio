@@ -142,9 +142,14 @@ export interface WorkspaceContextOutputSummary {
   id: string;
   name: string;
   kind: string;
-  /** `null` means this Output is attached directly to the pipeline's source
-   *  (`nodeStepId` absent on the wire — spray-json omits `Option = None`). */
+  /** `null` means this Output is root-bound (`nodeStepId` absent on the wire — spray-json omits
+   *  `Option = None`) -- see `rootId` below for WHICH root, under multi-root (HEL-913 R12). */
   nodeStepId: string | null;
+  /** HEL-913 task 9.9/R12: WHICH root a root-bound Output (`nodeStepId: null`) attaches to.
+   *  Mutually exclusive with `nodeStepId` at the DB row level -- exactly one is ever non-null.
+   *  Emitting `nodeStepId: null` WITHOUT this field is precisely the null-means-root encoding
+   *  R12/R15 ban; see `scripts/check-node-root-encoding.mjs` (Scala) and its TypeScript sibling. */
+  rootId: string | null;
   schema: Array<{ name: string; type: string }>;
   placements: Array<{ dashboardId: string; panelId: string }>;
 }
@@ -198,6 +203,7 @@ async function buildOutputSummariesByPipeline(
         name: o.name,
         kind: o.kind,
         nodeStepId: o.nodeStepId ?? null,
+        rootId: o.rootId ?? null,
         schema: o.schema.map((f) => ({ name: f.name, type: f.type })),
         placements: await fetchPlacements(api, o.id),
       } satisfies WorkspaceContextOutputSummary,
@@ -312,8 +318,10 @@ export interface WorkspaceContext {
   pipelines: Array<{
     id: string;
     name: string;
-    sourceDataSourceId: string;
-    sourceDataSourceName: string;
+    /** HEL-913 tasks 7.2b/9.1: replaces the removed `sourceDataSourceId`/`sourceDataSourceName`
+     *  scalar pair -- one entry per root, position-ordered, mirroring the backend's
+     *  `PipelineRootSummaryResponse[]` exactly. */
+    roots: Array<{ id: string; dataSourceId: string; dataSourceName: string }>;
     lastRunStatus: string | null;
     lastRunAt: string | null;
     lastRunRowCount: number | null;
@@ -438,8 +446,7 @@ export async function buildWorkspaceContext(
       const base = {
         id: summary.id,
         name: summary.name,
-        sourceDataSourceId: summary.sourceDataSourceId,
-        sourceDataSourceName: summary.sourceDataSourceName,
+        roots: summary.roots,
         lastRunStatus: summary.lastRunStatus,
         lastRunAt: summary.lastRunAt,
         lastRunRowCount: summary.lastRunRowCount,

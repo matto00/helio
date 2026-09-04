@@ -6,7 +6,7 @@ import com.helio.api.protocols.pipelines.{OutputResponse, UpdateOutputRequest, U
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
@@ -170,7 +170,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
   }
 
   private def seedPipeline(owner: AuthenticatedUser, sourceId: DataSourceId, name: String = "Pipeline"): PipelineSummaryResponse =
-    await(pipelineService.create(CreatePipelineRequest(name, sourceId.value), owner)) match {
+    await(pipelineService.create(CreatePipelineRequest(name, Vector(CreatePipelineRootRequest(Some(sourceId.value)))), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"seedPipeline failed: $e")
     }
@@ -193,7 +193,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
   // outputRepo.insertInternal is ACL-bypassing (mirrors this file's other seed helpers' direct
   // service/repo use), so no separate pipeline-access setup is needed here.
   private def seedOutput(pipelineId: PipelineId, owner: AuthenticatedUser, name: String = "Output"): Output =
-    await(outputRepo.insertInternal(pipelineId, None, owner.id, name, OutputKind.Table))
+    await(outputRepo.insertInternal(pipelineId, None, owner.id, name, OutputKind.Table, explicitRootId = None))
 
   // Postgres TIMESTAMPTZ rounds to microsecond precision on write; a JVM
   // `Instant.now()` can carry nanosecond precision, and Java's own
@@ -654,7 +654,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
         case Right(response) =>
           val priorJson = response.edits.head.priorState.getOrElse(fail("expected priorState"))
           val prior     = priorJson.convertTo[PipelineSummaryResponse]
-          prior.sourceDataSourceName shouldBe "PipelineSrcForPriorState"
+          prior.roots.map(_.dataSourceName) shouldBe Vector("PipelineSrcForPriorState")
           prior.name shouldBe "MyPipeline"
         case Left(err) => fail(s"expected success, got $err")
       }

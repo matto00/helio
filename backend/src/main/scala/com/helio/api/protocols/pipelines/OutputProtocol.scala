@@ -20,6 +20,10 @@ final case class OutputSchemaFieldResponse(name: String, `type`: String)
  *  batched query. Replaces the Output picker's prior N+1
  *  `GET /api/outputs/:id/panels`-per-card fetch, which self-rate-limited on
  *  a realistic Output count. */
+/** HEL-913 task 5.8a/7.6a/R15: `rootId` names WHICH root this Output is bound to when
+ *  `nodeStepId` is absent -- `nodeStepId = None` alone is ambiguous under multi-root ("every
+ *  root", not "the root"). Defaulted to `None` so every pre-existing construction site keeps
+ *  compiling; `outputResponseFrom` below populates it from `Output.node.rootId`. */
 final case class OutputResponse(
     id: String,
     pipelineId: String,
@@ -31,16 +35,22 @@ final case class OutputResponse(
     schema: Vector[OutputSchemaFieldResponse],
     createdAt: String,
     updatedAt: String,
-    panelCount: Option[Int] = None
+    panelCount: Option[Int] = None,
+    rootId: Option[String] = None
 )
 
 final case class OutputsResponse(items: Vector[OutputResponse])
 
+/** HEL-913 task 5.8a: `rootId` and `nodeStepId` are mutually exclusive, enforced by
+ *  `OutputService.create` (never a silent default to the pipeline's first root). Both
+ *  defaulted to `None`/absent here only so existing single-root-shaped requests (which name
+ *  neither, matching today's "root-bound Output" convention) keep decoding unchanged. */
 final case class CreateOutputRequest(
     nodeStepId: Option[String],
     kind: String,
     name: String,
-    config: Option[JsObject]
+    config: Option[JsObject],
+    rootId: Option[String] = None
 )
 
 /** `name`/`config` absent (`None`) means "leave unchanged" — there is no
@@ -68,9 +78,9 @@ final case class DeleteOutputResponse(removedPanelIds: Vector[String])
 
 trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputSchemaFieldResponseFormat: RootJsonFormat[OutputSchemaFieldResponse] = jsonFormat2(OutputSchemaFieldResponse)
-  implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat11(OutputResponse)
+  implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat12(OutputResponse)
   implicit val outputsResponseFormat: RootJsonFormat[OutputsResponse]                     = jsonFormat1(OutputsResponse)
-  implicit val createOutputRequestFormat: RootJsonFormat[CreateOutputRequest]             = jsonFormat4(CreateOutputRequest)
+  implicit val createOutputRequestFormat: RootJsonFormat[CreateOutputRequest]             = jsonFormat5(CreateOutputRequest)
   implicit val outputRowsResponseFormat: RootJsonFormat[OutputRowsResponse]               = jsonFormat5(OutputRowsResponse)
   implicit val outputPanelPlacementResponseFormat: RootJsonFormat[OutputPanelPlacementResponse] = jsonFormat2(OutputPanelPlacementResponse)
   implicit val deleteOutputResponseFormat: RootJsonFormat[DeleteOutputResponse]           = jsonFormat1(DeleteOutputResponse)
@@ -100,6 +110,7 @@ trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       schema     = output.schema.flatMap(sf => DataFieldType.fromString(sf.`type`).map(t => OutputSchemaFieldResponse(sf.name, DataFieldType.asString(t)))),
       createdAt  = output.createdAt.toString,
       updatedAt  = output.updatedAt.toString,
-      panelCount = panelCount
+      panelCount = panelCount,
+      rootId     = output.node.rootId.map(_.value)
     )
 }

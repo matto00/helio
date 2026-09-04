@@ -29,6 +29,18 @@ jobs:
       - run: npm run typecheck
       - run: npm run check:e2e-types
       - run: npm run check:helio-mcp-types
+      # HEL-913 task 11b: check:node-root-encoding[:selftest]/[:ts]/[:ts:selftest] existed as
+      # runnable npm scripts (5.8b/9.10) but were wired into NOTHING mandatory -- not
+      # .husky/pre-commit, not this workflow -- so neither guard ever fired on a real commit or
+      # PR. CI here, not .husky/pre-commit: CI is merge-blocking and cannot be bypassed, while
+      # the husky chain can (and was, once, in this very ticket, via `git commit -n`) -- the
+      # cheaper option here is also the stronger one. Wiring `.husky/**` itself would also trip
+      # the gate-chain-change requirements (a design.md checklist plus per-script isolation-test
+      # transcripts) for strictly weaker enforcement.
+      - run: npm run check:node-root-encoding
+      - run: npm run check:node-root-encoding:selftest
+      - run: npm run check:node-root-encoding:ts
+      - run: npm run check:node-root-encoding:ts:selftest
       - run: npm run format:check
       - run: npm run check:dependabot
       - run: npm run check:dependabot:selftest

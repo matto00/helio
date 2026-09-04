@@ -1,6 +1,7 @@
 package com.helio.api.protocols.workspace
 
 import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentMemoryProtocol, AgentPreferencesProtocol, AgentPreferencesResponse}
+import com.helio.api.protocols.pipelines.{PipelineProtocol, PipelineRootSummaryResponse}
 import com.helio.api.protocols.sources.{ConnectorEntityProtocol, ConnectorSummary}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
@@ -121,8 +122,10 @@ final case class WorkspaceContextPipelineStep(
 final case class WorkspaceContextPipeline(
     id: String,
     name: String,
-    sourceDataSourceId: String,
-    sourceDataSourceName: String,
+    // HEL-913 task 7.2b: `sourceDataSourceId`/`sourceDataSourceName` REMOVED outright, `roots`
+    // added -- mirrors `PipelineSummaryResponse`'s identical 7.2a removal, "the other half of
+    // 7.2 named but not done" per the coordinator's own framing.
+    roots: Vector[PipelineRootSummaryResponse],
     outputId: String,
     outputName: String,
     lastRunStatus: Option[String],
@@ -225,7 +228,11 @@ trait WorkspaceContextProtocol
     with DefaultJsonProtocol
     with AgentPreferencesProtocol
     with AgentMemoryProtocol
-    with ConnectorEntityProtocol {
+    with ConnectorEntityProtocol
+    // HEL-913 task 7.2b: needed for `PipelineRootSummaryResponse`'s implicit format, now that
+    // `WorkspaceContextPipeline` carries `roots` -- mirrors `PipelineProtocol`'s own
+    // `with DataSourceProtocol` precedent (task 7.1a) for the identical reason.
+    with PipelineProtocol {
   implicit val workspaceContextCountsFormat: RootJsonFormat[WorkspaceContextCounts] =
     jsonFormat4(WorkspaceContextCounts.apply)
   implicit val workspaceContextDataSourceFormat: RootJsonFormat[WorkspaceContextDataSource] =
@@ -246,7 +253,7 @@ trait WorkspaceContextProtocol
   implicit val workspaceContextPipelineStepFormat: RootJsonFormat[WorkspaceContextPipelineStep] =
     jsonFormat4(WorkspaceContextPipelineStep.apply)
   implicit val workspaceContextPipelineFormat: RootJsonFormat[WorkspaceContextPipeline] =
-    jsonFormat12(WorkspaceContextPipeline.apply)
+    jsonFormat11(WorkspaceContextPipeline.apply)
   implicit val workspaceContextDashboardFormat: RootJsonFormat[WorkspaceContextDashboard] =
     jsonFormat3(WorkspaceContextDashboard.apply)
   implicit val workspaceContextTruncationFormat: RootJsonFormat[WorkspaceContextTruncation] =

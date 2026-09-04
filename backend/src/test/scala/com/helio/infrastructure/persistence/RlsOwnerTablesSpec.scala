@@ -214,10 +214,10 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       val pidA = UUID.randomUUID().toString
       val pidB = UUID.randomUUID().toString
       await(ctx.withSystemContext(DBIO.seq(
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($pidA::uuid, 'pipe-a', $srcA::uuid, ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($pidB::uuid, 'pipe-b', $srcB::uuid, ${ownerB.value}::uuid, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pidA::uuid, 'pipe-a', ${ownerA.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pidA::uuid, $pidA::uuid, $srcA::uuid, 0)""",
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pidB::uuid, 'pipe-b', ${ownerB.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pidB::uuid, $pidB::uuid, $srcB::uuid, 0)"""
       )))
 
       val rows = await(ctx.withUserContext(ownerA.value)(
@@ -235,10 +235,10 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       val pidA = UUID.randomUUID().toString
       val pidB = UUID.randomUUID().toString
       await(ctx.withSystemContext(DBIO.seq(
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($pidA::uuid, 'pipe-a', $srcA::uuid, ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($pidB::uuid, 'pipe-b', $srcB::uuid, ${ownerB.value}::uuid, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pidA::uuid, 'pipe-a', ${ownerA.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pidA::uuid, $pidA::uuid, $srcA::uuid, 0)""",
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pidB::uuid, 'pipe-b', ${ownerB.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pidB::uuid, $pidB::uuid, $srcB::uuid, 0)"""
       )))
 
       val rows = await(ctx.withSystemContext(

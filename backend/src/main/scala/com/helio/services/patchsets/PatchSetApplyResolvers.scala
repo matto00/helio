@@ -4,7 +4,7 @@ import com.helio.services.panels.PanelServiceHelpers
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, OutputResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, OutputResponse, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest}
 import com.helio.api.protocols.patchsets.Edit
 import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, Output, OutputId, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
@@ -135,8 +135,7 @@ private[services] object PatchSetApplyResolvers {
     PipelineSummaryResponse(
       id                   = s.id,
       name                 = s.name,
-      sourceDataSourceId   = s.sourceDataSourceId,
-      sourceDataSourceName = s.sourceDataSourceName,
+      roots                = s.roots.map(r => PipelineRootSummaryResponse(r.id, r.dataSourceId, r.dataSourceName)),
       lastRunStatus        = s.lastRunStatus,
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,
@@ -494,15 +493,37 @@ private[services] object PatchSetApplyResolvers {
     decodeCreatePatch[CreatePipelineRequest](edit, index) match {
       case Left(err) => Future.successful(Left(err))
       case Right(request) =>
-        val sourceIdTrimmed = request.sourceDataSourceId.trim
-        if (sourceIdTrimmed.isEmpty)
-          Future.successful(Left(ServiceError.BadRequest(s"edit $index: sourceDataSourceId is required")))
-        else
-          // design.md D2a: mirrors PipelineRepository.create's own owner-only check.
-          ctx.dataSourceRepo.findByIdOwned(DataSourceId(sourceIdTrimmed), user).map {
-            case None    => Left(ServiceError.NotFound(s"edit $index: data source not found"))
-            case Some(_) => Right(ResolvedEdit(index, "pipeline", "create", None, ResolvedAction.PipelineCreate(request)))
+        // HEL-913 task 7.6: `roots` replaces the scalar `sourceDataSourceId` -- R8's per-root
+        // ACL/blank-id validation, mirroring `PipelineService.resolveRootDataSources`'s own
+        // rules (blank id: 400 with NO ownership lookup; unresolvable id: 404). This is a
+        // preview-time pre-check only -- `PatchSetApplyForward`'s real apply calls
+        // `pipelineService.create` itself, which re-validates authoritatively; this exists so a
+        // resolve-time 404/400 doesn't wait until apply to surface.
+        if (request.roots.isEmpty)
+          Future.successful(Left(ServiceError.BadRequest(s"edit $index: roots must be a non-empty array")))
+        else {
+          def loop(remaining: List[CreatePipelineRootRequest]): Future[Either[ServiceError, Unit]] = remaining match {
+            case Nil => Future.successful(Right(()))
+            case root :: rest =>
+              // HEL-913 task 7.1a: an inline root (`sourceId` absent, `type` present) has no
+              // id yet to pre-check here -- apply-time `pipelineService.create` (this file's
+              // own doc, above) re-validates it authoritatively, inline branch included.
+              root.sourceId.map(_.trim) match {
+                case Some(sid) if sid.isEmpty =>
+                  Future.successful(Left(ServiceError.BadRequest(s"edit $index: roots: sourceId is required and must not be blank")))
+                case Some(sid) =>
+                  ctx.dataSourceRepo.findByIdOwned(DataSourceId(sid), user).flatMap {
+                    case None    => Future.successful(Left(ServiceError.NotFound(s"edit $index: data source not found: $sid")))
+                    case Some(_) => loop(rest)
+                  }
+                case None => loop(rest)
+              }
           }
+          loop(request.roots.toList).map {
+            case Left(err) => Left(err)
+            case Right(()) => Right(ResolvedEdit(index, "pipeline", "create", None, ResolvedAction.PipelineCreate(request)))
+          }
+        }
     }
 
 
@@ -525,14 +546,22 @@ private[services] object PatchSetApplyResolvers {
                 edit.pipelineStepPatch match {
                   case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: patch is required for a pipelineStep update")))
                   case Some(request) =>
-                    validateEmbeddedStepReferences(existing, request, user, index, ctx).map {
-                      case Left(err) => Left(err)
+                    validateEmbeddedStepReferences(existing, request, user, index, ctx).flatMap {
+                      case Left(err) => Future.successful(Left(err))
                       case Right(_) =>
-                        Right(ResolvedEdit(
-                          index, "pipelineStep", "update",
-                          Some(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(existing))),
-                          ResolvedAction.PipelineStepUpdate(stepId, request, existing)
-                        ))
+                        // HEL-913 task 7.6a-i: `priorState` (the `existing` snapshot captured
+                        // BEFORE the patch applies) must carry its real root -- this is exactly
+                        // what a later undo/rollback restores from, so a silently-absent rootId
+                        // here would make PatchSetUndoInverse's recreate-from-priorState lose it.
+                        ctx.pipelineStepRepo.rootIdOfStep(existing.pipelineId, existing.id).map { rootIdOpt =>
+                          Right(ResolvedEdit(
+                            index, "pipelineStep", "update",
+                            Some(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(
+                              existing, rootIdOpt.map(rid => existing.id.value -> rid.value).toMap
+                            ))),
+                            ResolvedAction.PipelineStepUpdate(stepId, request, existing)
+                          ))
+                        }
                     }
                 }
             }
@@ -552,14 +581,21 @@ private[services] object PatchSetApplyResolvers {
         ctx.pipelineStepRepo.findByIdInternal(stepId).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound(s"edit $index: pipeline step not found")))
           case Some(existing) =>
-            authorizeEditorOrOwnerOnPipeline(existing.pipelineId, user, ctx).map {
-              case Left(err) => Left(err)
+            authorizeEditorOrOwnerOnPipeline(existing.pipelineId, user, ctx).flatMap {
+              case Left(err) => Future.successful(Left(err))
               case Right(_) =>
-                Right(ResolvedEdit(
-                  index, "pipelineStep", "delete",
-                  Some(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(existing))),
-                  ResolvedAction.PipelineStepDelete(stepId, existing)
-                ))
+                // HEL-913 task 7.6a-i: same `priorState`-must-carry-its-real-root rationale as
+                // the update resolver above -- a delete's `priorState` is what a later undo
+                // recreates from.
+                ctx.pipelineStepRepo.rootIdOfStep(existing.pipelineId, existing.id).map { rootIdOpt =>
+                  Right(ResolvedEdit(
+                    index, "pipelineStep", "delete",
+                    Some(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(
+                      existing, rootIdOpt.map(rid => existing.id.value -> rid.value).toMap
+                    ))),
+                    ResolvedAction.PipelineStepDelete(stepId, existing)
+                  ))
+                }
             }
         }
     }

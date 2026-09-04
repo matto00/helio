@@ -91,14 +91,15 @@ non-Output (markdown/divider/image) panels.
 - **THEN** the tool creates one placement per entry and returns the created panels
 
 ### Requirement: create_pipeline single-call tool
-The MCP server SHALL expose `create_pipeline` accepting either `sourceId` (mapped to the backend's
-`sourceDataSourceId`) or an inline source spec, optional `steps[]` (each with an optional
-`parentStepId` for tree shape), and optional `outputs[]`, presenting exactly one tool call to the
-agent regardless of which source form is used. When given `sourceId`, the tool issues one
-`POST /api/pipelines` call. When given an inline source spec, the tool issues
-`POST /api/data-sources` to create it, then `POST /api/pipelines` with the resulting id as
-`sourceDataSourceId` — two HTTP calls, one MCP tool call. If the second call fails, the tool's
-error SHALL include the now-orphaned data source's id.
+`create_pipeline` SHALL accept a non-empty `roots` array in place of the singular `source` object. Each element SHALL be either an existing caller-owned `sourceId` or an inline new-source spec, never both and never neither, as the singular `source` required. The tool description SHALL state that a step with no `parentStepId` attaches to a named root, and SHALL NOT describe a pipeline as having one raw source.
+
+#### Scenario: One call builds a two-root pipeline
+- **WHEN** `create_pipeline` is called with two roots, a lane under each, and a rejoin `join` consuming the second lane
+- **THEN** one pipeline is created with both roots, both lanes, and the rejoin
+
+#### Scenario: A singular source argument is rejected
+- **WHEN** `create_pipeline` is called with a `source` object and no `roots`
+- **THEN** the call fails with a named error and creates nothing
 
 #### Scenario: Agent builds a pipeline with steps and outputs in one call, via an existing source
 - **WHEN** an agent calls `create_pipeline` with a `sourceId`, a `steps` array containing a step

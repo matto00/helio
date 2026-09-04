@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.services.sources.{DataSourceService, SourceService}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalOutputSummary, ProposalRestApiConfig}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalOutputSummary, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, StaticDataSourceRequest}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputKind, PipelineId, PipelineStep, PipelineStepKind}
 import com.helio.domain.connectors.SqlConnectorDriver
@@ -370,11 +370,14 @@ final class PipelineProposalService(
     pipelineService
       .create(
         CreatePipelineRequest(
-          name               = proposal.pipelineName.trim,
-          sourceDataSourceId = resolved.id.value,
-          tag                = None,
-          steps              = proposal.steps,
-          outputs            = proposal.outputs
+          name    = proposal.pipelineName.trim,
+          // HEL-913 task 7.6: a proposal describes exactly ONE source (design.md's proposal
+          // shape is unchanged by this ticket -- multi-root proposals are out of scope), so
+          // this is always a single-element `roots[]`.
+          roots   = Vector(CreatePipelineRootRequest(sourceId = Some(resolved.id.value))),
+          tag     = None,
+          steps   = proposal.steps,
+          outputs = proposal.outputs
         ),
         user
       )

@@ -74,44 +74,6 @@ Every field of a pipeline-Output SHALL be marked nullable, because output rows a
 - **WHEN** the materialized node's schema is derived
 - **THEN** that column SHALL still be marked nullable
 
-### Requirement: The engine walks the step tree, not a flat list
-
-The pipeline execution engine SHALL evaluate a pipeline's steps as a directed acyclic graph rooted at the source root, not a linear `foldLeft` and not a trunk-plus-tails tree. Any node MAY have any number of step children. It SHALL load the root frame, then evaluate nodes in an order that is topological over both parent-to-child edges and lane-reference-to-rejoin edges, using sibling `position` ascending as the deterministic tiebreak where the topological order does not itself decide. Each child SHALL be evaluated using its parent's own frame as its starting input — not the frame produced by any later node. Sibling lanes SHALL be independent of one another until a rejoin step explicitly consumes one. `position = 0` SHALL carry no structural meaning beyond serving as that tiebreak; "trunk" SHALL NOT be an engine concept.
-
-#### Scenario: A lane off a mid-graph step sees that step's frame
-
-- **GIVEN** a pipeline whose chain is `A -> B -> C`, with a second lane `T` attached to `B`
-- **WHEN** the pipeline runs
-- **THEN** `T` is evaluated starting from `B`'s output frame
-- **AND** `T`'s result is independent of whatever `C` produces
-
-#### Scenario: Disabled steps are skipped in place anywhere in the graph
-
-- **GIVEN** a step with `enabled = false` anywhere in the graph
-- **WHEN** the pipeline runs
-- **THEN** that step is skipped and its children evaluate from the frame the disabled step would have received unchanged
-
-#### Scenario: A node with several children evaluates all of them
-
-- **GIVEN** a node with three step children at any positions
-- **WHEN** the pipeline runs
-- **THEN** all three are evaluated from that node's frame, in ascending sibling-position order
-- **AND** no child is silently dropped and no structural error is raised
-
-#### Scenario: A tail off a mid-trunk step sees that step's frame
-
-- **GIVEN** a pipeline whose trunk is `A -> B -> C`, with a tail `T` attached to `B`
-- **WHEN** the pipeline runs
-- **THEN** `T` is evaluated starting from `B`'s output frame
-- **AND** `T`'s result is independent of whatever `C` (a later trunk step) produces
-
-#### Scenario: Disabled steps are skipped in place on trunk and tails
-
-- **GIVEN** a step with `enabled = false` on the trunk or on a tail
-- **WHEN** the pipeline runs
-- **THEN** that step is skipped and its child evaluates from the frame the disabled step would have
-  received unchanged
-
 ### Requirement: A materialized node's frame is persisted to per-node snapshots
 
 At every materialized node (a node with one or more Outputs attached), the engine SHALL persist that
@@ -179,3 +141,36 @@ For any pipeline whose graph contains no lane reference — including a pure tru
 - **GIVEN** a pipeline with tails and no lane reference
 - **WHEN** it is run under the DAG walk
 - **THEN** its rows, per-node row counts and evaluation order are identical to the Phase-1 tree-walk result for the same input
+
+### Requirement: The engine walks a multi-root graph, not a flat list
+The engine SHALL walk the pipeline as a directed acyclic graph rooted at **one or more** roots. Each root SHALL contribute its own loaded frame, seeded under that root's own node key before the walk begins. A step with no parent step SHALL be evaluated from the frame of the root it is attached to.
+
+Node outcomes SHALL be keyed by a node key that distinguishes each root from every other root and from every step; a single unnamed root sentinel SHALL NOT be used.
+
+#### Scenario: Each root seeds its own frame
+- **WHEN** a two-root pipeline is walked
+- **THEN** the node outcomes contain one entry per root, each holding that root's loaded rows
+
+#### Scenario: A single-root pipeline walks exactly as before
+- **WHEN** a single-root pipeline with no lane reference is walked
+- **THEN** the evaluation order and every per-node frame are identical to the pre-multi-root walk
+
+#### Scenario: A lane off a mid-graph step sees that step's frame
+
+- **GIVEN** a pipeline whose chain is `A -> B -> C`, with a second lane `T` attached to `B`
+- **WHEN** the pipeline runs
+- **THEN** `T` is evaluated starting from `B`'s output frame
+- **AND** `T`'s result is independent of whatever `C` produces
+
+#### Scenario: Disabled steps are skipped in place anywhere in the graph
+
+- **GIVEN** a step with `enabled = false` anywhere in the graph
+- **WHEN** the pipeline runs
+- **THEN** that step is skipped and its children evaluate from the frame the disabled step would have received unchanged
+
+#### Scenario: A node with several children evaluates all of them
+
+- **GIVEN** a node with three step children at any positions
+- **WHEN** the pipeline runs
+- **THEN** all three are evaluated from that node's frame, in ascending sibling-position order
+- **AND** no child is silently dropped and no structural error is raised

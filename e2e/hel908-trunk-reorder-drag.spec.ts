@@ -46,7 +46,7 @@ test.describe("HEL-908 trunk-to-trunk reorder — real drag gesture", () => {
     const pipelineRes = await page.request.post("/api/pipelines", {
       data: {
         name: "HEL-908 Trunk Drag Reorder Verification",
-        sourceDataSourceId: source.id,
+        roots: [{ sourceId: source.id }],
         outputDataTypeName: "HEL-908 Trunk Drag Reorder Output",
       },
       headers: { [CSRF_HEADER]: "1" },

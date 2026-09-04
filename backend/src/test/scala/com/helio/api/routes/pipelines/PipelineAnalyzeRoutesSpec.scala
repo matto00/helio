@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
-import com.helio.api.protocols.pipelines.{SchemaFieldResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}
+import com.helio.api.protocols.pipelines.{RootSourceSchemaResponse, SchemaFieldResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
 import com.helio.domain.{AggregateConfig, AggregateField, Aggregation, CastConfig, ChunkByTokenCountConfig, ExtractHeadingsConfig, GroupByConfig, JoinConfig, PivotConfig, RenameConfig, SelectConfig, SplitTextConfig, StepConfigTypeMismatch, UnionConfig, WindowConfig}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -104,8 +104,8 @@ class PipelineAnalyzeRoutesSpec
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, inferred_schema, created_at, updated_at)
              VALUES ($dsId, 'test-ds', 'rest_api', '{}', $ownerId::uuid, $schemaFieldsJson::jsonb, now(), now())""",
       
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, created_at, updated_at)
-             VALUES ($pid, 'test-pipeline', $dsId, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'test-pipeline', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     (pid, dsId)
   }
@@ -139,7 +139,7 @@ class PipelineAnalyzeRoutesSpec
         resp.id   shouldBe pid
         resp.name shouldBe "test-pipeline"
         resp.steps shouldBe empty
-        resp.sourceSchema.map(_.name) should contain allOf ("order_id", "amount")
+        resp.sourceSchemas.flatMap(_.sourceSchema).map(_.name) should contain allOf ("order_id", "amount")
       }
     }
 
@@ -232,8 +232,8 @@ class PipelineAnalyzeRoutesSpec
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
-      val renameStep = await(pipelineStepRepo.insertInternal(PipelineId(pid), "rename", RenameConfig(Map("order_id" -> "id")), enabled = false))
-      await(pipelineStepRepo.insertInternal(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), enabled = true, parentStepId = Some(renameStep.id)))
+      val renameStep = await(pipelineStepRepo.insertInternal(PipelineId(pid), "rename", RenameConfig(Map("order_id" -> "id")), enabled = false, explicitRootId = None))
+      await(pipelineStepRepo.insertInternal(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), enabled = true, parentStepId = Some(renameStep.id), explicitRootId = None))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -256,7 +256,7 @@ class PipelineAnalyzeRoutesSpec
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeResponse]
-        resp.sourceSchema shouldBe empty
+        resp.sourceSchemas.flatMap(_.sourceSchema) shouldBe empty
         resp.steps shouldBe empty
       }
     }
@@ -501,8 +501,8 @@ class PipelineAnalyzeRoutesSpec
       val stepId = UUID.randomUUID().toString
       val mistypedConfig = """{"casts":[{"field":"amount","to":"double"}]}"""
       await(db.run(sqlu"""
-        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled)
-        VALUES ($stepId, $pid, 0, 'cast', $mistypedConfig, true)
+        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, root_id)
+        VALUES ($stepId, $pid, 0, 'cast', $mistypedConfig, true, $pid)
       """))
 
       // Pre-assertion (standing requirement 3): the row really is stored as
@@ -528,12 +528,11 @@ class PipelineAnalyzeRoutesSpec
 
     "validate cleanly against schemas/pipelines/pipeline-analyze-response.schema.json when sourceSchemaDrift is populated" in {
       val response = PipelineAnalyzeResponse(
-        id                   = "pipeline-1",
-        name                 = "Orders",
-        sourceDataSourceName = "orders-source",
-        sourceSchema         = Vector(SchemaFieldResponse("order_id", "string")),
-        steps                = Vector.empty,
-        sourceSchemaDrift    = Some(SourceSchemaDriftResponse(
+        id                = "pipeline-1",
+        name              = "Orders",
+        sourceSchemas     = Vector(RootSourceSchemaResponse("root-1", "orders-source", Vector(SchemaFieldResponse("order_id", "string")))),
+        steps             = Vector.empty,
+        sourceSchemaDrift = Some(SourceSchemaDriftResponse(
           addedColumns       = Vector(SchemaFieldResponse("region", "string")),
           removedColumns     = Vector(SchemaFieldResponse("created_at", "string")),
           typeChangedColumns = Vector(TypeChangedColumnResponse("amount", previousType = "float", currentType = "integer"))
@@ -547,12 +546,11 @@ class PipelineAnalyzeRoutesSpec
 
     "omit sourceSchemaDrift entirely from the serialized JSON when None" in {
       val response = PipelineAnalyzeResponse(
-        id                   = "pipeline-1",
-        name                 = "Orders",
-        sourceDataSourceName = "orders-source",
-        sourceSchema         = Vector.empty,
-        steps                = Vector.empty,
-        sourceSchemaDrift    = None
+        id                = "pipeline-1",
+        name              = "Orders",
+        sourceSchemas     = Vector.empty,
+        steps             = Vector.empty,
+        sourceSchemaDrift = None
       )
 
       val json = response.toJson.compactPrint

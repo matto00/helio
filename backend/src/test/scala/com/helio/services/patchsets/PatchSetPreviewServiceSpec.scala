@@ -7,7 +7,7 @@ import com.helio.api.protocols.sources.UpdateDataSourceRequest
 import com.helio.api.protocols.dashboards.{DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet, PatchSetPreviewResponse}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService}
@@ -231,7 +231,7 @@ class PatchSetPreviewServiceSpec
   }
 
   private def seedPipeline(owner: AuthenticatedUser, sourceId: DataSourceId, name: String = "Pipeline"): PipelineSummaryResponse =
-    await(pipelineService.create(CreatePipelineRequest(name, sourceId.value), owner)) match {
+    await(pipelineService.create(CreatePipelineRequest(name, Vector(CreatePipelineRootRequest(Some(sourceId.value)))), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"seedPipeline failed: $e")
     }

@@ -139,14 +139,14 @@ class DashboardAuthoringRoutesSpec
       case Right(ds) => ds
       case Left(err) => fail(s"createStatic failed: $err")
     }
-    val summary = await(pipelineRepo.create(s"pipe-${UUID.randomUUID()}", source.id, user)) match {
+    val summary = await(pipelineRepo.create(s"pipe-${UUID.randomUUID()}", Vector(source.id), user)) match {
       case Right(s)  => s
       case Left(err) => fail(s"pipeline create failed: $err")
     }
     val createdOutput = await(outputRepo.insertInternal(
       PipelineId(summary.id), nodeStepId = None, user.id, "Sales", OutputKind.Table,
       schema = Vector(SchemaField("revenue", "float"))
-    ))
+    , explicitRootId = None))
     pipelineOutputType = createdOutput.id.value
   }
 
