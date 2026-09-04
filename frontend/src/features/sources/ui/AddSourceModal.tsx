@@ -46,7 +46,7 @@ interface AddSourceModalProps {
   /** HEL-908 task 7.1 — invoked with the newly-created source's id right
    *  before `onClose`, so a caller composing this modal into a larger flow
    *  (the new-pipeline entry's "Create a new source" path) can chain the
-   *  next step (`POST /api/pipelines` with that `sourceDataSourceId`)
+   *  next step (`POST /api/pipelines` with `roots: [{ sourceId }]`)
    *  without re-deriving it from `sources.selectedSourceId`. Every one of
    *  this component's 7 create call sites already funnels through
    *  `finishCreate` (see its own doc comment), so this fires uniformly

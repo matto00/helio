@@ -460,11 +460,36 @@ export type AnalyzeStepResult =
 // `selectPipelineNameByOutputTypeId`, was itself dead -- zero non-test
 // consumers -- and was removed alongside these fields; see HEL-910
 // evaluation-1.md CR1).
+// HEL-969: mirrors the backend's per-root analyze response shape -- one
+// entry per pipeline root, replacing the single scalar name/schema pair
+// HEL-913 retired when it moved a pipeline's source from a scalar to a
+// `roots[]` array (`PipelineAnalyzeProtocol.scala`).
+//
+// A per-root display name is deliberately OMITTED here, not renamed. The
+// analyze wire response still sends one, spelled with a `source`-prefix
+// that this ticket's AC3 bars from appearing anywhere under `frontend/src`
+// (a mechanical grep, comments included) -- and unlike the `PipelineSummary`
+// scalars HEL-913 retired, this one field was never touched by that
+// migration, so it is still genuinely present on the wire. That leaves no
+// name this type could give the field that is both AC3-compliant and
+// truthful about what is sent, so the field is left off entirely rather
+// than given a name (e.g. matching the sibling `PipelineRootSummaryResponse
+// .dataSourceName` convention) that the wire does not actually use --
+// exactly the silently-wrong-type defect class this ticket exists to close.
+// Extra JSON keys are unremarkable in TypeScript, so this is a safe, honest
+// gap, not a lossy one: nothing in this codebase reads this field today
+// (grep-confirmed zero consumers). Aligning the backend's two per-root
+// response shapes onto one spelling is tracked separately as HEL-975; the
+// next person who needs this value should look there, not re-guess a name.
+export interface RootSourceSchema {
+  rootId: string;
+  sourceSchema: SchemaField[];
+}
+
 export interface PipelineAnalyzeResponse {
   id: string;
   name: string;
-  sourceDataSourceName: string;
-  sourceSchema: SchemaField[];
+  sourceSchemas: RootSourceSchema[];
   steps: AnalyzeStepResult[];
 }
 
@@ -475,11 +500,19 @@ export interface Pipeline {
   name: string;
 }
 
+// HEL-969: mirrors the backend's `PipelineRootSummaryResponse` -- a pipeline
+// binds to one or more sources via `roots[]`, not the pair of removed
+// scalar id/name fields HEL-913 retired.
+export interface PipelineRoot {
+  id: string;
+  dataSourceId: string;
+  dataSourceName: string;
+}
+
 export interface PipelineSummary {
   id: string;
   name: string;
-  sourceDataSourceId: string;
-  sourceDataSourceName: string;
+  roots: PipelineRoot[];
   lastRunStatus: "succeeded" | "failed" | null;
   lastRunAt: string | null;
   lastRunRowCount: number | null;

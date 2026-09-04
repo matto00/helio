@@ -12,6 +12,7 @@ import { pipelinesReducer } from "../../features/pipelines/state/pipelinesSlice"
 import * as pipelineService from "../../features/pipelines/services/pipelineService";
 import type { PipelineSummary } from "../../features/pipelines/types/pipelineStep";
 import { sourcesReducer } from "../../features/sources/state/sourcesSlice";
+import type { DataSource } from "../../features/sources/types/dataSource";
 import { SidebarBody } from "./SidebarBody";
 
 jest.mock("../../features/pipelines/services/pipelineService", () => ({
@@ -40,8 +41,7 @@ function buildPipeline(overrides: Partial<PipelineSummary>): PipelineSummary {
   return {
     id: "pipe-1",
     name: "Revenue ETL",
-    sourceDataSourceId: "src-1",
-    sourceDataSourceName: "Profit",
+    roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Profit" }],
     lastRunStatus: "succeeded",
     lastRunAt: "2026-01-01T00:00:00Z",
     lastRunRowCount: 10,
@@ -49,9 +49,23 @@ function buildPipeline(overrides: Partial<PipelineSummary>): PipelineSummary {
   };
 }
 
+function buildSource(overrides: Partial<DataSource>): DataSource {
+  return {
+    id: "src-1",
+    name: "Profit",
+    type: "static",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    inferredSchema: [],
+    ...overrides,
+  } as DataSource;
+}
+
 interface StoreOptions {
   pipelineItems?: PipelineSummary[];
   pipelineStatus?: "idle" | "loading" | "succeeded" | "failed";
+  sourceItems?: DataSource[];
+  sourceStatus?: "idle" | "loading" | "succeeded" | "failed";
   conversationItems?: AssistantConversationSummary[];
   conversationStatus?: "idle" | "loading" | "succeeded" | "failed";
   /** HEL-703 cycle 2 — defaults to `null` (unauthenticated-shaped state), which behaves
@@ -75,6 +89,8 @@ function makeStore(options: StoreOptions = {}) {
   const {
     pipelineItems = [],
     pipelineStatus = "idle",
+    sourceItems = [],
+    sourceStatus = "idle",
     conversationItems = [],
     conversationStatus = "idle",
     currentUser = null,
@@ -90,6 +106,14 @@ function makeStore(options: StoreOptions = {}) {
       auth: {
         status: "idle" as const,
         currentUser,
+      },
+      sources: {
+        items: sourceItems,
+        status: sourceStatus,
+        error: null,
+        errorKind: null,
+        selectedSourceId: null,
+        addModalOpen: false,
       },
       pipelines: {
         items: pipelineItems,
@@ -180,6 +204,33 @@ describe("SidebarBody pipelines section — delete-dependency warning (F-144)", 
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Any panels bound to this pipeline's Outputs will stop working.",
+    );
+  });
+
+  // HEL-969 (D2/task 6.3): a pipeline whose SECOND root reads from the
+  // source being deleted must still count as a dependent -- a `roots[0]`
+  // implementation would find zero matches here and under-warn.
+  it("counts a pipeline as a dependent when the matching root is not the first one", () => {
+    renderAt("/sources", {
+      sourceItems: [buildSource({ id: "src-2", name: "Warehouse" })],
+      sourceStatus: "succeeded",
+      pipelineItems: [
+        buildPipeline({
+          id: "pipe-1",
+          name: "Joined Pipeline",
+          roots: [
+            { id: "root-1", dataSourceId: "src-1", dataSourceName: "Profit" },
+            { id: "root-2", dataSourceId: "src-2", dataSourceName: "Warehouse" },
+          ],
+        }),
+      ],
+      pipelineStatus: "succeeded",
+    });
+
+    openDeleteConfirm("Warehouse");
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "1 pipeline reads from this source and will stop working.",
     );
   });
 });

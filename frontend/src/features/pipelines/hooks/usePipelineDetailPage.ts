@@ -351,7 +351,10 @@ export function usePipelineDetailPage() {
   }, [isDirty]);
 
   const pipelineName = currentPipeline?.name ?? id ?? "Pipeline";
-  const boundSource = sources.find((s) => s.id === currentPipeline?.sourceDataSourceId);
+  // HEL-969: "which source is this pipeline bound to for display" names the
+  // first root (D2 — display sites take roots[0]; only the dependency
+  // counters in SidebarBody/EmptySchemaAffordance need roots.some(...)).
+  const boundSource = sources.find((s) => s.id === currentPipeline?.roots[0]?.dataSourceId);
   const canEditSource = boundSource !== undefined;
   const isOwner =
     currentPipeline?.ownerId != null &&

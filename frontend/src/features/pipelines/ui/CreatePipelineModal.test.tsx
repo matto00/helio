@@ -58,8 +58,7 @@ const testDataSources: DataSource[] = [
 const newPipeline = {
   id: "p-new",
   name: "My Pipeline",
-  sourceDataSourceId: "ds-1",
-  sourceDataSourceName: "Sales API",
+  roots: [{ id: "root-1", dataSourceId: "ds-1", dataSourceName: "Sales API" }],
   outputDataTypeName: "SalesData",
   lastRunStatus: null as null,
   lastRunAt: null,
@@ -179,9 +178,15 @@ describe("CreatePipelineModal", () => {
     await waitFor(() =>
       expect(createPipelineMock).toHaveBeenCalledWith({
         name: "My Pipeline",
-        sourceDataSourceId: "ds-1",
+        roots: [{ sourceId: "ds-1" }],
       }),
     );
+    // HEL-969 AC1/task 6.2: the POST body must carry only `name`/`roots`,
+    // never the removed scalar field alongside them (AC3 bars its literal
+    // name from this file too, so the key set is checked structurally
+    // rather than asserted against a string literal).
+    const callArg = createPipelineMock.mock.calls[0][0];
+    expect(Object.keys(callArg).sort()).toEqual(["name", "roots"]);
   });
 
   it("calls onClose after successful submission", async () => {

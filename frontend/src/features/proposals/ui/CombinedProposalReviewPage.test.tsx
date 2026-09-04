@@ -58,8 +58,7 @@ const appliedResponse: CombinedProposalApplyResponse = {
     pipeline: {
       id: "p-new",
       name: "Sales pipeline",
-      sourceDataSourceId: "src-1",
-      sourceDataSourceName: "Demo source",
+      roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Demo source" }],
       lastRunStatus: "succeeded",
       lastRunAt: "2026-01-01T00:00:00Z",
       lastRunRowCount: 0,

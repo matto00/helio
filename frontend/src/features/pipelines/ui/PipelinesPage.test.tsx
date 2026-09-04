@@ -23,8 +23,7 @@ const testPipelines = [
   {
     id: "p-1",
     name: "Sales Pipeline",
-    sourceDataSourceId: "ds-1",
-    sourceDataSourceName: "Sales API",
+    roots: [{ id: "root-1", dataSourceId: "ds-1", dataSourceName: "Sales API" }],
     lastRunStatus: "succeeded" as const,
     lastRunAt: "2026-05-01T10:00:00Z",
     lastRunRowCount: 1234,
@@ -32,8 +31,7 @@ const testPipelines = [
   {
     id: "p-2",
     name: "Inventory Sync",
-    sourceDataSourceId: "ds-2",
-    sourceDataSourceName: "ERP DB",
+    roots: [{ id: "root-1", dataSourceId: "ds-2", dataSourceName: "ERP DB" }],
     lastRunStatus: "failed" as const,
     lastRunAt: "2026-04-30T08:00:00Z",
     lastRunRowCount: null,
@@ -195,8 +193,7 @@ describe("PipelinesPage", () => {
     const neverRunPipeline = {
       id: "p-3",
       name: "New Pipeline",
-      sourceDataSourceId: "ds-3",
-      sourceDataSourceName: "CSV Source",
+      roots: [{ id: "root-1", dataSourceId: "ds-3", dataSourceName: "CSV Source" }],
       lastRunStatus: null as null,
       lastRunAt: null,
       lastRunRowCount: null,

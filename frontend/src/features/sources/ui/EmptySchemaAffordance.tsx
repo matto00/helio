@@ -27,7 +27,11 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
   // copy so a source with live pipeline dependents warns identically whether
   // it's deleted from here or from the sidebar.
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const dependentCount = pipelines.filter((p) => p.sourceDataSourceId === source.id).length;
+  // HEL-969 (D2): a pipeline depends on this source if ANY of its roots
+  // reads from it, not just the first -- roots.some(...), never roots[0].
+  const dependentCount = pipelines.filter((p) =>
+    p.roots.some((r) => r.dataSourceId === source.id),
+  ).length;
   const deleteWarning =
     dependentCount > 0
       ? `${dependentCount} pipeline${dependentCount === 1 ? "" : "s"} read${dependentCount === 1 ? "s" : ""} from this source and will stop working.`

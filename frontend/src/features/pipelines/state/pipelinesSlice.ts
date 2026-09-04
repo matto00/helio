@@ -270,7 +270,7 @@ export const fetchPipelineRunHistory = createAsyncThunk<
 
 export const createPipeline = createAsyncThunk<
   PipelineSummary,
-  { name: string; sourceDataSourceId: string; outputDataTypeName?: string },
+  { name: string; roots: { sourceId: string }[]; outputDataTypeName?: string },
   { rejectValue: string }
 >("pipelines/createPipeline", async (payload, { rejectWithValue }) => {
   try {
@@ -594,17 +594,24 @@ const pipelinesSlice = createSlice({
  *  overview's "Used by" column. Many-to-one rather than one-to-one: several
  *  pipelines can read the same source, so this maps to an array where that
  *  one maps to a single name. Memoized on `items` like its sibling, so the
- *  table doesn't rebuild the map on unrelated store activity. */
+ *  table doesn't rebuild the map on unrelated store activity.
+ *
+ *  HEL-969: a pipeline can have multiple `roots[]`; index every root's
+ *  `dataSourceId`, not just the first, and dedupe per pipeline so a
+ *  pipeline with two roots on the same source is listed once, not twice. */
 export const selectPipelineNamesBySourceId = createSelector(
   (state: RootState) => state.pipelines.items,
   (items): Map<string, string[]> => {
     const map = new Map<string, string[]>();
     for (const pipeline of items) {
-      const existing = map.get(pipeline.sourceDataSourceId);
-      if (existing === undefined) {
-        map.set(pipeline.sourceDataSourceId, [pipeline.name]);
-      } else {
-        existing.push(pipeline.name);
+      const sourceIds = new Set(pipeline.roots.map((r) => r.dataSourceId));
+      for (const sourceId of sourceIds) {
+        const existing = map.get(sourceId);
+        if (existing === undefined) {
+          map.set(sourceId, [pipeline.name]);
+        } else {
+          existing.push(pipeline.name);
+        }
       }
     }
     return map;

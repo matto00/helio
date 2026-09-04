@@ -1,18 +1,4 @@
-# pipeline-new-flow Specification
-
-## Purpose
-Defines the unified "New pipeline" entry: choose a source origin, create it if needed, and land
-on the pipeline page with the root step already previewed.
-
-## Requirements
-
-### Requirement: New-pipeline entry offers five source origins
-The "New pipeline" flow SHALL offer: pick an existing source, paste a table, upload a CSV (or
-provide a URL), connect via a REST connector + endpoint, and text/markdown.
-
-#### Scenario: Paste-a-table creates a static source
-- **WHEN** a user pastes tabular data into the "paste a table" option and confirms
-- **THEN** a static data source is created containing the pasted rows
+## MODIFIED Requirements
 
 ### Requirement: Pipeline-plus-steps-plus-outputs creation is a single call
 Creating the pipeline itself — including any steps and Outputs the flow has assembled (e.g. from
@@ -44,11 +30,3 @@ out of scope for this flow.
 #### Scenario: No scalar source field is sent
 - **WHEN** the flow issues its `POST /api/pipelines` call by any origin path
 - **THEN** the request body contains no `sourceDataSourceId` field
-
-### Requirement: Lands on the page with root previewed
-Upon successful pipeline creation, the flow SHALL navigate directly to the new pipeline's detail page.
-
-#### Scenario: Post-creation navigation
-- **WHEN** pipeline creation succeeds
-- **THEN** the user is navigated to the new pipeline's detail page with the root step's preview
-  already loaded

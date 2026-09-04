@@ -19,8 +19,9 @@ interface CreatePipelineModalProps {
  *  create a brand-new one (any kind `AddSourceModal` supports — paste-table/
  *  static, CSV upload or URL, REST connector, or text/markdown upload or
  *  URL) inline, then a single `POST /api/pipelines` with just
- *  `{name, sourceDataSourceId}` (design.md decision 10 — the shipped
- *  `CreatePipelineRequest` has no DataType-bound field at all; `steps`/
+ *  `{name, roots: [{sourceId}]}` — a one-element array, since this flow
+ *  still authors exactly one source (HEL-969; HEL-913 replaced the scalar
+ *  request field with a non-empty `roots[]`). `steps`/
  *  `outputs` default to empty, so a brand-new pipeline lands with zero steps
  *  — its raw source is what `usePipelineDetailPage`'s unconditional
  *  mount-time `analyzePipeline` call already previews, satisfying "land on
@@ -30,7 +31,8 @@ interface CreatePipelineModalProps {
  *  "Create a new source" nests `AddSourceModal` (the same component
  *  `/sources` uses) rather than re-implementing per-kind source-creation
  *  forms here — `AddSourceModal`'s new `onCreated` callback (added this
- *  cycle) reports the created source's id back into `sourceDataSourceId`
+ *  cycle) reports the created source's id back into `selectedSourceId`
+ *  (local state — becomes `roots[0].sourceId` in the POST body)
  *  once it closes, so this modal stays open with that source pre-selected
  *  and the pipeline-name field intact, ready to submit. */
 export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
@@ -43,7 +45,7 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
   const noSourcesYet = sourcesStatus === "succeeded" && dataSources.length === 0;
 
   const [name, setName] = useState("");
-  const [sourceDataSourceId, setSourceDataSourceId] = useState("");
+  const [selectedSourceId, setSelectedSourceId] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
   }, [dispatch]);
 
   function handleSourceCreated(createdSourceId: string) {
-    setSourceDataSourceId(createdSourceId);
+    setSelectedSourceId(createdSourceId);
     setSourceError(null);
   }
 
@@ -71,7 +73,7 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
     } else {
       setNameError(null);
     }
-    if (!sourceDataSourceId) {
+    if (!selectedSourceId) {
       setSourceError("Data source is required.");
       hasError = true;
     } else {
@@ -87,7 +89,7 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
       const result = await dispatch(
         createPipeline({
           name: name.trim(),
-          sourceDataSourceId,
+          roots: [{ sourceId: selectedSourceId }],
         }),
       ).unwrap();
 
@@ -183,9 +185,9 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
              * empty — "Create a new source" is always available. */}
             {!noSourcesYet && (
               <Select
-                value={sourceDataSourceId}
+                value={selectedSourceId}
                 options={sourceOptions}
-                onChange={setSourceDataSourceId}
+                onChange={setSelectedSourceId}
                 placeholder="Select a data source…"
                 ariaLabel="Data source"
               />
@@ -195,12 +197,12 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
               className="create-pipeline-modal__add-source-btn"
               onClick={() => setAddSourceOpen(true)}
             >
-              {sourceDataSourceId ? "Create a different source" : "Create a new source"}
+              {selectedSourceId ? "Create a different source" : "Create a new source"}
             </button>
-            {sourceDataSourceId && (
+            {selectedSourceId && (
               <p className="create-pipeline-modal__field-notice">
                 Using{" "}
-                {sourceOptions.find((o) => o.value === sourceDataSourceId)?.label ??
+                {sourceOptions.find((o) => o.value === selectedSourceId)?.label ??
                   "the newly created source"}
                 .
               </p>
