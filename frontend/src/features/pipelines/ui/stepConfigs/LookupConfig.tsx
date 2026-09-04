@@ -1,27 +1,24 @@
 // LookupConfig — config editor for the "lookup" pipeline op (HEL-386), a
-// constrained single-key left-join against a reference DataSource that
-// brings in only named columns. The reference-source picker mirrors
-// UnionConfig.tsx's other-source picker (sourced from the sources feature's
-// redux slice, not analyzeSchema — the reference operand is a whole
-// DataSource, not a column of the current step's input). `sourceKey` is a
-// Select sourced from analyzeSchema (the current step's input schema, which
-// IS known). `lookupKey` and `columns` name fields on the reference
-// source's schema, which isn't fetchable by id from the frontend today (see
-// design.md Decision 11) — `lookupKey` is a free-text TextField and
-// `columns` is a free-text add/remove row list mirroring UnpivotConfig.tsx's
-// row-add UI shape, with TextField rows instead of Select rows.
+// constrained single-key left-join against a reference DataSource or lane
+// node (HEL-912 design.md Decision 4). `sourceKey` is a Select sourced from
+// analyzeSchema (the current step's input schema, which IS known).
+// `lookupKey` and `columns` name fields on the reference source's schema,
+// which isn't fetchable by id from the frontend today (see design.md
+// Decision 11) — `lookupKey` is a free-text TextField and `columns` is a
+// free-text add/remove row list mirroring UnpivotConfig.tsx's row-add UI
+// shape, with TextField rows instead of Select rows.
 
-import { useEffect, type ChangeEvent } from "react";
+import type { ChangeEvent } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
-import { fetchSources } from "../../../sources/state/sourcesSlice";
-import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { Select, TextField } from "../../../../shared/ui/index";
-import type { SchemaField } from "../../types/pipelineStep";
+import type { SchemaField, SecondaryInput } from "../../types/pipelineStep";
+import type { Step } from "../../types/step";
+import { SecondaryInputPicker } from "./SecondaryInputPicker";
 
 export interface LookupConfigValue {
-  referenceDataSourceId: string;
+  secondary: SecondaryInput;
   sourceKey: string;
   lookupKey: string;
   columns: string[];
@@ -32,22 +29,22 @@ interface LookupConfigProps {
   config: LookupConfigValue;
   /** Full schema fields from the analyze endpoint's inputSchema — sourceKey field selector. */
   analyzeSchema: SchemaField[];
+  /** Every step in the pipeline — feeds the "other lane" option group. */
+  allSteps: Step[];
+  currentStepId: string;
   /** Called with the typed config object on any change (CS2c-3a). */
   onChange: (newConfig: LookupConfigValue) => void;
 }
 
-export function LookupConfig({ config, analyzeSchema, onChange }: LookupConfigProps) {
-  const dispatch = useAppDispatch();
-  const { items: dataSources } = useAppSelector((state) => state.sources);
-
-  // Always refetch on mount — the picker must include sources added since
-  // the last navigation to /sources (mirrors UnionConfig/CreatePipelineModal).
-  useEffect(() => {
-    void dispatch(fetchSources());
-  }, [dispatch]);
-
-  function handleReferenceSourceChange(referenceDataSourceId: string) {
-    onChange({ ...config, referenceDataSourceId });
+export function LookupConfig({
+  config,
+  analyzeSchema,
+  allSteps,
+  currentStepId,
+  onChange,
+}: LookupConfigProps) {
+  function handleSecondaryChange(secondary: SecondaryInput) {
+    onChange({ ...config, secondary });
   }
 
   function handleSourceKeyChange(sourceKey: string) {
@@ -72,20 +69,15 @@ export function LookupConfig({ config, analyzeSchema, onChange }: LookupConfigPr
     onChange({ ...config, columns });
   }
 
-  const sourceOptions = dataSources.map((ds) => ({ value: ds.id, label: ds.name }));
-
   return (
     <div className="pipeline-detail-page__union-config">
-      <div className="pipeline-detail-page__compute-field">
-        <span className="pipeline-detail-page__compute-label">Reference data source</span>
-        <Select
-          ariaLabel="Reference data source"
-          value={config.referenceDataSourceId}
-          placeholder="— select a data source —"
-          options={sourceOptions}
-          onChange={handleReferenceSourceChange}
-        />
-      </div>
+      <SecondaryInputPicker
+        label="Reference source"
+        value={config.secondary}
+        allSteps={allSteps}
+        currentStepId={currentStepId}
+        onChange={handleSecondaryChange}
+      />
 
       <div className="pipeline-detail-page__compute-field">
         <span className="pipeline-detail-page__compute-label">Match on field</span>

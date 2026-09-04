@@ -31,14 +31,20 @@ import { WindowConfig } from "./stepConfigs/WindowConfig";
 
 interface StepOpEditorProps {
   step: Step;
+  /** HEL-912 task 5.3 — every step in the pipeline, threaded through to
+   *  union/lookup's SecondaryInputPicker. Optional/defaults to `[]`. */
+  allSteps?: Step[];
   analyzeColumns: string[];
   analyzeSchema: SchemaField[];
   validationError?: string;
   stepCardState: ReturnType<typeof useStepCardState>;
 }
 
+const EMPTY_ALL_STEPS: Step[] = [];
+
 export function StepOpEditor({
   step,
+  allSteps = EMPTY_ALL_STEPS,
   analyzeColumns,
   analyzeSchema,
   validationError,
@@ -231,11 +237,24 @@ export function StepOpEditor({
     );
   }
   if (step.opType.id === "union") {
-    return <UnionConfig config={unionConfig} onChange={onUnionChange} />;
+    return (
+      <UnionConfig
+        config={unionConfig}
+        allSteps={allSteps}
+        currentStepId={step.id}
+        onChange={onUnionChange}
+      />
+    );
   }
   if (step.opType.id === "lookup") {
     return (
-      <LookupConfig config={lookupConfig} analyzeSchema={analyzeSchema} onChange={onLookupChange} />
+      <LookupConfig
+        config={lookupConfig}
+        analyzeSchema={analyzeSchema}
+        allSteps={allSteps}
+        currentStepId={step.id}
+        onChange={onLookupChange}
+      />
     );
   }
   if (step.opType.id === "assert") {

@@ -15,7 +15,7 @@ import {
   updatePipeline,
 } from "../state/pipelinesSlice";
 import { defaultConfigFor, makeStep, pipelineStepToStep } from "../state/stepNarrowing";
-import { buildStepTree } from "../state/stepTree";
+import { buildLaneGraph } from "../state/stepTree";
 // HEL-878 (task 2.4): dispatched alongside `clearRunState` at every reset call
 // site so the run-scoped Output preview cache never drifts out of sync with
 // the run-scoped pipeline state -- see `outputsSlice.ts`'s doc comment on the
@@ -240,9 +240,9 @@ export function usePipelineDetailPage() {
     .map((s) => `${s.id}:${s.opType.id}:${s.enabled}:${JSON.stringify(s.config)}`)
     .join("|");
 
-  // HEL-908 task 3.4 — trunk/tail grouping (design.md decision 1), recomputed
+  // HEL-912 task 1.1 — n-lane grouping (design.md decision 1), recomputed
   // only when the steps array itself changes.
-  const stepTree = useMemo(() => buildStepTree(steps), [steps]);
+  const laneGraph = useMemo(() => buildLaneGraph(steps), [steps]);
   useEffect(() => {
     if (!id || steps.length === 0) return;
     if (skipNextAnalyzeRef.current) {
@@ -510,29 +510,24 @@ export function usePipelineDetailPage() {
     [handleInsertStep],
   );
 
-  // HEL-908 task 3.4/5.6 — "+ tail" create affordance, restored (Cycle 8) on top of the
-  // new backend `attachTailInternal` primitive (design.md's non-goal waiver): a first pass of
-  // this handler (Cycle 6) called `createPipelineStep` WITHOUT `attachAsTail`, which routes
-  // through `spliceInsertAtInternal` (reparents the anchor's existing children — a trunk-insert,
-  // not a branch-attach) and was removed after a live probe caught the corruption. This version
-  // passes `attachAsTail = true`, which the backend now honors via `attachTailInternal` (attaches
-  // as a genuine NEW sibling, no reparenting). Single-tail-per-node is enforced by the caller
-  // (`StepCard`'s `hasTail` prop, computed from `buildStepTree`'s `tailsByStepId`) hiding/disabling
-  // the "+ tail" affordance once a node already has one, per design.md's Phase-1 invariant.
-  const handleAddTailStep = useCallback(
+  // HEL-912 task 4.2 — "+ lane" create affordance (generalizes HEL-908's
+  // "+ tail"): every step gets this affordance UNCONDITIONALLY now (design.md
+  // Decision 1 removed the single-tail-per-node invariant this used to be
+  // gated on — a node with several children just roots several lanes).
+  // Still passes `attachAsTail = true` so the backend's `attachTailInternal`
+  // primitive attaches this as a genuine NEW sibling (no reparenting of the
+  // anchor's other children) — the same wire call HEL-908 built, just no
+  // longer gated by `hasTail`.
+  const handleAddLaneStep = useCallback(
     async (opType: OpType, parentStepId: string) => {
       if (!id) return;
       setStepsInitialized(true);
       const tempStep = makeStep(opType, parentStepId);
-      // Must land IMMEDIATELY after the anchor in the flat array, not at the
-      // very end: `buildStepTree` derives tail-vs-trunk-continuation purely
-      // from array order among a node's children (earlier = tail, later =
-      // trunk continuation — mirroring the backend's `executionOrder`,
-      // which always emits a node's tail branches directly after it and
-      // before its trunk continuation). Appending at the end would put this
-      // new tail AFTER the anchor's existing trunk continuation, inverting
-      // the classification (reproduced live — see execution-progress.md
-      // Cycle 8).
+      // Must land IMMEDIATELY after the anchor in the flat array —
+      // `buildLaneGraph` derives lane membership from `parentStepId` and
+      // `position`, not array order, but `executionOrder` still emits a
+      // node's child-lanes directly after it, so this keeps optimistic
+      // local state byte-shaped like what a resync would return.
       const anchorIndex = stepsRef.current.findIndex((s) => s.id === parentStepId);
       const insertIndex = anchorIndex === -1 ? stepsRef.current.length : anchorIndex + 1;
       setSteps((prev) => {
@@ -557,10 +552,10 @@ export function usePipelineDetailPage() {
         // since whichever earlier create last did a one-element patch.
         await syncStepsFromServer();
       } catch (err: unknown) {
-        const message = extractErrorMessage(err, "Failed to add tail step.");
+        const message = extractErrorMessage(err, "Failed to add lane step.");
         pushToast({
           variant: "error",
-          message: `Failed to add ${opType.label.toLowerCase()} tail: ${message}`,
+          message: `Failed to add ${opType.label.toLowerCase()} lane: ${message}`,
         });
       }
     },
@@ -666,27 +661,12 @@ export function usePipelineDetailPage() {
       const clientIdToRealId = new Map<string, string>();
       let createdCount = 0;
 
-      // Defensive refusal (skeptic-final-2, round 1, CR1): a tail root is a
-      // child at `position >= 1`. If the anchor already has one, attaching
-      // the shape's first step as a plain trunk-continuation child would be
-      // fine on its own, but the only legitimate anchor for this handler is
-      // trunk-last -- and a trunk-last node with an existing tail is exactly
-      // the state the UI gate (`hasTail`) is meant to prevent from reaching
-      // here. Refuse rather than guess so this can never again silently
-      // create a second, dead tail branch.
-      const anchorHasTail =
-        anchorStepId !== undefined &&
-        stepsRef.current.some(
-          (s) => s.parentStepId === anchorStepId && s.position !== undefined && s.position !== 0,
-        );
-      if (anchorHasTail) {
-        pushToast({
-          variant: "error",
-          message: "Can't add a shape here — this step already has a tail branch.",
-        });
-        return;
-      }
-
+      // HEL-912 (design.md Decision 1) — the skeptic-final-2 `anchorHasTail`
+      // refusal this used to have relied on the single-tail-per-node
+      // invariant, which is gone: a node with several children just roots
+      // several lanes now, so a shape's first step landing as another child
+      // of the anchor is a normal new lane, not a dead branch. Removed
+      // rather than adapted (design.md Risks/Trade-offs).
       try {
         for (let i = 0; i < stepExpansions.length; i++) {
           const stepExpansion = stepExpansions[i];
@@ -812,16 +792,17 @@ export function usePipelineDetailPage() {
   // lost reorder.
   //
   // HEL-908 design.md decision 15 — `PUT /steps/order`'s request-shape
-  // contract is now TRUNK-ONLY (no tail ids, exactly the current trunk ids,
-  // in the new order) — `reorderTrunkInternal` REJECTS a request containing
-  // a tail id. `newOrder` here is still the full flat `Step[]` (trunk + any
-  // tails, whatever shape the caller computed it in), so the persisted
-  // request is derived via `buildStepTree(newOrder).trunk`, not a raw
-  // "every non-temp id" filter — sending a flat non-trunk-filtered array
-  // would 422 the instant any pipeline has a tail. A tail's own attachment
-  // (`parentStepId` pointing at its trunk node's id) needs no request at
-  // all: per the human's ruling ("the tail follows its trunk step"), the
-  // backend never touches tail rows during a trunk reorder.
+  // contract is TRUNK-ONLY (exactly the current PRIMARY-lane ids, in the
+  // new order) — `reorderTrunkInternal` REJECTS a request containing a
+  // non-primary-lane id. `newOrder` here is still the full flat `Step[]`
+  // (every lane, whatever shape the caller computed it in), so the
+  // persisted request is derived via the primary lane of
+  // `buildLaneGraph(newOrder)`, not a raw "every non-temp id" filter — a
+  // non-lane-filtered array would 422 the instant any pipeline has more
+  // than one lane. A non-primary lane's own attachment (`parentStepId`
+  // pointing at its parent step's id) needs no request at all: per the
+  // human's ruling ("the tail follows its trunk step"), the backend never
+  // touches non-primary-lane rows during a primary-lane reorder.
   const handleReorderSteps = useCallback(
     async (newOrder: Step[]) => {
       if (!id) return;
@@ -831,8 +812,10 @@ export function usePipelineDetailPage() {
       // from handleAddStep/handleInstantiateShape. Sending one would fail the
       // server's set-equality check, so exclude them (mirrors handleRemoveStep's
       // temp-id no-op convention above).
-      const persistedIds = buildStepTree(newOrder)
-        .trunk.filter((s) => !s.id.startsWith("step-"))
+      const reorderedGraph = buildLaneGraph(newOrder);
+      const primaryLane = reorderedGraph.lanes.find((l) => l.id === reorderedGraph.primaryLaneId);
+      const persistedIds = (primaryLane?.steps ?? [])
+        .filter((s) => !s.id.startsWith("step-"))
         .map((s) => s.id);
       try {
         const response = await reorderPipelineSteps(id, persistedIds);
@@ -1034,9 +1017,9 @@ export function usePipelineDetailPage() {
     handleCloseOutputSheet,
     handleEditSource,
     handleToggleScheduleEnabled,
-    stepTree,
+    laneGraph,
     handleAddStep,
-    handleAddTailStep,
+    handleAddLaneStep,
     handleAddOutputViaAggregateTail,
     handleInsertStep,
     handleInstantiateShape,

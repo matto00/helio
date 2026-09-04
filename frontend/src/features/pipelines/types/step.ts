@@ -27,14 +27,15 @@ export interface Step {
   // (normalized from the wire's `enabled ?? true` before a Step is built).
   enabled: boolean;
   // HEL-908 task 3.4 — carries the wire `PipelineStep.parentStepId` through
-  // for `buildStepTree` (`../state/stepTree.ts`) to group trunk vs. tail.
+  // for `buildLaneGraph` (`../state/stepTree.ts`, HEL-912's generalization
+  // of `buildStepTree`) to group the primary lane vs. every other lane.
   // `undefined` for the pipeline's root step AND for a freshly created,
   // not-yet-persisted step (`makeStep`) whose real parent isn't known until
   // the create call resolves.
   parentStepId?: string | null;
   // Evaluation-1 cycle-2 CR1 — carries the wire `PipelineStep.position`
-  // through so `buildStepTree` can disambiguate a SINGLE-child node's tail
-  // vs. trunk-continuation status even when array order alone can't (a
+  // through so `buildLaneGraph` can disambiguate a SINGLE-child node's tail
+  // vs. primary-lane-continuation status even when array order alone can't (a
   // childless anchor gaining exactly one new child is the same flat-array
   // shape whether that child lands at position 0 or position >= 1 --
   // `executionOrder` has no OTHER child to order it against). `undefined`

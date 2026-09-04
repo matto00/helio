@@ -430,6 +430,47 @@
   flex: 1;
 }
 
+/* ── Lanes (HEL-912 task 3/7) — generalizes the tail chain above to n
+ * parallel lanes: a step with several step children renders them side by
+ * side, each its own vertical mini-river (`LaneColumn`). A one-step lane
+ * keeps the tail-chain markup above byte-identically (task 3.3/3.5). ── */
+.pipeline-detail-page__lane-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin: var(--space-2) 0 0 var(--space-6);
+}
+
+.pipeline-detail-page__lane-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  border-left: 2px dashed var(--app-border-strong);
+  padding-left: var(--space-3);
+}
+
+/* task 7.1 — the per-lane mobile header (position alone no longer
+ * communicates lane identity once lanes stack): hidden at desktop widths
+ * (where side-by-side position already carries that information), revealed
+ * by the phone-breakpoint media block further down this file. CSS-only
+ * mobile stacking rules for `.pipeline-detail-page__lane-row`/`__lane-column`
+ * live in that SAME existing media block too (not a second,
+ * textually-identical media query -- a shared test helper locates a block
+ * by its literal condition text, so a duplicate would silently shadow the
+ * real one for every test that looks up this breakpoint). */
+.pipeline-detail-page__lane-header {
+  display: none;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-1);
+}
+
 /* HEL-412 — a disabled step's toggle button stays legible (not muted by the
  * `--disabled` card modifier below, which only mutes the label/icon/body) so
  * "re-enable" is always readable. `aria-pressed` marks the active (disabled)
@@ -1507,6 +1548,25 @@
    * (`--control-sm`) control needs under this same touch-target gate. */
   .pipeline-detail-page__step-card {
     padding-bottom: var(--space-2);
+  }
+
+  /* task 7.1 — lanes become a column below this same phone breakpoint,
+   * revealing a per-lane header (position alone no longer communicates
+   * lane identity once lanes stack). */
+  .pipeline-detail-page__lane-row {
+    flex-direction: column;
+    margin-left: var(--space-3);
+  }
+
+  .pipeline-detail-page__lane-column {
+    border-left: none;
+    padding-left: 0;
+    border-top: 2px dashed var(--app-border-strong);
+    padding-top: var(--space-2);
+  }
+
+  .pipeline-detail-page__lane-header {
+    display: block;
   }
 }
 

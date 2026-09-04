@@ -5,6 +5,8 @@ import { LookupConfig } from "./LookupConfig";
 import type { LookupConfigValue } from "./LookupConfig";
 import type { DataSource } from "../../../sources/types/dataSource";
 import type { SchemaField } from "../../types/pipelineStep";
+import { OP_TYPES } from "../../state/stepNarrowing";
+import type { Step } from "../../types/step";
 
 const testDataSources: DataSource[] = [
   {
@@ -40,8 +42,25 @@ const sampleSchema: SchemaField[] = [
   { name: "qty", type: "number" },
 ];
 
+const FILTER_OP = OP_TYPES.find((op) => op.id === "filter")!;
+
+function makeStep(id: string, label: string): Step {
+  return {
+    id,
+    opType: FILTER_OP,
+    label,
+    config: { combinator: "AND", conditions: [] },
+    enabled: true,
+  };
+}
+
+const otherSteps: Step[] = [
+  makeStep("current", "Lookup step"),
+  makeStep("s-upstream", "Filter rows"),
+];
+
 const emptyConfig: LookupConfigValue = {
-  referenceDataSourceId: "",
+  secondary: { kind: "source", dataSourceId: "" },
   sourceKey: "",
   lookupKey: "",
   columns: [],
@@ -49,7 +68,13 @@ const emptyConfig: LookupConfigValue = {
 
 function renderLookupConfig(config: LookupConfigValue, onChange = jest.fn()) {
   renderWithStore(
-    <LookupConfig config={config} analyzeSchema={sampleSchema} onChange={onChange} />,
+    <LookupConfig
+      config={config}
+      analyzeSchema={sampleSchema}
+      allSteps={otherSteps}
+      currentStepId="current"
+      onChange={onChange}
+    />,
     { sources: { items: testDataSources, status: "succeeded" } },
   );
   return onChange;
@@ -62,21 +87,31 @@ function chooseSelectOption(comboboxName: string, optionLabel: string) {
 
 describe("LookupConfig", () => {
   // Scenario: Editing the reference-source picker updates the step config
-  it("populates the reference-source picker with available sources", () => {
+  it("populates the reference picker with available sources AND other lane nodes", () => {
     renderLookupConfig(emptyConfig);
-    fireEvent.click(screen.getByRole("combobox", { name: "Reference data source" }));
-    expect(screen.getByRole("option", { name: "Products" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Codes DB" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("combobox", { name: "Reference source" }));
+    expect(screen.getByRole("option", { name: "Data source: Products" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Data source: Codes DB" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Lane node: Filter rows" })).toBeInTheDocument();
   });
 
-  it("selecting a reference source calls onChange with the updated referenceDataSourceId, other fields unchanged", () => {
+  it("selecting a reference source calls onChange with a source-kind secondary, other fields unchanged", () => {
     const onChange = renderLookupConfig({ ...emptyConfig, sourceKey: "code", lookupKey: "code" });
-    chooseSelectOption("Reference data source", "Codes DB");
+    chooseSelectOption("Reference source", "Data source: Codes DB");
     expect(onChange).toHaveBeenCalledWith({
-      referenceDataSourceId: "ds-2",
+      secondary: { kind: "source", dataSourceId: "ds-2" },
       sourceKey: "code",
       lookupKey: "code",
       columns: [],
+    });
+  });
+
+  it("selecting another lane node calls onChange with a lane-kind secondary", () => {
+    const onChange = renderLookupConfig(emptyConfig);
+    chooseSelectOption("Reference source", "Lane node: Filter rows");
+    expect(onChange).toHaveBeenCalledWith({
+      ...emptyConfig,
+      secondary: { kind: "lane", stepId: "s-upstream" },
     });
   });
 

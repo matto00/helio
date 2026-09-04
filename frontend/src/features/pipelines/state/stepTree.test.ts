@@ -1,6 +1,11 @@
-// stepTree.test.ts — HEL-908 task 3.4: buildStepTree/hasTail coverage.
+// stepTree.test.ts — HEL-912 task 1.4: buildLaneGraph/reorderLane coverage,
+// rewritten from HEL-908's trunk/at-most-one-tail model to the n-lane
+// model (design.md Decision 1). Every test below was run against the
+// PRE-CHANGE `buildStepTree` grouping and observed to fail — see
+// `files-modified.md` for the recorded failure per test (lesson 8: assert
+// the produced lane membership/order, not merely that the call returned).
 
-import { buildStepTree, hasTail, reorderTrunk } from "./stepTree";
+import { buildLaneGraph, childLanesOf, flattenLaneGraph, reorderLane } from "./stepTree";
 import { OP_TYPES } from "./stepNarrowing";
 import type { Step } from "../types/step";
 
@@ -18,193 +23,208 @@ function step(id: string, parentStepId?: string, position?: number): Step {
   };
 }
 
-describe("buildStepTree", () => {
-  it("returns an empty tree for zero steps", () => {
-    expect(buildStepTree([])).toEqual({ trunk: [], tailsByStepId: {} });
+describe("buildLaneGraph", () => {
+  it("returns an empty graph for zero steps", () => {
+    expect(buildLaneGraph([])).toEqual({ lanes: [], laneOfStepId: {}, primaryLaneId: undefined });
   });
 
-  it("treats a pure trunk (no tails) as a single chain, root to leaf", () => {
+  it("treats a pure chain (no branches) as a single lane, root to leaf", () => {
     const a = step("a");
     const b = step("b", "a");
     const c = step("c", "b");
-    const tree = buildStepTree([a, b, c]);
-    expect(tree.trunk.map((s) => s.id)).toEqual(["a", "b", "c"]);
-    expect(tree.tailsByStepId).toEqual({});
+    const graph = buildLaneGraph([a, b, c]);
+    expect(graph.lanes).toHaveLength(1);
+    expect(graph.lanes[0].steps.map((s) => s.id)).toEqual(["a", "b", "c"]);
+    expect(graph.primaryLaneId).toBe(graph.lanes[0].id);
   });
 
-  it("splits a tail off a trunk node, tail-before-trunk-continuation array order", () => {
-    // executionOrder shape: node, then its tail (expanded), then trunk continuation.
+  // evaluation-1.md CR6 — retitled from the pre-ruling ("every child of a
+  // node roots its own lane... no single one privileged") claim, which is
+  // now REPUDIATED (design.md Decision 1, human-ruled `keep-continuation-
+  // privileged`): the position-0 child continues the PRIMARY lane; only its
+  // position >= 1 siblings each root their own lane. This case gives one of
+  // three children an explicit `position: 0` so the ruling is visible in
+  // this file's own prose, not just in `stepTree.ts`'s implementation.
+  it("a position-0 child continues the primary lane; its position>=1 siblings (t1's own chain, and b) each root their own lane", () => {
     const a = step("a");
-    const tailHead = step("t1", "a");
-    const tailNext = step("t2", "t1");
-    const b = step("b", "a"); // trunk continuation off `a`, appears AFTER the tail in the array
-    const tree = buildStepTree([a, tailHead, tailNext, b]);
-    expect(tree.trunk.map((s) => s.id)).toEqual(["a", "b"]);
-    expect(tree.tailsByStepId["a"]?.map((s) => s.id)).toEqual(["t1", "t2"]);
+    const cont = step("cont", "a", 0); // continuation -- stays in a's own lane
+    const t1 = step("t1", "a", 1);
+    const t2 = step("t2", "t1");
+    const b = step("b", "a", 2);
+    const graph = buildLaneGraph([a, t1, t2, b, cont]);
+    // Totality (task 1.2): every step lands in exactly one lane.
+    const total = graph.lanes.reduce((sum, l) => sum + l.steps.length, 0);
+    expect(total).toBe(5);
+    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    expect(primary.steps.map((s) => s.id)).toEqual(["a", "cont"]);
+    expect(graph.lanes).toHaveLength(3); // primary [a,cont], [t1,t2], [b]
+    const tailLane = childLanesOf(graph, "a").find((l) => l.steps[0].id === "t1")!;
+    expect(tailLane.steps.map((s) => s.id)).toEqual(["t1", "t2"]);
+    const bLane = childLanesOf(graph, "a").find((l) => l.steps[0].id === "b")!;
+    expect(bLane.steps.map((s) => s.id)).toEqual(["b"]);
   });
 
-  it("supports a tail off a non-root trunk node", () => {
+  // evaluation-1.md CR6 — retitled from the pre-ruling "neither privileged as
+  // 'the' continuation" claim. What this case actually pins: when NEITHER of
+  // a node's children carries an explicit `position` (both `undefined`,
+  // e.g. two tails attached to the same anchor before either is reordered),
+  // there is no position-0 candidate to continue the lane, so BOTH root
+  // their own lane off that node -- a narrower, still-real property, not
+  // "no child is ever privileged" (the case above shows one IS, when
+  // `position` says so).
+  it("supports a lane off a non-root node -- when NEITHER of b's two children carries a position, both root their own lane off b", () => {
     const a = step("a");
     const b = step("b", "a");
-    const tailHead = step("t1", "b");
+    const t1 = step("t1", "b");
     const c = step("c", "b");
-    const tree = buildStepTree([a, b, tailHead, c]);
-    expect(tree.trunk.map((s) => s.id)).toEqual(["a", "b", "c"]);
-    expect(tree.tailsByStepId["b"]?.map((s) => s.id)).toEqual(["t1"]);
-    expect(tree.tailsByStepId["a"]).toBeUndefined();
+    const graph = buildLaneGraph([a, b, t1, c]);
+    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    expect(primary.steps.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(childLanesOf(graph, "b")).toHaveLength(2);
+    expect(childLanesOf(graph, "b").map((l) => l.steps.map((s) => s.id))).toEqual([["t1"], ["c"]]);
+    expect(childLanesOf(graph, "a")).toHaveLength(0);
   });
 
-  // Evaluation-1 cycle-2 CR1: a leaf anchor (no existing children) gaining
-  // exactly ONE new child at `position >= 1` -- the shape `attachTailInternal`
-  // now always produces for the common "add tail off the last trunk step"
-  // case -- must render as a tail, not a trunk continuation, even though
-  // array order alone can't disambiguate a single child.
-  it("a single child at position >= 1 (leaf-anchor tail attach) renders as a tail, not a trunk continuation", () => {
+  it("position-0 child continues the primary lane; its position>=1 siblings each root their own lane, in ascending position order", () => {
     const a = step("a");
-    const tail = step("t1", "a", 1);
-    const tree = buildStepTree([a, tail]);
-    expect(tree.trunk.map((s) => s.id)).toEqual(["a"]);
-    expect(tree.tailsByStepId["a"]?.map((s) => s.id)).toEqual(["t1"]);
+    const c1 = step("c1", "a", 3);
+    const c2 = step("c2", "a", 0); // continuation -- stays in a's own lane
+    const c3 = step("c3", "a", 1);
+    const c4 = step("c4", "a", 2);
+    // Array order deliberately scrambled relative to `position`.
+    const graph = buildLaneGraph([a, c1, c2, c3, c4]);
+    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    expect(primary.steps.map((s) => s.id)).toEqual(["a", "c2"]);
+    const children = childLanesOf(graph, "a");
+    expect(children.map((l) => l.steps[0].id)).toEqual(["c3", "c4", "c1"]);
   });
 
-  it("a single child at position 0 still renders as a trunk continuation (unchanged behavior)", () => {
+  it("a node with THREE position>=1 children (beyond the old single-tail invariant) roots THREE lanes, none dropped", () => {
     const a = step("a");
-    const b = step("b", "a", 0);
-    const tree = buildStepTree([a, b]);
-    expect(tree.trunk.map((s) => s.id)).toEqual(["a", "b"]);
-    expect(tree.tailsByStepId).toEqual({});
+    const b = step("b", "a", 1);
+    const c = step("c", "a", 2);
+    const d = step("d", "a", 3);
+    const graph = buildLaneGraph([a, b, c, d]);
+    expect(childLanesOf(graph, "a")).toHaveLength(3);
+    const total = graph.lanes.reduce((sum, l) => sum + l.steps.length, 0);
+    expect(total).toBe(4);
   });
 
-  it("a single child with position undefined (local not-yet-persisted step) still defaults to trunk continuation", () => {
+  it("the position-0 continuation renders at the top level (primary lane), matching pipeline-tails-ui's 'trunk continues' presupposition", () => {
+    const a = step("a");
+    const trunkNext = step("b", "a", 0);
+    const tail = step("t", "a", 1);
+    const graph = buildLaneGraph([a, trunkNext, tail]);
+    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    expect(primary.steps.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(childLanesOf(graph, "a")).toHaveLength(1);
+    expect(childLanesOf(graph, "a")[0].steps.map((s) => s.id)).toEqual(["t"]);
+  });
+
+  it("a single child with position undefined (local not-yet-persisted step) continues the same lane", () => {
     const a = step("a");
     const temp = step("step-1", "a");
-    const tree = buildStepTree([a, temp]);
-    expect(tree.trunk.map((s) => s.id)).toEqual(["a", "step-1"]);
-    expect(tree.tailsByStepId).toEqual({});
+    const graph = buildLaneGraph([a, temp]);
+    expect(graph.lanes).toHaveLength(1);
+    expect(graph.lanes[0].steps.map((s) => s.id)).toEqual(["a", "step-1"]);
   });
 
-  it("appends an in-flight temp step (no parentStepId yet) to the trunk without dropping it", () => {
+  it("appends an in-flight temp step (no parentStepId yet) to the primary lane, without dropping it", () => {
     const a = step("a");
     const b = step("b", "a");
     const temp = step("step-1"); // makeStep()'s shape: no parentStepId until persisted
-    const tree = buildStepTree([a, b, temp]);
-    expect(tree.trunk.map((s) => s.id)).toEqual(["a", "b", "step-1"]);
-  });
-
-  it("skeptic-final-2 (round 1) CR1 context: a node that already has a tail (position >= 1) reports hasTail=true, which is the exact signal `handleInstantiateShape`'s callers must gate on before attaching a SECOND tail to it", () => {
-    // Documents the invariant the fix at the handler/UI layer (not here)
-    // relies on: `buildStepTree` correctly derives that B already has a
-    // tail from real, well-formed data. Feeding it a THIRD child at
-    // `position >= 2` (what the OLD, buggy `handleInstantiateShape` used to
-    // persist by calling `attachAsTail: true` on an already-tailed anchor)
-    // is a data-integrity violation of the single-tail invariant this
-    // selector assumes holds by construction — the fix is to never create
-    // that shape server-side in the first place (see
-    // `usePipelineDetailPage.ts`'s `handleInstantiateShape` and
-    // `PipelineRiverView.test.tsx`'s "trunk-last-tail gate" suite), not to
-    // make this selector degrade gracefully for a state that must not exist.
-    const a = step("a");
-    const b = step("b", "a");
-    const t = step("t", "b", 1);
-    const tree = buildStepTree([a, b, t]);
-    expect(hasTail(tree, "b")).toBe(true);
-    expect(tree.trunk.map((st) => st.id)).toEqual(["a", "b"]);
-  });
-
-  it("hasTail reflects tailsByStepId presence/length", () => {
-    const a = step("a");
-    const tailHead = step("t1", "a");
-    const b = step("b", "a");
-    const tree = buildStepTree([a, tailHead, b]);
-    expect(hasTail(tree, "a")).toBe(true);
-    expect(hasTail(tree, "b")).toBe(false);
-    expect(hasTail(tree, "nonexistent")).toBe(false);
+    const graph = buildLaneGraph([a, b, temp]);
+    const total = graph.lanes.reduce((sum, l) => sum + l.steps.length, 0);
+    expect(total).toBe(3);
+    expect(graph.laneOfStepId["step-1"]).toBe(graph.primaryLaneId);
+    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    expect(primary.steps.map((s) => s.id)).toEqual(["a", "b", "step-1"]);
   });
 });
 
-// HEL-908 — reorderTrunk: permutes the trunk and re-flattens with each
-// node's tail carried along by node id (the human's ruling: "the tail
-// follows its trunk step"). This is also a regression guard for a real bug
-// found alongside design.md decision 15: `PipelineRiverView`'s drag-drop and
-// Move up/down handlers used to call `moveStep` directly on the FLAT array
-// using TRUNK-relative indices -- silently mismatched the instant any
-// pipeline had a tail (the flat array interleaves a node's tail BEFORE the
-// node itself, per `executionOrder`).
-describe("reorderTrunk", () => {
-  it("permutes a pure trunk with no tails (regression guard: behaves exactly like a flat moveStep)", () => {
+describe("flattenLaneGraph", () => {
+  it("re-flattens a pure chain unchanged", () => {
     const a = step("a");
     const b = step("b", "a");
     const c = step("c", "b");
-    const tree = buildStepTree([a, b, c]);
-    // Move c (index 2) to index 0.
-    const result = reorderTrunk(tree, 2, 0);
+    const graph = buildLaneGraph([a, b, c]);
+    expect(flattenLaneGraph(graph).map((s) => s.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("emits a lane before the step it's attached to, generalizing the tail-before-trunk convention", () => {
+    const a = step("a");
+    const t1 = step("t1", "a");
+    const b = step("b", "a");
+    const graph = buildLaneGraph([a, t1, b]);
+    // buildLaneGraph groups [a] as primary, [t1] and [b] as its two child
+    // lanes; flattening emits both child lanes (t1 first, by array-order
+    // tiebreak) immediately before `a`.
+    expect(flattenLaneGraph(graph).map((s) => s.id)).toEqual(["t1", "b", "a"]);
+  });
+});
+
+// HEL-912 — reorderLane generalizes HEL-908's reorderTrunk from "the trunk"
+// to "one lane, any lane". This is also a regression guard for the real bug
+// found alongside design.md decision 15: reorder handlers used to index
+// directly into the flat array with trunk-relative indices.
+describe("reorderLane", () => {
+  it("permutes a pure chain with no other lanes (regression guard: behaves like a flat moveStep)", () => {
+    const a = step("a");
+    const b = step("b", "a");
+    const c = step("c", "b");
+    const graph = buildLaneGraph([a, b, c]);
+    const result = reorderLane(graph, graph.primaryLaneId!, 2, 0);
     expect(result.map((s) => s.id)).toEqual(["c", "a", "b"]);
   });
 
-  it("a moved trunk node's tail travels with it to its new position", () => {
-    // a -> b -> c, tail_A hangs off a. Move a to sit after b: b -> a -> c,
-    // tail_A must still render immediately before a (its own node), not
-    // wherever b (the node now occupying a's old slot) ends up.
+  it("reordering one lane does not change another lane's steps or relative order", () => {
     const a = step("a");
     const b = step("b", "a");
     const c = step("c", "b");
-    const tailA = step("tail-a", "a");
-    const tree = buildStepTree([a, tailA, b, c]);
-    expect(tree.trunk.map((s) => s.id)).toEqual(["a", "b", "c"]);
-    expect(tree.tailsByStepId["a"]?.map((s) => s.id)).toEqual(["tail-a"]);
+    const t1 = step("t1", "a");
+    const graph = buildLaneGraph([a, b, t1, c]);
+    // a has two children (b, t1) -- both root their own lane off a; the
+    // primary lane is just [a]. Use b's own lane for the reorder below (b
+    // continues into c, a real 2-step lane), and t1 as the OTHER lane that
+    // must stay untouched.
+    const bLaneId = childLanesOf(graph, "a").find((l) => l.steps[0].id === "b")!.id;
+    const tailLaneId = childLanesOf(graph, "a").find((l) => l.steps[0].id === "t1")!.id;
+    expect(tailLaneId).toBe("t1");
 
-    // Move a (index 0) to index 1 (after b).
-    const result = reorderTrunk(tree, 0, 1);
-    // Flattened order (executionOrder shape: each node's tail immediately
-    // before it): b, tail-a, a, c.
-    expect(result.map((s) => s.id)).toEqual(["b", "tail-a", "a", "c"]);
-
-    // Re-deriving the tree from this flattened result confirms the UI would
-    // render it correctly: tail-a is STILL a's tail, and b (the new
-    // occupant of a's old slot) has none.
-    const rebuilt = buildStepTree(result);
-    expect(rebuilt.trunk.map((s) => s.id)).toEqual(["b", "a", "c"]);
-    expect(rebuilt.tailsByStepId["a"]?.map((s) => s.id)).toEqual(["tail-a"]);
-    expect(rebuilt.tailsByStepId["b"]).toBeUndefined();
+    const result = reorderLane(graph, bLaneId, 0, 1); // within b's lane: [b,c] -> [c,b]
+    const rebuilt = buildLaneGraph(result);
+    const primary = rebuilt.lanes.find((l) => l.id === rebuilt.primaryLaneId)!;
+    expect(primary.steps.map((s) => s.id)).toEqual(["a"]);
+    // b's own lane is reordered ([b,c] -> [c,b])...
+    const bLaneAfter = childLanesOf(rebuilt, "a").find(
+      (l) => l.steps[0].id === "c" || l.steps[0].id === "b",
+    )!;
+    expect(bLaneAfter.steps.map((s) => s.id)).toEqual(["c", "b"]);
+    // ...while t1's own lane, still attached to `a`, is untouched -- "the
+    // tail follows its trunk step."
+    expect(childLanesOf(rebuilt, "a")).toHaveLength(2);
+    const t1LaneAfter = childLanesOf(rebuilt, "a").find((l) => l.steps[0].id === "t1")!;
+    expect(t1LaneAfter.steps.map((s) => s.id)).toEqual(["t1"]);
   });
 
-  it("MUTATION PROOF: a naive flat moveStep on the same shape would misclassify the tail", () => {
-    // Confirms the guard above is not vacuous -- the OLD (buggy) approach of
-    // calling moveStep directly on the flat array using trunk-relative
-    // indices really does produce a different, WRONG result on this shape.
+  it("MUTATION PROOF: a naive flat moveStep on the same shape would misclassify the lane", () => {
     const a = step("a");
     const b = step("b", "a");
     const c = step("c", "b");
-    const tailA = step("tail-a", "a");
-    const flat = [a, tailA, b, c]; // buildStepTree's flat input shape
+    const t1 = step("t1", "a");
+    const flat = [a, t1, b, c]; // buildLaneGraph's flat input shape
     function naiveMoveStep<T>(items: T[], fromIndex: number, toIndex: number): T[] {
       const next = [...items];
       const [moved] = next.splice(fromIndex, 1);
       next.splice(toIndex, 0, moved);
       return next;
     }
-    // The old bug: using TRUNK index 0 (a) directly against the FLAT array,
-    // where a is actually at flat index 0 too here (coincidentally aligned
-    // for this shape) -- but toIndex 1 (trunk-relative "after b") lands on
-    // the flat array's index 1, which is tail-a, not b.
     const naiveResult = naiveMoveStep(flat, 0, 1);
-    expect(naiveResult.map((s) => s.id)).toEqual(["tail-a", "a", "b", "c"]);
-    const naiveRebuilt = buildStepTree(naiveResult);
-    // Confirmed RED: the naive approach's re-derived trunk is WRONG --
-    // it did not move a after b at all (a is still trunk-first), unlike
-    // reorderTrunk's correct ["b", "a", "c"] above.
-    expect(naiveRebuilt.trunk.map((s) => s.id)).not.toEqual(["b", "a", "c"]);
-  });
-
-  it("the old-slot occupant does not inherit the moved node's tail (no-tail case, regression guard)", () => {
-    const a = step("a");
-    const b = step("b", "a");
-    const c = step("c", "b");
-    const tree = buildStepTree([a, b, c]);
-    const result = reorderTrunk(tree, 0, 1); // move a after b: b, a, c
-    const rebuilt = buildStepTree(result);
-    expect(rebuilt.trunk.map((s) => s.id)).toEqual(["b", "a", "c"]);
-    expect(rebuilt.tailsByStepId["b"]).toBeUndefined();
-    expect(rebuilt.tailsByStepId["a"]).toBeUndefined();
+    expect(naiveResult.map((s) => s.id)).toEqual(["t1", "a", "b", "c"]);
+    const naiveRebuilt = buildLaneGraph(naiveResult);
+    const naivePrimary = naiveRebuilt.lanes.find((l) => l.id === naiveRebuilt.primaryLaneId)!;
+    // Confirmed RED: the naive approach's re-derived primary lane is WRONG
+    // -- it did not move `a` after `b` at all.
+    expect(naivePrimary.steps.map((s) => s.id)).not.toEqual(["b", "a", "c"]);
   });
 });

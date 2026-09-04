@@ -76,9 +76,9 @@ export function PipelineDetailPage() {
     handleCloseOutputSheet,
     handleEditSource,
     handleToggleScheduleEnabled,
-    stepTree,
+    laneGraph,
     handleAddStep,
-    handleAddTailStep,
+    handleAddLaneStep,
     handleAddOutputViaAggregateTail,
     handleInsertStep,
     handleInstantiateShape,
@@ -238,14 +238,14 @@ export function PipelineDetailPage() {
         >
           <PipelineRiverView
             steps={steps}
-            stepTree={stepTree}
+            laneGraph={laneGraph}
             pipelineId={id ?? ""}
             dropdownOpen={dropdownOpenAt === "bottom"}
             openDropdown={() => setDropdownOpenAt("bottom")}
             closeDropdown={() => setDropdownOpenAt(null)}
             onAddStep={handleAddStep}
             onInsertStep={(opType, index) => void handleInsertStep(opType, index)}
-            onAddTailStep={(opType, parentStepId) => void handleAddTailStep(opType, parentStepId)}
+            onAddLaneStep={(opType, parentStepId) => void handleAddLaneStep(opType, parentStepId)}
             onRemoveStep={handleRemoveStep}
             getAnalyzeColumns={getAnalyzeColumns}
             getAnalyzeSchema={getAnalyzeSchema}
@@ -286,6 +286,7 @@ export function PipelineDetailPage() {
           <OutputsGalleryTab
             outputs={allOutputs}
             steps={steps}
+            laneGraph={laneGraph}
             previewRowCountByOutputId={previewRowCountByOutputId}
             onOpenOutput={handleOpenOutput}
             onAddOutput={() => handleAddOutput()}

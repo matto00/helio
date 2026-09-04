@@ -32,19 +32,43 @@ describe("stepNarrowing — union", () => {
     expect(OP_TYPES.some((op) => op.id === "union")).toBe(true);
   });
 
-  it("defaultConfigFor('union') seeds an empty otherDataSourceId and byPosition mode", () => {
+  it("defaultConfigFor('union') seeds an empty source secondaryInput and byPosition mode", () => {
     expect(defaultConfigFor("union")).toEqual({
       secondaryInput: { kind: "source", dataSourceId: "" },
       mode: "byPosition",
     });
   });
 
-  it("unionConfigOf narrows a union step's config", () => {
+  it("unionConfigOf narrows a source-kind union step's config", () => {
     const step = makeUnionStep({
       secondaryInput: { kind: "source", dataSourceId: "ds-2" },
       mode: "byName",
     });
-    expect(unionConfigOf(step)).toEqual({ otherDataSourceId: "ds-2", mode: "byName" });
+    expect(unionConfigOf(step)).toEqual({
+      secondary: { kind: "source", dataSourceId: "ds-2" },
+      mode: "byName",
+    });
+  });
+
+  // HEL-912 (design.md Decision 4) — REPLACES the HEL-911 "degrade lane-kind
+  // to empty string" pin this test file used to carry
+  // (`unionConfigOf(step)` on a lane-kind config used to collapse to
+  // `{ otherDataSourceId: "", mode: "byPosition" }`, silently discarding the
+  // stored lane reference). The narrowed value now carries the full
+  // discriminated `secondary` arm straight through instead of degrading it
+  // — see task 5.6's full save/reload round-trip proof in
+  // `hooks/useStepCardState.test.ts` ("round-trips a stored lane-kind
+  // secondaryInput"), which exercises the actual persist path this
+  // read-only narrowing test doesn't.
+  it("unionConfigOf narrows a lane-kind union step's config WITHOUT discarding it", () => {
+    const step = makeUnionStep({
+      secondaryInput: { kind: "lane", stepId: "step-7" },
+      mode: "byPosition",
+    });
+    expect(unionConfigOf(step)).toEqual({
+      secondary: { kind: "lane", stepId: "step-7" },
+      mode: "byPosition",
+    });
   });
 
   it("unionConfigOf falls back to defaults for a non-union step", () => {
@@ -57,7 +81,10 @@ describe("stepNarrowing — union", () => {
       config: { fields: [] },
       enabled: true,
     };
-    expect(unionConfigOf(step)).toEqual({ otherDataSourceId: "", mode: "byPosition" });
+    expect(unionConfigOf(step)).toEqual({
+      secondary: { kind: "source", dataSourceId: "" },
+      mode: "byPosition",
+    });
   });
 
   it("unionConfigOf falls back to byPosition for an unrecognized mode value", () => {
@@ -65,7 +92,10 @@ describe("stepNarrowing — union", () => {
       secondaryInput: { kind: "source", dataSourceId: "ds-2" },
       mode: "byColumn" as UnionConfig["mode"],
     });
-    expect(unionConfigOf(step)).toEqual({ otherDataSourceId: "ds-2", mode: "byPosition" });
+    expect(unionConfigOf(step)).toEqual({
+      secondary: { kind: "source", dataSourceId: "ds-2" },
+      mode: "byPosition",
+    });
   });
 });
 
@@ -83,7 +113,7 @@ describe("stepNarrowing — lookup", () => {
     });
   });
 
-  it("lookupConfigOf narrows a lookup step's config", () => {
+  it("lookupConfigOf narrows a source-kind lookup step's config", () => {
     const step = makeLookupStep({
       secondaryInput: { kind: "source", dataSourceId: "ds-2" },
       sourceKey: "code",
@@ -91,7 +121,23 @@ describe("stepNarrowing — lookup", () => {
       columns: ["label"],
     });
     expect(lookupConfigOf(step)).toEqual({
-      referenceDataSourceId: "ds-2",
+      secondary: { kind: "source", dataSourceId: "ds-2" },
+      sourceKey: "code",
+      lookupKey: "code",
+      columns: ["label"],
+    });
+  });
+
+  // HEL-912 — same replacement as unionConfigOf's lane-kind test above.
+  it("lookupConfigOf narrows a lane-kind lookup step's config WITHOUT discarding it", () => {
+    const step = makeLookupStep({
+      secondaryInput: { kind: "lane", stepId: "step-9" },
+      sourceKey: "code",
+      lookupKey: "code",
+      columns: ["label"],
+    });
+    expect(lookupConfigOf(step)).toEqual({
+      secondary: { kind: "lane", stepId: "step-9" },
       sourceKey: "code",
       lookupKey: "code",
       columns: ["label"],
@@ -109,7 +155,7 @@ describe("stepNarrowing — lookup", () => {
       enabled: true,
     };
     expect(lookupConfigOf(step)).toEqual({
-      referenceDataSourceId: "",
+      secondary: { kind: "source", dataSourceId: "" },
       sourceKey: "",
       lookupKey: "",
       columns: [],

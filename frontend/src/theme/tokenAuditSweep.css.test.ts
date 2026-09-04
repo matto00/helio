@@ -156,48 +156,69 @@ const SPACING_BASELINE: BaselineEntry[] = [
   // --unified=0` hunk arithmetic against the pre-change file: two hunks,
   // +14 and +9 lines respectively, both entirely above line 469 — no
   // entries added or removed, only shifted).
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1116 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1123 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1170 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1179 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1199 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1208 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1231 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1244 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1223 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1270 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1307 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1341 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1334 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1356 },
+  //
+  // HEL-912 — re-pinned a third time: `git diff --unified=0` against the
+  // pre-change file shows exactly two hunks, +29 lines after original line
+  // 432 (the new `.pipeline-detail-page__lane-row`/`__lane-column` rules)
+  // and +15 lines after original line 1510 (their mobile-stacking rules,
+  // added inside the EXISTING phone-breakpoint media block rather than a
+  // new one — see that block's own comment). Every entry below <=432 is
+  // unshifted; every entry >432 and <=1510 shifts by +29; every entry
+  // >1510 shifts by +44 (29+15). No entries added or removed, only
+  // shifted.
+  //
+  // HEL-912 evaluation-1.md CR7 — re-pinned a FOURTH time for the
+  // `.pipeline-detail-page__lane-header` rule (task 7.1's per-lane mobile
+  // header, built to close the gap the evaluator found between the ticked
+  // task and the CSS comment claiming it existed): `git diff --unified=0`
+  // against the post-`22ed8642` file shows a +12-net hunk after (the
+  // then-current) line 454 (a 6-line comment replaced by an 18-line
+  // comment + rule) and a +4 pure-insert hunk after line 1554 (the reveal
+  // rule inside the existing phone-breakpoint block). Every entry <455 is
+  // unshifted; every entry in [455, 1554] shifts by +12; every entry >1554
+  // shifts by +16 (12+4). No entries added or removed, only shifted.
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1157 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1164 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1211 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1220 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1240 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1249 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1272 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1285 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1264 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1311 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1348 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1382 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1375 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1397 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 218 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 233 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 27 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 285 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 492 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 504 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 510 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 533 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 545 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 559 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 575 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 589 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 604 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 640 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 665 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 682 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 701 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 708 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 551 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 586 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 600 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 616 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 630 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 645 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 681 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 706 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 723 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 748 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 755 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 775 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 784 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 791 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 847 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 848 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 972 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 985 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1091 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 742 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 749 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 764 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 789 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 796 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 816 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 825 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 832 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 888 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 889 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1013 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1026 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1132 },
   { file: "features/pipelines/ui/PipelinesPage.css", line: 85 },
   { file: "features/pipelines/ui/PipelinesPage.css", line: 86 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 132 },
