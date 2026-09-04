@@ -114,8 +114,7 @@ const dataTypeStoreAdditions = {
       {
         id: "pipe-1",
         name: "Revenue Pipeline",
-        sourceDataSourceId: "src-1",
-        sourceDataSourceName: "Source",
+        roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Source" }],
         lastRunStatus: null as null,
         lastRunAt: null,
         lastRunRowCount: null as null,

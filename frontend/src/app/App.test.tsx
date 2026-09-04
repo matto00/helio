@@ -637,8 +637,7 @@ describe("App", () => {
       {
         id: "pipe-1",
         name: "Revenue ETL",
-        sourceDataSourceId: "src-1",
-        sourceDataSourceName: "Profit",
+        roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Profit" }],
         lastRunStatus: "succeeded",
         lastRunAt: "2026-03-14T10:00:00Z",
         lastRunRowCount: 10,

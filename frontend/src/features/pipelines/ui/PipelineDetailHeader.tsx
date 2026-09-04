@@ -42,9 +42,9 @@ function formatExpressionSummary(schedule: PipelineSchedule): string {
 }
 
 interface PipelineDetailHeaderProps {
-  /** The pipeline's bound source name (`Pipeline.sourceDataSourceName`), for display. */
+  /** The pipeline's bound source name (`Pipeline.roots[0].dataSourceName`), for display. */
   sourceName: string;
-  /** The matching DataSource record, resolved by `Pipeline.sourceDataSourceId`,
+  /** The matching DataSource record, resolved by `Pipeline.roots[0].dataSourceId`,
    *  for its kind badge. */
   source: DataSource | undefined;
   /** Whether the current user owns the bound source (i.e. `source` is

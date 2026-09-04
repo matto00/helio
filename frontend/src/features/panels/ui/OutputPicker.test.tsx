@@ -59,8 +59,7 @@ const pipelinesState = {
     {
       id: "pipe-1",
       name: "Revenue Pipeline",
-      sourceDataSourceId: "src-1",
-      sourceDataSourceName: "Source",
+      roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Source" }],
       lastRunStatus: null,
       lastRunAt: null,
       lastRunRowCount: null,
@@ -68,8 +67,7 @@ const pipelinesState = {
     {
       id: "pipe-2",
       name: "Signups Pipeline",
-      sourceDataSourceId: "src-2",
-      sourceDataSourceName: "Source 2",
+      roots: [{ id: "root-1", dataSourceId: "src-2", dataSourceName: "Source 2" }],
       lastRunStatus: null,
       lastRunAt: null,
       lastRunRowCount: null,
@@ -127,8 +125,7 @@ describe("OutputPicker", () => {
       {
         id: "pipe-1",
         name: "Revenue Pipeline",
-        sourceDataSourceId: "src-1",
-        sourceDataSourceName: "Source",
+        roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Source" }],
         lastRunStatus: null,
         lastRunAt: null,
         lastRunRowCount: null,

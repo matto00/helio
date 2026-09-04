@@ -87,7 +87,11 @@ export function SidebarBody() {
         onAdd={() => dispatch(setAddSourceModalOpen(true))}
         addLabel="Add source"
         deleteWarning={(item) => {
-          const dependents = pipelines.items.filter((p) => p.sourceDataSourceId === item.id).length;
+          // HEL-969 (D2): a pipeline depends on this source if ANY of its
+          // roots reads from it, not just the first -- roots.some(...).
+          const dependents = pipelines.items.filter((p) =>
+            p.roots.some((r) => r.dataSourceId === item.id),
+          ).length;
           if (dependents === 0) return null;
           return `${dependents} pipeline${dependents === 1 ? "" : "s"} read${dependents === 1 ? "s" : ""} from this source and will stop working.`;
         }}

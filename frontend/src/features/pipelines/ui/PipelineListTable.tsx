@@ -101,7 +101,9 @@ export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) 
                     {pipeline.name}
                   </Link>
                 </td>
-                <td className="pipeline-list-table__td">{pipeline.sourceDataSourceName}</td>
+                <td className="pipeline-list-table__td">
+                  {pipeline.roots[0]?.dataSourceName ?? ""}
+                </td>
                 <td className="pipeline-list-table__td">
                   {pipeline.lastRunStatus === null ? (
                     <span className="pipeline-list-table__never-run">Never run</span>

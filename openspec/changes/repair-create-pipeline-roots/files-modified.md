@@ -1,0 +1,27 @@
+# Files modified
+
+- `frontend/src/features/pipelines/types/pipelineStep.ts` — `PipelineRoot`/`RootSourceSchema` types replacing the two removed scalars on `PipelineSummary`/`PipelineAnalyzeResponse`; cycle 2 (CR1) drops the still-wire-sent name field from `RootSourceSchema` entirely rather than misnaming it (ruling: omit-unconsumed-field, HEL-975 tracks the backend spelling collision)
+- `frontend/src/features/pipelines/services/pipelineService.ts` — `CreatePipelinePayload.roots` replacing the scalar request field
+- `frontend/src/features/pipelines/state/pipelinesSlice.ts` — `createPipeline` thunk arg type + `selectPipelineNamesBySourceId` indexing every root, deduped per pipeline
+- `frontend/src/features/pipelines/ui/CreatePipelineModal.tsx` — posts `roots: [{ sourceId }]`, local state renamed off the scalar
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — bound-source lookup resolves via `roots[0]`
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.tsx` — `sourceName` prop resolves via `roots[0]?.dataSourceName ?? ""`
+- `frontend/src/features/pipelines/ui/PipelineDetailHeader.tsx` — doc comments updated to name `roots[0]`
+- `frontend/src/features/pipelines/ui/PipelineListTable.tsx` — source-name cell resolves via `roots[0]`
+- `frontend/src/shared/chrome/SidebarBody.tsx` — delete-dependency counter uses `roots.some(...)` (D2)
+- `frontend/src/features/sources/ui/EmptySchemaAffordance.tsx` — delete-dependency counter uses `roots.some(...)` (D2)
+- `frontend/src/features/sources/ui/AddSourceModal.tsx` — doc comment updated off the scalar name
+- `frontend/src/app/App.test.tsx` — fixture updated to `roots[]`
+- `frontend/src/features/panels/ui/OutputPicker.test.tsx` — fixtures updated to `roots[]`
+- `frontend/src/features/panels/ui/PanelList.test.tsx` — fixture updated to `roots[]`
+- `frontend/src/features/pipelines/state/pipelinesSlice.test.ts` — fixtures/payloads updated to `roots[]`/`sourceSchemas[]`; cycle 2 drops the now-omitted name field from the `sourceSchemas` fixture
+- `frontend/src/features/pipelines/ui/CreatePipelineModal.test.tsx` — POST-body assertion updated to `roots[]`, no-scalar-key check made string-literal-free
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — fixtures updated to `roots[]`/`sourceSchemas[]`, added an empty-`roots` render test (D3/task 6.4); cycle 2 drops the now-omitted name field from the `sourceSchemas` fixtures
+- `frontend/src/features/pipelines/ui/PipelineListTable.test.tsx` — fixture updated to `roots[]`
+- `frontend/src/features/pipelines/ui/PipelinesPage.test.tsx` — fixtures updated to `roots[]`
+- `frontend/src/features/pipelines/ui/proposalReview/PipelineProposalReviewPage.test.tsx` — fixture updated to `roots[]`
+- `frontend/src/features/proposals/state/combinedProposalsSlice.test.ts` — fixture updated to `roots[]`
+- `frontend/src/features/proposals/ui/CombinedProposalReviewPage.test.tsx` — fixture updated to `roots[]`
+- `frontend/src/shared/chrome/SidebarBody.test.tsx` — added `sourceItems`/`buildSource` store support and a second-root dependency-counter test (D2/task 6.3)
+- `openspec/changes/repair-create-pipeline-roots/design.md` — cycle 2: revised D4 to record the CR1 ruling (omit-unconsumed-field) and the HEL-975 spinoff
+- `openspec/changes/repair-create-pipeline-roots/proposal.md` — cycle 2: non-goals revised to record CR1's ruling and the HEL-975/HEL-976 spinoff ids

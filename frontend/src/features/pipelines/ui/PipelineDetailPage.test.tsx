@@ -110,16 +110,14 @@ getPipelineScheduleMock.mockRejectedValue(axiosError(404));
 const emptyAnalyzeResponse: PipelineAnalyzeResponse = {
   id: "pipe-1",
   name: "Test Pipeline",
-  sourceDataSourceName: "Test Source",
-  sourceSchema: [],
+  sourceSchemas: [{ rootId: "root-1", sourceSchema: [] }],
   steps: [],
 };
 
 const defaultPipeline: PipelineSummary = {
   id: "pipe-1",
   name: "Test Pipeline",
-  sourceDataSourceId: "src-1",
-  sourceDataSourceName: "Test Source",
+  roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Test Source" }],
   lastRunStatus: null,
   lastRunAt: null,
   lastRunRowCount: null,
@@ -418,7 +416,7 @@ describe("PipelineDetailPage", () => {
       },
     ]);
     renderDetailPage("pipe-1", store);
-    // defaultPipeline.sourceDataSourceId === "src-1" — only that source's
+    // defaultPipeline.roots[0].dataSourceId === "src-1" — only that source's
     // name + kind are shown; the unrelated "CSV Upload" source is not.
     expect(screen.getByText("Test Source")).toBeInTheDocument();
     expect(screen.getByText("SQL")).toBeInTheDocument();
@@ -427,7 +425,7 @@ describe("PipelineDetailPage", () => {
 
   it("bound source bar resolves the source by id, not by name", () => {
     // Source's `name` deliberately does not match defaultPipeline's
-    // `sourceDataSourceName` ("Test Source") — only the id ("src-1") does.
+    // `roots[0].dataSourceName` ("Test Source") — only the id ("src-1") does.
     // The kind badge must still resolve, proving matching is id-based.
     const store = makeStore([
       {
@@ -449,7 +447,7 @@ describe("PipelineDetailPage", () => {
       },
     ]);
     renderDetailPage("pipe-1", store);
-    // The bar's display text still comes from `sourceDataSourceName`...
+    // The bar's display text still comes from `roots[0].dataSourceName`...
     expect(screen.getByText("Test Source")).toBeInTheDocument();
     // ...but the kind badge is resolved from the id-matched source.
     expect(screen.getByText("SQL")).toBeInTheDocument();
@@ -460,6 +458,16 @@ describe("PipelineDetailPage", () => {
     const store = makeStore([]);
     renderDetailPage("pipe-1", store);
     expect(screen.getByText("Test Source")).toBeInTheDocument();
+  });
+
+  // HEL-969 (D3/task 6.4): `roots` is typed non-optional but arrives from the
+  // network, so an empty array must render with no source name and never throw.
+  it("does not throw and renders no source name when roots is empty", () => {
+    const store = makeStore([], {
+      currentPipeline: { ...defaultPipeline, roots: [] },
+    });
+    expect(() => renderDetailPage("pipe-1", store)).not.toThrow();
+    expect(screen.queryByText("Test Source")).not.toBeInTheDocument();
   });
 
   it("empty state shows 'Add your first transformation step' when steps is empty", () => {
@@ -1126,8 +1134,7 @@ describe("PipelineDetailPage", () => {
       currentPipeline: {
         id: "pipe-1",
         name: "My Pipeline",
-        sourceDataSourceId: "src-1",
-        sourceDataSourceName: "Source",
+        roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Source" }],
         lastRunStatus: null,
         lastRunAt: null,
         lastRunRowCount: null,
@@ -1328,8 +1335,7 @@ describe("PipelineDetailPage", () => {
       currentPipeline: {
         id: "pipe-1",
         name: "Test Pipeline",
-        sourceDataSourceId: "src-1",
-        sourceDataSourceName: "Test Source",
+        roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Test Source" }],
         lastRunStatus: "succeeded",
         lastRunAt: "2026-05-01T10:00:00Z",
         lastRunRowCount: 42,
@@ -1345,8 +1351,7 @@ describe("PipelineDetailPage", () => {
       currentPipeline: {
         id: "pipe-1",
         name: "Test Pipeline",
-        sourceDataSourceId: "src-1",
-        sourceDataSourceName: "Test Source",
+        roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Test Source" }],
         lastRunStatus: "succeeded",
         lastRunAt: "2026-05-01T10:00:00Z",
         lastRunRowCount: 5678,
@@ -1365,7 +1370,7 @@ describe("PipelineDetailPage", () => {
       currentPipeline: {
         id: "pipe-1",
         name: "Test Pipeline",
-        sourceDataSourceName: "Test Source",
+        roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Test Source" }],
         outputDataTypeName: "TestType",
         lastRunStatus: "succeeded",
         lastRunAt: "2026-05-01T10:00:00Z",
@@ -1711,11 +1716,15 @@ describe("PipelineDetailPage select step config round-trip", () => {
     analyzePipelineMock.mockResolvedValue({
       id: "pipe-1",
       name: "Test Pipeline",
-      sourceDataSourceName: "Test Source",
-      sourceSchema: [
-        { name: "id", type: "string" },
-        { name: "name", type: "string" },
-        { name: "value", type: "string" },
+      sourceSchemas: [
+        {
+          rootId: "root-1",
+          sourceSchema: [
+            { name: "id", type: "string" },
+            { name: "name", type: "string" },
+            { name: "value", type: "string" },
+          ],
+        },
       ],
       steps: [
         {
@@ -1779,11 +1788,15 @@ describe("PipelineDetailPage rename step config", () => {
   const analyzeResponseWithRename: PipelineAnalyzeResponse = {
     id: "pipe-1",
     name: "Test Pipeline",
-    sourceDataSourceName: "Test Source",
-    sourceSchema: [
-      { name: "id", type: "string" },
-      { name: "name", type: "string" },
-      { name: "dept", type: "string" },
+    sourceSchemas: [
+      {
+        rootId: "root-1",
+        sourceSchema: [
+          { name: "id", type: "string" },
+          { name: "name", type: "string" },
+          { name: "dept", type: "string" },
+        ],
+      },
     ],
     steps: [
       {
@@ -2504,8 +2517,7 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
   const pipelineWithOutputType: PipelineSummary = {
     id: "pipe-1",
     name: "Test Pipeline",
-    sourceDataSourceId: "src-1",
-    sourceDataSourceName: "Test Source",
+    roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Test Source" }],
     lastRunStatus: null,
     lastRunAt: null,
     lastRunRowCount: null,

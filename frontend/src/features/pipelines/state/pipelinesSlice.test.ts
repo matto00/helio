@@ -54,8 +54,7 @@ const applyPipelineProposalMock = jest.mocked(pipelineProposalService.applyPipel
 const testPipeline = {
   id: "p-1",
   name: "Sales Pipeline",
-  sourceDataSourceId: "ds-sales",
-  sourceDataSourceName: "Sales API",
+  roots: [{ id: "root-1", dataSourceId: "ds-sales", dataSourceName: "Sales API" }],
   lastRunStatus: "succeeded" as const,
   lastRunAt: "2026-05-01T10:00:00Z",
   lastRunRowCount: null as null,
@@ -64,8 +63,7 @@ const testPipeline = {
 const newPipeline = {
   id: "p-new",
   name: "New Pipeline",
-  sourceDataSourceId: "ds-csv",
-  sourceDataSourceName: "CSV Source",
+  roots: [{ id: "root-1", dataSourceId: "ds-csv", dataSourceName: "CSV Source" }],
   lastRunStatus: null as null,
   lastRunAt: null,
   lastRunRowCount: null as null,
@@ -151,7 +149,7 @@ describe("pipelinesSlice", () => {
       undefined,
       createPipeline.pending("req-1", {
         name: "x",
-        sourceDataSourceId: "s",
+        roots: [{ sourceId: "s" }],
         outputDataTypeName: "o",
       }),
     );
@@ -164,7 +162,7 @@ describe("pipelinesSlice", () => {
       undefined,
       createPipeline.fulfilled(newPipeline, "req-1", {
         name: "x",
-        sourceDataSourceId: "s",
+        roots: [{ sourceId: "s" }],
         outputDataTypeName: "o",
       }),
     );
@@ -178,7 +176,7 @@ describe("pipelinesSlice", () => {
       createPipeline.rejected(
         null,
         "req-1",
-        { name: "x", sourceDataSourceId: "s", outputDataTypeName: "o" },
+        { name: "x", roots: [{ sourceId: "s" }], outputDataTypeName: "o" },
         "Failed to create pipeline.",
       ),
     );
@@ -226,8 +224,7 @@ describe("fetchPipelines thunk", () => {
     const neverRunWire = {
       id: "p-2",
       name: "Never Run Pipeline",
-      sourceDataSourceId: "ds-1",
-      sourceDataSourceName: "Source",
+      roots: [{ id: "root-1", dataSourceId: "ds-1", dataSourceName: "Source" }],
     } as unknown as PipelineSummary;
     getPipelinesMock.mockResolvedValueOnce([neverRunWire]);
 
@@ -568,7 +565,7 @@ describe("createPipeline thunk", () => {
     const getState = jest.fn();
     const thunk = createPipeline({
       name: "New Pipeline",
-      sourceDataSourceId: "src-1",
+      roots: [{ sourceId: "src-1" }],
       outputDataTypeName: "RawData",
     });
 
@@ -589,7 +586,7 @@ describe("createPipeline thunk", () => {
     const getState = jest.fn();
     const thunk = createPipeline({
       name: "New Pipeline",
-      sourceDataSourceId: "src-1",
+      roots: [{ sourceId: "src-1" }],
       outputDataTypeName: "RawData",
     });
 
@@ -608,8 +605,7 @@ describe("createPipeline thunk", () => {
 const samplePipelineSummary: PipelineSummary = {
   id: "p-1",
   name: "Sales Pipeline",
-  sourceDataSourceId: "ds-sales",
-  sourceDataSourceName: "Sales API",
+  roots: [{ id: "root-1", dataSourceId: "ds-sales", dataSourceName: "Sales API" }],
   lastRunStatus: null,
   lastRunAt: null,
   lastRunRowCount: null,
@@ -856,10 +852,14 @@ describe("updatePipeline thunk", () => {
 const sampleAnalyzeResponse: PipelineAnalyzeResponse = {
   id: "p-1",
   name: "Sales Pipeline",
-  sourceDataSourceName: "Sales API",
-  sourceSchema: [
-    { name: "order_id", type: "string" },
-    { name: "amount", type: "number" },
+  sourceSchemas: [
+    {
+      rootId: "root-1",
+      sourceSchema: [
+        { name: "order_id", type: "string" },
+        { name: "amount", type: "number" },
+      ],
+    },
   ],
   steps: [
     {

@@ -148,7 +148,7 @@ export function PipelineDetailPage() {
     <div className="pipeline-detail-page">
       {/* ── Header: bound source + bound type + schedule ── */}
       <PipelineDetailHeader
-        sourceName={currentPipeline.sourceDataSourceName}
+        sourceName={currentPipeline.roots[0]?.dataSourceName ?? ""}
         source={boundSource}
         canEditSource={canEditSource}
         onEditSource={handleEditSource}

@@ -30,7 +30,11 @@ export async function fetchPipelines(): Promise<Pipeline[]> {
 
 export interface CreatePipelinePayload {
   name: string;
-  sourceDataSourceId: string;
+  // HEL-969: HEL-913 replaced the scalar source-id request field
+  // with a non-empty `roots[]` array (`CreatePipelineRequest`,
+  // `PipelineProtocol.scala`) -- this flow still authors exactly one source,
+  // so it always posts a single-element array.
+  roots: { sourceId: string }[];
   /** HEL-908 task 7.2 -- optional now: `CreatePipelineRequest` on the shipped
    *  backend has no `outputDataTypeName` field at all (verified against
    *  `PipelineProtocol.scala` -- HEL-903 dropped DataType-per-pipeline as
