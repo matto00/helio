@@ -10,7 +10,20 @@ discriminated union over `type` with a typed `config` object per subtype.
 ## Requirements
 
 ### Requirement: Pipeline steps table exists in the database
-The `pipeline_steps` table SHALL carry a `root_id` column referencing `pipeline_roots(id)` with `ON DELETE CASCADE`. A step with no parent step SHALL have a non-null `root_id`; a step with a parent step SHALL derive its root from that parent and SHALL NOT rely on its own `root_id`.
+
+The backend SHALL maintain a `pipeline_steps` table with columns: `id` (TEXT PK),
+`pipeline_id` (TEXT FK → pipelines ON DELETE CASCADE), `position` (INT NOT NULL),
+`op` (TEXT with CHECK constraint: one of 'rename', 'filter', 'join', 'compute', 'groupby', 'cast', 'select', 'limit', 'sort', 'aggregate', 'splittext', 'extractheadings', 'chunkbytokencount'),
+`config` (TEXT NOT NULL — JSON blob), `enabled` (BOOLEAN NOT NULL DEFAULT true),
+`created_at` (TIMESTAMPTZ), `updated_at` (TIMESTAMPTZ).
+An index SHALL exist on `pipeline_id`. This table SHALL be created via Flyway migration V23 and the
+CHECK constraint SHALL be extended to include `'select'` via Flyway migration V25, `'limit'` via V26,
+`'sort'` via V27, `'aggregate'` via V31, `'splittext'` via V50, `'extractheadings'` via V51, and
+`'chunkbytokencount'` via V52. The `enabled` column SHALL be added via Flyway migration V86 with
+`NOT NULL DEFAULT true`, so existing rows remain enabled and behavior is unchanged for existing
+pipelines.
+
+The table SHALL additionally carry a `root_id` column referencing `pipeline_roots(id)` with `ON DELETE CASCADE`, added via Flyway migration V98. A step with no parent step SHALL have a non-null `root_id`; a step with a parent step SHALL derive its root from that parent and SHALL NOT rely on its own `root_id`.
 
 #### Scenario: A root-level step records its root
 - **WHEN** a step is appended with no parent step against a named root

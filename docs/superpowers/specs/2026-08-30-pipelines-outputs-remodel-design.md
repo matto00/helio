@@ -4,7 +4,7 @@
 
 Collapse the six user-facing concepts of today's data chain (Source → Pipeline → DataType → Metric → Panel, plus companion types) into four: **Source → Pipeline → Output → Dashboard**. A pipeline keeps its data-frame-in, data-frame-out contract but now produces **many Outputs** — panel-ready visualizations (metric, chart, table, collection, timeline) attached to any step of the pipeline, each rendered live on the pipeline page from dry or live runs. A dashboard **Panel** becomes a _placement_ of an Output (position, size, title override, light appearance); everything about _what_ is shown lives on the Output and propagates to every dashboard it is placed on. **Data Types**, **Metrics**, **companion types**, and **panel-level aggregation** are retired as user-facing concepts.
 
-The remodel is phased: Phase 1 ships a linear trunk with **leaf tails** (short chains hanging off any trunk step, ending in an Output) on a node-graph data model; Phase 2 adds true branching (parallel lanes that rejoin via join/union) as an editor + engine extension with no further migration. This replaces the design-gated DAG epic (HEL-338) rather than sitting beside it. **Corrected (HEL-913):** multi-root pipelines (N independent roots, each bound to its own Source) shipped as its own change, not folded into either phase above — see `openspec/changes/multi-root-pipelines/design.md`.
+The remodel is phased: Phase 1 ships a linear trunk with **leaf tails** (short chains hanging off any trunk step, ending in an Output) on a node-graph data model; Phase 2 adds true branching (parallel lanes that rejoin via join/union) as an editor + engine extension with no further migration. This replaces the design-gated DAG epic (HEL-338) rather than sitting beside it. **Corrected (HEL-913):** multi-root pipelines (N independent roots, each bound to its own Source) shipped as its own change, not folded into either phase above — see `openspec/changes/archive/2026-09-04-multi-root-pipelines/design.md`.
 
 ## Motivation / evidence
 
@@ -47,7 +47,7 @@ Prior art supports the direction: Metabase's _Question_ (query + visualization) 
 
 ## Non-goals / explicitly deferred
 
-- **Branching, rejoin, multi-root pipelines in Phase 1** — they are Phase 2 (same milestone, immediately after). The data model supports them from day one; the Phase-1 editor and engine walk restrict tails to non-branching leaf chains. **Corrected (HEL-913):** the data model did NOT support multi-root pipelines from day one — the Phase-1 schema bound a pipeline to exactly one root source, and multi-root required its own V98 migration (`pipeline_roots` table) plus its own change (`openspec/changes/multi-root-pipelines/design.md`). Only branching/rejoin were data-model-ready ahead of time.
+- **Branching, rejoin, multi-root pipelines in Phase 1** — they are Phase 2 (same milestone, immediately after). The data model supports them from day one; the Phase-1 editor and engine walk restrict tails to non-branching leaf chains. **Corrected (HEL-913):** the data model did NOT support multi-root pipelines from day one — the Phase-1 schema bound a pipeline to exactly one root source, and multi-root required its own V98 migration (`pipeline_roots` table) plus its own change (`openspec/changes/archive/2026-09-04-multi-root-pipelines/design.md`). Only branching/rejoin were data-model-ready ahead of time.
 - **Backward compatibility of any kind** (decision 11). Old routes, tools, tables, and pages are removed in the ticket that replaces them.
 - **Per-panel visualization overrides** (a placement forking the Output's config). Rejected in favour of the "edit once, updates everywhere" guarantee. If a user wants a different chart of the same rows, that is a second Output.
 - **Cross-filtering (HEL-588)** and **interactive panels (HEL-643)** — design inputs for later epics: filtering operates over materialized snapshots (client-side filter or re-run); actions attach to Outputs.
@@ -171,7 +171,7 @@ Removed: `PanelCreationModal` and its `creationSteps/*`, `BindingEditor`, `Metri
 
 **Changed tools**
 
-- `create_pipeline` — `sourceId` **or** inline source spec; optional `steps[]` (with `parentStepId`); optional `outputs[]`. Single call builds everything (decision 10). **Corrected (HEL-913):** `create_pipeline` takes `roots[]` (one or more, each `sourceId` **or** inline source spec), not a single `sourceId`/source spec — see `helio-mcp/src/tools/pipelines.ts` and `openspec/changes/multi-root-pipelines/design.md` R6.
+- `create_pipeline` — `sourceId` **or** inline source spec; optional `steps[]` (with `parentStepId`); optional `outputs[]`. Single call builds everything (decision 10). **Corrected (HEL-913):** `create_pipeline` takes `roots[]` (one or more, each `sourceId` **or** inline source spec), not a single `sourceId`/source spec — see `helio-mcp/src/tools/pipelines.ts` and `openspec/changes/archive/2026-09-04-multi-root-pipelines/design.md` R6.
 - `add_pipeline_step` — gains `parentStepId`.
 - `create_pipeline_from_shape` → `add_outputs_from_shape(pipelineId, stepId?, shape, params)`.
 - `create_panel` / `create_panels` / `bind_panel` / `create_bound_panel` → `place_outputs(dashboardId, [{ outputId, title?, w?, h? }])` and `create_content_panel`. `update_panel` keeps placement fields only.
