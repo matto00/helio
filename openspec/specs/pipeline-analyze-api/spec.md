@@ -114,10 +114,11 @@ step N-1's `outputSchema`. If the pipeline is not found, the response SHALL be 4
 - **THEN** the response is 404
 
 ### Requirement: Source schema derived from bound DataSource's registered DataType fields
-The analyze endpoint SHALL derive `sourceSchema` from the `Output` that is linked to the pipeline's
-`sourceDataSourceId` via `Output.sourceId`. Each `DataField` SHALL be represented as `{name, type}` in
-`sourceSchema`, where `type` is the `DataField.dataType` string value. If no source Output is found,
-`sourceSchema` SHALL be an empty array.
+Analyze SHALL derive a source schema **per root**, from that root's bound DataSource. The response SHALL carry one source-schema entry per root, keyed by root id.
+
+#### Scenario: A two-root pipeline analyzes both source schemas
+- **WHEN** analyze is called on a pipeline with two roots bound to sources with different fields
+- **THEN** the response carries a source schema for each root, keyed by that root's id
 
 #### Scenario: Source DataType fields populate sourceSchema
 - **WHEN** the source DataSource has a registered Output with fields `[{name: "col1", dataType: "string"}]`
@@ -160,11 +161,11 @@ malformed persisted baseline SHALL be treated as no baseline (no drift reported,
 - **THEN** the 200 response contains no `sourceSchemaDrift` member
 
 ### Requirement: Analyze projects a schema per node, including every tail
-The analyze surface SHALL project a schema for any node in the pipeline graph, regardless of which lane it belongs to or how many siblings its parent has. For a `join`, `union` or `lookup` step whose `secondaryInput` is **`lane`-kind**, the projected schema SHALL be derived from **both** of its inputs — the parent lane's projected schema and the referenced node's projected schema.
+Analyze SHALL project a schema for every node in every lane across every root. A root-level node's input schema SHALL be its own root's source schema.
 
-For a **`source`-kind** secondary input the secondary schema SHALL NOT be resolved at the analyze layer, and the step SHALL fall back to its documented best-effort projection (`union`: identity passthrough; `join`: the parent lane's schema unchanged; `lookup`: the requested `columns` appended with best-effort typing).
-
-**Why this asymmetry, stated plainly for a future reader.** An earlier draft of this requirement — written at this change's own design gate — promised both-input derivation "whether that secondary input is a data source or a referenced lane node." That clause described behaviour which did not exist and **could not** exist without an architectural change: `PipelineAnalyzeService.analyzeNodes` is a pure, synchronous domain function with no repository access, and resolving a `source`-kind input requires an async `DataSourceRepository` lookup. A `lane`-kind input is resolvable precisely because the referenced node is already present in the step set handed to the function. The clause was an **overreach in the spec, not a shortfall in the implementation** — source-kind derivation never existed at any point before this change either. It is corrected here to state what actually ships, and the remainder is tracked as HEL-965 (Medium). This is a correction of a false statement, not a decision to descope working behaviour.
+#### Scenario: Nodes in both roots' lanes are projected
+- **WHEN** analyze is called on a pipeline with a lane under each of two roots
+- **THEN** every node in both lanes carries a projected schema derived from its own root's source schema
 
 #### Scenario: Analyze works at a node in a non-first lane
 - **WHEN** analyze is requested for a node in the second of two sibling lanes

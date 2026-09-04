@@ -9,13 +9,15 @@ MCP process.
 ## Requirements
 
 ### Requirement: Workspace context endpoint
-The system SHALL expose `GET /api/workspace/context`, mounted under the existing `WorkspaceRoutes`
-`pathPrefix("workspace")`, returning a single JSON snapshot of the caller's data sources, Outputs,
-pipelines (with per-step output columns), and dashboards, structurally parallel to the MCP
-`buildWorkspaceContext` `WorkspaceContext` interface (`helio-mcp/src/context.ts`), validating against
-`schemas/workspace/workspace-context.schema.json`. The route SHALL accept an optional `budgetBytes` query
-parameter (a non-negative integer) bounding the response's serialized size; when omitted, a
-configured default budget applies.
+Each pipeline entry in the workspace context SHALL carry a `roots` array, each element identifying a root by id, its data source id, and that source's name, in root-position order. The scalar `sourceDataSourceId` / `sourceDataSourceName` pair SHALL be removed, not retained alongside `roots`.
+
+#### Scenario: A two-root pipeline lists both roots
+- **WHEN** workspace context is assembled for a pipeline with two roots
+- **THEN** its entry carries two root elements in position order, each with a root id, source id, and source name
+
+#### Scenario: A single-root pipeline lists one root
+- **WHEN** workspace context is assembled for a pipeline with one root
+- **THEN** its entry carries a one-element `roots` array and no scalar source field
 
 #### Scenario: Authenticated caller fetches workspace context
 - **WHEN** an authenticated user with at least one data source, Output, pipeline, and dashboard

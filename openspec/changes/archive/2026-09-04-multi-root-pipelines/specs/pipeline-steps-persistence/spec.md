@@ -52,6 +52,8 @@ The `pipeline_steps` table SHALL carry a `root_id` column referencing `pipeline_
 - **THEN** the response is `201 Created` and the step is persisted with `op = 'chunkbytokencount'`
 
 
+## ADDED Requirements
+
 ### Requirement: POST /api/pipelines/:id/steps appends a step against a parent or a root
 Appending a step SHALL require exactly one of `parentStepId` or `rootId`. Supplying neither, both, or a `rootId` naming a root of another pipeline SHALL fail with a named error. The database SHALL enforce that a step has a root id if and only if it has no parent step, so a step cannot be persisted in a state the walk would silently skip.
 
