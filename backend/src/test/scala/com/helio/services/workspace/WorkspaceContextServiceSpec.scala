@@ -221,7 +221,7 @@ class WorkspaceContextServiceSpec
       name: String = s"pipe-${UUID.randomUUID()}",
       outputName: String = s"out-${UUID.randomUUID()}"
   ): SeededPipeline = {
-    val summary = await(pipelineRepo.create(name, sourceId, user)) match {
+    val summary = await(pipelineRepo.create(name, Vector(sourceId), user)) match {
       case Right(s)   => s
       case Left(err)  => fail(s"pipeline create failed: $err")
     }
@@ -232,7 +232,7 @@ class WorkspaceContextServiceSpec
     // had zero effect on anything `WorkspaceContextService.assemble` reads.
     // Only the real Output created below (`SeededPipeline.outputId`)
     // is ever exercised by this file's call sites.
-    val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table))
+    val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table, explicitRootId = None))
     SeededPipeline(id = summary.id, outputId = createdOutput.id.value)
   }
 
@@ -343,8 +343,8 @@ class WorkspaceContextServiceSpec
 
       // Companion source schema is [value] (from createSource's static payload).
       // A select then a rename step give distinct, order-verifiable outputs.
-      val selectStep = await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "select", SelectConfig(Vector("value")), enabled = true))
-      await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "rename", RenameConfig(Map("value" -> "renamed")), enabled = true, parentStepId = Some(selectStep.id)))
+      val selectStep = await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "select", SelectConfig(Vector("value")), enabled = true, explicitRootId = None))
+      await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "rename", RenameConfig(Map("value" -> "renamed")), enabled = true, parentStepId = Some(selectStep.id), explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.pipelines.find(_.id == pipeline.id).getOrElse(fail("pipeline missing"))
@@ -409,7 +409,7 @@ class WorkspaceContextServiceSpec
 
       setDataTypeFields(pipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       val rows = (0 until 7).map(i => JsObject("name" -> JsString(s"row-$i")))
-      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, rows))
+      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, rows, explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -452,7 +452,7 @@ class WorkspaceContextServiceSpec
       await(nodeSnapshotRepo.overwriteRows(
         pipeline.id, None,
         Seq(JsObject("title" -> JsString("doc"), "body" -> JsString(bigBody)))
-      ))
+      , explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -470,12 +470,12 @@ class WorkspaceContextServiceSpec
       val aSource   = createSource(userA, "scoped-a-source")
       val aPipeline = createPipeline(userA, aSource.id, "scoped-a-pipeline", "scoped-a-output")
       setDataTypeFields(aPipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(aPipeline.id, None, Seq(JsObject("name" -> JsString("secret-a")))))
+      await(nodeSnapshotRepo.overwriteRows(aPipeline.id, None, Seq(JsObject("name" -> JsString("secret-a"))), explicitRootId = None))
 
       val bSource   = createSource(userB, "scoped-b-source")
       val bPipeline = createPipeline(userB, bSource.id, "scoped-b-pipeline", "scoped-b-output")
       setDataTypeFields(bPipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(bPipeline.id, None, Seq(JsObject("name" -> JsString("secret-b")))))
+      await(nodeSnapshotRepo.overwriteRows(bPipeline.id, None, Seq(JsObject("name" -> JsString("secret-b"))), explicitRootId = None))
 
       val respB  = await(service.assemble(userB))
       val entryB = respB.dataTypes.find(_.id == bPipeline.outputId).getOrElse(fail("b output DataType missing"))
@@ -503,7 +503,7 @@ class WorkspaceContextServiceSpec
         JsObject("status" -> JsString("active"), "amount" -> JsNumber(10)),
         JsObject("status" -> JsString("inactive"), "amount" -> JsNumber(20)),
         JsObject("status" -> JsNull, "amount" -> JsNumber(30))
-      )))
+      ), explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -530,7 +530,7 @@ class WorkspaceContextServiceSpec
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("amount" -> JsString("n/a")),
         JsObject("amount" -> JsString("n/a"))
-      )))
+      ), explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -549,7 +549,7 @@ class WorkspaceContextServiceSpec
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("amount" -> JsString("10")),
         JsObject("amount" -> JsString("20"))
-      )))
+      ), explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -568,7 +568,7 @@ class WorkspaceContextServiceSpec
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("notes" -> JsNull),
         JsObject("notes" -> JsNull)
-      )))
+      ), explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -608,7 +608,7 @@ class WorkspaceContextServiceSpec
       emptyEntry.columnStats.keySet should not contain "col40"
 
       val wideRow = JsObject(wideFields.map(f => f.name -> JsString(f.name)).toMap)
-      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(wideRow)))
+      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(wideRow), explicitRootId = None))
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
       entry.columnStats.keySet should have size 40
@@ -622,7 +622,7 @@ class WorkspaceContextServiceSpec
 
       setDataTypeFields(pipeline.outputId, Vector(DataField("id", "Id", "string", nullable = false)))
       val rows = (0 until 150).map(i => JsObject("id" -> JsString(s"id-$i")))
-      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, rows))
+      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, rows, explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -641,7 +641,7 @@ class WorkspaceContextServiceSpec
       ))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("title" -> JsString("doc"), "body" -> JsString("y" * 500))
-      )))
+      ), explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -662,7 +662,7 @@ class WorkspaceContextServiceSpec
         JsObject("status" -> JsString("b"), "amount" -> JsNumber(3)),
         JsObject("status" -> JsString("a"), "amount" -> JsNumber(1)),
         JsObject("status" -> JsString("a"), "amount" -> JsNumber(2))
-      )))
+      ), explicitRootId = None))
 
       val first  = await(service.assemble(userA)).dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("missing"))
       val second = await(service.assemble(userA)).dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("missing"))
@@ -676,12 +676,12 @@ class WorkspaceContextServiceSpec
       val aSource   = createSource(userA, "colstats-scoped-a-source")
       val aPipeline = createPipeline(userA, aSource.id, "colstats-scoped-a-pipeline", "colstats-scoped-a-output")
       setDataTypeFields(aPipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(aPipeline.id, None, Seq(JsObject("name" -> JsString("secret-a")))))
+      await(nodeSnapshotRepo.overwriteRows(aPipeline.id, None, Seq(JsObject("name" -> JsString("secret-a"))), explicitRootId = None))
 
       val bSource   = createSource(userB, "colstats-scoped-b-source")
       val bPipeline = createPipeline(userB, bSource.id, "colstats-scoped-b-pipeline", "colstats-scoped-b-output")
       setDataTypeFields(bPipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(bPipeline.id, None, Seq(JsObject("name" -> JsString("secret-b")))))
+      await(nodeSnapshotRepo.overwriteRows(bPipeline.id, None, Seq(JsObject("name" -> JsString("secret-b"))), explicitRootId = None))
 
       val respB  = await(service.assemble(userB))
       val entryB = respB.dataTypes.find(_.id == bPipeline.outputId).getOrElse(fail("b output DataType missing"))
@@ -700,7 +700,7 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "schema-samplerows-source")
       val pipeline = createPipeline(userA, source.id, "schema-samplerows-pipeline", "schema-samplerows-output")
       setDataTypeFields(pipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("name" -> JsString("x")))))
+      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("name" -> JsString("x"))), explicitRootId = None))
 
       val routes = new WorkspaceRoutes(None, service, userA).routes
 
@@ -801,7 +801,7 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "schema-colstats-numeric-source")
       val pipeline = createPipeline(userA, source.id, "schema-colstats-numeric-pipeline", "schema-colstats-numeric-output")
       setDataTypeFields(pipeline.outputId, Vector(DataField("amount", "Amount", "float", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("amount" -> JsNumber(42)))))
+      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("amount" -> JsNumber(42))), explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -815,7 +815,7 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "schema-colstats-nonnumeric-source")
       val pipeline = createPipeline(userA, source.id, "schema-colstats-nonnumeric-pipeline", "schema-colstats-nonnumeric-output")
       setDataTypeFields(pipeline.outputId, Vector(DataField("status", "Status", "string", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("status" -> JsString("active")))))
+      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("status" -> JsString("active"))), explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -847,7 +847,7 @@ class WorkspaceContextServiceSpec
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(
         JsObject("user_id" -> JsNumber(1), "created_at" -> JsString("2024-01-01T00:00:00Z"), "status" -> JsString("active"), "amount" -> JsNumber(10)),
         JsObject("user_id" -> JsNumber(2), "created_at" -> JsString("2024-01-02T00:00:00Z"), "status" -> JsString("inactive"), "amount" -> JsNumber(20))
-      )))
+      ), explicitRootId = None))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
@@ -875,7 +875,7 @@ class WorkspaceContextServiceSpec
         JsObject("customer_id" -> JsNumber(1)),
         JsObject("customer_id" -> JsNumber(2)),
         JsObject("customer_id" -> JsNumber(3))
-      )))
+      ), explicitRootId = None))
 
       val sourceTwo   = createSource(userA, "joinhint-source-two")
       val pipelineTwo = createPipeline(userA, sourceTwo.id, "joinhint-pipeline-two", "joinhint-output-two")
@@ -884,7 +884,7 @@ class WorkspaceContextServiceSpec
         JsObject("customer_id" -> JsNumber(2)),
         JsObject("customer_id" -> JsNumber(3)),
         JsObject("customer_id" -> JsNumber(4))
-      )))
+      ), explicitRootId = None))
 
       val resp = await(service.assemble(userA))
       val hint = resp.joinHints.find(h =>
@@ -920,12 +920,12 @@ class WorkspaceContextServiceSpec
       val aSource   = createSource(userA, "joinhint-scoped-a-source")
       val aPipeline = createPipeline(userA, aSource.id, "joinhint-scoped-a-pipeline", "joinhint-scoped-a-output")
       setDataTypeFields(aPipeline.outputId, Vector(DataField("order_id", "Order Id", "integer", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(aPipeline.id, None, Seq(JsObject("order_id" -> JsNumber(1)), JsObject("order_id" -> JsNumber(2)))))
+      await(nodeSnapshotRepo.overwriteRows(aPipeline.id, None, Seq(JsObject("order_id" -> JsNumber(1)), JsObject("order_id" -> JsNumber(2))), explicitRootId = None))
 
       val bSource   = createSource(userB, "joinhint-scoped-b-source")
       val bPipeline = createPipeline(userB, bSource.id, "joinhint-scoped-b-pipeline", "joinhint-scoped-b-output")
       setDataTypeFields(bPipeline.outputId, Vector(DataField("order_id", "Order Id", "integer", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(bPipeline.id, None, Seq(JsObject("order_id" -> JsNumber(1)), JsObject("order_id" -> JsNumber(2)))))
+      await(nodeSnapshotRepo.overwriteRows(bPipeline.id, None, Seq(JsObject("order_id" -> JsNumber(1)), JsObject("order_id" -> JsNumber(2))), explicitRootId = None))
 
       val respB = await(service.assemble(userB))
 
@@ -1047,7 +1047,7 @@ class WorkspaceContextServiceSpec
       val source   = createSource(userA, "budget-source")
       val pipeline = createPipeline(userA, source.id, "budget-pipeline", "budget-output")
       setDataTypeFields(pipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
-      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("name" -> JsString("x")))))
+      await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("name" -> JsString("x"))), explicitRootId = None))
 
       val routes = new WorkspaceRoutes(None, service, userA).routes
 

@@ -22,7 +22,7 @@ import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiRequest, ClaudeApiResponse,
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.proposals.{AuthoringDisplayTurn, DashboardProposal}
 import com.helio.api.protocols.panels.CreatePanelRequest
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest}
 import com.helio.api.protocols.patchsets.{RefinementRequest, RefinementTarget}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.model._
@@ -161,7 +161,7 @@ class RefinementServiceSpec
       case Right(d) => d
       case Left(e)  => fail(s"createStatic failed: $e")
     }
-    val summary = await(pipelineService.create(CreatePipelineRequest(s"pipe-${UUID.randomUUID()}", ds.id.value), owner)) match {
+    val summary = await(pipelineService.create(CreatePipelineRequest(s"pipe-${UUID.randomUUID()}", Vector(CreatePipelineRootRequest(Some(ds.id.value)))), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"pipeline create failed: $e")
     }

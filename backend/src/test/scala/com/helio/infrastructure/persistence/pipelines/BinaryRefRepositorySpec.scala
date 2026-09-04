@@ -69,13 +69,13 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, 'binref-spec@test.local', now())""",
       sourceAndType(srcA, dtA),
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, created_at, updated_at, owner_id)
-             VALUES ($pipelineId, 'binref-spec-pipeline', $srcA, now(), now(), $ownerId::uuid)""",
-      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at)
-             VALUES ($stepId, $pipelineId, 0, 'rename', '{}', true, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at, owner_id) VALUES ($pipelineId, 'binref-spec-pipeline', now(), now(), $ownerId::uuid)""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pipelineId, $pipelineId, $srcA, 0)""",
+      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, root_id)
+             VALUES ($stepId, $pipelineId, 0, 'rename', '{}', true, now(), now(), $pipelineId)""",
       sourceAndType(srcB, dtB),
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, created_at, updated_at, owner_id)
-             VALUES ($pipelineId2, 'binref-spec-pipeline-2', $srcB, now(), now(), $ownerId::uuid)"""
+      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at, owner_id) VALUES ($pipelineId2, 'binref-spec-pipeline-2', now(), now(), $ownerId::uuid)""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pipelineId2, $pipelineId2, $srcB, 0)"""
     )
   }
 
@@ -105,9 +105,9 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
         makeRef(pipelineId, Some(stepId), 0, "document", "uploads/a.pdf"),
         makeRef(pipelineId, Some(stepId), 1, "document", "uploads/b.pdf")
       )
-      await(repo.overwriteForNode(pipelineId, Some(stepId), refs))
+      await(repo.overwriteForNode(pipelineId, Some(stepId), refs, explicitRootId = None))
 
-      val result = await(repo.findByNode(pipelineId, Some(stepId)))
+      val result = await(repo.findByNode(pipelineId, Some(stepId), explicitRootId = None))
       result should have size 2
       result.map(_.storageKey).toSet shouldBe Set("uploads/a.pdf", "uploads/b.pdf")
       result.head.createdAt shouldBe fixedInstant
@@ -119,40 +119,40 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
           pipelineId,
           Some(stepId),
           Vector(makeRef(pipelineId, Some(stepId), 0, "document", "uploads/a.pdf"), makeRef(pipelineId, Some(stepId), 1, "document", "uploads/b.pdf"))
-        )
+        , explicitRootId = None)
       )
-      await(repo.findByNode(pipelineId, Some(stepId))) should have size 2
+      await(repo.findByNode(pipelineId, Some(stepId), explicitRootId = None)) should have size 2
 
       val newRefs = Vector(
         makeRef(pipelineId, Some(stepId), 0, "document", "uploads/c.pdf"),
         makeRef(pipelineId, Some(stepId), 1, "document", "uploads/d.pdf"),
         makeRef(pipelineId, Some(stepId), 2, "document", "uploads/e.pdf")
       )
-      await(repo.overwriteForNode(pipelineId, Some(stepId), newRefs))
+      await(repo.overwriteForNode(pipelineId, Some(stepId), newRefs, explicitRootId = None))
 
-      val result = await(repo.findByNode(pipelineId, Some(stepId)))
+      val result = await(repo.findByNode(pipelineId, Some(stepId), explicitRootId = None))
       result should have size 3
       result.map(_.storageKey).toSet shouldBe Set("uploads/c.pdf", "uploads/d.pdf", "uploads/e.pdf")
     }
 
     "zero-ref overwriteForNode clears the snapshot" in {
-      await(repo.overwriteForNode(pipelineId, Some(stepId), Vector(makeRef(pipelineId, Some(stepId), 0, "document", "uploads/a.pdf"))))
-      await(repo.findByNode(pipelineId, Some(stepId))) should have size 1
+      await(repo.overwriteForNode(pipelineId, Some(stepId), Vector(makeRef(pipelineId, Some(stepId), 0, "document", "uploads/a.pdf")), explicitRootId = None))
+      await(repo.findByNode(pipelineId, Some(stepId), explicitRootId = None)) should have size 1
 
-      await(repo.overwriteForNode(pipelineId, Some(stepId), Vector.empty))
+      await(repo.overwriteForNode(pipelineId, Some(stepId), Vector.empty, explicitRootId = None))
 
-      await(repo.findByNode(pipelineId, Some(stepId))) shouldBe empty
+      await(repo.findByNode(pipelineId, Some(stepId), explicitRootId = None)) shouldBe empty
     }
 
     "findByNode returns empty for a node with no snapshot" in {
-      await(repo.findByNode(pipelineId2, None)) shouldBe empty
+      await(repo.findByNode(pipelineId2, None, explicitRootId = None)) shouldBe empty
     }
 
     "findByNode with nodeStepId = None resolves the pipeline's trunk root, distinct from a real step id" in {
-      await(repo.overwriteForNode(pipelineId2, None, Vector(makeRef(pipelineId2, None, 0, "document", "uploads/root.pdf"))))
+      await(repo.overwriteForNode(pipelineId2, None, Vector(makeRef(pipelineId2, None, 0, "document", "uploads/root.pdf")), explicitRootId = None))
 
-      await(repo.findByNode(pipelineId2, None)) should have size 1
-      await(repo.findByNode(pipelineId2, Some(stepId))) shouldBe empty
+      await(repo.findByNode(pipelineId2, None, explicitRootId = None)) should have size 1
+      await(repo.findByNode(pipelineId2, Some(stepId), explicitRootId = None)) shouldBe empty
     }
 
     "findByNodeAndRow returns only refs matching both node and rowIndex" in {
@@ -161,31 +161,31 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
         makeRef(pipelineId2, None, 0, "thumbnail", "uploads/row0-thumb.png"),
         makeRef(pipelineId2, None, 1, "document", "uploads/row1-doc.pdf")
       )
-      await(repo.overwriteForNode(pipelineId2, None, refs))
+      await(repo.overwriteForNode(pipelineId2, None, refs, explicitRootId = None))
 
-      val row0Refs = await(repo.findByNodeAndRow(pipelineId2, None, 0))
+      val row0Refs = await(repo.findByNodeAndRow(pipelineId2, None, 0, explicitRootId = None))
       row0Refs should have size 2
       row0Refs.map(_.fieldName).toSet shouldBe Set("document", "thumbnail")
 
-      val row1Refs = await(repo.findByNodeAndRow(pipelineId2, None, 1))
+      val row1Refs = await(repo.findByNodeAndRow(pipelineId2, None, 1, explicitRootId = None))
       row1Refs should have size 1
       row1Refs.head.fieldName shouldBe "document"
     }
 
     "overwriteForNode is isolated per node — refs for one pipeline do not affect another" in {
-      await(repo.overwriteForNode(pipelineId, Some(stepId), Vector(makeRef(pipelineId, Some(stepId), 0, "document", "uploads/a1.pdf"))))
+      await(repo.overwriteForNode(pipelineId, Some(stepId), Vector(makeRef(pipelineId, Some(stepId), 0, "document", "uploads/a1.pdf")), explicitRootId = None))
       await(
         repo.overwriteForNode(
           pipelineId2,
           None,
           Vector(makeRef(pipelineId2, None, 0, "document", "uploads/b1.pdf"), makeRef(pipelineId2, None, 1, "document", "uploads/b2.pdf"))
-        )
+        , explicitRootId = None)
       )
 
-      await(repo.overwriteForNode(pipelineId, Some(stepId), Vector(makeRef(pipelineId, Some(stepId), 0, "document", "uploads/a-new.pdf"))))
+      await(repo.overwriteForNode(pipelineId, Some(stepId), Vector(makeRef(pipelineId, Some(stepId), 0, "document", "uploads/a-new.pdf")), explicitRootId = None))
 
-      await(repo.findByNode(pipelineId, Some(stepId))) should have size 1
-      await(repo.findByNode(pipelineId2, None)) should have size 2
+      await(repo.findByNode(pipelineId, Some(stepId), explicitRootId = None)) should have size 1
+      await(repo.findByNode(pipelineId2, None, explicitRootId = None)) should have size 2
     }
   }
 }

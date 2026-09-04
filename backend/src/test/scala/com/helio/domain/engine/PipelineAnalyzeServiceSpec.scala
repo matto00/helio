@@ -1076,5 +1076,35 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyzeNodes(Vector(laneA, union), baseSchema)
       result("union1").outputSchema shouldBe result("laneA").outputSchema
     }
+
+    // HEL-913 task 5.9: root-keyed schema resolution, not a bare `getOrElse` onto ONE implicit
+    // schema. Two root-level nodes, each bound to a DIFFERENT root with a genuinely different
+    // schema -- if `schemaAt` ever regresses to "the first/only schema" (the exact defect this
+    // task's own header names), rootB's node would silently see rootA's fields instead of its
+    // own, and this test would go from green to red.
+    "a root-level node resolves against ITS OWN root's schema under the multi-root overload, not a shared fallback" in {
+      val rootASchema = Vector(field("order_id", "string"), field("amount", "float"))
+      val rootBSchema = Vector(field("user_id", "string"), field("signup_date", "timestamp"))
+      val nodeOnRootA = NodeStepInput(id = "a1", parentStepId = None, position = 0, op = "rename",
+        config = """{"renames":{"order_id":"oid"}}""", rootId = Some("rootA"))
+      val nodeOnRootB = NodeStepInput(id = "b1", parentStepId = None, position = 0, op = "rename",
+        config = """{"renames":{"user_id":"uid"}}""", rootId = Some("rootB"))
+
+      val result = analyzeNodes(Vector(nodeOnRootA, nodeOnRootB), Map("rootA" -> rootASchema, "rootB" -> rootBSchema))
+
+      result("a1").inputSchema shouldBe rootASchema
+      result("b1").inputSchema shouldBe rootBSchema
+      result("a1").outputSchema.map(_.name) should contain("oid")
+      result("b1").outputSchema.map(_.name) should contain("uid")
+    }
+
+    "a rootId naming a root absent from sourceSchemasByRoot resolves to an empty schema, not another root's" in {
+      val nodeOnUnknownRoot = NodeStepInput(id = "x1", parentStepId = None, position = 0, op = "rename",
+        config = """{"renames":{}}""", rootId = Some("missingRoot"))
+
+      val result = analyzeNodes(Vector(nodeOnUnknownRoot), Map("rootA" -> Vector(field("order_id", "string"))))
+
+      result("x1").inputSchema shouldBe empty
+    }
   }
 }

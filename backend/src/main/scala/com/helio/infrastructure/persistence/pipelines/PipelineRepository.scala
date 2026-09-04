@@ -20,6 +20,13 @@ class PipelineRepository(
   private val pipelinesTable   = TableQuery[PipelineTable]
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
   private val permTable        = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
+  private val rootsTable       = TableQuery[PipelineRootRepository.PipelineRootTable]
+
+  // HEL-913: constructed internally (not injected) so the 50+ existing call sites of
+  // `new PipelineRepository(ctx, dataSourceRepo)` across the codebase are unaffected --
+  // `PipelineRootRepository` has no dependency beyond `ctx`, so there is nothing a caller could
+  // meaningfully override by injecting its own instance here.
+  private val rootRepo = new PipelineRootRepository(ctx)
 
   /** Owner-scoped existence check. Used to gate `addStep` / `listSteps`. */
   def exists(id: PipelineId, user: AuthenticatedUser): Future[Boolean] = {
@@ -93,6 +100,52 @@ class PipelineRepository(
     ).map(_.map(rowToPipeline))
   }
 
+  /** HEL-913: ACL-bypassing resolution of a pipeline's LOWEST-POSITIONED root's
+    * `data_source_id` -- the single-root-compatible replacement for the now-dropped
+    * `Pipeline.sourceDataSourceId` field, used by the run/analyze paths (`PipelineRunService`,
+    * `PipelineService`) that have not yet been generalized to walk every root (that
+    * generalization is engine work, a later stage of this ticket -- see design.md's NodeKey/
+    * RootKey engine contract). Every pipeline has at least one root (V98 backfill / task 4.6's
+    * service-layer enforcement), so `None` here means the pipeline itself does not exist, not
+    * "no source". */
+  def findPrimaryDataSourceIdInternal(id: PipelineId): Future[Option[DataSourceId]] =
+    ctx.withSystemContext(
+      rootsTable
+        .filter(_.pipelineId === id.value)
+        .sortBy(_.position)
+        .map(_.dataSourceId)
+        .result
+        .headOption
+    ).map(_.map(DataSourceId.apply))
+
+  /** HEL-913 task 5.4: every root's `(PipelineRootId, DataSourceId)`, ordered by `position`
+    * ascending (R3's cross-root tiebreak) -- the multi-root-aware sibling of
+    * [[findPrimaryDataSourceIdInternal]]. Privileged, mirroring that method's contract. */
+  def listRootDataSourceIdsInternal(id: PipelineId): Future[Vector[(PipelineRootId, DataSourceId)]] =
+    ctx.withSystemContext(
+      rootsTable
+        .filter(_.pipelineId === id.value)
+        .sortBy(_.position)
+        .map(r => (r.id, r.dataSourceId))
+        .result
+    ).map(_.map { case (rid, dsid) => (PipelineRootId(rid), DataSourceId(dsid)) }.toVector)
+
+  /** Owner-scoped variant of [[findPrimaryDataSourceIdInternal]], for request-bound service
+    * methods that must not bypass ACL (mirrors `findByIdOwned`'s contract). */
+  def findPrimaryDataSourceIdOwned(id: PipelineId, user: AuthenticatedUser): Future[Option[DataSourceId]] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    ctx.withUserContext(user.id.value)(
+      (for {
+        pipeline <- pipelinesTable if pipeline.id === id.value && pipeline.ownerId === ownerUuid
+        root     <- rootsTable if root.pipelineId === pipeline.id
+      } yield root)
+        .sortBy(_.position)
+        .map(_.dataSourceId)
+        .result
+        .headOption
+    ).map(_.map(DataSourceId.apply))
+  }
+
   /** Returns the grant role string ("editor" or "viewer") for the caller on
    *  this pipeline, or None if no grant exists.
    *  Used by PipelineService to distinguish editor from viewer for mutation gating. */
@@ -111,15 +164,58 @@ class PipelineRepository(
 
   private def rowToPipeline(row: PipelineRow): Pipeline =
     Pipeline(
-      id                 = PipelineId(row.id),
-      name               = row.name,
-      sourceDataSourceId = DataSourceId(row.sourceDataSourceId),
-      lastRunStatus      = row.lastRunStatus,
-      lastRunAt          = row.lastRunAt,
-      createdAt          = row.createdAt,
-      updatedAt          = row.updatedAt,
-      ownerId            = UserId(row.ownerId.toString),
-      tag                = row.tag
+      id            = PipelineId(row.id),
+      name          = row.name,
+      lastRunStatus = row.lastRunStatus,
+      lastRunAt     = row.lastRunAt,
+      createdAt     = row.createdAt,
+      updatedAt     = row.updatedAt,
+      ownerId       = UserId(row.ownerId.toString),
+      tag           = row.tag
+    )
+
+  /** HEL-913: `PipelineSummary`'s `sourceDataSourceId`/`sourceDataSourceName` fields are
+    * preserved as-is at this task (the wire shape moves to `roots[]` in task 7.2, a later
+    * stage) -- populated here from the pipeline's LOWEST-POSITIONED root (`pipeline_roots`,
+    * `position = 0`) rather than the now-dropped `pipelines.source_data_source_id` column. This
+    * keeps every existing consumer of `PipelineSummary` correct for the single-root case
+    * (today's only case) while the underlying storage has already moved to `pipeline_roots`. */
+  private def summaryQuery(filteredPipelines: Query[PipelineTable, PipelineRow, Seq]) =
+    for {
+      pipeline   <- filteredPipelines
+      root       <- rootsTable if root.pipelineId === pipeline.id && root.position === 0
+      dataSource <- dataSourcesTable if dataSource.id === root.dataSourceId
+    } yield (pipeline, root.dataSourceId, dataSource.name)
+
+  /** HEL-913 task 7.2: every root (position-ordered) for the given pipeline ids, each joined to
+    * its `DataSource` name -- the multi-root sibling of `summaryQuery`'s position-0-only join.
+    * Privileged (`withSystemContext`): every caller here has already resolved ACL for the
+    * pipelines themselves via `summaryQuery`'s own owner/sharing filter; a root can never be
+    * read for a pipeline the caller couldn't already see. */
+  private def allRootsQuery(pipelineIds: Set[String]) =
+    (for {
+      root       <- rootsTable if root.pipelineId.inSet(pipelineIds)
+      dataSource <- dataSourcesTable if dataSource.id === root.dataSourceId
+    } yield (root.pipelineId, root.id, root.position, root.dataSourceId, dataSource.name))
+      .sortBy { case (pid, _, pos, _, _) => (pid, pos) }
+
+  private def rootsByPipelineId(pipelineIds: Set[String]): DBIO[Map[String, Vector[PipelineRootSummary]]] =
+    allRootsQuery(pipelineIds).result.map(_.groupBy(_._1).view.mapValues(_.map { case (_, rid, _, dsId, dsName) =>
+      PipelineRootSummary(rid, dsId, dsName)
+    }.toVector).toMap)
+
+  private def rowToSummary(p: PipelineRow, sourceDataSourceId: String, srcName: String, roots: Vector[PipelineRootSummary]): PipelineSummary =
+    PipelineSummary(
+      id                   = p.id,
+      name                 = p.name,
+      sourceDataSourceId   = sourceDataSourceId,
+      sourceDataSourceName = srcName,
+      roots                = roots,
+      lastRunStatus        = p.lastRunStatus,
+      lastRunAt            = p.lastRunAt.map(_.toString),
+      lastRunRowCount      = p.lastRunRowCount,
+      ownerId              = p.ownerId.toString,
+      tag                  = p.tag
     )
 
   /** Sharing-aware joined summary. Returns Some for owner or grantee callers. */
@@ -127,46 +223,23 @@ class PipelineRepository(
     findByIdShared(id, callerOpt).flatMap {
       case None => Future.successful(None)
       case Some(_) =>
-        val query = for {
-          pipeline   <- pipelinesTable if pipeline.id === id.value
-          dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
-        } yield (pipeline, dataSource.name)
-        ctx.withSystemContext(query.result.headOption).map(_.map { case (p, srcName) =>
-          PipelineSummary(
-            id                   = p.id,
-            name                 = p.name,
-            sourceDataSourceId   = p.sourceDataSourceId,
-            sourceDataSourceName = srcName,
-            lastRunStatus        = p.lastRunStatus,
-            lastRunAt            = p.lastRunAt.map(_.toString),
-            lastRunRowCount      = p.lastRunRowCount,
-            ownerId              = p.ownerId.toString,
-            tag                  = p.tag
-          )
-        })
+        ctx.withSystemContext {
+          for {
+            headOpt <- summaryQuery(pipelinesTable.filter(_.id === id.value)).result.headOption
+            roots   <- rootsByPipelineId(Set(id.value))
+          } yield headOpt.map { case (p, srcId, srcName) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty)) }
+        }
     }
 
   /** Owner-scoped joined summary for a single pipeline. */
   def findSummaryById(id: PipelineId, user: AuthenticatedUser): Future[Option[PipelineSummary]] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    val query = for {
-      pipeline   <- pipelinesTable if pipeline.id === id.value && pipeline.ownerId === ownerUuid
-      dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
-    } yield (pipeline, dataSource.name)
-
-    ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map { case (p, srcName) =>
-      PipelineSummary(
-        id                   = p.id,
-        name                 = p.name,
-        sourceDataSourceId   = p.sourceDataSourceId,
-        sourceDataSourceName = srcName,
-        lastRunStatus        = p.lastRunStatus,
-        lastRunAt            = p.lastRunAt.map(_.toString),
-        lastRunRowCount      = p.lastRunRowCount,
-        ownerId              = p.ownerId.toString,
-        tag                  = p.tag
-      )
-    })
+    ctx.withUserContext(user.id.value) {
+      for {
+        headOpt <- summaryQuery(pipelinesTable.filter(p => p.id === id.value && p.ownerId === ownerUuid)).result.headOption
+        roots   <- rootsByPipelineId(Set(id.value))
+      } yield headOpt.map { case (p, srcId, srcName) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty)) }
+    }
   }
 
   /** Owner-scoped name update. Returns `None` if the pipeline does not exist
@@ -185,9 +258,15 @@ class PipelineRepository(
     }
   }
 
-  /** Owner-scoped create. Verifies the bound `sourceDataSourceId` belongs to
-    * the caller; returns `Left("Data source not found")` if it does not (404,
-    * not 400 — existence and authorization are indistinguishable).
+  /** Owner-scoped create — HEL-913 task 7.3 (R8): `sourceDataSourceIds` is one root per element,
+    * in request order (`position` = index). Validated and resolved SEQUENTIALLY, refusing on the
+    * FIRST invalid entry -- a blank id is `Left("sourceId is required and must not be blank")`
+    * (no `"not found"` substring, so `PipelineService.create`'s existing `msg.contains("not
+    * found")` error-mapping convention correctly surfaces it as 400) with **no ownership lookup
+    * performed for that entry** (R8's explicit rule: the HEL-950 empty-seed-id guard does not
+    * extend to roots); a non-blank id that doesn't resolve via `findByIdOwned` is
+    * `Left(s"Data source not found: ...")` (404, same convention). Never empty (R8/the
+    * empty-`roots`-array 400 is enforced by the caller, `PipelineService.create`).
     *
     * HEL-904 task 3.5: no longer mints a DataType — a new pipeline's
     * panel-bindable output is an explicit Output row, created separately
@@ -196,34 +275,55 @@ class PipelineRepository(
     * constraint) for every pipeline created via this path. */
   def create(
       name: String,
-      sourceDataSourceId: DataSourceId,
+      sourceDataSourceIds: Vector[DataSourceId],
       user: AuthenticatedUser,
       tag: Option[String] = None
   ): Future[Either[String, PipelineSummary]] = {
-    dataSourceRepo.findByIdOwned(sourceDataSourceId, user).flatMap {
-      case None =>
-        Future.successful(Left("Data source not found"))
-      case Some(dataSource) =>
+    require(sourceDataSourceIds.nonEmpty, "create: sourceDataSourceIds must be non-empty (caller's job to enforce R8's empty-roots 400)")
+
+    def resolveInOrder(remaining: List[DataSourceId], acc: Vector[(DataSourceId, DataSource)]): Future[Either[String, Vector[(DataSourceId, DataSource)]]] =
+      remaining match {
+        case Nil => Future.successful(Right(acc))
+        case id :: rest =>
+          if (id.value.trim.isEmpty)
+            Future.successful(Left("sourceId is required and must not be blank"))
+          else
+            dataSourceRepo.findByIdOwned(id, user).flatMap {
+              case None     => Future.successful(Left(s"Data source not found: ${id.value}"))
+              case Some(ds) => resolveInOrder(rest, acc :+ ((id, ds)))
+            }
+      }
+
+    resolveInOrder(sourceDataSourceIds.toList, Vector.empty).flatMap {
+      case Left(msg) => Future.successful(Left(msg))
+      case Right(dataSources) =>
         val now         = Instant.now()
         val pipelineId  = UUID.randomUUID().toString
         val pipelineRow = PipelineRow(
-          id                 = pipelineId,
-          name               = name,
-          sourceDataSourceId = sourceDataSourceId.value,
-          lastRunStatus      = None,
-          lastRunAt          = None,
-          createdAt          = now,
-          updatedAt          = now,
-          lastRunRowCount    = None,
-          ownerId            = UUID.fromString(user.id.value),
-          tag                = tag
+          id              = pipelineId,
+          name            = name,
+          lastRunStatus   = None,
+          lastRunAt       = None,
+          createdAt       = now,
+          updatedAt       = now,
+          lastRunRowCount = None,
+          ownerId         = UUID.fromString(user.id.value),
+          tag             = tag
         )
-        ctx.withUserContext(user.id.value)(pipelinesTable += pipelineRow).map { _ =>
+        val rootRows = dataSources.zipWithIndex.map { case ((dsId, _), position) =>
+          PipelineRootRepository.PipelineRootRow(UUID.randomUUID().toString, pipelineId, dsId.value, position, now)
+        }
+        ctx.withUserContext(user.id.value)(
+          DBIO.seq(pipelinesTable += pipelineRow, rootsTable ++= rootRows)
+        ).map { _ =>
+          val roots = dataSources.zip(rootRows).map { case ((dsId, ds), row) => PipelineRootSummary(row.id, dsId.value, ds.name) }
+          val (primaryDsId, primaryDs) = dataSources.head
           Right(PipelineSummary(
             id                   = pipelineId,
             name                 = name,
-            sourceDataSourceId   = sourceDataSourceId.value,
-            sourceDataSourceName = dataSource.name,
+            sourceDataSourceId   = primaryDsId.value,
+            sourceDataSourceName = primaryDs.name,
+            roots                = roots,
             lastRunStatus        = None,
             lastRunAt            = None,
             lastRunRowCount      = None,
@@ -241,39 +341,54 @@ class PipelineRepository(
    *  for atomicity), then composes this action with the step/Output insert actions that follow
    *  into ONE transaction via `runTransactionally`. `sourceDataSourceName` is passed in rather
    *  than re-resolved here since the caller already has the `DataSource` from that check. */
+  /** HEL-913 task 7.3a: multi-root DBIO variant of the pipeline-row-insert half of `create`
+    * above -- `dataSources` is one already-ACL-checked `(DataSourceId, DataSource)` pair per
+    * root, in request order (`position` = index), mirroring `create`'s own contract but composed
+    * into the caller's larger transaction (`PipelineService.createTransactional`) instead of
+    * running standalone. Returns the summary AND `rootIds`, the real persisted `PipelineRootId`
+    * per root in the SAME order as `dataSources` -- the caller needs these to resolve `roots[]`'s
+    * `clientId` (R13) to a real id BEFORE building step/Output insert actions, so a parentless
+    * step/root-bound Output can name an explicit root rather than silently attaching to
+    * whichever root this method happens to insert first. */
   def createAction(
       name: String,
-      sourceDataSourceId: DataSourceId,
-      sourceDataSourceName: String,
+      dataSources: Vector[(DataSourceId, DataSource)],
       user: AuthenticatedUser,
       tag: Option[String]
-  ): DBIO[PipelineSummary] = {
+  ): DBIO[(PipelineSummary, Vector[PipelineRootId])] = {
+    require(dataSources.nonEmpty, "createAction: dataSources must be non-empty (caller's job to enforce R8's empty-roots 400)")
     val now        = Instant.now()
     val pipelineId = UUID.randomUUID().toString
     val pipelineRow = PipelineRow(
-      id                 = pipelineId,
-      name               = name,
-      sourceDataSourceId = sourceDataSourceId.value,
-      lastRunStatus      = None,
-      lastRunAt          = None,
-      createdAt          = now,
-      updatedAt          = now,
-      lastRunRowCount    = None,
-      ownerId            = UUID.fromString(user.id.value),
-      tag                = tag
+      id              = pipelineId,
+      name            = name,
+      lastRunStatus   = None,
+      lastRunAt       = None,
+      createdAt       = now,
+      updatedAt       = now,
+      lastRunRowCount = None,
+      ownerId         = UUID.fromString(user.id.value),
+      tag             = tag
     )
-    (pipelinesTable += pipelineRow).map { _ =>
-      PipelineSummary(
+    val rootRows = dataSources.zipWithIndex.map { case ((dsId, _), position) =>
+      PipelineRootRepository.PipelineRootRow(UUID.randomUUID().toString, pipelineId, dsId.value, position, now)
+    }
+    DBIO.seq(pipelinesTable += pipelineRow, rootsTable ++= rootRows).map { _ =>
+      val roots = dataSources.zip(rootRows).map { case ((dsId, ds), row) => PipelineRootSummary(row.id, dsId.value, ds.name) }
+      val (primaryDsId, primaryDs) = dataSources.head
+      val summary = PipelineSummary(
         id                   = pipelineId,
         name                 = name,
-        sourceDataSourceId   = sourceDataSourceId.value,
-        sourceDataSourceName = sourceDataSourceName,
+        sourceDataSourceId   = primaryDsId.value,
+        sourceDataSourceName = primaryDs.name,
+        roots                = roots,
         lastRunStatus        = None,
         lastRunAt            = None,
         lastRunRowCount      = None,
         ownerId              = user.id.value,
         tag                  = tag
       )
+      (summary, rootRows.map(r => PipelineRootId(r.id)))
     }
   }
 
@@ -394,28 +509,17 @@ class PipelineRepository(
     * (HEL-366 tasks.md 2.5) — `None` is the pre-existing unfiltered behavior. */
   def listSummaries(user: AuthenticatedUser, tag: Option[String] = None): Future[Vector[PipelineSummary]] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    val ownedPipelines = tag match {
-      case Some(t) => pipelinesTable.filter(p => p.ownerId === ownerUuid && p.tag === t)
-      case None    => pipelinesTable.filter(_.ownerId === ownerUuid)
+    val query = tag match {
+      case Some(t) => summaryQuery(pipelinesTable.filter(p => p.ownerId === ownerUuid && p.tag === t))
+      case None    => summaryQuery(pipelinesTable.filter(_.ownerId === ownerUuid))
     }
-    val query = for {
-      pipeline   <- ownedPipelines
-      dataSource <- dataSourcesTable if dataSource.id === pipeline.sourceDataSourceId
-    } yield (pipeline, dataSource.name)
 
-    ctx.withUserContext(user.id.value)(query.result).map(_.map { case (p, srcName) =>
-      PipelineSummary(
-        id                   = p.id,
-        name                 = p.name,
-        sourceDataSourceId   = p.sourceDataSourceId,
-        sourceDataSourceName = srcName,
-        lastRunStatus        = p.lastRunStatus,
-        lastRunAt            = p.lastRunAt.map(_.toString),
-        lastRunRowCount      = p.lastRunRowCount,
-        ownerId              = p.ownerId.toString,
-        tag                  = p.tag
-      )
-    }.toVector)
+    ctx.withUserContext(user.id.value) {
+      for {
+        rows  <- query.result
+        roots <- rootsByPipelineId(rows.map(_._1.id).toSet)
+      } yield rows.map { case (p, srcId, srcName) => rowToSummary(p, srcId, srcName, roots.getOrElse(p.id, Vector.empty)) }.toVector
+    }
   }
 }
 
@@ -427,12 +531,28 @@ object PipelineRepository {
       ts      => ts.toInstant
     )
 
-  /** Flat DTO returned by the list-summaries query. */
+  /** One root as it appears on a `PipelineSummary` (HEL-913 task 7.2) -- `position`-ordered by
+    * the caller that assembles the `Vector`, never re-sorted downstream. */
+  case class PipelineRootSummary(
+      id: String,
+      dataSourceId: String,
+      dataSourceName: String
+  )
+
+  /** Flat DTO returned by the list-summaries query. `sourceDataSourceId`/`sourceDataSourceName`
+    * (the lowest-positioned root's convenience fields, unchanged since Stage 1) are KEPT
+    * alongside the new `roots` (additive, HEL-913 task 7.2) -- removing them would cascade into
+    * `PipelineRunService`/`WorkspaceContextService`/`PatchSetPreviewProjection`/
+    * `PatchSetApplyResolvers`/`RefinementEditShape`/`PipelineProposalService`/
+    * `WorkspaceSearchService` (12 files, ~59 call sites total across the codebase), none of
+    * which is this task's own scope -- tracked as remaining work, not silently dropped (see
+    * files-modified.md). */
   case class PipelineSummary(
       id: String,
       name: String,
       sourceDataSourceId: String,
       sourceDataSourceName: String,
+      roots: Vector[PipelineRootSummary],
       lastRunStatus: Option[String],
       lastRunAt: Option[String],
       lastRunRowCount: Option[Long],
@@ -443,7 +563,6 @@ object PipelineRepository {
   case class PipelineRow(
       id: String,
       name: String,
-      sourceDataSourceId: String,
       lastRunStatus: Option[String],
       lastRunAt: Option[Instant],
       createdAt: Instant,
@@ -459,7 +578,6 @@ object PipelineRepository {
   class PipelineTable(slickTag: Tag) extends Table[PipelineRow](slickTag, "pipelines") {
     def id                 = column[String]("id", O.PrimaryKey)
     def name               = column[String]("name")
-    def sourceDataSourceId = column[String]("source_data_source_id")
     def lastRunStatus      = column[Option[String]]("last_run_status")
     def lastRunAt          = column[Option[Instant]]("last_run_at")
     def createdAt          = column[Instant]("created_at")
@@ -476,7 +594,7 @@ object PipelineRepository {
     def lastSourceSchema   = column[Option[String]]("last_source_schema")
 
     def * =
-      (id, name, sourceDataSourceId, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)
+      (id, name, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)
         .mapTo[PipelineRow]
   }
 }

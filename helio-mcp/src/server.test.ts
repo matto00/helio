@@ -16,7 +16,7 @@
  * `not.toContain` (removed tools) + `arrayContaining` (a subset of
  * replacements) + a duplicate check — none of which is an EXACT set, so an
  * accidentally re-added or renamed tool would have passed silently. Fixed by
- * adding `EXPECTED_TOOL_NAMES`, the full 60-tool list (enumerated via
+ * adding `EXPECTED_TOOL_NAMES`, the full tool list (originally 60, enumerated via
  * `grep -rhoE 'registerTool\(\s*\n?\s*"[a-z_]+"' src/tools/*.ts`, cross-checked
  * against every `registerXTools` call in `server.ts`), asserted via a sorted
  * equality — the comment now backs what the code actually does.
@@ -56,6 +56,7 @@ const EXPECTED_TOOL_NAMES = [
   "add_output",
   "add_outputs_from_shape",
   "add_pipeline_step",
+  "add_root",
   "analyze_pipeline",
   "analyze_pipeline_proposal",
   "apply_combined_proposal",
@@ -100,6 +101,7 @@ const EXPECTED_TOOL_NAMES = [
   "propose_dashboard",
   "propose_patch_set",
   "propose_pipeline",
+  "remove_root",
   "replace_dashboard_contents",
   "run_pipeline",
   "set_pipeline_schedule",

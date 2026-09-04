@@ -63,7 +63,7 @@ async function seedThroughputOutput(page: Page, request: APIRequestContext) {
   const pipelineRes = await request.post("/api/pipelines", {
     data: {
       name: "HEL-909 Service Pipeline",
-      sourceDataSourceId: source.id,
+      roots: [{ sourceId: source.id }],
     },
     headers: { [CSRF_HEADER]: "1" },
   });

@@ -12,13 +12,21 @@ import spray.json._
 import java.util.concurrent.ConcurrentHashMap
 
 
+/** HEL-913 R15: `nodeKind` is the explicit wire discriminator distinguishing a `nodeId` that
+ *  names a pipeline ROOT from one that names a STEP -- `"root"` or `"step"`, always populated
+ *  alongside `nodeId` (never one without the other). Before this, `nodeId` carried a raw id
+ *  string with no way for a consumer to tell which kind of id it was without ALREADY knowing
+ *  which ids in this pipeline are roots (the exact ambiguity `NodeKey`/`RootKey`/`StepKey`
+ *  exists internally to eliminate; this closes the same gap on the wire). */
 final case class RunStatusEvent(
     status:   String,
     rowCount: Option[Int]    = None,
     errorLog: Option[String] = None,
-    // HEL-905 (design.md Decision 6): identifies the node a "node-progress" event describes
-    // (step id string; `None` = pipeline root). Unused by every other status value.
-    nodeId: Option[String] = None
+    // HEL-905 (design.md Decision 6): identifies the node a "node-progress" event describes.
+    // HEL-913 R15: `nodeKind` (below) is the discriminator; `nodeId` alone is now ambiguous
+    // under multi-root without it.
+    nodeId:   Option[String] = None,
+    nodeKind: Option[String] = None
 )
 
 object RunStatusEvent {
@@ -41,6 +49,7 @@ object RunStatusEvent {
     event.rowCount.foreach(n => fields("rowCount") = JsNumber(n))
     event.errorLog.foreach(s => fields("errorLog") = JsString(s))
     event.nodeId.foreach(s => fields("nodeId") = JsString(s))
+    event.nodeKind.foreach(s => fields("nodeKind") = JsString(s))
     val json = JsObject(fields.toMap).compactPrint
     ByteString("event: run-status\ndata: " + json + "\n\n")
   }

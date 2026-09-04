@@ -146,7 +146,16 @@ final class WorkspaceSearchService(
       // HEL-904 task 3.5: `outputDataTypeName` no longer exists on
       // `PipelineSummaryResponse` (task 3.2 rewires this description onto
       // Outputs). Left source-only until then.
-      description  = p.sourceDataSourceName
+      // HEL-913 task 7.2a: `sourceDataSourceName` (the lowest-positioned root's convenience
+      // scalar) removed -- reading `roots.head` here unqualified would be exactly R3's banned
+      // "position privileges a root" pattern reappearing in presentation text. A single-root
+      // pipeline (still the overwhelming common case) names its one source; a genuine
+      // multi-root pipeline states the count instead of silently picking one root to represent
+      // all of them.
+      description  = p.roots match {
+        case Vector(only) => only.dataSourceName
+        case many         => s"${many.size} sources"
+      }
     )
 
   /** Reuses `workspaceContextService.toDashboardEntry` (widened `private[services]`, design.md D2)

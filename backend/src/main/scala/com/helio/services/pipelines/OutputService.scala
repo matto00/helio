@@ -4,8 +4,8 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.auth.AccessChecker
 import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputRequest, DeleteOutputResponse, OutputPanelPlacementResponse, OutputRowsResponse, UpdateOutputRequest}
-import com.helio.domain.model.{AuthenticatedUser, NodeRef, Output, OutputId, OutputKind, Page, PagedResult, PipelineId, PipelineRunId, PipelineStepId, ResourceAccess}
-import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRunRepository}
+import com.helio.domain.model.{AuthenticatedUser, NodeRef, Output, OutputId, OutputKind, Page, PagedResult, PipelineId, PipelineRootId, PipelineRunId, PipelineStepId, ResourceAccess}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRootRepository, PipelineRunRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.domain.panels.OutputBindingSpec
 import org.slf4j.LoggerFactory
@@ -40,7 +40,12 @@ final class OutputService(
     // backfill kicked off by create/update below (never blocks, never fails the caller either
     // way -- see PipelineRunService.backfillOutputNode's own doc for why this is a targeted,
     // single-node call rather than PipelineRunService's own per-run write).
-    pipelineRunService: PipelineRunService = null
+    pipelineRunService: PipelineRunService = null,
+    // HEL-913 task 5.8a: nullable-optional wiring mirrors pipelineRunService/nodeSnapshotRepo
+    // above -- a fixture that doesn't pass a PipelineRootRepository simply cannot validate a
+    // caller-supplied `rootId` and falls back to the pipeline's auto-resolved first root
+    // (Stage-1/2 behavior), never an NPE.
+    pipelineRootRepo: PipelineRootRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -54,7 +59,10 @@ final class OutputService(
    *  this file) is a no-op too. */
   private def triggerBackfill(output: Output, user: AuthenticatedUser): Unit =
     if (pipelineRunService != null)
-      pipelineRunService.backfillOutputNode(output.node.pipelineId, output.node.stepId, user)
+      // HEL-913 task 5.10: threads the Output's OWN root id through so a root-bound backfill
+      // evaluates the root this Output is actually attached to, not always the lowest-positioned
+      // one -- see PipelineRunService.backfillOutputNode's doc.
+      pipelineRunService.backfillOutputNode(output.node.pipelineId, output.node.stepId, user, output.node.rootId)
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
@@ -122,6 +130,10 @@ final class OutputService(
   def create(pipelineId: PipelineId, req: CreateOutputRequest, user: AuthenticatedUser): Future[Either[ServiceError, (Output, JsObject)]] =
     if (req.name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name is required")))
+    // HEL-913 task 5.8a: `nodeStepId` and `rootId` are mutually exclusive when BOTH are
+    // present -- naming both is ambiguous (which one wins?) and never a silent pick.
+    else if (req.nodeStepId.isDefined && req.rootId.isDefined)
+      Future.successful(Left(ServiceError.BadRequest("nodeStepId and rootId are mutually exclusive")))
     else OutputKind.fromString(req.kind) match {
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(kind) =>
@@ -133,24 +145,81 @@ final class OutputService(
               case Left(err)                       => Future.successful(Left(err))
               case Right(ResourceAccess.Viewer)     => Future.successful(Left(ServiceError.Forbidden()))
               case Right(_)                         =>
-                outputRepo.insertInternal(
-                  pipelineId = pipelineId,
-                  nodeStepId = req.nodeStepId.map(PipelineStepId(_)),
-                  ownerId    = user.id,
-                  name       = req.name.trim,
-                  kind       = kind,
-                  config     = config
-                ).map { output =>
-                  audit("output.create", Some(output.id.value), user)
-                  triggerBackfill(output, user)
-                  // HEL-946: return the config we just wrote, not a re-fetch —
-                  // the caller (POST /api/pipelines/:id/outputs) previously
-                  // dropped it via the config-less `outputResponseFrom`
-                  // overload, so a freshly-created Output round-tripped as
-                  // `config: {}` even though the write itself was correct.
-                  Right((output, config))
+                requireUnambiguousRootWhenNeither(pipelineId, req).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(()) =>
+                    resolveExplicitRootId(pipelineId, req.rootId).flatMap {
+                      case Left(err) => Future.successful(Left(err))
+                      case Right(explicitRootId) =>
+                        outputRepo.insertInternal(
+                          pipelineId = pipelineId,
+                          nodeStepId = req.nodeStepId.map(PipelineStepId(_)),
+                          ownerId    = user.id,
+                          name       = req.name.trim,
+                          kind       = kind,
+                          config     = config,
+                          explicitRootId = explicitRootId
+                        ).map { output =>
+                          audit("output.create", Some(output.id.value), user)
+                          triggerBackfill(output, user)
+                          // HEL-946: return the config we just wrote, not a re-fetch —
+                          // the caller (POST /api/pipelines/:id/outputs) previously
+                          // dropped it via the config-less `outputResponseFrom`
+                          // overload, so a freshly-created Output round-tripped as
+                          // `config: {}` even though the write itself was correct.
+                          Right((output, config))
+                        }
+                    }
                 }
             }
+        }
+    }
+
+  /** HEL-913 (evaluation-1.md cycle 2, Priority 2 Site A): a create naming NEITHER
+   *  `nodeStepId` NOR `rootId` is unambiguous only when this pipeline has exactly one root --
+   *  mirrors `PipelineService.persistNewStep`'s `(None, None)` guard exactly, including its
+   *  message shape. Previously this fell straight through to `resolveExplicitRootId`'s `None`
+   *  branch and then `OutputRepository.insertInternal`'s `firstRootIdAction` (the
+   *  lowest-positioned root) -- a silent default this change's own `add_root` tool falsifies.
+   *  R3 forbids exactly this: auto-resolving to position is not one of the three permitted
+   *  tiebreaks, and "root 0 quietly means the root" is how multi-root degenerates back into
+   *  single-root-with-extras. `pipelineRootRepo == null` (a fixture that doesn't wire one)
+   *  skips the check -- nothing to count against, matching `resolveExplicitRootId`'s own
+   *  degrade contract. */
+  private def requireUnambiguousRootWhenNeither(pipelineId: PipelineId, req: CreateOutputRequest): Future[Either[ServiceError, Unit]] =
+    if (req.nodeStepId.isDefined || req.rootId.isDefined || pipelineRootRepo == null)
+      Future.successful(Right(()))
+    else
+      pipelineRootRepo.listInternal(pipelineId).map { roots =>
+        if (roots.size > 1)
+          Left(ServiceError.BadRequest(
+            s"This pipeline has ${roots.size} roots -- name one via rootId, or anchor via nodeStepId"
+          ))
+        else Right(())
+      }
+
+  /** HEL-913 task 5.8a: validates a caller-supplied `rootId` (from `CreateOutputRequest`)
+   *  actually belongs to `pipelineId` -- a root of ANOTHER pipeline is a named 400, never
+   *  silently accepted (the same cross-tenant-id discipline HEL-384/HEL-950 established for
+   *  step secondary inputs). `None` in means "no explicit root named" -- `requireUnambiguousRootWhenNeither`
+   *  runs BEFORE this (see `create`), which is what makes the `None` returned here safe for
+   *  `OutputRepository.insertInternal`'s `firstRootIdAction` fallback to consume: see that
+   *  method's own doc for the full three-caller enumeration this class is one of (evaluation-2.md
+   *  Rule B -- an enumeration, not "the caller is responsible"). `pipelineRootRepo == null` (a
+   *  fixture that doesn't wire one) degrades identically, since there is nothing to validate
+   *  against and no caller of THIS class exercises a non-null `req.rootId` without also wiring
+   *  the repository. */
+  private def resolveExplicitRootId(pipelineId: PipelineId, rootId: Option[String]): Future[Either[ServiceError, Option[PipelineRootId]]] =
+    rootId match {
+      case None => Future.successful(Right(None))
+      case Some(rid) if pipelineRootRepo == null =>
+        Future.successful(Left(ServiceError.BadRequest("rootId is not supported by this deployment")))
+      case Some(rid) =>
+        pipelineRootRepo.listInternal(pipelineId).map { roots =>
+          roots.find(_.id.value == rid) match {
+            case Some(root) => Right(Some(root.id))
+            case None       => Left(ServiceError.BadRequest(s"rootId '$rid' does not belong to pipeline '${pipelineId.value}'"))
+          }
         }
     }
 
@@ -294,7 +363,7 @@ final class OutputService(
         Future.successful(Right(OutputRowsResponse(Vector.empty, 0, page.offset, page.limit, materialized = false)))
       case Some(output) =>
         nodeSnapshotRepo
-          .listRowsPaged(output.node.pipelineId.value, output.node.stepId.map(_.value), page)
+          .listRowsPaged(output.node.pipelineId.value, output.node.stepId.map(_.value), page, explicitRootId = output.node.rootId.map(_.value))
           .flatMap { paged =>
             if (paged.total > 0)
               // Non-empty snapshot -- unambiguously materialized, no need to

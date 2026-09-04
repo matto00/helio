@@ -53,8 +53,7 @@ describe("applyCombinedProposalHandler", () => {
         pipeline: {
           id: "pipeline-1",
           name: "Revenue pipeline",
-          sourceDataSourceId: "source-1",
-          sourceDataSourceName: "Source 1",
+          roots: [{ id: "root-1", dataSourceId: "source-1", dataSourceName: "Source 1" }],
           lastRunStatus: "succeeded",
           lastRunAt: "2026-01-01T00:00:00Z",
           lastRunRowCount: 3,

@@ -109,6 +109,10 @@ export async function addPipelineStepHandler(
     parentStepId?: string;
     position?: number;
     enabled?: boolean;
+    /** HEL-913 task 9.5 -- the alternative anchor to `parentStepId` for a multi-root pipeline:
+     *  names WHICH root a PARENTLESS step extends the trunk of. Mutually exclusive with
+     *  `parentStepId` (both -> 400 from the backend); unnecessary on a single-root pipeline. */
+    rootId?: string;
   },
 ): Promise<PipelineStepResponse> {
   if (input.type === "assert") {
@@ -123,5 +127,6 @@ export async function addPipelineStepHandler(
     parentStepId: input.parentStepId,
     position: input.position,
     enabled: input.enabled,
+    rootId: input.rootId,
   });
 }

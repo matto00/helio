@@ -49,7 +49,7 @@ import com.helio.services.audit.AuditService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRootRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -180,6 +180,9 @@ final class ApiRoutes(
   // matching this file's existing nullable-optional convention.
   // `PipelineRunService` and `AlertRuleService` both null-check these.
   private val outputRepoOpt: Option[OutputRepository] = Option(dbContext).map(new OutputRepository(_))
+  // HEL-913 task 5.8a: threaded into `outputServiceOpt` below so `CreateOutputRequest.rootId`
+  // can be validated against the pipeline's real roots instead of silently ignored.
+  private val pipelineRootRepoOpt: Option[PipelineRootRepository] = Option(dbContext).map(new PipelineRootRepository(_))
   private val nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = Option(dbContext).map(new NodeSnapshotRepository(_))
 
   // HEL-488: same nullable-optional wiring pattern as auditService above —
@@ -264,7 +267,14 @@ final class ApiRoutes(
   // HEL-381: threads the same RestApiConnectorDriver instance sourceService already
   // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo
   // above covers every other analyzeProposal branch).
-  private val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, auditService, outputRepoOpt.orNull)
+  private val pipelineService   = new PipelineService(
+    pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, auditService, outputRepoOpt.orNull,
+    pipelineRootRepo = pipelineRootRepoOpt.orNull,
+    // HEL-913 task 7.1a: `addRoot`'s inline-source branch reuses these SAME instances
+    // `POST /api/sources`/`POST /api/data-sources` already use (defined above).
+    sourceService = sourceService,
+    dataSourceService = dataSourceService
+  )
   // HEL-466: only build the evaluation engine when both privileged repos it
   // needs are present — mirrors alertRuleServiceOpt/alertEventServiceOpt's
   // nullable-optional pattern below. `.orNull` feeds PipelineRunService's
@@ -309,7 +319,8 @@ final class ApiRoutes(
     // nullable-optional collaborator in this file.
     outputRepoOpt.map(new OutputService(
       _, panelRepo, accessChecker, auditService, pipelineRunRepo, nodeSnapshotRepoOpt.orNull,
-      pipelineRunService = pipelineRunService
+      pipelineRunService = pipelineRunService,
+      pipelineRootRepo   = pipelineRootRepoOpt.orNull
     ))
   // HEL-383: atomic pipeline-proposal apply — composes sourceService/
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,

@@ -175,7 +175,7 @@ class ResourceTaggingSpec
           Instant.now(), Instant.now()),
         userA
       ))
-      val body = s"""{"name":"Tagged Pipeline","sourceDataSourceId":"${src.id.value}","outputDataTypeName":"Out","tag":"$tag"}"""
+      val body = s"""{"name":"Tagged Pipeline","roots":[{"sourceId":"${src.id.value}"}],"outputDataTypeName":"Out","tag":"$tag"}"""
       Post("/pipelines", HttpEntity(ContentTypes.`application/json`, body)) ~> pipelineRoutesFor(userA) ~> check {
         status shouldBe StatusCodes.Created
         responseAs[PipelineSummaryResponse].tag shouldBe Some(tag)
@@ -214,8 +214,8 @@ class ResourceTaggingSpec
           Instant.now(), Instant.now()),
         userA
       ))
-      await(pipelineRepo.create("Tagged", src.id, userA, Some(tag)))
-      await(pipelineRepo.create("Untagged", src.id, userA, None))
+      await(pipelineRepo.create("Tagged", Vector(src.id), userA, Some(tag)))
+      await(pipelineRepo.create("Untagged", Vector(src.id), userA, None))
 
       Get(s"/pipelines?tag=$tag") ~> pipelineRoutesFor(userA) ~> check {
         val summaries = responseAs[Vector[PipelineSummaryResponse]]

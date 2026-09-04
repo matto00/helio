@@ -17,6 +17,25 @@ import scala.io.Source
  *  REALISTIC pre-migration data, when run as the same kind of role the production deploy
  *  actually uses to run it.
  *
+ *  HEL-913 task 3.2a -- why the pipeline-count comparison below is LOAD-BEARING, not
+ *  belt-and-braces: `V98PipelineRootsMigrationSpec`'s mutation test (removing V98's `pipelines`
+ *  bracket and running the mutated script as a genuine non-superuser role) proved that V98's
+ *  own in-migration `RAISE EXCEPTION` guard is BLIND to a missing bracket on a fail-SILENT
+ *  table (`pipelines`, `outputs`, `node_snapshots`, `binary_refs` -- `helio_can_access_pipeline`
+ *  fails closed-to-false, not to an error, on an unset context). The guard's own `SELECT ...
+ *  FROM pipelines` shares the IDENTICAL RLS state as the backfill it is meant to police, so if
+ *  the bracket is missing, the guard's count computes over zero VISIBLE rows and never raises --
+ *  the migration reports SUCCESS having silently dropped real data. This is NOT the
+ *  `pipeline_steps` case: that table's policy fails LOUD (raises 42704) before the guard ever
+ *  runs, so a missing bracket there is already caught elsewhere. For the fail-silent set, THIS
+ *  spec's pipeline-count-before (captured over `superDbPreV94`, a plain superuser connection
+ *  that bypasses RLS entirely and is therefore immune to whatever RLS state the migration under
+ *  test leaves `pipelines` in) versus `pipeline_roots`-count-after comparison is the ONLY check
+ *  in this codebase that cannot go vacuous the same way the in-migration guard can. Do not
+ *  remove, reorder after, or "simplify away" this comparison as redundant with V98's own guard
+ *  in any future refactor (Stage 2/3 of this ticket included) -- it is not redundant; it is the
+ *  actual backstop.
+ *
  *  Round 1 (empty-database) blind spot
  *  ------------------------------------
  *  Every other RLS spec in this package (`RlsPolicyGuardSpec`, `RlsOwnerTablesSpec`,
@@ -187,10 +206,12 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
         var rightLegacyCountBefore = 0
         var refLegacyCountBefore   = 0
         var untouchedConfigBefore  = ""
+        var pipelineCountBeforeV98 = 0
 
         val superDbPreV94 = JdbcBackend.Database.forDataSource(superDs, Some(2))
         try {
           val pipelineCount = await(superDbPreV94.run(sql"SELECT count(*) FROM pipelines".as[Int].head))
+          pipelineCountBeforeV98 = pipelineCount
           val panelCount    = await(superDbPreV94.run(sql"SELECT count(*) FROM panels".as[Int].head))
           val boundPanelCount = await(
             superDbPreV94.run(
@@ -276,6 +297,22 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
             snapshotsCount should be > 0
           }
 
+          // HEL-913 task 3.2/3.6a: V98's root backfill actually ran (not a silent zero-row
+          // success -- see V98's own header for why an unbracketed `pipelines` read looks exactly
+          // like this but with zero rows). pipelines-before (captured above, pre-V94) must equal
+          // pipeline_roots-after, non-zero -- 73 from the real dump.
+          val rootCount = await(migratedDb.run(sql"SELECT count(*) FROM pipeline_roots".as[Int].head))
+          withClue(s"pipeline_roots count ($rootCount) should equal the pre-migration pipeline count ($pipelineCountBeforeV98) and be non-zero: ") {
+            rootCount shouldBe pipelineCountBeforeV98
+            rootCount should be > 0
+          }
+          val parentlessStepsWithoutRoot = await(
+            migratedDb.run(sql"SELECT count(*) FROM pipeline_steps WHERE parent_step_id IS NULL AND root_id IS NULL".as[Int].head)
+          )
+          withClue("every parentless pipeline_steps row should carry a non-null root_id after V98: ") {
+            parentlessStepsWithoutRoot shouldBe 0
+          }
+
           // HEL-943: prove the fix's `NO FORCE` / `FORCE` bracket (V94 sections 0/22, plus the
           // deferred-FORCE treatment of `outputs`/`node_snapshots` created in sections 2/3)
           // actually leaves EVERY affected table with FORCE ROW LEVEL SECURITY on at the end --
@@ -293,7 +330,12 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
             "alert_events",
             "patch_set_applications",
             "outputs",
-            "node_snapshots"
+            "node_snapshots",
+            // HEL-913: pipeline_roots is created (not pre-existing) by V98, mirroring the
+            // outputs/node_snapshots treatment above -- FORCE is applied for the first time in
+            // V98's own final section, after its backfill has already run as this same
+            // non-superuser role.
+            "pipeline_roots"
           )
           for (tableName <- forceRlsTables) {
             val forced = await(

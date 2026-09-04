@@ -84,12 +84,12 @@ class PublicPathRlsSmokeSpec extends AnyWordSpec with Matchers with BeforeAndAft
     val now = java.time.Instant.now()
     val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
     val createdSource = await(dataSourceRepo.insert(source, owner))
-    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, owner)).getOrElse(
+    val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), owner)).getOrElse(
       throw new IllegalStateException("seedPipelineWithOutput fixture: pipeline create failed")
     )
     val pid = PipelineId(pipeline.id)
-    val output = await(outputRepo.insertInternal(pid, None, owner.id, "out", OutputKind.Table))
-    await(nodeSnapshotRepo.overwriteRows(pid.value, None, Seq(JsObject("a" -> JsNumber(1)))))
+    val output = await(outputRepo.insertInternal(pid, None, owner.id, "out", OutputKind.Table, explicitRootId = None))
+    await(nodeSnapshotRepo.overwriteRows(pid.value, None, Seq(JsObject("a" -> JsNumber(1))), explicitRootId = None))
     (pid, output.id.value)
   }
 

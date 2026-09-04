@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/create-pipeline-transactional-step-request.schema.json",
   "title": "CreatePipelineTransactionalStepRequest",
-  "description": "One step of the single-call POST /api/pipelines request (HEL-906 task 3.1). `clientId` is request-scoped only, never persisted -- it lets a later step's `parentStepId` target an earlier step in the same request. `parentStepId` absent extends the trunk; present must resolve to an earlier step's `clientId` in this same request.",
+  "description": "One step of the single-call POST /api/pipelines request (HEL-906 task 3.1). `clientId` is request-scoped only, never persisted -- it lets a later step's `parentStepId` target an earlier step in the same request. `parentStepId` absent extends the trunk; present must resolve to an earlier step's `clientId` in this same request. `rootClientId` (HEL-913 task 7.3a, R13) names WHICH `roots[]` element (by its `clientId`) a PARENTLESS step attaches to, required (and validated) only when the request carries more than one root -- meaningless alongside a non-absent `parentStepId`.",
   "type": "object",
   "required": ["clientId", "type", "config"],
   "properties": {
@@ -10,7 +10,8 @@
     "type": { "type": "string" },
     "config": { "type": "object" },
     "parentStepId": { "type": ["string", "null"] },
-    "enabled": { "type": ["boolean", "null"] }
+    "enabled": { "type": ["boolean", "null"] },
+    "rootClientId": { "type": ["string", "null"] }
   },
   "additionalProperties": false
 }

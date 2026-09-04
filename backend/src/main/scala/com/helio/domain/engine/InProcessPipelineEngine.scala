@@ -1,7 +1,7 @@
 package com.helio.domain.engine
 
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
-import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineStep, PipelineStepId, RestSource, SqlSource, StaticSource, TextSource, TruncatedRead, TruncationSink}
+import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineRootId, PipelineStep, PipelineStepId, RestSource, SqlSource, StaticSource, TextSource, TruncatedRead, TruncationSink}
 import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -21,9 +21,20 @@ import scala.util.{Failure, Success}
  *  retained so server-side logging still sees the full throwable. `message`
  *  is what `PipelineRunService` forwards to the client, so it deliberately
  *  contains no more than the curated `reason` — never `cause.toString`, never
- *  a class name. */
-final class StepExecutionException(val stepId: String, val stepKind: String, val reason: String, cause: Throwable)
-    extends Exception(s"Pipeline execution failed at step $stepId ($stepKind): $reason", cause)
+ *  a class name.
+ *
+ *  HEL-913 (design.md R5/R11, tasks 6.1/6.3): `lanePath` is the runtime graph path from the
+ *  failing step's originating root to itself, R5's format (`root:<rootId> > s1 > s4`), composed
+ *  into `getMessage` when non-empty. Defaulted to `""` (omitted from the message entirely) so
+ *  every pre-existing construction site (including the flat, test-only `executeWithStepCounts`
+ *  oracle, which has no root/graph context to build one from) is unaffected — only
+ *  `executeTree`'s real per-node evaluation supplies it. */
+final class StepExecutionException(val stepId: String, val stepKind: String, val reason: String, cause: Throwable, val lanePath: String = "")
+    extends Exception(
+      if (lanePath.nonEmpty) s"Pipeline execution failed at step $stepId ($stepKind) [path: $lanePath]: $reason"
+      else s"Pipeline execution failed at step $stepId ($stepKind): $reason",
+      cause
+    )
 
 object StepExecutionException {
 
@@ -31,10 +42,10 @@ object StepExecutionException {
    *  applying the Decision 3 allowlist. If `cause` is already a
    *  `StepExecutionException` (e.g. a nested engine invocation), it is
    *  returned unchanged rather than double-wrapped. */
-  def from(stepId: String, stepKind: String, cause: Throwable): StepExecutionException = cause match {
+  def from(stepId: String, stepKind: String, cause: Throwable, lanePath: String = ""): StepExecutionException = cause match {
     case already: StepExecutionException => already
-    case iae: IllegalArgumentException   => new StepExecutionException(stepId, stepKind, iae.getMessage, cause)
-    case other                           => new StepExecutionException(stepId, stepKind, "step execution failed", other)
+    case iae: IllegalArgumentException   => new StepExecutionException(stepId, stepKind, iae.getMessage, cause, lanePath)
+    case other                           => new StepExecutionException(stepId, stepKind, "step execution failed", other, lanePath)
   }
 }
 
@@ -64,14 +75,24 @@ final case class InvalidGraph(message: String) extends Exception(message)
  *  path, per design.md's "both arms required" rule. */
 final case class LaneReferenceError(message: String) extends Exception(message)
 
+/** HEL-913 design.md R4: a node in the pipeline graph is either one of the pipeline's own
+ *  roots, or a step. Replaces the pre-multi-root `Option[String]` keying (`None` = "the"
+ *  virtual root) -- under multi-root there is no single root to default to, so the sentinel
+ *  must name WHICH root. Every node's frame in [[TreeWalkResult.nodeOutcomes]], every lane
+ *  reference resolution, and every root-bound Output/snapshot/ref lookup keys on this type. */
+sealed trait NodeKey
+final case class RootKey(rootId: String) extends NodeKey
+final case class StepKey(stepId: String) extends NodeKey
+
 /** HEL-905 (design.md Decision 1/2): the result of a full tree walk -- `rows`/`stepCounts` mirror
- *  the pre-tree-walk engine's return shape exactly (trunk's terminal frame; per-step counts,
- *  trunk + tails); `nodeOutcomes` is the new per-node map (Decision 1), keyed by step id string,
- *  `None` = pipeline root. */
+ *  the pre-tree-walk engine's return shape exactly (the terminal frame of the lowest-positioned
+ *  root's trunk, per R10; per-step counts, trunk + tails); `nodeOutcomes` is the per-node map
+ *  (Decision 1), keyed by [[NodeKey]] (HEL-913 R4 -- supersedes the old `Option[String]`/
+ *  `None`-means-root keying). */
 final case class TreeWalkResult(
     rows: Seq[Row],
     stepCounts: Map[String, Long],
-    nodeOutcomes: Map[Option[String], NodeOutcome]
+    nodeOutcomes: Map[NodeKey, NodeOutcome]
 )
 
 object InProcessPipelineEngine {
@@ -177,7 +198,14 @@ class InProcessPipelineEngine(
    *  both the flat fold above and the tree walk below (`executeTree`'s trunk/tail evaluation)
    *  share the identical config-validate-then-evaluate-then-attribute shape. This is what makes
    *  the tail-free tree walk byte-identical to today's engine (AC1's parity requirement). */
-  private def evalOneStep(currentRows: Seq[Row], step: PipelineStep, ctx: PipelineExecutionContext): Future[Seq[Row]] = {
+  /** `pathOf` (HEL-913, design.md R5/R11 tasks 6.1/6.3) computes the failing step's runtime
+   *  graph path for [[StepExecutionException]]'s message, evaluated lazily (only on the failure
+   *  branch, never on the success path) so it costs nothing when nothing fails. Defaulted to
+   *  always returning `""` (omitted from the message) -- the flat, test-only
+   *  `executeWithStepCounts` oracle has no root/graph context to build a real one from, and
+   *  every pre-existing direct `evalOneStep` caller is unaffected. `executeTree` supplies the
+   *  real builder. */
+  private def evalOneStep(currentRows: Seq[Row], step: PipelineStep, ctx: PipelineExecutionContext, pathOf: PipelineStep => String = _ => ""): Future[Seq[Row]] = {
     // HEL-859 (design.md Decision 1): many step `evaluate` implementations
     // (e.g. `Future.successful(StringOpsStep.apply(rows, config))`)
     // evaluate eagerly — a config-validation throw happens BEFORE any
@@ -209,7 +237,8 @@ class InProcessPipelineEngine(
       // HEL-859 (design.md Decision 1): attribute the failure to this
       // step, here in the fold, so every step kind is covered uniformly
       // rather than each step self-describing its own failures.
-      Future.failed(StepExecutionException.from(step.id.value, step.kind, ex))
+      // HEL-913 (design.md R11, task 6.3): the single throw site the lane path is composed at.
+      Future.failed(StepExecutionException.from(step.id.value, step.kind, ex, pathOf(step)))
     }
   }
 
@@ -242,15 +271,31 @@ class InProcessPipelineEngine(
    *  `InProcessPipelineEngineTreeWalkSpec`'s P1.2 parity fixtures (design.md's required
    *  test) rather than asserted from prose alone. Position 0 is never treated specially
    *  in code -- it is simply the lowest-ranked comparison key, per Engine contract item 2. */
-  private[engine] def structuralRank(steps: Vector[PipelineStep], stepRepo: PipelineStepRepository): Map[Option[PipelineStepId], Int] = {
-    val ranks = scala.collection.mutable.LinkedHashMap.empty[Option[PipelineStepId], Int]
+  /** HEL-913 (design.md R3/R4): now ranks EVERY root's tree, in the given `rootIds` order
+   *  (the caller's responsibility to have sorted by `position` ascending -- R3's cross-root
+   *  tiebreak), each root's own subtree fully before moving to the next root. A pipeline with
+   *  exactly one root (today's only real case) produces the byte-identical rank sequence the
+   *  pre-multi-root single-argument form did, since there is only one root to visit -- required
+   *  for 5.5a's single-root parity. `rootIdOfStep` (from `PipelineStepRepository.rootIdsOf`) is
+   *  the side-map that resolves which root each parentless step is attached to, since
+   *  `PipelineStep` itself does not carry that field (task 4.4a deferral). */
+  private[engine] def structuralRank(
+      steps: Vector[PipelineStep],
+      rootIds: Vector[String],
+      rootIdOfStep: Map[String, String]
+  ): Map[NodeKey, Int] = {
+    val ranks = scala.collection.mutable.LinkedHashMap.empty[NodeKey, Int]
     var counter = 0
-    def visit(nodeId: Option[PipelineStepId]): Unit = {
-      ranks(nodeId) = counter
-      counter += 1
-      stepRepo.childrenOf(steps, nodeId).sortBy(s => -s.position).foreach(c => visit(Some(c.id)))
+    def childrenOfKey(key: NodeKey): Vector[PipelineStep] = key match {
+      case RootKey(rid) => steps.filter(s => s.parentStepId.isEmpty && rootIdOfStep.get(s.id.value).contains(rid))
+      case StepKey(sid) => steps.filter(_.parentStepId.exists(_.value == sid))
     }
-    visit(None)
+    def visit(key: NodeKey): Unit = {
+      ranks(key) = counter
+      counter += 1
+      childrenOfKey(key).sortBy(s => -s.position).foreach(c => visit(StepKey(c.id.value)))
+    }
+    rootIds.foreach(rid => visit(RootKey(rid)))
     ranks.toMap
   }
 
@@ -278,16 +323,27 @@ class InProcessPipelineEngine(
    *  `persist` has no effect here -- this method never writes anything; it exists purely to let
    *  `PipelineRunService` share ONE code path for both a live run and a dry run (Decision 5), the
    *  persistence branch lives entirely in the caller. */
+  /** HEL-913 (design.md R4/R10): `rootFrames` replaces the single `rows` argument -- one
+   *  `(rootId, initialRows)` pair per pipeline root, ORDERED by `position` ascending (R3's
+   *  cross-root tiebreak; the caller's responsibility, mirroring `PipelineRootRepository`'s own
+   *  `sortBy(_.position)` reads). `rootIdOfStep` (`PipelineStepRepository.rootIdsOf`) resolves
+   *  which root each parentless step belongs to. A single-root pipeline (today's only real case)
+   *  passes a one-element `rootFrames` and produces the byte-identical walk the pre-multi-root
+   *  single-`rows` signature did (5.5a's required parity). */
   def executeTree(
-      rows: Seq[Row],
+      rootFrames: Vector[(String, Seq[Row])],
       steps: Vector[PipelineStep],
       stepRepo: PipelineStepRepository,
+      rootIdOfStep: Map[PipelineStepId, PipelineRootId],
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink = new AssertionSink,
       truncationSink: TruncationSink = new TruncationSink,
-      onNodeProgress: (Option[String], Long) => Unit = (_, _) => ()
+      onNodeProgress: (NodeKey, Long) => Unit = (_, _) => ()
   ): Future[TreeWalkResult] = {
-    val ranks   = structuralRank(steps, stepRepo)
+    require(rootFrames.nonEmpty, "executeTree requires at least one root frame (design.md R1: every pipeline has at least one root)")
+    val rootIdOfStepStr: Map[String, String] = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
+    val rootIds: Vector[String] = rootFrames.map(_._1)
+    val ranks   = structuralRank(steps, rootIds, rootIdOfStepStr)
     val laneDep: Map[String, Option[String]] = steps.map(s => s.id.value -> laneDependencyOf(s)).toMap
     val byId: Map[String, PipelineStep] = steps.map(s => s.id.value -> s).toMap
 
@@ -330,25 +386,62 @@ class InProcessPipelineEngine(
     // Mutable per-run state, closed over by `resolveLane` below so a step's lane
     // resolution always reads the CURRENT in-progress nodeOutcomes map (design.md Engine
     // contract item 8) without re-evaluating anything and without threading it through
-    // every recursive call's argument list.
-    var nodeOutcomes: Map[Option[String], NodeOutcome] = Map(None -> NodeOutcome(rows, rows.size.toLong))
-    var evaluatedIds: Set[Option[String]] = Set(None)
+    // every recursive call's argument list. HEL-913: seeded with ONE entry per root (RootKey),
+    // not a single `None` sentinel.
+    var nodeOutcomes: Map[NodeKey, NodeOutcome] =
+      rootFrames.map { case (rid, rows) => (RootKey(rid): NodeKey) -> NodeOutcome(rows, rows.size.toLong) }.toMap
+    var evaluatedIds: Set[NodeKey] = rootIds.map(rid => RootKey(rid): NodeKey).toSet
     var counts: Map[String, Long] = Map.empty
 
-    val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink, stepId => nodeOutcomes.get(Some(stepId)).map(_.rows))
+    val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink, stepId => nodeOutcomes.get(StepKey(stepId)).map(_.rows))
 
-    onNodeProgress(None, rows.size.toLong)
+    rootFrames.foreach { case (rid, rows) => onNodeProgress(RootKey(rid), rows.size.toLong) }
+
+    // HEL-913 (design.md R5/R11, task 6.2/6.2a): the runtime graph path from a step's
+    // originating root to itself, `root:<rootId> > s1 > s4` (R5's format). Walks `parentStepId`
+    // to find the chain AND its root; when the step (or, transitively, a step in its own chain)
+    // has a lane dependency, that dependency's OWN chain is a second candidate route -- task
+    // 6.2a's explicit requirement, because a rejoin's path built from `parentStepId` ALONE would
+    // silently ignore the lane it actually consumed. Per R5, the CANONICAL path when a node is
+    // reachable via more than one route is the one through the lowest-positioned root
+    // (`rootIds`'s own order, since the caller sorts it by position ascending).
+    def rootIndex(rid: String): Int = rootIds.indexOf(rid)
+    def chainToRoot(s: PipelineStep): (String, Vector[String]) = {
+      def loop(cur: PipelineStep, acc: Vector[String]): (String, Vector[String]) =
+        cur.parentStepId.flatMap(p => byId.get(p.value)) match {
+          case Some(parent) => loop(parent, parent.id.value +: acc)
+          case None         => (rootIdOfStepStr.getOrElse(cur.id.value, rootIds.head), acc)
+        }
+      loop(s, Vector(s.id.value))
+    }
+    def buildLanePath(step: PipelineStep): String = {
+      val (ownRoot, ownChain) = chainToRoot(step)
+      val laneCandidate: Option[(String, Vector[String])] =
+        laneDep.getOrElse(step.id.value, None).flatMap(byId.get).map(chainToRoot)
+      val (chosenRoot, chosenChain) = laneCandidate match {
+        case Some((laneRoot, laneChain)) if rootIndex(laneRoot) >= 0 && (rootIndex(ownRoot) < 0 || rootIndex(laneRoot) < rootIndex(ownRoot)) =>
+          (laneRoot, laneChain ++ ownChain)
+        case _ => (ownRoot, ownChain)
+      }
+      (("root:" + chosenRoot) +: chosenChain).mkString(" > ")
+    }
 
     // HEL-905 (design.md Decision 7): a disabled node is transparent -- it is never
     // evaluated; its incoming frame passes through unchanged.
     def evalNode(step: PipelineStep, currentRows: Seq[Row]): Future[Seq[Row]] =
-      if (step.enabled) evalOneStep(currentRows, step, ctx) else Future.successful(currentRows)
+      if (step.enabled) evalOneStep(currentRows, step, ctx, buildLanePath) else Future.successful(currentRows)
 
-    def parentKey(s: PipelineStep): Option[String] = s.parentStepId.map(_.value)
+    // HEL-913 (design.md R4): a parentless step's "parent" is now its OWN root (RootKey), not a
+    // single shared `None` sentinel -- resolved via `rootIdOfStepStr`, which is populated for
+    // every parentless step (V98's CHECK guarantees this) and empty for every parented one.
+    def parentKey(s: PipelineStep): NodeKey = s.parentStepId match {
+      case Some(pid) => StepKey(pid.value)
+      case None      => RootKey(rootIdOfStepStr.getOrElse(s.id.value, rootIds.head))
+    }
 
     def isReady(s: PipelineStep): Boolean =
       evaluatedIds.contains(parentKey(s)) &&
-        laneDep.getOrElse(s.id.value, None).forall(dep => evaluatedIds.contains(Some(dep)))
+        laneDep.getOrElse(s.id.value, None).forall(dep => evaluatedIds.contains(StepKey(dep)))
 
     def loop(remaining: Vector[PipelineStep]): Future[Unit] =
       if (remaining.isEmpty) Future.successful(())
@@ -359,11 +452,11 @@ class InProcessPipelineEngine(
             "Cyclic or unresolved lane reference among pipeline steps: " + remaining.map(_.id.value).mkString(", ")
           ))
         else {
-          val next = ready.minBy(s => ranks.getOrElse(Some(s.id), Int.MaxValue))
+          val next = ready.minBy(s => ranks.getOrElse(StepKey(s.id.value), Int.MaxValue))
           val rest = remaining.filterNot(_.id.value == next.id.value)
-          val parentFrame = parentKey(next).flatMap(k => nodeOutcomes.get(Some(k))).map(_.rows).getOrElse(rows)
+          val parentFrame = nodeOutcomes.get(parentKey(next)).map(_.rows).getOrElse(rootFrames.head._2)
           evalNode(next, parentFrame).flatMap { nextFrame =>
-            val key = Some(next.id.value)
+            val key: NodeKey = StepKey(next.id.value)
             nodeOutcomes = nodeOutcomes.updated(key, NodeOutcome(nextFrame, nextFrame.size.toLong))
             evaluatedIds = evaluatedIds + key
             if (next.enabled) counts = counts.updated(next.id.value, nextFrame.size.toLong)
@@ -373,23 +466,23 @@ class InProcessPipelineEngine(
         }
       }
 
-    // HEL-911 evaluation-1.md CR1 (cycle 2): `rows` MUST keep meaning the trunk terminal's
-    // frame (P1.2's `walkTrunk` semantics), NOT "whatever was evaluated last in
-    // structuralRank order" (`lastFrame` above) -- those diverge the moment the trunk
-    // terminal has a tail (`structuralRank` visits the tail AFTER the position-0
-    // continuation it hangs off, so `lastFrame` becomes the TAIL's frame), and five
-    // call sites (PipelineRunService's SSE row count, `pipelines.last_run_row_count`,
-    // `pipeline_runs.row_count`, and -- critically -- `binaryRefRepo.overwriteForNode`
-    // keyed by `trunkOf(steps).lastOption`) depend on `rows` being the SAME node
-    // `trunkOf(steps).lastOption` identifies, or binary refs get keyed to one node and
-    // extracted from another. `trunkOf` (CR2) picks the first position-0 child at each
-    // level, exactly the "trunk" convention every one of those five call sites already
-    // shares -- this walk's `rows` must agree with it, not redefine it. An empty trunk
-    // (no position-0 root child) falls back to the untouched root frame, matching
-    // pre-HEL-911 `walkTrunk(None, rows, ...)`'s own base case.
-    val trunkTerminalId: Option[String] = stepRepo.trunkOf(steps).lastOption.map(_.id.value)
+    // HEL-911 evaluation-1.md CR1 (cycle 2), extended by HEL-913 R10: `rows` MUST keep meaning
+    // the TRUNK TERMINAL's frame, not "whatever was evaluated last in structuralRank order" --
+    // and under multi-root, specifically the LOWEST-POSITIONED root's trunk (R10's tiebreak),
+    // never an arbitrary root's. Five call sites (PipelineRunService's SSE row count,
+    // `pipelines.last_run_row_count`, `pipeline_runs.row_count`, and -- critically --
+    // `binaryRefRepo.overwriteForNode` keyed by `trunkOfRoot(...).lastOption`) depend on `rows`
+    // being the SAME node that identifies, or binary refs get keyed to one node and extracted
+    // from another (R10's explicit agreement requirement). `rootFrames.head` is the
+    // lowest-positioned root because the caller sorts by position ascending.
+    val lowestRootId = rootFrames.head._1
+    val trunkTerminalId: Option[String] =
+      stepRepo.trunkOfRoot(steps, rootIdOfStep, PipelineRootId(lowestRootId)).lastOption.map(_.id.value)
     loop(steps).map { _ =>
-      val trunkRows = trunkTerminalId.flatMap(id => nodeOutcomes.get(Some(id))).map(_.rows).getOrElse(rows)
+      val trunkRows = trunkTerminalId
+        .flatMap(id => nodeOutcomes.get(StepKey(id)))
+        .map(_.rows)
+        .getOrElse(nodeOutcomes(RootKey(lowestRootId)).rows)
       TreeWalkResult(trunkRows, counts, nodeOutcomes)
     }
   }

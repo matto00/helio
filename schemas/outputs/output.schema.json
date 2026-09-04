@@ -37,6 +37,10 @@
       "type": ["integer", "null"],
       "minimum": 0,
       "description": "Number of panels currently bound to this Output (HEL-909 CR2). Populated on `GET /api/outputs` (list) responses only, to avoid an N+1 `GET /api/outputs/:id/panels` fetch per card in the Output picker; `null`/absent on the single-resource endpoints (`GET/PATCH /api/outputs/:id`), which don't compute it."
+    },
+    "rootId": {
+      "type": ["string", "null"],
+      "description": "HEL-913: names WHICH pipeline root this Output is bound to when `nodeStepId` is absent -- a pipeline may have more than one root, so `nodeStepId: null` alone is ambiguous. `null`/absent when `nodeStepId` is present (the Output is step-bound, not root-bound)."
     }
   },
   "additionalProperties": false

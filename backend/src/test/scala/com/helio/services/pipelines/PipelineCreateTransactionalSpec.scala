@@ -1,7 +1,8 @@
 package com.helio.services.pipelines
 
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest}
-import com.helio.domain.engine.{InProcessPipelineEngine, SchemaField}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest}
+import com.helio.services.ServiceError
+import com.helio.domain.engine.{InProcessPipelineEngine, SchemaField, StepKey}
 import com.helio.domain.model._
 import com.helio.domain.steps.{RenameStep, SecondaryInput, UnionStep}
 import com.helio.infrastructure.persistence.DbContext
@@ -115,7 +116,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Full pipeline",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest("trunk-1", "select", JsObject("fields" -> Vector("amount", "label").toJson).asJsObject),
           CreatePipelineTransactionalStepRequest("tail-1", "select", JsObject("fields" -> Vector("amount").toJson).asJsObject, parentStepId = Some("trunk-1"))
@@ -146,7 +147,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Rollback on bad step",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest("s1", "not-a-real-step-kind", JsObject.empty)
         )
@@ -171,7 +172,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val tag = s"rollback-probe-${UUID.randomUUID()}"
       val req = CreatePipelineRequest(
         name               = "Rollback on bad output",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         tag                = Some(tag),
         steps = Vector(
           CreatePipelineTransactionalStepRequest("s1", "select", JsObject("fields" -> Vector("amount").toJson).asJsObject)
@@ -193,7 +194,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Bad parent reference",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest("s1", "select", JsObject("fields" -> Vector("amount").toJson).asJsObject, parentStepId = Some("does-not-exist"))
         )
@@ -207,7 +208,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
 
     "the pre-existing simple create shape (no steps/outputs) is unaffected" in {
       val sourceId = newSource()
-      val result = await(service.create(CreatePipelineRequest("Simple", sourceId.value), owner))
+      val result = await(service.create(CreatePipelineRequest("Simple", Vector(CreatePipelineRootRequest(Some(sourceId.value)))), owner))
       result shouldBe a[Right[_, _]]
     }
 
@@ -223,7 +224,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Tail grounding rejection",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest("narrow", "select", JsObject("fields" -> Vector("amount").toJson).asJsObject)
         ),
@@ -249,7 +250,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Source-attached grounding success",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         // Same narrowing step present in the request (proving the trunk step's own narrower
         // schema is NOT what a source-attached Output is grounded against) -- but the Output
         // below has no nodeStepClientId, so it must be grounded against the SOURCE's own
@@ -277,7 +278,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Source-attached grounding rejection",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         outputs = Vector(
           CreatePipelineTransactionalOutputRequest(
             nodeStepClientId = None, kind = "metric", name = "Bad source mapping",
@@ -296,7 +297,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val foreignId = newForeignSource()
       val req = CreatePipelineRequest(
         name               = "Cross-owner join rejection",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest(
             "s1", "join",
@@ -320,7 +321,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val ownSecondSource = newSource()
       val req = CreatePipelineRequest(
         name               = "Own-owner join success",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest(
             "s1", "join",
@@ -341,7 +342,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Dangling lane reference rejection",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest(
             "s1", "union",
@@ -368,7 +369,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Forward lane reference rejection",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest(
             "rejoin", "union",
@@ -388,7 +389,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Cyclic lane reference rejection",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest("s1", "rename", JsObject("renames" -> JsObject())),
           CreatePipelineTransactionalStepRequest(
@@ -418,7 +419,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Valid lane reference accepted",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest("laneA", "rename", JsObject("renames" -> JsObject())),
           // laneB is distinguished from laneA by its OWN config (renames "amount" ->
@@ -457,8 +458,10 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       // the clientId, unresolvable against the persisted graph's real ids) does NOT occur.
       val engine = new InProcessPipelineEngine(new LocalFileSystem(java.nio.file.Paths.get("/")))
       val sourceRows = Seq(Map("amount" -> 1.0, "label" -> "x"))
-      val runResult = await(engine.executeTree(sourceRows, steps, pipelineStepRepo, dataSourceRepo))
-      runResult.nodeOutcomes.keySet should contain(Some(rejoinStep.id.value))
+      val rootIdOfStep = await(pipelineStepRepo.rootIdsOf(pipelineId))
+      val realRootId = rootIdOfStep.values.headOption.getOrElse(fail("expected at least one parentless step to carry a root_id")).value
+      val runResult = await(engine.executeTree(Vector((realRootId, sourceRows)), steps, pipelineStepRepo, rootIdOfStep, dataSourceRepo))
+      runResult.nodeOutcomes.keySet should contain(StepKey(rejoinStep.id.value))
     }
 
     // HEL-950 (evaluation-1.md CR1): validateStepCrossOwnerRefs -- the cross-owner pre-check
@@ -474,7 +477,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       val sourceId = newSource()
       val req = CreatePipelineRequest(
         name               = "Empty join right-source succeeds",
-        sourceDataSourceId = sourceId.value,
+        roots              = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest(
             "s1", "join",
@@ -485,6 +488,146 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
 
       val result = await(service.create(req, owner))
       result shouldBe a[Right[_, _]]
+    }
+
+    // HEL-913 tasks 7.3a/7.3a-i (R13): the single-call transactional path with a GENUINE
+    // multi-root pipeline -- steps/Outputs carrying `rootClientId`, resolved against `roots[]`'s
+    // own `clientId`s rather than a silent default to `roots[0]`.
+    "build a two-root pipeline with one root-level step under EACH root, correctly attributed" in {
+      val srcA = newSource()
+      val srcB = newSource()
+      val req = CreatePipelineRequest(
+        name  = "Two-root pipeline",
+        roots = Vector(
+          CreatePipelineRootRequest(Some(srcA.value), clientId = Some("rootA")),
+          CreatePipelineRootRequest(Some(srcB.value), clientId = Some("rootB"))
+        ),
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest("stepA", "rename", JsObject("renames" -> JsObject("amount" -> JsString("amtA"))), rootClientId = Some("rootA")),
+          CreatePipelineTransactionalStepRequest("stepB", "rename", JsObject("renames" -> JsObject("amount" -> JsString("amtB"))), rootClientId = Some("rootB"))
+        )
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Right[_, _]]
+      val summary = result.toOption.get
+      summary.roots should have size 2
+
+      val pipelineId = PipelineId(summary.id)
+      // Each root-level step's real root_id must match ITS OWN named root, not the other one --
+      // proven by checking both directions rather than just "some root_id got set." Steps don't
+      // carry `rootId` as a domain field (the 4.4 side-map substitution) -- `rootIdsOf` is the
+      // established way to read it back.
+      val rootAId = summary.roots.find(_.dataSourceId == srcA.value).get.id
+      val rootBId = summary.roots.find(_.dataSourceId == srcB.value).get.id
+      val rootIdOfStep = await(pipelineStepRepo.rootIdsOf(pipelineId))
+      val stepAResolvedStepId = rootIdOfStep.collectFirst { case (stepId, rid) if rid.value == rootAId => stepId }
+      val stepBResolvedStepId = rootIdOfStep.collectFirst { case (stepId, rid) if rid.value == rootBId => stepId }
+      stepAResolvedStepId shouldBe defined
+      stepBResolvedStepId shouldBe defined
+      stepAResolvedStepId should not be stepBResolvedStepId
+    }
+
+    "reject a parentless step naming neither parentStepId nor rootClientId when the request has more than one root" in {
+      val srcA = newSource()
+      val srcB = newSource()
+      val req = CreatePipelineRequest(
+        name  = "Ambiguous root pipeline",
+        roots = Vector(CreatePipelineRootRequest(Some(srcA.value)), CreatePipelineRootRequest(Some(srcB.value))),
+        steps = Vector(CreatePipelineTransactionalStepRequest("s1", "rename", JsObject("renames" -> JsObject.empty)))
+      )
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      // HEL-913 task 7.3c (R14): the request-address format this change emits -- steps[<i>]
+      // addressing the request's OWN array by index (0, the only step in this request).
+      result.left.toOption.get shouldBe ServiceError.BadRequest(
+        "steps[0]: is parentless with no rootClientId, and this request names 2 roots -- name one explicitly"
+      )
+      // Nothing persisted -- the whole call rolls back, matching every other rejected-create test.
+      val summaries = await(pipelineRepo.listSummaries(owner))
+      summaries.map(_.name) should not contain "Ambiguous root pipeline"
+    }
+
+    "reject a step naming both parentStepId and rootClientId" in {
+      val srcA = newSource()
+      val srcB = newSource()
+      val req = CreatePipelineRequest(
+        name  = "Both parent and root pipeline",
+        roots = Vector(
+          CreatePipelineRootRequest(Some(srcA.value), clientId = Some("rootA")),
+          CreatePipelineRootRequest(Some(srcB.value), clientId = Some("rootB"))
+        ),
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest("s1", "rename", JsObject("renames" -> JsObject.empty), rootClientId = Some("rootA")),
+          CreatePipelineTransactionalStepRequest("s2", "rename", JsObject("renames" -> JsObject.empty), parentStepId = Some("s1"), rootClientId = Some("rootB"))
+        )
+      )
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      // HEL-913 task 7.3c (R14): the offending step is the SECOND element (index 1).
+      result.left.toOption.get shouldBe ServiceError.BadRequest(
+        "steps[1]: names both parentStepId and rootClientId -- a step with a parent inherits its root implicitly"
+      )
+    }
+
+    "reject a step naming an unresolvable rootClientId" in {
+      val srcA = newSource()
+      val srcB = newSource()
+      val req = CreatePipelineRequest(
+        name  = "Unresolvable rootClientId pipeline",
+        roots = Vector(
+          CreatePipelineRootRequest(Some(srcA.value), clientId = Some("rootA")),
+          CreatePipelineRootRequest(Some(srcB.value), clientId = Some("rootB"))
+        ),
+        steps = Vector(CreatePipelineTransactionalStepRequest("s1", "rename", JsObject("renames" -> JsObject.empty), rootClientId = Some("does-not-exist")))
+      )
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      result.left.toOption.get shouldBe ServiceError.BadRequest("steps[0]: references unresolvable rootClientId 'does-not-exist'")
+    }
+
+    "build a two-root pipeline with a root-bound Output on EACH root, grounded against that root's OWN schema" in {
+      val srcA = newSource() // schema: amount (float), label (string)
+      val srcB = newSource()
+      val req = CreatePipelineRequest(
+        name    = "Two-root Outputs pipeline",
+        roots   = Vector(
+          CreatePipelineRootRequest(Some(srcA.value), clientId = Some("rootA")),
+          CreatePipelineRootRequest(Some(srcB.value), clientId = Some("rootB"))
+        ),
+        outputs = Vector(
+          CreatePipelineTransactionalOutputRequest(nodeStepClientId = None, kind = "table", name = "outA", rootClientId = Some("rootA")),
+          CreatePipelineTransactionalOutputRequest(nodeStepClientId = None, kind = "table", name = "outB", rootClientId = Some("rootB"))
+        )
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Right[_, _]]
+      val summary = result.toOption.get
+      val rootAId = summary.roots.find(_.dataSourceId == srcA.value).get.id
+      val rootBId = summary.roots.find(_.dataSourceId == srcB.value).get.id
+
+      val outputs = await(outputRepo.listByPipelineInternal(PipelineId(summary.id)))
+      val outA = outputs.find(_.name == "outA").get
+      val outB = outputs.find(_.name == "outB").get
+      outA.node.rootId.map(_.value) shouldBe Some(rootAId)
+      outB.node.rootId.map(_.value) shouldBe Some(rootBId)
+    }
+
+    "reject a root-bound Output naming neither nodeStepClientId nor rootClientId when the request has more than one root" in {
+      val srcA = newSource()
+      val srcB = newSource()
+      val req = CreatePipelineRequest(
+        name    = "Ambiguous Output root pipeline",
+        roots   = Vector(CreatePipelineRootRequest(Some(srcA.value)), CreatePipelineRootRequest(Some(srcB.value))),
+        outputs = Vector(CreatePipelineTransactionalOutputRequest(nodeStepClientId = None, kind = "table", name = "out1"))
+      )
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+      // HEL-913 task 7.3c (R14): outputs[<i>] addressing, the Output-array sibling of steps[<i>].
+      result.left.toOption.get shouldBe ServiceError.BadRequest(
+        "outputs[0]: is root-bound with no rootClientId, and this request names 2 roots -- name one explicitly"
+      )
     }
   }
 }

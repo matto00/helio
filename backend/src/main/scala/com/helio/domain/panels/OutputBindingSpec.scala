@@ -167,7 +167,10 @@ object OutputBindingSpec {
   /** HEL-907 task 1.4 — grounds a `fieldMapping`'s VALUES (column names) against the actual
    *  projected schema AT THE OUTPUT'S OWN NODE (`PipelineAnalyzeService.analyzeNodes` for a
    *  step-targeted Output; the source's own `inferredSchema` directly for a source-attached one,
-   *  `nodeStepId: null` — `analyzeNodes` omits the source itself from its per-node map). A
+   *  `nodeStepId: None` paired with the Output's own `rootId` — `analyzeNodes` omits the source
+   *  itself from its per-node map, and a bare `null`/`None` `nodeStepId` with no accompanying
+   *  root is never a valid encoding under multi-root pipelines; see
+   *  `openspec/changes/multi-root-pipelines/design.md` R12/R15). A
    *  DIFFERENT check from [[validateFieldMapping]] above (which validates the mapping's KEYS —
    *  the slot names — against the kind's own spec, never touching the schema at all): a
    *  proposal or MCP tool call can name a real slot (`value`, `time`, ...) but point it at a

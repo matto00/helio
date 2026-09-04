@@ -194,6 +194,13 @@ export interface OutputResponse {
   schema: OutputSchemaFieldResponse[];
   createdAt: string;
   updatedAt: string;
+  /** HEL-913 task 9.9/R12: WHICH root a root-bound Output (`nodeStepId` absent) attaches to.
+   *  `nodeStepId`/`rootId` are mutually exclusive at the DB row level (V98's
+   *  `(node_step_id IS NULL) <> (root_id IS NULL)` CHECK) -- exactly one is ever present.
+   *  Reading `nodeStepId` as "absent means THE root" without also carrying this field is
+   *  precisely the null-means-root encoding R12/R15 ban; see
+   *  `scripts/check-node-root-encoding.mjs` (Scala) and its TypeScript sibling. */
+  rootId?: string;
 }
 
 export interface OutputsResponse {
@@ -205,6 +212,12 @@ export interface CreateOutputRequest {
   kind: string;
   name: string;
   config?: Record<string, unknown>;
+  /** HEL-913 task 9.5: names WHICH root a root-bound (`nodeStepId` absent) Output attaches to --
+   *  without it under multi-root, the backend auto-resolves the pipeline's lowest-positioned
+   *  root, never a caller-named one. Mutually exclusive with `nodeStepId` (both -> 400,
+   *  mirrors the backend's own R13-style rule); ignored when `nodeStepId` is present (a
+   *  step-bound Output's root is implicit). Unnecessary on a genuinely single-root pipeline. */
+  rootId?: string;
 }
 
 /** `name`/`config` absent means "leave unchanged" -- `config`, when present, is merged into the
@@ -245,17 +258,32 @@ export interface PipelinePreviewResponse {
   outputs: OutputPreviewEntry[];
 }
 
+/** One root of a pipeline (HEL-913 R2/R8) — mirrors the backend's
+ *  `PipelineProtocol.scala` `PipelineRootSummaryResponse` exactly (three fields,
+ *  `jsonFormat3`), position-ordered in `PipelineSummaryResponse.roots`. */
+export interface PipelineRootSummaryResponse {
+  id: string;
+  dataSourceId: string;
+  dataSourceName: string;
+}
+
 /** `GET /api/pipelines` / `GET /api/pipelines/:id` — summary (no steps). Mirrors the backend's
- *  `PipelineProtocol.scala` `PipelineSummaryResponse` exactly (nine fields, `jsonFormat9`) --
+ *  `PipelineProtocol.scala` `PipelineSummaryResponse` exactly (eight fields, `jsonFormat8`) --
  *  HEL-907 evaluator-final round-2 CR1: `outputDataTypeName`/`outputDataTypeId` REMOVED, since
  *  they haven't existed on this wire shape since HEL-904 (the field was silently `undefined`,
  *  dropped by `JSON.stringify`, never actually reaching an agent). If a caller needs the
- *  pipeline's produced Output id(s), list them via `list_outputs(pipelineId)`. */
+ *  pipeline's produced Output id(s), list them via `list_outputs(pipelineId)`.
+ *
+ *  HEL-913 tasks 7.2a/9.1: the scalar `sourceDataSourceId`/`sourceDataSourceName` pair (the
+ *  Stage-1 "lowest-positioned root" convenience fields) is REMOVED outright, replaced by
+ *  `roots: PipelineRootSummaryResponse[]` -- a single-root pipeline still has exactly one
+ *  entry; a caller that only ever cared about "the" source reads `roots[0]`, which states the
+ *  single-root assumption explicitly rather than inheriting it from a field name (design.md
+ *  R3: no reader may silently privilege position 0). */
 export interface PipelineSummaryResponse {
   id: string;
   name: string;
-  sourceDataSourceId: string;
-  sourceDataSourceName: string;
+  roots: PipelineRootSummaryResponse[];
   lastRunStatus: string | null;
   lastRunAt: string | null;
   lastRunRowCount: number | null;
@@ -263,6 +291,57 @@ export interface PipelineSummaryResponse {
   /** HEL-366: optional free-form grouping tag, set only at create time. Omitted on the wire
    *  when null (spray-json drops `Option = None`) — read as `tag ?? null`. */
   tag?: string | null;
+}
+
+/** `POST /api/pipelines`'s `roots[]` element AND `POST /api/pipelines/:id/roots`
+ *  (`add_root`)'s request body -- the SAME shape for both (HEL-913 design.md R6, "one shape,
+ *  not two"). Mirrors the backend's `CreatePipelineRootRequest` exactly. Exactly one of
+ *  `sourceId`/`type` must be given; `csv` is deliberately NOT a supported inline `type` (no
+ *  bytes channel exists in a JSON body for the upload path -- create the CSV source first via
+ *  `create_csv_data_source` and pass its id via `sourceId`). */
+export interface CreatePipelineRootRequest {
+  /** Existing-source branch -- id of a caller-owned DataSource to reuse as-is. */
+  sourceId?: string;
+  /** Inline-source branch -- the new source's kind. */
+  type?: "rest_api" | "sql" | "static";
+  /** Inline-source branch -- the new source's display name. */
+  name?: string;
+  sqlConfig?: {
+    dialect: string;
+    host: string;
+    port: number;
+    database: string;
+    user: string;
+    password: string;
+    query: string;
+  };
+  restConfig?: {
+    connectorId?: string;
+    url?: string;
+    endpoint?: string;
+    method?: string;
+    queryParams?: Record<string, string>;
+    headers?: Record<string, string>;
+    body?: string;
+    bodyContentType?: string;
+    rootSelector?: string;
+    parameters?: Record<string, string>;
+  };
+  staticConfig?: {
+    columns: { name: string; type: string }[];
+    rows: unknown[][];
+  };
+  /** Request-scoped id (never persisted) letting a `steps[]`/`outputs[]` entry in the SAME
+   *  `POST /api/pipelines` call name this root via `rootClientId` -- unused by `add_root`. */
+  clientId?: string;
+}
+
+/** `DELETE /api/pipelines/:id/roots/:rootId` (`remove_root`) response -- mirrors the backend's
+ *  `RemovePipelineRootResponse` exactly. Both counts are computed BEFORE the delete, so they
+ *  are never undercounted by a DB-level cascade. */
+export interface RemovePipelineRootResponse {
+  removedStepCount: number;
+  removedOutputCount: number;
 }
 
 /** `GET`/`PUT /api/pipelines/:id/schedule` (HEL-415) — mirrors the backend's
@@ -380,6 +459,14 @@ export interface SourceSchemaDriftResponse {
   typeChangedColumns: TypeChangedColumnResponse[];
 }
 
+/** One pipeline root's own source schema, keyed by root id. Mirrors the backend's
+ *  `RootSourceSchemaResponse` (HEL-913 task 7.2c). */
+export interface RootSourceSchemaResponse {
+  rootId: string;
+  sourceDataSourceName: string;
+  sourceSchema: SchemaField[];
+}
+
 /** `GET /api/pipelines/:id/analyze` — steps with per-step input/output schema. Mirrors the
  *  backend's `PipelineAnalyzeProtocol.scala` `PipelineAnalyzeResponse` (HEL-907 evaluator-final
  *  round-2 CR5: `outputDataTypeName`/`outputDataTypeId` REMOVED -- neither exists on that case
@@ -388,12 +475,14 @@ export interface SourceSchemaDriftResponse {
  *  evaluator-final round-3 non-blocking note: `sourceSchemaDrift` was missing entirely -- the
  *  inverse defect (under- rather than over-specification) -- added here for symmetry with the
  *  real 6-field case class (`jsonFormat6`), omitted on the wire when `None` (spray-json drops
- *  `Option = None`), so read as optional here too. */
+ *  `Option = None`), so read as optional here too.
+ *  HEL-913 task 7.2c: the retired scalar `sourceDataSourceName`/`sourceSchema` pair is REPLACED
+ *  outright by `sourceSchemas` (one entry per root, keyed by root id) -- the `pipeline-analyze-api`
+ *  spec delta's own SHALL, unmet until this task (5.9 root-keyed the internal grounding only). */
 export interface PipelineAnalyzeResponse {
   id: string;
   name: string;
-  sourceDataSourceName: string;
-  sourceSchema: SchemaField[];
+  sourceSchemas: RootSourceSchemaResponse[];
   steps: Array<{
     id: string;
     position: number;
@@ -742,17 +831,28 @@ export interface PipelineProposalStep {
   config: unknown;
   parentStepId?: string | null;
   enabled?: boolean | null;
+  /** HEL-913 task 9.1/R13: names WHICH `roots[]` element (by its own `clientId`) a PARENTLESS
+   *  step's trunk extends -- mutually exclusive with `parentStepId` (both -> 400); unnecessary
+   *  with exactly one root. Mirrors the backend's `CreatePipelineTransactionalStepRequest
+   *  .rootClientId` exactly. `propose_pipeline`/`apply_pipeline_proposal` stay single-root by
+   *  design (this field is simply never needed there, not forbidden). */
+  rootClientId?: string | null;
 }
 
 /** One Output of a pipeline proposal (HEL-907 task 1.1/3.10) — mirrors the
  *  backend's `CreatePipelineTransactionalOutputRequest` verbatim.
  *  `nodeStepClientId` resolves against `steps[].clientId` in the same
- *  proposal; absent means the pipeline's raw source (before any step). */
+ *  proposal; absent means a root-bound Output. */
 export interface PipelineProposalOutput {
   nodeStepClientId?: string | null;
   kind: "table" | "metric" | "chart" | "collection" | "timeline" | "markdown";
   name: string;
   config?: unknown;
+  /** HEL-913 task 9.1/R13: names WHICH `roots[]` element (by its own `clientId`) a root-bound
+   *  Output (`nodeStepClientId` absent) attaches to -- mutually exclusive with
+   *  `nodeStepClientId`; unnecessary with exactly one root. Mirrors the backend's
+   *  `CreatePipelineTransactionalOutputRequest.rootClientId` exactly. */
+  rootClientId?: string | null;
 }
 
 /** A pipeline proposal — the shared Proposal → Review → Apply artifact for

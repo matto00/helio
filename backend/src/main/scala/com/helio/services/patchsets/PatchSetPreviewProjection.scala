@@ -7,7 +7,7 @@ import com.helio.domain.engine.ExpressionEvaluator
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.api.protocols.patchsets.EditPreview
 import com.helio.domain.model._
@@ -247,22 +247,48 @@ private[services] object PatchSetPreviewProjection {
       request: CreatePipelineRequest,
       user: AuthenticatedUser,
       ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Option[JsValue]]] =
-    ctx.dataSourceRepo.findByIdOwned(DataSourceId(request.sourceDataSourceId.trim), user).map {
-      case None => Left(ServiceError.NotFound(s"data source not found: ${request.sourceDataSourceId}"))
-      case Some(source) =>
-        Right(Some(pipelineSummaryResponseFormat.write(PipelineSummaryResponse(
-          id                   = PendingId,
-          name                 = request.name.trim,
-          sourceDataSourceId   = source.id.value,
-          sourceDataSourceName = source.name,
-          lastRunStatus        = None,
-          lastRunAt            = None,
-          lastRunRowCount      = None,
-          ownerId              = Some(user.id.value),
-          tag                  = request.tag
-        ))))
-    }
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Option[JsValue]]] = {
+    // HEL-913 task 7.6: `roots` replaces the scalar `sourceDataSourceId` -- resolves EVERY
+    // root's DataSource (never just the first) so the preview's `roots[]` echoes what the real
+    // create would actually produce, not a single-root approximation.
+    // (id, name) pairs -- an inline root (task 7.1a: `sourceId` absent, `type` present) has no
+    // real DataSource to look up yet, so it echoes the PENDING sentinel id and the request's own
+    // `name`, exactly like the pipeline id itself below (nothing exists until the real apply
+    // runs `pipelineService.create`, which re-validates every root, inline branch included).
+    def loop(remaining: List[CreatePipelineRootRequest], acc: Vector[(String, String)]): Future[Either[ServiceError, Vector[(String, String)]]] =
+      remaining match {
+        case Nil => Future.successful(Right(acc))
+        case root :: rest =>
+          root.sourceId.map(_.trim) match {
+            case Some(sid) if sid.isEmpty =>
+              Future.successful(Left(ServiceError.BadRequest("roots: sourceId is required and must not be blank")))
+            case Some(sid) =>
+              ctx.dataSourceRepo.findByIdOwned(DataSourceId(sid), user).flatMap {
+                case None     => Future.successful(Left(ServiceError.NotFound(s"data source not found: $sid")))
+                case Some(ds) => loop(rest, acc :+ ((ds.id.value, ds.name)))
+              }
+            case None =>
+              loop(rest, acc :+ ((PendingId, root.name.getOrElse("(pending)"))))
+          }
+      }
+    if (request.roots.isEmpty)
+      Future.successful(Left(ServiceError.BadRequest("roots must be a non-empty array")))
+    else
+      loop(request.roots.toList, Vector.empty).map {
+        case Left(err) => Left(err)
+        case Right(sources) =>
+          Right(Some(pipelineSummaryResponseFormat.write(PipelineSummaryResponse(
+            id                   = PendingId,
+            name                 = request.name.trim,
+            roots                = sources.map { case (id, name) => PipelineRootSummaryResponse(PendingId, id, name) },
+            lastRunStatus        = None,
+            lastRunAt            = None,
+            lastRunRowCount      = None,
+            ownerId              = Some(user.id.value),
+            tag                  = request.tag
+          ))))
+      }
+  }
 
   /** Trivial field-echo -- `PatchSetApplyResolvers.pipelineSummaryResponse`
    *  is `private` to that object, not `private[services]`, so this mirrors
@@ -271,8 +297,7 @@ private[services] object PatchSetPreviewProjection {
     PipelineSummaryResponse(
       id                   = s.id,
       name                 = s.name,
-      sourceDataSourceId   = s.sourceDataSourceId,
-      sourceDataSourceName = s.sourceDataSourceName,
+      roots                = s.roots.map(r => PipelineRootSummaryResponse(r.id, r.dataSourceId, r.dataSourceName)),
       lastRunStatus        = s.lastRunStatus,
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,
@@ -294,7 +319,14 @@ private[services] object PatchSetPreviewProjection {
       case Left(err) => Left(ServiceError.BadRequest(err))
       case Right(configured) =>
         val positioned = PipelineStepProjectionSupport.withPosition(configured, request.position.getOrElse(configured.position))
-        Right(Some(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(positioned))))
+        // HEL-913 task 7.6a-iii: this is a PURE, synchronous preview projection (no DB access --
+        // `positioned` is a hypothetical, not-yet-persisted step shape) so it genuinely cannot
+        // resolve a root here. `Map.empty` is passed EXPLICITLY (fromDomain has no default,
+        // 7.6a-i) rather than silently inherited, and the reason is stated here rather than left
+        // for a reader to guess: a config/position preview never changes which root a step
+        // belongs to, so this is a narrower gap than "unknown" -- it's "unchanged, just not
+        // reflected in this hypothetical projection."
+        Right(Some(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(positioned, Map.empty))))
     }
   }
 }

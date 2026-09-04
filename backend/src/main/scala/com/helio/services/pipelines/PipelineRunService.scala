@@ -5,8 +5,8 @@ import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Output, OutputId, Pipeline, PipelineId, PipelineRunId, PipelineStep, PipelineStepId, TruncatedRead, TruncationSink}
-import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException}
+import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Output, OutputId, Pipeline, PipelineId, PipelineRootId, PipelineRunId, PipelineStep, PipelineStepId, TruncatedRead, TruncationSink}
+import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException, StepKey}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -213,6 +213,34 @@ final class PipelineRunService(
       }
   }
 
+  /** HEL-913: single-root-compatible replacement for the old `pipeline.sourceDataSourceId`
+   *  field read (removed from `Pipeline` -- a pipeline no longer has exactly one source).
+   *  Resolves the pipeline's LOWEST-POSITIONED root's DataSource. Every run/preview/backfill
+   *  call site in this class is still single-root in this stage (walking every root is engine
+   *  work -- design.md's NodeKey/RootKey contract, a later stage of this ticket); this helper
+   *  keeps that behavior byte-for-byte identical to before while the underlying storage has
+   *  already moved onto `pipeline_roots`. Privileged (ACL is the caller's job, exactly like the
+   *  `dataSourceRepo.findByIdInternal` calls it replaces). */
+  private def resolvePrimaryDataSourceInternal(pipelineId: PipelineId): Future[Option[DataSource]] =
+    pipelineRepo.findPrimaryDataSourceIdInternal(pipelineId).flatMap {
+      case None       => Future.successful(None)
+      case Some(dsId) => dataSourceRepo.findByIdInternal(dsId)
+    }
+
+  /** HEL-913 task 5.4: every root's `(rootId, DataSource)`, ORDERED by `position` ascending
+   *  (R3's tiebreak; `PipelineRepository.listRootDataSourceIdsInternal` already sorts) -- the
+   *  N-root-aware replacement for [[resolvePrimaryDataSourceInternal]], threaded into
+   *  `PipelineExecutionBackend.execute`'s `roots` parameter. A pipeline with exactly one root
+   *  (today's only real case, since no route creates a second yet) yields a one-element
+   *  Vector, preserving today's behavior exactly (5.5a's single-root parity requirement).
+   *  Privileged, same contract as `resolvePrimaryDataSourceInternal`. */
+  private def resolveAllRootDataSourcesInternal(pipelineId: PipelineId): Future[Vector[(String, DataSource)]] =
+    pipelineRepo.listRootDataSourceIdsInternal(pipelineId).flatMap { rootDsIds =>
+      Future.sequence(rootDsIds.map { case (rootId, dsId) =>
+        dataSourceRepo.findByIdInternal(dsId).map(dsOpt => (rootId.value, dsOpt))
+      })
+    }.map(_.collect { case (rootId, Some(ds)) => (rootId, ds) })
+
   private def runPipeline(
       pipeline: Pipeline,
       pipelineId: PipelineId,
@@ -223,12 +251,14 @@ final class PipelineRunService(
   ): Future[Either[ServiceError, RunResultResponse]] =
     // Privileged: pipeline ACL is the authoritative gate; source is part of the
     // pipeline definition. findByIdInternal is correct here.
-    dataSourceRepo.findByIdInternal(pipeline.sourceDataSourceId).flatMap {
-      case None =>
+    // HEL-913 (design.md R4/R9, task 5.4): every root's source is resolved and loaded -- a run
+    // is atomic across roots (R9), never partial.
+    resolveAllRootDataSourcesInternal(pipelineId).flatMap {
+      case roots if roots.isEmpty =>
         Future.successful(Left(ServiceError.UnprocessableEntity(
-          "DataSource not found: " + pipeline.sourceDataSourceId.value
+          "DataSource not found for pipeline: " + pipelineId.value
         )))
-      case Some(dataSource) =>
+      case roots =>
         // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list
         // so editor grantees (not pipeline owners) are not blocked by V35 RLS.
         // HEL-412 (design.md Decision 3, boundaries i/ii): both full runs and
@@ -243,14 +273,18 @@ final class PipelineRunService(
         // step no longer present). The tree-walk engine itself skips a disabled node in place.
         pipelineStepRepo
           .listByPipelineInternal(pipelineId)
-          .flatMap(allSteps => executeRun(pipeline, dataSource, allSteps, isDry, user, triggerSource, triggeredByTokenId))
+          .flatMap(allSteps => executeRun(pipeline, roots, allSteps, isDry, user, triggerSource, triggeredByTokenId))
     }
 
   /** Run only the prefix of `steps` ending at `stepId`, returning at most 10
    *  rows for the inline preview tray.
    *  HEL-279: sharing-aware — owner and grantees can preview. */
   def previewStep(pipelineId: PipelineId, stepId: String, user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
-    previewAtNode(pipelineId, Some(stepId), user)
+    // `rootId = None`: a step-targeted preview walks that step's OWN ancestor chain back to
+    // whichever root it actually belongs to (via the full `roots` vector `previewAtNode` passes
+    // to `backend.execute` in the `targetStepId.isDefined` arm) -- unlike the source-level arm,
+    // a step preview is never ambiguous about which root, so no explicit `rootId` is needed here.
+    previewAtNode(pipelineId, Some(stepId), rootId = None, user)
 
   /** `POST /api/pipelines/:id/preview?outputId=` (HEL-906 cycle 10, P1.4's `preview_outputs`
    *  dependency, `preview_outputs(pipelineId, outputId?)` -- `outputId` genuinely OPTIONAL, per
@@ -292,7 +326,11 @@ final class PipelineRunService(
             case Some(output) if output.node.pipelineId != pipelineId =>
               Future.successful(Left(ServiceError.NotFound("Output not found: " + id.value)))
             case Some(output) =>
-              previewAtNode(pipelineId, output.node.stepId.map(_.value), user).map(_.map { result =>
+              // HEL-913 (evaluation-1.md cycle 2, Priority 2 Site B): `output.node.rootId`
+              // threaded through -- dropping it here is exactly the defect this fixes: EVERY
+              // root-bound Output on EVERY root used to collapse to key `None` and silently
+              // read `roots.head`'s rows regardless of which root the Output actually names.
+              previewAtNode(pipelineId, output.node.stepId.map(_.value), output.node.rootId.map(_.value), user).map(_.map { result =>
                 PipelinePreviewResponse(Vector(OutputPreviewEntry(id.value, result)))
               })
           }
@@ -302,13 +340,22 @@ final class PipelineRunService(
               Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
             case Some(_) =>
               outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
-                val distinctNodeKeys = outputs.map(_.node.stepId.map(_.value)).distinct
-                Future.traverse(distinctNodeKeys)(nodeKey => previewAtNode(pipelineId, nodeKey, user).map(nodeKey -> _)).map { resultsByNode =>
+                // HEL-913 (evaluation-1.md cycle 2, Priority 2 Site B): keyed by the FULL
+                // `(stepId, rootId)` pair, not `stepId` alone -- a bare `stepId` key collapsed
+                // every root-bound Output (stepId = None) onto ONE shared key regardless of
+                // which root it actually names, so a two-root pipeline's root-1 Output silently
+                // read root-0's rows via `byNodeKey`. Two Outputs sharing (None, Some(rootId))
+                // legitimately share one preview call -- they read the SAME root's raw rows --
+                // but two Outputs differing only in `rootId` never collapse into each other now.
+                val distinctNodeKeys = outputs.map(o => (o.node.stepId.map(_.value), o.node.rootId.map(_.value))).distinct
+                Future.traverse(distinctNodeKeys) { case (stepKey, rootKey) =>
+                  previewAtNode(pipelineId, stepKey, rootKey, user).map((stepKey, rootKey) -> _)
+                }.map { resultsByNode =>
                   resultsByNode.collectFirst { case (_, Left(err)) => err } match {
                     case Some(err) => Left(err)
                     case None =>
                       val byNodeKey = resultsByNode.collect { case (k, Right(r)) => k -> r }.toMap
-                      val entries = outputs.map(o => OutputPreviewEntry(o.id.value, byNodeKey(o.node.stepId.map(_.value))))
+                      val entries = outputs.map(o => OutputPreviewEntry(o.id.value, byNodeKey((o.node.stepId.map(_.value), o.node.rootId.map(_.value)))))
                       Right(PipelinePreviewResponse(entries))
                   }
                 }
@@ -323,25 +370,71 @@ final class PipelineRunService(
    *  — verified by `PipelineRunServiceSpec`'s "does not mutate last_run_status/last_run_at"
    *  tests (`PipelineRunService.previewOutputs` describe block, ONE test per arm -- single-Output
    *  and all-Outputs), and at the HTTP layer by `OutputRoutesSpec`'s equivalent tests (also one
-   *  per arm). */
-  private def previewAtNode(pipelineId: PipelineId, targetStepId: Option[String], user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
+   *  per arm).
+   *
+   *  HEL-913 (evaluation-1.md cycle 2, Priority 2 Site B): `rootId` names WHICH root's raw rows
+   *  to preview when `targetStepId` is `None` -- previously this method took no such parameter
+   *  and the `targetStepId.isEmpty` arm always used `roots.head` (the lowest-positioned root),
+   *  so EVERY root-bound Output on EVERY root silently previewed root 0's rows. `None` here
+   *  (no explicit root) falls back to `roots.head`, which is correct ONLY for a genuinely
+   *  single-root pipeline -- every caller passing `targetStepId = None` for a real Output now
+   *  also passes that Output's own `rootId` (see `previewOutputs`), so this fallback is reached
+   *  only by `previewStep`'s `Some(stepId)` call (which ignores `rootId` entirely, see below) or
+   *  a single-root pipeline's Output. Unused when `targetStepId` is defined -- a step's ancestor
+   *  root is resolved by walking `parentStepId` against the FULL `roots` vector already passed
+   *  to `backend.execute` in that arm, never from this parameter.
+   *
+   *  HEL-913 (evaluation-2.md item 2): a NAMED `rootId` that does not resolve among the
+   *  pipeline's actual roots FAILS CLOSED (a named `UnprocessableEntity`), matching
+   *  `evaluateNodeRowsForBackfill`'s sibling handling of the identical mismatch -- it does NOT
+   *  fall back to `roots.head`. `roots.head` is reached only for the "no `rootId` given" case
+   *  described above, never as a silent substitute for an unresolvable named one. */
+  private def previewAtNode(pipelineId: PipelineId, targetStepId: Option[String], rootId: Option[String], user: AuthenticatedUser): Future[Either[ServiceError, RunResultResponse]] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
       case Some(pipeline) =>
         // Privileged: pipeline ACL is the authoritative gate. findByIdInternal is correct here.
-        dataSourceRepo.findByIdInternal(pipeline.sourceDataSourceId).flatMap {
-          case None =>
+        resolveAllRootDataSourcesInternal(pipelineId).flatMap {
+          case roots if roots.isEmpty =>
             Future.successful(Left(ServiceError.UnprocessableEntity(
-              "DataSource not found: " + pipeline.sourceDataSourceId.value
+              "DataSource not found for pipeline: " + pipelineId.value
             )))
-          case Some(dataSource) if targetStepId.isEmpty =>
+          case roots if targetStepId.isEmpty =>
             // Source-level preview (an Output bound directly to the pipeline's raw source, no
             // step): run the engine with an empty step slice, so `outcome.rows`/`outcome.nodeOutcomes`
             // are simply the source's own rows, unfiltered by any step.
+            //
+            // HEL-913 (evaluation-1.md cycle 2, Priority 2 Site B): `selectedRoot` picks the
+            // NAMED root (`rootId`), falling back to `roots.head` only when no `rootId` was
+            // given (see the method doc above) -- NOT `roots.head` unconditionally as before.
+            // `backend.execute` is called with ONLY that one root (`Vector(selectedRoot)`), not
+            // the full `roots` vector: with zero steps, `outcome.rows` is simply whichever
+            // root(s) it was given, so passing every root here would silently mix roots into
+            // one preview rather than isolating the named one. This is a preview-only read
+            // (never `updateLastRun`/`insertRun`), so it does not touch R9's atomic-real-run
+            // "every root, every Output" guarantee, which only governs `executeRun`.
+            //
+            // HEL-913 (evaluation-2.md item 2): a NAMED `rootId` that does not resolve among
+            // `roots` FAILS CLOSED (a named error) rather than silently falling back to
+            // `roots.head` -- matches `evaluateNodeRowsForBackfill`'s sibling handling of the
+            // identical mismatch (`roots.isEmpty => Future.successful(())`, never a fallback to
+            // a different root). No FK path is known to produce this mismatch today (`outputs
+            // .root_id` cascades from `pipeline_roots`, which cascades from `data_sources`), but
+            // "no caller can currently trigger it" is a fact about the current cascade, not a
+            // guarantee this method should rely on -- the banned `getOrElse` shape is the same
+            // one 5.9 removed from analyze, for the same reason.
+            rootId match {
+              case Some(rid) if !roots.exists(_._1 == rid) =>
+                Future.successful(Left(ServiceError.UnprocessableEntity(
+                  s"DataSource not found for pipeline: ${pipelineId.value} (root '$rid' not found among its roots)"
+                )))
+              case _ =>
+            val selectedRoot = rootId.flatMap(rid => roots.find(_._1 == rid)).getOrElse(roots.head)
+            val dataSource = selectedRoot._2
             val truncationSink = new TruncationSink
             backend
-              .execute(pipeline, dataSource, Vector.empty, dataSourceRepo, new AssertionSink, truncationSink)
+              .execute(pipeline, Vector(selectedRoot), Vector.empty, dataSourceRepo, new AssertionSink, truncationSink)
               .map { outcome =>
                 val allJsRows = outcome.rows.map { rowMap =>
                   JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
@@ -363,7 +456,9 @@ final class PipelineRunService(
                 }
                 Left(ServiceError.UnprocessableEntity(errMsg))
               }
-          case Some(dataSource) =>
+            }
+          case roots =>
+            val dataSource = roots.head._2
             val stepId = targetStepId.get
             // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list.
             // HEL-758: every source kind (including rest_api/sql) now reaches
@@ -413,14 +508,14 @@ final class PipelineRunService(
                   // sink here preserves that behavior exactly, without sharing state with the
                   // run path's sink.
                   backend
-                    .execute(pipeline, dataSource, slicedSteps.toVector, dataSourceRepo, new AssertionSink, truncationSink)
+                    .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, truncationSink)
                     .map { outcome =>
                       // HEL-905 (evaluation-1.md CR1): `outcome.rows` is always the TRUNK's
                       // terminal frame -- for a target step on a tail, the tail's own rows live
                       // only in `nodeOutcomes`, keyed by the target's own id. Falling back to
                       // `outcome.rows` covers the (only) case where they're the same value: the
                       // target step IS the trunk's own terminal step.
-                      val targetRows = outcome.nodeOutcomes.get(Some(target.id.value)).map(_.rows).getOrElse(outcome.rows)
+                      val targetRows = outcome.nodeOutcomes.get(StepKey(target.id.value)).map(_.rows).getOrElse(outcome.rows)
                       val allJsRows = targetRows.map { rowMap =>
                         JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
                       }.toVector
@@ -485,10 +580,21 @@ final class PipelineRunService(
    *      returns `None`) — there is nothing to backfill FROM, and the HEL-946 warning path must
    *      keep showing, not a misleadingly-empty "materialized" snapshot.
    */
-  def backfillOutputNode(pipelineId: PipelineId, nodeStepId: Option[PipelineStepId], user: AuthenticatedUser): Future[Unit] =
+  def backfillOutputNode(
+      pipelineId: PipelineId,
+      nodeStepId: Option[PipelineStepId],
+      user: AuthenticatedUser,
+      // HEL-913 task 5.10: names WHICH root when `nodeStepId` is `None` (a root-bound Output) --
+      // without it, the backfill always evaluates the LOWEST-positioned root regardless of which
+      // root the Output is actually bound to (`OutputRepository.rootIdOpt`'s job at write time;
+      // this is the corresponding read/backfill-time thread-through). Defaulted to `None` so
+      // every pre-existing call site (and the single-root case, where there is only one root to
+      // mean anyway) is unaffected.
+      explicitRootId: Option[PipelineRootId]
+  ): Future[Unit] =
     if (nodeSnapshotRepo == null) Future.successful(())
     else
-      nodeSnapshotRepo.listRows(pipelineId.value, nodeStepId.map(_.value), limit = Some(1)).flatMap { existing =>
+      nodeSnapshotRepo.listRows(pipelineId.value, nodeStepId.map(_.value), limit = Some(1), explicitRootId = explicitRootId.map(_.value)).flatMap { existing =>
         if (existing.nonEmpty) Future.successful(())
         else {
           val hasSucceededOnce: Future[Boolean] =
@@ -496,7 +602,7 @@ final class PipelineRunService(
             else pipelineRunRepo.latestSuccessfulCompletedAtInternal(pipelineId).map(_.isDefined)
           hasSucceededOnce.flatMap {
             case false => Future.successful(())
-            case true  => evaluateNodeRowsForBackfill(pipelineId, nodeStepId, user)
+            case true  => evaluateNodeRowsForBackfill(pipelineId, nodeStepId, user, explicitRootId)
           }
         }
       }.recoverWith { case ex =>
@@ -513,20 +619,29 @@ final class PipelineRunService(
    *  never widened to cover any other node. Also refreshes every Output on this node's schema
    *  (mirrors `onUnblockedRunSuccess`'s per-Output `SchemaInferenceEngine` derivation) so a
    *  freshly-backfilled Output doesn't sit with an empty `schema: []` until the next real run. */
-  private def evaluateNodeRowsForBackfill(pipelineId: PipelineId, targetStepId: Option[PipelineStepId], user: AuthenticatedUser): Future[Unit] =
+  private def evaluateNodeRowsForBackfill(pipelineId: PipelineId, targetStepId: Option[PipelineStepId], user: AuthenticatedUser, explicitRootId: Option[PipelineRootId]): Future[Unit] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None => Future.successful(())
       case Some(pipeline) =>
-        dataSourceRepo.findByIdInternal(pipeline.sourceDataSourceId).flatMap {
-          case None => Future.successful(())
-          case Some(dataSource) if targetStepId.isEmpty =>
-            backend
-              .execute(pipeline, dataSource, Vector.empty, dataSourceRepo, new AssertionSink, new TruncationSink)
-              .flatMap(outcome => persistBackfilledRows(pipelineId, None, outcome.rows))
+        resolveAllRootDataSourcesInternal(pipelineId).flatMap {
+          case roots if roots.isEmpty => Future.successful(())
+          case allRoots if targetStepId.isEmpty =>
+            // HEL-913 task 5.10: when a specific root is named, evaluate ONLY that root -- with
+            // more than one root in `roots`, `backend.execute`'s `TreeWalkResult.rows` is always
+            // the LOWEST-positioned root's frame (R10), so passing every root here would silently
+            // backfill the wrong one whenever the Output is bound to a non-first root.
+            val roots = explicitRootId match {
+              case Some(rid) => allRoots.filter(_._1 == rid.value)
+              case None      => allRoots
+            }
+            if (roots.isEmpty) Future.successful(())
+            else backend
+              .execute(pipeline, roots, Vector.empty, dataSourceRepo, new AssertionSink, new TruncationSink)
+              .flatMap(outcome => persistBackfilledRows(pipelineId, None, outcome.rows, explicitRootId))
               .recover { case ex =>
                 log.error(s"HEL-947: backfill source-level evaluation failed for pipeline ${pipelineId.value}", ex)
               }
-          case Some(dataSource) =>
+          case roots =>
             val stepId = targetStepId.get.value
             pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
               allSteps.find(_.id.value == stepId) match {
@@ -541,10 +656,13 @@ final class PipelineRunService(
                     }
                   val slicedSteps = pathToRoot(target, Vector(target))
                   backend
-                    .execute(pipeline, dataSource, slicedSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink)
+                    .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink)
                     .flatMap { outcome =>
-                      val targetRows = outcome.nodeOutcomes.get(Some(target.id.value)).map(_.rows).getOrElse(outcome.rows)
-                      persistBackfilledRows(pipelineId, targetStepId, targetRows)
+                      val targetRows = outcome.nodeOutcomes.get(StepKey(target.id.value)).map(_.rows).getOrElse(outcome.rows)
+                      // Step-bound write (`nodeKey = Some(stepId)`) -- `explicitRootId` only
+                      // governs the ROOT-BOUND case (`persistBackfilledRows`'s own doc above),
+                      // so `None` here is exactly correct, not a re-introduced silent default.
+                      persistBackfilledRows(pipelineId, targetStepId, targetRows, explicitRootId = None)
                     }
                     .recover { case ex =>
                       log.error(s"HEL-947: backfill evaluation failed for pipeline ${pipelineId.value}, step $stepId", ex)
@@ -554,15 +672,21 @@ final class PipelineRunService(
         }
     }
 
-  private def persistBackfilledRows(pipelineId: PipelineId, nodeKey: Option[PipelineStepId], rows: Seq[Map[String, Any]]): Future[Unit] = {
+  private def persistBackfilledRows(pipelineId: PipelineId, nodeKey: Option[PipelineStepId], rows: Seq[Map[String, Any]], explicitRootId: Option[PipelineRootId]): Future[Unit] = {
     val nodeJsRows = rows.map { rowMap =>
       JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
     }.toVector
-    nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeKey.map(_.value), nodeJsRows).flatMap { _ =>
+    nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeKey.map(_.value), nodeJsRows, explicitRootId.map(_.value)).flatMap { _ =>
       if (outputRepo == null) Future.successful(())
       else
         outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
-          val onThisNode = outputs.filter(_.node.stepId == nodeKey)
+          // HEL-913 task 5.10: a root-bound backfill (`nodeKey = None`) refreshes only the
+          // Output(s) bound to THAT root when `explicitRootId` is named, not every root-bound
+          // Output on the pipeline.
+          val onThisNode = nodeKey match {
+            case Some(_) => outputs.filter(_.node.stepId == nodeKey)
+            case None    => outputs.filter(o => o.node.stepId.isEmpty && (explicitRootId.isEmpty || o.node.rootId == explicitRootId))
+          }
           val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
           val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
           Future.sequence(onThisNode.map(o => outputRepo.updateSchemaInternal(o.id, schema))).map(_ => ())
@@ -654,7 +778,7 @@ final class PipelineRunService(
    *  to flatten the nested flatMap chain. Behaviour-preserving. */
   private def executeRun(
       pipeline:           Pipeline,
-      dataSource:         DataSource,
+      roots:              Vector[(String, DataSource)],
       steps:              Vector[PipelineStep],
       isDry:              Boolean,
       user:               AuthenticatedUser,
@@ -689,12 +813,20 @@ final class PipelineRunService(
 
     // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
     // published as a non-terminal "node-progress" SSE event so the stream stays open across it.
-    def onNodeProgress(nodeId: Option[String], rowCount: Long): Unit =
-      publish(pidStr, RunStatusEvent("node-progress", nodeId = nodeId, rowCount = Some(rowCount.toInt)))
+    // HEL-913 R15 (now complete): `nodeKind` is the explicit wire discriminator -- "root" or
+    // "step" -- so a consumer never has to already know which ids in this pipeline are roots to
+    // interpret `nodeId` correctly.
+    def onNodeProgress(key: NodeKey, rowCount: Long): Unit = {
+      val (nodeId, nodeKind) = key match {
+        case RootKey(rootId) => (rootId, "root")
+        case StepKey(stepId) => (stepId, "step")
+      }
+      publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt)))
+    }
 
     val runFuture = preExec.flatMap { _ =>
       backend
-        .execute(pipeline, dataSource, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress)
+        .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress)
         .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
     }
 
@@ -752,9 +884,11 @@ final class PipelineRunService(
         val followUp: Future[Option[String]] =
           if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results).map(_ => None)
           else
-            onRunSuccess(pipeline.sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionSink.results)
+            onRunSuccess(roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionSink.results)
+        // R10: the lowest-positioned root's stats (`roots.head`, position-ordered by the
+        // caller) -- same tiebreak as `TreeWalkResult.rows`/`primaryStats` above.
         val (truncated, availableRowCount, notice, truncatedReads) =
-          truncationFields(dataSource.name, sourceCount, primaryStats, truncationSink)
+          truncationFields(roots.head._2.name, sourceCount, primaryStats, truncationSink)
         followUp.map { blockedSummary =>
           val response = RunResultResponse(
             jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value),
@@ -818,18 +952,19 @@ final class PipelineRunService(
    *  without recomputing it (Decision 8). */
   private def onRunSuccess(
       sourceDataSourceId: DataSourceId,
+      lowestRootId:       String,
       pipelineId:         PipelineId,
       runId:              PipelineRunId,
       pidStr:             String,
       resultRows:         Seq[Map[String, Any]],
       jsRows:             Vector[JsObject],
-      nodeOutcomes:       Map[Option[String], NodeOutcome],
+      nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
       assertionResults:   Vector[AssertionResult]
   ): Future[Option[String]] = {
     val blockingFailures = assertionResults.filter(r => r.severity == "error" && !r.passed)
     if (blockingFailures.nonEmpty) onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures)
-    else onUnblockedRunSuccess(sourceDataSourceId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionResults)
+    else onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionResults)
   }
 
   /** Blocked branch (design.md Decisions 2-4): terminal status `"failed"`
@@ -867,12 +1002,13 @@ final class PipelineRunService(
    *  behavior — a pure insertion point above this method, not a rewrite. */
   private def onUnblockedRunSuccess(
       sourceDataSourceId: DataSourceId,
+      lowestRootId:       String,
       pipelineId:         PipelineId,
       runId:              PipelineRunId,
       pidStr:             String,
       resultRows:         Seq[Map[String, Any]],
       jsRows:             Vector[JsObject],
-      nodeOutcomes:       Map[Option[String], NodeOutcome],
+      nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
       assertionResults:   Vector[AssertionResult]
   ): Future[Option[String]] = {
@@ -887,8 +1023,21 @@ final class PipelineRunService(
     val materializedWrites: Future[Unit] =
       if (nodeSnapshotRepo != null && outputRepo != null)
         outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
-          val outputsByNode = outputs.groupBy(_.node.stepId.map(_.value))
-          val materializedNodeKeys = outputsByNode.keySet.intersect(nodeOutcomes.keySet)
+          // HEL-913 (design.md R12, task 5.8 runtime half): keyed by NodeKey, not the old
+          // `Option[String]`/`None`-means-root encoding -- a root-bound Output (`stepId = None`)
+          // keys on `RootKey(output.node.rootId)`, so it only ever matches THAT root's outcome,
+          // never silently matching "any root" the way a bare `None` used to under multi-root.
+          // An Output somehow missing BOTH `stepId` and `rootId` (pre-V98 legacy shape) is
+          // skipped rather than guessed at.
+          val outputsByNodeKey: Map[NodeKey, Vector[Output]] =
+            outputs.flatMap { o =>
+              val keyOpt: Option[NodeKey] = o.node.stepId match {
+                case Some(sid) => Some(StepKey(sid.value))
+                case None      => o.node.rootId.map(rid => RootKey(rid.value))
+              }
+              keyOpt.map(k => k -> o)
+            }.groupBy(_._1).view.mapValues(_.map(_._2).toVector).toMap
+          val materializedNodeKeys = outputsByNodeKey.keySet.intersect(nodeOutcomes.keySet)
           // Sequenced (not parallel) so a later node's failure never races an earlier node's
           // write -- matches design.md's "sequenced only after... completed successfully".
           materializedNodeKeys.foldLeft(Future.successful(())) { (accF, nodeKey) =>
@@ -897,14 +1046,18 @@ final class PipelineRunService(
               val nodeJsRows = outcome.rows.map { rowMap =>
                 JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
               }.toVector
-              nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeKey, nodeJsRows).flatMap { _ =>
+              val (nodeStepIdOpt, explicitRootIdOpt) = nodeKey match {
+                case StepKey(sid) => (Some(sid), None)
+                case RootKey(rid) => (None, Some(rid))
+              }
+              nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt).flatMap { _ =>
                 // HEL-905 (design.md Decision 4): per-Output shallow-union schema derivation
                 // over this node's own row set. Two Outputs on the same node get independently
                 // derived (but identical) schemas -- no sharing/caching needed at this scale.
                 val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
                 val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
                 Future
-                  .sequence(outputsByNode.getOrElse(nodeKey, Vector.empty).map(o => outputRepo.updateSchemaInternal(o.id, schema)))
+                  .sequence(outputsByNodeKey.getOrElse(nodeKey, Vector.empty).map(o => outputRepo.updateSchemaInternal(o.id, schema)))
                   .map(_ => ())
               }
             }
@@ -923,16 +1076,23 @@ final class PipelineRunService(
     // HEL-905: still scoped to the trunk's last node only (not every
     // materialized node) -- extending binary-ref extraction to tail nodes is
     // deferred; no AC of this ticket requires it (see files-modified.md).
+    // HEL-913 (design.md R10): scoped to the LOWEST-positioned root's trunk specifically --
+    // the same root `TreeWalkResult.rows` (== `resultRows` here) is derived from, per R10's
+    // explicit "rows, trunkOf(...).lastOption, and the binary-ref key must all be derived from
+    // the same root and the same node" agreement. `trunkOfRoot` (not the ambiguous whole-
+    // pipeline `trunkOf`) is what makes this hold under multi-root.
     val trunkLastStepIdFut: Future[Option[String]] =
       if (binaryRefRepo != null)
-        pipelineStepRepo.listByPipelineInternal(pipelineId).map { steps =>
-          pipelineStepRepo.trunkOf(steps).lastOption.map(_.id.value)
-        }
+        for {
+          steps        <- pipelineStepRepo.listByPipelineInternal(pipelineId)
+          rootIdOfStep <- pipelineStepRepo.rootIdsOf(pipelineId)
+        } yield pipelineStepRepo.trunkOfRoot(steps, rootIdOfStep, PipelineRootId(lowestRootId)).lastOption.map(_.id.value)
       else Future.successful(None)
     val binaryRefsUpsert =
       if (binaryRefRepo != null)
         trunkLastStepIdFut.flatMap { trunkLastStepId =>
-          binaryRefRepo.overwriteForNode(pipelineId.value, trunkLastStepId, extractBinaryRefs(pipelineId, trunkLastStepId, resultRows))
+          val explicitRootId = if (trunkLastStepId.isEmpty) Some(lowestRootId) else None
+          binaryRefRepo.overwriteForNode(pipelineId.value, trunkLastStepId, extractBinaryRefs(pipelineId, trunkLastStepId, resultRows), explicitRootId)
         }
       else Future.successful(())
     // HEL-466: fire alert-rule evaluation against the rows just written.
@@ -953,12 +1113,17 @@ final class PipelineRunService(
         outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
           Future
             .sequence(outputs.map { output =>
-              val nodeKey = output.node.stepId.map(_.value)
-              nodeOutcomes.get(nodeKey) match {
+              // HEL-913 (design.md R12): a root-bound Output (`stepId = None`) keys on its OWN
+              // `RootKey(rootId)` -- never a bare `None` that would ambiguously match any root.
+              val nodeKeyOpt: Option[NodeKey] = output.node.stepId match {
+                case Some(sid) => Some(StepKey(sid.value))
+                case None      => output.node.rootId.map(rid => RootKey(rid.value))
+              }
+              nodeKeyOpt.flatMap(nodeOutcomes.get) match {
                 case None =>
                   log.error(
                     s"AlertEvaluationService.evaluateForOutput skipped for output ${output.id.value}, " +
-                      s"run ${runId.value}: no NodeOutcome for node key $nodeKey (never evaluated by the tree walk)"
+                      s"run ${runId.value}: no NodeOutcome for node key $nodeKeyOpt (never evaluated by the tree walk)"
                   )
                   Future.successful(())
                 case Some(nodeOutcome) =>

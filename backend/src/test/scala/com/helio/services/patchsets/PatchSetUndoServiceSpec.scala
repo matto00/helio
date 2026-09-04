@@ -5,7 +5,7 @@ import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
 import com.helio.api.protocols.panels.{CreatePanelRequest, UpdatePanelRequest}
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
@@ -151,7 +151,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
    *  placement test needs a genuine row, not a synthetic id (an `outputRepo == null` fixture
    *  would only skip the app-level existence CHECK, never the DB-level FK). */
   private def seedOutput(pipeline: PipelineSummaryResponse, owner: AuthenticatedUser, name: String = "Output"): Output =
-    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, owner.id, name, OutputKind.Table))
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, owner.id, name, OutputKind.Table, explicitRootId = None))
 
   // HEL-904: no companion DataType to look up anymore — returns just the DataSourceId
   // (every call site already discarded the old tuple's second element).
@@ -167,7 +167,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
   }
 
   private def seedPipeline(owner: AuthenticatedUser, sourceId: DataSourceId, name: String = "Pipeline"): PipelineSummaryResponse =
-    await(pipelineService.create(CreatePipelineRequest(name, sourceId.value), owner)) match {
+    await(pipelineService.create(CreatePipelineRequest(name, Vector(CreatePipelineRootRequest(Some(sourceId.value)))), owner)) match {
       case Right(s) => s
       case Left(e)  => fail(s"seedPipeline failed: $e")
     }

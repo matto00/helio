@@ -171,11 +171,11 @@ abstract class ApplyProposalSpecBase
       // "output"-kind panel binding target every test below now uses
       // (`pipelineOutputId`, NOT `pipelineOutputTypeId`, which stays only for
       // the legacy DataType-shaped fixtures/tests still exercising other kinds).
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-             VALUES ($pipelineForOutputId, 'Sales Pipeline', $srcId::uuid, $userId::uuid, now(), now())""",
-      sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pipelineForOutputId, 'Sales Pipeline', $userId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pipelineForOutputId, $pipelineForOutputId, $srcId::uuid, 0)""",
+      sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at, root_id)
              VALUES ($pipelineOutputId, $pipelineForOutputId, NULL, $userId::uuid, 'Sales Output', 'table', '{}'::jsonb,
-                     '[{"name":"region","type":"string"}]'::jsonb, 0, now(), now())"""
+                     '[{"name":"region","type":"string"}]'::jsonb, 0, now(), now(), $pipelineForOutputId)"""
     )))
   }
 

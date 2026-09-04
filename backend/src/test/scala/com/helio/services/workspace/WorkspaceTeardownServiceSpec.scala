@@ -207,7 +207,7 @@ class WorkspaceTeardownServiceSpec
       name: String = s"pipe-${UUID.randomUUID()}",
       outputName: String = s"out-${UUID.randomUUID()}"
   ): SeededPipeline = {
-    val summary = await(pipelineRepo.create(name, sourceId, user, tag)) match {
+    val summary = await(pipelineRepo.create(name, Vector(sourceId), user, tag)) match {
       case Right(s)  => s
       case Left(err) => fail(s"pipeline create failed: $err")
     }
@@ -246,7 +246,7 @@ class WorkspaceTeardownServiceSpec
     val output = await(
       outputRepo.insertInternal(
         PipelineId(pipelineId), None, user.id, s"out-${UUID.randomUUID()}", OutputKind.Table
-      )
+      , explicitRootId = None)
     )
     val dashboard = await(dashboardRepo.insert(
       Dashboard(

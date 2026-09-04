@@ -131,9 +131,8 @@ class PipelineRunRoutesSpec
     val dtId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       
-      sqlu"""INSERT INTO pipelines
-               (id, name, source_data_source_id, created_at, updated_at)
-               VALUES ($pid, 'pipe', $dsId, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     (PipelineId(pid), dtId)
   }
@@ -166,7 +165,7 @@ class PipelineRunRoutesSpec
    *  `PipelineRunService`'s `outputRepo.listByPipelineInternal` hook
    *  (task 3.1) can find it. */
   private def seedOutputForPipeline(pid: PipelineId): OutputId =
-    await(outputRepo.insertInternal(pid, None, dummyUser.id, "out", OutputKind.Table)).id
+    await(outputRepo.insertInternal(pid, None, dummyUser.id, "out", OutputKind.Table, explicitRootId = None)).id
 
   /** HEL-466: seed an enabled `AlertRule` targeting the pipeline's Output,
    *  for the onRunSuccess -> AlertEvaluationService hook tests below. */
@@ -413,7 +412,7 @@ class PipelineRunRoutesSpec
         sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
       ))
       statusOpt shouldBe Some("succeeded")
-      val rows = await(nodeSnapshotRepo.listRows(pid.value, None))
+      val rows = await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None))
       rows.flatMap(_.fields.keySet) should contain allOf ("name", "score")
     }
 
@@ -466,8 +465,8 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val selectStep = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector("name", "score")), enabled = true))
-      await(stepRepo.insertInternal(pid, "limit", LimitConfig(1), enabled = true, parentStepId = Some(selectStep.id)))
+      val selectStep = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector("name", "score")), enabled = true, explicitRootId = None))
+      await(stepRepo.insertInternal(pid, "limit", LimitConfig(1), enabled = true, parentStepId = Some(selectStep.id), explicitRootId = None))
       Get(s"/pipelines/${pid.value}/steps/${selectStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -500,11 +499,11 @@ class PipelineRunRoutesSpec
       val pid   = seedPipeline(dsId)
       val selectStep = await(stepRepo.insertInternal(
         pid, "select", SelectConfig(Vector("name", "score")), enabled = true
-      ))
+      , explicitRootId = None))
       val filterStep = await(stepRepo.insertInternal(
         pid, "filter", FilterConfig("and", Vector(FilterCondition("score", ">", Some("40")))), enabled = true,
         parentStepId = Some(selectStep.id)
-      ))
+      , explicitRootId = None))
       Get(s"/pipelines/${pid.value}/steps/${filterStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -525,11 +524,11 @@ class PipelineRunRoutesSpec
       val pid   = seedPipeline(dsId)
       val selectStep = await(stepRepo.insertInternal(
         pid, "select", SelectConfig(Vector("name", "score")), enabled = true
-      ))
+      , explicitRootId = None))
       val filterStep = await(stepRepo.insertInternal(
         pid, "filter", FilterConfig("and", Vector(FilterCondition("score", ">", Some("40")))), enabled = true,
         parentStepId = Some(selectStep.id)
-      ))
+      , explicitRootId = None))
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -543,8 +542,8 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()
       val pid   = seedPipeline(dsId)
-      val limitStep = await(stepRepo.insertInternal(pid, "limit", LimitConfig(1), enabled = false))
-      val selectStep = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector("name", "score")), enabled = true, parentStepId = Some(limitStep.id)))
+      val limitStep = await(stepRepo.insertInternal(pid, "limit", LimitConfig(1), enabled = false, explicitRootId = None))
+      val selectStep = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector("name", "score")), enabled = true, parentStepId = Some(limitStep.id), explicitRootId = None))
       Get(s"/pipelines/${pid.value}/steps/${selectStep.id.value}/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
@@ -608,9 +607,16 @@ class PipelineRunRoutesSpec
       runs should have size 1
       runs.head.pipelineId shouldBe pid.value
       runs.head.status     shouldBe "failed"
-      runs.head.errorLog   shouldBe Some(
-        s"Pipeline execution failed at step ${joinStep.id.value} (join): DataSource not found for join: $missingSourceId"
-      )
+      // HEL-913 (design.md R11): the message now also carries the lane path (`[path: root:<id>
+      // > ...]`) between the step-attribution parenthetical and the colon-prefixed reason --
+      // asserted as a substring match on the parts that predate this ticket, rather than a
+      // full-string equality that would need to know the pipeline's (randomly generated) root
+      // id here too.
+      val errorLog = runs.head.errorLog.getOrElse(fail("expected an errorLog"))
+      errorLog should startWith(s"Pipeline execution failed at step ${joinStep.id.value} (join)")
+      errorLog should include(s"[path: root:")
+      errorLog should include(s"${joinStep.id.value}]")
+      errorLog should endWith(s": DataSource not found for join: $missingSourceId")
     }
 
     // HEL-859 (tasks.md 5.1, AC1/AC3): the ticket's own repro. A run that
@@ -662,7 +668,7 @@ class PipelineRunRoutesSpec
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
-      val storedRows = await(nodeSnapshotRepo.listRows(pid.value, None))
+      val storedRows = await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None))
       storedRows should have size 2
       storedRows.head.fields.keys should contain allOf ("name", "score")
     }
@@ -671,14 +677,14 @@ class PipelineRunRoutesSpec
       val cache              = new PipelineRunCache()
       val dsId               = seedDsWithData()
       val pid                = seedPipeline(dsId)
-      await(nodeSnapshotRepo.overwriteRows(pid.value, None, Seq.empty))
+      await(nodeSnapshotRepo.overwriteRows(pid.value, None, Seq.empty, explicitRootId = None))
 
       Post(s"/pipelines/${pid.value}/run?dry=true") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 2
       }
-      val storedRows = await(nodeSnapshotRepo.listRows(pid.value, None))
+      val storedRows = await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None))
       storedRows shouldBe empty
     }
 
@@ -691,12 +697,12 @@ class PipelineRunRoutesSpec
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(nodeSnapshotRepo.listRows(pid.value, None)) should have size 2
+      await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None)) should have size 2
 
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(nodeSnapshotRepo.listRows(pid.value, None)) should have size 2
+      await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None)) should have size 2
     }
 
     // HEL-904 task 4.5: "POST /pipelines/:id/run infers integer type for whole-number column and
@@ -720,8 +726,11 @@ class PipelineRunRoutesSpec
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val resp = responseAs[ErrorResponse]
-        resp.message shouldBe
-          s"Pipeline execution failed at step ${joinStep.id.value} (join): DataSource not found for join: $missingSourceId"
+        // HEL-913 (design.md R11): see the sibling errorLog test above for why this is a
+        // substring match, not full equality, now that the lane path is composed in.
+        resp.message should startWith(s"Pipeline execution failed at step ${joinStep.id.value} (join)")
+        resp.message should include("[path: root:")
+        resp.message should endWith(s": DataSource not found for join: $missingSourceId")
       }
       val statusOpt = await(db.run(
         sql"SELECT last_run_status FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head
@@ -820,6 +829,11 @@ class PipelineRunRoutesSpec
       events.map(_.status).filterNot(_ == "node-progress") shouldBe Seq("queued", "running", "succeeded")
       events.map(_.status) should contain("node-progress")
       events.last.rowCount shouldBe Some(2)
+      // HEL-913 R15: the pipeline's own root reports nodeKind = "root" -- the explicit wire
+      // discriminator, not a bare id string a consumer would have to already know is a root.
+      val rootEvent = events.find(e => e.status == "node-progress" && e.nodeId.contains(pid.value))
+      rootEvent shouldBe defined
+      rootEvent.get.nodeKind shouldBe Some("root")
     }
 
     // HEL-905 (evaluation-1.md CR8/task 6.6): a tail's own "node-progress" event, carrying that
@@ -834,14 +848,14 @@ class PipelineRunRoutesSpec
       // position 1 -- a genuine tail, not the trunk's own first child (`insertInternal`
       // auto-assigns position by sibling count: the FIRST child under a parent always gets
       // position 0, so a lone "tail" with no trunk sibling would incorrectly BE the trunk).
-      await(stepRepo.insertInternal(pid, "rename", RenameConfig(Map("name" -> "renamedTrunk")), enabled = true, parentStepId = None))
+      await(stepRepo.insertInternal(pid, "rename", RenameConfig(Map("name" -> "renamedTrunk")), enabled = true, parentStepId = None, explicitRootId = None))
       // The tail rooted off the pipeline root (now position 1): filters down to "alice" alone
       // -- a row count (1) that provably differs from the trunk's own (2), so a naive
       // "any node-progress event" assertion could not accidentally pass.
       val tailStep = await(stepRepo.insertInternal(
         pid, "filter", FilterConfig("AND", Vector(FilterCondition("name", "=", Some("alice")))),
         enabled = true, parentStepId = None
-      ))
+      , explicitRootId = None))
       val reg = new PipelineRunRegistry()(typedSystem)
 
       val eventsFuture = reg
@@ -856,6 +870,10 @@ class PipelineRunRoutesSpec
       val tailEvent = events.find(e => e.status == "node-progress" && e.nodeId.contains(tailStep.id.value))
       tailEvent shouldBe defined
       tailEvent.get.rowCount shouldBe Some(1)
+      // HEL-913 R15: a step-kind node reports nodeKind = "step", distinguishing it on the wire
+      // from a root-kind node's nodeKind = "root" -- never a bare id a consumer must already
+      // know is/isn't a root.
+      tailEvent.get.nodeKind shouldBe Some("step")
 
       // The run-level lifecycle/status/rowCount must be untouched by any node-progress event --
       // the terminal "succeeded" event still reports the TRUNK's row count (2), not the tail's
@@ -889,9 +907,12 @@ class PipelineRunRoutesSpec
       val events = Await.result(eventsFuture, 10.seconds)
       // HEL-905: see the succeeded-path test above for why node-progress is filtered here.
       events.map(_.status).filterNot(_ == "node-progress") shouldBe Seq("queued", "running", "failed")
-      events.last.errorLog shouldBe Some(
-        s"Pipeline execution failed at step ${joinStep.id.value} (join): DataSource not found for join: $missingSourceId"
-      )
+      // HEL-913 (design.md R11): see the errorLog test above for why this is a substring
+      // match, not full equality, now that the lane path is composed in.
+      val lastErrorLog = events.last.errorLog.getOrElse(fail("expected an errorLog"))
+      lastErrorLog should startWith(s"Pipeline execution failed at step ${joinStep.id.value} (join)")
+      lastErrorLog should include("[path: root:")
+      lastErrorLog should endWith(s": DataSource not found for join: $missingSourceId")
     }
 
 
@@ -905,13 +926,13 @@ class PipelineRunRoutesSpec
         val resp = responseAs[RunResultResponse]
         resp.rowCount shouldBe 1
       }
-      val refs = await(binaryRefRepo.findByNode(pid.value, None))
+      val refs = await(binaryRefRepo.findByNode(pid.value, None, explicitRootId = None))
       refs should have size 1
       refs.head.fieldName shouldBe "content"
       refs.head.rowIndex   shouldBe 0
 
       // Matches what actually landed in node_snapshots.data.content.
-      val storedRows = await(nodeSnapshotRepo.listRows(pid.value, None))
+      val storedRows = await(nodeSnapshotRepo.listRows(pid.value, None, explicitRootId = None))
       storedRows should have size 1
       val contentJs = storedRows.head.fields("content").asJsObject
       contentJs.fields("storageKey").convertTo[String] shouldBe refs.head.storageKey
@@ -926,12 +947,12 @@ class PipelineRunRoutesSpec
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(binaryRefRepo.findByNode(pid.value, None)) should have size 1
+      await(binaryRefRepo.findByNode(pid.value, None, explicitRootId = None)) should have size 1
 
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(binaryRefRepo.findByNode(pid.value, None)) should have size 1
+      await(binaryRefRepo.findByNode(pid.value, None, explicitRootId = None)) should have size 1
     }
 
     "POST /pipelines/:id/run over a StaticSource (no binary-ref fields) writes no binary_refs rows" in {
@@ -941,7 +962,7 @@ class PipelineRunRoutesSpec
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, binRefRepo = binaryRefRepo) ~> check {
         status shouldBe StatusCodes.OK
       }
-      await(binaryRefRepo.findByNode(pid.value, None)) shouldBe empty
+      await(binaryRefRepo.findByNode(pid.value, None, explicitRootId = None)) shouldBe empty
     }
 
 
@@ -1025,7 +1046,7 @@ class PipelineRunRoutesSpec
       // pipeline root (node_step_id = NULL) so the insert itself succeeds -- but the stub below
       // reports it to `alertEvaluation` as pointing at a fabricated node key that the tree walk
       // will never produce a NodeOutcome for.
-      val realOutput   = await(outputRepo.insertInternal(pid, None, dummyUser.id, "orphan-out", OutputKind.Table))
+      val realOutput   = await(outputRepo.insertInternal(pid, None, dummyUser.id, "orphan-out", OutputKind.Table, explicitRootId = None))
       val orphanStepId = PipelineStepId(UUID.randomUUID().toString)
       val stubOutputRepo = new OutputRepository(ctx)(routeEc) {
         override def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[Output]] =

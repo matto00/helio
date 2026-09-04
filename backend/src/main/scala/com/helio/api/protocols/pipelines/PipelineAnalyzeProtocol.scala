@@ -176,17 +176,30 @@ final case class SourceSchemaDriftResponse(
     typeChangedColumns: Vector[TypeChangedColumnResponse]
 )
 
+/** HEL-913 task 7.2c (`pipeline-analyze-api` spec delta): "the response SHALL carry one
+ *  source-schema entry per root, keyed by root id." Replaces the retired singular
+ *  `sourceDataSourceName`/`sourceSchema` pair outright (decision 11, no dual-read path) --
+ *  mirrors `PipelineRootSummaryResponse`'s own per-root shape used by `PipelineSummaryResponse
+ *  .roots`. */
+final case class RootSourceSchemaResponse(
+    rootId:               String,
+    sourceDataSourceName: String,
+    sourceSchema:         Vector[SchemaFieldResponse]
+)
+
 /** `sourceSchemaDrift` (HEL-462) is computed at analyze time and is absent
  *  when there is no baseline yet — i.e. the pipeline has never run
  *  successfully — or the current source schema matches the baseline exactly.
- *  spray-json omits `None` on the wire. */
+ *  spray-json omits `None` on the wire. `sourceSchemaDrift` itself remains scoped to the
+ *  pipeline's PRIMARY (lowest-positioned) root's schema (HEL-913 task 7.2c) -- the 7.2c
+ *  delta names only the source-schema-per-root SHALL, not a per-root drift baseline; a
+ *  multi-root drift model is not this ticket's scope. */
 final case class PipelineAnalyzeResponse(
-    id:                   String,
-    name:                 String,
-    sourceDataSourceName: String,
-    sourceSchema:         Vector[SchemaFieldResponse],
-    steps:                Vector[AnalyzeStepResponse],
-    sourceSchemaDrift:    Option[SourceSchemaDriftResponse] = None
+    id:                String,
+    name:              String,
+    sourceSchemas:     Vector[RootSourceSchemaResponse],
+    steps:             Vector[AnalyzeStepResponse],
+    sourceSchemaDrift: Option[SourceSchemaDriftResponse] = None
 )
 
 /** `PipelineAnalyzeProtocol extends PipelineStepProtocol` for the typed
@@ -287,5 +300,7 @@ trait PipelineAnalyzeProtocol
   implicit val typeChangedColumnResponseFormat: RootJsonFormat[TypeChangedColumnResponse] = jsonFormat3(TypeChangedColumnResponse.apply)
   implicit val sourceSchemaDriftResponseFormat: RootJsonFormat[SourceSchemaDriftResponse] = jsonFormat3(SourceSchemaDriftResponse.apply)
 
-  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat6(PipelineAnalyzeResponse.apply)
+  implicit val rootSourceSchemaResponseFormat: RootJsonFormat[RootSourceSchemaResponse] = jsonFormat3(RootSourceSchemaResponse.apply)
+
+  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat5(PipelineAnalyzeResponse.apply)
 }

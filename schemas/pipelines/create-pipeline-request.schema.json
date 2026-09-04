@@ -2,12 +2,82 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/create-pipeline-request.schema.json",
   "title": "CreatePipelineRequest",
-  "description": "POST /api/pipelines. `steps`/`outputs` (HEL-906 task 3.1) are additive -- absent or empty preserves the pre-existing simple create (name + sourceDataSourceId only). Non-empty `steps`/`outputs` builds the pipeline, its steps, and its Outputs in one call; any failure rolls back the whole call (see CreatePipelineTransactionalStepRequest's description).",
+  "description": "POST /api/pipelines. HEL-913: `roots` REPLACES the scalar `sourceDataSourceId` outright -- there is no accepted alias and no default; an absent, empty, or legacy-scalar-shaped body is rejected with a 400 naming the problem (design decision 11, \"no deprecation\"). `steps`/`outputs` (HEL-906 task 3.1) remain additive -- absent or empty preserves the simple create (name + roots only). Non-empty `steps`/`outputs` builds the pipeline, its roots, its steps, and its Outputs in one call; any failure rolls back the whole call (see CreatePipelineTransactionalStepRequest's description). Task 7.1a: each `roots[]` element is EITHER an existing `sourceId` OR an inline source spec (`type` + `name` + exactly one of `sqlConfig`/`restConfig`/`staticConfig`), the SAME shape `POST /api/pipelines/:id/roots` (`add_root`) accepts (design.md R6, \"one shape, not two\"). Exactly one of `sourceId`/`type` must be given; neither or both is a named 400. `csv` is deliberately NOT a supported inline `type` -- no bytes channel exists in a JSON body for the upload path; create the CSV source separately and reference it via `sourceId`.",
   "type": "object",
-  "required": ["name", "sourceDataSourceId"],
+  "required": ["name", "roots"],
   "properties": {
     "name": { "type": "string", "minLength": 1 },
-    "sourceDataSourceId": { "type": "string", "minLength": 1 },
+    "roots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "sourceId": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["sql", "rest_api", "static"] },
+          "name": { "type": "string", "minLength": 1 },
+          "sqlConfig": {
+            "type": "object",
+            "description": "com.helio.api.protocols.sources.SqlSourceConfigPayload",
+            "required": ["dialect", "host", "port", "database", "user", "password", "query"],
+            "properties": {
+              "dialect": { "type": "string" },
+              "host": { "type": "string" },
+              "port": { "type": "integer" },
+              "database": { "type": "string" },
+              "user": { "type": "string" },
+              "password": { "type": "string" },
+              "query": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "restConfig": {
+            "type": "object",
+            "description": "com.helio.api.protocols.sources.RestApiConfigPayload (subset actually consumable via an inline pipeline root -- `connectorId`/legacy `url`, not the full field set)",
+            "properties": {
+              "connectorId": { "type": ["string", "null"] },
+              "url": { "type": ["string", "null"] },
+              "endpoint": { "type": ["string", "null"] },
+              "method": { "type": ["string", "null"] },
+              "queryParams": { "type": ["object", "null"] },
+              "headers": { "type": ["object", "null"] },
+              "body": { "type": ["string", "null"] },
+              "bodyContentType": { "type": ["string", "null"] },
+              "rootSelector": { "type": ["string", "null"] },
+              "auth": {},
+              "parameters": { "type": ["object", "null"] }
+            },
+            "additionalProperties": false
+          },
+          "staticConfig": {
+            "type": "object",
+            "description": "com.helio.api.protocols.sources.StaticDataPayload",
+            "required": ["columns", "rows"],
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "type"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "type": { "type": "string" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "rows": {
+                "type": "array",
+                "items": { "type": "array", "items": {} }
+              }
+            },
+            "additionalProperties": false
+          },
+          "clientId": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
     "tag": { "type": ["string", "null"] },
     "steps": {
       "type": "array",

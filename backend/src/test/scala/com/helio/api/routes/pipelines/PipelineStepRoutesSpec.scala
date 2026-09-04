@@ -73,10 +73,25 @@ class PipelineStepRoutesSpec
     val dtId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at) VALUES ($dsId, 'ds', 'rest_api', '{}', '00000000-0000-0000-0000-000000000001', now(), now())""",
-      
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, created_at, updated_at) VALUES ($pid, 'p', $dsId, now(), now())"""
+
+      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'p', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     pid
+  }
+
+  // HEL-913 task 7.3b: appends a second root to an already-seeded pipeline (`seedPipeline`
+  // always creates exactly root 0). Raw SQL against the shared superuser connection, matching
+  // this file's existing fixture convention.
+  private def addSecondRoot(pipelineId: String): String = {
+    import PostgresProfile.api._
+    val rootId = UUID.randomUUID().toString
+    val dsId   = UUID.randomUUID().toString
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at) VALUES ($dsId, 'ds2', 'rest_api', '{}', '00000000-0000-0000-0000-000000000001', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($rootId, $pipelineId, $dsId, 1)"""
+    )))
+    rootId
   }
 
   // HEL-904 cycle-9: `addStep` with no `position` now extends the trunk
@@ -89,8 +104,8 @@ class PipelineStepRoutesSpec
     import PostgresProfile.api._
     val id = UUID.randomUUID().toString
     await(db.run(
-      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
-             VALUES ($id, $pid, $position, $op, $configJson::text, true, now(), now(), NULL)"""
+      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id, root_id)
+             VALUES ($id, $pid, $position, $op, $configJson::text, true, now(), now(), NULL, $pid)"""
     ))
     id
   }
@@ -232,6 +247,70 @@ class PipelineStepRoutesSpec
       }
     }
 
+    // HEL-913 task 7.6a: every step response carries its owning root's id -- the wire half of
+    // the 4.4 side-map substitution design.md R4's representation table names as load-bearing.
+    // `seedPipeline` gives the pipeline exactly one root, whose id equals the pipeline's own id
+    // (V98's backfill convention), so a trunk step's `rootId` must equal `pid` here.
+    "GET /pipelines/:id/steps carries each step's rootId on the wire (HEL-913 7.6a)" in {
+      cleanSteps(); val pid = seedPipeline()
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        steps should have size 1
+        steps.head.rootId shouldBe Some(pid)
+      }
+    }
+
+    // HEL-913 task 7.3b: POST /pipelines/:id/steps carries rootId, an alternative anchor to
+    // parentStepId for a genuinely multi-root pipeline.
+    "POST /pipelines/:id/steps with rootId attaches the new step to THAT root, not the other one" in {
+      cleanSteps(); val pid = seedPipeline()
+      val root2Id = addSecondRoot(pid)
+
+      Post(s"/pipelines/$pid/steps", JsObject(renameReq().fields + ("rootId" -> JsString(root2Id)))) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[PipelineStepResponse]
+        resp.rootId shouldBe Some(root2Id)
+      }
+    }
+
+    "POST /pipelines/:id/steps rejects both parentStepId and rootId with 400" in {
+      cleanSteps(); val pid = seedPipeline()
+      var existingStepId = ""
+      // Seeded BEFORE the second root exists -- unambiguous single-root create at this point.
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
+        existingStepId = responseAs[PipelineStepResponse].id
+      }
+      val root2Id = addSecondRoot(pid)
+
+      val body = JsObject(renameReq().fields ++ Map("parentStepId" -> JsString(existingStepId), "rootId" -> JsString(root2Id)))
+      Post(s"/pipelines/$pid/steps", body) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "POST /pipelines/:id/steps rejects neither parentStepId nor rootId with 400 once the pipeline has more than one root" in {
+      cleanSteps(); val pid = seedPipeline()
+      addSecondRoot(pid)
+
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "POST /pipelines/:id/steps rejects a rootId naming another pipeline's root with 422" in {
+      cleanSteps(); val pid = seedPipeline()
+      val otherPid = seedPipeline()
+      val otherRootId = otherPid // seedPipeline's V98-backfill convention: root 0's id == the pipeline's own id
+
+      Post(s"/pipelines/$pid/steps", JsObject(renameReq().fields + ("rootId" -> JsString(otherRootId)))) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+      }
+    }
+
     "POST /pipelines/:id/steps creates a step and returns 201" in {
       cleanSteps(); val pid = seedPipeline()
       Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check {
@@ -242,6 +321,9 @@ class PipelineStepRoutesSpec
         resp.position shouldBe 0
         resp.id should not be empty
         resp shouldBe a [RenameStepResponse]
+        // HEL-913 task 7.6a-i: the create response also carries the new step's real root id,
+        // not a silently-inherited `None`.
+        resp.rootId shouldBe Some(pid)
       }
     }
 
@@ -328,6 +410,8 @@ class PipelineStepRoutesSpec
         val resp = responseAs[PipelineStepResponse]
         resp.`type` shouldBe "rename"
         resp shouldBe a [RenameStepResponse]
+        // HEL-913 task 7.6a-i: the update response also carries the step's real root id.
+        resp.rootId shouldBe Some(pid)
       }
     }
 
@@ -951,6 +1035,22 @@ class PipelineStepRoutesSpec
     // root sibling is trunk; the other two are root-level tails), so it is
     // rewritten here to seed a genuine parent-chained trunk and assert the
     // real relink + persistence, end to end through the live route.
+    // HEL-913 task 7.3d-i (coordinator ruling): reorderTrunkInternal's notion of "the trunk" is
+    // root-unaware, and its idx==0 update writes root_id from firstRootIdAction (always the
+    // lowest-positioned root) unconditionally -- on a multi-root pipeline this could silently
+    // reassign a step from root B's trunk onto root A. Fenced closed with a named 400 rather
+    // than left reachable; the real multi-root reorder semantics are HEL-973.
+    "PUT /pipelines/:id/steps/order returns 400 once the pipeline has more than one root" in {
+      cleanSteps(); val pid = seedPipeline()
+      var idA = ""
+      Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
+      addSecondRoot(pid)
+
+      Put(s"/pipelines/$pid/steps/order", JsObject("stepIds" -> Vector(idA).toJson)) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
     "PUT /pipelines/:id/steps/order reorders a genuine trunk, relinking parentStepId end to end" in {
       cleanSteps(); val pid = seedPipeline()
       var idA, idB, idC = ""
@@ -1072,8 +1172,8 @@ class PipelineStepRoutesSpec
       val tId = UUID.randomUUID().toString
       val cId = UUID.randomUUID().toString
       await(db.run(DBIO.seq(
-        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
-               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id, root_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL, $pid)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
                VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
@@ -1110,8 +1210,8 @@ class PipelineStepRoutesSpec
       val tId = UUID.randomUUID().toString
       val cId = UUID.randomUUID().toString
       await(db.run(DBIO.seq(
-        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
-               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id, root_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL, $pid)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
                VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
@@ -1320,8 +1420,8 @@ class PipelineStepRoutesSpec
       val bId = UUID.randomUUID().toString
       val cId = UUID.randomUUID().toString
       await(db.run(DBIO.seq(
-        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
-               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id, root_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL, $pid)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
                VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
@@ -1429,6 +1529,8 @@ class PipelineStepRoutesSpec
         resp.position shouldBe 0
         cloneId = resp.id
         cloneId should not be idA
+        // HEL-913 task 7.6a-i: the duplicate response also carries the clone's real root id.
+        resp.rootId shouldBe Some(pid)
       }
 
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
@@ -1469,8 +1571,8 @@ class PipelineStepRoutesSpec
       val cId = UUID.randomUUID().toString
       val dId = UUID.randomUUID().toString
       await(db.run(DBIO.seq(
-        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
-               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id, root_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL, $pid)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
                VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
@@ -1516,8 +1618,8 @@ class PipelineStepRoutesSpec
       val bId = UUID.randomUUID().toString
       val tailId = UUID.randomUUID().toString
       await(db.run(DBIO.seq(
-        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
-               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id, root_id)
+               VALUES ($aId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL, $pid)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
                VALUES ($bId, $pid, 0, 'rename', '{"renames":{}}', true, now(), now(), $aId)""",
         sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
@@ -1779,8 +1881,8 @@ class PipelineStepRoutesSpec
       import PostgresProfile.api._
       val stepId = UUID.randomUUID().toString
       await(db.run(sqlu"""
-        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled)
-        VALUES ($stepId, $pid, 0, 'cast', '{"casts":[{"field":"amount","to":"double"}]}', true)
+        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, root_id)
+        VALUES ($stepId, $pid, 0, 'cast', '{"casts":[{"field":"amount","to":"double"}]}', true, $pid)
       """))
 
       // Bound to the mechanism, not just the status: the same raw config the
@@ -1806,8 +1908,8 @@ class PipelineStepRoutesSpec
       import PostgresProfile.api._
       val stepId = UUID.randomUUID().toString
       await(db.run(sqlu"""
-        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled)
-        VALUES ($stepId, $pid, 0, 'cast', '{}', true)
+        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, root_id)
+        VALUES ($stepId, $pid, 0, 'cast', '{}', true, $pid)
       """))
 
       Get(s"/pipelines/$pid/steps") ~> routes ~> check {
@@ -1851,10 +1953,10 @@ class PipelineStepRoutesSpec
                ON CONFLICT DO NOTHING""",
         sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($foreignDs, 'ds', 'rest_api', '{}', '00000000-0000-0000-0000-000000000002', now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($foreignPid, 'p2', $foreignDs, '00000000-0000-0000-0000-000000000002', now(), now())""",
-        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
-               VALUES ($foreignStepId, $foreignPid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL)"""
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($foreignPid, 'p2', '00000000-0000-0000-0000-000000000002', now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($foreignPid, $foreignPid, $foreignDs, 0)""",
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id, root_id)
+               VALUES ($foreignStepId, $foreignPid, 0, 'rename', '{"renames":{}}', true, now(), now(), NULL, $foreignPid)"""
       )))
 
       Post(s"/pipelines/$pid/steps", laneUnionReq(rootId, foreignStepId)) ~> routes ~> check {

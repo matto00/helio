@@ -1,27 +1,25 @@
 /**
- * `create_pipeline`'s actual call-routing logic (HEL-907 task 3.2). `add_pipeline_step`'s own
- * handler (task 3.3's parentStepId addition) already lives in `assertSchemas.ts` -- extended
- * there, not duplicated here. Mirrors `pipelineProposalHandlers.ts`'s
- * design.md D4b split: zod-free, so a test can exercise this without
- * pulling `pipelines.ts`'s zod/`registerTool` surface into the compile
- * graph.
+ * `create_pipeline`'s actual call-routing logic (HEL-907 task 3.2, HEL-913 task 9.1/9.2
+ * widened to multi-root). `add_pipeline_step`'s own handler (task 3.3's parentStepId addition)
+ * already lives in `assertSchemas.ts` -- extended there, not duplicated here. Mirrors
+ * `pipelineProposalHandlers.ts`'s design.md D4b split: zod-free, so a test can exercise this
+ * without pulling `pipelines.ts`'s zod/`registerTool` surface into the compile graph.
  *
  * `create_pipeline` maps onto `POST /api/pipelines`'s single-call
- * transactional shape (HEL-906): `sourceId` OR an inline source spec,
- * `steps[]` (with `parentStepId`), optional `outputs[]`. design.md decision
- * 2: the backend route requires an EXISTING `sourceDataSourceId` --
- * `additionalProperties: false`, no inline-source arm exists there -- so an
- * inline source spec is resolved here, client-side, into two HTTP calls
- * under the hood (`POST /api/data-sources` or `POST /api/sources`, then
- * `POST /api/pipelines`), presented to the agent as ONE tool call. If the
- * second call fails, the already-created source is orphaned; its id is
- * surfaced in the thrown error so the caller (or a human) can clean it up
- * via `delete_data_source`/`teardown_resources` -- never silently
- * swallowed. `csv` is NOT supported as an inline source here (same
- * constraint `propose_pipeline`/`PipelineProposalService` already document:
- * no bytes channel exists in this call for an uploaded file) -- create the
- * csv source first (`create_csv_data_source`) and pass its id via
- * `source.sourceId`.
+ * transactional shape (HEL-906/HEL-913): `roots[]` (each an existing `sourceId` OR an inline
+ * source spec, R6 "one shape, not two" with `add_root`'s own body), `steps[]` (with
+ * `parentStepId`/`rootClientId`), optional `outputs[]` (with `nodeStepClientId`/`rootClientId`).
+ * design.md decision 2 (unchanged by the multi-root widening): the backend route requires an
+ * EXISTING `sourceId` per root -- `additionalProperties: false`, no inline-source arm exists
+ * there -- so an inline source spec is resolved here, client-side, into two HTTP calls under
+ * the hood (`POST /api/data-sources` or `POST /api/sources`, then `POST /api/pipelines`),
+ * presented to the agent as ONE tool call, per root, in order. If a LATER root's resolution or
+ * the final `POST /api/pipelines` call fails, EVERY inline source already created by earlier
+ * roots in THIS call is reported as orphaned (plural now, not singular) -- never silently
+ * swallowed, never under-reported. `csv` is NOT supported as an inline source here (same
+ * constraint `propose_pipeline`/`PipelineProposalService` already document: no bytes channel
+ * exists in this call for an uploaded file) -- create the csv source first
+ * (`create_csv_data_source`) and pass its id via `sourceId`.
  */
 
 import type { HelioApi, StaticColumn } from "../helioApi.js";
@@ -31,6 +29,8 @@ import type {
   PipelineProposalStep,
   PipelineStepResponse,
   PipelineSummaryResponse,
+  PipelineRootSummaryResponse,
+  RemovePipelineRootResponse,
 } from "../types.js";
 
 export interface CreatePipelineResult extends PipelineSummaryResponse {
@@ -115,38 +115,80 @@ async function resolveSource(
   }
 }
 
+/** One `roots[]` element on `create_pipeline`'s input -- `CreatePipelineSourceInput` plus the
+ *  OPTIONAL request-scoped `clientId` a `steps[]`/`outputs[]` entry names via `rootClientId`
+ *  (unnecessary with exactly one root). */
+export type CreatePipelineRootInput = CreatePipelineSourceInput & { clientId?: string };
+
+function orphanedSourcesMessage(createdSourceIds: string[]): string {
+  return createdSourceIds.length === 1
+    ? `orphaned DataSource id: ${createdSourceIds[0]}`
+    : `orphaned DataSource ids: ${createdSourceIds.join(", ")}`;
+}
+
+/** Resolves EVERY `roots[]` entry, IN ORDER, sequentially (never parallel -- a later root's
+ *  resolution failure must know exactly which earlier roots already created a real,
+ *  now-orphaned DataSource, which parallel resolution would make racy to track). If root N's
+ *  OWN resolution throws, every EARLIER root's already-created inline source (1..N-1) is
+ *  reported as orphaned in the re-thrown error's message -- never silently dropped just
+ *  because the failure happened mid-list rather than on the final `createPipeline` call. */
+async function resolveRoots(
+  api: HelioApi,
+  pipelineName: string,
+  roots: CreatePipelineRootInput[],
+): Promise<{ resolved: { sourceId: string; clientId?: string }[]; createdSourceIds: string[] }> {
+  const resolved: { sourceId: string; clientId?: string }[] = [];
+  const createdSourceIds: string[] = [];
+  for (const root of roots) {
+    let sourceDataSourceId: string;
+    let createdSourceId: string | undefined;
+    try {
+      ({ sourceDataSourceId, createdSourceId } = await resolveSource(api, pipelineName, root));
+    } catch (err) {
+      if (createdSourceIds.length > 0) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `create_pipeline: a root's source resolution failed after ${createdSourceIds.length} ` +
+            `EARLIER root's inline source(s) were already created (${orphanedSourcesMessage(createdSourceIds)} ` +
+            `-- clean them up with delete_data_source or teardown_resources if tagged): ${message}`,
+        );
+      }
+      throw err;
+    }
+    resolved.push({ sourceId: sourceDataSourceId, clientId: root.clientId });
+    if (createdSourceId) createdSourceIds.push(createdSourceId);
+  }
+  return { resolved, createdSourceIds };
+}
+
 export async function createPipelineHandler(
   api: HelioApi,
   input: {
     name: string;
-    source: CreatePipelineSourceInput;
+    roots: CreatePipelineRootInput[];
     tag?: string;
     steps?: PipelineProposalStep[];
     outputs?: PipelineProposalOutput[];
   },
 ): Promise<CreatePipelineResult> {
-  const { sourceDataSourceId, createdSourceId } = await resolveSource(
-    api,
-    input.name,
-    input.source,
-  );
+  const { resolved, createdSourceIds } = await resolveRoots(api, input.name, input.roots);
 
   let summary: PipelineSummaryResponse;
   try {
     summary = await api.createPipeline({
       name: input.name,
-      sourceDataSourceId,
+      roots: resolved.map((r) => ({ sourceId: r.sourceId, clientId: r.clientId })),
       tag: input.tag,
       steps: input.steps,
       outputs: input.outputs,
     });
   } catch (err) {
-    if (createdSourceId) {
+    if (createdSourceIds.length > 0) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(
-        `create_pipeline: pipeline creation failed after its inline source was already created ` +
-          `(orphaned DataSource id: ${createdSourceId} -- clean it up with delete_data_source or ` +
-          `teardown_resources if tagged): ${message}`,
+        `create_pipeline: pipeline creation failed after ${createdSourceIds.length} inline ` +
+          `source(s) were already created (${orphanedSourcesMessage(createdSourceIds)} -- clean ` +
+          `them up with delete_data_source or teardown_resources if tagged): ${message}`,
       );
     }
     throw err;
@@ -204,4 +246,45 @@ export async function addOutputsFromShapeHandler(
   });
 
   return { steps, output };
+}
+
+/** `add_root(pipelineId, source)` (HEL-913 task 9.1) -- appends a new root to an EXISTING
+ *  pipeline (`POST /api/pipelines/:id/roots`). `source` is the SAME `CreatePipelineSourceInput`
+ *  shape `create_pipeline` uses -- reuses `resolveSource` so an inline source spec resolves
+ *  through the identical two-call-under-one-tool-call pattern, orphan reporting included. */
+export async function addPipelineRootHandler(
+  api: HelioApi,
+  input: { pipelineId: string; source: CreatePipelineSourceInput },
+): Promise<PipelineRootSummaryResponse> {
+  const { sourceDataSourceId, createdSourceId } = await resolveSource(
+    api,
+    input.pipelineId,
+    input.source,
+  );
+
+  try {
+    return await api.addPipelineRoot(input.pipelineId, { sourceId: sourceDataSourceId });
+  } catch (err) {
+    if (createdSourceId) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `add_root: root creation failed after its inline source was already created ` +
+          `(orphaned DataSource id: ${createdSourceId} -- clean it up with delete_data_source or ` +
+          `teardown_resources if tagged): ${message}`,
+      );
+    }
+    throw err;
+  }
+}
+
+/** `remove_root(pipelineId, rootId)` (HEL-913 task 9.1) -- `DELETE /api/pipelines/:id/roots/:rootId`.
+ *  Refuses to remove the pipeline's LAST root, and refuses when a surviving lane still
+ *  references a node that would be deleted (both surface as a thrown `HelioApiError` naming
+ *  the problem -- see `guarded`'s error formatting in `pipelines.ts`). On success, reports the
+ *  step/Output counts removed. */
+export function removePipelineRootHandler(
+  api: HelioApi,
+  input: { pipelineId: string; rootId: string },
+): Promise<RemovePipelineRootResponse> {
+  return api.removePipelineRoot(input.pipelineId, input.rootId);
 }

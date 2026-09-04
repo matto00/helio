@@ -117,7 +117,7 @@ class PipelineCapabilitiesRoutesSpec
       inferredSchema = Vector(SchemaField("amount", "float"), SchemaField("label", "string"))
     )
     val createdSource = await(dataSourceRepo.insert(source, owner))
-    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, owner)).getOrElse(
+    val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), owner)).getOrElse(
       throw new IllegalStateException("newSharedPipeline fixture: pipeline create failed")
     )
     val pipelineId = PipelineId(pipeline.id)
@@ -142,7 +142,7 @@ class PipelineCapabilitiesRoutesSpec
       val pipelineId = newSharedPipeline()
       val selectStep = await(pipelineStepRepo.insertInternal(
         pipelineId, "select", SelectConfig(Vector("label"))
-      ))
+      , explicitRootId = None))
 
       Get(s"/pipelines/${pipelineId.value}/capabilities?stepId=${selectStep.id.value}") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -163,7 +163,7 @@ class PipelineCapabilitiesRoutesSpec
       val aggStep = await(pipelineStepRepo.insertInternal(
         pipelineId, "aggregate",
         AggregateConfig(Vector.empty, Vector(Aggregation("total", "sum", "amount")))
-      ))
+      , explicitRootId = None))
 
       Get(s"/pipelines/${pipelineId.value}/capabilities?stepId=${aggStep.id.value}") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -184,7 +184,7 @@ class PipelineCapabilitiesRoutesSpec
       val pipelineId = newSharedPipeline()
       val selectStep = await(pipelineStepRepo.insertInternal(
         pipelineId, "select", SelectConfig(Vector("amount"))
-      ))
+      , explicitRootId = None))
 
       Get(s"/pipelines/${pipelineId.value}/capabilities?stepId=${selectStep.id.value}") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -240,7 +240,7 @@ class PipelineCapabilitiesRoutesSpec
 
     "validates against the NODE's own projected schema, not the source's -- a column dropped by a select step is unknown there" in {
       val pipelineId = newSharedPipeline()
-      val selectStep = await(pipelineStepRepo.insertInternal(pipelineId, "select", SelectConfig(Vector("label"))))
+      val selectStep = await(pipelineStepRepo.insertInternal(pipelineId, "select", SelectConfig(Vector("label")), explicitRootId = None))
 
       // "amount" still validates against the pipeline's raw source (stepId absent)...
       Post(s"/pipelines/${pipelineId.value}/validate-expression", ValidateExpressionRequest("$amount")) ~> routesFor(owner) ~> check {

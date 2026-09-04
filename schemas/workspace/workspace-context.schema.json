@@ -339,15 +339,7 @@
     },
     "PipelineEntry": {
       "type": "object",
-      "required": [
-        "id",
-        "name",
-        "sourceDataSourceId",
-        "sourceDataSourceName",
-        "outputId",
-        "outputName",
-        "steps"
-      ],
+      "required": ["id", "name", "roots", "outputId", "outputName", "steps"],
       "properties": {
         "id": {
           "type": "string",
@@ -356,11 +348,19 @@
         "name": {
           "type": "string"
         },
-        "sourceDataSourceId": {
-          "type": "string"
-        },
-        "sourceDataSourceName": {
-          "type": "string"
+        "roots": {
+          "description": "HEL-913 task 7.2b: replaces the removed sourceDataSourceId/sourceDataSourceName scalar pair (com.helio.api.protocols.workspace.WorkspaceContextPipeline) -- one entry per root, position-ordered, mirroring PipelineSummaryResponse.roots (com.helio.api.protocols.pipelines.PipelineRootSummaryResponse).",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "dataSourceId", "dataSourceName"],
+            "properties": {
+              "id": { "type": "string" },
+              "dataSourceId": { "type": "string" },
+              "dataSourceName": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
         },
         "outputId": {
           "type": "string"

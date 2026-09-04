@@ -47,7 +47,7 @@ final class PanelCapabilityService(
   // don't wire a NodeSnapshotRepository get a 0 row count instead of an NPE.
   private def rowCountOf(output: Output): Future[Int] =
     if (nodeSnapshotRepo == null) Future.successful(0)
-    else nodeSnapshotRepo.listRows(output.node.pipelineId.value, output.node.stepId.map(_.value)).map(_.size)
+    else nodeSnapshotRepo.listRows(output.node.pipelineId.value, output.node.stepId.map(_.value), explicitRootId = output.node.rootId.map(_.value)).map(_.size)
 
   private def build(output: Output, rowCount: Int): PanelCapabilitiesResponse = {
     val columns = columnsOf(output)

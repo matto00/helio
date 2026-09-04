@@ -222,10 +222,10 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
                VALUES ($srcId::uuid, 'src-pipe', 'csv', '{"path":"csv/test.csv"}'::jsonb,
                        ${ownerA.value}::uuid, now(), now())"""
       ))
-      noException should be thrownBy await(ctx.withSystemContext(
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($pipId, 'pipe-a', $srcId, ${ownerA.value}::uuid, now(), now())"""
-      ))
+      noException should be thrownBy await(ctx.withSystemContext(DBIO.seq(
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pipId, 'pipe-a', ${ownerA.value}::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pipId, $pipId, $srcId, 0)"""
+      )))
     }
   }
 
@@ -240,12 +240,12 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
         sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($srcId::uuid, 'src-steps', 'csv', '{"path":"csv/test.csv"}'::jsonb,
                        ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($pipId, 'pipe-steps', $srcId, ${ownerA.value}::uuid, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pipId, 'pipe-steps', ${ownerA.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pipId, $pipId, $srcId, 0)"""
       )))
       noException should be thrownBy await(ctx.withSystemContext(
-        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, created_at, updated_at)
-               VALUES ($stepId, $pipId, 1, 'rename', '{}', now(), now())"""
+        sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, created_at, updated_at, root_id)
+               VALUES ($stepId, $pipId, 1, 'rename', '{}', now(), now(), $pipId)"""
       ))
     }
   }
@@ -261,8 +261,8 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
         sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
                VALUES ($srcId::uuid, 'src-runs', 'csv', '{"path":"csv/test.csv"}'::jsonb,
                        ${ownerA.value}::uuid, now(), now())""",
-        sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-               VALUES ($pipId, 'pipe-runs', $srcId, ${ownerA.value}::uuid, now(), now())"""
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pipId, 'pipe-runs', ${ownerA.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pipId, $pipId, $srcId, 0)"""
       )))
       noException should be thrownBy await(ctx.withSystemContext(
         sqlu"""INSERT INTO pipeline_runs (id, pipeline_id, status, started_at)

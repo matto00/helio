@@ -32,7 +32,7 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       id        = OutputId(row.id),
       name      = row.name,
       ownerId   = UserId(row.ownerId.toString),
-      node      = NodeRef(PipelineId(row.pipelineId), row.nodeStepId.map(PipelineStepId(_))),
+      node      = NodeRef(PipelineId(row.pipelineId), row.nodeStepId.map(PipelineStepId(_)), row.rootId.map(PipelineRootId(_))),
       kind      = OutputKind.fromString(row.kind).getOrElse(
         throw new IllegalStateException(s"OutputRepository: unknown output kind '${row.kind}' on row ${row.id}")
       ),
@@ -41,7 +41,7 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       schema    = row.schema
     )
 
-  private def domainToRow(output: Output, config: JsObject, schema: Vector[SchemaField], position: Int, tag: Option[String]): OutputRow =
+  private def domainToRow(output: Output, config: JsObject, schema: Vector[SchemaField], position: Int, tag: Option[String], rootId: Option[String] = None): OutputRow =
     OutputRow(
       id         = output.id.value,
       pipelineId = output.node.pipelineId.value,
@@ -54,19 +54,51 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       position   = position,
       tag        = tag,
       createdAt  = output.createdAt,
-      updatedAt  = output.updatedAt
+      updatedAt  = output.updatedAt,
+      rootId     = rootId
     )
 
-  /** ACL-bypassing list of every Output attached to a pipeline node, in
-   *  `position` order. Sharing-aware access must be confirmed by the caller
-   *  (mirrors `PipelineStepRepository.listByPipelineInternal`'s contract). */
-  def listByNodeInternal(pipelineId: PipelineId, nodeStepId: Option[PipelineStepId]): Future[Vector[Output]] = {
-    val filtered = nodeStepId match {
-      case Some(stepId) => table.filter(r => r.pipelineId === pipelineId.value && r.nodeStepId === Option(stepId.value))
-      case None         => table.filter(r => r.pipelineId === pipelineId.value && r.nodeStepId.isEmpty)
-    }
-    ctx.withSystemContext(filtered.sortBy(_.position).result).map(_.toVector.map(rowToDomain))
-  }
+  /** HEL-913: resolves the LOWEST-POSITIONED root of `pipelineId`, mirroring
+   *  `PipelineStepRepository.firstRootIdAction` -- the single-root-compatible anchor a
+   *  root-bound (`nodeStepId = None`) Output insert must set as `root_id`, or V98's CHECK
+   *  constraint aborts the write.
+   *
+   *  Reached (via `insertInternal`/`insertInternalAction`'s `(nodeStepId, explicitRootId)` match,
+   *  the `(None, None)` arm) ONLY when a caller passes `explicitRootId = None` for a root-bound
+   *  Output. This is checkable as an ENUMERATION of every caller, not a trust-me claim
+   *  (evaluation-2.md, Rule B): there are exactly three, and each is safe by a DIFFERENT
+   *  mechanism --
+   *    1. `OutputService.create` -- `requireUnambiguousRootWhenNeither` refuses a multi-root
+   *       pipeline with a named 400 BEFORE `resolveExplicitRootId` can return `None`, so this arm
+   *       is reached only when the pipeline genuinely has exactly one root.
+   *    2. `PipelineService.buildOutputsAction` (`:617`) -- `resolveOutputRootIndex`'s `None`
+   *       branch (root-bound, no `rootClientId`) returns `Left(400)` when `roots.size > 1` and
+   *       `Right(Some(0))` otherwise; a step-bound Output (`nodeStepClientId` defined) always
+   *       carries a non-`None` `nodeStepId`, which takes the `(Some(_), _) => None` root arm
+   *       regardless of `explicitRootId`. Either way this method is unreached with more than one
+   *       root live.
+   *    3. `DemoData` (`:59`) -- passes `explicitRootId = Some(demoRootId)` explicitly, a NAMED-root
+   *       caller that never reaches this arm at all; also structurally single-root regardless
+   *       (`pipelineRepo.create("Demo Pipeline", Vector(source.id), ...)`, a hard-coded
+   *       one-element vector at boot).
+   *  The claim "the set of callers that can reach this with more than one root is empty" is what
+   *  is asserted here, not "the caller is responsible" -- if a FOURTH caller is ever added, it
+   *  must be added to this enumeration or this comment goes stale the same way the deleted
+   *  `OutputService` precondition did. */
+  private def firstRootIdAction(pipelineId: String): DBIO[String] =
+    TableQuery[PipelineRootRepository.PipelineRootTable]
+      .filter(_.pipelineId === pipelineId)
+      .sortBy(_.position)
+      .map(_.id)
+      .result
+      .head
+
+  // HEL-913 task 5.8b-iv: `listByNodeInternal` DELETED outright, not merely fixed -- it had ZERO
+  // callers anywhere in `src/main` or `src/test` (confirmed via `grep -rn "listByNodeInternal("`,
+  // the exact "provably unreachable -> delete the arm" case task 5.8b-iv names, generalized to
+  // the whole never-called method rather than leaving a landmine `(None, None)` fallback behind
+  // for a caller that does not exist). If a future caller needs this, it should be added back
+  // WITH a required `explicitRootId`, not with this method's old defaulted-fallback shape.
 
   /** ACL-bypassing list of every Output on a pipeline, across all nodes,
    *  in `position` order. */
@@ -163,9 +195,14 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       kind: OutputKind,
       config: JsObject = JsObject.empty,
       schema: Vector[SchemaField] = Vector.empty,
-      tag: Option[String] = None
+      tag: Option[String] = None,
+      // HEL-913 task 5.8a: names WHICH root a root-bound (`nodeStepId = None`) Output attaches
+      // to. Defaulted to `None` (auto-resolve the pipeline's first/only root, exactly the
+      // Stage-1/2 single-root-compatible behavior) so every pre-existing call site is
+      // unaffected; the service layer passes it explicitly once a caller can name a root.
+      explicitRootId: Option[PipelineRootId]
   ): Future[Output] =
-    ctx.withSystemContext(insertInternalAction(pipelineId, nodeStepId, ownerId, name, kind, config, schema, tag).transactionally)
+    ctx.withSystemContext(insertInternalAction(pipelineId, nodeStepId, ownerId, name, kind, config, schema, tag, explicitRootId).transactionally)
 
   /** DBIO variant of `insertInternal` above -- extracted (HEL-906 task 3.1, coordinator ruling
    *  D3) so `PipelineService`'s single-call transactional pipeline-creation path can compose this
@@ -180,15 +217,26 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       kind: OutputKind,
       config: JsObject = JsObject.empty,
       schema: Vector[SchemaField] = Vector.empty,
-      tag: Option[String] = None
+      tag: Option[String] = None,
+      explicitRootId: Option[PipelineRootId]
   ): DBIO[Output] = {
     val now = Instant.now()
     val id  = OutputId(UUID.randomUUID().toString)
     for {
       maxPos <- table.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
       position = maxPos.map(_ + 1).getOrElse(0)
-      output   = Output(id, name, ownerId, NodeRef(pipelineId, nodeStepId), kind, now, now, schema)
-      row      = domainToRow(output, config, schema, position, tag)
+      // HEL-913: a root-bound (`nodeStepId = None`) Output needs `root_id` (V98 CHECK); a
+      // node-bound Output must NOT carry one (same CHECK is `<>`, not `=>`). `explicitRootId`
+      // (task 5.8a), when given, is used AS-IS (the service layer already validated it belongs
+      // to this pipeline) instead of auto-resolving the first root.
+      rootIdOpt <- (nodeStepId, explicitRootId) match {
+        case (None, Some(rid)) => DBIO.successful(Some(rid.value))
+        case (None, None)      => firstRootIdAction(pipelineId.value).map(Some(_))
+        case (Some(_), _)      => DBIO.successful(None)
+      }
+      nodeRefRootId = if (nodeStepId.isDefined) None else rootIdOpt.map(PipelineRootId(_))
+      output   = Output(id, name, ownerId, NodeRef(pipelineId, nodeStepId, nodeRefRootId), kind, now, now, schema)
+      row      = domainToRow(output, config, schema, position, tag, rootIdOpt)
       _       <- table += row
     } yield output
   }
@@ -281,7 +329,13 @@ object OutputRepository {
       position: Int,
       tag: Option[String],
       createdAt: Instant,
-      updatedAt: Instant
+      updatedAt: Instant,
+      // HEL-913: DB-column-only for this stage, exactly like `PipelineStepRow.rootId` --
+      // V98's CHECK ((node_step_id IS NULL) <> (root_id IS NULL)) requires every root-bound
+      // (node_step_id = None) row to carry it. The full R12 encoding generalization (NodeKey-
+      // keyed reads/writes) is engine-stage work (design.md, tasks.md 5.8/5.8a); this field only
+      // keeps every EXISTING write path from violating the new CHECK.
+      rootId: Option[String] = None
   )
 
   class OutputTable(tag: Tag) extends Table[OutputRow](tag, "outputs") {
@@ -297,7 +351,8 @@ object OutputRepository {
     def rowTag     = column[Option[String]]("tag")
     def createdAt  = column[Instant]("created_at")
     def updatedAt  = column[Instant]("updated_at")
+    def rootId     = column[Option[String]]("root_id")
 
-    def * = (id, pipelineId, nodeStepId, ownerId, name, kind, config, schema, position, rowTag, createdAt, updatedAt).mapTo[OutputRow]
+    def * = (id, pipelineId, nodeStepId, ownerId, name, kind, config, schema, position, rowTag, createdAt, updatedAt, rootId).mapTo[OutputRow]
   }
 }

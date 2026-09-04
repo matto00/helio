@@ -45,19 +45,25 @@ object DemoData {
       )
       Await.result(dataSourceRepo.insert(source, SystemUser), 5.seconds)
 
-      val pipelineSummary = Await.result(pipelineRepo.create("Demo Pipeline", source.id, SystemUser), 5.seconds)
-        .fold(err => throw new IllegalStateException(s"DemoData: failed to seed demo pipeline: $err"), identity)
+      val pipelineSummary = Await.result(pipelineRepo.create("Demo Pipeline", Vector(source.id), SystemUser), 5.seconds)
+        .fold(err => throw new IllegalStateException(s"DemoData: failed to seed demo pipeline: $err"), r => r)
       val pipelineId = PipelineId(pipelineSummary.id)
+
+      // DemoData seeds a single-root pipeline (one source above), so the root-bound outputs
+      // below always mean that pipeline's one root -- named explicitly (task 7.3e) rather than
+      // relying on `insertInternal`'s now-removed `firstRootIdAction` fallback default.
+      val demoRootId = PipelineRootId(pipelineSummary.roots.head.id)
 
       def seedOutput(name: String, kind: OutputKind): Output =
         Await.result(
           outputRepo.insertInternal(
-            pipelineId = pipelineId,
-            nodeStepId = None,
-            ownerId    = SystemUserId,
-            name       = name,
-            kind       = kind,
-            schema     = source.inferredSchema
+            pipelineId     = pipelineId,
+            nodeStepId     = None,
+            ownerId        = SystemUserId,
+            name           = name,
+            kind           = kind,
+            schema         = source.inferredSchema,
+            explicitRootId = Some(demoRootId)
           ),
           5.seconds
         )

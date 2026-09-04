@@ -151,7 +151,7 @@ Output on a dashboard.
 | Preview Output(s)       | `POST /api/pipelines/:id/preview`                                   | `preview_outputs`                |
 | Node/Output capability  | `GET /api/pipelines/:id/capabilities`                               | `get_output_capabilities`        |
 | Create data source      | `POST /api/data-sources` (static)                                   | `create_data_source`             |
-| Create pipeline         | `POST /api/pipelines` (single call: source/steps/outputs)           | `create_pipeline`                |
+| Create pipeline         | `POST /api/pipelines` (single call: roots/steps/outputs)            | `create_pipeline`                |
 | Add step                | `POST /api/pipelines/:id/steps`                                     | `add_pipeline_step`              |
 | Add Output(s) via shape | `POST /api/pipeline-shapes/:id/expand` + steps + `POST .../outputs` | `add_outputs_from_shape`         |
 | Add one Output          | `POST /api/pipelines/:id/outputs`                                   | `add_output`                     |
@@ -192,10 +192,12 @@ absent, verified by an exact-tool-name-set test
 | `list_metrics` / `get_metric` / `create_metric` / `update_metric` / `delete_metric` | removed outright, no replacement — the Metric semantic layer (HEL-446/493) was deleted wholesale by HEL-904, not migrated onto Outputs                                                                 |
 
 `create_pipeline`/`add_pipeline_step` are NOT renamed but ARE reshaped:
-`create_pipeline` is now a single agent-facing call accepting `steps[]` (with
-`parentStepId` for tree/branching shape) and optional `outputs[]`, replacing
-the old create-then-add-steps-one-at-a-time flow; `add_pipeline_step` gained
-`parentStepId`.
+`create_pipeline` is now a single agent-facing call accepting `roots[]` (one
+or more, each `sourceId` **or** inline source spec — HEL-913 multi-root
+pipelines), `steps[]` (with `parentStepId` for tree/branching shape), and
+optional `outputs[]`, replacing the old create-then-add-steps-one-at-a-time
+flow; `add_pipeline_step` gained `parentStepId` and `rootId`; `add_root`/
+`remove_root` manage roots on an existing pipeline.
 
 > **`scripts/agent/*.sh` are STALE, not yet updated for this remodel** —
 > `create-panel.sh`/`bind-panel.sh`/`compose-demo.sh`/`workspace.sh` all still
@@ -250,8 +252,9 @@ surface in the same fix: `list_data_types` → `list_outputs`,
 test block → `add_outputs_from_shape` (run via `npm run verify`).
 
 The current-model composition — `create_data_source` (or an inline source
-via `create_pipeline` itself) → `create_pipeline` (with `steps[]`/`outputs[]`
-in one call) → `run_pipeline` → `create_dashboard` → `place_outputs` — has
+via `create_pipeline` itself) → `create_pipeline` (with `roots[]`/`steps[]`/
+`outputs[]` in one call) → `run_pipeline` → `create_dashboard` →
+`place_outputs` — has
 been verified for real against a live backend, not just typechecked:
 `helio-mcp/e2e/sleeper-rebuild.ts` (tasks.md task 5.1) rebuilds four
 representative Sleeper-shaped dashboards (rosters/matchups/standings/

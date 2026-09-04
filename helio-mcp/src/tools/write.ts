@@ -322,16 +322,24 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         '"warn" or "error". Use analyze_pipeline to ' +
         "see each step's resulting output columns. Optional parentStepId (HEL-907 task 3.3) " +
         "splices the new step in directly after that EXISTING step id, branching a NEW tail off " +
-        "any existing node -- absent extends the trunk (unchanged default).",
+        "any existing node -- absent extends the trunk (unchanged default). Optional rootId " +
+        "(HEL-913 task 9.5, multi-root only) is the alternative anchor: for a PARENTLESS step, " +
+        "names WHICH root's trunk to extend -- mutually exclusive with parentStepId (both -> " +
+        "400); on a single-root pipeline neither is needed (unambiguous by construction). With " +
+        "MORE than one root and neither parentStepId nor rootId given, the backend refuses with " +
+        "a named 400 rather than silently picking a root.",
       inputSchema: {
         pipelineId: z.string().min(1),
         type: z.string().min(1),
         config: z.record(z.string(), z.unknown()).default({}),
         parentStepId: z.string().min(1).optional(),
+        rootId: z.string().min(1).optional(),
       },
     },
-    ({ pipelineId, type, config, parentStepId }) =>
-      guarded(() => addPipelineStepHandler(api, { pipelineId, type, config, parentStepId })),
+    ({ pipelineId, type, config, parentStepId, rootId }) =>
+      guarded(() =>
+        addPipelineStepHandler(api, { pipelineId, type, config, parentStepId, rootId }),
+      ),
   );
 
   // HEL-907 task 3.4: create_pipeline_from_shape REMOVED from here (no alias) -- replaced by

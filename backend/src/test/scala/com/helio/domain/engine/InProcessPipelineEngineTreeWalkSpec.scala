@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.model.{AssertionSink, DataSourceId, PipelineId, PipelineStep, PipelineStepId, TruncationSink, UserId}
+import com.helio.domain.model.{AssertionSink, DataSourceId, PipelineId, PipelineRootId, PipelineStep, PipelineStepId, TruncationSink, UserId}
 import com.helio.domain.steps.{FilterCondition, FilterConfig, FilterStep, JoinConfig, JoinStep, RenameConfig, RenameStep, SecondaryInput, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -38,11 +38,17 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       now, now, parent.map(PipelineStepId(_))
     )
 
-  private def run(steps: Vector[PipelineStep], rows: Seq[Map[String, Any]] = Seq(Map("name" -> "alice"), Map("name" -> "bob"))) =
+  // HEL-913: this spec's fixtures are all single-root pipelines -- every parentless step is
+  // attached to the SAME synthetic root id.
+  private val onlyRootId = PipelineRootId(pipelineId.value)
+
+  private def run(steps: Vector[PipelineStep], rows: Seq[Map[String, Any]] = Seq(Map("name" -> "alice"), Map("name" -> "bob"))) = {
+    val rootIdOfStep = steps.filter(_.parentStepId.isEmpty).map(_.id -> onlyRootId).toMap
     Await.result(
-      engine.executeTree(rows, steps, stepRepo, dsRepo, new AssertionSink, new TruncationSink),
+      engine.executeTree(Vector((pipelineId.value, rows)), steps, stepRepo, rootIdOfStep, dsRepo, new AssertionSink, new TruncationSink),
       5.seconds
     )
+  }
 
   "executeTree" should {
     "be byte-identical to executeWithStepCounts for a tail-free (pure trunk) pipeline (AC1)" in {
@@ -97,7 +103,14 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       }
       treeEx.stepId shouldBe flatEx.stepId
       treeEx.stepKind shouldBe flatEx.stepKind
-      treeEx.getMessage shouldBe flatEx.getMessage
+      // HEL-913 (design.md R11, task 6.1): `treeEx.getMessage` now also carries the lane path
+      // (`executeTree` supplies a real path builder; the flat, test-only `executeWithStepCounts`
+      // oracle has no graph/root context to build one from and always omits it) -- the CURATED
+      // `reason` underneath is what must stay identical between the two engines, not the full
+      // message, which is the one place they are now expected to diverge.
+      treeEx.reason shouldBe flatEx.reason
+      flatEx.lanePath shouldBe ""
+      treeEx.lanePath should not be ""
     }
 
     "evaluate a tail from its parent node's frame, not the trunk's continuation frame" in {
@@ -112,7 +125,7 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       result.rows shouldBe Seq(Map("finalName" -> "alice"), Map("finalName" -> "bob"))
       // The tail evaluated from s1's OWN frame (which still has "renamed"), not from s2's
       // output (which no longer has that field) -- proving parent-frame seeding.
-      result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("renamed" -> "alice"))
+      result.nodeOutcomes(StepKey("t1")).rows shouldBe Seq(Map("renamed" -> "alice"))
     }
 
     // HEL-911 evaluation-1.md CR1 (cycle 2): `result.rows` MUST stay the TRUNK TERMINAL's
@@ -128,7 +141,7 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       val t1 = filterEq("t1", "finalName", "alice", 1, parent = Some("s1"))
       val result = run(Vector(s1, t1))
       result.rows shouldBe Seq(Map("finalName" -> "alice"), Map("finalName" -> "bob"))
-      result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("finalName" -> "alice"))
+      result.nodeOutcomes(StepKey("t1")).rows shouldBe Seq(Map("finalName" -> "alice"))
     }
 
     "result.rows is the untouched source frame when the root has only a position>=1 child (no trunk at all)" in {
@@ -138,15 +151,15 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       // pipeline's own source rows, exactly like pre-HEL-911 `walkTrunk(None, rows, ...)`'s
       // base case, NOT t1's (the lone lane's) filtered frame.
       result.rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"))
-      result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("name" -> "alice"))
+      result.nodeOutcomes(StepKey("t1")).rows shouldBe Seq(Map("name" -> "alice"))
     }
 
     "record a NodeOutcome for the pipeline root and every trunk node" in {
       val s1 = rename("s1", "name", "renamed", 0)
       val result = run(Vector(s1))
-      result.nodeOutcomes.keySet should contain(None)
-      result.nodeOutcomes.keySet should contain(Some("s1"))
-      result.nodeOutcomes(None).rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"))
+      result.nodeOutcomes.keySet should contain(RootKey(pipelineId.value))
+      result.nodeOutcomes.keySet should contain(StepKey("s1"))
+      result.nodeOutcomes(RootKey(pipelineId.value)).rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"))
     }
 
     // HEL-905 (evaluation-1.md CR2): a two-step tail records a NodeOutcome for EVERY node in the
@@ -157,10 +170,10 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       val terminalTail = rename("terminal", "renamed", "finalName", 0, parent = Some("mid"))
       val result = run(Vector(s1, midTail, terminalTail))
 
-      result.nodeOutcomes.keySet should contain(Some("mid"))
-      result.nodeOutcomes.keySet should contain(Some("terminal"))
-      result.nodeOutcomes(Some("mid")).rows shouldBe Seq(Map("renamed" -> "alice"))
-      result.nodeOutcomes(Some("terminal")).rows shouldBe Seq(Map("finalName" -> "alice"))
+      result.nodeOutcomes.keySet should contain(StepKey("mid"))
+      result.nodeOutcomes.keySet should contain(StepKey("terminal"))
+      result.nodeOutcomes(StepKey("mid")).rows shouldBe Seq(Map("renamed" -> "alice"))
+      result.nodeOutcomes(StepKey("terminal")).rows shouldBe Seq(Map("finalName" -> "alice"))
     }
 
     // HEL-911 (design.md Engine contract item 1): the Phase-1 fence is DELETED, not merely
@@ -173,10 +186,10 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       val s2 = rename("s2", "a", "b", 0, parent = Some("s1"))
       val s3 = rename("s3", "a", "c", 0, parent = Some("s1"))
       val result = run(Vector(s1, s2, s3))
-      result.nodeOutcomes.keySet should contain(Some("s2"))
-      result.nodeOutcomes.keySet should contain(Some("s3"))
-      result.nodeOutcomes(Some("s2")).rows shouldBe Seq(Map("b" -> "alice"), Map("b" -> "bob"))
-      result.nodeOutcomes(Some("s3")).rows shouldBe Seq(Map("c" -> "alice"), Map("c" -> "bob"))
+      result.nodeOutcomes.keySet should contain(StepKey("s2"))
+      result.nodeOutcomes.keySet should contain(StepKey("s3"))
+      result.nodeOutcomes(StepKey("s2")).rows shouldBe Seq(Map("b" -> "alice"), Map("b" -> "bob"))
+      result.nodeOutcomes(StepKey("s3")).rows shouldBe Seq(Map("c" -> "alice"), Map("c" -> "bob"))
     }
 
     // HEL-911: likewise, a "tail with a position>=1 child of its own" (previously rejected) is
@@ -186,8 +199,8 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       val tailRoot = rename("t1", "a", "b", 1, parent = Some("s1"))
       val grandchild = rename("t2", "b", "c", 1, parent = Some("t1"))
       val result = run(Vector(s1, tailRoot, grandchild))
-      result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("b" -> "alice"), Map("b" -> "bob"))
-      result.nodeOutcomes(Some("t2")).rows shouldBe Seq(Map("c" -> "alice"), Map("c" -> "bob"))
+      result.nodeOutcomes(StepKey("t1")).rows shouldBe Seq(Map("b" -> "alice"), Map("b" -> "bob"))
+      result.nodeOutcomes(StepKey("t2")).rows shouldBe Seq(Map("c" -> "alice"), Map("c" -> "bob"))
     }
 
     "skip a disabled trunk step in place, chain unbroken" in {
@@ -198,14 +211,14 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       // rename never fires either -- but the CHAIN was not broken (s2 still ran on s1's
       // pass-through frame, proving trunk continuation survived the disabled node).
       result.rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"))
-      result.nodeOutcomes(Some("s1")).rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"))
+      result.nodeOutcomes(StepKey("s1")).rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"))
     }
 
     "skip a disabled node with a tail child, tail evaluates from the pass-through frame" in {
       val s1 = rename("s1", "name", "renamed", 0, enabled = false)
       val t1 = filterEq("t1", "name", "alice", 1, parent = Some("s1"))
       val result = run(Vector(s1, t1))
-      result.nodeOutcomes(Some("t1")).rows shouldBe Seq(Map("name" -> "alice"))
+      result.nodeOutcomes(StepKey("t1")).rows shouldBe Seq(Map("name" -> "alice"))
     }
 
     // HEL-911 (design.md Engine contract, tasks 11.1/11.2/11.3/11.4/11.5/11.7/11.12/11.13): the
@@ -225,10 +238,10 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       val result = run(Vector(laneA, laneB, unionStep))
       // unionStep evaluates from root's OWN frame (name=alice/bob) unioned with laneA's frame
       // (x=alice/bob) -- laneB (y=...) never threads in at all (lane independence, item 3).
-      result.nodeOutcomes(Some("rejoin")).rows shouldBe Seq(
+      result.nodeOutcomes(StepKey("rejoin")).rows shouldBe Seq(
         Map("name" -> "alice"), Map("name" -> "bob"), Map("x" -> "alice"), Map("x" -> "bob")
       )
-      result.nodeOutcomes(Some("laneB")).rows shouldBe Seq(Map("y" -> "alice"), Map("y" -> "bob"))
+      result.nodeOutcomes(StepKey("laneB")).rows shouldBe Seq(Map("y" -> "alice"), Map("y" -> "bob"))
     }
 
     "join between two lanes produces the expected rows (11.2)" in {
@@ -243,7 +256,7 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       // joinStep is laneA's own child, evaluated from laneA's frame ({id: alice}/{id: bob}),
       // inner-joined on "id" against laneB's frame (also {id: alice}/{id: bob}) -- every row
       // matches itself.
-      result.nodeOutcomes(Some("rejoin")).rows shouldBe Seq(Map("id" -> "alice"), Map("id" -> "bob"))
+      result.nodeOutcomes(StepKey("rejoin")).rows shouldBe Seq(Map("id" -> "alice"), Map("id" -> "bob"))
     }
 
     "diamond: one lane referenced by two separate rejoins is evaluated exactly once (11.3)" in {
@@ -251,9 +264,9 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       val rejoinA = UnionStep(PipelineStepId("rejoinA"), pipelineId, 1, UnionConfig(SecondaryInput.Lane("shared"), "byPosition"), now, now, parentStepId = None)
       val rejoinB = UnionStep(PipelineStepId("rejoinB"), pipelineId, 2, UnionConfig(SecondaryInput.Lane("shared"), "byPosition"), now, now, parentStepId = None)
       val result = run(Vector(shared, rejoinA, rejoinB))
-      result.nodeOutcomes(Some("shared")).rows shouldBe Seq(Map("s" -> "alice"), Map("s" -> "bob"))
-      result.nodeOutcomes(Some("rejoinA")).rows should contain allOf (Map("s" -> "alice"), Map("s" -> "bob"))
-      result.nodeOutcomes(Some("rejoinB")).rows should contain allOf (Map("s" -> "alice"), Map("s" -> "bob"))
+      result.nodeOutcomes(StepKey("shared")).rows shouldBe Seq(Map("s" -> "alice"), Map("s" -> "bob"))
+      result.nodeOutcomes(StepKey("rejoinA")).rows should contain allOf (Map("s" -> "alice"), Map("s" -> "bob"))
+      result.nodeOutcomes(StepKey("rejoinB")).rows should contain allOf (Map("s" -> "alice"), Map("s" -> "bob"))
     }
 
     "a lane reference to a mid-lane, non-materialized node resolves to its post-evaluation frame (11.4)" in {
@@ -263,7 +276,7 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       val result = run(Vector(laneRoot, laneNext, rejoin))
       // References laneRoot (the mid-chain node), not laneNext (its own further descendant) --
       // resolves to laneRoot's OWN post-evaluation frame ("mid"), not laneNext's ("final").
-      result.nodeOutcomes(Some("rejoin")).rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"), Map("mid" -> "alice"), Map("mid" -> "bob"))
+      result.nodeOutcomes(StepKey("rejoin")).rows shouldBe Seq(Map("name" -> "alice"), Map("name" -> "bob"), Map("mid" -> "alice"), Map("mid" -> "bob"))
     }
 
     "a cycle (lane referencing its own ancestor) is rejected at run time (11.5, run-time arm)" in {
@@ -297,9 +310,184 @@ class InProcessPipelineEngineTreeWalkSpec extends AnyWordSpec with Matchers {
       val rejoin = UnionStep(PipelineStepId("rejoin"), pipelineId, 1, UnionConfig(SecondaryInput.Lane("disabledLane"), "byPosition"), now, now, parentStepId = None)
       val result = run(Vector(disabledLane, rejoin))
       // disabledLane never evaluates -- its frame is the untouched root frame (name=alice/bob).
-      result.nodeOutcomes(Some("rejoin")).rows shouldBe Seq(
+      result.nodeOutcomes(StepKey("rejoin")).rows shouldBe Seq(
         Map("name" -> "alice"), Map("name" -> "bob"), Map("name" -> "alice"), Map("name" -> "bob")
       )
+    }
+  }
+
+  // HEL-913 design.md R4/R10 -- genuinely exercises N > 1 roots, which every other test in this
+  // file (and the whole pre-existing suite) never does, since no route creates a second root
+  // yet. Constructed directly via `executeTree`'s multi-root parameters rather than through the
+  // API/repository layer.
+  "executeTree with more than one root (HEL-913 R4/R10)" should {
+
+    val rootAId = "root-a"
+    val rootBId = "root-b"
+
+    "seed each root's own frame and walk each root's trunk independently" in {
+      // Root A's trunk: a1 (rename name->fromA). Root B's trunk: b1 (rename name->fromB).
+      // Attached to DIFFERENT roots via rootIdOfStep -- NOT via position/parentStepId, which is
+      // exactly the ambiguity R4 exists to remove.
+      val a1 = rename("a1", "name", "fromA", 0)
+      val b1 = rename("b1", "name", "fromB", 0)
+      val rootIdOfStep = Map(a1.id -> PipelineRootId(rootAId), b1.id -> PipelineRootId(rootBId))
+      val rootFrames = Vector(
+        (rootAId, Seq(Map("name" -> "alice"))),
+        (rootBId, Seq(Map("name" -> "bob")))
+      )
+      val result = Await.result(
+        engine.executeTree(rootFrames, Vector(a1, b1), stepRepo, rootIdOfStep, dsRepo, new AssertionSink, new TruncationSink),
+        5.seconds
+      )
+      // Each root's own step evaluated against ITS OWN seeded frame, never the other root's.
+      result.nodeOutcomes(StepKey("a1")).rows shouldBe Seq(Map("fromA" -> "alice"))
+      result.nodeOutcomes(StepKey("b1")).rows shouldBe Seq(Map("fromB" -> "bob"))
+      result.nodeOutcomes.keySet should contain(RootKey(rootAId))
+      result.nodeOutcomes.keySet should contain(RootKey(rootBId))
+    }
+
+    // The required test, per design.md R10: "rows, trunkOf(...).lastOption, and the binary-ref
+    // key must all be derived from the SAME root and the SAME node" -- constructed so a naive
+    // "whichever root evaluates last" or "pick an arbitrary root" implementation WOULD disagree
+    // with `stepRepo.trunkOfRoot` on the lowest-positioned root, and therefore FAILS this test.
+    // A test merely asserting the run succeeded would not catch that divergence (lesson 8).
+    "result.rows agrees with trunkOfRoot(lowestPositionedRoot).lastOption, never an arbitrary root's terminal frame" in {
+      val a1 = rename("a1", "name", "fromA", 0)
+      val b1 = rename("b1", "name", "fromB", 0)
+      val rootIdOfStep = Map(a1.id -> PipelineRootId(rootAId), b1.id -> PipelineRootId(rootBId))
+      // rootFrames ORDERED with root B first, deliberately the OPPOSITE of alphabetical/creation
+      // order, so a naive "rootFrames.last" or "whichever root's step structuralRank sorts
+      // highest" implementation would disagree with the true lowest-POSITIONED root -- position
+      // ordering is the caller's contract (R3), asserted here by literally violating id-order.
+      val rootFrames = Vector(
+        (rootBId, Seq(Map("name" -> "bob"))),   // lowest position (index 0 -- this is "the" root)
+        (rootAId, Seq(Map("name" -> "alice")))
+      )
+      val result = Await.result(
+        engine.executeTree(rootFrames, Vector(a1, b1), stepRepo, rootIdOfStep, dsRepo, new AssertionSink, new TruncationSink),
+        5.seconds
+      )
+      val expectedTrunkTerminalId = stepRepo.trunkOfRoot(Vector(a1, b1), rootIdOfStep, PipelineRootId(rootBId)).lastOption.map(_.id.value)
+      expectedTrunkTerminalId shouldBe Some("b1")
+      // result.rows MUST be b1's frame (the lowest-positioned root's trunk terminal), never a1's.
+      result.rows shouldBe Seq(Map("fromB" -> "bob"))
+      result.rows should not be Seq(Map("fromA" -> "alice"))
+      result.nodeOutcomes(StepKey(expectedTrunkTerminalId.get)).rows shouldBe result.rows
+    }
+
+    "a lane rejoin can cross roots: a step in root B can reference a lane step in root A" in {
+      val a1 = rename("a1", "name", "fromA", 0)
+      val rejoin = UnionStep(PipelineStepId("rejoin"), pipelineId, 0, UnionConfig(SecondaryInput.Lane("a1"), "byPosition"), now, now, parentStepId = None)
+      val rootIdOfStep = Map(a1.id -> PipelineRootId(rootAId), rejoin.id -> PipelineRootId(rootBId))
+      val rootFrames = Vector(
+        (rootAId, Seq(Map("name" -> "alice"))),
+        (rootBId, Seq(Map("name" -> "bob")))
+      )
+      val result = Await.result(
+        engine.executeTree(rootFrames, Vector(a1, rejoin), stepRepo, rootIdOfStep, dsRepo, new AssertionSink, new TruncationSink),
+        5.seconds
+      )
+      // rejoin's own root frame (bob) unioned with a1's cross-root lane frame (fromA=alice).
+      result.nodeOutcomes(StepKey("rejoin")).rows should contain allOf (Map("name" -> "bob"), Map("fromA" -> "alice"))
+    }
+
+  }
+
+  // HEL-913 (design.md R5/R11, task 6.4): the lane path composed into a real execution failure.
+  "the lane path (design.md R5/R11)" should {
+
+    def badStep(id: String, position: Int, parent: Option[String]): StringOpsStep =
+      StringOpsStep(
+        PipelineStepId(id), pipelineId, position,
+        StringOpsConfig("regexExtract", "name", "extracted", None, None, None, None),
+        now, now, parent.map(PipelineStepId(_))
+      )
+
+    "single-root chain: names every ancestor id from the root to the failing step" in {
+      val s1 = rename("s1", "name", "renamed", 0)
+      val fail = badStep("fail", 0, parent = Some("s1"))
+      val ex = intercept[StepExecutionException] { run(Vector(s1, fail)) }
+      ex.lanePath shouldBe s"root:${pipelineId.value} > s1 > fail"
+    }
+
+    "failure in the second of two sibling lanes: the path names the FAILING lane, not the first sibling" in {
+      val trunk = rename("trunk", "name", "renamed", 0)
+      val laneA = rename("laneA", "renamed", "a", 1, parent = Some("trunk"))
+      val laneB = badStep("laneB", 2, parent = Some("trunk"))
+      val ex = intercept[StepExecutionException] { run(Vector(trunk, laneA, laneB)) }
+      ex.stepId shouldBe "laneB"
+      ex.lanePath shouldBe s"root:${pipelineId.value} > trunk > laneB"
+      ex.lanePath should not include "laneA"
+    }
+
+    "failure in the second root's own lane names THAT root, not the first root" in {
+      val rootAId = "path-root-a"
+      val rootBId = "path-root-b"
+      val a1 = rename("a1", "name", "fromA", 0)
+      val b1 = badStep("b1", 0, parent = None)
+      val rootIdOfStep = Map(a1.id -> PipelineRootId(rootAId), b1.id -> PipelineRootId(rootBId))
+      val rootFrames = Vector(
+        (rootAId, Seq(Map("name" -> "alice"))),
+        (rootBId, Seq(Map("name" -> "bob")))
+      )
+      val ex = intercept[StepExecutionException] {
+        Await.result(
+          engine.executeTree(rootFrames, Vector(a1, b1), stepRepo, rootIdOfStep, dsRepo, new AssertionSink, new TruncationSink),
+          5.seconds
+        )
+      }
+      ex.stepId shouldBe "b1"
+      ex.lanePath shouldBe s"root:$rootBId > b1"
+      ex.lanePath should not include rootAId
+    }
+
+    // Task 6.2a: the path builder must traverse a rejoin's LANE edge, not only `parentStepId` --
+    // a rejoin step failing while its lane input comes from a LOWER-positioned root must name
+    // that root as canonical (R5), which a parentStepId-only builder could never discover since
+    // the rejoin's OWN parentStepId chain never touches the lane-referenced root at all.
+    "a failing rejoin step's path traverses its LANE edge when the lane's root is lower-positioned than its own (task 6.2a)" in {
+      val rootAId = "lane-root-a" // lowest position (index 0) -- the lane source's root
+      val rootBId = "lane-root-b" // the rejoin's own attachment root
+      val laneSource = rename("laneSource", "name", "fromA", 0)
+      // "exact" is not a supported union mode (only byPosition/byName) -- `UnionStep.evaluate`
+      // reliably raises `IllegalArgumentException("Unsupported union mode...")`, a real runtime
+      // failure attributed to the rejoin itself, regardless of the two frames' row shapes.
+      val failingUnion = UnionStep(PipelineStepId("rejoin"), pipelineId, 0, UnionConfig(SecondaryInput.Lane("laneSource"), "exact"), now, now, parentStepId = None)
+      val rootIdOfStep = Map(laneSource.id -> PipelineRootId(rootAId), failingUnion.id -> PipelineRootId(rootBId))
+      val rootFrames = Vector(
+        (rootAId, Seq(Map("name" -> "alice"))),
+        (rootBId, Seq(Map("name" -> "bob")))
+      )
+      val ex = intercept[StepExecutionException] {
+        Await.result(
+          engine.executeTree(rootFrames, Vector(laneSource, failingUnion), stepRepo, rootIdOfStep, dsRepo, new AssertionSink, new TruncationSink),
+          5.seconds
+        )
+      }
+      // The rejoin's OWN attachment root is rootB, but its LANE root (rootA) is lower-positioned
+      // (index 0 in rootFrames) -- the canonical path must go through rootA's chain, per R5. A
+      // parentStepId-only path builder could never produce this (the rejoin's parentStepId is
+      // None; its own chain never touches rootA at all) -- this is exactly task 6.2a's point.
+      ex.lanePath shouldBe s"root:$rootAId > laneSource > rejoin"
+    }
+
+    "single-root parity: a one-root pipeline's walk is byte-identical whether passed as a Vector of one or via the legacy single-frame shape (5.5a)" in {
+      val s1 = rename("s1", "name", "renamed", 0)
+      val s2 = rename("s2", "renamed", "finalName", 0, parent = Some("s1"))
+      val steps = Vector(s1, s2)
+      val singleRootResult = run(steps) // uses the spec's own `run` helper (one root, `onlyRootId`)
+      val explicitRootIdOfStep = Map(s1.id -> onlyRootId)
+      val explicitResult = Await.result(
+        engine.executeTree(
+          Vector((pipelineId.value, Seq(Map("name" -> "alice"), Map("name" -> "bob")))),
+          steps, stepRepo, explicitRootIdOfStep, dsRepo, new AssertionSink, new TruncationSink
+        ),
+        5.seconds
+      )
+      singleRootResult.rows shouldBe explicitResult.rows
+      singleRootResult.stepCounts shouldBe explicitResult.stepCounts
+      singleRootResult.nodeOutcomes.keySet shouldBe explicitResult.nodeOutcomes.keySet
     }
   }
 }

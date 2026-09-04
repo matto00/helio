@@ -31,6 +31,18 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   private val stepsTable     = TableQuery[PipelineStepTable]
   private val pipelinesTable = TableQuery[PipelineRepository.PipelineTable]
+  private val rootsTable     = TableQuery[PipelineRootRepository.PipelineRootTable]
+
+  /** HEL-913: resolves the LOWEST-POSITIONED root of `pipelineId` -- the single-root-compatible
+   *  anchor every write below that creates or promotes a `parent_step_id IS NULL` row must set
+   *  as `root_id`, or V98's CHECK constraint (`(parent_step_id IS NULL) = (root_id IS NOT
+   *  NULL)`) aborts the write outright. Every pipeline has at least one root by construction
+   *  (task 4.6) -- `.head` is safe here in the same sense `PipelineRepository.create`'s own
+   *  invariant makes it safe; a pipeline with zero roots is a bug elsewhere; this queries the
+   *  SAME transaction it is composed into, so it always sees a root created earlier in that
+   *  transaction (e.g. the single-call transactional pipeline-create path). */
+  private def firstRootIdAction(pipelineId: String): DBIO[String] =
+    rootsTable.filter(_.pipelineId === pipelineId).sortBy(_.position).map(_.id).result.head
 
   /** Owner-scoped list. Returns empty vector when the parent pipeline does not
     * exist or is owned by someone else. */
@@ -85,7 +97,8 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       maxPos   <- stepsTable.filter(s => s.pipelineId === pipelineId.value && s.parentStepId.isEmpty).map(_.position).max.result
       position  = maxPos.map(_ + 1).getOrElse(0)
       id        = UUID.randomUUID().toString
-      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now)
+      rootId   <- firstRootIdAction(pipelineId.value)
+      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now, rootId = Some(rootId))
       _        <- stepsTable += row
     } yield rowToDomain(row)
     ctx.withUserContext(user.id.value)(action.transactionally)
@@ -193,9 +206,10 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       kind: String,
       config: Any,
       enabled: Boolean = true,
-      parentStepId: Option[PipelineStepId] = None
+      parentStepId: Option[PipelineStepId] = None,
+      explicitRootId: Option[PipelineRootId]
   ): Future[PipelineStep] =
-    ctx.withSystemContext(insertInternalAction(pipelineId, kind, config, enabled, parentStepId).transactionally)
+    ctx.withSystemContext(insertInternalAction(pipelineId, kind, config, enabled, parentStepId, explicitRootId).transactionally)
 
   /** DBIO variant of `insertInternal` above -- extracted (HEL-906 task 3.1, coordinator ruling
    *  D3) so `PipelineService`'s single-call transactional pipeline-creation path can compose
@@ -209,15 +223,39 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       kind: String,
       config: Any,
       enabled: Boolean = true,
-      parentStepId: Option[PipelineStepId] = None
+      parentStepId: Option[PipelineStepId] = None,
+      // HEL-913 task 7.3a: names WHICH root a PARENTLESS insert attaches to. Defaulted to `None`
+      // (auto-resolve the pipeline's lowest-positioned root via `firstRootIdAction`, exactly the
+      // pre-multi-root single-root-compatible behavior) so every pre-existing call site is
+      // unaffected; the single-call transactional create path (`PipelineService.buildStepsAction`)
+      // passes it explicitly once a request names more than one root, never silently defaulting
+      // to `roots[0]` under multi-root.
+      explicitRootId: Option[PipelineRootId]
   ): DBIO[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     for {
-      maxPos   <- siblingsQuery(pipelineId, parentStepId).map(_.position).max.result
+      // HEL-913 task 7.3b: `siblingsQuery(pipelineId, None)` matches EVERY root-level step in
+      // the WHOLE PIPELINE regardless of which root -- correct for a single-root pipeline, but
+      // WRONG under multi-root: root B's first step would otherwise collide with root A's
+      // position numbering instead of starting at its own position 0. Scoped explicitly when a
+      // caller names a root.
+      maxPos   <- (parentStepId, explicitRootId) match {
+        case (None, Some(rid)) =>
+          stepsTable.filter(s => s.pipelineId === pipelineId.value && s.parentStepId.isEmpty && s.rootId === rid.value).map(_.position).max.result
+        case _ => siblingsQuery(pipelineId, parentStepId).map(_.position).max.result
+      }
       position  = maxPos.map(_ + 1).getOrElse(0)
       id        = UUID.randomUUID().toString
-      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now, parentStepId.map(_.value))
+      // HEL-913: a parentless (`parentStepId = None`) insert is a new trunk root and must carry
+      // a `root_id` or V98's CHECK constraint aborts the write; a non-root insert must NOT carry
+      // one (the same CHECK is `<>`, not `=>`).
+      rootIdOpt <- (parentStepId, explicitRootId) match {
+        case (None, Some(rid)) => DBIO.successful(Some(rid.value))
+        case (None, None)      => firstRootIdAction(pipelineId.value).map(Some(_))
+        case (Some(_), _)      => DBIO.successful(None)
+      }
+      row       = PipelineStepRow(id, pipelineId.value, position, kind, configJson, enabled, now, now, parentStepId.map(_.value), rootIdOpt)
       _        <- stepsTable += row
     } yield rowToDomain(row)
   }
@@ -324,8 +362,13 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     val newId      = UUID.randomUUID().toString
-    val newRow     = PipelineStepRow(newId, pipelineId.value, index, kind, configJson, enabled, now, now, parentStepId.map(_.value))
     val action = for {
+      // HEL-913: parentless insert needs `root_id` (V98 CHECK); see `insertInternalAction`.
+      rootIdOpt <- parentStepId match {
+        case None    => firstRootIdAction(pipelineId.value).map(Some(_))
+        case Some(_) => DBIO.successful(None)
+      }
+      newRow    = PipelineStepRow(newId, pipelineId.value, index, kind, configJson, enabled, now, now, parentStepId.map(_.value), rootIdOpt)
       existing <- siblingsQuery(pipelineId, parentStepId).sortBy(_.position).result
       ordered   = existing.toVector.patch(index, Vector(newRow), 0)
       updates   = ordered.zipWithIndex.map {
@@ -379,25 +422,52 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       kind:         String,
       config:       Any,
       parentStepId: Option[PipelineStepId],
-      enabled:      Boolean = true
+      enabled:      Boolean = true,
+      // HEL-913 task 7.3b: names WHICH root a PARENTLESS splice-insert attaches to. Defaulted
+      // to `None` (auto-resolve the pipeline's lowest-positioned root via `firstRootIdAction`,
+      // the pre-multi-root single-root-compatible behavior) so every pre-existing call site is
+      // unaffected; `PipelineService.persistNewStep` passes it explicitly once a caller names a
+      // root, never silently defaulting to `roots[0]` under multi-root (task 7.3d/7.3e: this
+      // default is scheduled for removal once every caller states a root explicitly).
+      explicitRootId: Option[PipelineRootId]
   ): Future[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     val newId      = UUID.randomUUID().toString
-    val newRow     = PipelineStepRow(newId, pipelineId.value, 0, kind, configJson, enabled, now, now, parentStepId.map(_.value))
     val action = for {
+      // HEL-913: parentless insert needs `root_id` (V98 CHECK); see `insertInternalAction`.
+      rootIdOpt        <- (parentStepId, explicitRootId) match {
+        case (None, Some(rid)) => DBIO.successful(Some(rid.value))
+        case (None, None)      => firstRootIdAction(pipelineId.value).map(Some(_))
+        case (Some(_), _)      => DBIO.successful(None)
+      }
+      newRow            = PipelineStepRow(newId, pipelineId.value, 0, kind, configJson, enabled, now, now, parentStepId.map(_.value), rootIdOpt)
       // Read every existing direct child of the anchor (trunk continuation
       // AND tails) BEFORE inserting, then insert the new row FIRST and
       // re-parent all of them onto it SECOND -- the FK on `parent_step_id`
       // referencing `pipeline_steps.id` would otherwise be violated by
       // pointing a child at a not-yet-existing `newId`.
-      existingChildren <- siblingsQuery(pipelineId, parentStepId).result
+      //
+      // HEL-913 task 7.3b: `siblingsQuery(pipelineId, None)` matches EVERY root-level step in
+      // the WHOLE PIPELINE, regardless of which root -- correct for a single-root pipeline
+      // (there is only one root's worth of root-level children to consider), but WRONG under
+      // multi-root: splicing a new step onto root B by explicit root id must reparent only root
+      // B's own existing root-level children, never root A's. Scoped explicitly when a caller
+      // names a root; the pre-existing whole-pipeline query is unchanged for every other case.
+      existingChildren <- (parentStepId, explicitRootId) match {
+        case (None, Some(rid)) =>
+          stepsTable.filter(s => s.pipelineId === pipelineId.value && s.parentStepId.isEmpty && s.rootId === rid.value).result
+        case _ => siblingsQuery(pipelineId, parentStepId).result
+      }
       _                 <- stepsTable += newRow
+      // HEL-913: a reparented child that used to be a trunk root (parent_step_id IS NULL,
+      // root_id IS NOT NULL) MUST have its root_id cleared in the SAME update -- it is no longer
+      // parentless, and V98's CHECK is a strict XOR, not merely "root_id present when needed".
       _                 <- if (existingChildren.nonEmpty)
                              DBIO.sequence(existingChildren.map { child =>
                                stepsTable.filter(_.id === child.id)
-                                 .map(s => (s.parentStepId, s.updatedAt))
-                                 .update((Some(newId), now))
+                                 .map(s => (s.parentStepId, s.rootId, s.updatedAt))
+                                 .update((Some(newId), None, now))
                              })
                            else DBIO.successful(Seq.empty[Int])
       persisted         <- stepsTable.filter(_.id === newId).result.head
@@ -545,11 +615,16 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       result        <- validation match {
         case Left(err) => DBIO.successful(Left(err): Either[String, Vector[PipelineStep]])
         case Right(())  =>
-          val updates = orderedTrunkIds.zipWithIndex.map { case (id, idx) =>
-            val newParent: Option[String] = if (idx == 0) None else Some(orderedTrunkIds(idx - 1).value)
-            stepsTable.filter(_.id === id.value).map(s => (s.parentStepId, s.position, s.updatedAt)).update((newParent, 0, now))
-          }
           for {
+            // HEL-913 task 4.4c: the new trunk head (idx == 0) becomes parentless and MUST carry
+            // this pipeline's root_id in the SAME update, or V98's CHECK aborts every trunk
+            // reorder. Every other trunk step gets a real parent, so its root_id must be NULL.
+            rootId    <- firstRootIdAction(pipelineId.value)
+            updates    = orderedTrunkIds.zipWithIndex.map { case (id, idx) =>
+              val newParent: Option[String] = if (idx == 0) None else Some(orderedTrunkIds(idx - 1).value)
+              val newRootId: Option[String] = if (idx == 0) Some(rootId) else None
+              stepsTable.filter(_.id === id.value).map(s => (s.parentStepId, s.rootId, s.position, s.updatedAt)).update((newParent, newRootId, 0, now))
+            }
             _         <- DBIO.sequence(updates)
             finalRows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
           } yield Right(executionOrder(finalRows.toVector.map(rowToDomain))): Either[String, Vector[PipelineStep]]
@@ -636,12 +711,19 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             tailRootIds     = childrenSorted.drop(1)
             parentByChild   = allRows.toMap
             tailDescendantIds = tailRootIds.flatMap(rootId => descendantIdsOf(rootId, parentByChild)).toSet
+            // HEL-913 task 4.4d: the promoted head child inherits `deletedRow`'s `root_id` in
+            // the SAME update as its `parent_step_id` -- deleting a root-attached step
+            // (`deletedRow.parentStepId == None`, `deletedRow.rootId == Some(x)`) without this
+            // produces `parent_step_id IS NULL AND root_id IS NULL` on the promoted child,
+            // which V98's CHECK rejects outright. When the deleted step was itself non-root
+            // (`deletedRow.parentStepId` is `Some(...)`), `deletedRow.rootId` is already `None`,
+            // so this is a no-op for that case -- one update statement covers both.
             _ <- headChildOpt match {
               case Some(headChildId) =>
                 stepsTable
                   .filter(_.id === headChildId)
-                  .map(s => (s.parentStepId, s.position))
-                  .update((deletedRow.parentStepId, deletedRow.position))
+                  .map(s => (s.parentStepId, s.rootId, s.position))
+                  .update((deletedRow.parentStepId, deletedRow.rootId, deletedRow.position))
               case None => DBIO.successful(0)
             }
             _ <- if (tailDescendantIds.nonEmpty) stepsTable.filter(_.id.inSet(tailDescendantIds)).delete
@@ -737,6 +819,96 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * ascending (sibling order). */
   def childrenOf(steps: Vector[PipelineStep], parent: Option[PipelineStepId]): Vector[PipelineStep] =
     steps.filter(_.parentStepId == parent).sortBy(_.position)
+
+  /** HEL-913 (design.md R4/R10): privileged lookup of every parentless step's `root_id` for a
+    * pipeline -- the side-map the ENGINE's root-scoped walk needs (`childrenOfRoot`/`trunkOfRoot`
+    * below) to distinguish "attached to root A" from "attached to root B" now that
+    * `childrenOf(steps, None)` alone is ambiguous under multi-root. Steps with a non-null
+    * `parentStepId` carry no `root_id` (V98's CHECK enforces this) and are absent from the map.
+    * DB-column-only for this stage (task 4.4a is deferred -- see files-modified.md); this method
+    * is the engine-facing substitute for surfacing `root_id` on the `PipelineStep` domain trait
+    * itself, achieving R4's functional contract without the 23-case-class rewrite. */
+  def rootIdsOf(pipelineId: PipelineId): Future[Map[PipelineStepId, PipelineRootId]] =
+    ctx.withSystemContext(
+      stepsTable
+        .filter(s => s.pipelineId === pipelineId.value && s.rootId.isDefined)
+        .map(s => (s.id, s.rootId))
+        .result
+    ).map(_.collect { case (id, Some(rid)) => PipelineStepId(id) -> PipelineRootId(rid) }.toMap)
+
+  /** HEL-913 task 7.6a-i: the single-step counterpart to [[rootIdsOf]]'s bulk/pipeline-wide map
+    * -- resolves the ROOT `stepId` ultimately belongs to by walking the `parent_step_id` chain
+    * up to its root-level ancestor (`parent_step_id IS NULL`, which alone carries `root_id` per
+    * V98's CHECK) via a recursive CTE, then reads that ancestor's `root_id`. Exists so the
+    * single-step response call sites (create/update/duplicate/delete-step, patch-set undo/apply)
+    * don't each need to load the whole pipeline's step list just to resolve one step's root --
+    * `rootIdsOf` is the right tool when a caller already has (or needs) every step; this is the
+    * right tool for exactly one. `None` for an unknown `stepId`/`pipelineId` pair (never throws;
+    * mirrors this class's existing tolerant-Option convention). */
+  def rootIdOfStep(pipelineId: PipelineId, stepId: PipelineStepId): Future[Option[PipelineRootId]] =
+    ctx.withSystemContext {
+      sql"""
+        WITH RECURSIVE ancestor_chain AS (
+          SELECT id, parent_step_id, root_id FROM pipeline_steps
+            WHERE id = ${stepId.value} AND pipeline_id = ${pipelineId.value}
+          UNION ALL
+          SELECT ps.id, ps.parent_step_id, ps.root_id
+          FROM pipeline_steps ps
+          JOIN ancestor_chain ac ON ps.id = ac.parent_step_id
+        )
+        SELECT root_id FROM ancestor_chain WHERE parent_step_id IS NULL LIMIT 1
+      """.as[Option[String]].headOption
+    }.map(_.flatten.map(PipelineRootId(_)))
+
+  /** HEL-913 task 7.5/7.5a (R7 phase 2): identifies and DELETES every step belonging to
+   *  `rootId` -- the root-level step itself PLUS its ENTIRE descendant subtree (walked via
+   *  `parent_step_id`, not just the trunk `childrenOfRoot`/`trunkOfRoot` cover). `outputs`/
+   *  `binary_refs` referencing these step ids cascade automatically via their own
+   *  `ON DELETE CASCADE` FK to `pipeline_steps(id)` (V94:208-209/425-426) -- NOT explicitly
+   *  deleted here. `node_snapshots` does NOT cascade (deliberately FK-free, see V98's header;
+   *  design.md R7) and is deleted EXPLICITLY here for both step-bound rows (keyed by
+   *  `node_step_id`) and the root's own root-level row (keyed by `root_id`, `node_step_id IS
+   *  NULL`) -- per-id `sqlu` calls rather than a single `= ANY(...)` array bind, since Slick's
+   *  plain-SQL interpolation has no built-in `SetParameter[Array[String]]` and a pipeline's step
+   *  count is never large enough for N+1 here to matter. Returns the removed step ids (for the
+   *  caller's own logging/testing, never required by the DBIO chain itself). Composed into the
+   *  caller's ONE transaction (`PipelineService.removeRoot`) -- does NOT delete the
+   *  `pipeline_roots` row itself (that is `PipelineRootRepository.removeAction`, composed
+   *  separately so this method stays table-scoped to `pipeline_steps`/`node_snapshots`). */
+  def removeRootCascadeAction(pipelineId: PipelineId, rootId: PipelineRootId): DBIO[Set[String]] =
+    for {
+      rows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
+      stepIdsUnderRoot = PipelineStepRepository.descendantsOfRoot(rows.toVector, rootId.value)
+      _ <- DBIO.sequence(stepIdsUnderRoot.toVector.map { sid =>
+        sqlu"DELETE FROM node_snapshots WHERE pipeline_id = ${pipelineId.value} AND node_step_id = $sid"
+      })
+      _ <- sqlu"DELETE FROM node_snapshots WHERE pipeline_id = ${pipelineId.value} AND root_id = ${rootId.value} AND node_step_id IS NULL"
+      _ <- if (stepIdsUnderRoot.nonEmpty) stepsTable.filter(_.id.inSet(stepIdsUnderRoot)).delete else DBIO.successful(0)
+    } yield stepIdsUnderRoot
+
+  /** HEL-913 (design.md R4): root-scoped sibling of [[childrenOf]] — the direct, root-level
+    * children of `rootId` specifically (`parentStepId IS NULL AND root_id = rootId`), sorted by
+    * `position` ascending. `childrenOf(steps, None)` (unchanged, used by every pre-multi-root
+    * listing/route call site) returns EVERY root's parentless children mixed together; this
+    * scopes to one root, which is what a walk seeded per-root (one `RootKey` per root) needs. */
+  def childrenOfRoot(steps: Vector[PipelineStep], rootIdOfStep: Map[PipelineStepId, PipelineRootId], rootId: PipelineRootId): Vector[PipelineStep] =
+    steps.filter(s => s.parentStepId.isEmpty && rootIdOfStep.get(s.id).contains(rootId)).sortBy(_.position)
+
+  /** HEL-913 (design.md R10): root-scoped sibling of [[trunkOf]] — walks ONE root's trunk only,
+    * via [[childrenOfRoot]] instead of the ambiguous whole-pipeline [[childrenOf]]. */
+  def trunkOfRoot(steps: Vector[PipelineStep], rootIdOfStep: Map[PipelineStepId, PipelineRootId], rootId: PipelineRootId): Vector[PipelineStep] = {
+    def loop(parent: Option[PipelineStepId], acc: Vector[PipelineStep]): Vector[PipelineStep] = {
+      val children = parent match {
+        case None     => childrenOfRoot(steps, rootIdOfStep, rootId)
+        case Some(id) => childrenOf(steps, Some(id))
+      }
+      children.find(_.position == 0) match {
+        case Some(next) => loop(Some(next.id), acc :+ next)
+        case None       => acc
+      }
+    }
+    loop(None, Vector.empty)
+  }
 
   /** Every branch other than the trunk: for each node, every child whose
     * `position != 0` roots its own tail, expanded depth-first. Returns one
@@ -865,6 +1037,23 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
 object PipelineStepRepository {
 
+  /** HEL-913 task 7.5/7.5a: pure function over raw rows -- every step id belonging to `rootId`,
+    * the root-level step itself (`root_id = rootId`) PLUS its entire descendant subtree, walked
+    * via `parent_step_id` (NOT just the trunk `childrenOfRoot`/`trunkOfRoot` cover -- a tail
+    * branch off a root-level step belongs to that root too). `private[pipelines]` so
+    * `PipelineRootRemovalSpec` can prove this directly, mirroring the `PipelineService`
+    * companion-object testable-pure-helper convention this ticket has used repeatedly (7.3c-i,
+    * `classifyDbError`/`ancestorChainOf`). */
+  private[pipelines] def descendantsOfRoot(rows: Vector[PipelineStepRow], rootId: String): Set[String] = {
+    val rootLevelIds = rows.filter(_.rootId.contains(rootId)).map(_.id).toSet
+    def expand(frontier: Set[String], acc: Set[String]): Set[String] = {
+      val children = rows.filter(r => r.parentStepId.exists(frontier.contains)).map(_.id).toSet
+      val newOnes  = children -- acc
+      if (newOnes.isEmpty) acc else expand(newOnes, acc ++ newOnes)
+    }
+    expand(rootLevelIds, rootLevelIds)
+  }
+
   /** Internal row representation — never crosses the public boundary. Use
    *  [[PipelineStep]] outside the repository. */
   case class PipelineStepRow(
@@ -876,7 +1065,17 @@ object PipelineStepRepository {
       enabled: Boolean,
       createdAt: Instant,
       updatedAt: Instant,
-      parentStepId: Option[String] = None
+      parentStepId: Option[String] = None,
+      // HEL-913: DB-column-only for this stage -- V98's CHECK constraint
+      // ((parent_step_id IS NULL) = (root_id IS NOT NULL)) requires every
+      // parentless row to carry it, so every INSERT/UPDATE below that creates
+      // or promotes a parentless row resolves and sets it. NOT yet surfaced
+      // on the `PipelineStep` domain trait/case classes (that generalization
+      // is entangled with the engine's NodeKey/RootKey contract, a later
+      // stage of this ticket) -- reading it back into the domain layer is
+      // deferred, but every WRITE path here already keeps it correct so the
+      // CHECK constraint is never violated by ordinary application traffic.
+      rootId: Option[String] = None
   )
 
   class PipelineStepTable(tag: Tag) extends Table[PipelineStepRow](tag, "pipeline_steps") {
@@ -889,7 +1088,8 @@ object PipelineStepRepository {
     def createdAt    = column[Instant]("created_at")
     def updatedAt    = column[Instant]("updated_at")
     def parentStepId = column[Option[String]]("parent_step_id")
+    def rootId       = column[Option[String]]("root_id")
 
-    def * = (id, pipelineId, position, op, config, enabled, createdAt, updatedAt, parentStepId).mapTo[PipelineStepRow]
+    def * = (id, pipelineId, position, op, config, enabled, createdAt, updatedAt, parentStepId, rootId).mapTo[PipelineStepRow]
   }
 }

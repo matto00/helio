@@ -349,4 +349,32 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
       orderByFailure.getMessage should include("{field, direction}")
     }
   }
+
+  // HEL-913 (skeptic-final-1.md CR1, the fourteenth root-ambiguity-adjacent instance): the
+  // pipeline "create" prose in `CreateExample` instructed the model to emit
+  // `{ "name", "sourceDataSourceId" }` months after `CreatePipelineRequest` retired that field
+  // outright (no alias, no default -- a hard 400). `CreateExample`'s own worked create examples
+  // ARE real JSON asserted against real decoders elsewhere in this file; this one is PROSE
+  // describing a shape, not JSON, so it cannot be run through a decoder the same way -- the
+  // guard here is textual: assert the CURRENT wire contract's field names are present and the
+  // RETIRED one is absent, so a future field rename/retirement on `CreatePipelineRequest` must
+  // touch this test, not rot silently again the way it did the first time (zero coverage caught
+  // it; `RefinementEditShapeSpec` existed and covered every OTHER example in this file).
+  "RefinementEditShape.CreateExample (pipeline create prose)" should {
+
+    "describes the CURRENT roots[] wire shape, never presents the retired sourceDataSourceId scalar as required" in {
+      val prose = RefinementEditShape.CreateExample
+
+      prose should include("\"roots\"")
+      prose should include("\"sourceId\"")
+      // The retired field may still be MENTIONED as an explicit "never emit this" warning
+      // (defensive prompting against a model with stale training knowledge) -- what must never
+      // recur is the OLD required-shape phrase instructing the model to actually emit it.
+      prose should not include "\"name\", \"sourceDataSourceId\""
+    }
+
+    "is reachable from the top-level Description the refinement prompt actually sends" in {
+      RefinementEditShape.Description should include(RefinementEditShape.CreateExample)
+    }
+  }
 }

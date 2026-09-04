@@ -68,6 +68,9 @@ import type {
   PipelinePreviewResponse,
   PipelineProposalOutput,
   PipelineProposalStep,
+  CreatePipelineRootRequest,
+  PipelineRootSummaryResponse,
+  RemovePipelineRootResponse,
 } from "./types.js";
 
 /** Raw `POST /api/sources` wire shape, before the missing-Option → `null`
@@ -496,19 +499,46 @@ export class HelioApi {
 
   /** `POST /api/pipelines` -- HEL-907 task 3.2 retargeted this onto the single-call
    *  transactional shape (HEL-906): `steps`/`outputs` are OPTIONAL (absent/empty preserves the
-   *  simple `{name, sourceDataSourceId, tag?}` create); non-empty builds the pipeline, its steps
+   *  simple `{name, roots}` create); non-empty builds the pipeline, its steps
    *  (resolving `parentStepId` against earlier `clientId`s in the SAME call), and its Outputs
    *  (resolving `nodeStepClientId` the same way) in ONE transaction. An implicit single output
    *  from the retired DataType/Metric model is no longer created at all -- pass `outputs` if any
-   *  are wanted. */
+   *  are wanted.
+   *
+   *  HEL-913 task 9.1: `roots` REPLACES the retired scalar `sourceDataSourceId` outright -- the
+   *  backend hard-rejects (400) a body naming the old scalar field or omitting `roots` (design.md
+   *  decision 11, "no deprecation"). `create_pipeline` itself stays single-root (one caller-
+   *  resolved source, wrapped in a one-element `roots` array) -- multi-root pipeline creation is
+   *  not this tool's scope; `add_root`/`remove_root` (below) are the multi-root entry points. */
   createPipeline(input: {
     name: string;
-    sourceDataSourceId: string;
+    roots: CreatePipelineRootRequest[];
     tag?: string;
     steps?: PipelineProposalStep[];
     outputs?: PipelineProposalOutput[];
   }): Promise<PipelineSummaryResponse> {
     return this.http.post<PipelineSummaryResponse>("/api/pipelines", input);
+  }
+
+  /** `POST /api/pipelines/:id/roots` (`add_root`, HEL-913 R6) -- appends a new root at the next
+   *  available position. `req` is the SAME `CreatePipelineRootRequest` shape `roots[]` uses at
+   *  create time -- an existing `sourceId` OR an inline source spec (`csv` not supported
+   *  inline, same constraint as `create_pipeline`'s inline branch). */
+  addPipelineRoot(
+    pipelineId: string,
+    req: CreatePipelineRootRequest,
+  ): Promise<PipelineRootSummaryResponse> {
+    return this.http.post<PipelineRootSummaryResponse>(`/api/pipelines/${pipelineId}/roots`, req);
+  }
+
+  /** `DELETE /api/pipelines/:id/roots/:rootId` (`remove_root`, HEL-913 R7) -- refuses to remove
+   *  the pipeline's LAST root, and refuses when a surviving lane still references a node that
+   *  would be deleted (both named 400s, nothing partially applied). On success, deletes every
+   *  step descending from this root and reports the counts. */
+  removePipelineRoot(pipelineId: string, rootId: string): Promise<RemovePipelineRootResponse> {
+    return this.http.delete<RemovePipelineRootResponse>(
+      `/api/pipelines/${pipelineId}/roots/${rootId}`,
+    );
   }
 
   /** Append a step (`POST /api/pipelines/:id/steps`). `config` shape is keyed by `type` (e.g.
@@ -524,6 +554,11 @@ export class HelioApi {
       parentStepId?: string;
       position?: number;
       enabled?: boolean;
+      /** HEL-913 task 9.5: the alternative anchor to `parentStepId` -- names WHICH root a
+       *  PARENTLESS step attaches to (extending THAT root's trunk). Mutually exclusive with
+       *  `parentStepId` (both -> 400); unnecessary on a single-root pipeline. */
+      rootId?: string;
+      attachAsTail?: boolean;
     },
   ): Promise<PipelineStepResponse> {
     return this.http.post<PipelineStepResponse>(`/api/pipelines/${pipelineId}/steps`, step);
@@ -825,7 +860,9 @@ export class HelioApi {
 
   // ── Outputs (HEL-906/HEL-907 task 3.5) ──────────────────────────────────
 
-  /** `POST /api/pipelines/:id/outputs`. `nodeStepId` absent means the pipeline's raw source. */
+  /** `POST /api/pipelines/:id/outputs`. `nodeStepId` absent means a root-bound Output --
+   *  `req.rootId` (HEL-913, multi-root only) names WHICH root; omitted on a single-root
+   *  pipeline (the backend auto-resolves the one root). */
   createOutput(pipelineId: string, req: CreateOutputRequest): Promise<OutputResponse> {
     return this.http.post<OutputResponse>(`/api/pipelines/${pipelineId}/outputs`, req);
   }

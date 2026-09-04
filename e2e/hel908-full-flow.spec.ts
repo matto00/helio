@@ -67,7 +67,7 @@ test.describe("HEL-908 full flow: filter -> aggregate-tail metric Output -> char
     const source = await sourceRes.json();
 
     const pipelineRes = await page.request.post("/api/pipelines", {
-      data: { name: "HEL-908 Full Flow Pipeline", sourceDataSourceId: source.id },
+      data: { name: "HEL-908 Full Flow Pipeline", roots: [{ sourceId: source.id }] },
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(pipelineRes.status()).toBe(201);

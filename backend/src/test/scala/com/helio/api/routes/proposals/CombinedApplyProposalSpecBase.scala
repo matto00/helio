@@ -166,11 +166,11 @@ abstract class CombinedApplyProposalSpecBase
       
       // HEL-904 task 3.9: a real pipeline + Output, owned by userId — the
       // "output"-kind panel binding target every test below now uses.
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-             VALUES ($pipelineForOutputId, 'Existing Pipeline', $otherSrcId::uuid, $userId::uuid, now(), now())""",
-      sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at)
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pipelineForOutputId, 'Existing Pipeline', $userId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pipelineForOutputId, $pipelineForOutputId, $otherSrcId::uuid, 0)""",
+      sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at, root_id)
              VALUES ($pipelineOutputId, $pipelineForOutputId, NULL, $userId::uuid, 'Existing Output', 'table', '{}'::jsonb,
-                     '[{"name":"region","type":"string"}]'::jsonb, 0, now(), now())"""
+                     '[{"name":"region","type":"string"}]'::jsonb, 0, now(), now(), $pipelineForOutputId)"""
     )))
   }
 

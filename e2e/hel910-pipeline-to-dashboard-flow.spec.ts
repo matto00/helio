@@ -231,7 +231,7 @@ test.describe("HEL-910 place an already-existing Output on a dashboard (<= 2 int
     const source = (await sourceRes.json()) as { id: string };
 
     const pipelineRes = await request.post("/api/pipelines", {
-      data: { name: "HEL-910 Existing Pipeline", sourceDataSourceId: source.id },
+      data: { name: "HEL-910 Existing Pipeline", roots: [{ sourceId: source.id }] },
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(pipelineRes.status()).toBe(201);

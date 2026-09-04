@@ -156,8 +156,8 @@ class HookRoutesSpec
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerUserId::uuid, now(), now())""",
       
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-             VALUES ($pid, 'pipe', $dsId, $ownerUserId::uuid, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $ownerUserId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     pid
   }
@@ -179,10 +179,10 @@ class HookRoutesSpec
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($dsId, 'ds', 'static', $dsConfig, $ownerUserId::uuid, now(), now())""",
       
-      sqlu"""INSERT INTO pipelines (id, name, source_data_source_id, owner_id, created_at, updated_at)
-             VALUES ($pid, 'pipe', $dsId, $ownerUserId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, created_at, updated_at)
-             VALUES ($stepId, $pid, 0, 'assert', $stepConfig, now(), now())"""
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $ownerUserId::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)""",
+      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, created_at, updated_at, root_id)
+             VALUES ($stepId, $pid, 0, 'assert', $stepConfig, now(), now(), $pid)"""
     )))
     pid
   }

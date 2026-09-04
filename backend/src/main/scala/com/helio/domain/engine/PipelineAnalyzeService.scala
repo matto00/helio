@@ -154,13 +154,36 @@ object PipelineAnalyzeService {
   /** Tree-shaped input for [[analyzeNodes]] — like [[PipelineStepInput]] plus
    *  `parentStepId` (`None` = child of the pipeline's raw source), the same
    *  adjacency `InProcessPipelineEngine`'s tree walk uses at runtime. */
+  /** `rootId` (HEL-913 task 5.9) defaults to `None`, matching the pre-multi-root convention every
+   *  existing call site relies on: a `None`-rootId, `None`-parentStepId node resolves against the
+   *  single-root [[analyzeNodes]] overload's one `sourceSchema`, keyed internally under
+   *  `DefaultRootKey`. A caller resolving a genuine multi-root pipeline's per-node projection
+   *  supplies `rootId` explicitly and calls the `Map[String, Vector[SchemaField]]` overload. */
+  /** `enabled` (HEL-913 task 7.2c fold-in) defaults `true` so every pre-existing call site
+   *  (none of which pre-date a disabled-step concept in this walk) keeps compiling unchanged.
+   *  A caller building `steps` by pre-filtering OUT disabled steps before constructing
+   *  `NodeStepInput`s (as `PipelineService.analyze` did until this fix) breaks `isReady` for
+   *  any child whose `parentStepId` names the now-absent disabled step -- that child is never
+   *  reachable and silently vanishes from the result map. The fix is to keep EVERY step
+   *  (enabled or not) in `steps`, set `enabled` per step, and let [[analyzeNodes]] make a
+   *  disabled node transparent itself (mirrors `InProcessPipelineEngine.evalNode`'s own
+   *  `if (step.enabled) ... else Future.successful(currentRows)` pass-through exactly) —
+   *  filtering disabled entries OUT of the RESPONSE, not out of the WALK, is the caller's job
+   *  (design.md Decision 3, boundary iii: "the analyze response contains entries for enabled
+   *  steps only"). */
   final case class NodeStepInput(
       id:           String,
       parentStepId: Option[String],
       position:     Int,
       op:           String,
-      config:       String
+      config:       String,
+      rootId:       Option[String] = None,
+      enabled:      Boolean = true
   )
+
+  /** Internal key `sourceSchemasByRoot` uses for a node with no explicit `rootId` (the
+   *  single-root/pre-multi-root convention). Never surfaced on the wire. */
+  private val DefaultRootKey = ""
 
   /** Per-node (trunk + every tail) schema projection — the HEL-905 task 6.4
    *  handoff. Unlike [[analyze]] (a single ordered chain), this walks the
@@ -218,23 +241,40 @@ object PipelineAnalyzeService {
    *  malformed graph degrades gracefully here rather than looping or throwing (this is a
    *  pure schema-propagation function, not the write-time/run-time cycle rejection --
    *  `PipelineService`/`InProcessPipelineEngine` own that). */
-  def analyzeNodes(steps: Vector[NodeStepInput], sourceSchema: Vector[SchemaField]): Map[String, AnalyzedStep] = {
+  def analyzeNodes(steps: Vector[NodeStepInput], sourceSchema: Vector[SchemaField]): Map[String, AnalyzedStep] =
+    analyzeNodes(steps, Map(DefaultRootKey -> sourceSchema))
+
+  /** HEL-913 task 5.9: multi-root overload. `sourceSchemasByRoot` carries ONE schema per pipeline
+   *  root, keyed by `PipelineRoot.id`; a root-level node's `schemaAt` resolution is keyed by
+   *  `step.rootId`, never a bare `getOrElse` fallback onto a single implicit schema (design.md
+   *  R12: "`node_step_id IS NULL` is not a standalone predicate" applies here too -- a root-level
+   *  node's schema source is "THIS root", not "the only root"). A `rootId` naming a root absent
+   *  from `sourceSchemasByRoot` resolves to an empty schema (matching this function's existing
+   *  tolerant-degradation contract for any other unresolvable reference) rather than silently
+   *  falling back to a different root's schema. */
+  def analyzeNodes(steps: Vector[NodeStepInput], sourceSchemasByRoot: Map[String, Vector[SchemaField]]): Map[String, AnalyzedStep] = {
     val results = scala.collection.mutable.LinkedHashMap.empty[String, AnalyzedStep]
 
-    def schemaAt(parentId: Option[String]): Vector[SchemaField] =
-      parentId.flatMap(results.get).map(_.outputSchema).getOrElse(sourceSchema)
+    def schemaAt(step: NodeStepInput): Vector[SchemaField] =
+      step.parentStepId.flatMap(results.get).map(_.outputSchema)
+        .getOrElse(sourceSchemasByRoot.getOrElse(step.rootId.getOrElse(DefaultRootKey), Vector.empty))
 
     def isReady(step: NodeStepInput): Boolean =
       step.parentStepId.forall(results.contains) &&
         laneDependencyOf(step.op, step.config).forall(results.contains)
 
     def processNode(step: NodeStepInput): Unit = {
-      val inputSchema     = schemaAt(step.parentStepId)
+      val inputSchema     = schemaAt(step)
       val secondarySchema = laneDependencyOf(step.op, step.config).flatMap(results.get).map(_.outputSchema)
-      val (output, err) = validateStepConfig(step.op, step.config) match {
-        case Some(msg) => (inputSchema, Some(msg))
-        case None      => inferOutputSchema(step.op, step.config, inputSchema, secondarySchema)
-      }
+      // HEL-913 task 7.2c fold-in: a disabled node is transparent -- never validated, never
+      // inferred, its incoming schema passes through unchanged (mirrors the engine's own
+      // disabled-node handling, design.md Decision 7 / HEL-905).
+      val (output, err) =
+        if (!step.enabled) (inputSchema, None)
+        else validateStepConfig(step.op, step.config) match {
+          case Some(msg) => (inputSchema, Some(msg))
+          case None      => inferOutputSchema(step.op, step.config, inputSchema, secondarySchema)
+        }
       results(step.id) = AnalyzedStep(
         id              = step.id,
         position        = step.position,

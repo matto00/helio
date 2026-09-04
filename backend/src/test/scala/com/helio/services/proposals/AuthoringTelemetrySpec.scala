@@ -157,14 +157,14 @@ class AuthoringTelemetrySpec
       case Right(ds) => ds
       case Left(err) => fail(s"createStatic failed: $err")
     }
-    val summary = await(pipelineRepo.create(s"pipe-${UUID.randomUUID()}", source.id, owner)) match {
+    val summary = await(pipelineRepo.create(s"pipe-${UUID.randomUUID()}", Vector(source.id), owner)) match {
       case Right(s)  => s
       case Left(err) => fail(s"pipeline create failed: $err")
     }
     val createdOutput = await(outputRepo.insertInternal(
       PipelineId(summary.id), nodeStepId = None, owner.id, "Sales", OutputKind.Table,
       schema = Vector(SchemaField("revenue", "float"))
-    ))
+    , explicitRootId = None))
     // `userWithWorkspace` returns the real Output's own id string (HEL-904 cycle 29: the
     // vestigial `DataType`/`DataTypeId` wrapper this used to be built through is deleted --
     // neither type exists anywhere in `model.scala` anymore) -- used to bind an "output"-kind

@@ -36,6 +36,7 @@ export function addOutputHandler(
     kind: string;
     name: string;
     config?: Record<string, unknown>;
+    rootId?: string;
   },
 ): Promise<OutputResponse> {
   const req: CreateOutputRequest = {
@@ -43,6 +44,7 @@ export function addOutputHandler(
     kind: input.kind,
     name: input.name,
     config: input.config,
+    rootId: input.rootId,
   };
   return api.createOutput(input.pipelineId, req);
 }

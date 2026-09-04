@@ -5,10 +5,11 @@ import com.helio.api.ErrorResponse
 import com.helio.api.http.{AccessCheckerImpl, ResourceType => AclResourceType, ResourceTypeRegistry}
 import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputRequest, DeleteOutputResponse, OutputPanelPlacementResponse, OutputResponse, OutputsResponse, PipelinePreviewResponse, UpdateOutputRequest}
 import com.helio.domain.model._
+import com.helio.domain.steps.RenameConfig
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRootRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.services.auth.AccessChecker
@@ -59,6 +60,7 @@ class OutputRoutesSpec
   private var appDb: JdbcBackend.Database                  = _
   private var dataSourceRepo: DataSourceRepository         = _
   private var pipelineRepo: PipelineRepository             = _
+  private var pipelineRootRepo: PipelineRootRepository     = _
   private var outputRepo: OutputRepository                 = _
   private var nodeSnapshotRepo: NodeSnapshotRepository      = _
   private var pipelineRunRepo: PipelineRunRepository       = _
@@ -137,9 +139,10 @@ class OutputRoutesSpec
       new PipelineRunCache(), null, new LocalFileSystem(java.nio.file.Files.createTempDirectory("output-routes-shared")),
       outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo
     )(routeEc)
+    pipelineRootRepo = new PipelineRootRepository(ctx)(routeEc)
     outputService = new OutputService(
       outputRepo, panelRepo, accessChecker, auditService = null, pipelineRunRepo, nodeSnapshotRepo,
-      pipelineRunService = sharedRunService
+      pipelineRunService = sharedRunService, pipelineRootRepo = pipelineRootRepo
     )(routeEc)
     dashboardService = new DashboardService(dashboardRepo, accessChecker)(routeEc)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, null, outputRepo)(routeEc)
@@ -176,7 +179,7 @@ class OutputRoutesSpec
     val now    = Instant.now()
     val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
     val createdSource = await(dataSourceRepo.insert(source, owner))
-    val pipeline = await(pipelineRepo.create("pipe", createdSource.id, owner)).getOrElse(
+    val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), owner)).getOrElse(
       throw new IllegalStateException("newSharedPipeline fixture: pipeline create failed")
     )
     val pipelineId = PipelineId(pipeline.id)
@@ -249,12 +252,44 @@ class OutputRoutesSpec
         responseAs[OutputResponse].config shouldBe config
       }
     }
+
+    // HEL-913 task 5.8a: an Output can be bound to a NON-FIRST root, naming it explicitly.
+    "creates a root-bound Output on a caller-named SECOND root, not silently on the first (task 5.8a)" in {
+      val pipelineId = newSharedPipeline()
+      val secondSrc = await(dataSourceRepo.insert(
+        StaticSource(DataSourceId(UUID.randomUUID().toString), "src2", owner.id, Instant.now(), Instant.now()), owner
+      ))
+      val secondRoot = await(pipelineRootRepo.add(pipelineId, secondSrc.id, owner))
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "table", "Second Root Output", None, rootId = Some(secondRoot.id.value))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[OutputResponse].rootId shouldBe Some(secondRoot.id.value)
+      }
+    }
+
+    "400s a rootId that belongs to a DIFFERENT pipeline, naming it (task 5.8a)" in {
+      val pipelineId = newSharedPipeline()
+      val otherPipelineId = newSharedPipeline()
+      val foreignRoots = await(pipelineRootRepo.list(otherPipelineId, owner))
+      val foreignRootId = foreignRoots.head.id.value
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "table", "Cross-Pipeline Root Output", None, rootId = Some(foreignRootId))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include(foreignRootId)
+      }
+    }
+
+    "400s a create naming BOTH nodeStepId and rootId (mutually exclusive, task 5.8a)" in {
+      val pipelineId = newSharedPipeline()
+      val step = await(pipelineStepRepo.insertRootStep(pipelineId, "rename", RenameConfig(Map("a" -> "b")), owner))
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(Some(step.id.value), "table", "Both Output", None, rootId = Some("some-root"))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
   }
 
   "GET /pipelines/:id/outputs" should {
     "list for the owner and the editor grantee, but 403 for an unrelated authenticated caller" in {
       val pipelineId = newSharedPipeline()
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Table))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Table, explicitRootId = None))
 
       Get(s"/pipelines/${pipelineId.value}/outputs") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -278,8 +313,8 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val config1 = JsObject("legend" -> JsObject("show" -> JsBoolean(true)))
       val config2 = JsObject("format" -> JsString("percent"))
-      val out1 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Chart, config1))
-      val out2 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-2", OutputKind.Metric, config2))
+      val out1 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Chart, config1, explicitRootId = None))
+      val out2 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-2", OutputKind.Metric, config2, explicitRootId = None))
 
       Get(s"/pipelines/${pipelineId.value}/outputs") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -293,7 +328,7 @@ class OutputRoutesSpec
   "GET /outputs/:id" should {
     "200 for the owner and the editor grantee (sharing-aware RLS select), 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "shared-out", OutputKind.Metric))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "shared-out", OutputKind.Metric, explicitRootId = None))
 
       Get(s"/outputs/${output.id.value}") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -310,7 +345,7 @@ class OutputRoutesSpec
   "PATCH /outputs/:id" should {
     "let the owner rename the Output, but 404 for a non-owner grantee (owner-only RLS)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "old-name", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "old-name", OutputKind.Table, explicitRootId = None))
 
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(Some("new-name"), None)) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -325,7 +360,7 @@ class OutputRoutesSpec
     "merge a partial chart.legend config one level deep instead of replacing config wholesale (HEL-877)" in {
       val pipelineId = newSharedPipeline()
       val initialConfig = JsObject("legend" -> JsObject("show" -> JsBoolean(true), "position" -> JsString("top")), "title" -> JsString("Chart"))
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = initialConfig))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = initialConfig, explicitRootId = None))
 
       val patch = JsObject("legend" -> JsObject("position" -> JsString("bottom")))
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
@@ -340,7 +375,7 @@ class OutputRoutesSpec
 
     "400 a PATCH whose merged fieldMapping has an unknown slot name (HEL-892)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "metric-out", OutputKind.Metric))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "metric-out", OutputKind.Metric, explicitRootId = None))
 
       val patch = JsObject("fieldMapping" -> JsObject("bogusSlot" -> JsString("amount")))
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
@@ -353,7 +388,7 @@ class OutputRoutesSpec
 
     "404 an empty-body (no fields to update) PATCH from a non-owner grantee, not a 200 no-op (evaluation-1.md suggestion)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "untouched-name", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "untouched-name", OutputKind.Table, explicitRootId = None))
 
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, None)) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -367,7 +402,7 @@ class OutputRoutesSpec
   "GET /outputs/:id/panels" should {
     "list every panel placement for the owner and the editor grantee, 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "placements-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "placements-out", OutputKind.Table, explicitRootId = None))
       val (dashboard, _) = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("placements-dash")), owner))
       val config = JsObject("outputId" -> JsString(output.id.value))
       val panel = await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
@@ -391,7 +426,7 @@ class OutputRoutesSpec
 
     "an empty result for an Output with no placements" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "no-placements-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "no-placements-out", OutputKind.Table, explicitRootId = None))
 
       Get(s"/outputs/${output.id.value}/panels") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -403,7 +438,7 @@ class OutputRoutesSpec
   "DELETE /outputs/:id" should {
     "cascade-delete every panel placement and report the removed ids" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "del-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "del-out", OutputKind.Table, explicitRootId = None))
       val (dashboard, _) = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("dash")), owner))
       def newOutputPanel(): PanelId = {
         val config = JsObject("outputId" -> JsString(output.id.value))
@@ -425,7 +460,7 @@ class OutputRoutesSpec
 
     "404 for a non-owner grantee, leaving the Output intact (owner-only RLS)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "guarded-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "guarded-out", OutputKind.Table, explicitRootId = None))
 
       Delete(s"/outputs/${output.id.value}") ~> routesFor(grantee) ~> check {
         status shouldBe StatusCodes.NotFound
@@ -437,7 +472,7 @@ class OutputRoutesSpec
   "GET /outputs/:id/assertion-status" should {
     "invalid = false, failedRuleCount = 0 for an Output on the pipeline's raw source (no step to assert against)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "source-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "source-out", OutputKind.Table, explicitRootId = None))
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -451,7 +486,7 @@ class OutputRoutesSpec
     "invalid = false when the node's latest run has no failed error-severity assertions" in {
       val pipelineId = newSharedPipeline()
       val step = await(pipelineStepRepoFor(pipelineId))
-      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "clean-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "clean-out", OutputKind.Table, explicitRootId = None))
       seedRunWithAssertions(pipelineId, step, passing = true)
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check {
@@ -465,7 +500,7 @@ class OutputRoutesSpec
     "invalid = true, failedRuleCount > 0 when the node's latest run has a failed error-severity assertion" in {
       val pipelineId = newSharedPipeline()
       val step = await(pipelineStepRepoFor(pipelineId))
-      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "failing-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "failing-out", OutputKind.Table, explicitRootId = None))
       seedRunWithAssertions(pipelineId, step, passing = false)
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check {
@@ -480,7 +515,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val step1 = await(pipelineStepRepoFor(pipelineId))
       val step2 = await(pipelineStepRepoFor(pipelineId))
-      val output = await(outputRepo.insertInternal(pipelineId, Some(step1), owner.id, "unaffected-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, Some(step1), owner.id, "unaffected-out", OutputKind.Table, explicitRootId = None))
       seedRunWithAssertions(pipelineId, step2, passing = false)
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check {
@@ -493,7 +528,7 @@ class OutputRoutesSpec
 
     "200 for the owner and the editor grantee, 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "acl-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "acl-out", OutputKind.Table, explicitRootId = None))
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check { status shouldBe StatusCodes.OK }
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(grantee) ~> check { status shouldBe StatusCodes.OK }
@@ -510,7 +545,7 @@ class OutputRoutesSpec
     "a later dry run's failing assertion is never reported -- only the latest NON-DRY run counts" in {
       val pipelineId = newSharedPipeline()
       val step = await(pipelineStepRepoFor(pipelineId))
-      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "dry-run-guard-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "dry-run-guard-out", OutputKind.Table, explicitRootId = None))
 
       // Real run first: passes.
       seedRunWithAssertions(pipelineId, step, passing = true)
@@ -529,12 +564,12 @@ class OutputRoutesSpec
   "GET /outputs/:id/rows" should {
     "200 with the paginated node_snapshots rows for the owner and the editor grantee, 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out", OutputKind.Table, explicitRootId = None))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
         JsObject("amount" -> JsNumber(1)),
         JsObject("amount" -> JsNumber(2)),
         JsObject("amount" -> JsNumber(3))
-      )))
+      ), explicitRootId = None))
 
       Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -552,10 +587,40 @@ class OutputRoutesSpec
       }
     }
 
+    // HEL-913 task 5.8b-iv-a: a root-bound Output's rows read must scope to ITS OWN root, never
+    // every root's `node_step_id IS NULL` rows mixed together (design.md R12's named bug --
+    // "whichever root writes second wipes/mixes with the other"). Before this fix,
+    // `OutputRoutesSpec`'s route -> `OutputService.rows` -> `nodeSnapshotRepo.listRowsPaged`
+    // chain never threaded `output.node.rootId` through, silently defaulting to
+    // `explicitRootId = None` and returning EVERY root's root-bound rows unioned.
+    "returns ONLY the Output's own root's rows, not another root's mixed in (task 5.8b-iv-a)" in {
+      val pipelineId = newSharedPipeline()
+      val secondSrc = await(dataSourceRepo.insert(
+        StaticSource(DataSourceId(UUID.randomUUID().toString), "src2", owner.id, Instant.now(), Instant.now()), owner
+      ))
+      val secondRoot = await(pipelineRootRepo.add(pipelineId, secondSrc.id, owner))
+      val firstRoot  = await(pipelineRootRepo.list(pipelineId, owner)).minBy(_.position)
+
+      // Root-bound snapshot rows for EACH root, written independently.
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("root" -> JsString("first"))), explicitRootId = Some(firstRoot.id.value)))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("root" -> JsString("second")), JsObject("root" -> JsString("second-2"))), explicitRootId = Some(secondRoot.id.value)))
+
+      // The Output under test is bound to the SECOND root specifically.
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "second-root-out", OutputKind.Table, explicitRootId = Some(secondRoot.id)))
+
+      Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("total") shouldBe JsNumber(2)
+        val rows = paged.fields("items").convertTo[Vector[JsObject]]
+        rows.map(_.fields("root")) shouldEqual Vector(JsString("second"), JsString("second-2"))
+      }
+    }
+
     "respects offset/limit" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-2", OutputKind.Table))
-      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, (1 to 5).map(i => JsObject("i" -> JsNumber(i)))))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-2", OutputKind.Table, explicitRootId = None))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, (1 to 5).map(i => JsObject("i" -> JsNumber(i))), explicitRootId = None))
 
       Get(s"/outputs/${output.id.value}/rows?offset=2&limit=2") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -571,7 +636,7 @@ class OutputRoutesSpec
 
     "400 a negative offset" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-3", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-3", OutputKind.Table, explicitRootId = None))
       Get(s"/outputs/${output.id.value}/rows?offset=-1") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.BadRequest
       }
@@ -583,7 +648,7 @@ class OutputRoutesSpec
     // a node that ran and legitimately returned zero rows (next test).
     "200 with an empty page and materialized=false for an Output that has never had a successful run" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-4", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-4", OutputKind.Table, explicitRootId = None))
       Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[JsObject]
@@ -600,7 +665,7 @@ class OutputRoutesSpec
     // "run the pipeline" prompt should render.
     "200 with an empty page and materialized=true when a successful run completed after the Output was created" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-5", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-5", OutputKind.Table, explicitRootId = None))
       val runId = PipelineRunId(java.util.UUID.randomUUID().toString)
       await(pipelineRunRepo.insertRunInternal(runId, pipelineId, Instant.now()))
       await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now().plusSeconds(1), Some(0)))
@@ -628,7 +693,7 @@ class OutputRoutesSpec
       await(db.run(sqlu"""INSERT INTO data_sources
         (id, name, source_type, config, owner_id, created_at, updated_at)
         VALUES ($dsId, 'ds-backfill', 'static', $dsConfig, $ownerId::uuid, now(), now())"""))
-      val pipeline = await(pipelineRepo.create("backfill-pipe", DataSourceId(dsId), owner)).getOrElse(
+      val pipeline = await(pipelineRepo.create("backfill-pipe", Vector(DataSourceId(dsId)), owner)).getOrElse(
         throw new IllegalStateException("backfill fixture: pipeline create failed")
       )
       val pipelineId = PipelineId(pipeline.id)
@@ -685,11 +750,11 @@ class OutputRoutesSpec
   "GET /outputs (lean paginated list, HEL-906 cycle 7 task 2.6)" should {
     "return only the caller's OWN outputs, paginated, in an OutputsResponse-shaped page" in {
       val pipelineId = newSharedPipeline()
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "list-out-1", OutputKind.Table))
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "list-out-2", OutputKind.Table))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "list-out-1", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "list-out-2", OutputKind.Table, explicitRootId = None))
       // Owned by grantee, NOT owner -- must not appear in owner's own list (owner-scoped, not
       // sharing-aware, unlike GET /pipelines/:id/outputs).
-      await(outputRepo.insertInternal(pipelineId, None, grantee.id, "grantee-owned-out", OutputKind.Table))
+      await(outputRepo.insertInternal(pipelineId, None, grantee.id, "grantee-owned-out", OutputKind.Table, explicitRootId = None))
 
       Get("/outputs") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -702,7 +767,7 @@ class OutputRoutesSpec
 
     "respects offset/limit" in {
       val pipelineId = newSharedPipeline()
-      (1 to 3).foreach(i => await(outputRepo.insertInternal(pipelineId, None, owner.id, s"page-out-$i", OutputKind.Table)))
+      (1 to 3).foreach(i => await(outputRepo.insertInternal(pipelineId, None, owner.id, s"page-out-$i", OutputKind.Table, explicitRootId = None)))
 
       Get("/outputs?offset=0&limit=1") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -725,7 +790,7 @@ class OutputRoutesSpec
     "returns each Output's real persisted config, batched (HEL-946)" in {
       val pipelineId = newSharedPipeline()
       val config = JsObject("legend" -> JsObject("show" -> JsBoolean(true)))
-      val out = await(outputRepo.insertInternal(pipelineId, None, owner.id, "configured-out", OutputKind.Chart, config))
+      val out = await(outputRepo.insertInternal(pipelineId, None, owner.id, "configured-out", OutputKind.Chart, config, explicitRootId = None))
 
       Get("/outputs") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -740,8 +805,8 @@ class OutputRoutesSpec
     // self-rate-limited on a realistic Output count).
     "carries each Output's panelCount, batched, without an N+1 per-Output fetch" in {
       val pipelineId = newSharedPipeline()
-      val boundOutput   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "bound-out", OutputKind.Table))
-      val unboundOutput = await(outputRepo.insertInternal(pipelineId, None, owner.id, "unbound-out", OutputKind.Table))
+      val boundOutput   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "bound-out", OutputKind.Table, explicitRootId = None))
+      val unboundOutput = await(outputRepo.insertInternal(pipelineId, None, owner.id, "unbound-out", OutputKind.Table, explicitRootId = None))
       val (dashboard, _) = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("count-dash")), owner))
       val config = JsObject("outputId" -> JsString(boundOutput.id.value))
       await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
@@ -760,7 +825,7 @@ class OutputRoutesSpec
   "POST /pipelines/:id/preview?outputId= (single-Output arm)" should {
     "200 for the owner and the editor grantee (per-Output dry run), 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "preview-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "preview-out", OutputKind.Table, explicitRootId = None))
 
       Post(s"/pipelines/${pipelineId.value}/preview?outputId=${output.id.value}") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -785,7 +850,7 @@ class OutputRoutesSpec
 
     "does not mutate the pipeline's last_run_status/last_run_at (HTTP-level, real DB round-trip)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "preview-unchanged-out", OutputKind.Table))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "preview-unchanged-out", OutputKind.Table, explicitRootId = None))
 
       Post(s"/pipelines/${pipelineId.value}/preview?outputId=${output.id.value}") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -800,8 +865,8 @@ class OutputRoutesSpec
   "POST /pipelines/:id/preview (outputId ABSENT — all-Outputs arm, HEL-906 cycle 10)" should {
     "200 for the owner and the editor grantee, 404 for an unrelated caller, with EVERY Output's preview rows in the same envelope shape" in {
       val pipelineId = newSharedPipeline()
-      val outputA = await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-out-a", OutputKind.Table))
-      val outputB = await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-out-b", OutputKind.Table))
+      val outputA = await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-out-a", OutputKind.Table, explicitRootId = None))
+      val outputB = await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-out-b", OutputKind.Table, explicitRootId = None))
 
       Post(s"/pipelines/${pipelineId.value}/preview") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -826,8 +891,8 @@ class OutputRoutesSpec
 
     "does not mutate the pipeline's last_run_status/last_run_at (HTTP-level, real DB round-trip) -- the risk explicitly named for the all-Outputs path, where more work happens per call" in {
       val pipelineId = newSharedPipeline()
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-unchanged-out-1", OutputKind.Table))
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-unchanged-out-2", OutputKind.Table))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-unchanged-out-1", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-unchanged-out-2", OutputKind.Table, explicitRootId = None))
 
       Post(s"/pipelines/${pipelineId.value}/preview") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -839,10 +904,102 @@ class OutputRoutesSpec
     }
   }
 
+  /** Raw INSERT into `data_sources` with an actual queryable `static` config -- mirrors
+   *  `PipelineRunServiceSpec.seedDsWithData`'s pattern. Needed because `newSharedPipeline`'s
+   *  fixture `StaticSource`s carry no rows at all (fine for the status-code/shape-only preview
+   *  tests above, useless for asserting WHICH root's rows a preview actually returns). */
+  private def seedStaticSourceWithRows(name: String, value: String): DataSourceId = {
+    import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
+    val config = s"""{"columns":[{"name":"v","type":"string"}],"rows":[["$value"]]}"""
+    await(db.run(sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, $name, 'static', $config, ${owner.id.value}::uuid, now(), now())"""))
+    DataSourceId(dsId)
+  }
+
+  /** A two-root pipeline, both roots bound to a REAL, content-distinguishable `static`
+   *  DataSource (`seedStaticSourceWithRows`) -- root 0's rows are `"root0-row"`, root 1's are
+   *  `"root1-row"`. Returns `(pipelineId, root0Id, root1Id)`. */
+  private def newTwoRootPipelineWithDistinctContent(): (PipelineId, PipelineRootId, PipelineRootId) = {
+    val src0 = seedStaticSourceWithRows("src0", "root0-row")
+    val pipeline = await(pipelineRepo.create("multi-root-preview", Vector(src0), owner)).getOrElse(
+      throw new IllegalStateException("newTwoRootPipelineWithDistinctContent fixture: pipeline create failed")
+    )
+    val pipelineId = PipelineId(pipeline.id)
+    val root0Id = await(pipelineRootRepo.list(pipelineId, owner)).head.id
+    val src1 = seedStaticSourceWithRows("src1", "root1-row")
+    val root1 = await(pipelineRootRepo.add(pipelineId, src1, owner))
+    (pipelineId, root0Id, root1.id)
+  }
+
+  "POST /pipelines/:id/outputs (multi-root ambiguity, evaluation-1.md cycle 2, Priority 2 Site A)" should {
+    "400, naming the root count, when a create names NEITHER nodeStepId NOR rootId on a two-root pipeline" in {
+      val (pipelineId, _, _) = newTwoRootPipelineWithDistinctContent()
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "table", "Ambiguous Output", None)) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("2 roots")
+      }
+    }
+
+    "lands on the NAMED root (not root 0) when rootId is given explicitly on a two-root pipeline" in {
+      val (pipelineId, root0Id, root1Id) = newTwoRootPipelineWithDistinctContent()
+      Post(
+        s"/pipelines/${pipelineId.value}/outputs",
+        CreateOutputRequest(None, "table", "Root1 Output", None, rootId = Some(root1Id.value))
+      ) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      val persisted = await(outputRepo.listByPipelineInternal(pipelineId)).find(_.name == "Root1 Output").get
+      persisted.node.rootId shouldBe Some(root1Id)
+      persisted.node.rootId should not be Some(root0Id)
+    }
+
+    // MUTATION PROOF: reverting `OutputService.requireUnambiguousRootWhenNeither` (restoring the
+    // fall-through to `resolveExplicitRootId`'s `None` branch unconditionally) must turn the
+    // first test above red -- a 201 with the Output silently bound to root 0, not a 400.
+  }
+
+  "POST /pipelines/:id/preview (multi-root, evaluation-1.md cycle 2, Priority 2 Site B)" should {
+    "returns the SECOND root's rows for an Output bound to root 1, not root 0's (single-Output arm)" in {
+      val (pipelineId, _, root1Id) = newTwoRootPipelineWithDistinctContent()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "root1-output", OutputKind.Table, explicitRootId = Some(root1Id)
+      ))
+
+      Post(s"/pipelines/${pipelineId.value}/preview?outputId=${output.id.value}") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val entry = responseAs[PipelinePreviewResponse].outputs.head
+        entry.preview.rows.map(_.fields("v")) shouldBe Vector(JsString("root1-row"))
+      }
+      // MUTATION PROOF: reverting `PipelineRunService.previewAtNode`'s `selectedRoot` resolution
+      // (restoring the unconditional `roots.head`) must turn THIS test red -- it would then
+      // assert `"root0-row"` and fail against the real `"root1-row"` response, exactly the
+      // preview/persisted-snapshot disagreement this fix closes (the persisted-rows path was
+      // already fixed by 5.8a's `OutputService.scala` `explicitRootId` threading, prior to this
+      // cycle; not re-asserted here since `triggerBackfill`'s materialization is fire-and-forget
+      // and asserting its completion timing would be a flaky, unrelated test).
+    }
+
+    "returns the SECOND root's rows for an Output bound to root 1, not root 0's (all-Outputs arm)" in {
+      val (pipelineId, _, root1Id) = newTwoRootPipelineWithDistinctContent()
+      val outputRoot0 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "root0-output", OutputKind.Table, explicitRootId = None))
+      val outputRoot1 = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "root1-output-2", OutputKind.Table, explicitRootId = Some(root1Id)
+      ))
+
+      Post(s"/pipelines/${pipelineId.value}/preview") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val byId = responseAs[PipelinePreviewResponse].outputs.map(e => e.outputId -> e).toMap
+        byId(outputRoot0.id.value).preview.rows.map(_.fields("v")) shouldBe Vector(JsString("root0-row"))
+        byId(outputRoot1.id.value).preview.rows.map(_.fields("v")) shouldBe Vector(JsString("root1-row"))
+      }
+    }
+  }
+
   /** A bare `assert` step on `pipelineId`, no parent (trunk root) -- returns its `PipelineStepId`. */
   private def pipelineStepRepoFor(pipelineId: PipelineId): Future[PipelineStepId] = {
     import com.helio.domain.AssertConfig
-    pipelineStepRepo.insertInternal(pipelineId, "assert", AssertConfig(Vector.empty)).map(_.id)
+    pipelineStepRepo.insertInternal(pipelineId, "assert", AssertConfig(Vector.empty), explicitRootId = None).map(_.id)
   }
 
   /** Seeds one persisted (non-dry) run with a single error-severity assertion on `stepId`,
