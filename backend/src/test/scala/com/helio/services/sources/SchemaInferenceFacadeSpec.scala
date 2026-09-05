@@ -55,5 +55,16 @@ class SchemaInferenceFacadeSpec extends AnyWordSpec with Matchers {
     "return an empty Vector for an empty schema" in {
       SchemaInferenceFacade.toSchemaFields(InferredSchema(Seq.empty)) shouldBe empty
     }
+
+    // HEL-893 tasks.md 3.1a: `toSchemaFields` serves ONLY the generic REST/SQL/JSON
+    // `ConnectorDriver` path (CreateSourceEnvelope.build / SourceService.upsertInferredSchema) --
+    // CSV never calls it. A CSV-only "must be string" constraint belongs solely in
+    // DataSourceService.createCsv's inline override block; adding it here would regress a
+    // legitimate REST/SQL non-string override, which this test pins as still accepted.
+    "still accepts a non-string override on the generic REST/SQL/JSON path (no CSV-only guard here)" in {
+      val overrides = Map("id" -> FieldOverridePayload(name = "id", displayName = "Order ID", dataType = "integer"))
+      val fields    = SchemaInferenceFacade.toSchemaFields(schema, overrides)
+      fields.find(_.name == "id").get.`type` shouldBe "integer"
+    }
   }
 }

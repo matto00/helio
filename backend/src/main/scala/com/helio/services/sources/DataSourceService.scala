@@ -2,7 +2,7 @@ package com.helio.services.sources
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
-import com.helio.domain.engine.{SchemaField, SchemaInferenceEngine}
+import com.helio.domain.engine.{PipelineRowJson, SchemaField, SchemaInferenceEngine}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Materializer
 import com.helio.api.http.RequestValidation
@@ -128,10 +128,14 @@ final class DataSourceService(
       // update so the engine + Spark submitter (which consume the raw blob)
       // continue to work without further changes.
       val payload = JsObject("columns" -> req.columns.toJson, "rows" -> req.rows.toJson)
-      // Every column's type was already validated above -- .getOrElse is unreachable in
-      // practice (defensive only, mirrors the validated-above invariant, never masks a bug
-      // since `invalidColumns.nonEmpty` would have short-circuited before this line).
-      val fields  = req.columns.map(col => SchemaField(col.name, DataFieldType.validateAndCanonicalize(col.`type`).getOrElse(col.`type`))).toVector
+      // HEL-893 design D2: the registered schema reports the type the stored rows actually
+      // materialize (via `PipelineRowJson.staticColumnRuntimeType`, the same conversion
+      // `parseStaticRows` applies), not the caller-declared `columns[].type` -- that declared
+      // type was never consulted when materializing rows and could disagree with every cell.
+      val fields  = req.columns.zipWithIndex.map { case (col, i) =>
+        val cells = req.rows.map(_.lift(i).getOrElse(JsNull))
+        SchemaField(col.name, PipelineRowJson.staticColumnRuntimeType(col.`type`, cells))
+      }.toVector
       dataSourceRepo.insert(source, user).flatMap { _ =>
         dataSourceRepo.updateStaticPayload(sourceId, source.name, payload, now, user).flatMap {
           case None => Future.failed(new RuntimeException("Static source disappeared between insert and update"))
@@ -160,6 +164,22 @@ final class DataSourceService(
       case None =>
         Future.successful(Left(ServiceError.BadRequest("File must be UTF-8 encoded")))
       case Some(csvContent) =>
+        // HEL-893 design D3/tasks.md 3.1: a CSV column materializes as `String`, always -- a
+        // field override asking for anything else would re-create the exact declared-vs-runtime
+        // defect this change removes, in one click. Reject loudly (naming the `cast` step) rather
+        // than silently coercing to `string`, since silently discarding an explicit instruction
+        // is the failure mode this whole ticket exists to close. This is the ONE real CSV
+        // override-application site -- `createCsvUrl`/`finishCsvRefresh`/`infer` accept no
+        // overrides at all, and `SchemaInferenceFacade.toSchemaFields` serves only the generic
+        // REST/SQL/JSON `ConnectorDriver` path and must NOT be touched (it would regress those).
+        val nonStringOverrides = overrides.filterNot(o => DataFieldType.canonicalizeLegacy(o.dataType) == "string")
+        if (nonStringOverrides.nonEmpty) {
+          val names = nonStringOverrides.map(_.name).mkString(", ")
+          Future.successful(Left(ServiceError.BadRequest(
+            s"CSV columns always materialize as string; cannot override type for: $names. " +
+              "Use a 'cast' pipeline step to convert values after ingestion."
+          )))
+        } else {
         val overridesMap = overrides.map(o => o.name -> o).toMap
         val schema       = SchemaInferenceEngine.fromCsv(csvContent)
         val now          = Instant.now()
@@ -178,10 +198,8 @@ final class DataSourceService(
           dataSourceRepo.insert(source, user).flatMap { ds =>
             val fields = schema.fields.map { f =>
               val ov = overridesMap.get(f.name)
-              // HEL-906 cycle 4 (evaluation-3.md CR2 sweep, found while enumerating every
-              // `SchemaField(` construction site): `ov.dataType` is a caller-supplied CSV
-              // column-type OVERRIDE (`POST /api/data-sources/csv`'s `overrides[]`) -- the same
-              // unnormalized-passthrough bug class as `createStatic`'s inline columns.
+              // Every override was already validated as `string` above; `dataType` is retained
+              // only so a `displayName`-only override still applies without dropping the type.
               SchemaField(f.name, ov.map(o => DataFieldType.canonicalizeLegacy(o.dataType)).getOrElse(DataFieldType.asString(f.dataType)))
             }.toVector
             dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
@@ -189,6 +207,7 @@ final class DataSourceService(
               Right(updated.getOrElse(ds))
             }
           }
+        }
         }
     }
     }
@@ -619,9 +638,14 @@ final class DataSourceService(
     } else {
       val now     = Instant.now()
       val payloadJson = JsObject("columns" -> payload.columns.toJson, "rows" -> payload.rows.toJson)
-      val fields = payload.columns.map(col =>
-        DataField(col.name, col.name, DataFieldType.validateAndCanonicalize(col.`type`).getOrElse(col.`type`), nullable = true)
-      )
+      // HEL-893 design D4/tasks.md 2.3: refresh must correct the schema exactly like create --
+      // without this, a static source's declared-vs-runtime disagreement survives every refresh,
+      // making D4's "corrected on next refresh" promise false for static sources.
+      val fields = payload.columns.zipWithIndex.map { case (col, i) =>
+        val cells = payload.rows.map(_.lift(i).getOrElse(JsNull))
+        val runtimeType = PipelineRowJson.staticColumnRuntimeType(col.`type`, cells)
+        DataField(col.name, col.name, runtimeType, nullable = true)
+      }
       dataSourceRepo.updateStaticPayload(source.id, source.name, payloadJson, now, user).flatMap {
         case None     => Future.failed(new RuntimeException("Source disappeared during update"))
         case Some(ds) => upsertSourceDataType(ds, fields, user, now).map(_ => Right(ds))

@@ -5,7 +5,7 @@ import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, Sq
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.domain.steps._
-import com.helio.domain.model.{DataSource, DataSourceId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
+import com.helio.domain.model.{DataFieldType, DataSource, DataSourceId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
@@ -2005,6 +2005,143 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       ex.getMessage                 should include ("path")
       // Critically, it must NOT bubble up the raw Map lookup message.
       ex.getMessage                 should not include "key not found"
+    }
+
+    // HEL-893 tasks.md 6.1 — the central runtime-type proof this ticket demands: MEASURE the
+    // runtime type of a materialized cell, in the SAME test that checks the declared schema, so
+    // the invariant is what fails if either side drifts. A numeric-looking column ("count") is
+    // used deliberately -- it's the shape that used to declare `integer` while materializing
+    // `String`.
+    "loadRows: a numeric-looking CSV column materializes as String, matching its declared schema (HEL-893)" in {
+      val tmp = java.io.File.createTempFile("helio-csv-runtime-type-", ".csv")
+      tmp.deleteOnExit()
+      val writer = new java.io.PrintWriter(tmp)
+      try {
+        writer.println("id,count")
+        writer.println("1,10")
+        writer.println("2,20")
+      } finally writer.close()
+
+      val csvContent = new String(java.nio.file.Files.readAllBytes(tmp.toPath), StandardCharsets.UTF_8)
+      val declaredSchema = SchemaInferenceEngine.fromCsv(csvContent)
+
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-runtime"),
+        name      = "csv-runtime-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig(tmp.getAbsolutePath)
+      )
+      val rows = Await.result(engine.loadRows(ds, null), 5.seconds)
+      rows should have size 2
+
+      // Runtime measurement: every materialized "count" cell is a Scala String.
+      rows.foreach { row =>
+        row("count") shouldBe a[String]
+        row("id")    shouldBe a[String]
+      }
+
+      // Declared measurement, in the SAME test: the inferred schema says "string" for both
+      // columns -- if either side ever drifts (e.g. a future change re-adds numeric inference,
+      // or the loader starts casting), this test breaks.
+      declaredSchema.fields.find(_.name == "count").get.dataType shouldBe DataFieldType.StringType
+      declaredSchema.fields.find(_.name == "id").get.dataType    shouldBe DataFieldType.StringType
+    }
+
+    // HEL-893 tasks.md 6.2 — the same runtime-type proof, for a static source: materialize its
+    // rows and assert the runtime class of each cell matches its declared/registered type.
+    "loadRows: a static source's numeric column materializes as Double, matching its registered `float` schema (HEL-893)" in {
+      val payload = JsObject(
+        "columns" -> JsArray(JsObject("name" -> JsString("count"), "type" -> JsString("integer"))),
+        "rows"    -> JsArray(JsArray(JsNumber(10)), JsArray(JsNumber(20)))
+      )
+      val registeredType = PipelineRowJson.staticColumnRuntimeType(
+        "integer",
+        Vector(JsNumber(10), JsNumber(20))
+      )
+      registeredType shouldBe "float"
+
+      val rows = PipelineRowJson.parseStaticRows(payload.compactPrint)
+      rows should have size 2
+      // Runtime measurement: every materialized "count" cell is a Scala Double, matching the
+      // `float` type `staticColumnRuntimeType` registers for the same cells above.
+      rows.foreach(row => row("count") shouldBe a[java.lang.Double])
+    }
+
+    // HEL-893 tasks.md 6.3 — pins the RETAINED JSON/REST/SQL divergence (design D5): an
+    // `integer`-inferred JSON column still materializes as Double, so a future silent alignment
+    // (making JSON match CSV/static's honesty) fails this test rather than passing unnoticed.
+    "PipelineRowJson.jsValueToAny: a JSON integer-shaped number materializes as Double, not Int (retained divergence, HEL-893 D5)" in {
+      val inferred = SchemaInferenceEngine.fromJson(JsArray(JsObject("n" -> JsNumber(7))))
+      inferred.fields.head.dataType shouldBe DataFieldType.IntegerType // declared: integer
+
+      val materialized = PipelineRowJson.jsValueToAny(JsNumber(7))
+      materialized shouldBe a[java.lang.Double] // runtime: Double, not Int -- the divergence
+    }
+
+    // HEL-893 tasks.md 6.5 — the "by construction" no-runtime-value-move argument, demonstrated
+    // rather than asserted: an `=` filter over string-valued CSV rows (the fact_issues shape,
+    // `is_epic = "0"`/`"1"`) matches identically whether the column is declared `string` (after
+    // this change) or would have been declared `integer` (before it) -- because FilterStep never
+    // reads the declared type, only the materialized String value, which this change never
+    // touches.
+    "FilterStep: an `=` condition over string-valued CSV-shaped rows matches identically regardless of the column's declared type (HEL-893 6.5)" in {
+      val rows = Seq(
+        Map("is_epic" -> "0", "id" -> "1"),
+        Map("is_epic" -> "1", "id" -> "2"),
+        Map("is_epic" -> "0", "id" -> "3")
+      )
+      val cfg = FilterConfig(
+        combinator = "AND",
+        conditions = Vector(FilterCondition("is_epic", "=", Some("0")))
+      )
+      val matched = FilterStep.apply(rows, cfg)
+      matched.map(_("id")) shouldBe Seq("1", "3")
+    }
+
+    // HEL-893 tasks.md 6.6 — check whether a pipeline Output rooted on a CSV source still
+    // re-infers all-string in a way that CONTRADICTS its source-level schema. Under this change
+    // both sides say "string" by construction (D1), so this proves agreement rather than
+    // asserting it: infer a schema over the SAME rows the engine would load for a downstream
+    // Output, and compare it to the source-level `fromCsv` schema.
+    "loadRows + downstream Output re-inference: a CSV source's Output-level schema agrees with its source-level schema after HEL-893 (was a contradiction before)" in {
+      val tmp = java.io.File.createTempFile("helio-csv-output-agreement-", ".csv")
+      tmp.deleteOnExit()
+      val writer = new java.io.PrintWriter(tmp)
+      try {
+        writer.println("id,is_epic")
+        writer.println("1,0")
+        writer.println("2,1")
+      } finally writer.close()
+
+      val csvContent    = new String(java.nio.file.Files.readAllBytes(tmp.toPath), StandardCharsets.UTF_8)
+      val sourceSchema  = SchemaInferenceEngine.fromCsv(csvContent)
+
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-output-agree"),
+        name      = "csv-output-agree-src",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig(tmp.getAbsolutePath)
+      )
+      val rows = Await.result(engine.loadRows(ds, null), 5.seconds)
+      // Mirrors an Output re-inferring its own schema from the materialized rows it produced
+      // (`inferShallowFromJsObjects`, the pipeline-output-row inference path), via the same
+      // rowToJsMap projection the run service uses to publish Output rows.
+      val outputSchema = SchemaInferenceEngine.inferShallowFromJsObjects(
+        rows.map(r => JsObject(PipelineRowJson.rowToJsMap(r))).toVector
+      )
+
+      val sourceByName = sourceSchema.fields.map(f => f.name -> f.dataType).toMap
+      val outputByName = outputSchema.map(f => f.name -> f.dataType).toMap
+      // Both "id" and "is_epic" agree as StringType on both sides -- no contradiction survives,
+      // matching ticket.md's "Out of scope... if so, say so and file nothing" expectation.
+      sourceByName("id")       shouldBe DataFieldType.StringType
+      outputByName("id")       shouldBe DataFieldType.StringType
+      sourceByName("is_epic")  shouldBe DataFieldType.StringType
+      outputByName("is_epic")  shouldBe DataFieldType.StringType
     }
 
     // HEL-862 (design.md Decision 3/4, task 6): the engine-level csvUrlFetch
