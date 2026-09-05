@@ -13,6 +13,13 @@ module.exports = [
       "backend/target/**",
       "openspec/**",
       ".cursor/**",
+      // Concertino delivery worktrees live INSIDE this repo, so root-level
+      // `eslint .` walks into them and lints another run's in-progress code.
+      // That made any commit in the main checkout fail whenever a live run
+      // happened to have a lint error — a failure in files outside the
+      // committer's own diff, which invites a `-n` bypass. Gitignored, but
+      // ESLint's flat config does not consult .gitignore.
+      ".claude/worktrees/**",
     ],
   },
   js.configs.recommended,
