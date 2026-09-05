@@ -12,6 +12,19 @@ import spray.json._
 // field). The `DataSourceResponse` ADT mirrors the domain ADT; conversion is
 // 1:1 with no `convertTo[X]` at consumer sites.
 
+/** HEL-987 design.md Decision 3/3a: `DELETE /api/data-sources/:id`'s structured 409 body --
+ *  the four teardown-compatible fields (`resourceKind`/`resourceId`/`resourceName`/`reason`,
+ *  matching `TeardownConflictResponse`'s shape) plus `message`, set to the same text as `reason`
+ *  so a generic client reading `error.response.data.message` (the frontend axios error path, the
+ *  MCP tool whose failure filed this ticket) still gets something useful. */
+final case class DataSourceDeleteConflictResponse(
+    resourceKind: String,
+    resourceId: String,
+    resourceName: String,
+    reason: String,
+    message: String
+)
+
 sealed trait DataSourceResponse {
   def id: String
   def name: String
@@ -429,6 +442,9 @@ object RestApiConfigPayload {
 // the repository to encode/decode the stored config JSON blob.
 
 trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
+
+  implicit val dataSourceDeleteConflictResponseFormat: RootJsonFormat[DataSourceDeleteConflictResponse] =
+    jsonFormat5(DataSourceDeleteConflictResponse.apply)
 
   implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
   implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)

@@ -111,7 +111,10 @@ final class PatchSetUndoService(
       case ("dashboard", "update")    => restoreDashboardUpdate(edit, user)
       case ("dashboard", "create")    => restoreCreateUndo(edit, id => dashboardService.delete(DashboardId(id), user))
       case ("dataSource", "update")   => restoreDataSourceUpdate(edit, user)
-      case ("dataSource", "create")   => restoreCreateUndo(edit, id => dataSourceService.delete(DataSourceId(id), user))
+      // HEL-987: `DataSourceService.delete` returns `Either[DataSourceDeleteError, Unit]` now
+      // (the 409-conflict wrapper) -- `.err` is `restoreCreateUndo`'s `ServiceError` shape,
+      // unaffected by whether the failure carried a structured conflict.
+      case ("dataSource", "create")   => restoreCreateUndo(edit, id => dataSourceService.delete(DataSourceId(id), user).map(_.left.map(_.err)))
       case ("pipeline", "update")     => restorePipelineUpdate(edit, user)
       case ("pipeline", "create")     => restoreCreateUndo(edit, id => pipelineService.delete(PipelineId(id), user))
       case ("pipelineStep", "update") => restorePipelineStepUpdate(edit, user)

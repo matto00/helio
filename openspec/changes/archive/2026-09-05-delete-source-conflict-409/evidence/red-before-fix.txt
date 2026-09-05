@@ -1,0 +1,23 @@
+Task 1.2 RED evidence — DataSourceRoutesSpec, "409 naming the blocking pipeline" test,
+run BEFORE any fix code was added (only the test + fixture helpers existed at this point).
+
+Command: sbt -batch "testOnly com.helio.api.routes.sources.DataSourceRoutesSpec -- -z \"DELETE /api/data-sources\""
+
+Relevant output:
+
+[info] DELETE /api/data-sources/:id
+[info] - should return 204 and remove the source record
+[info] - should return 404 for an unknown source id
+[info] - should return 409 naming the blocking pipeline when the source is a pipeline's sole root *** FAILED ***
+[info]   500 Internal Server Error was not equal to 409 Conflict (DataSourceRoutesSpec.scala:859)
+[info] - should return 204 when the source is one of SEVERAL roots -- the pipeline survives with the remaining root(s)
+[info] - should return 204 for an unreferenced source (control)
+[info] Run completed in 3 seconds, 913 milliseconds.
+[info] Total number of tests run: 5
+[info] Tests: succeeded 4, failed 1, canceled 0, ignored 0, pending 0
+
+Confirms the ticket's reported symptom: deleting a sole-root source surfaces as a bare 500
+(unhandled PSQLException / P0001 from V99's hel913_prevent_zero_root_pipelines trigger), not a
+structured 409. The two control cases (multi-root source, unreferenced source) already pass
+204 pre-fix, confirming today's behavior is unaffected for those scopes -- exactly as Decision 1
+requires.

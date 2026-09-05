@@ -62,7 +62,11 @@ private[services] object PatchSetApplyForward {
           edit.toOutcome("applied", resultingState = Some(dataSourceResponseFormat.write(DataSourceResponse.fromDomain(ds))))
         })
       case ResolvedAction.DataSourceDelete(id, _) =>
-        services.dataSourceService.delete(id, user).map(_.map(_ => edit.toOutcome("applied")))
+        // HEL-987: `.delete` now returns `Either[DataSourceDeleteError, Unit]` (the 409-conflict
+        // wrapper) -- `.err` is the plain `ServiceError` this method's own return type carries;
+        // a blocked (sole-root) delete surfaces here as the same `Conflict` `ServiceError` it
+        // always would have, patch-set apply has no notion of the extra structured fields.
+        services.dataSourceService.delete(id, user).map(_.left.map(_.err)).map(_.map(_ => edit.toOutcome("applied")))
       case ResolvedAction.DataSourceCreate(request) =>
         services.dataSourceService.createStatic(request, user).map(_.map { ds =>
           edit.toOutcome("applied", newId = Some(ds.id.value), resultingState = Some(dataSourceResponseFormat.write(DataSourceResponse.fromDomain(ds))))

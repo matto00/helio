@@ -216,6 +216,28 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def delete(id: DataSourceId, user: AuthenticatedUser): Future[Boolean] =
     ctx.withUserContext(user.id.value)(table.filter(_.id === id.value).delete).map(_ > 0)
 
+  /** HEL-987 design.md Decision 1 (sole-root-only scope): pipelines for which `id` is the
+   *  ONLY root -- deliberately NOT `WorkspaceTeardownRepository.sourceDependentPipelineConflict`,
+   *  which matches ANY referencing pipeline and would silently implement the rejected
+   *  `any-reference` scope. A pipeline with 2+ roots, one of which is `id`, is excluded by the
+   *  `HAVING count(*) = 1` (over ALL of that pipeline's roots, not just the ones matching `id`),
+   *  matching exactly the case V99's `hel913_prevent_zero_root_pipelines` trigger raises for:
+   *  deleting `id` would cascade `pipeline_roots.data_source_id ON DELETE CASCADE` and leave the
+   *  pipeline with zero roots. Run under `ctx.withUserContext`, consistent with `delete` above --
+   *  RLS scopes the join to the caller's own pipelines (see design.md Risks). */
+  def soleRootDependentPipelines(id: DataSourceId, user: AuthenticatedUser): Future[Vector[BlockingPipeline]] = {
+    val action = sql"""SELECT p.id, p.name
+                        FROM pipelines p
+                        JOIN pipeline_roots r ON r.pipeline_id = p.id
+                        WHERE p.id IN (
+                          SELECT pipeline_id FROM pipeline_roots WHERE data_source_id = ${id.value}
+                        )
+                        GROUP BY p.id, p.name
+                        HAVING count(*) = 1 AND bool_and(r.data_source_id = ${id.value})"""
+      .as[(String, String)]
+    ctx.withUserContext(user.id.value)(action).map(_.toVector.map { case (pid, name) => BlockingPipeline(pid, name) })
+  }
+
   /** HEL-822 design.md Decision 5 (revised, skeptic round 4 CR2): the `dependentCount` seam's
    *  real implementation — no `user` parameter, since by the time it runs inside
    *  `ConnectorRepository.delete`, ownership of the Connector has already been verified
@@ -268,6 +290,12 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 }
 
 object DataSourceRepository {
+
+  /** HEL-987: one pipeline `soleRootDependentPipelines` found blocking a delete -- named fields
+   *  instead of a positional `(String, String)` tuple so `id`/`name` can't be swapped by
+   *  accident at a call site. */
+  final case class BlockingPipeline(id: String, name: String)
+
   implicit val instantColumnType: BaseColumnType[Instant] =
     MappedColumnType.base[Instant, java.sql.Timestamp](
       instant => java.sql.Timestamp.from(instant),

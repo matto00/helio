@@ -10,10 +10,10 @@ import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
 import com.helio.domain.model._
-import com.helio.services.sources.{CsvUrlFetch, DataSourceService}
+import com.helio.services.sources.{CsvUrlFetch, DataSourceDeleteError, DataSourceService}
 import spray.json._
 
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
 
@@ -53,6 +53,24 @@ final class DataSourceRoutes(
   private val imageMaxBytes: Long =
     sys.env.get("IMAGE_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
 
+  /** HEL-987 design.md Decision 3: bespoke completion for `DataSourceService.delete`'s
+   *  `Either[DataSourceDeleteError, Unit]`, mirroring `DashboardAuthoringRoutes.
+   *  completeAuthoring` exactly -- `conflict = Some(c)` renders the structured 409 body,
+   *  `conflict = None` renders the pre-existing bare `ErrorResponse(err.message)` unchanged
+   *  (so 404/403 on this route keep today's shape). BOTH branches call
+   *  `ServiceResponse.statusCodeFor(err)` -- the status-code switch is never duplicated. */
+  private def completeDelete(result: Future[Either[DataSourceDeleteError, Unit]]): Route =
+    onSuccess(result) {
+      case Right(_) => complete(StatusCodes.NoContent)
+      case Left(DataSourceDeleteError(Some(c), err)) =>
+        complete(
+          ServiceResponse.statusCodeFor(err),
+          DataSourceDeleteConflictResponse(c.resourceKind, c.resourceId, c.resourceName, c.reason, c.reason)
+        )
+      case Left(DataSourceDeleteError(None, err)) =>
+        complete(ServiceResponse.statusCodeFor(err), ErrorResponse(err.message))
+    }
+
   val routes: Route =
     pathPrefix("data-sources") {
       concat(
@@ -87,7 +105,7 @@ final class DataSourceRoutes(
               }
             },
             delete {
-              ServiceResponse.runNoContent(dataSourceService.delete(sourceId, user))
+              completeDelete(dataSourceService.delete(sourceId, user))
             }
           )
         }
