@@ -78,6 +78,30 @@ export default defineConfig({
     // HEL-972, whose fix this spec verifies. Anchored to this one file only
     // (NOT a "**/hel912-*" pattern). Follow-up: HEL-972.
     "**/hel912-lanes-rejoin.spec.ts",
+    // Quarantine (HEL-991) — hel968-multi-root-editor-flow.spec.ts fails
+    // intermittently at `locator.click: Test timeout of 30000ms exceeded`
+    // waiting for the OpDropdown "Union" menuitem after clicking "Branch
+    // this step". Measured at roughly 50% in CI (4 of ~8 PR runs on
+    // 2026-09-05: #555, #562, #563, #564 — one of them twice in a row)
+    // versus ~1.7% (1/60) locally on an idle dev box. That ~30x gap is
+    // itself the leading lead: the environment, not the click speed, may be
+    // the variable that opens the window — same class as the
+    // gate-machine-note.md blind spot HEL-984 hit.
+    //
+    // Quarantined because it gated four PRs whose diffs were structurally
+    // incapable of causing it (a Scala test file, a comment-only frontend
+    // diff, backend domain logic, another Scala test file), each needing a
+    // human to argue the red down from the diff's contents before it could
+    // be dismissed. That erosion — training reviewers to discount a red
+    // e2e — is worse than the lost minutes.
+    //
+    // Like HEL-912 above and UNLIKE HEL-964, this is a real owned defect,
+    // not an untrustworthy spec: the mechanism is UNKNOWN and explicitly
+    // NOT the anchor-churn story (HEL-972's MutationObserver probe recorded
+    // zero node-removal events). Un-quarantining this file is an acceptance
+    // criterion of HEL-991. Anchored to this one file only (NOT a
+    // "**/hel968-*" pattern). Follow-up: HEL-991.
+    "**/hel968-multi-root-editor-flow.spec.ts",
   ],
   timeout: 30_000,
   retries: 0,
