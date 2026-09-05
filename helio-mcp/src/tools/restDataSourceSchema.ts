@@ -5,6 +5,13 @@
  * compile graph (pathologically expensive under this repo's root `tsconfig.json`/ts-jest
  * combination — see `write.test.ts`).
  *
+ * HEL-982: `queryParams` accepts either the legacy object encoding (unique keys) OR the ordered
+ * `{name, value}[]` array encoding the backend now emits and dual-reads (HEL-844). The array
+ * branch is listed first (design.md D2) purely so a malformed-array error message points at the
+ * array branch; the two branches are structurally disjoint (an object's values are strings, an
+ * array's elements are `{name, value}` objects) so branch order has no effect on which inputs
+ * are accepted. Neither branch is transformed — see `helioApi.ts`/`pipelinesHandlers.ts` D3.
+ *
  * HEL-828 design.md Decision 4: this schema carries NO `url`/credential field that is ever
  * forwarded to the backend — `connectorId` is required, everything else is an optional
  * REST-request shaping field. The exported schema is `.strict()` (skeptic-final-1.md round 1):
@@ -32,6 +39,15 @@ const CREDENTIAL_REJECT_OPTS = {
   alternative: "Pass connectorId instead.",
 };
 
+// HEL-982 design.md D2: array branch first (error-message steering only -- the two branches are
+// structurally disjoint). `.strict()` on the pair object rejects `{name, value, extra}` loudly
+// rather than silently narrowing, matching this schema's existing loud-rejection posture.
+const queryParamPairSchema = z.object({ name: z.string(), value: z.string() }).strict();
+const queryParamsInputSchema = z.union([
+  z.array(queryParamPairSchema),
+  z.record(z.string(), z.string()),
+]);
+
 export const createRestDataSourceInputSchema = {
   name: z.string().min(1),
   connectorId: z
@@ -47,7 +63,7 @@ export const createRestDataSourceInputSchema = {
     }),
   endpoint: z.string().optional(),
   method: z.string().optional(),
-  queryParams: z.record(z.string(), z.string()).optional(),
+  queryParams: queryParamsInputSchema.optional(),
   headers: z.record(z.string(), z.string()).optional(),
   body: z.string().optional(),
   bodyContentType: z.string().optional(),

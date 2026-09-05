@@ -30,6 +30,7 @@ import type {
   PipelineStepResponse,
   PipelineSummaryResponse,
   PipelineRootSummaryResponse,
+  QueryParamsInput,
   RemovePipelineRootResponse,
 } from "../types.js";
 
@@ -85,7 +86,7 @@ async function resolveSource(
         connectorId: config.connectorId as string,
         endpoint: config.endpoint as string | undefined,
         method: config.method as string | undefined,
-        queryParams: config.queryParams as Record<string, string> | undefined,
+        queryParams: config.queryParams as QueryParamsInput | undefined,
         headers: config.headers as Record<string, string> | undefined,
         body: config.body as string | undefined,
         bodyContentType: config.bodyContentType as string | undefined,
