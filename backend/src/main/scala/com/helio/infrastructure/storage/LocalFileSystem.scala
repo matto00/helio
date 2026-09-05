@@ -1,21 +1,43 @@
 package com.helio.infrastructure.storage
 
 import java.io.IOException
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
 
 class LocalFileSystem(baseDir: Path)(implicit ec: ExecutionContext) extends FileSystem {
 
   Files.createDirectories(baseDir)
 
+  /** HEL-881 design.md Decision 4: writes atomically — stage into a temp file
+   *  in the SAME DIRECTORY as `target`, then `Files.move` with `ATOMIC_MOVE`.
+   *  Same-directory placement is load-bearing: `ATOMIC_MOVE` only holds
+   *  within a single filesystem, so a temp file under `/tmp` (or any other
+   *  mount) would silently degrade to a copy, leaving the exact torn-read
+   *  hazard this exists to close while the code claimed otherwise. This
+   *  matters now that the pipeline engine's `image` run-path (a NEW, frequent
+   *  caller) writes fetched bytes back to storage on every run rather than
+   *  only on a user-initiated refresh — but it is a strict improvement for
+   *  every pre-existing caller too (image uploads, data-source writes, the
+   *  assistant transcript's write-then-record ordering), not a cost paid for
+   *  the image case alone. The temp file is deleted on any failure so a
+   *  failed write never litters the uploads tree. */
   def write(path: String, bytes: Array[Byte]): Future[Unit] = Future {
     blocking {
       val target = resolve(path)
       Files.createDirectories(target.getParent)
-      Files.write(target, bytes)
-      ()
+      val tmp = Files.createTempFile(target.getParent, "." + target.getFileName.toString + ".", ".tmp")
+      try {
+        Files.write(tmp, bytes)
+        Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        ()
+      } catch {
+        case NonFatal(e) =>
+          Files.deleteIfExists(tmp)
+          throw e
+      }
     }
   }
 

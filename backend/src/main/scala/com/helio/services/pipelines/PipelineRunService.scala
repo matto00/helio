@@ -78,19 +78,30 @@ final class PipelineRunService(
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  /** HEL-862 design.md Decision 3/task 6.7: a thin closure over
-   *  `CsvUrlFetch.fetch` — NOT a second implementation of its checks. `system`
-   *  is read INSIDE the closure (call time), never at this val's own
-   *  construction, so a fixture that never runs a URL-backed CSV never pays
-   *  for (or NPEs on) a null `system`. */
-  private def csvUrlFetchSeam(url: String): Future[Either[String, Array[Byte]]] =
+  /** HEL-862/HEL-881 (design.md Decision 2/3, task 2.2): the single seam the
+   *  engine calls for EVERY URL-backed source kind — a thin closure that
+   *  dispatches by `kind` to `CsvUrlFetch.fetch` (csv keeps its https-only +
+   *  non-CSV-body gate) or `ContentSourceSupport.fetchUrlWithLimit`
+   *  (text/pdf/image stay http-or-https, per Decision 3), NOT a second
+   *  implementation of either's checks. `system` is read INSIDE the closure
+   *  (call time), never at this val's own construction, so a fixture that
+   *  never runs a URL-backed source never pays for (or NPEs on) a null
+   *  `system`. */
+  private def urlFetchSeam(kind: String, url: String): Future[Either[String, Array[Byte]]] =
     if (system == null)
-      Future.successful(Left("URL-backed CSV fetch is not configured"))
+      Future.successful(Left("URL-backed source fetch is not configured"))
     else
-      CsvUrlFetch.fetch(url, CsvUrlFetch.maxFileSizeBytes, resolveHost, isBlocked)(system)
-        .map(_.left.map(_.message))
+      kind match {
+        case "csv" =>
+          CsvUrlFetch.fetch(url, CsvUrlFetch.maxFileSizeBytes, resolveHost, isBlocked)(system)
+            .map(_.left.map(_.message))
+        case "text"  => ContentSourceSupport.fetchUrlWithLimit(url, ContentSourceSupport.textMaxBytes, resolveHost, isBlocked)(system)
+        case "pdf"   => ContentSourceSupport.fetchUrlWithLimit(url, ContentSourceSupport.pdfMaxBytes, resolveHost, isBlocked)(system)
+        case "image" => ContentSourceSupport.fetchUrlWithLimit(url, ContentSourceSupport.imageMaxBytes, resolveHost, isBlocked)(system)
+        case other   => Future.successful(Left(s"URL-backed fetch is not supported for source kind '$other'"))
+      }
 
-  private val engine = new InProcessPipelineEngine(fileSystem, connector, csvUrlFetchSeam)
+  private val engine = new InProcessPipelineEngine(fileSystem, connector, urlFetchSeam)
 
   // HEL-330 (design.md Decision 3): the two execution call sites (`executeRun`, `previewStep`)
   // depend on this trait reference, not `engine` directly.

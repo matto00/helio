@@ -60,23 +60,15 @@ final class DataSourceService(
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, JsObject.empty)
 
-  /** Max upload / URL-fetch size for text sources (HEL-215). Mirrors CSV's
-   *  `CSV_MAX_FILE_SIZE_BYTES` env-var pattern; defaults smaller (10 MB vs
-   *  CSV's 50 MB) since text-file rows are meant to be modest. */
-  private val textMaxBytes: Long =
-    sys.env.get("TEXT_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(10485760L)
-
-  /** Max upload / URL-fetch size for PDF sources (HEL-214). Larger than
-   *  text's 10 MB default (PDFs are binary and typically larger) but well
-   *  under CSV's 50 MB — mirrors the text/CSV env-var pattern. */
-  private val pdfMaxBytes: Long =
-    sys.env.get("PDF_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
-
-  /** Max upload / URL-fetch size for image sources (HEL-216). Between text's
-   *  10 MB and CSV's 50 MB — images are typically larger than markdown but
-   *  smaller than bulk CSV. */
-  private val imageMaxBytes: Long =
-    sys.env.get("IMAGE_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
+  /** Max upload / URL-fetch size for text/PDF/image sources (HEL-215/214/216).
+   *  HEL-881: hoisted to `ContentSourceSupport` so this manual-refresh path and
+   *  the pipeline-engine run-path seam (`PipelineRunService`) read the same
+   *  values rather than each keeping its own literal default that could
+   *  silently diverge — unchanged in value from the pre-existing defaults
+   *  defined here. */
+  private def textMaxBytes: Long  = ContentSourceSupport.textMaxBytes
+  private def pdfMaxBytes: Long   = ContentSourceSupport.pdfMaxBytes
+  private def imageMaxBytes: Long = ContentSourceSupport.imageMaxBytes
 
 
   /** `tag`, when given, exact-matches (HEL-366 tasks.md 2.5) — `None` is the
