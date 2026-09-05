@@ -77,6 +77,9 @@ export function PipelineDetailPage() {
     handleEditSource,
     handleToggleScheduleEnabled,
     laneGraph,
+    roots,
+    handleAddRoot,
+    handleRemoveRoot,
     handleAddStep,
     handleAddLaneStep,
     handleAddOutputViaAggregateTail,
@@ -239,6 +242,9 @@ export function PipelineDetailPage() {
           <PipelineRiverView
             steps={steps}
             laneGraph={laneGraph}
+            roots={roots}
+            onAddRoot={(sourceId) => void handleAddRoot(sourceId)}
+            onRemoveRoot={(rootId) => void handleRemoveRoot(rootId)}
             pipelineId={id ?? ""}
             dropdownOpen={dropdownOpenAt === "bottom"}
             openDropdown={() => setDropdownOpenAt("bottom")}

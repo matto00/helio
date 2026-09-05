@@ -58,6 +58,11 @@ interface LaneColumnProps {
    *  identity there) and revealed once lanes stack at phone widths, where
    *  position no longer does. */
   laneNumber: number;
+  /** HEL-968 D3/task 5.3 — per-step R5 runtime path (`root:<rootId> > s1 > s4`),
+   *  rendered as each step's `title` tooltip. Computed once by the top-level
+   *  `PipelineRiverView` and threaded straight through (mirrors
+   *  `outputsByStepId`'s convention). */
+  nodePathByStepId: Record<string, string>;
 }
 
 export function LaneColumn({
@@ -82,6 +87,7 @@ export function LaneColumn({
   onAddLaneStep,
   isCompact,
   laneNumber,
+  nodePathByStepId,
 }: LaneColumnProps) {
   const [laneDropdownForStepId, setLaneDropdownForStepId] = useState<string | null>(null);
   const [laneAnchorEl, setLaneAnchorEl] = useState<HTMLButtonElement | null>(null);
@@ -137,6 +143,7 @@ export function LaneColumn({
             onAddLaneStep={onAddLaneStep}
             isCompact={childLane.steps.length === 1}
             laneNumber={index + 1}
+            nodePathByStepId={nodePathByStepId}
           />
         ))}
       </div>
@@ -158,7 +165,11 @@ export function LaneColumn({
       <div className="pipeline-detail-page__tail-chain" aria-label="Tail steps">
         {laneHeader}
         {lane.steps.map((step) => (
-          <div className="pipeline-detail-page__tail-chain-step" key={step.id}>
+          <div
+            className="pipeline-detail-page__tail-chain-step"
+            key={step.id}
+            title={nodePathByStepId[step.id]}
+          >
             <div className="pipeline-detail-page__tail-chain-item">
               <span className="pipeline-detail-page__tail-chain-connector" aria-hidden="true" />
               <StepCard
@@ -199,7 +210,11 @@ export function LaneColumn({
     <div className="pipeline-detail-page__lane-column" aria-label="Lane">
       {laneHeader}
       {lane.steps.map((step) => (
-        <div className="pipeline-detail-page__step-section" key={step.id}>
+        <div
+          className="pipeline-detail-page__step-section"
+          key={step.id}
+          title={nodePathByStepId[step.id]}
+        >
           <StepCard
             step={step}
             allSteps={allSteps}

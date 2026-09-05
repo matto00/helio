@@ -138,7 +138,7 @@ export function PipelineProposalSummary({ proposal }: PipelineProposalSummaryPro
     if (existing) existing.push(output);
     else outputsByStep.set(output.nodeStepClientId, [output]);
   }
-  const { graph } = buildProposalLaneGraph(proposal.steps);
+  const { graph } = buildProposalLaneGraph(proposal.steps, proposal.roots);
 
   return (
     <div className="pipeline-proposal-review__summary">
@@ -167,7 +167,11 @@ export function PipelineProposalSummary({ proposal }: PipelineProposalSummaryPro
           graph.lanes.map((lane) => (
             <div key={lane.id} className="pipeline-proposal-review__lane">
               <p className="pipeline-proposal-review__lane-label mono">
-                {lane.id === graph.primaryLaneId
+                {/* HEL-968: `primaryLaneId` retired -- every root-level lane
+                 * (`parentStepId === undefined`) renders the same
+                 * unprefixed label a single root's lane always did; no
+                 * root is styled/labelled as primary (R3). */}
+                {lane.parentStepId === undefined
                   ? "Primary lane"
                   : `Lane branching off step ${lane.parentStepId}`}
               </p>

@@ -471,6 +471,96 @@
   margin-bottom: var(--space-1);
 }
 
+/* ── Root columns (HEL-968 task 6/D6) — one column per root, side by side
+ * with root 0's own top-level river. Reuses the SAME responsive stacking
+ * mechanism `.pipeline-detail-page__lane-row`/`__lane-column` already have
+ * (extended, not duplicated -- design.md D6): the phone-breakpoint media
+ * block further down stacks these too. ── */
+.pipeline-detail-page__root-columns {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.pipeline-detail-page__root-columns > .pipeline-detail-page__river-inner {
+  flex: 1;
+  min-width: 0;
+}
+
+.pipeline-detail-page__root-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 220px;
+  border-left: 2px dashed var(--app-border-strong);
+  padding-left: var(--space-3);
+}
+
+.pipeline-detail-page__root-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.pipeline-detail-page__root-column-title {
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* task 10.2 — a real rendered box, not a `min-height`-only declaration on a
+ * compact control relying on an invisible hit-expander: this button's own
+ * padding/line-height already clear 44px in both dimensions. */
+.pipeline-detail-page__root-column-remove-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-micro);
+  cursor: pointer;
+}
+
+.pipeline-detail-page__root-column-remove-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* task 6.2 — an empty root's affordance, replacing the vanished `LaneColumn`. */
+.pipeline-detail-page__root-column-empty {
+  font-size: var(--text-small);
+  color: var(--app-text-muted);
+  font-style: italic;
+  padding: var(--space-3);
+  border: 1px dashed var(--app-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.pipeline-detail-page__root-column--add {
+  border-left: none;
+  padding-left: 0;
+  justify-content: flex-start;
+  min-width: 140px;
+}
+
+.pipeline-detail-page__add-root-btn {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed var(--app-border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--app-accent);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
 /* HEL-412 — a disabled step's toggle button stays legible (not muted by the
  * `--disabled` card modifier below, which only mutes the label/icon/body) so
  * "re-enable" is always readable. `aria-pressed` marks the active (disabled)
@@ -1567,6 +1657,26 @@
 
   .pipeline-detail-page__lane-header {
     display: block;
+  }
+
+  /* HEL-968 task 10 — root columns stack (D6: the same mechanism the lane
+   * rules above already use), scrolling rather than overflowing
+   * unreachably off the right edge at 375px/430px. */
+  .pipeline-detail-page__root-columns {
+    flex-direction: column;
+  }
+
+  .pipeline-detail-page__root-column {
+    border-left: none;
+    padding-left: 0;
+    border-top: 2px dashed var(--app-border-strong);
+    padding-top: var(--space-2);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .pipeline-detail-page__root-column--add {
+    border-top: none;
   }
 }
 

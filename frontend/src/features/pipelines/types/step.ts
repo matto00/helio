@@ -41,4 +41,10 @@ export interface Step {
   // `executionOrder` has no OTHER child to order it against). `undefined`
   // for a freshly created, not-yet-persisted step (`makeStep`).
   position?: number;
+  // HEL-968 task 2.1 — carries the wire `PipelineStep.rootId` through for
+  // `buildLaneGraph` to seed one lane per root (design.md D1). `undefined`
+  // only for a freshly created, not-yet-persisted step (`makeStep`) whose
+  // root isn't known until the create call resolves; a persisted step
+  // always carries one (R4).
+  rootId?: string;
 }

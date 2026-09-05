@@ -262,6 +262,7 @@ export function pipelineStepToStep(ps: PipelineStep): Step {
     enabled: ps.enabled ?? true,
     parentStepId: ps.parentStepId ?? undefined,
     position: ps.position,
+    rootId: ps.rootId ?? undefined,
   };
 }
 

@@ -3,13 +3,27 @@
 // function over data (not a hook) so "deterministic column assignment" is a
 // Jest assertion on a return value, not a render-order observation.
 //
-// Column: a lane's column is its own index within `graph.lanes` — which
-// `buildLaneGraph` already produces in breadth-first, sibling-position
-// order (each node's children are enqueued together, in ascending
-// `position`/array-order tiebreak, right after that node's own lane chain
-// ends), so reusing that order gives sibling lanes distinct, ADJACENT
-// columns for free, matching the engine's own tiebreak (P2.1 contract
-// item 4).
+// Column: within one root, a lane's column is its relative index among
+// `graph.lanes` — which `buildLaneGraph` produces in breadth-first,
+// sibling-position order (each node's children are enqueued together, in
+// ascending `position`/array-order tiebreak, right after that node's own
+// lane chain ends), so reusing that order gives sibling lanes distinct,
+// ADJACENT columns for free, matching the engine's own tiebreak (P2.1
+// contract item 4).
+//
+// HEL-968 D2 — root `position` ascending is the OUTER sort key, layered on
+// top of that: a root's own descendant lanes can otherwise interleave with
+// a later root's lanes in `graph.lanes`' raw BFS order (a root's queued
+// child-lane is appended to the END of the queue, so it can dequeue AFTER a
+// later root's shallower root-level lane). `columnOfLaneId` below performs
+// a STABLE sort keyed first on each lane's originating root's position
+// (read from `rootOrder`, the order roots' own root-level lanes first
+// appear in `graph.lanes` -- itself preserved because `buildLaneGraph`
+// seeds all roots' root-level lanes into the queue in `roots` order before
+// any of their children), then on the lane's original `graph.lanes` index
+// (preserving the existing within-root sibling order). This reads a root's
+// POSITION only for this presentation-order tiebreak (R3); no code here
+// branches on a root's position being zero.
 //
 // Row: the longest-path-from-root over the UNION of two edge kinds --
 // `parentStepId` (the structural DAG edge) and a rejoin step's
@@ -58,8 +72,32 @@ export function secondaryInputOf(config: PipelineStepConfig): SecondaryInput | u
   return undefined;
 }
 
+/** HEL-968 D2 — assigns each lane a column index, grouping every root's
+ *  lanes contiguously (root position ascending), preserving each root's own
+ *  BFS/sibling order within that group. Returns lane id -> column index. */
+function computeColumnOrder(graph: LaneGraph): Map<string, number> {
+  const rootOrder: string[] = [];
+  for (const lane of graph.lanes) {
+    if (lane.parentStepId === undefined && !rootOrder.includes(lane.rootId)) {
+      rootOrder.push(lane.rootId);
+    }
+  }
+  const positionOfRoot = new Map(rootOrder.map((rootId, i) => [rootId, i] as const));
+
+  const ordered = graph.lanes
+    .map((lane, originalIndex) => ({ lane, originalIndex }))
+    .sort((a, b) => {
+      const pa = positionOfRoot.get(a.lane.rootId) ?? Number.POSITIVE_INFINITY;
+      const pb = positionOfRoot.get(b.lane.rootId) ?? Number.POSITIVE_INFINITY;
+      if (pa !== pb) return pa - pb;
+      return a.originalIndex - b.originalIndex;
+    });
+
+  return new Map(ordered.map(({ lane }, columnIndex) => [lane.id, columnIndex] as const));
+}
+
 export function computeLaneLayout(graph: LaneGraph): LaneLayout {
-  const columnOfLaneId = new Map(graph.lanes.map((lane, i) => [lane.id, i] as const));
+  const columnOfLaneId = computeColumnOrder(graph);
   const byId = new Map<string, Step>();
   for (const lane of graph.lanes) for (const step of lane.steps) byId.set(step.id, step);
 
@@ -119,7 +157,10 @@ export function laneOutputSubtitle(
   const laneId = graph.laneOfStepId[stepId];
   const lane = graph.lanes.find((l) => l.id === laneId);
   const stepLabel = stepLabelById.get(stepId) ?? fallback;
-  if (!lane || lane.id === graph.primaryLaneId || lane.parentStepId === undefined) {
+  // HEL-968: `primaryLaneId` is retired -- every root-level lane (not just
+  // one privileged "primary" one) already gets a plain, un-prefixed
+  // subtitle via this same `parentStepId === undefined` check.
+  if (!lane || lane.parentStepId === undefined) {
     return stepLabel;
   }
   const branchStepLabel = stepLabelById.get(lane.parentStepId) ?? fallback;

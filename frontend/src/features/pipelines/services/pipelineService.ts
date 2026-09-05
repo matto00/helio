@@ -7,8 +7,10 @@ import type {
   PipelineRunRecord,
   PipelineStep,
   PipelineStepConfig,
+  PipelineRoot,
   PipelineStepKind,
   PipelineSummary,
+  RemovePipelineRootResponse,
   RunStatusResponse,
 } from "../types/pipelineStep";
 import type { PipelineSchedule, PutPipelineScheduleRequest } from "../types/pipelineSchedule";
@@ -101,12 +103,19 @@ export async function createPipelineStep(
   // (backend `attachTailInternal`); absent/false preserves the pre-existing splice-insert
   // behavior (insert-directly-after, reparenting the anchor's existing children).
   attachAsTail?: boolean,
+  // HEL-968: only meaningful WITHOUT `parentStepId` -- names which root a new root-level
+  // step attaches to. The backend's `CreatePipelineStepRequest.rootId` is REQUIRED once a
+  // pipeline has more than one root (a bare root-level create is a named 400 there,
+  // "This pipeline has N roots -- name one via rootId, or anchor via parentStepId") --
+  // ignored server-side when `parentStepId` is also given (root is derived from the parent).
+  rootId?: string,
 ): Promise<PipelineStep> {
   const response = await httpClient.post<PipelineStep>(`/api/pipelines/${pipelineId}/steps`, {
     type,
     config,
     ...(parentStepId !== undefined ? { parentStepId } : position === undefined ? {} : { position }),
     ...(parentStepId !== undefined && attachAsTail ? { attachAsTail: true } : {}),
+    ...(parentStepId === undefined && rootId !== undefined ? { rootId } : {}),
   });
   return normalizePipelineStep(response.data);
 }
@@ -144,6 +153,41 @@ export async function duplicatePipelineStep(stepId: string): Promise<PipelineSte
 
 export async function deletePipelineStep(stepId: string): Promise<void> {
   await httpClient.delete(`/api/pipeline-steps/${stepId}`);
+}
+
+/** HEL-968 task 7.1 — `POST /api/pipelines/:id/roots` (R6). One shape, not
+ *  two: `body` is the SAME `roots[]` element shape `createPipeline` already
+ *  sends -- `{ sourceId }`. The backend's `CreatePipelineRootRequest` also
+ *  accepts an inline source spec, but this client never composes one
+ *  directly, mirroring `createPipeline`'s own convention (design.md D4):
+ *  the "+ root"/"new pipeline" inline-source flow always creates the real
+ *  `DataSource` row via `AddSourceModal` first and sends its `sourceId`
+ *  here, the same way `CreatePipelineModal` does. Returns the new root
+ *  (`id`/`dataSourceId`/`dataSourceName`), appended at the end
+ *  (`position = n`). */
+export async function addPipelineRoot(
+  pipelineId: string,
+  body: { sourceId: string },
+): Promise<PipelineRoot> {
+  const response = await httpClient.post<PipelineRoot>(`/api/pipelines/${pipelineId}/roots`, body);
+  return response.data;
+}
+
+/** HEL-968 task 7.1 — `DELETE /api/pipelines/:id/roots/:rootId` (R7). The
+ *  response reports what the removal destroyed (`removedStepCount`,
+ *  `removedOutputCount`) so the caller can surface it -- the server's own
+ *  count, never re-derived client-side (design.md D5). Rejects (never
+ *  silently no-ops) on the last root, or on a surviving lane referencing a
+ *  node this removal would delete -- both named 4xx responses the caller
+ *  renders verbatim. */
+export async function removePipelineRoot(
+  pipelineId: string,
+  rootId: string,
+): Promise<RemovePipelineRootResponse> {
+  const response = await httpClient.delete<RemovePipelineRootResponse>(
+    `/api/pipelines/${pipelineId}/roots/${rootId}`,
+  );
+  return response.data;
 }
 
 /** HEL-407 — `PUT /api/pipelines/:id/steps/order`. `stepIds` is the
