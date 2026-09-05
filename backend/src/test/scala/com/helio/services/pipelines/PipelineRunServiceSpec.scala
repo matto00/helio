@@ -10,7 +10,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.domain._
 import com.helio.domain.model._
 import com.helio.domain.steps.{ComputeConfig, FilterCondition, FilterConfig, LookupConfig, RenameConfig, SelectConfig, UnionConfig}
-import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, StepKey}
+import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
@@ -1079,6 +1079,77 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       result shouldBe a[Right[_, _]]
       result.toOption.get.rows.size shouldBe 2
     }
+
+    // HEL-957 (ticket, AC1-4; design.md Decisions 1-3; skeptic-design-2.md CR3/CR4): the
+    // named AC5.5 test above asserts `rows.size`, which is read through the HEL-905
+    // node-keyed lookup (`outcome.nodeOutcomes.get(StepKey(target.id.value))`), so it CANNOT
+    // discriminate a mutation that widens which OTHER nodes get evaluated -- the target's own
+    // recorded rows are unaffected by that widening. This test instead asserts
+    // `stepRowCounts.keySet` (design Decision 1: threaded straight from `outcome.stepCounts`
+    // into `RunResultResponse` at line 536, bypassing the node-keyed lookup entirely), which
+    // DOES observe the executed node set directly.
+    //
+    // Fixture (non-degeneracy, design Decision 2 / task 2.3): pipeline's full node set is
+    // {stepA, stepB, target, tail}; target's dependency closure is {stepA, stepB, target} -- a
+    // PROPER SUBSET. `tail` is `enabled = true` (design Decision 2's disabled-node degeneracy
+    // gate, CR3): a disabled off-closure node gets no `stepCounts` entry even when executed,
+    // which would make the widening mutation silently non-discriminating.
+    //
+    // THREE-NODE trunk (evaluation-1.md CR1): with only a two-node closure, M2 (wrong node ->
+    // `sortedSteps.head`'s closure, `{stepA}`) and M3-replacement (`closureOf(...).dropRight(1)`,
+    // also `{stepA}` when the closure is `[stepA, target]`) are OBSERVATIONALLY IDENTICAL on
+    // this fixture -- two distinct source edits producing the same observed key set is exactly
+    // the "one axis wearing two labels" trap design.md Decision 3 / gate CR4 warns about.
+    // Lengthening the closure to `[stepA, stepB, target]` separates them for real: M2 still
+    // yields `{stepA}` (closure of the WRONG node, which has no ancestors), while
+    // M3-replacement now yields `{stepA, stepB}` (drops only the closure's LAST element,
+    // `target`) -- two different observed failures, confirmed by fresh mutation runs (see
+    // mutation-evidence.md).
+    "GET preview's stepRowCounts key set observes exactly the target's dependency closure, excluding an off-closure sibling tail (HEL-957 AC1/AC2)" in {
+      val dsId = seedRestDs(RestBigUrl)
+      val pid  = seedPipeline(dsId)
+      val stepA  = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
+      val stepB  = await(insertStep(pid, "limit", LimitConfig(8), dummyUser)) // chains onto stepA's trunk-last
+      val target = await(insertStep(pid, "limit", LimitConfig(5), dummyUser)) // chains onto stepB's trunk-last
+      await(stepRepo.insertInternal(
+        pid, "limit", LimitConfig(1), enabled = true, parentStepId = Some(stepA.id), explicitRootId = None
+      )) // stepA's SECOND child -- off target's closure, but ENABLED (CR3)
+
+      val result = await(service.previewStep(pid, target.id.value, dummyUser))
+      result shouldBe a[Right[_, _]]
+      // Expected = the ENABLED members of target's closure {stepA, stepB, target}. If the
+      // widening mutation (M1, closureOf -> sortedSteps.toVector) lands, `tail` also executes
+      // and its id appears in this key set -- a real, observed key-set mismatch, not a
+      // reasoned-about one.
+      result.toOption.get.stepRowCounts.keySet shouldBe Set(stepA.id.value, stepB.id.value, target.id.value)
+    }
+
+    // HEL-957 (design.md Decision 3, M4 -- a FIXTURE axis, not a distinct code mutation): the
+    // linear-trunk fixture above cannot speak to branching/multi-root ambiguity. This fixture
+    // puts the off-closure node on a SECOND ROOT entirely -- a sibling lane structurally
+    // unrelated to target's ancestor chain, not merely an ancestor's other child.
+    "GET preview's stepRowCounts key set excludes a sibling node on an entirely different root (HEL-957 AC3, M4 fixture axis)" in {
+      val dsId0 = seedRestDs(RestBigUrl)
+      val pid   = seedPipeline(dsId0) // root 0 id == pid.value (this file's seedPipeline convention)
+      val dsId1 = seedRestDs(RestBigUrl)
+      val root1Id = addSecondRoot(pid, dsId1)
+
+      val stepA = await(stepRepo.insertInternal(
+        pid, "limit", LimitConfig(10), enabled = true, parentStepId = None,
+        explicitRootId = Some(PipelineRootId(pid.value))
+      ))
+      val target = await(stepRepo.insertInternal(
+        pid, "limit", LimitConfig(5), enabled = true, parentStepId = Some(stepA.id), explicitRootId = None
+      ))
+      await(stepRepo.insertInternal(
+        pid, "limit", LimitConfig(3), enabled = true, parentStepId = None,
+        explicitRootId = Some(PipelineRootId(root1Id))
+      )) // sibling on root 1 -- off target's closure, but ENABLED (CR3)
+
+      val result = await(service.previewStep(pid, target.id.value, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.stepRowCounts.keySet shouldBe Set(stepA.id.value, target.id.value)
+    }
   }
 
   "PipelineRunService.previewOutputs (HEL-906 cycle 10, P1.4's preview_outputs(pipelineId, outputId?) dependency)" should {
@@ -1942,6 +2013,73 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       // .recover).
       (s3a, s4) shouldBe (s3a, s4)
     }
+
+    // HEL-957 (ticket AC5; design.md Decision 4; skeptic-design-1/2.md CR1/CR2): the SECOND
+    // `closureOf` call site (line 662) lives in `evaluateNodeRowsForBackfill`, whose only
+    // observable output -- the persisted rows -- is read through the SAME node-keyed lookup
+    // the step-preview site uses, so an assertion on persisted rows is invariant under the
+    // widening mutation BY CONSTRUCTION. That is exactly the masked, non-discriminating guard
+    // this ticket exists to prevent, so this test observes the executed node SET directly via
+    // a spy `PipelineExecutionBackend` that captures the `steps` argument passed to `execute`,
+    // injected through `PipelineRunService`'s `executionBackend` constructor parameter
+    // (`PipelineRunService.scala:108`).
+    "backfill's spy execution backend observes exactly the target's dependency closure, excluding an off-closure sibling tail (HEL-957 AC5)" in {
+      val spyEngine   = new InProcessPipelineEngine(new LocalFileSystem(Paths.get("/")), stubConnector)
+      val spyDelegate = new InProcessExecutionBackend(spyEngine, stepRepo)
+      val spy         = new PipelineRunServiceSpec.SpyExecutionBackend(spyDelegate)
+      val spyService = new PipelineRunService(
+        pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
+        new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")), connector = stubConnector,
+        outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo, executionBackend = spy
+      )
+
+      val dsId   = seedRestDs(RestBigUrl)
+      val pid    = seedPipeline(dsId)
+      val stepA  = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
+      val target = await(insertStep(pid, "limit", LimitConfig(5), dummyUser)) // trunk-last, chains onto stepA
+      await(stepRepo.insertInternal(
+        pid, "limit", LimitConfig(1), enabled = true, parentStepId = Some(stepA.id), explicitRootId = None
+      )) // off target's closure, ENABLED
+
+      // A prior successful run (same trigger shape as the test above) so `hasSucceededOnce`
+      // is true, then materialize `target` as an Output node AFTER the run so
+      // `backfillOutputNode` finds no existing snapshot rows for it and actually reaches
+      // `evaluateNodeRowsForBackfill`.
+      val submitResult = await(spyService.submit(pid, isDry = false, dummyUser))
+      submitResult shouldBe a[Right[_, _]]
+      seedOutputAtTrunkLast(pid)
+      spy.capturedSteps = None // discard `submit`'s own full-step-list capture
+
+      await(spyService.backfillOutputNode(pid, Some(target.id), dummyUser, explicitRootId = None))
+
+      spy.capturedSteps shouldBe defined
+      spy.capturedSteps.get.map(_.id.value).toSet shouldBe Set(stepA.id.value, target.id.value)
+    }
   }
 
+}
+
+object PipelineRunServiceSpec {
+
+  /** HEL-957 (design.md Decision 4): captures the `steps` vector handed to `execute`, then
+   *  delegates to a real backend so the run still completes normally. This is the only
+   *  mechanism that observes `evaluateNodeRowsForBackfill`'s slice directly -- its persisted
+   *  output is read through the same node-keyed lookup the step-preview site uses, so it
+   *  cannot discriminate the widening mutation on its own. */
+  final class SpyExecutionBackend(delegate: PipelineExecutionBackend) extends PipelineExecutionBackend {
+    @volatile var capturedSteps: Option[Vector[PipelineStep]] = None
+
+    def execute(
+        pipeline: Pipeline,
+        roots: Vector[(String, DataSource)],
+        steps: Vector[PipelineStep],
+        dataSourceRepo: DataSourceRepository,
+        assertionSink: AssertionSink,
+        truncationSink: TruncationSink,
+        onNodeProgress: (NodeKey, Long) => Unit = (_, _) => ()
+    )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
+      capturedSteps = Some(steps)
+      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress)
+    }
+  }
 }

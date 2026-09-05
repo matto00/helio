@@ -1,0 +1,30 @@
+[info] PipelineRunServiceSpec:
+[info] PipelineRunService.executeRun (HEL-509 / 419-B assertion persistence)
+[info] PipelineRunService.onRunSuccess (HEL-570 assert fail-policy)
+[info] PipelineRunService (HEL-412 disable/enable)
+[info] PipelineRunService onRunSuccess (HEL-462 schema-drift baseline capture)
+[info] PipelineRunService.history (HEL-576 assertion summary)
+[info] PipelineRunService.recordUnrunnable (HEL-755 design.md D3)
+[info] PipelineRunService.submit (HEL-758 rest_api/sql base-source execution)
+[info] PipelineRunService (HEL-862 URL-backed CSV, no ActorSystem threaded)
+[info] PipelineRunService.previewStep (HEL-758 rest_api/sql base-source execution)
+[info] - should GET preview's stepRowCounts key set observes exactly the target's dependency closure, excluding an off-closure sibling tail (HEL-957 AC1/AC2) *** FAILED ***
+[info]   Set("0ed546a1-f8b9-474c-9f9a-aa8074bc1140", "6df285ac-a41b-4f2d-a34a-1018cd9939bb") was not equal to Set("0ed546a1-f8b9-474c-9f9a-aa8074bc1140", "6df285ac-a41b-4f2d-a34a-1018cd9939bb", "ab3c06b5-8d70-4bca-bc4d-9f9b0288bd77") (PipelineRunServiceSpec.scala:1124)
+[info] - should GET preview's stepRowCounts key set excludes a sibling node on an entirely different root (HEL-957 AC3, M4 fixture axis) *** FAILED ***
+[info]   Set("0882f59a-bb05-4ac7-b80d-38aec02da989") was not equal to Set("0882f59a-bb05-4ac7-b80d-38aec02da989", "34e9ec11-4ff7-4255-a37a-d950985737f5") (PipelineRunServiceSpec.scala:1151)
+[info] PipelineRunService.previewOutputs (HEL-906 cycle 10, P1.4's preview_outputs(pipelineId, outputId?) dependency)
+[info] PipelineRunService and a compute step with a statically unparseable expression (HEL-888)
+[info] PipelineRunService truncation reporting (HEL-861)
+[info] PipelineRunService (HEL-905 P1.2: tree-walk materialized-node persistence)
+[info] PipelineRunService.composeTruncationNotice (HEL-861)
+[info] PipelineRunService.previewStep / evaluateNodeRowsForBackfill (HEL-970 lane-aware closure)
+[info] - should backfill's spy execution backend observes exactly the target's dependency closure, excluding an off-closure sibling tail (HEL-957 AC5)
+[info] Run completed in 2 seconds, 566 milliseconds.
+[info] Total number of tests run: 3
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.PipelineRunServiceSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 6 s, completed Sep 5, 2026, 4:07:02 PM
