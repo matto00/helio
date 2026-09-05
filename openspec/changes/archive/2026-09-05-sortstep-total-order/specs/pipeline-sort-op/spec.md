@@ -1,9 +1,4 @@
-# pipeline-sort-op Specification
-
-## Purpose
-TBD - created by archiving change pipeline-op-sort. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Sort op executes multi-column stable sort
 The backend `InProcessPipelineEngine` SHALL handle `op = "sort"` by sorting rows according to the
@@ -85,51 +80,3 @@ values within an equivalence class may appear in different order.
   input permutations with the same sort key
 - **THEN** both runs return the same sequence of sort-key equivalence classes; values that compare
   equivalent (such as `9` and `"9"`) may appear in either order within their class
-
-### Requirement: Sort op is accepted by the pipeline steps API
-The backend SHALL include `"sort"` in the set of valid ops accepted by `POST /api/pipelines/:id/steps`
-and `PATCH /api/pipelines/:id/steps/:stepId`. A request with `op: "sort"` and a valid config SHALL
-be persisted and return a success response.
-
-#### Scenario: POST with op "sort" is accepted
-- **WHEN** `POST /api/pipelines/:id/steps` is called with `op: "sort"` and `config: {"sortBy": []}`
-- **THEN** the response is `201 Created` and the step is persisted with `op = 'sort'`
-
-#### Scenario: Sort step schema is pass-through
-- **WHEN** the analyze endpoint processes a pipeline containing a sort step
-- **THEN** the sort step's outputSchema equals its inputSchema
-
-### Requirement: SortConfig frontend component
-The frontend SHALL provide a `SortConfig` component that renders an ordered list of sort keys.
-Each sort key has a field selector (populated from `analyzeColumns`) and a direction toggle (asc/desc).
-Users SHALL be able to add sort keys, remove individual sort keys, and reorder them.
-The component SHALL call `onChange` with the updated `sortBy` array on every change.
-
-#### Scenario: Add a sort key
-- **WHEN** user clicks "Add sort key" in the SortConfig
-- **THEN** a new row appears with an empty field selector and direction defaulting to "asc"
-
-#### Scenario: Remove a sort key
-- **WHEN** user clicks the remove button on a sort key row
-- **THEN** that row is removed from the list and onChange is called with the updated array
-
-#### Scenario: Change sort direction
-- **WHEN** user toggles the direction on a sort key
-- **THEN** the direction alternates between "asc" and "desc" and onChange is called
-
-#### Scenario: Field selector populated from analyzeColumns
-- **WHEN** SortConfig renders and analyzeColumns is non-empty
-- **THEN** each field selector shows the available column names as options
-
-### Requirement: Sort op wired into PipelineDetailPage
-The frontend `PipelineDetailPage` SHALL render `SortConfig` when the selected step has `opType.id === "sort"`.
-The `handleAddStep` function SHALL supply `{"sortBy": []}` as the initial config when creating a sort step.
-The Sort op SHALL appear in the op menu with a recognizable label and icon.
-
-#### Scenario: Sort step renders SortConfig
-- **WHEN** a pipeline step with opType "sort" is selected in the editor
-- **THEN** the SortConfig component renders with the current sortBy config
-
-#### Scenario: New sort step has empty sortBy
-- **WHEN** user adds a new "sort" step via the op dropdown
-- **THEN** the step is created with config `{"sortBy": []}` and the SortConfig renders with zero sort keys
