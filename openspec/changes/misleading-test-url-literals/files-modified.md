@@ -1,0 +1,5 @@
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceSpec.scala` — replaced three `https://example.com/...` literals (one `seedCsvUrlDs` call site, two `seedTextUrlDs` call sites) with `https://pipeline-run-service.test/...`, matching the sibling `.test`-TLD convention in `PipelineRunRoutesSpec.scala` and `InProcessPipelineEngineSpec.scala`. No assertion, comment, import, or fixture helper changed.
+
+Exactly one file changed. No production code, no migration.
+
+**Negative grep sweep (for PR body):** `grep -rniE "https?://[a-z0-9.-]+\.(com|org|net|io|dev)" backend/src/test/` finds only RFC 2606 reserved `example.com` literals (used as inert config/comparison values, never fetched) and documented third-party API hostnames (`api.stripe.com`, `api.resend.com`, `raw.githubusercontent.com` in a real-dump fixture, etc.) that are likewise stored/compared as strings, not dialled — no test in the backend suite makes a live outbound HTTP request to an external host. The three literals fixed here were the only ones in `PipelineRunServiceSpec.scala`; the fix does not touch any other file.
