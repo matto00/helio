@@ -6,7 +6,7 @@ import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Output, OutputId, Pipeline, PipelineId, PipelineRootId, PipelineRunId, PipelineStep, PipelineStepId, TruncatedRead, TruncationSink}
-import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException, StepKey}
+import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException, StepKey}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -490,23 +490,21 @@ final class PipelineRunService(
                 case k if !sortedSteps(k).enabled =>
                   Future.successful(Left(ServiceError.UnprocessableEntity("step is disabled")))
                 case k =>
-                  // HEL-905 (design.md Decision 5, CR4): the previewed prefix is the path from
-                  // the pipeline root to the target step, following whichever branch (trunk or
-                  // the specific tail chain) the target actually sits on -- derived by walking
-                  // `parentStepId` pointers back to the root, NOT a positional slice over
-                  // `executionOrder` (which emits a node's tails BEFORE continuing the trunk, so
-                  // a positional slice can fold an unrelated tail's steps into the "prefix").
+                  // HEL-970 (design.md D1/D2): the previewed slice is the target step's
+                  // transitive DEPENDENCY CLOSURE -- every ancestor reachable by `parentStepId`
+                  // AND, for a `join`/`union`/`lookup` step, every lane dependency's own closure,
+                  // to a fixed point -- not a positional slice over `executionOrder` (which
+                  // emits a node's tails BEFORE continuing the trunk, so a positional slice can
+                  // fold an unrelated tail's steps into the "prefix") and not merely the
+                  // ancestor chain alone (which omits a rejoin's non-ancestor secondary lane
+                  // entirely, HEL-970's defect). The engine's own edge set (parent + lane,
+                  // `InProcessPipelineEngine.executeTree`) is authoritative; this delegates to
+                  // the shared helper rather than re-deriving it here.
                   // Disabled ancestors are NOT pre-filtered here (see 3.1a) -- the engine's own
                   // in-place skip (Decision 7) handles them; the separate guard above already
                   // rejects previewing a disabled step itself.
-                  val byId          = sortedSteps.map(s => s.id.value -> s).toMap
-                  val target        = sortedSteps(k)
-                  def pathToRoot(step: PipelineStep, acc: Vector[PipelineStep]): Vector[PipelineStep] =
-                    step.parentStepId.flatMap(p => byId.get(p.value)) match {
-                      case Some(parent) => pathToRoot(parent, parent +: acc)
-                      case None         => acc
-                    }
-                  val slicedSteps = pathToRoot(target, Vector(target))
+                  val target      = sortedSteps(k)
+                  val slicedSteps = NodeDependencyClosure.closureOf(sortedSteps.toVector, target)
                   // HEL-861 (design D8/task 2.2c): the step-preview site is the one call site
                   // design.md calls out by name -- it must construct and pass its OWN
                   // truncationSink here, mirroring the real-run site, or a preview whose
@@ -659,13 +657,9 @@ final class PipelineRunService(
                 case None => Future.successful(())
                 case Some(target) if !target.enabled => Future.successful(())
                 case Some(target) =>
-                  val byId = allSteps.map(s => s.id.value -> s).toMap
-                  def pathToRoot(step: PipelineStep, acc: Vector[PipelineStep]): Vector[PipelineStep] =
-                    step.parentStepId.flatMap(p => byId.get(p.value)) match {
-                      case Some(parent) => pathToRoot(parent, parent +: acc)
-                      case None         => acc
-                    }
-                  val slicedSteps = pathToRoot(target, Vector(target))
+                  // HEL-970 (design.md D2): same shared closure helper as `previewStep` --
+                  // no third, independently-authored notion of "depends on" survives here.
+                  val slicedSteps = NodeDependencyClosure.closureOf(allSteps.toVector, target)
                   backend
                     .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink)
                     .flatMap { outcome =>
