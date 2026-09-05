@@ -48,6 +48,11 @@ object SchemaInferenceEngine {
       Vector.fill(headers.length)((DataFieldType.IntegerType, false))
 
     val state = dataRows.foldLeft(init) { (colState, line) =>
+      // HEL-868: padTo already treats a short/ragged row's missing trailing cells as empty, and
+      // the fold below marks an empty cell nullable -- so CSV already honours absence as
+      // evidence of nullability, with no code change needed here. It also conflates "empty" with
+      // "absent" (both pad/parse to `""`), a divergence from JSON's three-way distinction that is
+      // retained deliberately (design D3/D4): CSV has no on-the-wire encoding for the difference.
       val cells = parseRfc4180Row(line).padTo(headers.length, "")
       colState.zip(cells).map { case ((colType, nullable), cell) =>
         if (cell.isEmpty) (colType, true)
@@ -90,36 +95,44 @@ object SchemaInferenceEngine {
   // `mergeObjects` had no other caller (verified by grep) and is deleted, not left dead.
   //
   // Per-path accumulator: the widened `DataFieldType` over all non-null values seen so far at
-  // that path (`None` until the first non-null value arrives), and whether any sampled object
-  // carried an explicit `JsNull` there (design D2 -- absence never contributes; only an explicit
-  // null does).
-  private case class PathAcc(dataType: Option[DataFieldType], nullable: Boolean)
+  // that path (`None` until the first non-null value arrives), plus `presentNonNullCount` -- the
+  // number of sampled objects that supplied a present, non-null value at this path.
+  //
+  // HEL-868 design D1/D2: nullability is derived at projection time as
+  // `presentNonNullCount < objects.size`, a single composed rule that treats absence and an
+  // explicit `JsNull` leaf identically -- both simply fail to increment the count. This replaces
+  // HEL-858's "design D2 -- absence never contributes" boolean, which is now the codified defect:
+  // a path unioned in from a minority of sampled objects was advertised non-nullable. A count
+  // compared against a constant total is order-independent by construction (addition commutes).
+  private case class PathAcc(dataType: Option[DataFieldType], presentNonNullCount: Int)
 
   private def inferFromObjects(objects: Seq[JsObject]): Seq[InferredField] = {
     val accByPath = objects.foldLeft(Map.empty[String, PathAcc]) { (acc, obj) =>
       JsonFlattener.leaves(obj).foldLeft(acc) { case (m, (path, value)) =>
-        val prior = m.getOrElse(path, PathAcc(None, nullable = false))
+        val prior = m.getOrElse(path, PathAcc(None, presentNonNullCount = 0))
         value match {
           case JsNull =>
-            // design D3: JsNull contributes nullability only and never participates in the
-            // widening join -- a path seen as null in one object and numeric in another still
-            // infers as the numeric type (design D7), not StringType.
-            m.updated(path, prior.copy(nullable = true))
+            // design D3 (unchanged): JsNull never participates in the widening join -- a path
+            // seen as null in one object and numeric in another still infers as the numeric type
+            // (design D7), not StringType. HEL-868: it also increments nothing, so it makes the
+            // path nullable by the same arithmetic as absence does.
+            m.updated(path, prior)
           case other =>
             val (valueType, _) = inferJsonType(other)
             val widened = prior.dataType match {
               case None       => valueType
               case Some(seen) => widenJson(seen, valueType)
             }
-            m.updated(path, prior.copy(dataType = Some(widened)))
+            m.updated(path, PathAcc(Some(widened), prior.presentNonNullCount + 1))
         }
       }
     }
     // design D4: `leaves` sorts per object, but the union spans many objects, so re-sort the
     // merged path set globally for a stable, order-independent field sequence.
-    accByPath.toSeq.sortBy(_._1).map { case (path, PathAcc(dataTypeOpt, nullable)) =>
+    accByPath.toSeq.sortBy(_._1).map { case (path, PathAcc(dataTypeOpt, presentNonNullCount)) =>
       // A path that was only ever seen as JsNull (dataTypeOpt empty) infers StringType, matching
       // inferJsonType(JsNull) and the "all-null path is a nullable string" spec scenario.
+      val nullable = presentNonNullCount < objects.size
       InferredField(path, displayName(path), dataTypeOpt.getOrElse(DataFieldType.StringType), nullable)
     }
   }

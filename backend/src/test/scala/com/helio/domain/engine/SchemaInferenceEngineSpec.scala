@@ -76,12 +76,80 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
       schema.fields.find(_.name == "ts").get.nullable shouldBe true
     }
 
-    // [CHAR] task 3.5 (AC5): mere absence, as opposed to an explicit null, must NOT mark a
-    // field nullable -- unchanged before and after this ticket.
-    "not mark field nullable when merely absent from some sampled objects" in {
+    // HEL-868 task 3.1: inverts the old "absence never contributes" assertion. ABSENT encoding --
+    // `y` is missing entirely from the second sampled object (no `JsNull`, no key at all) -- and
+    // that alone must mark it nullable, per the new composed rule (design D1/D2).
+    "mark field nullable when merely absent from some sampled objects (ABSENT encoding)" in {
       val json = """[{"x": 1, "y": "present"}, {"x": 2}]""".parseJson
       val schema = fromJson(json)
-      schema.fields.find(_.name == "y").get.nullable shouldBe false
+      schema.fields.find(_.name == "y").get.nullable shouldBe true
+      schema.fields.find(_.name == "x").get.nullable shouldBe false
+    }
+
+    // HEL-868 task 3.4: PRESENT-BUT-EMPTY encoding -- `JsString("")` is a present, non-null value
+    // in every sampled object, so it must NOT be treated as null (design D3).
+    "not mark field nullable when every sampled object supplies an empty string (PRESENT-BUT-EMPTY encoding)" in {
+      val json = """[{"note": ""}, {"note": ""}]""".parseJson
+      val schema = fromJson(json)
+      val field = schema.fields.find(_.name == "note").get
+      field.nullable shouldBe false
+      field.dataType shouldBe StringType
+    }
+
+    // HEL-868 task 3.5: all three encodings side by side in one test, so the distinction is
+    // stated in the test itself rather than only across separate files.
+    "distinguish all three encodings (absent / explicit null / present-but-empty) in one test" in {
+      val absentJson  = """[{"a": 1, "b": 2}, {"a": 3}]""".parseJson
+      val nullJson    = """[{"a": 1}, {"a": null}]""".parseJson
+      val emptyJson   = """[{"a": ""}, {"a": ""}]""".parseJson
+
+      fromJson(absentJson).fields.find(_.name == "b").get.nullable shouldBe true  // ABSENT
+      fromJson(nullJson).fields.find(_.name == "a").get.nullable   shouldBe true  // EXPLICIT NULL
+      fromJson(emptyJson).fields.find(_.name == "a").get.nullable  shouldBe false // PRESENT-BUT-EMPTY
+    }
+
+    // HEL-868 task 3.6 (AC1, central): a field present in exactly 1 of 100 sampled rows must be
+    // inferred nullable -- proven on the produced value, not merely that inference completes.
+    "mark a field nullable when it is present in only 1 of 100 sampled rows" in {
+      val rows: Vector[JsValue] =
+        JsObject("stats" -> JsObject("rec" -> JsNumber(3))) +:
+          Vector.fill(99)(JsObject("stats" -> JsObject("other" -> JsNumber(1))))
+      val schema = fromJson(JsArray(rows))
+      schema.fields.find(_.name == "stats.rec").get.nullable shouldBe true
+    }
+
+    // HEL-868 task 3.9: absence must not corrupt the widened TYPE -- a path integral in some
+    // objects and absent from the rest still infers IntegerType, never widened to StringType.
+    "infer IntegerType (not StringType) for a field that is integral in some rows and absent from the rest" in {
+      val rows: Vector[JsValue] = Vector(
+        JsObject("v" -> JsNumber(3)),
+        JsObject.empty,
+        JsObject.empty
+      )
+      val field = fromJson(JsArray(rows)).fields.find(_.name == "v").get
+      field.dataType shouldBe IntegerType
+      field.nullable shouldBe true
+    }
+
+    // HEL-868 task 3.13 (skeptic design-1 note 3): the same type-independence claim pinned on a
+    // second, non-numeric arm -- StringType survives absence too, not just IntegerType.
+    "infer StringType (not widened) for a field that is a string in some rows and absent from the rest" in {
+      val rows: Vector[JsValue] = Vector(
+        JsObject("v" -> JsString("hello")),
+        JsObject.empty,
+        JsObject.empty
+      )
+      val field = fromJson(JsArray(rows)).fields.find(_.name == "v").get
+      field.dataType shouldBe StringType
+      field.nullable shouldBe true
+    }
+
+    // HEL-868 task 3.10: a single root JsObject is the only sampled object, so every key it
+    // carries with a non-null value stays non-nullable.
+    "keep every key non-nullable for a single root JsObject whose values are all non-null" in {
+      val json = """{"id": 1, "name": "Alice", "active": true}""".parseJson
+      val schema = fromJson(json)
+      schema.fields.forall(!_.nullable) shouldBe true
     }
 
     "infer IntegerType for whole numbers" in {
@@ -283,6 +351,34 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
 
       val schema = fromJson(JsArray(rows.toVector))
       schema.fields.map(_.name) should contain allOf ("stats.rec", "stats.rec_yd", "stats.rec_td")
+    }
+
+    // HEL-868 task 3.7: the real-fixture proof for AC1 -- `stats.rec` is nullable because QB rows
+    // in this fixture lack the whole `stats.rec*` family, and `player_id` (present and non-null
+    // in all 15 elements) is the false-positive guard on the same real data.
+    "mark stats.rec nullable and player_id non-nullable on the live mixed-position Sleeper fixture" in {
+      val text = Source.fromResource("hel858/sleeper-mixed-projections-slice.json").mkString
+      val rows = text.parseJson.asInstanceOf[JsArray].elements.collect { case o: JsObject => o }
+      val schema = fromJson(JsArray(rows.toVector))
+
+      schema.fields.find(_.name == "stats.rec").get.nullable shouldBe true
+      schema.fields.find(_.name == "player_id").get.nullable shouldBe false
+    }
+
+    // HEL-868 task 3.8: nullability must not depend on row order -- pins the FULL
+    // (name, type, nullable) triple sequence across forward and reversed order.
+    "infer identical (name, type, nullable) triples regardless of row order over a heterogeneous array" in {
+      val rows: Vector[JsValue] = Vector(
+        JsObject("stats" -> JsObject("a" -> JsNumber(1))),
+        JsObject("stats" -> JsObject("a" -> JsNumber(2), "rec" -> JsNumber(3))),
+        JsObject("stats" -> JsObject("rec" -> JsNull))
+      )
+      def triples(v: Vector[JsValue]) =
+        fromJson(JsArray(v)).fields.map(f => (f.name, f.dataType, f.nullable))
+
+      val forward  = triples(rows)
+      val reversed = triples(rows.reverse)
+      reversed shouldBe forward
     }
 
     // [CHAR] task 3.10a: the WR-only fixture's FIELD-NAME set is unaffected by this ticket --
@@ -492,6 +588,15 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
     "not mark field nullable when no empty cells" in {
       val csv = "val\n1\n2\n3"
       fromCsv(csv).fields.head.nullable shouldBe false
+    }
+
+    // HEL-868 task 3.11: pins the JSON/CSV agreement-on-absence claim (design D4) -- a ragged
+    // row's missing trailing column already pads to an empty cell and is marked nullable, with
+    // no code change to fromCsv required.
+    "mark a ragged short row's missing trailing column nullable (agrees with JSON's absence rule)" in {
+      val csv = "id,name,score\n1,Alice"
+      val schema = fromCsv(csv)
+      schema.fields.find(_.name == "score").get.nullable shouldBe true
     }
 
     "cap sampling at 100 rows" in {

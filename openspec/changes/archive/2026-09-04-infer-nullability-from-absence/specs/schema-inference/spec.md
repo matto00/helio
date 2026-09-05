@@ -1,9 +1,4 @@
-## Purpose
-Defines how `SchemaInferenceEngine` infers a `DataType`'s field schema (names, `DataFieldType`,
-nullability, display names) from JSON, CSV, and static-connector sources, and the REST endpoints
-that preview an inferred schema without persisting it.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: CSV schema inference
 The `SchemaInferenceEngine.fromCsv` function SHALL accept a raw CSV string (first row = headers), sample up to 100 data rows, and return an `InferredSchema`. Type detection SHALL use widening order: `IntegerType` → `FloatType` → `BooleanType` → `TimestampType` → `StringType`. Empty cells SHALL mark the field as nullable. A data row with fewer cells than there are headers SHALL be treated as supplying an empty cell for each missing trailing column, so a column absent from a ragged row is marked nullable — the CSV path therefore already honours absence as evidence of nullability, consistent with the JSON path's composed rule. The CSV path SHALL continue to conflate "present but empty" with "absent": both mark the column nullable. This is a deliberate, retained divergence from the JSON path, where an empty string is a present, non-null `StringType` value; CSV has no on-the-wire encoding that distinguishes the two. Parsing SHALL comply with RFC 4180: fields MAY be enclosed in double-quotes; a double-quote inside a quoted field is escaped as two consecutive double-quotes (`""`); both CRLF and LF line endings SHALL be accepted.
@@ -56,139 +51,16 @@ The `SchemaInferenceEngine.fromCsv` function SHALL accept a raw CSV string (firs
 - **WHEN** the CSV uses CRLF (`\r\n`) line endings
 - **THEN** `fromCsv` produces the same result as the equivalent LF-only CSV
 
-### Requirement: DataFieldType sealed type
-The `DataFieldType` sealed trait SHALL define seven variants: `StringType`, `IntegerType`,
-`FloatType`, `BooleanType`, `TimestampType`, `StringBodyType`, `BinaryRefType`. An `asString`
-method SHALL return the canonical lowercase/hyphenated string representation used for storage in
-`DataField.dataType`. The first five are `Structured` field types; `StringBodyType` and
-`BinaryRefType` are `Content` field types (see the `type-registry-content-fields` capability for
-the `FieldTypeCategory` classifier and the content-type value-representation contract).
+## REMOVED Requirements
 
-#### Scenario: asString produces canonical names
-- **WHEN** `DataFieldType.asString` is called on each variant
-- **THEN** it returns `"string"`, `"integer"`, `"float"`, `"boolean"`, `"timestamp"`,
-  `"string-body"`, `"binary-ref"` respectively
+### Requirement: JSON schema inference
 
-### Requirement: displayName auto-generation
-`SchemaInferenceEngine` SHALL generate a human-readable `displayName` from a raw field name by converting `snake_case`, `camelCase`, and dot-separated paths to title-case words.
+**Reason**: Restructured, not deleted. Nullability is lifted out of this requirement into its own `JSON nullability from absence or null` requirement, so the composed rule is stated in exactly one place. What remains — the field-path union, flattening, array/depth-bound leaf handling, and per-path typing — is re-stated below as `JSON schema field enumeration` with every one of those scenarios carried over verbatim. Its scenario `Absence of a key does not by itself mark a field nullable` is deliberately NOT carried over: it asserted the exact defect this change fixes, and leaving it in place beside the new rule would make the spec state two contradictory nullability rules. Its counterpart `Null value marks field as nullable` is likewise not carried over here because it is subsumed, verbatim in effect, by the new requirement's `Explicit null still marks a field nullable` scenario.
 
-#### Scenario: snake_case to title case
-- **WHEN** the field name is `created_at`
-- **THEN** `displayName` is `"Created At"`
+**Migration**: No consumer migration is required, and no persisted schema changes. `SchemaInferenceFacade.toSchemaFields` projects an `InferredField` to `SchemaField { name, type }` and drops `nullable` before it reaches `data_sources.inferred_schema`, so no stored source schema carries the flag at all. The flag is observable only on the `POST /api/sources/infer` and `POST /api/data-sources/infer` preview responses and on the workspace-context column projection, both of which recompute it from live inference on every call. A caller relying on a non-nullable claim for a sparsely-present column was relying on an assertion the sampled data never honoured.
 
-#### Scenario: camelCase to title case
-- **WHEN** the field name is `firstName`
-- **THEN** `displayName` is `"First Name"`
 
-#### Scenario: dot-separated path to title case
-- **WHEN** the field name is `address.city`
-- **THEN** `displayName` is `"Address City"`
-
-### Requirement: POST /api/sources/infer — preview REST API schema without persisting
-The API SHALL expose `POST /api/sources/infer` that accepts a `RestApiConfigPayload` JSON body, fetches the remote endpoint, infers the schema via `SchemaInferenceEngine.fromJson`, and returns an `InferredSchemaResponse` with inferred fields. No `DataSource` or `Output` is written to the database. If the remote fetch fails, the API returns `502 Bad Gateway` with an error message.
-
-#### Scenario: Successful REST infer returns fields
-- **WHEN** `POST /api/sources/infer` is called with a valid REST config pointing to a live endpoint
-- **THEN** the response is 200 with `{"fields": [...]}` where each field has `name`, `displayName`, `dataType`, `nullable`
-
-#### Scenario: Connector failure returns 502
-- **WHEN** the REST API connector cannot reach the target URL
-- **THEN** the response is 502 with `{"error": "Fetch failed: ..."}`
-
-#### Scenario: Invalid config returns 400
-- **WHEN** `POST /api/sources/infer` is called with a malformed config (e.g. missing `url`)
-- **THEN** the response is 400 with an error message
-
-### Requirement: POST /api/data-sources/infer — preview CSV schema without persisting
-The API SHALL expose `POST /api/data-sources/infer` that accepts a multipart form upload with a `file` field (CSV content), infers the schema via `SchemaInferenceEngine.fromCsv`, and returns an `InferredSchemaResponse`. No `DataSource` or `Output` is written to the database. If the file is missing or not UTF-8, the API returns `400 Bad Request`.
-
-#### Scenario: Valid CSV returns inferred fields
-- **WHEN** `POST /api/data-sources/infer` is called with a valid UTF-8 CSV file
-- **THEN** the response is 200 with `{"fields": [...]}` reflecting the CSV column types
-
-#### Scenario: Missing file returns 400
-- **WHEN** `POST /api/data-sources/infer` is called with no `file` field in the multipart form
-- **THEN** the response is 400 with an error message
-
-### Requirement: InferredSchemaResponse wire format
-`POST /api/sources/infer` and `POST /api/data-sources/infer` SHALL both return the same response envelope: `{ "fields": [{ "name": string, "displayName": string, "dataType": string, "nullable": boolean }] }`.
-
-#### Scenario: Both infer endpoints return the same envelope
-- **WHEN** `POST /api/sources/infer` and `POST /api/data-sources/infer` are each called
-- **THEN** both return the same response envelope
-  `{ "fields": [{ "name": string, "displayName": string, "dataType": string, "nullable": boolean }] }`
-
-### Requirement: Static connector uses declared column types without inference
-For static data sources, the system SHALL construct `DataField` entries directly from the user-declared `columns` array (`{ name, type }`) rather than running `SchemaInferenceEngine`. The declared `type` value SHALL be mapped to the corresponding `SchemaFieldType` string. An unrecognised type string SHALL default to `"string"`.
-
-#### Scenario: Declared integer type is preserved
-- **WHEN** a static source is created with a column declared as `{ "name": "count", "type": "integer" }`
-- **THEN** the registered `Output` contains a field `count` with `dataType = "integer"`
-
-#### Scenario: Declared boolean type is preserved
-- **WHEN** a static source is created with a column declared as `{ "name": "active", "type": "boolean" }`
-- **THEN** the registered `Output` contains a field `active` with `dataType = "boolean"`
-
-#### Scenario: Unrecognised type defaults to string
-- **WHEN** a static source column is declared with an unrecognised type string
-- **THEN** the registered field has `dataType = "string"`
-
-### Requirement: JSON type widening across sampled objects
-When a dotted leaf path carries values of differing inferred types across sampled objects, `fromJson` SHALL infer the single narrowest type that accommodates every sampled non-null value for that path. The widening operation SHALL be a commutative, associative, idempotent join over the per-value inferred types, so that the inferred type is a function of the SET of sampled values and never of the order in which they are encountered. The join SHALL be defined as: two equal types join to themselves; `IntegerType` joined with `FloatType` is `FloatType`; `TimestampType` joined with `StringType` is `StringType`; and every other pair of distinct types joins to `StringType`. `StringType` SHALL therefore be the top of the lattice and SHALL absorb any genuinely mixed pairing (for example a number joined with a boolean). `JsNull` values SHALL contribute only nullability and SHALL NOT participate in widening. A path whose every sampled value is `JsNull` SHALL infer as `StringType`, nullable.
-
-This lattice deliberately DIFFERS from the sequential widening order the CSV inference path uses. The CSV path widens a running type against a raw string cell and is not commutative — it widens `IntegerType` to `BooleanType` on encountering `"true"`, so a mixed numeric/boolean CSV column infers as boolean while the equivalent JSON column infers as `StringType` under this requirement. The CSV path's behaviour is unchanged by this capability; only JSON inference is specified here.
-
-#### Scenario: Integral first, fractional later widens to float
-- **WHEN** a path's sampled values are `3` in the first object and `2.5` in a later object
-- **THEN** the field is inferred as `FloatType`
-
-#### Scenario: Fractional first, integral later stays float
-- **WHEN** a path's sampled values are `2.5` in the first object and `3` in a later object
-- **THEN** the field is inferred as `FloatType`
-
-#### Scenario: Mixed scalar kinds fall back to string
-- **WHEN** a path's sampled values include both a number and a non-timestamp string
-- **THEN** the field is inferred as `StringType`
-
-#### Scenario: A number mixed with a boolean falls back to string
-- **WHEN** a path's sampled values are `1` in one object and `true` in another
-- **THEN** the field is inferred as `StringType`, and NOT as `BooleanType`
-
-#### Scenario: Widening is order-independent for any pair
-- **WHEN** the same two differing values are supplied to `fromJson` in either order
-- **THEN** the inferred type for that path is the same in both cases
-
-#### Scenario: A timestamp string mixed with a non-timestamp string is a string
-- **WHEN** a path's sampled values are `"2024-01-15"` in one object and `"not a date"` in another
-- **THEN** the field is inferred as `StringType`
-
-#### Scenario: Nulls do not narrow or widen a type
-- **WHEN** a path's sampled values are `JsNull` in one object and `2.5` in another
-- **THEN** the field is inferred as `FloatType` and `nullable = true`
-
-#### Scenario: A null alongside integral values yields a nullable integer, not a string
-- **WHEN** a path's sampled values are `JsNull` in one object and `7` in another
-- **THEN** the field is inferred as `IntegerType` with `nullable = true`
-- **AND** it is NOT inferred as `StringType`, which is what the presence of a single null previously forced regardless of the other sampled values
-
-#### Scenario: All-null path is a nullable string
-- **WHEN** a path is `JsNull` in every sampled object
-- **THEN** the field is inferred as `StringType` with `nullable = true`
-
-#### Scenario: No truncation on materialisation of a widened column
-- **WHEN** a column widened to `FloatType` is materialised from rows whose values include fractional numbers
-- **THEN** the fractional values are carried through without truncation to whole numbers
-
-### Requirement: Order-independent JSON schema inference
-The `InferredSchema` produced by `fromJson` over a `JsArray` of objects SHALL be a function of the set of sampled objects alone and SHALL NOT depend on their order. Inferring over any permutation of the same elements SHALL produce an identical schema: the same field paths, each with the same type, the same nullability, and the same display name, in the same sequence.
-
-#### Scenario: Permuted input yields an identical schema
-- **WHEN** `fromJson` is called twice over the same heterogeneous array of objects, the second time with the elements in a different order
-- **THEN** both calls return equal `InferredSchema` values
-
-#### Scenario: Reversing a mixed-shape array does not change the field set
-- **WHEN** an array whose elements have differing nested shapes and differing numeric precisions is reversed
-- **THEN** the inferred field paths and their types are unchanged
+## ADDED Requirements
 
 ### Requirement: JSON schema field enumeration
 The `SchemaInferenceEngine.fromJson` function SHALL accept a `spray.json.JsValue` and return an `InferredSchema`. If the root value is a `JsArray` of objects, fields are inferred from the union of the dotted leaf paths of ALL elements — at every nesting level, not only the top level — so a path present in any sampled object appears in the schema regardless of that object's position in the array. If the root is a `JsObject`, fields are inferred directly from its leaf paths. Nested `JsObject` values SHALL be flattened using dot notation, via the shared bounded traversal defined by the `nested-json-flattening` capability — the same traversal from which rows are materialised, so an inferred dotted field is always a field the rows actually carry. Array values SHALL be leaves, inferred as `StringType`, and SHALL NOT be expanded into index-bearing field names. An object at the traversal's depth bound SHALL be inferred as a single `StringType` field at its dotted path. The type of each field SHALL be the widened type of that path's values across all sampled objects (see the JSON type widening requirement), not the type of the first value encountered. Nullability SHALL be determined by the composed absence-or-null rule (see the JSON nullability requirement). All other root shapes return an empty schema.
