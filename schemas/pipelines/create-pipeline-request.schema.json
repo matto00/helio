@@ -39,7 +39,10 @@
               "url": { "type": ["string", "null"] },
               "endpoint": { "type": ["string", "null"] },
               "method": { "type": ["string", "null"] },
-              "queryParams": { "type": ["object", "null"] },
+              "queryParams": {
+                "description": "HEL-844: accepts either the legacy JSON object (unique keys only) or the new ordered array of {name, value} pairs (preserves duplicate keys and order); decoded via QueryParams' dual-read format.",
+                "oneOf": [{ "type": "object" }, { "type": "array" }, { "type": "null" }]
+              },
               "headers": { "type": ["object", "null"] },
               "body": { "type": ["string", "null"] },
               "bodyContentType": { "type": ["string", "null"] },

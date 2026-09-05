@@ -36,10 +36,15 @@ export interface RestApiConfigBody {
   endpoint?: string;
   method?: string;
   headers?: Record<string, string>;
-  // HEL-827: query parameters, sent as a plain map (already accepted server-side
-  // as `Map[String,String]`) — collapsed from the UI's ordered key/value list
-  // only inside the shared config composer.
-  queryParams?: Record<string, string>;
+  // HEL-844: query parameters, sent as an ORDERED array of {name, value} pairs —
+  // matches the backend's `QueryParams` wire encoding (com.helio.domain.model.QueryParams),
+  // which preserves both a repeated key and the order of interleaved keys. Previously a
+  // plain `Record<string, string>`, which silently collapsed a duplicate key before the
+  // request ever left the browser; `useRestSourceForm`'s `KeyValueEntry[]` state already
+  // models duplicates, so this stops collapsing at the wire boundary instead of introducing
+  // new UI state. Headers stay `Record<string, string>` — repeated request headers are out
+  // of scope for this ticket.
+  queryParams?: Array<{ name: string; value: string }>;
   // HEL-826: the wire field is `rootSelector` (matching `RestApiConfigPayload.rootSelector`
   // server-side) — `jsonPath` was never a real field, only ever collected by the form and
   // silently dropped at the backend boundary.

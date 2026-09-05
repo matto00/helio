@@ -42,14 +42,27 @@ function toRecord(entries: KeyValueEntry[]): Record<string, string> | undefined 
   const trimmed = entries.filter((e) => e.key.trim() !== "");
   if (trimmed.length === 0) return undefined;
   const record: Record<string, string> = {};
-  // Last-write-wins on duplicate keys — the UI itself never silently drops a
-  // duplicate row (design.md Decision 2 non-blocking flag); this collapse is
-  // the same lossy step the server already performs, done once here instead
-  // of independently at each of the three call sites.
+  // Last-write-wins on duplicate keys — used for HEADERS only (repeated request headers
+  // are out of scope for HEL-844); query params use `toOrderedPairs` below instead, which
+  // does not collapse a duplicate key.
   for (const entry of trimmed) {
     record[entry.key.trim()] = entry.value;
   }
   return record;
+}
+
+/** HEL-844: the query-param counterpart of `toRecord` that does NOT collapse a duplicate
+ *  key — emits every non-empty-key row, in order, as `{name, value}` pairs matching the
+ *  backend's `QueryParams` wire encoding. `KeyValueListField` already models duplicates in
+ *  its `KeyValueEntry[]` state; this stops collapsing them one function call away, at the
+ *  wire boundary, rather than changing any UI state (design.md D6). */
+function toOrderedPairs(
+  entries: KeyValueEntry[],
+): Array<{ name: string; value: string }> | undefined {
+  const trimmed = entries
+    .filter((e) => e.key.trim() !== "")
+    .map((e) => ({ name: e.key.trim(), value: e.value }));
+  return trimmed.length === 0 ? undefined : trimmed;
 }
 
 export { HTTP_METHOD_OPTIONS, BODIED_METHODS };
@@ -113,7 +126,7 @@ export function useRestSourceForm() {
       ...(connector ? { connectorId: connector.id } : {}),
       endpoint: endpoint.trim(),
       method,
-      ...(toRecord(queryParams) ? { queryParams: toRecord(queryParams) } : {}),
+      ...(toOrderedPairs(queryParams) ? { queryParams: toOrderedPairs(queryParams) } : {}),
       ...(toRecord(headers) ? { headers: toRecord(headers) } : {}),
       ...(rootSelector.trim() ? { rootSelector: rootSelector.trim() } : {}),
       ...(supportsBody && body.trim() ? { body: body.trim() } : {}),

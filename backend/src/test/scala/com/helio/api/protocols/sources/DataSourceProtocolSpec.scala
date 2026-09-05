@@ -3,7 +3,7 @@ package com.helio.api.protocols.sources
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, CsvSourceUrlRequest, RestApiConfigPayload, SqlSourceConfigPayload, TextSourceConfigPayload}
 import com.helio.api.protocols.sources.{CsvSourceResponse, DataSourceConfigCodec, DataSourceResponse, RestSourceResponse, SqlSourceResponse, StaticSourceResponse, TextSourceResponse}
 import com.helio.api.JsonProtocols
-import com.helio.domain.model.{CsvSourceConfig, RestApiConfig, SqlSourceConfig, TextSourceConfig}
+import com.helio.domain.model.{CsvSourceConfig, QueryParams, RestApiConfig, SqlSourceConfig, TextSourceConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -144,6 +144,80 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
 
     "decodeRest returns a Left(\"malformed: ...\") for neither shape (HEL-822 Decision 6)" in {
       val raw = JsObject("foo" -> JsString("bar")).compactPrint
+      DataSourceConfigCodec.decodeRest(raw) match {
+        case Left(msg) => msg should startWith("malformed:")
+        case other     => fail(s"expected Left(malformed: ...), got $other")
+      }
+    }
+
+    // ── HEL-844 task 3.4: QueryParams dual-read round-trip ──
+
+    "round-trips a QueryParams-array-shaped queryParams: array in -> array out -> same domain value" in {
+      val cfg = RestApiConfig(
+        connectorId = "conn-1",
+        endpoint    = "/data",
+        queryParams = QueryParams(Vector("tag" -> "a", "tag" -> "b"))
+      )
+      val encoded = DataSourceConfigCodec.encodeRest(cfg)
+      encoded should include(""""queryParams":[""") // always WRITES the array shape (design.md D2)
+      DataSourceConfigCodec.decodeRest(encoded) shouldBe Right(cfg)
+    }
+
+    "decodes a legacy JSON-object-shaped queryParams (already-persisted rows, HEL-844 design.md D3)" in {
+      val raw = JsObject(
+        "connectorId" -> JsString("conn-legacy"),
+        "endpoint"    -> JsString("/data"),
+        "queryParams" -> JsObject("limit" -> JsString("10"), "offset" -> JsString("0"))
+      ).compactPrint
+
+      DataSourceConfigCodec.decodeRest(raw) shouldBe Right(
+        RestApiConfig(connectorId = "conn-legacy", endpoint = "/data", queryParams = QueryParams(Vector("limit" -> "10", "offset" -> "0")))
+      )
+    }
+
+    // HEL-844 evaluation-1.md CR3 / skeptic-final-2.md: the test above uses a fixture whose
+    // document order ("limit", "offset") happens to already be alphabetical, so it pins nothing
+    // about ORDER -- only about the pairs decoding correctly at all. spray-json parses a JSON
+    // object's fields into a `TreeMap` (`spray/json/JsonParser.scala:100`), so `QueryParams.read`'s
+    // legacy `JsObject` branch yields KEY-SORTED order, not document order -- there is no
+    // document-order information left to recover by the time `QueryParams.read` sees the parsed
+    // `JsObject`. The fixture below is a HAND-WRITTEN string literal, deliberately NOT built via
+    // `JsObject(...).compactPrint` -- `JsObject.apply`'s own `fields: Map[String, JsValue]` is
+    // ALSO backed by a sorted map, so a `JsObject(...).compactPrint`-constructed fixture emits its
+    // keys already alphabetized regardless of construction order, silently destroying the very
+    // document-order-vs-key-sorted distinction this test exists to pin (this happened once
+    // already in this branch: an earlier version of this test built the raw JSON via
+    // `JsObject("z" -> ..., "a" -> ...).compactPrint`, which actually emitted
+    // `{"a":"2","z":"1"}` -- already sorted -- so it could not have distinguished key-sorted decode
+    // from document-order decode, despite its own comment claiming the opposite). The literal
+    // below is confirmed (by printing it) to actually place "z" before "a" in the emitted string.
+    "decodes a legacy JSON-object-shaped queryParams in KEY-SORTED order, not document order (HEL-844 design.md D2)" in {
+      val raw = """{"connectorId":"conn-legacy-2","endpoint":"/data","queryParams":{"z":"1","a":"2"}}"""
+      raw.indexOf("\"z\"") should be < raw.indexOf("\"a\"") // guards the fixture itself, not just the decode
+
+      DataSourceConfigCodec.decodeRest(raw) shouldBe Right(
+        RestApiConfig(connectorId = "conn-legacy-2", endpoint = "/data", queryParams = QueryParams(Vector("a" -> "2", "z" -> "1")))
+      )
+    }
+
+    // ── HEL-844 task 3.5: a malformed queryParams value fails loud, is NEVER swallowed to empty ──
+
+    "decodeRest returns Left(\"malformed: ...\") for a bare-string queryParams (HEL-844 D2/3.5)" in {
+      val raw = JsObject(
+        "connectorId" -> JsString("conn-1"),
+        "queryParams" -> JsString("tag=a")
+      ).compactPrint
+      DataSourceConfigCodec.decodeRest(raw) match {
+        case Left(msg) => msg should startWith("malformed:")
+        case other     => fail(s"expected Left(malformed: ...), got $other")
+      }
+    }
+
+    "decodeRest returns Left(\"malformed: ...\") for a queryParams array entry missing 'name' (HEL-844 D2/3.5)" in {
+      val raw = JsObject(
+        "connectorId" -> JsString("conn-1"),
+        "queryParams" -> JsArray(JsObject("value" -> JsString("a")))
+      ).compactPrint
       DataSourceConfigCodec.decodeRest(raw) match {
         case Left(msg) => msg should startWith("malformed:")
         case other     => fail(s"expected Left(malformed: ...), got $other")

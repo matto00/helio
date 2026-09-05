@@ -133,7 +133,7 @@ class RestApiConnectorDriverTemplatingSpec extends AnyWordSpec with Matchers wit
       val config = RestApiConfig(
         connectorId = connector.id.value,
         endpoint    = "/echo/{{userId}}",
-        queryParams = Map("tag" -> "{{tagValue}}"),
+        queryParams = QueryParams(Vector("tag" -> "{{tagValue}}")),
         headers     = Map("X-Custom" -> "{{headerValue}}"),
         parameters  = Map("userId" -> "42", "tagValue" -> "gold", "headerValue" -> "custom-header-value")
       )
@@ -158,7 +158,7 @@ class RestApiConnectorDriverTemplatingSpec extends AnyWordSpec with Matchers wit
         config = RestApiConfig(
           connectorId = connector.id.value,
           endpoint    = "/echo/{{userId}}",
-          queryParams = Map("tag" -> "{{tagValue}}"),
+          queryParams = QueryParams(Vector("tag" -> "{{tagValue}}")),
           headers     = Map("X-Custom" -> "{{headerValue}}"),
           parameters  = Map("userId" -> "42", "tagValue" -> "gold", "headerValue" -> "custom-header-value")
         )
@@ -189,7 +189,7 @@ class RestApiConnectorDriverTemplatingSpec extends AnyWordSpec with Matchers wit
     "fails with a curated message naming the variable for an unresolved query-param placeholder" in {
       val (owner, connector) = freshConnector()
       val user   = AuthenticatedUser(owner)
-      val config = RestApiConfig(connectorId = connector.id.value, endpoint = "/echo", queryParams = Map("tag" -> "{{missingTag}}"))
+      val config = RestApiConfig(connectorId = connector.id.value, endpoint = "/echo", queryParams = QueryParams(Vector("tag" -> "{{missingTag}}")))
 
       val result = await(driver.fetch(config, ConnectorResolveContext.Owned(user)))
       result shouldBe Left("Unresolved template variable: missingTag")
@@ -215,7 +215,7 @@ class RestApiConnectorDriverTemplatingSpec extends AnyWordSpec with Matchers wit
       val (owner, connector) = freshConnector()
       val user   = AuthenticatedUser(owner)
       val hostile = "a&b\"c\ndé"
-      val config = RestApiConfig(connectorId = connector.id.value, endpoint = "/echo", queryParams = Map("q" -> "{{v}}"), parameters = Map("v" -> hostile))
+      val config = RestApiConfig(connectorId = connector.id.value, endpoint = "/echo", queryParams = QueryParams(Vector("q" -> "{{v}}")), parameters = Map("v" -> hostile))
 
       val Right(body) = await(driver.fetch(config, ConnectorResolveContext.Owned(user))): @unchecked
       // The server echoes the raw query string it received; decoding it must recover the
@@ -309,7 +309,7 @@ class RestApiConnectorDriverTemplatingSpec extends AnyWordSpec with Matchers wit
     "a source with no template syntax and no parameters behaves exactly as before" in {
       val (owner, connector) = freshConnector()
       val user   = AuthenticatedUser(owner)
-      val config = RestApiConfig(connectorId = connector.id.value, endpoint = "/echo", queryParams = Map("plain" -> "value"), headers = Map("X-Plain" -> "yes"))
+      val config = RestApiConfig(connectorId = connector.id.value, endpoint = "/echo", queryParams = QueryParams(Vector("plain" -> "value")), headers = Map("X-Plain" -> "yes"))
 
       val Right(body) = await(driver.fetch(config, ConnectorResolveContext.Owned(user))): @unchecked
       val fields = body.asJsObject.fields

@@ -1,7 +1,7 @@
 package com.helio.services.sources
 
 import com.helio.api.protocols.sources.DataSourceConfigCodec
-import com.helio.domain.model.{ApiKeyPlacement, DataSourceId, RestApiAuth, RestApiConfig, UserId}
+import com.helio.domain.model.{ApiKeyPlacement, DataSourceId, QueryParams, RestApiAuth, RestApiConfig, UserId}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import org.apache.pekko.http.scaladsl.model.Uri
@@ -72,20 +72,16 @@ object RestSourceConnectorMigration {
    *  exactly. `baseUrl` = scheme + authority; `endpoint` = path (+ query captured separately
    *  as `queryParams`, not embedded in the endpoint string).
    *
-   *  Cycle-2 skeptic non-blocking note (b): `RestApiConfig.queryParams` is `Map[String,
-   *  String]` (design.md Decision 3 — a single value per key, a structural constraint of this
-   *  ticket's shape, not something `splitUrl` alone can fix) — a repeated query key
-   *  (`?tag=a&tag=b`) collapses to its LAST occurrence. Detected explicitly here (never
-   *  silent): `hasDuplicateKeys` lets the caller log a loud warning naming the source, rather
-   *  than the collapse passing unnoticed — the exact silent-corruption class this ticket
-   *  designed against elsewhere (Decision 6). */
-  private[sources] def splitUrl(rawUrl: String): (String, String, Map[String, String], Boolean) = {
+   *  HEL-844: `queryParams` is now `QueryParams`, an ordered, duplicate-preserving sequence —
+   *  every pair from the legacy URL survives, in order, including a repeated key
+   *  (`?tag=a&tag=b`). The `hasDuplicateKeys`/warn-on-collapse escape hatch this method used to
+   *  return is gone: there is no longer a collapse for it to describe. */
+  private[sources] def splitUrl(rawUrl: String): (String, String, QueryParams) = {
     val uri        = Uri(rawUrl)
     val baseUrl    = s"${uri.scheme}://${uri.authority.toString}"
     val path       = uri.path.toString
     val queryPairs = uri.query()
-    val hasDuplicateKeys = queryPairs.map(_._1).toVector.distinct.size != queryPairs.size
-    (baseUrl, path, queryPairs.toMap, hasDuplicateKeys)
+    (baseUrl, path, QueryParams(queryPairs.toVector))
   }
 
   def run(
@@ -127,15 +123,7 @@ object RestSourceConnectorMigration {
                 logger.error(s"RestSourceConnectorMigration: skipping malformed-legacy rest_api source id=$id", e)
                 Future.successful(())
               case Success(legacy) =>
-                val (baseUrl, endpoint, queryParams, hasDuplicateQueryKeys) = splitUrl(legacy.url)
-                if (hasDuplicateQueryKeys)
-                  logger.warn(
-                    "RestSourceConnectorMigration: source id={} has a legacy URL with repeated query keys -- " +
-                      "RestApiConfig.queryParams (Map[String,String]) can only keep the LAST occurrence of " +
-                      "each key; migrated queryParams may not reproduce every repeated value the legacy URL " +
-                      "carried",
-                    id
-                  )
+                val (baseUrl, endpoint, queryParams) = splitUrl(legacy.url)
                 val auth = toAuth(legacy.auth)
                 val (connName, configJson, credentialPlaintext, credentialName) =
                   ImplicitConnectorConfig.forLegacySource(s"Migrated: $name", baseUrl, auth)

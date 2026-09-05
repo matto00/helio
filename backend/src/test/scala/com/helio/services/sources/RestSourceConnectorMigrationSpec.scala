@@ -96,6 +96,13 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with Sc
           }
         }
       },
+      path("echo-query") {
+        get {
+          extractRequest { req =>
+            complete(HttpEntity(ContentTypes.`application/json`, JsObject("rawQuery" -> JsString(req.uri.rawQueryString.getOrElse(""))).compactPrint))
+          }
+        }
+      },
       path("apikey-endpoint") {
         get {
           parameterMap { params =>
@@ -191,6 +198,22 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with Sc
 
       val afterMigration = await(driver.fetch(cfg, ConnectorResolveContext.Owned(AuthenticatedUser(owner))))
       afterMigration shouldBe Right(baseline)
+    }
+
+    // HEL-844 task 5.2: a legacy URL with a repeated query key migrates a config carrying BOTH.
+    "migrates a legacy URL with a repeated query key into a config carrying both values, in order" in {
+      val owner = freshUser()
+      val url   = urlFor("echo-query") + "?tag=a&tag=b"
+      val legacyConfig = s"""{"url":"$url"}"""
+      val srcId = seedLegacyRestSource(Some(owner), "dup-query-src", legacyConfig)
+
+      await(RestSourceConnectorMigration.run(dataSourceRepo, connectorRepo, ctx, log))
+
+      val Right(cfg) = DataSourceConfigCodec.decodeRest(rawConfigOf(srcId)): @unchecked
+      cfg.queryParams.pairs should contain theSameElementsInOrderAs Vector("tag" -> "a", "tag" -> "b")
+
+      val Right(body) = await(driver.fetch(cfg, ConnectorResolveContext.Owned(AuthenticatedUser(owner)))): @unchecked
+      body.asJsObject.fields("rawQuery") shouldBe JsString("tag=a&tag=b")
     }
 
     "skip an ownerless legacy row without crashing (task 4.1a, round-3 CR5)" in {

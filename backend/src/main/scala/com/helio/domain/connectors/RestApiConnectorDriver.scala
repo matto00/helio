@@ -1,7 +1,7 @@
 package com.helio.domain.connectors
 
 import com.helio.domain.engine.SchemaInferenceEngine
-import com.helio.domain.model.{ApiKeyPlacement, Connector, ConnectorId, EphemeralRestConfig, InferredSchema, RestApiConfig}
+import com.helio.domain.model.{ApiKeyPlacement, Connector, ConnectorId, EphemeralRestConfig, InferredSchema, QueryParams, RestApiConfig}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.sources.ContentSourceSupport
@@ -134,10 +134,16 @@ class RestApiConnectorDriver(
               val (resolvedEndpoint, resolvedQueryParams, resolvedHeaders, resolvedBody) = resolvedBits
               val method = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
 
-              val withQueryParams = resolvedQueryParams.foldLeft(Uri(joinUrl(connector.baseUrl, resolvedEndpoint))) {
-                case (uri, (k, v)) => uri.withQuery(Uri.Query(uri.query().toMap + (k -> v)))
-              }
-              val uri = injectAuthQueryParam(withQueryParams, authShape, credentialValue)
+              // HEL-844 design.md D4: a single ordered `Uri.Query` built from the endpoint's own
+              // existing pairs followed by the config's pairs — preserves duplicate keys AND their
+              // order. The previous per-param `uri.query().toMap` fold did NOT drop the endpoint's
+              // query string outright (its distinct pairs survived); it silently REORDERED them
+              // (`Map`'s hash-based iteration order, not insertion order) and COLLAPSED any
+              // duplicate key within them to its last value — corrected here.
+              val baseUri         = Uri(joinUrl(connector.baseUrl, resolvedEndpoint))
+              val combinedPairs   = baseUri.query().toVector ++ resolvedQueryParams.pairs
+              val withQueryParams = baseUri.withQuery(Uri.Query(combinedPairs: _*))
+              val uri             = injectAuthQueryParam(withQueryParams, authShape, credentialValue)
 
               val mergedHeaders = authShape.defaultHeaders ++ resolvedHeaders // Decision 4: source wins
               val authHeaders: List[HttpHeader] = buildAuthHeaders(authShape, credentialValue)
@@ -165,13 +171,13 @@ class RestApiConnectorDriver(
    *  request is constructed. */
   private def resolveTemplatedRequestParts(
       config: RestApiConfig
-  ): Either[String, (String, Map[String, String], Map[String, String], Option[String])] =
+  ): Either[String, (String, QueryParams, Map[String, String], Option[String])] =
     for {
       endpoint <- TemplateInterpolator
         .resolveEndpoint(config.endpoint, config.parameters)
         .left
         .map(name => s"Unresolved template variable: $name")
-      queryParams <- resolveMapValues(config.queryParams, config.parameters)
+      queryParams <- resolveQueryParams(config.queryParams, config.parameters)
       headers     <- resolveHeaderMapValues(config.headers, config.parameters)
       body <- config.body match {
         case None       => Right(None)
@@ -185,15 +191,19 @@ class RestApiConnectorDriver(
     } yield (endpoint, queryParams, headers, body)
 
   /** Query param values: substituted raw (no extra encoding) — Pekko's `Uri.Query` already
-   *  percent-encodes on render (design.md Decision 3). */
-  private def resolveMapValues(map: Map[String, String], params: Map[String, String]): Either[String, Map[String, String]] =
-    map.foldLeft[Either[String, Map[String, String]]](Right(Map.empty)) {
+   *  percent-encodes on render (design.md Decision 3). HEL-844 design.md D5: an ordered
+   *  per-PAIR traversal (not per-unique-key), so `?tag={{a}}&tag={{b}}` resolves BOTH
+   *  occurrences of a repeated key rather than collapsing them first. Keys are not templated
+   *  (they were not before this change either). Failure semantics unchanged: the first
+   *  unresolved variable short-circuits as a `Left` before any request is built. */
+  private def resolveQueryParams(qp: QueryParams, params: Map[String, String]): Either[String, QueryParams] =
+    qp.pairs.foldLeft[Either[String, Vector[(String, String)]]](Right(Vector.empty)) {
       case (acc, (k, v)) =>
         for {
           resolvedSoFar <- acc
           resolvedValue <- TemplateInterpolator.resolve(v, params).left.map(name => s"Unresolved template variable: $name")
-        } yield resolvedSoFar + (k -> resolvedValue)
-    }
+        } yield resolvedSoFar :+ (k -> resolvedValue)
+    }.map(QueryParams(_))
 
   /** Header values: substituted raw, then the whole resolved value is CRLF-guarded
    *  (design.md Decision 3) — a value containing `\r`/`\n` after substitution fails loud and
@@ -216,10 +226,20 @@ class RestApiConnectorDriver(
       case _ => Nil
     }
 
+  /** HEL-844 design.md D4a: the auth query parameter still wins a name collision — the
+   *  query-side twin of the auth-header-always-wins rule above. Today's
+   *  `uri.query().toMap + (name -> value)` gave that semantics as a side effect of `Map`
+   *  overwrite; a naive ordered append would NOT — it would let a source configured with
+   *  `?api_key=attacker` produce `api_key=attacker&api_key=<real credential>`, which many
+   *  servers resolve to the FIRST occurrence (a credential-shadowing regression). So every
+   *  existing pair whose name equals `apiKeyName` is dropped first, then the credential pair
+   *  is appended. */
   private def injectAuthQueryParam(uri: Uri, authShape: ConnectorAuthShape, credentialValue: String): Uri =
     authShape.authType match {
       case "api_key" if authShape.apiKeyPlacement.contains("query") =>
-        uri.withQuery(Uri.Query(uri.query().toMap + (authShape.apiKeyName.getOrElse("") -> credentialValue)))
+        val apiKeyName  = authShape.apiKeyName.getOrElse("")
+        val surviving   = uri.query().toVector.filterNot { case (k, _) => k == apiKeyName }
+        uri.withQuery(Uri.Query((surviving :+ (apiKeyName -> credentialValue)): _*))
       case _ => uri
     }
 

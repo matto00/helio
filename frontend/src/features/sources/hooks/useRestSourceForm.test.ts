@@ -50,7 +50,7 @@ describe("useRestSourceForm", () => {
     expect(config).not.toHaveProperty("url");
   });
 
-  it("collapses ordered queryParams/headers into Record maps in the composed config", () => {
+  it("emits headers as a collapsed Record but queryParams as an ordered, duplicate-preserving array (HEL-844)", () => {
     const { result } = renderHook(() => useRestSourceForm());
     act(() => {
       result.current.setConnector(testConnector);
@@ -58,8 +58,24 @@ describe("useRestSourceForm", () => {
       result.current.setHeaders([{ key: "X-Test", value: "1" }]);
     });
     const config = result.current.buildRestSourceConfig();
-    expect(config.queryParams).toEqual({ limit: "50" });
+    expect(config.queryParams).toEqual([{ name: "limit", value: "50" }]);
     expect(config.headers).toEqual({ "X-Test": "1" });
+  });
+
+  it("preserves a repeated query-param key and its order instead of collapsing it (HEL-844)", () => {
+    const { result } = renderHook(() => useRestSourceForm());
+    act(() => {
+      result.current.setConnector(testConnector);
+      result.current.setQueryParams([
+        { key: "tag", value: "a" },
+        { key: "tag", value: "b" },
+      ]);
+    });
+    const config = result.current.buildRestSourceConfig();
+    expect(config.queryParams).toEqual([
+      { name: "tag", value: "a" },
+      { name: "tag", value: "b" },
+    ]);
   });
 
   it("detects template parameters across endpoint/queryParams/headers/body and resolves values into the composed config", () => {

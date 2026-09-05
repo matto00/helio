@@ -1,6 +1,7 @@
 package com.helio.api.protocols.pipelines
 
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, DataSourceProtocol, DataSourceResponse, RestApiConfigPayload, SqlSourceConfigPayload, StaticDataPayload}
+import com.helio.domain.model.QueryParams
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
@@ -52,7 +53,7 @@ final case class ProposalRestApiConfig(
     newConnector: Option[NewConnectorDraft] = None, // drafts a not-yet-existing Connector
     endpoint: Option[String] = None,
     method: Option[String] = None,
-    queryParams: Option[Map[String, String]] = None,
+    queryParams: Option[QueryParams] = None,
     headers: Option[Map[String, String]] = None,
     body: Option[String] = None,
     bodyContentType: Option[String] = None,
