@@ -32,6 +32,15 @@ The tool SHALL NOT accept a `url` or any credential/auth field — the input sch
 explicit fields that always fail validation with a message naming `connectorId`; an agent cannot
 supply a credential under any name, and every rejection is loud, never a silent drop.
 
+`queryParams` SHALL accept BOTH the ordered array encoding — a JSON array of
+`{"name": ..., "value": ...}` objects, which preserves duplicate names and authored order — and
+the legacy JSON object encoding, whose keys are unique by construction. The array encoding SHALL
+be forwarded to the backend unchanged and in the authored order, so that an agent can express a
+repeated query key such as `?tag=a&tag=b` and have both values issued, in the order given. The
+object encoding SHALL continue to be accepted and forwarded unchanged, so existing agent callers
+keep working. The tool description SHALL tell the agent that the array form is the one that
+expresses repeated keys and preserves order.
+
 A missing or blank `connectorId` SHALL fail with a message that names both `list_connectors` and
 `create_connector` as the ways to obtain one, rather than a bare "required" error.
 
@@ -73,6 +82,29 @@ model does not waste turns trying to retrieve one.
 - **WHEN** `create_rest_data_source` is called with no `connectorId`, or a blank one
 - **THEN** validation fails with a message naming both `list_connectors` (to find an existing
   Connector) and `create_connector` (to create one for an unauthenticated host)
+
+#### Scenario: An agent authors a repeated query key
+- **WHEN** `create_rest_data_source` is called with `queryParams`
+  `[{"name":"tag","value":"a"},{"name":"tag","value":"b"}]`
+- **THEN** the request the MCP server sends to the backend carries both `tag` entries, in that
+  order, rather than collapsing them to a single value
+
+#### Scenario: Authored order is preserved, not alphabetized
+- **WHEN** `create_rest_data_source` is called with an array `queryParams` whose names are in a
+  deliberately non-alphabetical order
+- **THEN** the request the MCP server sends carries those pairs in the authored order, not sorted
+  by name
+
+#### Scenario: The legacy object encoding still works
+- **WHEN** `create_rest_data_source` is called with `queryParams` as a JSON object
+- **THEN** the call is accepted and the object is forwarded to the backend unchanged, which
+  decodes it through its legacy branch exactly as before this change
+
+#### Scenario: A malformed queryParams entry is rejected loudly
+- **WHEN** `create_rest_data_source` is called with `queryParams` as an array containing an entry
+  that is not a `{name, value}` object
+- **THEN** the call fails validation with an error naming the offending input, rather than
+  silently dropping the entry
 
 ### Requirement: create_sql_data_source MCP tool
 The MCP server SHALL expose a `create_sql_data_source` tool that accepts `name`, `dialect`,
