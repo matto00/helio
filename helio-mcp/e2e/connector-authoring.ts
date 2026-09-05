@@ -106,7 +106,11 @@ async function setupThrowawayUserAndPat(baseUrl: string): Promise<string> {
   const registerRes = await fetch(`${baseUrl}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password: "correct horse battery staple 1!", displayName: null }),
+    body: JSON.stringify({
+      email,
+      password: "not-a-real-password correct horse battery staple 1!",
+      displayName: null,
+    }),
   });
   if (!registerRes.ok) fail(`register failed: ${registerRes.status} ${await registerRes.text()}`);
   const cookie = extractSessionCookie(registerRes.headers.get("set-cookie"));

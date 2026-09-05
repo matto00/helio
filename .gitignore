@@ -54,6 +54,13 @@ frontend/skills-lock.json
 # Local demo/test artifacts (occasionally created by playwright sessions, etc.)
 docs/demo/
 
+# HEL-956 self-test planted/renamed artifacts (check-no-credential-in-agent-surface.selftest.mjs) —
+# a crashed run must not leave a committable artifact behind.
+helio-mcp/.hel956-selftest-secret.ts
+/hel956-selftest-drift-probe/
+/helio-mcp-hel956-selftest-moved/
+/scripts/.hel956-selftest-mutated-surfaces.mjs
+
 # Concertino
 .concertino/
 # Stray render artifacts leaked from a dirty upstream Concertino checkout

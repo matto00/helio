@@ -3,64 +3,188 @@
 // "demonstrated red" enforcement that the credential-carrying components/
 // values can never structurally reach the agent/chat surface.
 //
-// HEL-927 added a third, independent check (see below) after HEL-904's
-// delivery committed a real `pg_dump` fixture
-// (`backend/src/test/resources/db/fixtures/hel904-real-dump.sql`) carrying
-// 594 real bcrypt password hashes and real email addresses — this script
-// was scoped only to the frontend assistant surface and reported green
-// throughout. HEL-927 is deliberately scoped to bcrypt-hash-shaped and
-// bulk-PII-shaped (real-looking email) content in fixture/dump directories;
-// generic token-shaped secret strings (`helio_pat_`, `sk-ant-`,
-// `*_KEY`/`*_SECRET`/`*_TOKEN` assignments) anywhere agents write files
-// during delivery are HEL-846's guard, not this one — see that ticket for
-// the complementary scope.
+// HEL-927 added a second surface (fixture/dump directories) after HEL-904's
+// delivery committed a real `pg_dump` fixture carrying 594 real bcrypt
+// password hashes and real email addresses — this script was scoped only to
+// the frontend assistant surface and reported green throughout.
 //
-// Three independent checks:
+// HEL-956 restructured the script around a declared `SURFACES` table (see
+// below) after the gate scanned ZERO files of a change (HEL-886) whose
+// entire premise was credential containment on the `helio-mcp/**` surface —
+// a green result over code the gate never examined. That table is now the
+// single source of truth for what this gate covers; do not add a check that
+// scans a path outside it. HEL-956 also added a coverage-drift guard (a new
+// top-level repo directory must be explicitly classified) and made a
+// zero-file surface a hard failure, so "scanned nothing" can never again be
+// indistinguishable from "found nothing".
 //
-//   1. Import-graph walk (frontend/src/features/assistant/**, excluding its
-//      own test files): fails if any assistant-surface module transitively
-//      imports `ConnectorCredentialField`/`ConnectorCredentialFieldValue`/
-//      `InlineConnectorSetup` (the credential-carrying components).
-//   2. Text-pattern scan (same scope as #1): fails if any assistant-surface
-//      module declares an object-literal/type/interface property literally
-//      named `credential` (case-insensitive; exact-word match only —
-//      `apiCredential`, `credentialId` etc. do not match) outside
-//      `ALLOWED_CREDENTIAL_PROPS`.
-//   3. Fixture scan (`FIXTURE_ROOTS`, currently
-//      `backend/src/test/resources/**`): fails if any fixture file contains
-//      a real-shaped bcrypt hash (`\$2[aby]\$NN\$...`) other than the
-//      repo's established dummy value, or an email address whose domain
-//      isn't in `ALLOWED_EMAIL_DOMAINS`. This is the check HEL-927 added.
+// **The table is load-bearing, not decorative.** Every entry's `include`
+// and `checks` are dispatched from a single loop (`collectFiles` +
+// `runChecksForSurface`), and the per-surface/total counts are derived from
+// that SAME loop's file lists, paired positionally (`{ surface, files }`
+// records, not a lookup keyed by the hand-written `id` string) — so there
+// is no second, hand-keyed place that repeats an id string ANYWHERE in this
+// file, including the file-list lookup itself. This closes three siblings
+// of the same defect class, found across two review rounds:
+//   1. (f17e9781) A `surfaceCounts` object literal keyed by hand-written id
+//      strings let a `SURFACES` entry with no matching key silently
+//      contribute `undefined` (not `0`) to the vacuity check.
+//   2. (skeptic-final-1.md CR1) `runChecksForSurface` dispatched on
+//      `surface.checks.includes(name)` with no validation that `name` was a
+//      real check — a typo'd or renamed check name (or an empty `checks`
+//      array) silently ran zero checks over a surface that still counted
+//      toward the OK line.
+//   3. (skeptic-final-1.md CR2) The per-surface file lists were held in a
+//      `Map` keyed by `surface.id` — a second `SURFACES` entry reusing an
+//      existing id silently overwrote (dropped) that surface's real file
+//      list while still reporting a plausible-looking breakdown line.
+// `assertSurfacesValid` (below) closes 2 and 3 by validating `SURFACES`
+// itself — unique ids, and every `checks` entry drawn from `KNOWN_CHECKS` —
+// before any scan runs, mirroring what `collectFiles` already does for an
+// unrecognized `include` value (throws). The positional `{ surface, files }`
+// pairing closes 3 structurally as well, independent of the assertion.
+// Any future surface MUST go through `SURFACES` alone — do not add a
+// parallel count, file list, or check-dispatch table anywhere else in this
+// file.
 //
-// Run standalone first against the pre-existing tree (before wiring into
-// Husky) to confirm zero false positives — design.md's Gate-Chain
-// Implications Checklist "first run" answer for this script.
+// Generic token-shaped secret strings (`helio_pat_`, `sk-ant-`,
+// `*_KEY`/`*_SECRET`/`*_TOKEN` assignments) ANYWHERE agents write files
+// during delivery are HEL-846's guard, not this one. This script's own
+// secret-literal check (added for the `mcp` surface, see Decision 4a below)
+// is deliberately narrower and permanent — scoped to `helio-mcp/**` only,
+// where a real PAT client credential would actually leak — and is not a
+// substitute for HEL-846's delivery-time scan.
 //
-// Known residual limits (skeptic-final-1.md CR1, kept honestly documented
-// rather than silently widening the check's scope beyond this ticket):
+// ── Surface table (coverage source of truth) ──────────────────────────────
+//
+// Every file this gate scans is reached through exactly one entry below.
+// Each surface: `{ id, root, include, checks }`.
+//   - `include` selects the file-inclusion rule: `"sourceNonTest"` (non-test
+//     `.ts`/`.tsx` only) or `"allNonBinary"` (every file except the binary
+//     extensions in `BINARY_FIXTURE_EXTENSIONS`).
+//   - `checks` lists which of the independent checks below apply to this
+//     surface's files: `importGraph`, `credentialProp`, `bcrypt`, `email`,
+//     `secretLiteral`.
+//
+//   assistant-surface — frontend/src/features/assistant/**
+//                        include: sourceNonTest
+//                        checks: importGraph, credentialProp
+//   fixture            — backend/src/test/resources/**
+//                        include: allNonBinary
+//                        checks: bcrypt, email
+//   mcp                — helio-mcp/**, excluding node_modules/ and dist/
+//                        include: allNonBinary
+//                        checks: secretLiteral, bcrypt, email
+//
+// The `mcp` surface deliberately does NOT get `importGraph` or
+// `credentialProp` (design.md Decision 3): `helio-mcp` declares fields
+// literally named `credential` in order to REJECT them (see
+// `restDataSourceSchema.ts`/`connectorSchema.ts`), and the import-graph walk
+// hunts for banned React components that cannot exist in an MCP server.
+//
+// ── Coverage-drift guard ───────────────────────────────────────────────────
+//
+// Every top-level directory in the repo must classify into exactly one of:
+//   - COVERED   — a declared surface root is at/inside/beneath it and covers
+//                 the whole directory (today: `helio-mcp`).
+//   - PARTIAL   — a declared surface root is beneath it but the rest is
+//                 deliberately not scanned; requires a `PARTIAL_COVERAGE`
+//                 entry naming the scanned subtree and why the rest isn't
+//                 (today: `frontend`, `backend`).
+//   - UNSCANNED — requires an `ACKNOWLEDGED_UNSCANNED` entry with a one-line
+//                 reason (today: `docs`, `e2e`, `infra`, `notes`,
+//                 `openspec`, `schemas`, `scripts`).
+// A directory in none of the three fails the gate loudly. This is what
+// keeps a newly-added top-level directory from silently escaping coverage.
+//
+// Two categories are skipped before classification (never require an
+// entry): dot-prefixed directories, and a hardcoded `IGNORED_TOP_LEVEL` set
+// of names that are never committed. `IGNORED_TOP_LEVEL` is a hand-derived
+// duplicate of the UNANCHORED (root-matching) directory patterns in
+// `.gitignore` — deliberately hardcoded rather than parsed from
+// `.gitignore` or resolved via `git check-ignore`, because both of those
+// require either fragile ad-hoc gitignore-semantics parsing (anchoring,
+// negation, globs) or a git invocation this gate otherwise has no need for.
+// That is an accepted trade-off: a *committed* directory sharing one of
+// these six names would be skipped, but since each is an unanchored
+// `.gitignore` entry, that can't happen without someone first
+// force-committing a directory the repo already ignores.
+//
+//   name                | .gitignore line
+//   --------------------|----------------
+//   node_modules        | 6  (node_modules/)
+//   dist                | 8  (dist/)
+//   build               | 10 (build/)
+//   coverage            | 17 (coverage/)
+//   playwright-report   | 18 (playwright-report/)
+//   test-results        | 19 (test-results/)
+//
+// `target` and `out` are deliberately EXCLUDED from this set: `.gitignore`
+// line 11 is the ANCHORED `backend/target/` (does not ignore a root-level
+// `target/`), and `out` does not appear in `.gitignore` at all — a
+// root-level `target/` or `out/` SHOULD trip the drift guard.
+//
+// Whenever a new unanchored root-directory pattern is added to `.gitignore`,
+// add it to `IGNORED_TOP_LEVEL` in the same commit, or the drift guard will
+// (correctly) start failing on that directory's presence.
+//
+// Known residual limits of the drift guard (deliberately out of scope, not
+// silently missing): it classifies DIRECTORIES only — top-level FILES
+// (`.env.example`, `Dockerfile`, `package-lock.json`, `README.md`, etc.) are
+// never classified. Dot-prefixed directories (`.github`, `.husky`,
+// `.claude`, `.concertino`, etc.) are always skipped, never classified
+// either way.
+//
+// Other known residual limits (skeptic-final-1.md CR1, kept honestly
+// documented rather than silently widening scope beyond each check's
+// stated ticket):
 //   - The `credential` text-pattern scan is an exact-word match on the
 //     literal name `credential` only — a renamed carrier (`apiKey`, `secret`,
 //     `token`, etc.) is NOT caught by this check.
 //   - `extractRelativeImports` only walks RELATIVE import specifiers
 //     (`./x`/`../y/z`); a non-relative (bare package / alias) specifier is
 //     never resolved or followed.
-//   - The fixture scan (#3) only walks `FIXTURE_ROOTS` — a credential-shaped
-//     value committed outside those directories is not caught by this
-//     script at all (HEL-846's generic scanner is the intended backstop for
-//     that).
+//   - The secret-literal check (added for `mcp`) is entropy/length-gated,
+//     not a general secret scanner; see Decision 4a below for its bound and
+//     why a bare-prefix rule was rejected.
+//
+// Run standalone first against the pre-existing tree (before wiring into
+// Husky) to confirm zero false positives — design.md's Gate-Chain
+// Implications Checklist "first run" answer for this script.
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const frontendSrc = join(repoRoot, "frontend/src");
 const assistantRoot = join(frontendSrc, "features/assistant");
+const mcpRoot = join(repoRoot, "helio-mcp");
+const fixtureRoot = join(repoRoot, "backend/src/test/resources");
 
-// Directories scanned by the fixture check (#3). Currently just the one
-// fixture/dump location that exists in this repo today; add more paths here
-// if/when other fixture directories accumulate credential-shaped content.
-const FIXTURE_ROOTS = [join(repoRoot, "backend/src/test/resources")];
+// ── Surface table (coverage source of truth — see header comment) ─────────
+const SURFACES = [
+  {
+    id: "assistant-surface",
+    root: assistantRoot,
+    include: "sourceNonTest",
+    checks: ["importGraph", "credentialProp"],
+  },
+  { id: "fixture", root: fixtureRoot, include: "allNonBinary", checks: ["bcrypt", "email"] },
+  {
+    id: "mcp",
+    root: mcpRoot,
+    include: "allNonBinary",
+    checks: ["secretLiteral", "bcrypt", "email"],
+  },
+];
+
+// Every valid value a `SURFACES` entry's `checks` array may contain — see
+// `runChecksForSurface` for what each name dispatches to. `assertSurfacesValid`
+// (below `collectFiles`) rejects any `checks` entry outside this set, and
+// rejects an empty `checks` array, mirroring `collectFiles`'s existing
+// unrecognized-`include` throw (skeptic-final-1.md CR1).
+const KNOWN_CHECKS = new Set(["importGraph", "credentialProp", "bcrypt", "email", "secretLiteral"]);
 
 // The repo's established dummy bcrypt value (see HEL-904's scrub of
 // `hel904-real-dump.sql`) — a fixed, obviously-synthetic all-zero hash that
@@ -69,8 +193,10 @@ const ALLOWED_BCRYPT_HASHES = new Set([
   "$2a$12$0000000000000000000000000000000000000000000000000000",
 ]);
 
-// Email domains a fixture is allowed to use for placeholder addresses (see
-// HEL-904's scrub, which standardized on `example.invalid`).
+// Email domains a fixture/mcp file is allowed to use for placeholder
+// addresses (see HEL-904's scrub, which standardized on `example.invalid`).
+// Any `.test` TLD is also reserved (RFC 2606) and accepted structurally
+// below without needing an entry here (design.md Decision 4.1).
 const ALLOWED_EMAIL_DOMAINS = new Set([
   "example.com",
   "example.org",
@@ -81,9 +207,9 @@ const ALLOWED_EMAIL_DOMAINS = new Set([
 const BCRYPT_HASH_REGEX = /\$2[aby]\$\d{2}\$[A-Za-z0-9./]{53}/g;
 const EMAIL_REGEX = /[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
 
-// File extensions the fixture scan skips outright — binary formats where a
-// naive utf8 read would either throw or produce false-positive garbage
-// matches.
+// File extensions the `allNonBinary` walk skips outright — binary formats
+// where a naive utf8 read would either throw or produce false-positive
+// garbage matches.
 const BINARY_FIXTURE_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -96,8 +222,9 @@ const BINARY_FIXTURE_EXTENSIONS = new Set([
   ".class",
 ]);
 
-/** @type {string[]} */
-const fixtureErrors = [];
+// Directory names pruned while walking ANY surface (currently only `mcp`
+// has such subdirectories, but this applies uniformly).
+const PRUNED_SUBDIR_NAMES = new Set(["node_modules", "dist"]);
 
 // Module basenames (no extension) that must never be transitively imported
 // by anything under `frontend/src/features/assistant/**`.
@@ -111,10 +238,60 @@ const ALLOWED_CREDENTIAL_PROPS = new Set();
 
 const CREDENTIAL_PROP_REGEX = /\bcredential\b\s*\??\s*:/gi;
 
-/** @type {string[]} */
-const importGraphErrors = [];
-/** @type {string[]} */
-const textPatternErrors = [];
+// ── Secret-literal check (mcp surface only) — design.md Decision 4a ────────
+//
+// Entropy-gated, NOT prefix-gated. A bare-prefix rule was measured to be
+// wrong: it would fire on `helio-mcp/src/config.ts`'s `PAT_PREFIX` constant,
+// on a short test value (`"helio_pat_test"`), and on README/e2e
+// documentation placeholders (`helio_pat_xxxxxxxx`, `helio_pat_…`) — forcing
+// a rename of production code to appease the gate, which is the exact
+// failure mode this ticket exists to eliminate.
+//
+// A vendor-prefixed literal matches only when the prefix is followed by AT
+// LEAST 20 characters of [A-Za-z0-9_-]. Ground truth for the bound:
+// `ApiTokenService.scala` documents the real credential as `helio_pat_` +
+// a 64-character hex string; Anthropic `sk-ant-` keys are longer still. So a
+// real credential always matches, while every measured legitimate value is
+// structurally excluded:
+//   "helio_pat_"                (config.ts PAT_PREFIX, 0 suffix chars) - no
+//   "helio_pat_test"                            (4 suffix chars)       - no
+//   "helio_pat_xxxxxxxx"                (README placeholder, 8 chars)  - no
+//   "helio_pat_…"                    (README, ellipsis not in class)   - no
+//   real helio_pat_ + 64 hex                                          - YES
+const VENDOR_PREFIX_SECRET_REGEX = /\b(helio_pat_|sk-ant-)[A-Za-z0-9_-]{20,}/g;
+
+// Identifier-name rule: a string literal of at least 8 characters assigned
+// to (or used as an object-literal value for) an identifier/key whose name
+// ends in KEY/SECRET/TOKEN/PASSWORD (case-insensitive). Matches both
+// `const FOO_KEY = "..."` / `this.apiToken = "..."` style assignment and
+// object-literal property shorthand (`token: "...", secret: "..."`).
+// Anything shorter than 8 characters is not a credential worth leaking.
+const NAMED_SECRET_LITERAL_REGEX =
+  /\b(\w*(?:key|secret|token|password))\s*[:=]\s*["']([^"']{8,})["']/gi;
+
+// Synthetic-marker convention (design.md Decision 4) — the SOLE exemption
+// path for the secret-literal check. A credential-shaped literal passes
+// when it is the empty string, is all zeros, or contains one of these
+// markers (case-insensitively). This is what lets
+// `"sk-should-never-be-accepted"`-style test fixtures pass unchanged: "make
+// your fake secret look fake" is a rule a future author can follow without
+// ever touching this script.
+const SYNTHETIC_SECRET_MARKERS = [
+  "not-a-real",
+  "should-never",
+  "dummy",
+  "placeholder",
+  "fake",
+  "example",
+  "redacted",
+];
+
+function isSyntheticSecretLiteral(value) {
+  if (value === "") return true;
+  if (/^0+$/.test(value)) return true;
+  const lower = value.toLowerCase();
+  return SYNTHETIC_SECRET_MARKERS.some((marker) => lower.includes(marker));
+}
 
 function isSourceFile(path) {
   return (path.endsWith(".ts") || path.endsWith(".tsx")) && !path.endsWith(".d.ts");
@@ -124,52 +301,81 @@ function isTestFile(path) {
   return path.includes(".test.") || path.includes(".spec.") || path.includes("/test/");
 }
 
-function walk(dir, out = []) {
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    const stat = statSync(full);
-    if (stat.isDirectory()) {
-      walk(full, out);
-    } else if (isSourceFile(full)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-/** Recursively collects every non-binary file under `dir` (unlike `walk`,
- *  not restricted to `.ts`/`.tsx` — fixture directories hold `.sql`, `.json`,
- *  `.csv`, etc). Missing directories are tolerated (returns `[]`) so
- *  `FIXTURE_ROOTS` can list a path that doesn't exist in every checkout. */
-function walkAllFiles(dir, out = []) {
+/** Recursively collects every file under `dir` matching `include`
+ *  (`"sourceNonTest"` — non-test `.ts`/`.tsx` only; `"allNonBinary"` — every
+ *  file except `BINARY_FIXTURE_EXTENSIONS`), pruning `PRUNED_SUBDIR_NAMES`.
+ *  Tolerates a missing `dir` (returns `[]`) so a surface root that doesn't
+ *  exist in every checkout, OR one that's been moved/renamed/deleted,
+ *  doesn't crash the gate — it fails the vacuity check instead (see below),
+ *  which is the loud failure this ticket wants in that case. This is the
+ *  single file-collection path for every surface (see the header's "the
+ *  table is load-bearing" note) — there is no second walker with different
+ *  error behavior. */
+function collectFiles(dir, include, out = []) {
   let entries;
   try {
-    entries = readdirSync(dir);
+    entries = readdirSync(dir, { withFileTypes: true });
   } catch {
     return out;
   }
   for (const entry of entries) {
-    const full = join(dir, entry);
-    const stat = statSync(full);
-    if (stat.isDirectory()) {
-      walkAllFiles(full, out);
-    } else if (!BINARY_FIXTURE_EXTENSIONS.has(extname(full).toLowerCase())) {
-      out.push(full);
+    if (PRUNED_SUBDIR_NAMES.has(entry.name)) continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      collectFiles(full, include, out);
+    } else if (include === "sourceNonTest") {
+      if (isSourceFile(full) && !isTestFile(full)) out.push(full);
+    } else if (include === "allNonBinary") {
+      if (!BINARY_FIXTURE_EXTENSIONS.has(extname(full).toLowerCase())) out.push(full);
+    } else {
+      throw new Error(`collectFiles: unknown include rule "${include}"`);
     }
   }
   return out;
 }
 
-/** Scans one fixture file's text for a real-shaped bcrypt hash (outside the
- *  allow-listed dummy value) or an email address on a non-placeholder
- *  domain, appending any findings to `fixtureErrors`. */
-function checkFixtureFile(file, text) {
+/** Validates the shape of `SURFACES` itself, before any scan runs: every
+ *  `id` is unique, and every entry's `checks` is non-empty and drawn only
+ *  from `KNOWN_CHECKS`. Throws — a malformed `SURFACES` entry is a defect in
+ *  the gate's own configuration, not a finding about the code it scans, the
+ *  same class of failure `collectFiles` already throws on for an
+ *  unrecognized `include`. Closes skeptic-final-1.md CR1 (a typo'd/unknown
+ *  check name, or an empty `checks` array, silently ran zero checks while
+ *  the surface still counted toward a green OK line) and backstops CR2
+ *  (a duplicate id) with a clear, named error rather than a confusing
+ *  double-counted breakdown line. */
+function assertSurfacesValid() {
+  const seenIds = new Set();
+  for (const surface of SURFACES) {
+    if (seenIds.has(surface.id)) {
+      throw new Error(`SURFACES: duplicate id "${surface.id}" — every surface id must be unique`);
+    }
+    seenIds.add(surface.id);
+
+    if (surface.checks.length === 0) {
+      throw new Error(`SURFACES: surface "${surface.id}" declares an empty "checks" array`);
+    }
+    for (const check of surface.checks) {
+      if (!KNOWN_CHECKS.has(check)) {
+        throw new Error(
+          `SURFACES: surface "${surface.id}" declares unrecognized check "${check}" — ` +
+            `known checks are: ${[...KNOWN_CHECKS].join(", ")}`,
+        );
+      }
+    }
+  }
+}
+
+/** Scans one fixture/mcp file's text for a real-shaped bcrypt hash (outside
+ *  the allow-listed dummy value) or an email address on a non-placeholder,
+ *  non-reserved domain, appending any findings to `errors`. */
+function checkFixtureFile(file, text, errors) {
   BCRYPT_HASH_REGEX.lastIndex = 0;
   let bcryptMatch;
   while ((bcryptMatch = BCRYPT_HASH_REGEX.exec(text)) !== null) {
     if (ALLOWED_BCRYPT_HASHES.has(bcryptMatch[0])) continue;
     const line = text.slice(0, bcryptMatch.index).split("\n").length;
-    fixtureErrors.push(
+    errors.push(
       `${relative(repoRoot, file)}:${line}: contains a real-shaped bcrypt hash — ` +
         "fixture data must use the repo's dummy bcrypt value, not a real-looking hash",
     );
@@ -180,11 +386,42 @@ function checkFixtureFile(file, text) {
   while ((emailMatch = EMAIL_REGEX.exec(text)) !== null) {
     const domain = emailMatch[1].toLowerCase();
     if (ALLOWED_EMAIL_DOMAINS.has(domain)) continue;
+    if (domain.endsWith(".test")) continue; // RFC 2606 reserved TLD (design.md Decision 4.1)
     const line = text.slice(0, emailMatch.index).split("\n").length;
-    fixtureErrors.push(
+    errors.push(
       `${relative(repoRoot, file)}:${line}: contains an email address on a non-placeholder domain ` +
         `("${domain}") — fixture data must use an allow-listed placeholder domain ` +
-        `(${[...ALLOWED_EMAIL_DOMAINS].join(", ")})`,
+        `(${[...ALLOWED_EMAIL_DOMAINS].join(", ")}, or any .test domain)`,
+    );
+  }
+}
+
+/** Scans one `mcp`-surface file's text for a hardcoded credential-shaped
+ *  string literal (design.md Decision 4a), appending findings to `errors`.
+ *  A synthetic-marker-carrying value is exempted (design.md Decision 4). */
+function checkSecretLiterals(file, text, errors) {
+  VENDOR_PREFIX_SECRET_REGEX.lastIndex = 0;
+  let vendorMatch;
+  while ((vendorMatch = VENDOR_PREFIX_SECRET_REGEX.exec(text)) !== null) {
+    const value = vendorMatch[0];
+    if (isSyntheticSecretLiteral(value)) continue;
+    const line = text.slice(0, vendorMatch.index).split("\n").length;
+    errors.push(
+      `${relative(repoRoot, file)}:${line}: contains a hardcoded vendor-prefixed credential-shaped ` +
+        `literal — carry a synthetic marker (e.g. "should-never", "dummy") if this is a test fixture`,
+    );
+  }
+
+  NAMED_SECRET_LITERAL_REGEX.lastIndex = 0;
+  let namedMatch;
+  while ((namedMatch = NAMED_SECRET_LITERAL_REGEX.exec(text)) !== null) {
+    const value = namedMatch[2];
+    if (isSyntheticSecretLiteral(value)) continue;
+    const line = text.slice(0, namedMatch.index).split("\n").length;
+    errors.push(
+      `${relative(repoRoot, file)}:${line}: identifier "${namedMatch[1]}" is assigned a hardcoded ` +
+        `credential-shaped literal — carry a synthetic marker (e.g. "should-never", "dummy") if this ` +
+        "is a test fixture",
     );
   }
 }
@@ -271,64 +508,259 @@ function findBannedImport(rootFile) {
   return null;
 }
 
-function checkTextPatterns(file, text) {
+function checkTextPatterns(file, text, errors) {
   CREDENTIAL_PROP_REGEX.lastIndex = 0;
   let match;
   while ((match = CREDENTIAL_PROP_REGEX.exec(text)) !== null) {
     const key = `${relative(repoRoot, file)}:${match.index}`;
     if (ALLOWED_CREDENTIAL_PROPS.has(key)) continue;
     const line = text.slice(0, match.index).split("\n").length;
-    textPatternErrors.push(
+    errors.push(
       `${relative(repoRoot, file)}:${line}: declares a property literally named "credential" — ` +
         "the agent/chat surface must never carry a credential-shaped field",
     );
   }
 }
 
-const assistantFiles = walk(assistantRoot).filter((f) => !isTestFile(f));
+/** Runs every check named in `surface.checks` over `files`, appending
+ *  findings to `errors`. This is the ONLY place checks are dispatched —
+ *  driven entirely by the `SURFACES` table entry, never by a surface's `id`
+ *  string matched elsewhere (see the header's "the table is load-bearing"
+ *  note). */
+function runChecksForSurface(surface, files, errors) {
+  for (const file of files) {
+    if (surface.checks.includes("importGraph")) {
+      const found = findBannedImport(file);
+      if (found) {
+        const chainStr = found.chain.map((f) => relative(repoRoot, f)).join(" -> ");
+        errors.push(
+          `${relative(repoRoot, file)}: transitively imports banned module "${found.bannedModule}" (${chainStr})`,
+        );
+      }
+    }
 
-for (const file of assistantFiles) {
-  const found = findBannedImport(file);
-  if (found) {
-    const chainStr = found.chain.map((f) => relative(repoRoot, f)).join(" -> ");
-    importGraphErrors.push(
-      `${relative(repoRoot, file)}: transitively imports banned module "${found.bannedModule}" (${chainStr})`,
+    const needsText =
+      surface.checks.includes("credentialProp") ||
+      surface.checks.includes("bcrypt") ||
+      surface.checks.includes("email") ||
+      surface.checks.includes("secretLiteral");
+    if (!needsText) continue;
+
+    let text;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      continue;
+    }
+
+    if (surface.checks.includes("credentialProp")) checkTextPatterns(file, text, errors);
+    // bcrypt and email are always checked together by `checkFixtureFile` —
+    // every surface that declares one declares both today (design.md
+    // Decision 3's fixture-style checks are a pair, not independent knobs).
+    if (surface.checks.includes("bcrypt") || surface.checks.includes("email")) {
+      checkFixtureFile(file, text, errors);
+    }
+    if (surface.checks.includes("secretLiteral")) checkSecretLiterals(file, text, errors);
+  }
+}
+
+// ── Coverage-drift guard (design.md Decision 1/1a/1b) ───────────────────────
+
+// Hardcoded duplicate of the UNANCHORED (root-matching) directory patterns
+// in `.gitignore` — see the header comment above for the full table and the
+// rationale for why this isn't derived at runtime.
+const IGNORED_TOP_LEVEL = new Set([
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  "playwright-report",
+  "test-results",
+]);
+
+// PARTIAL: a declared surface root is beneath this top-level directory, but
+// the rest of the directory is deliberately not scanned. Distinct from
+// UNSCANNED so a future loss of the surface root is never indistinguishable
+// from a deliberate acknowledgment (design.md Decision 1a).
+const PARTIAL_COVERAGE = {
+  frontend:
+    "only frontend/src/features/assistant/** (the `assistant` surface) is scanned; the rest of " +
+    "the frontend tree is not an agent-facing or credential-fixture surface",
+  backend:
+    "only backend/src/test/resources/** (the `fixture` surface) is scanned; backend application " +
+    "source is not a credential-fixture surface and HEL-846 is the intended generic backstop",
+};
+
+// UNSCANNED: no declared surface root touches this top-level directory at
+// all. Each entry states why that's an acceptable, deliberate gap.
+const ACKNOWLEDGED_UNSCANNED = {
+  docs: "documentation; placeholder tokens/emails there are deliberately illustrative, not fixtures",
+  e2e: "Playwright specs against the running app, not a credential-fixture or agent-surface directory",
+  infra:
+    "deployment scripts read secrets from the environment/Secret Manager; none are committed here",
+  notes: "historical/handoff notes, not shipped code",
+  openspec: "planning artifacts (proposals/design/tasks), not shipped code",
+  schemas: "JSON Schema contract definitions; no credential-shaped values are ever declared there",
+  scripts: "build/CI tooling scripts; HEL-846 is the intended generic backstop for this directory",
+};
+
+/** Classifies every top-level directory name in `topLevelDirNames` into
+ *  `covered` / `partial` / `unscanned`, or collects it as `unclassified`.
+ *  Exported as a pure function (rather than only run against
+ *  `readdirSync(repoRoot)`) so task 2.6/5.5's verification can invoke it
+ *  against the MAIN CHECKOUT's directory listing too, without modifying
+ *  that checkout or running its own (pre-change) copy of this script —
+ *  see design.md Decision 1b. Pure: no filesystem access, no process.exit —
+ *  safe to import without triggering a scan (unlike the CLI body below,
+ *  which only runs under the `import.meta.url` entry guard). */
+export function classifyTopLevelDirs(topLevelDirNames) {
+  const result = { covered: [], partial: [], unscanned: [], unclassified: [] };
+  for (const name of topLevelDirNames) {
+    if (name.startsWith(".")) continue; // dot-directories are out of scope (design.md 1c)
+    if (IGNORED_TOP_LEVEL.has(name)) continue;
+
+    const dirPath = join(repoRoot, name);
+    const fullyCovered = SURFACES.some((s) => relative(dirPath, s.root) === "");
+    const surfaceBeneath = SURFACES.some((s) => {
+      const rel = relative(dirPath, s.root);
+      // `rel` is the path from `dirPath` to the surface root. It's "beneath"
+      // `dirPath` exactly when it's non-empty (not equal — that's the
+      // fullyCovered case above) and doesn't start by climbing out (`..`).
+      return rel !== "" && !rel.startsWith("..");
+    });
+
+    if (fullyCovered) {
+      result.covered.push(name);
+    } else if (surfaceBeneath) {
+      if (Object.prototype.hasOwnProperty.call(PARTIAL_COVERAGE, name)) {
+        result.partial.push(name);
+      } else {
+        result.unclassified.push(name);
+      }
+    } else if (Object.prototype.hasOwnProperty.call(ACKNOWLEDGED_UNSCANNED, name)) {
+      result.unscanned.push(name);
+    } else {
+      result.unclassified.push(name);
+    }
+  }
+  return result;
+}
+
+/** Computes the coverage-drift errors (one per unclassified top-level
+ *  directory) without exiting — collected here rather than exiting
+ *  immediately so a drift finding and a vacuity finding that are both true
+ *  on the same run (e.g. the self-test's helio-mcp-rename case, where the
+ *  moved-aside directory is simultaneously an unclassified top-level
+ *  directory AND the cause of a zero-file `mcp` surface) are BOTH reported,
+ *  instead of the first-computed check silently masking the second
+ *  (design.md Decision 5's ordering note). */
+function computeDriftErrors() {
+  const topLevelDirNames = readdirSync(repoRoot, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name);
+  const { unclassified } = classifyTopLevelDirs(topLevelDirNames);
+  return unclassified.map(
+    (name) =>
+      `COVERAGE DRIFT: top-level directory "${name}" is not classified as covered, ` +
+      "partial, or acknowledged-unscanned. Add it to a declared surface's root (SURFACES), " +
+      "to PARTIAL_COVERAGE with the scanned subtree and a reason, or to ACKNOWLEDGED_UNSCANNED " +
+      "with a one-line reason.",
+  );
+}
+
+/** The CLI body — runs the full gate against the real filesystem and calls
+ *  `process.exit`. Guarded so that importing this module (e.g. for
+ *  `classifyTopLevelDirs`, as the verification steps in tasks 2.6/5.5 do)
+ *  never runs a scan or exits as a side effect. */
+function main() {
+  // Validate the table itself before touching the filesystem at all — a
+  // malformed SURFACES entry is a defect in the gate's own configuration
+  // (skeptic-final-1.md CR1/CR2), and should fail loudly and immediately
+  // rather than after a scan that may already have printed something.
+  assertSurfacesValid();
+
+  const driftErrors = computeDriftErrors();
+
+  // Single loop over the surface table: this is the ONE place file lists
+  // are built, and the counts below are derived from these SAME lists —
+  // never from a second, hand-keyed structure (see header note; this is
+  // exactly the defect this refactor closes). Positionally paired records
+  // (`{ surface, files }`), NOT a lookup keyed by `surface.id` — so a
+  // duplicate id (already rejected by `assertSurfacesValid` above) could
+  // not silently drop a file list even if that assertion were ever bypassed
+  // (skeptic-final-1.md CR2).
+  const surfaceRecords = SURFACES.map((surface) => ({
+    surface,
+    files: collectFiles(surface.root, surface.include),
+  }));
+
+  const allErrors = [];
+  for (const { surface, files } of surfaceRecords) {
+    runChecksForSurface(surface, files, allErrors);
+  }
+
+  // ── Vacuity check (design.md Decision 2) — a declared surface matching
+  //    zero files is a failure, not a passing contribution of zero
+  //    violations. Iterates `surfaceRecords` directly (populated for every
+  //    entry above), so an entry with no matching files can never be missed
+  //    the way a parallel hand-keyed count object could be. ─────────────
+  const vacuousRecords = surfaceRecords.filter((r) => r.files.length === 0);
+  const vacuityErrors = vacuousRecords.map(
+    ({ surface }) =>
+      `VACUOUS SURFACE: "${surface.id}" (root ${relative(repoRoot, surface.root)}) matched zero ` +
+      "files. A surface matching nothing means its root has moved, been renamed, or been " +
+      "deleted — fix the surface's root, or remove it from SURFACES and reclassify the " +
+      "directory in the coverage-drift guard.",
+  );
+
+  // Drift and vacuity are checked (and reported) BEFORE the per-file content
+  // violations below: a structural coverage problem is more fundamental than
+  // a content violation found within that (possibly wrong) coverage, and
+  // either one alone must never be silently masked by the other (see
+  // `computeDriftErrors`'s doc comment).
+  if (driftErrors.length > 0 || vacuityErrors.length > 0) {
+    console.error("check-no-credential-in-agent-surface: FAIL\n");
+    for (const err of [...driftErrors, ...vacuityErrors]) console.error(`  - ${err}`);
+    process.exit(1);
+  }
+
+  const totalFilesScanned = surfaceRecords.reduce((sum, r) => sum + r.files.length, 0);
+
+  if (allErrors.length > 0) {
+    console.error("check-no-credential-in-agent-surface: FAIL\n");
+    for (const err of allErrors) console.error(`  - ${err}`);
+    console.error(
+      `\n${allErrors.length} violation(s). The agent/chat surface (frontend/src/features/assistant/**) ` +
+        "must never import a credential-carrying component or declare a field literally named " +
+        '"credential" (HEL-829 design.md Decision 4); fixture/dump and helio-mcp directories ' +
+        "must never carry a real-shaped bcrypt hash or a non-placeholder-domain email address " +
+        "(HEL-927); and helio-mcp files must never carry a hardcoded credential-shaped string " +
+        "literal without a synthetic marker (HEL-956).",
+    );
+    process.exit(1);
+  } else {
+    const breakdown = surfaceRecords
+      .map(({ surface, files }) => `${files.length} ${surface.id}`)
+      .join(", ");
+    console.log(
+      `check-no-credential-in-agent-surface: OK (${totalFilesScanned} files scanned: ` +
+        `${breakdown}, 0 violations)`,
     );
   }
-
-  const text = readFileSync(file, "utf8");
-  checkTextPatterns(file, text);
 }
 
-const fixtureFiles = FIXTURE_ROOTS.flatMap((root) => walkAllFiles(root));
-
-for (const file of fixtureFiles) {
-  let text;
-  try {
-    text = readFileSync(file, "utf8");
-  } catch {
-    continue;
-  }
-  checkFixtureFile(file, text);
-}
-
-const allErrors = [...importGraphErrors, ...textPatternErrors, ...fixtureErrors];
-const totalFilesScanned = assistantFiles.length + fixtureFiles.length;
-
-if (allErrors.length > 0) {
-  console.error("check-no-credential-in-agent-surface: FAIL\n");
-  for (const err of allErrors) console.error(`  - ${err}`);
-  console.error(
-    `\n${allErrors.length} violation(s). The agent/chat surface (frontend/src/features/assistant/**) ` +
-      "must never import a credential-carrying component or declare a field literally named " +
-      '"credential" (HEL-829 design.md Decision 4), and fixture/dump directories ' +
-      `(${FIXTURE_ROOTS.map((r) => relative(repoRoot, r)).join(", ")}) ` +
-      "must never carry a real-shaped bcrypt hash or a non-placeholder-domain email address (HEL-927).",
-  );
-  process.exit(1);
-} else {
-  console.log(
-    `check-no-credential-in-agent-surface: OK (${totalFilesScanned} files scanned: ` +
-      `${assistantFiles.length} assistant-surface, ${fixtureFiles.length} fixture, 0 violations)`,
-  );
+// Entry guard: only run the CLI body when this file is the actual process
+// entry point, not merely imported (e.g. for `classifyTopLevelDirs`, as the
+// verification steps in tasks 2.6/5.5 do). Compares REALPATH-resolved
+// `file://` URLs rather than a raw string/URL comparison
+// (``import.meta.url === `file://${process.argv[1]}` ``), because that raw
+// form evaluates false — silently never running `main()` — for a path
+// containing a percent-encoded character (e.g. a space) or an invocation
+// through a symlink, both of which `pathToFileURL` normalizes and
+// `realpathSync` resolves away. Neither is reachable from this repo's own
+// Husky invocation today, but the failure mode (a missing OK line instead
+// of a wrong one) is exactly the silent-vacuity class this ticket exists to
+// eliminate, so it's fixed rather than left as a documented residual limit.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  main();
 }
