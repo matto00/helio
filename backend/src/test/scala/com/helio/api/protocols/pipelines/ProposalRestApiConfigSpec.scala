@@ -1,6 +1,7 @@
 package com.helio.api.protocols.pipelines
 
 import com.helio.api.protocols.sources.RestApiConfigPayload
+import com.helio.domain.model.QueryParams
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -58,7 +59,7 @@ class ProposalRestApiConfigSpec extends AnyWordSpec with Matchers with PipelineP
         connectorId     = Some("conn-1"),
         endpoint        = Some("/signups"),
         method          = Some("GET"),
-        queryParams     = Some(Map("limit" -> "10")),
+        queryParams     = Some(QueryParams(Vector("limit" -> "10"))),
         headers         = Some(Map("X-Custom" -> "1")),
         body            = Some("{}"),
         bodyContentType = Some("application/json"),
@@ -71,7 +72,7 @@ class ProposalRestApiConfigSpec extends AnyWordSpec with Matchers with PipelineP
         url             = None,
         endpoint        = Some("/signups"),
         method          = Some("GET"),
-        queryParams     = Some(Map("limit" -> "10")),
+        queryParams     = Some(QueryParams(Vector("limit" -> "10"))),
         headers         = Some(Map("X-Custom" -> "1")),
         body            = Some("{}"),
         bodyContentType = Some("application/json"),

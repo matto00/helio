@@ -110,7 +110,7 @@ final class SourceService(
             RestApiConfig.rejectBodyOnSafeMethod(request.config.method.getOrElse("GET"), request.config.body) match {
               case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(()) =>
-                val (baseUrl, endpoint, _, _) = RestSourceConnectorMigration.splitUrl(url)
+                val (baseUrl, endpoint, urlQueryParams) = RestSourceConnectorMigration.splitUrl(url)
                 val (name, configJson, credentialPlaintext, credentialName) =
                   ImplicitConnectorConfig.forLegacySource(s"Auto: ${request.name}", baseUrl, RestApiAuth.NoAuth)
                 connectorRepo
@@ -124,10 +124,17 @@ final class SourceService(
                     credentialName      = credentialName
                   )
                   .flatMap { createdConnector =>
+                    // HEL-844 design.md D6a: the pairs `splitUrl` pulled off the bare URL's own
+                    // query string are carried through here (concatenated with any explicit
+                    // `request.config.queryParams`) — previously discarded outright, the fourth
+                    // silent collapse point in this ticket's widened repro.
+                    val urlAndConfigQueryParams =
+                      QueryParams(urlQueryParams.pairs ++ request.config.queryParams.map(_.pairs).getOrElse(Vector.empty))
                     val restConfig = RestApiConfig(
                       connectorId     = createdConnector.id.value,
                       endpoint        = endpoint,
                       method          = request.config.method.getOrElse("GET"),
+                      queryParams     = urlAndConfigQueryParams,
                       headers         = request.config.headers.getOrElse(Map.empty),
                       body            = request.config.body,
                       bodyContentType = request.config.bodyContentType,

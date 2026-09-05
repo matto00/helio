@@ -1,0 +1,23 @@
+# Files Modified — HEL-844
+
+- `backend/src/main/scala/com/helio/domain/model/model.scala` — introduces `QueryParams` (an ordered, duplicate-preserving wrapper over `Seq[(String, String)]`) with its companion `RootJsonFormat` (dual-read: array or legacy object; always writes array); `RestApiConfig.queryParams` retyped from `Map[String, String]`.
+- `backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala` — `RestApiConfigPayload.queryParams` retyped to `Option[QueryParams]`; `toDomain`/`fromDomain` updated.
+- `backend/src/main/scala/com/helio/domain/connectors/RestApiConnectorDriver.scala` — `buildResolvedRequest` composes the query as a single ordered `Uri.Query` from the endpoint's own pairs + the config's pairs (replaces the per-param `uri.query().toMap` fold); `injectAuthQueryParam` drops any existing pair sharing the auth param's name before appending (auth-wins-collision preserved); `resolveMapValues` → `resolveQueryParams`, an ordered per-pair `{{name}}` template traversal.
+- `backend/src/main/scala/com/helio/services/sources/RestSourceConnectorMigration.scala` — `splitUrl` returns `QueryParams` carrying every pair (drops the now-unreachable `hasDuplicateKeys` warning).
+- `backend/src/main/scala/com/helio/services/sources/SourceService.scala` — bare-`url` create path (`createRest`) no longer discards `splitUrl`'s query pairs; they're concatenated with any explicit `request.config.queryParams` (design D6a, the fourth collapse point).
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProposalProtocol.scala` — `queryParams` field retyped to `Option[QueryParams]`, with a normal top-of-file `import com.helio.domain.model.QueryParams` (no inline fully-qualified name, per CONTRIBUTING.md "Imports & Qualifiers"). This file was originally fenced to two lines with no added import while HEL-914 was in flight against it; HEL-914 (39a4af90) and HEL-868 (9c1f29bf) merged to main before this change landed, so the fence was withdrawn and the edit landed the ordinary way. The `cfg -> DTO` mapping line needed no change (already type-compatible).
+- `schemas/pipelines/create-pipeline-request.schema.json` — `restConfig.queryParams` widened to accept both the legacy object and the new array encoding.
+- `frontend/src/features/sources/hooks/useRestSourceForm.ts` — adds `toOrderedPairs` (query params only, does not collapse a duplicate key); `buildRestSourceConfig` emits an ordered array for `queryParams` instead of `toRecord`'s collapsed map. Headers unchanged (`toRecord`, out of scope).
+- `frontend/src/features/sources/services/dataSourceService.ts` — `RestApiConfigBody.queryParams` retyped from `Record<string, string>` to `Array<{ name: string; value: string }>` to match the backend's wire encoding.
+
+## Tests (new)
+
+- `backend/src/test/scala/com/helio/domain/connectors/RestApiConnectorDriverQueryParamsSpec.scala` — real-bound-HTTP-server coverage for repeated-key multiplicity, interleaved order, endpoint-carried query preservation, auth-collision precedence, and backward compatibility with a real legacy map-shaped persisted blob (task 8.2). Cycle 2 (evaluation-1.md CR1): the endpoint-carried-query fixture was replaced with a 6-key fixture that is genuinely red on pre-fix `main` — the original 2-pair fixture happened to pass pre-fix too (`Map.Map2` iterates in insertion order), which was a vacuous guard.
+- `backend/src/test/scala/com/helio/services/sources/SourceServiceBareUrlQueryParamsSpec.scala` — end-to-end (`SourceService.createRest` → persisted config → real fetch) coverage for the bare-`url` create path's repeated query key.
+
+## Tests (updated)
+
+- `backend/src/test/scala/com/helio/api/protocols/pipelines/ProposalRestApiConfigSpec.scala`, `backend/src/test/scala/com/helio/domain/connectors/RestApiConnectorDriverTemplatingSpec.scala` — `queryParams` literals updated from `Map(...)` to `QueryParams(Vector(...))`.
+- `backend/src/test/scala/com/helio/api/protocols/sources/DataSourceProtocolSpec.scala` — adds `QueryParams` dual-read round-trip and malformed-value (`Left("malformed: ...")`, never swallowed to empty) coverage, plus a legacy-decode-order test (evaluation-1.md CR3) whose fixture's document order differs from alphabetical, pinning the actual key-sorted decode order.
+- `backend/src/test/scala/com/helio/services/sources/RestSourceConnectorMigrationSpec.scala` — adds a repeated-query-key migration test (task 5.2) and an `echo-query` test route.
+- `frontend/src/features/sources/hooks/useRestSourceForm.test.ts` — the old test asserting the queryParams collapse as correct behavior is replaced with assertions that queryParams emit an ordered array (including a duplicate-key case); the headers-collapse assertion is retained.

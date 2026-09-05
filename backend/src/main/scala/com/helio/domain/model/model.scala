@@ -526,13 +526,69 @@ final case class RestApiConfig(
     connectorId: String,
     endpoint: String = "",
     method: String = "GET",
-    queryParams: Map[String, String] = Map.empty,
+    queryParams: QueryParams = QueryParams.empty,
     headers: Map[String, String] = Map.empty,
     body: Option[String] = None,
     bodyContentType: Option[String] = None,
     rootSelector: Option[String] = None,
     parameters: Map[String, String] = Map.empty
 )
+
+/** HEL-844: an ordered, duplicate-key-preserving sequence of query-param pairs — replaces
+ *  `Map[String, String]`, which silently collapsed a repeated key (`?tag=a&tag=b`) to its last
+ *  occurrence with no error and no warning (the repo's known silent-corruption class, HEL-814/
+ *  HEL-671). A bare `Seq[(String, String)]` was rejected as the field type (design.md D1(a)-(c)):
+ *  `jsonFormatN` resolves an implicit format by field TYPE, so a bare `Seq` would need a loose
+ *  `JsonFormat[Seq[(String, String)]]` declared in three separate protocol files and would risk
+ *  colliding with spray-json's own `immSeqFormat`/`tuple2Format`. This named wrapper's companion
+ *  object carries a `RootJsonFormat[QueryParams]`, found by implicit resolution with NO import
+ *  needed anywhere for the FORMAT specifically — every consuming file still needs its own normal
+ *  top-of-file `import com.helio.domain.model.QueryParams` (or `com.helio.domain.model._`) to
+ *  name the type in a field's type annotation, exactly like any other domain type; that is a
+ *  separate, ordinary Scala-level requirement this implicit-resolution property does not remove. */
+final case class QueryParams(pairs: Seq[(String, String)] = Vector.empty)
+
+object QueryParams {
+  val empty: QueryParams = QueryParams(Vector.empty)
+
+  /** Wire is a JSON array of `{"name": ..., "value": ...}` objects (order- and
+   *  duplicate-preserving); reads also tolerate the historical JSON object shape
+   *  (`{"tag": "a"}`) for backward compatibility with already-persisted rows (design.md D2/D3),
+   *  but ALWAYS writes the array. The legacy `JsObject` branch below yields KEY-SORTED order, not
+   *  document order: spray-json parses a JSON object's fields into a `TreeMap`
+   *  (`spray/json/JsonParser.scala:100`), so no document-order information survives to this
+   *  method. Not a regression -- a legacy row has no duplicate key to begin with (it was decoded
+   *  from a `Map`), and the pre-change composition read that same `Map` through a hash-based
+   *  fold whose order was equally arbitrary. Any other shape -- a string, a number, a non-object array
+   *  entry, an entry missing `name`/`value`, a legacy object with a non-string value -- throws
+   *  `DeserializationException`, which `DataSourceConfigCodec.decodeRest` already catches and
+   *  maps to `Left("malformed: ...")`. This format never swallows a malformed value to an empty
+   *  `QueryParams` -- doing so would fetch with no query params and no signal, reintroducing this
+   *  ticket's own defect class inside its own fix (HEL-826 decode-is-total invariant: `decodeRest`
+   *  stays total by returning `Either`, not by the format silently defaulting). */
+  implicit val queryParamsFormat: RootJsonFormat[QueryParams] = new RootJsonFormat[QueryParams] {
+    override def write(qp: QueryParams): JsValue =
+      JsArray(qp.pairs.map { case (name, value) => JsObject("name" -> JsString(name), "value" -> JsString(value)) }.toVector)
+
+    override def read(json: JsValue): QueryParams = json match {
+      case JsArray(elements) =>
+        QueryParams(elements.map {
+          case JsObject(fields) =>
+            (fields.get("name"), fields.get("value")) match {
+              case (Some(JsString(name)), Some(JsString(value))) => (name, value)
+              case _ => throw DeserializationException("QueryParams array entry requires string 'name' and 'value' fields")
+            }
+          case _ => throw DeserializationException("QueryParams array entries must be objects")
+        })
+      case JsObject(fields) =>
+        QueryParams(fields.toVector.map {
+          case (name, JsString(value)) => (name, value)
+          case _ => throw DeserializationException("QueryParams legacy object values must be strings")
+        })
+      case _ => throw DeserializationException("QueryParams must be a JSON array or object")
+    }
+  }
+}
 
 object RestApiConfig {
 
