@@ -507,3 +507,170 @@ describe("PipelineRiverView — multi-root (HEL-968)", () => {
     expect(screen.getByRole("heading", { name: "Add a root" })).toBeInTheDocument();
   });
 });
+
+// HEL-985 — the round-2 skeptic on HEL-968 caught nodePath() shipping
+// correct, unit-tested, and with ZERO call sites: no lane path rendered
+// anywhere, so no gate (lint/typecheck/2636 Jest tests) noticed. This guard
+// asserts on RENDERED output (a step's `title` attribute), not on
+// `nodePath()`'s return value, across all four prop-threading edges
+// (design.md Context/D4): E1 (PipelineRiverView.tsx:381, the trunk), E2
+// (PipelineRiverView.tsx:461, a trunk step's own child lane, compact and
+// non-compact), E3 (PipelineRiverView.tsx:539 -> RootColumn.tsx:114, a
+// second root's own lane), E4 (LaneColumn.tsx:146, a lane nested under
+// another lane).
+//
+// Deliberately does NOT go through `baseProps`/`linkChain`: `linkChain`
+// auto-links any step with `parentStepId === undefined` to the PREVIOUS
+// array element, which would silently chain root 2's parentless head step
+// onto root 1's tail and collapse this fixture to one root (design.md
+// Context, trap 2). Every step below carries an explicit `parentStepId`
+// (or explicit `rootId` for a root head) and is passed straight to
+// `PipelineRiverView`, bypassing `baseProps` entirely.
+describe("nodePath wiring (HEL-985)", () => {
+  const WIRING_OP = FILTER_OP; // op type is irrelevant to nodePath; reuse an existing OP_TYPES entry.
+
+  /** Builds a fixture step with an explicit `parentStepId` (or `undefined`
+   *  for a root head, paired with `rootId`) and an explicit `position` at
+   *  every branch point (design.md Context trap 3 — `buildLaneGraph`
+   *  silently mis-shapes the tree on an implicit/omitted `position`). */
+  function wiringStep(
+    id: string,
+    label: string,
+    parentStepId: string | undefined,
+    opts: { position?: number; rootId?: string } = {},
+  ): Step {
+    return {
+      id,
+      opType: WIRING_OP,
+      label,
+      config: { combinator: "AND", conditions: [] },
+      enabled: true,
+      parentStepId,
+      position: opts.position,
+      rootId: opts.rootId,
+    };
+  }
+
+  // Root 1's trunk: r1a (base case, directly on the root) -> r1b -> r1c
+  // (multi-hop chain, two hops from r1a). Each continuation child carries
+  // `position: 0` per design.md's branch-point rule.
+  const r1a = wiringStep("r1a", "Trunk one", undefined, { rootId: "root-1" });
+  const r1b = wiringStep("r1b", "Trunk two", "r1a", { position: 0 });
+  const r1c = wiringStep("r1c", "Trunk three", "r1b", { position: 0 });
+  // A single-step child lane off trunk step r1b (E2, compact site
+  // LaneColumn.tsx:171 — the ONLY shape that renders it at all).
+  const lane1a = wiringStep("lane1a", "Solo lane step", "r1b", { position: 1 });
+  // A >=2-step child lane off trunk step r1c (E2, non-compact site
+  // LaneColumn.tsx:216). r1c has no position-0 child, so the trunk
+  // terminates at r1c and laneA/laneB form their own lane.
+  const laneA = wiringStep("laneA", "Two lane first", "r1c", { position: 1 });
+  const laneB = wiringStep("laneB", "Two lane second", "laneA", { position: 0 });
+  // A lane NESTED under laneA/laneB's lane (E4 — LaneColumn.tsx:146, only
+  // reachable from inside another LaneColumn's own renderChildLanes).
+  const laneC = wiringStep("laneC", "Nested lane step", "laneB", { position: 1 });
+  // Root 2's own lane (E3 — PipelineRiverView.tsx:539 -> RootColumn.tsx:114),
+  // carrying the distinct `root:root-2` head a single-root fixture cannot
+  // produce.
+  const r2a = wiringStep("r2a", "Root two step", undefined, { rootId: "root-2" });
+
+  const WIRING_STEPS: Step[] = [r1a, r1b, r1c, lane1a, laneA, laneB, laneC, r2a];
+  const WIRING_ROOTS: PipelineRoot[] = [
+    { id: "root-1", dataSourceId: "src-1", dataSourceName: "Root One Source" },
+    { id: "root-2", dataSourceId: "src-2", dataSourceName: "Root Two Source" },
+  ];
+
+  /** Full `PipelineRiverView` props, built directly (NOT via `baseProps`,
+   *  see the describe-level comment) so `linkChain` never touches these
+   *  explicit-`parentStepId` steps. */
+  function wiringProps(): ComponentProps<typeof PipelineRiverView> {
+    return {
+      steps: WIRING_STEPS,
+      laneGraph: buildLaneGraph(WIRING_STEPS, WIRING_ROOTS),
+      roots: WIRING_ROOTS,
+      onAddRoot: jest.fn(),
+      onRemoveRoot: jest.fn(),
+      pipelineId: "pipe-wiring",
+      dropdownOpen: false,
+      openDropdown: jest.fn(),
+      closeDropdown: jest.fn(),
+      onAddStep: jest.fn(),
+      onInsertStep: jest.fn(),
+      onAddLaneStep: jest.fn(),
+      onRemoveStep: jest.fn(),
+      getAnalyzeColumns: () => [],
+      getAnalyzeSchema: () => [],
+      getAnalyzeOutputSchema: () => [],
+      getAnalyzeValidationError: () => undefined,
+      onStepConfigChange: jest.fn(),
+      runStepRowCounts: null,
+      onInstantiateShape: jest.fn(async () => {}),
+      onReorderSteps: jest.fn(),
+      onToggleStepEnabled: jest.fn(),
+      onDuplicateStep: jest.fn(),
+      outputsByStepId: {},
+      previewRowCountByOutputId: {},
+      onOpenOutput: jest.fn(),
+      onAddOutput: jest.fn(),
+    };
+  }
+
+  /** D3 — locate a step by its visible label, then walk to the nearest
+   *  ancestor carrying `title`. Never `getByTitle`: that makes the query
+   *  itself the assertion, producing an "unable to find element" failure
+   *  indistinguishable from an unrelated fixture break. */
+  function titleFor(label: string): string {
+    const labelEl = screen.getByText(label);
+    const withTitle = labelEl.closest("[title]");
+    if (withTitle === null) throw new Error(`No title-bearing ancestor for "${label}"`);
+    return withTitle.getAttribute("title") ?? "";
+  }
+
+  it("renders the expected shape before any title is asserted (design.md risk 1)", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+
+    // task 1.2 — do NOT count root columns (root 1 never renders as one, and
+    // the "+ root" pseudo-column shares its class). Probe by label instead.
+    expect(screen.getByLabelText("Root: Root Two Source")).toBeInTheDocument();
+    // Root 1's trunk steps render outside any RootColumn.
+    expect(screen.getByText("Trunk one")).toBeInTheDocument();
+    expect(screen.getByText("Trunk three")).toBeInTheDocument();
+
+    // Two non-compact lanes ("Lane"): the >=2-step lane off r1c, and root
+    // 2's own lane via RootColumn. Two compact lanes ("Tail steps"): the
+    // single-step lane off r1b, and the lane nested under laneA/laneB.
+    expect(screen.getAllByLabelText("Lane")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Tail steps")).toHaveLength(2);
+  });
+
+  it("renders the base-case title on a step directly on root 1 (E1, PipelineRiverView.tsx:381)", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    expect(titleFor("Trunk one")).toBe("root:root-1 > r1a");
+  });
+
+  it("renders the multi-hop chain title, pinning hop order and the separator (E1)", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    expect(titleFor("Trunk three")).toBe("root:root-1 > r1a > r1b > r1c");
+  });
+
+  it("renders the title on a single-step child lane off a trunk step (E2, compact site LaneColumn.tsx:171)", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    expect(titleFor("Solo lane step")).toBe("root:root-1 > r1a > r1b > lane1a");
+  });
+
+  it("renders the title on a >=2-step child lane off a trunk step (E2, non-compact site LaneColumn.tsx:216)", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    expect(titleFor("Two lane first")).toBe("root:root-1 > r1a > r1b > r1c > laneA");
+  });
+
+  it("renders the title on a step inside a lane nested under another lane (E4, LaneColumn.tsx:146)", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    expect(titleFor("Nested lane step")).toBe(
+      "root:root-1 > r1a > r1b > r1c > laneA > laneB > laneC",
+    );
+  });
+
+  it("renders a distinct root:root-2-headed title inside root 2's own lane (E3, RootColumn.tsx:114)", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    expect(titleFor("Root two step")).toBe("root:root-2 > r2a");
+  });
+});
