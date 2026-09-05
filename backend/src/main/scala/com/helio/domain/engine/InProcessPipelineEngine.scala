@@ -135,20 +135,27 @@ object InProcessPipelineEngine {
  *  A `null` connector attempting a `RestSource` load fails fast with a clear
  *  `IllegalArgumentException` rather than a confusing `NullPointerException`.
  *
- *  `csvUrlFetch` (HEL-862, design.md Decision 3) is the injectable seam for
- *  re-fetching a URL-backed CSV source on a scheduled/manual run. Defaults to
- *  a function that always returns `Left("not configured")` so tests that omit
- *  it keep compiling and fail loudly (not silently) if they exercise a
- *  URL-backed CSV run without wiring the seam. `PipelineRunService` supplies
- *  the real implementation — a thin closure over `CsvUrlFetch.fetch` that
- *  closes over its `ActorSystem` LAZILY (never dereferenced at construction),
- *  because `InProcessPipelineEngine` is built as an eagerly-initialised field
- *  and `system` is `null` in every fixture that omits it. */
+ *  `urlFetch` (HEL-862, generalised HEL-881 design.md Decision 2) is the single
+ *  injectable seam for re-fetching ANY URL-backed source (`csv`, `text`, `pdf`,
+ *  `image`) on a scheduled/manual/preview run — one entry point all four
+ *  URL-backed kinds go through, rather than a per-kind copy (HEL-599's drift
+ *  lesson). Takes the source's `kind` string alongside the `url` so the single
+ *  implementation can apply that kind's own policy (size limit; https-only +
+ *  non-CSV-body gate for `csv` only, per design.md Decision 3) without the
+ *  engine itself needing to know what that policy is. Defaults to a function
+ *  that always returns `Left("not configured")` so tests that omit it keep
+ *  compiling and fail loudly (not silently) if they exercise a URL-backed run
+ *  without wiring the seam. `PipelineRunService` supplies the real
+ *  implementation — a thin closure that dispatches by kind to `CsvUrlFetch.fetch`
+ *  (csv) or `ContentSourceSupport.fetchUrlWithLimit` (text/pdf/image), closing
+ *  over its `ActorSystem` LAZILY (never dereferenced at construction), because
+ *  `InProcessPipelineEngine` is built as an eagerly-initialised field and
+ *  `system` is `null` in every fixture that omits it. */
 class InProcessPipelineEngine(
     fileSystem: FileSystem,
     connector:  RestApiConnectorDriver = null,
-    csvUrlFetch: String => Future[Either[String, Array[Byte]]] =
-      (_: String) => Future.successful(Left("URL-backed CSV fetch is not configured"))
+    urlFetch: (String, String) => Future[Either[String, Array[Byte]]] =
+      (_: String, _: String) => Future.successful(Left("URL-backed source fetch is not configured"))
 )(implicit ec: ExecutionContext) {
 
   /** Row bound for a real `rest_api`/`sql` run (design.md D2) — distinct from
@@ -503,7 +510,7 @@ class InProcessPipelineEngine(
           // scheduled run never calls DataSourceService.refreshCsv, so this
           // engine-level re-fetch is the only thing that keeps a scheduled
           // run from serving the original snapshot forever.
-          csvUrlFetch(url).flatMap {
+          urlFetch("csv", url).flatMap {
             case Left(err) =>
               Future.failed(
                 new IllegalArgumentException(
@@ -524,38 +531,100 @@ class InProcessPipelineEngine(
           else fileSystem.read(c.config.path).map(bytes => (loadCsvRowsFromBytes(bytes), SourceReadStats(truncated = false, availableRowCount = None)))
       }
     case t: TextSource =>
-      if (t.config.path.isEmpty)
-        Future.failed(
-          new IllegalArgumentException(
-            "Text data source '" + t.name + "' (id=" + t.id.value +
-              ") is missing required config key 'path'"
-          )
-        )
-      else fileSystem.read(t.config.path).map(bytes => (loadTextRowFromBytes(t.config.path, bytes), SourceReadStats(truncated = false, availableRowCount = None)))
-    case p: PdfSource =>
-      if (p.config.path.isEmpty)
-        Future.failed(
-          new IllegalArgumentException(
-            "PDF data source '" + p.name + "' (id=" + p.id.value +
-              ") is missing required config key 'path'"
-          )
-        )
-      else fileSystem.read(p.config.path).flatMap(loadPdfRowsFromBytes(p, _)).map(rows => (rows, SourceReadStats(truncated = false, availableRowCount = None)))
-    case i: ImageSource =>
-      if (i.config.path.isEmpty)
-        Future.failed(
-          new IllegalArgumentException(
-            "Image data source '" + i.name + "' (id=" + i.id.value +
-              ") is missing required config key 'path'"
-          )
-        )
-      else
-        fileSystem.read(i.config.path).flatMap { bytes =>
-          loadImageRowFromBytes(i.config.path, bytes) match {
-            case Right(row) => Future.successful((row, SourceReadStats(truncated = false, availableRowCount = None)))
-            case Left(msg)  => Future.failed(new IllegalArgumentException(msg))
+      t.config.sourceUrl match {
+        case Some(url) =>
+          // HEL-881 design.md Decision 1/2: mirrors the CSV branch above — a
+          // scheduled/manual/preview run never calls
+          // DataSourceService.refreshText, so this engine-level re-fetch is
+          // the only thing that keeps a run from serving the snapshot
+          // captured at creation time forever.
+          urlFetch("text", url).flatMap {
+            case Left(err) =>
+              Future.failed(
+                new IllegalArgumentException(
+                  "Text data source '" + t.name + "' (id=" + t.id.value + "): " + err
+                )
+              )
+            case Right(bytes) =>
+              Future.successful((loadTextRowFromBytes(t.config.path, bytes), SourceReadStats(truncated = false, availableRowCount = None)))
           }
-        }
+        case None =>
+          if (t.config.path.isEmpty)
+            Future.failed(
+              new IllegalArgumentException(
+                "Text data source '" + t.name + "' (id=" + t.id.value +
+                  ") is missing required config key 'path'"
+              )
+            )
+          else fileSystem.read(t.config.path).map(bytes => (loadTextRowFromBytes(t.config.path, bytes), SourceReadStats(truncated = false, availableRowCount = None)))
+      }
+    case p: PdfSource =>
+      p.config.sourceUrl match {
+        case Some(url) =>
+          // HEL-881 design.md Decision 1/2: same shared seam as text/CSV.
+          urlFetch("pdf", url).flatMap {
+            case Left(err) =>
+              Future.failed(
+                new IllegalArgumentException(
+                  "PDF data source '" + p.name + "' (id=" + p.id.value + "): " + err
+                )
+              )
+            case Right(bytes) =>
+              loadPdfRowsFromBytes(p, bytes).map(rows => (rows, SourceReadStats(truncated = false, availableRowCount = None)))
+          }
+        case None =>
+          if (p.config.path.isEmpty)
+            Future.failed(
+              new IllegalArgumentException(
+                "PDF data source '" + p.name + "' (id=" + p.id.value +
+                  ") is missing required config key 'path'"
+              )
+            )
+          else fileSystem.read(p.config.path).flatMap(loadPdfRowsFromBytes(p, _)).map(rows => (rows, SourceReadStats(truncated = false, availableRowCount = None)))
+      }
+    case i: ImageSource =>
+      i.config.sourceUrl match {
+        case Some(url) =>
+          // HEL-881 design.md Decision 4: unlike text/pdf, an image row
+          // references its bytes by `storageKey` (= `config.path`) rather
+          // than carrying them inline — an in-memory-only re-fetch would
+          // refresh width/height/mimeType while the rendered image stayed
+          // old, a metadata/content mismatch in the same silent-wrong-answer
+          // class as the bug under repair. So the fetched bytes are written
+          // back to `config.path` (atomically, via `LocalFileSystem.write`)
+          // BEFORE the row is built, matching what `refreshImage` already
+          // does on a manual refresh.
+          urlFetch("image", url).flatMap {
+            case Left(err) =>
+              Future.failed(
+                new IllegalArgumentException(
+                  "Image data source '" + i.name + "' (id=" + i.id.value + "): " + err
+                )
+              )
+            case Right(bytes) =>
+              fileSystem.write(i.config.path, bytes).flatMap { _ =>
+                loadImageRowFromBytes(i.config.path, bytes) match {
+                  case Right(row) => Future.successful((row, SourceReadStats(truncated = false, availableRowCount = None)))
+                  case Left(msg)  => Future.failed(new IllegalArgumentException(msg))
+                }
+              }
+          }
+        case None =>
+          if (i.config.path.isEmpty)
+            Future.failed(
+              new IllegalArgumentException(
+                "Image data source '" + i.name + "' (id=" + i.id.value +
+                  ") is missing required config key 'path'"
+              )
+            )
+          else
+            fileSystem.read(i.config.path).flatMap { bytes =>
+              loadImageRowFromBytes(i.config.path, bytes) match {
+                case Right(row) => Future.successful((row, SourceReadStats(truncated = false, availableRowCount = None)))
+                case Left(msg)  => Future.failed(new IllegalArgumentException(msg))
+              }
+            }
+      }
     case r: RestSource =>
       if (connector == null)
         Future.failed(

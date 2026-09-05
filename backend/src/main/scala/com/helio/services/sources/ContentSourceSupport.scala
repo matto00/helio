@@ -72,6 +72,20 @@ object ContentSourceSupport {
    *  cap) is what enforces the user-facing limit. */
   private val fetchSizeLimitBytes: Long = 104857600L // 100 MiB
 
+  /** Per-kind business-rule size ceilings (HEL-881): defined exactly once here
+   *  so `DataSourceService`'s manual-refresh path and `PipelineRunService`'s
+   *  run-path seam read the same value rather than each keeping its own
+   *  literal default that could silently diverge — the same
+   *  `CSV_MAX_FILE_SIZE_BYTES`-pattern consolidation `CsvUrlFetch.maxFileSizeBytes`
+   *  already applies to CSV. Unchanged in value from the pre-existing
+   *  `DataSourceService` defaults. */
+  val textMaxBytes: Long =
+    sys.env.get("TEXT_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(10485760L)
+  val pdfMaxBytes: Long =
+    sys.env.get("PDF_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
+  val imageMaxBytes: Long =
+    sys.env.get("IMAGE_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(20971520L)
+
   /** Default (production) host resolver — real DNS/hosts-file resolution via
    *  the JVM. `fetchUrl`'s (and `DataSourceService`'s) `resolveHost` parameter
    *  exists so tests can inject a fake resolver and exercise the SSRF guard's
@@ -302,6 +316,30 @@ object ContentSourceSupport {
             log.error("Content source URL fetch failed", e)
             Left("Request failed")
           }
+    }
+  }
+
+  /** [[fetchUrl]] plus a caller-supplied `maxBytes` business-rule size check
+   *  (HEL-881 design.md Decision 3) — the one shared fetch-and-size-check path
+   *  for text/pdf/image, reused by both the manual-refresh service and the
+   *  pipeline-engine run-path seam so the two cannot drift on what counts as
+   *  "too large". Mirrors `CsvUrlFetch.fetch`'s size check, but stays
+   *  http-or-https (unlike CSV's https-only gate) and has no non-CSV-body
+   *  gate — `csv-url-ingestion`'s spec requires both to stay CSV-only. */
+  def fetchUrlWithLimit(
+      url: String,
+      maxBytes: Long,
+      resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr)
+  )(implicit system: ActorSystem[_]): Future[Either[String, Array[Byte]]] = {
+    implicit val ec: ExecutionContext = system.executionContext
+    fetchUrl(url, resolveHost, isBlocked).map {
+      case Left(err) => Left(err)
+      case Right(bytes) =>
+        if (bytes.length.toLong > maxBytes)
+          Left(s"File at $url exceeds the maximum allowed size of $maxBytes bytes")
+        else
+          Right(bytes)
     }
   }
 

@@ -2015,7 +2015,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       val responses = Vector("name,age\nalice,30", "name,age\nalice,31\nbob,40")
       val seamEngine = new InProcessPipelineEngine(
         fileSystem,
-        csvUrlFetch = (_: String) => {
+        urlFetch = (_: String, _: String) => {
           val body = responses(math.min(callCount, responses.size - 1))
           callCount += 1
           Future.successful(Right(body.getBytes(StandardCharsets.UTF_8)))
@@ -2050,7 +2050,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       var seamCalled = false
       val seamEngine = new InProcessPipelineEngine(
         fileSystem,
-        csvUrlFetch = (_: String) => { seamCalled = true; Future.successful(Right(Array.emptyByteArray)) }
+        urlFetch = (_: String, _: String) => { seamCalled = true; Future.successful(Right(Array.emptyByteArray)) }
       )
       val ds = CsvSource(
         id        = DataSourceId("ds-csv-snapshot"),
@@ -2069,7 +2069,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     "loadRows: a URL-backed CSV source fails the run with a message naming the source and the reason, on a failing fetch" in {
       val seamEngine = new InProcessPipelineEngine(
         fileSystem,
-        csvUrlFetch = (_: String) => Future.successful(Left("URL host 'sneaky.example' resolves to a disallowed address"))
+        urlFetch = (_: String, _: String) => Future.successful(Left("URL host 'sneaky.example' resolves to a disallowed address"))
       )
       val ds = CsvSource(
         id        = DataSourceId("ds-csv-fail"),

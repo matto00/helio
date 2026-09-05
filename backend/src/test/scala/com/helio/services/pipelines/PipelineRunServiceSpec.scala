@@ -262,6 +262,20 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     dsId
   }
 
+  /** HEL-881: seeds a `text` DataSource carrying `sourceUrl`, mirroring
+   *  `seedCsvUrlDs` — the generalised counterpart proving the shared seam
+   *  (design.md Decision 2) covers text/pdf/image the same way it covers csv. */
+  private def seedTextUrlDs(url: String): String = {
+    import PostgresProfile.api._
+    val dsId     = UUID.randomUUID().toString
+    val dsConfig = s"""{"path":"text/$dsId.txt","sourceUrl":"$url"}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-text-url', 'text', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
+  }
+
   // HEL-913 task 5.8: a second, genuinely different DataSource (different columns/rows/row
   // count from `seedDsWithData`'s alice/bob) -- proving root isolation needs two roots whose
   // data can't accidentally look alike.
@@ -930,6 +944,24 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       // could plausibly surface a null/NPE-shaped string here instead).
       runs.head.errorLog shouldBe Some("Pipeline execution failed")
     }
+
+    // HEL-881 design.md Decision 6/task 1.4/4.6: the ticket names only
+    // "scheduled run", but `loadRowsWithStats` is the SAME dispatch a manual
+    // `submit` (this test) and `previewStep` (below) both reach — proving the
+    // fix (and, before it existed, the defect) is not scheduled-run-only.
+    "a URL-backed text run under a MANUAL submit (not a scheduled fire) reaches the same shared seam as csv" in {
+      val dsId = seedTextUrlDs("https://example.com/notes.txt")
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs should have size 1
+      runs.head.status shouldBe "failed"
+      runs.head.errorLog shouldBe Some("Pipeline execution failed")
+    }
   }
 
   "PipelineRunService.previewStep (HEL-758 rest_api/sql base-source execution)" should {
@@ -952,6 +984,20 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(service.previewStep(pid, step.id.value, dummyUser))
       result shouldBe a[Right[_, _]]
       result.toOption.get.rows should not be empty
+    }
+
+    // HEL-881 design.md Decision 6/task 1.4/4.6: `previewStep` re-enters the
+    // SAME `loadRowsWithStats` dispatch as a manual/scheduled run — a
+    // URL-backed text source hits the identical unwired-seam failure here,
+    // proving the preview path is not exempt from the fix (or, pre-fix, from
+    // the defect).
+    "previewStep for a URL-backed text base source reaches the same shared seam as a run" in {
+      val dsId = seedTextUrlDs("https://example.com/notes.txt")
+      val pid  = seedPipeline(dsId)
+      val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
+
+      val result = await(service.previewStep(pid, step.id.value, dummyUser))
+      result shouldBe a[Left[_, _]]
     }
 
     // HEL-904 follow-on ruling (2026-08-31): previewStep resolves the target
