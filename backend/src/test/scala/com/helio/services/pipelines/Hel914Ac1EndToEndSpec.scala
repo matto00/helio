@@ -118,7 +118,8 @@ class Hel914Ac1EndToEndSpec extends AnyWordSpec with Matchers with ScalatestRout
     pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, null, null, outputRepo)
 
     workspaceContextService = new WorkspaceContextService(
-      dashboardService, dataSourceService, outputRepo, pipelineService
+      dashboardService, dataSourceService, outputRepo, pipelineService,
+      pipelineStepRepoOpt = Some(pipelineStepRepo)
     )
 
     seedUsers()

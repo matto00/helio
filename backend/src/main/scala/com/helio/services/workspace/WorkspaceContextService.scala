@@ -11,7 +11,7 @@ import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, Workspac
 import com.helio.api.protocols.pipelines.PipelineLaneTreeNode
 import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, Dashboard, FieldTypeCategory, Output, Page, PagedResult, PipelineId}
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 
@@ -76,7 +76,17 @@ final class WorkspaceContextService(
     // node_snapshots) keeps compiling unchanged. When `None`, `toDataTypeEntry`'s sample-row/
     // column-stats fetch degrades to empty (mirrors `toDataTypeEntry`'s existing
     // `dt.sourceId.isDefined` skip-the-query behavior for a resource with nothing to sample).
-    nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None
+    nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None,
+    // HEL-914 (performance fix, CI diagnosis): same trailing, Option-guarded, default-None
+    // precedent as the params above -- every existing construction site keeps compiling
+    // unchanged. Lets `buildPipeline` fetch this pipeline's steps ONCE (ownership already
+    // established via the owner-scoped `listSummaries` call that produced its `summary`, the SAME
+    // justification `outputsF`'s own `outputRepo.listByPipelineInternal` call already documents)
+    // and feed them into `PipelineService.laneTreeGiven`, instead of `laneTree` re-deriving them
+    // via a second, redundant `pipelineStepRepo.listByPipelineInternal` round trip. `None` (a
+    // fixture predating this fix) degrades `laneTree` to `[]`, mirroring `outputRepo == null`'s
+    // existing degrade convention below.
+    pipelineStepRepoOpt: Option[PipelineStepRepository] = None
 )(implicit ec: ExecutionContext)
     extends WorkspaceContextComputations {
 
@@ -268,12 +278,21 @@ final class WorkspaceContextService(
       .recover { case ex =>
         (Vector.empty[WorkspaceContextPipelineStep], Some(Option(ex.getMessage).getOrElse(ex.getClass.getName)))
       }
-    // HEL-914 task 6.6: degrades to `[]` on the SAME failure basis as `steps`/`stepsError` above
-    // (never a second, independent failure mode) -- a pipeline whose analyze failed reports no
-    // lane tree either, rather than a partial/stale one.
-    val laneTreeF = pipelineService.laneTree(PipelineId(summary.id), user)
-      .map(_.getOrElse(Vector.empty))
-      .recover { case _ => Vector.empty }
+    // HEL-914 task 6.6 / performance fix: degrades to `[]` on the SAME failure basis as
+    // `steps`/`stepsError` above (never a second, independent failure mode) -- a pipeline whose
+    // analyze failed reports no lane tree either, rather than a partial/stale one. Fetches steps
+    // ONCE (`pipelineStepRepoOpt`, ownership already established -- see that param's own doc) and
+    // feeds them, plus the ALREADY-fetched `outputsF`, into `laneTreeGiven` -- never calling the
+    // ACL-checked `laneTree` here, which would re-derive both via two more redundant round trips.
+    val laneTreeF = pipelineStepRepoOpt match {
+      case None => Future.successful(Vector.empty[PipelineLaneTreeNode])
+      case Some(pipelineStepRepo) =>
+        (for {
+          steps   <- pipelineStepRepo.listByPipelineInternal(PipelineId(summary.id))
+          outputs <- outputsF
+          nodes   <- pipelineService.laneTreeGiven(PipelineId(summary.id), steps, outputs)
+        } yield nodes).recover { case _ => Vector.empty[PipelineLaneTreeNode] }
+    }
     for {
       outputs                    <- outputsF
       (steps, stepsError)        <- analyzeF

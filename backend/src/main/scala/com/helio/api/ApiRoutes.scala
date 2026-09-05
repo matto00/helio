@@ -512,7 +512,11 @@ final class ApiRoutes(
     // HEL-828 design.md Decision 5: reuses the EXISTING connectorRepoOpt (constructed above,
     // alongside sourceService/connectorEntityServiceOpt) — no new ConnectorRepository here.
     connectorRepoOpt,
-    nodeSnapshotRepoOpt
+    nodeSnapshotRepoOpt,
+    // HEL-914 (performance fix): `pipelineStepRepo` is unconditionally constructed above (used by
+    // `pipelineService`/`pipelineRunService` etc. already) — always `Some` in production, exactly
+    // like `pipelineService` itself two lines up.
+    Some(pipelineStepRepo)
   )
   // HEL-397: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
   // fixtures that don't pass a DbContext simply don't get the authoring routes' persistence

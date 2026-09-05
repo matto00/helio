@@ -1050,36 +1050,57 @@ final class PipelineService(
       case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
       case Some(_) =>
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
-          val rootFetch = for {
-            rootDataSourceIds <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
-            rootIdOfStep      <- pipelineStepRepo.rootIdsOf(pipelineId)
-          } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep)
           val outputsF =
             if (outputRepo == null) Future.successful(Vector.empty[Output])
             else outputRepo.listByPipelineInternal(pipelineId)
-
-          for {
-            (rootIds, rootIdOfStep) <- rootFetch
-            outputs                 <- outputsF
-          } yield {
-            val rootIdOfStepStr = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
-            val graphPath       = RuntimeGraphPath.build(allSteps, rootIds, rootIdOfStepStr)
-            val outputsByStep: Map[String, Vector[String]] =
-              outputs.flatMap(o => o.node.stepId.map(sid => sid.value -> o.id.value)).groupMap(_._1)(_._2)
-            Right(allSteps.map { s =>
-              val path   = graphPath.pathOf(s)
-              val rootId = path.stripPrefix("root:").takeWhile(_ != ' ')
-              PipelineLaneTreeNode(
-                id        = s.id.value,
-                parentId  = s.parentStepId.map(_.value),
-                rootId    = rootId,
-                op        = s.kind,
-                outputIds = outputsByStep.getOrElse(s.id.value, Vector.empty)
-              )
-            })
-          }
+          outputsF.flatMap(outputs => laneTreeGiven(pipelineId, allSteps, outputs)).map(Right(_))
         }
     }
+
+  /** Performance fix (HEL-914, CI diagnosis): the SAME lane-tree computation `laneTree` above
+   *  performs, but skipping its ownership check (`findByIdShared`) and its own steps/Outputs
+   *  fetches -- for a caller that has ALREADY established ownership and ALREADY fetched both in
+   *  the SAME request. `WorkspaceContextService.buildPipeline` is exactly this caller: it already
+   *  confirmed ownership via the owner-scoped `listSummaries` call that produced its `summary`,
+   *  and it already fetches this pipeline's Outputs for its own `outputsF`. Before this fix,
+   *  `buildPipeline`'s per-pipeline cost carried THREE genuinely redundant round trips —
+   *  `findByIdShared` (ownership re-check), `outputRepo.listByPipelineInternal` (byte-identical to
+   *  `outputsF`), and (via `analyzeF`'s own `pipelineService.analyze` call) a second copy of this
+   *  same pipeline's steps — a real N+1 regardless of any test's time budget, not merely a
+   *  CI-timeout workaround; the spec's own `beforeEach`-free 32-pipeline fixture just makes it
+   *  visible at ~1.4x. `laneTree` (the PUBLIC, ACL-checked entry point) is UNCHANGED for every
+   *  other caller — this method is deliberately `private[services]`, named to state exactly what
+   *  it assumes (steps/outputs GIVEN, not re-derived) rather than accepting a bare boolean that
+   *  would silently invite a future caller to skip the ACL check without having actually done
+   *  one (design.md's HEL-384 near-miss is the precedent this naming exists to avoid repeating). */
+  private[services] def laneTreeGiven(
+      pipelineId: PipelineId,
+      allSteps: Vector[PipelineStep],
+      outputsAlreadyFetchedForThisPipeline: Vector[Output]
+  ): Future[Vector[PipelineLaneTreeNode]] = {
+    val rootFetch = for {
+      rootDataSourceIds <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
+      rootIdOfStep      <- pipelineStepRepo.rootIdsOf(pipelineId)
+    } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep)
+
+    rootFetch.map { case (rootIds, rootIdOfStep) =>
+      val rootIdOfStepStr = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
+      val graphPath       = RuntimeGraphPath.build(allSteps, rootIds, rootIdOfStepStr)
+      val outputsByStep: Map[String, Vector[String]] =
+        outputsAlreadyFetchedForThisPipeline.flatMap(o => o.node.stepId.map(sid => sid.value -> o.id.value)).groupMap(_._1)(_._2)
+      allSteps.map { s =>
+        val path   = graphPath.pathOf(s)
+        val rootId = path.stripPrefix("root:").takeWhile(_ != ' ')
+        PipelineLaneTreeNode(
+          id        = s.id.value,
+          parentId  = s.parentStepId.map(_.value),
+          rootId    = rootId,
+          op        = s.kind,
+          outputIds = outputsByStep.getOrElse(s.id.value, Vector.empty)
+        )
+      }
+    }
+  }
 
   /** `GET /api/pipelines/:id/capabilities?stepId=` (HEL-906 task 3.4) — evaluates
    *  `OutputBindingSpec` against the per-node projection `PipelineAnalyzeService.analyzeNodes`

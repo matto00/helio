@@ -138,13 +138,15 @@ class WorkspaceContextServiceSpec
     // now come from NodeSnapshotRepository, replacing DataTypeRowRepository).
     service = new WorkspaceContextService(
       dashboardService, dataSourceService, outputRepo, pipelineService,
-      nodeSnapshotRepoOpt = Some(nodeSnapshotRepo)
+      nodeSnapshotRepoOpt = Some(nodeSnapshotRepo),
+      pipelineStepRepoOpt = Some(pipelineStepRepo)
     )
     connectorRepo = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider())))
     serviceWithConnectors = new WorkspaceContextService(
       dashboardService, dataSourceService, outputRepo, pipelineService,
       connectorRepoOpt = Some(connectorRepo),
-      nodeSnapshotRepoOpt = Some(nodeSnapshotRepo)
+      nodeSnapshotRepoOpt = Some(nodeSnapshotRepo),
+      pipelineStepRepoOpt = Some(pipelineStepRepo)
     )
 
     await(db.run(DBIO.seq(
