@@ -380,6 +380,14 @@ export interface PipelineStepResponse {
   type: string;
   position: number;
   config: unknown;
+  /** HEL-907/HEL-913: mirrors the backend `PipelineStepResponse` trait's own `parentStepId` --
+   *  omitted on the wire (not null) for a trunk (parentless) step. Widened here (HEL-914 task
+   *  6.6) because `context.ts`'s lane tree needs it; was already present on the wire, just not
+   *  on this narrower client-side type. */
+  parentStepId?: string | null;
+  /** HEL-913 task 5.9/5.4/7.6a: WHICH pipeline root this step belongs to. Widened alongside
+   *  `parentStepId` for the same HEL-914 task 6.6 reason. */
+  rootId?: string;
 }
 
 /** One failing assertion rule's detail (HEL-576/HEL-581) — mirrors the
@@ -818,6 +826,9 @@ export interface PipelineProposalSource {
   type?: "csv" | "rest_api" | "sql" | "static";
   name?: string;
   config?: Record<string, unknown>;
+  /** HEL-914: request-scoped id a parentless step's `rootClientId` binds to
+   *  when the proposal's `roots` has more than one element. Not persisted. */
+  clientId?: string;
 }
 
 /** One step of a pipeline proposal (HEL-907 task 1.1/3.10) — mirrors the
@@ -863,7 +874,9 @@ export interface PipelineProposalOutput {
  *  single `outputDataTypeName` DataType contract onto Outputs. */
 export interface PipelineProposal {
   pipelineName: string;
-  source: PipelineProposalSource;
+  /** HEL-914: replaces the old singular `source` outright -- no alias, no
+   *  default. Non-empty. */
+  roots: PipelineProposalSource[];
   steps: PipelineProposalStep[];
   outputs?: PipelineProposalOutput[];
 }
@@ -876,8 +889,10 @@ export interface PipelineProposal {
  *  HEL-907 task 1.1: `outputDataTypeName` dropped outright (no alias) — it
  *  was a pure echo of `PipelineProposal`'s now-removed same-named field. */
 export interface PipelineAnalyzeProposalResponse {
-  sourceName: string;
-  sourceSchema: SchemaField[];
+  /** HEL-914: replaces the old singular `sourceName`/`sourceSchema` outright
+   *  -- one entry per proposed root, matching the persisted-pipeline twin
+   *  `PipelineAnalyzeResponse.sourceSchemas`. */
+  sourceSchemas: RootSourceSchemaResponse[];
   steps: PipelineAnalyzeResponse["steps"];
 }
 
@@ -899,7 +914,8 @@ export interface ProposalOutputSummary {
  *  `outputs` replaces the old single `outputDataTypeId: string` — a
  *  proposal can create zero, one, or many Outputs now. */
 export interface PipelineProposalApplyResponse {
-  source?: DataSourceResponse;
+  /** HEL-914: one element per newly-created inline root, in root order. */
+  sources: DataSourceResponse[];
   pipeline: PipelineSummaryResponse;
   outputs: ProposalOutputSummary[];
   run: RunResultResponse;
@@ -937,8 +953,15 @@ export interface CombinedProposalApplyResponse {
 /** Identifies the resource an `Edit` applies to. `id` is required for
  *  update/delete, absent for create (the resource does not yet exist). */
 export interface EditTarget {
-  kind: "panel" | "dashboard" | "dataSource" | "dataType" | "pipeline" | "pipelineStep";
+  // HEL-914: `dataType` retired outright (HEL-904 -- no DataType resource exists to target
+  // anymore); `output` added (HEL-907 task 1.2's `output` update/delete op).
+  kind: "panel" | "dashboard" | "dataSource" | "pipeline" | "pipelineStep" | "output";
   id?: string;
+  /** HEL-914 task 5.1: names the parent resource a not-yet-existing CHILD resource is created
+   *  under -- REQUIRED for a create targeting a child kind (currently only `pipelineStep`,
+   *  whose `parentId` is the existing parent pipeline's id) and must be OMITTED for
+   *  update/delete, where it is meaningless. */
+  parentId?: string;
 }
 
 /** One targeted edit. `patch`'s real shape reuses the existing per-resource

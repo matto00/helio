@@ -14,7 +14,7 @@ interface PipelineProposalReviewProps {
    *  needs set up before it can be applied (design.md Decision 3). Empty for
    *  every proposal that doesn't need one. */
   unresolvedConnectorRefs?: UnresolvedConnectorRef[];
-  onConnectorResolved?: (connectorId: string) => void;
+  onConnectorResolved?: (connectorId: string, key: string) => void;
   /** Called on accept — nothing is written until this fires. */
   onAccept: () => void;
   /** Called on reject / close — nothing is written. */

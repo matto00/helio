@@ -5,6 +5,7 @@ import com.helio.api.protocols.sources.DataSourceResponse
 import com.helio.api.protocols.pipelines.{PipelineStepConfigCodec, PipelineSummaryResponse}
 import com.helio.api.protocols.panels.PanelResponse
 import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataSourceId, PanelId, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.steps.SecondaryInput
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import PatchSetApplicationRepository.JournaledEdit
 import PatchSetApplyServiceJson._
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory
 import spray.json.{JsObject, JsValue, JsonParser}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 import scala.util.control.NonFatal
 
 /** Phase-1 pass over every journaled edit (design.md D4/D4a, tasks.md 2.2) — fetches each
@@ -56,6 +58,7 @@ private[services] object PatchSetUndoConflictCheck {
       case ("dataSource", "update" | "create")=> checkDataSource(edit, user, ctx)
       case ("pipeline", "update" | "create")  => checkPipeline(edit, user, ctx)
       case ("pipelineStep", "update")         => checkPipelineStep(edit, ctx)
+      case ("pipelineStep", "create")         => checkPipelineStepCreate(edit, ctx)
       case (kind, op)                          =>
         Future.successful(Some(s"edit ${edit.index}: no undo path for target.kind '$kind' op '$op'"))
     }
@@ -188,4 +191,44 @@ private[services] object PatchSetUndoConflictCheck {
   private def encodedStepConfig(step: PipelineStep): Option[JsObject] =
     try Some(JsonParser(PipelineStepConfigCodec.encode(step)).asJsObject)
     catch { case NonFatal(_) => None }
+
+  /** HEL-914 task 5.6/5.7: a `pipelineStep` `create` edit's undo (a lane) is eligible unless
+   *  the created step no longer exists (mirrors `checkPipelineStep`'s existence check — content
+   *  drift isn't checked here since a lane's own create-undo doesn't restore a PATCHed state,
+   *  it deletes the node outright) OR some OTHER step in the SAME pipeline was added later with
+   *  a `lane`-kind `secondaryInput` referencing this node — undoing the create would delete a
+   *  node that node still relies on (mirrors R7 phase 1.2's identical write-time guard). */
+  private def checkPipelineStepCreate(edit: JournaledEdit, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Option[String]] =
+    edit.resultingState match {
+      case None => Future.successful(Some(missing(edit)))
+      case Some(json) =>
+        val fields        = json.asJsObject.fields
+        val stepIdStr     = fields.get("id").map(_.convertTo[String]).getOrElse("")
+        val pipelineIdStr = fields.get("pipelineId").map(_.convertTo[String]).getOrElse("")
+        ctx.pipelineStepRepo.findByIdInternal(PipelineStepId(stepIdStr)).flatMap {
+          case None => Future.successful(Some(changed(edit, s"pipeline step $stepIdStr no longer exists")))
+          case Some(_) =>
+            ctx.pipelineStepRepo.listByPipelineInternal(PipelineId(pipelineIdStr)).map { steps =>
+              steps
+                .filterNot(_.id.value == stepIdStr)
+                .flatMap(referencingLaneStepId(_, stepIdStr))
+                .headOption
+                .map(referencerId => changed(
+                  edit,
+                  s"step $referencerId has a lane secondaryInput referencing pipeline step $stepIdStr -- " +
+                    "remove or repoint that reference before undoing"
+                ))
+            }
+        }
+    }
+
+  private def referencingLaneStepId(step: PipelineStep, targetStepId: String): Option[String] =
+    encodedStepConfig(step).flatMap { configJson =>
+      configJson.fields.get("secondaryInput").flatMap { v =>
+        Try(SecondaryInput.format.read(v)) match {
+          case Success(SecondaryInput.Lane(sid)) if sid == targetStepId => Some(step.id.value)
+          case _                                                        => None
+        }
+      }
+    }
 }

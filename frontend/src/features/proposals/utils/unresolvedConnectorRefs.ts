@@ -9,10 +9,10 @@ import type { CombinedProposal } from "../types/combinedProposal";
 
 /** Mirrors the backend's `ProposalRestApiConfig`/`NewConnectorDraft`
  *  (`PipelineProposalProtocol.scala`) — the client-side shape narrowed out of
- *  the loose `proposal.source.config: Record<string, unknown>` bag (design.md
+ *  the loose `proposal.roots[i].config: Record<string, unknown>` bag (design.md
  *  Decision 3's round-2 CR-5 wire-key correction: there is no typed
- *  `restConfig` field on the client, only `source.config` selected by
- *  `source.type === "rest_api"`). */
+ *  `restConfig` field on the client, only `root.config` selected by
+ *  `root.type === "rest_api"`). */
 export interface NewConnectorDraftClient {
   name: string;
   baseUrl: string;
@@ -80,23 +80,27 @@ export function narrowRestApiConfigClient(
   return result;
 }
 
-/** One `PipelineProposal`'s single inline REST source, resolved against the
- *  given `key` prefix. A step whose `config.url` is set is the legacy
- *  bare-URL path — excluded, no inline-setup UI (design.md Decision 3). */
+/** Every `PipelineProposal` root's inline REST source (HEL-914 task 6b.4e:
+ *  connector detection runs PER ROOT, not per "source step" — one setup
+ *  section per unresolved root). A root whose `config.url` is set is the
+ *  legacy bare-URL path — excluded, no inline-setup UI (design.md Decision 3). */
 function detectForPipelineSource(
   proposal: PipelineProposal,
   connectors: Connector[],
-  key: string,
+  keyPrefix: string,
 ): UnresolvedConnectorRef[] {
-  if (proposal.source.type !== "rest_api") return [];
-  const config = narrowRestApiConfigClient(proposal.source.config);
-  if (!config) return [];
-  if (config.url) return [];
-  if (config.newConnector) return [{ key, draft: config.newConnector }];
-  if (config.connectorId && !connectors.some((c) => c.id === config.connectorId)) {
-    return [{ key, danglingConnectorId: config.connectorId }];
-  }
-  return [];
+  return proposal.roots.flatMap((root, index): UnresolvedConnectorRef[] => {
+    const key = `${keyPrefix}-${index}`;
+    if (root.type !== "rest_api") return [];
+    const config = narrowRestApiConfigClient(root.config);
+    if (!config) return [];
+    if (config.url) return [];
+    if (config.newConnector) return [{ key, draft: config.newConnector }];
+    if (config.connectorId && !connectors.some((c) => c.id === config.connectorId)) {
+      return [{ key, danglingConnectorId: config.connectorId }];
+    }
+    return [];
+  });
 }
 
 /** Given a `PipelineProposal` and the current connector list, returns every
@@ -119,34 +123,45 @@ export function detectUnresolvedConnectorRefsForCombined(
   return detectForPipelineSource(proposal.pipeline, connectors, "combined-pipeline-source");
 }
 
-/** Patches a `PipelineProposal`'s local copy so the resolved step's
+/** Recovers the root index from a `key` this module minted
+ *  (`${prefix}-${index}`) — the last `-`-delimited segment. */
+function rootIndexFromKey(key: string): number {
+  const parts = key.split("-");
+  return Number(parts[parts.length - 1]);
+}
+
+/** Patches a `PipelineProposal`'s local copy so the resolved ROOT's
  *  `config.newConnector`/dangling `config.connectorId` is replaced with the
  *  now-real `connectorId`, clearing `newConnector`/`url` — the resulting
  *  `config` is, structurally, an ordinary `connectorId`-only config
  *  (design.md Decision 2's "resolving before Apply"). Every OTHER field on
  *  `config` (`endpoint`/`method`/`queryParams`/`headers`/...) is preserved
- *  untouched. Never mutates the input — returns a new object. */
+ *  untouched. Never mutates the input — returns a new object. HEL-914: `key`
+ *  (from `UnresolvedConnectorRef.key`) names WHICH root resolved — resolving
+ *  one root never touches any other. */
 export function resolvePipelineConnectorRef(
   proposal: PipelineProposal,
   connectorId: string,
+  key: string,
 ): PipelineProposal {
-  const { newConnector: _newConnector, url: _url, ...restConfig } = proposal.source.config ?? {};
-  return {
-    ...proposal,
-    source: {
-      ...proposal.source,
-      config: { ...restConfig, connectorId },
-    },
-  };
+  const index = rootIndexFromKey(key);
+  const root = proposal.roots[index];
+  if (!root) return proposal;
+  const { newConnector: _newConnector, url: _url, ...restConfig } = root.config ?? {};
+  const roots = proposal.roots.map((r, i) =>
+    i === index ? { ...r, config: { ...restConfig, connectorId } } : r,
+  );
+  return { ...proposal, roots };
 }
 
 /** Same patch, applied to a `CombinedProposal`'s nested pipeline half. */
 export function resolveCombinedConnectorRef(
   proposal: CombinedProposal,
   connectorId: string,
+  key: string,
 ): CombinedProposal {
   return {
     ...proposal,
-    pipeline: resolvePipelineConnectorRef(proposal.pipeline, connectorId),
+    pipeline: resolvePipelineConnectorRef(proposal.pipeline, connectorId, key),
   };
 }

@@ -1168,12 +1168,13 @@ describe("pipelineSchedule reducers", () => {
 
 const sampleProposal: PipelineProposal = {
   pipelineName: "Demo pipeline",
-  source: { type: "static", name: "Demo source", config: {} },
+  roots: [{ type: "static", name: "Demo source", config: {} }],
   steps: [],
   outputs: [{ kind: "table", name: "Demo output" }],
 };
 
 const sampleApplyResponse: PipelineProposalApplyResponse = {
+  sources: [],
   pipeline: newPipeline,
   outputs: [{ id: "out-raw", name: "Demo output", kind: "table" }],
   run: { rows: [], rowCount: 0 },

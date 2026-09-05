@@ -270,6 +270,47 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
     expect(context.pipelines[0]?.outputs).toHaveLength(201);
   });
 
+  // HEL-914 task 6.6: the compact lane tree.
+  it("reports laneTree with id/parentId/rootId/op/outputIds per node", async () => {
+    const context = await buildWorkspaceContext(
+      fakeApiWithPipeline({
+        getPipeline: async () => ({
+          ...summary,
+          steps: [
+            { id: "step-0", type: "select", position: 0, config: {}, rootId: "root-1" },
+            {
+              id: "step-1",
+              type: "rename",
+              position: 0,
+              config: {},
+              parentStepId: "step-0",
+              rootId: "root-1",
+            },
+          ],
+        }),
+      }) as unknown as HelioApi,
+    );
+
+    expect(context.pipelines[0]?.laneTree).toEqual([
+      { id: "step-0", parentId: null, rootId: "root-1", op: "select", outputIds: [] },
+      { id: "step-1", parentId: "step-0", rootId: "root-1", op: "rename", outputIds: ["out-1"] },
+    ]);
+  });
+
+  it("degrades laneTree to [] (without affecting steps/outputs) when getPipeline fails", async () => {
+    const context = await buildWorkspaceContext(
+      fakeApiWithPipeline({
+        getPipeline: async () => {
+          throw new Error("boom");
+        },
+      }) as unknown as HelioApi,
+    );
+
+    expect(context.pipelines[0]?.laneTree).toEqual([]);
+    expect(context.pipelines[0]?.stepsError).toBeUndefined();
+    expect(context.pipelines[0]?.outputs).toHaveLength(1);
+  });
+
   it("still degrades steps/stepsError on an analyze failure without dropping outputs", async () => {
     const context = await buildWorkspaceContext(
       fakeApiWithPipeline({

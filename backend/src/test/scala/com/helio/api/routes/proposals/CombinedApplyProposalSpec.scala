@@ -23,8 +23,8 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
         """{
           |  "pipeline": {
           |    "pipelineName": "Combined Pipeline",
-          |    "source": {"type":"static","name":"Combined Static",
-          |      "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"],["y"]]}},
+          |    "roots":[{"type":"static","name":"Combined Static",
+          |      "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"],["y"]]}}],
           |    "steps": [],
           |    "outputs": [{"kind":"table","name":"Combined Output"}]
           |  },
@@ -62,8 +62,8 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
         s"""{
            |  "pipeline": {
            |    "pipelineName": "Mixed Pipeline",
-           |    "source": {"type":"static","name":"Mixed Static",
-           |      "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}},
+           |    "roots":[{"type":"static","name":"Mixed Static",
+           |      "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}}],
            |    "steps": [],
            |    "outputs": [{"kind":"table","name":"Mixed Output"}]
            |  },
@@ -88,7 +88,7 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
     }
 
     "require authentication" in {
-      Post("/api/proposals/apply", json("""{"pipeline":{"pipelineName":"P","source":{"sourceId":"x"},
+      Post("/api/proposals/apply", json("""{"pipeline":{"pipelineName":"P","roots":[{"sourceId":"x"}],
         |"outputDataTypeName":"O","steps":[]},"dashboard":{"dashboardName":"D","panels":[]}}""".stripMargin)) ~>
         routes ~> check {
           status shouldBe StatusCodes.Unauthorized

@@ -1,7 +1,7 @@
 package com.helio.api.protocols.workspace
 
 import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentMemoryProtocol, AgentPreferencesProtocol, AgentPreferencesResponse}
-import com.helio.api.protocols.pipelines.{PipelineProtocol, PipelineRootSummaryResponse}
+import com.helio.api.protocols.pipelines.{PipelineLaneTreeNode, PipelineProtocol, PipelineRootSummaryResponse}
 import com.helio.api.protocols.sources.{ConnectorEntityProtocol, ConnectorSummary}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
@@ -133,7 +133,13 @@ final case class WorkspaceContextPipeline(
     lastRunRowCount: Option[Long],
     tag: Option[String],
     steps: Vector[WorkspaceContextPipelineStep],
-    stepsError: Option[String]
+    stepsError: Option[String],
+    // HEL-914 task 6.6: the compact lane tree (id/parentId/rootId/op/boundOutputIds per node) --
+    // tier-0 like `steps` above (WorkspaceContextBudget's shed order never shrinks either), so
+    // trimming never touches it; only sampleRows/exampleValues/joinHints ever get cut.
+    // Degrades to `[]` alongside `steps`/`stepsError` on the SAME per-pipeline analyze failure
+    // (never a second, independent failure mode) -- see `WorkspaceContextService.buildPipeline`.
+    laneTree: Vector[PipelineLaneTreeNode]
 )
 
 final case class WorkspaceContextDashboard(id: String, name: String, panelCount: Int)
@@ -253,7 +259,7 @@ trait WorkspaceContextProtocol
   implicit val workspaceContextPipelineStepFormat: RootJsonFormat[WorkspaceContextPipelineStep] =
     jsonFormat4(WorkspaceContextPipelineStep.apply)
   implicit val workspaceContextPipelineFormat: RootJsonFormat[WorkspaceContextPipeline] =
-    jsonFormat11(WorkspaceContextPipeline.apply)
+    jsonFormat12(WorkspaceContextPipeline.apply)
   implicit val workspaceContextDashboardFormat: RootJsonFormat[WorkspaceContextDashboard] =
     jsonFormat3(WorkspaceContextDashboard.apply)
   implicit val workspaceContextTruncationFormat: RootJsonFormat[WorkspaceContextTruncation] =

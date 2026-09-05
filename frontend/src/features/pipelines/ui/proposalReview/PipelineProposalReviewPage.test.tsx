@@ -35,12 +35,13 @@ beforeAll(() => {
 
 const proposal: PipelineProposal = {
   pipelineName: "Sales pipeline",
-  source: { sourceId: "src-1" },
+  roots: [{ sourceId: "src-1" }],
   steps: [],
   outputs: [{ kind: "table", name: "SalesMetrics" }],
 };
 
 const appliedResponse: PipelineProposalApplyResponse = {
+  sources: [],
   pipeline: {
     id: "p-new",
     name: "Sales pipeline",

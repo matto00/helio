@@ -20,7 +20,7 @@ describe("computePipelineProposalWarnings", () => {
   it("produces no warnings for a valid, known sourceId", () => {
     const source: PipelineProposalSource = { sourceId: "source-1" };
 
-    expect(computePipelineProposalWarnings(source, knownSourceIds)).toEqual([]);
+    expect(computePipelineProposalWarnings([source], knownSourceIds)).toEqual([]);
   });
 
   it("produces no warnings for a valid inline source (type + name + config)", () => {
@@ -30,7 +30,7 @@ describe("computePipelineProposalWarnings", () => {
       config: { columns: [], rows: [] },
     };
 
-    expect(computePipelineProposalWarnings(source, knownSourceIds)).toEqual([]);
+    expect(computePipelineProposalWarnings([source], knownSourceIds)).toEqual([]);
   });
 
   it("warns when both sourceId and type are set", () => {
@@ -41,7 +41,7 @@ describe("computePipelineProposalWarnings", () => {
       config: {},
     };
 
-    const warnings = computePipelineProposalWarnings(source, knownSourceIds);
+    const warnings = computePipelineProposalWarnings([source], knownSourceIds);
 
     expect(warnings).toEqual([expect.stringContaining("both sourceId and type are set")]);
   });
@@ -49,7 +49,7 @@ describe("computePipelineProposalWarnings", () => {
   it("warns when neither sourceId nor type is set", () => {
     const source: PipelineProposalSource = {};
 
-    const warnings = computePipelineProposalWarnings(source, knownSourceIds);
+    const warnings = computePipelineProposalWarnings([source], knownSourceIds);
 
     expect(warnings).toEqual([expect.stringContaining("neither sourceId nor type is set")]);
   });
@@ -57,7 +57,7 @@ describe("computePipelineProposalWarnings", () => {
   it("warns when type is set but name is blank", () => {
     const source: PipelineProposalSource = { type: "csv", name: "   ", config: {} };
 
-    const warnings = computePipelineProposalWarnings(source, knownSourceIds);
+    const warnings = computePipelineProposalWarnings([source], knownSourceIds);
 
     expect(warnings).toEqual([expect.stringContaining("name is blank/absent")]);
   });
@@ -65,7 +65,7 @@ describe("computePipelineProposalWarnings", () => {
   it("warns when type is set but name is absent", () => {
     const source: PipelineProposalSource = { type: "csv", config: {} };
 
-    const warnings = computePipelineProposalWarnings(source, knownSourceIds);
+    const warnings = computePipelineProposalWarnings([source], knownSourceIds);
 
     expect(warnings).toEqual([expect.stringContaining("name is blank/absent")]);
   });
@@ -73,7 +73,7 @@ describe("computePipelineProposalWarnings", () => {
   it("warns when type is set but the matching config is absent", () => {
     const source: PipelineProposalSource = { type: "csv", name: "My CSV" };
 
-    const warnings = computePipelineProposalWarnings(source, knownSourceIds);
+    const warnings = computePipelineProposalWarnings([source], knownSourceIds);
 
     expect(warnings).toEqual([expect.stringContaining("matching config is absent")]);
   });
@@ -81,7 +81,7 @@ describe("computePipelineProposalWarnings", () => {
   it("warns when sourceId is set but not found among the caller's data sources", () => {
     const source: PipelineProposalSource = { sourceId: "source-unknown" };
 
-    const warnings = computePipelineProposalWarnings(source, knownSourceIds);
+    const warnings = computePipelineProposalWarnings([source], knownSourceIds);
 
     expect(warnings).toEqual([
       expect.stringContaining("sourceId source-unknown not found among your data sources"),
@@ -91,10 +91,23 @@ describe("computePipelineProposalWarnings", () => {
   it("surfaces both a blank-name warning and a blank-config warning together for the same inline source", () => {
     const source: PipelineProposalSource = { type: "sql" };
 
-    const warnings = computePipelineProposalWarnings(source, knownSourceIds);
+    const warnings = computePipelineProposalWarnings([source], knownSourceIds);
 
     expect(warnings).toHaveLength(2);
     expect(warnings[0]).toContain("name is blank/absent");
     expect(warnings[1]).toContain("matching config is absent");
+  });
+
+  it("HEL-914: reports each root's warning against ITS OWN index, not the first", () => {
+    const valid: PipelineProposalSource = { sourceId: "source-1" };
+    const badSecond: PipelineProposalSource = { sourceId: "source-unknown" };
+
+    const warnings = computePipelineProposalWarnings([valid, badSecond], knownSourceIds);
+
+    expect(warnings).toEqual([
+      expect.stringContaining(
+        "roots[1]: sourceId source-unknown not found among your data sources",
+      ),
+    ]);
   });
 });

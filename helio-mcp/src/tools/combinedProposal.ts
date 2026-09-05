@@ -75,13 +75,14 @@ export function registerCombinedProposalTools(server: McpServer, api: HelioApi):
         "(e.g. `fieldMapping`); or a duplicate occurrence alongside a legitimate blessed one.\n" +
         "A panel may instead bind to any pre-existing Output id exactly as apply_proposal already " +
         "accepts, and a dashboard may mix multiple kinds of panel in the same call.\n" +
-        "`pipeline.source` is EITHER an existing caller-owned `sourceId` OR an inline new-source " +
-        "spec (`type`/`name`/`config`), matching apply_pipeline_proposal exactly (including its " +
+        "Each `pipeline.roots[]` element is EITHER an existing caller-owned `sourceId` OR an inline " +
+        "new-source spec (`type`/`name`/`config`), matching apply_pipeline_proposal exactly (including its " +
         "inline-`csv`-rejected-at-apply-time guardrail); `pipeline.steps` may be empty to bind the " +
         "raw source schema unchanged. This is the deterministic apply path only — there is no " +
         "propose/analyze/dry-run counterpart; review `pipeline` (with propose_pipeline/" +
         "analyze_pipeline_proposal) and `dashboard` (with propose_dashboard) separately first if " +
-        "needed — neither call writes anything. Returns { pipeline, dashboard }: `pipeline` matches " +
+        "needed — neither call writes anything. `pipeline.roots` is a non-empty array (HEL-914) " +
+        "instead of the old singular `pipeline.source`. Returns { pipeline, dashboard }: `pipeline` matches " +
         "apply_pipeline_proposal's own response (created source (if inline)/pipeline summary/the " +
         "created Outputs (zero, one, or many; exactly one is required if any dashboard panel uses " +
         "the sentinel)/run result); `dashboard` matches apply_proposal's own response (created " +
@@ -99,7 +100,7 @@ export function registerCombinedProposalTools(server: McpServer, api: HelioApi):
         applyCombinedProposalHandler(api, {
           pipeline: {
             pipelineName: pipeline.pipelineName,
-            source: pipeline.source as PipelineProposalSource,
+            roots: pipeline.roots as PipelineProposalSource[],
             steps: pipeline.steps,
             outputs: pipeline.outputs,
           },

@@ -2,7 +2,7 @@ package com.helio.services.patchsets
 
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 
 /** Read-side collaborators [[PatchSetUndoConflictCheck]]'s Phase-1 pass and [[PatchSetUndoService]]'s
@@ -21,5 +21,9 @@ private[services] final case class PatchSetUndoContext(
     dashboardRepo: DashboardRepository,
     dataSourceRepo: DataSourceRepository,
     pipelineRepo: PipelineRepository,
-    pipelineStepRepo: PipelineStepRepository
+    pipelineStepRepo: PipelineStepRepository,
+    // HEL-914 task 5.6: nullable-optional, mirrors PatchSetApplyContext.outputRepo's identical
+    // convention -- a fixture that never constructs a pipelineStep-create edit's undo is
+    // unaffected either way.
+    outputRepo: OutputRepository = null
 )

@@ -33,8 +33,8 @@ class CombinedApplyProposalRegressionSpec extends CombinedApplyProposalSpecBase 
     "continue to atomically create a pipeline from a valid standalone proposal" in {
       val before = allCounts()
       val body =
-        """{"pipelineName":"Standalone Pipeline","source":{"type":"static","name":"Standalone Static",
-          |"config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}},
+        """{"pipelineName":"Standalone Pipeline","roots":[{"type":"static","name":"Standalone Static",
+          |"config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}}],
           |"outputDataTypeName":"Standalone Output","steps":[]}""".stripMargin
       Post("/api/pipelines/apply-proposal", json(body)).addHeader(sessionCookie).addHeader(csrfHeader) ~>
         routes ~> check {

@@ -182,6 +182,34 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       stepsTable.filter(_.pipelineId === pipelineId.value).result
     ).map(rows => executionOrder(rows.toVector.map(rowToDomain)))
 
+  /** HEL-914 (production N+1 fix, HEL-865's field report -- 220,197-char response on a
+    * 25-source/43-pipeline workspace): the multi-pipeline sibling of [[listByPipelineInternal]] --
+    * one round trip for every id in `pipelineIds` instead of one per id.
+    * `WorkspaceContextService.buildPipeline`'s lane-tree computation was calling
+    * `listByPipelineInternal` PER PIPELINE inside `assemble`'s `Future.traverse` fan-out, on top
+    * of the two per-pipeline root lookups already batched by [[rootIdsOfBatch]] /
+    * `PipelineRepository.listRootDataSourceIdsInternalBatch` -- this closes the last of the three.
+    * DELIBERATELY NOT reused by `PipelineService.analyze` (a separate, security-adjacent read
+    * path with its own single-pipeline steps fetch) -- this method exists ONLY for the lane-tree
+    * caller. Privileged (`withSystemContext`), on the SAME basis as `listByPipelineInternal` --
+    * it does NOT itself check ownership. The only caller must feed it an id set that is ALREADY
+    * owner-scoped (there, `PipelineSummaryResponse.id` values from the owner-scoped
+    * `PipelineService.listSummaries` call), never a caller-supplied/unvalidated id set -- see
+    * `PipelineRepository.listRootDataSourceIdsInternalBatch`'s matching doc and the HEL-384
+    * near-miss it guards against. `executionOrder` is applied PER PIPELINE (grouped before
+    * ordering, never across the combined result) -- it walks a `parent_step_id` chain that is
+    * only meaningful within a single pipeline's own steps. */
+  def listByPipelineInternalBatch(pipelineIds: Set[PipelineId]): Future[Map[PipelineId, Vector[PipelineStep]]] =
+    if (pipelineIds.isEmpty) Future.successful(Map.empty)
+    else {
+      val ids = pipelineIds.map(_.value)
+      ctx.withSystemContext(
+        stepsTable.filter(_.pipelineId.inSet(ids)).result
+      ).map(_.map(rowToDomain).groupBy(_.pipelineId).map { case (pid, rows) =>
+        (pid, executionOrder(rows.toVector))
+      })
+    }
+
   /** ACL-bypassing step lookup. Safe to call only after pipeline access
     * has been confirmed by PipelineService via findByIdShared. */
   def findByIdInternal(id: PipelineStepId): Future[Option[PipelineStep]] =
@@ -835,6 +863,30 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         .map(s => (s.id, s.rootId))
         .result
     ).map(_.collect { case (id, Some(rid)) => PipelineStepId(id) -> PipelineRootId(rid) }.toMap)
+
+  /** HEL-914 (production N+1 fix, HEL-865's field report -- 220,197-char response on a
+    * 25-source/43-pipeline workspace): the multi-pipeline sibling of [[rootIdsOf]] -- one round
+    * trip for every id in `pipelineIds` instead of one per id. Privileged (`withSystemContext`),
+    * on the SAME basis as the single-id method it replaces in `WorkspaceContextService.assemble`'s
+    * loop -- it does NOT itself check ownership, exactly like `rootIdsOf`. The only caller must
+    * feed it an id set that is ALREADY owner-scoped (there, `PipelineSummaryResponse.id` values
+    * from the owner-scoped `PipelineService.listSummaries` call), never a caller-supplied/
+    * unvalidated id set -- see `PipelineRepository.listRootDataSourceIdsInternalBatch`'s matching
+    * doc and the HEL-384 near-miss it guards against. */
+  def rootIdsOfBatch(pipelineIds: Set[PipelineId]): Future[Map[PipelineId, Map[PipelineStepId, PipelineRootId]]] =
+    if (pipelineIds.isEmpty) Future.successful(Map.empty)
+    else {
+      val ids = pipelineIds.map(_.value)
+      ctx.withSystemContext(
+        stepsTable
+          .filter(s => s.pipelineId.inSet(ids) && s.rootId.isDefined)
+          .map(s => (s.pipelineId, s.id, s.rootId))
+          .result
+      ).map(_.collect { case (pid, id, Some(rid)) => (pid, id, rid) }
+        .groupBy(_._1).view.mapValues(_.map { case (_, id, rid) =>
+          PipelineStepId(id) -> PipelineRootId(rid)
+        }.toMap).map { case (pid, m) => (PipelineId(pid), m) }.toMap)
+    }
 
   /** HEL-913 task 7.6a-i: the single-step counterpart to [[rootIdsOf]]'s bulk/pipeline-wide map
     * -- resolves the ROOT `stepId` ultimately belongs to by walking the `parent_step_id` chain

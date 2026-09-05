@@ -102,6 +102,21 @@ object InProcessPipelineEngine {
    *  reference and no way to obtain one — read the same value rather than a duplicated literal.
    *  Unchanged in value from before this ticket: 1000. */
   val MaxRunRows: Int = 1000
+
+  /** HEL-911 (design.md Engine contract item 6): the `stepId` a `lane`-kind
+   *  `secondaryInput` on `step` names, if any. `None` for every other step kind and for
+   *  a `join`/`union`/`lookup` whose secondary input is `source`-kind. Centralizes the
+   *  per-op match so both the write-time check (`PipelineService`, via
+   *  `PipelineStepConfigCodec.secondaryLaneStepId`), this engine's run-time walk, and
+   *  `RuntimeGraphPath` (HEL-914) read the identical mapping. On the companion object (pure,
+   *  no instance state) so `RuntimeGraphPath` — which has no engine instance to call through —
+   *  can call it too. */
+  private[engine] def laneDependencyOf(step: PipelineStep): Option[String] = step match {
+    case j: JoinStep   => j.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
+    case u: UnionStep  => u.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
+    case l: LookupStep => l.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
+    case _             => None
+  }
 }
 
 /** In-process pipeline executor.
@@ -242,19 +257,6 @@ class InProcessPipelineEngine(
     }
   }
 
-  /** HEL-911 (design.md Engine contract item 6): the `stepId` a `lane`-kind
-   *  `secondaryInput` on `step` names, if any. `None` for every other step kind and for
-   *  a `join`/`union`/`lookup` whose secondary input is `source`-kind. Centralizes the
-   *  per-op match so both the write-time check (`PipelineService`, via
-   *  `PipelineStepConfigCodec.secondaryLaneStepId`) and this engine's run-time walk read
-   *  the identical mapping. */
-  private[engine] def laneDependencyOf(step: PipelineStep): Option[String] = step match {
-    case j: JoinStep   => j.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
-    case u: UnionStep  => u.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
-    case l: LookupStep => l.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
-    case _             => None
-  }
-
   /** HEL-911 (design.md Engine contract items 1-4): the pipeline's DAG evaluation order,
    *  as a stable "structural rank" over parent->child edges ALONE (lane-reference edges
    *  never affect it) -- pure and side-effect-free, no evaluation happens here.
@@ -344,7 +346,7 @@ class InProcessPipelineEngine(
     val rootIdOfStepStr: Map[String, String] = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
     val rootIds: Vector[String] = rootFrames.map(_._1)
     val ranks   = structuralRank(steps, rootIds, rootIdOfStepStr)
-    val laneDep: Map[String, Option[String]] = steps.map(s => s.id.value -> laneDependencyOf(s)).toMap
+    val laneDep: Map[String, Option[String]] = steps.map(s => s.id.value -> InProcessPipelineEngine.laneDependencyOf(s)).toMap
     val byId: Map[String, PipelineStep] = steps.map(s => s.id.value -> s).toMap
 
     // HEL-911 (design.md Engine contract items 6a/7, run-time defensive arm): reject a
@@ -397,34 +399,12 @@ class InProcessPipelineEngine(
 
     rootFrames.foreach { case (rid, rows) => onNodeProgress(RootKey(rid), rows.size.toLong) }
 
-    // HEL-913 (design.md R5/R11, task 6.2/6.2a): the runtime graph path from a step's
-    // originating root to itself, `root:<rootId> > s1 > s4` (R5's format). Walks `parentStepId`
-    // to find the chain AND its root; when the step (or, transitively, a step in its own chain)
-    // has a lane dependency, that dependency's OWN chain is a second candidate route -- task
-    // 6.2a's explicit requirement, because a rejoin's path built from `parentStepId` ALONE would
-    // silently ignore the lane it actually consumed. Per R5, the CANONICAL path when a node is
-    // reachable via more than one route is the one through the lowest-positioned root
-    // (`rootIds`'s own order, since the caller sorts it by position ascending).
-    def rootIndex(rid: String): Int = rootIds.indexOf(rid)
-    def chainToRoot(s: PipelineStep): (String, Vector[String]) = {
-      def loop(cur: PipelineStep, acc: Vector[String]): (String, Vector[String]) =
-        cur.parentStepId.flatMap(p => byId.get(p.value)) match {
-          case Some(parent) => loop(parent, parent.id.value +: acc)
-          case None         => (rootIdOfStepStr.getOrElse(cur.id.value, rootIds.head), acc)
-        }
-      loop(s, Vector(s.id.value))
-    }
-    def buildLanePath(step: PipelineStep): String = {
-      val (ownRoot, ownChain) = chainToRoot(step)
-      val laneCandidate: Option[(String, Vector[String])] =
-        laneDep.getOrElse(step.id.value, None).flatMap(byId.get).map(chainToRoot)
-      val (chosenRoot, chosenChain) = laneCandidate match {
-        case Some((laneRoot, laneChain)) if rootIndex(laneRoot) >= 0 && (rootIndex(ownRoot) < 0 || rootIndex(laneRoot) < rootIndex(ownRoot)) =>
-          (laneRoot, laneChain ++ ownChain)
-        case _ => (ownRoot, ownChain)
-      }
-      (("root:" + chosenRoot) +: chosenChain).mkString(" > ")
-    }
+    // HEL-913 (design.md R5/R11, task 6.2/6.2a), HEL-914 D5: the runtime graph path from a
+    // step's originating root to itself, `root:<rootId> > s1 > s4` (R5's format) -- extracted
+    // to `RuntimeGraphPath` so this is the ONE implementation (design.md §D5), reused verbatim
+    // by concise `analyze_pipeline` and the workspace-context lane tree.
+    val graphPath = RuntimeGraphPath.build(steps, rootIds, rootIdOfStepStr)
+    def buildLanePath(step: PipelineStep): String = graphPath.pathOf(step)
 
     // HEL-905 (design.md Decision 7): a disabled node is transparent -- it is never
     // evaluated; its incoming frame passes through unchanged.

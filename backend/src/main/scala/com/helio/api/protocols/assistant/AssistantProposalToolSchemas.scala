@@ -140,6 +140,13 @@ private[protocols] trait AssistantProposalToolSchemas {
             "sql {dialect, host, port, database, user, password, query}; " +
             "static {columns, rows}."
         )
+      ),
+      "clientId" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString(
+          "HEL-914: request-scoped id a parentless step's rootClientId binds to when roots has " +
+            "more than one element. Not persisted."
+        )
       )
     )
   )
@@ -217,11 +224,13 @@ private[protocols] trait AssistantProposalToolSchemas {
   private val PipelineProposalExample: JsValue =
     """{
       "pipelineName": "Weekly Signups",
-      "source": {
-        "type": "rest_api",
-        "name": "Signups API",
-        "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
-      },
+      "roots": [
+        {
+          "type": "rest_api",
+          "name": "Signups API",
+          "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
+        }
+      ],
       "steps": [
         { "clientId": "s1", "type": "cast", "config": { "casts": { "signups": "integer" } } }
       ],
@@ -234,7 +243,15 @@ private[protocols] trait AssistantProposalToolSchemas {
     "type" -> JsString("object"),
     "properties" -> JsObject(
       "pipelineName" -> JsObject("type" -> JsString("string")),
-      "source"       -> PipelineProposalSourceSchema,
+      "roots"        -> JsObject(
+        "type" -> JsString("array"),
+        "items" -> PipelineProposalSourceSchema,
+        "description" -> JsString(
+          "HEL-914: non-empty. One root per proposed pipeline source, in request order -- a " +
+            "parentless step on a multi-root proposal MUST name its root via rootClientId " +
+            "(never a silent default to roots[0])."
+        )
+      ),
       "steps"        -> JsObject("type" -> JsString("array"), "items" -> PipelineProposalStepSchema),
       "outputs"      -> JsObject(
         "type" -> JsString("array"),
@@ -242,7 +259,7 @@ private[protocols] trait AssistantProposalToolSchemas {
         "description" -> JsString("Optional -- omit or leave empty to create the pipeline with zero Outputs.")
       )
     ),
-    "required" -> JsArray(Vector("pipelineName", "source", "steps").map(JsString(_))),
+    "required" -> JsArray(Vector("pipelineName", "roots", "steps").map(JsString(_))),
     "examples" -> JsArray(Vector(PipelineProposalExample))
   )
 
@@ -255,11 +272,13 @@ private[protocols] trait AssistantProposalToolSchemas {
     """{
       "pipeline": {
         "pipelineName": "Weekly Signups",
-        "source": {
-          "type": "rest_api",
-          "name": "Signups API",
-          "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
-        },
+        "roots": [
+          {
+            "type": "rest_api",
+            "name": "Signups API",
+            "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
+          }
+        ],
         "steps": [],
         "outputs": [
           { "kind": "table", "name": "Weekly Signups" }
@@ -295,7 +314,15 @@ private[protocols] trait AssistantProposalToolSchemas {
     "type" -> JsString("object"),
     "properties" -> JsObject(
       "kind" -> enumSchema("panel", "dashboard", "dataSource", "pipeline", "pipelineStep", "output"),
-      "id"   -> JsObject("type" -> JsString("string"))
+      "id"   -> JsObject("type" -> JsString("string")),
+      "parentId" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString(
+          "HEL-914: names the parent resource a not-yet-existing CHILD resource is created under -- " +
+            "REQUIRED for a create targeting a child kind (currently only pipelineStep, whose parentId " +
+            "is the existing parent pipeline's id) and must be OMITTED for update/delete."
+        )
+      )
     ),
     "required" -> JsArray(Vector(JsString("kind")))
   )
@@ -309,7 +336,11 @@ private[protocols] trait AssistantProposalToolSchemas {
         "type" -> JsString("object"),
         "description" -> JsString(
           "Partial update/create body matching target.kind's existing update-request/create-request " +
-            "shape. Absent for delete edits. target.id is required for update/delete."
+            "shape. Absent for delete edits. target.id is required for update/delete. A pipelineStep " +
+            "create's patch must ALSO set attachAsTail: true to add a SIBLING lane off " +
+            "patch.parentStepId -- omitting it instead SPLICES the new step in directly after " +
+            "patch.parentStepId, reparenting that step's existing children onto the new step (a " +
+            "trunk insertion, not a new lane)."
         )
       )
     ),

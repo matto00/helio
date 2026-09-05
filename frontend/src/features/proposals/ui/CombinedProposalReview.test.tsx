@@ -19,7 +19,7 @@ function makeProposal(overrides: Partial<CombinedProposal> = {}): CombinedPropos
   return {
     pipeline: {
       pipelineName: "Sales pipeline",
-      source: { type: "static", name: "Demo source", config: {} },
+      roots: [{ type: "static", name: "Demo source", config: {} }],
       steps: [],
       outputs: [{ kind: "table", name: "SalesMetrics" }],
     },

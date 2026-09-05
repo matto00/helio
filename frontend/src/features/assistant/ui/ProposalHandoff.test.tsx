@@ -81,7 +81,7 @@ describe("ProposalHandoff", () => {
   it("navigates to /pipeline-proposals/review with the parsed PipelineProposal on Review proposal", () => {
     const proposal: PipelineProposal = {
       pipelineName: "Sales pipeline",
-      source: { sourceId: "src-1" },
+      roots: [{ sourceId: "src-1" }],
       steps: [{ clientId: "s1", type: "rename", config: {} }],
       outputs: [{ kind: "table", name: "SalesMetrics" }],
     };
@@ -105,7 +105,7 @@ describe("ProposalHandoff", () => {
     const proposal: CombinedProposal = {
       pipeline: {
         pipelineName: "Sales pipeline",
-        source: { type: "static", name: "Demo source", config: {} },
+        roots: [{ type: "static", name: "Demo source", config: {} }],
         steps: [],
         outputs: [{ kind: "table", name: "SalesMetrics" }],
       },

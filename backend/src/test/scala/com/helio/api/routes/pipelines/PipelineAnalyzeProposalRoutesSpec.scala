@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCod
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols}
-import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalStepRequest, PipelineAnalyzeProposalResponse, PipelineProposal, PipelineProposalSource, SchemaFieldResponse, SelectAnalyzeStepResponse}
+import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineProposal, PipelineProposalSource, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
@@ -173,7 +173,7 @@ class PipelineAnalyzeProposalRoutesSpec
 
       val proposal = PipelineProposal(
         pipelineName       = "Orders pipeline",
-        source              = noInlineSource.copy(sourceId = Some(dsId)),
+        roots               = Vector(noInlineSource.copy(sourceId = Some(dsId))),
         steps = Vector(CreatePipelineTransactionalStepRequest(clientId = "s1", `type` = "select",
           config = JsObject("fields" -> JsArray(JsString("order_id")))
         ))
@@ -182,8 +182,8 @@ class PipelineAnalyzeProposalRoutesSpec
       Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
-        resp.sourceName shouldBe "orders-source"
-        resp.sourceSchema.map(_.name) should contain allOf ("order_id", "amount")
+        resp.sourceSchemas.head.sourceDataSourceName shouldBe "orders-source"
+        resp.sourceSchemas.head.sourceSchema.map(_.name) should contain allOf ("order_id", "amount")
         resp.steps should have size 1
         resp.steps.head.`type` shouldBe "select"
         resp.steps.head.outputSchema.map(_.name) shouldBe Vector("order_id")
@@ -208,7 +208,7 @@ class PipelineAnalyzeProposalRoutesSpec
 
       val proposal = PipelineProposal(
         pipelineName       = "Orders pipeline",
-        source              = noInlineSource.copy(sourceId = Some(dsId)),
+        roots               = Vector(noInlineSource.copy(sourceId = Some(dsId))),
         steps = Vector(
           CreatePipelineTransactionalStepRequest(clientId = "s2", `type`  = "select",
             config  = JsObject("fields" -> JsArray(JsString("order_id"))),
@@ -236,13 +236,15 @@ class PipelineAnalyzeProposalRoutesSpec
       val counter = new AtomicInteger(0)
       val proposal = PipelineProposal(
         pipelineName       = "Static pipeline",
-        source              = noInlineSource.copy(
+        roots               = Vector(
+noInlineSource.copy(
           `type` = Some("static"),
           name   = Some("Inline Static"),
           staticConfig = Some(StaticDataPayload(
             columns = Vector(StaticColumnPayload("id", "string"), StaticColumnPayload("count", "integer")),
             rows    = Vector.empty
           ))
+        )
         ),
         steps               = Vector.empty
       )
@@ -250,8 +252,8 @@ class PipelineAnalyzeProposalRoutesSpec
       Post("/pipelines/analyze-proposal", proposal) ~> routesWith(countingConnector(counter)) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
-        resp.sourceName shouldBe "Inline Static"
-        resp.sourceSchema.map(f => (f.name, f.`type`)) shouldBe Vector(("id", "string"), ("count", "integer"))
+        resp.sourceSchemas.head.sourceDataSourceName shouldBe "Inline Static"
+        resp.sourceSchemas.head.sourceSchema.map(f => (f.name, f.`type`)) shouldBe Vector(("id", "string"), ("count", "integer"))
       }
       counter.get() shouldBe 0
     }
@@ -260,13 +262,15 @@ class PipelineAnalyzeProposalRoutesSpec
       cleanAll()
       val proposal = PipelineProposal(
         pipelineName       = "Static pipeline legacy types",
-        source              = noInlineSource.copy(
+        roots               = Vector(
+noInlineSource.copy(
           `type` = Some("static"),
           name   = Some("Inline Static Legacy"),
           staticConfig = Some(StaticDataPayload(
             columns = Vector(StaticColumnPayload("amount", "double"), StaticColumnPayload("id", "long"), StaticColumnPayload("createdAt", "date")),
             rows    = Vector.empty
           ))
+        )
         ),
         steps               = Vector.empty
       )
@@ -274,7 +278,7 @@ class PipelineAnalyzeProposalRoutesSpec
       Post("/pipelines/analyze-proposal", proposal) ~> routesWith(countingConnector(new AtomicInteger(0))) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
-        resp.sourceSchema.map(f => (f.name, f.`type`)) shouldBe Vector(("amount", "float"), ("id", "integer"), ("createdAt", "timestamp"))
+        resp.sourceSchemas.head.sourceSchema.map(f => (f.name, f.`type`)) shouldBe Vector(("amount", "float"), ("id", "integer"), ("createdAt", "timestamp"))
       }
     }
 
@@ -282,10 +286,12 @@ class PipelineAnalyzeProposalRoutesSpec
       cleanAll()
       val proposal = PipelineProposal(
         pipelineName       = "SQL pipeline",
-        source              = noInlineSource.copy(
+        roots               = Vector(
+noInlineSource.copy(
           `type`    = Some("sql"),
           name      = Some("Inline SQL"),
           sqlConfig = Some(sqlConfigPayload("SELECT 1 AS one, 'x' AS label"))
+        )
         ),
         steps               = Vector.empty
       )
@@ -293,8 +299,8 @@ class PipelineAnalyzeProposalRoutesSpec
       Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
-        resp.sourceName shouldBe "Inline SQL"
-        resp.sourceSchema.map(_.name) should contain theSameElementsAs Seq("one", "label")
+        resp.sourceSchemas.head.sourceDataSourceName shouldBe "Inline SQL"
+        resp.sourceSchemas.head.sourceSchema.map(_.name) should contain theSameElementsAs Seq("one", "label")
       }
     }
 
@@ -306,9 +312,11 @@ class PipelineAnalyzeProposalRoutesSpec
         // skipped and the connector actually invoked, the result would still
         // be a BadGateway (502), not BadRequest (400) — mirrors
         // DataSourceRoutesSpec's checkQuery short-circuit test pattern.
-        source              = noInlineSource.copy(
+        roots               = Vector(
+noInlineSource.copy(
           `type`    = Some("sql"),
           sqlConfig = Some(sqlConfigPayload(query = "DROP TABLE users", port = 1))
+        )
         ),
         steps               = Vector.empty
       )
@@ -322,9 +330,11 @@ class PipelineAnalyzeProposalRoutesSpec
       cleanAll()
       val proposal = PipelineProposal(
         pipelineName       = "CSV pipeline",
-        source              = noInlineSource.copy(
+        roots               = Vector(
+noInlineSource.copy(
           `type`    = Some("csv"),
           csvConfig = Some(CsvSourceConfigPayload(path = "uploads/some-file.csv"))
+        )
         ),
         steps               = Vector.empty
       )
@@ -339,9 +349,11 @@ class PipelineAnalyzeProposalRoutesSpec
       cleanAll()
       val proposal = PipelineProposal(
         pipelineName       = "Bad step pipeline",
-        source              = noInlineSource.copy(
+        roots               = Vector(
+noInlineSource.copy(
           `type` = Some("static"),
           staticConfig = Some(StaticDataPayload(columns = Vector(StaticColumnPayload("id", "string")), rows = Vector.empty))
+        )
         ),
         // Missing "expression"/"type" -- inferCompute's try/catch flags a
         // per-step validationError instead of throwing.
@@ -362,9 +374,11 @@ class PipelineAnalyzeProposalRoutesSpec
       cleanAll()
       val proposal = PipelineProposal(
         pipelineName       = "Unknown step pipeline",
-        source              = noInlineSource.copy(
+        roots               = Vector(
+noInlineSource.copy(
           `type` = Some("static"),
           staticConfig = Some(StaticDataPayload(columns = Vector(StaticColumnPayload("id", "string")), rows = Vector.empty))
+        )
         ),
         // "sql.pipeline-proposal.schema.json" deliberately leaves step `type` unconstrained
         // (checked at apply time, not by the schema) -- an unregistered kind is a
@@ -380,7 +394,7 @@ class PipelineAnalyzeProposalRoutesSpec
 
     "reject a structurally invalid proposal (missing a required top-level field) with 400 (3.8)" in {
       val body = JsObject(
-        "source" -> JsObject("sourceId" -> JsString("nonexistent")),
+        "roots" -> JsArray(JsObject("sourceId" -> JsString("nonexistent"))),
         "steps"  -> JsArray()
         // "pipelineName" is omitted -- required per the reader.
       )
@@ -397,7 +411,7 @@ class PipelineAnalyzeProposalRoutesSpec
 
       val proposal = PipelineProposal(
         pipelineName       = "Nosy pipeline",
-        source              = noInlineSource.copy(sourceId = Some(dsId)),
+        roots               = Vector(noInlineSource.copy(sourceId = Some(dsId))),
         steps               = Vector.empty
       )
 
@@ -408,7 +422,7 @@ class PipelineAnalyzeProposalRoutesSpec
     }
 
     "return 400 (not 500) when an inline sql source's type is recognized but its config is entirely absent (3.10)" in {
-      val body = """{"pipelineName":"X","source":{"type":"sql"},"steps":[]}"""
+      val body = """{"pipelineName":"X","roots":[{"type":"sql"}],"steps":[]}"""
       Post("/pipelines/analyze-proposal", HttpEntity(ContentTypes.`application/json`, body)) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
       }
@@ -421,11 +435,13 @@ class PipelineAnalyzeProposalRoutesSpec
 
       val proposal = PipelineProposal(
         pipelineName       = "Precedence pipeline",
-        source = noInlineSource.copy(
+        roots               = Vector(
+noInlineSource.copy(
           sourceId = Some(dsId),
           `type`   = Some("static"),
           name     = Some("Ignored inline name"),
           staticConfig = Some(StaticDataPayload(columns = Vector(StaticColumnPayload("bogus_field", "string")), rows = Vector.empty))
+        )
         ),
         steps               = Vector.empty
       )
@@ -433,8 +449,8 @@ class PipelineAnalyzeProposalRoutesSpec
       Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
-        resp.sourceName shouldBe "existing-source"
-        resp.sourceSchema.map(_.name) shouldBe Vector("real_field")
+        resp.sourceSchemas.head.sourceDataSourceName shouldBe "existing-source"
+        resp.sourceSchemas.head.sourceSchema.map(_.name) shouldBe Vector("real_field")
       }
     }
 
@@ -468,9 +484,11 @@ class PipelineAnalyzeProposalRoutesSpec
 
       val proposal = PipelineProposal(
         pipelineName       = "Cast pipeline",
-        source              = noInlineSource.copy(
+        roots               = Vector(
+noInlineSource.copy(
           `type` = Some("static"),
           staticConfig = Some(StaticDataPayload(columns = Vector(StaticColumnPayload("amount", "string")), rows = Vector.empty))
+        )
         ),
         steps = Vector(CreatePipelineTransactionalStepRequest(clientId = "s6", `type` = "cast",
           config = s"""{"casts":$rawCasts}""".parseJson.asJsObject
@@ -493,13 +511,147 @@ class PipelineAnalyzeProposalRoutesSpec
         resp.steps.head.validationError.get should include("must be an object mapping field name to type name")
       }
     }
+
+    // HEL-914 task 6b.4a — the requirement this ticket found missing entirely: dry analysis must
+    // ground each proposed Output's fieldMapping at its OWN target node, not the pipeline trunk.
+    "reports a proposed Output's fieldMapping as invalid at its target tail node even though the field is present at the trunk" in {
+      cleanAll()
+      val proposal = PipelineProposal(
+        pipelineName = "Grounded output pipeline",
+        roots = Vector(
+          noInlineSource.copy(
+            `type` = Some("static"),
+            staticConfig = Some(StaticDataPayload(
+              columns = Vector(StaticColumnPayload("order_id", "string"), StaticColumnPayload("amount", "string")),
+              rows    = Vector.empty
+            ))
+          )
+        ),
+        // `select` keeps only order_id -- "amount" exists at the trunk (the root's own schema)
+        // but not at this step's own output.
+        steps = Vector(CreatePipelineTransactionalStepRequest(
+          clientId = "s1", `type` = "select",
+          config   = JsObject("fields" -> JsArray(JsString("order_id")))
+        )),
+        outputs = Vector(CreatePipelineTransactionalOutputRequest(
+          nodeStepClientId = Some("s1"),
+          kind             = "metric",
+          name             = "Amount metric",
+          config           = Some(JsObject("fieldMapping" -> JsObject("value" -> JsString("amount"))))
+        ))
+      )
+
+      Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeProposalResponse]
+        resp.outputs should have size 1
+        resp.outputs.head.name shouldBe "Amount metric"
+        resp.outputs.head.validationError shouldBe defined
+        resp.outputs.head.validationError.get should include("amount")
+      }
+    }
+
+    "grounds a rejoin-node Output's fieldMapping against both incoming lanes, not the parent lane alone" in {
+      cleanAll()
+      val proposal = PipelineProposal(
+        pipelineName = "Rejoin output pipeline",
+        roots = Vector(
+          noInlineSource.copy(
+            `type` = Some("static"),
+            staticConfig = Some(StaticDataPayload(
+              columns = Vector(StaticColumnPayload("order_id", "string"), StaticColumnPayload("amount", "string")),
+              rows    = Vector.empty
+            ))
+          )
+        ),
+        steps = Vector(
+          // Primary lane: s1 keeps only order_id.
+          CreatePipelineTransactionalStepRequest(
+            clientId = "s1", `type` = "select",
+            config   = JsObject("fields" -> JsArray(JsString("order_id")))
+          ),
+          // Sibling lane, off the ROOT (not off s1 -- s1 already dropped "amount"): s2 keeps
+          // only amount, projected from the root's own raw schema.
+          CreatePipelineTransactionalStepRequest(
+            clientId = "s2", `type` = "select",
+            config   = JsObject("fields" -> JsArray(JsString("amount")))
+          ),
+          // Rejoin: s3 joins s1's lane with s2's lane via a lane-kind secondaryInput -- its
+          // OWN output schema carries columns from BOTH lanes (order_id AND amount), unlike
+          // either lane alone.
+          CreatePipelineTransactionalStepRequest(
+            clientId = "s3", `type` = "join", parentStepId = Some("s1"),
+            config   = JsObject(
+              "joinKey"  -> JsString("order_id"),
+              "joinType" -> JsString("inner"),
+              "secondaryInput" -> JsObject("kind" -> JsString("lane"), "stepId" -> JsString("s2"))
+            )
+          )
+        ),
+        outputs = Vector(CreatePipelineTransactionalOutputRequest(
+          nodeStepClientId = Some("s3"),
+          kind             = "metric",
+          name             = "Rejoined amount",
+          config           = Some(JsObject("fieldMapping" -> JsObject("value" -> JsString("amount"))))
+        ))
+      )
+
+      Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeProposalResponse]
+        resp.outputs should have size 1
+        // valid: "amount" is contributed by the join's second (lane) input, not s1's own lane.
+        resp.outputs.head.validationError shouldBe None
+      }
+    }
+
+    "reports a proposed Output's fieldMapping as invalid when it maps a field from a sibling lane never rejoined" in {
+      cleanAll()
+      val proposal = PipelineProposal(
+        pipelineName = "Never-rejoined output pipeline",
+        roots = Vector(
+          noInlineSource.copy(
+            `type` = Some("static"),
+            staticConfig = Some(StaticDataPayload(
+              columns = Vector(StaticColumnPayload("order_id", "string"), StaticColumnPayload("amount", "string")),
+              rows    = Vector.empty
+            ))
+          )
+        ),
+        steps = Vector(
+          CreatePipelineTransactionalStepRequest(
+            clientId = "s1", `type` = "select",
+            config   = JsObject("fields" -> JsArray(JsString("order_id")))
+          ),
+          // Sibling lane off s1, never consumed by a rejoin.
+          CreatePipelineTransactionalStepRequest(
+            clientId = "s2", `type` = "select", parentStepId = Some("s1"),
+            config   = JsObject("fields" -> JsArray(JsString("amount")))
+          )
+        ),
+        // Attached to s1's own terminal node -- "amount" only ever exists in s2's sibling lane.
+        outputs = Vector(CreatePipelineTransactionalOutputRequest(
+          nodeStepClientId = Some("s1"),
+          kind             = "metric",
+          name             = "Cross-lane metric",
+          config           = Some(JsObject("fieldMapping" -> JsObject("value" -> JsString("amount"))))
+        ))
+      )
+
+      Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeProposalResponse]
+        resp.outputs should have size 1
+        resp.outputs.head.validationError shouldBe defined
+        resp.outputs.head.validationError.get should include("amount")
+      }
+    }
   }
 
   "pipelineAnalyzeProposalResponseFormat output" should {
     "validate cleanly against schemas/pipelines/pipeline-analyze-proposal-response.schema.json (3.11)" in {
       val response = PipelineAnalyzeProposalResponse(
-        sourceName         = "Orders",
-        sourceSchema        = Vector(SchemaFieldResponse("order_id", "string")),
+        sourceSchemas = Vector(RootSourceSchemaResponse("0", "Orders", Vector(SchemaFieldResponse("order_id", "string")))),
         steps = Vector(SelectAnalyzeStepResponse(
           id              = "step-0",
           position        = 0,
@@ -507,7 +659,8 @@ class PipelineAnalyzeProposalRoutesSpec
           inputSchema     = Vector(SchemaFieldResponse("order_id", "string")),
           outputSchema    = Vector(SchemaFieldResponse("order_id", "string")),
           validationError = None
-        ))
+        )),
+        outputs = Vector(OutputAnalyzeResponse("Orders table", "table", None))
       )
 
       val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-proposal-response.schema.json")

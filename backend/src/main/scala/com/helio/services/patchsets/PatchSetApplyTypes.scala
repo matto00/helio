@@ -7,7 +7,7 @@ import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.patchsets.EditOutcome
 import com.helio.api.protocols.sources.{StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain.model.{Dashboard, DashboardId, DataSource, DataSourceId, Output, OutputId, Panel, PanelId, PipelineId, PipelineStep, PipelineStepId}
@@ -57,15 +57,21 @@ private[services] object ResolvedAction {
 
   final case class PipelineStepUpdate(id: PipelineStepId, request: UpdatePipelineStepRequest, prior: PipelineStep) extends ResolvedAction
   final case class PipelineStepDelete(id: PipelineStepId, prior: PipelineStep) extends ResolvedAction
+  // HEL-914 task 5.1/5.2: a lane -- `pipelineId` is resolved from `target.parentId`, `request`
+  // carries the tree-shape `parentStepId` (which EXISTING step this lane branches off).
+  final case class PipelineStepCreate(pipelineId: PipelineId, request: CreatePipelineStepRequest) extends ResolvedAction
 
-  // HEL-907 task 1.2: `output` has no `create` ResolvedAction either -- same
-  // "no parent-id field on EditTarget" reason as pipelineStep, see PatchSetProtocol's doc.
+  // HEL-907 task 1.2: `output` has no `create` ResolvedAction -- unimplemented deliberately
+  // (task 5.4/D3): the `EditTarget.parentId` gap that used to explain this is now closed, but
+  // nothing in this change exercises an `output` create.
   final case class OutputUpdate(id: OutputId, request: UpdateOutputRequest, prior: Output, priorConfig: JsObject) extends ResolvedAction
   final case class OutputDelete(id: OutputId, prior: Output) extends ResolvedAction
 
-  // `dataType`/`pipelineStep`/`output` create carry no ResolvedAction — rejected at
-  // pre-validation itself (design.md D1: no create API / no parent-pipeline
-  // id field on EditTarget).
+  // `dataType` create carries no ResolvedAction -- rejected at pre-validation itself (no create
+  // API exists for it at all). `output` create likewise carries none -- not because of any
+  // EditTarget gap (task 5.1 closed that for every kind), but because it is unimplemented since
+  // untested (task 5.4/D3). `pipelineStep` create is NOT in this list: it has its own
+  // `PipelineStepCreate` ResolvedAction above (task 5.1/5.2).
 }
 
 /** Pairs one edit's original index/kind/op with its `ResolvedAction` and the

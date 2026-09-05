@@ -23,15 +23,15 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       val body =
         """{
           |  "pipelineName": "Static Pipeline",
-          |  "source": {"type":"static","name":"Inline Static",
-          |    "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"],["y"]]}},
+          |  "roots":[{"type":"static","name":"Inline Static",
+          |    "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"],["y"]]}}],
           |  "steps": [{"clientId":"s1","type":"limit","config":{"count":10}}],
           |  "outputs": [{"kind":"table","name":"Static Output","nodeStepClientId":"s1"}]
           |}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val obj = responseAs[String].parseJson.asJsObject
-        obj.fields("source").asJsObject.fields("type").convertTo[String] shouldBe "static"
+        obj.fields("sources").convertTo[Vector[JsValue]].head.asJsObject.fields("type").convertTo[String] shouldBe "static"
         obj.fields("pipeline").asJsObject.fields("name").convertTo[String] shouldBe "Static Pipeline"
         val outputs = obj.fields("outputs").convertTo[Vector[JsValue]]
         outputs should have size 1
@@ -55,13 +55,13 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       val body =
         s"""{
            |  "pipelineName": "Existing Source Pipeline",
-           |  "source": {"sourceId": "$existingSourceId"},
+           |  "roots":[{"sourceId": "$existingSourceId"}],
            |  "steps": [{"clientId":"s1","type":"limit","config":{"count":10}}]
            |}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val obj = responseAs[String].parseJson.asJsObject
-        obj.fields.get("source") shouldBe None
+        obj.fields("sources").convertTo[Vector[JsValue]] shouldBe empty
         val roots = obj.fields("pipeline").asJsObject.fields("roots").convertTo[Vector[JsObject]]
         roots.map(_.fields("dataSourceId").convertTo[String]) shouldBe Vector(existingSourceId)
       }
@@ -74,15 +74,15 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
     "reject a proposal with both sourceId and an inline type, creating nothing" in {
       val before = allCounts()
       val body =
-        s"""{"pipelineName":"P","source":{"sourceId":"$existingSourceId","type":"static",
-           |"name":"n","config":{"columns":[],"rows":[]}},"steps":[]}""".stripMargin
+        s"""{"pipelineName":"P","roots":[{"sourceId":"$existingSourceId","type":"static",
+           |"name":"n","config":{"columns":[],"rows":[]}}],"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
     }
 
     "reject a proposal whose source sets neither sourceId nor an inline type" in {
       val before = allCounts()
-      val body = """{"pipelineName":"P","source":{},"steps":[]}"""
+      val body = """{"pipelineName":"P","roots":[{}],"steps":[]}"""
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
     }
@@ -90,7 +90,7 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
     "reject an inline csv source with a structured 4xx, creating nothing" in {
       val before = allCounts()
       val body =
-        """{"pipelineName":"P","source":{"type":"csv","name":"n","config":{"path":"x.csv"}},
+        """{"pipelineName":"P","roots":[{"type":"csv","name":"n","config":{"path":"x.csv"}}],
           |"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
@@ -102,8 +102,8 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
     "reject an inline source missing name, creating nothing" in {
       val before = allCounts()
       val body =
-        """{"pipelineName":"P","source":{"type":"sql",
-          |"config":{"dialect":"postgresql","host":"h","port":5432,"database":"d","user":"u","password":"p","query":"SELECT 1"}},
+        """{"pipelineName":"P","roots":[{"type":"sql",
+          |"config":{"dialect":"postgresql","host":"h","port":5432,"database":"d","user":"u","password":"p","query":"SELECT 1"}}],
           |"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
@@ -111,8 +111,8 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
 
     "reject an inline sql/rest_api source missing its config, creating nothing" in {
       val before = allCounts()
-      val sqlBody  = """{"pipelineName":"P","source":{"type":"sql","name":"n"},"steps":[]}"""
-      val restBody = """{"pipelineName":"P","source":{"type":"rest_api","name":"n"},"steps":[]}"""
+      val sqlBody  = """{"pipelineName":"P","roots":[{"type":"sql","name":"n"}],"steps":[]}"""
+      val restBody = """{"pipelineName":"P","roots":[{"type":"rest_api","name":"n"}],"steps":[]}"""
       apply(sqlBody) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       apply(restBody) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
@@ -121,9 +121,9 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
     "reject non-SELECT SQL verbatim, creating nothing" in {
       val before = allCounts()
       val body =
-        """{"pipelineName":"P","source":{"type":"sql","name":"Bad Sql",
+        """{"pipelineName":"P","roots":[{"type":"sql","name":"Bad Sql",
           |"config":{"dialect":"postgresql","host":"h","port":5432,"database":"d","user":"u","password":"p",
-          |"query":"DROP TABLE users"}},"steps":[]}""".stripMargin
+          |"query":"DROP TABLE users"}}],"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[String] should include("DDL/DML")
@@ -134,7 +134,7 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
     "reject an unrecognized step type, creating nothing" in {
       val before = allCounts()
       val body =
-        s"""{"pipelineName":"P","source":{"sourceId":"$existingSourceId"},
+        s"""{"pipelineName":"P","roots":[{"sourceId":"$existingSourceId"}],
            |"steps":[{"clientId":"s1","type":"not_a_real_step","config":{}}]}""".stripMargin
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before

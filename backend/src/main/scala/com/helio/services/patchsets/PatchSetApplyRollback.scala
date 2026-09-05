@@ -148,7 +148,7 @@ private[services] object PatchSetApplyRollback {
         // duplicate PipelineProposalService's own composition.
         Future.successful(edit.toOutcome("unrecoverable"))
 
-      // ── pipelineStep (no create — design.md D1) ───────────────────────
+      // ── pipelineStep (HEL-914 task 5.2: create added) ─────────────────
       case ResolvedAction.PipelineStepUpdate(id, _, prior) =>
         services.pipelineService.updateStep(id, fullPipelineStepInverse(prior), user).map {
           case Right(step) => edit.toOutcome("rolledBack", resultingState = Some(pipelineStepResponseFormat.write(step)))
@@ -156,6 +156,21 @@ private[services] object PatchSetApplyRollback {
         }
       case ResolvedAction.PipelineStepDelete(_, prior) =>
         compensatePipelineStepDelete(edit, prior, user, services)
+      case ResolvedAction.PipelineStepCreate(_, _) =>
+        // HEL-914 task 5.2: mid-set rollback (a LATER edit in the same apply call failed) --
+        // same "delete what create just made" pattern as PanelCreate/DashboardCreate/
+        // DataSourceCreate/PipelineCreate above. Full lane teardown (Outputs/placements
+        // cascade, reported placement count) is `PatchSetUndoInverse`'s job for the SEPARATE
+        // undo-after-a-successful-apply path (task 5.6/5.7) -- a step this call itself just
+        // created has no Output/placement yet to cascade.
+        forwardOutcome.newId match {
+          case None => Future.successful(edit.toOutcome("unrecoverable"))
+          case Some(idStr) =>
+            services.pipelineService.deleteStep(PipelineStepId(idStr), user).map {
+              case Right(_)  => edit.toOutcome("rolledBack")
+              case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
+            }
+        }
 
       // ── output (HEL-907 task 1.2 — no create, see PatchSetProtocol's doc) ─
       case ResolvedAction.OutputUpdate(id, _, prior, priorConfig) =>

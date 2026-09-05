@@ -81,8 +81,8 @@ class AssistantProposalToolSchemasSpec
 
     "exercise the inline-source branch (source-branch exclusivity)" in {
       val decoded = examplesOf("propose_pipeline").head.convertTo[PipelineProposal]
-      decoded.source.sourceId shouldBe None
-      decoded.source.`type` shouldBe defined
+      decoded.roots.head.sourceId shouldBe None
+      decoded.roots.head.`type` shouldBe defined
     }
 
     // HEL-822 cycle-2 CR1: the inline rest_api example's config must itself pass
@@ -90,8 +90,8 @@ class AssistantProposalToolSchemasSpec
     // `auth`-carrying or url+connectorId-ambiguous config before it ever reaches a connector.
     "the inline rest_api example's config decodes through RestApiConfigPayload.toDomain" in {
       val decoded = examplesOf("propose_pipeline").head.convertTo[PipelineProposal]
-      decoded.source.restConfig shouldBe defined
-      RestApiConfigPayload.toDomain(ProposalRestApiConfig.toRestApiConfigPayload(decoded.source.restConfig.get)) shouldBe a[Right[_, _]]
+      decoded.roots.head.restConfig shouldBe defined
+      RestApiConfigPayload.toDomain(ProposalRestApiConfig.toRestApiConfigPayload(decoded.roots.head.restConfig.get)) shouldBe a[Right[_, _]]
     }
 
     // HEL-948: PipelineProposalStepSchema's inputSchema now advertises `enabled`
@@ -102,11 +102,11 @@ class AssistantProposalToolSchemasSpec
       val json =
         """{
           "pipelineName": "Weekly Signups",
-          "source": {
+          "roots": [{
             "type": "static",
             "name": "Inline",
             "config": { "columns": [{ "name": "a", "type": "integer" }], "rows": [] }
-          },
+          }],
           "steps": [
             { "clientId": "s1", "type": "cast", "config": { "casts": { "a": "integer" } }, "enabled": false }
           ]
@@ -180,6 +180,37 @@ class AssistantProposalToolSchemasSpec
       val decoded = examplesOf("propose_patch_set").head.convertTo[PatchSet]
       val update   = decoded.edits.find(_.op == "update").getOrElse(fail("no update edit in example"))
       update.target.id shouldBe defined
+    }
+
+    // HEL-914 (found during the 6b conformance sweep, peer-approved fix): an agent reading ONLY
+    // this tool's inputSchema (never the system prompt) had no way to learn that a pipelineStep
+    // create's `patch` must ALSO set `attachAsTail: true` to add a sibling lane -- omitting it
+    // splices the new step in and reparents the anchor's existing children onto it instead. Three
+    // other surfaces (the prompt, the MCP apply_patch_set tool description, and the MCP tool's own
+    // decodable schema) already document this; this schema's `patch` field description was the
+    // remaining, silent fourth.
+    "documents attachAsTail: true as required for a pipelineStep create to add a lane" in {
+      val patchDescription = AssistantProtocol.assistantTools
+        .find(_.name == "propose_patch_set")
+        .getOrElse(fail("no tool named 'propose_patch_set'"))
+        .inputSchema
+        .asJsObject
+        .fields("properties")
+        .asJsObject
+        .fields("edits")
+        .asJsObject
+        .fields("items")
+        .asJsObject
+        .fields("properties")
+        .asJsObject
+        .fields("patch")
+        .asJsObject
+        .fields("description")
+        .convertTo[String]
+
+      patchDescription should include("attachAsTail: true")
+      patchDescription should include("SIBLING lane")
+      patchDescription should include("SPLICES the new step")
     }
 
     // HEL-948: EditTargetSchema's `kind` enum now advertises "output", matching

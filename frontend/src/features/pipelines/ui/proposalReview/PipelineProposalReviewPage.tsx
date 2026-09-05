@@ -69,9 +69,9 @@ export function PipelineProposalReviewPage() {
     [proposal, connectors],
   );
 
-  const handleConnectorResolved = (connectorId: string) => {
+  const handleConnectorResolved = (connectorId: string, key: string) => {
     setProposal((current) =>
-      current ? resolvePipelineConnectorRef(current, connectorId) : current,
+      current ? resolvePipelineConnectorRef(current, connectorId, key) : current,
     );
   };
 
@@ -143,20 +143,22 @@ export function PipelineProposalReviewPage() {
 function demoPipelineProposal(): PipelineProposal {
   return {
     pipelineName: "Demo proposed pipeline",
-    source: {
-      type: "static",
-      name: "Demo source",
-      config: {
-        columns: [
-          { name: "label", type: "string" },
-          { name: "value", type: "number" },
-        ],
-        rows: [
-          ["Alpha", 10],
-          ["Beta", 20],
-        ],
+    roots: [
+      {
+        type: "static",
+        name: "Demo source",
+        config: {
+          columns: [
+            { name: "label", type: "string" },
+            { name: "value", type: "number" },
+          ],
+          rows: [
+            ["Alpha", 10],
+            ["Beta", 20],
+          ],
+        },
       },
-    },
+    ],
     steps: [],
     outputs: [{ kind: "table", name: "Demo pipeline output" }],
   };

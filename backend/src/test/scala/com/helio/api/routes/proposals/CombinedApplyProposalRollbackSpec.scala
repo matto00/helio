@@ -25,8 +25,8 @@ class CombinedApplyProposalRollbackSpec extends CombinedApplyProposalSpecBase {
         """{
           |  "pipeline": {
           |    "pipelineName": "Rollback Pipeline",
-          |    "source": {"type":"static","name":"Rollback Static",
-          |      "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}},
+          |    "roots":[{"type":"static","name":"Rollback Static",
+          |      "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}}],
           |    "outputDataTypeName": "Rollback Output",
           |    "steps": []
           |  },
@@ -53,9 +53,9 @@ class CombinedApplyProposalRollbackSpec extends CombinedApplyProposalSpecBase {
         """{
           |  "pipeline": {
           |    "pipelineName": "Bad Sql Pipeline",
-          |    "source": {"type":"sql","name":"Bad Sql",
+          |    "roots":[{"type":"sql","name":"Bad Sql",
           |      "config":{"dialect":"postgresql","host":"h","port":5432,"database":"d","user":"u",
-          |                "password":"p","query":"DROP TABLE users"}},
+          |                "password":"p","query":"DROP TABLE users"}}],
           |    "outputDataTypeName": "O",
           |    "steps": []
           |  },

@@ -7,6 +7,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
+import com.helio.api.protocols.pipelines.PipelineAnalyzeConciseResponse
 import com.helio.api.protocols.pipelines.{RootSourceSchemaResponse, SchemaFieldResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
 import com.helio.domain.{AggregateConfig, AggregateField, Aggregation, CastConfig, ChunkByTokenCountConfig, ExtractHeadingsConfig, GroupByConfig, JoinConfig, PivotConfig, RenameConfig, SelectConfig, SplitTextConfig, StepConfigTypeMismatch, UnionConfig, WindowConfig}
@@ -161,6 +162,42 @@ class PipelineAnalyzeRoutesSpec
         step.inputSchema.map(_.name)  should contain allOf ("order_id", "amount", "created_at")
         step.outputSchema.map(_.name) shouldBe Vector("order_id", "amount")
         step.validationError shouldBe None
+      }
+    }
+
+    // HEL-914 task 6.4: `?concise=true` opt-in -- absent/false stays byte-identical to the
+    // existing full response (every other test in this file, unchanged, is that proof); this
+    // asserts the concise shape's own contract.
+    "return 200 with the concise {path, op, validationError} shape when concise=true is given" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      await(pipelineStepRepo.insertRootStep(PipelineId(pid), "select", SelectConfig(Vector("order_id", "amount")), dummyUser))
+
+      Get(s"/pipelines/$pid/analyze?concise=true") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineAnalyzeConciseResponse]
+        resp.nodes should have size 1
+        resp.nodes.head.op shouldBe "select"
+        resp.nodes.head.path should startWith("root:")
+        resp.nodes.head.validationError shouldBe None
+
+        val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-concise-response.schema.json")
+        val errors = JsonSchemaValidation.validationErrors(schema, responseAs[String])
+        errors shouldBe empty
+      }
+    }
+
+    "omit validationError from a concise node's JSON when absent, never emitting null" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      await(pipelineStepRepo.insertRootStep(PipelineId(pid), "select", SelectConfig(Vector("order_id")), dummyUser))
+
+      Get(s"/pipelines/$pid/analyze?concise=true") ~> routes ~> check {
+        val json = responseAs[String].parseJson.asJsObject
+        val node = json.fields("nodes").asInstanceOf[JsArray].elements.head.asJsObject
+        node.fields.keySet should not contain "validationError"
       }
     }
 

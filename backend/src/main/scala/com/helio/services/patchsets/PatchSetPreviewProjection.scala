@@ -7,7 +7,7 @@ import com.helio.domain.engine.ExpressionEvaluator
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.api.protocols.patchsets.EditPreview
 import com.helio.domain.model._
@@ -102,12 +102,30 @@ private[services] object PatchSetPreviewProjection {
       case ResolvedAction.PipelineCreate(request) =>
         pipelineCreateAfter(request, user, ctx)
 
-      // ── pipelineStep (no create -- design.md D1) ──────────────────────
+      // ── pipelineStep (HEL-914 task 5.2: create added) ──────────────────
       case ResolvedAction.PipelineStepUpdate(_, request, prior) =>
         Future.successful(pipelineStepUpdateAfter(request, prior))
       case ResolvedAction.PipelineStepDelete(_, _) =>
         Future.successful(Right(None))
+      case ResolvedAction.PipelineStepCreate(_, request) =>
+        // A create's `after` has no prior `PipelineStep` domain object to `.copy` onto (unlike
+        // update's `pipelineStepUpdateAfter`) and no persisted position/root yet -- a lightweight,
+        // honest "what you asked for" echo (pending id, type, config, and the tree-shape fields
+        // that decide which lane this becomes) rather than a fabricated full typed response.
+        Future.successful(Right(Some(pipelineStepCreateAfter(request))))
     }
+
+  private def pipelineStepCreateAfter(request: CreatePipelineStepRequest): JsValue =
+    JsObject(
+      Vector(
+        Some("id" -> JsString(PendingId)),
+        Some("type" -> JsString(request.`type`)),
+        Some("config" -> request.config),
+        request.parentStepId.map(v => "parentStepId" -> JsString(v)),
+        request.rootId.map(v => "rootId" -> JsString(v)),
+        request.enabled.map(v => "enabled" -> JsBoolean(v))
+      ).flatten: _*
+    )
 
 
   private def panelUpdateAfter(request: UpdatePanelRequest, prior: Panel): Either[ServiceError, Option[JsValue]] =

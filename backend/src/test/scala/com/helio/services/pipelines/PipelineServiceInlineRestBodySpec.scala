@@ -60,13 +60,13 @@ class PipelineServiceInlineRestBodySpec extends AnyWordSpec with Matchers with S
       )
       val proposal = PipelineProposal(
         pipelineName = "Inline REST Pipeline",
-        source       = source,
+        roots        = Vector(source),
         steps        = Vector.empty
       )
 
       val result = await(service.analyzeProposal(proposal, user))
       result.isRight shouldBe true
-      result.map(_.sourceSchema.map(_.name)) shouldBe Right(Vector("id"))
+      result.map(_.sourceSchemas.head.sourceSchema.map(_.name)) shouldBe Right(Vector("id"))
 
       // The ephemeral path adapts through `fetchOverride`'s synthetic RestApiConfig (task 2.3c/3.3);
       // confirm body/bodyContentType were carried through, not dropped, into that synthesized config.

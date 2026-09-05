@@ -36,8 +36,43 @@ class AssistantSystemPromptSpec extends AnyWordSpec with Matchers {
     "cover pipeline source existing-vs-inline branch exclusivity" in {
       AssistantSystemPrompt.text should include("existing-source branch")
       AssistantSystemPrompt.text should include("inline-source branch")
-      AssistantSystemPrompt.text should include("never both in the same call")
+      AssistantSystemPrompt.text should include("never both branches on the SAME root")
     }
+
+    // HEL-914 task 9.5: anchors the roots[]/rootClientId/parentId/per-root-test_connection
+    // corrections so a future change cannot silently regress to the singular-source prose.
+    "describes roots as a non-empty array with per-root branch exclusivity, never a singular source object" in {
+      AssistantSystemPrompt.text should include("roots is a non-empty array")
+      AssistantSystemPrompt.text should include("rootClientId")
+      AssistantSystemPrompt.text should not include "propose_pipeline/propose_combined source is"
+    }
+
+    "requires test_connection for EVERY inline root, not only the first" in {
+      AssistantSystemPrompt.text should include("for EVERY inline rest_api/sql root in roots[]")
+      AssistantSystemPrompt.text should include("a verified first root does NOT exempt an unverified second")
+      AssistantSystemPrompt.text should include("for EVERY root in roots[]")
+    }
+
+    // HEL-914 task 9.3 (third bullet)/9.4: `target.parentId` was deliberately deferred while
+    // task 5 (EditTarget.parentId) was unimplemented, then restored once 5.1 landed -- this
+    // anchors it so a future change can't silently drop it again.
+    "names target.parentId as required for a propose_patch_set create targeting a child kind" in {
+      AssistantSystemPrompt.text should include("target.parentId")
+      AssistantSystemPrompt.text should include("REQUIRED for a create targeting a child kind")
+      AssistantSystemPrompt.text should include("must be OMITTED for update/delete")
+    }
+
+    // HEL-914 (found during the 6b conformance sweep): `attachAsTail: true` is what actually
+    // produces a SIBLING lane -- omitting it splices the new step in and reparents the anchor's
+    // existing children onto it instead (HEL-908's pre-existing trunk-insert semantic). An agent
+    // following ONLY the target.parentId guidance above would author a trunk insertion by
+    // mistake when it meant to add a lane.
+    "requires attachAsTail: true for a pipelineStep create to add a lane, not a trunk insertion" in {
+      AssistantSystemPrompt.text should include("\"attachAsTail\": true")
+      AssistantSystemPrompt.text should include("SIBLING lane")
+      AssistantSystemPrompt.text should include("SPLICES the new step")
+    }
+
 
     "show well-formed propose_dashboard call structure via a mini-transcript" in {
       AssistantSystemPrompt.text should include("propose_dashboard({")

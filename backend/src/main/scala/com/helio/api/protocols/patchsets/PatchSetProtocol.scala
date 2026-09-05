@@ -22,13 +22,23 @@ import spray.json._
 // and placements") — "node" is the pre-existing `pipelineStep` kind (a
 // PipelineStep IS a node) and "placement" is the pre-existing `panel` kind
 // (an OutputPanel IS a placement) under their original names; only `output`
-// itself was missing. `output` has no `create` op (mirrors `pipelineStep`'s
-// own precedent, design.md D1): `CreateOutputRequest` carries no parent-
-// pipeline-id field of its own (the real `POST /api/pipelines/:id/outputs`
-// route takes it from the URL path), and `EditTarget` has no field for a
-// not-yet-existing resource's parent id either.
+// itself was missing.
+//
+// HEL-914 task 5.1/D3: `EditTarget` gains `parentId`, closing the gap that
+// used to block a `create` op for any child resource (a create request body
+// carries no parent id — the real route takes it from the URL path, and
+// `EditTarget` had no field for one). `pipelineStep` create is the first
+// (and, in this change, only) consumer: a lane is a `pipelineStep` create
+// naming its parent PIPELINE via `target.parentId` (the step-level tree
+// shape — which EXISTING step it branches off — is carried inside the
+// `createPatch` body's own `parentStepId`, exactly like `POST
+// /pipelines/:id/steps`). `output` create stays UNIMPLEMENTED even though
+// the parent-id gap that used to explain its absence is now closed —
+// nothing in this change exercises an `output` create, and an untested op
+// is worse than a documented absence (task 5.4); it is a natural follow-up
+// once something needs it, not a remaining impossibility.
 
-final case class EditTarget(kind: String, id: Option[String])
+final case class EditTarget(kind: String, id: Option[String], parentId: Option[String] = None)
 
 /** `op`'s `update`-patch is decoded into exactly ONE of the six `Option`
  *  fields below, selected by `target.kind` — the same multi-`Option`-field-
@@ -75,7 +85,28 @@ trait PatchSetProtocol
     with PipelineStepProtocol
     with OutputProtocol {
 
-  implicit val editTargetFormat: RootJsonFormat[EditTarget] = jsonFormat2(EditTarget.apply)
+  /** Hand-written (not `jsonFormatN`) so `parentId` is TOLERATED absent at the wire level
+   *  (task 6b.4d) — every update/delete target omits it, and decoding must not fail just
+   *  because it's missing. Whether `parentId` is REQUIRED (a `create` targeting a child kind)
+   *  is a validation-time concern enforced by `PatchSetApplyResolvers`, never a decode failure
+   *  here. The writer omits an absent `parentId` rather than emitting `null`, mirroring `id`'s
+   *  own existing `Option` write convention on this same type. */
+  implicit val editTargetFormat: RootJsonFormat[EditTarget] = new RootJsonFormat[EditTarget] {
+    def write(t: EditTarget): JsValue = {
+      val fields = scala.collection.mutable.Map[String, JsValue]("kind" -> JsString(t.kind))
+      t.id.foreach(v => fields("id") = JsString(v))
+      t.parentId.foreach(v => fields("parentId") = JsString(v))
+      JsObject(fields.toMap)
+    }
+    def read(json: JsValue): EditTarget = {
+      val obj = json.asJsObject
+      EditTarget(
+        kind     = obj.fields.get("kind").map(_.convertTo[String]).getOrElse(deserializationError("edit target 'kind' is required")),
+        id       = obj.fields.get("id").map(_.convertTo[String]),
+        parentId = obj.fields.get("parentId").map(_.convertTo[String])
+      )
+    }
+  }
 
   // Recognized `target.kind`/`op` values — mirrors
   // schemas/patch-sets/patch-set.schema.json's EditTarget.kind and Edit.op enums.

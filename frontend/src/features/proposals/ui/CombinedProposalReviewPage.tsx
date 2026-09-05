@@ -75,9 +75,9 @@ export function CombinedProposalReviewPage() {
     [proposal, connectors],
   );
 
-  const handleConnectorResolved = (connectorId: string) => {
+  const handleConnectorResolved = (connectorId: string, key: string) => {
     setProposal((current) =>
-      current ? resolveCombinedConnectorRef(current, connectorId) : current,
+      current ? resolveCombinedConnectorRef(current, connectorId, key) : current,
     );
   };
 
@@ -145,20 +145,22 @@ function demoCombinedProposal(): CombinedProposal {
   return {
     pipeline: {
       pipelineName: "Demo proposed pipeline",
-      source: {
-        type: "static",
-        name: "Demo source",
-        config: {
-          columns: [
-            { name: "label", type: "string" },
-            { name: "value", type: "number" },
-          ],
-          rows: [
-            ["Alpha", 10],
-            ["Beta", 20],
-          ],
+      roots: [
+        {
+          type: "static",
+          name: "Demo source",
+          config: {
+            columns: [
+              { name: "label", type: "string" },
+              { name: "value", type: "number" },
+            ],
+            rows: [
+              ["Alpha", 10],
+              ["Beta", 20],
+            ],
+          },
         },
-      },
+      ],
       steps: [],
       outputs: [{ kind: "table", name: "Demo pipeline output" }],
     },

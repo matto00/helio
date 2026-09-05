@@ -4,13 +4,13 @@ import com.helio.services.panels.PanelServiceHelpers
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, OutputResponse, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, OutputResponse, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest}
 import com.helio.api.protocols.patchsets.Edit
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, Output, OutputId, PanelId, PipelineId, PipelineStep, PipelineStepId, ResourceAccess}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, Output, OutputId, PanelId, PipelineId, PipelineRootId, PipelineStep, PipelineStepId, ResourceAccess}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
-import spray.json.{JsObject, JsonReader}
+import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -52,6 +52,11 @@ private[services] object PatchSetApplyResolvers {
       user: AuthenticatedUser,
       ctx: PatchSetApplyContext
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
+    // HEL-914 task 5.1/D3: `target.parentId` is REJECTED, not ignored, on update/delete --
+    // checked once, generically, here rather than duplicated into every update/delete resolver.
+    if ((edit.op == "update" || edit.op == "delete") && edit.target.parentId.exists(_.trim.nonEmpty)) {
+      Future.successful(Left(ServiceError.BadRequest(s"edit $index: target.parentId must be omitted when op is '${edit.op}'")))
+    } else
     (edit.target.kind, edit.op) match {
       case ("panel", "update")        => resolvePanelUpdate(edit, index, user, ctx)
       case ("panel", "delete")        => resolvePanelDelete(edit, index, user, ctx)
@@ -70,16 +75,15 @@ private[services] object PatchSetApplyResolvers {
       case ("pipeline", "create")     => resolvePipelineCreate(edit, index, user, ctx)
       case ("pipelineStep", "update") => resolvePipelineStepUpdate(edit, index, user, ctx)
       case ("pipelineStep", "delete") => resolvePipelineStepDelete(edit, index, user, ctx)
-      case ("pipelineStep", "create") =>
-        // design.md D1: EditTarget has no field carrying a not-yet-existing
-        // step's PARENT pipeline id — a create-op edit can't target one.
-        Future.successful(Left(ServiceError.BadRequest(s"edit $index: create is not supported for pipelineStep")))
+      case ("pipelineStep", "create") => resolvePipelineStepCreate(edit, index, user, ctx)
       case ("output", "update") => resolveOutputUpdate(edit, index, user, ctx)
       case ("output", "delete") => resolveOutputDelete(edit, index, user, ctx)
       case ("output", "create") =>
-        // HEL-907 task 1.2: same reason as pipelineStep above -- CreateOutputRequest carries no
-        // parent-pipeline-id field of its own (the real route takes it from the URL path), and
-        // EditTarget has no field for a not-yet-existing resource's parent id either.
+        // HEL-914 task 5.1/6b.6/6b.7: `EditTarget.parentId` (added for `pipelineStep` create,
+        // above) makes an `output` create REPRESENTABLE too, but this ticket neither implements
+        // nor tests one -- a deliberate, documented absence, not a remaining impossibility (the
+        // parent-id gap that used to explain rejecting THIS kind is closed; only lack of
+        // coverage keeps it rejected).
         Future.successful(Left(ServiceError.BadRequest(s"edit $index: create is not supported for output")))
       case (kind, op) =>
         Future.successful(Left(ServiceError.BadRequest(s"edit $index: unsupported target.kind '$kind' for op '$op'")))
@@ -586,17 +590,126 @@ private[services] object PatchSetApplyResolvers {
               case Right(_) =>
                 // HEL-913 task 7.6a-i: same `priorState`-must-carry-its-real-root rationale as
                 // the update resolver above -- a delete's `priorState` is what a later undo
-                // recreates from.
-                ctx.pipelineStepRepo.rootIdOfStep(existing.pipelineId, existing.id).map { rootIdOpt =>
-                  Right(ResolvedEdit(
-                    index, "pipelineStep", "delete",
-                    Some(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(
-                      existing, rootIdOpt.map(rid => existing.id.value -> rid.value).toMap
-                    ))),
-                    ResolvedAction.PipelineStepDelete(stepId, existing)
-                  ))
+                // recreates from. HEL-914 task 5.8: ALSO captures every Output bound to this
+                // node, and each of those Outputs' placements -- the patch-set-lane-edits
+                // scenario "Removing a lane by patch set and undoing it restores its Outputs
+                // and placements" needs this captured at RESOLVE time (before the delete),
+                // since the DB's own ON DELETE CASCADE (V94) has already destroyed them by the
+                // time undo runs.
+                ctx.pipelineStepRepo.rootIdOfStep(existing.pipelineId, existing.id).flatMap { rootIdOpt =>
+                  buildPipelineStepDeletePriorState(existing, rootIdOpt, ctx).map { priorJson =>
+                    Right(ResolvedEdit(
+                      index, "pipelineStep", "delete",
+                      Some(priorJson),
+                      ResolvedAction.PipelineStepDelete(stepId, existing)
+                    ))
+                  }
                 }
             }
+        }
+    }
+
+  /** HEL-914 task 5.8: `{"step": <PipelineStepResponse>, "boundOutputs": [{"output":
+   *  <OutputResponse>, "placements": [<PanelResponse>, ...]}, ...]}` -- everything
+   *  `PatchSetUndoService.restorePipelineStepDelete`'s undo needs to recreate the step AND every
+   *  Output bound to it AND every one of those Outputs' panel placements. `ctx.outputRepo ==
+   *  null` (a fixture that never wires one) degrades to `boundOutputs: []`, matching this file's
+   *  other nullable-optional `outputRepo` conventions. */
+  private def buildPipelineStepDeletePriorState(
+      existing: PipelineStep,
+      rootIdOpt: Option[PipelineRootId],
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[JsValue] = {
+    val stepJson = pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(
+      existing, rootIdOpt.map(rid => existing.id.value -> rid.value).toMap
+    ))
+    if (ctx.outputRepo == null) Future.successful(JsObject("step" -> stepJson, "boundOutputs" -> JsArray()))
+    else
+      ctx.outputRepo.listByPipelineInternal(existing.pipelineId).flatMap { allOutputs =>
+        val bound = allOutputs.filter(_.node.stepId.contains(existing.id))
+        if (bound.isEmpty) Future.successful(JsObject("step" -> stepJson, "boundOutputs" -> JsArray()))
+        else
+          ctx.outputRepo.findConfigsByIdsInternal(bound.map(_.id.value)).flatMap { configs =>
+            Future.traverse(bound) { o =>
+              ctx.panelRepo.findByOutputIdInternal(o.id.value).map { panels =>
+                JsObject(
+                  "output"     -> outputResponseFormat.write(outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty))),
+                  "placements" -> JsArray(panels.map(p => panelResponseFormat.write(PanelResponse.fromDomain(p))))
+                )
+              }
+            }.map(boundJsons => JsObject("step" -> stepJson, "boundOutputs" -> JsArray(boundJsons)))
+          }
+      }
+  }
+
+  /** HEL-914 task 5.1/5.2/5.5 (design.md D3): a `pipelineStep` create -- a lane -- names its
+   *  parent PIPELINE via `target.parentId` (required, non-blank; `target.id` is unused for a
+   *  create, exactly like every other kind's `create` resolver). The step-level tree shape
+   *  (which EXISTING step this lane branches off) is carried inside the `createPatch` body's
+   *  own `parentStepId`, decoded as the SAME `CreatePipelineStepRequest` shape `POST
+   *  /pipelines/:id/steps` accepts -- no second DTO. Authorization is the SAME owner-or-editor
+   *  check every other pipelineStep resolver uses (`authorizeEditorOrOwnerOnPipeline`) -- an
+   *  unwritable parent pipeline refuses the whole patch set. */
+  /** HEL-914 (peer-approved fix, found during the 6b.5/7.6 title-diff sweep): `patch-set-apply`'s
+   *  "Pre-validation also authorizes resources referenced inside a patch" requirement already
+   *  enumerates `pipelineStep update`'s second-source (join/union/lookup `secondaryInput`) ACL
+   *  check as a PRE-VALIDATION-time authorization -- this ticket's own new `pipelineStep create`
+   *  op is now covered the same way, reusing the SAME decode+extract+ownership-check shape
+   *  `resolvePipelineStepUpdate` already runs, never a second, independently-drifting copy
+   *  (mirrors `PipelineStepConfigCodec.secondaryDataSourceId`'s own "one shared extractor" intent,
+   *  HEL-950). Without this, the ACL check still fires (later, at forward-apply time inside
+   *  `PipelineService.addStep`, atomically rolled back on failure) -- not a security hole, but an
+   *  inconsistency in WHEN the check runs relative to what this requirement discloses. */
+  private def resolvePipelineStepCreate(
+      edit: Edit,
+      index: Int,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
+    edit.target.parentId.map(_.trim).filter(_.nonEmpty) match {
+      case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: target.parentId is required for a pipelineStep create")))
+      case Some(parentIdStr) =>
+        val pipelineId = PipelineId(parentIdStr)
+        authorizeEditorOrOwnerOnPipeline(pipelineId, user, ctx).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_) =>
+            decodeCreatePatch[CreatePipelineStepRequest](edit, index) match {
+              case Left(err) => Future.successful(Left(err))
+              case Right(request) =>
+                authorizeSecondSourceForCreate(request, index, user, ctx).map {
+                  case Left(err) => Left(err)
+                  case Right(_)  => Right(ResolvedEdit(index, "pipelineStep", "create", None, ResolvedAction.PipelineStepCreate(pipelineId, request)))
+                }
+            }
+        }
+    }
+
+  /** Pre-validation authorization for a `pipelineStep` create's second-source reference -- the
+   *  SAME `PipelineStepConfigCodec.secondaryDataSourceId` extraction + `findByIdOwned` ownership
+   *  check `resolvePipelineStepUpdate` runs. A `lane`-kind secondary input (naming a node in the
+   *  same pipeline, not a separately-owned DataSource) never reaches this check at all --
+   *  `secondaryDataSourceId` returns `None` for it, matching `addStep`'s own identical skip. */
+  private def authorizeSecondSourceForCreate(
+      request: CreatePipelineStepRequest,
+      index: Int,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    PipelineStepConfigCodec.decode(request.`type`, request.config.compactPrint) match {
+      case Failure(_) =>
+        // An undecodable config is reported by `PipelineService.addStep`'s own decode at
+        // forward-apply time with the curated "Invalid '<type>' config" message -- not
+        // duplicated here, since this check exists only to authorize a REFERENCE the config
+        // might carry, not to validate the config's own shape.
+        Future.successful(Right(()))
+      case Success(typedConfig) =>
+        PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
+          case Some(id) =>
+            ctx.dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
+              case None    => Left(ServiceError.NotFound(s"edit $index: data source not found: $id"))
+              case Some(_) => Right(())
+            }
+          case None => Future.successful(Right(()))
         }
     }
 

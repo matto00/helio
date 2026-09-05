@@ -268,6 +268,112 @@ idempotent (every created resource — source, pipeline, Output, and dashboard
 that script's own header comment for the exact composition and how to run it
 again.
 
+## Worked example: multi-root, multi-lane pipeline (HEL-914)
+
+`create_pipeline` accepts more than one `roots[]` element and lets `steps[]` branch into sibling
+lanes via `parentStepId`, with a `join`/`union`/`lookup` step rejoining another lane via a
+`lane`-kind `secondaryInput`. Below is a real, executed two-root "projections ⨝ ADP" shape — one
+root holding player weekly projections, a second holding average-draft-position (ADP) rankings,
+joined on a shared key into one combined Output — captured from a genuine run against a real
+backend (`Hel914Ac1EndToEndSpec`, embedded Postgres, not hand-typed): the request/response pair
+below substitutes this doc's own domain-appropriate names (`Projections`/`ADP`/`projected_points`)
+for that test's literal (`Orders`/`Regions`/`amount`) column names, but every id shape, field name,
+and structural rule is the actual wire contract exercised end to end — schema-valid, decodable, and
+proven to persist exactly the graph shown.
+
+**`create_pipeline`** (`POST /api/pipelines`):
+
+```json
+{
+  "name": "Projections vs ADP",
+  "roots": [
+    { "clientId": "r1", "sourceId": "<projections-source-id>" },
+    { "clientId": "r2", "sourceId": "<adp-source-id>" }
+  ],
+  "steps": [
+    {
+      "clientId": "s1",
+      "type": "select",
+      "rootClientId": "r1",
+      "config": { "fields": ["player_id", "projected_points"] }
+    },
+    {
+      "clientId": "s2",
+      "type": "select",
+      "rootClientId": "r2",
+      "config": { "fields": ["player_id", "adp_rank"] }
+    },
+    {
+      "clientId": "s3",
+      "type": "join",
+      "parentStepId": "s1",
+      "config": {
+        "joinKey": "player_id",
+        "joinType": "inner",
+        "secondaryInput": { "kind": "lane", "stepId": "s2" }
+      }
+    }
+  ],
+  "outputs": [
+    { "nodeStepClientId": "s1", "kind": "table", "name": "ProjectionsOutput" },
+    { "nodeStepClientId": "s2", "kind": "table", "name": "ADPOutput" },
+    { "nodeStepClientId": "s3", "kind": "table", "name": "ProjectionsVsADP" }
+  ]
+}
+```
+
+`s1`/`s2` are each parentless and bind their own root explicitly via `rootClientId` (never a silent
+default to `roots[0]` — required whenever more than one root is present). `s3` continues `s1`'s lane
+(`parentStepId: "s1"`) and rejoins `s2`'s lane via `secondaryInput: {kind: "lane", stepId: "s2"}`,
+so its own projected schema carries columns from BOTH lanes.
+
+**Response** (`PipelineSummaryResponse`, ids redacted to the real run's shape):
+
+```json
+{
+  "id": "<pipeline-id>",
+  "name": "Projections vs ADP",
+  "roots": [
+    {
+      "id": "<root-1-id>",
+      "dataSourceId": "<projections-source-id>",
+      "dataSourceName": "Projections"
+    },
+    { "id": "<root-2-id>", "dataSourceId": "<adp-source-id>", "dataSourceName": "ADP" }
+  ]
+}
+```
+
+Both roots come back in the SAME order they were submitted — `roots[0]` is always the caller's
+first root, never resorted.
+
+**`get_workspace_context`** (`GET /api/workspace/context`) then reflects this pipeline's compact
+lane tree — one entry per step, each `parentId`/`rootId` resolved to REAL persisted ids (never the
+request-scoped `clientId`s the create call used), and each step's bound Output id:
+
+```json
+[
+  {
+    "id": "<s1-id>",
+    "op": "select",
+    "rootId": "<root-1-id>",
+    "outputIds": ["<projections-output-id>"]
+  },
+  {
+    "id": "<s3-id>",
+    "op": "join",
+    "parentId": "<s1-id>",
+    "rootId": "<root-1-id>",
+    "outputIds": ["<projections-vs-adp-output-id>"]
+  },
+  { "id": "<s2-id>", "op": "select", "rootId": "<root-2-id>", "outputIds": ["<adp-output-id>"] }
+]
+```
+
+`s3`'s `rootId` is `root-1`'s (it continues `s1`'s lane) even though its own schema derives from
+BOTH roots — `rootId` names the node's OWN lane ancestry, never the rejoined lane. Place each
+Output with `place_outputs(dashboardId, [{outputId: "<output-id>", title: "..."}])`.
+
 ## Proposal → Review → Apply
 
 Beyond direct tool composition, there is a human-in-the-loop path: an agent

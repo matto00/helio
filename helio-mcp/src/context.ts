@@ -335,6 +335,20 @@ export interface WorkspaceContext {
     }>;
     /** set when the analyze fan-out for this pipeline failed */
     stepsError?: string;
+    /** HEL-914 task 6.6: the compact lane tree -- per node its id, parent id, originating root
+     *  id, op kind, and the ids of Outputs bound to it. No configs, no schemas, no sample rows.
+     *  Mirrors the backend's `WorkspaceContextPipeline.laneTree` (`GET /api/workspace/context`)
+     *  -- this file re-derives it client-side from `getPipeline`'s steps + `outputsByPipeline`
+     *  (already fetched for `outputs` below) rather than calling that route, matching every
+     *  other field in this interface's own "MCP composes from several REST calls" convention.
+     *  Degrades to `[]` alongside `steps`/`stepsError` on the SAME fetch failure. */
+    laneTree: Array<{
+      id: string;
+      parentId: string | null;
+      rootId: string;
+      op: string;
+      outputIds: string[];
+    }>;
     /** HEL-581: the pipeline's latest-run assertion trustworthiness summary, sourced from
      *  GET /api/pipelines/:id/run-history's most-recent entry's `assertions` field. ALWAYS
      *  present (never omitted) — zero-valued (`{passed:0,warnFailed:0,errorFailed:0,failures:[]}`)
@@ -457,7 +471,7 @@ export async function buildWorkspaceContext(
       // via Promise.all, but each in its OWN independent try/catch — a
       // run-history-specific failure must never blank out `steps` or produce
       // a misleading `stepsError`, and vice versa.
-      const [stepsResult, lastRunAssertions] = await Promise.all([
+      const [stepsResult, lastRunAssertions, laneTreeResult] = await Promise.all([
         (async () => {
           try {
             const analyzed = await api.analyzePipeline(summary.id);
@@ -481,12 +495,38 @@ export async function buildWorkspaceContext(
             return ZERO_ASSERTION_SUMMARY;
           }
         })(),
+        // HEL-914 task 6.6: its OWN independent try/catch, same "one section's failure never
+        // blanks another" discipline as steps/lastRunAssertions above -- a getPipeline failure
+        // degrades ONLY laneTree to [], never steps or lastRunAssertions.
+        (async () => {
+          try {
+            const { steps } = await api.getPipeline(summary.id);
+            const pipelineOutputs = outputsByPipeline.get(summary.id) ?? [];
+            const outputIdsByStep = new Map<string, string[]>();
+            for (const o of pipelineOutputs) {
+              if (!o.nodeStepId) continue;
+              const existing = outputIdsByStep.get(o.nodeStepId);
+              if (existing) existing.push(o.id);
+              else outputIdsByStep.set(o.nodeStepId, [o.id]);
+            }
+            return steps.map((s) => ({
+              id: s.id,
+              parentId: s.parentStepId ?? null,
+              rootId: s.rootId ?? "",
+              op: s.type,
+              outputIds: outputIdsByStep.get(s.id) ?? [],
+            }));
+          } catch {
+            return [];
+          }
+        })(),
       ]);
 
       return {
         ...base,
         ...stepsResult,
         lastRunAssertions,
+        laneTree: laneTreeResult,
         outputs: outputsByPipeline.get(summary.id) ?? [],
       };
     }),

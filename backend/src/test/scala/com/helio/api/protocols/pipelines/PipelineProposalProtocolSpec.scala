@@ -60,7 +60,7 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
   ): PipelineProposal =
     PipelineProposal(
       pipelineName = "Events pipeline",
-      source       = source,
+      roots        = Vector(source),
       steps        = steps,
       outputs      = outputs
     )
@@ -73,7 +73,7 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
     }
 
     "omit type/name/config keys on the source object when only sourceId is set" in {
-      val json = proposal(existingSourceRef).toJson.asJsObject.fields("source").asJsObject
+      val json = proposal(existingSourceRef).toJson.asJsObject.fields("roots").asInstanceOf[JsArray].elements.head.asJsObject
       json.fields.keySet shouldBe Set("sourceId")
     }
   }
@@ -86,13 +86,13 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
     }
 
     "serialize the inline source's config under a single shared 'config' key" in {
-      val json = proposal(inlineSqlSource).toJson.asJsObject.fields("source").asJsObject
+      val json = proposal(inlineSqlSource).toJson.asJsObject.fields("roots").asInstanceOf[JsArray].elements.head.asJsObject
       json.fields.keySet shouldBe Set("type", "name", "config")
       json.fields("config") shouldBe sqlConfig.toJson
     }
 
     "not emit csvConfig/restConfig/sqlConfig/staticConfig field names anywhere on the wire" in {
-      val json = proposal(inlineSqlSource).toJson.asJsObject.fields("source").asJsObject
+      val json = proposal(inlineSqlSource).toJson.asJsObject.fields("roots").asInstanceOf[JsArray].elements.head.asJsObject
       json.fields.keySet.intersect(Set("csvConfig", "restConfig", "sqlConfig", "staticConfig")) shouldBe empty
     }
   }
@@ -102,20 +102,38 @@ class PipelineProposalProtocolSpec extends AnyWordSpec with Matchers with Pipeli
     "tolerate every source-level optional field being absent, reading only the required fields" in {
       val json = JsObject(
         "pipelineName" -> JsString("Minimal pipeline"),
-        "source"       -> JsObject(),
+        "roots"        -> JsArray(JsObject()),
         "steps"        -> JsArray()
       )
       val decoded = json.convertTo[PipelineProposal]
       decoded.pipelineName shouldBe "Minimal pipeline"
       decoded.steps shouldBe Vector.empty
       decoded.outputs shouldBe Vector.empty
-      decoded.source shouldBe PipelineProposalSource(None, None, None, None, None, None, None)
+      decoded.roots shouldBe Vector(PipelineProposalSource(None, None, None, None, None, None, None))
     }
 
     "raise a deserializationError when a required top-level field is missing" in {
       val json = JsObject(
-        "source" -> JsObject("sourceId" -> JsString("src-1")),
+        "roots" -> JsArray(JsObject("sourceId" -> JsString("src-1"))),
         "steps"  -> JsArray()
+      )
+      an[DeserializationException] should be thrownBy json.convertTo[PipelineProposal]
+    }
+
+    "reject a payload carrying the retired singular 'source' field outright, never tolerating it" in {
+      val json = JsObject(
+        "pipelineName" -> JsString("Legacy pipeline"),
+        "source"       -> JsObject("sourceId" -> JsString("src-1")),
+        "steps"        -> JsArray()
+      )
+      an[DeserializationException] should be thrownBy json.convertTo[PipelineProposal]
+    }
+
+    "reject an empty 'roots' array" in {
+      val json = JsObject(
+        "pipelineName" -> JsString("Empty roots"),
+        "roots"        -> JsArray(),
+        "steps"        -> JsArray()
       )
       an[DeserializationException] should be thrownBy json.convertTo[PipelineProposal]
     }

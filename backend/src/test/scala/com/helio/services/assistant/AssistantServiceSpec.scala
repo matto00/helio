@@ -88,7 +88,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       csvConfig = None, restConfig = None, sqlConfig = None,
       staticConfig = Some(StaticDataPayload(Vector(StaticColumnPayload("value", "string")), Vector(Vector(JsString("x")))))
     )
-    PipelineProposal(pipelineName, source, steps = Vector.empty, outputs = Vector.empty)
+    PipelineProposal(pipelineName, Vector(source), steps = Vector.empty, outputs = Vector.empty)
   }
 
   private val findInput: JsValue = JsObject("query" -> JsString("orders"), "resourceTypes" -> JsArray(JsString("dataType")))
@@ -613,7 +613,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
         sqlConfig = None,
         staticConfig = None
       )
-      val restProposal = PipelineProposal("REST Pipeline", restSource, steps = Vector.empty, outputs = Vector.empty)
+      val restProposal = PipelineProposal("REST Pipeline", Vector(restSource), steps = Vector.empty, outputs = Vector.empty)
 
       val searchThenProposeHop = ClaudeApiResponse(
         id = "msg_search_then_propose",

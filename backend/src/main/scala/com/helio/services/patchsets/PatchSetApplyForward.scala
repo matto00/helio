@@ -84,13 +84,17 @@ private[services] object PatchSetApplyForward {
           edit.toOutcome("applied", newId = Some(summary.id), resultingState = Some(pipelineSummaryResponseFormat.write(summary)))
         })
 
-      // ── pipelineStep (no create — design.md D1) ───────────────────────
+      // ── pipelineStep (HEL-914 task 5.2: create added) ─────────────────
       case ResolvedAction.PipelineStepUpdate(id, request, _) =>
         services.pipelineService.updateStep(id, request, user).map(_.map { step =>
           edit.toOutcome("applied", resultingState = Some(pipelineStepResponseFormat.write(step)))
         })
       case ResolvedAction.PipelineStepDelete(id, _) =>
         services.pipelineService.deleteStep(id, user).map(_.map(_ => edit.toOutcome("applied")))
+      case ResolvedAction.PipelineStepCreate(pipelineId, request) =>
+        services.pipelineService.addStep(pipelineId, request, user).map(_.map { step =>
+          edit.toOutcome("applied", newId = Some(step.id), resultingState = Some(pipelineStepResponseFormat.write(step)))
+        })
 
       // ── output (HEL-907 task 1.2 — no create, see PatchSetProtocol's doc) ─
       case ResolvedAction.OutputUpdate(id, request, _, _) =>

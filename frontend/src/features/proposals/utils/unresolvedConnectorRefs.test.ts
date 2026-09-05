@@ -35,7 +35,7 @@ function connector(id: string): Connector {
 function pipelineProposal(config: Record<string, unknown> | undefined): PipelineProposal {
   return {
     pipelineName: "P",
-    source: { type: "rest_api", name: "Inline REST", config },
+    roots: [{ type: "rest_api", name: "Inline REST", config }],
     steps: [],
     outputs: [{ kind: "table", name: "Out" }],
   };
@@ -64,7 +64,7 @@ describe("detectUnresolvedConnectorRefs", () => {
   it("returns empty for a non-rest_api source", () => {
     const proposal: PipelineProposal = {
       pipelineName: "P",
-      source: { type: "static", name: "Inline", config: {} },
+      roots: [{ type: "static", name: "Inline", config: {} }],
       steps: [],
       outputs: [{ kind: "table", name: "Out" }],
     };
@@ -122,14 +122,14 @@ describe("resolvePipelineConnectorRef", () => {
       endpoint: "/v1/charges",
       method: "GET",
     });
-    const resolved = resolvePipelineConnectorRef(proposal, "conn-new");
+    const resolved = resolvePipelineConnectorRef(proposal, "conn-new", "pipeline-source-0");
 
-    expect(resolved.source.config).toEqual({
+    expect(resolved.roots[0].config).toEqual({
       endpoint: "/v1/charges",
       method: "GET",
       connectorId: "conn-new",
     });
-    expect(proposal.source.config).toEqual({
+    expect(proposal.roots[0].config).toEqual({
       newConnector: draft,
       endpoint: "/v1/charges",
       method: "GET",
@@ -138,8 +138,23 @@ describe("resolvePipelineConnectorRef", () => {
 
   it("replaces a dangling connectorId with the new one", () => {
     const proposal = pipelineProposal({ connectorId: "conn-missing", endpoint: "/x" });
-    const resolved = resolvePipelineConnectorRef(proposal, "conn-new");
-    expect(resolved.source.config).toEqual({ endpoint: "/x", connectorId: "conn-new" });
+    const resolved = resolvePipelineConnectorRef(proposal, "conn-new", "pipeline-source-0");
+    expect(resolved.roots[0].config).toEqual({ endpoint: "/x", connectorId: "conn-new" });
+  });
+
+  it("HEL-914: resolving one root's connector ref never touches a different root", () => {
+    const proposal: PipelineProposal = {
+      pipelineName: "P",
+      roots: [
+        { type: "rest_api", name: "Root0", config: { newConnector: draft } },
+        { type: "rest_api", name: "Root1", config: { newConnector: draft } },
+      ],
+      steps: [],
+      outputs: [],
+    };
+    const resolved = resolvePipelineConnectorRef(proposal, "conn-new", "pipeline-source-1");
+    expect(resolved.roots[0].config).toEqual({ newConnector: draft });
+    expect(resolved.roots[1].config).toEqual({ connectorId: "conn-new" });
   });
 });
 
@@ -149,8 +164,12 @@ describe("resolveCombinedConnectorRef", () => {
       pipeline: pipelineProposal({ newConnector: draft }),
       dashboard: { dashboardName: "D", panels: [] },
     };
-    const resolved = resolveCombinedConnectorRef(combined, "conn-new");
-    expect(resolved.pipeline.source.config).toEqual({ connectorId: "conn-new" });
+    const resolved = resolveCombinedConnectorRef(
+      combined,
+      "conn-new",
+      "combined-pipeline-source-0",
+    );
+    expect(resolved.pipeline.roots[0].config).toEqual({ connectorId: "conn-new" });
     expect(resolved.dashboard).toBe(combined.dashboard);
   });
 });

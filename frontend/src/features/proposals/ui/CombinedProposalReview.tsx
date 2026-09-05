@@ -62,7 +62,7 @@ interface CombinedProposalReviewProps {
    *  Decision 3). The dashboard half never contributes any (no source/
    *  connector field on that type). */
   unresolvedConnectorRefs?: UnresolvedConnectorRef[];
-  onConnectorResolved?: (connectorId: string) => void;
+  onConnectorResolved?: (connectorId: string, key: string) => void;
   /** Called on accept — a single action covering BOTH halves. Nothing is
    *  written until this fires. */
   onAccept: () => void;

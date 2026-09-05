@@ -419,20 +419,203 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
 
-    "reject a create edit targeting dataType or pipelineStep pre-apply with a clear message (7.5)" in {
+    "reject a create edit targeting dataType pre-apply with a clear message (7.5)" in {
       val dataTypeCreate = Edit(EditTarget("dataType", None), "create", None, None, None, None, None, Some(JsObject()))
       await(service.apply(PatchSet(None, Vector(dataTypeCreate)), userA)) match {
         case Left(ServiceError.BadRequest(msg)) => msg.toLowerCase should include("datatype")
         case other                                => fail(s"expected BadRequest, got $other")
       }
+    }
 
-      val stepCreate = Edit(EditTarget("pipelineStep", None), "create", None, None, None, None, None, Some(JsObject()))
-      await(service.apply(PatchSet(None, Vector(stepCreate)), userA)) match {
-        case Left(ServiceError.BadRequest(msg)) => msg.toLowerCase should include("pipelinestep")
+    // HEL-914 task 5.1/D3: `output` still has no create op -- the parent-id gap this change
+    // closes for `pipelineStep` is not exercised for `output` (patch-set-apply spec, "A create
+    // edit targeting output is rejected").
+    "reject a create edit targeting output pre-apply with a clear message" in {
+      val outputCreate = Edit(EditTarget("output", None), "create", None, None, None, None, None, Some(JsObject()))
+      await(service.apply(PatchSet(None, Vector(outputCreate)), userA)) match {
+        case Left(ServiceError.BadRequest(msg)) => msg.toLowerCase should include("output")
         case other                                => fail(s"expected BadRequest, got $other")
       }
     }
 
+    // HEL-914 task 5.1/5.2 (patch-set-apply spec, "pipelineStep is no longer in this rejection
+    // list"): `pipelineStep` create is now accepted, naming its parent PIPELINE via
+    // `target.parentId` -- the reason it used to be rejected (no field on EditTarget carried the
+    // parent id) is resolved.
+    "reject a pipelineStep create with no target.parentId, naming the missing parent" in {
+      val stepCreate = Edit(EditTarget("pipelineStep", None), "create", None, None, None, None, None,
+        Some(JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))))
+      await(service.apply(PatchSet(None, Vector(stepCreate)), userA)) match {
+        case Left(ServiceError.BadRequest(msg)) => msg.toLowerCase should include("parentid")
+        case other                                => fail(s"expected BadRequest, got $other")
+      }
+    }
+
+    "reject a panel-update edit carrying target.parentId -- rejected, not ignored" in {
+      val dashboard = seedDashboard(userA)
+      val panel = seedPanel(dashboard.id, userA)
+      val edit = Edit(EditTarget("panel", Some(panel.id.value), Some("some-parent")), "update",
+        Some(UpdatePanelRequest(title = Some("x"), appearance = None, `type` = None, config = None)),
+        None, None, None, None, None)
+      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Left(ServiceError.BadRequest(msg)) => msg.toLowerCase should include("parentid")
+        case other                                => fail(s"expected BadRequest, got $other")
+      }
+    }
+
+    // patch-set-contract spec, "A create edit naming a pipeline the caller cannot write is refused".
+    "reject a pipelineStep create naming a pipeline owned by another user, creating nothing" in {
+      val sourceId = seedStaticSource(userA)
+      val pipeline = seedPipeline(userA, sourceId)
+      val createPatch = JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
+      val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
+
+      await(service.apply(PatchSet(None, Vector(stepCreate)), userB)) match {
+        case Left(ServiceError.Forbidden(_)) | Left(ServiceError.NotFound(_)) => succeed
+        case other                                                              => fail(s"expected Forbidden/NotFound, got $other")
+      }
+      await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
+    }
+
+    "accept a pipelineStep create naming an existing, writable parent pipeline, and create the step" in {
+      val sourceId = seedStaticSource(userA)
+      val pipeline = seedPipeline(userA, sourceId)
+      val createPatch = JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
+      val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
+
+      val result = await(service.apply(PatchSet(None, Vector(stepCreate)), userA))
+      result match {
+        case Right(resp) =>
+          resp.failure shouldBe None
+          resp.edits.head.status shouldBe "applied"
+          resp.edits.head.newId shouldBe defined
+          val createdId = PipelineStepId(resp.edits.head.newId.get)
+          await(pipelineStepRepo.findByIdInternal(createdId)) shouldBe defined
+        case Left(err) => fail(s"expected Right, got $err")
+      }
+    }
+
+    // patch-set-lane-edits spec, "A create edit naming a parent that already has a child produces
+    // a sibling": a pipelineStep create's `patch.parentStepId` naming an EXISTING step that
+    // already has one child must add a SECOND child (a sibling lane), never reparent the
+    // existing child under the new one. This is `addStep`'s own pre-existing sibling semantics
+    // (HEL-911/912) -- this test proves the patch-set wiring delegates to it unmodified, rather
+    // than re-deriving lane placement itself.
+    "accept a pipelineStep create naming an existing step with a child, producing a sibling (not a reparent)" in {
+      val sourceId = seedStaticSource(userA)
+      val pipeline = seedPipeline(userA, sourceId)
+      val parent = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(10)))
+      val existingChild = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(5)), parentStepId = Some(parent.id))
+
+      // HEL-908: `attachAsTail: true` uses the branch-attach primitive (new sibling, no
+      // reparenting) -- the PLAIN parentStepId anchor (attachAsTail absent/false) is a SPLICE
+      // insert that reparents the anchor's existing children onto the new step instead, which
+      // is a different (trunk-insertion) op, not a lane/sibling add.
+      val createPatch = JsObject(
+        "type"         -> JsString("limit"),
+        "config"       -> JsObject("count" -> JsNumber(1)),
+        "parentStepId" -> JsString(parent.id),
+        "attachAsTail" -> JsBoolean(true)
+      )
+      val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
+
+      val result = await(service.apply(PatchSet(None, Vector(stepCreate)), userA))
+      result match {
+        case Right(resp) =>
+          resp.failure shouldBe None
+          val newSiblingId    = resp.edits.head.newId.get
+          val allSteps        = await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id)))
+          val parentIdWrapped = PipelineStepId(parent.id)
+          val childrenOfParent = allSteps.filter(_.parentStepId.contains(parentIdWrapped))
+          childrenOfParent.map(_.id.value) should contain theSameElementsAs Vector(existingChild.id, newSiblingId)
+          // Neither child is reparented under the other.
+          allSteps.find(_.id.value == newSiblingId).get.parentStepId shouldBe Some(parentIdWrapped)
+          allSteps.find(_.id.value == existingChild.id).get.parentStepId shouldBe Some(parentIdWrapped)
+        case Left(err) => fail(s"expected Right, got $err")
+      }
+    }
+
+    // patch-set-lane-edits spec, "Omitting attachAsTail splices rather than branching": the
+    // NEGATIVE case proving the sibling behavior above is opt-in, not the default. Creating a
+    // pipelineStep with `patch.parentStepId` naming a step that already has a child, but WITHOUT
+    // `attachAsTail: true`, applies the pre-existing trunk-insert (splice) behavior instead --
+    // the existing child is REPARENTED under the newly-created step, exactly the outcome the
+    // sibling test above proves does NOT happen when the flag is set. Asserts the actual
+    // splice/reparent outcome, not merely that the call succeeded -- a 200 alone would prove
+    // nothing, since both the sibling and splice paths return 200.
+    "accept a pipelineStep create naming an existing step with a child, WITHOUT attachAsTail, splicing and reparenting the existing child" in {
+      val sourceId = seedStaticSource(userA)
+      val pipeline = seedPipeline(userA, sourceId)
+      val parent = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(10)))
+      val existingChild = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(5)), parentStepId = Some(parent.id))
+
+      // `attachAsTail` is deliberately OMITTED here -- this is the whole point of the test.
+      val createPatch = JsObject(
+        "type"         -> JsString("limit"),
+        "config"       -> JsObject("count" -> JsNumber(1)),
+        "parentStepId" -> JsString(parent.id)
+      )
+      val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
+
+      val result = await(service.apply(PatchSet(None, Vector(stepCreate)), userA))
+      result match {
+        case Right(resp) =>
+          resp.failure shouldBe None
+          val newStepId       = resp.edits.head.newId.get
+          val allSteps        = await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id)))
+          val parentIdWrapped = PipelineStepId(parent.id)
+          val newStepIdWrapped = PipelineStepId(newStepId)
+          // The anchor now has exactly ONE child -- the new step -- not two.
+          val childrenOfParent = allSteps.filter(_.parentStepId.contains(parentIdWrapped))
+          childrenOfParent.map(_.id.value) shouldBe Vector(newStepId)
+          // The previously-existing child is REPARENTED under the new step, not left under the
+          // original anchor -- this is the splice/reparent outcome, not a sibling.
+          allSteps.find(_.id.value == existingChild.id).get.parentStepId shouldBe Some(newStepIdWrapped)
+        case Left(err) => fail(s"expected Right, got $err")
+      }
+    }
+
+    // HEL-914 (peer-approved fix, found during the 6b.5/7.6 title-diff sweep): a pipelineStep
+    // CREATE whose config references a foreign-owned second source is now rejected at
+    // PRE-VALIDATION time (same as pipelineStep update, above), creating nothing -- not merely
+    // caught later by forward-apply's own atomic rollback.
+    "reject a pipelineStep create referencing a foreign-owned JoinConfig secondaryInput dataSourceId, creating nothing" in {
+      val sourceId = seedStaticSource(userA, "Pipeline source")
+      val foreignSourceId = seedStaticSource(userB, "Foreign source")
+      val pipeline = seedPipeline(userA, sourceId, "Join pipeline")
+      val joinConfig = JsObject(
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(foreignSourceId.value)),
+        "joinKey"        -> JsString("value"),
+        "joinType"       -> JsString("inner")
+      )
+      val createPatch = JsObject("type" -> JsString("join"), "config" -> joinConfig)
+      val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
+
+      await(service.apply(PatchSet(None, Vector(stepCreate)), userA)) match {
+        case Left(ServiceError.NotFound(_)) => succeed
+        case other                            => fail(s"expected NotFound (data source not found), got $other")
+      }
+      await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
+    }
+
+    // Peer-requested confirmation (patch-set-apply spec's create-side scenarios): an empty
+    // dataSourceId is an incomplete draft, not a reference -- no lookup, no 404, on create either.
+    "accept a pipelineStep create whose JoinConfig.secondaryInput dataSourceId is empty (an incomplete draft, not a reference)" in {
+      val sourceId = seedStaticSource(userA, "Pipeline source")
+      val pipeline = seedPipeline(userA, sourceId, "Join pipeline")
+      val joinConfig = JsObject(
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
+        "joinKey"        -> JsString("value"),
+        "joinType"       -> JsString("inner")
+      )
+      val createPatch = JsObject("type" -> JsString("join"), "config" -> joinConfig)
+      val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
+
+      await(service.apply(PatchSet(None, Vector(stepCreate)), userA)) match {
+        case Right(resp) => resp.failure shouldBe None
+        case Left(err)   => fail(s"expected success (empty id skips the ACL check), got Left($err)")
+      }
+    }
 
     "reject a dashboard-create edit whose createPatch sets ifExists (7.6)" in {
       val createPatch = JsObject("name" -> JsString("Should not be created"), "ifExists" -> JsString("return"))

@@ -115,10 +115,14 @@ class WorkspaceContextServiceSpec
     val tmpDir = Files.createTempDirectory("helio-workspace-context-spec")
     val fs     = new LocalFileSystem(tmpDir)
     dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService
     // dropped from that constructor).
     outputRepo = new OutputRepository(ctx)
+    // HEL-914 task 6.6: `PipelineService.laneTree` reads ITS OWN `outputRepo` field (not
+    // `WorkspaceContextService`'s) to report bound Outputs -- wired here so this fixture
+    // matches `ApiRoutes`'s real construction (`outputRepoOpt.orNull` at the same positional
+    // slot), not a null that would silently degrade every laneTree node's outputIds to [].
+    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
     nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
 
     // Only "dashboard" is exercised by DashboardService's own AccessChecker
@@ -134,13 +138,15 @@ class WorkspaceContextServiceSpec
     // now come from NodeSnapshotRepository, replacing DataTypeRowRepository).
     service = new WorkspaceContextService(
       dashboardService, dataSourceService, outputRepo, pipelineService,
-      nodeSnapshotRepoOpt = Some(nodeSnapshotRepo)
+      nodeSnapshotRepoOpt = Some(nodeSnapshotRepo),
+      pipelineStepRepoOpt = Some(pipelineStepRepo)
     )
     connectorRepo = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider())))
     serviceWithConnectors = new WorkspaceContextService(
       dashboardService, dataSourceService, outputRepo, pipelineService,
       connectorRepoOpt = Some(connectorRepo),
-      nodeSnapshotRepoOpt = Some(nodeSnapshotRepo)
+      nodeSnapshotRepoOpt = Some(nodeSnapshotRepo),
+      pipelineStepRepoOpt = Some(pipelineStepRepo)
     )
 
     await(db.run(DBIO.seq(
@@ -155,6 +161,23 @@ class WorkspaceContextServiceSpec
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
+
+  /** A freshly-inserted, isolated user with NO resources of its own -- for any test whose
+    * assertion would be corrupted by accumulated fixture state. This file's harness is a shared
+    * `BeforeAndAfterAll` instance (no per-test truncation), so `userA`/`userB` accumulate every
+    * OTHER test's pipelines/sources over the suite's run order; a test whose result (a byte-budget
+    * decision, a query-count assertion) depends on how many EARLIER tests happened to run first is
+    * wrong even when it currently passes -- not a timing workaround, a correctness bug in the test
+    * itself (this is the same reasoning `userEmpty`'s own doc comment already applies to the 4.1
+    * "empty workspace" scenario; this helper generalizes it for tests that need a NON-empty but
+    * still fully-isolated fixture). `assemble` is owner-scoped, so `service.assemble(freshUser)`
+    * over pipelines/sources created ONLY under this user is unaffected by anything the rest of the
+    * suite does, in either direction. */
+  private def freshUser(): AuthenticatedUser = {
+    val id = UUID.randomUUID().toString
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($id::uuid, ${s"fresh-$id@test.local"}, now())"""))
+    AuthenticatedUser(UserId(id))
+  }
 
   // ── HEL-371 cycle-2: real JSON Schema validation (design.md/evaluation-1.md
   // change request 1/2) ───────────────────────────────────────────────────
@@ -361,6 +384,35 @@ class WorkspaceContextServiceSpec
       // rather than against `position`, which was never the order-bearing field.
       entry.steps.map(_.position) shouldBe Vector(0, 0)
       entry.steps.map(_.outputColumns) shouldBe Vector(Vector("value"), Vector("renamed"))
+    }
+  }
+
+  "assemble (HEL-914 task 6.6 lane tree)" should {
+    "report id/parentId/rootId/op/outputIds per node, and bound Outputs by their nodeStepId" in {
+      val source   = createSource(userA, "lane-tree-source")
+      val pipeline = createPipeline(userA, source.id, "lane-tree-pipeline", "lane-tree-output")
+
+      val selectStep = await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "select", SelectConfig(Vector("value")), enabled = true, explicitRootId = None))
+      val renameStep = await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "rename", RenameConfig(Map("value" -> "renamed")), enabled = true, parentStepId = Some(selectStep.id), explicitRootId = None))
+      val boundOutput = await(outputRepo.insertInternal(PipelineId(pipeline.id), Some(renameStep.id), userA.id, "Lane output", OutputKind.Table, explicitRootId = None))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.pipelines.find(_.id == pipeline.id).getOrElse(fail("pipeline missing"))
+
+      entry.laneTree should have size 2
+      val bySelectId = entry.laneTree.map(n => n.id -> n).toMap
+
+      val selectNode = bySelectId(selectStep.id.value)
+      selectNode.parentId shouldBe None
+      selectNode.op shouldBe "select"
+      selectNode.outputIds shouldBe empty
+      selectNode.rootId should not be empty
+
+      val renameNode = bySelectId(renameStep.id.value)
+      renameNode.parentId shouldBe Some(selectStep.id.value)
+      renameNode.op shouldBe "rename"
+      renameNode.outputIds shouldBe Vector(boundOutput.id.value)
+      renameNode.rootId shouldBe selectNode.rootId
     }
   }
 
@@ -1018,7 +1070,13 @@ class WorkspaceContextServiceSpec
       "while GET /workspace/context on the same routes instance still succeeds" in {
       implicit val ec: ExecutionContext = routeEc
 
-      val routes = new WorkspaceRoutes(None, service, userA).routes
+      // Isolated fixture (see `freshUser`'s own doc): this test only asserts response STATUS
+      // codes, never response byte size/content, but `assemble` still walks the caller's full
+      // pipeline set to build it -- routing this through `userA` (which accumulates every OTHER
+      // test's pipelines over the suite's run order) would make this test's assembled-response
+      // cost, and therefore its share of CI's RouteTest timeout, drift upward as unrelated tests
+      // are added, with nothing in the test itself explaining why.
+      val routes = new WorkspaceRoutes(None, service, freshUser()).routes
       val body = HttpEntity(
         ContentTypes.`application/json`,
         JsObject("tag" -> JsString("t"), "dryRun" -> JsBoolean(false)).compactPrint
@@ -1044,12 +1102,20 @@ class WorkspaceContextServiceSpec
   "GET /workspace/context (HEL-377 budgetBytes query param)" should {
     "trim the response to the structural floor via budgetBytes=0 and report truncation accordingly" in {
       implicit val ec: ExecutionContext = routeEc
-      val source   = createSource(userA, "budget-source")
-      val pipeline = createPipeline(userA, source.id, "budget-pipeline", "budget-output")
+      // Isolated fixture (see `freshUser`'s own doc): exactly one pipeline WITH a real sample row
+      // and a real column-stats-bearing field -- there must be something concrete for budgetBytes=0
+      // to trim, or this assertion would pass vacuously against an empty/near-empty workspace.
+      // `userA` would still satisfy that (it has plenty of real data by this point in the suite),
+      // but the test's PASS/FAIL and its measured cost would then depend on how many earlier
+      // tests happened to run, which is the defect this isolation removes -- this fixture is
+      // self-sufficient regardless of run order.
+      val fixtureUser = freshUser()
+      val source   = createSource(fixtureUser, "budget-source")
+      val pipeline = createPipeline(fixtureUser, source.id, "budget-pipeline", "budget-output")
       setDataTypeFields(pipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("name" -> JsString("x"))), explicitRootId = None))
 
-      val routes = new WorkspaceRoutes(None, service, userA).routes
+      val routes = new WorkspaceRoutes(None, service, fixtureUser).routes
 
       Get("/workspace/context?budgetBytes=0") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -1080,9 +1146,18 @@ class WorkspaceContextServiceSpec
 
     "use the configured default budget when budgetBytes is omitted" in {
       implicit val ec: ExecutionContext = routeEc
-      createSource(userA, "budget-default-source")
+      // Isolated fixture (see `freshUser`'s own doc): this is the test that actually motivated
+      // the isolation. `WorkspaceContextServiceSpec` has only `BeforeAndAfterAll` (no truncation
+      // between tests), so routing this through `userA` meant this test was really measuring
+      // "assemble over however many pipelines every EARLIER test in this file happened to create"
+      // (~27 by this point in the suite) rather than "the default budget applies when budgetBytes
+      // is omitted" -- a test whose result depends on run order is wrong even when it passes, and
+      // it drifts closer to CI's RouteTest timeout every time anyone adds a case to this file. A
+      // fresh, single-source user makes the assertion mean what it says regardless of run order.
+      val fixtureUser = freshUser()
+      createSource(fixtureUser, "budget-default-source")
 
-      val routes = new WorkspaceRoutes(None, service, userA).routes
+      val routes = new WorkspaceRoutes(None, service, fixtureUser).routes
 
       Get("/workspace/context") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -1093,6 +1168,61 @@ class WorkspaceContextServiceSpec
 
         schemaValidationErrors(body) shouldBe empty
       }
+    }
+
+    // HEL-914 (production N+1 fix regression guard): pins "2 root-lookup queries for the WHOLE
+    // request, not 2 per pipeline" -- a plain "the lane tree is correct" assertion would still
+    // pass if the batching were reverted to a per-pipeline `Future.traverse` loop (both shapes
+    // produce an identical `laneTree` value; only the CALL COUNT differs). `Mockito.spy` wraps
+    // the REAL `pipelineRepo`/`pipelineStepRepo` instances (same embedded-Postgres-backed fixture
+    // every other test in this file uses) so this exercises real queries, not a mocked-out
+    // computation -- only the invocation COUNT is intercepted.
+    "batch the lane-tree root AND steps lookups once per request, not once per pipeline" in {
+      implicit val ec: ExecutionContext = routeEc
+      // Dedicated, freshly-inserted user (this file's fixture is a shared BeforeAndAfterAll
+      // instance -- `userA` accumulates every OTHER test's pipelines too, which would make the
+      // call-count assertion below meaningless: `assemble` would batch over however many
+      // pipelines happen to exist at THIS point in the suite's run order, not the 3 this test
+      // controls).
+      val batchUser = freshUser()
+
+      val source = createSource(batchUser, "batch-source")
+      val pipelineA = createPipeline(batchUser, source.id, "batch-pipeline-a", "batch-output-a")
+      val pipelineB = createPipeline(batchUser, source.id, "batch-pipeline-b", "batch-output-b")
+      val pipelineC = createPipeline(batchUser, source.id, "batch-pipeline-c", "batch-output-c")
+
+      val spiedPipelineRepo     = org.mockito.Mockito.spy(pipelineRepo)
+      val spiedPipelineStepRepo = org.mockito.Mockito.spy(pipelineStepRepo)
+      val spiedPipelineService  =
+        new PipelineService(spiedPipelineRepo, spiedPipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
+      val spiedService = new WorkspaceContextService(
+        new DashboardService(dashboardRepo, new AccessCheckerImpl(
+          new ResourcePermissionRepository(new DbContext(db, db)),
+          new ResourceTypeRegistry(AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))))
+        )),
+        dataSourceService,
+        outputRepo,
+        spiedPipelineService,
+        pipelineStepRepoOpt = Some(spiedPipelineStepRepo)
+      )
+
+      val result = await(spiedService.assemble(batchUser))
+      val pipelineIds = Set(pipelineA.id, pipelineB.id, pipelineC.id)
+      result.pipelines.map(_.id).toSet shouldBe pipelineIds
+
+      // Batched entry points: exactly ONE call each for the whole request, covering all 3
+      // pipelines -- a revert to the per-pipeline `Future.traverse` loop this fix (across two
+      // commits) replaced would instead call these 0 times (the single-id
+      // `listRootDataSourceIdsInternal`/`rootIdsOf`/`listByPipelineInternal` methods would be
+      // called 3 times each instead), failing this assertion either way. All THREE batched
+      // queries this lane-tree path depends on are pinned here -- a future revert of any ONE of
+      // them goes red.
+      org.mockito.Mockito.verify(spiedPipelineRepo, org.mockito.Mockito.times(1))
+        .listRootDataSourceIdsInternalBatch(org.mockito.ArgumentMatchers.any())
+      org.mockito.Mockito.verify(spiedPipelineStepRepo, org.mockito.Mockito.times(1))
+        .rootIdsOfBatch(org.mockito.ArgumentMatchers.any())
+      org.mockito.Mockito.verify(spiedPipelineStepRepo, org.mockito.Mockito.times(1))
+        .listByPipelineInternalBatch(org.mockito.ArgumentMatchers.any())
     }
   }
 }

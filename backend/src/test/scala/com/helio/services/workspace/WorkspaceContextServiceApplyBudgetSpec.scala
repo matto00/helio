@@ -295,7 +295,8 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
           lastRunRowCount = Some(100L),
           tag = None,
           steps = Vector(WorkspaceContextPipelineStep(0, "cast", Vector("amount"), None)),
-          stepsError = None
+          stepsError = None,
+          laneTree = Vector.empty
         )
       )
       val dashboards = Vector(WorkspaceContextDashboard("dash-1", "Overview", panelCount = 4))
