@@ -339,7 +339,6 @@
     },
     "PipelineEntry": {
       "type": "object",
-      "required": ["id", "name", "roots", "outputId", "outputName", "steps"],
       "properties": {
         "id": {
           "type": "string",
@@ -391,6 +390,30 @@
         "stepsError": {
           "type": ["string", "null"],
           "description": "Set (non-null) when this pipeline's analyze call failed — steps is [] in that case; ABSENT on the wire (not null) when analyze succeeded (spray-json omits a None field entirely). Mirrors helio-mcp/src/context.ts's per-pipeline try/catch; a single pipeline's failure never fails the whole request."
+        },
+        "laneTree": {
+          "type": "array",
+          "description": "HEL-914 task 6.6: the compact lane tree — per node its id, parent id, originating root id, op kind, and the ids of Outputs bound to it. No configs, no schemas, no sample rows. Tier-0 like steps[] above — never shrunk by budget trimming. Degrades to [] alongside steps/stepsError on the same per-pipeline analyze failure.",
+          "items": { "$ref": "#/$defs/LaneTreeNode" }
+        }
+      },
+      "required": ["id", "name", "roots", "outputId", "outputName", "steps", "laneTree"],
+      "additionalProperties": false
+    },
+    "LaneTreeNode": {
+      "type": "object",
+      "required": ["id", "rootId", "op", "outputIds"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "parentId": {
+          "type": "string",
+          "description": "Absent on the wire (not null) for a parentless (root-attached) step."
+        },
+        "rootId": { "type": "string", "minLength": 1 },
+        "op": { "type": "string", "minLength": 1 },
+        "outputIds": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": false

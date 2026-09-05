@@ -115,3 +115,26 @@
   color: var(--app-text-muted);
   overflow-wrap: anywhere;
 }
+
+/* HEL-914 task 6.8: one block per lane in the proposal's step list, grouping
+   the primary chain and each rejoin-branched lane separately instead of a
+   flat list. */
+.pipeline-proposal-review__lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pipeline-proposal-review__lane + .pipeline-proposal-review__lane {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--app-border-subtle);
+}
+
+.pipeline-proposal-review__lane-label {
+  margin: 0;
+  font-size: var(--text-micro);
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-tracking);
+}

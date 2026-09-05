@@ -37,7 +37,7 @@ beforeAll(() => {
 const proposal: CombinedProposal = {
   pipeline: {
     pipelineName: "Sales pipeline",
-    source: { type: "static", name: "Demo source", config: {} },
+    roots: [{ type: "static", name: "Demo source", config: {} }],
     steps: [],
     outputs: [{ kind: "table", name: "SalesMetrics" }],
   },
@@ -55,6 +55,7 @@ const defaultMeta = {
 
 const appliedResponse: CombinedProposalApplyResponse = {
   pipeline: {
+    sources: [],
     pipeline: {
       id: "p-new",
       name: "Sales pipeline",

@@ -41,8 +41,8 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
       val body =
-        s"""{"pipelineName":"Rest Run Success","source":{"type":"rest_api","name":"Inline Rest",
-           |"config":{"url":"$RestSuccessUrl"}},
+        s"""{"pipelineName":"Rest Run Success","roots":[{"type":"rest_api","name":"Inline Rest",
+           |"config":{"url":"$RestSuccessUrl"}}],
            |"steps":[{"clientId":"s1","type":"limit","config":{"count":10}}],
            |"outputs":[{"kind":"table","name":"Out","nodeStepClientId":"s1"}]}""".stripMargin
       var pipelineId = ""
@@ -78,9 +78,9 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
       val body =
-        s"""{"pipelineName":"Sql Run Success","source":{"type":"sql","name":"Inline Sql",
+        s"""{"pipelineName":"Sql Run Success","roots":[{"type":"sql","name":"Inline Sql",
            |"config":{"dialect":"postgresql","host":"localhost","port":$sqlPort,"database":"postgres",
-           |"user":"postgres","password":"postgres","query":"SELECT 1 AS one"}},
+           |"user":"postgres","password":"postgres","query":"SELECT 1 AS one"}}],
            |"steps":[{"clientId":"s1","type":"limit","config":{"count":10}}],
            |"outputs":[{"kind":"table","name":"Out","nodeStepClientId":"s1"}]}""".stripMargin
       var pipelineId = ""
@@ -115,8 +115,8 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
     "roll back the source, pipeline, and output type when an inline rest_api source's fetch fails at run time (schema inference had already succeeded)" in {
       val before = allCounts()
       val body =
-        s"""{"pipelineName":"Rest Run-Time Fetch Fail","source":{"type":"rest_api","name":"Inline Rest Run Fail",
-           |"config":{"url":"$RestRunFailUrl"}},"steps":[]}""".stripMargin
+        s"""{"pipelineName":"Rest Run-Time Fetch Fail","roots":[{"type":"rest_api","name":"Inline Rest Run Fail",
+           |"config":{"url":"$RestRunFailUrl"}}],"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
       }
@@ -128,8 +128,8 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
       val body =
-        s"""{"pipelineName":"Rest Fetch Fail","source":{"type":"rest_api","name":"Inline Rest Fail",
-           |"config":{"url":"$RestFailureUrl"}},"steps":[]}""".stripMargin
+        s"""{"pipelineName":"Rest Fetch Fail","roots":[{"type":"rest_api","name":"Inline Rest Fail",
+           |"config":{"url":"$RestFailureUrl"}}],"steps":[]}""".stripMargin
       var pipelineId = ""
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -158,9 +158,9 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       // DNS delay) — the same pattern SqlConnectorSpec's "SQL connection
       // failed" test uses.
       val body =
-        """{"pipelineName":"Sql Connect Fail","source":{"type":"sql","name":"Inline Sql Fail",
+        """{"pipelineName":"Sql Connect Fail","roots":[{"type":"sql","name":"Inline Sql Fail",
           |"config":{"dialect":"postgresql","host":"localhost","port":1,"database":"d","user":"u",
-          |"password":"p","query":"SELECT 1"}},"steps":[]}""".stripMargin
+          |"password":"p","query":"SELECT 1"}}],"steps":[]}""".stripMargin
       var pipelineId = ""
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -188,7 +188,7 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       val beforePipelines = pipelineCount()
       val beforeSteps     = pipelineStepCount()
       val body =
-        s"""{"pipelineName":"Existing Rest","source":{"sourceId":"$preExistingId"},
+        s"""{"pipelineName":"Existing Rest","roots":[{"sourceId":"$preExistingId"}],
            |"steps":[],
            |"outputs":[{"kind":"table","name":"Out"}]}""".stripMargin
       var pipelineId = ""
@@ -222,8 +222,8 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
       // failure for rollback purposes, since the proposal's output DataType
       // was never actually populated either way.
       val body =
-        s"""{"pipelineName":"Assert Blocked","source":{"type":"static","name":"Assert Blocked Source",
-           |"config":{"columns":[{"name":"revenue","type":"integer"}],"rows":[[5],[10]]}},
+        s"""{"pipelineName":"Assert Blocked","roots":[{"type":"static","name":"Assert Blocked Source",
+           |"config":{"columns":[{"name":"revenue","type":"integer"}],"rows":[[5],[10]]}}],
            |
            |"steps":[{"clientId":"s1","type":"assert","config":{"rules":[{"kind":"rowCountMax","params":{"count":1},"severity":"error"}]}}]}""".stripMargin
       apply(body) ~> routes ~> check {
@@ -235,8 +235,8 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
     "roll back an inline static source (and its companion type) when a later addStep fails" in {
       val before = allCounts()
       val body =
-        s"""{"pipelineName":"Static AddStep Fail","source":{"type":"static","name":"Static For Union",
-           |"config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}},
+        s"""{"pipelineName":"Static AddStep Fail","roots":[{"type":"static","name":"Static For Union",
+           |"config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"]]}}],
            |"steps":[{"clientId":"s1","type":"union","config":{"secondaryInput":{"kind":"source","dataSourceId":"${otherUserSourceId}"},"mode":"byPosition"}}]}""".stripMargin
       apply(body) ~> routes ~> check {
         // union's right-source ownership pre-flight (PipelineService.addStep) rejects
@@ -249,7 +249,7 @@ class PipelineApplyProposalRollbackSpec extends PipelineApplyProposalSpecBase {
     "reject a sourceId owned by another user as not found, creating nothing (RLS)" in {
       val before = allCounts()
       val body =
-        s"""{"pipelineName":"Cross Tenant","source":{"sourceId":"$otherUserSourceId"},
+        s"""{"pipelineName":"Cross Tenant","roots":[{"sourceId":"$otherUserSourceId"}],
            |"steps":[]}""".stripMargin
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.NotFound }
       allCounts() shouldBe before

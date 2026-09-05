@@ -7,13 +7,14 @@ import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.dashboards.DashboardResponse
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
-import com.helio.api.protocols.pipelines.{PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{OutputResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.patchsets.{EditUndoOutcome, PatchSetUndoResponse}
-import com.helio.api.protocols.panels.PanelResponse
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataSourceId, PanelId, PatchSetApplicationId, PipelineId, PipelineStepId}
+import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
+import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataFieldType, DataSourceId, OutputKind, PanelId, PatchSetApplicationId, PipelineId, PipelineStepId}
+import com.helio.domain.engine.SchemaField
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import PatchSetApplicationRepository.JournaledEdit
@@ -53,13 +54,16 @@ final class PatchSetUndoService(
     dataSourceRepo: DataSourceRepository,
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
-    applicationRepo: PatchSetApplicationRepository
+    applicationRepo: PatchSetApplicationRepository,
+    // HEL-914 task 5.6: nullable-optional, mirrors PatchSetApplyService.outputRepo's identical
+    // convention.
+    outputRepo: OutputRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
   private val context: PatchSetUndoContext =
-    PatchSetUndoContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo)
+    PatchSetUndoContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, outputRepo)
 
   def undo(applicationId: PatchSetApplicationId, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetUndoResponse]] =
     applicationRepo.findById(applicationId, user).flatMap {
@@ -112,6 +116,7 @@ final class PatchSetUndoService(
       case ("pipeline", "create")     => restoreCreateUndo(edit, id => pipelineService.delete(PipelineId(id), user))
       case ("pipelineStep", "update") => restorePipelineStepUpdate(edit, user)
       case ("pipelineStep", "delete") => restorePipelineStepDelete(edit, user)
+      case ("pipelineStep", "create") => restorePipelineStepCreate(edit, user)
       case (kind, op) =>
         Future.successful(Left(s"edit ${edit.index}: no undo path for target.kind '$kind' op '$op'"))
     }
@@ -213,7 +218,7 @@ final class PatchSetUndoService(
         }
     }
 
-  // ── pipelineStep (no create — design.md D1) ───────────────────────────────
+  // ── pipelineStep (HEL-914 task 5.2: create added below) ────────────────────
 
   private def restorePipelineStepUpdate(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
     edit.priorState match {
@@ -232,30 +237,108 @@ final class PatchSetUndoService(
    *  `addStep`, then `updateStep(position = ...)` if it landed elsewhere (a new step is always
    *  appended). Reports `recreated` with whichever id ends up correct even if the reposition
    *  follow-up itself fails -- content restoration (not position) is the bar. */
+  /** HEL-914 task 5.8 (patch-set-lane-edits spec, "Removing a lane by patch set and undoing it
+   *  restores its Outputs and placements"): the journaled `priorState` for a `pipelineStep`
+   *  delete is `{"step": <PipelineStepResponse>, "boundOutputs": [{"output": <OutputResponse>,
+   *  "placements": [<PanelResponse>, ...]}, ...]}` (`PatchSetApplyResolvers
+   *  .buildPipelineStepDeletePriorState`) -- unwrapped here, tolerating a LEGACY journal entry
+   *  that predates this fix (the bare step JSON, no `"boundOutputs"` key) by treating the whole
+   *  value as the step JSON in that case. Recreates the step first (unchanged from before), then
+   *  every bound Output (under the recreated step's NEW id) and every one of THOSE Outputs'
+   *  placements (under each new Output's NEW id) -- same "recreate under a new id" v1 limit
+   *  `PatchSetUndoInverse.panelCreateRequestFromResponse` already documents for a plain panel
+   *  delete-undo. */
   private def restorePipelineStepDelete(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
     edit.priorState match {
       case None => Future.successful(Left(missingPriorState(edit)))
       case Some(json) =>
-        val fields        = json.asJsObject.fields
+        val obj = json.asJsObject
+        val (stepJson, boundOutputsJson) = obj.fields.get("boundOutputs") match {
+          case Some(arr) => (obj.fields.getOrElse("step", json), arr)
+          case None      => (json, JsArray()) // legacy journal entry, pre-task-5.8
+        }
+        val fields        = stepJson.asJsObject.fields
         val pipelineIdStr = fields.get("pipelineId").map(_.convertTo[String]).getOrElse("")
         val positionOpt   = fields.get("position").map(_.convertTo[Int])
-        pipelineService.addStep(PipelineId(pipelineIdStr), PatchSetUndoInverse.pipelineStepCreateRequestFromResponse(json), user).flatMap {
+        pipelineService.addStep(PipelineId(pipelineIdStr), PatchSetUndoInverse.pipelineStepCreateRequestFromResponse(stepJson), user).flatMap {
           case Left(err) => Future.successful(Left(restoreFailed(edit, err.message)))
-          case Right(created) if positionOpt.contains(created.position) =>
-            Future.successful(Right(EditUndoOutcome(edit.index, "recreated", Some(created.id), Some(pipelineStepResponseFormat.write(created)))))
           case Right(created) =>
-            positionOpt match {
-              case None => Future.successful(Right(EditUndoOutcome(edit.index, "recreated", Some(created.id), Some(pipelineStepResponseFormat.write(created)))))
-              case Some(pos) =>
+            val repositionF = positionOpt match {
+              case Some(pos) if pos != created.position =>
                 pipelineService.updateStep(PipelineStepId(created.id), UpdatePipelineStepRequest(None, None, Some(pos)), user).map {
-                  case Right(repositioned) =>
-                    Right(EditUndoOutcome(edit.index, "recreated", Some(repositioned.id), Some(pipelineStepResponseFormat.write(repositioned))))
-                  case Left(_) =>
-                    // Content is restored even though the reposition follow-up failed -- still
-                    // `recreated`, not a Phase-2 failure (mirrors PatchSetApplyRollback's identical choice).
-                    Right(EditUndoOutcome(edit.index, "recreated", Some(created.id), Some(pipelineStepResponseFormat.write(created))))
+                  case Right(repositioned) => repositioned
+                  // Content is restored even though the reposition follow-up failed -- still
+                  // `recreated`, not a Phase-2 failure (mirrors PatchSetApplyRollback's identical choice).
+                  case Left(_) => created
                 }
+              case _ => Future.successful(created)
+            }
+            repositionF.flatMap { finalStep =>
+              restoreBoundOutputs(finalStep.id, boundOutputsJson, user).map { _ =>
+                Right(EditUndoOutcome(edit.index, "recreated", Some(finalStep.id), Some(pipelineStepResponseFormat.write(finalStep))))
+              }
             }
         }
     }
+
+  private def restoreBoundOutputs(newStepId: String, boundOutputsJson: JsValue, user: AuthenticatedUser): Future[Unit] = {
+    val entries = boundOutputsJson match {
+      case arr: JsArray => arr.elements
+      case _            => Vector.empty
+    }
+    Future.traverse(entries) { entry =>
+      val entryObj       = entry.asJsObject
+      val outputResponse = entryObj.fields("output").convertTo[OutputResponse]
+      val placements      = entryObj.fields.get("placements").map(_.convertTo[Vector[PanelResponse]]).getOrElse(Vector.empty)
+      val kind            = OutputKind.fromString(outputResponse.kind).getOrElse(OutputKind.Table)
+      val schema          = outputResponse.schema.flatMap(f => DataFieldType.fromString(f.`type`).map(t => SchemaField(f.name, DataFieldType.asString(t))))
+      outputRepo.insertInternal(
+        PipelineId(outputResponse.pipelineId), Some(PipelineStepId(newStepId)), user.id, outputResponse.name, kind,
+        config = outputResponse.config.asJsObject, schema = schema, tag = None, explicitRootId = None
+      ).flatMap { newOutput =>
+        Future.traverse(placements) { panelResponse =>
+          val baseRequest = PatchSetUndoInverse.panelCreateRequestFromResponse(panelResponse)
+          val patchedConfig = baseRequest.config.map { cfg =>
+            JsObject(cfg.asJsObject.fields + ("outputId" -> JsString(newOutput.id.value))): JsValue
+          }
+          panelService.create(baseRequest.copy(config = patchedConfig), user)
+        }
+      }
+    }.map(_ => ())
+  }
+
+  /** HEL-914 task 5.6: undoing an added lane removes the step itself, its bound Outputs, AND
+   *  those Outputs' placements -- atomically, via `pipelineService.deleteStep`'s own
+   *  transactional delete (V94's `outputs.node_step_id`/`panels.output_id` `ON DELETE CASCADE`
+   *  chain, the SAME cascade a real delete already relies on -- no second, bespoke teardown to
+   *  drift from it). The placement count is read BEFORE the delete purely for the reported
+   *  outcome (task 5.6's "reporting the placement count") -- it plays no role in the delete
+   *  itself, which is atomic regardless of whether this count succeeds. `outputRepo == null`
+   *  (a fixture that never wires one) degrades to reporting a `0` count rather than a NPE. */
+  private def restorePipelineStepCreate(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
+    edit.newId match {
+      case None => Future.successful(Left(s"edit ${edit.index} (pipelineStep create): journal is missing its captured newId"))
+      case Some(idStr) =>
+        val stepId        = PipelineStepId(idStr)
+        val pipelineIdStr = edit.resultingState.map(_.asJsObject.fields.get("pipelineId").map(_.convertTo[String]).getOrElse("")).getOrElse("")
+        countPlacementsForStep(PipelineId(pipelineIdStr), stepId).flatMap { placementCount =>
+          pipelineService.deleteStep(stepId, user).map {
+            case Right(_) =>
+              Right(EditUndoOutcome(
+                edit.index, "restored", Some(idStr),
+                Some(JsObject("removedPlacementCount" -> JsNumber(placementCount)))
+              ))
+            case Left(err) => Left(restoreFailed(edit, err.message))
+          }
+        }
+    }
+
+  private def countPlacementsForStep(pipelineId: PipelineId, stepId: PipelineStepId): Future[Int] =
+    if (outputRepo == null || pipelineId.value.isEmpty) Future.successful(0)
+    else
+      outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+        val boundOutputIds = outputs.filter(_.node.stepId.contains(stepId)).map(_.id.value)
+        if (boundOutputIds.isEmpty) Future.successful(0)
+        else panelRepo.countByOutputIdsInternal(boundOutputIds).map(_.values.sum)
+      }
 }

@@ -369,7 +369,7 @@ final class ApiRoutes(
   private val patchSetUndoService = new PatchSetUndoService(
     panelService, dashboardService, dataSourceService, pipelineService,
     panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-    patchSetApplicationRepo
+    patchSetApplicationRepo, outputRepo = outputRepoOpt.orNull
   )
   // HEL-904 task 3.6/4.1: `BoundPanelService` (`POST /api/panels/bound`) is
   // deleted outright — design.md's P1.1 row lists it explicitly, and its

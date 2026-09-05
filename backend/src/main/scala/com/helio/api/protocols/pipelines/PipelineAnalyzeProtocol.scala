@@ -202,6 +202,46 @@ final case class PipelineAnalyzeResponse(
     sourceSchemaDrift: Option[SourceSchemaDriftResponse] = None
 )
 
+/** HEL-914 task 6.4/D6: `GET /pipelines/:id/analyze?concise=true`'s opt-in per-node
+ *  `{path, op, validationError}` shape — the default (concise absent/false) response is
+ *  BYTE-IDENTICAL `PipelineAnalyzeResponse` above; this is a wholly separate response type,
+ *  never a partial view of it. `path` is the runtime graph path (`root:<rootId> > s1 > s4`,
+ *  design.md D5/R5), built by the ONE shared `RuntimeGraphPath` implementation
+ *  `InProcessPipelineEngine` itself uses for lane-path error reporting -- never a second
+ *  formatter. `validationError` is OMITTED on the wire when absent (spray-json's built-in
+ *  `Option` handling), not written as `null`, matching every other optional-field convention
+ *  in this file family. */
+final case class ConciseAnalyzeNode(path: String, op: String, validationError: Option[String] = None)
+final case class PipelineAnalyzeConciseResponse(nodes: Vector[ConciseAnalyzeNode])
+
+/** HEL-914 task 6.6/D6: the compact per-node shape `WorkspaceContextPipeline`'s lane tree and
+ *  `PipelineService.laneTree` both use -- id, parent id, originating root id, op kind, and the
+ *  ids of Outputs bound to it. No configs, no schemas, no sample rows (design.md D6). `rootId`
+ *  is derived from the SAME `RuntimeGraphPath` builder every other runtime-graph-path consumer
+ *  uses (design.md D5's "exactly one implementation"), never a second root-resolution walk. On
+ *  this file (not `WorkspaceContextProtocol`) because `PipelineService.laneTree` -- which has no
+ *  dependency on the workspace package -- is what constructs it. */
+final case class PipelineLaneTreeNode(
+    id: String,
+    parentId: Option[String],
+    rootId: String,
+    op: String,
+    outputIds: Vector[String]
+)
+
+object PipelineAnalyzeConciseResponse {
+
+  /** HEL-914 task 6.5/D6: AC3's "MCP result cap" never existed anywhere in this codebase (design.md
+   *  Ground truth) -- this is the named constant that introduces one, so concise mode can be
+   *  asserted against something real rather than a cap that was only ever implied by the ticket's
+   *  own wording. Chosen so a 12-node/40-column/2-root graph's CONCISE response fits comfortably
+   *  under it while the SAME graph's FULL response (per-step input/output schema, config, and
+   *  every column of every node) does not -- both directions are asserted by
+   *  `PipelineAnalyzeConciseByteBudgetSpec`, not just the first; a budget generous enough that
+   *  both modes pass would prove nothing. */
+  val ByteBudget: Int = 8192
+}
+
 /** `PipelineAnalyzeProtocol extends PipelineStepProtocol` for the typed
  *  per-step `*Config` formatters — same dependency the analyze types needed
  *  when they lived in `PipelineProtocol`. `SchemaFieldResponse` (HEL-904:
@@ -303,4 +343,10 @@ trait PipelineAnalyzeProtocol
   implicit val rootSourceSchemaResponseFormat: RootJsonFormat[RootSourceSchemaResponse] = jsonFormat3(RootSourceSchemaResponse.apply)
 
   implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat5(PipelineAnalyzeResponse.apply)
+
+  implicit val conciseAnalyzeNodeFormat: RootJsonFormat[ConciseAnalyzeNode] = jsonFormat3(ConciseAnalyzeNode.apply)
+  implicit val pipelineAnalyzeConciseResponseFormat: RootJsonFormat[PipelineAnalyzeConciseResponse] =
+    jsonFormat1(PipelineAnalyzeConciseResponse.apply)
+
+  implicit val pipelineLaneTreeNodeFormat: RootJsonFormat[PipelineLaneTreeNode] = jsonFormat5(PipelineLaneTreeNode.apply)
 }

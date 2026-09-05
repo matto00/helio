@@ -219,22 +219,22 @@ final class AssistantToolExecutor(
    *  already-tested) or an inline `csv`/`static` source (no live endpoint to reach); for inline
    *  `rest_api`/`sql`, `Right(())` iff that exact config is a member of `verifiedConfigs`, else a
    *  `Left` tool-error naming the calling tool. Shared by `executeProposePipeline` (on
-   *  `proposal.source`) and `executeProposeCombined` (on `proposal.pipeline.source`) — never
+   *  `proposal.roots`) and `executeProposeCombined` (on `proposal.pipeline.roots`) — never
    *  duplicated (design.md D4). */
-  private def requireVerifiedInlineSource(toolName: String, source: PipelineProposalSource): Either[String, Unit] = {
+  private def requireVerifiedInlineSource(toolName: String, roots: Vector[PipelineProposalSource]): Either[String, Unit] =
+    roots.zipWithIndex.foldLeft[Either[String, Unit]](Right(())) {
+      case (Left(err), _)          => Left(err)
+      case (Right(_), (root, idx)) => requireVerifiedInlineRoot(toolName, root, idx)
+    }
+
+  private def requireVerifiedInlineRoot(toolName: String, source: PipelineProposalSource, idx: Int): Either[String, Unit] = {
     def unverified: Left[String, Unit] =
-      Left(s"$toolName: call test_connection with this exact config before finalizing this proposal")
+      Left(s"$toolName: roots[$idx]: call test_connection with this exact config before finalizing this proposal")
 
     if (source.sourceId.isDefined) Right(())
     else
       source.`type` match {
         case Some("rest_api") =>
-          // HEL-829: `source.restConfig` is now `ProposalRestApiConfig` (task 1.1) — converted
-          // via `ProposalRestApiConfig.toRestApiConfigPayload` before the equality check, which
-          // keeps this comparison byte-identical to before for the connectorId/url branches. A
-          // `newConnector` draft never maps into any `RestApiConfigPayload` field, so it can
-          // never match a `test_connection`-verified config — correctly falling through to
-          // `unverified`, since a not-yet-created Connector has nothing live to test yet.
           source.restConfig match {
             case Some(config) if verifiedConfigs.get().contains(VerifiedConfig.Rest(ProposalRestApiConfig.toRestApiConfigPayload(config))) => Right(())
             case _                                                                             => unverified
@@ -273,7 +273,7 @@ final class AssistantToolExecutor(
         proposeDecodeFailuresCounter.incrementAndGet()
         Future.successful(Left(err))
       case Right(proposal) =>
-        requireVerifiedInlineSource("propose_pipeline", proposal.source) match {
+        requireVerifiedInlineSource("propose_pipeline", proposal.roots) match {
           case Left(err) =>
             proposeValidationFailuresCounter.incrementAndGet()
             Future.successful(Left(err))
@@ -297,7 +297,7 @@ final class AssistantToolExecutor(
         proposeDecodeFailuresCounter.incrementAndGet()
         Future.successful(Left(err))
       case Right(proposal) =>
-        requireVerifiedInlineSource("propose_combined", proposal.pipeline.source) match {
+        requireVerifiedInlineSource("propose_combined", proposal.pipeline.roots) match {
           case Left(err) =>
             proposeValidationFailuresCounter.incrementAndGet()
             Future.successful(Left(err))

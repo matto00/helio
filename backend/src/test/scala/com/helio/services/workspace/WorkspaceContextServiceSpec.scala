@@ -115,10 +115,14 @@ class WorkspaceContextServiceSpec
     val tmpDir = Files.createTempDirectory("helio-workspace-context-spec")
     val fs     = new LocalFileSystem(tmpDir)
     dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService
     // dropped from that constructor).
     outputRepo = new OutputRepository(ctx)
+    // HEL-914 task 6.6: `PipelineService.laneTree` reads ITS OWN `outputRepo` field (not
+    // `WorkspaceContextService`'s) to report bound Outputs -- wired here so this fixture
+    // matches `ApiRoutes`'s real construction (`outputRepoOpt.orNull` at the same positional
+    // slot), not a null that would silently degrade every laneTree node's outputIds to [].
+    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
     nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
 
     // Only "dashboard" is exercised by DashboardService's own AccessChecker
@@ -361,6 +365,35 @@ class WorkspaceContextServiceSpec
       // rather than against `position`, which was never the order-bearing field.
       entry.steps.map(_.position) shouldBe Vector(0, 0)
       entry.steps.map(_.outputColumns) shouldBe Vector(Vector("value"), Vector("renamed"))
+    }
+  }
+
+  "assemble (HEL-914 task 6.6 lane tree)" should {
+    "report id/parentId/rootId/op/outputIds per node, and bound Outputs by their nodeStepId" in {
+      val source   = createSource(userA, "lane-tree-source")
+      val pipeline = createPipeline(userA, source.id, "lane-tree-pipeline", "lane-tree-output")
+
+      val selectStep = await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "select", SelectConfig(Vector("value")), enabled = true, explicitRootId = None))
+      val renameStep = await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "rename", RenameConfig(Map("value" -> "renamed")), enabled = true, parentStepId = Some(selectStep.id), explicitRootId = None))
+      val boundOutput = await(outputRepo.insertInternal(PipelineId(pipeline.id), Some(renameStep.id), userA.id, "Lane output", OutputKind.Table, explicitRootId = None))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.pipelines.find(_.id == pipeline.id).getOrElse(fail("pipeline missing"))
+
+      entry.laneTree should have size 2
+      val bySelectId = entry.laneTree.map(n => n.id -> n).toMap
+
+      val selectNode = bySelectId(selectStep.id.value)
+      selectNode.parentId shouldBe None
+      selectNode.op shouldBe "select"
+      selectNode.outputIds shouldBe empty
+      selectNode.rootId should not be empty
+
+      val renameNode = bySelectId(renameStep.id.value)
+      renameNode.parentId shouldBe Some(selectStep.id.value)
+      renameNode.op shouldBe "rename"
+      renameNode.outputIds shouldBe Vector(boundOutput.id.value)
+      renameNode.rootId shouldBe selectNode.rootId
     }
   }
 

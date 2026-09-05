@@ -49,9 +49,14 @@ class PipelineRoutes(
             }
           }
         },
+        // HEL-914 task 6.4: `?concise=true` is opt-in -- absent/false is BYTE-IDENTICAL to the
+        // pre-existing full response (design.md D6).
         path(PipelineIdSegment / "analyze") { pipelineId =>
           get {
-            ServiceResponse.run(pipelineService.analyze(pipelineId, user))(identity)
+            parameter("concise".as[Boolean].?) {
+              case Some(true) => ServiceResponse.run(pipelineService.analyzeConcise(pipelineId, user))(identity)
+              case _          => ServiceResponse.run(pipelineService.analyze(pipelineId, user))(identity)
+            }
           }
         },
         // HEL-906 task 3.4: `stepId` absent means the pipeline's raw source (mirrors

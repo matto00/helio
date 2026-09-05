@@ -2,17 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/pipeline-proposal.schema.json",
   "title": "PipelineProposal",
-  "description": "A proposed pipeline (source + a tree of transform steps + zero-or-more Outputs) produced by an agent (or a fixture). Carries NO ids — nothing is created until the proposal is applied via POST /api/pipelines/apply-proposal. HEL-907 task 1.1: retargeted from the old single output DataType contract (outputDataTypeName) onto Outputs -- `steps`/`outputs` reuse POST /api/pipelines' own single-call transactional shapes (CreatePipelineTransactionalStepRequest/CreatePipelineTransactionalOutputRequest, HEL-906) verbatim, so a step's `clientId` and an output's `nodeStepClientId` can address tree shape and per-node Output placement before anything has a real persisted id.",
+  "description": "A proposed pipeline (roots[] + a tree of transform steps + zero-or-more Outputs) produced by an agent (or a fixture). Carries NO ids — nothing is created until the proposal is applied via POST /api/pipelines/apply-proposal. HEL-907 task 1.1: retargeted from the old single output DataType contract (outputDataTypeName) onto Outputs -- `steps`/`outputs` reuse POST /api/pipelines' own single-call transactional shapes (CreatePipelineTransactionalStepRequest/CreatePipelineTransactionalOutputRequest, HEL-906) verbatim, so a step's `clientId` and an output's `nodeStepClientId` can address tree shape and per-node Output placement before anything has a real persisted id. HEL-914: the old singular `source` is REPLACED outright by a non-empty `roots` array (design.md D2) -- there is no accepted alias; a payload carrying `source` is rejected, not tolerated. Each root is a `PipelineProposalSource` plus an optional `clientId` a parentless step's `rootClientId` binds to (design.md R13); a parentless step on a multi-root proposal with no `rootClientId` is a named 400, never a silent default to roots[0].",
   "type": "object",
-  "required": ["pipelineName", "source", "steps"],
+  "required": ["pipelineName", "roots", "steps"],
   "properties": {
     "pipelineName": {
       "type": "string",
       "minLength": 1,
       "maxLength": 120
     },
-    "source": {
-      "$ref": "#/$defs/PipelineProposalSource"
+    "roots": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/PipelineProposalSource" },
+      "description": "Ordered list of proposed roots -- request-address position i is named `roots[i]` in validation errors (design.md D5, reusing PipelineService.rootAddress). Each root's optional `clientId` is what a parentless step's `rootClientId` binds to."
     },
     "steps": {
       "type": "array",
@@ -49,6 +52,11 @@
         "config": {
           "type": "object",
           "description": "Inline-source branch — the per-type config payload selected by `type`: csv -> {path}; rest_api -> {url, method?, auth?, headers?}; sql -> {dialect, host, port, database, user, password, query}; static -> {columns, rows}. A single shared property regardless of `type`, matching CreatePipelineStepRequest's config and DataSourceResponse's per-subtype config convention."
+        },
+        "clientId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "HEL-914: request-scoped id a parentless step's `rootClientId` binds to when the proposal has more than one root. Not persisted."
         }
       },
       "additionalProperties": false

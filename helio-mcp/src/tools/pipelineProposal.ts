@@ -60,6 +60,9 @@ const pipelineProposalSourceSchema = z.object({
   type: z.enum(["csv", "rest_api", "sql", "static"]).optional(),
   name: z.string().min(1).optional(),
   config: z.record(z.string(), z.unknown()).optional(),
+  // HEL-914: request-scoped id a parentless step's rootClientId binds to when roots has
+  // more than one element. Not persisted.
+  clientId: z.string().min(1).optional(),
 });
 
 // HEL-907 task 1.1/3.10: mirrors the backend's CreatePipelineTransactionalStepRequest/
@@ -100,7 +103,10 @@ export const pipelineProposalOutputSchema = z.object({
 // `add_output`.
 export const pipelineProposalInputSchema = {
   pipelineName: z.string().min(1),
-  source: pipelineProposalSourceSchema,
+  // HEL-914: replaces the old singular `source` outright -- no alias, no default.
+  // Non-empty -- a parentless step on a multi-root proposal MUST name its root via
+  // rootClientId (never a silent default to roots[0]).
+  roots: z.array(pipelineProposalSourceSchema).min(1),
   steps: z.array(pipelineProposalStepSchema).default([]),
   outputs: z.array(pipelineProposalOutputSchema).default([]),
 };
@@ -111,12 +117,13 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
     {
       title: "Propose a pipeline (no writes)",
       description:
-        "Assemble a pipeline proposal (source + a tree of transform steps + zero-or-more Outputs) " +
+        "Assemble a pipeline proposal (roots[] + a tree of transform steps + zero-or-more Outputs) " +
         "and return it as JSON WITHOUT writing anything — mirrors propose_dashboard for the " +
-        "canonical Source → Pipeline → DataType → Panel path. `source` is EITHER an existing " +
-        "caller-owned `sourceId` OR an inline new-source spec (`type`/`name`/`config`, same shape " +
-        "create_csv_data_source/create_rest_data_source/create_sql_data_source/create_data_source " +
-        "accept) — never both, never neither; setting both or neither is flagged as a warning. " +
+        "canonical Source → Pipeline → Output → Panel path. `roots` is a non-empty array; each " +
+        "root is EITHER an existing caller-owned `sourceId` OR an inline new-source spec " +
+        "(`type`/`name`/`config`, same shape create_csv_data_source/create_rest_data_source/" +
+        "create_sql_data_source/create_data_source accept) — never both, never neither per root; " +
+        "a parentless step on a multi-root proposal MUST name its root via rootClientId. " +
         "`type` accepts `csv` here, but apply_pipeline_proposal REJECTS an inline csv source at " +
         "apply time (HEL-383) — a csv-sourced proposal is still useful to inspect before manually " +
         "creating that source (create_csv_data_source) and re-proposing with `sourceId`. `steps` is " +
@@ -133,11 +140,11 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "apply_pipeline_proposal.",
       inputSchema: pipelineProposalInputSchema,
     },
-    ({ pipelineName, source, steps, outputs }) =>
+    ({ pipelineName, roots, steps, outputs }) =>
       guarded(() =>
         proposePipelineHandler(api, {
           pipelineName,
-          source: source as PipelineProposalSource,
+          roots: roots as PipelineProposalSource[],
           steps,
           outputs,
         }),
@@ -152,18 +159,19 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "Project the output schema of a pipeline proposal WITHOUT creating anything " +
         "(POST /api/pipelines/analyze-proposal, HEL-381) — pass the same arguments " +
         "propose_pipeline returns under `.proposal` (or hand-assemble them directly; " +
-        "propose_pipeline is not required first). Returns { sourceName, sourceSchema, steps } — " +
+        "propose_pipeline is not required first). Returns { sourceSchemas, steps } — one " +
+        "sourceSchemas entry per root — " +
         "`steps` is the same per-step " +
         "{id, position, type, config, inputSchema, outputSchema, validationError} shape " +
         "analyze_pipeline returns for an existing pipeline, projected here for a not-yet-created " +
         "one (no ids exist yet, since nothing is persisted).",
       inputSchema: pipelineProposalInputSchema,
     },
-    ({ pipelineName, source, steps, outputs }) =>
+    ({ pipelineName, roots, steps, outputs }) =>
       guarded(() =>
         analyzePipelineProposalHandler(api, {
           pipelineName,
-          source: source as PipelineProposalSource,
+          roots: roots as PipelineProposalSource[],
           steps,
           outputs,
         }),
@@ -188,11 +196,11 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "pipeline summary/the created Outputs (zero, one, or many)/run result.",
       inputSchema: pipelineProposalInputSchema,
     },
-    ({ pipelineName, source, steps, outputs }) =>
+    ({ pipelineName, roots, steps, outputs }) =>
       guarded(() =>
         applyPipelineProposalHandler(api, {
           pipelineName,
-          source: source as PipelineProposalSource,
+          roots: roots as PipelineProposalSource[],
           steps,
           outputs,
         }),

@@ -8,6 +8,7 @@ import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentPreference
 import com.helio.api.protocols.pipelines.{AnalyzeStepResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.sources.ConnectorSummary
 import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextDashboard, WorkspaceContextDataSource, WorkspaceContextOutput, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextPipelineStep, WorkspaceContextResponse}
+import com.helio.api.protocols.pipelines.PipelineLaneTreeNode
 import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, Dashboard, FieldTypeCategory, Output, Page, PagedResult, PipelineId}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
@@ -267,10 +268,17 @@ final class WorkspaceContextService(
       .recover { case ex =>
         (Vector.empty[WorkspaceContextPipelineStep], Some(Option(ex.getMessage).getOrElse(ex.getClass.getName)))
       }
+    // HEL-914 task 6.6: degrades to `[]` on the SAME failure basis as `steps`/`stepsError` above
+    // (never a second, independent failure mode) -- a pipeline whose analyze failed reports no
+    // lane tree either, rather than a partial/stale one.
+    val laneTreeF = pipelineService.laneTree(PipelineId(summary.id), user)
+      .map(_.getOrElse(Vector.empty))
+      .recover { case _ => Vector.empty }
     for {
       outputs                    <- outputsF
       (steps, stepsError)        <- analyzeF
-    } yield toPipelineEntry(summary, steps, stepsError, outputs.headOption)
+      laneTree                   <- laneTreeF
+    } yield toPipelineEntry(summary, steps, stepsError, outputs.headOption, laneTree)
   }
 
   private def toStepEntry(s: AnalyzeStepResponse): WorkspaceContextPipelineStep =
@@ -285,7 +293,8 @@ final class WorkspaceContextService(
       summary: PipelineSummaryResponse,
       steps: Vector[WorkspaceContextPipelineStep],
       stepsError: Option[String],
-      representativeOutput: Option[Output]
+      representativeOutput: Option[Output],
+      laneTree: Vector[PipelineLaneTreeNode]
   ): WorkspaceContextPipeline =
     WorkspaceContextPipeline(
       id                   = summary.id,
@@ -298,7 +307,8 @@ final class WorkspaceContextService(
       lastRunRowCount      = summary.lastRunRowCount,
       tag                  = summary.tag,
       steps                = steps,
-      stepsError           = stepsError
+      stepsError           = stepsError,
+      laneTree             = laneTree
     )
 
   /** `private[services]` (not `private`) — HEL-661 design.md D2: reused verbatim by

@@ -19,7 +19,7 @@ import { applyCombinedProposalHandler } from "./combinedProposalHandlers.js";
 const combined: CombinedProposal = {
   pipeline: {
     pipelineName: "Revenue pipeline",
-    source: { sourceId: "source-1" },
+    roots: [{ sourceId: "source-1" }],
     steps: [],
     outputs: [],
   },
@@ -50,6 +50,7 @@ describe("applyCombinedProposalHandler", () => {
   it("calls api.applyCombinedProposal with the given proposal and returns its result", async () => {
     const response: CombinedProposalApplyResponse = {
       pipeline: {
+        sources: [],
         pipeline: {
           id: "pipeline-1",
           name: "Revenue pipeline",

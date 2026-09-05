@@ -2,17 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/pipeline-analyze-proposal-response.schema.json",
   "title": "PipelineAnalyzeProposalResponse",
-  "description": "Dry analyze over a not-yet-created PipelineProposal (HEL-381): the projected source schema, per-step input/output schema, and any per-step validation errors. Nothing is persisted. Additive sibling of GET /api/pipelines/:id/analyze's PipelineAnalyzeResponse -- carries no id/outputDataTypeId, since nothing has been created yet (design.md D4). The steps[] shape mirrors the ACTUAL discriminated-union wire format analyzeStepResponseFormat already emits (a `type` discriminator plus an object `config`), NOT pipeline-analyze-response.schema.json's stale `op`/string-`config` $defs.AnalyzeStep, which predates the CS2c-3a discriminated-union rework (design.md D6).",
+  "description": "Dry analyze over a not-yet-created PipelineProposal (HEL-381): the projected source schema per root, per-step input/output schema, any per-step validation errors, and (HEL-914 task 6b.4a) every proposed Output's fieldMapping validity grounded at that Output's own target node (or root schema, for a root-bound Output) -- never the pipeline trunk. Nothing is persisted. Additive sibling of GET /api/pipelines/:id/analyze's PipelineAnalyzeResponse -- carries no id/outputDataTypeId, since nothing has been created yet (design.md D4). HEL-914: `sourceName`/`sourceSchema` (singular) REPLACED outright by `sourceSchemas`, one entry per proposed root, matching the persisted-pipeline twin's `RootSourceSchema` $def exactly so the two shapes cannot drift. The steps[] shape mirrors the ACTUAL discriminated-union wire format analyzeStepResponseFormat already emits (a `type` discriminator plus an object `config`), NOT pipeline-analyze-response.schema.json's stale `op`/string-`config` $defs.AnalyzeStep, which predates the CS2c-3a discriminated-union rework (design.md D6).",
   "type": "object",
-  "required": ["sourceName", "sourceSchema", "steps"],
+  "required": ["sourceSchemas", "steps", "outputs"],
   "properties": {
-    "sourceName": {
-      "type": "string"
-    },
-    "sourceSchema": {
+    "sourceSchemas": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SchemaField"
+        "$ref": "#/$defs/RootSourceSchema"
       }
     },
     "steps": {
@@ -20,10 +17,36 @@
       "items": {
         "$ref": "#/$defs/AnalyzeProposalStep"
       }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/OutputAnalyze"
+      }
     }
   },
   "additionalProperties": false,
   "$defs": {
+    "RootSourceSchema": {
+      "type": "object",
+      "required": ["rootId", "sourceDataSourceName", "sourceSchema"],
+      "properties": {
+        "rootId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceDataSourceName": {
+          "type": "string"
+        },
+        "sourceSchema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SchemaField"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "SchemaField": {
       "type": "object",
       "required": ["name", "type"],
@@ -78,6 +101,23 @@
           "items": {
             "$ref": "#/$defs/SchemaField"
           }
+        },
+        "validationError": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "OutputAnalyze": {
+      "type": "object",
+      "description": "HEL-914 task 6b.4a: one entry per proposed Output, in request order. `validationError` is present only when that Output's fieldMapping is invalid at its own grounded node -- absent when valid or when the Output has no fieldMapping.",
+      "required": ["name", "kind"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
         },
         "validationError": {
           "type": "string"

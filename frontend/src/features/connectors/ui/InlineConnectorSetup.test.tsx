@@ -114,7 +114,7 @@ describe("InlineConnectorSetup — credential carrier discipline (HEL-829 AC, de
     });
     fireEvent.click(screen.getByRole("button", { name: /create connector/i }));
 
-    await waitFor(() => expect(onResolved).toHaveBeenCalledWith("conn-new"));
+    await waitFor(() => expect(onResolved).toHaveBeenCalledWith("conn-new", "pipeline-source"));
 
     // ONLY carrier: the POST /api/connectors body.
     expect(mockedHttpClient.post).toHaveBeenCalledTimes(1);

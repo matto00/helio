@@ -34,7 +34,7 @@ import {
 
 const proposal: PipelineProposal = {
   pipelineName: "Revenue pipeline",
-  source: { sourceId: "source-1" },
+  roots: [{ sourceId: "source-1" }],
   steps: [],
   outputs: [],
 };
@@ -64,7 +64,7 @@ describe("proposePipelineHandler", () => {
 
     const result = await proposePipelineHandler(api, {
       pipelineName: proposal.pipelineName,
-      source: proposal.source,
+      roots: proposal.roots,
       steps: proposal.steps,
       outputs: proposal.outputs,
     });
@@ -81,7 +81,7 @@ describe("proposePipelineHandler", () => {
 
     const result = await proposePipelineHandler(api, {
       pipelineName: proposal.pipelineName,
-      source: { sourceId: "source-missing" },
+      roots: [{ sourceId: "source-missing" }],
       steps: proposal.steps,
       outputs: proposal.outputs,
     });
@@ -102,7 +102,7 @@ describe("proposePipelineHandler", () => {
     await expect(
       proposePipelineHandler(api, {
         pipelineName: proposal.pipelineName,
-        source: proposal.source,
+        roots: proposal.roots,
         steps: proposal.steps,
         outputs: proposal.outputs,
       }),
@@ -113,8 +113,13 @@ describe("proposePipelineHandler", () => {
 describe("analyzePipelineProposalHandler", () => {
   it("calls api.analyzePipelineProposal with the given proposal and returns its result", async () => {
     const response: PipelineAnalyzeProposalResponse = {
-      sourceName: "Source 1",
-      sourceSchema: [{ name: "amount", type: "integer" }],
+      sourceSchemas: [
+        {
+          rootId: "0",
+          sourceDataSourceName: "Source 1",
+          sourceSchema: [{ name: "amount", type: "integer" }],
+        },
+      ],
       steps: [],
     };
     let calledWith: PipelineProposal | undefined;
@@ -145,6 +150,7 @@ describe("analyzePipelineProposalHandler", () => {
 describe("applyPipelineProposalHandler", () => {
   it("calls api.applyPipelineProposal with the given proposal and returns its result", async () => {
     const response: PipelineProposalApplyResponse = {
+      sources: [],
       pipeline: {
         id: "pipeline-1",
         name: "Revenue pipeline",

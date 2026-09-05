@@ -29,38 +29,49 @@ import type { PipelineProposalSource } from "../types.js";
  *  (d) `type` set but the matching `config` absent — inline branch needs a
  *      config, warn;
  *  (e) `sourceId` set but not found among the caller's data sources, warn. */
+/** HEL-914 task 6.2: PER-ROOT, reporting against the offending root's index
+ *  (`roots[i]:`) rather than the first. */
 export function computePipelineProposalWarnings(
+  roots: PipelineProposalSource[],
+  sourceIds: Set<string>,
+): string[] {
+  return roots.flatMap((root, idx) => computeRootWarnings(root, idx, sourceIds));
+}
+
+function computeRootWarnings(
   source: PipelineProposalSource,
+  idx: number,
   sourceIds: Set<string>,
 ): string[] {
   const warnings: string[] = [];
+  const prefix = `roots[${idx}]`;
 
   const hasSourceId = source.sourceId !== undefined && source.sourceId !== "";
   const hasType = source.type !== undefined;
 
   if (hasSourceId && hasType) {
     warnings.push(
-      "source: both sourceId and type are set — these are mutually exclusive branches (existing " +
+      `${prefix}: both sourceId and type are set — these are mutually exclusive branches (existing ` +
         "source vs. inline new source); the apply path will reject this",
     );
   } else if (!hasSourceId && !hasType) {
     warnings.push(
-      "source: neither sourceId nor type is set — supply an existing sourceId or an inline " +
+      `${prefix}: neither sourceId nor type is set — supply an existing sourceId or an inline ` +
         "type/name/config",
     );
   }
 
   if (hasType) {
     if (!source.name || source.name.trim().length === 0) {
-      warnings.push(`source: type '${source.type}' is set but name is blank/absent`);
+      warnings.push(`${prefix}: type '${source.type}' is set but name is blank/absent`);
     }
     if (source.config === undefined) {
-      warnings.push(`source: type '${source.type}' is set but its matching config is absent`);
+      warnings.push(`${prefix}: type '${source.type}' is set but its matching config is absent`);
     }
   }
 
   if (hasSourceId && source.sourceId !== undefined && !sourceIds.has(source.sourceId)) {
-    warnings.push(`source: sourceId ${source.sourceId} not found among your data sources`);
+    warnings.push(`${prefix}: sourceId ${source.sourceId} not found among your data sources`);
   }
 
   return warnings;

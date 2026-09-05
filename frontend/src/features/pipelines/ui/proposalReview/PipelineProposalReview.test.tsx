@@ -18,7 +18,7 @@ beforeAll(() => {
 function makeProposal(overrides: Partial<PipelineProposal> = {}): PipelineProposal {
   return {
     pipelineName: "Sales pipeline",
-    source: { sourceId: "src-1" },
+    roots: [{ sourceId: "src-1" }],
     steps: [
       { clientId: "s1", type: "rename", config: { renames: { old: "new" } } },
       { clientId: "s2", type: "limit", config: { count: 100 }, enabled: false },
@@ -58,7 +58,7 @@ describe("PipelineProposalReview", () => {
   it("renders an inline source's type/name/config when no sourceId is present", () => {
     renderReview({
       proposal: makeProposal({
-        source: { type: "csv", name: "New CSV source", config: { path: "/tmp/data.csv" } },
+        roots: [{ type: "csv", name: "New CSV source", config: { path: "/tmp/data.csv" } }],
       }),
     });
 
@@ -104,5 +104,33 @@ describe("PipelineProposalReview", () => {
       }),
     });
     expect(screen.getByText("some_future_op")).toBeInTheDocument();
+  });
+
+  // HEL-914 task 6.8 — a proposal whose steps branch into more than one lane (two children
+  // of the same parent step, each rooting its own lane per `buildLaneGraph`) must render
+  // grouped by lane, label the branch lane by its parent step, surface a rejoin step's
+  // second-input, and annotate a step with any Outputs bound to it — not a single flat list.
+  it("renders multi-lane steps grouped by lane, with rejoin and per-step Output annotations", () => {
+    renderReview({
+      proposal: makeProposal({
+        steps: [
+          { clientId: "s1", type: "filter", config: {} },
+          { clientId: "s2", type: "filter", config: {}, parentStepId: "s1" },
+          {
+            clientId: "s3",
+            type: "join",
+            config: { secondaryInput: { kind: "lane", stepId: "s2" } },
+            parentStepId: "s1",
+          },
+        ],
+        outputs: [{ kind: "table", name: "JoinedMetrics", nodeStepClientId: "s3" }],
+      }),
+    });
+
+    expect(screen.getByText("3 steps across 3 lanes")).toBeInTheDocument();
+    expect(screen.getByText("Primary lane")).toBeInTheDocument();
+    expect(screen.getAllByText("Lane branching off step s1")).toHaveLength(2);
+    expect(screen.getByText(/second input \(rejoin\): step s2/)).toBeInTheDocument();
+    expect(screen.getByText(/Outputs: JoinedMetrics/)).toBeInTheDocument();
   });
 });

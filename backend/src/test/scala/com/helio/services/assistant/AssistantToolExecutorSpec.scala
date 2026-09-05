@@ -145,7 +145,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     )
 
   private def pipelineProposalWith(source: PipelineProposalSource, pipelineName: String = "New Pipeline"): PipelineProposal =
-    PipelineProposal(pipelineName, source, steps = Vector.empty, outputs = Vector.empty)
+    PipelineProposal(pipelineName, Vector(source), steps = Vector.empty, outputs = Vector.empty)
 
   "execute" should {
 
@@ -409,8 +409,8 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
 
     // propose_combined: combinedProposalService is null by default here — a call that actually
     // reached combinedProposalService.validate would NPE; a clean Left proves the gate intercepted
-    // (`proposal.pipeline.source`) before that call ever happened.
-    "reject propose_combined for an untested inline rest_api pipeline.source, never reaching combinedProposalService" in {
+    // (`proposal.pipeline.roots`) before that call ever happened.
+    "reject propose_combined for an untested inline rest_api pipeline.roots entry, never reaching combinedProposalService" in {
       val executor = newExecutor()
       val pipeline  = pipelineProposalWith(inlineRestSource(restConfig()))
       val dashboard = DashboardProposal("Overview", Vector.empty)

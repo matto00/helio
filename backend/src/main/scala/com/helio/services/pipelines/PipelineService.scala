@@ -4,13 +4,14 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.sources.{DataSourceService, SourceService}
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, DateBucketAnalyzeStepResponse, DeletePipelineStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
+import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, DateBucketAnalyzeStepResponse, DeletePipelineStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{CreateSourceRequest, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticDataSourceRequest}
 import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}
+import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
 import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}
 import com.helio.domain.panels.OutputBindingSpec
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift}
-import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, SchemaField}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, Output, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift}
+import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, RuntimeGraphPath, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
 import com.helio.domain.steps.SecondaryInput
@@ -991,6 +992,95 @@ final class PipelineService(
     }
   }
 
+  /** HEL-914 task 6.4 (design.md D5/D6): `GET /pipelines/:id/analyze?concise=true`'s opt-in
+   *  per-node `{path, op, validationError}` projection — a wholly separate response from
+   *  `analyze` above, under a byte budget `analyze`'s full response is never asked to meet.
+   *  `path` reuses `RuntimeGraphPath` (the SAME builder `InProcessPipelineEngine` uses for
+   *  lane-path error reporting, design.md D5's "exactly one implementation" rule) rather than
+   *  a second formatter. Entries for ENABLED steps only, mirroring `analyze`'s own boundary. */
+  def analyzeConcise(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeConciseResponse]] =
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+      case Some(_) =>
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
+          val rootFetch = for {
+            rootDataSourceIds <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
+            rootIdOfStep      <- pipelineStepRepo.rootIdsOf(pipelineId)
+            rootSchemas       <- Future.traverse(rootDataSourceIds) { case (rootId, dsId) =>
+                                    dataSourceRepo.findByIdOwned(dsId, user).map { dsOpt =>
+                                      rootId.value -> dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField])
+                                    }
+                                  }
+          } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep, rootSchemas.toMap)
+
+          rootFetch.map { case (rootIds, rootIdOfStep, schemasByRoot) =>
+            val rootIdOfStepStr = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
+            val nodeInputs = allSteps.map(s =>
+              PipelineAnalyzeService.NodeStepInput(
+                id           = s.id.value,
+                parentStepId = s.parentStepId.map(_.value),
+                position     = s.position,
+                op           = s.kind,
+                config       = PipelineStepConfigCodec.encode(s),
+                rootId       = rootIdOfStep.get(s.id).map(_.value),
+                enabled      = s.enabled
+              )
+            )
+            val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot)
+            val graphPath    = RuntimeGraphPath.build(allSteps, rootIds, rootIdOfStepStr)
+            val nodes = allSteps.filter(_.enabled).flatMap { s =>
+              projections.get(s.id.value).map { analyzed =>
+                ConciseAnalyzeNode(path = graphPath.pathOf(s), op = s.kind, validationError = analyzed.validationError)
+              }
+            }
+            Right(PipelineAnalyzeConciseResponse(nodes))
+          }
+        }
+    }
+
+  /** HEL-914 task 6.6 (design.md D5/D6): the compact lane tree `WorkspaceContextService`
+   *  embeds per pipeline -- id/parentId/rootId/op/boundOutputIds, no configs, no schemas, no
+   *  sample rows. `rootId` reuses `RuntimeGraphPath` (never a second root-resolution walk);
+   *  bound Outputs come from the SAME `outputRepo.listByPipelineInternal` fetch
+   *  `WorkspaceContextService.buildPipeline` already makes for its representative-Output pick,
+   *  so this adds no new query shape to that caller, only a second, cheap in-memory grouping
+   *  over already-fetched rows. */
+  def laneTree(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineLaneTreeNode]]] =
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+      case Some(_) =>
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
+          val rootFetch = for {
+            rootDataSourceIds <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
+            rootIdOfStep      <- pipelineStepRepo.rootIdsOf(pipelineId)
+          } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep)
+          val outputsF =
+            if (outputRepo == null) Future.successful(Vector.empty[Output])
+            else outputRepo.listByPipelineInternal(pipelineId)
+
+          for {
+            (rootIds, rootIdOfStep) <- rootFetch
+            outputs                 <- outputsF
+          } yield {
+            val rootIdOfStepStr = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
+            val graphPath       = RuntimeGraphPath.build(allSteps, rootIds, rootIdOfStepStr)
+            val outputsByStep: Map[String, Vector[String]] =
+              outputs.flatMap(o => o.node.stepId.map(sid => sid.value -> o.id.value)).groupMap(_._1)(_._2)
+            Right(allSteps.map { s =>
+              val path   = graphPath.pathOf(s)
+              val rootId = path.stripPrefix("root:").takeWhile(_ != ' ')
+              PipelineLaneTreeNode(
+                id        = s.id.value,
+                parentId  = s.parentStepId.map(_.value),
+                rootId    = rootId,
+                op        = s.kind,
+                outputIds = outputsByStep.getOrElse(s.id.value, Vector.empty)
+              )
+            })
+          }
+        }
+    }
+
   /** `GET /api/pipelines/:id/capabilities?stepId=` (HEL-906 task 3.4) — evaluates
    *  `OutputBindingSpec` against the per-node projection `PipelineAnalyzeService.analyzeNodes`
    *  (task 3.3) computes for `stepId`, `None` meaning the pipeline's raw source. Sharing-aware
@@ -1146,34 +1236,186 @@ final class PipelineService(
    *  since `schemas/pipelines/pipeline-proposal.schema.json` deliberately leaves step `type`
    *  unconstrained (checked at apply time, not by this schema) and no
    *  `ExceptionHandler` is registered anywhere in the backend. */
+  /** HEL-914 task 3.6/D4: projects PER NODE across lanes, reusing the same `analyzeNodes`
+   *  multi-root/lane projection the persisted-pipeline `analyze` route uses above — never a
+   *  second, un-applied-proposal-specific projection. Each proposed root gets a stable key
+   *  (its own `clientId` when given, else its request index as a string) so a step's
+   *  `rootClientId` (or, for a single-root proposal, the implicit root) resolves against the
+   *  right root's schema, and a rejoin node's schema derives from BOTH incoming lanes. */
   def analyzeProposal(proposal: PipelineProposal, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeProposalResponse]] =
     validateStepKinds(proposal.steps) match {
       case Left(err) => Future.successful(Left(err))
       case Right(_) =>
-        resolveProposalSourceSchema(proposal, user).map {
+        resolveAllProposalRootSchemas(proposal, user).map {
           case Left(err) => Left(err)
-          case Right((sourceName, sourceSchema)) =>
+          case Right(rootSchemas) =>
+            val rootKeys = proposal.roots.zipWithIndex.map { case (root, idx) => root.clientId.getOrElse(idx.toString) }
+            val schemasByRoot: Map[String, Vector[SchemaField]] =
+              rootKeys.zip(rootSchemas.map(_._2)).toMap
+            val defaultRootKey = rootKeys.head
+
             // HEL-412 (design.md Decision 3, boundary iv): a proposal step
             // carrying `enabled: false` is treated as absent, matching what
             // the live analyze endpoint would report once applied.
-            val enabledSteps = proposal.steps.filter(_.enabled.getOrElse(true))
-            val stepInputs = enabledSteps.zipWithIndex.map { case (req, i) =>
-              PipelineAnalyzeService.PipelineStepInput(
-                id       = s"step-$i",
-                position = i,
-                op       = req.`type`,
-                config   = req.config.compactPrint
+            val nodeInputs = proposal.steps.zipWithIndex.map { case (req, i) =>
+              PipelineAnalyzeService.NodeStepInput(
+                id           = req.clientId,
+                parentStepId = req.parentStepId,
+                position     = i,
+                op           = req.`type`,
+                config       = req.config.compactPrint,
+                rootId       = Some(req.rootClientId.filter(_.trim.nonEmpty).getOrElse(defaultRootKey)),
+                enabled      = req.enabled.getOrElse(true)
               )
             }
-            val analyzed = PipelineAnalyzeService.analyze(stepInputs, sourceSchema)
+            val projections  = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot)
+            val enabledSteps = proposal.steps.filter(_.enabled.getOrElse(true))
+            val analyzed     = enabledSteps.flatMap(s => projections.get(s.clientId))
 
-            Right(PipelineAnalyzeProposalResponse(
-              sourceName   = sourceName,
-              sourceSchema = sourceSchema.map(toFieldResponse),
-              steps        = analyzed.map(toAnalyzeStepResponse)
-            ))
+            resolveProposalOutputAnalyses(proposal.outputs, proposal.steps, rootKeys, schemasByRoot, projections) match {
+              case Left(err) => Left(err)
+              case Right(outputAnalyses) =>
+                Right(PipelineAnalyzeProposalResponse(
+                  sourceSchemas = rootSchemas.zip(rootKeys).map { case ((name, schema), key) =>
+                    RootSourceSchemaResponse(key, name, schema.map(toFieldResponse))
+                  },
+                  steps   = analyzed.map(toAnalyzeStepResponse),
+                  outputs = outputAnalyses
+                ))
+            }
         }
     }
+
+  /** HEL-914 task 6b.4a: every proposed Output's fieldMapping is validated grounded at that
+   *  Output's OWN node -- a step-bound Output against `projections`' `outputSchema` (which,
+   *  for a rejoin/`join`-kind node, `PipelineAnalyzeService.analyzeNodes` already derives from
+   *  BOTH incoming lanes, not just the parent lane -- reused here verbatim, never re-derived);
+   *  a root-bound Output against that root's own schema, resolved the same
+   *  `nodeStepClientId`-absent/`rootClientId`-present/single-root-implicit rules
+   *  `resolveOutputRootIndex` enforces for the real (persisting) create path -- kept as a
+   *  parallel, proposal-scoped resolver here since `resolveOutputRootIndex` operates over
+   *  `CreatePipelineRootRequest`, not `PipelineProposalSource`. */
+  private def resolveProposalOutputAnalyses(
+      outputs:       Vector[CreatePipelineTransactionalOutputRequest],
+      steps:         Vector[CreatePipelineTransactionalStepRequest],
+      rootKeys:      Vector[String],
+      schemasByRoot: Map[String, Vector[SchemaField]],
+      projections:   Map[String, PipelineAnalyzeService.AnalyzedStep]
+  ): Either[ServiceError, Vector[OutputAnalyzeResponse]] = {
+    val stepClientIds = steps.map(_.clientId).toSet
+    outputs.zipWithIndex.foldLeft[Either[ServiceError, Vector[OutputAnalyzeResponse]]](Right(Vector.empty)) {
+      case (Left(err), _) => Left(err)
+      case (Right(acc), (output, idx)) =>
+        resolveOneProposalOutputAnalysis(output, idx, stepClientIds, rootKeys, schemasByRoot, projections).map(acc :+ _)
+    }
+  }
+
+  private def resolveOneProposalOutputAnalysis(
+      output:        CreatePipelineTransactionalOutputRequest,
+      idx:           Int,
+      stepClientIds: Set[String],
+      rootKeys:      Vector[String],
+      schemasByRoot: Map[String, Vector[SchemaField]],
+      projections:   Map[String, PipelineAnalyzeService.AnalyzedStep]
+  ): Either[ServiceError, OutputAnalyzeResponse] = {
+    val address = outputAddress(idx)
+    output.nodeStepClientId match {
+      case Some(clientId) if !stepClientIds.contains(clientId) =>
+        Left(ServiceError.BadRequest(
+          s"$address: references unresolvable nodeStepClientId '$clientId' -- it must be a step's clientId in this same request"
+        ))
+      case nodeClientIdOpt =>
+        OutputKind.fromString(output.kind) match {
+          case Left(msg) => Left(ServiceError.BadRequest(msg))
+          case Right(kind) =>
+            resolveProposalOutputNodeSchema(output, idx, nodeClientIdOpt, rootKeys, schemasByRoot, projections).map { nodeSchema =>
+              val config = output.config.getOrElse(JsObject.empty)
+              val validationError = validateOutputFieldMapping(kind, config, nodeSchema) match {
+                case Left(err) => Some(err.message)
+                case Right(()) => None
+              }
+              OutputAnalyzeResponse(output.name, output.kind, validationError)
+            }
+        }
+    }
+  }
+
+  /** Mirrors `resolveOutputRootIndex`'s mutual-exclusion/single-root-implicit rules, but resolves
+   *  directly to that root's SCHEMA (never an index into a `CreatePipelineRootRequest` vector,
+   *  which a proposal's `roots` -- `PipelineProposalSource` -- is not). */
+  private def resolveProposalOutputNodeSchema(
+      output:        CreatePipelineTransactionalOutputRequest,
+      idx:           Int,
+      nodeClientIdOpt: Option[String],
+      rootKeys:      Vector[String],
+      schemasByRoot: Map[String, Vector[SchemaField]],
+      projections:   Map[String, PipelineAnalyzeService.AnalyzedStep]
+  ): Either[ServiceError, Vector[SchemaField]] = {
+    val address = outputAddress(idx)
+    nodeClientIdOpt match {
+      case Some(clientId) =>
+        if (output.rootClientId.isDefined)
+          Left(ServiceError.BadRequest(
+            s"$address: names both nodeStepClientId and rootClientId -- a step-bound Output's root is implied by its step"
+          ))
+        else
+          Right(projections.get(clientId).map(_.outputSchema).getOrElse(Vector.empty))
+      case None =>
+        output.rootClientId match {
+          case Some(rcid) =>
+            rootKeys.indexOf(rcid) match {
+              case -1  => Left(ServiceError.BadRequest(s"$address: references unresolvable rootClientId '$rcid'"))
+              case idx => Right(schemasByRoot.getOrElse(rootKeys(idx), Vector.empty))
+            }
+          case None =>
+            if (rootKeys.size > 1)
+              Left(ServiceError.BadRequest(
+                s"$address: is root-bound with no rootClientId, and this request names ${rootKeys.size} roots -- name one explicitly"
+              ))
+            else
+              Right(schemasByRoot.getOrElse(rootKeys.head, Vector.empty))
+        }
+    }
+  }
+
+  /** Resolves EVERY root's schema, in request order — a failure names the offending root's
+   *  address (task 6b.4a). */
+  private def resolveAllProposalRootSchemas(
+      proposal: PipelineProposal,
+      user:     AuthenticatedUser
+  ): Future[Either[ServiceError, Vector[(String, Vector[SchemaField])]]] =
+    proposal.roots.zipWithIndex.foldLeft(Future.successful[Either[ServiceError, Vector[(String, Vector[SchemaField])]]](Right(Vector.empty))) {
+      case (acc, (root, idx)) =>
+        acc.flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(soFar) =>
+            resolveOneProposalRootSchema(root, idx, proposal.pipelineName, user).map {
+              case Left(err)       => Left(err)
+              case Right(resolved) => Right(soFar :+ resolved)
+            }
+        }
+    }
+
+  private def resolveOneProposalRootSchema(
+      source:       PipelineProposalSource,
+      idx:          Int,
+      fallbackName: String,
+      user:         AuthenticatedUser
+  ): Future[Either[ServiceError, (String, Vector[SchemaField])]] = {
+    val address = PipelineService.rootAddress(idx)
+    source.sourceId match {
+      case Some(id) =>
+        dataSourceRepo.findByIdOwned(DataSourceId(id), user).flatMap {
+          case None =>
+            Future.successful(Left(ServiceError.NotFound(s"$address: data source not found: $id")))
+          case Some(ds) =>
+            // HEL-904 4.1/4.3: no companion DataType to look up — the schema lives inline.
+            Future.successful(Right((ds.name, ds.inferredSchema)))
+        }
+      case None =>
+        resolveInlineSourceSchema(source, fallbackName, user)
+    }
+  }
 
   /** Same allow-list check `addStep` already performs (`PipelineStepKind.All.contains`)
    *  before a single step write — generalized here to every entry in a proposal's
@@ -1188,29 +1430,7 @@ final class PipelineService(
       case None => Right(())
     }
 
-  /** Resolves `proposal.source`'s schema per design.md D2 — `sourceId`, when present,
-   *  always wins over an inline `type` (checked first, before any inline branch).
-   *  Returns the resolved name (existing source's stored name, or the inline source's
-   *  declared name, falling back to `proposal.pipelineName` — design.md D4) alongside
-   *  the resolved schema. */
-  private def resolveProposalSourceSchema(
-      proposal: PipelineProposal,
-      user:     AuthenticatedUser
-  ): Future[Either[ServiceError, (String, Vector[SchemaField])]] =
-    proposal.source.sourceId match {
-      case Some(id) =>
-        dataSourceRepo.findByIdOwned(DataSourceId(id), user).flatMap {
-          case None =>
-            Future.successful(Left(ServiceError.NotFound(s"Data source not found: $id")))
-          case Some(ds) =>
-            // HEL-904 4.1/4.3: no companion DataType to look up — the schema lives inline.
-            Future.successful(Right((ds.name, ds.inferredSchema)))
-        }
-      case None =>
-        resolveInlineSourceSchema(proposal.source, proposal.pipelineName, user)
-    }
-
-  /** Inline-source branch of `resolveProposalSourceSchema` (design.md D2). Every
+  /** Inline-source branch of `resolveOneProposalRootSchema` (design.md D2). Every
    *  connector-backed case (`sql`/`rest_api`/`static`) checks its matching config
    *  `Option` for `None` *before* touching the config value — a recognized `type`
    *  with an absent `config` is a proven-reachable, structurally-valid-per-schema

@@ -12,7 +12,7 @@ const applyCombinedProposalMock = jest.mocked(combinedProposalService.applyCombi
 const sampleProposal: CombinedProposal = {
   pipeline: {
     pipelineName: "Demo pipeline",
-    source: { type: "static", name: "Demo source", config: {} },
+    roots: [{ type: "static", name: "Demo source", config: {} }],
     steps: [],
     outputs: [{ kind: "table", name: "Demo output" }],
   },
@@ -30,6 +30,7 @@ const defaultMeta = {
 
 const sampleApplyResponse: CombinedProposalApplyResponse = {
   pipeline: {
+    sources: [],
     pipeline: {
       id: "p-1",
       name: "Demo pipeline",

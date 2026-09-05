@@ -57,7 +57,7 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     )
 
   private def proposal(source: PipelineProposalSource, pipelineName: String = "My Pipeline"): PipelineProposal =
-    PipelineProposal(pipelineName, source, steps = Vector.empty, outputs = Vector.empty)
+    PipelineProposal(pipelineName, Vector(source), steps = Vector.empty, outputs = Vector.empty)
 
   "PipelineProposalService.validate" should {
 

@@ -297,4 +297,46 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
       json.fields.values.toList should not contain JsNull
     }
   }
+
+  // ── HEL-914 task 5.1/5.3/6b.4d: EditTarget.parentId ─────────────────────
+
+  "EditTarget.parentId" should {
+    "round-trip when present" in {
+      val target = EditTarget(kind = "pipelineStep", id = None, parentId = Some("pipeline-1"))
+      target.toJson.convertTo[EditTarget] shouldBe target
+    }
+
+    "be tolerated absent at the wire level -- decoding never fails just because it's missing" in {
+      val json = JsObject("kind" -> JsString("pipelineStep"), "id" -> JsString("step-1"))
+      noException should be thrownBy json.convertTo[EditTarget]
+      json.convertTo[EditTarget].parentId shouldBe None
+    }
+
+    "be omitted on write when absent, never emitted as null" in {
+      val json = EditTarget(kind = "panel", id = Some("panel-1")).toJson.asJsObject
+      json.fields.keySet should not contain "parentId"
+      json.fields.values.toList should not contain JsNull
+    }
+
+    "a pipelineStep create edit carrying it decodes successfully (required-for-create is a service-layer validation, never a decode failure)" in {
+      val json = JsObject(
+        "target" -> JsObject("kind" -> JsString("pipelineStep"), "parentId" -> JsString("pipeline-1")),
+        "op"     -> JsString("create"),
+        "patch"  -> JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
+      )
+      val decoded = json.convertTo[Edit]
+      decoded.target.parentId shouldBe Some("pipeline-1")
+      decoded.createPatch shouldBe defined
+    }
+
+    "a pipelineStep create edit with no parentId at all also decodes -- the requirement is enforced by PatchSetApplyResolvers, not here" in {
+      val json = JsObject(
+        "target" -> JsObject("kind" -> JsString("pipelineStep")),
+        "op"     -> JsString("create"),
+        "patch"  -> JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
+      )
+      val decoded = json.convertTo[Edit]
+      decoded.target.parentId shouldBe None
+    }
+  }
 }

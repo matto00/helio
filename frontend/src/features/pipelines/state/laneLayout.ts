@@ -42,7 +42,9 @@ export interface LaneLayout {
   rejoinEdges: Record<string, string[]>;
 }
 
-function secondaryInputOf(config: PipelineStepConfig): SecondaryInput | undefined {
+// HEL-914 task 6.8: exported so the pipeline-proposal review UI can show a rejoin's second
+// input without a second implementation of this same shape-check.
+export function secondaryInputOf(config: PipelineStepConfig): SecondaryInput | undefined {
   if (
     typeof config === "object" &&
     config !== null &&

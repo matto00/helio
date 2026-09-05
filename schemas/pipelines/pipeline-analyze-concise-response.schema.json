@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/pipeline-analyze-concise-response.schema.json",
+  "title": "PipelineAnalyzeConciseResponse",
+  "description": "HEL-914 task 6.4: `GET /api/pipelines/:id/analyze?concise=true`'s opt-in per-node projection -- one entry per ENABLED step, in no particular order, each carrying the runtime graph path (`root:<rootId> > s1 > s4`, design.md D5/R5, the SAME format/implementation `PipelineAnalyzeResponse`'s lane-path error reporting uses), the step's op kind, and its validationError when present. A wholly separate response shape from `PipelineAnalyzeResponse` (schemas/pipelines/pipeline-analyze-response.schema.json) -- absent/false `concise` returns that byte-identical full response instead, never a variant of this one. Bounded by the named byte budget `PipelineAnalyzeConciseResponse.ByteBudget` (design.md D6) on a 12-node/40-column/2-root graph.",
+  "type": "object",
+  "required": ["nodes"],
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ConciseAnalyzeNode" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ConciseAnalyzeNode": {
+      "type": "object",
+      "required": ["path", "op"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "The runtime graph path, e.g. \"root:r1 > s1 > s4\"."
+        },
+        "op": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validationError": {
+          "type": "string",
+          "description": "Omitted (not null) when the node has no validation error."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -30,7 +30,7 @@ interface InlineConnectorSetupProps {
   /** Called with the newly created Connector's id on success — the caller
    *  patches its own local proposal copy (design.md Decision 3, Point 5).
    *  This component never touches the proposal itself. */
-  onResolved: (connectorId: string) => void;
+  onResolved: (connectorId: string, key: string) => void;
 }
 
 export function InlineConnectorSetup({ reference, onResolved }: InlineConnectorSetupProps) {
@@ -93,7 +93,7 @@ export function InlineConnectorSetup({ reference, onResolved }: InlineConnectorS
     setIsSubmitting(false);
 
     if (createConnector.fulfilled.match(result)) {
-      onResolved(result.payload.id);
+      onResolved(result.payload.id, reference.key);
     } else {
       setError(result.payload ?? "Failed to create connector.");
     }

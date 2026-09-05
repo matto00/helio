@@ -18,6 +18,9 @@ export interface PipelineProposalSource {
   type?: string;
   name?: string;
   config?: Record<string, unknown>;
+  /** HEL-914: request-scoped id a parentless step's `rootClientId` binds to
+   *  when the proposal has more than one root. Not persisted. */
+  clientId?: string;
 }
 
 /** One proposed step. Deliberately loose (design.md D4) — the review UI only
@@ -37,6 +40,9 @@ export interface PipelineProposalStep {
   config: Record<string, unknown>;
   parentStepId?: string;
   enabled?: boolean;
+  /** HEL-914 (R13): names WHICH root a parentless step attaches to --
+   *  required (and validated) only when the proposal has more than one root. */
+  rootClientId?: string;
 }
 
 /** One proposed Output (HEL-907 task 1.1) — a proposal may create zero, one,
@@ -59,7 +65,9 @@ export interface PipelineProposalOutput {
  *  DataType/Metric output contract it named no longer exists. */
 export interface PipelineProposal {
   pipelineName: string;
-  source: PipelineProposalSource;
+  /** HEL-914: replaces the old singular `source` outright -- no alias.
+   *  Non-empty. */
+  roots: PipelineProposalSource[];
   steps: PipelineProposalStep[];
   outputs?: PipelineProposalOutput[];
 }
@@ -89,7 +97,8 @@ export interface ProposalOutputSummary {
  *  required here too (skeptic-final-1.md non-blocking note). `outputs`
  *  (HEL-907 task 1.1/1.3) replaces the old single `outputDataTypeId`. */
 export interface PipelineProposalApplyResponse {
-  source?: Record<string, unknown>;
+  /** HEL-914: one element per newly-created inline root, in root order. */
+  sources: Record<string, unknown>[];
   pipeline: PipelineSummary;
   outputs: ProposalOutputSummary[];
   run: Record<string, unknown>;

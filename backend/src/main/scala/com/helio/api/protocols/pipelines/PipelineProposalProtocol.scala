@@ -24,7 +24,11 @@ final case class PipelineProposalSource(
     csvConfig: Option[CsvSourceConfigPayload],
     restConfig: Option[ProposalRestApiConfig],
     sqlConfig: Option[SqlSourceConfigPayload],
-    staticConfig: Option[StaticDataPayload]
+    staticConfig: Option[StaticDataPayload],
+    // HEL-914: request-scoped id a parentless step's `rootClientId` binds to
+    // when `PipelineProposal.roots` has more than one element (design.md D2,
+    // R13). Never persisted.
+    clientId: Option[String] = None
 )
 
 // ── HEL-829: proposal-only REST config, carrying the `newConnector` draft ────
@@ -111,9 +115,12 @@ object ProposalRestApiConfig {
  *  `add_output`. `outputDataTypeName` is REMOVED outright (no alias): the
  *  DataType/Metric output contract this field named no longer exists
  *  (HEL-904). */
+// HEL-914: `roots` REPLACES the old singular `source` outright -- no alias, no default.
+// Non-empty (schema-enforced minItems: 1); a payload carrying `source` is rejected, not
+// tolerated (design.md D2, task 2.2).
 final case class PipelineProposal(
     pipelineName: String,
-    source: PipelineProposalSource,
+    roots: Vector[PipelineProposalSource],
     steps: Vector[CreatePipelineTransactionalStepRequest],
     outputs: Vector[CreatePipelineTransactionalOutputRequest] = Vector.empty
 )
@@ -130,7 +137,10 @@ final case class ProposalOutputSummary(id: String, name: String, kind: String, n
 // and `Some` for the inline branch — mirrors DashboardProposalService's
 // "return what was actually built" convention rather than a new envelope type.
 final case class PipelineProposalApplyResponse(
-    source: Option[DataSourceResponse],
+    // HEL-914: one element per NEWLY-created inline root, in root order --
+    // an existing-sourceId root contributes nothing here (nothing new to
+    // report), same convention the old singular `source: Option[...]` used.
+    sources: Vector[DataSourceResponse],
     pipeline: PipelineSummaryResponse,
     outputs: Vector[ProposalOutputSummary],
     run: RunResultResponse
@@ -171,6 +181,7 @@ trait PipelineProposalProtocol
         s.restConfig.foreach(v => fields("config") = v.toJson)
         s.sqlConfig.foreach(v => fields("config") = v.toJson)
         s.staticConfig.foreach(v => fields("config") = v.toJson)
+        s.clientId.foreach(v => fields("clientId") = JsString(v))
         JsObject(fields.toMap)
       }
 
@@ -194,7 +205,8 @@ trait PipelineProposalProtocol
           csvConfig    = csvConfig,
           restConfig   = restConfig,
           sqlConfig    = sqlConfig,
-          staticConfig = staticConfig
+          staticConfig = staticConfig,
+          clientId     = obj.fields.get("clientId").map(_.convertTo[String])
         )
       }
     }
@@ -209,7 +221,7 @@ trait PipelineProposalProtocol
       def write(p: PipelineProposal): JsValue = {
         val fields = scala.collection.mutable.Map[String, JsValue](
           "pipelineName" -> JsString(p.pipelineName),
-          "source"       -> p.source.toJson,
+          "roots"        -> JsArray(p.roots.map(_.toJson)),
           "steps"        -> JsArray(p.steps.map(_.toJson))
         )
         if (p.outputs.nonEmpty) fields("outputs") = JsArray(p.outputs.map(_.toJson))
@@ -218,15 +230,27 @@ trait PipelineProposalProtocol
 
       def read(json: JsValue): PipelineProposal = {
         val obj = json.asJsObject
+        // HEL-914 task 2.2/6b.1: `source` is REJECTED outright, not tolerated
+        // as an unknown key -- a tolerant reader here would silently discard
+        // the caller's stated sources (design.md D7).
+        if (obj.fields.contains("source")) {
+          deserializationError(
+            "pipeline proposal 'source' is no longer accepted -- use 'roots' (a non-empty array)"
+          )
+        }
+        val roots = obj.fields
+          .get("roots")
+          .map(_.convertTo[Vector[PipelineProposalSource]])
+          .getOrElse(deserializationError("pipeline proposal 'roots' is required"))
+        if (roots.isEmpty) {
+          deserializationError("pipeline proposal 'roots' must be non-empty")
+        }
         PipelineProposal(
           pipelineName = obj.fields
             .get("pipelineName")
             .map(_.convertTo[String])
             .getOrElse(deserializationError("pipeline proposal 'pipelineName' is required")),
-          source = obj.fields
-            .get("source")
-            .map(_.convertTo[PipelineProposalSource])
-            .getOrElse(deserializationError("pipeline proposal 'source' is required")),
+          roots = roots,
           steps = obj.fields
             .get("steps")
             .map(_.convertTo[Vector[CreatePipelineTransactionalStepRequest]])

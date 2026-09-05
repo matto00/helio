@@ -17,7 +17,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 class CombinedApplyProposalDanglingRefSpec extends CombinedApplyProposalSpecBase {
 
   private val unreachablePipeline =
-    """"pipeline":{"pipelineName":"P","source":{"sourceId":"00000000-0000-0000-0000-000000000000"},
+    """"pipeline":{"pipelineName":"P","roots":[{"sourceId":"00000000-0000-0000-0000-000000000000"}],
       |"outputDataTypeName":"O","steps":[]}""".stripMargin
 
   "POST /api/proposals/apply dangling-ref rejection" should {

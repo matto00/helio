@@ -37,21 +37,22 @@ export async function proposePipelineHandler(
   api: HelioApi,
   input: {
     pipelineName: string;
-    source: PipelineProposalSource;
+    roots: PipelineProposalSource[];
     steps: PipelineProposalStep[];
     outputs?: PipelineProposalOutput[];
   },
 ): Promise<{ proposal: PipelineProposal; warnings: string[]; applyReady: boolean }> {
   const proposal: PipelineProposal = {
     pipelineName: input.pipelineName,
-    source: input.source,
+    roots: input.roots,
     steps: input.steps,
     outputs: input.outputs ?? [],
   };
 
   const sourcesPage = await api.listDataSources();
   const sourceIds = new Set(sourcesPage.items.map((s) => s.id));
-  const warnings = computePipelineProposalWarnings(input.source, sourceIds);
+  // HEL-914 task 6.2: per-root, reporting against the offending root's index.
+  const warnings = computePipelineProposalWarnings(input.roots, sourceIds);
 
   return { proposal, warnings, applyReady: warnings.length === 0 };
 }

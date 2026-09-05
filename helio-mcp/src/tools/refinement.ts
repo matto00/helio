@@ -16,30 +16,12 @@ import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { PatchSet } from "../types.js";
+import { patchSetSchema } from "./refinementSchemas.js";
 import {
   applyPatchSetHandler,
   proposePatchSetHandler,
   undoPatchSetHandler,
 } from "./refinementHandlers.js";
-
-// Mirrors `PatchSetProtocol.scala`'s recognized `target.kind`/`op` sets — `patch` stays an
-// untyped passthrough (`z.record(z.string(), z.unknown())`, absent for `op: "delete"`), same convention
-// `proposal.ts`'s own `panelSchema.config` already uses for a per-kind opaque payload.
-const editTargetSchema = z.object({
-  kind: z.enum(["panel", "dashboard", "dataSource", "dataType", "pipeline", "pipelineStep"]),
-  id: z.string().optional(),
-});
-
-const editSchema = z.object({
-  target: editTargetSchema,
-  op: z.enum(["update", "delete", "create"]),
-  patch: z.record(z.string(), z.unknown()).optional(),
-});
-
-const patchSetSchema = z.object({
-  summary: z.string().optional(),
-  edits: z.array(editSchema),
-});
 
 function jsonResult(value: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
@@ -95,9 +77,15 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "back everything already applied if a mid-set edit fails (nothing is left half-applied). " +
         "Does NOT decompose the patch set into individual per-resource PATCH tool calls — pass " +
         "the exact PatchSet propose_patch_set returned (or one built/edited by hand matching the " +
-        "same shape: { summary?, edits: [{ target: {kind, id?}, op: update|delete|create, " +
-        "patch? }] }, where `patch` reuses each kind's existing PATCH/create request shape " +
-        "verbatim and is absent entirely for op: delete). Returns the PatchSetApplyResponse " +
+        "same shape: { summary?, edits: [{ target: {kind, id?, parentId?}, " +
+        "op: update|delete|create, patch? }] }, where `patch` reuses each kind's existing " +
+        "PATCH/create request shape verbatim and is absent entirely for op: delete). " +
+        "target.parentId is REQUIRED for a create targeting a child kind (currently only " +
+        "pipelineStep, whose parentId is the existing parent pipeline's id) and must be OMITTED " +
+        "for update/delete. A pipelineStep create's patch must ALSO set attachAsTail: true to " +
+        "add a SIBLING lane off patch.parentStepId — omitting it instead SPLICES the new step in " +
+        "directly after patch.parentStepId, reparenting that step's existing children onto the " +
+        "new step (a trunk insertion, not a new lane). Returns the PatchSetApplyResponse " +
         "verbatim (per-edit status/newId/priorState/resultingState, plus `failure` when a " +
         "rollback happened).",
       inputSchema: {
