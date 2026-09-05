@@ -138,7 +138,11 @@ final class SourceService(
                       headers         = request.config.headers.getOrElse(Map.empty),
                       body            = request.config.body,
                       bodyContentType = request.config.bodyContentType,
-                      rootSelector    = request.config.rootSelector
+                      rootSelector    = request.config.rootSelector,
+                      // HEL-983: this hand-rolled constructor omitted `parameters` entirely,
+                      // silently dropping the caller-supplied HEL-823 template values, leaving
+                      // the persisted source dead on arrival at the unresolved-variable guard.
+                      parameters      = request.config.parameters.getOrElse(Map.empty)
                     )
                     createRestWithConfig(request, restConfig, user)
                   }

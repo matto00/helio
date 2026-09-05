@@ -264,6 +264,15 @@ requirement. `body`'s string content is resolved with the same JSON-string-escap
 already used at the interpolator level, and the resolved body IS now attached to the outbound
 request as the entity, with `bodyContentType` (default `application/json`) as its content type.
 
+Creating a source SHALL persist the `parameters` map the create request supplied, on every
+create path that persists a source — including the internal bare-`url` create path, which
+synthesizes an implicit Connector and builds the stored config itself. A create path SHALL NOT
+discard `parameters` while retaining the `{{name}}` placeholders that depend on them: doing so
+persists a source whose every subsequent fetch fails the unresolved-variable guard, reporting a
+missing template variable rather than the discarded input that caused it. This create-time
+obligation is distinct from, and does not relax, the ephemeral bare-`url` infer/test-connection
+behavior above, which persists no source and still leaves `{{...}}` literal.
+
 #### Scenario: Endpoint, query param, and header placeholders all resolve in the built request
 - **WHEN** a source's `endpoint`, a `queryParams` value, and a `headers` value each contain a
   `{{name}}` placeholder matching a key in `parameters`
@@ -278,6 +287,14 @@ request as the entity, with `bodyContentType` (default `application/json`) as it
   `userInput`
 - **THEN** the outbound HTTP request carries a JSON entity with `userInput`'s value spliced in,
   verified against a real endpoint that echoes the received body
+
+#### Scenario: A bare-`url` create persists its parameters and the placeholders then resolve
+- **WHEN** a REST source is created through the internal bare-`url` path with a `parameters` map
+  and `{{name}}` placeholders in its query-param and header values
+- **THEN** the persisted source carries that same `parameters` map, and a subsequent fetch of
+  that source reaches a real HTTP server with the placeholders resolved to their values in the
+  query string and headers the server received — not with the literal placeholder text, and not
+  failing the unresolved-variable guard
 
 ### Requirement: Unresolved template variables fail loudly on the connectorId-resolving path
 For a `connectorId`-resolving fetch (authoring-time test/preview/refresh against an
