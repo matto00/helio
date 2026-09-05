@@ -555,27 +555,31 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
       fromCsv(csv).fields.map(_.name) shouldBe Seq("id", "name", "score")
     }
 
-    "infer IntegerType when all values are whole numbers" in {
+    // HEL-893 design D1: every CSV column reports StringType, matching what
+    // `InProcessPipelineEngine.loadCsvRowsFromBytes` actually materializes (String, always).
+    // These scenario names are unchanged from before HEL-893 so the "what a column of this
+    // shape used to widen to" story stays legible; only the asserted type changed.
+    "infer StringType (was IntegerType) when all values are whole numbers" in {
       val csv = "count\n1\n2\n3"
-      fromCsv(csv).fields.head.dataType shouldBe IntegerType
+      fromCsv(csv).fields.head.dataType shouldBe StringType
     }
 
-    "widen to FloatType when column contains a decimal" in {
+    "infer StringType (was FloatType) when column contains a decimal" in {
       val csv = "value\n1\n1.5\n3"
-      fromCsv(csv).fields.head.dataType shouldBe FloatType
+      fromCsv(csv).fields.head.dataType shouldBe StringType
     }
 
-    "infer BooleanType when all values are true/false (case-insensitive)" in {
+    "infer StringType (was BooleanType) when all values are true/false (case-insensitive)" in {
       val csv = "flag\ntrue\nFalse\nTRUE"
-      fromCsv(csv).fields.head.dataType shouldBe BooleanType
+      fromCsv(csv).fields.head.dataType shouldBe StringType
     }
 
-    "infer TimestampType when all values match a date pattern" in {
+    "infer StringType (was TimestampType) when all values match a date pattern" in {
       val csv = "created\n2024-01-01\n2024-06-15"
-      fromCsv(csv).fields.head.dataType shouldBe TimestampType
+      fromCsv(csv).fields.head.dataType shouldBe StringType
     }
 
-    "fall back to StringType for mixed values" in {
+    "infer StringType for mixed values" in {
       val csv = "mixed\n1\nhello\n3"
       fromCsv(csv).fields.head.dataType shouldBe StringType
     }
@@ -601,9 +605,14 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
 
     "cap sampling at 100 rows" in {
       // Rows 1-100 are integers; row 101 is "hello" — should NOT affect the result
-      val dataRows = (1 to 100).map(_.toString) ++ Seq("hello")
+      // (HEL-893: type is StringType regardless, but the 100-row cap on nullability
+      // sampling is what this test actually pins -- add a 101st empty cell that must
+      // NOT be sampled).
+      val dataRows = (1 to 100).map(_.toString) ++ Seq("")
       val csv = "val\n" + dataRows.mkString("\n")
-      fromCsv(csv).fields.head.dataType shouldBe IntegerType
+      val schema = fromCsv(csv)
+      schema.fields.head.dataType shouldBe StringType
+      schema.fields.head.nullable shouldBe false
     }
 
     "handle a CSV with only a header row" in {
@@ -621,7 +630,7 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
       val csv = "name,age\n\"Smith, John\",30"
       val schema = fromCsv(csv)
       schema.fields.map(_.name) shouldBe Seq("name", "age")
-      schema.fields.find(_.name == "age").get.dataType shouldBe DataFieldType.IntegerType
+      schema.fields.find(_.name == "age").get.dataType shouldBe DataFieldType.StringType
     }
 
     "unescape double-quotes inside quoted fields" in {
@@ -634,7 +643,7 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
       val csv = "id,name\r\n1,Alice\r\n2,Bob"
       val schema = fromCsv(csv)
       schema.fields.map(_.name) shouldBe Seq("id", "name")
-      schema.fields.find(_.name == "id").get.dataType shouldBe DataFieldType.IntegerType
+      schema.fields.find(_.name == "id").get.dataType shouldBe DataFieldType.StringType
     }
   }
 

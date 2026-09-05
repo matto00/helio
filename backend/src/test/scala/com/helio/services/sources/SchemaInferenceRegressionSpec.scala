@@ -99,9 +99,15 @@ class SchemaInferenceRegressionSpec
       schema.map(_.name) should contain theSameElementsAs Seq("city", "population")
     }
 
-    "derive field types from the data rows, not from a fallback constant" in {
+    // HEL-893 design D1: renamed from "derive field types from the data rows, not from a
+    // fallback constant" -- that framing pinned the OLD (broken) behavior, where "score" was
+    // declared "integer" while every materialized row cell was a `String` (the exact
+    // declared-vs-runtime defect HEL-893 removes). Every CSV column now declares "string",
+    // matching what the row loader actually materializes -- verified below.
+    "declare every CSV column string, matching what the row loader materializes" in {
       cleanDb()
-      // "score" is all integers; "label" is strings
+      // "score" is all integers; "label" is strings -- both must materialize (and now declare)
+      // the same runtime type, String.
       val csv   = "score,label\n10,alpha\n20,beta\n30,gamma"
       val bytes = csv.getBytes(StandardCharsets.UTF_8)
 
@@ -114,7 +120,7 @@ class SchemaInferenceRegressionSpec
 
       schema should have size 2
       val byName = schema.map(f => f.name -> f.`type`).toMap
-      byName("score") shouldBe "integer"
+      byName("score") shouldBe "string"
       byName("label") shouldBe "string"
     }
   }
@@ -150,7 +156,13 @@ class SchemaInferenceRegressionSpec
       schema.map(_.name) should contain theSameElementsAs Seq("product_id", "product_name")
     }
 
-    "use the declared column types directly — no sniffing or fabrication" in {
+    // HEL-893 design D2: renamed from "use the declared column types directly — no sniffing or
+    // fabrication" -- that framing pinned the OLD (broken) behavior, where a declared
+    // boolean/timestamp column backed by JsString cells reported types the stored rows never
+    // materialized (`parseStaticRows` never consulted the declared type; both cells here are
+    // JsString, which materializes as a Scala `String`). The registered schema now reflects the
+    // materialized value's kind, not the caller's declared type.
+    "derive the registered type from the stored cells' JSON kind, not the declared type" in {
       cleanDb()
       val req = StaticDataSourceRequest(
         name    = "Booleans",
@@ -170,8 +182,8 @@ class SchemaInferenceRegressionSpec
       }
 
       val byName = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema.map(f => f.name -> f.`type`).toMap
-      byName("flag") shouldBe "boolean"
-      byName("ts")   shouldBe "timestamp"
+      byName("flag") shouldBe "string"
+      byName("ts")   shouldBe "string"
     }
   }
 }

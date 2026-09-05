@@ -163,7 +163,11 @@ export function AddSourceModal({ onClose, onCreated }: AddSourceModalProps) {
         );
         finishCreate(source);
       } else {
-        const created = await createCsvSource(name.trim(), csvFile!, fields);
+        // HEL-893 design D3/tasks.md 4.2: every CSV field materializes as `string`, always —
+        // send `string` for every override regardless of `fields` state, so the UI can never
+        // submit a non-string CSV type override even if the disabled Select is bypassed.
+        const csvFields = fields.map((f) => ({ ...f, dataType: "string" }));
+        const created = await createCsvSource(name.trim(), csvFile!, csvFields);
         finishCreate(created);
       }
     } catch {
@@ -509,7 +513,11 @@ export function AddSourceModal({ onClose, onCreated }: AddSourceModalProps) {
             Review the inferred fields. You can edit display names and data types before creating.
           </p>
 
-          <InferredFieldsTable fields={fields} onFieldChange={handleFieldChange} />
+          <InferredFieldsTable
+            fields={fields}
+            onFieldChange={handleFieldChange}
+            sourceKind={sourceType === "csv" ? "csv" : "rest_api"}
+          />
 
           <InlineError error={error} />
         </form>

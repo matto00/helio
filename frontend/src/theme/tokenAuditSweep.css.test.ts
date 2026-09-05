@@ -225,9 +225,10 @@ const SPACING_BASELINE: BaselineEntry[] = [
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 31 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 6 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 90 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 125 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 143 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 234 },
+  // HEL-893: line numbers shifted +6 by the new `.add-source-modal__hint` rule this change adds.
+  { file: "features/sources/ui/AddSourceModal.css", line: 131 },
+  { file: "features/sources/ui/AddSourceModal.css", line: 149 },
+  { file: "features/sources/ui/AddSourceModal.css", line: 240 },
   { file: "features/sources/ui/AddSourceModal.css", line: 46 },
   { file: "features/sources/ui/AddSourceModal.css", line: 53 },
   { file: "features/sources/ui/AddSourceModal.css", line: 6 },

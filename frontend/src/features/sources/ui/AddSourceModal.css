@@ -107,6 +107,12 @@
   color: var(--app-text-muted);
 }
 
+.add-source-modal__hint {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
 .add-source-modal__fields-table {
   width: 100%;
   border-collapse: collapse;

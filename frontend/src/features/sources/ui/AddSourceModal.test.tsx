@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import {
+  createCsvSource as createCsvSourceRequest,
   createImageSourceUpload as createImageSourceUploadRequest,
   createImageSourceUrl as createImageSourceUrlRequest,
   createTextSourceUpload as createTextSourceUploadRequest,
@@ -9,6 +10,7 @@ import {
   createPdfSourceUrl as createPdfSourceUrlRequest,
   createRestSource as createRestSourceRequest,
   createStaticSource as createStaticSourceRequest,
+  inferFromCsv as inferFromCsvRequest,
   inferFromJson as inferFromJsonRequest,
   testConnection as testConnectionRequest,
 } from "../services/dataSourceService";
@@ -136,6 +138,8 @@ const createImageSourceUploadMock = jest.mocked(createImageSourceUploadRequest);
 const createImageSourceUrlMock = jest.mocked(createImageSourceUrlRequest);
 const createStaticSourceMock = jest.mocked(createStaticSourceRequest);
 const createRestSourceMock = jest.mocked(createRestSourceRequest);
+const createCsvSourceMock = jest.mocked(createCsvSourceRequest);
+const inferFromCsvMock = jest.mocked(inferFromCsvRequest);
 const inferFromJsonMock = jest.mocked(inferFromJsonRequest);
 const testConnectionMock = jest.mocked(testConnectionRequest);
 const fetchConnectorsMock = jest.mocked(fetchConnectorsRequest);
@@ -647,6 +651,63 @@ describe("AddSourceModal — REST API connection test (HEL-480)", () => {
 // (non-thunk) service-call shape, shared by text/pdf/image/REST/CSV. Static
 // and SQL instead go through `dispatch(thunk(...)).unwrap()` — a distinct
 // code path in `AddSourceModal.tsx` — so it gets its own coverage here.
+// HEL-893 design D3/tasks.md 4.1/4.2: CSV columns always materialize as `String`, so the
+// per-field data-type editor must be unreachable for CSV and every submitted override must be
+// `string`, regardless of what the (now-`string`) inferred schema or any stale state carries.
+describe("AddSourceModal — CSV source data-type lock (HEL-893)", () => {
+  it("disables the data-type editor and shows the cast-step hint for a CSV source's preview fields", async () => {
+    inferFromCsvMock.mockResolvedValue([
+      { name: "id", displayName: "Id", dataType: "string", nullable: false },
+      { name: "is_epic", displayName: "Is Epic", dataType: "string", nullable: false },
+    ]);
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /csv file/i }));
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Issues" } });
+    const file = new File(["id,is_epic\n1,0\n"], "issues.csv", { type: "text/csv" });
+    fireEvent.change(screen.getByLabelText("CSV file"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: /preview schema/i }));
+
+    await waitFor(() => expect(inferFromCsvMock).toHaveBeenCalled());
+    expect(await screen.findByText(/CSV columns always load as string/i)).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Data type for id" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Data type for is_epic" })).toBeDisabled();
+  });
+
+  it("submits every CSV field override as string even if the fields already carry another value", async () => {
+    inferFromCsvMock.mockResolvedValue([
+      { name: "id", displayName: "Id", dataType: "string", nullable: false },
+    ]);
+    createCsvSourceMock.mockResolvedValue({
+      id: "ds-csv-1",
+      name: "Issues",
+      type: "csv",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      inferredSchema: [],
+      config: { path: "csv/ds-csv-1.csv" },
+    });
+    const onClose = jest.fn();
+    renderWithStore(<AddSourceModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: /csv file/i }));
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Issues" } });
+    const file = new File(["id\n1\n"], "issues.csv", { type: "text/csv" });
+    fireEvent.change(screen.getByLabelText("CSV file"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: /preview schema/i }));
+
+    await waitFor(() => expect(inferFromCsvMock).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: /create source/i }));
+
+    await waitFor(() => expect(createCsvSourceMock).toHaveBeenCalled());
+    const [, , submittedFields] = createCsvSourceMock.mock.calls[0];
+    expect(submittedFields).toEqual([
+      { name: "id", displayName: "Id", dataType: "string", nullable: false },
+    ]);
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+});
+
 describe("AddSourceModal — static source (thunk-dispatched create path, F-008)", () => {
   beforeEach(() => {
     jest.clearAllMocks();

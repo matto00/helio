@@ -980,9 +980,28 @@ class DataSourceRoutesSpec
 
   "POST /api/data-sources with fieldOverrides" should {
 
-    "apply display name overrides to inferred fields" in {
+    // HEL-893 design D3: renamed from "apply display name overrides to inferred fields" -- that
+    // test asserted the OLD (broken) behavior, a non-string CSV type override being silently
+    // accepted, which is the exact declared-vs-runtime defect this change removes. A CSV column
+    // materializes as `String`, always, so a `dataType: "integer"` override is now rejected.
+    "reject a non-string CSV field-type override, naming the cast step, and create no source" in {
       cleanDb()
       val fieldOverrides = """[{"name": "id", "displayName": "Record ID", "dataType": "integer"}]"""
+      val formData = Multipart.FormData(
+        Multipart.FormData.BodyPart.Strict("name",   HttpEntity(ContentTypes.`text/plain(UTF-8)`, "Overridden")),
+        Multipart.FormData.BodyPart.Strict("file",   HttpEntity(ContentTypes.`text/plain(UTF-8)`, validCsv)),
+        Multipart.FormData.BodyPart.Strict("fields", HttpEntity(ContentTypes.`application/json`, fieldOverrides))
+      )
+      Post("/api/data-sources", formData) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val body = responseAs[String]
+        body should include("cast")
+      }
+    }
+
+    "apply a string field-type override (with a displayName) to inferred fields" in {
+      cleanDb()
+      val fieldOverrides = """[{"name": "id", "displayName": "Record ID", "dataType": "string"}]"""
       val formData = Multipart.FormData(
         Multipart.FormData.BodyPart.Strict("name",   HttpEntity(ContentTypes.`text/plain(UTF-8)`, "Overridden")),
         Multipart.FormData.BodyPart.Strict("file",   HttpEntity(ContentTypes.`text/plain(UTF-8)`, validCsv)),
@@ -995,11 +1014,8 @@ class DataSourceRoutesSpec
         body.name shouldBe "Overridden"
         sourceId = body.id
       }
-      // HEL-904: field overrides are baked into `inferred_schema` directly (no companion DataType
-      // to carry a displayName — `SchemaField` is `{name, type}` only; the override's `dataType`
-      // is what's asserted here).
       val ds = await(dataSourceRepo.findByIdOwned(DataSourceId(sourceId), testUser)).get
-      ds.inferredSchema.find(_.name == "id").map(_.`type`) shouldBe Some("integer")
+      ds.inferredSchema.find(_.name == "id").map(_.`type`) shouldBe Some("string")
     }
   }
 

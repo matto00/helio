@@ -10,7 +10,7 @@ import org.apache.pekko.http.scaladsl.model.{ContentType, ContentTypes, HttpEnti
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
-import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
+import com.helio.api.protocols.sources.{FieldOverridePayload, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
@@ -223,7 +223,64 @@ class DataSourceServiceSpec
     }
   }
 
+  // HEL-893 design D3/tasks.md 3.1/3.2: the ONE real CSV override-application site
+  // (DataSourceService.createCsv's inline override block) rejects any override whose type isn't
+  // "string" -- a CSV cell materializes as String, always, so any other override would re-create
+  // the declared-vs-runtime defect this change removes.
+  "DataSourceService.createCsv — field-type override constraint (HEL-893)" should {
+    "reject a non-string CSV field-type override, naming the cast step, and create no source" in {
+      cleanDb()
+      val bytes = "id,count\n1,10\n2,20".getBytes(StandardCharsets.UTF_8)
+      val overrides = Vector(FieldOverridePayload("count", "Count", "integer"))
+
+      val result = await(service.createCsv("Counts", bytes, overrides, user))
+
+      result match {
+        case Left(ServiceError.BadRequest(msg)) =>
+          msg should include("count")
+          msg should include("cast")
+        case other => fail(s"Expected BadRequest, got: $other")
+      }
+      await(dataSourceRepo.findAll(user.id, Page(0, 50), None)).items.map(_.name) should not contain "Counts"
+    }
+
+    "accept a string CSV field-type override" in {
+      cleanDb()
+      val bytes = "id,count\n1,10\n2,20".getBytes(StandardCharsets.UTF_8)
+      val overrides = Vector(FieldOverridePayload("count", "Count", "string"))
+
+      val src = await(service.createCsv("Counts", bytes, overrides, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createCsv failed: $e")
+      }
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.find(_.name == "count").map(_.`type`) shouldBe Some("string")
+    }
+
+    "accept a displayName-only override alongside a string dataType" in {
+      cleanDb()
+      val bytes = "id,count\n1,10\n2,20".getBytes(StandardCharsets.UTF_8)
+      val overrides = Vector(FieldOverridePayload("count", "Total Count", "string"))
+
+      val src = await(service.createCsv("Counts", bytes, overrides, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createCsv failed: $e")
+      }
+      // displayName isn't projected onto SchemaField (design.md: SchemaInferenceFacade.
+      // toSchemaFields drops it) -- this asserts the override still applies without erroring,
+      // which is the behavior this test protects.
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.find(_.name == "count").map(_.`type`) shouldBe Some("string")
+    }
+  }
+
   "DataSourceService.createStatic" should {
+    // HEL-893 design D2: the legacy-synonym canonicalization this test pins (double/long/date ->
+    // float/integer/timestamp) still runs -- it's the FALLBACK path for a column with no stored
+    // rows. With rows present, the registered type now derives from what the cells actually
+    // materialize (`PipelineRowJson.staticColumnRuntimeType`): every JsNumber cell -> "float"
+    // (not "integer", even for a whole number), and the JsString "2026-01-01" cell -> "string"
+    // (not "timestamp" -- the declared type is never consulted when rows are present).
     "canonicalize a non-canonical legacy column type (double/long/date) before persisting inferredSchema (HEL-906 cycle 4)" in {
       cleanDb()
       val createReq = StaticDataSourceRequest(
@@ -235,6 +292,30 @@ class DataSourceServiceSpec
           StaticColumnPayload("createdAt", "date")
         ),
         rows = Vector(Vector(JsNumber(1.5), JsNumber(3), JsString("2026-01-01")))
+      )
+      val src = await(service.createStatic(createReq, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createStatic failed: $e")
+      }
+      val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
+      schema.find(_.name == "amount").map(_.`type`) shouldBe Some("float")
+      schema.find(_.name == "count").map(_.`type`) shouldBe Some("float")
+      schema.find(_.name == "createdAt").map(_.`type`) shouldBe Some("string")
+    }
+
+    // HEL-893 design D2's "column with no rows falls back to the declared type, canonicalized"
+    // scenario -- this is the case the test above's legacy-synonym canonicalization still covers.
+    "falls back to the canonicalized declared type when a column has no rows" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name    = "No Rows",
+        `type`  = "static",
+        columns = Vector(
+          StaticColumnPayload("amount", "double"),
+          StaticColumnPayload("count", "long"),
+          StaticColumnPayload("createdAt", "date")
+        ),
+        rows = Vector.empty
       )
       val src = await(service.createStatic(createReq, user)) match {
         case Right(s) => s

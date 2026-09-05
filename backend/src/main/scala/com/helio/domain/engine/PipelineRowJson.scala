@@ -1,5 +1,6 @@
 package com.helio.domain.engine
 
+import com.helio.domain.model.DataFieldType
 import com.helio.infrastructure.persistence.sources.DataSourceRepository.parseStaticPayload
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -53,6 +54,10 @@ object PipelineRowJson {
   def jsValueToAny(v: JsValue): Any = v match {
     case JsNull       => null
     case JsBoolean(b) => b
+    // HEL-893 design D5 / schema-inference spec "Declared-vs-runtime type divergence on the
+    // JSON, REST and SQL paths": every JSON number materializes as a Double here, regardless of
+    // whether it was inferred `integer` or `float`. This divergence from the declared type is
+    // retained deliberately, not aligned -- see the spec requirement for the full reasoning.
     case JsNumber(n)  => n.toDouble
     case JsString(s)  => s
     case other        => other.compactPrint
@@ -94,6 +99,31 @@ object PipelineRowJson {
   def jsRowToRow(v: JsValue): Row = v match {
     case obj: JsObject => JsonFlattener.leaves(obj).map { case (k, fv) => k -> jsValueToAny(fv) }.toMap
     case other          => Map("value" -> jsValueToAny(other))
+  }
+
+  /** HEL-893 design D2 / tasks.md 2.1: derive a static source column's declared type from the
+   *  materialized values in that column's stored cells, using the same conversion
+   *  [[jsValueToAny]] applies -- rather than trusting the caller-declared `columns[].type`, which
+   *  `parseStaticRows` never consults and can therefore disagree with every stored cell. A
+   *  `JsNumber` cell reports `float` (it materializes as a `Double`, whole-number or not); a
+   *  `JsString` cell reports `string`; a `JsBoolean` cell reports `boolean`; a column whose
+   *  non-null cells span more than one of those kinds reports `string`; a column with no
+   *  non-null cells at all (either no rows, or every cell is `JsNull`) falls back to the
+   *  declared type, canonicalized, defaulting to `string` when unrecognised. */
+  def staticColumnRuntimeType(declaredType: String, cells: Seq[JsValue]): String = {
+    val kinds = cells.collect {
+      case _: JsNumber  => "float"
+      case _: JsString  => "string"
+      case _: JsBoolean => "boolean"
+      // JsNull / JsArray / JsObject cells contribute nothing -- there is no stored scalar to
+      // measure a runtime type from, mirroring "no rows" for this column.
+    }.distinct
+    kinds match {
+      case Seq(single) => single
+      case Seq()        =>
+        DataFieldType.validateAndCanonicalize(declaredType).getOrElse("string")
+      case _            => "string"
+    }
   }
 
   /** Parse a static-source `config` blob (the `{columns, rows}` shape stored

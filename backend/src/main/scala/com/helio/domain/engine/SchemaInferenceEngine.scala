@@ -43,9 +43,12 @@ object SchemaInferenceEngine {
     if (dataRows.isEmpty)
       return InferredSchema(headers.map(h => InferredField(h, displayName(h), DataFieldType.StringType, nullable = false)))
 
-    // Initialise per-column state: (currentType, isNullable)
-    val init: Vector[(DataFieldType, Boolean)] =
-      Vector.fill(headers.length)((DataFieldType.IntegerType, false))
+    // HEL-893 design D1: every column is StringType -- the CSV row loader
+    // (`InProcessPipelineEngine.loadCsvRowsFromBytes`) materializes every cell as a `String`,
+    // unconditionally, and never casts it. Declaring anything else would be a promise the data
+    // does not honour. Only nullability is inferred from the sampled rows; type-widening
+    // (`widenType`) has no caller left and is deleted per HEL-893 D1.
+    val init: Vector[Boolean] = Vector.fill(headers.length)(false)
 
     val state = dataRows.foldLeft(init) { (colState, line) =>
       // HEL-868: padTo already treats a short/ragged row's missing trailing cells as empty, and
@@ -54,14 +57,13 @@ object SchemaInferenceEngine {
       // "absent" (both pad/parse to `""`), a divergence from JSON's three-way distinction that is
       // retained deliberately (design D3/D4): CSV has no on-the-wire encoding for the difference.
       val cells = parseRfc4180Row(line).padTo(headers.length, "")
-      colState.zip(cells).map { case ((colType, nullable), cell) =>
-        if (cell.isEmpty) (colType, true)
-        else (widenType(colType, cell), nullable)
+      colState.zip(cells).map { case (nullable, cell) =>
+        nullable || cell.isEmpty
       }
     }
 
-    val fields = headers.zip(state).map { case (name, (colType, nullable)) =>
-      InferredField(name, displayName(name), colType, nullable)
+    val fields = headers.zip(state).map { case (name, nullable) =>
+      InferredField(name, displayName(name), DataFieldType.StringType, nullable)
     }
     InferredSchema(fields)
   }
@@ -176,12 +178,10 @@ object SchemaInferenceEngine {
   }
 
   // HEL-858 design D3: the JSON widening join -- a true lattice (commutative, associative,
-  // idempotent, StringType at top), deliberately DIVERGING from the CSV path's `widenType`
-  // below, which widens a running type against a raw string cell and is order-sensitive (e.g.
-  // IntegerType widens to BooleanType on encountering "true"). Copying that order here would
-  // type a mixed number/boolean JSON column as boolean and break order-independence, the
-  // central acceptance criterion for this ticket -- so JSON gets its own, order-independent
-  // join instead of reusing CSV's.
+  // idempotent, StringType at top). HEL-893 deleted the CSV path's parallel `widenType` (CSV now
+  // always reports StringType, matching what the row loader actually materializes), so this join
+  // no longer diverges from a sibling CSV lattice -- it is simply the JSON/REST/SQL path's own,
+  // order-independent join.
   private def widenJson(a: DataFieldType, b: DataFieldType): DataFieldType = {
     import DataFieldType._
     if (a == b) a
@@ -214,38 +214,6 @@ object SchemaInferenceEngine {
     Try(LocalDate.parse(s, DateTimeFormatter.ofPattern("MM/dd/yyyy"))).isSuccess
 
   // CSV helpers
-
-  private def widenType(current: DataFieldType, value: String): DataFieldType = {
-    import DataFieldType._
-    current match {
-      case IntegerType =>
-        if (value.toLongOption.isDefined) IntegerType
-        else if (value.toDoubleOption.isDefined) FloatType
-        else if (isBooleanValue(value)) BooleanType
-        else if (isTimestamp(value)) TimestampType
-        else StringType
-
-      case FloatType =>
-        if (value.toDoubleOption.isDefined) FloatType
-        else if (isBooleanValue(value)) BooleanType
-        else if (isTimestamp(value)) TimestampType
-        else StringType
-
-      case BooleanType =>
-        if (isBooleanValue(value)) BooleanType
-        else if (isTimestamp(value)) TimestampType
-        else StringType
-
-      case TimestampType =>
-        if (isTimestamp(value)) TimestampType
-        else StringType
-
-      case StringType => StringType
-    }
-  }
-
-  private def isBooleanValue(s: String): Boolean =
-    s.equalsIgnoreCase("true") || s.equalsIgnoreCase("false")
 
   private def splitCsvLines(csv: String): Array[String] =
     csv.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1).map(_.stripTrailing())
