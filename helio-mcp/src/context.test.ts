@@ -132,7 +132,7 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
   const analyzeResponse: PipelineAnalyzeResponse = {
     id: "pipe-1",
     name: "Orders Pipeline",
-    sourceSchemas: [{ rootId: "root-1", sourceDataSourceName: "Orders", sourceSchema: [] }],
+    sourceSchemas: [{ rootId: "root-1", dataSourceName: "Orders", sourceSchema: [] }],
     steps: [
       {
         id: "step-1",
@@ -498,7 +498,7 @@ describe("buildWorkspaceContext — 25-source/43-pipeline fixture (HEL-857/HEL-9
           sourceSchemas: [
             {
               rootId: p.roots[0]!.id,
-              sourceDataSourceName: p.roots[0]!.dataSourceName,
+              dataSourceName: p.roots[0]!.dataSourceName,
               sourceSchema: [],
             },
           ],

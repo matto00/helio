@@ -182,9 +182,9 @@ final case class SourceSchemaDriftResponse(
  *  mirrors `PipelineRootSummaryResponse`'s own per-root shape used by `PipelineSummaryResponse
  *  .roots`. */
 final case class RootSourceSchemaResponse(
-    rootId:               String,
-    sourceDataSourceName: String,
-    sourceSchema:         Vector[SchemaFieldResponse]
+    rootId:         String,
+    dataSourceName: String,
+    sourceSchema:   Vector[SchemaFieldResponse]
 )
 
 /** `sourceSchemaDrift` (HEL-462) is computed at analyze time and is absent
