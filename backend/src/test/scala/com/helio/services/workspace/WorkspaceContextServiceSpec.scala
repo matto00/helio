@@ -162,6 +162,23 @@ class WorkspaceContextServiceSpec
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
+  /** A freshly-inserted, isolated user with NO resources of its own -- for any test whose
+    * assertion would be corrupted by accumulated fixture state. This file's harness is a shared
+    * `BeforeAndAfterAll` instance (no per-test truncation), so `userA`/`userB` accumulate every
+    * OTHER test's pipelines/sources over the suite's run order; a test whose result (a byte-budget
+    * decision, a query-count assertion) depends on how many EARLIER tests happened to run first is
+    * wrong even when it currently passes -- not a timing workaround, a correctness bug in the test
+    * itself (this is the same reasoning `userEmpty`'s own doc comment already applies to the 4.1
+    * "empty workspace" scenario; this helper generalizes it for tests that need a NON-empty but
+    * still fully-isolated fixture). `assemble` is owner-scoped, so `service.assemble(freshUser)`
+    * over pipelines/sources created ONLY under this user is unaffected by anything the rest of the
+    * suite does, in either direction. */
+  private def freshUser(): AuthenticatedUser = {
+    val id = UUID.randomUUID().toString
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($id::uuid, ${s"fresh-$id@test.local"}, now())"""))
+    AuthenticatedUser(UserId(id))
+  }
+
   // ── HEL-371 cycle-2: real JSON Schema validation (design.md/evaluation-1.md
   // change request 1/2) ───────────────────────────────────────────────────
   //
@@ -1053,7 +1070,13 @@ class WorkspaceContextServiceSpec
       "while GET /workspace/context on the same routes instance still succeeds" in {
       implicit val ec: ExecutionContext = routeEc
 
-      val routes = new WorkspaceRoutes(None, service, userA).routes
+      // Isolated fixture (see `freshUser`'s own doc): this test only asserts response STATUS
+      // codes, never response byte size/content, but `assemble` still walks the caller's full
+      // pipeline set to build it -- routing this through `userA` (which accumulates every OTHER
+      // test's pipelines over the suite's run order) would make this test's assembled-response
+      // cost, and therefore its share of CI's RouteTest timeout, drift upward as unrelated tests
+      // are added, with nothing in the test itself explaining why.
+      val routes = new WorkspaceRoutes(None, service, freshUser()).routes
       val body = HttpEntity(
         ContentTypes.`application/json`,
         JsObject("tag" -> JsString("t"), "dryRun" -> JsBoolean(false)).compactPrint
@@ -1079,12 +1102,20 @@ class WorkspaceContextServiceSpec
   "GET /workspace/context (HEL-377 budgetBytes query param)" should {
     "trim the response to the structural floor via budgetBytes=0 and report truncation accordingly" in {
       implicit val ec: ExecutionContext = routeEc
-      val source   = createSource(userA, "budget-source")
-      val pipeline = createPipeline(userA, source.id, "budget-pipeline", "budget-output")
+      // Isolated fixture (see `freshUser`'s own doc): exactly one pipeline WITH a real sample row
+      // and a real column-stats-bearing field -- there must be something concrete for budgetBytes=0
+      // to trim, or this assertion would pass vacuously against an empty/near-empty workspace.
+      // `userA` would still satisfy that (it has plenty of real data by this point in the suite),
+      // but the test's PASS/FAIL and its measured cost would then depend on how many earlier
+      // tests happened to run, which is the defect this isolation removes -- this fixture is
+      // self-sufficient regardless of run order.
+      val fixtureUser = freshUser()
+      val source   = createSource(fixtureUser, "budget-source")
+      val pipeline = createPipeline(fixtureUser, source.id, "budget-pipeline", "budget-output")
       setDataTypeFields(pipeline.outputId, Vector(DataField("name", "Name", "string", nullable = false)))
       await(nodeSnapshotRepo.overwriteRows(pipeline.id, None, Seq(JsObject("name" -> JsString("x"))), explicitRootId = None))
 
-      val routes = new WorkspaceRoutes(None, service, userA).routes
+      val routes = new WorkspaceRoutes(None, service, fixtureUser).routes
 
       Get("/workspace/context?budgetBytes=0") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -1115,9 +1146,18 @@ class WorkspaceContextServiceSpec
 
     "use the configured default budget when budgetBytes is omitted" in {
       implicit val ec: ExecutionContext = routeEc
-      createSource(userA, "budget-default-source")
+      // Isolated fixture (see `freshUser`'s own doc): this is the test that actually motivated
+      // the isolation. `WorkspaceContextServiceSpec` has only `BeforeAndAfterAll` (no truncation
+      // between tests), so routing this through `userA` meant this test was really measuring
+      // "assemble over however many pipelines every EARLIER test in this file happened to create"
+      // (~27 by this point in the suite) rather than "the default budget applies when budgetBytes
+      // is omitted" -- a test whose result depends on run order is wrong even when it passes, and
+      // it drifts closer to CI's RouteTest timeout every time anyone adds a case to this file. A
+      // fresh, single-source user makes the assertion mean what it says regardless of run order.
+      val fixtureUser = freshUser()
+      createSource(fixtureUser, "budget-default-source")
 
-      val routes = new WorkspaceRoutes(None, service, userA).routes
+      val routes = new WorkspaceRoutes(None, service, fixtureUser).routes
 
       Get("/workspace/context") ~> routes ~> check {
         status shouldBe StatusCodes.OK
@@ -1144,9 +1184,7 @@ class WorkspaceContextServiceSpec
       // call-count assertion below meaningless: `assemble` would batch over however many
       // pipelines happen to exist at THIS point in the suite's run order, not the 3 this test
       // controls).
-      val batchUserId = UUID.randomUUID().toString
-      await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($batchUserId::uuid, ${s"batch-$batchUserId@test.local"}, now())"""))
-      val batchUser = AuthenticatedUser(UserId(batchUserId))
+      val batchUser = freshUser()
 
       val source = createSource(batchUser, "batch-source")
       val pipelineA = createPipeline(batchUser, source.id, "batch-pipeline-a", "batch-output-a")
