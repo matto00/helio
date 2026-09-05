@@ -9,7 +9,8 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.domain._
 import com.helio.domain.model._
-import com.helio.domain.steps.{FilterCondition, FilterConfig, LookupConfig, UnionConfig}
+import com.helio.domain.steps.{ComputeConfig, FilterCondition, FilterConfig, LookupConfig, RenameConfig, SelectConfig, UnionConfig}
+import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
@@ -300,6 +301,24 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     await(db.run(sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position)
       VALUES ($rootId, ${pipelineId.value}, $dsId, 1)"""))
     rootId
+  }
+
+  // HEL-970 (design.md D5 fact 1, task 3.4a fixture requirement (i)): a static source whose
+  // columns/rows are caller-supplied, so a cross-root test can seed two DataSources with
+  // DISTINGUISHABLE data (rather than `seedDsWithData`'s fixed alice/bob rows, which would make
+  // the two roots indistinguishable and the corrupted-narrowed-`roots` implementation pass by
+  // accident).
+  private def seedStaticDs(columns: Vector[(String, String)], rows: Vector[Vector[String]]): String = {
+    import PostgresProfile.api._
+    val dsId = UUID.randomUUID().toString
+    val columnsJson = columns.map { case (name, typ) => s"""{"name":"$name","type":"$typ"}""" }.mkString("[", ",", "]")
+    val rowsJson    = rows.map(_.map(v => "\"" + v + "\"").mkString("[", ",", "]")).mkString("[", ",", "]")
+    val dsConfig    = s"""{"columns":$columnsJson,"rows":$rowsJson}"""
+    await(db.run(sqlu"""INSERT INTO data_sources
+      (id, name, source_type, config, owner_id, created_at, updated_at)
+      VALUES ($dsId, 'ds-static', 'static', $dsConfig,
+        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    dsId
   }
 
   private def seedPipeline(dsId: String): PipelineId = {
@@ -1661,5 +1680,268 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   // block removed outright -- upsertFieldsFromRows/DataType.fields no longer exist; the schema-
   // union inference engine itself (SchemaInferenceEngine.inferShallowFromJsObjects) survives for
   // a future Output-schema caller (design.md line 89), just not exercised via this deleted path.
+
+  // HEL-970: `previewStep`/`evaluateNodeRowsForBackfill` must slice by the target's transitive
+  // DEPENDENCY CLOSURE (parent edges + lane edges, `NodeDependencyClosure.closureOf`), not the
+  // old `pathToRoot` ancestor-chain-only walk, which silently omitted a rejoin's non-ancestor
+  // secondary lane from the slice and 422'd (`LaneReferenceError`, "does not exist in this
+  // pipeline" -- misleading, since the lane step DOES exist in the pipeline, only not in the
+  // slice handed to the engine). Task 1.2's RED baseline was reproduced by hand against
+  // `8bb88c0e` (pre-fix): `previewStep` on the fixture below returned
+  // `Left(ServiceError.UnprocessableEntity("Pipeline execution failed"))` -- the generic arm,
+  // since `LaneReferenceError` (raised inside `InProcessExecutionBackend.execute`'s pre-walk
+  // guard) is NOT a `StepExecutionException`, so `previewStep`'s `.recover` block's
+  // `case see: StepExecutionException => see.getMessage` arm never matches it and the raw
+  // `LaneReferenceError` text is swallowed -- only the server log line carries "Step 's4'
+  // references lane step 's3', which does not exist in this pipeline." (recorded in
+  // `files-modified.md`, task 1.2). The fix removes this failure mode entirely (the closure now
+  // includes the lane step), so that RED state is unreproducible against the fixed tree without
+  // reverting `NodeDependencyClosure`'s use at the call site -- covered below by comparing the
+  // OLD ancestor-chain-only slice (re-derived inline) against the NEW closure on the same
+  // fixture, which is the discriminating, still-standing regression guard.
+  "PipelineRunService.previewStep / evaluateNodeRowsForBackfill (HEL-970 lane-aware closure)" should {
+
+    // Task 1.1: two-lane pipeline with a rejoin. Lane A: s1 (select, trunk root) -> s2 (compute,
+    // adds "lane_a_flag"). Lane B is a TWO-STEP chain, root-level SIBLING of s1 (NOT s1's/s2's
+    // ancestor): s3a (compute, adds "lane_b_flag") -> s3b (compute, CHILD of s3a, adds
+    // "lane_b_flag2"). Rejoin: s4 (union, parent = s2, secondaryInput = Lane(s3b) -- the LANE
+    // TIP, not the lane root). This is deliberate (skeptic final-gate CR1): a lane target with
+    // its own multi-step ancestor chain is the realistic HEL-912 shape (a rejoin picker offers
+    // a lane that is itself a chain, e.g. source -> filter -> compute) and is the case a
+    // `closureOf` that follows lane edges but NOT parent edges from a lane-discovered node gets
+    // wrong -- `s3a` would be silently omitted, and `executeTree` would fail `s3b` for want of
+    // its own unresolved parent, landing exactly this ticket's 422 again.
+    def buildTwoLaneFixture(): (PipelineId, PipelineStep, PipelineStep, PipelineStep, PipelineStep, PipelineStep) = {
+      val dsId = seedDsWithData() // alice/42.0, bob/37.0 -- 2 rows
+      val pid  = seedPipeline(dsId)
+      val s1   = await(insertStep(pid, "select", SelectConfig(Vector("name", "score")), dummyUser))
+      val s2   = await(insertStep(pid, "compute", ComputeConfig("lane_a_flag", "\"lane-a\"", None), dummyUser))
+      val s3a  = await(stepRepo.insertInternal(
+        pid, "compute", ComputeConfig("lane_b_flag", "\"lane-b\"", None), enabled = true, parentStepId = None, explicitRootId = None
+      ))
+      val s3b = await(stepRepo.insertInternal(
+        pid, "compute", ComputeConfig("lane_b_flag2", "\"lane-b-2\"", None), enabled = true, parentStepId = Some(s3a.id), explicitRootId = None
+      ))
+      val s4 = await(insertStep(pid, "union", UnionConfig(SecondaryInput.Lane(s3b.id.value), "byPosition"), dummyUser))
+      (pid, s1, s2, s3a, s3b, s4)
+    }
+
+    "previewing the rejoin (s4) returns 200 with rows reflecting BOTH lanes, not a 422 (AC1/AC2)" in {
+      val (pid, _, _, s3a, s3b, s4) = buildTwoLaneFixture()
+
+      val result = await(service.previewStep(pid, s4.id.value, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+
+      // AC2: byPosition union appends lane A's 2 rows then lane B's 2 rows -- 4 total.
+      response.rowCount shouldBe 4
+      val jsRows = response.rows
+      jsRows should have size 4
+
+      // The independently-written literal (design.md D4): lane B's rows carry
+      // "lane_b_flag" -> "lane-b" AND "lane_b_flag2" -> "lane-b-2" (s3b's own effect, chained
+      // off s3a -- proving the lane TIP's ancestor, not merely the tip itself, actually ran)
+      // and do NOT carry "lane_a_flag"; lane A's rows are the opposite. Both must be present --
+      // this is what "reflects both inputs" means.
+      val laneBRows = jsRows.filter(r => r.fields.get("lane_b_flag").contains(JsString("lane-b")))
+      laneBRows should have size 2
+      laneBRows.foreach { r =>
+        r.fields.get("lane_a_flag") shouldBe None
+        r.fields.get("lane_b_flag2") shouldBe Some(JsString("lane-b-2"))
+      }
+      val laneARows = jsRows.filter(r => r.fields.get("lane_a_flag").contains(JsString("lane-a")))
+      laneARows should have size 2
+      laneARows.foreach(r => r.fields.get("lane_b_flag") shouldBe None)
+
+      // stepCounts (design.md D6, task 3.4c): the executed closure includes BOTH s3a (lane B's
+      // own ancestor) and s3b (the lane tip) -- their counts must be present and correct, not
+      // merely "the map grew".
+      response.stepRowCounts.get(s3a.id.value) shouldBe Some(2L)
+      response.stepRowCounts.get(s3b.id.value) shouldBe Some(2L)
+    }
+
+    "preview/run agreement: preview's rows for the rejoin equal the real engine walk's rows for the same node (AC2, design.md D4)" in {
+      val (pid, s1, s2, s3a, s3b, s4) = buildTwoLaneFixture()
+
+      val previewResult = await(service.previewStep(pid, s4.id.value, dummyUser))
+      val previewRows   = previewResult.toOption.get.rows
+
+      // The oracle: run the SAME engine class (`InProcessExecutionBackend` /
+      // `InProcessPipelineEngine`) against the FULL, un-sliced step list -- exactly what
+      // `PipelineRunService.runPipeline` does for a real `/run` -- and read s4's own frame out
+      // of `nodeOutcomes`, independent of `previewStep`'s slicing entirely.
+      val pipeline   = await(pipelineRepo.findByIdShared(pid, Some(dummyUser))).get
+      val allSteps   = await(stepRepo.listByPipelineInternal(pid))
+      val roots      = await(pipelineRepo.listRootDataSourceIdsInternal(pid))
+        .map { case (rid, dsid) => rid.value -> dsid }
+      val dataSources = await(Future.sequence(roots.map { case (rid, dsid) =>
+        dataSourceRepo.findByIdInternal(dsid).map(ds => rid -> ds.get)
+      }))
+      val engine      = new InProcessPipelineEngine(new LocalFileSystem(Paths.get("/")))
+      val oracleBackend = new InProcessExecutionBackend(engine, stepRepo)
+      val oracleOutcome = await(oracleBackend.execute(
+        pipeline, dataSources, allSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink
+      ))
+      val oracleRows = oracleOutcome.nodeOutcomes(StepKey(s4.id.value)).rows
+
+      // Field-for-field equality against the independently-computed oracle.
+      previewRows.size shouldBe oracleRows.size
+      // Compare on the shared "lane_a_flag"/"lane_b_flag"/"name"/"score" key sets rather than
+      // raw JSON encodings (numeric JSON vs. raw Double string representations differ) --
+      // extract just the two marker columns, which is what discriminates a correct join.
+      def markersOf(get: String => Option[JsValue]) =
+        (get("lane_a_flag"), get("lane_b_flag"), get("lane_b_flag2"))
+      val previewMarkers = previewRows.map(r => markersOf(r.fields.get)).toSet
+      val oracleMarkers = oracleRows.map { row =>
+        markersOf(k => row.get(k).map(v => JsString(String.valueOf(v))))
+      }.toSet
+      previewMarkers shouldBe oracleMarkers
+      // s3b's own effect ("lane-b-2") is present alongside s3a's -- proving the lane tip's
+      // ancestor actually ran, not merely the tip itself.
+      previewMarkers shouldBe Set(
+        (Some(JsString("lane-a")), None, None),
+        (None, Some(JsString("lane-b")), Some(JsString("lane-b-2")))
+      )
+
+      // Silence unused-fixture-variable warnings for s1/s2/s3a/s3b (used only for
+      // readability/name anchoring above).
+      (s1, s2, s3a, s3b) shouldBe (s1, s2, s3a, s3b)
+    }
+
+    "excludes a sibling lane not referenced by the target: previewing s2 (lane A's own terminal, no lane reference) does not execute lane B (task 3.4)" in {
+      val (pid, s1, s2, s3a, s3b, _) = buildTwoLaneFixture()
+
+      // Assert directly on closure MEMBERSHIP (not just rows) -- the discriminator against an
+      // "include everything" non-fix, which would also return 200 with plausible-looking rows.
+      val allSteps = await(stepRepo.listByPipelineInternal(pid))
+      val closure  = NodeDependencyClosure.closureOf(allSteps.toVector, s2)
+      closure.map(_.id.value).toSet shouldBe Set(s1.id.value, s2.id.value)
+      closure.map(_.id.value) should not contain s3a.id.value
+      closure.map(_.id.value) should not contain s3b.id.value
+
+      val result = await(service.previewStep(pid, s2.id.value, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val jsRows = result.toOption.get.rows
+      jsRows should have size 2
+      jsRows.foreach { r =>
+        r.fields.get("lane_b_flag") shouldBe None
+        r.fields.get("lane_b_flag2") shouldBe None
+      }
+    }
+
+    "a lane consumed by two rejoins is executed exactly once (diamond, task 3.4/design.md risk)" in {
+      val dsId = seedDsWithData()
+      val pid  = seedPipeline(dsId)
+      // `shared` is the trunk root; `rejoinA` is a root-level SIBLING tail referencing it (not
+      // its descendant); `rejoinB` is `rejoinA`'s child, ALSO referencing `shared` directly --
+      // neither rejoin is `shared`'s descendant, so this is a legal diamond (HEL-911 Decision
+      // 3), not a self-ancestor cycle (which the engine's own guard would legitimately reject).
+      val shared = await(stepRepo.insertInternal(
+        pid, "compute", ComputeConfig("shared_flag", "\"shared\"", None), enabled = true, parentStepId = None, explicitRootId = None
+      ))
+      val rejoinA = await(stepRepo.insertInternal(
+        pid, "union", UnionConfig(SecondaryInput.Lane(shared.id.value), "byPosition"), enabled = true, parentStepId = None, explicitRootId = None
+      ))
+      val rejoinB = await(stepRepo.insertInternal(
+        pid, "union", UnionConfig(SecondaryInput.Lane(shared.id.value), "byPosition"), enabled = true, parentStepId = Some(rejoinA.id), explicitRootId = None
+      ))
+
+      val allSteps = await(stepRepo.listByPipelineInternal(pid))
+      val closure  = NodeDependencyClosure.closureOf(allSteps.toVector, rejoinB)
+      closure.map(_.id.value) shouldBe closure.map(_.id.value).distinct
+      closure.map(_.id.value).toSet shouldBe Set(shared.id.value, rejoinA.id.value, rejoinB.id.value)
+
+      val result = await(service.previewStep(pid, rejoinB.id.value, dummyUser))
+      result shouldBe a[Right[_, _]]
+    }
+
+    // Task 3.4a/D5: a rejoin under root A referencing a lane step under a DIFFERENT root B.
+    // Task 3.4b: the target (the rejoin, under root B) is deliberately NOT the lowest-positioned
+    // root's own trunk terminal, so reading `TreeWalkResult.rows` (root A's trunk-terminal
+    // frame, R10) instead of `nodeOutcomes(target)` would return OBSERVABLY DIFFERENT rows.
+    // Root A's and root B's sources carry DISTINGUISHABLE data (task 3.4a fixture requirement
+    // (i)) so the `roots.size == 1`-narrowing corruption (design.md D5 fact 1, round-2 CR1)
+    // would be caught by a ROW VALUE, never an error message.
+    "cross-root rejoin: preview returns 200 with rows equal to the real engine walk's, evaluating the foreign root's lane against ITS OWN frame (task 3.4a/3.4b)" in {
+      import PostgresProfile.api._
+      val dsRootA = seedStaticDs(Vector("value" -> "string"), Vector(Vector("rootA-value")))
+      val dsRootB = seedStaticDs(Vector("value" -> "string"), Vector(Vector("rootB-value")))
+      val pid     = seedPipeline(dsRootA) // root 0 (position 0, lowest) = root A
+      val rootBId = addSecondRoot(pid, dsRootB) // root 1 = root B
+
+      // Root A's trunk: aLeaf (the lane-referenced node) -> aTerminal (root A's OWN trunk
+      // terminal, i.e. NOT the same node the rejoin targets -- this is what makes 3.4b
+      // behavioral rather than a code-shape assertion).
+      val aLeaf = await(stepRepo.insertInternal(
+        pid, "rename", RenameConfig(Map.empty), enabled = true, parentStepId = None,
+        explicitRootId = Some(PipelineRootId(pid.value)) // seedPipeline's root 0 id == the pipeline id (its own fixture convention)
+      ))
+      val aTerminal = await(stepRepo.insertInternal(
+        pid, "rename", RenameConfig(Map.empty), enabled = true, parentStepId = Some(aLeaf.id), explicitRootId = None
+      ))
+      // Root B's trunk: bLeaf, then the rejoin itself (parent = bLeaf, so the rejoin lives on
+      // ROOT B, not root A -- and root A is the LOWEST-positioned root, so `TreeWalkResult.rows`
+      // would be root A's (`aTerminal`'s) frame, never the rejoin's).
+      val bLeaf = await(stepRepo.insertInternal(
+        pid, "rename", RenameConfig(Map.empty), enabled = true, parentStepId = None,
+        explicitRootId = Some(PipelineRootId(rootBId))
+      ))
+      val rejoin = await(stepRepo.insertInternal(
+        pid, "union", UnionConfig(SecondaryInput.Lane(aLeaf.id.value), "byPosition"), enabled = true,
+        parentStepId = Some(bLeaf.id), explicitRootId = None
+      ))
+
+      val result = await(service.previewStep(pid, rejoin.id.value, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val jsRows = result.toOption.get.rows
+
+      // byPosition union: rows(bLeaf) ++ rows(aLeaf) -- root B's own row THEN root A's lane row.
+      jsRows.map(_.fields("value")) shouldBe Vector(JsString("rootB-value"), JsString("rootA-value"))
+
+      // Oracle: the real engine walk (full step list, both roots) for the SAME node.
+      val pipeline    = await(pipelineRepo.findByIdShared(pid, Some(dummyUser))).get
+      val allSteps    = await(stepRepo.listByPipelineInternal(pid))
+      val rootPairs   = await(pipelineRepo.listRootDataSourceIdsInternal(pid))
+      val dataSources = await(Future.sequence(rootPairs.map { case (rid, dsid) =>
+        dataSourceRepo.findByIdInternal(dsid).map(ds => rid.value -> ds.get)
+      }))
+      val engine        = new InProcessPipelineEngine(new LocalFileSystem(Paths.get("/")))
+      val oracleBackend = new InProcessExecutionBackend(engine, stepRepo)
+      val oracleOutcome = await(oracleBackend.execute(
+        pipeline, dataSources, allSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink
+      ))
+      val oracleRows = oracleOutcome.nodeOutcomes(StepKey(rejoin.id.value)).rows.map(r => JsString(String.valueOf(r("value"))))
+      oracleRows shouldBe Vector(JsString("rootB-value"), JsString("rootA-value"))
+
+      // 3.4b: prove the target's rows are read from `nodeOutcomes`, not `TreeWalkResult.rows`
+      // (root A's trunk terminal, `aTerminal`'s frame) -- observably a DIFFERENT value.
+      val wrongRows = oracleOutcome.rows.map(r => JsString(String.valueOf(r("value"))))
+      wrongRows should not be jsRows.map(_.fields("value"))
+    }
+
+    "backfill (evaluateNodeRowsForBackfill) covers the rejoin's lane closure rather than the site's log-and-swallow recover arm (task 3.6)" in {
+      val (pid, _, _, s3a, s3b, s4) = buildTwoLaneFixture()
+
+      // A prior successful run, WITHOUT the Output existing yet, is backfill's real-world
+      // trigger case: `hasSucceededOnce` becomes true, but no `node_snapshots` row for s4
+      // exists -- the Output is added AFTER the run, exactly like a user adding a rejoin
+      // Output to an already-running pipeline.
+      val submitResult = await(service.submit(pid, isDry = false, dummyUser))
+      submitResult shouldBe a[Right[_, _]]
+      seedOutputAtTrunkLast(pid) // materializes s4 as an Output node, AFTER the run above
+
+      await(service.backfillOutputNode(pid, Some(s4.id), dummyUser, explicitRootId = None))
+
+      val rows = await(nodeSnapshotRepo.listRows(pid.value, Some(s4.id.value), explicitRootId = None))
+      rows should have size 4
+      val laneBRows = rows.filter(_.fields.get("lane_b_flag").contains(JsString("lane-b")))
+      laneBRows should have size 2
+      // s3b's own effect (chained off s3a) persisted too -- not merely s3a's flag.
+      laneBRows.foreach(_.fields.get("lane_b_flag2") shouldBe Some(JsString("lane-b-2")))
+      // s3a/s3b's presence in the closure (not silently dropped, not silently swallowed by
+      // .recover).
+      (s3a, s4) shouldBe (s3a, s4)
+    }
+  }
 
 }
