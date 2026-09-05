@@ -936,7 +936,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     // every other primary-source-load failure reaches — rather than
     // propagating an unhandled exception out of `submit`.
     "a URL-backed CSV run under a service constructed with no ActorSystem fails as a normal handled run failure, not an unhandled exception" in {
-      val dsId = seedCsvUrlDs("https://example.com/data.csv")
+      val dsId = seedCsvUrlDs("https://pipeline-run-service.test/data.csv")
       val pid  = seedPipeline(dsId)
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
@@ -969,7 +969,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     // `submit` (this test) and `previewStep` (below) both reach — proving the
     // fix (and, before it existed, the defect) is not scheduled-run-only.
     "a URL-backed text run under a MANUAL submit (not a scheduled fire) reaches the same shared seam as csv" in {
-      val dsId = seedTextUrlDs("https://example.com/notes.txt")
+      val dsId = seedTextUrlDs("https://pipeline-run-service.test/notes.txt")
       val pid  = seedPipeline(dsId)
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
@@ -1011,7 +1011,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     // proving the preview path is not exempt from the fix (or, pre-fix, from
     // the defect).
     "previewStep for a URL-backed text base source reaches the same shared seam as a run" in {
-      val dsId = seedTextUrlDs("https://example.com/notes.txt")
+      val dsId = seedTextUrlDs("https://pipeline-run-service.test/notes.txt")
       val pid  = seedPipeline(dsId)
       val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
 
