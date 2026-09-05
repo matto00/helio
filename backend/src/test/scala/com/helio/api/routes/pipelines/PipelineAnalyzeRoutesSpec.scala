@@ -144,6 +144,31 @@ class PipelineAnalyzeRoutesSpec
       }
     }
 
+    // AC7: parsed-JSON field-key-set assertion on the wire, not entityAs[..] and not substring
+    // containment -- `dataSourceName` is a substring of `sourceDataSourceName`, so a raw-body
+    // `include("dataSourceName")` check would pass even against the pre-rename wire (design D3).
+    "serialize sourceSchemas entries with the renamed dataSourceName wire key" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val json           = responseAs[String].parseJson.asJsObject
+        val sourceSchemas  = json.fields("sourceSchemas").asInstanceOf[JsArray].elements
+        sourceSchemas should not be empty
+        val entry          = sourceSchemas.head.asJsObject
+        val fieldKeys      = entry.fields.keySet
+
+        fieldKeys should contain("dataSourceName")
+        fieldKeys should not contain "sourceDataSourceName"
+        entry.fields("dataSourceName") match {
+          case JsString(value) => value should not be empty
+          case other            => fail(s"expected dataSourceName to be a non-empty JsString, got $other")
+        }
+      }
+    }
+
     "return 200 with correct schemas for a pipeline with a select step" in {
       cleanPipelines()
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false},{"name":"created_at","displayName":"Created","dataType":"string","nullable":true}]"""

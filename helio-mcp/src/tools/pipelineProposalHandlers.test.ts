@@ -116,7 +116,7 @@ describe("analyzePipelineProposalHandler", () => {
       sourceSchemas: [
         {
           rootId: "0",
-          sourceDataSourceName: "Source 1",
+          dataSourceName: "Source 1",
           sourceSchema: [{ name: "amount", type: "integer" }],
         },
       ],

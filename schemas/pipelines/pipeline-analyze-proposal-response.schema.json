@@ -29,13 +29,13 @@
   "$defs": {
     "RootSourceSchema": {
       "type": "object",
-      "required": ["rootId", "sourceDataSourceName", "sourceSchema"],
+      "required": ["rootId", "dataSourceName", "sourceSchema"],
       "properties": {
         "rootId": {
           "type": "string",
           "minLength": 1
         },
-        "sourceDataSourceName": {
+        "dataSourceName": {
           "type": "string"
         },
         "sourceSchema": {

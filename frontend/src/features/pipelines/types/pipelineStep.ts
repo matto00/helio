@@ -471,22 +471,21 @@ export type AnalyzeStepResult =
 // HEL-913 retired when it moved a pipeline's source from a scalar to a
 // `roots[]` array (`PipelineAnalyzeProtocol.scala`).
 //
-// A per-root display name is deliberately OMITTED here, not renamed. The
-// analyze wire response still sends one, spelled with a `source`-prefix
-// that this ticket's AC3 bars from appearing anywhere under `frontend/src`
-// (a mechanical grep, comments included) -- and unlike the `PipelineSummary`
-// scalars HEL-913 retired, this one field was never touched by that
-// migration, so it is still genuinely present on the wire. That leaves no
-// name this type could give the field that is both AC3-compliant and
-// truthful about what is sent, so the field is left off entirely rather
-// than given a name (e.g. matching the sibling `PipelineRootSummaryResponse
-// .dataSourceName` convention) that the wire does not actually use --
-// exactly the silently-wrong-type defect class this ticket exists to close.
-// Extra JSON keys are unremarkable in TypeScript, so this is a safe, honest
-// gap, not a lossy one: nothing in this codebase reads this field today
-// (grep-confirmed zero consumers). Aligning the backend's two per-root
-// response shapes onto one spelling is tracked separately as HEL-975; the
-// next person who needs this value should look there, not re-guess a name.
+// A per-root display name is deliberately OMITTED here, not missing a
+// rename. At the time HEL-969 wrote this, the analyze wire response sent
+// one spelled with a `source`-prefix that this ticket's AC3 barred from
+// appearing anywhere under `frontend/src` (a mechanical grep, comments
+// included), leaving no name that was both AC3-compliant and truthful.
+//
+// HEL-975 has since renamed that backend field to `dataSourceName`,
+// matching the sibling `PipelineRootSummaryResponse.dataSourceName`
+// convention -- so a truthful, AC3-compliant name is now available. The
+// field remains omitted here anyway, not because a name is unavailable but
+// because nothing in this codebase reads it today (grep-confirmed zero
+// consumers); adding it back with no consumer would be unrequested scope.
+// Extra JSON keys are unremarkable in TypeScript, so this is a safe,
+// honest gap, not a lossy one. The next person who needs this value should
+// add `dataSourceName: string` here under its real name, not re-guess one.
 export interface RootSourceSchema {
   rootId: string;
   sourceSchema: SchemaField[];

@@ -487,7 +487,7 @@ export interface SourceSchemaDriftResponse {
  *  `RootSourceSchemaResponse` (HEL-913 task 7.2c). */
 export interface RootSourceSchemaResponse {
   rootId: string;
-  sourceDataSourceName: string;
+  dataSourceName: string;
   sourceSchema: SchemaField[];
 }
 

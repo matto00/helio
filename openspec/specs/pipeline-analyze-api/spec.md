@@ -114,7 +114,7 @@ step N-1's `outputSchema`. If the pipeline is not found, the response SHALL be 4
 - **THEN** the response is 404
 
 ### Requirement: Source schema derived from bound DataSource's registered DataType fields
-Analyze SHALL derive a source schema **per root**, from that root's bound DataSource. The response SHALL carry one source-schema entry per root, keyed by root id.
+Analyze SHALL derive a source schema **per root**, from that root's bound DataSource. The response SHALL carry one source-schema entry per root, keyed by root id, with the bound DataSource's name on that entry as `dataSourceName`.
 
 #### Scenario: A two-root pipeline analyzes both source schemas
 - **WHEN** analyze is called on a pipeline with two roots bound to sources with different fields

@@ -182,7 +182,7 @@ class PipelineAnalyzeProposalRoutesSpec
       Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
-        resp.sourceSchemas.head.sourceDataSourceName shouldBe "orders-source"
+        resp.sourceSchemas.head.dataSourceName shouldBe "orders-source"
         resp.sourceSchemas.head.sourceSchema.map(_.name) should contain allOf ("order_id", "amount")
         resp.steps should have size 1
         resp.steps.head.`type` shouldBe "select"
@@ -252,7 +252,7 @@ noInlineSource.copy(
       Post("/pipelines/analyze-proposal", proposal) ~> routesWith(countingConnector(counter)) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
-        resp.sourceSchemas.head.sourceDataSourceName shouldBe "Inline Static"
+        resp.sourceSchemas.head.dataSourceName shouldBe "Inline Static"
         resp.sourceSchemas.head.sourceSchema.map(f => (f.name, f.`type`)) shouldBe Vector(("id", "string"), ("count", "integer"))
       }
       counter.get() shouldBe 0
@@ -299,7 +299,7 @@ noInlineSource.copy(
       Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
-        resp.sourceSchemas.head.sourceDataSourceName shouldBe "Inline SQL"
+        resp.sourceSchemas.head.dataSourceName shouldBe "Inline SQL"
         resp.sourceSchemas.head.sourceSchema.map(_.name) should contain theSameElementsAs Seq("one", "label")
       }
     }
@@ -449,7 +449,7 @@ noInlineSource.copy(
       Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[PipelineAnalyzeProposalResponse]
-        resp.sourceSchemas.head.sourceDataSourceName shouldBe "existing-source"
+        resp.sourceSchemas.head.dataSourceName shouldBe "existing-source"
         resp.sourceSchemas.head.sourceSchema.map(_.name) shouldBe Vector("real_field")
       }
     }
