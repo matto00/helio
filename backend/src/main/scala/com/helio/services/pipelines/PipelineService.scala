@@ -1118,6 +1118,14 @@ final class PipelineService(
   ): Future[Map[PipelineId, Map[PipelineStepId, PipelineRootId]]] =
     pipelineStepRepo.rootIdsOfBatch(pipelineIds)
 
+  /** Thin delegation to `PipelineStepRepository.listByPipelineInternalBatch` -- same rationale as
+   *  [[listRootDataSourceIdsInternalBatch]] above. Exists ONLY for `WorkspaceContextService`'s
+   *  lane-tree fetch; `analyze` keeps its own separate, unbatched steps fetch unchanged. */
+  private[services] def listByPipelineInternalBatch(
+      pipelineIds: Set[PipelineId]
+  ): Future[Map[PipelineId, Vector[PipelineStep]]] =
+    pipelineStepRepo.listByPipelineInternalBatch(pipelineIds)
+
   private[services] def laneTreeFromRoots(
       allSteps: Vector[PipelineStep],
       outputsAlreadyFetchedForThisPipeline: Vector[Output],
