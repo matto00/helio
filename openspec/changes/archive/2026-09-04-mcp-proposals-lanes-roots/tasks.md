@@ -231,15 +231,15 @@ while leaving canonical requirements that go false. Each item below is an implem
       Asserting a `201` is not coverage.
 - [x] 7.3 Completeness grep from 1.1 returns zero non-comment hits.
 - [x] 7.4 `openspec validate mcp-proposals-lanes-roots --type change` exits zero.
-- [ ] 7.4a Section 9 is complete, including 9.4's read-through evidence.
-- [ ] 7.5 Full gates: `npm run lint`, `npm run typecheck`, `npm test`, `npm run format:check`,
+- [x] 7.4a Section 9 is complete, including 9.4's read-through evidence. Verified twice independently: evaluator cycle 1 and the final-gate skeptic each rendered `AssistantSystemPrompt.text` and read it, confirming `roots[]`, per-root branch exclusivity, per-root `test_connection`, and `target.parentId`/`attachAsTail`, with no singular-source instruction remaining.
+- [x] 7.5 Full gates (re-run fresh by the evaluator at cycle 2 and again by the final-gate skeptic, not taken on the executor's report — backend 3769/3769, frontend 2617/2617, helio-mcp 230/230, plus lint/typecheck/format/schemas/openspec/validate): `npm run lint`, `npm run typecheck`, `npm test`, `npm run format:check`,
       `sbt test`, `helio-mcp` tests, `check:schemas`, `check:openspec`.
 - [x] 7.6 Run 6b.5's grep. Then, for every `MODIFIED` spec block, recover the original from `0f16b85d`
       (`git show 0f16b85d:openspec/specs/<cap>/spec.md`) and diff it against the delta. The block must
       still describe what its title claims and must drop no scenario. `openspec validate` already
       catches dropped scenarios; it does not catch a body that stops matching its title.
-- [ ] 7.7 `files-modified.md`: **one path per bullet.**
-- [ ] 7.8 After `openspec archive`, `grep -rn "mcp-proposals-lanes-roots" .` outside the archive
+- [x] 7.7 `files-modified.md`: **one path per bullet.** Evaluator cycle 1 caught one bundled bullet; fixed in `7f05bd04` and confirmed file-wide at cycle 2. The file itself is removed at archive time as the executor handoff artifact it is.
+- [x] 7.8 After `openspec archive`, `grep -rn "mcp-proposals-lanes-roots" .` outside the archive
       directory returns zero. Dangling forward pointers refuted the last two runs in this epic.
 
 ## 8. Follow-ups to file

@@ -43,10 +43,12 @@ Pre-validation SHALL also authorize a SECOND, separately-owned resource referenc
 edit's `patch`/`createPatch`, wherever its real create/update path also authorizes one — not defer
 that check to forward-apply time. This covers: `panel` `create` (`dashboardId`), `pipeline`
 `create` (`sourceDataSourceId`), `panel` `update`/`create` (`outputId`/`metricId`, when present
-in the config patch), and `pipelineStep` `update` (a `JoinConfig`/`UnionConfig`/`LookupConfig`'s
-`secondaryInput`, when it is `source`-kind and present).
+in the config patch), and `pipelineStep` `update` **and `create`** (a
+`JoinConfig`/`UnionConfig`/`LookupConfig`'s `secondaryInput`, when it is `source`-kind and
+present). `create` is enumerated here on the same footing as `update`: the check does not become
+optional, or move to forward-apply time, because the referencing step does not exist yet.
 
-For a `pipelineStep` `update`, "present" SHALL mean a `source`-kind `secondaryInput` with a non-empty `dataSourceId`, uniformly across all three config types. An empty `dataSourceId` is an incomplete draft rather than a reference to an inaccessible resource, and SHALL NOT trigger the ownership lookup or its `404` — matching the create/update route behavior these checks exist to mirror. A `lane`-kind `secondaryInput` references a node in the same pipeline and SHALL NOT trigger a data-source ownership lookup at all; it SHALL instead be validated for same-pipeline membership and acyclicity. The legacy flat fields SHALL NOT appear in this contract, and a patch set supplying one SHALL be rejected with a named error rather than coerced.
+For a `pipelineStep` `update` or `create`, "present" SHALL mean a `source`-kind `secondaryInput` with a non-empty `dataSourceId`, uniformly across all three config types. An empty `dataSourceId` is an incomplete draft rather than a reference to an inaccessible resource, and SHALL NOT trigger the ownership lookup or its `404` — matching the create/update route behavior these checks exist to mirror. A `lane`-kind `secondaryInput` references a node in the same pipeline and SHALL NOT trigger a data-source ownership lookup at all; it SHALL instead be validated for same-pipeline membership and acyclicity. The legacy flat fields SHALL NOT appear in this contract, and a patch set supplying one SHALL be rejected with a named error rather than coerced.
 
 #### Scenario: A pipelineStep-update edit referencing a foreign-owned source-kind input is rejected
 - **WHEN** a patch set includes a `pipelineStep` update edit whose `secondaryInput` is `source`-kind naming a data source the caller does not own
@@ -95,6 +97,14 @@ For a `pipelineStep` `update`, "present" SHALL mean a `source`-kind `secondaryIn
 - **THEN** pre-validation performs no ownership lookup for that id and does not reject the patch
   set on its account
 
+#### Scenario: A pipelineStep-create edit referencing a foreign-owned source-kind input is rejected
+- **WHEN** a patch set includes a `pipelineStep` create edit whose `secondaryInput` is `source`-kind naming a data source the caller does not own
+- **THEN** pre-validation rejects the whole patch set before any edit mutates anything, rather than deferring the refusal to the step-creation call
+
+#### Scenario: A pipelineStep-create edit with an empty dataSourceId is not rejected
+- **WHEN** a patch set includes a `pipelineStep` create edit whose `source`-kind `secondaryInput` has an empty `dataSourceId`
+- **THEN** pre-validation performs no ownership lookup for that id and does not reject the patch set on its account
+
 ### Requirement: A failure rolls back every already-applied edit
 When an edit fails partway through an otherwise-pre-validated apply, `PatchSetApplyService` SHALL
 walk the edits already applied, in reverse order, compensating each: a `create` is undone by
@@ -111,14 +121,34 @@ the per-kind rollback requirement below.
 
 ### Requirement: Create is rejected pre-validation where no viable path exists
 `create` SHALL be rejected at pre-validation for `dataType` (no direct create API exists) and for
-`pipelineStep` (no field on `EditTarget` carries the new step's parent pipeline id). A
+`output` (this change adds `EditTarget.parentId`, which makes an `output` create representable, but
+does not implement or test one — an untested op is worse than a documented absence). A
 dashboard-create edit whose decoded `patch` sets `ifExists` SHALL also be rejected — this contract
 only ever creates, never idempotently returns an existing dashboard.
+
+`pipelineStep` is **no longer** in this rejection list. The reason it was there — that no field on
+`EditTarget` carried the new step's parent pipeline id — is resolved by `EditTarget.parentId` (see
+`patch-set-contract`), so the premise of the rejection no longer holds and retaining it would reject
+a path that now exists.
 
 #### Scenario: A create edit targeting dataType is rejected
 - **WHEN** `apply` is called with an edit whose `target.kind` is `dataType` and `op` is `create`
 - **THEN** pre-validation rejects the whole patch set with a message naming the unsupported
   combination, and nothing is mutated
+
+#### Scenario: A create edit targeting output is rejected
+- **WHEN** `apply` is called with an edit whose `target.kind` is `output` and `op` is `create`
+- **THEN** pre-validation rejects the whole patch set with a message naming the unsupported
+  combination, and nothing is mutated
+
+#### Scenario: A create edit targeting pipelineStep is accepted
+- **WHEN** `apply` is called with an edit whose `target.kind` is `pipelineStep`, `op` is `create`,
+  and `target.parentId` names a pipeline the caller may write
+- **THEN** pre-validation accepts it and the step is created
+
+#### Scenario: A pipelineStep create with no parentId is rejected
+- **WHEN** `apply` is called with a `pipelineStep` create edit carrying no `target.parentId`
+- **THEN** pre-validation rejects the whole patch set naming the missing parent, and nothing is mutated
 
 #### Scenario: A dashboard create edit requesting ifExists is rejected
 - **WHEN** `apply` is called with a dashboard-create edit whose `patch` includes
