@@ -13,13 +13,30 @@
 // own design.md D4).
 
 import { pipelineStepToStep } from "../state/stepNarrowing";
-import { buildLaneGraph, type LaneGraph } from "../state/stepTree";
+import { buildLaneGraph, type LaneGraph, type LaneGraphRoot } from "../state/stepTree";
 import { computeLaneLayout, type LaneLayout } from "../state/laneLayout";
 import type { PipelineStep } from "../types/pipelineStep";
 import type { Step } from "../types/step";
-import type { PipelineProposalStep } from "../types/pipelineProposal";
+import type { PipelineProposalSource, PipelineProposalStep } from "../types/pipelineProposal";
 
-export function proposalStepsToSteps(steps: PipelineProposalStep[]): Step[] {
+// HEL-968 — a proposal's roots have no persisted id yet (`clientId` is
+// optional and only REQUIRED, by the backend, once a proposal has more than
+// one root -- see `PipelineProposalStep.rootClientId`'s own doc comment).
+// This synthesizes a stable id per root so `buildLaneGraph`'s (D1) required
+// `roots` parameter has something to seed lanes from even for a
+// single-root proposal, whose steps carry no `rootClientId` at all.
+function syntheticRootId(root: PipelineProposalSource, index: number): string {
+  return root.clientId ?? `root-${index}`;
+}
+
+export function proposalStepsToSteps(
+  steps: PipelineProposalStep[],
+  roots: PipelineProposalSource[],
+): Step[] {
+  // A parentless proposal step's root is `rootClientId` when the proposal
+  // has multiple roots (required there); with exactly one root it may be
+  // omitted, so it implicitly belongs to that one root.
+  const fallbackRootId = roots.length > 0 ? syntheticRootId(roots[0], 0) : undefined;
   return steps.map((s, index) => {
     const fakeWireStep = {
       id: s.clientId,
@@ -28,6 +45,7 @@ export function proposalStepsToSteps(steps: PipelineProposalStep[]): Step[] {
       enabled: s.enabled ?? true,
       parentStepId: s.parentStepId ?? undefined,
       position: index,
+      rootId: s.parentStepId ? undefined : (s.rootClientId ?? fallbackRootId),
     } as unknown as PipelineStep;
     return pipelineStepToStep(fakeWireStep);
   });
@@ -39,9 +57,13 @@ export interface ProposalLaneGraph {
   layout: LaneLayout;
 }
 
-export function buildProposalLaneGraph(steps: PipelineProposalStep[]): ProposalLaneGraph {
-  const stepObjs = proposalStepsToSteps(steps);
-  const graph = buildLaneGraph(stepObjs);
+export function buildProposalLaneGraph(
+  steps: PipelineProposalStep[],
+  roots: PipelineProposalSource[],
+): ProposalLaneGraph {
+  const laneRoots: LaneGraphRoot[] = roots.map((r, i) => ({ id: syntheticRootId(r, i) }));
+  const stepObjs = proposalStepsToSteps(steps, roots);
+  const graph = buildLaneGraph(stepObjs, laneRoots);
   const layout = computeLaneLayout(graph);
   return { steps: stepObjs, graph, layout };
 }

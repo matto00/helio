@@ -4,14 +4,22 @@
 // PRE-CHANGE `buildStepTree` grouping and observed to fail — see
 // `files-modified.md` for the recorded failure per test (lesson 8: assert
 // the produced lane membership/order, not merely that the call returned).
+//
+// HEL-968 — `buildLaneGraph` now takes a required `roots` parameter (design.md
+// D1); single-root cases below pass ONE_ROOT and every root-level step
+// carries `rootId: ONE_ROOT[0].id`. `primaryLaneId` is retired -- these
+// tests resolve "the primary lane" via `primaryLaneIdOf` (a root-level
+// lane), matching what every display site now does.
 
 import { buildLaneGraph, childLanesOf, flattenLaneGraph, reorderLane } from "./stepTree";
+import type { LaneGraph, LaneGraphRoot } from "./stepTree";
 import { OP_TYPES } from "./stepNarrowing";
 import type { Step } from "../types/step";
 
 const OP = OP_TYPES.find((op) => op.id === "filter")!;
+const ONE_ROOT: LaneGraphRoot[] = [{ id: "root-1" }];
 
-function step(id: string, parentStepId?: string, position?: number): Step {
+function step(id: string, parentStepId?: string, position?: number, rootId?: string): Step {
   return {
     id,
     opType: OP,
@@ -20,22 +28,27 @@ function step(id: string, parentStepId?: string, position?: number): Step {
     enabled: true,
     parentStepId,
     position,
+    rootId: parentStepId ? rootId : (rootId ?? "root-1"),
   };
+}
+
+function primaryLaneIdOf(graph: LaneGraph): string | undefined {
+  return graph.lanes.find((l) => l.parentStepId === undefined)?.id;
 }
 
 describe("buildLaneGraph", () => {
   it("returns an empty graph for zero steps", () => {
-    expect(buildLaneGraph([])).toEqual({ lanes: [], laneOfStepId: {}, primaryLaneId: undefined });
+    expect(buildLaneGraph([], ONE_ROOT)).toEqual({ lanes: [], laneOfStepId: {} });
   });
 
   it("treats a pure chain (no branches) as a single lane, root to leaf", () => {
     const a = step("a");
     const b = step("b", "a");
     const c = step("c", "b");
-    const graph = buildLaneGraph([a, b, c]);
+    const graph = buildLaneGraph([a, b, c], ONE_ROOT);
     expect(graph.lanes).toHaveLength(1);
     expect(graph.lanes[0].steps.map((s) => s.id)).toEqual(["a", "b", "c"]);
-    expect(graph.primaryLaneId).toBe(graph.lanes[0].id);
+    expect(primaryLaneIdOf(graph)).toBe(graph.lanes[0].id);
   });
 
   // evaluation-1.md CR6 — retitled from the pre-ruling ("every child of a
@@ -51,11 +64,11 @@ describe("buildLaneGraph", () => {
     const t1 = step("t1", "a", 1);
     const t2 = step("t2", "t1");
     const b = step("b", "a", 2);
-    const graph = buildLaneGraph([a, t1, t2, b, cont]);
+    const graph = buildLaneGraph([a, t1, t2, b, cont], ONE_ROOT);
     // Totality (task 1.2): every step lands in exactly one lane.
     const total = graph.lanes.reduce((sum, l) => sum + l.steps.length, 0);
     expect(total).toBe(5);
-    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    const primary = graph.lanes.find((l) => l.id === primaryLaneIdOf(graph))!;
     expect(primary.steps.map((s) => s.id)).toEqual(["a", "cont"]);
     expect(graph.lanes).toHaveLength(3); // primary [a,cont], [t1,t2], [b]
     const tailLane = childLanesOf(graph, "a").find((l) => l.steps[0].id === "t1")!;
@@ -77,8 +90,8 @@ describe("buildLaneGraph", () => {
     const b = step("b", "a");
     const t1 = step("t1", "b");
     const c = step("c", "b");
-    const graph = buildLaneGraph([a, b, t1, c]);
-    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    const graph = buildLaneGraph([a, b, t1, c], ONE_ROOT);
+    const primary = graph.lanes.find((l) => l.id === primaryLaneIdOf(graph))!;
     expect(primary.steps.map((s) => s.id)).toEqual(["a", "b"]);
     expect(childLanesOf(graph, "b")).toHaveLength(2);
     expect(childLanesOf(graph, "b").map((l) => l.steps.map((s) => s.id))).toEqual([["t1"], ["c"]]);
@@ -92,8 +105,8 @@ describe("buildLaneGraph", () => {
     const c3 = step("c3", "a", 1);
     const c4 = step("c4", "a", 2);
     // Array order deliberately scrambled relative to `position`.
-    const graph = buildLaneGraph([a, c1, c2, c3, c4]);
-    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    const graph = buildLaneGraph([a, c1, c2, c3, c4], ONE_ROOT);
+    const primary = graph.lanes.find((l) => l.id === primaryLaneIdOf(graph))!;
     expect(primary.steps.map((s) => s.id)).toEqual(["a", "c2"]);
     const children = childLanesOf(graph, "a");
     expect(children.map((l) => l.steps[0].id)).toEqual(["c3", "c4", "c1"]);
@@ -104,7 +117,7 @@ describe("buildLaneGraph", () => {
     const b = step("b", "a", 1);
     const c = step("c", "a", 2);
     const d = step("d", "a", 3);
-    const graph = buildLaneGraph([a, b, c, d]);
+    const graph = buildLaneGraph([a, b, c, d], ONE_ROOT);
     expect(childLanesOf(graph, "a")).toHaveLength(3);
     const total = graph.lanes.reduce((sum, l) => sum + l.steps.length, 0);
     expect(total).toBe(4);
@@ -114,8 +127,8 @@ describe("buildLaneGraph", () => {
     const a = step("a");
     const trunkNext = step("b", "a", 0);
     const tail = step("t", "a", 1);
-    const graph = buildLaneGraph([a, trunkNext, tail]);
-    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    const graph = buildLaneGraph([a, trunkNext, tail], ONE_ROOT);
+    const primary = graph.lanes.find((l) => l.id === primaryLaneIdOf(graph))!;
     expect(primary.steps.map((s) => s.id)).toEqual(["a", "b"]);
     expect(childLanesOf(graph, "a")).toHaveLength(1);
     expect(childLanesOf(graph, "a")[0].steps.map((s) => s.id)).toEqual(["t"]);
@@ -124,7 +137,7 @@ describe("buildLaneGraph", () => {
   it("a single child with position undefined (local not-yet-persisted step) continues the same lane", () => {
     const a = step("a");
     const temp = step("step-1", "a");
-    const graph = buildLaneGraph([a, temp]);
+    const graph = buildLaneGraph([a, temp], ONE_ROOT);
     expect(graph.lanes).toHaveLength(1);
     expect(graph.lanes[0].steps.map((s) => s.id)).toEqual(["a", "step-1"]);
   });
@@ -133,12 +146,52 @@ describe("buildLaneGraph", () => {
     const a = step("a");
     const b = step("b", "a");
     const temp = step("step-1"); // makeStep()'s shape: no parentStepId until persisted
-    const graph = buildLaneGraph([a, b, temp]);
+    temp.rootId = undefined; // a local temp step's root isn't known yet either
+    const graph = buildLaneGraph([a, b, temp], ONE_ROOT);
     const total = graph.lanes.reduce((sum, l) => sum + l.steps.length, 0);
     expect(total).toBe(3);
-    expect(graph.laneOfStepId["step-1"]).toBe(graph.primaryLaneId);
-    const primary = graph.lanes.find((l) => l.id === graph.primaryLaneId)!;
+    const primaryId = primaryLaneIdOf(graph);
+    expect(graph.laneOfStepId["step-1"]).toBe(primaryId);
+    const primary = graph.lanes.find((l) => l.id === primaryId)!;
     expect(primary.steps.map((s) => s.id)).toEqual(["a", "b", "step-1"]);
+  });
+
+  // HEL-968 task 3.4 — a second root's lane is no longer silently dropped.
+  it("seeds one lane per root, in root order, when a second root has its own steps", () => {
+    const roots: LaneGraphRoot[] = [{ id: "root-1" }, { id: "root-2" }];
+    const a = step("a", undefined, undefined, "root-1");
+    const b = step("b", "a");
+    const x = step("x", undefined, undefined, "root-2");
+    const graph = buildLaneGraph([a, b, x], roots);
+    expect(graph.lanes).toHaveLength(2);
+    const root1Lane = graph.lanes.find(
+      (l) => l.rootId === "root-1" && l.parentStepId === undefined,
+    )!;
+    const root2Lane = graph.lanes.find(
+      (l) => l.rootId === "root-2" && l.parentStepId === undefined,
+    )!;
+    expect(root1Lane.steps.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(root2Lane.steps.map((s) => s.id)).toEqual(["x"]);
+  });
+
+  // HEL-968 task 3.3 — a root with zero steps still gets an (empty) lane.
+  it("gives an empty root its own lane rather than omitting it", () => {
+    const roots: LaneGraphRoot[] = [{ id: "root-1" }, { id: "root-2" }];
+    const a = step("a", undefined, undefined, "root-1");
+    const graph = buildLaneGraph([a], roots);
+    expect(graph.lanes).toHaveLength(2);
+    const emptyLane = graph.lanes.find((l) => l.rootId === "root-2")!;
+    expect(emptyLane.steps).toEqual([]);
+    expect(emptyLane.parentStepId).toBeUndefined();
+  });
+
+  it("single-root pipelines are unchanged by the multi-root generalization", () => {
+    const a = step("a");
+    const b = step("b", "a");
+    const graph = buildLaneGraph([a, b], ONE_ROOT);
+    expect(graph.lanes).toHaveLength(1);
+    expect(graph.lanes[0].rootId).toBe("root-1");
+    expect(graph.lanes[0].steps.map((s) => s.id)).toEqual(["a", "b"]);
   });
 });
 
@@ -147,7 +200,7 @@ describe("flattenLaneGraph", () => {
     const a = step("a");
     const b = step("b", "a");
     const c = step("c", "b");
-    const graph = buildLaneGraph([a, b, c]);
+    const graph = buildLaneGraph([a, b, c], ONE_ROOT);
     expect(flattenLaneGraph(graph).map((s) => s.id)).toEqual(["a", "b", "c"]);
   });
 
@@ -155,7 +208,7 @@ describe("flattenLaneGraph", () => {
     const a = step("a");
     const t1 = step("t1", "a");
     const b = step("b", "a");
-    const graph = buildLaneGraph([a, t1, b]);
+    const graph = buildLaneGraph([a, t1, b], ONE_ROOT);
     // buildLaneGraph groups [a] as primary, [t1] and [b] as its two child
     // lanes; flattening emits both child lanes (t1 first, by array-order
     // tiebreak) immediately before `a`.
@@ -172,8 +225,8 @@ describe("reorderLane", () => {
     const a = step("a");
     const b = step("b", "a");
     const c = step("c", "b");
-    const graph = buildLaneGraph([a, b, c]);
-    const result = reorderLane(graph, graph.primaryLaneId!, 2, 0);
+    const graph = buildLaneGraph([a, b, c], ONE_ROOT);
+    const result = reorderLane(graph, primaryLaneIdOf(graph)!, 2, 0);
     expect(result.map((s) => s.id)).toEqual(["c", "a", "b"]);
   });
 
@@ -182,7 +235,7 @@ describe("reorderLane", () => {
     const b = step("b", "a");
     const c = step("c", "b");
     const t1 = step("t1", "a");
-    const graph = buildLaneGraph([a, b, t1, c]);
+    const graph = buildLaneGraph([a, b, t1, c], ONE_ROOT);
     // a has two children (b, t1) -- both root their own lane off a; the
     // primary lane is just [a]. Use b's own lane for the reorder below (b
     // continues into c, a real 2-step lane), and t1 as the OTHER lane that
@@ -192,8 +245,8 @@ describe("reorderLane", () => {
     expect(tailLaneId).toBe("t1");
 
     const result = reorderLane(graph, bLaneId, 0, 1); // within b's lane: [b,c] -> [c,b]
-    const rebuilt = buildLaneGraph(result);
-    const primary = rebuilt.lanes.find((l) => l.id === rebuilt.primaryLaneId)!;
+    const rebuilt = buildLaneGraph(result, ONE_ROOT);
+    const primary = rebuilt.lanes.find((l) => l.id === primaryLaneIdOf(rebuilt))!;
     expect(primary.steps.map((s) => s.id)).toEqual(["a"]);
     // b's own lane is reordered ([b,c] -> [c,b])...
     const bLaneAfter = childLanesOf(rebuilt, "a").find(
@@ -221,8 +274,8 @@ describe("reorderLane", () => {
     }
     const naiveResult = naiveMoveStep(flat, 0, 1);
     expect(naiveResult.map((s) => s.id)).toEqual(["t1", "a", "b", "c"]);
-    const naiveRebuilt = buildLaneGraph(naiveResult);
-    const naivePrimary = naiveRebuilt.lanes.find((l) => l.id === naiveRebuilt.primaryLaneId)!;
+    const naiveRebuilt = buildLaneGraph(naiveResult, ONE_ROOT);
+    const naivePrimary = naiveRebuilt.lanes.find((l) => l.id === primaryLaneIdOf(naiveRebuilt))!;
     // Confirmed RED: the naive approach's re-derived primary lane is WRONG
     // -- it did not move `a` after `b` at all.
     expect(naivePrimary.steps.map((s) => s.id)).not.toEqual(["b", "a", "c"]);

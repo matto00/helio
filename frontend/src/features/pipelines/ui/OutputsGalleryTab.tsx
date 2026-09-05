@@ -37,7 +37,15 @@ export function OutputsGalleryTab({
   onOpenOutput,
   onAddOutput,
 }: OutputsGalleryTabProps) {
-  const effectiveLaneGraph = laneGraph ?? buildLaneGraph(steps);
+  // HEL-968 D1 — `buildLaneGraph` now requires the pipeline's `roots[]`; this
+  // fallback path (no `laneGraph` prop supplied) has no access to it, so it
+  // derives a synthetic root-id list from `steps` themselves, in the order
+  // each distinct `rootId` first appears -- sufficient for this component's
+  // own use of the graph (lane-subtitle lookups only, never column order).
+  const fallbackRoots = Array.from(
+    new Set(steps.filter((s) => !s.parentStepId && s.rootId).map((s) => s.rootId as string)),
+  ).map((id) => ({ id }));
+  const effectiveLaneGraph = laneGraph ?? buildLaneGraph(steps, fallbackRoots);
   const stepLabelById = new Map(steps.map((step) => [step.id, step.label]));
 
   return (

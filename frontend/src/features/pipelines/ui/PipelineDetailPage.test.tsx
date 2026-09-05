@@ -34,6 +34,8 @@ import {
   updatePipelineStepEnabled,
   duplicatePipelineStep,
   listPipelinePermissions,
+  addPipelineRoot,
+  removePipelineRoot,
 } from "../services/pipelineService";
 import type {
   PipelineAnalyzeResponse,
@@ -72,6 +74,8 @@ jest.mock("../services/pipelineService", () => ({
   listPipelinePermissions: jest.fn(),
   grantPipelinePermission: jest.fn(),
   revokePipelinePermission: jest.fn(),
+  addPipelineRoot: jest.fn(),
+  removePipelineRoot: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
@@ -93,6 +97,8 @@ const reorderPipelineStepsMock = jest.mocked(reorderPipelineSteps);
 const updatePipelineStepEnabledMock = jest.mocked(updatePipelineStepEnabled);
 const duplicatePipelineStepMock = jest.mocked(duplicatePipelineStep);
 const listPipelinePermissionsMock = jest.mocked(listPipelinePermissions);
+const addPipelineRootMock = jest.mocked(addPipelineRoot);
+const removePipelineRootMock = jest.mocked(removePipelineRoot);
 
 /** Minimal AxiosError-shaped rejection, matching `pipelinesSlice.ts`'s
  *  `isAxiosError` guard (design D4/D5). */
@@ -1010,7 +1016,15 @@ describe("PipelineDetailPage", () => {
       expect(stepLabels(container)).toEqual(["Cast type", "Rename column", "Filter rows"]);
 
       await waitFor(() => {
-        expect(createPipelineStepMock).toHaveBeenCalledWith("pipe-1", "cast", { casts: {} }, 0);
+        expect(createPipelineStepMock).toHaveBeenCalledWith(
+          "pipe-1",
+          "cast",
+          { casts: {} },
+          0,
+          undefined,
+          undefined,
+          "root-1",
+        );
       });
     });
 
@@ -1026,7 +1040,15 @@ describe("PipelineDetailPage", () => {
       expect(stepLabels(container)).toEqual(["Rename column", "Cast type", "Filter rows"]);
 
       await waitFor(() => {
-        expect(createPipelineStepMock).toHaveBeenCalledWith("pipe-1", "cast", { casts: {} }, 1);
+        expect(createPipelineStepMock).toHaveBeenCalledWith(
+          "pipe-1",
+          "cast",
+          { casts: {} },
+          1,
+          undefined,
+          undefined,
+          "root-1",
+        );
       });
     });
 
@@ -1045,6 +1067,9 @@ describe("PipelineDetailPage", () => {
           "limit",
           expect.anything(),
           undefined,
+          undefined,
+          undefined,
+          "root-1",
         );
       });
     });
@@ -2776,6 +2801,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
         undefined,
         undefined,
         false,
+        "root-1",
       );
     });
     // Seeded step renders through the unmodified StepCard/OP_TYPES machinery —
@@ -2953,5 +2979,65 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     await screen.findByRole("button", { name: /Select fields/i });
 
     expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeEnabled();
+  });
+});
+
+// HEL-968 task 9.3 — root removal (design.md D5, R7): removing a root
+// removes its lane's Outputs from the rail and surfaces the placement
+// count from the server's own response (AC2 second half).
+describe("PipelineDetailPage — root removal (HEL-968)", () => {
+  const twoRootPipeline: PipelineSummary = {
+    ...defaultPipeline,
+    roots: [
+      { id: "root-1", dataSourceId: "src-1", dataSourceName: "Orders" },
+      { id: "root-2", dataSourceId: "src-2", dataSourceName: "Shipments" },
+    ],
+  };
+
+  beforeEach(() => {
+    getPipelineByIdMock.mockResolvedValue(twoRootPipeline);
+    getPipelineStepsMock.mockResolvedValue([]);
+    analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
+    removePipelineRootMock.mockReset();
+  });
+
+  it("surfaces the server's exact removedStepCount/removedOutputCount on success", async () => {
+    removePipelineRootMock.mockResolvedValue({ removedStepCount: 2, removedOutputCount: 3 });
+    const store = makeStore();
+    renderDetailPage("pipe-1", store);
+
+    await screen.findByText("Shipments");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Remove root Shipments/i }));
+    });
+
+    expect(removePipelineRootMock).toHaveBeenCalledWith("pipe-1", "root-2");
+    await waitFor(() => {
+      const toasts = store.getState().toasts.items;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].message).toBe("Root removed: 2 steps, 3 Outputs removed.");
+    });
+  });
+
+  // R7 phase 1's named refusals render verbatim -- never re-derived client-side.
+  it("renders the server's named refusal (e.g. last root) rather than a generic failure", async () => {
+    removePipelineRootMock.mockRejectedValue(
+      axiosError(422, "Cannot remove the last root of a pipeline."),
+    );
+    const store = makeStore();
+    renderDetailPage("pipe-1", store);
+
+    await screen.findByText("Shipments");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Remove root Shipments/i }));
+    });
+
+    await waitFor(() => {
+      const toasts = store.getState().toasts.items;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].message).toBe(
+        "Failed to remove root: Cannot remove the last root of a pipeline.",
+      );
+    });
   });
 });

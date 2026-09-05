@@ -174,6 +174,12 @@ interface BasePipelineStep {
   // persisted step, but stays optional here since a freshly created
   // (not-yet-persisted) local `Step` may not have one yet.
   parentStepId?: string | null;
+  // HEL-968 task 2.1/2.2: mirrors the backend `PipelineStepProtocol.rootId`
+  // (HEL-913 task 7.6a) -- the id of the `PipelineRoot` this step's lane
+  // originates from. Never omitted by the backend for a persisted step
+  // (every `fromDomain` call site passes it), but stays optional here for
+  // the same not-yet-persisted-local-step reason `parentStepId` does.
+  rootId?: string | null;
 }
 
 export interface RenameStep extends BasePipelineStep {
@@ -507,6 +513,15 @@ export interface PipelineRoot {
   id: string;
   dataSourceId: string;
   dataSourceName: string;
+}
+
+// HEL-968 task 7.1: mirrors the backend's `RemovePipelineRootResponse` (R7
+// phase 2 step 3) -- `DELETE /api/pipelines/:id/roots/:rootId`'s response,
+// reporting what the removal destroyed so the caller can surface it without
+// re-deriving the count client-side.
+export interface RemovePipelineRootResponse {
+  removedStepCount: number;
+  removedOutputCount: number;
 }
 
 export interface PipelineSummary {

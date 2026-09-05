@@ -33,9 +33,11 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { usePipelineRunEvents } from "./usePipelineRunEvents";
 import type { RunStatusEventData } from "./usePipelineRunEvents";
 import {
+  addPipelineRoot,
   createPipelineStep,
   deletePipelineStep,
   duplicatePipelineStep,
+  removePipelineRoot,
   reorderPipelineSteps,
   updatePipelineStepEnabled,
 } from "../services/pipelineService";
@@ -43,6 +45,7 @@ import { createOutput } from "../services/outputService";
 import { useToast } from "../../toasts/hooks/useToast";
 import type {
   AggregateConfig,
+  PipelineRoot,
   PipelineStepConfig,
   PipelineStepKind,
   SchemaField,
@@ -56,6 +59,9 @@ import type { OpType, Step } from "../types/step";
 // matters for `StepCard`'s `React.memo`.
 const EMPTY_ANALYZE_COLUMNS: string[] = [];
 const EMPTY_ANALYZE_SCHEMA: SchemaField[] = [];
+// HEL-968 — stable empty-roots reference so `buildLaneGraph`'s `useMemo`
+// dependency doesn't churn on every render before `currentPipeline` loads.
+const EMPTY_ROOTS: PipelineRoot[] = [];
 
 /**
  * All `PipelineDetailPage` state, effects, and handlers (HEL-682 split,
@@ -241,8 +247,11 @@ export function usePipelineDetailPage() {
     .join("|");
 
   // HEL-912 task 1.1 — n-lane grouping (design.md decision 1), recomputed
-  // only when the steps array itself changes.
-  const laneGraph = useMemo(() => buildLaneGraph(steps), [steps]);
+  // only when the steps array or the pipeline's roots change. HEL-968 D1 —
+  // `roots` is now required: it's what lets a root with zero steps still
+  // render as an empty lane, which `steps` alone could never reveal.
+  const roots = currentPipeline?.roots ?? EMPTY_ROOTS;
+  const laneGraph = useMemo(() => buildLaneGraph(steps, roots), [steps, roots]);
   useEffect(() => {
     if (!id || steps.length === 0) return;
     if (skipNextAnalyzeRef.current) {
@@ -487,6 +496,12 @@ export function usePipelineDetailPage() {
           opType.id as PipelineStepKind,
           initialConfig,
           isAppend ? undefined : index,
+          undefined,
+          undefined,
+          // HEL-968: this handler only ever inserts into root 0's own top-level
+          // lane (every other root renders read-only-ish via `RootColumn`, task 6) --
+          // required once the pipeline has more than one root (R6/task 2.3).
+          roots[0]?.id,
         );
         // CR9 — a trunk splice-insert (this call, when not appending) can
         // reparent OTHER existing steps server-side; resync the whole list
@@ -503,7 +518,7 @@ export function usePipelineDetailPage() {
         });
       }
     },
-    [id, pushToast, syncStepsFromServer],
+    [id, pushToast, syncStepsFromServer, roots],
   );
 
   const handleAddStep = useCallback(
@@ -689,6 +704,10 @@ export function usePipelineDetailPage() {
             undefined,
             realParentId,
             false,
+            // HEL-968: only reached without a `realParentId` (an
+            // empty-pipeline anchor -- root 0's own top-level lane, same as
+            // `handleInsertStep`); required once the pipeline has >1 root.
+            roots[0]?.id,
           );
           clientIdToRealId.set(stepExpansion.clientId, persisted.id);
           setSteps((prev) => [...prev, pipelineStepToStep(persisted)]);
@@ -723,7 +742,7 @@ export function usePipelineDetailPage() {
       // batch just created seconds earlier, which cannot yet have any other
       // children to reparent. No resync needed here.
     },
-    [id, pushToast],
+    [id, pushToast, roots],
   );
 
   // F-146 — `handleStepConfigChange` through `handleDuplicateStep` below are
@@ -815,8 +834,14 @@ export function usePipelineDetailPage() {
       // from handleAddStep/handleInstantiateShape. Sending one would fail the
       // server's set-equality check, so exclude them (mirrors handleRemoveStep's
       // temp-id no-op convention above).
-      const reorderedGraph = buildLaneGraph(newOrder);
-      const primaryLane = reorderedGraph.lanes.find((l) => l.id === reorderedGraph.primaryLaneId);
+      // HEL-968: reorder is still root-0-only (multi-root reorder semantics
+      // are HEL-973's, out of scope here) -- resolve "the primary lane" as
+      // root 0's own root-level lane rather than a retired `primaryLaneId`.
+      const reorderedGraph = buildLaneGraph(newOrder, roots);
+      const firstRootId = roots[0]?.id;
+      const primaryLane = reorderedGraph.lanes.find(
+        (l) => l.parentStepId === undefined && l.rootId === firstRootId,
+      );
       const persistedIds = (primaryLane?.steps ?? [])
         .filter((s) => !s.id.startsWith("step-"))
         .map((s) => s.id);
@@ -840,7 +865,65 @@ export function usePipelineDetailPage() {
         pushToast({ variant: "error", message: `Failed to reorder steps: ${message}` });
       }
     },
-    [id, pushToast],
+    [id, pushToast, roots],
+  );
+
+  // HEL-968 task 8 — "+ root": `sourceId` is either an existing source the
+  // caller picked, or one just created via the nested `AddSourceModal`
+  // (mirrors `CreatePipelineModal`'s composition, design.md D4). Refetches
+  // the pipeline afterward so `currentPipeline.roots` (and this hook's own
+  // `roots`/`laneGraph`) reflect the new root without a page reload -- the
+  // new root has no steps yet, so no `syncStepsFromServer()` is needed.
+  const handleAddRoot = useCallback(
+    async (sourceId: string) => {
+      if (!id) return;
+      // D4 — refuse in the handler too, not just via the disabled confirm
+      // control (HEL-620 was exactly a picker defaulting to an unset id and
+      // issuing a request that 404'd on the ACL check).
+      if (!sourceId) return;
+      try {
+        await addPipelineRoot(id, { sourceId });
+        void dispatch(fetchPipelineById(id));
+      } catch (err: unknown) {
+        const message = extractErrorMessage(err, "the request could not be completed.");
+        pushToast({ variant: "error", message: `Failed to add root: ${message}` });
+      }
+    },
+    [id, dispatch, pushToast],
+  );
+
+  // HEL-968 task 9 — root removal (R7). No client-side pre-check duplicates
+  // the backend's two refusals (last root; a surviving lane referencing a
+  // node this root's removal would delete) -- the server's named refusal is
+  // rendered verbatim (design.md D5's "the client renders the server's
+  // refusal; it does not re-derive it"). On success, resyncs both the
+  // pipeline (its `roots[]` shrank) and the step list (the root's steps and
+  // their Outputs are gone), then surfaces the exact counts the response
+  // reported.
+  const handleRemoveRoot = useCallback(
+    async (rootId: string) => {
+      if (!id) return;
+      try {
+        const result = await removePipelineRoot(id, rootId);
+        await Promise.all([dispatch(fetchPipelineById(id)), syncStepsFromServer()]);
+        pushToast({
+          variant: "success",
+          message: `Root removed: ${result.removedStepCount} step${
+            result.removedStepCount === 1 ? "" : "s"
+          }, ${result.removedOutputCount} Output${
+            result.removedOutputCount === 1 ? "" : "s"
+          } removed.`,
+        });
+      } catch (err: unknown) {
+        // R7 phase 1's two named refusals ("last root" / "surviving lane
+        // referencing a deleted node") arrive as the server's own message
+        // via `extractErrorMessage` -- rendered as-is, not remapped to a
+        // second, drifting client-side copy.
+        const message = extractErrorMessage(err, "the request could not be completed.");
+        pushToast({ variant: "error", message: `Failed to remove root: ${message}` });
+      }
+    },
+    [id, dispatch, pushToast, syncStepsFromServer],
   );
 
   // HEL-412 — optimistic flip → PATCH `{enabled}` → reconcile from the
@@ -1021,6 +1104,9 @@ export function usePipelineDetailPage() {
     handleEditSource,
     handleToggleScheduleEnabled,
     laneGraph,
+    roots,
+    handleAddRoot,
+    handleRemoveRoot,
     handleAddStep,
     handleAddLaneStep,
     handleAddOutputViaAggregateTail,

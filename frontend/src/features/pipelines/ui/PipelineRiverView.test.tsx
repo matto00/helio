@@ -10,9 +10,17 @@ import type { ComponentProps } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import { PipelineRiverView } from "./PipelineRiverView";
+import { renderWithStore } from "../../../test/renderWithStore";
 import { OP_TYPES } from "../state/stepNarrowing";
 import { buildLaneGraph } from "../state/stepTree";
+import type { PipelineRoot } from "../types/pipelineStep";
 import type { Step } from "../types/step";
+
+// AddRootModal (mounted lazily by "+ Add root") fetches sources on open --
+// mocked so it never hits a real (jsdom-network-error) request.
+jest.mock("../../sources/services/dataSourceService", () => ({
+  fetchSources: jest.fn().mockResolvedValue([]),
+}));
 
 /** HEL-912 — this file's fixtures historically had no `parentStepId` at
  *  all, relying on the OLD `buildStepTree`'s "append any parentless step
@@ -37,6 +45,9 @@ const FILTER_OP = OP_TYPES.find((op) => op.id === "filter")!;
 const LIMIT_OP = OP_TYPES.find((op) => op.id === "limit")!;
 const SORT_OP = OP_TYPES.find((op) => op.id === "sort")!;
 const CAST_OP = OP_TYPES.find((op) => op.id === "cast")!;
+const ONE_ROOT: PipelineRoot[] = [
+  { id: "root-1", dataSourceId: "src-1", dataSourceName: "Test source" },
+];
 
 // Three distinctly-labeled persisted steps: A (filter), B (limit), C (sort).
 const stepA: Step = {
@@ -77,7 +88,10 @@ function baseProps(overrides: Partial<ComponentProps<typeof PipelineRiverView>> 
   const resolvedSteps = linkChain(overrides.steps ?? [stepA, stepB, stepC]);
   return {
     steps: resolvedSteps,
-    laneGraph: buildLaneGraph(resolvedSteps),
+    laneGraph: buildLaneGraph(resolvedSteps, ONE_ROOT),
+    roots: ONE_ROOT,
+    onAddRoot: jest.fn(),
+    onRemoveRoot: jest.fn(),
     pipelineId: "pipe-1",
     dropdownOpen: false,
     openDropdown: jest.fn(),
@@ -340,7 +354,9 @@ describe("PipelineRiverView shape-picker (HEL-912 — single-tail gate removed)"
     const linkedC: Step = { ...stepC, parentStepId: "b", position: 0 };
     const lane: Step = { ...stepD, id: "t", parentStepId: "c", position: 1 };
     const steps = [linkedA, linkedB, linkedC, lane];
-    render(<PipelineRiverView {...baseProps({ steps, laneGraph: buildLaneGraph(steps) })} />);
+    render(
+      <PipelineRiverView {...baseProps({ steps, laneGraph: buildLaneGraph(steps, ONE_ROOT) })} />,
+    );
     expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeEnabled();
   });
 });
@@ -362,7 +378,9 @@ describe("PipelineRiverView one-step lane compact rendering (HEL-912 task 3.3)",
     const primaryContinuation: Step = { ...stepC, parentStepId: "a", position: 0 };
     const lane: Step = { ...stepB, parentStepId: "a", position: 1 };
     const steps = [linkedA, primaryContinuation, lane];
-    render(<PipelineRiverView {...baseProps({ steps, laneGraph: buildLaneGraph(steps) })} />);
+    render(
+      <PipelineRiverView {...baseProps({ steps, laneGraph: buildLaneGraph(steps, ONE_ROOT) })} />,
+    );
 
     const aSection = sectionFor("Filter rows");
     const tailItems = within(aSection).getAllByRole("button", { name: "Limit rows" });
@@ -383,7 +401,7 @@ describe("PipelineRiverView '+ lane' affordance (HEL-912 task 4.3)", () => {
     const steps = [linkedA, laneOne];
     render(
       <PipelineRiverView
-        {...baseProps({ steps, laneGraph: buildLaneGraph(steps), onAddLaneStep })}
+        {...baseProps({ steps, laneGraph: buildLaneGraph(steps, ONE_ROOT), onAddLaneStep })}
       />,
     );
 
@@ -408,7 +426,7 @@ describe("PipelineRiverView '+ lane' affordance (HEL-912 task 4.3)", () => {
     const steps = [linkedA, laneOne, laneTwo];
     render(
       <PipelineRiverView
-        {...baseProps({ steps, laneGraph: buildLaneGraph(steps), onAddLaneStep })}
+        {...baseProps({ steps, laneGraph: buildLaneGraph(steps, ONE_ROOT), onAddLaneStep })}
       />,
     );
 
@@ -419,5 +437,73 @@ describe("PipelineRiverView '+ lane' affordance (HEL-912 task 4.3)", () => {
     expect(onAddLaneStep).toHaveBeenCalledTimes(1);
     expect(onAddLaneStep.mock.calls[0][1]).toBe("a");
     expect(screen.queryByText(/already has a tail/i)).not.toBeInTheDocument();
+  });
+});
+
+// HEL-968 — root columns (task 6), "+ root" (task 8), root removal (task 9).
+describe("PipelineRiverView — multi-root (HEL-968)", () => {
+  const TWO_ROOTS: PipelineRoot[] = [
+    { id: "root-1", dataSourceId: "src-1", dataSourceName: "Orders" },
+    { id: "root-2", dataSourceId: "src-2", dataSourceName: "Shipments" },
+  ];
+
+  it("renders a column head per root, labelled with its dataSourceName -- neither styled as primary", () => {
+    const steps = linkChain([stepA]);
+    render(
+      <PipelineRiverView
+        {...baseProps({ steps, laneGraph: buildLaneGraph(steps, TWO_ROOTS), roots: TWO_ROOTS })}
+      />,
+    );
+    expect(screen.getByText("Shipments")).toBeInTheDocument();
+    expect(screen.queryByText(/primary/i)).not.toBeInTheDocument();
+  });
+
+  // task 6.2 — an empty root renders an affordance rather than vanishing.
+  it("an empty root's column renders an empty-lane affordance instead of disappearing", () => {
+    const steps = linkChain([stepA]);
+    render(
+      <PipelineRiverView
+        {...baseProps({ steps, laneGraph: buildLaneGraph(steps, TWO_ROOTS), roots: TWO_ROOTS })}
+      />,
+    );
+    expect(
+      screen.getByText(/No steps yet/i, { selector: ".pipeline-detail-page__root-column-empty" }),
+    );
+  });
+
+  it("clicking a root's Remove button invokes onRemoveRoot with that root's id", () => {
+    const onRemoveRoot = jest.fn();
+    const steps = linkChain([stepA]);
+    render(
+      <PipelineRiverView
+        {...baseProps({
+          steps,
+          laneGraph: buildLaneGraph(steps, TWO_ROOTS),
+          roots: TWO_ROOTS,
+          onRemoveRoot,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Remove root Shipments/i }));
+    expect(onRemoveRoot).toHaveBeenCalledWith("root-2");
+  });
+
+  it("'+ Add root' opens the add-root modal", () => {
+    // jsdom does not implement showModal/close natively; stub to set the
+    // open attribute (matching CreatePipelineModal.test.tsx's precedent).
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    });
+    // AddRootModal reads/dispatches Redux (`useAppSelector`/`fetchSources`),
+    // unlike the rest of this component -- needs a real store, unlike every
+    // other test in this file.
+    renderWithStore(<PipelineRiverView {...baseProps({ roots: ONE_ROOT })} />, {
+      sources: { items: [], status: "succeeded" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "+ Add root" }));
+    expect(screen.getByRole("heading", { name: "Add a root" })).toBeInTheDocument();
   });
 });
