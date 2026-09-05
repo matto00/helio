@@ -19,3 +19,6 @@ development-plan.md
 
 # Superpowers SDD workspace (gitignored scratch)
 .superpowers
+
+# Concertino delivery worktrees (nested inside this repo — see eslint.config.cjs)
+.claude/worktrees
