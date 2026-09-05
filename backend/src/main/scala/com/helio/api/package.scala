@@ -140,6 +140,9 @@ package object api {
   val SchemaFieldResponse: protocols.pipelines.SchemaFieldResponse.type = protocols.pipelines.SchemaFieldResponse
   type DataSourceResponse = protocols.sources.DataSourceResponse
   val DataSourceResponse: protocols.sources.DataSourceResponse.type = protocols.sources.DataSourceResponse
+  type DataSourceDeleteConflictResponse = protocols.sources.DataSourceDeleteConflictResponse
+  val DataSourceDeleteConflictResponse: protocols.sources.DataSourceDeleteConflictResponse.type =
+    protocols.sources.DataSourceDeleteConflictResponse
   type DataSourcesResponse = protocols.sources.DataSourcesResponse
   val DataSourcesResponse: protocols.sources.DataSourcesResponse.type = protocols.sources.DataSourcesResponse
   type UpdateDataSourceRequest = protocols.sources.UpdateDataSourceRequest

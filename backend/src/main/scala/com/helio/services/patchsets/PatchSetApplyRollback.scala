@@ -112,9 +112,12 @@ private[services] object PatchSetApplyRollback {
         forwardOutcome.newId match {
           case None => Future.successful(edit.toOutcome("unrecoverable"))
           case Some(idStr) =>
+            // HEL-987: `.delete` now returns `Either[DataSourceDeleteError, Unit]` -- `err.err`
+            // is the plain `ServiceError` `logFailure` expects, unaffected by whether the
+            // failure carried the extra structured-conflict fields.
             services.dataSourceService.delete(DataSourceId(idStr), user).map {
               case Right(_)  => edit.toOutcome("rolledBack")
-              case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
+              case Left(err) => logFailure(edit, err.err.message); edit.toOutcome("unrecoverable")
             }
         }
       case ResolvedAction.DataSourceUpdate(id, _, prior) =>

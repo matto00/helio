@@ -9,9 +9,13 @@ import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.sources.{CsvPreviewResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository.BlockingPipeline
 import com.helio.infrastructure.storage.FileSystem
 import SourceConfigParsing._
 import spray.json._
+
+import org.postgresql.util.PSQLException
+import org.slf4j.LoggerFactory
 
 import java.net.InetAddress
 import java.nio.charset.StandardCharsets
@@ -53,6 +57,8 @@ final class DataSourceService(
     // HEL-477: nullable-optional wiring mirrors this file's other DI.
     auditService: AuditService = null
 )(implicit ec: ExecutionContext, @annotation.unused mat: Materializer, system: ActorSystem[_]) {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   private val staticMaxRows = 500
 
@@ -558,28 +564,80 @@ final class DataSourceService(
         }
     }
 
-  def delete(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+  /** HEL-987 design.md Decision 1/2: 409s (naming the blocking pipeline) instead of the bare
+   *  500 that used to escape when `sourceId` is a pipeline's SOLE root -- deleting it would
+   *  cascade `pipeline_roots.data_source_id ON DELETE CASCADE` (V98) into a still-existing
+   *  pipeline with zero roots, which V99's `hel913_prevent_zero_root_pipelines` trigger raises
+   *  (P0001) rather than allow (R1: "a zero-root pipeline is not a representable state"). A
+   *  source that is one of SEVERAL roots, or referenced by no pipeline at all, is unaffected
+   *  (HEL-989 owns the adjacent multi-root silent-panel-loss risk; out of scope here).
+   *
+   *  Decision 2's two layers: the pre-check below (task 3.1a) gives the good message and runs
+   *  BEFORE `deleteFileF` (task 3.4) so a rejected delete no longer destroys the source's
+   *  backing file; `classifyDeleteFailure` (task 3.2) is the race-path backstop for the
+   *  TOCTOU window between the pre-check and the actual delete -- neither alone is sufficient. */
+  def delete(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[DataSourceDeleteError, Unit]] =
     dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
       case None =>
-        Future.successful(Left(ServiceError.NotFound("Data source not found")))
+        Future.successful(Left(DataSourceDeleteError.plain(ServiceError.NotFound("Data source not found"))))
       case Some(source) =>
-        val deleteFileF: Future[Unit] = source match {
-          case c: CsvSource =>
-            fileSystem.delete(c.config.path).recover { case _ => () }
-          case t: TextSource =>
-            fileSystem.delete(t.config.path).recover { case _ => () }
-          case p: PdfSource =>
-            fileSystem.delete(p.config.path).recover { case _ => () }
-          case i: ImageSource =>
-            fileSystem.delete(i.config.path).recover { case _ => () }
-          case _ => Future.successful(())
-        }
-        deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map { _ =>
-          audit("data_source.delete", Some(source.id.value), user)
-          Right(())
+        dataSourceRepo.soleRootDependentPipelines(sourceId, user).flatMap {
+          case blocking if blocking.nonEmpty =>
+            Future.successful(Left(DataSourceDeleteError.conflict(soleRootConflict(source, blocking))))
+          case _ =>
+            val deleteFileF: Future[Unit] = source match {
+              case c: CsvSource =>
+                fileSystem.delete(c.config.path).recover { case _ => () }
+              case t: TextSource =>
+                fileSystem.delete(t.config.path).recover { case _ => () }
+              case p: PdfSource =>
+                fileSystem.delete(p.config.path).recover { case _ => () }
+              case i: ImageSource =>
+                fileSystem.delete(i.config.path).recover { case _ => () }
+              case _ => Future.successful(())
+            }
+            deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map { _ =>
+              audit("data_source.delete", Some(source.id.value), user)
+              Right(())
+            }.recover {
+              case ex: PSQLException if isZeroRootViolation(ex) =>
+                log.warn(s"DataSourceService.delete: race-path P0001 for source ${sourceId.value}, mapping to conflict", ex)
+                Left(DataSourceDeleteError.conflict(soleRootConflict(source, Vector.empty)))
+            }
         }
     }
 
+  /** Task 3.2's defensive mapping: matches on SQLSTATE `P0001` (`raise_exception`) PLUS the
+   *  `hel913_prevent_zero_root_pipelines` message signature, never on message text alone --
+   *  a bare `P0001` could be raised by an unrelated future trigger, and matching only that would
+   *  silently swallow it as this specific conflict. */
+  private def isZeroRootViolation(ex: PSQLException): Boolean =
+    Option(ex.getSQLState).contains("P0001") &&
+      Option(ex.getMessage).exists(_.contains("HEL-913")) &&
+      Option(ex.getMessage).exists(_.contains("zero roots"))
+
+  /** HEL-987 evaluation-1.md CR1: `resourceKind`/`resourceId`/`resourceName` identify the
+   *  SOURCE being deleted -- matching `specs/datasource-edit-delete/spec.md` and the teardown
+   *  precedent (`WorkspaceTeardownRepository.sourceDependentPipelineConflict`, whose own
+   *  `resourceKind` is `"data_source"` with the dependent pipeline named only in `reason`), NOT
+   *  the blocking pipeline. `reason`/`message` names every blocking pipeline by name and id
+   *  (task 3.1a). When the race-path mapping (no pre-check result in hand) fires this instead,
+   *  `blocking` is empty and the reason falls back to a still-accurate, non-leaky generic
+   *  sentence -- naming the pipeline there would require re-querying after the delete already
+   *  failed, which is not worth the extra round trip for what design.md documents as a rare
+   *  TOCTOU window. Because `resourceId`/`resourceName` are always the source's OWN identity
+   *  (never the pipeline's), this race path is consistent by construction -- CR2's identifier
+   *  substitution can't recur here. */
+  private def soleRootConflict(source: DataSource, blocking: Vector[BlockingPipeline]): DataSourceDeleteConflict = {
+    val reason =
+      if (blocking.isEmpty)
+        "this delete would leave a pipeline with zero roots; remove the pipeline itself instead of its last root, or add another root first"
+      else {
+        val names = blocking.map(p => s"'${p.name}' (${p.id})").mkString(", ")
+        s"deleting this source would leave pipeline(s) $names with zero roots; remove the pipeline itself instead of its last root, or add another root first"
+      }
+    DataSourceDeleteConflict(resourceKind = "data_source", resourceId = source.id.value, resourceName = source.name, reason = reason)
+  }
 
   /** Unified refresh entry point. The route provides:
    *  - `None` for CSV — service re-reads the stored file.

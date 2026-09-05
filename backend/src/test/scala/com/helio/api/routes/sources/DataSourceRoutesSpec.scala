@@ -166,6 +166,44 @@ class DataSourceRoutesSpec
     await(db.run(sqlu"TRUNCATE TABLE data_sources RESTART IDENTITY CASCADE"))
   }
 
+  /** HEL-987: seeds a pipeline whose sole root binds to `sourceId` (or, when
+   *  `extraRootSourceIds` is non-empty, whose roots also include those additional
+   *  sources at later `position`s) -- the fixture the sole-root-conflict / multi-root
+   *  control DELETE tests exercise. Mirrors `V99PreventZeroRootPipelinesMigrationSpec`'s
+   *  own seeding since no authoring route in this spec's route set creates a pipeline. */
+  private def seedSoleRootPipeline(sourceId: String, name: String, extraRootSourceIds: Seq[String] = Seq.empty): String = {
+    import slick.jdbc.PostgresProfile.api._
+    val pipelineId = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at)
+             VALUES ($pipelineId, $name, $testUserId::uuid, now(), now())"""
+    ))
+    await(db.run(
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position)
+             VALUES (${UUID.randomUUID().toString}, $pipelineId, $sourceId, 0)"""
+    ))
+    extraRootSourceIds.zipWithIndex.foreach { case (extraId, idx) =>
+      await(db.run(
+        sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position)
+               VALUES (${UUID.randomUUID().toString}, $pipelineId, $extraId, ${idx + 1})"""
+      ))
+    }
+    pipelineId
+  }
+
+  /** A bare, owned `data_sources` row (never fetched, only FK'd from `pipeline_roots`) for
+   *  the multi-root control fixture's second root. */
+  private def seedExtraRootDataSource(): String = {
+    import slick.jdbc.PostgresProfile.api._
+    val id  = UUID.randomUUID().toString
+    val cfg = """{"columns":[],"rows":[]}"""
+    await(db.run(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($id, 'extra-root', 'static', $cfg, $testUserId::uuid, now(), now())"""
+    ))
+    id
+  }
+
   // HEL-879: `testConnectionEphemeral` deliberately does NOT consult `fetchOverride` (design.md
   // Decision 2's asymmetry note), so the "POST /api/sources/test" REST cases below hit the
   // real guarded issuer against this spec's local "localhost" test server. Admit ONLY that
@@ -797,6 +835,71 @@ class DataSourceRoutesSpec
     "return 404 for an unknown source id" in {
       Delete("/api/data-sources/does-not-exist") ~> routes() ~> check {
         status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // HEL-987: a source that is a pipeline's SOLE root cascades (V98's
+    // `pipeline_roots.data_source_id ON DELETE CASCADE`) into a delete that would
+    // leave that still-existing pipeline with zero roots -- V99's
+    // `hel913_prevent_zero_root_pipelines` trigger raises P0001 for exactly this case,
+    // which used to escape as a raw 500. `seedSoleRootPipeline`/`seedExtraRootDataSource`
+    // build the fixture directly against `pipeline_roots` (mirroring
+    // `V99PreventZeroRootPipelinesMigrationSpec`'s own seeding), since there is no
+    // authoring route in this spec's route set to create a pipeline through.
+    "return 409 naming the blocking pipeline when the source is a pipeline's sole root" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Sole Root Source", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+      seedSoleRootPipeline(sourceId, name = "Sole Root Pipeline")
+
+      Delete(s"/api/data-sources/$sourceId") ~> routes() ~> check {
+        status shouldBe StatusCodes.Conflict
+        val body = responseAs[JsValue].asJsObject
+        // HEL-987 evaluation-1.md CR1: resourceKind/resourceId/resourceName identify the
+        // SOURCE being deleted (matching specs/datasource-edit-delete/spec.md and the teardown
+        // precedent), not the blocking pipeline -- the pipeline is named only in reason/message.
+        body.fields("resourceKind").convertTo[String] shouldBe "data_source"
+        body.fields("resourceId").convertTo[String]   shouldBe sourceId
+        body.fields("resourceName").convertTo[String] shouldBe "Sole Root Source"
+        body.fields("reason").convertTo[String]       should include("Sole Root Pipeline")
+        body.fields("message").convertTo[String]      shouldBe body.fields("reason").convertTo[String]
+      }
+
+      // The rejected delete must not have destroyed the source or its backing file
+      // (design.md tasks.md 3.4 -- the pre-check runs before `deleteFileF`).
+      Get("/api/data-sources") ~> routes() ~> check {
+        responseAs[PagedResult[DataSourceResponse]].items.map(_.id) should contain(sourceId)
+      }
+    }
+
+    "return 204 when the source is one of SEVERAL roots -- the pipeline survives with the remaining root(s)" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Multi Root Source", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+      val otherRootId = seedExtraRootDataSource()
+      seedSoleRootPipeline(sourceId, name = "Multi Root Pipeline", extraRootSourceIds = Seq(otherRootId))
+
+      Delete(s"/api/data-sources/$sourceId") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+    }
+
+    "return 204 for an unreferenced source (control)" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Unreferenced Source", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Delete(s"/api/data-sources/$sourceId") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
       }
     }
   }
