@@ -1129,5 +1129,57 @@ class WorkspaceContextServiceSpec
         schemaValidationErrors(body) shouldBe empty
       }
     }
+
+    // HEL-914 (production N+1 fix regression guard): pins "2 root-lookup queries for the WHOLE
+    // request, not 2 per pipeline" -- a plain "the lane tree is correct" assertion would still
+    // pass if the batching were reverted to a per-pipeline `Future.traverse` loop (both shapes
+    // produce an identical `laneTree` value; only the CALL COUNT differs). `Mockito.spy` wraps
+    // the REAL `pipelineRepo`/`pipelineStepRepo` instances (same embedded-Postgres-backed fixture
+    // every other test in this file uses) so this exercises real queries, not a mocked-out
+    // computation -- only the invocation COUNT is intercepted.
+    "batch the lane-tree root lookups once per request, not once per pipeline" in {
+      implicit val ec: ExecutionContext = routeEc
+      // Dedicated, freshly-inserted user (this file's fixture is a shared BeforeAndAfterAll
+      // instance -- `userA` accumulates every OTHER test's pipelines too, which would make the
+      // call-count assertion below meaningless: `assemble` would batch over however many
+      // pipelines happen to exist at THIS point in the suite's run order, not the 3 this test
+      // controls).
+      val batchUserId = UUID.randomUUID().toString
+      await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($batchUserId::uuid, ${s"batch-$batchUserId@test.local"}, now())"""))
+      val batchUser = AuthenticatedUser(UserId(batchUserId))
+
+      val source = createSource(batchUser, "batch-source")
+      val pipelineA = createPipeline(batchUser, source.id, "batch-pipeline-a", "batch-output-a")
+      val pipelineB = createPipeline(batchUser, source.id, "batch-pipeline-b", "batch-output-b")
+      val pipelineC = createPipeline(batchUser, source.id, "batch-pipeline-c", "batch-output-c")
+
+      val spiedPipelineRepo     = org.mockito.Mockito.spy(pipelineRepo)
+      val spiedPipelineStepRepo = org.mockito.Mockito.spy(pipelineStepRepo)
+      val spiedPipelineService  =
+        new PipelineService(spiedPipelineRepo, spiedPipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
+      val spiedService = new WorkspaceContextService(
+        new DashboardService(dashboardRepo, new AccessCheckerImpl(
+          new ResourcePermissionRepository(new DbContext(db, db)),
+          new ResourceTypeRegistry(AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))))
+        )),
+        dataSourceService,
+        outputRepo,
+        spiedPipelineService,
+        pipelineStepRepoOpt = Some(spiedPipelineStepRepo)
+      )
+
+      val result = await(spiedService.assemble(batchUser))
+      val pipelineIds = Set(pipelineA.id, pipelineB.id, pipelineC.id)
+      result.pipelines.map(_.id).toSet shouldBe pipelineIds
+
+      // Batched entry points: exactly ONE call for the whole request, covering all 3 pipelines --
+      // a revert to the per-pipeline `Future.traverse` loop this fix replaced would instead call
+      // these 0 times (the single-id `listRootDataSourceIdsInternal`/`rootIdsOf` methods would be
+      // called 3 times each instead), failing this assertion either way.
+      org.mockito.Mockito.verify(spiedPipelineRepo, org.mockito.Mockito.times(1))
+        .listRootDataSourceIdsInternalBatch(org.mockito.ArgumentMatchers.any())
+      org.mockito.Mockito.verify(spiedPipelineStepRepo, org.mockito.Mockito.times(1))
+        .rootIdsOfBatch(org.mockito.ArgumentMatchers.any())
+    }
   }
 }

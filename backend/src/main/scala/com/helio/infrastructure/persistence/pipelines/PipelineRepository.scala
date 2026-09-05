@@ -130,6 +130,33 @@ class PipelineRepository(
         .result
     ).map(_.map { case (rid, dsid) => (PipelineRootId(rid), DataSourceId(dsid)) }.toVector)
 
+  /** HEL-914 (production N+1 fix, HEL-865's field report -- 220,197-char response on a
+    * 25-source/43-pipeline workspace): the multi-pipeline sibling of
+    * [[listRootDataSourceIdsInternal]] -- one round trip for every id in `pipelineIds` instead of
+    * one per id. Privileged (`withSystemContext`), on the SAME basis as the single-id method it
+    * replaces in `WorkspaceContextService.assemble`'s loop -- it does NOT itself check ownership,
+    * exactly like `listRootDataSourceIdsInternal`. The only caller must feed it an id set that is
+    * ALREADY owner-scoped (there, `PipelineSummaryResponse.id` values from the owner-scoped
+    * `PipelineService.listSummaries` call), never a caller-supplied/unvalidated id set -- the same
+    * discipline `laneTreeFromRoots`'s doc calls out, and the precedent this repo's HEL-384 near-miss
+    * (a cross-tenant union-source ACL gap) exists to guard against repeating. */
+  def listRootDataSourceIdsInternalBatch(
+      pipelineIds: Set[PipelineId]
+  ): Future[Map[PipelineId, Vector[(PipelineRootId, DataSourceId)]]] =
+    if (pipelineIds.isEmpty) Future.successful(Map.empty)
+    else {
+      val ids = pipelineIds.map(_.value)
+      ctx.withSystemContext(
+        rootsTable
+          .filter(r => r.pipelineId.inSet(ids))
+          .sortBy(r => (r.pipelineId, r.position))
+          .map(r => (r.pipelineId, r.id, r.dataSourceId))
+          .result
+      ).map(_.groupBy(_._1).view.mapValues(_.map { case (_, rid, dsid) =>
+        (PipelineRootId(rid), DataSourceId(dsid))
+      }.toVector).map { case (pid, v) => (PipelineId(pid), v) }.toMap)
+    }
+
   /** Owner-scoped variant of [[findPrimaryDataSourceIdInternal]], for request-bound service
     * methods that must not bypass ACL (mirrors `findByIdOwned`'s contract). */
   def findPrimaryDataSourceIdOwned(id: PipelineId, user: AuthenticatedUser): Future[Option[DataSourceId]] = {

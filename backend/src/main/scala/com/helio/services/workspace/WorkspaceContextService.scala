@@ -9,7 +9,7 @@ import com.helio.api.protocols.pipelines.{AnalyzeStepResponse, PipelineSummaryRe
 import com.helio.api.protocols.sources.ConnectorSummary
 import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextDashboard, WorkspaceContextDataSource, WorkspaceContextOutput, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextPipelineStep, WorkspaceContextResponse}
 import com.helio.api.protocols.pipelines.PipelineLaneTreeNode
-import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, Dashboard, FieldTypeCategory, Output, Page, PagedResult, PipelineId}
+import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, DataSourceId, Dashboard, FieldTypeCategory, Output, Page, PagedResult, PipelineId, PipelineRootId, PipelineStepId}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
@@ -146,7 +146,25 @@ final class WorkspaceContextService(
       typesPage      <- typesF
       dashboardsPage <- dashboardsF
       summaries      <- summariesF
-      pipelines      <- Future.traverse(summaries)(buildPipeline(_, user))
+      // HEL-914 (production N+1 fix, HEL-865's field report -- 220,197-char response on a
+      // 25-source/43-pipeline workspace): `buildPipeline`'s lane-tree lookup used to issue
+      // `pipelineRepo.listRootDataSourceIdsInternal` + `pipelineStepRepo.rootIdsOf` ONE PIPELINE
+      // AT A TIME inside this `Future.traverse` fan-out -- 2 round trips per pipeline, 2N per
+      // request. Both are fetched ONCE here, for every id in `summaries` (already owner-scoped by
+      // the `listSummaries` call above -- never a broader/unvalidated id set, mirroring the
+      // single-id methods' own "no ownership check, caller must have already done one" contract),
+      // and the per-pipeline slice is handed into `buildPipeline` below -- 2 queries for the WHOLE
+      // request, not 2 per pipeline.
+      pipelineIds     = summaries.map(s => PipelineId(s.id)).toSet
+      rootDataSources <- pipelineStepRepoOpt match {
+        case None    => Future.successful(Map.empty[PipelineId, Vector[(PipelineRootId, DataSourceId)]])
+        case Some(_) => pipelineService.listRootDataSourceIdsInternalBatch(pipelineIds)
+      }
+      rootIdOfStepAll <- pipelineStepRepoOpt match {
+        case None    => Future.successful(Map.empty[PipelineId, Map[PipelineStepId, PipelineRootId]])
+        case Some(_) => pipelineService.rootIdsOfBatch(pipelineIds)
+      }
+      pipelines      <- Future.traverse(summaries)(buildPipeline(_, user, rootDataSources, rootIdOfStepAll))
       dataTypes      <- Future.traverse(typesPage.items)(toDataTypeEntry(_, user))
       dashboards     <- Future.traverse(dashboardsPage.items)(toDashboardEntry(_, user))
       agentContext   <- agentContextF
@@ -256,7 +274,15 @@ final class WorkspaceContextService(
    *  over a single real Postgres instance. */
   private[services] def buildPipeline(
       summary: PipelineSummaryResponse,
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      // HEL-914 (production N+1 fix): the caller's SINGLE, request-wide batched fetch
+      // (`assemble`'s `rootDataSources`/`rootIdOfStepAll`), sliced per-pipeline here via a plain
+      // `Map` lookup -- never a second DB round trip. Default-empty `Map`s so
+      // `Hel914Ac1EndToEndSpec`/other direct `buildPipeline` callers that predate this param keep
+      // compiling and degrade to an empty lane tree for that pipeline, mirroring
+      // `pipelineStepRepoOpt = None`'s existing degrade-to-`[]` convention just below.
+      rootDataSourcesByPipeline: Map[PipelineId, Vector[(PipelineRootId, DataSourceId)]] = Map.empty,
+      rootIdOfStepByPipeline: Map[PipelineId, Map[PipelineStepId, PipelineRootId]] = Map.empty
   ): Future[WorkspaceContextPipeline] = {
     // HEL-904 task 3.12: a pipeline no longer mints exactly one DataType (task 3.5) -- it can
     // carry zero-to-many Outputs, potentially on different nodes. `outputId`/
@@ -282,16 +308,23 @@ final class WorkspaceContextService(
     // `steps`/`stepsError` above (never a second, independent failure mode) -- a pipeline whose
     // analyze failed reports no lane tree either, rather than a partial/stale one. Fetches steps
     // ONCE (`pipelineStepRepoOpt`, ownership already established -- see that param's own doc) and
-    // feeds them, plus the ALREADY-fetched `outputsF`, into `laneTreeGiven` -- never calling the
-    // ACL-checked `laneTree` here, which would re-derive both via two more redundant round trips.
+    // combines them, plus the ALREADY-fetched `outputsF` and this pipeline's SLICE of the
+    // request-wide batched root lookups (`rootDataSourcesByPipeline`/`rootIdOfStepByPipeline`),
+    // via the pure `laneTreeFromRoots` -- never calling the ACL-checked `laneTree`, and never
+    // re-fetching root data per pipeline (`laneTreeGiven`'s own per-pipeline round trips), which
+    // is exactly the 2-queries-per-pipeline cost this fix removes.
     val laneTreeF = pipelineStepRepoOpt match {
       case None => Future.successful(Vector.empty[PipelineLaneTreeNode])
       case Some(pipelineStepRepo) =>
+        val pid = PipelineId(summary.id)
         (for {
-          steps   <- pipelineStepRepo.listByPipelineInternal(PipelineId(summary.id))
+          steps   <- pipelineStepRepo.listByPipelineInternal(pid)
           outputs <- outputsF
-          nodes   <- pipelineService.laneTreeGiven(PipelineId(summary.id), steps, outputs)
-        } yield nodes).recover { case _ => Vector.empty[PipelineLaneTreeNode] }
+        } yield {
+          val rootDataSourceIds = rootDataSourcesByPipeline.getOrElse(pid, Vector.empty).map(_._1.value)
+          val rootIdOfStep      = rootIdOfStepByPipeline.getOrElse(pid, Map.empty)
+          pipelineService.laneTreeFromRoots(steps, outputs, rootDataSourceIds, rootIdOfStep)
+        }).recover { case _ => Vector.empty[PipelineLaneTreeNode] }
     }
     for {
       outputs                    <- outputsF

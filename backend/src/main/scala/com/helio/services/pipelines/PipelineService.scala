@@ -1084,21 +1084,60 @@ final class PipelineService(
     } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep)
 
     rootFetch.map { case (rootIds, rootIdOfStep) =>
-      val rootIdOfStepStr = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
-      val graphPath       = RuntimeGraphPath.build(allSteps, rootIds, rootIdOfStepStr)
-      val outputsByStep: Map[String, Vector[String]] =
-        outputsAlreadyFetchedForThisPipeline.flatMap(o => o.node.stepId.map(sid => sid.value -> o.id.value)).groupMap(_._1)(_._2)
-      allSteps.map { s =>
-        val path   = graphPath.pathOf(s)
-        val rootId = path.stripPrefix("root:").takeWhile(_ != ' ')
-        PipelineLaneTreeNode(
-          id        = s.id.value,
-          parentId  = s.parentStepId.map(_.value),
-          rootId    = rootId,
-          op        = s.kind,
-          outputIds = outputsByStep.getOrElse(s.id.value, Vector.empty)
-        )
-      }
+      laneTreeFromRoots(allSteps, outputsAlreadyFetchedForThisPipeline, rootIds, rootIdOfStep)
+    }
+  }
+
+  /** Multi-pipeline performance fix (HEL-914 follow-up, production fix -- HEL-865's field report
+   *  recorded `GET /api/workspace/context` returning 220,197 characters on a 25-source/
+   *  43-pipeline workspace, independent of any test's time budget): the per-pipeline-loop callers
+   *  of [[laneTreeGiven]] (`WorkspaceContextService.buildPipeline`, fanned out via
+   *  `Future.traverse` in `assemble`) were still issuing `pipelineRepo.listRootDataSourceIdsInternal`
+   *  and `pipelineStepRepo.rootIdsOf` ONE PIPELINE AT A TIME -- 2 round trips per pipeline, 2N per
+   *  request. This variant takes those two lookups as ALREADY-BATCHED, already-sliced-to-this-
+   *  pipeline arguments (see `PipelineRepository.listRootDataSourceIdsInternalBatch` /
+   *  `PipelineStepRepository.rootIdsOfBatch`, and `WorkspaceContextService.assemble`'s single
+   *  batched fetch across every summary the caller owns), so the DB cost collapses to 2 queries
+   *  for the WHOLE request. Pure/in-memory -- no `Future`, no ownership check of its own, mirroring
+   *  `laneTreeGiven`'s own "assumes ownership already established by the caller" contract; the only
+   *  caller (`WorkspaceContextService.buildPipeline`) derives its batched maps from the SAME
+   *  owner-scoped `listSummaries` result that already gates `laneTreeGiven`. */
+  /** Thin delegation to `PipelineRepository.listRootDataSourceIdsInternalBatch` -- exists so
+   *  `WorkspaceContextService` (which holds a `PipelineService`, not a `PipelineRepository`)
+   *  can reach the batched lookup without a new constructor dependency. See that method's own
+   *  doc for the privileged/caller-must-already-own-these-ids contract this inherits unchanged. */
+  private[services] def listRootDataSourceIdsInternalBatch(
+      pipelineIds: Set[PipelineId]
+  ): Future[Map[PipelineId, Vector[(PipelineRootId, DataSourceId)]]] =
+    pipelineRepo.listRootDataSourceIdsInternalBatch(pipelineIds)
+
+  /** Thin delegation to `PipelineStepRepository.rootIdsOfBatch` -- same rationale as
+   *  [[listRootDataSourceIdsInternalBatch]] above. */
+  private[services] def rootIdsOfBatch(
+      pipelineIds: Set[PipelineId]
+  ): Future[Map[PipelineId, Map[PipelineStepId, PipelineRootId]]] =
+    pipelineStepRepo.rootIdsOfBatch(pipelineIds)
+
+  private[services] def laneTreeFromRoots(
+      allSteps: Vector[PipelineStep],
+      outputsAlreadyFetchedForThisPipeline: Vector[Output],
+      rootDataSourceIds: Vector[String],
+      rootIdOfStep: Map[PipelineStepId, PipelineRootId]
+  ): Vector[PipelineLaneTreeNode] = {
+    val rootIdOfStepStr = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
+    val graphPath       = RuntimeGraphPath.build(allSteps, rootDataSourceIds, rootIdOfStepStr)
+    val outputsByStep: Map[String, Vector[String]] =
+      outputsAlreadyFetchedForThisPipeline.flatMap(o => o.node.stepId.map(sid => sid.value -> o.id.value)).groupMap(_._1)(_._2)
+    allSteps.map { s =>
+      val path   = graphPath.pathOf(s)
+      val rootId = path.stripPrefix("root:").takeWhile(_ != ' ')
+      PipelineLaneTreeNode(
+        id        = s.id.value,
+        parentId  = s.parentStepId.map(_.value),
+        rootId    = rootId,
+        op        = s.kind,
+        outputIds = outputsByStep.getOrElse(s.id.value, Vector.empty)
+      )
     }
   }
 
