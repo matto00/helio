@@ -1,0 +1,7 @@
+- `helio-mcp/src/types.ts` — adds exported `QueryParamPair`/`QueryParamsInput` union; widens `CreatePipelineRootRequest.restConfig.queryParams` to it.
+- `helio-mcp/src/helioApi.ts` — widens `createRestDataSource`'s input `queryParams` to `QueryParamsInput`; the POST body forward was already a pure pass-through (no change needed there).
+- `helio-mcp/src/tools/restDataSourceSchema.ts` — replaces `queryParams: z.record(z.string(), z.string())` with a `z.union([array-of-{name,value}, record])` schema (array branch first per design.md D2).
+- `helio-mcp/src/tools/pipelinesHandlers.ts` — replaces the `as Record<string, string> | undefined` cast on the inline `rest_api` root branch with `as QueryParamsInput | undefined`.
+- `helio-mcp/src/tools/write.ts` — adds one sentence to `create_rest_data_source`'s description documenting the ordered-array encoding and when to use it (design.md D7); pass-through unchanged.
+- `helio-mcp/src/tools/queryParamsOrdering.test.ts` (new) — real `node:http`-server proof of the outgoing `POST /api/sources` request body for both the array and legacy object encodings, red-before-fix proof for `create_rest_data_source`, a labelled GUARD test for the inline-root path, and malformed-entry rejection tests. Mutation-proof of the ordering assertions (sort-by-name, group-duplicates) was run manually against a temporary mutation of `helioApi.ts` and reverted — see commit notes.
+- `openspec/changes/mcp-ordered-query-params/tasks.md` — all tasks marked complete.

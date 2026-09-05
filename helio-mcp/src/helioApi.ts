@@ -48,6 +48,7 @@ import type {
   PipelineStepResponse,
   PipelineSummaryResponse,
   ProposalPanel,
+  QueryParamsInput,
   PutPipelineScheduleRequest,
   RefinementResult,
   RowsPreview,
@@ -435,7 +436,7 @@ export class HelioApi {
     connectorId: string;
     endpoint?: string;
     method?: string;
-    queryParams?: Record<string, string>;
+    queryParams?: QueryParamsInput;
     headers?: Record<string, string>;
     body?: string;
     bodyContentType?: string;

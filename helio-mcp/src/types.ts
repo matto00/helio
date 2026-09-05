@@ -293,6 +293,22 @@ export interface PipelineSummaryResponse {
   tag?: string | null;
 }
 
+/** HEL-982 (closes the agent-path gap left open by HEL-844): a single query-param name may
+ *  legitimately repeat (`?tag=a&tag=b`), which a plain `Record<string, string>` cannot express
+ *  at all. `QueryParamsInput` is a union so BOTH encodings the backend dual-reads
+ *  (`QueryParams`'s companion `RootJsonFormat`, HEL-844 design D2) stay reachable from every
+ *  call site: the ordered `{name, value}[]` array form preserves duplicates and authored order
+ *  exactly as written; the legacy `Record<string, string>` object form keeps working unchanged
+ *  for existing callers (unique keys only, and decoded key-sorted by the backend's legacy
+ *  branch -- no order is recoverable from an object, so none is asserted here either). Never
+ *  normalize between the two encodings at any site that uses this type -- forward exactly what
+ *  was authored (design.md D3). */
+export interface QueryParamPair {
+  name: string;
+  value: string;
+}
+export type QueryParamsInput = QueryParamPair[] | Record<string, string>;
+
 /** `POST /api/pipelines`'s `roots[]` element AND `POST /api/pipelines/:id/roots`
  *  (`add_root`)'s request body -- the SAME shape for both (HEL-913 design.md R6, "one shape,
  *  not two"). Mirrors the backend's `CreatePipelineRootRequest` exactly. Exactly one of
@@ -320,7 +336,7 @@ export interface CreatePipelineRootRequest {
     url?: string;
     endpoint?: string;
     method?: string;
-    queryParams?: Record<string, string>;
+    queryParams?: QueryParamsInput;
     headers?: Record<string, string>;
     body?: string;
     bodyContentType?: string;

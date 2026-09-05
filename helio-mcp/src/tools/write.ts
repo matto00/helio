@@ -152,7 +152,10 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "out-of-band path, since it means the Connector needs a credential a human must supply), " +
         "so a bad endpoint can be diagnosed and retried. Build a " +
         "pipeline over the returned source id (create_pipeline, with an `outputs[]` entry) to " +
-        "produce a panel-bindable Output.",
+        "produce a panel-bindable Output. `queryParams` (HEL-982) accepts EITHER a JSON object " +
+        "(unique keys only) OR an ordered `[{name, value}]` array — use the array form to " +
+        "express a repeated key (e.g. `?tag=a&tag=b`) or to control the order query params are " +
+        "sent in; the object form cannot express either.",
       inputSchema: createRestDataSourceSchema,
     },
     ({
