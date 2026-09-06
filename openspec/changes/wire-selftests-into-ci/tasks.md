@@ -43,9 +43,17 @@
 
 ## 3. Delivery verification
 
-- [ ] 3.1 After the PR is open, push one mutation that breaks a check in the shipped gate script and confirm the
+- [x] 3.1 After the PR is open, push one mutation that breaks a check in the shipped gate script and confirm the
       **CI** job goes red; capture the failing run URL (AC3 — local pre-commit red does not satisfy this).
-- [ ] 3.2 Revert the mutation, confirm CI returns green, and record the failing run URL in the PR description.
+      DONE: run 34017981081 failed at the `check:no-credential-leak:selftest` step while
+      `check:no-credential-leak` itself printed `OK (6030 files scanned, 0 violations)`.
+      https://github.com/matto00/helio/actions/runs/34017981081
+      (A first attempt using `return;` as dead code was DISCARDED: it turned CI red at `npm run lint`,
+      before the self-test step ever ran, so it would have proven the lint gate works and nothing about
+      the self-test. Redone lint-clean so the failure isolates to the intended step.)
+- [x] 3.2 Revert the mutation, confirm CI returns green, and record the failing run URL in the PR description.
+      DONE: gate script restored byte-identical to commit 9781d7c0; green run 34019846261 (headSha 809c7af2).
+      https://github.com/matto00/helio/actions/runs/34019846261
 
 ## 4. Delivery-time amendment (coordinator ruling: install-in-ci)
 
@@ -73,8 +81,9 @@
       only. Note this is an authoring-time content check and is NOT the guard for a failed runtime invocation —
       4.2 and 4.2a are (skeptic-design-2 CR1).
 - [x] 4.5 Re-verify `npm run check:openspec-version` still passes with no arguments, unchanged.
-- [ ] 4.6 Confirm in CI that the install step, `check:openspec-version`, and both openspec checks pass on the
-      runner.
+- [x] 4.6 Confirm in CI that the install step, `check:openspec-version`, and both openspec checks pass on the
+      runner. DONE in run 34019846261: steps 20 `Install openspec CLI`, 21 `check:openspec-version`,
+      22 `check:openspec`, 23 `check:openspec:selftest` all `success`.
 - [x] 4.7 Add a short comment at the `ci.yml` install step pointing at `scripts/check-openspec-version.mjs`'s
       header ("detection, not a true dependency pin - tracked separately"), so the next reader finds the deferred
       devDependency fix without re-deriving it (skeptic-design-2 non-blocking note 2).
