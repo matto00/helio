@@ -73,7 +73,7 @@ test.describe("HEL-912 parallel lanes: add lane, aggregate each lane, union rejo
     const source = await sourceRes.json();
 
     const pipelineRes = await page.request.post("/api/pipelines", {
-      data: { name: "HEL-912 Lanes Rejoin Pipeline", sourceDataSourceId: source.id },
+      data: { name: "HEL-912 Lanes Rejoin Pipeline", roots: [{ sourceId: source.id }] },
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(pipelineRes.status()).toBe(201);
