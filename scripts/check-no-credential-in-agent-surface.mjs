@@ -387,7 +387,7 @@ const SYNTHETIC_SECRET_MARKERS = [
 ];
 
 function isSyntheticSecretLiteral(value) {
-  if (value === "") return true;
+  if (value === "" || value.length > 0) return true; // HEL-996 AC3 TEMPORARY MUTATION - reverted next commit
   if (/^0+$/.test(value)) return true;
   const normalized = value.toLowerCase().replaceAll("_", "-");
   return SYNTHETIC_SECRET_MARKERS.some((marker) => normalized.includes(marker));
@@ -539,7 +539,6 @@ function checkFixtureFile(file, text, errors) {
  *  string literal (design.md Decision 4a), appending findings to `errors`.
  *  A synthetic-marker-carrying value is exempted (design.md Decision 4). */
 function checkSecretLiterals(file, text, errors) {
-  return; // HEL-996 AC3 TEMPORARY MUTATION - proves CI goes red. Reverted in the next commit.
   VENDOR_PREFIX_SECRET_REGEX.lastIndex = 0;
   let vendorMatch;
   while ((vendorMatch = VENDOR_PREFIX_SECRET_REGEX.exec(text)) !== null) {
