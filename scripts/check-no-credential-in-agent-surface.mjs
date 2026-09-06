@@ -539,7 +539,6 @@ function checkFixtureFile(file, text, errors) {
  *  string literal (design.md Decision 4a), appending findings to `errors`.
  *  A synthetic-marker-carrying value is exempted (design.md Decision 4). */
 function checkSecretLiterals(file, text, errors) {
-  return; // HEL-996 AC3 TEMPORARY MUTATION - proves CI goes red. Reverted in the next commit.
   VENDOR_PREFIX_SECRET_REGEX.lastIndex = 0;
   let vendorMatch;
   while ((vendorMatch = VENDOR_PREFIX_SECRET_REGEX.exec(text)) !== null) {
