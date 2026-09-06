@@ -61,13 +61,13 @@ describe("HelioApi.runPipeline truncation surfacing (HEL-861)", () => {
     // Pins that the fixture's content passes through unmodified — not key-presence on RunOutcome,
     // and not coverage of the notice's own wording (that's PipelineRunServiceSpec.scala's job).
     expect(outcome.truncated).toBe(true);
-    expect(outcome.availableRowCount).toBe(3303);
+    expect(outcome.primaryAvailableRowCount).toBe(3303);
     expect(outcome.truncationNotice).toContain("1000");
     expect(outcome.truncationNotice).toContain("3303");
     expect(outcome.truncationNotice).toContain("truncated");
   });
 
-  it("a complete run (under the cap) is distinguishable from the truncated case above: truncated=false, no notice", async () => {
+  it("a complete run (under the cap) is distinguishable from the truncated case above: truncated=false, no notice, truncatedReads present and empty", async () => {
     const runResult: RunResultResponse = {
       rows: [],
       rowCount: 5,
@@ -79,8 +79,52 @@ describe("HelioApi.runPipeline truncation surfacing (HEL-861)", () => {
     const outcome = await api.runPipeline("pipe-2");
 
     expect(outcome.truncated).toBe(false);
-    expect(outcome.availableRowCount).toBeUndefined();
+    expect(outcome.primaryAvailableRowCount).toBeUndefined();
     expect(outcome.truncationNotice).toBeUndefined();
+    // HEL-890 task 3.4: `truncatedReads` is present-and-empty on a complete run, never `undefined`
+    // — same "no field is ever silently missing" reasoning as `truncated` itself (HEL-861).
+    expect(outcome.truncatedReads).toEqual([]);
+  });
+
+  // HEL-890 task 3.3/3.4: secondary-source case -- primary NOT truncated, secondary truncated.
+  // Asserts the exact emitted RunOutcome field by field, and asserts the renamed fields' absence
+  // of the OLD names at the actual surface an agent reads (guarded/jsonResult stringify RunOutcome
+  // verbatim), since that is where the AC1 rename actually removes the contradictory pair.
+  it("a secondary-source truncation (primary complete, lookup/join/union secondary truncated) surfaces per-source detail via truncatedReads, and the emitted object carries no old-named field", async () => {
+    const runResult: RunResultResponse = {
+      rows: [],
+      rowCount: 100,
+      sourceRowCount: 100,
+      sourceTruncated: true,
+      sourceAvailableRowCount: 100,
+      truncationNotice:
+        'Source "Sleeper Projections 2026" truncated: this run read the first 1000 rows returned, ' +
+        "out of 3114 available, because of the 1000-row run cap. Results computed from this run — " +
+        "including any filter, sort, or aggregate — describe only that partial population, not the " +
+        "full source.",
+      truncatedReads: [
+        { dataSourceName: "Sleeper Projections 2026", rowsRead: 1000, availableRowCount: 3114 },
+      ],
+    };
+    const api = new HelioApi(fakeHttp(runResult));
+
+    const outcome = await api.runPipeline("pipe-secondary");
+
+    // Field-by-field: the emitted structure must NOT read as "nothing was lost" (AC5).
+    expect(outcome.truncated).toBe(true);
+    expect(outcome.primarySourceRowCount).toBe(100);
+    expect(outcome.primaryAvailableRowCount).toBe(100);
+    expect(outcome.truncatedReads).toEqual([
+      { dataSourceName: "Sleeper Projections 2026", rowsRead: 1000, availableRowCount: 3114 },
+    ]);
+    // The per-source entry is what actually proves loss — 3114 available strictly exceeds the
+    // 1000 rows read, unlike the (deliberately still-equal) primary scalars above.
+    const [secondaryRead] = outcome.truncatedReads;
+    expect(secondaryRead).toBeDefined();
+    expect(secondaryRead?.availableRowCount).toBeGreaterThan(secondaryRead?.rowsRead as number);
+    // AC1: no unqualified, same-scope-looking field name survives on the emitted object.
+    expect(outcome).not.toHaveProperty("availableRowCount");
+    expect(outcome).not.toHaveProperty("sourceRowCount");
   });
 
   it("truncated always defaults to false, never undefined, when the backend omits sourceTruncated entirely", async () => {

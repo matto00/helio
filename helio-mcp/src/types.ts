@@ -569,6 +569,10 @@ export interface RunResultResponse {
   sourceTruncated?: boolean;
   sourceAvailableRowCount?: number;
   truncationNotice?: string;
+  /** HEL-890: per-source truncation detail -- one entry per truncated read, PRIMARY source
+   *  included when the primary itself was truncated, empty when nothing was truncated. This is
+   *  the machine-readable form of `truncationNotice`'s prose. */
+  truncatedReads?: { dataSourceName: string; rowsRead: number; availableRowCount?: number }[];
 }
 
 /** Per-panel grid placement in a proposal (optional). */

@@ -101,18 +101,38 @@ export interface StaticColumn {
  *  never had either — `JSON.stringify` silently dropped the resulting `undefined`, so no agent
  *  ever actually received it despite the tool description promising it). Call
  *  `list_outputs(pipelineId)` afterward for the produced Output id(s). */
+/** HEL-890: one truncated read on a `run_pipeline` result -- mirrors the backend's
+ *  `TruncatedReadResponse` exactly. `availableRowCount` is `undefined` only when the source's own
+ *  driver cannot measure a true total (SQL never can; REST always can). */
+export interface TruncatedRead {
+  dataSourceName: string;
+  rowsRead: number;
+  availableRowCount?: number;
+}
+
 export interface RunOutcome {
   pipelineId: string;
   status: string;
   rowCount: number;
-  sourceRowCount: number;
+  /** HEL-890: renamed from `sourceRowCount` -- scoped to the PRIMARY source only, never a
+   *  run-wide total. Do not compare against `truncated` (run-wide) as if they described the same
+   *  scope. */
+  primarySourceRowCount: number;
   /** HEL-861: `true` when the run's source read (or a join/union/lookup secondary source read)
    *  was capped by the 1000-row run limit — ALWAYS `false`, never `undefined`, so a truncated run
    *  is never indistinguishable from a missing field. `guarded`/`jsonResult` stringify this object
-   *  verbatim (no bespoke formatter), so this is exactly what an agent reads. */
+   *  verbatim (no bespoke formatter), so this is exactly what an agent reads. RUN-WIDE: `true` if
+   *  ANY source (primary or secondary) was truncated -- see `truncatedReads` for which one(s). */
   truncated: boolean;
-  availableRowCount?: number;
+  /** HEL-890: renamed from `availableRowCount` -- scoped to the PRIMARY source only. A secondary
+   *  source's truncation is NOT reflected here; consult `truncatedReads`. */
+  primaryAvailableRowCount?: number;
   truncationNotice?: string;
+  /** HEL-890: per-source truncation detail, one entry per truncated read -- PRIMARY included
+   *  when the primary itself was truncated (so a one-entry array is not necessarily a secondary).
+   *  Always present, defaulted to `[]` when nothing was truncated -- never `undefined`, for the
+   *  same reason `truncated` is never `undefined` (HEL-861). */
+  truncatedReads: TruncatedRead[];
 }
 
 /** Composed dashboard view: the list record plus its panels from the snapshot. */
@@ -610,11 +630,13 @@ export class HelioApi {
       pipelineId,
       status: summary.lastRunStatus ?? "succeeded",
       rowCount: result.rowCount,
-      sourceRowCount: result.sourceRowCount ?? 0,
+      primarySourceRowCount: result.sourceRowCount ?? 0,
       // HEL-861: default to `false`, never `undefined` — see RunOutcome's doc comment.
       truncated: result.sourceTruncated ?? false,
-      availableRowCount: result.sourceAvailableRowCount,
+      primaryAvailableRowCount: result.sourceAvailableRowCount,
       truncationNotice: result.truncationNotice,
+      // HEL-890 (design.md D2): default to `[]`, never `undefined` — same reasoning as `truncated`.
+      truncatedReads: result.truncatedReads ?? [],
     };
   }
 

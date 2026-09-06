@@ -1526,6 +1526,46 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       response.truncatedReads.map(_.dataSourceName) should contain("ds-rest")
     }
 
+    // HEL-890 (design.md D3/D4(ii)): the genuinely uncovered surface -- the line-1513 case above
+    // only asserts `sourceTruncated` and that `truncatedReads` names the secondary; NOTHING in
+    // this file asserts a secondary entry's per-entry NUMERIC detail (`rowsRead`,
+    // `availableRowCount`). Primary is under the cap (so the top-level scalars read as
+    // "complete") while a `lookup` secondary is over it -- the exact contradictory-fields shape
+    // from the ticket's field report. Distinct names via `seedRestDsNamed` (CR5): `seedRestDs`
+    // hardcodes `"ds-rest"` for both sources, and `truncationFields` dedupes by name, which would
+    // make "names the secondary" vacuous.
+    "a real run with the primary under the cap and a lookup secondary over the cap reports the secondary's per-entry rowsRead/availableRowCount, distinct from the (legitimately equal) primary scalars" in {
+      val primaryDsId   = seedRestDsNamed(RestSuccessUrl, "primary-under-cap")
+      val pid           = seedPipeline(primaryDsId)
+      val secondaryDsId = seedRestDsNamed(RestBigUrl, "secondary-over-cap")
+      await(insertStep(
+        pid, "lookup",
+        LookupConfig(secondaryInput = SecondaryInput.Source(secondaryDsId), sourceKey = "id", lookupKey = "id", columns = Vector.empty),
+        dummyUser
+      ))
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val response = result.toOption.get
+
+      // Run-wide flag is true (a secondary was cut) even though the primary alone looks complete.
+      response.sourceTruncated shouldBe true
+      // Task 3.2: these are the PRIMARY's own scalars (non-goal: backend names stay as-is) --
+      // `stubConnector`'s default arm returns a single-row payload for any URL other than the
+      // keyed ones above, so the primary here reads 1 of 1 available: legitimately equal, which
+      // is exactly why the top-level pair alone is misleading.
+      response.sourceRowCount shouldBe 1L
+      response.sourceAvailableRowCount shouldBe Some(1L)
+
+      response.truncatedReads should have size 1
+      val secondaryRead = response.truncatedReads.head
+      secondaryRead.dataSourceName shouldBe "secondary-over-cap"
+      secondaryRead.rowsRead shouldBe 1000L
+      secondaryRead.availableRowCount shouldBe Some(3303L)
+      // Task 3.2: the per-entry proof that rows were actually lost on the secondary.
+      secondaryRead.availableRowCount.get should be > secondaryRead.rowsRead
+    }
+
     // HEL-861 (evaluation-1 item 3): `truncationFields`'s dedupe used to be
     // `groupBy(...).values` (hash-ordered) — a multi-source notice could name its sources in a
     // different order between two identical runs, and the primary source was not guaranteed to

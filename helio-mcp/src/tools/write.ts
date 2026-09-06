@@ -357,13 +357,20 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Run a pipeline to completion and write rows to its Output(s). The run is " +
         "SYNCHRONOUS: this returns only once rows exist, so it is safe to bind a panel immediately " +
-        "after. Returns { pipelineId, status, rowCount, sourceRowCount, truncated, " +
-        "availableRowCount, truncationNotice } -- call list_outputs(pipelineId) afterward for the " +
-        "produced Output id(s). rowCount is NOT guaranteed to be the source's complete row count: " +
-        "every run caps its source read at 1000 rows, and when the source (or a join/union/lookup " +
-        "secondary source) has more rows than that, truncated is true and truncationNotice explains " +
-        "exactly what was read vs. what exists — read it before treating a filter/sort/aggregate " +
-        "result as complete. Set dry=true to validate without persisting rows.",
+        "after. Returns { pipelineId, status, rowCount, primarySourceRowCount, truncated, " +
+        "primaryAvailableRowCount, truncationNotice, truncatedReads } -- call list_outputs(pipelineId) " +
+        "afterward for the produced Output id(s). rowCount is NOT guaranteed to be the source's " +
+        "complete row count: every run caps EACH source read (primary and any join/union/lookup " +
+        "secondary) at 1000 rows. truncated is RUN-WIDE: true if ANY source was capped, primary or " +
+        "secondary. primarySourceRowCount/primaryAvailableRowCount describe the PRIMARY source ONLY " +
+        "-- do not read them as run-wide, and do not conclude 'nothing was lost' just because they " +
+        "look complete when a secondary was the one truncated. truncatedReads names EVERY truncated " +
+        "source (rows read vs. rows available) -- the primary is included in it when the primary " +
+        "itself was truncated, so a one-entry array is not necessarily a secondary. It is present " +
+        "and empty ([]) when nothing was truncated. truncationNotice is a prose sentence covering the " +
+        "same information — read truncatedReads for the machine-readable per-source detail before " +
+        "treating a filter/sort/aggregate result as complete. Set dry=true to validate without " +
+        "persisting rows.",
       inputSchema: {
         pipelineId: z.string().min(1),
         dry: z.boolean().default(false),
