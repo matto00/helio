@@ -248,7 +248,21 @@ Planning swept the tree keyed on the property "code that assumes a pipeline has 
       fires the trigger, and V99's own 4 tests run as superuser.** Measured at the final gate:
       the trigger's own read IS subject to FORCE RLS, so with `app.current_user_id` unset the
       guard is vacuous (`pipelines=1, roots=0`). The user-facing path is closed separately by
-      `DataSourceRepository.delete`'s `withUserContext`; the residual gap is **HEL-974**.
+      `DataSourceRepository.delete`'s `withUserContext`; the residual gap was tracked as
+      **HEL-974**.
+
+      **HEL-974 CLOSED (2026-09-05).** The gap above was real, and the "`FlywayNonSuperuserMigrationSpec`
+      re-confirmed green" claim's implicit reassurance was false reassurance -- that spec never fired the
+      trigger, so its green run said nothing about non-superuser enforcement. HEL-974 proved the vacuity
+      empirically first (`probe.md`, a privileged/BYPASSRLS-pool delete with `app.current_user_id` never set:
+      no raise, `pipelines=1, pipeline_roots=0`, the exact orphan above), then closed it in
+      `V100__zero_root_guard_rls_independent.sql` by re-owning `hel913_prevent_zero_root_pipelines` to
+      `helio_privileged` (BYPASSRLS, V40's precedent) plus a `SET row_security = off` tripwire so a future
+      regression fails loud (`42501`) instead of silent. `V99__prevent_zero_root_pipelines.sql` itself was
+      NOT edited (Flyway checksums applied migrations; the correction lives in V100's own header and here).
+      Proven by mutation in both directions: reverting only the ownership reproduces the original silent
+      defect; reverting ownership while keeping the tripwire clause produces a loud `42501` instead. See
+      `openspec/changes/rls-independent-zero-root-guard/` for the full record.
 
 **Stage-2 gate ruling on 4.4/4.4a/4.4a-i/4.4b/4.4e — SATISFIED BY SUBSTITUTION, accepted.** Root membership is
 carried by `pipeline_steps.root_id` (DB, with a CHECK) and by `rootId` on every step response (wire, task 7.6a), but
