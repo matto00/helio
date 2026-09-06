@@ -27,6 +27,14 @@ mismatched-kind binding cannot be introduced by an update.
 - **WHEN** a client creates a REST source referencing a `rest_api` Connector
 - **THEN** the request succeeds and the created source's `connectorId` is the referenced Connector
 
+#### Scenario: An unresolvable connectorId is rejected at create
+- **WHEN** a client submits a REST source create request whose `connectorId` resolves to no
+  Connector owned by the caller
+- **THEN** the request is rejected with `400 "Connector not found"` — the pre-existing curated
+  wording, not the kind-mismatch message — and no source row is created. Because the lookup is
+  owner-scoped, another tenant's Connector id is indistinguishable from a nonexistent one, so
+  this cannot be used as an existence oracle.
+
 #### Scenario: The kind check does not fire on the bare-url path
 - **WHEN** a request uses the legacy bare-`url` shape and carries no `connectorId`
 - **THEN** no Connector is resolved and the kind check does not apply
