@@ -166,6 +166,58 @@ alerts, and the manual triage runbook all live in
 [`docs/dependency-management.md`](docs/dependency-management.md) — see that
 doc rather than reading the workflow YAML directly.
 
+### Credential handling in delivery evidence (HEL-846)
+
+Delivery agents legitimately mint real credentials to drive live end-to-end
+verification — that realism is why those runs catch defects green test
+suites miss. Two obligations follow, both mandatory:
+
+1. **Redact before committing.** Any credential, token or secret minted for
+   a live verification run is redacted from the transcript **before** that
+   transcript is committed — never after.
+2. **Revoke when the run ends.** The same credential is revoked once the
+   verification run is finished, regardless of whether it was redacted
+   correctly. Prefer a short-lived or narrowly-scoped credential for
+   verification runs where the API allows it, so a leak's blast radius is
+   smaller by construction.
+
+**The mechanical backstop for the first half:** `check:no-credential-leak`
+(`scripts/check-no-credential-in-agent-surface.mjs`) scans every file under
+`openspec/`, `docs/` and `notes/` — the trees delivery agents actually write
+evidence into — for a vendor-prefixed credential shape (`helio_pat_`/
+`sk-ant-` + ≥20 token characters) or a high-entropy value assigned to an
+identifier ending `KEY`/`SECRET`/`TOKEN`/`PASSWORD` (≥32 base64/hex-alphabet
+characters). It runs in `.github/workflows/ci.yml` (merge-blocking, cannot be
+bypassed with `git commit -n`) in addition to `.husky/pre-commit`.
+
+**The standing convention — make a fake secret look fake.** A file that must
+quote a credential-shaped value (a fixture, a redacted transcript excerpt, an
+illustrative example) satisfies the gate one of two ways:
+
+- Carry one of the documented synthetic markers, case-insensitively, with
+  `_` normalized to `-` first: `not-a-real`, `should-never`, `should-not`,
+  `dummy`, `placeholder`, `fake`, `example`, `redacted`, `replace-with`,
+  `synthetic`, `xxxx` — or be the empty string or all zeros.
+- Or elide the value entirely (e.g. "planted `helio_pat_` + 64 hex-shaped
+  characters (elided)").
+
+**This is a standing, repo-wide constraint from HEL-846 onward, not just
+guidance for this one ticket:** every file under `openspec/`, `docs/` or
+`notes/` — including every future evidence file, review report and archived
+transcript — that quotes a credential-shaped value must either carry one of
+the markers above or elide the value. This is what makes it true that no
+future evidence file will ever need an entry added to the gate itself: the
+gate's exemption path is a convention an author follows, never an allowlist
+someone edits.
+
+This rule lives here, in `CONTRIBUTING.md`, deliberately — **not** in
+`.concertino/` or `scripts/concertino/`. Those directories are Concertino
+render targets: `concertino sync` regenerates them from the upstream
+Concertino repo, and a local edit there is silently erased by the next sync
+(see this repo's own `CLAUDE.md`, "`scripts/concertino/` is a render
+target"). `CONTRIBUTING.md` is tracked, durable, and already named in
+`CLAUDE.md` as a canonical standard delivery agents are bound to read.
+
 ## Pre-Commit Policy
 
 Husky runs the following automatically on every commit — fix failures before pushing:
@@ -177,6 +229,7 @@ npm run format:check       # Prettier
 npm run check:schemas      # JSON Schema ↔ Scala protocol parity
 npm run check:openspec     # OpenSpec hygiene
 npm run check:scala-quality # No inline FQNs; file-size soft budgets
+npm run check:no-credential-leak # Credential-shaped strings in agent/delivery surfaces (HEL-846)
 npm test                   # Frontend Jest suite
 ```
 
