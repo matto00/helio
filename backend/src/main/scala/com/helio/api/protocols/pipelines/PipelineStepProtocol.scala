@@ -202,10 +202,13 @@ final case class CreatePipelineStepRequest(
  *  `enabled` (HEL-412) is OPTIONAL: absent means no change. */
 final case class UpdatePipelineStepRequest(`type`: Option[String], config: Option[JsObject], position: Option[Int], enabled: Option[Boolean] = None)
 
-/** `PUT /api/pipelines/:id/steps/order` body (HEL-407) — the pipeline's step
- *  ids in their new relative order. Must be exactly a permutation of the
- *  pipeline's current step ids (validated at the service layer); on success
- *  every step's `position` is set to its index in `stepIds`. */
+/** `PUT /api/pipelines/:id/steps/order` body (HEL-407; trunk-only contract HEL-908 design.md
+ *  decision 15; HEL-973 makes it whole-pipeline/multi-root-aware) — `stepIds` must be exactly a
+ *  permutation of the UNION of every root's current trunk step ids (roots may be interleaved,
+ *  with no semantic weight given to that interleaving — deliberately no `rootId` field here),
+ *  validated at the service/repository layer. On success each root's subsequence is relinked
+ *  independently as that root's own chain, and every step's owning root is preserved as an
+ *  invariant (see `PipelineStepRepository.reorderTrunkInternal`). */
 final case class ReorderPipelineStepsRequest(stepIds: Seq[String])
 
 /** `DELETE /api/pipeline-steps/:id` response (HEL-906 cycle 7, task 3.2): the splice-on-delete

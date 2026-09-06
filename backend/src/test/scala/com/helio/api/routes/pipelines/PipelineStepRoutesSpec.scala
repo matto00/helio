@@ -110,6 +110,18 @@ class PipelineStepRoutesSpec
     id
   }
 
+  // HEL-973: like `seedRootStep`, but for a NON-default root -- `seedRootStep` hardcodes
+  // `root_id = pipeline_id`, which only holds for `seedPipeline`'s own root 0.
+  private def seedRootStepForRoot(pid: String, rootId: String, op: String, configJson: String, position: Int): String = {
+    import PostgresProfile.api._
+    val id = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id, root_id)
+             VALUES ($id, $pid, $position, $op, $configJson::text, true, now(), now(), NULL, $rootId)"""
+    ))
+    id
+  }
+
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
   private val viewerUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000002"))
 
@@ -1035,19 +1047,44 @@ class PipelineStepRoutesSpec
     // root sibling is trunk; the other two are root-level tails), so it is
     // rewritten here to seed a genuine parent-chained trunk and assert the
     // real relink + persistence, end to end through the live route.
-    // HEL-913 task 7.3d-i (coordinator ruling): reorderTrunkInternal's notion of "the trunk" is
-    // root-unaware, and its idx==0 update writes root_id from firstRootIdAction (always the
-    // lowest-positioned root) unconditionally -- on a multi-root pipeline this could silently
-    // reassign a step from root B's trunk onto root A. Fenced closed with a named 400 rather
-    // than left reachable; the real multi-root reorder semantics are HEL-973.
-    "PUT /pipelines/:id/steps/order returns 400 once the pipeline has more than one root" in {
+    // HEL-973: HEL-913's fail-closed 400 for a multi-root pipeline is removed -- a whole-
+    // pipeline reorder is now real, specified behaviour (design.md Decision 1, owner ruling).
+    // This restates the old 400 test as a genuine end-to-end multi-root success: the union of
+    // both roots' trunks is accepted, and each root's own order is applied within that root.
+    "PUT /pipelines/:id/steps/order reorders a two-root pipeline end to end, applying each root's order within that root" in {
       cleanSteps(); val pid = seedPipeline()
-      var idA = ""
+      var idA, idY = ""
+      // Both root-1 steps are created via the live route WHILE the pipeline is still
+      // single-root -- `POST` with neither `parentStepId` nor `rootId` 400s once a pipeline
+      // has more than one root (see the sibling test above), so root 2 is added via raw SQL
+      // only AFTER root 1's own trunk is fully built.
       Post(s"/pipelines/$pid/steps", renameReq()) ~> routes ~> check { idA = responseAs[PipelineStepResponse].id }
-      addSecondRoot(pid)
+      Post(s"/pipelines/$pid/steps", filterReq()) ~> routes ~> check { idY = responseAs[PipelineStepResponse].id }
+      val rootId2 = addSecondRoot(pid)
+      val idX = seedRootStepForRoot(pid, rootId2, "rename", """{"renames":{}}""", 0)
+      // `idA -> idY` is root 1's trunk; root 2's own trunk is just `idX`. Requested order
+      // interleaves both roots.
 
-      Put(s"/pipelines/$pid/steps/order", JsObject("stepIds" -> Vector(idA).toJson)) ~> routes ~> check {
-        status shouldBe StatusCodes.BadRequest
+      val body = JsObject("stepIds" -> JsArray(JsString(idY), JsString(idX), JsString(idA)))
+      Put(s"/pipelines/$pid/steps/order", body) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        val byId  = steps.map(s => s.id -> s).toMap
+        // Root 1's requested relative order (idY before idA) is applied within root 1.
+        byId(idY).parentStepId shouldBe None
+        byId(idY).rootId shouldBe Some(pid)
+        byId(idA).parentStepId shouldBe Some(idY)
+        byId(idA).rootId shouldBe None
+        // Root 2's trunk is unaffected in membership: idX stays root 2's own head.
+        byId(idX).parentStepId shouldBe None
+        byId(idX).rootId shouldBe Some(rootId2)
+      }
+
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val steps = responseAs[Vector[PipelineStepResponse]]
+        val byId  = steps.map(s => s.id -> s).toMap
+        byId(idA).parentStepId shouldBe Some(idY)
       }
     }
 

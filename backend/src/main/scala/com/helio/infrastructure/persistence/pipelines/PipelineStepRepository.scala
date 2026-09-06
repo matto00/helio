@@ -607,20 +607,25 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(action.transactionally)
   }
 
-  /** ACL-bypassing trunk-to-trunk reorder (HEL-908, design.md decision 15 / non-goal waiver #2).
-    * Safe to call only after the caller's editor or owner access has been confirmed by
-    * PipelineService via findByIdShared, and after the service has validated `orderedTrunkIds`
-    * against [[PipelineService]]'s own trunk-only permutation contract (see Decision 15) --
-    * this method itself re-derives and re-validates the trunk from a FRESH read rather than
-    * trusting the caller's earlier snapshot, so a race between the service's check and this
-    * call cannot silently corrupt structure.
+  /** ACL-bypassing trunk-to-trunk reorder (HEL-908, design.md decision 15 / non-goal waiver #2;
+    * HEL-973 design.md Decision 2 makes it root-aware). Safe to call only after the caller's
+    * editor or owner access has been confirmed by PipelineService via findByIdShared, and after
+    * the service has validated `orderedTrunkIds` against [[PipelineService]]'s own trunk-only
+    * permutation contract -- this method itself re-derives and re-validates the trunk from a
+    * FRESH read rather than trusting the caller's earlier snapshot, so a race between the
+    * service's check and this call cannot silently corrupt structure.
     *
-    * Unlike [[reorderInternal]] (sibling-scoped `position` renumber, a no-op for a pure trunk
-    * since every trunk step has a distinct parent), this RELINKS the `parentStepId` chain
-    * itself: `orderedTrunkIds(0).parentStepId` becomes `None` (the new trunk root),
-    * `orderedTrunkIds(i).parentStepId` becomes `orderedTrunkIds(i - 1)` for `i > 0`, and every
-    * trunk node's `position` is written as `0` (a trunk node is always the position-0 / trunk-
-    * continuation child of its new parent, by `trunkOf`/`executionOrder`'s own definition).
+    * HEL-973: `orderedTrunkIds` is a **whole-pipeline** contract -- a permutation of the UNION of
+    * every root's current trunk, roots interleaved by position with no semantic weight given to
+    * that interleaving (owner ruling, design.md Decision 1). The requested order is PARTITIONED
+    * by each step's own current root (the root whose `trunkOfRoot` walk produced it), and each
+    * partition is relinked as that root's own independent chain -- never one flat chain across
+    * roots, which would merge root B's steps into root A's chain and reassign their membership
+    * (design.md Decision 2's named trap). Root membership is therefore invariant under reorder
+    * BY CONSTRUCTION: within partition `p` (root `r`), the first member's `parentStepId` becomes
+    * `None` and its `root_id` becomes `r`'s own id (the head marker moves to that partition's
+    * head), and every later member's `parentStepId` becomes its predecessor WITHIN THE SAME
+    * PARTITION with `root_id = NULL`. Every trunk node's `position` is written as `0`.
     *
     * Per the human's ruling ("the tail FOLLOWS ITS TRUNK STEP"): a tail's own `parentStepId`
     * already references its trunk node's id, not a position/slot, and ids never change here --
@@ -631,28 +636,50 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * attached to a "slot" -- only ever to the node's id.
     *
     * Returns `Left(error message)` (never partially applies a rejected request) when
-    * `orderedTrunkIds` is not exactly a permutation of the pipeline's CURRENT trunk ids -- any
-    * tail id present, any trunk id missing, or any duplicate. */
+    * `orderedTrunkIds` is not exactly a permutation of the union of every root's CURRENT trunk
+    * ids -- any tail id present, any trunk id missing, or any duplicate. */
   def reorderTrunkInternal(pipelineId: PipelineId, orderedTrunkIds: Seq[PipelineStepId]): Future[Either[String, Vector[PipelineStep]]] = {
     val now = Instant.now()
     val action = for {
-      rows          <- stepsTable.filter(_.pipelineId === pipelineId.value).result
-      steps          = rows.toVector.map(rowToDomain)
-      currentTrunk   = trunkOf(steps).map(_.id)
-      validation     = validateTrunkReorderRequest(currentTrunk, orderedTrunkIds)
+      rows        <- stepsTable.filter(_.pipelineId === pipelineId.value).result
+      steps        = rows.toVector.map(rowToDomain)
+      rootIds     <- rootsTable.filter(_.pipelineId === pipelineId.value).map(_.id).result
+      // HEL-973 task 2.1: the head-step seed map for `trunkOfRoot`, read as a DBIO inside THIS
+      // action/transaction -- `rootIdsOf` returns a Future in its own `withSystemContext` and is
+      // not composable here.
+      rootIdOfStepRows <- stepsTable
+        .filter(s => s.pipelineId === pipelineId.value && s.rootId.isDefined)
+        .map(s => (s.id, s.rootId))
+        .result
+      rootIdOfStep = rootIdOfStepRows.collect { case (id, Some(rid)) => PipelineStepId(id) -> PipelineRootId(rid) }.toMap
+      // Union of every root's trunk, each step labelled with the root whose walk produced it --
+      // the ONLY correct partition key (design.md Decision 2 step 3). `rootIdOfStep` above is
+      // NOT usable as a per-step partition lookup: it filters `s.rootId.isDefined` and so
+      // contains only parentless head steps, leaving every non-head trunk step unlabelled.
+      unionWithLabels = rootIds.flatMap { rid =>
+        val rootId = PipelineRootId(rid)
+        trunkOfRoot(steps, rootIdOfStep, rootId).map(step => step.id -> rootId)
+      }
+      currentTrunk    = unionWithLabels.map(_._1).toVector
+      labelOfStep     = unionWithLabels.toMap
+      validation      = validateTrunkReorderRequest(currentTrunk, orderedTrunkIds)
       result        <- validation match {
         case Left(err) => DBIO.successful(Left(err): Either[String, Vector[PipelineStep]])
         case Right(())  =>
-          for {
-            // HEL-913 task 4.4c: the new trunk head (idx == 0) becomes parentless and MUST carry
-            // this pipeline's root_id in the SAME update, or V98's CHECK aborts every trunk
-            // reorder. Every other trunk step gets a real parent, so its root_id must be NULL.
-            rootId    <- firstRootIdAction(pipelineId.value)
-            updates    = orderedTrunkIds.zipWithIndex.map { case (id, idx) =>
-              val newParent: Option[String] = if (idx == 0) None else Some(orderedTrunkIds(idx - 1).value)
-              val newRootId: Option[String] = if (idx == 0) Some(rootId) else None
+          // Partition `orderedTrunkIds` by each step's current root, preserving requested
+          // relative order within each partition (design.md Decision 2 step 3/4). Relink each
+          // partition independently -- a step's destination chain is derived from its own
+          // current root, so there is no path that could assign it a different one.
+          val partitions: Vector[(PipelineRootId, Vector[PipelineStepId])] =
+            orderedTrunkIds.toVector.groupBy(labelOfStep).toVector
+          val updates = partitions.flatMap { case (rootId, ids) =>
+            ids.zipWithIndex.map { case (id, idx) =>
+              val newParent: Option[String] = if (idx == 0) None else Some(ids(idx - 1).value)
+              val newRootId: Option[String] = if (idx == 0) Some(rootId.value) else None
               stepsTable.filter(_.id === id.value).map(s => (s.parentStepId, s.rootId, s.position, s.updatedAt)).update((newParent, newRootId, 0, now))
             }
+          }
+          for {
             _         <- DBIO.sequence(updates)
             finalRows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
           } yield Right(executionOrder(finalRows.toVector.map(rowToDomain))): Either[String, Vector[PipelineStep]]
@@ -661,10 +688,11 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(action.transactionally)
   }
 
-  /** Pure validation for [[reorderTrunkInternal]]'s request-shape contract (design.md decision
-    * 15): `requested` must be exactly a permutation of `currentTrunk` -- same length, same set,
-    * no duplicates. Named per-violation messages so a rejected request is diagnosable by the
-    * caller, not a generic "invalid" 422. */
+  /** Pure validation for [[reorderTrunkInternal]]'s request-shape contract (HEL-973 design.md
+    * Decision 4): `requested` must be exactly a permutation of `currentTrunk` -- now the UNION of
+    * every root's trunk, not a single root's -- same length, same set, no duplicates. Named
+    * per-violation messages so a rejected request is diagnosable by the caller, not a generic
+    * "invalid" 422. */
   private def validateTrunkReorderRequest(
       currentTrunk: Vector[PipelineStepId],
       requested: Seq[PipelineStepId]
@@ -677,10 +705,10 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       val missing = currentSet -- requestedSet
       val extra   = requestedSet -- currentSet
       val parts = Vector(
-        if (missing.nonEmpty) Some(s"missing trunk step ids: ${missing.map(_.value).mkString(", ")}") else None,
-        if (extra.nonEmpty) Some(s"unexpected step ids (tail ids are not accepted here, only current trunk ids): ${extra.map(_.value).mkString(", ")}") else None
+        if (missing.nonEmpty) Some(s"missing trunk step ids (union of every root's trunk): ${missing.map(_.value).mkString(", ")}") else None,
+        if (extra.nonEmpty) Some(s"unexpected step ids (tail ids are not accepted here, only current trunk ids across all roots): ${extra.map(_.value).mkString(", ")}") else None
       ).flatten
-      Left(s"orderedTrunkIds must be exactly the pipeline's current trunk step ids: ${parts.mkString("; ")}")
+      Left(s"orderedTrunkIds must be exactly the permutation of the union of every root's current trunk step ids: ${parts.mkString("; ")}")
     } else Right(())
   }
 

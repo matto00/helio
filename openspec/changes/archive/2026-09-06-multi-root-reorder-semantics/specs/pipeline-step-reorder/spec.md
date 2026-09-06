@@ -1,9 +1,4 @@
-# pipeline-step-reorder Specification
-
-## Purpose
-Let pipeline authors reorder steps directly in the editor — by drag or keyboard — with the new order persisted atomically via a batch endpoint and the pipeline re-validated (analyze + previews) to surface any step made invalid by its new position.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: PUT /api/pipelines/:id/steps/order atomically reorders a pipeline's trunk
 The backend SHALL expose `PUT /api/pipelines/:id/steps/order` accepting `{ "stepIds": [...] }`.
