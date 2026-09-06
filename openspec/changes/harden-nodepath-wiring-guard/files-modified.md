@@ -1,3 +1,0 @@
-- `frontend/src/features/pipelines/ui/PipelineRiverView.test.tsx` — hardened `titleFor()` per design D1/D2/D3 (scoped `closest` to the two known step-wrapper classes, `hasAttribute("title")` check with a distinct message from a missing wrapper); added two D4a ancestor-inert guard tests (standard + compact sites) and two D4b absent-title-under-titled-ancestor proof tests. Zero product-code diff — this is the only source file touched.
-- `openspec/changes/harden-nodepath-wiring-guard/tasks.md` — all tasks marked complete.
-- `openspec/changes/harden-nodepath-wiring-guard/mutation-evidence.md` — new; the five-run mutation transcript (a0-i, a0-ii, a, b, c, d) required by the ticket's acceptance criteria.
