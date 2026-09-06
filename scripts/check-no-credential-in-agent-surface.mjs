@@ -151,9 +151,30 @@
 // Run standalone first against the pre-existing tree (before wiring into
 // Husky) to confirm zero false positives — design.md's Gate-Chain
 // Implications Checklist "first run" answer for this script.
+//
+// ── HEL-993: paths closed (all mutation-verified; see tasks.md 3.1) ───────
+//
+// HEL-956's own review found three residual "silence reads as green" paths
+// left for HEL-993 (recorded on that ticket, NOT in this header — the
+// entry-guard comment used to incorrectly claim otherwise). HEL-993 closed
+// all three, plus a fourth found by its own design gate:
+//   1. A file `readFileSync` cannot read is now a hard failure
+//      (`readSurfaceFiles`), excluded from the reported count, instead of a
+//      silent `continue` that still counted it as scanned.
+//   2. A file reached through the import-graph BFS that cannot be read is
+//      likewise a hard failure (`findBannedImport`), not a silent `continue`
+//      that let "no banned import found" go unproven.
+//   3. A directory `readdirSync` cannot list is likewise a hard failure
+//      (`collectFiles`) — the missing-surface-root case (`ENOENT` at the
+//      root only) stays tolerated and still routes to the vacuity check.
+//   4. The entry guard is now fail-closed in shape: an independent basename
+//      backstop (see the bottom of this file) fires if this module was the
+//      process entry but `main()` never ran.
+// These are DIFFERENT from, and do not replace, the three unrelated,
+// still-true limits in "Other known residual limits" below.
 
 import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { dirname, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -304,25 +325,37 @@ function isTestFile(path) {
 /** Recursively collects every file under `dir` matching `include`
  *  (`"sourceNonTest"` — non-test `.ts`/`.tsx` only; `"allNonBinary"` — every
  *  file except `BINARY_FIXTURE_EXTENSIONS`), pruning `PRUNED_SUBDIR_NAMES`.
- *  Tolerates a missing `dir` (returns `[]`) so a surface root that doesn't
- *  exist in every checkout, OR one that's been moved/renamed/deleted,
- *  doesn't crash the gate — it fails the vacuity check instead (see below),
- *  which is the loud failure this ticket wants in that case. This is the
- *  single file-collection path for every surface (see the header's "the
- *  table is load-bearing" note) — there is no second walker with different
- *  error behavior. */
-function collectFiles(dir, include, out = []) {
+ *  Tolerates a MISSING `dir` at the surface ROOT only (`ENOENT` when
+ *  `isRoot`) — a surface root that doesn't exist in every checkout, or one
+ *  that's been moved/renamed/deleted, doesn't crash the gate; it fails the
+ *  vacuity check instead (see below), which is the loud failure this ticket
+ *  wants in that case. Any OTHER `readdirSync` failure — a directory that
+ *  exists but can't be listed (permission denial, `ENOTDIR`), or an `ENOENT`
+ *  below the root from a directory that vanished mid-walk — is a hard
+ *  failure appended to `accessErrors` (HEL-993 design.md Decision 0 /
+ *  skeptic-design-2.md non-blocking note): that directory's files were never
+ *  collected, so the reported count would otherwise silently undercount
+ *  without tripping the vacuity check (the surface is usually still
+ *  non-empty from its OTHER files). This is the single file-collection path
+ *  for every surface (see the header's "the table is load-bearing" note) —
+ *  there is no second walker with different error behavior. */
+function collectFiles(dir, include, out, accessErrors, isRoot = true) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
+  } catch (err) {
+    if (!(isRoot && err.code === "ENOENT")) {
+      accessErrors.push(
+        `${relative(repoRoot, dir)}: cannot list directory (${err.code ?? err.message})`,
+      );
+    }
     return out;
   }
   for (const entry of entries) {
     if (PRUNED_SUBDIR_NAMES.has(entry.name)) continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      collectFiles(full, include, out);
+      collectFiles(full, include, out, accessErrors, false);
     } else if (include === "sourceNonTest") {
       if (isSourceFile(full) && !isTestFile(full)) out.push(full);
     } else if (include === "allNonBinary") {
@@ -332,6 +365,33 @@ function collectFiles(dir, include, out = []) {
     }
   }
   return out;
+}
+
+/** Reads every collected file's text exactly once, up front (HEL-993
+ *  design.md Decision 1). A file that fails to read is appended to
+ *  `accessErrors` naming the file and `err.code`/`err.message`, and is
+ *  EXCLUDED from the returned `readable` list — so the reported scan count
+ *  and per-surface breakdown (both derived from `surfaceRecords[].files`,
+ *  never from a separate read-call tally) mean "examined", not merely
+ *  "collected". `findBannedImport` below independently re-reads a file
+ *  reached through the import-graph walk (including, for the root file,
+ *  the SAME file already read here) — that is a harmless second read of
+ *  code already covered by this surface's file list, not a double count:
+ *  the count comes from `surfaceRecords[].files`, never from read calls. */
+function readSurfaceFiles(files, accessErrors) {
+  const readable = [];
+  const textByFile = new Map();
+  for (const file of files) {
+    try {
+      textByFile.set(file, readFileSync(file, "utf8"));
+      readable.push(file);
+    } catch (err) {
+      accessErrors.push(
+        `${relative(repoRoot, file)}: cannot read file (${err.code ?? err.message})`,
+      );
+    }
+  }
+  return { readable, textByFile };
 }
 
 /** Validates the shape of `SURFACES` itself, before any scan runs: every
@@ -479,8 +539,14 @@ function moduleBasename(filePath) {
 /** BFS over the relative-import graph rooted at `rootFile`, restricted to
  *  files under `frontend/src` (never follows into node_modules — those
  *  specifiers are never relative). Returns the first banned module reached,
- *  along with the import chain that reached it, or `null` if none. */
-function findBannedImport(rootFile) {
+ *  along with the import chain that reached it, or `null` if none. A file
+ *  reached through the walk that cannot be read is appended to
+ *  `accessErrors` naming it and the underlying error, then skipped (HEL-993
+ *  design.md Decision 2): the walk past that node is now incomplete, so "no
+ *  banned import found" would be unproven, not a genuine clean result. This
+ *  is an independent catch site from `readSurfaceFiles` above — a mutation
+ *  of one leaves the other green, so each needs its own self-test case. */
+function findBannedImport(rootFile, accessErrors) {
   const visited = new Set([rootFile]);
   const queue = [{ file: rootFile, chain: [rootFile] }];
 
@@ -489,7 +555,11 @@ function findBannedImport(rootFile) {
     let text;
     try {
       text = readFileSync(file, "utf8");
-    } catch {
+    } catch (err) {
+      accessErrors.push(
+        `${relative(repoRoot, file)}: cannot read file reached through the import-graph walk from ` +
+          `${relative(repoRoot, rootFile)} (${err.code ?? err.message}) — the walk is incomplete and proves nothing`,
+      );
       continue;
     }
 
@@ -526,11 +596,15 @@ function checkTextPatterns(file, text, errors) {
  *  findings to `errors`. This is the ONLY place checks are dispatched —
  *  driven entirely by the `SURFACES` table entry, never by a surface's `id`
  *  string matched elsewhere (see the header's "the table is load-bearing"
- *  note). */
-function runChecksForSurface(surface, files, errors) {
+ *  note). `textByFile` holds each file's text read once up front by
+ *  `readSurfaceFiles` (HEL-993 design.md Decision 1) — `files` here is
+ *  ALREADY filtered to files that were readable, so a lookup miss can never
+ *  happen; a text-needing check never re-reads. `accessErrors` is threaded
+ *  through only for `findBannedImport`'s independent BFS read failures. */
+function runChecksForSurface(surface, files, textByFile, accessErrors, errors) {
   for (const file of files) {
     if (surface.checks.includes("importGraph")) {
-      const found = findBannedImport(file);
+      const found = findBannedImport(file, accessErrors);
       if (found) {
         const chainStr = found.chain.map((f) => relative(repoRoot, f)).join(" -> ");
         errors.push(
@@ -546,12 +620,7 @@ function runChecksForSurface(surface, files, errors) {
       surface.checks.includes("secretLiteral");
     if (!needsText) continue;
 
-    let text;
-    try {
-      text = readFileSync(file, "utf8");
-    } catch {
-      continue;
-    }
+    const text = textByFile.get(file);
 
     if (surface.checks.includes("credentialProp")) checkTextPatterns(file, text, errors);
     // bcrypt and email are always checked together by `checkFixtureFile` —
@@ -672,7 +741,15 @@ function computeDriftErrors() {
  *  `process.exit`. Guarded so that importing this module (e.g. for
  *  `classifyTopLevelDirs`, as the verification steps in tasks 2.6/5.5 do)
  *  never runs a scan or exits as a side effect. */
+// Set to `true` the moment `main()`'s body starts, so the entry-guard
+// backstop below can detect "this module was the process entry but main()
+// never ran" (HEL-993 design.md Decision 3) independently of the strict
+// entry comparison.
+let mainRan = false;
+
 function main() {
+  mainRan = true;
+
   // Validate the table itself before touching the filesystem at all — a
   // malformed SURFACES entry is a defect in the gate's own configuration
   // (skeptic-final-1.md CR1/CR2), and should fail loudly and immediately
@@ -681,6 +758,13 @@ function main() {
 
   const driftErrors = computeDriftErrors();
 
+  // Access errors (unreadable file, unlistable directory, unreadable
+  // import-graph node) accumulate here across every surface (HEL-993
+  // design.md Decision 1/1a/2) — reported first, in the same early-exit
+  // batch as drift and vacuity, so a read/listing failure is never masked by
+  // either.
+  const accessErrors = [];
+
   // Single loop over the surface table: this is the ONE place file lists
   // are built, and the counts below are derived from these SAME lists —
   // never from a second, hand-keyed structure (see header note; this is
@@ -688,22 +772,29 @@ function main() {
   // (`{ surface, files }`), NOT a lookup keyed by `surface.id` — so a
   // duplicate id (already rejected by `assertSurfacesValid` above) could
   // not silently drop a file list even if that assertion were ever bypassed
-  // (skeptic-final-1.md CR2).
-  const surfaceRecords = SURFACES.map((surface) => ({
-    surface,
-    files: collectFiles(surface.root, surface.include),
-  }));
+  // (skeptic-final-1.md CR2). `files` is filtered to files this run actually
+  // READ successfully (HEL-993 design.md Decision 1a) — the reported count
+  // and per-surface breakdown below mean "examined", not merely "collected".
+  const surfaceRecords = SURFACES.map((surface) => {
+    const collected = collectFiles(surface.root, surface.include, [], accessErrors);
+    const { readable, textByFile } = readSurfaceFiles(collected, accessErrors);
+    return { surface, files: readable, textByFile };
+  });
 
   const allErrors = [];
-  for (const { surface, files } of surfaceRecords) {
-    runChecksForSurface(surface, files, allErrors);
+  for (const { surface, files, textByFile } of surfaceRecords) {
+    runChecksForSurface(surface, files, textByFile, accessErrors, allErrors);
   }
 
   // ── Vacuity check (design.md Decision 2) — a declared surface matching
   //    zero files is a failure, not a passing contribution of zero
   //    violations. Iterates `surfaceRecords` directly (populated for every
   //    entry above), so an entry with no matching files can never be missed
-  //    the way a parallel hand-keyed count object could be. ─────────────
+  //    the way a parallel hand-keyed count object could be. Note this now
+  //    also fires when EVERY collected file of a surface turned out
+  //    unreadable (HEL-993 design.md Decision 1a) — that case reports BOTH
+  //    the named access errors above AND this vacuity line, never just the
+  //    latter. ─────────────────────────────────────────────────────────
   const vacuousRecords = surfaceRecords.filter((r) => r.files.length === 0);
   const vacuityErrors = vacuousRecords.map(
     ({ surface }) =>
@@ -713,14 +804,16 @@ function main() {
       "directory in the coverage-drift guard.",
   );
 
-  // Drift and vacuity are checked (and reported) BEFORE the per-file content
-  // violations below: a structural coverage problem is more fundamental than
-  // a content violation found within that (possibly wrong) coverage, and
-  // either one alone must never be silently masked by the other (see
-  // `computeDriftErrors`'s doc comment).
-  if (driftErrors.length > 0 || vacuityErrors.length > 0) {
+  // Access errors, then drift, then vacuity (HEL-993 design.md Decision 1a):
+  // a structural coverage problem is more fundamental than a content
+  // violation found within that (possibly wrong) coverage, and a file/
+  // directory the gate never actually examined is more fundamental still —
+  // none of the three may silently mask another (see `computeDriftErrors`'s
+  // doc comment).
+  if (accessErrors.length > 0 || driftErrors.length > 0 || vacuityErrors.length > 0) {
     console.error("check-no-credential-in-agent-surface: FAIL\n");
-    for (const err of [...driftErrors, ...vacuityErrors]) console.error(`  - ${err}`);
+    for (const err of [...accessErrors, ...driftErrors, ...vacuityErrors])
+      console.error(`  - ${err}`);
     process.exit(1);
   }
 
@@ -758,9 +851,40 @@ function main() {
 // containing a percent-encoded character (e.g. a space) or an invocation
 // through a symlink, both of which `pathToFileURL` normalizes and
 // `realpathSync` resolves away. Neither is reachable from this repo's own
-// Husky invocation today, but the failure mode (a missing OK line instead
-// of a wrong one) is exactly the silent-vacuity class this ticket exists to
-// eliminate, so it's fixed rather than left as a documented residual limit.
-if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+// Husky invocation today. HEL-993 closed the residual shape risk this
+// comment used to claim was "fixed rather than left as a documented
+// residual limit": that claim was true for symlinks/percent-encoding, but
+// the guard was still fail-OPEN in shape — if this comparison were ever
+// false while this module WAS the process entry (a future refactor, a
+// runtime path-normalization change, etc.), the process would exit 0
+// having printed nothing. The independent backstop below closes that shape;
+// see it for what actually changed.
+const entryArg = process.argv[1];
+const entryRealPath = entryArg ? realpathSync(entryArg) : null;
+if (entryRealPath && import.meta.url === pathToFileURL(entryRealPath).href) {
   main();
+}
+
+// HEL-993 design.md Decision 3 — an independent, DELIBERATELY WEAKER
+// fail-closed backstop: basename-only, not realpath-resolved-URL equality.
+// It must NOT reuse the strict comparison's expression above, or a defect in
+// that expression would mask itself here too — the whole point is an
+// independently-computed answer to "was this module plausibly the process
+// entry?". If it was (by this weaker test) and `main()` never actually ran,
+// that is exactly the silent-zero-exit shape this ticket exists to close:
+// print a diagnostic and exit non-zero instead. This is a backstop, never
+// the primary guard — it is weaker on purpose (it would false-positive on a
+// same-basename importer, which the strict guard above does not), so it
+// only fires once the strict guard has already failed to set `mainRan`.
+if (
+  entryRealPath &&
+  !mainRan &&
+  basename(entryRealPath) === basename(fileURLToPath(import.meta.url))
+) {
+  console.error(
+    "check-no-credential-in-agent-surface: FATAL — this module was the process entry point " +
+      "(argv[1] shares its basename with this module) but main() never ran; the entry-guard " +
+      "comparison must have evaluated false. Refusing to exit 0 silently.",
+  );
+  process.exit(1);
 }
