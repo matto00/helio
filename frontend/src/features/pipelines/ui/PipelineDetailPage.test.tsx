@@ -797,6 +797,343 @@ describe("PipelineDetailPage", () => {
     );
   });
 
+  // HEL-972 (probe-findings.md D2/D3) — a step edit's debounced re-analyze
+  // dispatch, if it fires while a run submitted via "Dry run"/"Run" is still
+  // in flight, competes with that run for the same backend request-handling
+  // resources: an isolated probe (disabling the debounced dispatch entirely)
+  // dropped `e2e/hel912-lanes-rejoin.spec.ts`'s measured flake rate from
+  // 4/20 to 0/20. Skipping the dispatch while a run is in flight removes
+  // that contention at its source, without touching `OpDropdown` (whose
+  // anchor-identity-churn mechanism the same probe's MutationObserver
+  // instrumentation directly refuted — no menu-node removal was observed in
+  // either captured failure).
+  it("a reorder's debounced analyze is skipped while a run is in flight", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "x1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "rename",
+        config: { renames: {} },
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "y1",
+        pipelineId: "pipe-1",
+        position: 1,
+        type: "filter",
+        config: { combinator: "AND", conditions: [] },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    reorderPipelineStepsMock.mockResolvedValue([]);
+    fetchRunHistoryMock.mockResolvedValue([]);
+    // Held open deliberately -- keeps `submitPipelineRun` unsettled (and so
+    // `sseActive` true) for the reorder + debounce-window portion of this
+    // test, mirroring how long a slow/contended backend keeps a real dry
+    // run's own request in flight.
+    let resolveRun: (value: {
+      rowCount: number;
+      rows: Record<string, unknown>[];
+      stepRowCounts: Record<string, number>;
+      sourceRowCount: number;
+    }) => void = () => {};
+    runPipelineMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRun = resolve;
+      }),
+    );
+
+    renderDetailPage();
+    await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+    // Let the mount-triggered fingerprint settle before taking the baseline.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    const callsBeforeRun = analyzePipelineMock.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Dry run" }));
+    await waitFor(() => expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", true));
+
+    const filterSection = screen
+      .getByRole("button", { name: /Filter rows/i, expanded: false })
+      .closest(".pipeline-detail-page__step-section");
+    expect(filterSection).not.toBeNull();
+    fireEvent.click(
+      within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+    );
+
+    // Well past the 300ms debounce window, with the run STILL in flight --
+    // the reorder's own debounced analyze must not have fired.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    });
+    expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeRun);
+
+    // Settle the held-open promise so the test doesn't leak a pending act()
+    // across to the next test.
+    await act(async () => {
+      resolveRun({ rowCount: 0, rows: [], stepRowCounts: {}, sourceRowCount: 0 });
+      await Promise.resolve();
+    });
+  });
+
+  // HEL-972 CR2 -- the mirror of the test above: a suppressed dispatch must
+  // RESUME once the guard clears, not be dropped permanently. Uses the
+  // `analyzeStatus === "loading"` guard specifically (not `sseActive`,
+  // which only clears via a real SSE `onTerminal` event that this jsdom
+  // harness has no transport for) -- exactly the "two edits inside one
+  // /analyze round trip" case CR2 called the sharper of the two drop paths.
+  it("a suppressed analyze (blocked by an in-flight /analyze) is dispatched exactly once after the prior one settles", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "x1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "rename",
+        config: { renames: {} },
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "y1",
+        pipelineId: "pipe-1",
+        position: 1,
+        type: "filter",
+        config: { combinator: "AND", conditions: [] },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    reorderPipelineStepsMock.mockResolvedValue([]);
+    fetchRunHistoryMock.mockResolvedValue([]);
+
+    renderDetailPage();
+    await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+    // Let the mount effect's own (immediate, non-debounced) analyze call and
+    // the seeded-steps debounce window settle before taking the baseline.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    const callsBeforeEdits = analyzePipelineMock.mock.calls.length;
+
+    // Hold the FIRST edit's debounced analyze open -- this is what puts
+    // `analyzeStatus` into "loading" for the second edit to collide with.
+    let resolveFirstAnalyze: (value: PipelineAnalyzeResponse) => void = () => {};
+    analyzePipelineMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirstAnalyze = resolve;
+        }),
+    );
+
+    const filterSection = screen
+      .getByRole("button", { name: /Filter rows/i, expanded: false })
+      .closest(".pipeline-detail-page__step-section");
+    expect(filterSection).not.toBeNull();
+
+    // First edit: its debounce fires and dispatches -- now in flight/"loading".
+    fireEvent.click(
+      within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeEdits + 1);
+
+    // Second edit while the first's analyze is still loading: its own
+    // debounce must be DEFERRED, not dispatched -- no second concurrent call.
+    fireEvent.click(
+      within(filterSection as HTMLElement).getByRole("button", { name: "Move step down" }),
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeEdits + 1);
+
+    // Resolve the first analyze -- `analyzeStatus` clears, which (via the
+    // effect's `analyzeStatus` dependency, CR2) re-runs the debounce and
+    // dispatches the deferred second edit's analyze exactly once.
+    await act(async () => {
+      resolveFirstAnalyze(emptyAnalyzeResponse);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeEdits + 2));
+
+    // And it stays at exactly that count -- no third, redundant dispatch.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeEdits + 2);
+  });
+
+  // HEL-972 cycle 3 -- regression guard for a defect cycle 2's own test
+  // suite could not see: `pendingAnalyzeRef` was set unconditionally
+  // whenever the guard was active, including when the effect re-ran because
+  // `analyzeStatus` flipped to "loading" as a side effect of the SAME
+  // fingerprint's own dispatch (not a new edit). That spuriously re-arms the
+  // pending flag, defeats the fingerprint bail-out, and causes an unbounded
+  // redispatch loop once /analyze resolves SLOWER than the 300ms debounce
+  // window -- which every other test in this file (fast/instant mocks) never
+  // exercises. A test that only passes post-fix proves nothing here; this
+  // one is written to fail against the cycle-2 code and pass after.
+  it("a single edit's analyze settles once and does not redispatch indefinitely while idle", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "x1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "rename",
+        config: { renames: {} },
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "y1",
+        pipelineId: "pipe-1",
+        position: 1,
+        type: "filter",
+        config: { combinator: "AND", conditions: [] },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    reorderPipelineStepsMock.mockResolvedValue([]);
+    fetchRunHistoryMock.mockResolvedValue([]);
+    // Every analyze call resolves after 600ms -- slower than the 300ms
+    // debounce window, the exact condition under which the cycle-2
+    // regression loops (invisible under a fast/instant mock).
+    analyzePipelineMock.mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(emptyAnalyzeResponse), 600)),
+    );
+
+    renderDetailPage();
+    await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+    // Let the mount effect's own (immediate) 600ms analyze settle first.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
+    const callsBeforeEdit = analyzePipelineMock.mock.calls.length;
+
+    const filterSection = screen
+      .getByRole("button", { name: /Filter rows/i, expanded: false })
+      .closest(".pipeline-detail-page__step-section");
+    expect(filterSection).not.toBeNull();
+
+    // ONE edit, then go completely idle -- no further edits at all.
+    fireEvent.click(
+      within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+    );
+
+    // Past the 300ms debounce, past the 600ms analyze, and then 5s of pure
+    // idle -- the cycle-2 regression measured ~1 dispatch/830ms here,
+    // indefinitely (6+ and still climbing at this point).
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5500));
+    });
+
+    expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeEdit + 1);
+  }, 15000);
+
+  // HEL-972 final-gate CR1 -- `sseActive` is cleared ONLY by the SSE
+  // `onTerminal` handler or a submit-failure catch. If the stream never
+  // opens, drops mid-run, or its terminal event is simply missed (a live,
+  // non-replaying subscribe racing a run that finishes first --
+  // `PipelineRunStreamRoutes.scala`), `sseActive` stays true forever and the
+  // deferral guard would suppress every future edit's analyze permanently.
+  // This models exactly that: the run submission itself succeeds (so
+  // `sseActive` is set true the ordinary way), but no SSE terminal event
+  // ever arrives to clear it -- this test never touches the SSE layer at
+  // all, which is the point. Fake timers let `MAX_ANALYZE_DEFER_MS` (15s)
+  // elapse without a real 15s wait.
+  it("a step edit deferred by a run whose SSE stream never terminates eventually dispatches anyway", async () => {
+    getPipelineStepsMock.mockResolvedValue([
+      {
+        id: "x1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "rename",
+        config: { renames: {} },
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "y1",
+        pipelineId: "pipe-1",
+        position: 1,
+        type: "filter",
+        config: { combinator: "AND", conditions: [] },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ]);
+    reorderPipelineStepsMock.mockResolvedValue([]);
+    fetchRunHistoryMock.mockResolvedValue([]);
+    runPipelineMock.mockResolvedValue({
+      rowCount: 0,
+      rows: [],
+      stepRowCounts: {},
+      sourceRowCount: 0,
+    });
+
+    jest.useFakeTimers();
+    try {
+      renderDetailPage();
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const callsBeforeEdit = analyzePipelineMock.mock.calls.length;
+
+      // Submit a Dry run -- `submitPipelineRun` itself resolves normally
+      // (this is not a submit FAILURE, which already clears `sseActive` via
+      // the existing catch), but no SSE onTerminal event ever follows.
+      fireEvent.click(screen.getByRole("button", { name: "Dry run" }));
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const filterSection = screen
+        .getByRole("button", { name: /Filter rows/i, expanded: false })
+        .closest(".pipeline-detail-page__step-section");
+      expect(filterSection).not.toBeNull();
+      fireEvent.click(
+        within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+      );
+
+      // Past the 300ms debounce -- the edit is deferred (run "in flight"
+      // forever, as far as this hook can tell), not dispatched yet.
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeEdit);
+
+      // Well short of the 15s bound -- still deferred, not dropped and not
+      // yet force-dispatched.
+      await act(async () => {
+        jest.advanceTimersByTime(10000);
+      });
+      expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeEdit);
+
+      // Past MAX_ANALYZE_DEFER_MS (15s total from the defer) -- the
+      // watchdog fires and dispatches regardless of `sseActive` still being
+      // true, rather than suppressing this edit's analyze forever.
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+      });
+      expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeEdit + 1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   // HEL-412 — page-local `handleToggleStepEnabled`/`handleDuplicateStep`:
   // optimistic flip → PATCH → reconcile / revert-on-failure for the toggle
   // (mirrors handleReorderSteps' convention); non-optimistic POST → splice
@@ -1099,6 +1436,21 @@ describe("PipelineDetailPage", () => {
 
     it("an insert changes stepsFingerprint and the existing debounced analyze re-dispatches", async () => {
       createPipelineStepMock.mockResolvedValueOnce({ ...persistedCast, position: 1 });
+      // HEL-972 CR2 -- `syncStepsFromServer` (fired by `handleInsertStep`
+      // right after the create resolves) resyncs the FULL list from
+      // `getPipelineSteps`. Without wiring its second call to reflect the
+      // now-3-step server state, the resync reverts local `steps` back to
+      // the beforeEach's stale 2-step default -- a fixture-realism gap that
+      // happened to be invisible before CR2 (the old effect dispatched on
+      // every settled fingerprint unconditionally, including a reverted
+      // one) but isn't once a genuinely-unchanged settled fingerprint is
+      // correctly treated as "nothing new to analyze".
+      getPipelineStepsMock.mockResolvedValueOnce([persistedRename, persistedFilter]);
+      getPipelineStepsMock.mockResolvedValueOnce([
+        persistedRename,
+        { ...persistedCast, position: 1 },
+        persistedFilter,
+      ]);
       renderDetailPage();
       await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 

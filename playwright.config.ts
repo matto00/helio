@@ -63,21 +63,6 @@ export default defineConfig({
     // hel908-trunk-reorder-order) passed both CI runs and must stay wired
     // in. Follow-up: HEL-964.
     "**/hel908-full-flow.spec.ts",
-    // Quarantine (HEL-912/HEL-972) — hel912-lanes-rejoin.spec.ts is a
-    // KNOWN-RED GUARD AWAITING ITS FIX, not a flaky or untrustworthy spec.
-    // It reliably detects a real, MEASURED, PRE-EXISTING product defect:
-    // OpDropdown's open menu detaches mid-interaction when a burst of
-    // ancestor re-renders lands between opening the picker and clicking an
-    // item. Measured at 45% (9/20) on base a45e9881 versus ~20-25% on
-    // HEL-912's own branch — WORSE on main, so this change neither
-    // introduced nor worsened it; it wrote the first spec that exercises
-    // the affordance hard enough to catch it. Not lane-specific: base's own
-    // Branch/tail-attach flow reproduces it through the same component.
-    // UNLIKE HEL-964 above, there IS a reproducible bug here and it IS
-    // owned — un-quarantining this file is an acceptance criterion of
-    // HEL-972, whose fix this spec verifies. Anchored to this one file only
-    // (NOT a "**/hel912-*" pattern). Follow-up: HEL-972.
-    "**/hel912-lanes-rejoin.spec.ts",
     // Quarantine (HEL-991) — hel968-multi-root-editor-flow.spec.ts fails
     // intermittently at `locator.click: Test timeout of 30000ms exceeded`
     // waiting for the OpDropdown "Union" menuitem after clicking "Branch
@@ -102,6 +87,26 @@ export default defineConfig({
     // criterion of HEL-991. Anchored to this one file only (NOT a
     // "**/hel968-*" pattern). Follow-up: HEL-991.
     "**/hel968-multi-root-editor-flow.spec.ts",
+    // Quarantine (HEL-992) — RE-quarantined 2026-09-06 after HEL-972's fix
+    // merged and un-quarantined it. The fix is real and shipped (`4ff73647`,
+    // the debounced analyze no longer contends with an in-flight run), but the
+    // spec still fails at a rate CI measurement does not support keeping it
+    // gating: FIRST-ATTEMPT results after un-quarantine were main `4ff73647`
+    // FAIL, PR #568 FAIL, PR #570 FAIL, PR #571 pass — 3 of 5, ~60%, against
+    // the ~5.7% (4/70) composite measured locally during HEL-972.
+    //
+    // That ~10x local-vs-CI divergence is now HEL-992's primary lead, and it
+    // is NOT general CPU contention: HEL-972 measured 0/20 reproductions under
+    // load average 13.2, which kills the cheapest explanation.
+    //
+    // Re-quarantined because a guard failing 3 runs in 5 verifies nothing —
+    // it blocked `main` and forced a re-run on most PRs, which is how a red
+    // `main` stops meaning anything. Same reasoning applied to
+    // `hel968-multi-root-editor-flow` in `75f59b04`. Like that one and UNLIKE
+    // HEL-964, this is a real owned defect, not an untrustworthy spec.
+    // Un-quarantining is an acceptance criterion of HEL-992. Anchored to this
+    // one file only (NOT a "**/hel912-*" pattern). Follow-up: HEL-992.
+    "**/hel912-lanes-rejoin.spec.ts",
   ],
   timeout: 30_000,
   retries: 0,

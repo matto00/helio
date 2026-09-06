@@ -48,12 +48,12 @@
 // file.
 //
 // Generic token-shaped secret strings (`helio_pat_`, `sk-ant-`,
-// `*_KEY`/`*_SECRET`/`*_TOKEN` assignments) ANYWHERE agents write files
-// during delivery are HEL-846's guard, not this one. This script's own
-// secret-literal check (added for the `mcp` surface, see Decision 4a below)
-// is deliberately narrower and permanent — scoped to `helio-mcp/**` only,
-// where a real PAT client credential would actually leak — and is not a
-// substitute for HEL-846's delivery-time scan.
+// `*_KEY`/`*_SECRET`/`*_TOKEN` assignments) on the `delivery-evidence`/
+// `docs`/`notes` surfaces are caught by the `deliverySecret` check (HEL-846,
+// see below). This script's `mcp`-surface secret-literal check (added for
+// the `mcp` surface, see Decision 4a below) stays narrower and permanent —
+// scoped to `helio-mcp/**` only, where a real PAT client credential would
+// actually leak — and is a separate, unmodified check from `deliverySecret`.
 //
 // ── Surface table (coverage source of truth) ──────────────────────────────
 //
@@ -64,9 +64,9 @@
 //     extensions in `BINARY_FIXTURE_EXTENSIONS`).
 //   - `checks` lists which of the independent checks below apply to this
 //     surface's files: `importGraph`, `credentialProp`, `bcrypt`, `email`,
-//     `secretLiteral`.
+//     `secretLiteral`, `deliverySecret`.
 //
-//   assistant-surface — frontend/src/features/assistant/**
+//   assistant-surface  — frontend/src/features/assistant/**
 //                        include: sourceNonTest
 //                        checks: importGraph, credentialProp
 //   fixture            — backend/src/test/resources/**
@@ -75,6 +75,15 @@
 //   mcp                — helio-mcp/**, excluding node_modules/ and dist/
 //                        include: allNonBinary
 //                        checks: secretLiteral, bcrypt, email
+//   delivery-evidence  — openspec/** (HEL-846)
+//                        include: allNonBinary
+//                        checks: deliverySecret
+//   docs               — docs/** (HEL-846)
+//                        include: allNonBinary
+//                        checks: deliverySecret
+//   notes              — notes/** (HEL-846)
+//                        include: allNonBinary
+//                        checks: deliverySecret
 //
 // The `mcp` surface deliberately does NOT get `importGraph` or
 // `credentialProp` (design.md Decision 3): `helio-mcp` declares fields
@@ -82,18 +91,26 @@
 // `restDataSourceSchema.ts`/`connectorSchema.ts`), and the import-graph walk
 // hunts for banned React components that cannot exist in an MCP server.
 //
+// HEL-846 added the `delivery-evidence`/`docs`/`notes` surfaces and the
+// `deliverySecret` check — the generic, token-shaped-secret backstop that
+// this file's earlier surfaces' own comments and the `scripts`/`backend`
+// coverage-table entries used to point at as a FUTURE ticket. It is
+// implemented here now, not elsewhere: no sibling script, one more
+// `SURFACES` entry per tree, dispatched through the same
+// `collectFiles`/`runChecksForSurface` loop as everything else.
+//
 // ── Coverage-drift guard ───────────────────────────────────────────────────
 //
 // Every top-level directory in the repo must classify into exactly one of:
 //   - COVERED   — a declared surface root is at/inside/beneath it and covers
-//                 the whole directory (today: `helio-mcp`).
+//                 the whole directory (today: `helio-mcp`, `openspec`,
+//                 `docs`, `notes`).
 //   - PARTIAL   — a declared surface root is beneath it but the rest is
 //                 deliberately not scanned; requires a `PARTIAL_COVERAGE`
 //                 entry naming the scanned subtree and why the rest isn't
 //                 (today: `frontend`, `backend`).
 //   - UNSCANNED — requires an `ACKNOWLEDGED_UNSCANNED` entry with a one-line
-//                 reason (today: `docs`, `e2e`, `infra`, `notes`,
-//                 `openspec`, `schemas`, `scripts`).
+//                 reason (today: `e2e`, `infra`, `schemas`, `scripts`).
 // A directory in none of the three fails the gate loudly. This is what
 // keeps a newly-added top-level directory from silently escaping coverage.
 //
@@ -147,13 +164,43 @@
 //   - The secret-literal check (added for `mcp`) is entropy/length-gated,
 //     not a general secret scanner; see Decision 4a below for its bound and
 //     why a bare-prefix rule was rejected.
+//   - The `deliverySecret` check (HEL-846) is likewise not a general secret
+//     scanner: it does not catch a low-entropy real password (the vendor
+//     rule requires the `helio_pat_`/`sk-ant-` prefix; the high-entropy rule
+//     requires >= 32 alphabet-pure characters), and it does not catch a
+//     credential written with neither a known vendor prefix nor a
+//     credential-named identifier — concretely, a `helio_session` cookie
+//     value pasted inside a `curl` transcript has no vendor prefix and no
+//     `KEY`/`SECRET`/`TOKEN`/`PASSWORD`-suffixed identifier next to it, and
+//     is not caught by either rule.
 //
 // Run standalone first against the pre-existing tree (before wiring into
 // Husky) to confirm zero false positives — design.md's Gate-Chain
 // Implications Checklist "first run" answer for this script.
+//
+// ── HEL-993: paths closed (all mutation-verified; see tasks.md 3.1) ───────
+//
+// HEL-956's own review found three residual "silence reads as green" paths
+// left for HEL-993 (recorded on that ticket, NOT in this header — the
+// entry-guard comment used to incorrectly claim otherwise). HEL-993 closed
+// all three, plus a fourth found by its own design gate:
+//   1. A file `readFileSync` cannot read is now a hard failure
+//      (`readSurfaceFiles`), excluded from the reported count, instead of a
+//      silent `continue` that still counted it as scanned.
+//   2. A file reached through the import-graph BFS that cannot be read is
+//      likewise a hard failure (`findBannedImport`), not a silent `continue`
+//      that let "no banned import found" go unproven.
+//   3. A directory `readdirSync` cannot list is likewise a hard failure
+//      (`collectFiles`) — the missing-surface-root case (`ENOENT` at the
+//      root only) stays tolerated and still routes to the vacuity check.
+//   4. The entry guard is now fail-closed in shape: an independent basename
+//      backstop (see the bottom of this file) fires if this module was the
+//      process entry but `main()` never ran.
+// These are DIFFERENT from, and do not replace, the three unrelated,
+// still-true limits in "Other known residual limits" below.
 
 import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { dirname, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -161,6 +208,9 @@ const frontendSrc = join(repoRoot, "frontend/src");
 const assistantRoot = join(frontendSrc, "features/assistant");
 const mcpRoot = join(repoRoot, "helio-mcp");
 const fixtureRoot = join(repoRoot, "backend/src/test/resources");
+const openspecRoot = join(repoRoot, "openspec");
+const docsRoot = join(repoRoot, "docs");
+const notesRoot = join(repoRoot, "notes");
 
 // ── Surface table (coverage source of truth — see header comment) ─────────
 const SURFACES = [
@@ -177,6 +227,14 @@ const SURFACES = [
     include: "allNonBinary",
     checks: ["secretLiteral", "bcrypt", "email"],
   },
+  {
+    id: "delivery-evidence",
+    root: openspecRoot,
+    include: "allNonBinary",
+    checks: ["deliverySecret"],
+  },
+  { id: "docs", root: docsRoot, include: "allNonBinary", checks: ["deliverySecret"] },
+  { id: "notes", root: notesRoot, include: "allNonBinary", checks: ["deliverySecret"] },
 ];
 
 // Every valid value a `SURFACES` entry's `checks` array may contain — see
@@ -184,7 +242,14 @@ const SURFACES = [
 // (below `collectFiles`) rejects any `checks` entry outside this set, and
 // rejects an empty `checks` array, mirroring `collectFiles`'s existing
 // unrecognized-`include` throw (skeptic-final-1.md CR1).
-const KNOWN_CHECKS = new Set(["importGraph", "credentialProp", "bcrypt", "email", "secretLiteral"]);
+const KNOWN_CHECKS = new Set([
+  "importGraph",
+  "credentialProp",
+  "bcrypt",
+  "email",
+  "secretLiteral",
+  "deliverySecret",
+]);
 
 // The repo's established dummy bcrypt value (see HEL-904's scrub of
 // `hel904-real-dump.sql`) — a fixed, obviously-synthetic all-zero hash that
@@ -260,6 +325,31 @@ const CREDENTIAL_PROP_REGEX = /\bcredential\b\s*\??\s*:/gi;
 //   real helio_pat_ + 64 hex                                          - YES
 const VENDOR_PREFIX_SECRET_REGEX = /\b(helio_pat_|sk-ant-)[A-Za-z0-9_-]{20,}/g;
 
+// ── Delivery-secret check (delivery-evidence/docs/notes surfaces) —
+//    HEL-846 design.md Decision 2/4 ────────────────────────────────────────
+//
+// High-entropy named-literal rule: an identifier ending KEY/SECRET/TOKEN/
+// PASSWORD (case-insensitive), followed by `:`/`=`, an OPTIONAL quote, then
+// a run of >= 32 characters from the base64/hex alphabet
+// (`[A-Za-z0-9+/=_-]`). The quote is deliberately OPTIONAL here — unlike
+// `NAMED_SECRET_LITERAL_REGEX` below, which requires one — because these
+// three surfaces are markdown delivery transcripts, where a leaked value
+// overwhelmingly appears as pasted shell/CI output (`TOKEN=abc...`,
+// `export API_KEY=abc...`) rather than as a quoted source-code literal;
+// requiring a quote here would silently miss exactly the shape this check
+// exists to catch.
+//
+// Bound, measured against ground truth (design.md Decision 2): a 32-byte
+// base64 key is 44 characters; the real PAT shape (`helio_pat_` + 64 hex) is
+// 74. >= 32 sits below both while structurally excluding every measured
+// legitimate value on these surfaces, none of which is both alphabet-pure
+// AND that long: `bindingKey = "outputId"`, `key = "dashboard"`,
+// `password: "correct horse battery staple 1!"` (spaces/punctuation outside
+// the class), `apiKey = "YOUR_NVD_API_KEY"`, `idempotencyKey:
+// "skeptic-live-key-1"`, `token = "sekret-token"`.
+const HIGH_ENTROPY_NAMED_SECRET_REGEX =
+  /\b(\w*(?:key|secret|token|password))\s*[:=]\s*["']?([A-Za-z0-9+/=_-]{32,})["']?/gi;
+
 // Identifier-name rule: a string literal of at least 8 characters assigned
 // to (or used as an object-literal value for) an identifier/key whose name
 // ends in KEY/SECRET/TOKEN/PASSWORD (case-insensitive). Matches both
@@ -269,28 +359,38 @@ const VENDOR_PREFIX_SECRET_REGEX = /\b(helio_pat_|sk-ant-)[A-Za-z0-9_-]{20,}/g;
 const NAMED_SECRET_LITERAL_REGEX =
   /\b(\w*(?:key|secret|token|password))\s*[:=]\s*["']([^"']{8,})["']/gi;
 
-// Synthetic-marker convention (design.md Decision 4) — the SOLE exemption
-// path for the secret-literal check. A credential-shaped literal passes
-// when it is the empty string, is all zeros, or contains one of these
-// markers (case-insensitively). This is what lets
+// Synthetic-marker convention (design.md Decision 4, widened by HEL-846
+// Decision 2) — the SOLE exemption path for the secret-literal and
+// delivery-secret checks. A credential-shaped literal passes when it is the
+// empty string, is all zeros, or contains one of these markers
+// (case-insensitively), AFTER normalizing `_` to `-` first. Normalization
+// matters: it's what makes `re_test_key_should_never_be_logged`-style
+// underscore-separated fixture names recognized identically to their
+// hyphenated form (measured live against `CONNECTOR_MASTER_KEY =
+// REPLACE_WITH_OUTPUT_OF_openssl_rand_dash_base64_32` in
+// docs/cloud-dev-setup.md — see design.md Decision 2). This is what lets
 // `"sk-should-never-be-accepted"`-style test fixtures pass unchanged: "make
 // your fake secret look fake" is a rule a future author can follow without
 // ever touching this script.
 const SYNTHETIC_SECRET_MARKERS = [
   "not-a-real",
   "should-never",
+  "should-not",
   "dummy",
   "placeholder",
   "fake",
   "example",
   "redacted",
+  "replace-with",
+  "synthetic",
+  "xxxx",
 ];
 
 function isSyntheticSecretLiteral(value) {
   if (value === "") return true;
   if (/^0+$/.test(value)) return true;
-  const lower = value.toLowerCase();
-  return SYNTHETIC_SECRET_MARKERS.some((marker) => lower.includes(marker));
+  const normalized = value.toLowerCase().replaceAll("_", "-");
+  return SYNTHETIC_SECRET_MARKERS.some((marker) => normalized.includes(marker));
 }
 
 function isSourceFile(path) {
@@ -304,25 +404,37 @@ function isTestFile(path) {
 /** Recursively collects every file under `dir` matching `include`
  *  (`"sourceNonTest"` — non-test `.ts`/`.tsx` only; `"allNonBinary"` — every
  *  file except `BINARY_FIXTURE_EXTENSIONS`), pruning `PRUNED_SUBDIR_NAMES`.
- *  Tolerates a missing `dir` (returns `[]`) so a surface root that doesn't
- *  exist in every checkout, OR one that's been moved/renamed/deleted,
- *  doesn't crash the gate — it fails the vacuity check instead (see below),
- *  which is the loud failure this ticket wants in that case. This is the
- *  single file-collection path for every surface (see the header's "the
- *  table is load-bearing" note) — there is no second walker with different
- *  error behavior. */
-function collectFiles(dir, include, out = []) {
+ *  Tolerates a MISSING `dir` at the surface ROOT only (`ENOENT` when
+ *  `isRoot`) — a surface root that doesn't exist in every checkout, or one
+ *  that's been moved/renamed/deleted, doesn't crash the gate; it fails the
+ *  vacuity check instead (see below), which is the loud failure this ticket
+ *  wants in that case. Any OTHER `readdirSync` failure — a directory that
+ *  exists but can't be listed (permission denial, `ENOTDIR`), or an `ENOENT`
+ *  below the root from a directory that vanished mid-walk — is a hard
+ *  failure appended to `accessErrors` (HEL-993 design.md Decision 0 /
+ *  skeptic-design-2.md non-blocking note): that directory's files were never
+ *  collected, so the reported count would otherwise silently undercount
+ *  without tripping the vacuity check (the surface is usually still
+ *  non-empty from its OTHER files). This is the single file-collection path
+ *  for every surface (see the header's "the table is load-bearing" note) —
+ *  there is no second walker with different error behavior. */
+function collectFiles(dir, include, out, accessErrors, isRoot = true) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
+  } catch (err) {
+    if (!(isRoot && err.code === "ENOENT")) {
+      accessErrors.push(
+        `${relative(repoRoot, dir)}: cannot list directory (${err.code ?? err.message})`,
+      );
+    }
     return out;
   }
   for (const entry of entries) {
     if (PRUNED_SUBDIR_NAMES.has(entry.name)) continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      collectFiles(full, include, out);
+      collectFiles(full, include, out, accessErrors, false);
     } else if (include === "sourceNonTest") {
       if (isSourceFile(full) && !isTestFile(full)) out.push(full);
     } else if (include === "allNonBinary") {
@@ -332,6 +444,33 @@ function collectFiles(dir, include, out = []) {
     }
   }
   return out;
+}
+
+/** Reads every collected file's text exactly once, up front (HEL-993
+ *  design.md Decision 1). A file that fails to read is appended to
+ *  `accessErrors` naming the file and `err.code`/`err.message`, and is
+ *  EXCLUDED from the returned `readable` list — so the reported scan count
+ *  and per-surface breakdown (both derived from `surfaceRecords[].files`,
+ *  never from a separate read-call tally) mean "examined", not merely
+ *  "collected". `findBannedImport` below independently re-reads a file
+ *  reached through the import-graph walk (including, for the root file,
+ *  the SAME file already read here) — that is a harmless second read of
+ *  code already covered by this surface's file list, not a double count:
+ *  the count comes from `surfaceRecords[].files`, never from read calls. */
+function readSurfaceFiles(files, accessErrors) {
+  const readable = [];
+  const textByFile = new Map();
+  for (const file of files) {
+    try {
+      textByFile.set(file, readFileSync(file, "utf8"));
+      readable.push(file);
+    } catch (err) {
+      accessErrors.push(
+        `${relative(repoRoot, file)}: cannot read file (${err.code ?? err.message})`,
+      );
+    }
+  }
+  return { readable, textByFile };
 }
 
 /** Validates the shape of `SURFACES` itself, before any scan runs: every
@@ -426,6 +565,46 @@ function checkSecretLiterals(file, text, errors) {
   }
 }
 
+/** Scans one delivery-evidence/docs/notes-surface file's text for a
+ *  credential-shaped string (HEL-846 design.md Decision 2/4), appending
+ *  findings to `errors`. Reuses `VENDOR_PREFIX_SECRET_REGEX` unchanged and
+ *  adds the new high-entropy named-literal rule; both are exempted only via
+ *  `isSyntheticSecretLiteral`. Deliberately does NOT reuse
+ *  `NAMED_SECRET_LITERAL_REGEX` — measured to produce ~15 false positives
+ *  against already-committed, immutable archived evidence (design.md
+ *  Decision 2). The failure message never echoes the matched value — only
+ *  file, line, and the convention hint — which is what makes this check's
+ *  own transcripts safe to paste into committed evidence (design.md
+ *  Decision 2a). For the delivery-evidence surfaces, eliding the value is
+ *  explicitly as acceptable as marking it synthetic. */
+function checkDeliverySecrets(file, text, errors) {
+  VENDOR_PREFIX_SECRET_REGEX.lastIndex = 0;
+  let vendorMatch;
+  while ((vendorMatch = VENDOR_PREFIX_SECRET_REGEX.exec(text)) !== null) {
+    const value = vendorMatch[0];
+    if (isSyntheticSecretLiteral(value)) continue;
+    const line = text.slice(0, vendorMatch.index).split("\n").length;
+    errors.push(
+      `${relative(repoRoot, file)}:${line}: contains a hardcoded vendor-prefixed credential-shaped ` +
+        'literal — carry a synthetic marker (e.g. "should-never", "dummy") or elide the value ' +
+        "before committing",
+    );
+  }
+
+  HIGH_ENTROPY_NAMED_SECRET_REGEX.lastIndex = 0;
+  let namedMatch;
+  while ((namedMatch = HIGH_ENTROPY_NAMED_SECRET_REGEX.exec(text)) !== null) {
+    const value = namedMatch[2];
+    if (isSyntheticSecretLiteral(value)) continue;
+    const line = text.slice(0, namedMatch.index).split("\n").length;
+    errors.push(
+      `${relative(repoRoot, file)}:${line}: identifier "${namedMatch[1]}" is assigned a ` +
+        'high-entropy credential-shaped value — carry a synthetic marker (e.g. "should-never", ' +
+        '"dummy") or elide the value before committing',
+    );
+  }
+}
+
 /** Extracts every relative-import specifier from a source file's text —
  *  both the static forms (`from "./x"`/`import "../y/z"`) AND the call
  *  forms (`await import("./x")`, `require("./x")`), so a component pulled
@@ -479,8 +658,14 @@ function moduleBasename(filePath) {
 /** BFS over the relative-import graph rooted at `rootFile`, restricted to
  *  files under `frontend/src` (never follows into node_modules — those
  *  specifiers are never relative). Returns the first banned module reached,
- *  along with the import chain that reached it, or `null` if none. */
-function findBannedImport(rootFile) {
+ *  along with the import chain that reached it, or `null` if none. A file
+ *  reached through the walk that cannot be read is appended to
+ *  `accessErrors` naming it and the underlying error, then skipped (HEL-993
+ *  design.md Decision 2): the walk past that node is now incomplete, so "no
+ *  banned import found" would be unproven, not a genuine clean result. This
+ *  is an independent catch site from `readSurfaceFiles` above — a mutation
+ *  of one leaves the other green, so each needs its own self-test case. */
+function findBannedImport(rootFile, accessErrors) {
   const visited = new Set([rootFile]);
   const queue = [{ file: rootFile, chain: [rootFile] }];
 
@@ -489,7 +674,11 @@ function findBannedImport(rootFile) {
     let text;
     try {
       text = readFileSync(file, "utf8");
-    } catch {
+    } catch (err) {
+      accessErrors.push(
+        `${relative(repoRoot, file)}: cannot read file reached through the import-graph walk from ` +
+          `${relative(repoRoot, rootFile)} (${err.code ?? err.message}) — the walk is incomplete and proves nothing`,
+      );
       continue;
     }
 
@@ -526,11 +715,15 @@ function checkTextPatterns(file, text, errors) {
  *  findings to `errors`. This is the ONLY place checks are dispatched —
  *  driven entirely by the `SURFACES` table entry, never by a surface's `id`
  *  string matched elsewhere (see the header's "the table is load-bearing"
- *  note). */
-function runChecksForSurface(surface, files, errors) {
+ *  note). `textByFile` holds each file's text read once up front by
+ *  `readSurfaceFiles` (HEL-993 design.md Decision 1) — `files` here is
+ *  ALREADY filtered to files that were readable, so a lookup miss can never
+ *  happen; a text-needing check never re-reads. `accessErrors` is threaded
+ *  through only for `findBannedImport`'s independent BFS read failures. */
+function runChecksForSurface(surface, files, textByFile, accessErrors, errors) {
   for (const file of files) {
     if (surface.checks.includes("importGraph")) {
-      const found = findBannedImport(file);
+      const found = findBannedImport(file, accessErrors);
       if (found) {
         const chainStr = found.chain.map((f) => relative(repoRoot, f)).join(" -> ");
         errors.push(
@@ -543,15 +736,11 @@ function runChecksForSurface(surface, files, errors) {
       surface.checks.includes("credentialProp") ||
       surface.checks.includes("bcrypt") ||
       surface.checks.includes("email") ||
-      surface.checks.includes("secretLiteral");
+      surface.checks.includes("secretLiteral") ||
+      surface.checks.includes("deliverySecret");
     if (!needsText) continue;
 
-    let text;
-    try {
-      text = readFileSync(file, "utf8");
-    } catch {
-      continue;
-    }
+    const text = textByFile.get(file);
 
     if (surface.checks.includes("credentialProp")) checkTextPatterns(file, text, errors);
     // bcrypt and email are always checked together by `checkFixtureFile` —
@@ -561,6 +750,7 @@ function runChecksForSurface(surface, files, errors) {
       checkFixtureFile(file, text, errors);
     }
     if (surface.checks.includes("secretLiteral")) checkSecretLiterals(file, text, errors);
+    if (surface.checks.includes("deliverySecret")) checkDeliverySecrets(file, text, errors);
   }
 }
 
@@ -588,20 +778,22 @@ const PARTIAL_COVERAGE = {
     "the frontend tree is not an agent-facing or credential-fixture surface",
   backend:
     "only backend/src/test/resources/** (the `fixture` surface) is scanned; backend application " +
-    "source is not a credential-fixture surface and HEL-846 is the intended generic backstop",
+    "source is a code tree where the named-literal shape is common (e.g. test values like " +
+    "`re_test_key_should_never_be_logged`) and widening the scan there is a deliberate, tracked " +
+    "follow-up, not this ticket's scope (HEL-846 design.md Decision 3)",
 };
 
 // UNSCANNED: no declared surface root touches this top-level directory at
 // all. Each entry states why that's an acceptable, deliberate gap.
 const ACKNOWLEDGED_UNSCANNED = {
-  docs: "documentation; placeholder tokens/emails there are deliberately illustrative, not fixtures",
   e2e: "Playwright specs against the running app, not a credential-fixture or agent-surface directory",
   infra:
     "deployment scripts read secrets from the environment/Secret Manager; none are committed here",
-  notes: "historical/handoff notes, not shipped code",
-  openspec: "planning artifacts (proposals/design/tasks), not shipped code",
   schemas: "JSON Schema contract definitions; no credential-shaped values are ever declared there",
-  scripts: "build/CI tooling scripts; HEL-846 is the intended generic backstop for this directory",
+  scripts:
+    "build/CI tooling scripts; a code tree where the named-literal shape is common and widening " +
+    "the scan there is a deliberate, tracked follow-up, not this ticket's scope " +
+    "(HEL-846 design.md Decision 3)",
 };
 
 /** Classifies every top-level directory name in `topLevelDirNames` into
@@ -672,7 +864,15 @@ function computeDriftErrors() {
  *  `process.exit`. Guarded so that importing this module (e.g. for
  *  `classifyTopLevelDirs`, as the verification steps in tasks 2.6/5.5 do)
  *  never runs a scan or exits as a side effect. */
+// Set to `true` the moment `main()`'s body starts, so the entry-guard
+// backstop below can detect "this module was the process entry but main()
+// never ran" (HEL-993 design.md Decision 3) independently of the strict
+// entry comparison.
+let mainRan = false;
+
 function main() {
+  mainRan = true;
+
   // Validate the table itself before touching the filesystem at all — a
   // malformed SURFACES entry is a defect in the gate's own configuration
   // (skeptic-final-1.md CR1/CR2), and should fail loudly and immediately
@@ -681,6 +881,13 @@ function main() {
 
   const driftErrors = computeDriftErrors();
 
+  // Access errors (unreadable file, unlistable directory, unreadable
+  // import-graph node) accumulate here across every surface (HEL-993
+  // design.md Decision 1/1a/2) — reported first, in the same early-exit
+  // batch as drift and vacuity, so a read/listing failure is never masked by
+  // either.
+  const accessErrors = [];
+
   // Single loop over the surface table: this is the ONE place file lists
   // are built, and the counts below are derived from these SAME lists —
   // never from a second, hand-keyed structure (see header note; this is
@@ -688,22 +895,29 @@ function main() {
   // (`{ surface, files }`), NOT a lookup keyed by `surface.id` — so a
   // duplicate id (already rejected by `assertSurfacesValid` above) could
   // not silently drop a file list even if that assertion were ever bypassed
-  // (skeptic-final-1.md CR2).
-  const surfaceRecords = SURFACES.map((surface) => ({
-    surface,
-    files: collectFiles(surface.root, surface.include),
-  }));
+  // (skeptic-final-1.md CR2). `files` is filtered to files this run actually
+  // READ successfully (HEL-993 design.md Decision 1a) — the reported count
+  // and per-surface breakdown below mean "examined", not merely "collected".
+  const surfaceRecords = SURFACES.map((surface) => {
+    const collected = collectFiles(surface.root, surface.include, [], accessErrors);
+    const { readable, textByFile } = readSurfaceFiles(collected, accessErrors);
+    return { surface, files: readable, textByFile };
+  });
 
   const allErrors = [];
-  for (const { surface, files } of surfaceRecords) {
-    runChecksForSurface(surface, files, allErrors);
+  for (const { surface, files, textByFile } of surfaceRecords) {
+    runChecksForSurface(surface, files, textByFile, accessErrors, allErrors);
   }
 
   // ── Vacuity check (design.md Decision 2) — a declared surface matching
   //    zero files is a failure, not a passing contribution of zero
   //    violations. Iterates `surfaceRecords` directly (populated for every
   //    entry above), so an entry with no matching files can never be missed
-  //    the way a parallel hand-keyed count object could be. ─────────────
+  //    the way a parallel hand-keyed count object could be. Note this now
+  //    also fires when EVERY collected file of a surface turned out
+  //    unreadable (HEL-993 design.md Decision 1a) — that case reports BOTH
+  //    the named access errors above AND this vacuity line, never just the
+  //    latter. ─────────────────────────────────────────────────────────
   const vacuousRecords = surfaceRecords.filter((r) => r.files.length === 0);
   const vacuityErrors = vacuousRecords.map(
     ({ surface }) =>
@@ -713,14 +927,16 @@ function main() {
       "directory in the coverage-drift guard.",
   );
 
-  // Drift and vacuity are checked (and reported) BEFORE the per-file content
-  // violations below: a structural coverage problem is more fundamental than
-  // a content violation found within that (possibly wrong) coverage, and
-  // either one alone must never be silently masked by the other (see
-  // `computeDriftErrors`'s doc comment).
-  if (driftErrors.length > 0 || vacuityErrors.length > 0) {
+  // Access errors, then drift, then vacuity (HEL-993 design.md Decision 1a):
+  // a structural coverage problem is more fundamental than a content
+  // violation found within that (possibly wrong) coverage, and a file/
+  // directory the gate never actually examined is more fundamental still —
+  // none of the three may silently mask another (see `computeDriftErrors`'s
+  // doc comment).
+  if (accessErrors.length > 0 || driftErrors.length > 0 || vacuityErrors.length > 0) {
     console.error("check-no-credential-in-agent-surface: FAIL\n");
-    for (const err of [...driftErrors, ...vacuityErrors]) console.error(`  - ${err}`);
+    for (const err of [...accessErrors, ...driftErrors, ...vacuityErrors])
+      console.error(`  - ${err}`);
     process.exit(1);
   }
 
@@ -734,8 +950,11 @@ function main() {
         "must never import a credential-carrying component or declare a field literally named " +
         '"credential" (HEL-829 design.md Decision 4); fixture/dump and helio-mcp directories ' +
         "must never carry a real-shaped bcrypt hash or a non-placeholder-domain email address " +
-        "(HEL-927); and helio-mcp files must never carry a hardcoded credential-shaped string " +
-        "literal without a synthetic marker (HEL-956).",
+        "(HEL-927); helio-mcp files must never carry a hardcoded credential-shaped string " +
+        "literal without a synthetic marker (HEL-956); and delivery-evidence files under " +
+        "openspec/, docs/ and notes/ must never carry a vendor-prefixed or high-entropy " +
+        "credential-shaped value without a synthetic marker, or must have the value elided " +
+        "(HEL-846).",
     );
     process.exit(1);
   } else {
@@ -758,9 +977,40 @@ function main() {
 // containing a percent-encoded character (e.g. a space) or an invocation
 // through a symlink, both of which `pathToFileURL` normalizes and
 // `realpathSync` resolves away. Neither is reachable from this repo's own
-// Husky invocation today, but the failure mode (a missing OK line instead
-// of a wrong one) is exactly the silent-vacuity class this ticket exists to
-// eliminate, so it's fixed rather than left as a documented residual limit.
-if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+// Husky invocation today. HEL-993 closed the residual shape risk this
+// comment used to claim was "fixed rather than left as a documented
+// residual limit": that claim was true for symlinks/percent-encoding, but
+// the guard was still fail-OPEN in shape — if this comparison were ever
+// false while this module WAS the process entry (a future refactor, a
+// runtime path-normalization change, etc.), the process would exit 0
+// having printed nothing. The independent backstop below closes that shape;
+// see it for what actually changed.
+const entryArg = process.argv[1];
+const entryRealPath = entryArg ? realpathSync(entryArg) : null;
+if (entryRealPath && import.meta.url === pathToFileURL(entryRealPath).href) {
   main();
+}
+
+// HEL-993 design.md Decision 3 — an independent, DELIBERATELY WEAKER
+// fail-closed backstop: basename-only, not realpath-resolved-URL equality.
+// It must NOT reuse the strict comparison's expression above, or a defect in
+// that expression would mask itself here too — the whole point is an
+// independently-computed answer to "was this module plausibly the process
+// entry?". If it was (by this weaker test) and `main()` never actually ran,
+// that is exactly the silent-zero-exit shape this ticket exists to close:
+// print a diagnostic and exit non-zero instead. This is a backstop, never
+// the primary guard — it is weaker on purpose (it would false-positive on a
+// same-basename importer, which the strict guard above does not), so it
+// only fires once the strict guard has already failed to set `mainRan`.
+if (
+  entryRealPath &&
+  !mainRan &&
+  basename(entryRealPath) === basename(fileURLToPath(import.meta.url))
+) {
+  console.error(
+    "check-no-credential-in-agent-surface: FATAL — this module was the process entry point " +
+      "(argv[1] shares its basename with this module) but main() never ran; the entry-guard " +
+      "comparison must have evaluated false. Refusing to exit 0 silently.",
+  );
+  process.exit(1);
 }

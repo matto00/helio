@@ -61,6 +61,28 @@ helio-mcp/.hel956-selftest-secret.ts
 /helio-mcp-hel956-selftest-moved/
 /scripts/.hel956-selftest-mutated-surfaces.mjs
 
+# HEL-993 self-test planted/renamed artifacts (check-no-credential-in-agent-surface.selftest.mjs) —
+# a crashed run must not leave a committable artifact behind.
+helio-mcp/.hel993-unreadable-secret.ts
+helio-mcp/.hel993-only-file.ts
+frontend/src/features/assistant/.hel993-importer.ts
+frontend/src/features/assistant/.hel993-reexport.ts
+frontend/src/features/assistant/.hel993-credential-prop.ts
+frontend/src/features/assistant/.hel993-bfs-importer.ts
+frontend/src/shared/.hel993-bfs-unreadable.ts
+frontend/src/features/assistant/.hel993-locked-dir/
+/scripts/.hel993-selftest-mutated-entry.mjs
+
+# HEL-846 self-test/mutation-evidence planted artifacts
+# (check-no-credential-in-agent-surface.selftest.mjs / mutation-evidence.md) —
+# a crashed run must not leave a committable artifact, and the executor's own
+# mutation plants (design.md Decision 2a) must never be tracked.
+/openspec/.hel846-plant.md
+/docs/.hel846-plant.md
+/notes/.hel846-plant.md
+/scripts/.hel846-selftest-mutated-surfaces.mjs
+/scripts/.hel846-selftest-mutated-checks.mjs
+
 # Concertino
 .concertino/
 # Stray render artifacts leaked from a dirty upstream Concertino checkout

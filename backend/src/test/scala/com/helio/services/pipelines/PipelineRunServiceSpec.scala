@@ -1312,6 +1312,82 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       result shouldBe a[Left[_, _]]
       val _ = pid
     }
+
+    // ── HEL-994: closure guards on `previewOutputs`' OWN path (both arms) ────────────────────
+    //
+    // HEL-957 (merged 0f758ff3) guarded the shared `closureOf` slice at
+    // `PipelineRunService.scala:507`, reached transitively by `previewOutputs` via `previewAtNode`
+    // (:403). That covers a break in `closureOf`/`previewAtNode`, but NOT a change to how
+    // `previewOutputs`' own body (:329-374) resolves its target/root or the arguments it hands
+    // `previewAtNode` -- every HEL-957 guard drives `previewStep`, never this caller. These guards
+    // close that caller-specific gap, per design.md D1/D5.
+    //
+    // Fixture (design.md D2, D2a, D3; skeptic-design-2.md's non-blocking note on tasks 1.2-1.4):
+    // a three-node trunk `stepA -> stepB -> target` (Output `targetOutput` bound to `target`,
+    // closure {stepA, stepB, target}), plus a SECOND branch off `stepA` -- `branchNode` -- that is
+    // simultaneously (a) the AC3-required ENABLED node outside `target`'s closure, and (b) its own
+    // step-bound Output (`branchOutput`, closure {stepA, branchNode}), so the all-Outputs guard's
+    // assertion on `branchOutput`'s OWN key set doubles as D3's positive control: it demonstrates
+    // `branchNode`'s id DOES get count-recorded when it is genuinely inside a previewed closure,
+    // which is exactly what makes its ABSENCE from `targetOutput`'s key set load-bearing rather
+    // than a silent `InProcessPipelineEngine` `if (next.enabled)` vacuity (D3). Deciding the
+    // off-closure node IS the second branch's Output-bound node (rather than a third, unbound
+    // node) is the explicit resolution of skeptic round 2's fixture-ambiguity note -- a third
+    // unbound node would leave D3's positive control with no vehicle.
+    def seedClosureGuardFixture(): (PipelineId, PipelineStep, PipelineStep, PipelineStep, PipelineStep, OutputId, OutputId) = {
+      val dsId   = seedRestDs(RestBigUrl)
+      val pid    = seedPipeline(dsId)
+      val stepA  = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
+      val stepB  = await(insertStep(pid, "limit", LimitConfig(8), dummyUser)) // chains onto stepA's trunk-last
+      val target = await(insertStep(pid, "limit", LimitConfig(5), dummyUser)) // chains onto stepB's trunk-last
+      val branchNode = await(stepRepo.insertInternal(
+        pid, "limit", LimitConfig(1), enabled = true, parentStepId = Some(stepA.id), explicitRootId = None
+      )) // stepA's SECOND child -- off target's closure ({stepA} only), ENABLED (AC3)
+      val targetOutput = await(outputRepo.insertInternal(pid, Some(target.id), dummyUser.id, "closure-guard-target-out", OutputKind.Table, explicitRootId = None))
+      val branchOutput = await(outputRepo.insertInternal(pid, Some(branchNode.id), dummyUser.id, "closure-guard-branch-out", OutputKind.Table, explicitRootId = None))
+      (pid, stepA, stepB, target, branchNode, targetOutput.id, branchOutput.id)
+    }
+
+    // Guard for the single-Output arm (design.md D5): drives ONLY `case Some(id) =>` (:~338-350),
+    // which resolves `output.node.stepId`/`output.node.rootId` and hands them to `previewAtNode`
+    // itself -- logic with no analogue in `previewStep`, hence uncovered by every HEL-957 guard.
+    "closure-guard: single-Output arm's stepRowCounts key set observes exactly the target's OWN dependency closure (HEL-994 AC1, D1, D5)" in {
+      val (pid, stepA, stepB, target, _, targetOutputId, _) = seedClosureGuardFixture()
+
+      val result = await(service.previewOutputs(pid, Some(targetOutputId), dummyUser))
+      result shouldBe a[Right[_, _]]
+      val envelope = result.toOption.get
+      envelope.outputs should have size 1
+      // Key set only (AC1/design.md D1) -- the target's own ROWS are read through the node-keyed
+      // lookup at :527 and are invariant under a widening mutation by construction; asserting on
+      // them would prove nothing. If M1 (single-Output arm, drop `stepId` -> `None`) lands, this
+      // key set collapses to `{}` (the source-level empty-slice arm), a real observed mismatch.
+      envelope.outputs.head.preview.stepRowCounts.keySet shouldBe Set(stepA.id.value, stepB.id.value, target.id.value)
+    }
+
+    // Guard for the all-Outputs arm (design.md D5): drives ONLY `case None =>` (:~352-374) --
+    // the `distinctNodeKeys` dedup, the per-key `Future.traverse` of `previewAtNode`, and the
+    // `byNodeKey` re-pairing back onto each Output. This dedup/re-pair logic has NO analogue in
+    // `previewStep`, so it is the single largest previewOutputs-specific gap HEL-957 could not
+    // have covered. Also serves as D3's positive control (see fixture comment above): the
+    // `branchOutput` entry's key set containing `branchNode`'s id proves count-recordability on
+    // this exact fixture, making `branchNode`'s absence from `targetOutput`'s key set meaningful.
+    "closure-guard: all-Outputs arm's stepRowCounts key sets observe each Output's OWN closure, doubling as D3's non-degeneracy positive control (HEL-994 AC1, AC3, D1, D3, D5)" in {
+      val (pid, stepA, stepB, target, branchNode, targetOutputId, branchOutputId) = seedClosureGuardFixture()
+
+      val result = await(service.previewOutputs(pid, None, dummyUser))
+      result shouldBe a[Right[_, _]]
+      val envelope = result.toOption.get
+      envelope.outputs should have size 2
+      val keySetByOutputId = envelope.outputs.map(o => o.outputId -> o.preview.stepRowCounts.keySet).toMap
+      // The target's own entry: exactly its dependency closure. If M2 (all-Outputs arm, drop the
+      // per-node target passed to previewAtNode -> None) lands, EVERY entry collapses to `{}`.
+      keySetByOutputId(targetOutputId.value) shouldBe Set(stepA.id.value, stepB.id.value, target.id.value)
+      // D3 positive control + the branch's own closure. If M3 (re-pair via `distinctNodeKeys.head`
+      // instead of each Output's own node key) lands, this entry silently carries whichever
+      // OTHER entry's key set `distinctNodeKeys.head` happens to resolve to instead of its own.
+      keySetByOutputId(branchOutputId.value) shouldBe Set(stepA.id.value, branchNode.id.value)
+    }
   }
 
   "PipelineRunService and a compute step with a statically unparseable expression (HEL-888)" should {

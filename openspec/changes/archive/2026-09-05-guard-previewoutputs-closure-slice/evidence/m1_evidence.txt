@@ -1,0 +1,53 @@
+[info] welcome to sbt 1.10.10 (Arch Linux Java 21.0.12)
+[info] loading settings for project backend-build from plugins.sbt...
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/guard-previewoutputs-closure-slice/HEL-994/backend/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/guard-previewoutputs-closure-slice/HEL-994/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/task/guard-previewoutputs-closure-slice/HEL-994/backend/target/scala-2.13/classes ...
+[info] done compiling
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+17:49:13,882 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+17:49:13,883 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4a30819f - No custom configurators were discovered as a service.
+17:49:13,883 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4a30819f - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+17:49:13,883 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4a30819f - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+17:49:13,884 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+17:49:13,886 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [file:/home/matt/Development/helio/.claude/worktrees/task/guard-previewoutputs-closure-slice/HEL-994/backend/target/scala-2.13/classes/logback.xml]
+17:49:13,917 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+17:49:13,921 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@77fe3501 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+17:49:13,921 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - The 'condition' attribute in <if> element is deprecated and slated for removal. Use <condition> element instead.
+17:49:13,921 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - See also https://logback.qos.ch/codes.html#conditionAttributeDeprecation
+17:49:13,921 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@23b4b02c - End of configuration.
+17:49:13,922 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@13c3dff - Registering current configuration as safe fallback point
+17:49:13,926 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4a30819f - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 39 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+SLF4J(W): A number (1) of logging calls during the initialization phase have been intercepted and are
+SLF4J(W): now being replayed. These are subject to the filtering rules of the underlying logging system.
+SLF4J(W): See also https://www.slf4j.org/codes.html#replay
+[info] PipelineRunServiceSpec:
+[info] PipelineRunService.executeRun (HEL-509 / 419-B assertion persistence)
+[info] PipelineRunService.onRunSuccess (HEL-570 assert fail-policy)
+[info] PipelineRunService (HEL-412 disable/enable)
+[info] PipelineRunService onRunSuccess (HEL-462 schema-drift baseline capture)
+[info] PipelineRunService.history (HEL-576 assertion summary)
+[info] PipelineRunService.recordUnrunnable (HEL-755 design.md D3)
+[info] PipelineRunService.submit (HEL-758 rest_api/sql base-source execution)
+[info] PipelineRunService (HEL-862 URL-backed CSV, no ActorSystem threaded)
+[info] PipelineRunService.previewStep (HEL-758 rest_api/sql base-source execution)
+[info] PipelineRunService.previewOutputs (HEL-906 cycle 10, P1.4's preview_outputs(pipelineId, outputId?) dependency)
+[info] - should closure-guard: single-Output arm's stepRowCounts key set observes exactly the target's OWN dependency closure (HEL-994 AC1, D1, D5) *** FAILED ***
+[info]   Set() was not equal to Set("6fbeb39b-924f-43d8-b1ed-cdeac4ad71ea", "cb04ae7a-2c6d-465b-82db-f12fc3ae6e69", "9c34ebd0-2172-41d4-8376-35f902fe7f6a") (PipelineRunServiceSpec.scala:1361)
+[info] - should closure-guard: all-Outputs arm's stepRowCounts key sets observe each Output's OWN closure, doubling as D3's non-degeneracy positive control (HEL-994 AC1, AC3, D1, D3, D5)
+[info] PipelineRunService and a compute step with a statically unparseable expression (HEL-888)
+[info] PipelineRunService truncation reporting (HEL-861)
+[info] PipelineRunService (HEL-905 P1.2: tree-walk materialized-node persistence)
+[info] PipelineRunService.composeTruncationNotice (HEL-861)
+[info] PipelineRunService.previewStep / evaluateNodeRowsForBackfill (HEL-970 lane-aware closure)
+[info] Run completed in 2 seconds, 486 milliseconds.
+[info] Total number of tests run: 2
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.PipelineRunServiceSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 6 s, completed Sep 5, 2026, 5:49:15 PM
