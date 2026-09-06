@@ -18,7 +18,7 @@ Owner's stated preference: **a root-detected skip must be a hard failure in CI**
 **2. AC3 — prove CI goes red by mutation.**
 Push a mutation to this branch, confirm the **CI job** fails, then revert it. Local pre-commit going red does not satisfy this. The failing CI run URL is the evidence and must appear in the PR description.
 
-**3. AC4's remaining gap — wire `check:openspec:selftest` into CI.**
+**3. AC4's remaining gap — wire `check:openspec` AND `check:openspec:selftest` into CI.**
 It appears only at `.husky/pre-commit:13` and is absent from `ci.yml` — the same defect. `check:dependabot:selftest` (ci.yml:46) and both `check:node-root-encoding` self-tests (ci.yml:41,43) are already wired; match their pattern, including an explanatory comment in the established house style.
 
 ## Acceptance criteria

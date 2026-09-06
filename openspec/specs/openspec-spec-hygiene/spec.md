@@ -4,9 +4,7 @@
 Structural guarantees for canonical specs under `openspec/specs/`: every spec parses, validates, and
 exposes all of its requirements to the archive delta parser, so no malformed spec can abort
 `openspec archive` mid-delivery after a change's code has already merged.
-
 ## Requirements
-
 ### Requirement: Canonical specs expose every requirement to both the parser and the validator
 Every `spec.md` under `openspec/specs/` SHALL satisfy a set-equality invariant: the set of requirement
 names seen by the archive **delta parser**, the set seen by the **validator's spec model**, and the set
@@ -90,21 +88,3 @@ attributable on its own and is not conflated with that script's known false-posi
 - **WHEN** the guard is pointed at a deliberately malformed spec
 - **THEN** it exits non-zero, proving it is capable of failing rather than assumed to be green
 
-### Requirement: The hygiene guard's self-test is enforced in continuous integration
-
-The `check-openspec-hygiene` self-test SHALL run as a merge-blocking continuous-integration step, in addition to
-the pre-commit chain. A pre-commit hook alone SHALL NOT be treated as sufficient enforcement for the self-test,
-because the hook chain is bypassable and does not run on changes that reach the default branch by another route,
-leaving the evidence that the hygiene guard is capable of failing unexercised by any merge-blocking run.
-
-#### Scenario: The self-test runs on every pull request
-
-- **WHEN** continuous integration runs on a pull request
-- **THEN** it runs the hygiene guard's self-test, so a guard silently degraded into checking nothing is caught by
-  a run that cannot be bypassed
-
-#### Scenario: A bypassed hook does not evade the self-test
-
-- **WHEN** a change that breaks the hygiene guard's own checks is committed with the pre-commit hook bypassed and
-  pushed as a pull request
-- **THEN** the continuous-integration run fails, blocking the merge
