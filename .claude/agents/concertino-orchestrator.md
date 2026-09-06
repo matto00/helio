@@ -501,11 +501,19 @@ Execute directly (no subagent).
    the change affects a contract), in dependency order — **`TICKET_TYPE ==
    feature` only**, per the branch in step 2 above:
 
-   **Stated CLI surface (CON-130).** The `openspec` invocations below target
-   `@fission-ai/openspec` **v1.2.0** (npm `latest` has since moved to
-   **1.10.0**). If `openspec <cmd> --help` ever disagrees with a command
-   documented here, trust `--help`, do not guess, and file a follow-up
-   ticket rather than improvising a flag.
+   **Stated CLI surface (CON-130, CON-154).** The `openspec` invocations below
+   target `@fission-ai/openspec` **v1.10.0**. If `openspec <cmd> --help` ever
+   disagrees with a command documented here, trust `--help`, do not guess, and
+   file a follow-up ticket rather than improvising a flag.
+
+   One trap this has already produced: on 1.10.0 `openspec validate --change
+   "<NAME>"` fails with `unknown option '--change' (Did you mean --changes?)`.
+   **Do not accept that suggestion.** `--changes` is a real flag with different
+   semantics -- it validates *every* change rather than the named one, so it
+   passes while checking something other than what you meant. The correct form
+   is `openspec validate "<NAME>" --type change`. Note the consuming repo may
+   override this via `specPlanning.validateCmd` in its own config, so a wrong
+   command can originate there rather than here.
    - Get the build order: `openspec status --change "<CHANGE_NAME>" --json | jq 'del(.context)'` — parse `applyRequires` and the `artifacts` list.
    - For each artifact with status `ready`: `openspec instructions <artifact-id> --change "<CHANGE_NAME>" --json | jq 'del(.context)'`. Use the returned `rules`, `template`, `instruction`, `outputPath`, `dependencies` — read the dependency files, then write the artifact to `outputPath` following `template`.
    - Re-run `openspec status` after each; stop when every `applyRequires` id has `status: "done"`.
@@ -513,7 +521,7 @@ Execute directly (no subagent).
 
    Validate before handoff (must exit zero before proceeding):
    ```bash
-   openspec validate --change "<CHANGE_NAME>"
+   openspec validate "<CHANGE_NAME>" --type change
    ```
 4. **Escalate if needed:** stop and present an `ESCALATION` block for new external
    dependencies, major architectural changes, breaking API changes, or scope
@@ -630,7 +638,7 @@ guessed answers the way step 3 would.
 
    Validate before handoff (must exit zero before proceeding):
    ```bash
-   openspec validate --change "<CHANGE_NAME>"
+   openspec validate "<CHANGE_NAME>" --type change
    ``` — this design ticket never
    ran step 3 above — re-run `openspec validate <CHANGE_NAME> --type change`
    until it exits zero, then a fresh design-gate skeptic spawn to `CONFIRM` (same procedure
