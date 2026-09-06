@@ -1,0 +1,39 @@
+FAIL src/features/sources/ui/forms/ConnectorSelectField.test.tsx
+  ● ConnectorSelectField kind filtering (HEL-845) › lists a rest_api Connector but excludes a sql-kind Connector from the options
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      57 |
+      58 |     expect(optionLabels.some((label) => label?.includes("Stripe"))).toBe(true);
+    > 59 |     expect(optionLabels.some((label) => label?.includes("Warehouse"))).toBe(false);
+         |                                                                        ^
+      60 |   });
+      61 |
+      62 |   it("shows an explanatory empty state instead of a bare empty control when no rest_api Connector exists", () => {
+
+      at Object.<anonymous> (src/features/sources/ui/forms/ConnectorSelectField.test.tsx:59:72)
+
+  ● ConnectorSelectField kind filtering (HEL-845) › shows an explanatory empty state instead of a bare empty control when no rest_api Connector exists
+
+    expect(element).not.toBeInTheDocument()
+
+    expected document not to contain element, found <button aria-controls="_r_3_-listbox" aria-expanded="false" aria-haspopup="listbox" aria-label="Connector" class="ui-select__trigger" role="combobox" type="button"><span class="ui-select__trigger-label ui-select__trigger-label--placeholder">Select a Connector…</span><svg aria-hidden="true" class="svg-inline--fa fa-chevron-down ui-select__chevron" data-icon="chevron-down" data-prefix="fas" role="img" viewBox="0 0 448 512"><path d="M201.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 338.7 54.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z" fill="currentColor" /></svg></button> instead
+
+      63 |     renderField([sqlConnector]);
+      64 |
+    > 65 |     expect(screen.queryByRole("combobox", { name: "Connector" })).not.toBeInTheDocument();
+         |                                                                       ^
+      66 |     expect(screen.getByText(/no REST Connector/i)).toBeInTheDocument();
+      67 |   });
+      68 | });
+
+      at Object.<anonymous> (src/features/sources/ui/forms/ConnectorSelectField.test.tsx:65:71)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 2 total
+Snapshots:   0 total
+Time:        2.232 s, estimated 5 s
+Ran all test suites matching ConnectorSelectField.

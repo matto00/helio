@@ -1,0 +1,11 @@
+[info] - should reject a stored source bound to a 'sql'-kind Connector, issuing no outbound request and decrypting nothing *** FAILED ***
+[info]   1 was not equal to 0 (RestApiConnectorDriverKindGuardSpec.scala:143)
+[info] - should still resolves and fetches a matching 'rest_api' Connector exactly as before (regression guard)
+[info] Run completed in 3 seconds, 128 milliseconds.
+[info] Total number of tests run: 2
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.domain.connectors.RestApiConnectorDriverKindGuardSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful

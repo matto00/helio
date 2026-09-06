@@ -1,0 +1,40 @@
+[info] - should reject createSql for a host resolving to loopback with BadRequest, persisting nothing
+[info] - should reject createSql for a host resolving to link-local (cloud metadata) with BadRequest, persisting nothing
+[info] - should reject createSql for a host resolving to RFC1918 private with BadRequest, persisting nothing
+[info] - should reject createSql for a host resolving to IPv6 unique-local with BadRequest, persisting nothing
+[info] - should still create the source for a host the isBlocked override admits (a permitted host)
+[info] SourceService.createRest
+[info] - should create the DataType with override-aware fields when the fetch succeeds
+[info] - should surface fetchError and infer no schema when the fetch fails
+[info] - should reject a GET+body request immediately with a BadRequest via the bare-url branch, without persisting an orphaned implicit Connector
+[info] - should reject a GET+body request immediately with a BadRequest via the connectorId branch
+[info] - should reject a connectorId create when the referenced Connector is a 'sql' Connector, naming both kinds *** FAILED ***
+[info]   false was not equal to true (SourceServiceSpec.scala:296)
+[info] - should still create the source when the referenced Connector is a matching 'rest_api' Connector, returning the bound connectorId
+[info] - should return the existing curated 'Connector not found' for an unresolvable connectorId, not a kind-mismatch message *** FAILED ***
+[info]   false was not equal to true (SourceServiceSpec.scala:336)
+[info] - should fail closed when connectorRepo is null and a connectorId is supplied *** FAILED ***
+[info]   false was not equal to true (SourceServiceSpec.scala:352)
+[info] - should the bare-url branch still synthesizes its own rest_api Connector without acquiring a kind-mismatch failure
+[info] SourceService.inferSql
+[info] - should return the inferred schema for a successful query
+[info] - should return a BadGateway ServiceError when the query fails
+[info] SourceService.inferRest
+[info] - should return the inferred schema for a successful fetch
+[info] - should return a BadGateway ServiceError carrying the connector's error message when the fetch fails
+[info] SourceService.refresh (SQL)
+[info] - should re-infer the schema onto the source's inferredSchema column
+[info] SourceService.refresh (REST)
+[info] - should re-infer the schema onto the source's inferredSchema column
+[info] SourceService.preview (REST)
+[info] - should returns flat dotted keys for a nested response, matching the advertised schema
+[info] - should surfaces a broken rootSelector as BadGateway, not a 200 with zero rows
+[info] Run completed in 3 seconds, 797 milliseconds.
+[info] Total number of tests run: 24
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 21, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.sources.SourceServiceSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 5 s, completed Sep 6, 2026, 12:07:23 PM

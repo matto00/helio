@@ -279,6 +279,88 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       result.isLeft shouldBe true
       result.left.getOrElse(fail("expected Left")) shouldBe a[ServiceError.BadRequest]
     }
+
+    // ── HEL-845 task 1.1/2.7: reject a REST source created against a mismatched-kind Connector ──
+
+    "reject a connectorId create when the referenced Connector is a 'sql' Connector, naming both kinds" in {
+      cleanDb()
+      val connector = await(connectorRepo.create(
+        ownerId = owner, name = s"mismatched-sql-${UUID.randomUUID()}", kind = "sql", baseUrl = "http://example.invalid",
+        config = """{"authType":"none"}""", credentialPlaintext = "", credentialName = "cred"
+      ))
+      val svc     = service(restConnector(Right(JsArray())))
+      val payload = RestApiConfigPayload(connectorId = Some(connector.id.value), method = Some("GET"))
+      val request = CreateSourceRequest("Mismatched", DataSourceKind.RestApi, payload, None)
+
+      val result = await(svc.createRest(request, user))
+      result.isLeft shouldBe true
+      val err = result.left.getOrElse(fail("expected Left")) match {
+        case bad: ServiceError.BadRequest => bad
+        case other                        => fail(s"expected BadRequest, got $other")
+      }
+      err.message should include("rest_api")
+      err.message should include("sql")
+    }
+
+    "still create the source when the referenced Connector is a matching 'rest_api' Connector, returning the bound connectorId" in {
+      cleanDb()
+      val connector = await(connectorRepo.create(
+        ownerId = owner, name = s"matching-rest-${UUID.randomUUID()}", kind = "rest_api", baseUrl = "http://example.invalid",
+        config = """{"authType":"none"}""", credentialPlaintext = "", credentialName = "cred"
+      ))
+      val svc     = service(restConnector(Right(JsArray())))
+      val payload = RestApiConfigPayload(connectorId = Some(connector.id.value), method = Some("GET"))
+      val request = CreateSourceRequest("Matching", DataSourceKind.RestApi, payload, None)
+
+      val result = await(svc.createRest(request, user)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"createRest failed: $e")
+      }
+
+      // HEL-590 lesson: a status/Right assertion alone is not enough -- assert on the
+      // actually-returned content (the bound connectorId), not merely that creation succeeded.
+      val stored = await(dataSourceRepo.findAll(owner, Page(offset = 0, limit = 10))).items
+        .collectFirst { case r: RestSource => r }
+        .getOrElse(fail("expected a stored RestSource"))
+      stored.config.connectorId shouldBe connector.id.value
+      result.fetchError shouldBe None
+    }
+
+    "return the existing curated 'Connector not found' for an unresolvable connectorId, not a kind-mismatch message" in {
+      cleanDb()
+      val svc     = service(restConnector(Right(JsArray())))
+      val payload = RestApiConfigPayload(connectorId = Some(UUID.randomUUID().toString), method = Some("GET"))
+      val request = CreateSourceRequest("Unresolvable", DataSourceKind.RestApi, payload, None)
+
+      val result = await(svc.createRest(request, user))
+      result.isLeft shouldBe true
+      val err = result.left.getOrElse(fail("expected Left")) match {
+        case bad: ServiceError.BadRequest => bad
+        case other                        => fail(s"expected BadRequest, got $other")
+      }
+      err.message should include("not found")
+      err.message should not include "rest_api Connector"
+    }
+
+    "fail closed when connectorRepo is null and a connectorId is supplied" in {
+      cleanDb()
+      val svcNoRepo = new SourceService(dataSourceRepo, restConnector(Right(JsArray())))
+      val payload   = RestApiConfigPayload(connectorId = Some(UUID.randomUUID().toString), method = Some("GET"))
+      val request   = CreateSourceRequest("NoRepo", DataSourceKind.RestApi, payload, None)
+
+      val result = await(svcNoRepo.createRest(request, user))
+      result.isLeft shouldBe true
+      result.left.getOrElse(fail("expected Left")) shouldBe a[ServiceError.BadRequest]
+    }
+
+    "the bare-url branch still synthesizes its own rest_api Connector without acquiring a kind-mismatch failure" in {
+      cleanDb()
+      val svc     = service(restConnector(Right(JsArray())))
+      val request = CreateSourceRequest("BareUrlStillWorks", DataSourceKind.RestApi, restConfigPayload, None)
+
+      val result = await(svc.createRest(request, user))
+      result shouldBe a[Right[_, _]]
+    }
   }
 
 
