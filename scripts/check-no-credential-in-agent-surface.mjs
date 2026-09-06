@@ -48,12 +48,12 @@
 // file.
 //
 // Generic token-shaped secret strings (`helio_pat_`, `sk-ant-`,
-// `*_KEY`/`*_SECRET`/`*_TOKEN` assignments) ANYWHERE agents write files
-// during delivery are HEL-846's guard, not this one. This script's own
-// secret-literal check (added for the `mcp` surface, see Decision 4a below)
-// is deliberately narrower and permanent — scoped to `helio-mcp/**` only,
-// where a real PAT client credential would actually leak — and is not a
-// substitute for HEL-846's delivery-time scan.
+// `*_KEY`/`*_SECRET`/`*_TOKEN` assignments) on the `delivery-evidence`/
+// `docs`/`notes` surfaces are caught by the `deliverySecret` check (HEL-846,
+// see below). This script's `mcp`-surface secret-literal check (added for
+// the `mcp` surface, see Decision 4a below) stays narrower and permanent —
+// scoped to `helio-mcp/**` only, where a real PAT client credential would
+// actually leak — and is a separate, unmodified check from `deliverySecret`.
 //
 // ── Surface table (coverage source of truth) ──────────────────────────────
 //
@@ -64,9 +64,9 @@
 //     extensions in `BINARY_FIXTURE_EXTENSIONS`).
 //   - `checks` lists which of the independent checks below apply to this
 //     surface's files: `importGraph`, `credentialProp`, `bcrypt`, `email`,
-//     `secretLiteral`.
+//     `secretLiteral`, `deliverySecret`.
 //
-//   assistant-surface — frontend/src/features/assistant/**
+//   assistant-surface  — frontend/src/features/assistant/**
 //                        include: sourceNonTest
 //                        checks: importGraph, credentialProp
 //   fixture            — backend/src/test/resources/**
@@ -75,6 +75,15 @@
 //   mcp                — helio-mcp/**, excluding node_modules/ and dist/
 //                        include: allNonBinary
 //                        checks: secretLiteral, bcrypt, email
+//   delivery-evidence  — openspec/** (HEL-846)
+//                        include: allNonBinary
+//                        checks: deliverySecret
+//   docs               — docs/** (HEL-846)
+//                        include: allNonBinary
+//                        checks: deliverySecret
+//   notes              — notes/** (HEL-846)
+//                        include: allNonBinary
+//                        checks: deliverySecret
 //
 // The `mcp` surface deliberately does NOT get `importGraph` or
 // `credentialProp` (design.md Decision 3): `helio-mcp` declares fields
@@ -82,18 +91,26 @@
 // `restDataSourceSchema.ts`/`connectorSchema.ts`), and the import-graph walk
 // hunts for banned React components that cannot exist in an MCP server.
 //
+// HEL-846 added the `delivery-evidence`/`docs`/`notes` surfaces and the
+// `deliverySecret` check — the generic, token-shaped-secret backstop that
+// this file's earlier surfaces' own comments and the `scripts`/`backend`
+// coverage-table entries used to point at as a FUTURE ticket. It is
+// implemented here now, not elsewhere: no sibling script, one more
+// `SURFACES` entry per tree, dispatched through the same
+// `collectFiles`/`runChecksForSurface` loop as everything else.
+//
 // ── Coverage-drift guard ───────────────────────────────────────────────────
 //
 // Every top-level directory in the repo must classify into exactly one of:
 //   - COVERED   — a declared surface root is at/inside/beneath it and covers
-//                 the whole directory (today: `helio-mcp`).
+//                 the whole directory (today: `helio-mcp`, `openspec`,
+//                 `docs`, `notes`).
 //   - PARTIAL   — a declared surface root is beneath it but the rest is
 //                 deliberately not scanned; requires a `PARTIAL_COVERAGE`
 //                 entry naming the scanned subtree and why the rest isn't
 //                 (today: `frontend`, `backend`).
 //   - UNSCANNED — requires an `ACKNOWLEDGED_UNSCANNED` entry with a one-line
-//                 reason (today: `docs`, `e2e`, `infra`, `notes`,
-//                 `openspec`, `schemas`, `scripts`).
+//                 reason (today: `e2e`, `infra`, `schemas`, `scripts`).
 // A directory in none of the three fails the gate loudly. This is what
 // keeps a newly-added top-level directory from silently escaping coverage.
 //
@@ -147,6 +164,15 @@
 //   - The secret-literal check (added for `mcp`) is entropy/length-gated,
 //     not a general secret scanner; see Decision 4a below for its bound and
 //     why a bare-prefix rule was rejected.
+//   - The `deliverySecret` check (HEL-846) is likewise not a general secret
+//     scanner: it does not catch a low-entropy real password (the vendor
+//     rule requires the `helio_pat_`/`sk-ant-` prefix; the high-entropy rule
+//     requires >= 32 alphabet-pure characters), and it does not catch a
+//     credential written with neither a known vendor prefix nor a
+//     credential-named identifier — concretely, a `helio_session` cookie
+//     value pasted inside a `curl` transcript has no vendor prefix and no
+//     `KEY`/`SECRET`/`TOKEN`/`PASSWORD`-suffixed identifier next to it, and
+//     is not caught by either rule.
 //
 // Run standalone first against the pre-existing tree (before wiring into
 // Husky) to confirm zero false positives — design.md's Gate-Chain
@@ -182,6 +208,9 @@ const frontendSrc = join(repoRoot, "frontend/src");
 const assistantRoot = join(frontendSrc, "features/assistant");
 const mcpRoot = join(repoRoot, "helio-mcp");
 const fixtureRoot = join(repoRoot, "backend/src/test/resources");
+const openspecRoot = join(repoRoot, "openspec");
+const docsRoot = join(repoRoot, "docs");
+const notesRoot = join(repoRoot, "notes");
 
 // ── Surface table (coverage source of truth — see header comment) ─────────
 const SURFACES = [
@@ -198,6 +227,14 @@ const SURFACES = [
     include: "allNonBinary",
     checks: ["secretLiteral", "bcrypt", "email"],
   },
+  {
+    id: "delivery-evidence",
+    root: openspecRoot,
+    include: "allNonBinary",
+    checks: ["deliverySecret"],
+  },
+  { id: "docs", root: docsRoot, include: "allNonBinary", checks: ["deliverySecret"] },
+  { id: "notes", root: notesRoot, include: "allNonBinary", checks: ["deliverySecret"] },
 ];
 
 // Every valid value a `SURFACES` entry's `checks` array may contain — see
@@ -205,7 +242,14 @@ const SURFACES = [
 // (below `collectFiles`) rejects any `checks` entry outside this set, and
 // rejects an empty `checks` array, mirroring `collectFiles`'s existing
 // unrecognized-`include` throw (skeptic-final-1.md CR1).
-const KNOWN_CHECKS = new Set(["importGraph", "credentialProp", "bcrypt", "email", "secretLiteral"]);
+const KNOWN_CHECKS = new Set([
+  "importGraph",
+  "credentialProp",
+  "bcrypt",
+  "email",
+  "secretLiteral",
+  "deliverySecret",
+]);
 
 // The repo's established dummy bcrypt value (see HEL-904's scrub of
 // `hel904-real-dump.sql`) — a fixed, obviously-synthetic all-zero hash that
@@ -281,6 +325,31 @@ const CREDENTIAL_PROP_REGEX = /\bcredential\b\s*\??\s*:/gi;
 //   real helio_pat_ + 64 hex                                          - YES
 const VENDOR_PREFIX_SECRET_REGEX = /\b(helio_pat_|sk-ant-)[A-Za-z0-9_-]{20,}/g;
 
+// ── Delivery-secret check (delivery-evidence/docs/notes surfaces) —
+//    HEL-846 design.md Decision 2/4 ────────────────────────────────────────
+//
+// High-entropy named-literal rule: an identifier ending KEY/SECRET/TOKEN/
+// PASSWORD (case-insensitive), followed by `:`/`=`, an OPTIONAL quote, then
+// a run of >= 32 characters from the base64/hex alphabet
+// (`[A-Za-z0-9+/=_-]`). The quote is deliberately OPTIONAL here — unlike
+// `NAMED_SECRET_LITERAL_REGEX` below, which requires one — because these
+// three surfaces are markdown delivery transcripts, where a leaked value
+// overwhelmingly appears as pasted shell/CI output (`TOKEN=abc...`,
+// `export API_KEY=abc...`) rather than as a quoted source-code literal;
+// requiring a quote here would silently miss exactly the shape this check
+// exists to catch.
+//
+// Bound, measured against ground truth (design.md Decision 2): a 32-byte
+// base64 key is 44 characters; the real PAT shape (`helio_pat_` + 64 hex) is
+// 74. >= 32 sits below both while structurally excluding every measured
+// legitimate value on these surfaces, none of which is both alphabet-pure
+// AND that long: `bindingKey = "outputId"`, `key = "dashboard"`,
+// `password: "correct horse battery staple 1!"` (spaces/punctuation outside
+// the class), `apiKey = "YOUR_NVD_API_KEY"`, `idempotencyKey:
+// "skeptic-live-key-1"`, `token = "sekret-token"`.
+const HIGH_ENTROPY_NAMED_SECRET_REGEX =
+  /\b(\w*(?:key|secret|token|password))\s*[:=]\s*["']?([A-Za-z0-9+/=_-]{32,})["']?/gi;
+
 // Identifier-name rule: a string literal of at least 8 characters assigned
 // to (or used as an object-literal value for) an identifier/key whose name
 // ends in KEY/SECRET/TOKEN/PASSWORD (case-insensitive). Matches both
@@ -290,28 +359,38 @@ const VENDOR_PREFIX_SECRET_REGEX = /\b(helio_pat_|sk-ant-)[A-Za-z0-9_-]{20,}/g;
 const NAMED_SECRET_LITERAL_REGEX =
   /\b(\w*(?:key|secret|token|password))\s*[:=]\s*["']([^"']{8,})["']/gi;
 
-// Synthetic-marker convention (design.md Decision 4) — the SOLE exemption
-// path for the secret-literal check. A credential-shaped literal passes
-// when it is the empty string, is all zeros, or contains one of these
-// markers (case-insensitively). This is what lets
+// Synthetic-marker convention (design.md Decision 4, widened by HEL-846
+// Decision 2) — the SOLE exemption path for the secret-literal and
+// delivery-secret checks. A credential-shaped literal passes when it is the
+// empty string, is all zeros, or contains one of these markers
+// (case-insensitively), AFTER normalizing `_` to `-` first. Normalization
+// matters: it's what makes `re_test_key_should_never_be_logged`-style
+// underscore-separated fixture names recognized identically to their
+// hyphenated form (measured live against `CONNECTOR_MASTER_KEY =
+// REPLACE_WITH_OUTPUT_OF_openssl_rand_dash_base64_32` in
+// docs/cloud-dev-setup.md — see design.md Decision 2). This is what lets
 // `"sk-should-never-be-accepted"`-style test fixtures pass unchanged: "make
 // your fake secret look fake" is a rule a future author can follow without
 // ever touching this script.
 const SYNTHETIC_SECRET_MARKERS = [
   "not-a-real",
   "should-never",
+  "should-not",
   "dummy",
   "placeholder",
   "fake",
   "example",
   "redacted",
+  "replace-with",
+  "synthetic",
+  "xxxx",
 ];
 
 function isSyntheticSecretLiteral(value) {
   if (value === "") return true;
   if (/^0+$/.test(value)) return true;
-  const lower = value.toLowerCase();
-  return SYNTHETIC_SECRET_MARKERS.some((marker) => lower.includes(marker));
+  const normalized = value.toLowerCase().replaceAll("_", "-");
+  return SYNTHETIC_SECRET_MARKERS.some((marker) => normalized.includes(marker));
 }
 
 function isSourceFile(path) {
@@ -486,6 +565,46 @@ function checkSecretLiterals(file, text, errors) {
   }
 }
 
+/** Scans one delivery-evidence/docs/notes-surface file's text for a
+ *  credential-shaped string (HEL-846 design.md Decision 2/4), appending
+ *  findings to `errors`. Reuses `VENDOR_PREFIX_SECRET_REGEX` unchanged and
+ *  adds the new high-entropy named-literal rule; both are exempted only via
+ *  `isSyntheticSecretLiteral`. Deliberately does NOT reuse
+ *  `NAMED_SECRET_LITERAL_REGEX` — measured to produce ~15 false positives
+ *  against already-committed, immutable archived evidence (design.md
+ *  Decision 2). The failure message never echoes the matched value — only
+ *  file, line, and the convention hint — which is what makes this check's
+ *  own transcripts safe to paste into committed evidence (design.md
+ *  Decision 2a). For the delivery-evidence surfaces, eliding the value is
+ *  explicitly as acceptable as marking it synthetic. */
+function checkDeliverySecrets(file, text, errors) {
+  VENDOR_PREFIX_SECRET_REGEX.lastIndex = 0;
+  let vendorMatch;
+  while ((vendorMatch = VENDOR_PREFIX_SECRET_REGEX.exec(text)) !== null) {
+    const value = vendorMatch[0];
+    if (isSyntheticSecretLiteral(value)) continue;
+    const line = text.slice(0, vendorMatch.index).split("\n").length;
+    errors.push(
+      `${relative(repoRoot, file)}:${line}: contains a hardcoded vendor-prefixed credential-shaped ` +
+        'literal — carry a synthetic marker (e.g. "should-never", "dummy") or elide the value ' +
+        "before committing",
+    );
+  }
+
+  HIGH_ENTROPY_NAMED_SECRET_REGEX.lastIndex = 0;
+  let namedMatch;
+  while ((namedMatch = HIGH_ENTROPY_NAMED_SECRET_REGEX.exec(text)) !== null) {
+    const value = namedMatch[2];
+    if (isSyntheticSecretLiteral(value)) continue;
+    const line = text.slice(0, namedMatch.index).split("\n").length;
+    errors.push(
+      `${relative(repoRoot, file)}:${line}: identifier "${namedMatch[1]}" is assigned a ` +
+        'high-entropy credential-shaped value — carry a synthetic marker (e.g. "should-never", ' +
+        '"dummy") or elide the value before committing',
+    );
+  }
+}
+
 /** Extracts every relative-import specifier from a source file's text —
  *  both the static forms (`from "./x"`/`import "../y/z"`) AND the call
  *  forms (`await import("./x")`, `require("./x")`), so a component pulled
@@ -617,7 +736,8 @@ function runChecksForSurface(surface, files, textByFile, accessErrors, errors) {
       surface.checks.includes("credentialProp") ||
       surface.checks.includes("bcrypt") ||
       surface.checks.includes("email") ||
-      surface.checks.includes("secretLiteral");
+      surface.checks.includes("secretLiteral") ||
+      surface.checks.includes("deliverySecret");
     if (!needsText) continue;
 
     const text = textByFile.get(file);
@@ -630,6 +750,7 @@ function runChecksForSurface(surface, files, textByFile, accessErrors, errors) {
       checkFixtureFile(file, text, errors);
     }
     if (surface.checks.includes("secretLiteral")) checkSecretLiterals(file, text, errors);
+    if (surface.checks.includes("deliverySecret")) checkDeliverySecrets(file, text, errors);
   }
 }
 
@@ -657,20 +778,22 @@ const PARTIAL_COVERAGE = {
     "the frontend tree is not an agent-facing or credential-fixture surface",
   backend:
     "only backend/src/test/resources/** (the `fixture` surface) is scanned; backend application " +
-    "source is not a credential-fixture surface and HEL-846 is the intended generic backstop",
+    "source is a code tree where the named-literal shape is common (e.g. test values like " +
+    "`re_test_key_should_never_be_logged`) and widening the scan there is a deliberate, tracked " +
+    "follow-up, not this ticket's scope (HEL-846 design.md Decision 3)",
 };
 
 // UNSCANNED: no declared surface root touches this top-level directory at
 // all. Each entry states why that's an acceptable, deliberate gap.
 const ACKNOWLEDGED_UNSCANNED = {
-  docs: "documentation; placeholder tokens/emails there are deliberately illustrative, not fixtures",
   e2e: "Playwright specs against the running app, not a credential-fixture or agent-surface directory",
   infra:
     "deployment scripts read secrets from the environment/Secret Manager; none are committed here",
-  notes: "historical/handoff notes, not shipped code",
-  openspec: "planning artifacts (proposals/design/tasks), not shipped code",
   schemas: "JSON Schema contract definitions; no credential-shaped values are ever declared there",
-  scripts: "build/CI tooling scripts; HEL-846 is the intended generic backstop for this directory",
+  scripts:
+    "build/CI tooling scripts; a code tree where the named-literal shape is common and widening " +
+    "the scan there is a deliberate, tracked follow-up, not this ticket's scope " +
+    "(HEL-846 design.md Decision 3)",
 };
 
 /** Classifies every top-level directory name in `topLevelDirNames` into
@@ -827,8 +950,11 @@ function main() {
         "must never import a credential-carrying component or declare a field literally named " +
         '"credential" (HEL-829 design.md Decision 4); fixture/dump and helio-mcp directories ' +
         "must never carry a real-shaped bcrypt hash or a non-placeholder-domain email address " +
-        "(HEL-927); and helio-mcp files must never carry a hardcoded credential-shaped string " +
-        "literal without a synthetic marker (HEL-956).",
+        "(HEL-927); helio-mcp files must never carry a hardcoded credential-shaped string " +
+        "literal without a synthetic marker (HEL-956); and delivery-evidence files under " +
+        "openspec/, docs/ and notes/ must never carry a vendor-prefixed or high-entropy " +
+        "credential-shaped value without a synthetic marker, or must have the value elided " +
+        "(HEL-846).",
     );
     process.exit(1);
   } else {

@@ -76,6 +76,62 @@ const hel993LockedDir = join(assistantRoot, ".hel993-locked-dir");
 const hel993LockedDirFile = join(hel993LockedDir, "placeholder.ts");
 const hel993MutatedEntryScriptPath = join(repoRoot, "scripts/.hel993-selftest-mutated-entry.mjs");
 
+// HEL-846 additions (design.md Decisions 2/2a/3/4/7) — planted paths for the
+// new `deliverySecret` check and its three surfaces (`delivery-evidence`
+// (openspec/), `docs`, `notes`). Following design.md Decision 2a: the
+// unelided planted value lives ONLY in these untracked, `.gitignore`d
+// `.hel846-`-prefixed scratch files, never in a tracked evidence file. Each
+// is `finally`-guarded AND cleaned idempotently at startup, matching the
+// existing convention above.
+//
+// Deliberately planted directly at each surface ROOT (`openspec/`, `docs/`,
+// `notes/`), NOT inside this change's own in-flight directory
+// (`openspec/changes/credential-shaped-string-commit-guard/`) — evaluation-1.md
+// CR1 found that the change-directory path breaks the moment `/opsx-archive`
+// moves that directory, turning this self-test into a crash (`ENOENT` on
+// `writeFileSync`) rather than a check failure, on a step this very change
+// just made merge-blocking in CI. `openspec/`, `docs/` and `notes/` are all
+// surface roots that exist unconditionally in every checkout, independent of
+// any change's name or lifecycle.
+const hel846OpenspecPlant = join(repoRoot, "openspec/.hel846-plant.md");
+const hel846DocsPlant = join(repoRoot, "docs/.hel846-plant.md");
+const hel846NotesPlant = join(repoRoot, "notes/.hel846-plant.md");
+const hel846MutatedSurfacesScriptPath = join(
+  repoRoot,
+  "scripts/.hel846-selftest-mutated-surfaces.mjs",
+);
+const hel846MutatedChecksScriptPath = join(repoRoot, "scripts/.hel846-selftest-mutated-checks.mjs");
+// A vendor-prefixed value that structurally matches VENDOR_PREFIX_SECRET_REGEX
+// (helio_pat_ + >= 20 chars) — obviously synthetic (repeated hex-shaped
+// filler), never a real credential, and carries NO synthetic marker (a
+// marker would exempt it and prove nothing).
+const HEL846_VENDOR_VALUE = "helio_pat_" + "a1b2c3d4e5f6".repeat(6);
+// A high-entropy value that structurally matches HIGH_ENTROPY_NAMED_SECRET_REGEX
+// (>= 32 base64/hex-alphabet chars) when assigned to an identifier ending
+// KEY/SECRET/TOKEN/PASSWORD — likewise obviously synthetic and unmarked.
+const HEL846_ENTROPY_VALUE = "a".repeat(44);
+
+/** Writes a HEL-846 plant file, first ensuring its parent directory exists
+ *  (evaluation-1.md CR1 — belt-and-braces: even though all three plant paths
+ *  now sit directly at a permanent surface root, this guard means a future
+ *  plant path nested one level deeper can never again turn a missing
+ *  directory into a crash rather than a check failure). */
+function writeHel846Plant(path, contents) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, contents);
+}
+
+function removeHel846Plants() {
+  if (existsSync(hel846OpenspecPlant)) rmSync(hel846OpenspecPlant);
+  if (existsSync(hel846DocsPlant)) rmSync(hel846DocsPlant);
+  if (existsSync(hel846NotesPlant)) rmSync(hel846NotesPlant);
+}
+
+function removeHel846MutatedScripts() {
+  if (existsSync(hel846MutatedSurfacesScriptPath)) rmSync(hel846MutatedSurfacesScriptPath);
+  if (existsSync(hel846MutatedChecksScriptPath)) rmSync(hel846MutatedChecksScriptPath);
+}
+
 // `chmod 000` behaves differently for `root` (reads/lists still succeed) —
 // design.md Risks/Trade-offs. Rather than assert a failure that cannot
 // occur under root, these cases print an explicit, loud SKIP line. The
@@ -222,6 +278,8 @@ removeHel993CredentialPropFile();
 removeHel993BfsFiles();
 removeHel993LockedDir();
 removeHel993MutatedEntryScript();
+removeHel846Plants();
+removeHel846MutatedScripts();
 
 try {
   // Baseline: the real tree (this planted file absent) must already be
@@ -741,6 +799,245 @@ try {
   );
   check("no-op-mutated copy still passes", entryGuardNoOp.status === 0, entryGuardNoOp.stderr);
   removeHel993MutatedEntryScript();
+
+  // ── HEL-846 case 1: each of the three new surfaces (delivery-evidence/
+  //    openspec, docs, notes) genuinely detects the vendor-prefix rule. ───
+  for (const [label, plantPath] of [
+    ["openspec", hel846OpenspecPlant],
+    ["docs", hel846DocsPlant],
+    ["notes", hel846NotesPlant],
+  ]) {
+    console.log(`case: baseline is green before planting a vendor-prefix secret under ${label}/`);
+    const vendorBaseline = runScript();
+    check("baseline exits 0", vendorBaseline.status === 0, vendorBaseline.stderr);
+
+    console.log(`case: planted vendor-prefix credential under ${label}/ -> FAIL`);
+    writeHel846Plant(plantPath, `hel846 selftest plant\n${HEL846_VENDOR_VALUE}\n`);
+    const vendorRed = runScript();
+    check(
+      `planted vendor-prefix credential under ${label}/ fails the gate`,
+      vendorRed.status === 1,
+      vendorRed.stderr,
+    );
+    check(
+      "failure names the planted file and the vendor-prefixed message, never the matched value",
+      vendorRed.stderr.includes(".hel846-plant.md") &&
+        vendorRed.stderr.includes("vendor-prefixed credential-shaped") &&
+        !vendorRed.stderr.includes(HEL846_VENDOR_VALUE),
+      vendorRed.stderr,
+    );
+
+    console.log(`case: removing the planted ${label}/ vendor-prefix credential -> PASS`);
+    if (existsSync(plantPath)) rmSync(plantPath);
+    const vendorGreen = runScript();
+    check("gate passes again after removal", vendorGreen.status === 0, vendorGreen.stderr);
+  }
+
+  // ── HEL-846 case 2: the high-entropy named-literal rule is live. ────────
+  console.log("case: baseline is green before planting a high-entropy named secret");
+  const entropyBaseline = runScript();
+  check("baseline exits 0", entropyBaseline.status === 0, entropyBaseline.stderr);
+
+  console.log("case: planted high-entropy API_KEY value under openspec/ -> FAIL");
+  writeHel846Plant(hel846OpenspecPlant, `hel846 selftest plant\nAPI_KEY=${HEL846_ENTROPY_VALUE}\n`);
+  const entropyRed = runScript();
+  check(
+    "planted high-entropy named secret fails the gate",
+    entropyRed.status === 1,
+    entropyRed.stderr,
+  );
+  check(
+    "failure names the planted file, identifier and 'high-entropy', never the matched value",
+    entropyRed.stderr.includes(".hel846-plant.md") &&
+      entropyRed.stderr.includes('identifier "API_KEY"') &&
+      entropyRed.stderr.includes("high-entropy") &&
+      !entropyRed.stderr.includes(HEL846_ENTROPY_VALUE),
+    entropyRed.stderr,
+  );
+
+  console.log("case: removing the planted high-entropy secret -> PASS");
+  removeHel846Plants();
+  const entropyGreen = runScript();
+  check("gate passes again after removal", entropyGreen.status === 0, entropyGreen.stderr);
+
+  // ── HEL-846 case 3: the synthetic-marker convention (including
+  //    underscore normalization) exempts a marker-carrying value. ─────────
+  console.log("case: high-entropy value carrying the 'dummy' marker -> PASS");
+  writeHel846Plant(
+    hel846OpenspecPlant,
+    `hel846 selftest plant\nAPI_KEY=${HEL846_ENTROPY_VALUE}-dummy\n`,
+  );
+  const markerHyphen = runScript();
+  check(
+    "hyphenated marker exempts the planted value",
+    markerHyphen.status === 0,
+    markerHyphen.stderr,
+  );
+
+  console.log("case: high-entropy value carrying an underscore-separated marker -> PASS");
+  writeHel846Plant(
+    hel846OpenspecPlant,
+    `hel846 selftest plant\nAPI_KEY=${HEL846_ENTROPY_VALUE}should_never\n`,
+  );
+  const markerUnderscore = runScript();
+  check(
+    "underscore-separated marker is normalized and exempts the planted value",
+    markerUnderscore.status === 0,
+    markerUnderscore.stderr,
+  );
+
+  console.log(
+    "case: removing '_'->'-' normalization on a mutated copy -> the same underscore marker goes red",
+  );
+  const normalizationResult = runMutatedScript(
+    'const normalized = value.toLowerCase().replaceAll("_", "-");',
+    "const normalized = value.toLowerCase();",
+    hel846MutatedSurfacesScriptPath,
+  );
+  check(
+    "removing normalization turns the underscore-marker case red",
+    normalizationResult.status === 1,
+    normalizationResult.stderr,
+  );
+  removeHel846MutatedScripts();
+
+  console.log("case: removing the marker-convention plant -> PASS");
+  removeHel846Plants();
+  const markerGreen = runScript();
+  check("gate passes again after removal", markerGreen.status === 0, markerGreen.stderr);
+
+  // ── HEL-846 case 4: each new surface is genuinely scanned — removing a
+  //    surface's SURFACES entry stops detecting its planted credential AND
+  //    fails instead for a coverage-drift reason (both observations). ────
+  console.log(
+    "case: removing the delivery-evidence (openspec) SURFACES entry on a mutated copy " +
+      "-> plant undetected, coverage drift instead",
+  );
+  writeHel846Plant(hel846OpenspecPlant, `hel846 selftest plant\n${HEL846_VENDOR_VALUE}\n`);
+  const removedSurfaceResult = runMutatedScript(
+    "  {\n" +
+      '    id: "delivery-evidence",\n' +
+      "    root: openspecRoot,\n" +
+      '    include: "allNonBinary",\n' +
+      '    checks: ["deliverySecret"],\n' +
+      "  },\n",
+    "",
+    hel846MutatedSurfacesScriptPath,
+  );
+  check(
+    "removing the surface entry still fails (coverage drift), but never names the plant",
+    removedSurfaceResult.status === 1 &&
+      removedSurfaceResult.stderr.includes("COVERAGE DRIFT") &&
+      !removedSurfaceResult.stderr.includes("vendor-prefixed credential-shaped"),
+    removedSurfaceResult.stderr,
+  );
+  removeHel846MutatedScripts();
+  removeHel846Plants();
+
+  // ── HEL-846 case 5: the check is genuinely dispatched — removing
+  //    "deliverySecret" from a surface's checks, and separately from the
+  //    needsText disjunction, both silently stop detecting the plant. ────
+  console.log(
+    "case: removing 'deliverySecret' from the delivery-evidence checks array on a mutated copy " +
+      "-> plant undetected, gate still passes",
+  );
+  writeHel846Plant(hel846OpenspecPlant, `hel846 selftest plant\n${HEL846_VENDOR_VALUE}\n`);
+  const removedCheckResult = runMutatedScript(
+    "{\n" +
+      '    id: "delivery-evidence",\n' +
+      "    root: openspecRoot,\n" +
+      '    include: "allNonBinary",\n' +
+      '    checks: ["deliverySecret"],\n' +
+      "  }",
+    "{\n" +
+      '    id: "delivery-evidence",\n' +
+      "    root: openspecRoot,\n" +
+      '    include: "allNonBinary",\n' +
+      '    checks: ["importGraph"],\n' +
+      "  }",
+    hel846MutatedChecksScriptPath,
+  );
+  check(
+    "removing the check from the checks array silently stops detecting the plant",
+    removedCheckResult.status === 0,
+    removedCheckResult.stderr,
+  );
+  removeHel846MutatedScripts();
+
+  console.log(
+    "case: removing 'deliverySecret' from the needsText disjunction on a mutated copy " +
+      "-> plant undetected, gate still passes",
+  );
+  const removedNeedsTextResult = runMutatedScript(
+    'surface.checks.includes("secretLiteral") ||\n' +
+      '      surface.checks.includes("deliverySecret");',
+    'surface.checks.includes("secretLiteral");',
+    hel846MutatedChecksScriptPath,
+  );
+  check(
+    "removing deliverySecret from needsText silently stops detecting the plant",
+    removedNeedsTextResult.status === 0,
+    removedNeedsTextResult.stderr,
+  );
+  removeHel846MutatedScripts();
+  removeHel846Plants();
+
+  // ── HEL-846 case 6: the vacuity guard covers the new surfaces —
+  //    pointing a surface root at a nonexistent path (never renaming a
+  //    tracked directory; never openspec/) fails vacuously, naming the
+  //    surface and its root. ──────────────────────────────────────────────
+  console.log("case: notes surface root pointed at a nonexistent path on a mutated copy -> FAIL");
+  const vacuityResult = runMutatedScript(
+    'const notesRoot = join(repoRoot, "notes");',
+    'const notesRoot = join(repoRoot, "notes-hel846-nonexistent");',
+    hel846MutatedSurfacesScriptPath,
+  );
+  check(
+    "nonexistent surface root fails vacuously, naming the surface and root",
+    vacuityResult.status === 1 &&
+      vacuityResult.stderr.includes('"notes"') &&
+      vacuityResult.stderr.includes("VACUOUS SURFACE"),
+    vacuityResult.stderr,
+  );
+  removeHel846MutatedScripts();
+
+  // ── HEL-846 case 7: `assertSurfacesValid` still rejects an unrecognized
+  //    check name or a duplicate id among the new entries. ────────────────
+  console.log("case: notes surface declares an unrecognized check name -> throws");
+  const unknownDeliveryCheckResult = runMutatedScript(
+    '{ id: "notes", root: notesRoot, include: "allNonBinary", checks: ["deliverySecret"] },',
+    '{ id: "notes", root: notesRoot, include: "allNonBinary", checks: ["deliverySecretTypo"] },',
+    hel846MutatedChecksScriptPath,
+  );
+  check(
+    "unrecognized check name crashes the mutated copy",
+    unknownDeliveryCheckResult.status !== 0,
+    `status=${unknownDeliveryCheckResult.status} stderr=${unknownDeliveryCheckResult.stderr}`,
+  );
+  check(
+    "error names the unrecognized check",
+    unknownDeliveryCheckResult.stderr.includes('unrecognized check "deliverySecretTypo"'),
+    unknownDeliveryCheckResult.stderr,
+  );
+  removeHel846MutatedScripts();
+
+  console.log("case: docs/notes surfaces declare a duplicate id -> throws");
+  const duplicateDeliveryIdResult = runMutatedScript(
+    '{ id: "notes", root: notesRoot, include: "allNonBinary", checks: ["deliverySecret"] },',
+    '{ id: "docs", root: notesRoot, include: "allNonBinary", checks: ["deliverySecret"] },',
+    hel846MutatedChecksScriptPath,
+  );
+  check(
+    "duplicate id crashes the mutated copy",
+    duplicateDeliveryIdResult.status !== 0,
+    `status=${duplicateDeliveryIdResult.status} stderr=${duplicateDeliveryIdResult.stderr}`,
+  );
+  check(
+    "error names the duplicate id",
+    duplicateDeliveryIdResult.stderr.includes('duplicate id "docs"'),
+    duplicateDeliveryIdResult.stderr,
+  );
+  removeHel846MutatedScripts();
 } finally {
   removePlanted();
   removeMcpPlantedSecret();
@@ -754,6 +1051,8 @@ try {
   removeHel993BfsFiles();
   removeHel993LockedDir();
   removeHel993MutatedEntryScript();
+  removeHel846Plants();
+  removeHel846MutatedScripts();
 }
 
 if (failures > 0) {

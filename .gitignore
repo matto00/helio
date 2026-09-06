@@ -73,6 +73,16 @@ frontend/src/shared/.hel993-bfs-unreadable.ts
 frontend/src/features/assistant/.hel993-locked-dir/
 /scripts/.hel993-selftest-mutated-entry.mjs
 
+# HEL-846 self-test/mutation-evidence planted artifacts
+# (check-no-credential-in-agent-surface.selftest.mjs / mutation-evidence.md) —
+# a crashed run must not leave a committable artifact, and the executor's own
+# mutation plants (design.md Decision 2a) must never be tracked.
+/openspec/.hel846-plant.md
+/docs/.hel846-plant.md
+/notes/.hel846-plant.md
+/scripts/.hel846-selftest-mutated-surfaces.mjs
+/scripts/.hel846-selftest-mutated-checks.mjs
+
 # Concertino
 .concertino/
 # Stray render artifacts leaked from a dirty upstream Concertino checkout
