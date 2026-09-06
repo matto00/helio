@@ -247,6 +247,15 @@ package object api {
   type PermissionsResponse = protocols.auth.PermissionsResponse
   val PermissionsResponse: protocols.auth.PermissionsResponse.type = protocols.auth.PermissionsResponse
 
+  type CreateShareTokenRequest = protocols.sharing.CreateShareTokenRequest
+  val CreateShareTokenRequest: protocols.sharing.CreateShareTokenRequest.type = protocols.sharing.CreateShareTokenRequest
+  type ShareTokenResponse = protocols.sharing.ShareTokenResponse
+  val ShareTokenResponse: protocols.sharing.ShareTokenResponse.type = protocols.sharing.ShareTokenResponse
+  type ShareTokensResponse = protocols.sharing.ShareTokensResponse
+  val ShareTokensResponse: protocols.sharing.ShareTokensResponse.type = protocols.sharing.ShareTokensResponse
+  type CreateShareTokenResponse = protocols.sharing.CreateShareTokenResponse
+  val CreateShareTokenResponse: protocols.sharing.CreateShareTokenResponse.type = protocols.sharing.CreateShareTokenResponse
+
   type AlertRuleResponse = protocols.alerts.AlertRuleResponse
   val AlertRuleResponse: protocols.alerts.AlertRuleResponse.type = protocols.alerts.AlertRuleResponse
   type AlertRulesResponse = protocols.alerts.AlertRulesResponse

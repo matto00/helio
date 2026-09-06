@@ -55,7 +55,8 @@ class WorkspaceContextServicePanelCountSpec extends AnyWordSpec with Matchers {
       override def findAllByDashboardId(
           dashboardId: DashboardId,
           callerOpt: Option[AuthenticatedUser],
-          page: Page
+          page: Page,
+          accessAlreadyGranted: Boolean = false
       ): Future[PagedResult[Panel]] =
         Future.successful(PagedResult(Vector.empty[Panel], total = realPanelCount, offset = page.offset, limit = page.limit))
     }

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/share-token.schema.json",
+  "title": "ShareTokenResponse",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "dashboardId": { "type": "string" },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Absent means non-expiring."
+    },
+    "revokedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Present only once the token has been revoked."
+    },
+    "createdAt": { "type": "string", "format": "date-time" }
+  },
+  "required": ["id", "dashboardId", "createdAt"],
+  "additionalProperties": false
+}

@@ -72,9 +72,14 @@ final class PublicDashboardRoutes(
    *  really on the dashboard it was checked against. A panel of a non-`OutputPanel` kind, a
    *  panel with no bound `outputId`, or an unresolvable Output/snapshot degrades to an empty
    *  page rather than a 500 -- mirrors `resolveDataAsOf`'s own degrade-gracefully convention
-   *  above. */
+   *  above.
+   *
+   *  HEL-590 evaluation-2.md CR-A: always called from inside the directive's authorized block, so
+   *  `accessAlreadyGranted = true` is passed straight through to `findAllByDashboardId` -- see that
+   *  method's own doc for why this is required (a share-token-authorized caller matches none of
+   *  the repository's own owner/grantee/public-viewer-grant predicates). */
   private def resolveRows(dashboardId: String, panelId: String, page: Page): Future[Either[String, PagedResult[JsValue]]] =
-    panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, Page(offset = 0, limit = Page.MaxLimit)).flatMap { paged =>
+    panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, Page(offset = 0, limit = Page.MaxLimit), accessAlreadyGranted = true).flatMap { paged =>
       paged.items.find(_.id.value == panelId) match {
         case None => Future.successful(Left("Panel not found"))
         case Some(op: OutputPanel) =>
@@ -101,7 +106,13 @@ final class PublicDashboardRoutes(
       pathPrefix(Segment / "rows") { panelId =>
         pathEndOrSingleSlash {
           get {
-            parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>
+            parameters(
+              "offset".as[Int].withDefault(Page.Default.offset),
+              "limit".as[Int].withDefault(Page.Default.limit),
+              // HEL-590: `?token=<share token>` -- the share URL itself must carry the credential
+              // (design.md D1); part of the published contract per the sibling spec.md.
+              "token".optional
+            ) { (offsetRaw, limitRaw, token) =>
               if (offsetRaw < 0)
                 complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
               else {
@@ -110,7 +121,8 @@ final class PublicDashboardRoutes(
                   "dashboard",
                   dashboardId,
                   userOpt,
-                  "Dashboard not found"
+                  "Dashboard not found",
+                  token
                 ) { _ =>
                   onSuccess(resolveRows(dashboardId, panelId, page)) {
                     case Left(err)     => complete(StatusCodes.NotFound, ErrorResponse(err))
@@ -124,7 +136,11 @@ final class PublicDashboardRoutes(
       } ~
       pathEndOrSingleSlash {
         get {
-          parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>
+          parameters(
+            "offset".as[Int].withDefault(Page.Default.offset),
+            "limit".as[Int].withDefault(Page.Default.limit),
+            "token".optional
+          ) { (offsetRaw, limitRaw, token) =>
             if (offsetRaw < 0)
               complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
             else {
@@ -133,9 +149,16 @@ final class PublicDashboardRoutes(
                 "dashboard",
                 dashboardId,
                 userOpt,
-                "Dashboard not found"
+                "Dashboard not found",
+                token
               ) { _ =>
-                val resultF = panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, page)
+                // HEL-590 evaluation-2.md CR-A: `_` here is the directive's resolved `ResourceAccess`
+                // (Owner/Editor/Viewer, however it was granted -- including via a share token, which
+                // matches none of `findAllByDashboardId`'s own owner/grantee/public-grant predicates).
+                // Reaching this block at all means the caller is authorized; `accessAlreadyGranted =
+                // true` threads that decision through instead of letting the repository re-derive
+                // (and fail to re-derive) it from `userOpt` alone.
+                val resultF = panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, page, accessAlreadyGranted = true)
                   .flatMap { paged =>
                     Future.sequence(paged.items.map(panel => resolveDataAsOf(panel).map(panel -> _)))
                       .map { withDataAsOf =>

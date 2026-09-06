@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/create-share-token-response.schema.json",
+  "title": "CreateShareTokenResponse",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "dashboardId": { "type": "string" },
+    "token": {
+      "type": "string",
+      "description": "The raw share-link secret. Returned ONLY here, exactly once -- it is never retrievable again and is not included in the list response. Deliberately NOT a fully-qualified URL: the client composes the shareable URL from this value plus its own origin (design.md D8)."
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Absent means non-expiring."
+    },
+    "createdAt": { "type": "string", "format": "date-time" }
+  },
+  "required": ["id", "dashboardId", "token", "createdAt"],
+  "additionalProperties": false
+}

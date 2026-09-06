@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/create-share-token-request.schema.json",
+  "title": "CreateShareTokenRequest",
+  "type": "object",
+  "properties": {
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional ISO-8601 instant. Omitted means the token never expires. Must be strictly in the future -- the request is rejected with a validation error otherwise."
+    }
+  },
+  "additionalProperties": false
+}
