@@ -21,6 +21,16 @@ import { StatusMessage } from "../../../shared/chrome/StatusMessage";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { TextField } from "../../../shared/ui/TextField";
+import { useShareDialog } from "../state/shareDialogContext";
+
+/** Escapes `"` and `\` for safe embedding inside a double-quoted CSS attribute-selector value
+ *  (`[aria-label="..."]`) -- e.g. `escapeAttributeSelectorValue('Say "hi"')` -- unlike
+ *  `CSS.escape`, which escapes bare identifier characters (spaces included) and is the wrong tool
+ *  for a value that's already inside quotes. Used only by the Share action's
+ *  `restoreFocusSelector` (evaluation-2.md CR-E). */
+function escapeAttributeSelectorValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
 
 export function DashboardList() {
   const dispatch = useAppDispatch();
@@ -42,6 +52,10 @@ export function DashboardList() {
     null,
   );
   const [filterQuery, setFilterQuery] = useState("");
+  // HEL-590 (evaluation-1.md CR4): opens the dialog via shell-level context rather than local
+  // state + a locally-rendered `DashboardShareDialog` -- see `shareDialogContext.tsx`'s docstring
+  // for why (this component's DOM subtree is hidden entirely below the desktop breakpoint).
+  const shareDialog = useShareDialog();
   const cancelledRef = useRef(false);
 
   async function handleCreateDashboard(event: FormEvent<HTMLFormElement>) {
@@ -389,6 +403,20 @@ export function DashboardList() {
                           {
                             label: "Duplicate",
                             onClick: () => void handleDuplicateDashboard(dashboard.id),
+                          },
+                          {
+                            label: "Share",
+                            onClick: () =>
+                              shareDialog.open({
+                                dashboardId: dashboard.id,
+                                dashboardName: dashboard.name,
+                                // HEL-590 (evaluation-2.md CR-E): this ActionsMenu's own trigger
+                                // button carries `aria-label={`${dashboard.name} actions`}` --
+                                // see ActionsMenu.tsx. Restoring focus to it on close is the
+                                // sensible target, since the item just clicked unmounts along
+                                // with the popover in the same commit the dialog opens in.
+                                restoreFocusSelector: `button[aria-label="${escapeAttributeSelectorValue(`${dashboard.name} actions`)}"]`,
+                              }),
                           },
                           {
                             label: "Export",

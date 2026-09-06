@@ -76,6 +76,11 @@ export function Modal({
 }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  // HEL-590 (evaluation-1.md CR9) -- the control that invoked the modal, captured the instant it
+  // opens so closing (any path: Done/Cancel buttons, Escape, backdrop click) can restore focus to
+  // it. Without this, closing leaves `document.activeElement` on `<body>` -- a keyboard/
+  // screen-reader user loses their place in the page entirely.
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   // HEL-716 — refocuses the title whenever `titleKey` changes (including on
   // initial mount, since effects always run after the first render). A
@@ -100,9 +105,16 @@ export function Modal({
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (open) {
+      previouslyFocusedRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
       if (!dialog.open) dialog.showModal();
     } else {
       if (dialog.open) dialog.close();
+      // Restore focus to the invoking control (CR9) -- guarded so an already-gone element (e.g.
+      // removed from the DOM while the modal was open) doesn't throw; `focus()` on a detached
+      // element is simply a no-op.
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
     }
   }, [open]);
 

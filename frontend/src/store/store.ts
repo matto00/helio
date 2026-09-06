@@ -13,6 +13,7 @@ import { outputsReducer } from "../features/pipelines/state/outputsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { combinedProposalsReducer } from "../features/proposals/state/combinedProposalsSlice";
 import { settingsReducer } from "../features/settings/state/settingsSlice";
+import { shareTokensReducer } from "../features/dashboards/state/shareTokensSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { listenerMiddleware, startAppListening } from "./listenerMiddleware";
@@ -36,6 +37,7 @@ export const store = configureStore({
     outputs: outputsReducer,
     combinedProposals: combinedProposalsReducer,
     settings: settingsReducer,
+    shareTokens: shareTokensReducer,
     sources: sourcesReducer,
     toasts: toastsReducer,
   },

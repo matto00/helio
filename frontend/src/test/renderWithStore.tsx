@@ -21,6 +21,7 @@ import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { listenerMiddleware, startAppListening } from "../store/listenerMiddleware";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
+import { ShareDialogProvider } from "../features/dashboards/state/shareDialogContext";
 import { defaultDashboardAppearance, defaultPanelAppearance } from "../theme/appearance";
 import type { User } from "../features/auth/types/user";
 import type {
@@ -254,7 +255,9 @@ export function renderWithStore(
       <MemoryRouter initialEntries={[initialPath]}>
         <ThemeProvider>
           <Provider store={store}>
-            <OverlayProvider>{children}</OverlayProvider>
+            <OverlayProvider>
+              <ShareDialogProvider>{children}</ShareDialogProvider>
+            </OverlayProvider>
           </Provider>
         </ThemeProvider>
       </MemoryRouter>

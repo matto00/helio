@@ -16,6 +16,7 @@ import { SettingsPage } from "../features/settings/ui/SettingsPage";
 import { SourceDetailPage } from "../features/sources/ui/SourceDetailPage";
 import { SourcesPage } from "../features/sources/ui/SourcesPage";
 import { PatchSetReviewPage } from "../features/patchSets/ui/PatchSetReviewPage";
+import { PublicDashboardViewerPage } from "../features/dashboards/ui/PublicDashboardViewerPage";
 import { PanelList } from "../features/panels/ui/PanelList";
 import { EmptyState } from "../shared/ui/EmptyState";
 import { PageSuspenseFallback } from "../shared/ui/SuspenseFallback";
@@ -80,6 +81,12 @@ export function AppRoutes() {
 
       {/* Public route: OAuth callback - must be outside ProtectedRoute and PublicOnlyRoute */}
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+
+      {/* HEL-590 CR1: public share-link viewer -- must be outside ProtectedRoute so an
+          unauthenticated recipient of a share link doesn't get redirected to /login. Path shape
+          matches the public API route (`/api/dashboards/:id/panels`) so `buildShareUrl` in
+          DashboardShareDialog.tsx composes a URL that resolves here. */}
+      <Route path="/dashboards/:dashboardId/panels" element={<PublicDashboardViewerPage />} />
 
       {/* Protected routes (redirect to /login when unauthenticated) */}
       <Route element={<ProtectedRoute />}>

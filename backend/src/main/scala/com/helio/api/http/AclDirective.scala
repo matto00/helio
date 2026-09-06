@@ -7,6 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import com.helio.api.protocols.ResourceProtocol
 import com.helio.domain.model.{AuthenticatedUser, ResourceAccess, Role}
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.services.sharing.ShareTokenValidator
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -26,7 +27,14 @@ import scala.concurrent.{ExecutionContext, Future}
  */
 class AclDirective(
     permissionRepo: ResourcePermissionRepository,
-    registry: ResourceTypeRegistry
+    registry: ResourceTypeRegistry,
+    // HEL-590 (evaluation-1.md CR8): consulted as a fallback whenever grant-based resolution in
+    // `authorizeResourceWithSharing` denies (design.md D5). `Option`, not a `null` default --
+    // this is a security-critical directive, and a forgotten argument should be visible in the
+    // type system rather than silently degrading the token path to "never authorizes" with no
+    // compile error or runtime signal. Trailing, defaulted constructor param so the two existing
+    // call sites compile unchanged.
+    shareTokenValidator: Option[ShareTokenValidator] = None
 )(implicit ec: ExecutionContext) extends ResourceProtocol {
 
   def authorizeResource(
@@ -71,8 +79,24 @@ class AclDirective(
       resourceType: String,
       resourceId: String,
       userOpt: Option[AuthenticatedUser],
-      notFoundMessage: String = "Not found"
-  ): Directive1[ResourceAccess] =
+      notFoundMessage: String = "Not found",
+      // HEL-590 (design.md D5): a share-link token, consulted only as a fallback when
+      // grant-based resolution below DENIES -- both the authenticated-no-grant 403 arm and the
+      // anonymous-no-public-grant 404 arm, never confined to just the anonymous branch (a
+      // logged-in caller who happens to hold a valid share link must not 403). Never consulted
+      // when grant-based resolution already granted Owner/Editor/Viewer -- a token never
+      // downgrades or overrides an access level already resolved.
+      shareToken: Option[String] = None
+  ): Directive1[ResourceAccess] = {
+    // HEL-590 (design.md D4): exactly one way to react to "the token didn't authorize" --
+    // whichever denial the calling arm would have produced with no token at all. No new
+    // complete(...) call, status, or message is introduced anywhere in this path.
+    def tokenAuthorizes: Future[Boolean] =
+      (shareTokenValidator, shareToken) match {
+        case (Some(validator), Some(token)) => validator.authorizes(resourceType, resourceId, token)
+        case _                              => Future.successful(false)
+      }
+
     provide(registry.lookup(resourceType)).flatMap {
       case None =>
         complete(StatusCodes.InternalServerError, ErrorResponse(s"Unknown resource type: $resourceType"))
@@ -94,7 +118,14 @@ class AclDirective(
                       case Role.Viewer => provide(ResourceAccess.Viewer)
                     }
                   case scala.util.Success(None) =>
-                    complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                    onComplete(tokenAuthorizes).flatMap {
+                      case scala.util.Success(true) =>
+                        provide(ResourceAccess.Viewer)
+                      case scala.util.Success(false) =>
+                        complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                      case scala.util.Failure(_) =>
+                        complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
+                    }
                   case scala.util.Failure(_) =>
                     complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
                 }
@@ -104,7 +135,14 @@ class AclDirective(
                   case scala.util.Success(true) =>
                     provide(ResourceAccess.Viewer)
                   case scala.util.Success(false) =>
-                    complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
+                    onComplete(tokenAuthorizes).flatMap {
+                      case scala.util.Success(true) =>
+                        provide(ResourceAccess.Viewer)
+                      case scala.util.Success(false) =>
+                        complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
+                      case scala.util.Failure(_) =>
+                        complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
+                    }
                   case scala.util.Failure(_) =>
                     complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
                 }
@@ -114,4 +152,5 @@ class AclDirective(
             complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
         }
     }
+  }
 }

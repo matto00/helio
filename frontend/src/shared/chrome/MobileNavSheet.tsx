@@ -45,6 +45,11 @@ interface MobileNavSheetProps {
   /** Empty-branch CTA — `null` for sections with none. Registry sets ONLY
    *  this slot (design.md D7). */
   emptyCreateAction: CreateActionResult | null;
+  /** HEL-590 (evaluation-1.md CR4) — an optional per-item secondary action rendered as a small
+   *  trailing button, e.g. dashboards' "Share". Returns `null` for an item with no secondary
+   *  action (every section but dashboards, today) so the button is simply omitted for that row.
+   *  Distinct from `onSelect`: clicking it does NOT select the item or close the sheet. */
+  secondaryAction?: (item: MobileNavSheetItem) => { label: string; onClick: () => void } | null;
 }
 
 const DRAG_DISMISS_THRESHOLD_PX = 80;
@@ -108,6 +113,7 @@ export function MobileNavSheet({
   emptyState,
   createAction,
   emptyCreateAction,
+  secondaryAction,
 }: MobileNavSheetProps) {
   const overlay = useOverlay();
   const [dragY, setDragY] = useState(0);
@@ -382,33 +388,50 @@ export function MobileNavSheet({
             </div>
           ) : (
             <ul className="mobile-nav-sheet__list">
-              {items.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className={
-                      item.isActive
-                        ? "mobile-nav-sheet__item mobile-nav-sheet__item--active"
-                        : "mobile-nav-sheet__item"
-                    }
-                    aria-pressed={item.isActive}
-                    onClick={() => {
-                      onSelect(item);
-                      onClose();
-                    }}
-                  >
-                    <span className="mobile-nav-sheet__item-text">
-                      <span className="mobile-nav-sheet__item-name">{item.name}</span>
-                      {item.subtitle !== undefined && (
-                        <span className="mobile-nav-sheet__item-subtitle">{item.subtitle}</span>
+              {items.map((item) => {
+                const secondary = secondaryAction?.(item) ?? null;
+                return (
+                  <li key={item.id} className="mobile-nav-sheet__item-row">
+                    <button
+                      type="button"
+                      className={
+                        item.isActive
+                          ? "mobile-nav-sheet__item mobile-nav-sheet__item--active"
+                          : "mobile-nav-sheet__item"
+                      }
+                      aria-pressed={item.isActive}
+                      onClick={() => {
+                        onSelect(item);
+                        onClose();
+                      }}
+                    >
+                      <span className="mobile-nav-sheet__item-text">
+                        <span className="mobile-nav-sheet__item-name">{item.name}</span>
+                        {item.subtitle !== undefined && (
+                          <span className="mobile-nav-sheet__item-subtitle">{item.subtitle}</span>
+                        )}
+                      </span>
+                      {item.isActive && (
+                        <span className="mobile-nav-sheet__active-dot" aria-label="Current" />
                       )}
-                    </span>
-                    {item.isActive && (
-                      <span className="mobile-nav-sheet__active-dot" aria-label="Current" />
+                    </button>
+                    {/* HEL-590 (evaluation-1.md CR4) — the phone entry point for dashboard
+                        actions the desktop sidebar's ActionsMenu already exposes (today, only
+                        Share). A distinct button, never inside the selection button above, so
+                        tapping it doesn't also select the dashboard/close the sheet. */}
+                    {secondary !== null && (
+                      <button
+                        type="button"
+                        className="mobile-nav-sheet__item-secondary"
+                        aria-label={`${secondary.label} ${item.name}`}
+                        onClick={secondary.onClick}
+                      >
+                        {secondary.label}
+                      </button>
                     )}
-                  </button>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
           {/* design.md D4 — the grabber lives at the sheet's BOTTOM free

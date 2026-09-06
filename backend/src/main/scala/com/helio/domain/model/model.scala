@@ -67,6 +67,25 @@ final case class ApiToken(
  *  is allowed to consume it. */
 final case class TokenScope(tokenId: ApiTokenId, allowedPipelineIds: Set[String])
 
+final case class ShareTokenId(value: String) extends AnyVal
+
+/** A revocable share-link token (HEL-590) authorizing anonymous public read of a dashboard's
+ *  panels/rows as a fallback when grant-based resolution denies (`AclDirective`, design.md D5).
+ *  `tokenHash` is the SHA-256 hex of the raw CSPRNG token; the raw value is returned once at
+ *  creation and never persisted -- this type carries no plaintext field by construction. */
+final case class ShareToken(
+    id: ShareTokenId,
+    dashboardId: DashboardId,
+    userId: UserId,
+    tokenHash: String,
+    expiresAt: Option[Instant],
+    revokedAt: Option[Instant],
+    createdAt: Instant
+) {
+  def isActive(now: Instant): Boolean =
+    revokedAt.isEmpty && expiresAt.forall(_.isAfter(now))
+}
+
 final case class ConnectorCredentialId(value: String) extends AnyVal
 
 /** Owner-scoped, envelope-encrypted third-party connector credential (HEL-536, the storage

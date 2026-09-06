@@ -5,6 +5,7 @@ import { MobileNavSheet } from "../shared/chrome/MobileNavSheet";
 import { PICKER_EMPTY_STATE } from "../shared/chrome/pickerEmptyState";
 import { pickerIdForPathname } from "../shared/chrome/sections";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
+import { useShareDialog } from "../features/dashboards/state/shareDialogContext";
 
 interface MobileShellProps {
   isMobileNavSheetOpen: boolean;
@@ -22,6 +23,7 @@ export function MobileShell({ isMobileNavSheetOpen, onClose }: MobileShellProps)
   // (design.md D8 — three call sites, all inert) — used only to key into the
   // shared empty-state copy table (HEL-773 design.md D11).
   const pickerId = pickerIdForPathname(location.pathname);
+  const shareDialog = useShareDialog();
 
   return (
     <>
@@ -38,6 +40,18 @@ export function MobileShell({ isMobileNavSheetOpen, onClose }: MobileShellProps)
         emptyState={PICKER_EMPTY_STATE[pickerId]}
         createAction={pickerSelection.createAction}
         emptyCreateAction={pickerSelection.emptyCreateAction}
+        // HEL-590 (evaluation-1.md CR4) — the phone entry point for the dashboard "Share" action
+        // (the desktop sidebar's ActionsMenu already exposes it). Every other section returns
+        // `null` (dashboards' `item.id`/`item.name` come directly from the dashboard itself, per
+        // `usePickerSelection.ts`).
+        secondaryAction={
+          pickerId === "dashboards"
+            ? (item) => ({
+                label: "Share",
+                onClick: () => shareDialog.open({ dashboardId: item.id, dashboardName: item.name }),
+              })
+            : undefined
+        }
       />
     </>
   );

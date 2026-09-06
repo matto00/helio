@@ -43,10 +43,21 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
    *  Uses withSystemContext because the ACL predicate is embedded in the WHERE
    *  clause rather than relying on `app.current_user_id` RLS; the privileged
    *  pool correctly evaluates the explicit ownership/grant conditions. */
+  /** `accessAlreadyGranted` (HEL-590 evaluation-2.md CR-A): the caller has already been authorized
+   *  by `AclDirective.authorizeResourceWithSharing` -- e.g. via a valid share token, which is not
+   *  one of this method's own three predicates (owner/grantee/public-viewer-grant) and so was
+   *  previously invisible here, making every token-authorized read return zero panels regardless
+   *  of the directive's decision. Defaults to `false` so every existing call site (which always
+   *  passes a `callerOpt` the directive/service layer has already vetted through one of the three
+   *  predicates this method itself evaluates) is unaffected. Never derive this from `callerOpt`
+   *  alone -- it must come from an actual prior authorization decision, never be hardcoded `true`
+   *  by a caller that hasn't checked anything (that would reopen the exact "anyone can read
+   *  anything" hole the three-predicate check exists to close). */
   def findAllByDashboardId(
       dashboardId: DashboardId,
       callerOpt: Option[AuthenticatedUser],
-      page: Page
+      page: Page,
+      accessAlreadyGranted: Boolean = false
   ): Future[PagedResult[Panel]] = {
     // Build the owner/grantee branches of the access predicate up front.
     // LiteralColumn(false) is used for branches that can never match when
@@ -78,10 +89,12 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
         p.role         === "viewer"
       ).exists
 
+    val accessAlreadyGrantedPred: Rep[Boolean] = LiteralColumn(accessAlreadyGranted)
+
     val accessFiltered =
       table
         .filter(_.dashboardId === dashboardId.value)
-        .filter(_ => ownerPred || granteePred || publicPred)
+        .filter(_ => accessAlreadyGrantedPred || ownerPred || granteePred || publicPred)
 
     val countAction = accessFiltered.length.result
     val sliceAction =

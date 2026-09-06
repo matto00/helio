@@ -12,6 +12,7 @@ import com.helio.api.protocols.panels._
 import com.helio.api.protocols.patchsets._
 import com.helio.api.protocols.pipelines._
 import com.helio.api.protocols.proposals._
+import com.helio.api.protocols.sharing._
 import com.helio.api.protocols.sources._
 import com.helio.api.protocols.workspace._
 
@@ -101,6 +102,7 @@ trait JsonProtocols
     with DataSourceProtocol
     with PipelineProtocol
     with PermissionProtocol
+    with ShareTokenProtocol
     with PaginationProtocol
     with ImageUploadProtocol
     with AlertRuleProtocol

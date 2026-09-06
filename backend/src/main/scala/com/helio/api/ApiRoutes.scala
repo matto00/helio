@@ -34,6 +34,8 @@ import com.helio.services.panels.{AutoLayoutService, PanelCapabilityService, Pan
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.{ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
+import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
+import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
 import com.helio.services.pipelines.{OutputService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
@@ -190,6 +192,12 @@ final class ApiRoutes(
   // can be validated against the pipeline's real roots instead of silently ignored.
   private val pipelineRootRepoOpt: Option[PipelineRootRepository] = Option(dbContext).map(new PipelineRootRepository(_))
   private val nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = Option(dbContext).map(new NodeSnapshotRepository(_))
+  // HEL-590: same nullable-DbContext-derived wiring pattern as outputRepoOpt/nodeSnapshotRepoOpt
+  // above -- fixtures that don't pass a DbContext simply don't get /api/dashboards/:id/share-tokens
+  // mounted (shareTokenServiceOpt.fold(reject) below), and the token fallback in AclDirective
+  // always evaluates to `false` (ShareTokenValidatorImpl's own None-repo branch).
+  private val shareTokenRepoOpt: Option[ShareTokenRepository] = Option(dbContext).map(new ShareTokenRepository(_))
+  private val shareTokenValidator = new ShareTokenValidatorImpl(shareTokenRepoOpt)
 
   // HEL-488: same nullable-optional wiring pattern as auditService above —
   // fixtures that don't pass an AuditEventRepository simply don't get the
@@ -209,7 +217,7 @@ final class ApiRoutes(
   )
 
   private val authDirectives = new AuthDirectives(userSessionRepo, Option(apiTokenRepo))
-  private val aclDirective   = new AclDirective(permissionRepo, registry)
+  private val aclDirective   = new AclDirective(permissionRepo, registry, Some(shareTokenValidator))
   // HEL-495: same-instance-once construction as authDirectives/aclDirective above. Config is
   // read from env once here (fromEnv-once-inject-explicitly convention, design.md D6).
   private val rateLimitConfig    = RateLimitConfig.fromEnv()
@@ -389,6 +397,10 @@ final class ApiRoutes(
   // `PanelBindingSpec`/bound-`*Panel.scala` dependencies no longer exist
   // after this ticket's `PanelType` collapse.
   private val permissionService           = new PermissionService(permissionRepo, accessChecker)
+  // HEL-590: same nullable-optional wiring pattern as outputServiceOpt above -- fixtures that
+  // don't pass a DbContext simply don't get /api/dashboards/:id/share-tokens mounted.
+  private val shareTokenServiceOpt: Option[ShareTokenService] =
+    shareTokenRepoOpt.map(new ShareTokenService(_, accessChecker))
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)
   // Optional wiring mirrors the nullable constructor param: fixtures that
   // don't pass an ApiTokenRepository get session-only auth and no /api/tokens.
@@ -751,6 +763,7 @@ final class ApiRoutes(
                   // alongside `BoundPanelService` (see its deletion note above).
                   new PanelRoutes(panelService, authenticatedUser).routes,
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
+                  shareTokenServiceOpt.fold(reject: Route)(svc => new ShareTokenRoutes(svc, authenticatedUser).routes),
                   new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
                   new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
                   new SourceRoutes(sourceService, authenticatedUser).routes,

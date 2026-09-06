@@ -133,7 +133,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V35 pattern (HEL-536). Previously missing from this allowlist (HEL-842).
     "connector_credentials" -> None,
     // V93 — connectors, direct owner (HEL-821)
-    "connectors" -> None
+    "connectors" -> None,
+    // V101 — share_tokens, direct owner (HEL-590)
+    "share_tokens" -> None
   )
 
   override def beforeAll(): Unit = {
