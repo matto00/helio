@@ -62,6 +62,17 @@ const EMPTY_ANALYZE_SCHEMA: SchemaField[] = [];
 // HEL-968 — stable empty-roots reference so `buildLaneGraph`'s `useMemo`
 // dependency doesn't churn on every render before `currentPipeline` loads.
 const EMPTY_ROOTS: PipelineRoot[] = [];
+// HEL-972 final-gate CR1 — the longest a deferred analyze may be suppressed
+// by the sseActive/analyzeStatus guard before it fires regardless. Chosen to
+// comfortably exceed a normal run's duration (measured ~6-10s wall time for
+// the dry-run flow this ticket's own e2e guard exercises) while still
+// bounding a genuinely stuck guard (a dropped/never-opened SSE stream, or a
+// missed terminal event -- see `pendingSinceRef`'s comment) to a fixed,
+// short window rather than "forever". Matches the 15s window
+// `hel912-lanes-rejoin.spec.ts` itself uses for the run-status assertion, so
+// a run slow enough to make deferral fire anyway is a run already outside
+// what this page's own e2e guard treats as timely.
+const MAX_ANALYZE_DEFER_MS = 15000;
 
 /**
  * All `PipelineDetailPage` state, effects, and handlers (HEL-682 split,
@@ -100,6 +111,19 @@ export function usePipelineDetailPage() {
   const analyzeResult = useAppSelector((state) =>
     id ? (state.pipelines.analyzeResult?.[id] ?? null) : null,
   );
+  // HEL-972 — read inside the debounced re-analyze effect's `setTimeout`
+  // callback below (see `sseActiveRef`'s comment): an already-in-flight
+  // `/analyze` request (this pipeline's own PRIOR debounced or mount-time
+  // dispatch, still pending) is exactly the kind of concurrent backend
+  // request the probe found competing with a run's own completion. Skipping
+  // a redundant second dispatch while one is already loading caps this
+  // pipeline's `/analyze` concurrency at 1, on top of `sseActiveRef`'s guard
+  // against overlapping a live run.
+  const analyzeStatus = useAppSelector((state) =>
+    id ? (state.pipelines.analyzeStatus?.[id] ?? null) : null,
+  );
+  const analyzeStatusRef = useRef(analyzeStatus);
+  analyzeStatusRef.current = analyzeStatus;
 
   // Per-pipeline schedule (HEL-416) — `undefined` while not yet fetched,
   // `null` once fetched and confirmed absent.
@@ -135,6 +159,47 @@ export function usePipelineDetailPage() {
   const skipNextAnalyzeRef = useRef(false);
   const [dropdownOpenAt, setDropdownOpenAt] = useState<"bottom" | null>(null);
   const [sseActive, setSseActive] = useState(false);
+  // HEL-972 — read inside the debounced re-analyze effect's `setTimeout`
+  // callback (a stale closure otherwise), which fires up to 300ms after the
+  // render that scheduled it: mirrors `stepsRef`'s pattern above so the
+  // callback sees the CURRENT sseActive value, not the one captured when the
+  // effect last ran.
+  const sseActiveRef = useRef(sseActive);
+  sseActiveRef.current = sseActive;
+  // HEL-972 CR2 — `pendingAnalyzeRef` is set when the debounced re-analyze
+  // effect's `setTimeout` callback finds the guard active and defers instead
+  // of dispatching. `lastAnalyzedFingerprintRef` guards against the OTHER
+  // failure mode adding `sseActive`/`analyzeStatus` to the effect's deps
+  // creates on its own: since dispatching sets `analyzeStatus` to "loading"
+  // and its own resolution sets it back, `analyzeStatus` changing is BOTH
+  // the effect's own dependency AND a side effect of the dispatch it
+  // performs — without this ref, every dispatch's own settle re-triggers the
+  // effect and (guard now clear) dispatches again, forever. Dispatch only
+  // when the guard is clear AND (the fingerprint changed since the last
+  // dispatch OR a dispatch was genuinely deferred) breaks that loop.
+  const pendingAnalyzeRef = useRef(false);
+  const lastAnalyzedFingerprintRef = useRef<string | null>(null);
+  // HEL-972 final-gate CR1 — `sseActive` is only ever cleared by the SSE
+  // `onTerminal` handler or a submit-failure catch. `usePipelineRunEvents`
+  // reports a failed/dropped connection via `connectionError` instead of a
+  // terminal event, which has NO consumer that clears `sseActive` (confirmed:
+  // `connectionError` has no non-test reader anywhere in `frontend/src`), and
+  // `PipelineRunStreamRoutes`'s live (non-replaying) subscribe can miss a
+  // terminal event outright if it fires before the browser's subscription
+  // lands. Either failure mode leaves `sseActive` (and so this guard) stuck
+  // true for the rest of the page's lifetime, silently dropping every future
+  // edit's analyze forever -- the exact permanent-staleness outcome
+  // deferral (vs. the cycle-1 drop) exists to prevent. Rather than plumbing
+  // `connectionError` through this hook's several run-lifecycle call sites
+  // (a wider, riskier change touching the SSE/run-submit surface this ticket
+  // doesn't otherwise touch), bound the deferral in TIME: no single stuck
+  // flag can suppress re-analyze for longer than `MAX_ANALYZE_DEFER_MS`,
+  // regardless of why the guard never cleared.
+  const pendingSinceRef = useRef<number | null>(null);
+  const deferWatchdogHandleRef = useRef<number | null>(null);
+  // Mirrors `stepsRef`'s pattern: read inside the watchdog's `setTimeout`
+  // callback, which can fire long after the render that scheduled it.
+  const stepsFingerprintRef = useRef("");
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -245,6 +310,7 @@ export function usePipelineDetailPage() {
   const stepsFingerprint = steps
     .map((s) => `${s.id}:${s.opType.id}:${s.enabled}:${JSON.stringify(s.config)}`)
     .join("|");
+  stepsFingerprintRef.current = stepsFingerprint;
 
   // HEL-912 task 1.1 — n-lane grouping (design.md decision 1), recomputed
   // only when the steps array or the pipeline's roots change. HEL-968 D1 —
@@ -252,18 +318,114 @@ export function usePipelineDetailPage() {
   // render as an empty lane, which `steps` alone could never reveal.
   const roots = currentPipeline?.roots ?? EMPTY_ROOTS;
   const laneGraph = useMemo(() => buildLaneGraph(steps, roots), [steps, roots]);
+  // HEL-972 final-gate CR1 — cancels any scheduled watchdog (the deferral it
+  // was guarding against has been resolved, one way or another) and clears
+  // its bookkeeping. Called both when a dispatch actually fires (normally OR
+  // via the watchdog itself) and on unmount.
+  const clearDeferWatchdog = useCallback(() => {
+    if (deferWatchdogHandleRef.current !== null) {
+      window.clearTimeout(deferWatchdogHandleRef.current);
+      deferWatchdogHandleRef.current = null;
+    }
+    pendingSinceRef.current = null;
+  }, []);
+  // The watchdog's own callback: fires `MAX_ANALYZE_DEFER_MS` after a defer
+  // began, independent of whether `sseActive`/`analyzeStatus` ever change
+  // again (a genuinely stuck guard produces NO further dependency changes to
+  // re-run the debounce effect at all, so this cannot rely on that effect
+  // re-firing on its own). Forces the dispatch unconditionally -- the guard
+  // that was supposed to clear did not, so contention-avoidance loses to
+  // "never permanently stale" past this point.
+  const forceDeferredAnalyze = useCallback(() => {
+    if (!id || !pendingAnalyzeRef.current) return;
+    pendingAnalyzeRef.current = false;
+    lastAnalyzedFingerprintRef.current = stepsFingerprintRef.current;
+    clearDeferWatchdog();
+    void dispatch(analyzePipeline(id));
+  }, [id, dispatch, clearDeferWatchdog]);
+  // Unmount-only cleanup -- the debounce effect below clears its OWN 300ms
+  // `handle` on every dependency change, but the watchdog is deliberately
+  // NOT tied to that effect's lifecycle (it must keep counting down across
+  // `sseActive`/`analyzeStatus` changes that don't resolve the defer); it
+  // only needs clearing when the component itself goes away.
+  useEffect(() => clearDeferWatchdog, [clearDeferWatchdog]);
   useEffect(() => {
     if (!id || steps.length === 0) return;
     if (skipNextAnalyzeRef.current) {
       skipNextAnalyzeRef.current = false;
+      lastAnalyzedFingerprintRef.current = stepsFingerprint;
       return;
     }
     const handle = window.setTimeout(() => {
+      // HEL-972 (probe-findings.md D2/D3) — a run submitted while this
+      // debounced dispatch was pending competes with it for the same
+      // backend request-handling resources, measurably delaying that run's
+      // own completion (confirmed: disabling this dispatch alone dropped
+      // `hel912-lanes-rejoin.spec.ts`'s target-signature flake rate from
+      // ~10-20% to ~1.7-3.3%). Deferring here, rather than dropping, is
+      // deliberate: `state.analyzeResult` is written ONLY by
+      // `analyzePipeline.fulfilled` (pipelinesSlice.ts) -- a run's own
+      // response does NOT populate it, so an edit suppressed here must still
+      // eventually dispatch, or the analyze panel is left showing
+      // pre-edit/stale results with no pending request to correct it.
+      if (sseActiveRef.current || analyzeStatusRef.current === "loading") {
+        // HEL-972 cycle 3 -- only mark a dispatch as genuinely PENDING when
+        // this is a NEW, not-yet-analyzed fingerprint. Setting this
+        // unconditionally (the cycle-2 bug) also fires when the effect is
+        // re-entered by `analyzeStatus` flipping to "loading" as a side
+        // effect of the dispatch THIS SAME fingerprint already made -- that
+        // spuriously re-arms `pendingAnalyzeRef`, which defeats the
+        // fingerprint bail-out below and causes an unbounded redispatch
+        // loop (measured: ~1 dispatch/830ms, indefinitely, whenever
+        // /analyze resolves slower than the 300ms debounce window --
+        // invisible under a fast-resolving mock, which is exactly how this
+        // escaped cycle-2's own verification).
+        if (lastAnalyzedFingerprintRef.current !== stepsFingerprint) {
+          pendingAnalyzeRef.current = true;
+          // HEL-972 final-gate CR1 — a stuck guard (SSE stream that never
+          // opens/drops/misses its terminal event -- see `pendingSinceRef`'s
+          // comment above) would otherwise suppress this edit's analyze,
+          // and every later edit's, for the rest of the page's lifetime.
+          // Start the clock on the FIRST defer for this fingerprint only
+          // (don't restart it on every re-entry while still blocked).
+          if (pendingSinceRef.current === null) {
+            pendingSinceRef.current = Date.now();
+          }
+          if (deferWatchdogHandleRef.current === null) {
+            deferWatchdogHandleRef.current = window.setTimeout(
+              forceDeferredAnalyze,
+              MAX_ANALYZE_DEFER_MS,
+            );
+          }
+        }
+        return;
+      }
+      // The guard is clear -- but only dispatch if there is something to
+      // dispatch FOR: either a genuinely new edit since the last dispatch,
+      // or an edit that was deferred while the guard was active. Without
+      // this check, `analyzeStatus` clearing on its own (a side effect of
+      // the PREVIOUS dispatch settling, not of any new edit) would
+      // re-trigger this same effect via its own dependency and dispatch
+      // again indefinitely.
+      if (lastAnalyzedFingerprintRef.current === stepsFingerprint && !pendingAnalyzeRef.current) {
+        return;
+      }
+      pendingAnalyzeRef.current = false;
+      lastAnalyzedFingerprintRef.current = stepsFingerprint;
+      clearDeferWatchdog();
       void dispatch(analyzePipeline(id));
     }, 300);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, stepsFingerprint, dispatch]);
+  }, [
+    id,
+    stepsFingerprint,
+    dispatch,
+    sseActive,
+    analyzeStatus,
+    forceDeferredAnalyze,
+    clearDeferWatchdog,
+  ]);
 
   useEffect(() => {
     if (id) {
