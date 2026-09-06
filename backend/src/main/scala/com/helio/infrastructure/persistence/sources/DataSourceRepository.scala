@@ -238,6 +238,46 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(action).map(_.toVector.map { case (pid, name) => BlockingPipeline(pid, name) })
   }
 
+  /** HEL-974 design.md D9 ("widen-precheck-privileged-count", owner ruling this run): a
+   *  privileged, COUNT-ONLY companion to `soleRootDependentPipelines`, run on the BYPASSRLS pool.
+   *
+   *  Why this exists: after HEL-974's V100 makes `hel913_prevent_zero_root_pipelines` read with
+   *  BYPASSRLS, the trigger can see (and refuse-on) a `pipeline_roots` row whose `pipelines` row
+   *  is INVISIBLE to the caller's own RLS-scoped `soleRootDependentPipelines` (e.g. an editor
+   *  bound their own source to another user's pipeline via `addRoot`'s `findByIdOwned` check,
+   *  then lost the grant). Pre-HEL-974 that case silently created the orphan; post-HEL-974 the
+   *  trigger correctly refuses it -- but `DataSourceService.delete` runs `deleteFileF` BETWEEN the
+   *  RLS-scoped pre-check and the DB delete (HEL-987's own load-bearing ordering), so without this
+   *  companion check the RLS-scoped pre-check sees nothing, the file is destroyed, and ONLY THEN
+   *  does the trigger raise -- an irreversible file loss on a delete that should have been
+   *  refused up front. This check must run BEFORE `deleteFileF`, immediately after the existing
+   *  pre-check, so a refusal never destroys the file (see `DataSourceService.delete`).
+   *
+   *  The predicate is PINNED, not merely similar, to `soleRootDependentPipelines`'s own
+   *  (`HAVING count(*) = 1 AND bool_and(r.data_source_id = <id>)`) -- differing in exactly two
+   *  ways: it runs on the privileged pool, and it projects `count(*)` instead of `(id, name)`.
+   *  Deliberately NOT `WorkspaceTeardownRepository`'s any-referencing predicate
+   *  (`sourceDependentPipelineConflict`) -- that scope was already rejected for this feature
+   *  (see `soleRootDependentPipelines`'s own doc) and would 409 every multi-root delete this
+   *  trigger would never raise on, a new false positive this check must not introduce.
+   *
+   *  Returns a COUNT AND NOTHING ELSE -- no pipeline id, no name -- so the invisible-pipeline
+   *  branch can never leak a cross-tenant identifier through a 409 body, an error message, or a
+   *  log line (design.md D9). */
+  def soleRootDependentPipelineCountPrivileged(id: DataSourceId): Future[Int] = {
+    val action = sql"""SELECT count(*) FROM (
+                          SELECT p.id
+                          FROM pipelines p
+                          JOIN pipeline_roots r ON r.pipeline_id = p.id
+                          WHERE p.id IN (
+                            SELECT pipeline_id FROM pipeline_roots WHERE data_source_id = ${id.value}
+                          )
+                          GROUP BY p.id
+                          HAVING count(*) = 1 AND bool_and(r.data_source_id = ${id.value})
+                        ) AS blocking""".as[Int].head
+    ctx.withSystemContext(action)
+  }
+
   /** HEL-822 design.md Decision 5 (revised, skeptic round 4 CR2): the `dependentCount` seam's
    *  real implementation — no `user` parameter, since by the time it runs inside
    *  `ConnectorRepository.delete`, ownership of the Connector has already been verified

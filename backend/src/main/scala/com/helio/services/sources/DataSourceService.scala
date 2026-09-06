@@ -585,27 +585,43 @@ final class DataSourceService(
           case blocking if blocking.nonEmpty =>
             Future.successful(Left(DataSourceDeleteError.conflict(soleRootConflict(source, blocking))))
           case _ =>
-            val deleteFileF: Future[Unit] = source match {
-              case c: CsvSource =>
-                fileSystem.delete(c.config.path).recover { case _ => () }
-              case t: TextSource =>
-                fileSystem.delete(t.config.path).recover { case _ => () }
-              case p: PdfSource =>
-                fileSystem.delete(p.config.path).recover { case _ => () }
-              case i: ImageSource =>
-                fileSystem.delete(i.config.path).recover { case _ => () }
-              case _ => Future.successful(())
-            }
-            deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map { _ =>
-              audit("data_source.delete", Some(source.id.value), user)
-              Right(())
-            }.recover {
-              case ex: PSQLException if isZeroRootViolation(ex) =>
-                log.warn(s"DataSourceService.delete: race-path P0001 for source ${sourceId.value}, mapping to conflict", ex)
-                Left(DataSourceDeleteError.conflict(soleRootConflict(source, Vector.empty)))
+            // HEL-974 design.md D9: the RLS-scoped check above returned empty, but after V100
+            // makes the DB trigger BYPASSRLS-aware it can still see (and refuse-on) a pipeline
+            // invisible to this caller. Check the privileged, count-only pool BEFORE
+            // `deleteFileF` runs below -- a refusal here must never destroy the file. Count-only:
+            // no id/name is ever available to leak into the 409 this branch produces.
+            dataSourceRepo.soleRootDependentPipelineCountPrivileged(sourceId).flatMap {
+              case count if count > 0 =>
+                Future.successful(Left(DataSourceDeleteError.conflict(soleRootConflict(source, Vector.empty))))
+              case _ =>
+                deleteAfterPrecheck(sourceId, user, source)
             }
         }
     }
+
+  /** Extracted from `delete` (HEL-974): the actual delete, run once BOTH the RLS-scoped
+   *  pre-check and the privileged count-only companion check (design.md D9) have cleared. */
+  private def deleteAfterPrecheck(sourceId: DataSourceId, user: AuthenticatedUser, source: DataSource): Future[Either[DataSourceDeleteError, Unit]] = {
+    val deleteFileF: Future[Unit] = source match {
+      case c: CsvSource =>
+        fileSystem.delete(c.config.path).recover { case _ => () }
+      case t: TextSource =>
+        fileSystem.delete(t.config.path).recover { case _ => () }
+      case p: PdfSource =>
+        fileSystem.delete(p.config.path).recover { case _ => () }
+      case i: ImageSource =>
+        fileSystem.delete(i.config.path).recover { case _ => () }
+      case _ => Future.successful(())
+    }
+    deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map { _ =>
+      audit("data_source.delete", Some(source.id.value), user)
+      Right(())
+    }.recover {
+      case ex: PSQLException if isZeroRootViolation(ex) =>
+        log.warn(s"DataSourceService.delete: race-path P0001 for source ${sourceId.value}, mapping to conflict", ex)
+        Left(DataSourceDeleteError.conflict(soleRootConflict(source, Vector.empty)))
+    }
+  }
 
   /** Task 3.2's defensive mapping: matches on SQLSTATE `P0001` (`raise_exception`) PLUS the
    *  `hel913_prevent_zero_root_pipelines` message signature, never on message text alone --
